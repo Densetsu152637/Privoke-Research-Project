@@ -2,3 +2,5 @@ datasets
 huggingface_hub
 openai
 python-dotenv
+spacy>=3.7.0
+requests>=2.31.0
