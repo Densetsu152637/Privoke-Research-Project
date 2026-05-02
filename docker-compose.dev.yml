@@ -1,0 +1,44 @@
+services:
+  model-streaming-service:
+    volumes:
+      - ./services/model-streaming-service:/workspace/services/model-streaming-service
+      - ./shared:/workspace/shared
+    command:
+      [
+        "sh",
+        "-lc",
+        "mkdir -p /workspace/services/model-streaming-service/gen && protoc --proto_path=/workspace/shared/proto --go_out=paths=source_relative:/workspace/services/model-streaming-service/gen --go-grpc_out=paths=source_relative:/workspace/services/model-streaming-service/gen /workspace/shared/proto/privoke/v1/parameters.proto && air -c .air.toml",
+      ]
+
+  param-update-service:
+    volumes:
+      - ./services/param-update-service:/workspace/services/param-update-service
+      - ./shared:/workspace/shared
+    command:
+      [
+        "sh",
+        "-lc",
+        "mkdir -p /workspace/services/param-update-service/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/param-update-service/generated --grpc_python_out=/workspace/services/param-update-service/generated /workspace/shared/proto/privoke/v1/parameters.proto && python app/server.py",
+      ]
+
+  privoke-fuzzer:
+    volumes:
+      - ./services/privoke-fuzzer:/workspace/services/privoke-fuzzer
+      - ./shared:/workspace/shared
+    command:
+      [
+        "sh",
+        "-lc",
+        "mkdir -p /workspace/services/privoke-fuzzer/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/privoke-fuzzer/generated --grpc_python_out=/workspace/services/privoke-fuzzer/generated /workspace/shared/proto/privoke/v1/parameters.proto && python app/main.py",
+      ]
+
+  client-runtime:
+    volumes:
+      - ./services/client-runtime:/workspace/services/client-runtime
+      - ./shared:/workspace/shared
+    command:
+      [
+        "sh",
+        "-lc",
+        "mkdir -p /workspace/services/client-runtime/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/client-runtime/generated --grpc_python_out=/workspace/services/client-runtime/generated /workspace/shared/proto/privoke/v1/parameters.proto && python cli.py pipeline",
+      ]

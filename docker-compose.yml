@@ -1,0 +1,55 @@
+services:
+  model-streaming-service:
+    build:
+      context: .
+      dockerfile: services/model-streaming-service/Dockerfile
+    container_name: model-streaming-service
+    ports:
+      - "50051:50051"
+    environment:
+      MODEL_STREAMING_PORT: 50051
+      MODEL_ID: privoke-baseline
+      MODEL_VERSION: v0.1.0
+
+  param-update-service:
+    build:
+      context: .
+      dockerfile: services/param-update-service/Dockerfile
+    container_name: param-update-service
+    ports:
+      - "50052:50052"
+    environment:
+      PARAM_UPDATE_PORT: 50052
+      PARAM_UPDATE_STORAGE_PATH: /data/updates.jsonl
+    volumes:
+      - param-update-data:/data
+
+  privoke-fuzzer:
+    build:
+      context: .
+      dockerfile: services/privoke-fuzzer/Dockerfile
+    container_name: privoke-fuzzer
+    depends_on:
+      - model-streaming-service
+      - param-update-service
+    environment:
+      MODEL_STREAMING_TARGET: model-streaming-service:50051
+      PARAM_UPDATE_TARGET: param-update-service:50052
+      MODEL_ID: privoke-baseline
+      FUZZ_INTERVAL_SECONDS: 15
+      FUZZER_ID: server-fuzzer
+
+  client-runtime:
+    build:
+      context: .
+      dockerfile: services/client-runtime/Dockerfile
+    container_name: client-runtime
+    depends_on:
+      - model-streaming-service
+    environment:
+      MODEL_STREAMING_TARGET: model-streaming-service:50051
+      MODEL_ID: privoke-baseline
+    command: ["python", "cli.py", "fetch-params", "--model-id", "privoke-baseline"]
+
+volumes:
+  param-update-data:

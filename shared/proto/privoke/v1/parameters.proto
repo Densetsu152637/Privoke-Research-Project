@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package privoke.v1;
+
+option go_package = "github.com/privoke/research-project/services/model-streaming-service/gen/privoke/v1;privokev1";
+
+message HealthRequest {}
+
+message HealthResponse {
+  string service = 1;
+  string status = 2;
+}
+
+message Parameter {
+  string name = 1;
+  repeated float values = 2;
+}
+
+message ModelParametersRequest {
+  string consumer_id = 1;
+  string model_id = 2;
+}
+
+message ModelParametersResponse {
+  string model_id = 1;
+  string version = 2;
+  int64 generated_at_unix = 3;
+  repeated Parameter parameters = 4;
+  map<string, string> metadata = 5;
+}
+
+message ParameterUpdateRequest {
+  string source_id = 1;
+  string model_id = 2;
+  string base_version = 3;
+  repeated Parameter gradients = 4;
+  map<string, string> metadata = 5;
+}
+
+message ParameterUpdateAck {
+  bool accepted = 1;
+  string model_id = 2;
+  string applied_version = 3;
+  string message = 4;
+}
+
+service ModelStreamingService {
+  rpc GetModelParameters(ModelParametersRequest) returns (ModelParametersResponse);
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+service ParamUpdateService {
+  rpc SubmitParameterUpdate(ParameterUpdateRequest) returns (ParameterUpdateAck);
+  rpc Health(HealthRequest) returns (HealthResponse);
+}

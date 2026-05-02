@@ -1,6 +1,9 @@
 datasets
+grpcio==1.64.0
+grpcio-tools==1.64.0
 huggingface_hub
 openai
+protobuf==5.27.0
 python-dotenv
-spacy>=3.7.0
 requests>=2.31.0
+spacy>=3.7.0

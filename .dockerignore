@@ -1,0 +1,17 @@
+.git
+.idea
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.DS_Store
+**/venv
+**/.venv
+**/tmp
+**/build
+**/dist
+**/bin
+**/pkg
+shared/generated

@@ -416,3 +416,20 @@ print(f"Data Type: {fused['data_type']}")
 - `python-dotenv` - Load environment variables from `.env`
 - `datasets` - Hugging Face Datasets
 - `huggingface_hub` - Hugging Face Hub access
+# client-runtime
+
+Primary Python runtime for the PriVoke client-side privacy pipeline.
+
+## CLI
+
+Run the existing privacy pipeline:
+
+```bash
+python cli.py pipeline
+```
+
+Fetch model parameters from the Go streaming service:
+
+```bash
+python cli.py fetch-params --target localhost:50051 --model-id privoke-baseline
+```
