@@ -43,7 +43,7 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     pipeline_parser = subparsers.add_parser("pipeline", help="Run the privacy pipeline sample.")
-    pipeline_parser.set_defaults(handler=lambda args: run_full_pipeline())
+    pipeline_parser.set_defaults(handler=lambda h_args: run_full_pipeline())
 
     params_parser = subparsers.add_parser(
         "fetch-params",
