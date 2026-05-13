@@ -74,7 +74,7 @@ PriVoke Phase 1 works with **any privacy-sensitive text dataset**, including:
 ### 1. Install Dependencies
 
 ```bash
-cd runtime
+cd services/client-runtime
 
 # Create virtual environment (optional but recommended)
 python3 -m venv venv
