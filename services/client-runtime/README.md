@@ -386,7 +386,7 @@ These cases show the system works across domains: PII, credentials, financial, a
 ### Running Custom Tests
 
 ```python
-from preprocessing.normalizer import TextNormalizer
+from detection.preprocessing import TextNormalizer
 from detection.rule_detector import RuleDetector
 from detection.ner_detector import initialize_ner_detector
 from detection.llm_classifier import LLMClassifier

@@ -1,0 +1,1 @@
+This directory includes code that implements and applies the NER detection into the global detection pipeline

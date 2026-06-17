@@ -1,0 +1,1 @@
+This directory includes code that implements and applies the pre-known regex rule detection into the global detection pipeline

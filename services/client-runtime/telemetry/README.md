@@ -1,0 +1,1 @@
+This directory includes code that implements emitting telemetry to the server
