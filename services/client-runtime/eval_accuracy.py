@@ -69,6 +69,18 @@ from regex.rule_detector import RuleDetector
 from NER.ner_detector import initialize_ner_detector
 from transformer.llm_classifier import LLMClassifier
 from detection.fusion import FusionEngine
+from classification import Category, Classification, Sensitivity, Visibility, initialise_unpacked
+
+
+def classification_bucket(classification: Classification) -> str:
+    categories = set(classification.categories())
+    if not classification.is_sensitive():
+        return "NORMAL"
+    if Category.HEALTH in categories:
+        return "HEALTH"
+    if Category.FINANCIAL in categories:
+        return "FINANCIAL"
+    return "PII"
 
 
 def evaluate_on_panorama(limit=100):
@@ -122,27 +134,23 @@ def evaluate_on_panorama(limit=100):
         normalized = normalizer.normalize(text)
         
         # Rule detection
-        rule_cat, rule_sev, rule_signals = rule_engine.analyze(normalized)
+        rule_result = rule_engine.analyze(normalized)
         
         # NER detection
         ner_result = ner_detector.extract_entities(normalized)
         
         # LLM detection
         try:
-            llm_raw = llm_engine.classify(normalized)
-            llm_result = json.loads(llm_raw)
+            llm_result = llm_engine.classify(normalized)
         except Exception as e:
+            classification = initialise_unpacked(Sensitivity.S0, Visibility.PU, [])
             llm_result = {
-                "category": "NORMAL",
-                "severity": "LOW",
+                "classification": classification,
+                "packed_classification": classification.pack(),
                 "entities": {}
             }
         
         # Fusion
-        rule_result = {
-            "category": rule_cat,
-            "severity": rule_sev
-        }
         fused = fusion_engine.fuse(rule_result, llm_result, ner_result)
         
         # Enforcement
@@ -150,12 +158,12 @@ def evaluate_on_panorama(limit=100):
         action = enforced.get("action", "ALLOW")
         
         # Track results
-        pred_category = fused.get("category", "NORMAL")
+        pred_category = classification_bucket(fused["classification"])
         
         results["samples"].append({
             "text": text[:80],
             "category": pred_category,
-            "severity": fused.get("severity", "LOW"),
+            "classification": fused["classification"].to_dict(),
             "action": action,
             "entities_count": ner_result.get("total_entities", 0)
         })
@@ -171,7 +179,7 @@ def evaluate_on_panorama(limit=100):
         results["actions"][action] += 1
         
         # Count PII detections
-        if pred_category != "NORMAL":
+        if fused["classification"].is_sensitive():
             results["total_with_pii"] += 1
         
         if (idx + 1) % 20 == 0:
@@ -215,7 +223,15 @@ def print_results(results):
     print(f"\nSAMPLE PREDICTIONS (first 10)")
     for sample in results["samples"][:10]:
         print(f"  • {sample['text'][:75]}")
-        print(f"      Category: {sample['category']}, Severity: {sample['severity']}, Action: {sample['action']}")
+        classification = sample["classification"]
+        print(
+            "      "
+            f"Category: {sample['category']}, "
+            f"Classification: {classification['sensitivity']}/"
+            f"{classification['visibility']}/"
+            f"{classification['categories']}, "
+            f"Action: {sample['action']}"
+        )
     
     print("\n" + "=" * 80)
 

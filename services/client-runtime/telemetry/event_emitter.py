@@ -2,6 +2,8 @@ from datetime import datetime
 from typing import Dict, Optional
 import json
 
+from classification import Category, Classification, DataType
+
 
 class StructuredEventEmitter:
     """
@@ -9,7 +11,7 @@ class StructuredEventEmitter:
     
     Events contain NO raw prompt text - only metadata for analysis:
     - Time bucket (date/hour)
-    - Risk category (PII/Health/Finance/Credentials/Normal)
+    - Risk category derived from Classification categories
     - Risk score bucket (0-0.2, 0.2-0.5, 0.5-0.8, 0.8-1.0)
     - Action taken (Allow/Warn+Mask/Block)
     - Detector version (v1, v2, v2.1, etc.)
@@ -46,15 +48,14 @@ class StructuredEventEmitter:
             "risk_score": 0.45,  # numeric 0-1
             "risk_score_bucket": "0.2-0.5",
             "action_taken": "ALLOW | WARN_AND_MASK | BLOCK_PROMPT",
+            "classification": {"sensitivity": "S3", "visibility": "PU", "categories": ["IDENTITY"]},
             "data_type": "DIRECT_PII | QUASI_PII | AUTH | CONTEXTUAL | NORMAL",
             "detector_version": "v1",
             "metadata": {
                 "text_length": 156,
                 "entities_detected": ["email", "name"],
-                "rule_severity": "HIGH",
-                "llm_severity": "MEDIUM",
-                "rule_category": "PII",
-                "llm_category": "PII",
+                "rule_classification": {"sensitivity": "S3", "visibility": "PU", "categories": ["IDENTITY"]},
+                "llm_classification": {"sensitivity": "S2", "visibility": "PU", "categories": ["IDENTITY"]},
                 "disagreement": false
             }
         }
@@ -71,23 +72,24 @@ class StructuredEventEmitter:
         raw_score = fused_output.get("raw_score", 0.0)
         risk_score_bucket = self._score_to_bucket(raw_score)
         
-        # Map enforcement action to risk exposure category
+        # Map classification to risk exposure category
         risk_category = self._map_to_risk_category(fused_output)
         
         # Collect entities detected (from LLM)
         llm_entities = fused_output.get("llm", {}).get("entities", {})
         entities_detected = [k for k, v in llm_entities.items() if v]
         
-        # Check for disagreement between rule and LLM
-        rule_cat = fused_output.get("rule", {}).get("category", "NORMAL")
-        llm_cat = fused_output.get("llm", {}).get("category", "NORMAL")
-        
-        # Normalize CREDENTIAL/HEALTH/FINANCIAL to PII for disagreement detection
-        rule_cat_normalized = "PII" if rule_cat in ["CREDENTIAL", "HEALTH", "FINANCIAL"] else rule_cat
-        llm_cat_normalized = "PII" if llm_cat in ["CREDENTIAL", "HEALTH", "FINANCIAL"] else llm_cat
-        
-        # Only flag as disagreement if normalized categories differ
-        disagreement = rule_cat_normalized != llm_cat_normalized
+        rule_classification = self._classification_from(
+            fused_output.get("rule", {})
+        )
+        llm_classification = self._classification_from(
+            fused_output.get("llm", {})
+        )
+        disagreement = self._disagreement(rule_classification, llm_classification)
+
+        data_type = fused_output.get("data_type", DataType.NORMAL)
+        if not isinstance(data_type, DataType):
+            data_type = DataType.NORMAL
         
         event = {
             "event_id": self._generate_event_id(timestamp, original_text),
@@ -98,15 +100,14 @@ class StructuredEventEmitter:
             "risk_score": round(raw_score, 3),
             "risk_score_bucket": risk_score_bucket,
             "action_taken": enforcement_output.get("action", "ALLOW"),
-            "data_type": fused_output.get("data_type", "NORMAL"),
+            "classification": fused_output["classification"].to_dict(),
+            "data_type": data_type.name,
             "detector_version": self.detector_version,
             "metadata": {
                 "text_length": len(original_text),
                 "entities_detected": entities_detected,
-                "rule_severity": fused_output.get("rule", {}).get("severity", "LOW"),
-                "llm_severity": fused_output.get("llm", {}).get("severity", "LOW"),
-                "rule_category": rule_cat,
-                "llm_category": llm_cat,
+                "rule_classification": rule_classification.to_dict(),
+                "llm_classification": llm_classification.to_dict(),
                 "disagreement": disagreement
             }
         }
@@ -116,23 +117,43 @@ class StructuredEventEmitter:
     def _map_to_risk_category(self, fused_output: Dict) -> str:
         """
         Map fused output to high-level risk category.
-        Future versions can integrate with health/finance detection.
         """
-        data_type = fused_output.get("data_type", "NORMAL") # Default to NORMAL if not provided
-        llm_cat = fused_output.get("llm", {}).get("category", "NORMAL") # Default to NORMAL if not provided
-        
-        # For now, simplified mapping
-        # Phase 2+ will add HEALTH, FINANCE, CREDENTIALS detection
-        if data_type in ["DIRECT_PII", "QUASI_PII"]:
-            return "PII"
-        elif llm_cat == "CREDENTIAL":
-            return "CREDENTIALS"
-        elif llm_cat == "FINANCIAL":
-            return "FINANCE"
-        elif llm_cat == "HEALTH":
-            return "HEALTH"
-        else:
+        classification = fused_output.get("classification")
+        if not isinstance(classification, Classification):
             return "NORMAL"
+
+        categories = set(classification.categories())
+        data_type = fused_output.get("data_type", DataType.NORMAL)
+
+        if Category.HEALTH in categories:
+            return "HEALTH"
+        if Category.FINANCIAL in categories:
+            return "FINANCE"
+        if data_type in [DataType.DIRECT_PII, DataType.QUASI_PII, DataType.AUTH]:
+            return "PII"
+        if categories:
+            return "SENSITIVE"
+        return "NORMAL"
+
+    def _classification_from(self, result: Dict) -> Classification:
+        classification = result.get("classification")
+        if isinstance(classification, Classification):
+            return classification
+        from classification import Sensitivity, Visibility, initialise_unpacked
+        return initialise_unpacked(Sensitivity.S0, Visibility.PU, [])
+
+    def _disagreement(
+        self,
+        rule_classification: Classification,
+        llm_classification: Classification,
+    ) -> bool:
+        if rule_classification.is_sensitive() != llm_classification.is_sensitive():
+            return True
+        if not rule_classification.is_sensitive():
+            return False
+        rule_categories = set(rule_classification.categories())
+        llm_categories = set(llm_classification.categories())
+        return bool(rule_categories and llm_categories and not rule_categories & llm_categories)
 
     def _score_to_bucket(self, score: float) -> str:
         """Convert numeric risk score (0-1) to bucket."""

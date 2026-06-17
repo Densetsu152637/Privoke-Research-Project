@@ -28,8 +28,23 @@ from detection.fusion import FusionEngine
 from detection.enforcement_engine import EnforcementEngine
 from telemetry.event_emitter import StructuredEventEmitter
 
-import json
 from datetime import datetime
+from classification import Classification, Sensitivity, Visibility, initialise_unpacked
+
+
+def format_classification(classification: Classification) -> str:
+    categories = ", ".join(category.name for category in classification.categories())
+    if not categories:
+        categories = "NORMAL"
+    return (
+        f"{classification.sensitivity().name} / "
+        f"{classification.visibility().name} / "
+        f"{categories} / packed={classification.pack()}"
+    )
+
+
+def format_enum(value) -> str:
+    return value.name if hasattr(value, "name") else str(value)
 
 
 def run_full_pipeline():
@@ -117,15 +132,9 @@ def run_full_pipeline():
         # ========================================
         
         print(f"\n[LAYER 3A] RULE-BASED DETECTOR (Fast Pattern Matching)")
-        rule_category, rule_severity, rule_signals = rule_engine.analyze(normalized_text)
-        rule_result = {
-            "category": rule_category,
-            "severity": rule_severity,
-            "signals": rule_signals
-        }
-        print(f"  Category: {rule_category}")
-        print(f"  Severity: {rule_severity}")
-        print(f"  Signals: {rule_signals}")
+        rule_result = rule_engine.analyze(normalized_text)
+        print(f"  Classification: {format_classification(rule_result['classification'])}")
+        print(f"  Signals: {', '.join(rule_result['signals']) if rule_result['signals'] else 'no_rule_match'}")
         
         # ========================================
         # LAYER 3B: ENTITY/NER DETECTOR
@@ -148,13 +157,13 @@ def run_full_pipeline():
         
         print(f"\n[LAYER 3C] SEMANTIC LLM RISK DETECTOR (OpenAI GPT-4o-mini)")
         try:
-            llm_raw = llm_engine.classify(normalized_text)
-            llm_result = json.loads(llm_raw)
+            llm_result = llm_engine.classify(normalized_text)
         except Exception as e:
             print(f"   LLM Error: {e}")
+            classification = initialise_unpacked(Sensitivity.S0, Visibility.PU, [])
             llm_result = {
-                "category": "NORMAL",
-                "severity": "LOW",
+                "classification": classification,
+                "packed_classification": classification.pack(),
                 "entities": {
                     "email": False,
                     "phone": False,
@@ -168,8 +177,7 @@ def run_full_pipeline():
                 "reasoning": f"LLM error: {str(e)}"
             }
         
-        print(f"  Category: {llm_result.get('category')}")
-        print(f"  Severity: {llm_result.get('severity')}")
+        print(f"  Classification: {format_classification(llm_result['classification'])}")
         print(f"  Reasoning: {llm_result.get('reasoning', llm_result.get('reason', 'N/A'))}")
         print(f"  Entities Detected:")
         for entity_type, detected in llm_result.get('entities', {}).items():
@@ -188,23 +196,24 @@ def run_full_pipeline():
         
         raw_score = fused_output.get("raw_score", 0.0)
         
-        print(f"  Final Category: {fused_output.get('category')}")
-        print(f"  Final Severity: {fused_output.get('severity')}")
+        print(f"  Final Classification: {format_classification(fused_output['classification'])}")
         print(f"  Risk Score: {raw_score:.3f}")
-        print(f"  Data Type: {fused_output.get('data_type')}")
+        print(f"  Data Type: {format_enum(fused_output.get('data_type'))}")
         print(f"  Reason: {fused_output.get('data_type_explanation', {}).get('reason')}")
         
-        # Detector agreement/disagreement (normalized - treat CREDENTIAL/HEALTH/FINANCIAL as subtypes of PII)
-        rule_cat = rule_result["category"]
-        llm_cat = llm_result.get("category")
-        
-        # Normalize CREDENTIAL/HEALTH/FINANCIAL to PII for comparison
-        rule_cat_normalized = "PII" if rule_cat in ["CREDENTIAL", "HEALTH", "FINANCIAL"] else rule_cat
-        llm_cat_normalized = "PII" if llm_cat in ["CREDENTIAL", "HEALTH", "FINANCIAL"] else llm_cat
-        
-        disagreement = rule_cat_normalized != llm_cat_normalized
+        rule_categories = set(rule_result["classification"].categories())
+        llm_categories = set(llm_result["classification"].categories())
+        disagreement = bool(
+            rule_result["classification"].is_sensitive()
+            != llm_result["classification"].is_sensitive()
+            or (rule_categories and llm_categories and not rule_categories & llm_categories)
+        )
         if disagreement:
-            print(f"  ⚠️ DETECTOR DISAGREEMENT: Rule={rule_cat}, LLM={llm_cat}")
+            print(
+                "  DETECTOR DISAGREEMENT: "
+                f"Rule={format_classification(rule_result['classification'])}, "
+                f"LLM={format_classification(llm_result['classification'])}"
+            )
         
         # ========================================
         # LAYER 5: ENFORCEMENT ENGINE

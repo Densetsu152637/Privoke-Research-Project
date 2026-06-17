@@ -1,19 +1,21 @@
 import re
 from typing import Dict, List, Tuple
 
+from classification import Classification, DataType, Sensitivity
+
 
 class EnforcementEngine:
     """
     Final gatekeeper that converts fused risk output into enforcement actions.
     
     Rules:
-    - HIGH risk OR DIRECT_PII -> BLOCK ("BLOCK_PROMPT")
-    - MEDIUM risk OR QUASI_PII -> WARN + MASK ("WARN_AND_MASK")
-    - LOW risk -> ALLOW ("ALLOW")
+    - S3 risk OR DIRECT_PII -> BLOCK ("BLOCK_PROMPT")
+    - S2 risk OR QUASI_PII/AUTH -> WARN + MASK ("WARN_AND_MASK")
+    - S0/S1 risk -> ALLOW ("ALLOW")
     """
 
     def __init__(self):
-        self.severity_rank = {"LOW": 1, "MEDIUM": 2, "HIGH": 3} # Define severity ranking for comparison
+        pass
 
     def enforce(self, fused_output: Dict) -> Dict:
         """
@@ -22,21 +24,24 @@ class EnforcementEngine:
         Returns:
         {
             "action": "ALLOW" | "WARN_AND_MASK" | "BLOCK_PROMPT",
-            "severity": "LOW" | "MEDIUM" | "HIGH",
-            "category": "PII" | "NORMAL",
-            "data_type": "DIRECT_PII" | "QUASI_PII" | "AUTH" | "CONTEXTUAL" | "NORMAL",
+            "classification": Classification,
+            "data_type": DataType,
             "reason": "explanation of action",
             "masked_text": "original text with sensitive data masked (if WARN_AND_MASK)",
             "entities_masked": ["list of entity types masked"]
         }
         """
-        
-        severity = fused_output.get("severity", "LOW") # Default to LOW if not provided
-        category = fused_output.get("category", "NORMAL") # Default to NORMAL if not provided
-        data_type = fused_output.get("data_type", "NORMAL") # Default to NORMAL if not provided
-        
+
+        classification = fused_output.get("classification")
+        if not isinstance(classification, Classification):
+            raise ValueError("fused_output must include a Classification")
+
+        data_type = fused_output.get("data_type", DataType.NORMAL)
+        if not isinstance(data_type, DataType):
+            raise ValueError("fused_output data_type must be a DataType")
+
         # Determine action based on rules
-        action, reason = self._determine_action(severity, category, data_type)
+        action, reason = self._determine_action(classification, data_type)
         
         entities_masked = []
         masked_text = fused_output.get("original_text", "") # Default to empty string if not provided
@@ -52,8 +57,8 @@ class EnforcementEngine:
         
         return {
             "action": action,
-            "severity": severity,
-            "category": category,
+            "classification": classification,
+            "packed_classification": classification.pack(),
             "data_type": data_type,
             "reason": reason,
             "masked_text": masked_text if action == "WARN_AND_MASK" else None,
@@ -95,25 +100,35 @@ class EnforcementEngine:
         
         return {"entities": merged_entities}
 
-    def _determine_action(self, severity: str, category: str, data_type: str) -> Tuple[str, str]:
-        """Determine enforcement action based on severity and data type."""
+    def _determine_action(
+        self,
+        classification: Classification,
+        data_type: DataType,
+    ) -> Tuple[str, str]:
+        """Determine enforcement action based on classification and data type."""
         
         # BLOCK rules
-        if severity == "HIGH":
-            return "BLOCK_PROMPT", f"HIGH severity {category} risk detected ({data_type})"
+        if classification.sensitivity() == Sensitivity.S3:
+            return (
+                "BLOCK_PROMPT",
+                f"S3 privacy risk detected ({data_type.name})",
+            )
         
-        if data_type == "DIRECT_PII":
-            return "BLOCK_PROMPT", f"Direct PII detected ({data_type})"
+        if data_type == DataType.DIRECT_PII:
+            return "BLOCK_PROMPT", f"Direct PII detected ({data_type.name})"
         
         # WARN_AND_MASK rules
-        if severity == "MEDIUM":
-            return "WARN_AND_MASK", f"MEDIUM severity {category} risk - masking sensitive entities"
+        if classification.sensitivity() == Sensitivity.S2:
+            return "WARN_AND_MASK", "S2 privacy risk - masking sensitive entities"
         
-        if data_type in ["QUASI_PII", "AUTH"]:
-            return "WARN_AND_MASK", f"Quasi-identifier or auth data detected ({data_type}) - masking"
+        if data_type in [DataType.QUASI_PII, DataType.AUTH]:
+            return (
+                "WARN_AND_MASK",
+                f"Quasi-identifier or auth data detected ({data_type.name}) - masking",
+            )
         
         # ALLOW (default)
-        return "ALLOW", f"Low risk - {category} content allowed"
+        return "ALLOW", "S0/S1 risk content allowed"
 
     def _mask_sensitive_entities(self, text: str, llm_result: Dict) -> Tuple[str, List[str]]:
         """

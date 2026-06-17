@@ -11,6 +11,7 @@ import json
 from typing import Dict
 from dotenv import load_dotenv
 from openai import OpenAI
+from classification import Category, Sensitivity, Visibility, initialise_unpacked
 
 load_dotenv()
 
@@ -31,7 +32,7 @@ class LLMClassifier:
             )
         self.client = OpenAI(api_key=api_key)
 
-    def classify(self, text: str) -> str:
+    def classify(self, text: str) -> Dict:
         """
         Classify text for privacy risks using semantic analysis.
         
@@ -39,7 +40,7 @@ class LLMClassifier:
             text: Normalized text to analyze
         
         Returns:
-            JSON string with classification results
+            Dict with Classification, entities, implicit risks, and reasoning
         """
         
         system_prompt = """You are a STRICT privacy risk detection system for security auditing.
@@ -52,14 +53,27 @@ Be CONSERVATIVE and PARANOID about privacy:
 - Information that reveals sensitive characteristics (health, financial, political) are MEDIUM-HIGH risk
 - Vague or seemingly innocent information in combination with other data is still risky
 
-CATEGORY definitions:
-- PII: Personally Identifiable Information (direct or quasi-identifiers)
-- CREDENTIAL: Login credentials, passwords, API keys, tokens
-- FINANCIAL: Bank accounts, credit cards, transactions, salary, investments
-- HEALTH: Medical conditions, medications, doctor visits, mental health
-- NORMAL: Generic, non-sensitive information
+Classification definitions:
+- sensitivity:
+  - S0: benign / no privacy risk
+  - S1: low, mild personal or non-identifying context
+  - S2: medium, personal information that could cause targeting or harm
+  - S3: high, sensitive categories or identifiable details
+- visibility:
+  - Use PU unless the text itself clearly states public/semi-public/restricted/private visibility.
+- categories:
+  - HEALTH: Medical conditions, medications, doctor visits, mental health
+  - POLITICS: Political views, affiliation, campaigns, voting
+  - RELIGION: Religious belief, affiliation, worship
+  - CRIMINAL: Criminal history, charges, arrests, legal orders
+  - FINANCIAL: Bank accounts, credit cards, transactions, salary, investments
+  - SEXUAL: Sexual orientation, history, intimate disclosures
+  - CHILD: Children or minors
+  - LOCATION: Address, precise location, routes, private whereabouts
+  - IDENTITY: Names, emails, phones, IDs, usernames, credentials, tokens
+  - THIRD_PARTY: Sensitive information about someone other than the speaker
 
-SEVERITY guidance:
+Sensitivity guidance:
 - HIGH: Direct identifiers, financial data, health conditions, combinations of quasi-identifiers
 - MEDIUM: Single quasi-identifier, unique occupations/locations, emotional disclosures
 - LOW: Public-facing role/title, common hobbies, generic location
@@ -85,8 +99,11 @@ TEXT:
 
 Return ONLY a valid JSON object (no markdown, no extra text):
 {{
-  "category": "PII" | "CREDENTIAL" | "FINANCIAL" | "HEALTH" | "NORMAL",
-  "severity": "LOW" | "MEDIUM" | "HIGH",
+  "sensitivity": "S0" | "S1" | "S2" | "S3",
+  "visibility": "P0" | "P1" | "P2" | "P3" | "PU",
+  "categories": [
+    "HEALTH" | "POLITICS" | "RELIGION" | "CRIMINAL" | "FINANCIAL" | "SEXUAL" | "CHILD" | "LOCATION" | "IDENTITY" | "THIRD_PARTY"
+  ],
   "entities": {{
     "email": false,
     "phone": false,
@@ -100,7 +117,7 @@ Return ONLY a valid JSON object (no markdown, no extra text):
   "implicit_risks": [
     "any implicit or contextual privacy risks detected"
   ],
-  "reasoning": "Brief explanation of category and severity decision"
+  "reasoning": "Brief explanation of classification decision"
 }}"""
 
         try:
@@ -122,21 +139,18 @@ Return ONLY a valid JSON object (no markdown, no extra text):
                 parsed = json.loads(content)
                 
                 # Ensure all required fields exist
-                required_fields = ["category", "severity", "entities", "reasoning"]
+                required_fields = [
+                    "sensitivity",
+                    "visibility",
+                    "categories",
+                    "entities",
+                    "reasoning",
+                ]
                 for field in required_fields:
                     if field not in parsed:
                         return self._fallback_response("missing_required_field")
                 
-                # Validate enum values
-                valid_categories = ["PII", "CREDENTIAL", "FINANCIAL", "HEALTH", "NORMAL"]
-                valid_severities = ["LOW", "MEDIUM", "HIGH"]
-                
-                if parsed.get("category") not in valid_categories:
-                    parsed["category"] = "NORMAL"
-                if parsed.get("severity") not in valid_severities:
-                    parsed["severity"] = "LOW"
-                
-                return json.dumps(parsed)
+                return self._build_result(parsed)
             except json.JSONDecodeError:
                 return self._fallback_response("json_parse_error")
         
@@ -144,13 +158,45 @@ Return ONLY a valid JSON object (no markdown, no extra text):
             print(f"⚠️ LLM API Error: {e}")
             return self._fallback_response("api_error")
 
-    def _fallback_response(self, reason: str) -> str:
+    def _build_result(self, parsed: Dict) -> Dict:
+        """Convert model JSON into internal enum-backed classification output."""
+        try:
+            sensitivity = Sensitivity[parsed.get("sensitivity", "S0")]
+        except KeyError:
+            sensitivity = Sensitivity.S0
+
+        try:
+            visibility = Visibility[parsed.get("visibility", "PU")]
+        except KeyError:
+            visibility = Visibility.PU
+
+        categories = []
+        raw_categories = parsed.get("categories", [])
+        if isinstance(raw_categories, list):
+            for raw_category in raw_categories:
+                try:
+                    categories.append(Category[raw_category])
+                except KeyError:
+                    continue
+
+        classification = initialise_unpacked(sensitivity, visibility, categories)
+
+        return {
+            "classification": classification,
+            "packed_classification": classification.pack(),
+            "entities": parsed.get("entities", {}),
+            "implicit_risks": parsed.get("implicit_risks", []),
+            "reasoning": parsed.get("reasoning", ""),
+        }
+
+    def _fallback_response(self, reason: str) -> Dict:
         """
         Return a safe fallback response when LLM fails.
         """
+        classification = initialise_unpacked(Sensitivity.S0, Visibility.PU, [])
         fallback = {
-            "category": "NORMAL",
-            "severity": "LOW",
+            "classification": classification,
+            "packed_classification": classification.pack(),
             "entities": {
                 "email": False,
                 "phone": False,
@@ -164,4 +210,4 @@ Return ONLY a valid JSON object (no markdown, no extra text):
             "implicit_risks": [],
             "reasoning": f"LLM classifier fallback due to: {reason}"
         }
-        return json.dumps(fallback)
+        return fallback
