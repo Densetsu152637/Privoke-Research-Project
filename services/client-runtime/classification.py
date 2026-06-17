@@ -51,50 +51,43 @@ class RiskVector(DefEnum):
 
 class Classification:
 
-    s: Sensitivity
-    v: Visibility
-    c: List[Category]
+    n: int
 
-    def __init__(
-        self,
-        s: Sensitivity = Sensitivity.S0,
-        v: Visibility = Visibility.PU,
-        c: List[Category] | None = None
-    ):
-        self.s = s
-        self.v = v
-        self.c = c or []
+    def __init__(self, packed: int | None = None):
+        if packed is None:
+            packed = compact_sensitivity(Sensitivity.S0) | compact_visibility(Visibility.PU)
+        self.n = packed & n_mask
 
     def sensitivity(self) -> Sensitivity:
-        return self.s
+        return extract_sensitivity(self.n)
 
     def visibility(self) -> Visibility:
-        return self.v
+        return extract_visibility(self.n)
 
     def categories(self) -> List[Category]:
-        return self.c
+        return extract_categories(self.n)
 
     def pack(self) -> int:
         """
         fits a classification containing a sensitivity, visibility and category into 16 bits!
         :return:
         """
-        return compact_sensitivity(self.s) | compact_visibility(self.v) | compact_categories(self.c)
+        return self.n
 
     def is_sensitive(self) -> bool:
-        return self.s != Sensitivity.S0 or bool(self.c)
+        return self.sensitivity() != Sensitivity.S0 or bool(self.n & c_mask)
 
     def has_category(self, category: Category) -> bool:
-        return category in self.c
+        return bool(self.n & category.value)
 
     def has_any_category(self, categories: Iterable[Category]) -> bool:
-        return any(category in self.c for category in categories)
+        return any(self.has_category(category) for category in categories)
 
     def to_dict(self) -> dict:
         return {
-            "sensitivity": self.s.name,
-            "visibility": self.v.name,
-            "categories": [category.name for category in self.c],
+            "sensitivity": self.sensitivity().name,
+            "visibility": self.visibility().name,
+            "categories": [category.name for category in self.categories()],
             "packed": self.pack(),
         }
 
@@ -237,12 +230,7 @@ def extract_categories(n: int) -> List[Category]:
 
 def initialise_packed(n: int) -> Classification:
     global n_mask
-    n = n & n_mask
-    return Classification(
-        extract_sensitivity(n),
-        extract_visibility(n),
-        extract_categories(n)
-    )
+    return Classification(n & n_mask)
 
 def initialise_unpacked(s: Sensitivity, v: Visibility, c: List[Category]) -> Classification:
-    return Classification(s, v, c)
+    return Classification(compact_sensitivity(s) | compact_visibility(v) | compact_categories(c))

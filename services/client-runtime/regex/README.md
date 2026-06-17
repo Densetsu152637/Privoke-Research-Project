@@ -29,13 +29,24 @@ Rules must map directly to `Sensitivity`, `Visibility`, and `Category` values. D
 
 ## Rule Design
 
+Each rule module should expose a wrapper function that returns `list[RuleDefinition]`.
+Rules are grouped by concern:
+
+- `rules_visibility.py`
+- `rules_identity.py`
+- `rules_location.py`
+- `rules_health.py`
+- `rules_financial.py`
+- `rules_sensitive.py`
+- `rules_context.py`
+
+`rule_registry.py` assembles those lists in deterministic execution order.
+
 Each rule should define:
 
 - name,
 - regex pattern,
-- sensitivity,
-- visibility,
-- categories,
+- resulting `Classification`,
 - signal name.
 
 Visibility-only rules should use `Sensitivity.S0` and no categories. They still matter because fusion can combine visibility evidence with sensitive category evidence from another rule.
@@ -55,5 +66,6 @@ Rule-detector subagents should:
 - add counterexamples to reduce false positives,
 - keep rules small and explainable,
 - preserve packed classification round-trip behavior,
+- place new rules in the concern-specific `rules_*.py` file,
 - add tests for each new rule family,
 - document rule intent in code only when the pattern is not self-evident.
