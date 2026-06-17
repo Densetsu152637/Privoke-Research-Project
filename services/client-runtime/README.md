@@ -387,9 +387,9 @@ These cases show the system works across domains: PII, credentials, financial, a
 
 ```python
 from detection.preprocessing import TextNormalizer
-from detection.rule_detector import RuleDetector
-from detection.ner_detector import initialize_ner_detector
-from detection.llm_classifier import LLMClassifier
+from regex.rule_detector import RuleDetector
+from NER.ner_detector import initialize_ner_detector
+from transformer.llm_classifier import LLMClassifier
 from detection.fusion import FusionEngine
 
 normalizer = TextNormalizer()

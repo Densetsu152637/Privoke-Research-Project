@@ -21,12 +21,12 @@ Detector Version: v1 (rules + baseline LLM model)
 """
 
 from detection.preprocessing import TextNormalizer
-from detection.rule_detector import RuleDetector
-from detection.ner_detector import initialize_ner_detector
-from detection.llm_classifier import LLMClassifier
+from regex.rule_detector import RuleDetector
+from NER.ner_detector import initialize_ner_detector
+from transformer.llm_classifier import LLMClassifier
 from detection.fusion import FusionEngine
 from detection.enforcement_engine import EnforcementEngine
-from detection.event_emitter import StructuredEventEmitter
+from telemetry.event_emitter import StructuredEventEmitter
 
 import json
 from datetime import datetime

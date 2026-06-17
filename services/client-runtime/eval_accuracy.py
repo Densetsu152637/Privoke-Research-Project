@@ -65,9 +65,9 @@ SAMPLE PREDICTIONS:
 import json
 import argparse # this is used for parsing through command line arguments when running the script
 from detection.preprocessing import TextNormalizer
-from detection.rule_detector import RuleDetector
-from detection.ner_detector import initialize_ner_detector
-from detection.llm_classifier import LLMClassifier
+from regex.rule_detector import RuleDetector
+from NER.ner_detector import initialize_ner_detector
+from transformer.llm_classifier import LLMClassifier
 from detection.fusion import FusionEngine
 
 
