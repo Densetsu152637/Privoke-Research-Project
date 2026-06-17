@@ -46,7 +46,7 @@ User Prompt (Input)
 [LAYER 4] Fusion Engine (Risk Scoring)
   - Combines: Rule (50%) + LLM (30%) + Entity Boost (20%)
   - Risk score: 0.0 (safe) → 1.0 (critical)
-  - Data type classification: DIRECT_PII, QUASI_PII, AUTH, CONTEXTUAL, NORMAL
+  - Risk vector classification: DIRECT_PII, QUASI_PII, AUTH, CONTEXTUAL, NORMAL
   ↓
 [LAYER 5] Enforcement Engine (Final Decision)
   - HIGH risk / DIRECT_PII → BLOCK_PROMPT
@@ -137,7 +137,7 @@ Normalized: my email is alice@example.com please reset my password
   Final Category: PII
   Final Severity: HIGH
   Risk Score: 0.950
-  Data Type: DIRECT_PII
+  Risk Vector: DIRECT_PII
 
 [LAYER 5] ENFORCEMENT ENGINE - FINAL DECISION
   ACTION: BLOCK_PROMPT
@@ -255,7 +255,7 @@ raw_score = (rule_severity × 0.50) + (llm_severity × 0.30) + (entity_boost × 
 - Single identifier -> 1.3x (LOW-MEDIUM)
 - Quasi-identifiers -> 1.1x (LOW)
 
-**Data Type Classification:**
+**Risk Vector Classification:**
 - `DIRECT_PII`: Email, phone, credit card, SSN, or complete identifying profile
 - `QUASI_PII`: Two or more weak identifiers (name+location, username+location)
 - `AUTH`: Structured identity/credential fields
@@ -265,9 +265,9 @@ raw_score = (rule_severity × 0.50) + (llm_severity × 0.30) + (entity_boost × 
 ### Enforcement Engine (Layer 5)
 **Decision Rules:**
 ```
-IF severity == HIGH OR data_type == DIRECT_PII
+IF severity == HIGH OR risk_vector == DIRECT_PII
   → ACTION = BLOCK_PROMPT
-ELSE IF severity == MEDIUM OR data_type IN [QUASI_PII, AUTH]
+ELSE IF severity == MEDIUM OR risk_vector IN [QUASI_PII, AUTH]
   → ACTION = WARN_AND_MASK (mask entities)
 ELSE
   → ACTION = ALLOW
@@ -293,7 +293,7 @@ ELSE
   "risk_score": 0.95,
   "risk_score_bucket": "0.8-1.0",
   "action_taken": "ALLOW|WARN_AND_MASK|BLOCK_PROMPT",
-  "data_type": "DIRECT_PII|QUASI_PII|AUTH|CONTEXTUAL|NORMAL",
+  "risk_vector": "DIRECT_PII|QUASI_PII|AUTH|CONTEXTUAL|NORMAL",
   "detector_version": "v1",
   "metadata": {
     "text_length": 48,
@@ -348,7 +348,7 @@ ELSE
 **Fusion:**
 ```
 raw_score = (3×0.5) + (3×0.3) + (1.8×0.2) = 1.5 + 0.9 + 0.36 = 2.76 → severity=HIGH
-data_type = DIRECT_PII
+risk_vector = DIRECT_PII
 ```
 
 **Enforcement:**
@@ -407,7 +407,7 @@ llm_result = json.loads(llm_raw)
 fused = fusion_engine.fuse(rule_result, llm_result, ner_result)
 
 print(f"Risk Score: {fused['raw_score']:.3f}")
-print(f"Data Type: {fused['data_type']}")
+print(f"Risk Vector: {fused['risk_vector']}")
 ```
 
 ## Dependencies

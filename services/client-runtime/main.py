@@ -198,8 +198,8 @@ def run_full_pipeline():
         
         print(f"  Final Classification: {format_classification(fused_output['classification'])}")
         print(f"  Risk Score: {raw_score:.3f}")
-        print(f"  Data Type: {format_enum(fused_output.get('data_type'))}")
-        print(f"  Reason: {fused_output.get('data_type_explanation', {}).get('reason')}")
+        print(f"  Risk Vector: {format_enum(fused_output.get('risk_vector'))}")
+        print(f"  Reason: {fused_output.get('risk_vector_explanation', {}).get('reason')}")
         
         rule_categories = set(rule_result["classification"].categories())
         llm_categories = set(llm_result["classification"].categories())

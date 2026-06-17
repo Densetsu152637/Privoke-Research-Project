@@ -1,7 +1,7 @@
 import re
 from typing import Dict, List, Tuple
 
-from classification import Classification, DataType, Sensitivity
+from classification import Classification, RiskVector, Sensitivity
 
 
 class EnforcementEngine:
@@ -9,8 +9,8 @@ class EnforcementEngine:
     Final gatekeeper that converts fused risk output into enforcement actions.
     
     Rules:
-    - S3 risk OR DIRECT_PII -> BLOCK ("BLOCK_PROMPT")
-    - S2 risk OR QUASI_PII/AUTH -> WARN + MASK ("WARN_AND_MASK")
+    - S3 risk OR DIRECT_PII vector -> BLOCK ("BLOCK_PROMPT")
+    - S2 risk OR QUASI_PII/AUTH vector -> WARN + MASK ("WARN_AND_MASK")
     - S0/S1 risk -> ALLOW ("ALLOW")
     """
 
@@ -25,7 +25,7 @@ class EnforcementEngine:
         {
             "action": "ALLOW" | "WARN_AND_MASK" | "BLOCK_PROMPT",
             "classification": Classification,
-            "data_type": DataType,
+            "risk_vector": RiskVector,
             "reason": "explanation of action",
             "masked_text": "original text with sensitive data masked (if WARN_AND_MASK)",
             "entities_masked": ["list of entity types masked"]
@@ -36,12 +36,12 @@ class EnforcementEngine:
         if not isinstance(classification, Classification):
             raise ValueError("fused_output must include a Classification")
 
-        data_type = fused_output.get("data_type", DataType.NORMAL)
-        if not isinstance(data_type, DataType):
-            raise ValueError("fused_output data_type must be a DataType")
+        risk_vector = fused_output.get("risk_vector", RiskVector.NORMAL)
+        if not isinstance(risk_vector, RiskVector):
+            raise ValueError("fused_output risk_vector must be a RiskVector")
 
         # Determine action based on rules
-        action, reason = self._determine_action(classification, data_type)
+        action, reason = self._determine_action(classification, risk_vector)
         
         entities_masked = []
         masked_text = fused_output.get("original_text", "") # Default to empty string if not provided
@@ -59,7 +59,7 @@ class EnforcementEngine:
             "action": action,
             "classification": classification,
             "packed_classification": classification.pack(),
-            "data_type": data_type,
+            "risk_vector": risk_vector,
             "reason": reason,
             "masked_text": masked_text if action == "WARN_AND_MASK" else None,
             "entities_masked": entities_masked,
@@ -103,28 +103,28 @@ class EnforcementEngine:
     def _determine_action(
         self,
         classification: Classification,
-        data_type: DataType,
+        risk_vector: RiskVector,
     ) -> Tuple[str, str]:
-        """Determine enforcement action based on classification and data type."""
+        """Determine enforcement action based on classification and risk vector."""
         
         # BLOCK rules
         if classification.sensitivity() == Sensitivity.S3:
             return (
                 "BLOCK_PROMPT",
-                f"S3 privacy risk detected ({data_type.name})",
+                f"S3 privacy risk detected ({risk_vector.name})",
             )
         
-        if data_type == DataType.DIRECT_PII:
-            return "BLOCK_PROMPT", f"Direct PII detected ({data_type.name})"
+        if risk_vector == RiskVector.DIRECT_PII:
+            return "BLOCK_PROMPT", f"Direct PII detected ({risk_vector.name})"
         
         # WARN_AND_MASK rules
         if classification.sensitivity() == Sensitivity.S2:
             return "WARN_AND_MASK", "S2 privacy risk - masking sensitive entities"
         
-        if data_type in [DataType.QUASI_PII, DataType.AUTH]:
+        if risk_vector in [RiskVector.QUASI_PII, RiskVector.AUTH]:
             return (
                 "WARN_AND_MASK",
-                f"Quasi-identifier or auth data detected ({data_type.name}) - masking",
+                f"Quasi-identifier or auth vector detected ({risk_vector.name}) - masking",
             )
         
         # ALLOW (default)

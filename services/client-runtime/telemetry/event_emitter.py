@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Dict, Optional
 import json
 
-from classification import Category, Classification, DataType
+from classification import Category, Classification, RiskVector
 
 
 class StructuredEventEmitter:
@@ -49,7 +49,7 @@ class StructuredEventEmitter:
             "risk_score_bucket": "0.2-0.5",
             "action_taken": "ALLOW | WARN_AND_MASK | BLOCK_PROMPT",
             "classification": {"sensitivity": "S3", "visibility": "PU", "categories": ["IDENTITY"]},
-            "data_type": "DIRECT_PII | QUASI_PII | AUTH | CONTEXTUAL | NORMAL",
+            "risk_vector": "DIRECT_PII | QUASI_PII | AUTH | CONTEXTUAL | NORMAL",
             "detector_version": "v1",
             "metadata": {
                 "text_length": 156,
@@ -87,9 +87,9 @@ class StructuredEventEmitter:
         )
         disagreement = self._disagreement(rule_classification, llm_classification)
 
-        data_type = fused_output.get("data_type", DataType.NORMAL)
-        if not isinstance(data_type, DataType):
-            data_type = DataType.NORMAL
+        risk_vector = fused_output.get("risk_vector", RiskVector.NORMAL)
+        if not isinstance(risk_vector, RiskVector):
+            risk_vector = RiskVector.NORMAL
         
         event = {
             "event_id": self._generate_event_id(timestamp, original_text),
@@ -101,7 +101,7 @@ class StructuredEventEmitter:
             "risk_score_bucket": risk_score_bucket,
             "action_taken": enforcement_output.get("action", "ALLOW"),
             "classification": fused_output["classification"].to_dict(),
-            "data_type": data_type.name,
+            "risk_vector": risk_vector.name,
             "detector_version": self.detector_version,
             "metadata": {
                 "text_length": len(original_text),
@@ -123,13 +123,13 @@ class StructuredEventEmitter:
             return "NORMAL"
 
         categories = set(classification.categories())
-        data_type = fused_output.get("data_type", DataType.NORMAL)
+        risk_vector = fused_output.get("risk_vector", RiskVector.NORMAL)
 
         if Category.HEALTH in categories:
             return "HEALTH"
         if Category.FINANCIAL in categories:
             return "FINANCE"
-        if data_type in [DataType.DIRECT_PII, DataType.QUASI_PII, DataType.AUTH]:
+        if risk_vector in [RiskVector.DIRECT_PII, RiskVector.QUASI_PII, RiskVector.AUTH]:
             return "PII"
         if categories:
             return "SENSITIVE"

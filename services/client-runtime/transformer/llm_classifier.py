@@ -60,7 +60,12 @@ Classification definitions:
   - S2: medium, personal information that could cause targeting or harm
   - S3: high, sensitive categories or identifiable details
 - visibility:
-  - Use PU unless the text itself clearly states public/semi-public/restricted/private visibility.
+  - P0: public, visible to anyone
+  - P1: semi-public community/thread context
+  - P2: restricted behind authentication
+  - P3: group-private shared DMs/group chats/private workspaces
+  - P4: personal-private, not shared with anyone
+  - PU: unknown; use unless the text clearly states visibility
 - categories:
   - HEALTH: Medical conditions, medications, doctor visits, mental health
   - POLITICS: Political views, affiliation, campaigns, voting
@@ -100,7 +105,7 @@ TEXT:
 Return ONLY a valid JSON object (no markdown, no extra text):
 {{
   "sensitivity": "S0" | "S1" | "S2" | "S3",
-  "visibility": "P0" | "P1" | "P2" | "P3" | "PU",
+  "visibility": "P0" | "P1" | "P2" | "P3" | "P4" | "PU",
   "categories": [
     "HEALTH" | "POLITICS" | "RELIGION" | "CRIMINAL" | "FINANCIAL" | "SEXUAL" | "CHILD" | "LOCATION" | "IDENTITY" | "THIRD_PARTY"
   ],

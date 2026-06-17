@@ -98,6 +98,48 @@ def _signals(matches: Sequence[RuleMatch]) -> List[str]:
 def _rule_definitions() -> List[RuleDefinition]:
     """Define rule regexes once, with classification metadata beside them."""
     return [
+        # VISIBILITY CONTEXT: no category by itself, but merged with sensitive matches.
+        RuleDefinition(
+            "visibility_public",
+            r"\b(public(?:ly)?|public\s+(?:post|profile|page)|visible\s+to\s+anyone|open\s+internet)\b",
+            Sensitivity.S0,
+            Visibility.P0,
+            [],
+            "visibility_public",
+        ),
+        RuleDefinition(
+            "visibility_semi_public",
+            r"\b(community\s+(?:page|thread|forum)|public\s+thread|members?\s+thread|semi-public)\b",
+            Sensitivity.S0,
+            Visibility.P1,
+            [],
+            "visibility_semi_public",
+        ),
+        RuleDefinition(
+            "visibility_restricted",
+            r"\b(behind\s+(?:login|authentication)|authenticated|restricted|members?\s+only|logged-in\s+users?)\b",
+            Sensitivity.S0,
+            Visibility.P2,
+            [],
+            "visibility_restricted",
+        ),
+        RuleDefinition(
+            "visibility_group_private",
+            r"\b(group\s+(?:chat|dm|message)|shared\s+dm|private\s+(?:group|workspace|channel)|team\s+chat)\b",
+            Sensitivity.S0,
+            Visibility.P3,
+            [],
+            "visibility_group_private",
+        ),
+        RuleDefinition(
+            "visibility_personal_private",
+            r"\b(personal\s+(?:note|diary|journal)|my\s+(?:diary|journal)|diary|journal|only\s+me|not\s+shared|private\s+note|local-only)\b",
+            Sensitivity.S0,
+            Visibility.P4,
+            [],
+            "visibility_personal_private",
+        ),
+
         # IDENTITY: direct identifiers and account handles.
         RuleDefinition(
             "email",
@@ -167,7 +209,7 @@ def _rule_definitions() -> List[RuleDefinition]:
             "structured_identity",
             r"\b(name|username|user|handle|account|login|email|phone|location|address)\s*[:=]\s*[\w\s\.\-@]+",
             Sensitivity.S2,
-            Visibility.PU,
+            Visibility.P2,
             [Category.IDENTITY],
             "structured_field",
         ),

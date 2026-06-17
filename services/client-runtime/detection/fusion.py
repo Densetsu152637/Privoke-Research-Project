@@ -6,58 +6,21 @@ Internal decisions use classification.py enums instead of category/severity
 strings.
 """
 
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 from classification import (
     Category,
     Classification,
-    DataType,
+    RiskVector,
     Sensitivity,
     Visibility,
     dedupe_categories,
     describe_categories,
     initialise_unpacked,
     merge_classifications,
+    risk_vector_for_classification,
     sensitivity_score,
 )
-
-
-DIRECT_RULE_SIGNALS = {
-    "email",
-    "phone",
-    "ssn",
-    "credit_card",
-    "passport",
-    "driver_license",
-    "government_id",
-    "bank_account",
-    "iban",
-    "street_address",
-    "geo_coordinates",
-}
-
-AUTH_RULE_SIGNALS = {
-    "structured_field",
-    "driver_license",
-    "government_id",
-    "passport",
-}
-
-CONTEXTUAL_RULE_SIGNALS = {
-    "health_info",
-    "health_disclosure",
-    "financial_info",
-    "money_amount",
-    "political_info",
-    "religious_info",
-    "criminal_info",
-    "sexual_info",
-    "child_info",
-    "third_party_info",
-    "family_info",
-    "workplace_info",
-    "long_personal_narrative",
-}
 
 
 class FusionEngine:
@@ -107,10 +70,10 @@ class FusionEngine:
             merged_context.categories(),
         )
 
-        data_type, data_type_reason = self._classify_data_type(
-            rule_result,
+        risk_vector = risk_vector_for_classification(final_classification)
+        risk_vector_reason = self._risk_vector_reason(
+            risk_vector,
             final_classification,
-            entity_flags,
         )
 
         signals_used = self._signals_used(rule_result, llm_result, entity_flags, entity_boost)
@@ -118,9 +81,9 @@ class FusionEngine:
         return {
             "classification": final_classification,
             "packed_classification": final_classification.pack(),
-            "data_type": data_type,
-            "data_type_explanation": {
-                "reason": data_type_reason,
+            "risk_vector": risk_vector,
+            "risk_vector_explanation": {
+                "reason": risk_vector_reason,
                 "signals_used": signals_used,
                 "entity_boost_applied": round(entity_boost, 2),
             },
@@ -242,68 +205,17 @@ class FusionEngine:
         level = int(min(3.0, max(0.0, score)) + 0.5)
         return Sensitivity(level)
 
-    def _classify_data_type(
+    def _risk_vector_reason(
         self,
-        rule_result: Dict,
+        risk_vector: RiskVector,
         classification: Classification,
-        entity_flags: Dict[str, bool],
-    ) -> Tuple[DataType, str]:
-        rule_signals = set(rule_result.get("signals", []))
-        categories = set(classification.categories())
-
-        if self._has_direct_entity(entity_flags) or rule_signals & DIRECT_RULE_SIGNALS:
-            return (
-                DataType.DIRECT_PII,
-                "Direct identifiers or precise location data detected",
-            )
-
-        if rule_signals & AUTH_RULE_SIGNALS:
-            return (
-                DataType.AUTH,
-                "Structured identity or credential metadata detected",
-            )
-
-        if self._has_quasi_identifier_combination(entity_flags):
-            return (
-                DataType.QUASI_PII,
-                "Combination of quasi-identifiers enables probable identification",
-            )
-
-        contextual_categories = {
-            Category.HEALTH,
-            Category.POLITICS,
-            Category.RELIGION,
-            Category.CRIMINAL,
-            Category.FINANCIAL,
-            Category.SEXUAL,
-            Category.CHILD,
-            Category.THIRD_PARTY,
-        }
-        if categories & contextual_categories or rule_signals & CONTEXTUAL_RULE_SIGNALS:
-            return (
-                DataType.CONTEXTUAL,
-                f"Contextual sensitive category detected: {describe_categories(categories)}",
-            )
-
-        if categories:
-            return (
-                DataType.QUASI_PII,
-                f"Identifier category detected: {describe_categories(categories)}",
-            )
-
-        return (DataType.NORMAL, "No strong privacy risk indicators detected")
-
-    def _has_direct_entity(self, entity_flags: Dict[str, bool]) -> bool:
-        return any(
-            entity_flags[key]
-            for key in ["email", "phone", "credit_card", "ssn", "api_key"]
-        )
-
-    def _has_quasi_identifier_combination(self, entity_flags: Dict[str, bool]) -> bool:
+    ) -> str:
+        categories = describe_categories(classification.categories())
         return (
-            (entity_flags["name"] and entity_flags["location"])
-            or (entity_flags["username"] and entity_flags["location"])
-            or (entity_flags["name"] and entity_flags["username"])
+            f"{risk_vector.name} derived from "
+            f"{classification.sensitivity().name}/"
+            f"{classification.visibility().name}/"
+            f"{categories}"
         )
 
     def _signals_used(

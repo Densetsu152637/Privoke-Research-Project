@@ -41,7 +41,7 @@ class Category(DefEnum):
     IDENTITY    = 0b010000000000000 # passport, ID numbers, phone, email
     THIRD_PARTY = 0b100000000000000 # talking about someone else’s sensitive info
 
-class DataType(DefEnum):
+class RiskVector(DefEnum):
 
     NORMAL = 0
     CONTEXTUAL = 1
@@ -126,6 +126,12 @@ def visibility_score(v: Visibility) -> int:
         return 0
     return v.value
 
+def is_restricted_or_private(v: Visibility) -> bool:
+    return visibility_score(v) >= visibility_score(Visibility.P2)
+
+def is_group_or_personal_private(v: Visibility) -> bool:
+    return visibility_score(v) >= visibility_score(Visibility.P3)
+
 def strongest_sensitivity(sensitivities: Iterable[Sensitivity]) -> Sensitivity:
     return max(sensitivities, key=sensitivity_score, default=Sensitivity.S0)
 
@@ -159,6 +165,62 @@ def merge_classifications(classifications: Iterable[Classification]) -> Classifi
 def describe_categories(categories: Iterable[Category]) -> str:
     category_names = [category.name for category in categories]
     return ", ".join(category_names) if category_names else "NORMAL"
+
+def risk_vector_for_classification(classification: Classification) -> RiskVector:
+    """
+    Derive the operational risk vector from the packed classification dimensions.
+
+    RiskVector is not another input dimension. It is the result of joining:
+    sensitivity x visibility x categories.
+    """
+    categories = set(classification.categories())
+    sensitivity = classification.sensitivity()
+    visibility = classification.visibility()
+
+    if sensitivity == Sensitivity.S0 and not categories:
+        return RiskVector.NORMAL
+
+    identifier_categories = {Category.IDENTITY, Category.LOCATION}
+    contextual_categories = {
+        Category.HEALTH,
+        Category.POLITICS,
+        Category.RELIGION,
+        Category.CRIMINAL,
+        Category.FINANCIAL,
+        Category.SEXUAL,
+        Category.CHILD,
+        Category.THIRD_PARTY,
+    }
+
+    has_identifier = bool(categories & identifier_categories)
+    has_contextual = bool(categories & contextual_categories)
+
+    if sensitivity == Sensitivity.S3 and (
+        has_identifier or Category.FINANCIAL in categories
+    ):
+        return RiskVector.DIRECT_PII
+
+    if (
+        Category.IDENTITY in categories
+        and visibility == Visibility.P2
+        and sensitivity_score(sensitivity) >= sensitivity_score(Sensitivity.S2)
+    ):
+        return RiskVector.AUTH
+
+    if (
+        has_identifier
+        and (
+            len(categories & identifier_categories) > 1
+            or is_restricted_or_private(visibility)
+            or sensitivity_score(sensitivity) >= sensitivity_score(Sensitivity.S2)
+        )
+    ):
+        return RiskVector.QUASI_PII
+
+    if has_contextual or categories:
+        return RiskVector.CONTEXTUAL
+
+    return RiskVector.NORMAL
 
 def extract_sensitivity(n: int) -> Sensitivity:
     global s_mask

@@ -11,7 +11,7 @@ import re
 import json
 from typing import Dict, List, Tuple
 
-from classification import DataType
+from classification import RiskVector
 
 
 class EntityNERDetector:
@@ -88,7 +88,7 @@ class EntityNERDetector:
                 "text": match.group(),
                 "span": match.span(),
                 "confidence": 0.95,
-                "type": DataType.DIRECT_PII
+                "type": RiskVector.DIRECT_PII
             })
         
         # Phone numbers (multiple formats)
@@ -125,7 +125,7 @@ class EntityNERDetector:
                             "text": phone_text,
                             "span": match.span(),
                             "confidence": 0.90,
-                            "type": DataType.DIRECT_PII
+                            "type": RiskVector.DIRECT_PII
                         })
         
         # Credit card numbers (common formats)
@@ -135,7 +135,7 @@ class EntityNERDetector:
                 "text": match.group(),
                 "span": match.span(),
                 "confidence": 0.92,
-                "type": DataType.DIRECT_PII
+                "type": RiskVector.DIRECT_PII
             })
         
         # SSN (XXX-XX-XXXX or XXXXXXXXX)
@@ -147,7 +147,7 @@ class EntityNERDetector:
                     "text": match.group(),
                     "span": match.span(),
                     "confidence": 0.88,
-                    "type": DataType.DIRECT_PII
+                    "type": RiskVector.DIRECT_PII
                 })
         
         # URLs
@@ -157,7 +157,7 @@ class EntityNERDetector:
                 "text": match.group(),
                 "span": match.span(),
                 "confidence": 0.95,
-                "type": DataType.CONTEXTUAL
+                "type": RiskVector.CONTEXTUAL
             })
         
         # Usernames (@ prefix or "username:" format)
@@ -173,7 +173,7 @@ class EntityNERDetector:
                     "text": match.group(),
                     "span": match.span(),
                     "confidence": 0.85,
-                    "type": DataType.QUASI_PII
+                    "type": RiskVector.QUASI_PII
                 })
         
         # ========================================
@@ -189,7 +189,7 @@ class EntityNERDetector:
                         "text": ent.text,
                         "span": (ent.start_char, ent.end_char),
                         "confidence": 0.85,
-                        "type": DataType.DIRECT_PII,
+                        "type": RiskVector.DIRECT_PII,
                         "source": "spacy"
                     })
                 
@@ -198,7 +198,7 @@ class EntityNERDetector:
                         "text": ent.text,
                         "span": (ent.start_char, ent.end_char),
                         "confidence": 0.85,
-                        "type": DataType.QUASI_PII,
+                        "type": RiskVector.QUASI_PII,
                         "source": "spacy"
                     })
                 
@@ -207,7 +207,7 @@ class EntityNERDetector:
                         "text": ent.text,
                         "span": (ent.start_char, ent.end_char),
                         "confidence": 0.75,
-                        "type": DataType.QUASI_PII,
+                        "type": RiskVector.QUASI_PII,
                         "source": "spacy"
                     })
             
