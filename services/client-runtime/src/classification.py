@@ -238,3 +238,15 @@ def initialise_packed(n: int) -> Classification:
 
 def initialise_unpacked(s: Sensitivity, v: Visibility, c: List[Category]) -> Classification:
     return Classification(compact_sensitivity(s) | compact_visibility(v) | compact_categories(c))
+
+
+class ClassificationResult:
+
+    classification: Classification
+    risk_vector: RiskVector
+    reasoning: str
+
+    def __init__(self, classification: Classification, risk_vector: RiskVector, reasoning: str):
+        self.classification = classification
+        self.risk_vector = risk_vector
+        self.reasoning = reasoning

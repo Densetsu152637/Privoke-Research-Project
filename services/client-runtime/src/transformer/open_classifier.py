@@ -25,7 +25,7 @@ class OpenClassifier(AbstractClassifier):
             ) 
         self.client = OpenAI(api_key=api_key)
 
-    def classify(self, text: str) -> List[LLMResult]:
+    def classify(self, text: str) -> List[ClassificationResult]:
         response = self.client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[

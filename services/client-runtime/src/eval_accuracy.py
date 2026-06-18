@@ -64,11 +64,11 @@ SAMPLE PREDICTIONS:
 
 import json
 import argparse # this is used for parsing through command line arguments when running the script
-from detection.preprocessing import TextNormalizer
-from regex.rule_detector import RuleDetector
-from NER.ner_detector import initialize_ner_detector
-from transformer.llm_classifier import LLMClassifier
-from detection.fusion import FusionEngine
+from src.detection import TextNormalizer
+from src.regex.rule_detector import RuleDetector
+from src.NER.ner_detector import initialize_ner_detector
+from src.transformer import LLMClassifier
+from src.detection import FusionEngine
 from classification import Category, Classification, Sensitivity, Visibility, initialise_unpacked
 
 
@@ -110,7 +110,7 @@ def evaluate_on_panorama(limit=100):
     llm_engine = LLMClassifier()
     
     fusion_engine = FusionEngine()
-    from detection.enforcement_engine import EnforcementEngine
+    from src.detection import EnforcementEngine
     enforcement_engine = EnforcementEngine()
     
     # Track results

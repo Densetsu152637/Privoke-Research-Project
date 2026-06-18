@@ -13,7 +13,7 @@ from typing import Dict, Iterable, List
 
 import spacy
 
-from classification import (
+from src.classification import (
     Category,
     Classification,
     RiskVector,

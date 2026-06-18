@@ -7,5 +7,5 @@ class PriVokeClassifier(AbstractClassifier):
         pass
 
 
-    def classify(self, text):
+    def classify(self, text: str) -> List[ClassificationResult]:
         pass

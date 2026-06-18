@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Dict, List, Sequence, Tuple
 
-from classification import (
+from src.classification import (
     Category,
     Sensitivity,
     Visibility,
@@ -18,8 +18,8 @@ from classification import (
     initialise_unpacked,
     merge_classifications,
 )
-from regex.rule_registry import all_rule_definitions
-from regex.rule_types import RuleMatch
+from src.regex.rule_registry import all_rule_definitions
+from src.regex.rule_types import RuleMatch
 
 
 def _signals(matches: Sequence[RuleMatch]) -> List[str]:

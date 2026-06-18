@@ -20,13 +20,13 @@ Dataset: Works with PANORAMA, medical records, financial data, or any privacy-se
 Detector Version: v1 (rules + baseline LLM model)
 """
 
-from detection.preprocessing import TextNormalizer
-from regex.rule_detector import RuleDetector
-from NER.ner_detector import initialize_ner_detector
-from transformer.llm_classifier import LLMClassifier
-from detection.fusion import FusionEngine
-from detection.enforcement_engine import EnforcementEngine
-from telemetry.event_emitter import StructuredEventEmitter
+from src.detection import TextNormalizer
+from src.regex.rule_detector import RuleDetector
+from src.NER.ner_detector import initialize_ner_detector
+from src.transformer import LLMClassifier
+from src.detection import FusionEngine
+from src.detection import EnforcementEngine
+from src.telemetry import StructuredEventEmitter
 
 from datetime import datetime
 from classification import Classification, Sensitivity, Visibility, initialise_unpacked
