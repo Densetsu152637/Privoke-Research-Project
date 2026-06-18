@@ -81,7 +81,8 @@ Rules should not return legacy category or severity strings.
 - span metadata,
 - confidence metadata,
 - `Classification` metadata,
-- entity summary flags for fusion.
+- derived `RiskVector` metadata,
+- a flat entity list for future span-based masking.
 
 Deterministic extraction for email, phone, URLs, cards, SSNs, and usernames belongs in the regex pass.
 

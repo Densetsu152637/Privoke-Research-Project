@@ -142,14 +142,10 @@ def run_full_pipeline():
         
         print(f"\n[LAYER 3B] ENTITY/NER DETECTOR (Structured Entity Extraction)")
         ner_result = ner_detector.extract_entities(normalized_text)
-        entity_summary = ner_result["entity_summary"]
-        print(f"  Emails detected: {entity_summary['has_email']}")
-        print(f"  Phones detected: {entity_summary['has_phone']}")
-        print(f"  Names detected: {entity_summary['has_name']}")
-        print(f"  Locations detected: {entity_summary['has_location']}")
-        print(f"  Usernames detected: {entity_summary['has_username']}")
-        print(f"  Credentials detected: {entity_summary['has_credit_card'] or entity_summary['has_ssn']}")
-        print(f"  Total entities: {entity_summary['total_entities']}")
+        print(f"  Classification: {format_classification(ner_result['classification'])}")
+        print(f"  Risk Vector: {format_enum(ner_result['risk_vector'])}")
+        print(f"  Signals: {', '.join(ner_result['signals']) if ner_result['signals'] else 'no_ner_signal'}")
+        print(f"  Classified entities: {len(ner_result['entities'])}")
         
         # ========================================
         # LAYER 3C: SEMANTIC LLM RISK DETECTOR

@@ -165,7 +165,7 @@ def evaluate_on_panorama(limit=100):
             "category": pred_category,
             "classification": fused["classification"].to_dict(),
             "action": action,
-            "entities_count": ner_result.get("total_entities", 0)
+            "entities_count": len(ner_result.get("entities", []))
         })
         
         # Track by category

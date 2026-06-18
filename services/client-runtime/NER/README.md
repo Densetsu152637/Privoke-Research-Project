@@ -6,7 +6,7 @@ NER sits between deterministic regex rules and semantic context detection. Its j
 
 ## Responsibilities
 
-The NER detector should extract model-backed entities such as:
+The NER detector extracts model-backed entities such as:
 
 - names,
 - locations,
@@ -19,14 +19,14 @@ Rigid formats such as emails, phone numbers, cards, SSNs, URLs, and handles belo
 
 `EntityNERDetector.extract_entities(text)` should return a dictionary with:
 
-- typed entity lists,
-- `span` for each entity where available,
-- confidence values,
-- `Classification` metadata for classified entity use cases,
-- raw NER model entities,
-- `entity_summary` boolean flags.
+- `classification`: merged `Classification` for all classified NER entities,
+- `packed_classification`: 16-bit packed value,
+- `risk_vector`: derived `RiskVector`,
+- `entities`: flat list of classified NER entities,
+- `raw_entities`: raw backend entities,
+- `signals`: ordered signal names.
 
-Fusion currently consumes the summary flags, while enforcement should increasingly use spans for masking.
+Fusion should consume the detector-level `Classification` and derived `RiskVector`. Enforcement should use entity spans where masking is needed.
 
 ## Design Requirements
 
@@ -38,16 +38,19 @@ Entity objects should be shaped consistently:
 {
     "text": "...",
     "span": (start, end),
+    "label": "PERSON",
+    "signal": "name",
     "confidence": 0.90,
     "classification": Classification(...),
     "packed_classification": 8222,
-    "source": "spacy" | "model"
+    "risk_vector": RiskVector.QUASI_PII,
+    "source": "spacy"
 }
 ```
 
 ## Fallback Behavior
 
-The detector should still work when spaCy is unavailable. Disabled-backend mode should return empty entity lists, a neutral `Classification`, an empty `entity_summary`, and avoid raising exceptions during pipeline execution.
+spaCy is a required runtime dependency for this detector. Missing spaCy or a missing model should fail during detector initialization rather than silently changing detection behavior.
 
 ## Subagent Tasks
 
@@ -57,6 +60,5 @@ NER subagents should:
 - deduplicate overlapping entities,
 - normalize entity schemas,
 - add confidence calibration,
-- add tests for fallback mode,
 - connect masking to entity spans instead of broad regex replacement,
 - add domain-specific entity types only when they map cleanly into `Classification`.

@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Iterable, List
 
+import spacy
+
 from classification import (
     Category,
     Classification,
@@ -27,7 +29,6 @@ from classification import (
 class EntityUseCase:
     """How a backend NER label maps into PriVoke classification."""
 
-    bucket: str
     signal: str
     classification: Classification
     confidence: float
@@ -35,7 +36,6 @@ class EntityUseCase:
 
 NER_LABEL_USE_CASES: Dict[str, EntityUseCase] = {
     "PERSON": EntityUseCase(
-        bucket="names",
         signal="name",
         classification=initialise_unpacked(
             Sensitivity.S2,
@@ -45,7 +45,6 @@ NER_LABEL_USE_CASES: Dict[str, EntityUseCase] = {
         confidence=0.85,
     ),
     "GPE": EntityUseCase(
-        bucket="locations",
         signal="location",
         classification=initialise_unpacked(
             Sensitivity.S2,
@@ -55,7 +54,6 @@ NER_LABEL_USE_CASES: Dict[str, EntityUseCase] = {
         confidence=0.85,
     ),
     "LOC": EntityUseCase(
-        bucket="locations",
         signal="location",
         classification=initialise_unpacked(
             Sensitivity.S2,
@@ -65,7 +63,6 @@ NER_LABEL_USE_CASES: Dict[str, EntityUseCase] = {
         confidence=0.85,
     ),
     "FAC": EntityUseCase(
-        bucket="locations",
         signal="location",
         classification=initialise_unpacked(
             Sensitivity.S2,
@@ -75,7 +72,6 @@ NER_LABEL_USE_CASES: Dict[str, EntityUseCase] = {
         confidence=0.80,
     ),
     "ORG": EntityUseCase(
-        bucket="organizations",
         signal="organization",
         classification=initialise_unpacked(
             Sensitivity.S1,
@@ -87,201 +83,86 @@ NER_LABEL_USE_CASES: Dict[str, EntityUseCase] = {
 }
 
 
-EMPTY_ENTITY_BUCKETS = (
-    "emails",
-    "phones",
-    "names",
-    "locations",
-    "usernames",
-    "credit_cards",
-    "ssns",
-    "urls",
-    "organizations",
-)
-
-
 class EntityNERDetector:
-    """
-    Entity extraction backed by spaCy NER labels.
-
-    Regex-compatible buckets remain in the return shape for pipeline
-    compatibility, but this detector does not populate them from patterns.
-    """
+    """Entity extraction backed by spaCy NER labels."""
 
     def __init__(self, model_name: str = "en_core_web_sm"):
-        try:
-            import spacy
-
-            self.nlp = spacy.load(model_name)
-            self.backend_available = True
-            self.spacy_available = True
-            self.backend_name = "spacy"
-            self.model_name = model_name
-
-        except Exception as exc:
-            print(f"spaCy NER model not available: {exc}. NER layer disabled.")
-            self.nlp = None
-            self.backend_available = False
-            self.spacy_available = False
-            self.backend_name = "spacy"
-            self.model_name = model_name
+        self.backend_name = "spacy"
+        self.model_name = model_name
+        self.nlp = spacy.load(model_name)
 
     def extract_entities(self, text: str) -> Dict:
         """
-        Extract NER-backed entities and return classification-backed evidence.
+        Extract NER-backed entities as classification-backed evidence.
         """
-        entities = self._empty_result()
-
-        if not self.backend_available:
-            self._finalize_result(entities, [])
-            return entities
-
         doc = self.nlp(text)
-        entity_classifications: List[Classification] = []
-        raw_entities: Dict[str, List[Dict]] = {}
+        model_entities = list(doc.ents)
+        raw_entities = [self._raw_entity(ent) for ent in model_entities]
+        classified_entities = self._classified_entities(model_entities)
+        classification = merge_classifications(
+            entity["classification"] for entity in classified_entities
+        )
+        risk_vector: RiskVector = risk_vector_for_classification(classification)
+
+        return {
+            "classification": classification,
+            "packed_classification": classification.pack(),
+            "risk_vector": risk_vector,
+            "entities": classified_entities,
+            "raw_entities": raw_entities,
+            "signals": self._signals(classified_entities),
+            "backend": {
+                "name": self.backend_name,
+                "model": self.model_name,
+            },
+        }
+
+    def _classified_entities(self, ents: Iterable) -> List[Dict]:
+        entities = []
         seen_spans = set()
 
-        for ent in doc.ents:
-            raw_entity = {
-                "text": ent.text,
-                "span": (ent.start_char, ent.end_char),
-                "label": ent.label_,
-            }
-            raw_entities.setdefault(ent.label_, []).append(raw_entity)
-
+        for ent in ents:
             use_case = NER_LABEL_USE_CASES.get(ent.label_)
             if use_case is None:
                 continue
 
-            span_key = (use_case.bucket, ent.start_char, ent.end_char, ent.text)
+            span_key = (ent.start_char, ent.end_char, ent.label_, ent.text)
             if span_key in seen_spans:
                 continue
             seen_spans.add(span_key)
 
-            entity_record = self._entity_record(ent, use_case)
-            entities[use_case.bucket].append(entity_record)
-            entity_classifications.append(use_case.classification)
+            entities.append(self._classified_entity(ent, use_case))
 
-        entities["raw_entities"] = raw_entities
-        self._finalize_result(entities, entity_classifications)
         return entities
 
-    def get_entity_risk_signals(self, entities: Dict) -> Dict:
-        """
-        Return compatibility risk signals derived from the NER classification.
-        """
-        summary = entities.get("entity_summary", {})
-        classification = entities.get("classification")
-        if not isinstance(classification, Classification):
-            classification = initialise_unpacked(Sensitivity.S0, Visibility.PU, [])
-
-        flags = {
-            "email": bool(summary.get("has_email")),
-            "phone": bool(summary.get("has_phone")),
-            "name": bool(summary.get("has_name")),
-            "location": bool(summary.get("has_location")),
-            "username": bool(summary.get("has_username")),
-            "credential": bool(
-                summary.get("has_credit_card") or summary.get("has_ssn")
-            ),
-            "organization": bool(summary.get("has_organization")),
-        }
-
-        return {
-            "entity_flags": flags,
-            "high_risk_combinations": self._high_risk_combinations(flags),
-            "strongest_entity": self._strongest_entity(summary),
-            "entity_count": summary.get("total_entities", 0),
-            "classification": classification,
-            "packed_classification": classification.pack(),
-            "risk_vector": risk_vector_for_classification(classification),
-        }
-
-    def _empty_result(self) -> Dict:
-        classification = initialise_unpacked(Sensitivity.S0, Visibility.PU, [])
-        result = {bucket: [] for bucket in EMPTY_ENTITY_BUCKETS}
-        result.update(
-            {
-                "raw_entities": {},
-                "entity_summary": {},
-                "classification": classification,
-                "packed_classification": classification.pack(),
-                "signals": [],
-                "backend": {
-                    "name": self.backend_name,
-                    "model": self.model_name,
-                    "available": self.backend_available,
-                },
-            }
-        )
-        return result
-
-    def _entity_record(self, ent, use_case: EntityUseCase) -> Dict:
+    def _classified_entity(self, ent, use_case: EntityUseCase) -> Dict:
         classification = use_case.classification
+        risk_vector: RiskVector = risk_vector_for_classification(classification)
+
         return {
             "text": ent.text,
             "span": (ent.start_char, ent.end_char),
+            "label": ent.label_,
+            "signal": use_case.signal,
             "confidence": use_case.confidence,
             "source": self.backend_name,
-            "label": ent.label_,
-            "entity_type": use_case.signal,
             "classification": classification,
             "packed_classification": classification.pack(),
+            "risk_vector": risk_vector,
             "categories": [category.name for category in classification.categories()],
         }
 
-    def _finalize_result(
-        self,
-        entities: Dict,
-        classifications: Iterable[Classification],
-    ) -> None:
-        classification = merge_classifications(classifications)
-        entities["classification"] = classification
-        entities["packed_classification"] = classification.pack()
-        entities["signals"] = self._signals(entities)
-        entities["entity_summary"] = {
-            "has_email": bool(entities["emails"]),
-            "has_phone": bool(entities["phones"]),
-            "has_name": bool(entities["names"]),
-            "has_location": bool(entities["locations"]),
-            "has_username": bool(entities["usernames"]),
-            "has_credit_card": bool(entities["credit_cards"]),
-            "has_ssn": bool(entities["ssns"]),
-            "has_url": bool(entities["urls"]),
-            "has_organization": bool(entities["organizations"]),
-            "total_entities": sum(
-                len(entities[bucket]) for bucket in EMPTY_ENTITY_BUCKETS
-            ),
+    def _raw_entity(self, ent) -> Dict:
+        return {
+            "text": ent.text,
+            "span": (ent.start_char, ent.end_char),
+            "label": ent.label_,
         }
-        entities["total_entities"] = entities["entity_summary"]["total_entities"]
 
-    def _signals(self, entities: Dict) -> List[str]:
-        signals = []
-        for bucket in ("names", "locations", "organizations"):
-            for entity in entities[bucket]:
-                signals.append(entity["entity_type"])
-        return list(dict.fromkeys(signals))
-
-    def _high_risk_combinations(self, flags: Dict[str, bool]) -> List[str]:
-        combinations = []
-        if flags["name"] and flags["location"]:
-            combinations.append("name_location")
-        if flags["name"] and flags["organization"]:
-            combinations.append("name_organization")
-        if flags["location"] and flags["organization"]:
-            combinations.append("location_organization")
-        return combinations
-
-    def _strongest_entity(self, summary: Dict) -> str | None:
-        priority = [
-            ("name", "has_name"),
-            ("location", "has_location"),
-            ("organization", "has_organization"),
-        ]
-        for entity_type, flag in priority:
-            if summary.get(flag):
-                return entity_type
-        return None
+    def _signals(self, entities: Iterable[Dict]) -> List[str]:
+        return list(
+            dict.fromkeys(entity["signal"] for entity in entities if entity.get("signal"))
+        )
 
 
 def initialize_ner_detector() -> EntityNERDetector:
