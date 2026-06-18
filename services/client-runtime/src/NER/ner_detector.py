@@ -10,12 +10,13 @@ from __future__ import annotations
 
 from typing import Iterable, List
 
+from util import require_package
 
+require_package("spacy")
 import spacy
 
 from .use_cases import NER_LABEL_USE_CASES, EntityUseCase
 from ..classification import ClassificationResult
-
 
 class EntityNERDetector:
     """Entity extraction backed by spaCy NER labels."""
@@ -64,8 +65,3 @@ class EntityNERDetector:
                 "model": self.model_name,
             },
         )
-
-
-def initialize_ner_detector() -> EntityNERDetector:
-    """Factory function for the NER detector."""
-    return EntityNERDetector()

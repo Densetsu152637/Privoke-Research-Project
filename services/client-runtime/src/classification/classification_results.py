@@ -32,7 +32,6 @@ class ClassificationResult:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "classification": self.classification.to_dict(),
-            "packed_classification": self.classification.pack(),
             "action": self.action().name,
             "section_of_text": self.section_of_text,
             "reasoning": self.reasoning,

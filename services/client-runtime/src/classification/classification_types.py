@@ -77,7 +77,6 @@ class Classification:
             "sensitivity": self.sensitivity().name,
             "visibility": self.visibility().name,
             "categories": [category.name for category in self.categories()],
-            "packed": self.pack(),
         }
 
 def compact_sensitivity(s: Sensitivity) -> int:
