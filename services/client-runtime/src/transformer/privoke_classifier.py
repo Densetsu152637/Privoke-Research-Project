@@ -10,4 +10,4 @@ class PriVokeClassifier(AbstractClassifier):
 
 
     def classify(self, text: str) -> List[ClassificationResult]:
-        pass
+        return []

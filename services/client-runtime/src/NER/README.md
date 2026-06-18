@@ -17,16 +17,17 @@ Rigid formats such as emails, phone numbers, cards, SSNs, URLs, and handles belo
 
 ## Output Contract
 
-`EntityNERDetector.extract_entities(text)` should return a dictionary with:
+`EntityNERDetector.extract_entities(text)` should return `list[ClassificationResult]`.
+Each classified model entity should produce one result containing:
 
-- `classification`: merged `Classification` for all classified NER entities,
-- `packed_classification`: 16-bit packed value,
-- `risk_vector`: derived `RiskVector`,
-- `entities`: flat list of classified NER entities,
-- `raw_entities`: raw backend entities,
-- `signals`: ordered signal names.
+- `classification`: mapped `Classification`,
+- `section_of_text`: entity text,
+- `span`: entity span,
+- `reasoning`: model-label explanation,
+- `confidence`: label confidence,
+- `metadata`: entity-specific context such as label and model.
 
-Fusion should consume the detector-level `Classification` and derived `RiskVector`. Enforcement should use entity spans where masking is needed.
+Fusion should consume `ClassificationResult` values from every detector. Enforcement should use result spans where masking is needed.
 
 ## Design Requirements
 
@@ -36,15 +37,15 @@ Entity objects should be shaped consistently:
 
 ```python
 {
-    "text": "...",
+    "section_of_text": "...",
     "span": (start, end),
-    "label": "PERSON",
-    "signal": "name",
     "confidence": 0.90,
     "classification": Classification(...),
-    "packed_classification": 8222,
-    "risk_vector": RiskVector.QUASI_PII,
-    "source": "spacy"
+    "metadata": {
+        "label": "PERSON",
+        "entity_type": "name",
+        "model": "en_core_web_sm"
+    }
 }
 ```
 

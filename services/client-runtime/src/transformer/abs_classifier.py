@@ -1,7 +1,7 @@
 
 from abc import abstractmethod, ABC
 from typing import List
-from src.classification import ClassificationResult
+from classification import ClassificationResult
 
 class AbstractClassifier(ABC):
 

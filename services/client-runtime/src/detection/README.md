@@ -30,9 +30,9 @@ Preprocessing output is the canonical text passed to the three detection layers.
 
 Fusion consumes three detector outputs:
 
-- `RuleDetector.analyze(...)`,
-- `EntityNERDetector.extract_entities(...)`,
-- `LLMClassifier.classify(...)`.
+- `RuleDetector.analyze(...) -> list[ClassificationResult]`,
+- `EntityNERDetector.extract_entities(...) -> list[ClassificationResult]`,
+- `AbstractClassifier.classify(...) -> list[ClassificationResult]`.
 
 Fusion should:
 

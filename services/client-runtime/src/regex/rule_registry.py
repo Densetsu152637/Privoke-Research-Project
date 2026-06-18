@@ -1,13 +1,13 @@
 from typing import List
 
-from src.regex.rule_types import RuleDefinition
-from src.regex.rules_context import contextual_rules
-from src.regex.rules_financial import financial_rules
-from src.regex.rules_health import health_rules
-from src.regex.rules_identity import identity_rules
-from src.regex.rules_location import location_rules
-from src.regex.rules_sensitive import sensitive_category_rules
-from src.regex.rules_visibility import visibility_rules
+from src import RuleDefinition
+from src import contextual_rules
+from src import financial_rules
+from src import health_rules
+from src import identity_rules
+from src import location_rules
+from src import sensitive_category_rules
+from src import visibility_rules
 
 
 def all_rule_definitions() -> List[RuleDefinition]:

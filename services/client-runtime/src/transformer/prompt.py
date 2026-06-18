@@ -1,5 +1,5 @@
-from src.classification import Sensitivity, Visibility, Category
-from src.util import pretty_print_dict
+from src import Sensitivity, Visibility, Category
+from src import pretty_print_dict
 
 system_prompt = """
 You are a STRICT privacy risk detection system for security auditing.
@@ -40,32 +40,36 @@ Classification definitions:
     - THIRD_PARTY: Sensitive information about someone other than the speaker
 """
 
-sense_string = " | ".join(Sensitivity)
-vis_string = " | ".join(Visibility)
-categories_string = " | ".join(Category)
+sense_string = " | ".join(item.name for item in Sensitivity)
+vis_string = " | ".join(item.name for item in Visibility)
+categories_string = " | ".join(item.name for item in Category)
 
 prompt_json_format = {
-    "sensitivity": {sense_string},
-    "visibility": {vis_string},
+    "sensitivity": sense_string,
+    "visibility": vis_string,
     "categories": [
-        {categories_string}
+        categories_string
     ],
     "section_of_text": "text_goes_here",
-    "reasoning": "Brief explanation of classification decision"
+    "reasoning": "Brief explanation of classification decision",
+    "confidence": 0.0,
+    "metadata": {}
 }
 
-pretty_json_format = pretty_print_dict(prompt_json_format)
+prompt_response_format = {"results": [prompt_json_format]}
+pretty_response_format = pretty_print_dict(prompt_response_format)
 
 delim = "----------------"
 
 def user_prompt(text: str):
-    global pretty_json_format, delim
+    global pretty_response_format, delim
     return f"""
 Now analyze this text for privacy risks:
 
 "{text}"
 
 {delim}
-For every detected risk, return ONLY valid JSON objects (no markdown, no extra text):
-[{pretty_json_format}]
+
+For every detected risk, return ONLY one valid JSON object (no markdown, no extra text) in this shape:
+{pretty_response_format}
 """

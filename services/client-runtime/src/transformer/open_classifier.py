@@ -3,7 +3,6 @@ import os
 import json
 from typing import List
 from dotenv import load_dotenv
-from openai import OpenAI
 from .prompt import system_prompt, user_prompt
 from .abs_classifier import AbstractClassifier
 from ..classification import ClassificationResult, build_results
@@ -18,6 +17,8 @@ class OpenClassifier(AbstractClassifier):
 
     def __init__(self):
         """Initialize OpenAI client with API key from environment."""
+        from openai import OpenAI
+
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError(

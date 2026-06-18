@@ -19,13 +19,15 @@ The semantic detector should identify:
 
 ## Output Contract
 
-`LLMClassifier.classify(text)` should return a dictionary containing:
+`AbstractClassifier.classify(text)` should return `list[ClassificationResult]`.
+Each semantic risk found by the model should produce one result containing:
 
-- `classification`: `Classification`,
-- `packed_classification`: integer,
-- `entities`: optional entity flags,
-- `implicit_risks`: short list of semantic risk explanations,
-- `reasoning`: concise explanation.
+- `classification`: parsed `Classification`,
+- `section_of_text`: classified text section,
+- `span`: optional section span,
+- `reasoning`: concise explanation,
+- `confidence`: optional model confidence,
+- `metadata`: optional classifier-specific context.
 
 The rest of the runtime should not consume model-specific category strings. The semantic layer is the boundary where model JSON is converted into `Classification`.
 
@@ -47,10 +49,9 @@ The semantic classifier should ask for:
 - sensitivity as `S0` through `S3`,
 - visibility as `P0`, `P1`, `P2`, `P3`, `P4`, or `PU`,
 - categories from the shared `Category` enum,
-- entity flags,
 - concise reasoning.
 
-Malformed model output should fall back to `S0`, `PU`, and no categories.
+Malformed model output should be ignored or converted to `S0`, `PU`, and no categories.
 
 ## Subagent Tasks
 

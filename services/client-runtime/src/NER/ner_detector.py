@@ -8,79 +8,12 @@ pass.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Dict, Iterable, List
+from typing import Iterable, List
 
 import spacy
 
-from src.classification import (
-    Category,
-    Classification,
-    RiskVector,
-    Sensitivity,
-    Visibility,
-    initialise_unpacked,
-    merge_classifications,
-    risk_vector_for_classification,
-)
-
-
-@dataclass(frozen=True)
-class EntityUseCase:
-    """How a backend NER label maps into PriVoke classification."""
-
-    signal: str
-    classification: Classification
-    confidence: float
-
-
-NER_LABEL_USE_CASES: Dict[str, EntityUseCase] = {
-    "PERSON": EntityUseCase(
-        signal="name",
-        classification=initialise_unpacked(
-            Sensitivity.S2,
-            Visibility.PU,
-            [Category.IDENTITY],
-        ),
-        confidence=0.85,
-    ),
-    "GPE": EntityUseCase(
-        signal="location",
-        classification=initialise_unpacked(
-            Sensitivity.S2,
-            Visibility.PU,
-            [Category.LOCATION],
-        ),
-        confidence=0.85,
-    ),
-    "LOC": EntityUseCase(
-        signal="location",
-        classification=initialise_unpacked(
-            Sensitivity.S2,
-            Visibility.PU,
-            [Category.LOCATION],
-        ),
-        confidence=0.85,
-    ),
-    "FAC": EntityUseCase(
-        signal="location",
-        classification=initialise_unpacked(
-            Sensitivity.S2,
-            Visibility.PU,
-            [Category.LOCATION],
-        ),
-        confidence=0.80,
-    ),
-    "ORG": EntityUseCase(
-        signal="organization",
-        classification=initialise_unpacked(
-            Sensitivity.S1,
-            Visibility.PU,
-            [Category.IDENTITY],
-        ),
-        confidence=0.75,
-    ),
-}
+from src import NER_LABEL_USE_CASES, EntityUseCase
+from src import ClassificationResult
 
 
 class EntityNERDetector:
@@ -91,33 +24,15 @@ class EntityNERDetector:
         self.model_name = model_name
         self.nlp = spacy.load(model_name)
 
-    def extract_entities(self, text: str) -> Dict:
+    def extract_entities(self, text: str) -> List[ClassificationResult]:
         """
-        Extract NER-backed entities as classification-backed evidence.
+        Extract NER-backed entities as classification-backed results.
         """
         doc = self.nlp(text)
         model_entities = list(doc.ents)
-        raw_entities = [self._raw_entity(ent) for ent in model_entities]
-        classified_entities = self._classified_entities(model_entities)
-        classification = merge_classifications(
-            entity["classification"] for entity in classified_entities
-        )
-        risk_vector: RiskVector = risk_vector_for_classification(classification)
+        return self._classified_entities(model_entities)
 
-        return {
-            "classification": classification,
-            "packed_classification": classification.pack(),
-            "risk_vector": risk_vector,
-            "entities": classified_entities,
-            "raw_entities": raw_entities,
-            "signals": self._signals(classified_entities),
-            "backend": {
-                "name": self.backend_name,
-                "model": self.model_name,
-            },
-        }
-
-    def _classified_entities(self, ents: Iterable) -> List[Dict]:
+    def _classified_entities(self, ents: Iterable) -> List[ClassificationResult]:
         entities = []
         seen_spans = set()
 
@@ -135,33 +50,18 @@ class EntityNERDetector:
 
         return entities
 
-    def _classified_entity(self, ent, use_case: EntityUseCase) -> Dict:
-        classification = use_case.classification
-        risk_vector: RiskVector = risk_vector_for_classification(classification)
-
-        return {
-            "text": ent.text,
-            "span": (ent.start_char, ent.end_char),
-            "label": ent.label_,
-            "signal": use_case.signal,
-            "confidence": use_case.confidence,
-            "source": self.backend_name,
-            "classification": classification,
-            "packed_classification": classification.pack(),
-            "risk_vector": risk_vector,
-            "categories": [category.name for category in classification.categories()],
-        }
-
-    def _raw_entity(self, ent) -> Dict:
-        return {
-            "text": ent.text,
-            "span": (ent.start_char, ent.end_char),
-            "label": ent.label_,
-        }
-
-    def _signals(self, entities: Iterable[Dict]) -> List[str]:
-        return list(
-            dict.fromkeys(entity["signal"] for entity in entities if entity.get("signal"))
+    def _classified_entity(self, ent, use_case: EntityUseCase) -> ClassificationResult:
+        return ClassificationResult(
+            classification=use_case.classification,
+            section_of_text=ent.text,
+            reasoning=f"spaCy labelled this span as {ent.label_}",
+            span=(ent.start_char, ent.end_char),
+            confidence=use_case.confidence,
+            metadata={
+                "label": ent.label_,
+                "entity_type": use_case.entity_type,
+                "model": self.model_name,
+            },
         )
 
 

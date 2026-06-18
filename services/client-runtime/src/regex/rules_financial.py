@@ -1,7 +1,7 @@
 from typing import List
 
-from src.classification import Category, Sensitivity, Visibility, initialise_unpacked
-from src.regex.rule_types import RuleDefinition
+from src import Category, Sensitivity, Visibility, initialise_unpacked
+from src import RuleDefinition
 
 
 def financial_rules() -> List[RuleDefinition]:

@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Dict, Pattern, Tuple
 
-from src.classification import Classification
+from src import Classification, ClassificationResult
 
 
 @dataclass(frozen=True)
@@ -45,6 +45,7 @@ class RuleMatch:
     text: str
     span: Tuple[int, int]
     classification: Classification
+    confidence: float = 0.95
 
     def to_dict(self) -> Dict:
         return {
@@ -59,3 +60,13 @@ class RuleMatch:
             ],
             "packed_classification": self.classification.pack(),
         }
+
+    def to_classification_result(self) -> ClassificationResult:
+        return ClassificationResult(
+            classification=self.classification,
+            section_of_text=self.text,
+            reasoning=f"Matched rule '{self.rule_name}'",
+            span=self.span,
+            confidence=self.confidence,
+            metadata={"rule_name": self.rule_name},
+        )

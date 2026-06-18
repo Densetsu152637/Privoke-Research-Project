@@ -64,11 +64,11 @@ SAMPLE PREDICTIONS:
 
 import json
 import argparse # this is used for parsing through command line arguments when running the script
-from src.detection import TextNormalizer
-from src.regex.rule_detector import RuleDetector
-from src.NER.ner_detector import initialize_ner_detector
-from src.transformer import LLMClassifier
-from src.detection import FusionEngine
+from src import TextNormalizer
+from src import RuleDetector
+from src import initialize_ner_detector
+from src import LLMClassifier
+from src import FusionEngine
 from classification import Category, Classification, Sensitivity, Visibility, initialise_unpacked
 
 
@@ -110,7 +110,7 @@ def evaluate_on_panorama(limit=100):
     llm_engine = LLMClassifier()
     
     fusion_engine = FusionEngine()
-    from src.detection import EnforcementEngine
+    from src import EnforcementEngine
     enforcement_engine = EnforcementEngine()
     
     # Track results
@@ -256,7 +256,6 @@ def main():
     
     if args.output and results:
         # Save results to JSON, excluding non-serializable data (like raw text samples)
-        import datetime
         output = {
             k: v for k, v in results.items() # Only include serializable items in the output JSON (e.g., counts and distributions, but not raw text samples which may contain complex objects or be too large)
             if k not in ["samples"] or isinstance(v, (str, int, float, bool, list, dict)) # Only include 'samples' if it's a serializable type (e.g., list of dicts without complex objects)

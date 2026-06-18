@@ -17,13 +17,15 @@ The rule detector should identify:
 
 ## Output Contract
 
-`RuleDetector.analyze(text)` should return a dictionary containing:
+`RuleDetector.analyze(text)` should return `list[ClassificationResult]`.
+Each regex or heuristic hit should produce one result containing:
 
-- `classification`: merged `Classification`,
-- `packed_classification`: 16-bit packed value,
-- `matches`: internal rule match objects,
-- `match_details`: JSON-friendly match records,
-- `signals`: ordered signal names.
+- `classification`: mapped `Classification`,
+- `section_of_text`: matched text,
+- `span`: matched text span,
+- `reasoning`: short explanation,
+- `confidence`: rule confidence,
+- `metadata`: rule-specific context such as the rule name.
 
 Rules must map directly to `Sensitivity`, `Visibility`, and `Category` values. Do not return category or severity strings.
 
@@ -47,7 +49,7 @@ Each rule should define:
 - name,
 - regex pattern,
 - resulting `Classification`,
-- signal name.
+- internal signal name used only inside rule orchestration.
 
 Visibility-only rules should use `Sensitivity.S0` and no categories. They still matter because fusion can combine visibility evidence with sensitive category evidence from another rule.
 

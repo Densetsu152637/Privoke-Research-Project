@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Dict, Optional
 import json
 
-from src.classification import Category, Classification, RiskVector
+from src import Category, Classification, RiskVector
 
 
 class StructuredEventEmitter:
@@ -139,7 +139,7 @@ class StructuredEventEmitter:
         classification = result.get("classification")
         if isinstance(classification, Classification):
             return classification
-        from src.classification import Sensitivity, Visibility, initialise_unpacked
+        from src import Sensitivity, Visibility, initialise_unpacked
         return initialise_unpacked(Sensitivity.S0, Visibility.PU, [])
 
     def _disagreement(

@@ -1,5 +1,8 @@
 
-import importlib.util, subprocess, sys
+import importlib.util
+import json
+import subprocess
+import sys
 from typing import Dict, List
 
 def require_package(package: str, name: str | None = None):
@@ -12,4 +15,4 @@ def typeof(obj) -> str:
     return obj.__class__.__name__
 
 def pretty_print_dict(d: Dict) -> str:
-    pass
+    return json.dumps(d, indent=2)

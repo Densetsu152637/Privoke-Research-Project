@@ -1,7 +1,7 @@
 from typing import List
 
-from src.classification import Sensitivity, Visibility, initialise_unpacked
-from src.regex.rule_types import RuleDefinition
+from src import Sensitivity, Visibility, initialise_unpacked
+from src import RuleDefinition
 
 
 def visibility_rules() -> List[RuleDefinition]:
