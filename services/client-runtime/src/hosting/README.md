@@ -17,6 +17,18 @@ Hosting code should:
 
 ## Expected Request Shape
 
+The local server listens on loopback only by default:
+
+```bash
+python src/main.py --port 8765 --llm-choice local
+```
+
+The main prompt inspection endpoint is:
+
+```text
+POST http://127.0.0.1:8765/analyze
+```
+
 ```json
 {
   "text": "prompt text",
@@ -28,11 +40,18 @@ Hosting code should:
 
 `visibility_hint` is optional. If provided, hosting code should map it into `Visibility` and pass it into the detection pipeline or context adapter rather than leaving every detector at `PU`.
 
+Health checks are available at:
+
+```text
+GET http://127.0.0.1:8765/health
+```
+
 ## Expected Response Shape
 
 ```json
 {
   "action": "ALLOW",
+  "allowed": true,
   "masked_text": null,
   "classification": {
     "sensitivity": "S0",
@@ -40,7 +59,16 @@ Hosting code should:
     "categories": [],
     "packed": 28
   },
-  "reason": "S0/S1 risk content allowed"
+  "reason": "No privacy risk detected.",
+  "evidence": null,
+  "metadata": {
+    "source": "browser_extension",
+    "target_app": "web_llm",
+    "visibility_hint": null,
+    "text_length": 11,
+    "elapsed_ms": 8.2,
+    "detector": "client-runtime.pipeline"
+  }
 }
 ```
 

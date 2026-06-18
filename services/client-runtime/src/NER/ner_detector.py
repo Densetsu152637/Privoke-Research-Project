@@ -10,10 +10,7 @@ from __future__ import annotations
 
 from typing import Iterable, List
 
-from util import require_package
-
-require_package("spacy")
-import spacy
+from ..util import require_package
 
 from .use_cases import NER_LABEL_USE_CASES, EntityUseCase
 from ..classification import ClassificationResult
@@ -22,6 +19,9 @@ class EntityNERDetector:
     """Entity extraction backed by spaCy NER labels."""
 
     def __init__(self, model_name: str = "en_core_web_sm"):
+        require_package("spacy")
+        import spacy
+
         self.backend_name = "spacy"
         self.model_name = model_name
         self.nlp = spacy.load(model_name)
