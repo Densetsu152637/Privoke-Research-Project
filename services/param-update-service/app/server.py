@@ -20,7 +20,7 @@ class ParamUpdateService(parameters_pb2_grpc.ParamUpdateServiceServicer):
         self.storage_path = storage_path
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
 
-    def submitParameterUpdate(self, request, context):
+    def SubmitParameterUpdate(self, request, context):
         payload = {
             "source_id": request.source_id,
             "model_id": request.model_id,
@@ -49,7 +49,7 @@ class ParamUpdateService(parameters_pb2_grpc.ParamUpdateServiceServicer):
             message="Parameter update persisted for downstream training.",
         )
 
-    def health(self, request, context):
+    def Health(self, request, context):
         return parameters_pb2.HealthResponse(
             service="param-update-service",
             status="SERVING",

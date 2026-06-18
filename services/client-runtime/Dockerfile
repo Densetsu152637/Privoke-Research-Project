@@ -19,4 +19,6 @@ RUN pip install --no-cache-dir -r requirements.txt \
       --grpc_python_out=/workspace/services/client-runtime/generated \
       /workspace/shared/proto/privoke/v1/parameters.proto
 
-CMD ["python", "cli.py", "pipeline"]
+EXPOSE 8765
+
+CMD ["python", "src/main.py", "--host", "127.0.0.1", "--port", "8765"]

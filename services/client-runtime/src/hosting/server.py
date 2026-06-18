@@ -34,9 +34,13 @@ class LocalOnlyHTTPServer(ThreadingHTTPServer):
         cors_origin: str = "*",
     ):
         host, _ = server_address
-        if not is_loopback_host(host):
+        if not is_loopback_host(host) and not env_bool(
+            "PRIVOKE_ALLOW_NON_LOOPBACK_BIND",
+            False,
+        ):
             raise ValueError(
-                "PriVoke runtime server only binds to localhost/loopback addresses."
+                "PriVoke runtime server only binds to localhost/loopback addresses "
+                "unless PRIVOKE_ALLOW_NON_LOOPBACK_BIND=true."
             )
 
         super().__init__(server_address, handler_class)
@@ -227,6 +231,13 @@ def env_int(name: str, default: int) -> int:
     if value <= 0:
         raise ValueError(f"{name} must be greater than zero.")
     return value
+
+
+def env_bool(name: str, default: bool) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    return raw_value.lower() in {"1", "true", "yes", "on"}
 
 
 def _json_bytes(payload: Dict[str, Any]) -> bytes:

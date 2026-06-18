@@ -15,4 +15,4 @@ RUN pip install --no-cache-dir -r requirements.txt \
       --grpc_python_out=/workspace/services/privoke-fuzzer/generated \
       /workspace/shared/proto/privoke/v1/parameters.proto
 
-CMD ["python", "app/main.py"]
+CMD ["python", "src/main.py"]

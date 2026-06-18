@@ -24,12 +24,18 @@ class EntityNERDetector:
 
         self.backend_name = "spacy"
         self.model_name = model_name
-        self.nlp = spacy.load(model_name)
+        try:
+            self.nlp = spacy.load(model_name)
+        except OSError:
+            self.nlp = None
 
     def extract_entities(self, text: str) -> List[ClassificationResult]:
         """
         Extract NER-backed entities as classification-backed results.
         """
+        if self.nlp is None:
+            return []
+
         doc = self.nlp(text)
         model_entities = list(doc.ents)
         return self._classified_entities(model_entities)

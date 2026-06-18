@@ -1,319 +1,181 @@
-"""
-PriVoke Phase 1: Runtime Privacy Protection Pipeline
+from __future__ import annotations
 
-Complete end-to-end system for detecting privacy risks in user input.
-Works with any privacy-sensitive dataset or domain.
+import logging
+import os
+import random
+import signal
+import sys
+import time
+from pathlib import Path
+from typing import Iterable
 
-Architecture:
-1. User Input Layer (Browser Extension)
-2. Preprocessing Layer (Text Normalization)
-3. Internal Model Service (Hybrid Detection)
-   - Rule-Based Detector
-   - Entity/NER Detector
-   - Semantic LLM Risk Detector
-4. Fusion + Risk Scoring Engine
-5. Enforcement Engine (ALLOW/WARN/BLOCK)
-6. Structured Event Emitter (Metadata telemetry)
-7. Target Application Output
-
-Dataset: Works with PANORAMA, medical records, financial data, or any privacy-sensitive dataset.
-Detector Version: v1 (rules + baseline LLM model)
-"""
-
-from src import TextNormalizer
-from src import RuleDetector
-from src import initialize_ner_detector
-from src import LLMClassifier
-from src import FusionEngine
-from src import EnforcementEngine
-from src import StructuredEventEmitter
-
-from datetime import datetime
-from types import SimpleNamespace
-from classification import (
-    Classification,
-    Sensitivity,
-    Visibility,
-    action_for_classification_result,
-    initialise_unpacked,
-)
+import grpc
 
 
-def format_classification(classification: Classification) -> str:
-    categories = ", ".join(category.name for category in classification.categories())
-    if not categories:
-        categories = "NORMAL"
-    return (
-        f"{classification.sensitivity().name} / "
-        f"{classification.visibility().name} / "
-        f"{categories} / packed={classification.pack()}"
+GENERATED_DIR = Path(__file__).resolve().parents[1] / "generated"
+if str(GENERATED_DIR) not in sys.path:
+    sys.path.insert(0, str(GENERATED_DIR))
+
+from privoke.v1 import parameters_pb2, parameters_pb2_grpc
+
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+_SHOULD_STOP = False
+
+
+def main() -> None:
+    global _SHOULD_STOP
+
+    signal.signal(signal.SIGTERM, _stop)
+    signal.signal(signal.SIGINT, _stop)
+
+    config = FuzzerConfig.from_env()
+    random.seed(config.seed)
+    logging.info(
+        "starting fuzzer id=%s model=%s interval=%ss",
+        config.fuzzer_id,
+        config.model_id,
+        config.interval_seconds,
     )
 
-
-def format_enum(value) -> str:
-    return value.name if hasattr(value, "name") else str(value)
-
-
-def action_for_demo_output(output) -> str:
-    if hasattr(output, "classification"):
-        return format_enum(action_for_classification_result(output))
-    if isinstance(output, dict) and isinstance(output.get("classification"), Classification):
-        result = SimpleNamespace(
-            classification=output["classification"],
-            confidence=output.get("confidence"),
-            span=output.get("span"),
-            section_of_text="",
-            metadata={"source": "demo"},
-        )
-        return format_enum(action_for_classification_result(result))
-    return "ALLOW"
-
-
-def run_full_pipeline():
-    """
-    Execute complete Phase 1 pipeline with all detector components.
-    
-    Demonstrates:
-    - Text normalization
-    - Rule-based detection
-    - Entity/NER extraction
-    - LLM semantic analysis
-    - Fusion + risk scoring
-    - Enforcement decision
-    - Structured event emission
-    """
-    
-    # ========================================
-    # INITIALIZE ALL COMPONENTS
-    # ========================================
-    
-    normalizer = TextNormalizer()
-    rule_engine = RuleDetector()
-    ner_detector = initialize_ner_detector()
-    llm_engine = LLMClassifier()  # Requires OPENAI_API_KEY
-    fusion_engine = FusionEngine()
-    enforcement_engine = EnforcementEngine()
-    event_emitter = StructuredEventEmitter(detector_version="v1")
-    
-    # ========================================
-    # TEST CASES (Privacy-sensitive dataset samples across domains)
-    # ========================================
-    
-    test_cases = [
-        "My email is alice@example.com please reset my password",
-        "Call me at +1-555-123-4567 for urgent matters",
-        "I live in San Francisco and my name is John Smith",
-        "Check out my new game: pretty fun to play",
-        "My username is @jane_doe and I'm from Paris",
-        "My credit card is 4532-1234-5678-9012",
-        "I take medication for my anxiety and depression",
-        "My salary is $150,000 per year",
-    ]
-    
-    events_batch = []
-    
-    # ========================================
-    # HEADER
-    # ========================================
-    
-    print("\n" + "=" * 90)
-    print(" PriVoke PHASE 1: RUNTIME PRIVACY PROTECTION PIPELINE")
-    print("=" * 90)
-    print(f"Initialized at: {datetime.now().isoformat()}Z")
-    print(f"Detector Version: v1 (rules + baseline LLM model)")
-    print(f"Dataset: Privacy-sensitive text (cross-domain)")
-    print(f"Test Cases: {len(test_cases)}")
-    print("=" * 90)
-    
-    # ========================================
-    # PROCESS EACH TEST CASE
-    # ========================================
-    
-    for idx, original_text in enumerate(test_cases, 1):
-        print(f"\n{'#' * 90}")
-        print(f"TEST CASE {idx}/{len(test_cases)}")
-        print(f"{'#' * 90}")
-        
-        # ========================================
-        # LAYER 1: USER INPUT
-        # ========================================
-        
-        print(f"\n[LAYER 1] USER INPUT FROM BROWSER EXTENSION")
-        print(f"Original: {original_text}")
-        
-        # ========================================
-        # LAYER 2: PREPROCESSING (NORMALIZATION)
-        # ========================================
-        
-        print(f"\n[LAYER 2] PREPROCESSING - TEXT NORMALIZATION")
-        normalized_text = normalizer.normalize(original_text)
-        print(f"Normalized: {normalized_text}")
-        
-        # ========================================
-        # LAYER 3A: RULE-BASED DETECTOR
-        # ========================================
-        
-        print(f"\n[LAYER 3A] RULE-BASED DETECTOR (Fast Pattern Matching)")
-        rule_result = rule_engine.analyze(normalized_text)
-        print(f"  Classification: {format_classification(rule_result['classification'])}")
-        print(f"  Signals: {', '.join(rule_result['signals']) if rule_result['signals'] else 'no_rule_match'}")
-        
-        # ========================================
-        # LAYER 3B: ENTITY/NER DETECTOR
-        # ========================================
-        
-        print(f"\n[LAYER 3B] ENTITY/NER DETECTOR (Structured Entity Extraction)")
-        ner_result = ner_detector.extract_entities(normalized_text)
-        print(f"  Classification: {format_classification(ner_result['classification'])}")
-        print(
-            "  Suggested Action: "
-            f"{action_for_demo_output(ner_result)}"
-        )
-        print(f"  Signals: {', '.join(ner_result['signals']) if ner_result['signals'] else 'no_ner_signal'}")
-        print(f"  Classified entities: {len(ner_result['entities'])}")
-        
-        # ========================================
-        # LAYER 3C: SEMANTIC LLM RISK DETECTOR
-        # ========================================
-        
-        print(f"\n[LAYER 3C] SEMANTIC LLM RISK DETECTOR (OpenAI GPT-4o-mini)")
+    while not _SHOULD_STOP:
         try:
-            llm_result = llm_engine.classify(normalized_text)
-        except Exception as e:
-            print(f"   LLM Error: {e}")
-            classification = initialise_unpacked(Sensitivity.S0, Visibility.PU, [])
-            llm_result = {
-                "classification": classification,
-                "packed_classification": classification.pack(),
-                "entities": {
-                    "email": False,
-                    "phone": False,
-                    "name": False,
-                    "location": False,
-                    "username": False,
-                    "credit_card": False,
-                    "ssn": False,
-                    "api_key": False
-                },
-                "reasoning": f"LLM error: {str(e)}"
-            }
-        
-        print(f"  Classification: {format_classification(llm_result['classification'])}")
-        print(f"  Reasoning: {llm_result.get('reasoning', llm_result.get('reason', 'N/A'))}")
-        print(f"  Entities Detected:")
-        for entity_type, detected in llm_result.get('entities', {}).items():
-            if detected:
-                print(f"    - {entity_type}: {detected}")
-        
-        # ========================================
-        # LAYER 4: FUSION + RISK SCORING
-        # ========================================
-        
-        print(f"\n[LAYER 4] FUSION ENGINE - WEIGHTED RISK SCORING")
-        print(f"  Weighting: Rule 50% + LLM 30% + Entity 20%")
-        
-        fused_output = fusion_engine.fuse(rule_result, llm_result, ner_result)
-        fused_output["original_text"] = original_text
-        
-        raw_score = fused_output.get("raw_score", 0.0)
-        
-        print(f"  Final Classification: {format_classification(fused_output['classification'])}")
-        print(f"  Risk Score: {raw_score:.3f}")
-        print(
-            "  Suggested Action: "
-            f"{action_for_demo_output(fused_output)}"
-        )
-        
-        rule_categories = set(rule_result["classification"].categories())
-        llm_categories = set(llm_result["classification"].categories())
-        disagreement = bool(
-            rule_result["classification"].is_sensitive()
-            != llm_result["classification"].is_sensitive()
-            or (rule_categories and llm_categories and not rule_categories & llm_categories)
-        )
-        if disagreement:
-            print(
-                "  DETECTOR DISAGREEMENT: "
-                f"Rule={format_classification(rule_result['classification'])}, "
-                f"LLM={format_classification(llm_result['classification'])}"
+            snapshot = fetch_snapshot(config)
+            ack = submit_update(config, snapshot)
+            logging.info(
+                "submitted update accepted=%s model=%s version=%s",
+                ack.accepted,
+                ack.model_id,
+                ack.applied_version,
             )
-        
-        # ========================================
-        # LAYER 5: ENFORCEMENT ENGINE
-        # ========================================
-        
-        print(f"\n[LAYER 5] ENFORCEMENT ENGINE - FINAL DECISION")
-        enforcement_output = enforcement_engine.enforce(fused_output)
-        action = enforcement_output.get("action")
-        print(f"  ACTION: {action}")
-        print(f"  Reason: {enforcement_output.get('reason')}")
-        
-        if action == "WARN":
-            print(f"   MASKED OUTPUT:")
-            print(f"     {enforcement_output.get('masked_text')}")
-            if enforcement_output.get('entities_masked'):
-                print(f"   MASKED ENTITIES: {enforcement_output.get('entities_masked')}")
-        elif action == "BLOCK":
-            print(f"   PROMPT BLOCKED - Not sent to target application")
-        else:
-            print(f"   PROMPT ALLOWED - Forwarding to target application")
-        
-        # ========================================
-        # LAYER 6: STRUCTURED EVENT EMISSION
-        # ========================================
-        
-        print(f"\n[LAYER 6] STRUCTURED EVENT EMITTER - METADATA TELEMETRY")
-        event = event_emitter.emit(original_text, enforcement_output, fused_output)
-        
-        print(f"  Event ID: {event.get('event_id')}")
-        print(f"  Time Bucket: {event.get('time_bucket')}")
-        print(f"  Risk Category: {event.get('risk_category')}")
-        print(f"  Risk Score: {event.get('risk_score')} (bucket: {event.get('risk_score_bucket')})")
-        print(f"  Action Taken: {event.get('action_taken')}")
-        print(f"  Detector Version: {event.get('detector_version')}")
-        
-        events_batch.append(event)
-        
-        # ========================================
-        # LAYER 7: TARGET APPLICATION OUTPUT
-        # ========================================
-        
-        print(f"\n[LAYER 7] TARGET APPLICATION OUTPUT")
-        print(f"  Original Text: {original_text}")
-        print(f"  Normalized Text: {normalized_text}")
-        print(f"  Enforcement Action: {action}")
-        
-        if action == "WARN":
-            print(f"  Display to User: {enforcement_output.get('masked_text')}")
-        elif action == "ALLOW":
-            print(f"  Display to User: {original_text}")
-        else:
-            print(f"  Display to User: [BLOCKED - Input rejected due to privacy risk]")
-        
-        print()
-    
-    # ========================================
-    # BATCH TELEMETRY OUTPUT (FOR PHASE 3)
-    # ========================================
-    
-    print("\n" + "=" * 90)
-    print(" STRUCTURED EVENT BATCH FOR PHASE 3 (SERVER-SIDE TELEMETRY)")
-    print("=" * 90)
-    print("\nThis batch would be transmitted to the Telemetry Collector.")
-    print("Phase 3 performs: validation, aggregation, differential privacy, dashboard\n")
-    
-    batch_json = event_emitter.batch_serialize(events_batch)
-    print(batch_json)
-    
-    # ========================================
-    # FOOTER
-    # ========================================
-    
-    print("\n" + "=" * 90)
-    print(" PHASE 1 PIPELINE COMPLETE")
-    print("=" * 90)
-    print("=" * 90 + "\n")
+        except Exception as exc:
+            logging.warning("fuzz cycle failed: %s", exc)
+
+        _sleep_interruptibly(config.interval_seconds)
+
+
+class FuzzerConfig:
+    def __init__(
+        self,
+        model_streaming_target: str,
+        param_update_target: str,
+        model_id: str,
+        fuzzer_id: str,
+        interval_seconds: float,
+        timeout_seconds: float,
+        perturbation_scale: float,
+        seed: int,
+    ):
+        self.model_streaming_target = model_streaming_target
+        self.param_update_target = param_update_target
+        self.model_id = model_id
+        self.fuzzer_id = fuzzer_id
+        self.interval_seconds = interval_seconds
+        self.timeout_seconds = timeout_seconds
+        self.perturbation_scale = perturbation_scale
+        self.seed = seed
+
+    @classmethod
+    def from_env(cls) -> "FuzzerConfig":
+        return cls(
+            model_streaming_target=os.getenv(
+                "MODEL_STREAMING_TARGET",
+                "model-streaming-service:50051",
+            ),
+            param_update_target=os.getenv(
+                "PARAM_UPDATE_TARGET",
+                "param-update-service:50052",
+            ),
+            model_id=os.getenv("MODEL_ID", "privoke-baseline"),
+            fuzzer_id=os.getenv("FUZZER_ID", "privoke-fuzzer"),
+            interval_seconds=_env_float("FUZZ_INTERVAL_SECONDS", 15.0),
+            timeout_seconds=_env_float("FUZZ_TIMEOUT_SECONDS", 10.0),
+            perturbation_scale=_env_float("FUZZ_PERTURBATION_SCALE", 0.01),
+            seed=_env_int("FUZZ_SEED", 1337),
+        )
+
+
+def fetch_snapshot(config: FuzzerConfig):
+    with grpc.insecure_channel(config.model_streaming_target) as channel:
+        client = parameters_pb2_grpc.ModelStreamingServiceStub(channel)
+        return client.GetModelParameters(
+            parameters_pb2.ModelParametersRequest(
+                consumer_id=config.fuzzer_id,
+                model_id=config.model_id,
+            ),
+            timeout=config.timeout_seconds,
+        )
+
+
+def submit_update(config: FuzzerConfig, snapshot):
+    gradients = list(perturb_parameters(snapshot.parameters, config.perturbation_scale))
+    with grpc.insecure_channel(config.param_update_target) as channel:
+        client = parameters_pb2_grpc.ParamUpdateServiceStub(channel)
+        return client.SubmitParameterUpdate(
+            parameters_pb2.ParameterUpdateRequest(
+                source_id=config.fuzzer_id,
+                model_id=snapshot.model_id,
+                base_version=snapshot.version,
+                gradients=gradients,
+                metadata={
+                    "strategy": "bounded_random_perturbation",
+                    "snapshot_generated_at_unix": str(snapshot.generated_at_unix),
+                    "perturbation_scale": str(config.perturbation_scale),
+                },
+            ),
+            timeout=config.timeout_seconds,
+        )
+
+
+def perturb_parameters(
+    parameters: Iterable,
+    perturbation_scale: float,
+) -> Iterable:
+    for parameter in parameters:
+        yield parameters_pb2.Parameter(
+            name=parameter.name,
+            values=[
+                _bounded_noise(perturbation_scale)
+                for _ in parameter.values
+            ],
+        )
+
+
+def _bounded_noise(scale: float) -> float:
+    return random.uniform(-scale, scale)
+
+
+def _sleep_interruptibly(seconds: float) -> None:
+    deadline = time.monotonic() + max(0.0, seconds)
+    while not _SHOULD_STOP and time.monotonic() < deadline:
+        time.sleep(min(0.25, deadline - time.monotonic()))
+
+
+def _stop(signum, frame) -> None:
+    global _SHOULD_STOP
+    _SHOULD_STOP = True
+
+
+def _env_float(name: str, default: float) -> float:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    try:
+        return float(raw_value)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a number.") from exc
+
+
+def _env_int(name: str, default: int) -> int:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    try:
+        return int(raw_value)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer.") from exc
 
 
 if __name__ == "__main__":
-    run_full_pipeline()
+    main()
