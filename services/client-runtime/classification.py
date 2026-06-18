@@ -5,10 +5,10 @@ from typing import Iterable, List
 class DefEnum(Enum):
 
     def __str__(self):
-        return f"{self.__class__}.{self.name}"
+        return f"{self.name}"
 
     def __repr__(self):
-        return str(self)
+        return f"{self.__class__}.{self.name}"
 
 class Sensitivity(DefEnum):
 
@@ -48,6 +48,7 @@ class RiskVector(DefEnum):
     AUTH = 2
     QUASI_PII = 3
     DIRECT_PII = 4
+    UNKNOWN = 5
 
 class Classification:
 
@@ -56,6 +57,7 @@ class Classification:
     def __init__(self, packed: int | None = None):
         if packed is None:
             packed = compact_sensitivity(Sensitivity.S0) | compact_visibility(Visibility.PU)
+
         self.n = packed & n_mask
 
     def sensitivity(self) -> Sensitivity:
@@ -88,7 +90,6 @@ class Classification:
             "sensitivity": self.sensitivity().name,
             "visibility": self.visibility().name,
             "categories": [category.name for category in self.categories()],
-            "packed": self.pack(),
         }
 
 s_mask = 0b00011 # Extract sensitivity using mask (lowest 2 bits)
@@ -173,7 +174,10 @@ def risk_vector_for_classification(classification: Classification) -> RiskVector
     if sensitivity == Sensitivity.S0 and not categories:
         return RiskVector.NORMAL
 
-    identifier_categories = {Category.IDENTITY, Category.LOCATION}
+    identifier_categories = {
+        Category.IDENTITY,
+        Category.LOCATION
+    }
     contextual_categories = {
         Category.HEALTH,
         Category.POLITICS,

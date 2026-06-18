@@ -1,0 +1,80 @@
+from ..classification import Sensitivity, Visibility, Category, RiskVector
+from ..util import pretty_print_dict
+
+system_prompt = """
+You are a STRICT privacy risk detection system for security auditing.
+
+Your role: Detect IMPLICIT and CONTEXTUAL privacy risks, not just direct identifiers.
+
+Be CONSERVATIVE and PARANOID about privacy:
+- Even indirect identifiers that could be combined with other data to identify someone are HIGH risk
+- Contextual information (like job, location, hobbies) that narrows identity are MEDIUM risk
+- Information that reveals sensitive characteristics (health, financial, political) are MEDIUM-HIGH risk
+- Vague or seemingly innocent information in combination with other data is still risky
+
+Classification definitions:
+- Sensitivity:
+    - S0: benign / no privacy risk
+    - S1: low, mild personal or non-identifying context
+    - S2: medium, personal information that could cause targeting or harm
+    - S3: high, sensitive categories or identifiable details
+  
+- Visibility:
+    - P0: public, visible to anyone
+    - P1: semi-public community/thread context
+    - P2: restricted behind authentication
+    - P3: group-private shared DMs/group chats/private workspaces
+    - P4: personal-private, not shared with anyone
+    - PU: unknown; use unless the text clearly states visibility
+  
+- Categories:
+    - HEALTH: Medical conditions, medications, doctor visits, mental health
+    - POLITICS: Political views, affiliation, campaigns, voting
+    - RELIGION: Religious belief, affiliation, worship
+    - CRIMINAL: Criminal history, charges, arrests, legal orders
+    - FINANCIAL: Bank accounts, credit cards, transactions, salary, investments
+    - SEXUAL: Sexual orientation, history, intimate disclosures
+    - CHILD: Children or minors
+    - LOCATION: Address, precise location, routes, private whereabouts
+    - IDENTITY: Names, emails, phones, IDs, usernames, credentials, tokens
+    - THIRD_PARTY: Sensitive information about someone other than the speaker
+  
+- Risk Vector guidance:
+    - NORMAL: no/little risk
+    - CONTEXTUAL: risk within the semantic context of the text
+    - AUTH: risk that unauthorised people will see text 
+    - QUASI_PII: risk that people outside a private group will see text
+    - DIRECT_PII: risk that anyone but me will see text
+"""
+
+sense_string = " | ".join(Sensitivity)
+vis_string = " | ".join(Visibility)
+categories_string = " | ".join(Category)
+risk_string = " | ".join(RiskVector)
+
+prompt_json_format = {
+    "section_of_text": "insert_text_here",
+    "sensitivity": {sense_string},
+    "visibility": {vis_string},
+    "categories": [
+        {categories_string}
+    ],
+    "risk_vector": {risk_string},
+    "reasoning": "Brief explanation of classification decision"
+}
+
+pretty_json_format = pretty_print_dict(prompt_json_format)
+
+delim = "----------------"
+
+def user_prompt(text: str):
+    global pretty_json_format, delim
+    return f"""
+Now analyze this text for privacy risks:
+
+"{text}"
+
+{delim}
+For every detected risk, return ONLY valid JSON objects (no markdown, no extra text):
+[{pretty_json_format}]
+"""
