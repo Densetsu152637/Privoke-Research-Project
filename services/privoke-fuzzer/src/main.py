@@ -29,11 +29,12 @@ from src import EnforcementEngine
 from src import StructuredEventEmitter
 
 from datetime import datetime
+from types import SimpleNamespace
 from classification import (
     Classification,
     Sensitivity,
     Visibility,
-    action_for_classification,
+    action_for_classification_result,
     initialise_unpacked,
 )
 
@@ -51,6 +52,21 @@ def format_classification(classification: Classification) -> str:
 
 def format_enum(value) -> str:
     return value.name if hasattr(value, "name") else str(value)
+
+
+def action_for_demo_output(output) -> str:
+    if hasattr(output, "classification"):
+        return format_enum(action_for_classification_result(output))
+    if isinstance(output, dict) and isinstance(output.get("classification"), Classification):
+        result = SimpleNamespace(
+            classification=output["classification"],
+            confidence=output.get("confidence"),
+            span=output.get("span"),
+            section_of_text="",
+            metadata={"source": "demo"},
+        )
+        return format_enum(action_for_classification_result(result))
+    return "ALLOW"
 
 
 def run_full_pipeline():
@@ -151,7 +167,7 @@ def run_full_pipeline():
         print(f"  Classification: {format_classification(ner_result['classification'])}")
         print(
             "  Suggested Action: "
-            f"{format_enum(action_for_classification(ner_result['classification']))}"
+            f"{action_for_demo_output(ner_result)}"
         )
         print(f"  Signals: {', '.join(ner_result['signals']) if ner_result['signals'] else 'no_ner_signal'}")
         print(f"  Classified entities: {len(ner_result['entities'])}")
@@ -205,7 +221,7 @@ def run_full_pipeline():
         print(f"  Risk Score: {raw_score:.3f}")
         print(
             "  Suggested Action: "
-            f"{format_enum(action_for_classification(fused_output['classification']))}"
+            f"{action_for_demo_output(fused_output)}"
         )
         
         rule_categories = set(rule_result["classification"].categories())

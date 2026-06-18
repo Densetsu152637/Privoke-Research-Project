@@ -1,14 +1,15 @@
+
 from datetime import datetime
+from types import SimpleNamespace
 from typing import Dict, Optional
 import json
 
-from src import (
+from ..classification import (
     Category,
     Classification,
     PriVokeAction,
-    action_for_classification,
+    action_for_classification_result,
 )
-
 
 class StructuredEventEmitter:
     """
@@ -144,7 +145,16 @@ class StructuredEventEmitter:
 
         classification = fused_output.get("classification")
         if isinstance(classification, Classification):
-            return action_for_classification(classification).name
+            result = fused_output.get("classification_result")
+            if result is None:
+                result = SimpleNamespace(
+                    classification=classification,
+                    confidence=fused_output.get("confidence"),
+                    span=fused_output.get("span"),
+                    section_of_text="",
+                    metadata={"source": "fusion"},
+                )
+            return action_for_classification_result(result).name
         return PriVokeAction.ALLOW.name
 
     def _classification_from(self, result: Dict) -> Classification:

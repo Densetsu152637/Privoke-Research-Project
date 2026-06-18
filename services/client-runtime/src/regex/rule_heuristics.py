@@ -1,14 +1,8 @@
 import re
 from typing import List, Sequence, Tuple
 
-from src import (
-    Category,
-    Sensitivity,
-    Visibility,
-    dedupe_categories,
-    initialise_unpacked,
-)
-from src import RuleMatch
+from .rule_types import RuleMatch
+from ..classification import Sensitivity, Visibility, Category, dedupe_categories, initialise_unpacked
 
 
 def heuristic_matches(
@@ -95,7 +89,7 @@ def synthetic_match(
         signal=signal,
         text=text,
         span=span,
-        classification=initialise_unpacked(
+        classification = initialise_unpacked(
             sensitivity,
             visibility,
             list(categories),

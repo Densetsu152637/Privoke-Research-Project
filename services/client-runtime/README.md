@@ -1,6 +1,6 @@
 # PriVoke Client Runtime
 
-The client runtime is the reference implementation of PriVoke's prompt privacy pipeline. It is responsible for inspecting prompt text before it leaves the client, assigning a structured privacy `Classification`, deriving a `PriVokeAction`, and emitting metadata-only telemetry.
+The client runtime is the reference implementation of PriVoke's prompt privacy pipeline. It is responsible for inspecting prompt text before it leaves the client, assigning structured privacy `ClassificationResult` evidence, deriving a `PriVokeAction`, and emitting metadata-only telemetry.
 
 The runtime follows a three-layer detection design similar to Casper-style prompt sanitization research:
 
@@ -20,14 +20,15 @@ Every detector should produce evidence that maps into `classification.py`.
 - `Visibility`: `P0`, `P1`, `P2`, `P3`, `P4`, `PU`
 - `Category`: `HEALTH`, `POLITICS`, `RELIGION`, `CRIMINAL`, `FINANCIAL`, `SEXUAL`, `CHILD`, `LOCATION`, `IDENTITY`, `THIRD_PARTY`
 
-`PriVokeAction` is derived from the final fused `Classification`. It is not a detector output.
+`PriVokeAction` is derived from `ClassificationResult`. It is not a detector output.
 
 Current action policy:
 
-- `BLOCK`: `S3` content.
+- `BLOCK`: high-confidence `S3` content.
 - `WARN`: `S2` content.
 - `WARN`: `IDENTITY` or `LOCATION` combined with restricted/private visibility (`P2`-`P4`) or with each other.
 - `ALLOW`: `S0`/`S1` content that does not meet a warning or blocking rule.
+- Very low-confidence `S3` is downgraded to `WARN`; very low-confidence non-identifying `S2` is allowed.
 
 ## Pipeline
 
@@ -108,13 +109,14 @@ Fusion should:
 - merge categories without duplication,
 - preserve the strongest known visibility, treating `PU` as unknown with comparison score zero,
 - account for entity combinations with a bounded boost,
-- derive `PriVokeAction` from the fused `Classification`,
+- derive `PriVokeAction` from `ClassificationResult`,
 - keep detector evidence attached for telemetry and debugging.
 
 Fusion output shape:
 
 ```python
 {
+    "classification_result": ClassificationResult(...),
     "classification": Classification(...),
     "packed_classification": int,
     "action": PriVokeAction,
@@ -132,7 +134,7 @@ Fusion output shape:
 
 Current policy:
 
-- `BLOCK`: `S3`.
+- `BLOCK`: high-confidence `S3`.
 - `WARN`: `S2`, or identifier/location evidence combined with restricted/private visibility or with each other.
 - `ALLOW`: `S0` or `S1` without an elevated action rule.
 
@@ -149,7 +151,6 @@ Telemetry must not include raw prompt text. It may include:
 - risk score bucket,
 - action,
 - classification dictionary,
-- action,
 - detector version,
 - detector disagreement metadata,
 - entity type names.

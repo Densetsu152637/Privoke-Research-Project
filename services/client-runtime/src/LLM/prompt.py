@@ -1,5 +1,5 @@
-from src import Sensitivity, Visibility, Category
-from src import pretty_print_dict
+from ..classification import Sensitivity, Visibility, Category
+from ..util import pretty_print_dict
 
 system_prompt = """
 You are a STRICT privacy risk detection system for security auditing.

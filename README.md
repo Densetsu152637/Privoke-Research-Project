@@ -16,8 +16,8 @@ Prompt text
   -> layer 1: regex/rule detector
   -> layer 2: NER/entity detector
   -> layer 3: semantic context detector
-  -> fusion into Classification
-  -> Classification-derived PriVokeAction
+  -> ClassificationResult evidence
+  -> ClassificationResult-derived PriVokeAction
   -> metadata-only telemetry
 ```
 
@@ -27,7 +27,7 @@ Each detector should produce evidence that can be mapped into the shared `Classi
 - `Visibility`: `P0`, `P1`, `P2`, `P3`, `P4`, `PU`
 - `Category`: health, politics, religion, criminal, financial, sexual, child, location, identity, and third-party disclosures
 
-`PriVokeAction` is derived from a joined `Classification`. Current policy blocks `S3`, warns and masks `S2`, warns on identifier/location evidence combined with restricted/private visibility or each other, and allows low-risk `S0`/`S1` context.
+`PriVokeAction` is derived from `ClassificationResult`, not a bare `Classification`. Current policy blocks high-confidence `S3`, warns on `S2`, warns on identifier/location evidence combined with restricted/private visibility or each other, and allows low-risk `S0`/`S1` context. Very low-confidence `S3` is downgraded to `WARN` so detector confidence can affect enforcement.
 
 ## Repository Layout
 
@@ -85,4 +85,4 @@ Future subagents should work in bounded areas:
 - Telemetry subagents: improve privacy-preserving event shape without raw text leakage.
 - Service subagents: improve gRPC contracts, parameter streaming, fuzzing, and update persistence.
 
-Subagents should avoid reintroducing string-based category or severity flow. Use `Classification`, `PriVokeAction`, and shared protobuf contracts where applicable.
+Subagents should avoid reintroducing string-based category or severity flow. Use `ClassificationResult`, `PriVokeAction`, and shared protobuf contracts where applicable.

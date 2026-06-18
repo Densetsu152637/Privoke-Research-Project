@@ -10,10 +10,11 @@ from __future__ import annotations
 
 from typing import Iterable, List
 
+
 import spacy
 
-from src import NER_LABEL_USE_CASES, EntityUseCase
-from src import ClassificationResult
+from .use_cases import NER_LABEL_USE_CASES, EntityUseCase
+from ..classification import ClassificationResult
 
 
 class EntityNERDetector:

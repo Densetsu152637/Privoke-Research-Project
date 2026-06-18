@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Dict, Pattern, Tuple
 
-from src import Classification, ClassificationResult
+from ..classification import Classification, ClassificationResult
 
 
 @dataclass(frozen=True)

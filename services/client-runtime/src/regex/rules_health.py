@@ -1,7 +1,7 @@
 from typing import List
 
-from src import Category, Sensitivity, Visibility, initialise_unpacked
-from src import RuleDefinition
+from .rule_types import RuleDefinition
+from ..classification import Category, Sensitivity, Visibility, initialise_unpacked
 
 
 def health_rules() -> List[RuleDefinition]:

@@ -6,7 +6,7 @@ This package contains the non-detector glue for the client runtime:
 - fusion,
 - enforcement.
 
-It should not become a fourth detector layer. Its job is to normalize input, combine detector evidence, derive a `PriVokeAction`, and make enforcement decisions.
+It should not become a fourth detector layer. Its job is to normalize input, combine detector evidence, derive a `PriVokeAction` from `ClassificationResult`, and make enforcement decisions.
 
 ## Files
 
@@ -41,7 +41,7 @@ Fusion should:
 - preserve the strongest known visibility,
 - treat `Visibility.PU` as unknown with comparison score zero,
 - account for entity combinations,
-- derive `PriVokeAction` from the final `Classification`,
+- derive `PriVokeAction` from `ClassificationResult`,
 - carry detector evidence forward for telemetry.
 
 Fusion should not classify by legacy strings such as `"PII"` or `"HIGH"`.
@@ -52,7 +52,7 @@ Enforcement should be deterministic and easy to audit.
 
 Current policy:
 
-- block `S3`,
+- block high-confidence `S3`,
 - warn and mask `S2`, or identifier/location evidence combined with restricted/private visibility or with each other,
 - allow low-risk content.
 

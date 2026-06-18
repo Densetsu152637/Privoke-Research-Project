@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from typing import List, Sequence
 
-from src import ClassificationResult
-from src import heuristic_matches
-from src import all_rule_definitions
-from src import RuleMatch
+from ..classification import ClassificationResult
+from .rule_heuristics import heuristic_matches
+from .rule_registry import all_rule_definitions
+from .rule_types import RuleMatch
 
 
 class RuleDetector:

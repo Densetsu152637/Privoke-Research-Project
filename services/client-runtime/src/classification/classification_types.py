@@ -89,7 +89,7 @@ def compact_visibility(v: Visibility) -> int:
 def compact_category(c: Category) -> int:
     return c.value
 
-def compact_categories(c: List[Category]) -> int:
+def compact_categories(c: Iterable[Category]) -> int:
     compacted = 0
     for category in c:
         compacted |= category.value

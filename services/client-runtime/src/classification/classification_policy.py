@@ -1,12 +1,14 @@
-from typing import Iterable, List
+from typing import Any, Iterable, List
 
-from src.classification.classification_types import (
+from .classification_types import (
     Category,
     Classification,
     PriVokeAction,
     Sensitivity,
     Visibility,
     initialise_unpacked,
+    compact_categories,
+    extract_categories
 )
 
 
@@ -37,13 +39,7 @@ def strongest_visibility(visibilities: Iterable[Visibility]) -> Visibility:
 
 
 def dedupe_categories(categories: Iterable[Category]) -> List[Category]:
-    seen = set()
-    deduped = []
-    for category in categories:
-        if category not in seen:
-            seen.add(category)
-            deduped.append(category)
-    return deduped
+    return extract_categories(compact_categories(categories)) # pack and unpack them linear time
 
 
 def merge_classifications(classifications: Iterable[Classification]) -> Classification:
@@ -67,22 +63,41 @@ def describe_categories(categories: Iterable[Category]) -> str:
     return ", ".join(category_names) if category_names else "NORMAL"
 
 
-def action_for_classification(classification: Classification) -> PriVokeAction:
+def action_for_classification_result(result: Any) -> PriVokeAction:
     """
-    Map a fused Classification directly to the enforcement action it encourages.
+    Map a ClassificationResult to the enforcement action it encourages.
 
-    Precedent from the previous enforcement policy:
+    Current policy preserves the previous classification mapping:
     - S3 content blocks.
     - S2 content warns.
     - Identifier/location categories become warning-level when combined with
       restricted/private visibility or with each other, matching old quasi-PII
       handling.
     - Context-only S0/S1 content stays allowed.
-    """
-    categories = set(classification.categories())
-    sensitivity = classification.sensitivity()
-    visibility = classification.visibility()
 
+    Result-level context is intentionally part of the boundary. Today it only
+    moderates very low-confidence S3/S2 results; source, span, and metadata can
+    be used for more specific detector policies without changing callers again.
+    """
+    classification = result.classification
+    confidence = _result_confidence(result)
+
+    if _is_low_confidence(confidence):
+        return _low_confidence_result_action(classification)
+
+    return _baseline_action(
+        classification.sensitivity(),
+        classification.visibility(),
+        classification.categories(),
+    )
+
+
+def _baseline_action(
+    sensitivity: Sensitivity,
+    visibility: Visibility,
+    result_categories: Iterable[Category],
+) -> PriVokeAction:
+    categories = set(result_categories)
     if sensitivity == Sensitivity.S0 and not categories:
         return PriVokeAction.ALLOW
 
@@ -109,3 +124,26 @@ def action_for_classification(classification: Classification) -> PriVokeAction:
         return PriVokeAction.WARN
 
     return PriVokeAction.ALLOW
+
+
+def _low_confidence_result_action(
+    classification: Classification,
+) -> PriVokeAction:
+    if classification.sensitivity() == Sensitivity.S3:
+        return PriVokeAction.WARN
+    if classification.sensitivity() == Sensitivity.S2:
+        categories = set(classification.categories())
+        if categories & {Category.IDENTITY, Category.LOCATION}:
+            return PriVokeAction.WARN
+    return PriVokeAction.ALLOW
+
+
+def _result_confidence(result: Any) -> float | None:
+    confidence = getattr(result, "confidence", None)
+    if isinstance(confidence, (int, float)):
+        return float(confidence)
+    return None
+
+
+def _is_low_confidence(confidence: float | None) -> bool:
+    return confidence is not None and confidence < 0.5

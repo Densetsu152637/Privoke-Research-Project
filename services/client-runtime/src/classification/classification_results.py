@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple
 
-from src.classification.classification_policy import action_for_classification
-from src.classification.classification_types import (
+from .classification_policy import action_for_classification_result
+from .classification_types import (
     Category,
     Classification,
     PriVokeAction,
@@ -27,7 +27,7 @@ class ClassificationResult:
         self.metadata = _parse_metadata(self.metadata)
 
     def action(self) -> PriVokeAction:
-        return action_for_classification(self.classification)
+        return action_for_classification_result(self)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
