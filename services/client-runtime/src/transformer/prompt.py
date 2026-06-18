@@ -1,4 +1,4 @@
-from src.classification import Sensitivity, Visibility, Category, RiskVector
+from src.classification import Sensitivity, Visibility, Category
 from src.util import pretty_print_dict
 
 system_prompt = """
@@ -38,28 +38,19 @@ Classification definitions:
     - LOCATION: Address, precise location, routes, private whereabouts
     - IDENTITY: Names, emails, phones, IDs, usernames, credentials, tokens
     - THIRD_PARTY: Sensitive information about someone other than the speaker
-  
-- Risk Vector guidance:
-    - NORMAL: no/little risk
-    - CONTEXTUAL: risk within the semantic context of the text
-    - AUTH: risk that unauthorised people will see text 
-    - QUASI_PII: risk that people outside a private group will see text
-    - DIRECT_PII: risk that anyone but me will see text
 """
 
 sense_string = " | ".join(Sensitivity)
 vis_string = " | ".join(Visibility)
 categories_string = " | ".join(Category)
-risk_string = " | ".join(RiskVector)
 
 prompt_json_format = {
-    "section_of_text": "insert_text_here",
     "sensitivity": {sense_string},
     "visibility": {vis_string},
     "categories": [
         {categories_string}
     ],
-    "risk_vector": {risk_string},
+    "section_of_text": "text_goes_here",
     "reasoning": "Brief explanation of classification decision"
 }
 

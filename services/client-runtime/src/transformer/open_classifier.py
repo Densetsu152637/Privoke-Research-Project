@@ -1,11 +1,12 @@
 
 import os
 import json
-from typing import Dict, List
+from typing import List
 from dotenv import load_dotenv
 from openai import OpenAI
 from .prompt import system_prompt, user_prompt
-from .abs_classifier import AbstractClassifier, LLMResult, built_results
+from .abs_classifier import AbstractClassifier
+from ..classification import ClassificationResult, build_results
 
 load_dotenv()
 
@@ -28,7 +29,7 @@ class OpenClassifier(AbstractClassifier):
     def classify(self, text: str) -> List[ClassificationResult]:
         response = self.client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[
+            messages = [
                 {
                     "role": "system", 
                     "content": system_prompt
@@ -47,4 +48,4 @@ class OpenClassifier(AbstractClassifier):
 
         content = response.choices[0].message.content.strip()
 
-        return built_results(json.loads(content))
+        return build_results(json.loads(content))

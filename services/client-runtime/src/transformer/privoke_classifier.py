@@ -1,5 +1,7 @@
 
-from abs_classifier import AbstractClassifier
+from typing import List, Dict
+from .abs_classifier import AbstractClassifier
+from ..classification import ClassificationResult
 
 class PriVokeClassifier(AbstractClassifier):
 

@@ -1,6 +1,6 @@
 
 from enum import Enum
-from typing import Iterable, List
+from typing import Iterable, List, Dict
 
 class DefEnum(Enum):
 
@@ -178,6 +178,7 @@ def risk_vector_for_classification(classification: Classification) -> RiskVector
         Category.IDENTITY,
         Category.LOCATION
     }
+
     contextual_categories = {
         Category.HEALTH,
         Category.POLITICS,
@@ -239,14 +240,42 @@ def initialise_packed(n: int) -> Classification:
 def initialise_unpacked(s: Sensitivity, v: Visibility, c: List[Category]) -> Classification:
     return Classification(compact_sensitivity(s) | compact_visibility(v) | compact_categories(c))
 
+# meaningful result from classification
 
 class ClassificationResult:
 
     classification: Classification
-    risk_vector: RiskVector
+    section_of_text: str
     reasoning: str
 
-    def __init__(self, classification: Classification, risk_vector: RiskVector, reasoning: str):
+    def __init__(self, classification: Classification, text: str, reasoning: str):
         self.classification = classification
-        self.risk_vector = risk_vector
+        self.section_of_text = text
         self.reasoning = reasoning
+
+    def risk_vector(self) -> RiskVector:
+        return risk_vector_for_classification(self.classification)
+
+def build_results(content: List[Dict]) -> List[ClassificationResult]:
+    return list(map(parse_result, content))
+
+def parse_result(parsed: Dict) -> ClassificationResult:
+    """
+    Convert model JSON into internal enum-backed classification output.
+    """
+
+    sensitivity = Sensitivity[parsed.get("sensitivity", "S0")]
+    visibility = Visibility[parsed.get("visibility", "PU")]
+
+    categories = []
+    raw_categories = parsed.get("categories", [])
+    for raw_category in raw_categories:
+        categories.append(Category[raw_category])
+
+    classification = initialise_unpacked(sensitivity, visibility, categories)
+
+    return ClassificationResult(
+        classification,
+        parsed.get("section_of_text", "Unknown Text"),
+        parsed.get("reasoning", "Unknown Reason")
+    )
