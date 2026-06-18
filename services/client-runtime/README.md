@@ -75,13 +75,15 @@ Rules should not return legacy category or severity strings.
 
 ### Layer 2: NER and Entity Extraction
 
-`NER/ner_detector.py` extracts structured entities. It should combine:
+`NER/ner_detector.py` extracts model-backed natural-language entities. It should provide:
 
-- deterministic extraction for email, phone, URLs, cards, SSNs, usernames,
 - spaCy or another NER model for names, locations, organizations, and related entities,
 - span metadata,
 - confidence metadata,
+- `Classification` metadata,
 - entity summary flags for fusion.
+
+Deterministic extraction for email, phone, URLs, cards, SSNs, and usernames belongs in the regex pass.
 
 NER should be precise about spans because enforcement masking depends on it.
 

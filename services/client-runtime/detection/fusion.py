@@ -9,12 +9,9 @@ strings.
 from typing import Dict, List
 
 from classification import (
-    Category,
     Classification,
     RiskVector,
     Sensitivity,
-    Visibility,
-    dedupe_categories,
     describe_categories,
     initialise_unpacked,
     merge_classifications,
@@ -44,8 +41,8 @@ class FusionEngine:
 
         rule_classification = self._classification_from_result(rule_result)
         llm_classification = self._classification_from_result(llm_result)
+        ner_classification = self._classification_from_result(ner_result)
         entity_flags = self._entity_flags(llm_result, ner_result)
-        entity_classification = self._classification_from_entities(entity_flags)
 
         entity_boost = self._entity_boost(entity_flags)
         if self._has_sensitive_disagreement(rule_classification, llm_classification):
@@ -57,7 +54,7 @@ class FusionEngine:
             + entity_boost * 0.2
         )
         merged_context = merge_classifications(
-            [rule_classification, llm_classification, entity_classification]
+            [rule_classification, llm_classification, ner_classification]
         )
         final_sensitivity = max(
             self._score_to_sensitivity(weighted_score),
@@ -76,7 +73,13 @@ class FusionEngine:
             final_classification,
         )
 
-        signals_used = self._signals_used(rule_result, llm_result, entity_flags, entity_boost)
+        signals_used = self._signals_used(
+            rule_result,
+            llm_result,
+            ner_result,
+            entity_flags,
+            entity_boost,
+        )
 
         return {
             "classification": final_classification,
@@ -99,7 +102,7 @@ class FusionEngine:
             "detector_confidence": {
                 "rule_classification": rule_classification.to_dict(),
                 "llm_classification": llm_classification.to_dict(),
-                "entity_classification": entity_classification.to_dict(),
+                "ner_classification": ner_classification.to_dict(),
                 "entity_boost": round(entity_boost, 2),
             },
         }
@@ -128,33 +131,10 @@ class FusionEngine:
             ),
             "ssn": bool(llm_entities.get("ssn") or ner_summary.get("has_ssn")),
             "api_key": bool(llm_entities.get("api_key")),
+            "organization": bool(
+                llm_entities.get("organization") or ner_summary.get("has_organization")
+            ),
         }
-
-    def _classification_from_entities(self, entity_flags: Dict[str, bool]) -> Classification:
-        categories: List[Category] = []
-        sensitivity = Sensitivity.S0
-
-        if entity_flags["credit_card"]:
-            categories.extend([Category.FINANCIAL, Category.IDENTITY])
-            sensitivity = Sensitivity.S3
-        if entity_flags["ssn"] or entity_flags["api_key"]:
-            categories.append(Category.IDENTITY)
-            sensitivity = Sensitivity.S3
-        if entity_flags["email"] or entity_flags["phone"]:
-            categories.append(Category.IDENTITY)
-            sensitivity = max(sensitivity, Sensitivity.S3, key=sensitivity_score)
-        if entity_flags["name"] or entity_flags["username"]:
-            categories.append(Category.IDENTITY)
-            sensitivity = max(sensitivity, Sensitivity.S2, key=sensitivity_score)
-        if entity_flags["location"]:
-            categories.append(Category.LOCATION)
-            sensitivity = max(sensitivity, Sensitivity.S2, key=sensitivity_score)
-
-        return initialise_unpacked(
-            sensitivity,
-            Visibility.PU,
-            dedupe_categories(categories),
-        )
 
     def _entity_boost(self, entity_flags: Dict[str, bool]) -> float:
         email = entity_flags["email"]
@@ -165,6 +145,7 @@ class FusionEngine:
         credit_card = entity_flags["credit_card"]
         ssn = entity_flags["ssn"]
         api_key = entity_flags["api_key"]
+        organization = entity_flags["organization"]
 
         if (credit_card or ssn) and (name or email):
             return 3.0
@@ -180,6 +161,8 @@ class FusionEngine:
             return 1.8
         if (name and username) or (location and username):
             return 1.5
+        if (name and organization) or (location and organization):
+            return 1.4
         if name:
             return 1.3
         if location or username:
@@ -222,10 +205,14 @@ class FusionEngine:
         self,
         rule_result: Dict,
         llm_result: Dict,
+        ner_result: Dict,
         entity_flags: Dict[str, bool],
         entity_boost: float,
     ) -> List[str]:
         signals = list(rule_result.get("signals", []))
+        ner_signals = ner_result.get("signals", [])
+        if isinstance(ner_signals, list):
+            signals.extend(ner_signals)
         signals.extend(key for key, value in entity_flags.items() if value)
 
         if entity_boost >= 2.5:

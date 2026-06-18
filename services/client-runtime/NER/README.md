@@ -1,25 +1,19 @@
 # NER Entity Detector
 
-This directory contains layer 2 of the PriVoke detection pipeline: named entity and structured entity extraction.
+This directory contains layer 2 of the PriVoke detection pipeline: named entity extraction.
 
-NER sits between deterministic regex rules and semantic context detection. Its job is to find entity spans and entity combinations that rules may miss or that semantic detection should not have to reconstruct from raw text.
+NER sits between deterministic regex rules and semantic context detection. Its job is to find natural-language entity spans and entity combinations that rules may miss or that semantic detection should not have to reconstruct from raw text.
 
 ## Responsibilities
 
-The NER detector should extract:
+The NER detector should extract model-backed entities such as:
 
-- email addresses,
-- phone numbers,
-- usernames and handles,
 - names,
 - locations,
-- credit cards,
-- SSNs,
-- URLs,
 - organization or workplace references when useful,
-- raw model entities when an ML NER backend is available.
+- raw model entities when a NER backend is available.
 
-The detector may combine regex extraction with spaCy or another NER model. Regex extraction is appropriate for rigid formats such as email and cards. ML NER is appropriate for names, locations, organizations, and other natural-language entities.
+Rigid formats such as emails, phone numbers, cards, SSNs, URLs, and handles belong in the regex pass. NER should use spaCy or another NER model for names, locations, organizations, and related natural-language entities.
 
 ## Output Contract
 
@@ -28,7 +22,7 @@ The detector may combine regex extraction with spaCy or another NER model. Regex
 - typed entity lists,
 - `span` for each entity where available,
 - confidence values,
-- `RiskVector` metadata for entity type,
+- `Classification` metadata for classified entity use cases,
 - raw NER model entities,
 - `entity_summary` boolean flags.
 
@@ -45,18 +39,15 @@ Entity objects should be shaped consistently:
     "text": "...",
     "span": (start, end),
     "confidence": 0.90,
-    "type": RiskVector.QUASI_PII,
-    "source": "regex" | "spacy" | "model"
+    "classification": Classification(...),
+    "packed_classification": 8222,
+    "source": "spacy" | "model"
 }
 ```
 
 ## Fallback Behavior
 
-The detector should still work when spaCy is unavailable. Regex-only mode should:
-
-- extract rigid identifiers,
-- populate `entity_summary`,
-- avoid raising exceptions during pipeline execution.
+The detector should still work when spaCy is unavailable. Disabled-backend mode should return empty entity lists, a neutral `Classification`, an empty `entity_summary`, and avoid raising exceptions during pipeline execution.
 
 ## Subagent Tasks
 
@@ -68,4 +59,4 @@ NER subagents should:
 - add confidence calibration,
 - add tests for fallback mode,
 - connect masking to entity spans instead of broad regex replacement,
-- add domain-specific entity types only when they map cleanly into `Classification` or `RiskVector`.
+- add domain-specific entity types only when they map cleanly into `Classification`.
