@@ -1,6 +1,6 @@
 # PriVoke Client Runtime
 
-The client runtime is the reference implementation of PriVoke's prompt privacy pipeline. It is responsible for inspecting prompt text before it leaves the client, assigning a structured privacy `Classification`, deriving a `RiskVector`, deciding enforcement, and emitting metadata-only telemetry.
+The client runtime is the reference implementation of PriVoke's prompt privacy pipeline. It is responsible for inspecting prompt text before it leaves the client, assigning a structured privacy `Classification`, deriving a `PriVokeAction`, and emitting metadata-only telemetry.
 
 The runtime follows a three-layer detection design similar to Casper-style prompt sanitization research:
 
@@ -20,15 +20,14 @@ Every detector should produce evidence that maps into `classification.py`.
 - `Visibility`: `P0`, `P1`, `P2`, `P3`, `P4`, `PU`
 - `Category`: `HEALTH`, `POLITICS`, `RELIGION`, `CRIMINAL`, `FINANCIAL`, `SEXUAL`, `CHILD`, `LOCATION`, `IDENTITY`, `THIRD_PARTY`
 
-`RiskVector` is derived from the final fused `Classification`. It is not a fourth detector dimension.
+`PriVokeAction` is derived from the final fused `Classification`. It is not a detector output.
 
-Current vectors:
+Current action policy:
 
-- `NORMAL`: no meaningful privacy signal.
-- `CONTEXTUAL`: sensitive context without direct identifier dominance.
-- `AUTH`: structured identity/authentication context, commonly restricted behind authentication.
-- `QUASI_PII`: weak or combined identifiers that can become identifying.
-- `DIRECT_PII`: direct identifiers or high sensitivity identifier/financial/location disclosures.
+- `BLOCK`: `S3` content.
+- `WARN`: `S2` content.
+- `WARN`: `IDENTITY` or `LOCATION` combined with restricted/private visibility (`P2`-`P4`) or with each other.
+- `ALLOW`: `S0`/`S1` content that does not meet a warning or blocking rule.
 
 ## Pipeline
 
@@ -81,7 +80,7 @@ Rules should not return legacy category or severity strings.
 - span metadata,
 - confidence metadata,
 - `Classification` metadata,
-- derived `RiskVector` metadata,
+- derived `PriVokeAction` metadata,
 - a flat entity list for future span-based masking.
 
 Deterministic extraction for email, phone, URLs, cards, SSNs, and usernames belongs in the regex pass.
@@ -109,7 +108,7 @@ Fusion should:
 - merge categories without duplication,
 - preserve the strongest known visibility, treating `PU` as unknown with comparison score zero,
 - account for entity combinations with a bounded boost,
-- derive `RiskVector` from the fused `Classification`,
+- derive `PriVokeAction` from the fused `Classification`,
 - keep detector evidence attached for telemetry and debugging.
 
 Fusion output shape:
@@ -118,12 +117,7 @@ Fusion output shape:
 {
     "classification": Classification(...),
     "packed_classification": int,
-    "risk_vector": RiskVector,
-    "risk_vector_explanation": {
-        "reason": str,
-        "signals_used": list[str],
-        "entity_boost_applied": float,
-    },
+    "action": PriVokeAction,
     "raw_score": float,
     "risk_score_details": dict,
     "rule": dict,
@@ -138,9 +132,9 @@ Fusion output shape:
 
 Current policy:
 
-- `BLOCK_PROMPT`: `S3` or `RiskVector.DIRECT_PII`.
-- `WARN_AND_MASK`: `S2`, `RiskVector.QUASI_PII`, or `RiskVector.AUTH`.
-- `ALLOW`: `S0` or `S1` without an elevated vector.
+- `BLOCK`: `S3`.
+- `WARN`: `S2`, or identifier/location evidence combined with restricted/private visibility or with each other.
+- `ALLOW`: `S0` or `S1` without an elevated action rule.
 
 Enforcement should be deterministic and auditable. Masking should use entity spans where possible, with regex fallback when span data is missing.
 
@@ -155,7 +149,7 @@ Telemetry must not include raw prompt text. It may include:
 - risk score bucket,
 - action,
 - classification dictionary,
-- risk vector,
+- action,
 - detector version,
 - detector disagreement metadata,
 - entity type names.
@@ -215,7 +209,7 @@ Semantic detector subagent:
 
 Fusion/enforcement subagent:
 
-- improve `RiskVector` derivation,
+- improve action derivation,
 - tune entity boosts,
 - test disagreement behavior,
 - ensure enforcement actions are explainable.
@@ -236,8 +230,8 @@ python -m compileall services\client-runtime
 
 Recommended smoke checks:
 
-- direct email should produce `IDENTITY` and `DIRECT_PII`,
-- structured username under restricted visibility should produce `AUTH`,
+- direct high-sensitivity identifiers should produce `IDENTITY` and `BLOCK`,
+- structured username under restricted visibility should produce `WARN`,
 - group chat context should produce `P3`,
 - personal diary/private note context should produce `P4`,
-- safe text should produce `RiskVector.NORMAL`.
+- safe text should produce `PriVokeAction.ALLOW`.

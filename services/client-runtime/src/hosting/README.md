@@ -11,7 +11,7 @@ Hosting code should:
 - expose a local API for prompt inspection,
 - receive raw prompt text and optional context metadata,
 - call the client-runtime pipeline,
-- return action, masked text if applicable, classification metadata, and risk vector,
+- return action, masked text if applicable, and classification metadata,
 - avoid sending raw prompts to telemetry,
 - avoid bypassing enforcement.
 
@@ -40,7 +40,6 @@ Hosting code should:
     "categories": [],
     "packed": 28
   },
-  "risk_vector": "NORMAL",
   "reason": "S0/S1 risk content allowed"
 }
 ```

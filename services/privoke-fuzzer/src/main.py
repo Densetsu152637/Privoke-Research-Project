@@ -12,7 +12,7 @@ Architecture:
    - Entity/NER Detector
    - Semantic LLM Risk Detector
 4. Fusion + Risk Scoring Engine
-5. Enforcement Engine (ALLOW/WARN_AND_MASK/BLOCK)
+5. Enforcement Engine (ALLOW/WARN/BLOCK)
 6. Structured Event Emitter (Metadata telemetry)
 7. Target Application Output
 
@@ -29,7 +29,13 @@ from src import EnforcementEngine
 from src import StructuredEventEmitter
 
 from datetime import datetime
-from classification import Classification, Sensitivity, Visibility, initialise_unpacked
+from classification import (
+    Classification,
+    Sensitivity,
+    Visibility,
+    action_for_classification,
+    initialise_unpacked,
+)
 
 
 def format_classification(classification: Classification) -> str:
@@ -143,7 +149,10 @@ def run_full_pipeline():
         print(f"\n[LAYER 3B] ENTITY/NER DETECTOR (Structured Entity Extraction)")
         ner_result = ner_detector.extract_entities(normalized_text)
         print(f"  Classification: {format_classification(ner_result['classification'])}")
-        print(f"  Risk Vector: {format_enum(ner_result['risk_vector'])}")
+        print(
+            "  Suggested Action: "
+            f"{format_enum(action_for_classification(ner_result['classification']))}"
+        )
         print(f"  Signals: {', '.join(ner_result['signals']) if ner_result['signals'] else 'no_ner_signal'}")
         print(f"  Classified entities: {len(ner_result['entities'])}")
         
@@ -194,8 +203,10 @@ def run_full_pipeline():
         
         print(f"  Final Classification: {format_classification(fused_output['classification'])}")
         print(f"  Risk Score: {raw_score:.3f}")
-        print(f"  Risk Vector: {format_enum(fused_output.get('risk_vector'))}")
-        print(f"  Reason: {fused_output.get('risk_vector_explanation', {}).get('reason')}")
+        print(
+            "  Suggested Action: "
+            f"{format_enum(action_for_classification(fused_output['classification']))}"
+        )
         
         rule_categories = set(rule_result["classification"].categories())
         llm_categories = set(llm_result["classification"].categories())
@@ -221,12 +232,12 @@ def run_full_pipeline():
         print(f"  ACTION: {action}")
         print(f"  Reason: {enforcement_output.get('reason')}")
         
-        if action == "WARN_AND_MASK":
+        if action == "WARN":
             print(f"   MASKED OUTPUT:")
             print(f"     {enforcement_output.get('masked_text')}")
             if enforcement_output.get('entities_masked'):
                 print(f"   MASKED ENTITIES: {enforcement_output.get('entities_masked')}")
-        elif action == "BLOCK_PROMPT":
+        elif action == "BLOCK":
             print(f"   PROMPT BLOCKED - Not sent to target application")
         else:
             print(f"   PROMPT ALLOWED - Forwarding to target application")
@@ -256,7 +267,7 @@ def run_full_pipeline():
         print(f"  Normalized Text: {normalized_text}")
         print(f"  Enforcement Action: {action}")
         
-        if action == "WARN_AND_MASK":
+        if action == "WARN":
             print(f"  Display to User: {enforcement_output.get('masked_text')}")
         elif action == "ALLOW":
             print(f"  Display to User: {original_text}")

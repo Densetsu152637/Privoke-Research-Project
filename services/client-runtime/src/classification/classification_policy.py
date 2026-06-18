@@ -3,7 +3,7 @@ from typing import Iterable, List
 from src.classification.classification_types import (
     Category,
     Classification,
-    RiskVector,
+    PriVokeAction,
     Sensitivity,
     Visibility,
     initialise_unpacked,
@@ -67,56 +67,45 @@ def describe_categories(categories: Iterable[Category]) -> str:
     return ", ".join(category_names) if category_names else "NORMAL"
 
 
-def risk_vector_for_classification(classification: Classification) -> RiskVector:
+def action_for_classification(classification: Classification) -> PriVokeAction:
+    """
+    Map a fused Classification directly to the enforcement action it encourages.
+
+    Precedent from the previous enforcement policy:
+    - S3 content blocks.
+    - S2 content warns.
+    - Identifier/location categories become warning-level when combined with
+      restricted/private visibility or with each other, matching old quasi-PII
+      handling.
+    - Context-only S0/S1 content stays allowed.
+    """
     categories = set(classification.categories())
     sensitivity = classification.sensitivity()
     visibility = classification.visibility()
 
     if sensitivity == Sensitivity.S0 and not categories:
-        return RiskVector.NORMAL
+        return PriVokeAction.ALLOW
 
     identifier_categories = {
         Category.IDENTITY,
         Category.LOCATION,
     }
 
-    contextual_categories = {
-        Category.HEALTH,
-        Category.POLITICS,
-        Category.RELIGION,
-        Category.CRIMINAL,
-        Category.FINANCIAL,
-        Category.SEXUAL,
-        Category.CHILD,
-        Category.THIRD_PARTY,
-    }
-
     has_identifier = bool(categories & identifier_categories)
-    has_contextual = bool(categories & contextual_categories)
 
-    if sensitivity == Sensitivity.S3 and (
-        has_identifier or Category.FINANCIAL in categories
-    ):
-        return RiskVector.DIRECT_PII
+    if sensitivity == Sensitivity.S3:
+        return PriVokeAction.BLOCK
 
-    if (
-        Category.IDENTITY in categories
-        and visibility == Visibility.P2
-        and sensitivity_score(sensitivity) >= sensitivity_score(Sensitivity.S2)
-    ):
-        return RiskVector.AUTH
+    if sensitivity == Sensitivity.S2:
+        return PriVokeAction.WARN
 
     if (
         has_identifier
         and (
             len(categories & identifier_categories) > 1
             or is_restricted_or_private(visibility)
-            or sensitivity_score(sensitivity) >= sensitivity_score(Sensitivity.S2)
         )
     ):
-        return RiskVector.QUASI_PII
+        return PriVokeAction.WARN
 
-    if has_contextual or categories:
-        return RiskVector.CONTEXTUAL
-
-    return RiskVector.NORMAL
+    return PriVokeAction.ALLOW

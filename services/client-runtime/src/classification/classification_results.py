@@ -1,11 +1,11 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple
 
-from src.classification.classification_policy import risk_vector_for_classification
+from src.classification.classification_policy import action_for_classification
 from src.classification.classification_types import (
     Category,
     Classification,
-    RiskVector,
+    PriVokeAction,
     Sensitivity,
     Visibility,
     initialise_unpacked,
@@ -26,14 +26,14 @@ class ClassificationResult:
     def __post_init__(self):
         self.metadata = _parse_metadata(self.metadata)
 
-    def risk_vector(self) -> RiskVector:
-        return risk_vector_for_classification(self.classification)
+    def action(self) -> PriVokeAction:
+        return action_for_classification(self.classification)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "classification": self.classification.to_dict(),
             "packed_classification": self.classification.pack(),
-            "risk_vector": self.risk_vector().name,
+            "action": self.action().name,
             "section_of_text": self.section_of_text,
             "reasoning": self.reasoning,
             "span": self.span,

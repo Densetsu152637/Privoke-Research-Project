@@ -2,7 +2,12 @@ from datetime import datetime
 from typing import Dict, Optional
 import json
 
-from src import Category, Classification, RiskVector
+from src import (
+    Category,
+    Classification,
+    PriVokeAction,
+    action_for_classification,
+)
 
 
 class StructuredEventEmitter:
@@ -13,7 +18,7 @@ class StructuredEventEmitter:
     - Time bucket (date/hour)
     - Risk category derived from Classification categories
     - Risk score bucket (0-0.2, 0.2-0.5, 0.5-0.8, 0.8-1.0)
-    - Action taken (Allow/Warn+Mask/Block)
+    - Action taken (Allow/Warn/Block)
     - Detector version (v1, v2, v2.1, etc.)
     
     Phase 3 Privacy Preserving Telemetry & Analytics pipeline will collect these events on server-side.
@@ -47,9 +52,8 @@ class StructuredEventEmitter:
             "risk_category": "PII | HEALTH | FINANCE | CREDENTIALS | NORMAL",
             "risk_score": 0.45,  # numeric 0-1
             "risk_score_bucket": "0.2-0.5",
-            "action_taken": "ALLOW | WARN_AND_MASK | BLOCK_PROMPT",
+            "action_taken": "ALLOW | WARN | BLOCK",
             "classification": {"sensitivity": "S3", "visibility": "PU", "categories": ["IDENTITY"]},
-            "risk_vector": "DIRECT_PII | QUASI_PII | AUTH | CONTEXTUAL | NORMAL",
             "detector_version": "v1",
             "metadata": {
                 "text_length": 156,
@@ -87,9 +91,7 @@ class StructuredEventEmitter:
         )
         disagreement = self._disagreement(rule_classification, llm_classification)
 
-        risk_vector = fused_output.get("risk_vector", RiskVector.NORMAL)
-        if not isinstance(risk_vector, RiskVector):
-            risk_vector = RiskVector.NORMAL
+        action_taken = self._action_name(enforcement_output, fused_output)
         
         event = {
             "event_id": self._generate_event_id(timestamp, original_text),
@@ -99,9 +101,8 @@ class StructuredEventEmitter:
             "risk_category": risk_category,
             "risk_score": round(raw_score, 3),
             "risk_score_bucket": risk_score_bucket,
-            "action_taken": enforcement_output.get("action", "ALLOW"),
+            "action_taken": action_taken,
             "classification": fused_output["classification"].to_dict(),
-            "risk_vector": risk_vector.name,
             "detector_version": self.detector_version,
             "metadata": {
                 "text_length": len(original_text),
@@ -123,17 +124,28 @@ class StructuredEventEmitter:
             return "NORMAL"
 
         categories = set(classification.categories())
-        risk_vector = fused_output.get("risk_vector", RiskVector.NORMAL)
 
         if Category.HEALTH in categories:
             return "HEALTH"
         if Category.FINANCIAL in categories:
             return "FINANCE"
-        if risk_vector in [RiskVector.DIRECT_PII, RiskVector.QUASI_PII, RiskVector.AUTH]:
+        if categories & {Category.IDENTITY, Category.LOCATION}:
             return "PII"
         if categories:
             return "SENSITIVE"
         return "NORMAL"
+
+    def _action_name(self, enforcement_output: Dict, fused_output: Dict) -> str:
+        action = enforcement_output.get("action")
+        if isinstance(action, PriVokeAction):
+            return action.name
+        if isinstance(action, str):
+            return action
+
+        classification = fused_output.get("classification")
+        if isinstance(classification, Classification):
+            return action_for_classification(classification).name
+        return PriVokeAction.ALLOW.name
 
     def _classification_from(self, result: Dict) -> Classification:
         classification = result.get("classification")

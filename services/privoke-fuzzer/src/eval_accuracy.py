@@ -7,8 +7,8 @@ DESCRIPTION:
   PANORAMA dataset. The detector identifies 7 types of privacy risks (NORMAL,
   PII, CREDENTIAL, HEALTH, FINANCIAL, etc.) and determines enforcement actions:
   - ALLOW: No privacy risk
-  - WARN_AND_MASK: Medium risk - mask sensitive entities
-  - BLOCK_PROMPT: High risk - reject input entirely
+  - WARN: Medium risk - mask sensitive entities
+  - BLOCK: High risk - reject input entirely
 
 HOW TO RUN:
   Basic evaluation on 100 samples:
@@ -44,13 +44,13 @@ INTERPRETING THE OUTPUT:
   
   ENFORCEMENT ACTION DISTRIBUTION:
     - ALLOW: Safely passed to target application
-    - WARN_AND_MASK: Flagged and sensitive entities masked with [TAGS]
-    - BLOCK_PROMPT: Rejected - too sensitive to process
+    - WARN: Flagged and sensitive entities masked with [TAGS]
+    - BLOCK: Rejected - too sensitive to process
   
   Expected Results:
     - High detection rate (80-95%) on PANORAMA (privacy-rich dataset)
-    - Most content → WARN_AND_MASK (medium risk quasi-identifiers)
-    - Some → BLOCK_PROMPT (direct identifiers like SSN, full CC)
+    - Most content → WARN (medium risk quasi-identifiers)
+    - Some → BLOCK (direct identifiers like SSN, full CC)
     - Small % -> ALLOW (genuinely non-sensitive)
 
 SAMPLE PREDICTIONS:
@@ -58,7 +58,7 @@ SAMPLE PREDICTIONS:
     - Original text (truncated)
     - Category detected (PII/NORMAL/etc.)
     - Severity (LOW/MEDIUM/HIGH)
-    - Enforcement action (ALLOW/WARN_AND_MASK/BLOCK_PROMPT)
+    - Enforcement action (ALLOW/WARN/BLOCK)
 ================================================================================
 """
 

@@ -17,8 +17,7 @@ Prompt text
   -> layer 2: NER/entity detector
   -> layer 3: semantic context detector
   -> fusion into Classification
-  -> derived RiskVector
-  -> enforcement decision
+  -> Classification-derived PriVokeAction
   -> metadata-only telemetry
 ```
 
@@ -28,7 +27,7 @@ Each detector should produce evidence that can be mapped into the shared `Classi
 - `Visibility`: `P0`, `P1`, `P2`, `P3`, `P4`, `PU`
 - `Category`: health, politics, religion, criminal, financial, sexual, child, location, identity, and third-party disclosures
 
-`RiskVector` is not an input label. It is derived from a joined `Classification`, and currently describes operational handling classes such as `NORMAL`, `CONTEXTUAL`, `AUTH`, `QUASI_PII`, and `DIRECT_PII`.
+`PriVokeAction` is derived from a joined `Classification`. Current policy blocks `S3`, warns and masks `S2`, warns on identifier/location evidence combined with restricted/private visibility or each other, and allows low-risk `S0`/`S1` context.
 
 ## Repository Layout
 
@@ -82,8 +81,8 @@ Future subagents should work in bounded areas:
 - Rule detector subagents: add or refine regex rules, signals, visibility cues, and `Classification` mappings.
 - NER subagents: improve entity extraction, span handling, entity normalization, confidence, and fallback behavior.
 - Semantic detector subagents: improve contextual classification prompts or local model behavior while preserving the `Classification` contract.
-- Fusion/enforcement subagents: adjust scoring, disagreement handling, `RiskVector` derivation, masking, and action policy.
+- Fusion/enforcement subagents: adjust scoring, disagreement handling, masking, and action policy.
 - Telemetry subagents: improve privacy-preserving event shape without raw text leakage.
 - Service subagents: improve gRPC contracts, parameter streaming, fuzzing, and update persistence.
 
-Subagents should avoid reintroducing string-based category or severity flow. Use `Classification`, `RiskVector`, and shared protobuf contracts where applicable.
+Subagents should avoid reintroducing string-based category or severity flow. Use `Classification`, `PriVokeAction`, and shared protobuf contracts where applicable.

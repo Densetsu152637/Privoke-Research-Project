@@ -15,7 +15,7 @@ The telemetry emitter should capture:
 - risk score and score bucket,
 - enforcement action,
 - final `Classification`,
-- derived `RiskVector`,
+- derived `PriVokeAction`,
 - detector version,
 - entity type names,
 - detector disagreement metadata.
@@ -35,14 +35,13 @@ Events should look like:
   "risk_category": "PII",
   "risk_score": 0.92,
   "risk_score_bucket": "0.8-1.0",
-  "action_taken": "BLOCK_PROMPT",
+  "action_taken": "BLOCK",
   "classification": {
     "sensitivity": "S3",
     "visibility": "PU",
     "categories": ["IDENTITY"],
     "packed": 8223
   },
-  "risk_vector": "DIRECT_PII",
   "detector_version": "v1",
   "metadata": {
     "text_length": 48,

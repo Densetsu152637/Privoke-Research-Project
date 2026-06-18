@@ -1,21 +1,20 @@
 from enum import Enum
 from typing import Iterable, List
 
+from ..util import typeof
 
 class DefEnum(Enum):
     def __str__(self):
         return f"{self.name}"
 
     def __repr__(self):
-        return f"{self.__class__}.{self.name}"
-
+        return f"{typeof(self)}.{self.name}"
 
 class Sensitivity(DefEnum):
     S0 = 0b00
     S1 = 0b01
     S2 = 0b10
     S3 = 0b11
-
 
 class Visibility(DefEnum):
     P0 = 0b00100
@@ -24,7 +23,6 @@ class Visibility(DefEnum):
     P3 = 0b10000
     P4 = 0b10100
     PU = 0b11100
-
 
 class Category(DefEnum):
     HEALTH = 0b000000000100000
@@ -38,21 +36,10 @@ class Category(DefEnum):
     IDENTITY = 0b010000000000000
     THIRD_PARTY = 0b100000000000000
 
-
-class RiskVector(DefEnum):
-    NORMAL = 0
-    CONTEXTUAL = 1
-    AUTH = 2
-    QUASI_PII = 3
-    DIRECT_PII = 4
-    UNKNOWN = 5
-
-
 s_mask = 0b00011
 v_mask = 0b11100
 c_mask = 0x7FE0
 n_mask = 0xFFFF
-
 
 class Classification:
     n: int
@@ -93,18 +80,14 @@ class Classification:
             "packed": self.pack(),
         }
 
-
 def compact_sensitivity(s: Sensitivity) -> int:
     return s.value
-
 
 def compact_visibility(v: Visibility) -> int:
     return v.value
 
-
 def compact_category(c: Category) -> int:
     return c.value
-
 
 def compact_categories(c: List[Category]) -> int:
     compacted = 0
@@ -112,23 +95,18 @@ def compact_categories(c: List[Category]) -> int:
         compacted |= category.value
     return compacted
 
-
 def extract_sensitivity(n: int) -> Sensitivity:
     return Sensitivity(n & s_mask)
 
-
 def extract_visibility(n: int) -> Visibility:
     return Visibility(n & v_mask)
-
 
 def extract_categories(n: int) -> List[Category]:
     unmasked = n & c_mask
     return [cat for cat in Category if (unmasked & cat.value)]
 
-
 def initialise_packed(n: int) -> Classification:
     return Classification(n & n_mask)
-
 
 def initialise_unpacked(
     s: Sensitivity,
@@ -138,3 +116,9 @@ def initialise_unpacked(
     return Classification(
         compact_sensitivity(s) | compact_visibility(v) | compact_categories(c)
     )
+
+class PriVokeAction(DefEnum):
+
+    ALLOW = 0
+    WARN = 1
+    BLOCK = 2
