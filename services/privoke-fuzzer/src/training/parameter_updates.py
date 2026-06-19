@@ -4,7 +4,8 @@ import sys
 from pathlib import Path
 from typing import Any, Mapping, Tuple
 
-from .batch import BatchTrainingUpdate, ParameterDict, diff_parameters
+from .parameters import diff_parameters
+from .types import BatchTrainingUpdate, ParameterDict
 
 
 GeneratedModules = Tuple[Any, Any]

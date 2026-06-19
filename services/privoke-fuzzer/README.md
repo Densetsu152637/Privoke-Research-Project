@@ -73,6 +73,14 @@ Relevant environment variables:
 - `FUZZ_TRAINING_MAX_GRADIENT`: per-weight clamp, default `0.05`.
 - `FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE`: dynamic variants per generated prompt.
 
+Prompt seed datasets should prefer packed 16-bit classifications for scale:
+
+```json
+{"template": "My {account} is behind login.", "packed_classification": 526}
+```
+
+The fuzzer decodes those values with client-runtime's `Classification` helpers.
+
 ## Subagent Tasks
 
 Subagents working here should:
