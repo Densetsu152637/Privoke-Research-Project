@@ -74,6 +74,9 @@ Relevant environment variables:
 - `FUZZ_TRAINING_LEARNING_RATE`: delta scale, default `0.03`.
 - `FUZZ_TRAINING_MAX_GRADIENT`: per-weight clamp, default `0.05`.
 - `FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE`: dynamic variants per generated prompt.
+- `PRIVOKE_RUNTIME_URL`: client-runtime HTTP URL for runtime-layer tests.
+- `PRIVOKE_FUZZER_DUMP_DIR`: prompt-test dump directory, default
+  `/workspace/dumps/privoke-fuzzer`.
 
 Prompt seed datasets should prefer packed 16-bit classifications for scale:
 
@@ -82,6 +85,43 @@ Prompt seed datasets should prefer packed 16-bit classifications for scale:
 ```
 
 The fuzzer decodes those values with client-runtime's `Classification` helpers.
+
+## Prompt Testing
+
+Local prompt testing is owned by the fuzzer so tests can target individual
+detection layers instead of always hitting the full hosted runtime.
+
+Run prompts against the hosted client-runtime server:
+
+```bash
+python src/cli.py test-prompts \
+  --layer runtime \
+  --prompt "My email is alex@example.com"
+```
+
+Run generated prompts against selected layers:
+
+```bash
+python src/cli.py test-prompts \
+  --layer regex \
+  --layer ner \
+  --layer semantic-streamed \
+  --generated-count 8
+```
+
+Available layers:
+
+- `runtime`: POSTs to client-runtime `/analyze`.
+- `pipeline`: runs the full client-runtime pipeline in-process.
+- `regex`: runs only the deterministic rule detector.
+- `ner`: runs only the NER detector.
+- `semantic-streamed`: runs only the streamed PriVoke semantic model.
+- `semantic-local`: runs only the LM Studio/OpenAI-compatible classifier.
+- `semantic-openai`: runs only the OpenAI classifier.
+
+In Docker dev mode, dumps are bound to `./dumps/privoke-fuzzer` on the host.
+In the baseline stack, dumps stay inside the container at
+`/workspace/dumps/privoke-fuzzer`.
 
 ## Subagent Tasks
 

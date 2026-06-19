@@ -31,10 +31,10 @@ Each detector should produce evidence that can be mapped into the shared `Classi
 
 ## Repository Layout
 
-- `services/client-runtime`: Python runtime for prompt detection, fusion, enforcement, CLI demos, and parameter fetching.
+- `services/client-runtime`: Python server for prompt detection, fusion, enforcement, and hosted runtime configuration.
 - `services/model-streaming-service`: Go gRPC service that serves model parameter snapshots.
 - `services/param-update-service`: Python gRPC service that requests fuzzer training cycles and accepts parameter update payloads.
-- `services/privoke-fuzzer`: Python gRPC worker for request-driven prompt generation, streamed semantic-model evaluation, and update traffic.
+- `services/privoke-fuzzer`: Python gRPC worker for request-driven prompt generation, layer-specific prompt testing, streamed semantic-model evaluation, and update traffic.
 - `shared/proto`: Shared protobuf contracts used across services.
 - `paper`: Research figures and experiment artifacts.
 
@@ -60,18 +60,48 @@ Run the baseline stack:
 docker compose up --build
 ```
 
+Reconfigure the live client-runtime LLM backend:
+
+```bash
+curl -X POST http://127.0.0.1:8765/config/llm \
+  -H "Content-Type: application/json" \
+  -d '{"choice":"local","local":{"base_url":"http://host.docker.internal:1234/v1","model":"your-lm-studio-model"}}'
+
+curl -X POST http://127.0.0.1:8765/config/llm \
+  -H "Content-Type: application/json" \
+  -d '{"choice":"openai","openai":{"api_key":"sk-...","model":"gpt-4o-mini"}}'
+
+curl -X POST http://127.0.0.1:8765/config/llm \
+  -H "Content-Type: application/json" \
+  -d '{"choice":"streamed"}'
+```
+
+Run test prompts inside the Docker deployment:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec privoke-fuzzer \
+  python src/cli.py test-prompts \
+  --layer runtime \
+  --prompt "My email is alex@example.com"
+```
+
+For finer-grained layer probes, switch the layer:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec privoke-fuzzer \
+  python src/cli.py test-prompts \
+  --layer regex \
+  --layer semantic-streamed \
+  --generated-count 8
+```
+
+In dev mode the fuzzer test runner writes JSON dumps to `./dumps/privoke-fuzzer` through a bind mount. In the baseline stack the same command writes to `/workspace/dumps/privoke-fuzzer` inside the `privoke-fuzzer` container.
+
 Run the client runtime directly:
 
 ```bash
 cd services/client-runtime
-python cli.py pipeline
-```
-
-Fetch streamed parameters:
-
-```bash
-cd services/client-runtime
-python cli.py fetch-params --target localhost:50051 --model-id privoke-baseline
+python src/main.py --port 8765 --llm-choice streamed
 ```
 
 ## Subagent Work Model

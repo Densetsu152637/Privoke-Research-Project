@@ -4,10 +4,10 @@ This directory contains PriVoke's service-level components. The services are int
 
 ## Service Map
 
-- `client-runtime`: Python prompt privacy runtime. This is the main three-layer detection pipeline.
+- `client-runtime`: Python prompt privacy server. This is the hosted three-layer detection pipeline.
 - `model-streaming-service`: Go gRPC service for exposing current model parameter snapshots.
 - `param-update-service`: Python gRPC service for requesting fuzzer training cycles, accepting parameter update payloads, and writing them to a sink.
-- `privoke-fuzzer`: Python gRPC worker that waits for training requests, generates labeled prompts, evaluates the streamed semantic model, and submits updates.
+- `privoke-fuzzer`: Python gRPC worker that waits for training requests, generates labeled prompts, runs local layer-specific prompt tests, evaluates the streamed semantic model, and submits updates.
 
 ## Runtime Detection Path
 

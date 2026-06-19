@@ -44,6 +44,6 @@ Subagents working here should:
 - improve gRPC error handling,
 - add health checks,
 - add snapshot versioning,
-- add integration tests with `client-runtime fetch-params`,
+- add integration tests with `privoke-fuzzer` `fetch-params`,
 - document parameter provenance,
 - keep protobuf compatibility in mind.

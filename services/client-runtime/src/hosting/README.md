@@ -46,6 +46,39 @@ Health checks are available at:
 GET http://127.0.0.1:8765/health
 ```
 
+The live LLM backend configuration is available at:
+
+```text
+GET  http://127.0.0.1:8765/config/llm
+POST http://127.0.0.1:8765/config/llm
+```
+
+Example LM Studio update:
+
+```json
+{
+  "choice": "local",
+  "local": {
+    "base_url": "http://localhost:1234/v1",
+    "model": "local-model-id"
+  }
+}
+```
+
+Example OpenAI update:
+
+```json
+{
+  "choice": "openai",
+  "openai": {
+    "api_key": "sk-...",
+    "model": "gpt-4o-mini"
+  }
+}
+```
+
+`GET /config/llm` redacts configured API keys.
+
 ## Expected Response Shape
 
 ```json

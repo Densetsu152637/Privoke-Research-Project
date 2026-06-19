@@ -14,12 +14,17 @@ from .serialization import (
     error_response,
     parse_prompt_request,
 )
+from .runtime_config import (
+    current_llm_config_response,
+    update_llm_config_from_payload,
+)
 
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 ANALYZE_PATHS = {"/analyze", "/v1/analyze"}
 HEALTH_PATHS = {"/health", "/v1/health"}
+LLM_CONFIG_PATHS = {"/config/llm", "/v1/config/llm"}
 
 
 class LocalOnlyHTTPServer(ThreadingHTTPServer):
@@ -64,8 +69,13 @@ class PrivokeRequestHandler(BaseHTTPRequestHandler):
                     "host": self.server.server_address[0],
                     "port": self.server.server_address[1],
                     "endpoints": sorted(ANALYZE_PATHS),
+                    "config_endpoints": sorted(LLM_CONFIG_PATHS),
                 }
             )
+            return
+
+        if path in LLM_CONFIG_PATHS:
+            self._write_json(current_llm_config_response())
             return
 
         if path == "/":
@@ -76,6 +86,7 @@ class PrivokeRequestHandler(BaseHTTPRequestHandler):
                     "endpoints": {
                         "health": "/health",
                         "analyze": "/analyze",
+                        "llm_config": "/config/llm",
                     },
                 }
             )
@@ -85,6 +96,35 @@ class PrivokeRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
+        if path in LLM_CONFIG_PATHS:
+            try:
+                payload = self._read_json_body()
+                response = update_llm_config_from_payload(payload)
+            except RequestValidationError as exc:
+                self._write_error(str(exc), exc.status_code)
+                return
+            except json.JSONDecodeError:
+                self._write_error(
+                    "Request body must be valid JSON.",
+                    HTTPStatus.BAD_REQUEST,
+                )
+                return
+            except UnicodeDecodeError:
+                self._write_error(
+                    "Request body must be UTF-8 JSON.",
+                    HTTPStatus.BAD_REQUEST,
+                )
+                return
+            except Exception as exc:
+                self._write_error(
+                    f"LLM configuration update failed: {exc}",
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
+                )
+                return
+
+            self._write_json(response)
+            return
+
         if path not in ANALYZE_PATHS:
             self._write_error("Not found.", HTTPStatus.NOT_FOUND)
             return

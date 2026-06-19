@@ -15,21 +15,85 @@ class OpenClassifier(AbstractClassifier):
     Detects implicit identifiers, contextual risks, and indirect privacy threats.
     """
 
-    def __init__(self):
-        """Initialize OpenAI client with API key from environment."""
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str | None = None,
+        base_url: str | None = None,
+        timeout_seconds: float | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        use_environment: bool = True,
+    ):
+        """Initialize OpenAI client with runtime or environment configuration."""
         from openai import OpenAI
 
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
+        if use_environment:
+            resolved_api_key = api_key if api_key is not None else os.getenv(
+                "OPENAI_API_KEY"
+            )
+            resolved_base_url = (
+                base_url
+                if base_url is not None
+                else os.getenv("OPENAI_BASE_URL") or os.getenv("OPENAI_API_BASE")
+            )
+        else:
+            resolved_api_key = api_key
+            resolved_base_url = base_url
+
+        if not resolved_api_key:
             raise ValueError(
-                "OPENAI_API_KEY not found in environment variables. "
-                "Please set OPENAI_API_KEY in your .env file."
-            ) 
-        self.client = OpenAI(api_key=api_key)
+                "OpenAI API key is not configured. Set OPENAI_API_KEY or "
+                "provide openai.api_key via /config/llm."
+            )
+
+        resolved_timeout = (
+            timeout_seconds
+            if timeout_seconds is not None
+            else (
+                _env_float("OPENAI_TIMEOUT_SECONDS", 60.0)
+                if use_environment
+                else 60.0
+            )
+        )
+        if resolved_timeout <= 0:
+            raise ValueError("OPENAI_TIMEOUT_SECONDS must be greater than zero.")
+
+        client_options = {
+            "api_key": resolved_api_key,
+            "timeout": resolved_timeout,
+        }
+        if resolved_base_url:
+            client_options["base_url"] = resolved_base_url
+
+        self.client = OpenAI(**client_options)
+        self.model = (
+            model
+            if not use_environment
+            else model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        )
+        self.temperature = (
+            temperature
+            if temperature is not None
+            else (
+                _env_float("OPENAI_TEMPERATURE", 0.25)
+                if use_environment
+                else 0.25
+            )
+        )
+        self.max_tokens = (
+            max_tokens
+            if max_tokens is not None
+            else (
+                _env_int("OPENAI_MAX_TOKENS", 512)
+                if use_environment
+                else 512
+            )
+        )
 
     def classify(self, text: str) -> List[ClassificationResult]:
         response = self.client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=self.model,
             messages = [
                 {
                     "role": "system", 
@@ -43,10 +107,32 @@ class OpenClassifier(AbstractClassifier):
             response_format = {
                 "type": "json_object"
             },
-            temperature = 0.25,  # Lower temperature for consistency
-            max_tokens = 512
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
         )
 
         content = response.choices[0].message.content.strip()
 
         return build_results(json.loads(content))
+
+
+def _env_float(name: str, default: float) -> float:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+
+    try:
+        return float(raw_value)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a number.") from exc
+
+
+def _env_int(name: str, default: int) -> int:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+
+    try:
+        return int(raw_value)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer.") from exc

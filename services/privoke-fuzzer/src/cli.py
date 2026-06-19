@@ -3,17 +3,18 @@ import json
 import sys
 from pathlib import Path
 
-import grpc
+from prompt_testing import add_test_prompt_args, run_prompt_tests
 
-from main import run_full_pipeline
-
-GENERATED_DIR = Path(__file__).resolve().parent / "generated"
-if str(GENERATED_DIR) not in sys.path:
-    sys.path.insert(0, str(GENERATED_DIR))
-
-from privoke.v1 import parameters_pb2, parameters_pb2_grpc
+GENERATED_DIR = Path(__file__).resolve().parents[1] / "generated"
 
 def fetch_parameters(args) -> None:
+    import grpc
+
+    if str(GENERATED_DIR) not in sys.path:
+        sys.path.insert(0, str(GENERATED_DIR))
+
+    from privoke.v1 import parameters_pb2, parameters_pb2_grpc
+
     with grpc.insecure_channel(args.target) as channel:
         client = parameters_pb2_grpc.ModelStreamingServiceStub(channel)
         snapshot = client.GetModelParameters(
@@ -39,11 +40,8 @@ def fetch_parameters(args) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="PriVoke client runtime CLI")
+    parser = argparse.ArgumentParser(description="PriVoke fuzzer CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
-
-    pipeline_parser = subparsers.add_parser("pipeline", help="Run the privacy pipeline sample.")
-    pipeline_parser.set_defaults(handler=lambda h_args: run_full_pipeline())
 
     params_parser = subparsers.add_parser(
         "fetch-params",
@@ -54,6 +52,13 @@ def main() -> None:
     params_parser.add_argument("--model-id", default="privoke-baseline")
     params_parser.add_argument("--timeout", type=int, default=10)
     params_parser.set_defaults(handler=fetch_parameters)
+
+    test_parser = subparsers.add_parser(
+        "test-prompts",
+        help="Run prompt tests against selected detection layers.",
+    )
+    add_test_prompt_args(test_parser)
+    test_parser.set_defaults(handler=run_prompt_tests)
 
     args = parser.parse_args()
     args.handler(args)

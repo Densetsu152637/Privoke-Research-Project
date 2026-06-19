@@ -8,7 +8,10 @@ COPY services/privoke-fuzzer /workspace/services/privoke-fuzzer
 
 WORKDIR /workspace/services/privoke-fuzzer
 
+ENV PRIVOKE_FUZZER_DUMP_DIR=/workspace/dumps/privoke-fuzzer
+
 RUN pip install --no-cache-dir -r requirements.txt \
+    && mkdir -p /workspace/dumps/privoke-fuzzer \
     && mkdir -p generated \
     && python -m grpc_tools.protoc \
       -I /workspace/shared/proto \

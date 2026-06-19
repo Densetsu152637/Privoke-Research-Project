@@ -43,6 +43,39 @@ services:
       MODEL_ID: privoke-baseline
       FUZZER_PORT: 50053
       FUZZER_ID: server-fuzzer
+      PRIVOKE_RUNTIME_URL: http://client-runtime:8765
+      PRIVOKE_FUZZER_DUMP_DIR: /workspace/dumps/privoke-fuzzer
+
+  client-runtime:
+    build:
+      context: .
+      dockerfile: services/client-runtime/Dockerfile
+    container_name: client-runtime
+    depends_on:
+      - model-streaming-service
+    ports:
+      - "127.0.0.1:8765:8765"
+    environment:
+      MODEL_STREAMING_TARGET: model-streaming-service:50051
+      MODEL_ID: privoke-baseline
+      PRIVOKE_ALLOW_NON_LOOPBACK_BIND: "true"
+      PRIVOKE_HOST: 0.0.0.0
+      PRIVOKE_PORT: 8765
+      PRIVOKE_LLM_CHOICE: streamed
+      LM_STUDIO_BASE_URL: http://host.docker.internal:1234/v1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command:
+      [
+        "python",
+        "src/main.py",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8765",
+        "--llm-choice",
+        "streamed",
+      ]
 
 volumes:
   param-update-data:

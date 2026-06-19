@@ -27,7 +27,7 @@ class LocalClassifier(AbstractClassifier):
       /v1/models is used.
     - LM_STUDIO_TIMEOUT_SECONDS: request timeout, defaults to 60 seconds.
     - LM_STUDIO_TEMPERATURE: defaults to 0.25.
-    - LM_STUDIO_MAX_TOKENS: defaults to 2048.
+    - LM_STUDIO_MAX_TOKENS: defaults to 512.
     - LM_STUDIO_RESPONSE_FORMAT: json_schema, json_object, or none.
     - LM_STUDIO_API_KEY: optional bearer token if LM Studio auth is enabled.
     """
@@ -41,26 +41,66 @@ class LocalClassifier(AbstractClassifier):
         self,
         base_url: str | None = None,
         model: str | None = None,
+        api_key: str | None = None,
         timeout_seconds: float | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        response_format: str | None = None,
+        use_environment: bool = True,
     ):
-        self.base_url = _normalise_base_url(
-            base_url or os.getenv("LM_STUDIO_BASE_URL", self.DEFAULT_BASE_URL)
+        default_base_url = (
+            os.getenv("LM_STUDIO_BASE_URL", self.DEFAULT_BASE_URL)
+            if use_environment
+            else self.DEFAULT_BASE_URL
         )
-        self.model = model or os.getenv("LM_STUDIO_MODEL")
+        self.base_url = _normalise_base_url(base_url or default_base_url)
+        self.model = (
+            model
+            if not use_environment
+            else model or os.getenv("LM_STUDIO_MODEL")
+        )
         self.timeout_seconds = (
             timeout_seconds
             if timeout_seconds is not None
-            else _env_float("LM_STUDIO_TIMEOUT_SECONDS", self.DEFAULT_TIMEOUT_SECONDS)
+            else (
+                _env_float("LM_STUDIO_TIMEOUT_SECONDS", self.DEFAULT_TIMEOUT_SECONDS)
+                if use_environment
+                else self.DEFAULT_TIMEOUT_SECONDS
+            )
         )
-        self.temperature = _env_float(
-            "LM_STUDIO_TEMPERATURE",
-            self.DEFAULT_TEMPERATURE,
+        self.temperature = (
+            temperature
+            if temperature is not None
+            else (
+                _env_float("LM_STUDIO_TEMPERATURE", self.DEFAULT_TEMPERATURE)
+                if use_environment
+                else self.DEFAULT_TEMPERATURE
+            )
         )
-        self.max_tokens = _env_int("LM_STUDIO_MAX_TOKENS", self.DEFAULT_MAX_TOKENS)
+        self.max_tokens = (
+            max_tokens
+            if max_tokens is not None
+            else (
+                _env_int("LM_STUDIO_MAX_TOKENS", self.DEFAULT_MAX_TOKENS)
+                if use_environment
+                else self.DEFAULT_MAX_TOKENS
+            )
+        )
         self.response_format = _response_format(
-            os.getenv("LM_STUDIO_RESPONSE_FORMAT", "json_schema")
+            response_format
+            if response_format is not None
+            else (
+                os.getenv("LM_STUDIO_RESPONSE_FORMAT", "json_schema")
+                if use_environment
+                else "json_schema"
+            )
         )
-        self.api_key = os.getenv("LM_STUDIO_API_KEY")
+        if use_environment:
+            self.api_key = (
+                api_key if api_key is not None else os.getenv("LM_STUDIO_API_KEY")
+            )
+        else:
+            self.api_key = api_key
         if self.timeout_seconds <= 0:
             raise ValueError("LM_STUDIO_TIMEOUT_SECONDS must be greater than zero.")
 

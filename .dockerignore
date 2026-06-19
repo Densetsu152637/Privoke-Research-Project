@@ -14,4 +14,5 @@
 **/dist
 **/bin
 **/pkg
+dumps
 shared/generated

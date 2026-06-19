@@ -44,11 +44,10 @@ def main() -> None:
     )
     parser.add_argument(
         "--llm-choice",
-        choices=["streamed", "local", "open"],
         default=os.getenv("PRIVOKE_LLM_CHOICE", "streamed").lower(),
         help=(
             "Semantic classifier backend: streamed=model-streaming-service, "
-            "local=LM Studio, open=OpenAI."
+            "local/lm-studio=LM Studio, open/openai=OpenAI."
         ),
     )
     parser.add_argument(
@@ -85,16 +84,7 @@ def _configure_runtime(llm_choice: str, wait_for_regex: bool) -> None:
 
 
 def _llm_choice(raw_value: str) -> LLMChoice:
-    match raw_value.lower():
-        case "streamed":
-            return LLMChoice.Streamed
-        case "local":
-            return LLMChoice.Local
-        case "open":
-            return LLMChoice.Open
-        case _:
-            allowed = "streamed, local, open"
-            raise ValueError(f"Unsupported LLM choice '{raw_value}'. Use: {allowed}.")
+    return LLMChoice.parse(raw_value)
 
 
 def _env_bool(name: str, default: bool) -> bool:

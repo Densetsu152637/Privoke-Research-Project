@@ -10,6 +10,9 @@ env/
 __pycache__/
 *.pyc
 
+# Local Docker/test output
+dumps/
+
 # IDE
 .vscode/
 .idea/

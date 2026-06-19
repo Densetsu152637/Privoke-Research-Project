@@ -157,17 +157,25 @@ Telemetry must not include raw prompt text. It may include:
 
 ## CLI
 
-Run the sample pipeline:
+Run the local prompt-inspection server:
 
 ```bash
-python cli.py pipeline
+python src/main.py --port 8765 --llm-choice streamed
 ```
 
-Fetch model parameters:
+Reconfigure the live semantic classifier backend:
 
 ```bash
-python cli.py fetch-params --target localhost:50051 --model-id privoke-baseline
+curl -X POST http://127.0.0.1:8765/config/llm \
+  -H "Content-Type: application/json" \
+  -d '{"choice":"local","local":{"base_url":"http://localhost:1234/v1","model":"your-lm-studio-model"}}'
+
+curl -X POST http://127.0.0.1:8765/config/llm \
+  -H "Content-Type: application/json" \
+  -d '{"choice":"openai","openai":{"api_key":"sk-...","model":"gpt-4o-mini"}}'
 ```
+
+Prompt testing and layer-specific probes live in `services/privoke-fuzzer`.
 
 ## Local Setup
 
@@ -184,6 +192,9 @@ For semantic LLM experiments, configure:
 ```bash
 OPENAI_API_KEY=...
 ```
+
+When running in Docker dev mode, fuzzer prompt-test dumps are bound to
+`./dumps/privoke-fuzzer` on the host.
 
 ## Subagent Work Packages
 

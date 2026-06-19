@@ -60,10 +60,13 @@ services:
       MODEL_ID: privoke-baseline
       FUZZER_PORT: 50053
       FUZZER_ID: server-fuzzer
+      PRIVOKE_RUNTIME_URL: http://client-runtime:8765
+      PRIVOKE_FUZZER_DUMP_DIR: /workspace/dumps/privoke-fuzzer
     volumes:
       - ./services/privoke-fuzzer:/workspace/services/privoke-fuzzer
       - ./services/client-runtime:/workspace/services/client-runtime
       - ./shared:/workspace/shared
+      - ./dumps/privoke-fuzzer:/workspace/dumps/privoke-fuzzer
     command:
       [
         "sh",
@@ -87,6 +90,9 @@ services:
       PRIVOKE_HOST: 0.0.0.0
       PRIVOKE_PORT: 8765
       PRIVOKE_LLM_CHOICE: streamed
+      LM_STUDIO_BASE_URL: http://host.docker.internal:1234/v1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./services/client-runtime:/workspace/services/client-runtime
       - ./shared:/workspace/shared

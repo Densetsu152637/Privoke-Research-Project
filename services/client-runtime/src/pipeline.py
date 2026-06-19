@@ -10,13 +10,40 @@ from .NER import EntityNERDetector
 DetectorJob = Callable[[], List[ClassificationResult]]
 
 def get_llm_choice():
-    match GLOBAL_CONFIG.llm_choice:
+    llm_config = GLOBAL_CONFIG.get_llm_config()
+
+    match llm_config.choice:
         case LLMChoice.Open:
-            return OpenClassifier()
+            openai = llm_config.openai
+            return OpenClassifier(
+                api_key=openai.api_key,
+                model=openai.model,
+                base_url=openai.base_url,
+                timeout_seconds=openai.timeout_seconds,
+                temperature=openai.temperature,
+                max_tokens=openai.max_tokens,
+                use_environment=False,
+            )
         case LLMChoice.Local:
-            return LocalClassifier()
+            local = llm_config.local
+            return LocalClassifier(
+                base_url=local.base_url,
+                model=local.model,
+                api_key=local.api_key,
+                timeout_seconds=local.timeout_seconds,
+                temperature=local.temperature,
+                max_tokens=local.max_tokens,
+                response_format=local.response_format,
+                use_environment=False,
+            )
         case _:
-            return PriVokeClassifier()
+            streamed = llm_config.streamed
+            return PriVokeClassifier(
+                target=streamed.target,
+                model_id=streamed.model_id,
+                consumer_id=streamed.consumer_id,
+                timeout_seconds=streamed.timeout_seconds,
+            )
 
 
 def pipeline_analyse_text(text: str) -> Tuple[ClassificationResult | None, PriVokeAction]:
