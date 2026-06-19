@@ -3,7 +3,7 @@ FROM golang:1.22-bookworm
 WORKDIR /workspace
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends protobuf-compiler \
+    && apt-get install -y --no-install-recommends netcat-openbsd protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.1 \

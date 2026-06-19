@@ -10,6 +10,12 @@ services:
       MODEL_STREAMING_PORT: 50051
       MODEL_ID: privoke-baseline
       MODEL_VERSION: v0.1.0
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 $${MODEL_STREAMING_PORT:-50051}"]
+      interval: 2s
+      timeout: 1s
+      retries: 30
+      start_period: 5s
 
   param-update-service:
     build:
@@ -17,7 +23,10 @@ services:
       dockerfile: services/param-update-service/Dockerfile
     container_name: param-update-service
     depends_on:
-      - privoke-fuzzer
+      model-streaming-service:
+        condition: service_healthy
+      privoke-fuzzer:
+        condition: service_started
     ports:
       - "50052:50052"
     environment:
@@ -38,7 +47,8 @@ services:
       dockerfile: services/privoke-fuzzer/Dockerfile
     container_name: privoke-fuzzer
     depends_on:
-      - model-streaming-service
+      model-streaming-service:
+        condition: service_healthy
     environment:
       MODEL_STREAMING_TARGET: model-streaming-service:50051
       PARAM_UPDATE_TARGET: param-update-service:50052
@@ -58,7 +68,8 @@ services:
       dockerfile: services/client-runtime/Dockerfile
     container_name: client-runtime
     depends_on:
-      - model-streaming-service
+      model-streaming-service:
+        condition: service_healthy
     ports:
       - "127.0.0.1:8765:8765"
     environment:

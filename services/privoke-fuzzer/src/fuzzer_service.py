@@ -92,17 +92,17 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
 
 def fetch_snapshot(config: FuzzerConfig, model_id: str) -> StreamedParameterSnapshot:
     attempts = max(1, int(config.model_streaming_fetch_max_attempts))
-    last_error: Exception | None = None
+    last_error_message = "unknown error"
 
     for attempt in range(1, attempts + 1):
         try:
             return _fetch_snapshot_once(config, model_id)
         except grpc.FutureTimeoutError as exc:
-            last_error = exc
+            last_error_message = _snapshot_error_message(exc, config)
         except grpc.RpcError as exc:
             if not _is_retryable_rpc_error(exc):
                 raise
-            last_error = exc
+            last_error_message = _snapshot_error_message(exc, config)
 
         if attempt >= attempts:
             break
@@ -114,14 +114,15 @@ def fetch_snapshot(config: FuzzerConfig, model_id: str) -> StreamedParameterSnap
             attempt,
             attempts,
             config.model_streaming_target,
-            last_error,
+            last_error_message,
             delay_seconds,
         )
         time.sleep(delay_seconds)
 
     raise ModelSnapshotUnavailable(
         "model-streaming-service was unavailable after "
-        f"{attempts} attempts at {config.model_streaming_target}: {last_error}"
+        f"{attempts} attempts at {config.model_streaming_target}: "
+        f"{last_error_message}"
     )
 
 
@@ -153,6 +154,29 @@ def _is_retryable_rpc_error(exc: grpc.RpcError) -> bool:
         grpc.StatusCode.UNAVAILABLE,
         grpc.StatusCode.DEADLINE_EXCEEDED,
     }
+
+
+def _snapshot_error_message(exc: Exception, config: FuzzerConfig) -> str:
+    if isinstance(exc, grpc.FutureTimeoutError):
+        return (
+            "channel was not ready within "
+            f"{config.model_streaming_connect_timeout_seconds:.1f}s"
+        )
+
+    if isinstance(exc, grpc.RpcError):
+        try:
+            code = exc.code()
+        except AttributeError:
+            code = None
+        try:
+            details = exc.details()
+        except AttributeError:
+            details = None
+        if details:
+            return f"{code}: {details}"
+        return str(code)
+
+    return str(exc) or exc.__class__.__name__
 
 
 def _retry_delay(config: FuzzerConfig, failed_attempt: int) -> float:
