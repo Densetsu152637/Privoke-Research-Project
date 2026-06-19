@@ -10,6 +10,15 @@ services:
       MODEL_STREAMING_PORT: 50051
       MODEL_ID: privoke-baseline
       MODEL_VERSION: v0.1.0
+    volumes:
+      - ./services/model-streaming-service:/workspace/services/model-streaming-service
+      - ./shared:/workspace/shared
+    command:
+      [
+        "sh",
+        "-lc",
+        "mkdir -p /workspace/services/model-streaming-service/gen && protoc --proto_path=/workspace/shared/proto --go_out=paths=source_relative:/workspace/services/model-streaming-service/gen --go-grpc_out=paths=source_relative:/workspace/services/model-streaming-service/gen /workspace/shared/proto/privoke/v1/parameters.proto && go run ./cmd/server",
+      ]
 
   param-update-service:
     build:
@@ -29,6 +38,14 @@ services:
       MODEL_ID: privoke-baseline
     volumes:
       - param-update-data:/data
+      - ./services/param-update-service:/workspace/services/param-update-service
+      - ./shared:/workspace/shared
+    command:
+      [
+        "sh",
+        "-lc",
+        "mkdir -p /workspace/services/param-update-service/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/param-update-service/generated --grpc_python_out=/workspace/services/param-update-service/generated /workspace/shared/proto/privoke/v1/parameters.proto && python app/server.py",
+      ]
 
   privoke-fuzzer:
     build:
@@ -45,6 +62,17 @@ services:
       FUZZER_ID: server-fuzzer
       PRIVOKE_RUNTIME_URL: http://client-runtime:8765
       PRIVOKE_FUZZER_DUMP_DIR: /workspace/dumps/privoke-fuzzer
+    volumes:
+      - ./services/privoke-fuzzer:/workspace/services/privoke-fuzzer
+      - ./services/client-runtime:/workspace/services/client-runtime
+      - ./shared:/workspace/shared
+      - ./dumps/privoke-fuzzer:/workspace/dumps/privoke-fuzzer
+    command:
+      [
+        "sh",
+        "-lc",
+        "mkdir -p /workspace/services/privoke-fuzzer/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/privoke-fuzzer/generated --grpc_python_out=/workspace/services/privoke-fuzzer/generated /workspace/shared/proto/privoke/v1/parameters.proto && python src/main.py",
+      ]
 
   client-runtime:
     build:
@@ -65,16 +93,14 @@ services:
       LM_STUDIO_BASE_URL: http://host.docker.internal:1234/v1
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      - ./services/client-runtime:/workspace/services/client-runtime
+      - ./shared:/workspace/shared
     command:
       [
-        "python",
-        "src/main.py",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "8765",
-        "--llm-choice",
-        "streamed",
+        "sh",
+        "-lc",
+        "mkdir -p /workspace/services/client-runtime/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/client-runtime/generated --grpc_python_out=/workspace/services/client-runtime/generated /workspace/shared/proto/privoke/v1/parameters.proto && python src/main.py --host 0.0.0.0 --port 8765 --llm-choice streamed",
       ]
 
 volumes:
