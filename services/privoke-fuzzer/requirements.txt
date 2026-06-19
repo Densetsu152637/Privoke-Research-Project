@@ -1,3 +1,4 @@
+-r ../client-runtime/requirements.txt
 grpcio==1.64.0
 grpcio-tools==1.64.0
 protobuf==5.27.0

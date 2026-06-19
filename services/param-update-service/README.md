@@ -9,6 +9,7 @@ It is part of the adaptive-experiment infrastructure, not the prompt classificat
 The update service should:
 
 - receive protobuf update messages,
+- optionally request training cycles from `privoke-fuzzer`,
 - validate required metadata,
 - persist updates to a durable sink,
 - preserve enough metadata for later analysis,
@@ -25,6 +26,21 @@ Output:
 
 - acknowledgment or error,
 - persisted JSONL or future database record.
+
+## Fuzzer Requests
+
+Set `FUZZER_PROMPT_COUNT` above zero to have this service request a training
+cycle from `privoke-fuzzer` after startup.
+
+```bash
+FUZZER_TARGET=privoke-fuzzer:50053
+FUZZER_PROMPT_COUNT=8
+FUZZER_REQUEST_INTERVAL_SECONDS=0
+```
+
+The fuzzer sends the trained parameter deltas back through
+`SubmitParameterUpdate`, so updates still pass through this service's normal
+persistence path.
 
 ## Relationship to Client Runtime
 

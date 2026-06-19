@@ -3,6 +3,7 @@ FROM python:3.11-slim
 WORKDIR /workspace
 
 COPY shared/proto /workspace/shared/proto
+COPY services/client-runtime /workspace/services/client-runtime
 COPY services/privoke-fuzzer /workspace/services/privoke-fuzzer
 
 WORKDIR /workspace/services/privoke-fuzzer
@@ -14,5 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
       --python_out=/workspace/services/privoke-fuzzer/generated \
       --grpc_python_out=/workspace/services/privoke-fuzzer/generated \
       /workspace/shared/proto/privoke/v1/parameters.proto
+
+EXPOSE 50053
 
 CMD ["python", "src/main.py"]

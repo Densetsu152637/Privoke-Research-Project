@@ -25,11 +25,17 @@ services:
       context: .
       dockerfile: services/param-update-service/Dockerfile
     container_name: param-update-service
+    depends_on:
+      - privoke-fuzzer
     ports:
       - "50052:50052"
     environment:
       PARAM_UPDATE_PORT: 50052
       PARAM_UPDATE_STORAGE_PATH: /data/updates.jsonl
+      FUZZER_TARGET: privoke-fuzzer:50053
+      FUZZER_PROMPT_COUNT: 8
+      FUZZER_REQUEST_INTERVAL_SECONDS: 0
+      MODEL_ID: privoke-baseline
     volumes:
       - param-update-data:/data
       - ./services/param-update-service:/workspace/services/param-update-service
@@ -48,15 +54,15 @@ services:
     container_name: privoke-fuzzer
     depends_on:
       - model-streaming-service
-      - param-update-service
     environment:
       MODEL_STREAMING_TARGET: model-streaming-service:50051
       PARAM_UPDATE_TARGET: param-update-service:50052
       MODEL_ID: privoke-baseline
-      FUZZ_INTERVAL_SECONDS: 15
+      FUZZER_PORT: 50053
       FUZZER_ID: server-fuzzer
     volumes:
       - ./services/privoke-fuzzer:/workspace/services/privoke-fuzzer
+      - ./services/client-runtime:/workspace/services/client-runtime
       - ./shared:/workspace/shared
     command:
       [

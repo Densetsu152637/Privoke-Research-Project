@@ -44,6 +44,25 @@ message ParameterUpdateAck {
   string message = 4;
 }
 
+message FuzzerTrainingRequest {
+  string request_id = 1;
+  string source_id = 2;
+  string model_id = 3;
+  uint32 prompt_count = 4;
+  uint32 seed = 5;
+  map<string, string> metadata = 6;
+}
+
+message FuzzerTrainingResponse {
+  bool accepted = 1;
+  string model_id = 2;
+  string base_version = 3;
+  string applied_version = 4;
+  uint32 prompts_generated = 5;
+  string message = 6;
+  map<string, string> metadata = 7;
+}
+
 service ModelStreamingService {
   rpc GetModelParameters(ModelParametersRequest) returns (ModelParametersResponse);
   rpc Health(HealthRequest) returns (HealthResponse);
@@ -51,5 +70,10 @@ service ModelStreamingService {
 
 service ParamUpdateService {
   rpc SubmitParameterUpdate(ParameterUpdateRequest) returns (ParameterUpdateAck);
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+service FuzzerService {
+  rpc RunTrainingCycle(FuzzerTrainingRequest) returns (FuzzerTrainingResponse);
   rpc Health(HealthRequest) returns (HealthResponse);
 }

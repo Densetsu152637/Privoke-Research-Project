@@ -6,8 +6,8 @@ This directory contains PriVoke's service-level components. The services are int
 
 - `client-runtime`: Python prompt privacy runtime. This is the main three-layer detection pipeline.
 - `model-streaming-service`: Go gRPC service for exposing current model parameter snapshots.
-- `param-update-service`: Python gRPC service for accepting parameter update payloads and writing them to a sink.
-- `privoke-fuzzer`: Python worker that polls parameters, perturbs them, and submits updates.
+- `param-update-service`: Python gRPC service for requesting fuzzer training cycles, accepting parameter update payloads, and writing them to a sink.
+- `privoke-fuzzer`: Python gRPC worker that waits for training requests, generates labeled prompts, evaluates the streamed semantic model, and submits updates.
 
 ## Runtime Detection Path
 
@@ -42,6 +42,6 @@ When assigning work:
 
 - Keep detection changes in `client-runtime`.
 - Keep gRPC contract changes in `shared/proto` and then update generated service code.
-- Keep parameter mutation or adversarial update work in `privoke-fuzzer`.
-- Keep persistence and ingestion work in `param-update-service`.
+- Keep prompt generation and LLM-only adaptive update work in `privoke-fuzzer`.
+- Keep fuzzer request initiation, persistence, and ingestion work in `param-update-service`.
 - Keep snapshot serving and client fetch behavior in `model-streaming-service`.

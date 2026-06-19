@@ -33,8 +33,8 @@ Each detector should produce evidence that can be mapped into the shared `Classi
 
 - `services/client-runtime`: Python runtime for prompt detection, fusion, enforcement, CLI demos, and parameter fetching.
 - `services/model-streaming-service`: Go gRPC service that serves model parameter snapshots.
-- `services/param-update-service`: Python gRPC service that accepts parameter update payloads.
-- `services/privoke-fuzzer`: Python worker for generating parameter perturbations and update traffic.
+- `services/param-update-service`: Python gRPC service that requests fuzzer training cycles and accepts parameter update payloads.
+- `services/privoke-fuzzer`: Python gRPC worker for request-driven prompt generation, streamed semantic-model evaluation, and update traffic.
 - `shared/proto`: Shared protobuf contracts used across services.
 - `paper`: Research figures and experiment artifacts.
 
