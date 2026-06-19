@@ -8,6 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, Tuple
 from urllib.parse import urlparse
 
+from ..env import env_bool, env_positive_int
 from .models import RequestValidationError
 from .serialization import (
     DEFAULT_MAX_TEXT_CHARS,
@@ -223,7 +224,7 @@ def create_server(
         max_text_chars=(
             max_text_chars
             if max_text_chars is not None
-            else env_int("PRIVOKE_MAX_PROMPT_CHARS", DEFAULT_MAX_TEXT_CHARS)
+            else env_positive_int("PRIVOKE_MAX_PROMPT_CHARS", DEFAULT_MAX_TEXT_CHARS)
         ),
         cors_origin=cors_origin or os.getenv("PRIVOKE_CORS_ORIGIN", "*"),
     )
@@ -256,28 +257,6 @@ def is_loopback_host(host: str) -> bool:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
         return False
-
-
-def env_int(name: str, default: int) -> int:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-
-    try:
-        value = int(raw_value)
-    except ValueError as exc:
-        raise ValueError(f"{name} must be an integer.") from exc
-
-    if value <= 0:
-        raise ValueError(f"{name} must be greater than zero.")
-    return value
-
-
-def env_bool(name: str, default: bool) -> bool:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-    return raw_value.lower() in {"1", "true", "yes", "on"}
 
 
 def _json_bytes(payload: Dict[str, Any]) -> bytes:

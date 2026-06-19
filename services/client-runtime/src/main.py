@@ -19,12 +19,14 @@ _prepare_import_paths()
 
 if __package__:
     from .config import GLOBAL_CONFIG, LLMChoice
+    from .env import env_bool, env_positive_int
     from .hosting import run_server
-    from .hosting.server import DEFAULT_HOST, DEFAULT_PORT, env_int
+    from .hosting.server import DEFAULT_HOST, DEFAULT_PORT
 else:
     from src.config import GLOBAL_CONFIG, LLMChoice
+    from src.env import env_bool, env_positive_int
     from src.hosting import run_server
-    from src.hosting.server import DEFAULT_HOST, DEFAULT_PORT, env_int
+    from src.hosting.server import DEFAULT_HOST, DEFAULT_PORT
 
 
 def main() -> None:
@@ -39,7 +41,7 @@ def main() -> None:
     parser.add_argument(
         "--port",
         type=int,
-        default=env_int("PRIVOKE_PORT", DEFAULT_PORT),
+        default=env_positive_int("PRIVOKE_PORT", DEFAULT_PORT),
         help="Local TCP port to bind. Defaults to 8765.",
     )
     parser.add_argument(
@@ -53,7 +55,7 @@ def main() -> None:
     parser.add_argument(
         "--max-prompt-chars",
         type=int,
-        default=env_int("PRIVOKE_MAX_PROMPT_CHARS", 20_000),
+        default=env_positive_int("PRIVOKE_MAX_PROMPT_CHARS", 20_000),
         help="Maximum prompt text length accepted by the API.",
     )
     parser.add_argument(
@@ -64,7 +66,7 @@ def main() -> None:
     parser.add_argument(
         "--wait-for-regex",
         action=argparse.BooleanOptionalAction,
-        default=_env_bool("PRIVOKE_WAIT_FOR_REGEX", GLOBAL_CONFIG.wait_for_regex),
+        default=env_bool("PRIVOKE_WAIT_FOR_REGEX", GLOBAL_CONFIG.wait_for_regex),
         help="Run regex rules before starting slower detector jobs.",
     )
 
@@ -85,14 +87,6 @@ def _configure_runtime(llm_choice: str, wait_for_regex: bool) -> None:
 
 def _llm_choice(raw_value: str) -> LLMChoice:
     return LLMChoice.parse(raw_value)
-
-
-def _env_bool(name: str, default: bool) -> bool:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-    return raw_value.lower() in {"1", "true", "yes", "on"}
-
 
 if __name__ == "__main__":
     main()

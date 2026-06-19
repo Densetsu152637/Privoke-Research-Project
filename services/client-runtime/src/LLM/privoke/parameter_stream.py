@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Tuple
 
+from ...env import env_float
+
 
 @dataclass(frozen=True)
 class ParameterSnapshot:
@@ -75,7 +77,7 @@ class ModelParameterStreamer:
         self.timeout_seconds = (
             timeout_seconds
             if timeout_seconds is not None
-            else _env_float(
+            else env_float(
                 "MODEL_STREAMING_TIMEOUT_SECONDS",
                 self.DEFAULT_TIMEOUT_SECONDS,
             )
@@ -131,14 +133,3 @@ def _load_generated_grpc_modules():
         ) from exc
 
     return grpc, parameters_pb2, parameters_pb2_grpc
-
-
-def _env_float(name: str, default: float) -> float:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-
-    try:
-        return float(raw_value)
-    except ValueError as exc:
-        raise ValueError(f"{name} must be a number.") from exc

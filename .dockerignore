@@ -15,4 +15,6 @@
 **/bin
 **/pkg
 dumps
+services/*/generated
+services/model-streaming-service/gen
 shared/generated

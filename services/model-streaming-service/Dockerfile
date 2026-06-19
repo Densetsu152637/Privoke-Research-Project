@@ -2,6 +2,8 @@ FROM golang:1.22-bookworm
 
 WORKDIR /workspace
 
+ENV PATH="/go/bin:${PATH}"
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends netcat-openbsd protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*

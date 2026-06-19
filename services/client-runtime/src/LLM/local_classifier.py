@@ -13,6 +13,7 @@ from ..classification import (
     Visibility,
     build_results,
 )
+from ..env import env_float, env_positive_int
 
 load_dotenv()
 
@@ -63,7 +64,7 @@ class LocalClassifier(AbstractClassifier):
             timeout_seconds
             if timeout_seconds is not None
             else (
-                _env_float("LM_STUDIO_TIMEOUT_SECONDS", self.DEFAULT_TIMEOUT_SECONDS)
+                env_float("LM_STUDIO_TIMEOUT_SECONDS", self.DEFAULT_TIMEOUT_SECONDS)
                 if use_environment
                 else self.DEFAULT_TIMEOUT_SECONDS
             )
@@ -72,7 +73,7 @@ class LocalClassifier(AbstractClassifier):
             temperature
             if temperature is not None
             else (
-                _env_float("LM_STUDIO_TEMPERATURE", self.DEFAULT_TEMPERATURE)
+                env_float("LM_STUDIO_TEMPERATURE", self.DEFAULT_TEMPERATURE)
                 if use_environment
                 else self.DEFAULT_TEMPERATURE
             )
@@ -81,7 +82,7 @@ class LocalClassifier(AbstractClassifier):
             max_tokens
             if max_tokens is not None
             else (
-                _env_int("LM_STUDIO_MAX_TOKENS", self.DEFAULT_MAX_TOKENS)
+                env_positive_int("LM_STUDIO_MAX_TOKENS", self.DEFAULT_MAX_TOKENS)
                 if use_environment
                 else self.DEFAULT_MAX_TOKENS
             )
@@ -199,28 +200,6 @@ def _normalise_base_url(base_url: str) -> str:
     if not normalised.endswith("/v1"):
         normalised = f"{normalised}/v1"
     return normalised
-
-
-def _env_float(name: str, default: float) -> float:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-
-    try:
-        return float(raw_value)
-    except ValueError as exc:
-        raise ValueError(f"{name} must be a number.") from exc
-
-
-def _env_int(name: str, default: int) -> int:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-
-    try:
-        return int(raw_value)
-    except ValueError as exc:
-        raise ValueError(f"{name} must be an integer.") from exc
 
 
 def _request_json(

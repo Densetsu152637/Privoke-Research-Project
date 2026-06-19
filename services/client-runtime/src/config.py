@@ -8,6 +8,13 @@ import multiprocessing
 import os
 import threading
 
+from .env import (
+    env_non_negative_float,
+    env_optional_str,
+    env_positive_float,
+    env_positive_int,
+)
+
 
 def _default_device() -> str:
     try:
@@ -75,7 +82,7 @@ class StreamedEndpointConfig:
             target=os.getenv("MODEL_STREAMING_TARGET", "model-streaming-service:50051"),
             model_id=os.getenv("MODEL_ID", "privoke-baseline"),
             consumer_id=os.getenv("MODEL_STREAMING_CONSUMER_ID", "client-runtime"),
-            timeout_seconds=_env_positive_float(
+            timeout_seconds=env_positive_float(
                 "MODEL_STREAMING_TIMEOUT_SECONDS",
                 10.0,
             ),
@@ -96,11 +103,11 @@ class LocalEndpointConfig:
     def from_env(cls) -> "LocalEndpointConfig":
         return cls(
             base_url=os.getenv("LM_STUDIO_BASE_URL", "http://localhost:1234/v1"),
-            model=_env_optional_str("LM_STUDIO_MODEL"),
-            api_key=_env_optional_str("LM_STUDIO_API_KEY"),
-            timeout_seconds=_env_positive_float("LM_STUDIO_TIMEOUT_SECONDS", 60.0),
-            temperature=_env_non_negative_float("LM_STUDIO_TEMPERATURE", 0.25),
-            max_tokens=_env_int("LM_STUDIO_MAX_TOKENS", 512),
+            model=env_optional_str("LM_STUDIO_MODEL"),
+            api_key=env_optional_str("LM_STUDIO_API_KEY"),
+            timeout_seconds=env_positive_float("LM_STUDIO_TIMEOUT_SECONDS", 60.0),
+            temperature=env_non_negative_float("LM_STUDIO_TEMPERATURE", 0.25),
+            max_tokens=env_positive_int("LM_STUDIO_MAX_TOKENS", 512),
             response_format=os.getenv("LM_STUDIO_RESPONSE_FORMAT", "json_schema"),
         )
 
@@ -117,13 +124,13 @@ class OpenAIEndpointConfig:
     @classmethod
     def from_env(cls) -> "OpenAIEndpointConfig":
         return cls(
-            api_key=_env_optional_str("OPENAI_API_KEY"),
+            api_key=env_optional_str("OPENAI_API_KEY"),
             model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-            base_url=_env_optional_str("OPENAI_BASE_URL")
-            or _env_optional_str("OPENAI_API_BASE"),
-            timeout_seconds=_env_positive_float("OPENAI_TIMEOUT_SECONDS", 60.0),
-            temperature=_env_non_negative_float("OPENAI_TEMPERATURE", 0.25),
-            max_tokens=_env_int("OPENAI_MAX_TOKENS", 512),
+            base_url=env_optional_str("OPENAI_BASE_URL")
+            or env_optional_str("OPENAI_API_BASE"),
+            timeout_seconds=env_positive_float("OPENAI_TIMEOUT_SECONDS", 60.0),
+            temperature=env_non_negative_float("OPENAI_TEMPERATURE", 0.25),
+            max_tokens=env_positive_int("OPENAI_MAX_TOKENS", 512),
         )
 
 
@@ -201,57 +208,5 @@ class GlobalConfig:
                 config = replace(config, openai=openai)
             self._llm_config = config
             return config
-
-
-def _env_optional_str(name: str) -> str | None:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return None
-
-    stripped = raw_value.strip()
-    return stripped or None
-
-
-def _env_float(name: str, default: float) -> float:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-
-    try:
-        value = float(raw_value)
-    except ValueError as exc:
-        raise ValueError(f"{name} must be a number.") from exc
-
-    return value
-
-
-def _env_positive_float(name: str, default: float) -> float:
-    value = _env_float(name, default)
-    if value <= 0:
-        raise ValueError(f"{name} must be greater than zero.")
-    return value
-
-
-def _env_non_negative_float(name: str, default: float) -> float:
-    value = _env_float(name, default)
-    if value < 0:
-        raise ValueError(f"{name} must be zero or greater.")
-    return value
-
-
-def _env_int(name: str, default: int) -> int:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-
-    try:
-        value = int(raw_value)
-    except ValueError as exc:
-        raise ValueError(f"{name} must be an integer.") from exc
-
-    if value <= 0:
-        raise ValueError(f"{name} must be greater than zero.")
-    return value
-
 
 GLOBAL_CONFIG = GlobalConfig()

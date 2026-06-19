@@ -152,6 +152,8 @@ def run_prompt_tests(args: argparse.Namespace) -> None:
 
     summary = _summary(results, output_path)
     print(json.dumps(summary, indent=2, sort_keys=True))
+    if summary["failed_layer_runs"]:
+        raise SystemExit(1)
 
 
 def _normalise_layers(
@@ -277,7 +279,7 @@ def _run_layer(
         if layer == "runtime":
             return _run_runtime_layer(runtime_request, args)
         if layer == "pipeline":
-            return _run_pipeline_layer(prompt_request)
+            return _run_pipeline_layer(runtime_request)
         if layer == "regex":
             return _run_regex_layer(prompt_request["text"])
         if layer == "ner":
@@ -311,18 +313,13 @@ def _run_runtime_layer(
     )
 
 
-def _run_pipeline_layer(prompt_request: Dict[str, Any]) -> Dict[str, Any]:
+def _run_pipeline_layer(runtime_request: Dict[str, Any]) -> Dict[str, Any]:
     from privoke_client_runtime.hosting.analyzer import analyse_prompt_request
     from privoke_client_runtime.hosting.serialization import parse_prompt_request
 
-    request_payload = {"text": prompt_request["text"]}
-    for key in ("source", "target_app", "visibility_hint", "request_id", "metadata"):
-        if key in prompt_request:
-            request_payload[key] = prompt_request[key]
-
     return {
         "status": "ok",
-        "response": analyse_prompt_request(parse_prompt_request(request_payload)),
+        "response": analyse_prompt_request(parse_prompt_request(runtime_request)),
     }
 
 

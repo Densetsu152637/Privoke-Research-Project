@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from .prompt import system_prompt, user_prompt
 from .abs_classifier import AbstractClassifier
 from ..classification import ClassificationResult, build_results
+from ..env import env_float, env_positive_int
 
 load_dotenv()
 
@@ -51,7 +52,7 @@ class OpenClassifier(AbstractClassifier):
             timeout_seconds
             if timeout_seconds is not None
             else (
-                _env_float("OPENAI_TIMEOUT_SECONDS", 60.0)
+                env_float("OPENAI_TIMEOUT_SECONDS", 60.0)
                 if use_environment
                 else 60.0
             )
@@ -76,7 +77,7 @@ class OpenClassifier(AbstractClassifier):
             temperature
             if temperature is not None
             else (
-                _env_float("OPENAI_TEMPERATURE", 0.25)
+                env_float("OPENAI_TEMPERATURE", 0.25)
                 if use_environment
                 else 0.25
             )
@@ -85,7 +86,7 @@ class OpenClassifier(AbstractClassifier):
             max_tokens
             if max_tokens is not None
             else (
-                _env_int("OPENAI_MAX_TOKENS", 512)
+                env_positive_int("OPENAI_MAX_TOKENS", 512)
                 if use_environment
                 else 512
             )
@@ -114,25 +115,3 @@ class OpenClassifier(AbstractClassifier):
         content = response.choices[0].message.content.strip()
 
         return build_results(json.loads(content))
-
-
-def _env_float(name: str, default: float) -> float:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-
-    try:
-        return float(raw_value)
-    except ValueError as exc:
-        raise ValueError(f"{name} must be a number.") from exc
-
-
-def _env_int(name: str, default: int) -> int:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-
-    try:
-        return int(raw_value)
-    except ValueError as exc:
-        raise ValueError(f"{name} must be an integer.") from exc
