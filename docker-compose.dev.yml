@@ -107,6 +107,7 @@ services:
       PRIVOKE_HOST: 0.0.0.0
       PRIVOKE_PORT: 8765
       PRIVOKE_LLM_CHOICE: streamed
+      PRIVOKE_DEV_LOG_PROMPTS: "true"
       LM_STUDIO_BASE_URL: http://host.docker.internal:1234/v1
     extra_hosts:
       - "host.docker.internal:host-gateway"

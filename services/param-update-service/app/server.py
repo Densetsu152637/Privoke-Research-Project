@@ -14,7 +14,11 @@ if str(GENERATED_DIR) not in sys.path:
 from privoke.v1 import parameters_pb2, parameters_pb2_grpc
 from fuzzer_requests import FuzzerRequestConfig, start_fuzzer_requester
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+    force=True,
+)
 
 
 class ParamUpdateService(parameters_pb2_grpc.ParamUpdateServiceServicer):

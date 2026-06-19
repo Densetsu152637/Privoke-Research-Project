@@ -19,7 +19,11 @@ from fuzzer_service import FuzzerTrainingService
 from privoke.v1 import parameters_pb2_grpc
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+    force=True,
+)
 
 _SHOULD_STOP = False
 

@@ -26,6 +26,7 @@ DEFAULT_PORT = 8765
 ANALYZE_PATHS = {"/analyze", "/v1/analyze"}
 HEALTH_PATHS = {"/health", "/v1/health"}
 LLM_CONFIG_PATHS = {"/config/llm", "/v1/config/llm"}
+LOG_PROMPTS_ENV = "PRIVOKE_DEV_LOG_PROMPTS"
 
 
 class LocalOnlyHTTPServer(ThreadingHTTPServer):
@@ -136,6 +137,7 @@ class PrivokeRequestHandler(BaseHTTPRequestHandler):
                 payload,
                 max_text_chars=self.server.max_text_chars,
             )
+            _log_dev_prompt_request(request)
             response = _analyse_prompt_request(request)
         except RequestValidationError as exc:
             self._write_error(str(exc), exc.status_code)
@@ -267,3 +269,21 @@ def _analyse_prompt_request(request):
     from .analyzer import analyse_prompt_request
 
     return analyse_prompt_request(request)
+
+
+def _log_dev_prompt_request(request) -> None:
+    if not env_bool(LOG_PROMPTS_ENV, False):
+        return
+
+    source = request.source or "unknown"
+    if "fuzzer" not in source.lower():
+        return
+
+    print(
+        "dev prompt received from fuzzer "
+        f"source={source} "
+        f"request_id={request.request_id or '-'} "
+        f"target_app={request.target_app or '-'} "
+        f"text={json.dumps(request.text)}",
+        flush=True,
+    )
