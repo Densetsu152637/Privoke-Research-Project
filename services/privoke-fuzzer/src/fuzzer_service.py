@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 
 import grpc
 
@@ -11,6 +12,10 @@ from training.protocols import StreamedParameterSnapshot
 from training.types import BatchTrainingUpdate
 
 from privoke.v1 import parameters_pb2, parameters_pb2_grpc
+
+
+class ModelSnapshotUnavailable(RuntimeError):
+    pass
 
 
 class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
@@ -40,7 +45,11 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             prompt_count,
         )
 
-        snapshot = fetch_snapshot(self.config, model_id=model_id)
+        try:
+            snapshot = fetch_snapshot(self.config, model_id=model_id)
+        except ModelSnapshotUnavailable as exc:
+            context.abort(grpc.StatusCode.UNAVAILABLE, str(exc))
+
         examples = generate_training_prompts(
             count=prompt_count,
             seed=seed,
@@ -82,7 +91,48 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
 
 
 def fetch_snapshot(config: FuzzerConfig, model_id: str) -> StreamedParameterSnapshot:
+    attempts = max(1, int(config.model_streaming_fetch_max_attempts))
+    last_error: Exception | None = None
+
+    for attempt in range(1, attempts + 1):
+        try:
+            return _fetch_snapshot_once(config, model_id)
+        except grpc.FutureTimeoutError as exc:
+            last_error = exc
+        except grpc.RpcError as exc:
+            if not _is_retryable_rpc_error(exc):
+                raise
+            last_error = exc
+
+        if attempt >= attempts:
+            break
+
+        delay_seconds = _retry_delay(config, attempt)
+        logging.warning(
+            "model snapshot fetch failed attempt=%s/%s target=%s: %s; "
+            "retrying in %.1fs",
+            attempt,
+            attempts,
+            config.model_streaming_target,
+            last_error,
+            delay_seconds,
+        )
+        time.sleep(delay_seconds)
+
+    raise ModelSnapshotUnavailable(
+        "model-streaming-service was unavailable after "
+        f"{attempts} attempts at {config.model_streaming_target}: {last_error}"
+    )
+
+
+def _fetch_snapshot_once(
+    config: FuzzerConfig,
+    model_id: str,
+) -> StreamedParameterSnapshot:
     with grpc.insecure_channel(config.model_streaming_target) as channel:
+        grpc.channel_ready_future(channel).result(
+            timeout=max(0.1, config.model_streaming_connect_timeout_seconds)
+        )
         client = parameters_pb2_grpc.ModelStreamingServiceStub(channel)
         return client.GetModelParameters(
             parameters_pb2.ModelParametersRequest(
@@ -91,6 +141,24 @@ def fetch_snapshot(config: FuzzerConfig, model_id: str) -> StreamedParameterSnap
             ),
             timeout=config.timeout_seconds,
         )
+
+
+def _is_retryable_rpc_error(exc: grpc.RpcError) -> bool:
+    try:
+        code = exc.code()
+    except AttributeError:
+        return False
+
+    return code in {
+        grpc.StatusCode.UNAVAILABLE,
+        grpc.StatusCode.DEADLINE_EXCEEDED,
+    }
+
+
+def _retry_delay(config: FuzzerConfig, failed_attempt: int) -> float:
+    initial = max(0.1, config.model_streaming_retry_initial_seconds)
+    maximum = max(initial, config.model_streaming_retry_max_seconds)
+    return min(maximum, initial * (2 ** (failed_attempt - 1)))
 
 
 def build_training_response(

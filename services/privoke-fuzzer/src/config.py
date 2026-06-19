@@ -20,6 +20,10 @@ class FuzzerConfig:
         training_learning_rate: float,
         training_max_gradient: float,
         training_transformations_per_example: int,
+        model_streaming_fetch_max_attempts: int,
+        model_streaming_connect_timeout_seconds: float,
+        model_streaming_retry_initial_seconds: float,
+        model_streaming_retry_max_seconds: float,
     ):
         self.model_streaming_target = model_streaming_target
         self.param_update_target = param_update_target
@@ -35,6 +39,14 @@ class FuzzerConfig:
         self.training_transformations_per_example = (
             training_transformations_per_example
         )
+        self.model_streaming_fetch_max_attempts = model_streaming_fetch_max_attempts
+        self.model_streaming_connect_timeout_seconds = (
+            model_streaming_connect_timeout_seconds
+        )
+        self.model_streaming_retry_initial_seconds = (
+            model_streaming_retry_initial_seconds
+        )
+        self.model_streaming_retry_max_seconds = model_streaming_retry_max_seconds
 
     @classmethod
     def from_env(cls) -> "FuzzerConfig":
@@ -59,6 +71,22 @@ class FuzzerConfig:
             training_transformations_per_example=env_int(
                 "FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE",
                 1,
+            ),
+            model_streaming_fetch_max_attempts=env_int(
+                "MODEL_STREAMING_FETCH_MAX_ATTEMPTS",
+                5,
+            ),
+            model_streaming_connect_timeout_seconds=env_float(
+                "MODEL_STREAMING_CONNECT_TIMEOUT_SECONDS",
+                2.0,
+            ),
+            model_streaming_retry_initial_seconds=env_float(
+                "MODEL_STREAMING_RETRY_INITIAL_SECONDS",
+                1.0,
+            ),
+            model_streaming_retry_max_seconds=env_float(
+                "MODEL_STREAMING_RETRY_MAX_SECONDS",
+                4.0,
             ),
         )
 

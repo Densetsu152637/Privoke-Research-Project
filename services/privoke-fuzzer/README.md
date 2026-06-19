@@ -77,6 +77,14 @@ Relevant environment variables:
 - `PRIVOKE_RUNTIME_URL`: client-runtime HTTP URL for runtime-layer tests.
 - `PRIVOKE_FUZZER_DUMP_DIR`: prompt-test dump directory, default
   `/workspace/dumps/privoke-fuzzer`.
+- `MODEL_STREAMING_FETCH_MAX_ATTEMPTS`: startup/runtime retries for fetching
+  model parameters, default `5`.
+- `MODEL_STREAMING_CONNECT_TIMEOUT_SECONDS`: per-attempt gRPC channel readiness
+  timeout, default `2`.
+- `MODEL_STREAMING_RETRY_INITIAL_SECONDS`: initial model-streaming retry delay,
+  default `1`.
+- `MODEL_STREAMING_RETRY_MAX_SECONDS`: maximum model-streaming retry delay,
+  default `4`.
 
 Prompt seed datasets should prefer packed 16-bit classifications for scale:
 
