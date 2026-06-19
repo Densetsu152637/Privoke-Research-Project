@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Tuple
+from typing import Dict, Tuple
+
+from privoke_client_runtime.classification import Classification
 
 
 ParameterDict = Dict[str, Tuple[float, ...]]
@@ -20,7 +22,7 @@ class BatchTrainingConfig:
 @dataclass(frozen=True)
 class BatchTrainingExample:
     text: str
-    expected_classification: Any | None = None
+    expected_classification: Classification | None = None
     weight: float = 1.0
     metadata: Dict[str, str] = field(default_factory=dict)
 

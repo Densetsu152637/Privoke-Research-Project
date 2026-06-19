@@ -11,7 +11,7 @@ COPY services/client-runtime /workspace/services/client-runtime
 
 WORKDIR /workspace/services/client-runtime
 
-RUN pip install --no-cache-dir -r requirements.txt \
+RUN pip install --no-cache-dir -r requirements.txt -e . \
     && mkdir -p generated \
     && python -m grpc_tools.protoc \
       -I /workspace/shared/proto \

@@ -1,26 +1,34 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Dict, List
+
+from privoke_client_runtime.LLM.privoke.streamed_model import (
+    ParameterBackedPrivacyModel,
+)
+from privoke_client_runtime.LLM.privoke.semantic_features import (
+    extract_semantic_signals,
+    visibility_rank,
+)
+from privoke_client_runtime.classification import Category, Classification, Visibility
 
 from .classifications import (
-    classification_module,
     empty_classification,
     merge_classifications,
-    semantic_features_module,
 )
 from .types import ParameterDict
 
 
-def predict_classification(model: Any, text: str):
+def predict_classification(
+    model: ParameterBackedPrivacyModel,
+    text: str,
+) -> Classification:
     results = model.classify(text)
     if not results:
         return empty_classification()
     return merge_classifications(result.classification for result in results)
 
 
-def classification_loss(target: Any, predicted: Any) -> float:
-    classification = classification_module()
-    semantic_features = semantic_features_module()
+def classification_loss(target: Classification, predicted: Classification) -> float:
     target_categories = set(target.categories())
     predicted_categories = set(predicted.categories())
 
@@ -29,14 +37,14 @@ def classification_loss(target: Any, predicted: Any) -> float:
     )
     visibility_loss = (
         abs(
-            semantic_features.visibility_rank(target.visibility())
-            - semantic_features.visibility_rank(predicted.visibility())
+            visibility_rank(target.visibility())
+            - visibility_rank(predicted.visibility())
         )
-        / semantic_features.visibility_rank(classification.Visibility.P4)
+        / visibility_rank(Visibility.P4)
     )
     category_loss = len(target_categories ^ predicted_categories) / max(
         1,
-        len(list(classification.Category)),
+        len(list(Category)),
     )
     return sensitivity_loss + 0.5 * visibility_loss + 0.25 * category_loss
 
@@ -45,16 +53,14 @@ def accumulate_gradient(
     gradients: Dict[str, List[float]],
     parameters: ParameterDict,
     text: str,
-    target: Any,
-    predicted: Any,
+    target: Classification,
+    predicted: Classification,
     weight: float,
 ) -> None:
-    classification = classification_module()
-    semantic_features = semantic_features_module()
-    categories = list(classification.Category)
+    categories = list(Category)
     text_categories = {
         signal.category
-        for signal in semantic_features.extract_semantic_signals(text)
+        for signal in extract_semantic_signals(text)
         if signal.category is not None
     }
     target_categories = set(target.categories())
@@ -66,9 +72,9 @@ def accumulate_gradient(
         target.sensitivity().value - predicted.sensitivity().value
     ) / 3.0
     visibility_delta = (
-        semantic_features.visibility_rank(target.visibility())
-        - semantic_features.visibility_rank(predicted.visibility())
-    ) / semantic_features.visibility_rank(classification.Visibility.P4)
+        visibility_rank(target.visibility())
+        - visibility_rank(predicted.visibility())
+    ) / visibility_rank(Visibility.P4)
 
     for name, values in parameters.items():
         lower_name = name.lower()

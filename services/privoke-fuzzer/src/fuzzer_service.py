@@ -7,6 +7,8 @@ import grpc
 from config import FuzzerConfig
 from prompt_generation import generate_training_prompts
 from training import emit_training_update, train_parameter_batch
+from training.protocols import StreamedParameterSnapshot
+from training.types import BatchTrainingUpdate
 
 from privoke.v1 import parameters_pb2, parameters_pb2_grpc
 
@@ -79,7 +81,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
         )
 
 
-def fetch_snapshot(config: FuzzerConfig, model_id: str):
+def fetch_snapshot(config: FuzzerConfig, model_id: str) -> StreamedParameterSnapshot:
     with grpc.insecure_channel(config.model_streaming_target) as channel:
         client = parameters_pb2_grpc.ModelStreamingServiceStub(channel)
         return client.GetModelParameters(
@@ -91,7 +93,11 @@ def fetch_snapshot(config: FuzzerConfig, model_id: str):
         )
 
 
-def build_training_response(ack, update, prompts_generated: int):
+def build_training_response(
+    ack,
+    update: BatchTrainingUpdate,
+    prompts_generated: int,
+):
     response_metadata = dict(update.metadata)
     response_metadata.update({key: str(value) for key, value in update.metrics.items()})
     return parameters_pb2.FuzzerTrainingResponse(

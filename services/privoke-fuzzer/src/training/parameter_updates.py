@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any, Mapping, Tuple
+from types import ModuleType
+from typing import Mapping, Tuple
 
 from .parameters import diff_parameters
 from .types import BatchTrainingUpdate, ParameterDict
 
 
-GeneratedModules = Tuple[Any, Any]
+GeneratedModules = Tuple[ModuleType, ModuleType]
 
 
 def emit_training_update(

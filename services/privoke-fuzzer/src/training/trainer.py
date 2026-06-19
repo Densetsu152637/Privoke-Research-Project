@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import random
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Iterable, Sequence
 
-from client_runtime_imports import import_client_module
+from privoke_client_runtime.LLM.privoke.streamed_model import (
+    ParameterBackedPrivacyModel,
+)
+from privoke_client_runtime.classification import Classification
 
 from .classifications import semantic_target_classification
 from .evaluation import (
@@ -19,12 +22,13 @@ from .parameters import (
     parameter_fingerprint,
     snapshot_with_trainable_parameters,
 )
+from .protocols import StreamedParameterSnapshot
 from .transforms import random_pii_transform
 from .types import BatchTrainingConfig, BatchTrainingExample, BatchTrainingUpdate
 
 
 def train_parameter_batch_from_files(
-    snapshot: Any,
+    snapshot: StreamedParameterSnapshot,
     batch_path: str | Path,
     golden_batch_path: str | Path | None = None,
     config: BatchTrainingConfig | None = None,
@@ -43,7 +47,7 @@ def train_parameter_batch_from_files(
 
 
 def train_parameter_batch(
-    snapshot: Any,
+    snapshot: StreamedParameterSnapshot,
     new_examples: Sequence[BatchTrainingExample],
     golden_examples: Sequence[BatchTrainingExample] = (),
     config: BatchTrainingConfig | None = None,
@@ -57,8 +61,7 @@ def train_parameter_batch(
     if not trainer_examples:
         raise ValueError("At least one training example is required.")
 
-    streamed_model = import_client_module("LLM.privoke.streamed_model")
-    model = streamed_model.ParameterBackedPrivacyModel(client_snapshot)
+    model = ParameterBackedPrivacyModel(client_snapshot)
     gradients = {name: [0.0 for _ in values] for name, values in parameters.items()}
     total_weight = 0.0
     total_loss = 0.0
@@ -120,7 +123,9 @@ def train_parameter_batch(
     )
 
 
-def target_classification_for_example(example: BatchTrainingExample):
+def target_classification_for_example(
+    example: BatchTrainingExample,
+) -> Classification:
     if example.has_explicit_target:
         return example.expected_classification
     return semantic_target_classification(example.text)

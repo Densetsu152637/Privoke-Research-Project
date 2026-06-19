@@ -31,19 +31,21 @@ path so regex and NER detections do not affect the achieved result.
 
 ## Client Runtime Imports
 
-Fuzzer code can import client-runtime modules without copying them by using
-`src/client_runtime_imports.py`:
+The client runtime is exposed as the `privoke_client_runtime` package. Fuzzer
+code should import client-runtime structures directly:
 
 ```python
-from client_runtime_imports import import_client_module
+from privoke_client_runtime.LLM.privoke.semantic_features import (
+    extract_semantic_signals,
+)
 
-semantic_features = import_client_module("LLM.privoke.semantic_features")
-signals = semantic_features.extract_semantic_signals("my bank account is overdrawn")
+signals = extract_semantic_signals("my bank account is overdrawn")
 ```
 
-The helper registers the client runtime as `privoke_client_runtime` and resolves
-the source tree from the sibling `services/client-runtime/src` directory. Set
-`PRIVOKE_CLIENT_RUNTIME_SRC` to override that path.
+The package is defined by `services/client-runtime/pyproject.toml`, mapping the
+existing `services/client-runtime/src` tree to the import name
+`privoke_client_runtime`. The fuzzer installs it via
+`services/privoke-fuzzer/requirements.txt`.
 
 ## Request Flow
 

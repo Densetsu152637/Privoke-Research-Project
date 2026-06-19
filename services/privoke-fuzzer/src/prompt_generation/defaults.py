@@ -2,17 +2,13 @@ from __future__ import annotations
 
 from typing import Tuple
 
-from training.classifications import classification_from_components, classification_module
+from privoke_client_runtime.classification import Category, Sensitivity, Visibility
+from training.classifications import classification_from_components
 
 from .types import PromptSeed
 
 
 def default_prompt_dataset() -> Tuple[PromptSeed, ...]:
-    client_types = classification_module()
-    sensitivity = client_types.Sensitivity
-    visibility = client_types.Visibility
-    category = client_types.Category
-
     return (
         PromptSeed(
             template=(
@@ -20,9 +16,9 @@ def default_prompt_dataset() -> Tuple[PromptSeed, ...]:
                 "of {amount}."
             ),
             classification=classification_from_components(
-                sensitivity.S2,
-                visibility.P2,
-                [category.FINANCIAL],
+                Sensitivity.S2,
+                Visibility.P2,
+                [Category.FINANCIAL],
             ),
             metadata={"dataset": "default_financial"},
         ),
@@ -32,18 +28,18 @@ def default_prompt_dataset() -> Tuple[PromptSeed, ...]:
                 "with {condition}."
             ),
             classification=classification_from_components(
-                sensitivity.S3,
-                visibility.P3,
-                [category.HEALTH, category.THIRD_PARTY],
+                Sensitivity.S3,
+                Visibility.P3,
+                [Category.HEALTH, Category.THIRD_PARTY],
             ),
             metadata={"dataset": "default_health_third_party"},
         ),
         PromptSeed(
             template="My doctor prescribed {medication} after my {condition} diagnosis.",
             classification=classification_from_components(
-                sensitivity.S3,
-                visibility.PU,
-                [category.HEALTH],
+                Sensitivity.S3,
+                Visibility.PU,
+                [Category.HEALTH],
             ),
             metadata={"dataset": "default_health"},
         ),
@@ -53,17 +49,17 @@ def default_prompt_dataset() -> Tuple[PromptSeed, ...]:
                 "in {city}."
             ),
             classification=classification_from_components(
-                sensitivity.S2,
-                visibility.PU,
-                [category.IDENTITY, category.LOCATION],
+                Sensitivity.S2,
+                Visibility.PU,
+                [Category.IDENTITY, Category.LOCATION],
             ),
             metadata={"dataset": "default_identity_location"},
         ),
         PromptSeed(
             template="This is a {public_place} about a product launch in {city}.",
             classification=classification_from_components(
-                sensitivity.S0,
-                visibility.P0,
+                Sensitivity.S0,
+                Visibility.P0,
                 [],
             ),
             metadata={"dataset": "default_public"},
@@ -74,27 +70,27 @@ def default_prompt_dataset() -> Tuple[PromptSeed, ...]:
                 "left my religion."
             ),
             classification=classification_from_components(
-                sensitivity.S3,
-                visibility.P4,
-                [category.POLITICS, category.RELIGION],
+                Sensitivity.S3,
+                Visibility.P4,
+                [Category.POLITICS, Category.RELIGION],
             ),
             metadata={"dataset": "default_beliefs"},
         ),
         PromptSeed(
             template="My {relative} has a court date after a dui charge.",
             classification=classification_from_components(
-                sensitivity.S3,
-                visibility.PU,
-                [category.CRIMINAL, category.THIRD_PARTY],
+                Sensitivity.S3,
+                Visibility.PU,
+                [Category.CRIMINAL, Category.THIRD_PARTY],
             ),
             metadata={"dataset": "default_criminal"},
         ),
         PromptSeed(
             template="The document says my home address is near my office in {city}.",
             classification=classification_from_components(
-                sensitivity.S2,
-                visibility.PU,
-                [category.LOCATION, category.IDENTITY],
+                Sensitivity.S2,
+                Visibility.PU,
+                [Category.LOCATION, Category.IDENTITY],
             ),
             metadata={"dataset": "default_location"},
         ),

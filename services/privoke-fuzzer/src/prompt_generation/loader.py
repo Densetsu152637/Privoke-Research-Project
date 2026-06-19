@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, List, Mapping
+from typing import List, Mapping
 
 from training.classifications import classification_from_mapping
 
@@ -44,7 +44,7 @@ def load_prompt_dataset(
     return [prompt_seed_from_mapping(item) for item in items]
 
 
-def prompt_seed_from_mapping(item: Any) -> PromptSeed:
+def prompt_seed_from_mapping(item: object) -> PromptSeed:
     if not isinstance(item, Mapping):
         raise ValueError("Prompt dataset entries must be objects.")
 
@@ -65,7 +65,7 @@ def prompt_seed_from_mapping(item: Any) -> PromptSeed:
     )
 
 
-def string_metadata(raw_metadata: Any) -> dict[str, str]:
+def string_metadata(raw_metadata: object) -> dict[str, str]:
     if not isinstance(raw_metadata, Mapping):
         return {}
     return {str(key): str(value) for key, value in raw_metadata.items()}

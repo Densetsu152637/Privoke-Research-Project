@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Mapping
+from typing import List, Mapping
 
 from .classifications import classification_from_mapping
 from .types import BatchTrainingExample
 
 
-JsonMapping = Mapping[str, Any]
+JsonMapping = Mapping[str, object]
 
 
 def load_training_examples(path: str | Path) -> List[BatchTrainingExample]:
@@ -56,7 +56,7 @@ def training_example_from_mapping(item: JsonMapping) -> BatchTrainingExample:
     )
 
 
-def string_metadata(raw_metadata: Any) -> Dict[str, str]:
+def string_metadata(raw_metadata: object) -> dict[str, str]:
     if not isinstance(raw_metadata, Mapping):
         return {}
     return {str(key): str(value) for key, value in raw_metadata.items()}

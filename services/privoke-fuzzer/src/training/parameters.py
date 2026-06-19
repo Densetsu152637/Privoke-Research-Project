@@ -1,25 +1,27 @@
 from __future__ import annotations
 
 import hashlib
-from typing import Any, Mapping
+from typing import Mapping, Sequence, cast
 
-from client_runtime_imports import import_client_module
+from privoke_client_runtime.LLM.privoke.parameter_stream import ParameterSnapshot
+from privoke_client_runtime.classification import Category
 
+from .protocols import StreamedParameter, StreamedParameterSnapshot
 from .types import ParameterDict
 
 
-def snapshot_with_trainable_parameters(snapshot: Any):
-    parameter_stream = import_client_module("LLM.privoke.parameter_stream")
+def snapshot_with_trainable_parameters(
+    snapshot: StreamedParameterSnapshot,
+) -> ParameterSnapshot:
     client_snapshot = to_client_snapshot(snapshot)
     if client_snapshot.parameters:
         return client_snapshot
 
-    classification = import_client_module("classification")
     fallback_parameters = {
         "classifier.bias": (0.0,),
-        "semantic.category_weights": tuple(0.0 for _ in classification.Category),
+        "semantic.category_weights": tuple(0.0 for _ in Category),
     }
-    return parameter_stream.ParameterSnapshot(
+    return ParameterSnapshot(
         model_id=client_snapshot.model_id,
         version=client_snapshot.version,
         generated_at_unix=client_snapshot.generated_at_unix,
@@ -28,9 +30,8 @@ def snapshot_with_trainable_parameters(snapshot: Any):
     )
 
 
-def to_client_snapshot(snapshot: Any):
-    parameter_stream = import_client_module("LLM.privoke.parameter_stream")
-    raw_parameters = getattr(snapshot, "parameters", {})
+def to_client_snapshot(snapshot: StreamedParameterSnapshot) -> ParameterSnapshot:
+    raw_parameters = snapshot.parameters
 
     if isinstance(raw_parameters, Mapping):
         parameters = {
@@ -38,17 +39,18 @@ def to_client_snapshot(snapshot: Any):
             for name, values in raw_parameters.items()
         }
     else:
+        streamed_parameters = cast(Sequence[StreamedParameter], raw_parameters)
         parameters = {
             parameter.name: tuple(float(value) for value in parameter.values)
-            for parameter in raw_parameters
+            for parameter in streamed_parameters
         }
 
-    return parameter_stream.ParameterSnapshot(
-        model_id=str(getattr(snapshot, "model_id", "privoke-baseline")),
-        version=str(getattr(snapshot, "version", "unknown")),
-        generated_at_unix=int(getattr(snapshot, "generated_at_unix", 0)),
+    return ParameterSnapshot(
+        model_id=snapshot.model_id,
+        version=snapshot.version,
+        generated_at_unix=int(snapshot.generated_at_unix),
         parameters=parameters,
-        metadata=dict(getattr(snapshot, "metadata", {})),
+        metadata=dict(snapshot.metadata),
     )
 
 
