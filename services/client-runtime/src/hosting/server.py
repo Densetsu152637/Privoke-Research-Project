@@ -23,9 +23,9 @@ from .runtime_config import (
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
-ANALYZE_PATHS = {"/analyze", "/v1/analyze"}
-HEALTH_PATHS = {"/health", "/v1/health"}
-LLM_CONFIG_PATHS = {"/config/llm", "/v1/config/llm"}
+ANALYZE_PATH = "/analyze"
+HEALTH_PATH = "/health"
+LLM_CONFIG_PATH = "/config/llm"
 LOG_PROMPTS_ENV = "PRIVOKE_DEV_LOG_PROMPTS"
 
 
@@ -63,20 +63,20 @@ class PrivokeRequestHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = urlparse(self.path).path
-        if path in HEALTH_PATHS:
+        if path == HEALTH_PATH:
             self._write_json(
                 {
                     "service": "privoke-client-runtime",
                     "status": "SERVING",
                     "host": self.server.server_address[0],
                     "port": self.server.server_address[1],
-                    "endpoints": sorted(ANALYZE_PATHS),
-                    "config_endpoints": sorted(LLM_CONFIG_PATHS),
+                    "endpoints": [ANALYZE_PATH],
+                    "config_endpoints": [LLM_CONFIG_PATH],
                 }
             )
             return
 
-        if path in LLM_CONFIG_PATHS:
+        if path == LLM_CONFIG_PATH:
             self._write_json(current_llm_config_response())
             return
 
@@ -98,7 +98,7 @@ class PrivokeRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
-        if path in LLM_CONFIG_PATHS:
+        if path == LLM_CONFIG_PATH:
             try:
                 payload = self._read_json_body()
                 response = update_llm_config_from_payload(payload)
@@ -127,7 +127,7 @@ class PrivokeRequestHandler(BaseHTTPRequestHandler):
             self._write_json(response)
             return
 
-        if path not in ANALYZE_PATHS:
+        if path != ANALYZE_PATH:
             self._write_error("Not found.", HTTPStatus.NOT_FOUND)
             return
 

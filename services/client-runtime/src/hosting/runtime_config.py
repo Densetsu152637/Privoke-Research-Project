@@ -77,7 +77,7 @@ def serialize_llm_config(config: LLMRuntimeConfig) -> Dict[str, Any]:
 
 
 def _parse_choice(payload: Dict[str, Any], current: LLMChoice) -> LLMChoice:
-    raw_choice = payload.get("choice", payload.get("llm_choice", payload.get("backend")))
+    raw_choice = payload.get("choice")
     if raw_choice is None:
         return current
 
@@ -91,30 +91,14 @@ def _updated_streamed_config(
     current: StreamedEndpointConfig,
     payload: Dict[str, Any],
 ) -> StreamedEndpointConfig:
-    section = _section(payload, "streamed", "privoke", "model_streaming")
-    if not section and _payload_targets_choice(payload, LLMChoice.Streamed):
-        section = _top_level_subset(
-            payload,
-            "target",
-            "model_id",
-            "model",
-            "consumer_id",
-            "timeout_seconds",
-        )
-
+    section = _section(payload, "streamed")
     if not section:
         return current
-
-    model_id = (
-        _optional_non_empty_string(section, "model_id", current.model_id)
-        if "model_id" in section
-        else _optional_non_empty_string(section, "model", current.model_id)
-    )
 
     return replace(
         current,
         target=_optional_non_empty_string(section, "target", current.target),
-        model_id=model_id,
+        model_id=_optional_non_empty_string(section, "model_id", current.model_id),
         consumer_id=_optional_non_empty_string(
             section,
             "consumer_id",
@@ -132,19 +116,7 @@ def _updated_local_config(
     current: LocalEndpointConfig,
     payload: Dict[str, Any],
 ) -> LocalEndpointConfig:
-    section = _section(payload, "local", "lm_studio", "lmstudio")
-    if not section and _payload_targets_choice(payload, LLMChoice.Local):
-        section = _top_level_subset(
-            payload,
-            "base_url",
-            "model",
-            "api_key",
-            "timeout_seconds",
-            "temperature",
-            "max_tokens",
-            "response_format",
-        )
-
+    section = _section(payload, "local")
     if not section:
         return current
 
@@ -177,18 +149,7 @@ def _updated_openai_config(
     current: OpenAIEndpointConfig,
     payload: Dict[str, Any],
 ) -> OpenAIEndpointConfig:
-    section = _section(payload, "openai", "open")
-    if not section and _payload_targets_choice(payload, LLMChoice.Open):
-        section = _top_level_subset(
-            payload,
-            "base_url",
-            "model",
-            "api_key",
-            "timeout_seconds",
-            "temperature",
-            "max_tokens",
-        )
-
+    section = _section(payload, "openai")
     if not section:
         return current
 
@@ -223,24 +184,6 @@ def _section(payload: Dict[str, Any], *names: str) -> Dict[str, Any]:
         return raw_section
 
     return {}
-
-
-def _payload_targets_choice(payload: Dict[str, Any], choice: LLMChoice) -> bool:
-    raw_choice = payload.get("choice", payload.get("llm_choice", payload.get("backend")))
-    if raw_choice is None:
-        return False
-    try:
-        return LLMChoice.parse(raw_choice) == choice
-    except ValueError:
-        return False
-
-
-def _top_level_subset(payload: Dict[str, Any], *keys: str) -> Dict[str, Any]:
-    return {
-        key: payload[key]
-        for key in keys
-        if key in payload
-    }
 
 
 def _optional_string(

@@ -70,22 +70,6 @@ def add_parameter_delta(
     return updated
 
 
-def diff_parameters(
-    base_parameters: ParameterDict,
-    updated_parameters: ParameterDict,
-) -> ParameterDict:
-    delta = {}
-    for name, values in updated_parameters.items():
-        base_values = base_parameters.get(name, ())
-        if len(base_values) != len(values):
-            raise ValueError(f"Parameter shape mismatch for {name}.")
-        delta[name] = tuple(
-            float(value) - float(base_values[index])
-            for index, value in enumerate(values)
-        )
-    return delta
-
-
 def parameter_fingerprint(parameters: ParameterDict) -> str:
     digest = hashlib.sha256()
     for name in sorted(parameters):

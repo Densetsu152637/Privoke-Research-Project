@@ -5,7 +5,6 @@ from pathlib import Path
 from types import ModuleType
 from typing import Mapping, Tuple
 
-from .parameters import diff_parameters
 from .types import BatchTrainingUpdate, ParameterDict
 
 
@@ -31,27 +30,6 @@ def emit_training_update(
         base_version=update.base_version,
         parameter_updates=update.gradients,
         metadata=metadata,
-        timeout_seconds=timeout_seconds,
-    )
-
-
-def emit_updated_model_weights(
-    target: str,
-    source_id: str,
-    model_id: str,
-    base_version: str,
-    base_parameters: ParameterDict,
-    updated_parameters: ParameterDict,
-    metadata: Mapping[str, str] | None = None,
-    timeout_seconds: float = 10.0,
-):
-    return emit_parameter_update(
-        target=target,
-        source_id=source_id,
-        model_id=model_id,
-        base_version=base_version,
-        parameter_updates=diff_parameters(base_parameters, updated_parameters),
-        metadata=metadata or {},
         timeout_seconds=timeout_seconds,
     )
 

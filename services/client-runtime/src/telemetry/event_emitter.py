@@ -1,11 +1,9 @@
-
-from datetime import datetime
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Dict, Optional
 import json
 
 from ..classification import (
-    Category,
     Classification,
     PriVokeAction,
     action_for_classification_result,
@@ -17,7 +15,6 @@ class StructuredEventEmitter:
     
     Events contain NO raw prompt text - only metadata for analysis:
     - Time bucket (date/hour)
-    - Risk category derived from Classification categories
     - Risk score bucket (0-0.2, 0.2-0.5, 0.5-0.8, 0.8-1.0)
     - Action taken (Allow/Warn/Block)
     - Detector version (v1, v2, v2.1, etc.)
@@ -50,7 +47,6 @@ class StructuredEventEmitter:
             "timestamp": "2026-04-23T14:00:00Z",
             "time_bucket": "2026-04-23 14:00",  # hourly bucket
             "date_bucket": "2026-04-23",
-            "risk_category": "PII | HEALTH | FINANCE | CREDENTIALS | NORMAL",
             "risk_score": 0.45,  # numeric 0-1
             "risk_score_bucket": "0.2-0.5",
             "action_taken": "ALLOW | WARN | BLOCK",
@@ -58,7 +54,6 @@ class StructuredEventEmitter:
             "detector_version": "v1",
             "metadata": {
                 "text_length": 156,
-                "entities_detected": ["email", "name"],
                 "rule_classification": {"sensitivity": "S3", "visibility": "PU", "categories": ["IDENTITY"]},
                 "llm_classification": {"sensitivity": "S2", "visibility": "PU", "categories": ["IDENTITY"]},
                 "disagreement": false
@@ -66,23 +61,17 @@ class StructuredEventEmitter:
         }
         """
         if timestamp is None:
-            timestamp = datetime.now()
+            timestamp = datetime.now(timezone.utc)
+        timestamp = self._utc_timestamp(timestamp)
         
         # Generate time buckets
         time_bucket = timestamp.strftime("%Y-%m-%d %H:00")
         date_bucket = timestamp.strftime("%Y-%m-%d")
-        iso_timestamp = timestamp.isoformat() + "Z"
+        iso_timestamp = timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
         
         # Extract risk score and compute bucket
-        raw_score = fused_output.get("raw_score", 0.0)
+        raw_score = self._numeric_score(fused_output.get("raw_score", 0.0))
         risk_score_bucket = self._score_to_bucket(raw_score)
-        
-        # Map classification to risk exposure category
-        risk_category = self._map_to_risk_category(fused_output)
-        
-        # Collect entities detected (from LLM)
-        llm_entities = fused_output.get("llm", {}).get("entities", {})
-        entities_detected = [k for k, v in llm_entities.items() if v]
         
         rule_classification = self._classification_from(
             fused_output.get("rule", {})
@@ -99,7 +88,6 @@ class StructuredEventEmitter:
             "timestamp": iso_timestamp,
             "time_bucket": time_bucket,
             "date_bucket": date_bucket,
-            "risk_category": risk_category,
             "risk_score": round(raw_score, 3),
             "risk_score_bucket": risk_score_bucket,
             "action_taken": action_taken,
@@ -107,7 +95,6 @@ class StructuredEventEmitter:
             "detector_version": self.detector_version,
             "metadata": {
                 "text_length": len(original_text),
-                "entities_detected": entities_detected,
                 "rule_classification": rule_classification.to_dict(),
                 "llm_classification": llm_classification.to_dict(),
                 "disagreement": disagreement
@@ -115,26 +102,6 @@ class StructuredEventEmitter:
         }
         
         return event
-
-    def _map_to_risk_category(self, fused_output: Dict) -> str:
-        """
-        Map fused output to high-level risk category.
-        """
-        classification = fused_output.get("classification")
-        if not isinstance(classification, Classification):
-            return "NORMAL"
-
-        categories = set(classification.categories())
-
-        if Category.HEALTH in categories:
-            return "HEALTH"
-        if Category.FINANCIAL in categories:
-            return "FINANCE"
-        if categories & {Category.IDENTITY, Category.LOCATION}:
-            return "PII"
-        if categories:
-            return "SENSITIVE"
-        return "NORMAL"
 
     def _action_name(self, enforcement_output: Dict, fused_output: Dict) -> str:
         action = enforcement_output.get("action")
@@ -161,7 +128,7 @@ class StructuredEventEmitter:
         classification = result.get("classification")
         if isinstance(classification, Classification):
             return classification
-        from src import Sensitivity, Visibility, initialise_unpacked
+        from ..classification import Sensitivity, Visibility, initialise_unpacked
         return initialise_unpacked(Sensitivity.S0, Visibility.PU, [])
 
     def _disagreement(
@@ -199,6 +166,16 @@ class StructuredEventEmitter:
         time_component = timestamp.strftime("%Y%m%d%H%M%S")
         return f"evt_{time_component}_{text_hash}"
 
+    def _utc_timestamp(self, timestamp: datetime) -> datetime:
+        if timestamp.tzinfo is None:
+            return timestamp.replace(tzinfo=timezone.utc)
+        return timestamp.astimezone(timezone.utc)
+
+    def _numeric_score(self, score: object) -> float:
+        if isinstance(score, (int, float)):
+            return float(score)
+        return 0.0
+
     def serialize(self, event: Dict) -> str:
         """
         Serialize event to JSON for transmission to telemetry collector.
@@ -214,5 +191,7 @@ class StructuredEventEmitter:
         return json.dumps({
             "event_batch": events,
             "batch_count": len(events),
-            "batch_timestamp": datetime.utcnow().isoformat() + "Z"
+            "batch_timestamp": datetime.now(timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            )
         }, indent=2)

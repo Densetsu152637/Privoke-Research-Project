@@ -23,16 +23,18 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
         self.config = config
 
     def RunTrainingCycle(self, request, context):
-        prompt_count = int(request.prompt_count)
-        if prompt_count <= 0:
+        requested_prompt_count = int(request.prompt_count)
+        if requested_prompt_count <= 0:
             context.abort(
                 grpc.StatusCode.INVALID_ARGUMENT,
                 "prompt_count must be greater than zero.",
             )
-        if prompt_count > self.config.max_prompt_count:
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT,
-                f"prompt_count must be <= {self.config.max_prompt_count}.",
+        prompt_count = min(requested_prompt_count, self.config.max_prompt_count)
+        if prompt_count < requested_prompt_count:
+            logging.info(
+                "capped training prompt count requested=%s max=%s",
+                requested_prompt_count,
+                self.config.max_prompt_count,
             )
 
         model_id = request.model_id or self.config.model_id
@@ -67,7 +69,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             extra_metadata={
                 "request_id": request.request_id,
                 "request_source_id": request.source_id,
-                "requested_prompt_count": str(prompt_count),
+                "requested_prompt_count": str(requested_prompt_count),
                 "generated_prompt_count": str(len(examples)),
                 "training_pipeline": "streamed_llm_only",
             },

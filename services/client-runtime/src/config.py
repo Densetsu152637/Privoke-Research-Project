@@ -8,18 +8,14 @@ import multiprocessing
 import os
 import threading
 
-import torch
-
 from .env import (
+    env_bool,
     env_non_negative_float,
     env_optional_str,
     env_positive_float,
     env_positive_int,
 )
 
-
-def _default_device() -> str:
-    return "cuda" if torch.cuda.is_available() else "cpu"
 
 class LLMChoice(Enum):
 
@@ -151,8 +147,9 @@ class LLMRuntimeConfig:
 class GlobalConfig:
     """Global configuration"""
 
-    wait_for_regex: bool = True
-    device: str = field(default_factory=_default_device)
+    wait_for_regex: bool = field(
+        default_factory=lambda: env_bool("PRIVOKE_WAIT_FOR_REGEX", True)
+    )
     threadpool: ThreadPoolExecutor = field(
         default_factory=lambda: ThreadPoolExecutor(
             max_workers=multiprocessing.cpu_count()

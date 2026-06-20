@@ -24,7 +24,7 @@ def _fix_common_obfuscations(text: str) -> str:
 
     # fix spaced digits (OTP / phone)
     # removes spaces between digits
-    text = re.sub(r'(\d)\s+(?=\d)', r'\1', text)
+    text = re.sub(r'(\d)[ \t]+(?=\d)', r'\1', text)
     return text
 
 def _clean_spaces(text: str) -> str:

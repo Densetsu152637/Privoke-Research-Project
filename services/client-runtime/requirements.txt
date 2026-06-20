@@ -1,11 +1,8 @@
-datasets
 en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl
 grpcio==1.64.0
 grpcio-tools==1.64.0
-huggingface_hub
 openai
 protobuf==5.27.0
 python-dotenv
 requests>=2.31.0
 spacy>=3.7.2,<3.8.0
-torch

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 from urllib import error, request
+from urllib.parse import urlparse
 
 DEFAULT_DUMP_DIR = "/workspace/dumps/privoke-fuzzer"
 DEFAULT_RUNTIME_URL = "http://client-runtime:8765"
@@ -425,7 +426,7 @@ def _runtime_request(
 
 def _analyze_url(runtime_url: str, endpoint: str) -> str:
     base = runtime_url.rstrip("/")
-    if base.endswith("/analyze") or base.endswith("/v1/analyze"):
+    if urlparse(base).path.rstrip("/") == "/analyze":
         return base
 
     path = endpoint if endpoint.startswith("/") else f"/{endpoint}"

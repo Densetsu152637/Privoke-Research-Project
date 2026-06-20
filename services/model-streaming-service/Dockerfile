@@ -9,8 +9,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.1 \
-    && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.4.0 \
-    && go install github.com/air-verse/air@v1.52.3
+    && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.4.0
 
 COPY shared/proto /workspace/shared/proto
 COPY services/model-streaming-service /workspace/services/model-streaming-service

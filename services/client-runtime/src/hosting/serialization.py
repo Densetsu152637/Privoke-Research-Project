@@ -86,9 +86,7 @@ def serialize_analysis_response(
 
 
 def serialize_classification(classification: Classification) -> Dict[str, Any]:
-    payload = classification.to_dict()
-    payload["packed"] = classification.pack()
-    return payload
+    return classification.to_dict()
 
 
 def error_response(message: str, status_code: int) -> Dict[str, Any]:
