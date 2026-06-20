@@ -8,16 +8,15 @@ This directory contains layer 2 of the PriVoke client-runtime detector pipeline:
 
 `EntityNERDetector`:
 
-- calls `require_package("spacy")`, which attempts to install spaCy if the package is missing,
-- tries to load `en_core_web_sm`,
-- sets `self.nlp = None` if the model cannot be loaded,
-- returns an empty result list when `self.nlp` is `None`,
+- imports spaCy directly,
+- loads `en_core_web_sm` during initialization,
+- raises the normal spaCy import or model-load exception when dependencies are missing,
 - deduplicates by `(start_char, end_char, label, text)`.
 
-Install the model for NER results:
+Install runtime dependencies before running NER:
 
 ```bash
-python -m spacy download en_core_web_sm
+pip install -r services/client-runtime/requirements.txt
 ```
 
 ## Label Mapping
@@ -57,7 +56,6 @@ Spans refer to the normalized text passed into NER by the pipeline.
 
 NER subagents should:
 
-- decide whether missing spaCy models should fail fast or keep returning no results,
 - improve span precision and overlap handling,
 - expand label mappings only when they map cleanly into `Classification`,
 - add confidence calibration,

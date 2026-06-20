@@ -7,7 +7,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Tuple
 
+import grpc
+
 from ...env import env_float
+
+GENERATED_DIR = Path(__file__).resolve().parents[3] / "generated"
+if str(GENERATED_DIR) not in sys.path:
+    sys.path.insert(0, str(GENERATED_DIR))
+
+from privoke.v1 import parameters_pb2, parameters_pb2_grpc
 
 
 @dataclass(frozen=True)
@@ -46,11 +54,11 @@ class ParameterSnapshot:
 
 class ModelParameterStreamer:
     """
-    Lazy client for model-streaming-service.
+    Client for model-streaming-service.
 
     The generated protobuf package is created by the client-runtime Dockerfile
-    and dev-compose command. Imports stay inside fetch() so instantiating a
-    classifier never streams parameters or requires generated files.
+    and dev-compose command. The generated stubs and grpcio dependency must be
+    present before this module is imported.
     """
 
     DEFAULT_TARGET = "model-streaming-service:50051"
@@ -86,8 +94,6 @@ class ModelParameterStreamer:
             raise ValueError("MODEL_STREAMING_TIMEOUT_SECONDS must be greater than zero.")
 
     def fetch(self) -> ParameterSnapshot:
-        grpc, parameters_pb2, parameters_pb2_grpc = _load_generated_grpc_modules()
-
         with grpc.insecure_channel(self.target) as channel:
             client = parameters_pb2_grpc.ModelStreamingServiceStub(channel)
             snapshot = client.GetModelParameters(
@@ -108,28 +114,3 @@ class ModelParameterStreamer:
             },
             metadata=dict(snapshot.metadata),
         )
-
-
-def _load_generated_grpc_modules():
-    generated_dir = Path(__file__).resolve().parents[3] / "generated"
-    if str(generated_dir) not in sys.path:
-        sys.path.insert(0, str(generated_dir))
-
-    try:
-        import grpc
-    except ModuleNotFoundError as exc:
-        raise RuntimeError(
-            "grpcio is required for streamed PriVoke classification. "
-            "Install services/client-runtime/requirements.txt."
-        ) from exc
-
-    try:
-        from privoke.v1 import parameters_pb2, parameters_pb2_grpc
-    except ModuleNotFoundError as exc:
-        raise RuntimeError(
-            "Generated gRPC stubs are missing. Run the client-runtime Dockerfile "
-            "or generate shared/proto/privoke/v1/parameters.proto into "
-            f"{generated_dir}."
-        ) from exc
-
-    return grpc, parameters_pb2, parameters_pb2_grpc

@@ -1,2 +1,7 @@
 -r ../client-runtime/requirements.txt
 -e ../client-runtime
+datasets
+peft
+torch
+transformers
+trl

@@ -8,6 +8,8 @@ import multiprocessing
 import os
 import threading
 
+import torch
+
 from .env import (
     env_non_negative_float,
     env_optional_str,
@@ -17,11 +19,6 @@ from .env import (
 
 
 def _default_device() -> str:
-    try:
-        import torch
-    except ModuleNotFoundError:
-        return "cpu"
-
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 class LLMChoice(Enum):

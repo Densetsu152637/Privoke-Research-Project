@@ -39,7 +39,7 @@ This service does not run a full ML training job. It treats streamed parameter v
 `train_parameter_batch`:
 
 - converts streamed parameters into a client `ParameterSnapshot`,
-- falls back to default trainable parameters when the snapshot is empty,
+- uses default trainable parameters when the snapshot is empty,
 - generates optional transformed variants per new example,
 - predicts classifications with `ParameterBackedPrivacyModel`,
 - computes classification loss over sensitivity, visibility, and categories,
@@ -92,7 +92,7 @@ Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
 
 ## Client Runtime Imports
 
-The fuzzer installs `services/client-runtime` as the `privoke_client_runtime` package via `services/privoke-fuzzer/requirements.txt`.
+The fuzzer installs `services/client-runtime` as the `privoke_client_runtime` package via `services/privoke-fuzzer/requirements.txt`. Its requirements also declare the Hugging Face, PEFT, TRL, datasets, and torch packages used by the research training notes.
 
 Example:
 

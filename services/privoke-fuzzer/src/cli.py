@@ -3,15 +3,14 @@ import json
 import sys
 from pathlib import Path
 
-from prompt_testing import add_test_prompt_args, run_prompt_tests
-
 GENERATED_DIR = Path(__file__).resolve().parents[1] / "generated"
+if str(GENERATED_DIR) not in sys.path:
+    sys.path.insert(0, str(GENERATED_DIR))
+
+from prompt_testing import add_test_prompt_args, run_prompt_tests
 
 def fetch_parameters(args) -> None:
     import grpc
-
-    if str(GENERATED_DIR) not in sys.path:
-        sys.path.insert(0, str(GENERATED_DIR))
 
     from privoke.v1 import parameters_pb2, parameters_pb2_grpc
 

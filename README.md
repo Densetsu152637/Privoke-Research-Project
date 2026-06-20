@@ -81,7 +81,17 @@ Run the client runtime directly:
 
 ```bash
 cd services/client-runtime
+pip install -r requirements.txt
 python src/main.py --port 8765 --llm-choice streamed
+```
+
+For streamed classification outside Docker, generate the Python protobuf bindings into `services/client-runtime/generated` before starting the runtime. Docker builds and the dev Compose override perform this generation step automatically.
+
+Run paper figure scripts:
+
+```bash
+pip install -r paper/requirements.txt
+python paper/fig1.py
 ```
 
 Reconfigure the live client-runtime semantic backend:

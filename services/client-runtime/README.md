@@ -130,7 +130,7 @@ Action policy:
 
 Regex rules are in `src/regex`. `RuleDetector.analyze(text)` returns one `ClassificationResult` per regex or heuristic hit. Rules are grouped by visibility, identity, location, health, financial, sensitive category, and context modules.
 
-NER is in `src/NER`. `EntityNERDetector` uses spaCy `en_core_web_sm` when available and maps `PERSON`, `GPE`, `LOC`, `FAC`, and `ORG` labels into PriVoke classifications. If the spaCy package is missing, `require_package("spacy")` attempts to install it. If the model cannot be loaded, NER returns no results.
+NER is in `src/NER`. `EntityNERDetector` uses spaCy `en_core_web_sm` and maps `PERSON`, `GPE`, `LOC`, `FAC`, and `ORG` labels into PriVoke classifications. spaCy and the model are install-time dependencies from `requirements.txt`; missing packages or model data fail during import or detector initialization.
 
 Semantic classifiers are in `src/LLM`:
 
@@ -185,10 +185,9 @@ cd services/client-runtime
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
-python -m spacy download en_core_web_sm
 ```
 
-For streamed classification outside Docker, generate the gRPC stubs into `services/client-runtime/generated` from `shared/proto/privoke/v1/parameters.proto`.
+For streamed classification outside Docker, generate the gRPC stubs into `services/client-runtime/generated` from `shared/proto/privoke/v1/parameters.proto` before importing the streamed backend or starting the server.
 
 Run the server:
 

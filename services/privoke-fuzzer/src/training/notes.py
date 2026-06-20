@@ -52,7 +52,7 @@ import torch
 from datasets import load_dataset, concatenate_datasets
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
 from trl import SFTTrainer
-from peft import LoraConfig, get_peft_model
+from peft import LoraConfig, PeftModel, get_peft_model
 
 model_id = "HuggingFaceTB/SmolLM2-135M-Instruct"
 adapter_path = "./casper_pii_lora"

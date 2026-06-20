@@ -17,7 +17,7 @@ def snapshot_with_trainable_parameters(
     if client_snapshot.parameters:
         return client_snapshot
 
-    fallback_parameters = {
+    default_parameters = {
         "classifier.bias": (0.0,),
         "semantic.category_weights": tuple(0.0 for _ in Category),
     }
@@ -25,7 +25,7 @@ def snapshot_with_trainable_parameters(
         model_id=client_snapshot.model_id,
         version=client_snapshot.version,
         generated_at_unix=client_snapshot.generated_at_unix,
-        parameters=fallback_parameters,
+        parameters=default_parameters,
         metadata=dict(client_snapshot.metadata),
     )
 

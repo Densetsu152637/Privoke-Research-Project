@@ -42,7 +42,7 @@ Environment:
 - `MODEL_STREAMING_CONSUMER_ID`, default `client-runtime`
 - `MODEL_STREAMING_TIMEOUT_SECONDS`, default `10.0`
 
-Generated stubs must exist under `services/client-runtime/generated`.
+`grpcio` and the generated Python stubs must be present before this backend is imported. Docker and the dev Compose override generate stubs under `services/client-runtime/generated`; local runs must do the same from `shared/proto/privoke/v1/parameters.proto`.
 
 ## Local OpenAI-Compatible Backend
 
@@ -105,7 +105,7 @@ Environment:
 Semantic-detector subagents should:
 
 - keep every backend returning `ClassificationResult` values,
-- add tests for malformed JSON and enum fallback behavior,
+- add tests for malformed JSON and enum defaulting behavior,
 - improve `semantic_features.py` coverage for implicit disclosures,
 - document any change that makes the streamed backend depend on a real model artifact rather than calibration vectors,
 - avoid passing model-specific labels beyond this package boundary.
