@@ -145,7 +145,7 @@ Available test layers:
 
 Prompt files can be JSON, JSONL, or text. JSON entries may be strings or objects with `text`/`prompt` fields.
 
-The CLI writes a JSON dump for each prompt-test run and prints a summary. If any layer run fails, it exits with status `1`.
+The CLI writes a JSON dump for each prompt-test run and prints the full per-prompt JSON report. Each prompt entry includes the request text, optional expected classification, and each selected layer's observed classification/action/results. If any layer run fails, it exits with status `1`.
 
 In Docker dev mode, dumps are bind-mounted to `./dumps/privoke-fuzzer` on the host. In the baseline stack, dumps stay inside the container at `/workspace/dumps/privoke-fuzzer`.
 

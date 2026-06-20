@@ -116,31 +116,35 @@ def run_prompt_tests(args: argparse.Namespace) -> None:
         runtime_request = _runtime_request(prompt_request, args, run_id, index)
         prompt_result = {
             "index": index,
+            "prompt": prompt_request["text"],
             "request": runtime_request,
             "expected_classification": prompt_request.get("expected_classification"),
             "layers": {},
         }
         for layer in layers:
-            prompt_result["layers"][layer] = _run_layer(
-                layer,
-                prompt_request,
-                args,
-                runtime_request,
+            prompt_result["layers"][layer] = _with_classification_confirmation(
+                _run_layer(
+                    layer,
+                    prompt_request,
+                    args,
+                    runtime_request,
+                )
             )
         results.append(prompt_result)
 
-    payload = {
+    report = {
         "run_id": run_id,
         "created_at": started_at,
         "layers": layers,
         "runtime_mode": "in_process",
         "results": results,
     }
-    output_path = _write_dump(Path(args.dump_dir), run_id, payload)
+    output_path = _output_path(Path(args.dump_dir), run_id)
+    report["summary"] = _summary(results, output_path)
+    _write_dump(output_path, report)
 
-    summary = _summary(results, output_path)
-    print(json.dumps(summary, indent=2, sort_keys=True))
-    if summary["failed_layer_runs"]:
+    print(json.dumps(report, indent=2, sort_keys=True))
+    if report["summary"]["failed_layer_runs"]:
         raise SystemExit(1)
 
 
@@ -301,9 +305,12 @@ def _run_pipeline_layer(runtime_request: Dict[str, Any]) -> Dict[str, Any]:
     from privoke_client_runtime.hosting.analyzer import analyse_prompt_request
     from privoke_client_runtime.hosting.serialization import parse_prompt_request
 
+    response = analyse_prompt_request(parse_prompt_request(runtime_request))
     return {
         "status": "ok",
-        "response": analyse_prompt_request(parse_prompt_request(runtime_request)),
+        "action": response.get("action"),
+        "classification": response.get("classification"),
+        "response": response,
     }
 
 
@@ -369,10 +376,51 @@ def _run_semantic_openai_layer(
 
 
 def _direct_results_response(results) -> Dict[str, Any]:
+    serialized_results = [result.to_dict() for result in results]
     return {
         "status": "ok",
-        "result_count": len(results),
-        "results": [result.to_dict() for result in results],
+        "result_count": len(serialized_results),
+        "classifications": [
+            _classification_view(result)
+            for result in serialized_results
+        ],
+        "results": serialized_results,
+    }
+
+
+def _with_classification_confirmation(layer_result: Dict[str, Any]) -> Dict[str, Any]:
+    if layer_result.get("status") != "ok":
+        return layer_result
+
+    result = dict(layer_result)
+    if "classification" in result:
+        return result
+
+    response = result.get("response")
+    if isinstance(response, dict):
+        result["action"] = response.get("action")
+        result["classification"] = response.get("classification")
+        return result
+
+    if "results" in result and "classifications" not in result:
+        raw_results = result.get("results")
+        if isinstance(raw_results, list):
+            result["classifications"] = [
+                _classification_view(item)
+                for item in raw_results
+                if isinstance(item, dict)
+            ]
+    return result
+
+
+def _classification_view(result: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "action": result.get("action"),
+        "classification": result.get("classification"),
+        "section_of_text": result.get("section_of_text"),
+        "span": result.get("span"),
+        "confidence": result.get("confidence"),
+        "reasoning": result.get("reasoning"),
     }
 
 
@@ -407,14 +455,16 @@ def _runtime_request(
     return payload
 
 
-def _write_dump(dump_dir: Path, run_id: str, payload: Dict[str, Any]) -> Path:
+def _output_path(dump_dir: Path, run_id: str) -> Path:
     dump_dir.mkdir(parents=True, exist_ok=True)
-    output_path = dump_dir / f"{run_id}.json"
+    return dump_dir / f"{run_id}.json"
+
+
+def _write_dump(output_path: Path, payload: Dict[str, Any]) -> None:
     output_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True),
         encoding="utf-8",
     )
-    return output_path
 
 
 def _summary(results: List[Dict[str, Any]], output_path: Path) -> Dict[str, Any]:
