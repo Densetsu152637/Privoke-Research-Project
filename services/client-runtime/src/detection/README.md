@@ -1,69 +1,39 @@
-# Detection Orchestration
+# Detection Preprocessing
 
-This package contains the non-detector glue for the client runtime:
+This package currently contains the text normalizer used before all detector layers. It does not contain the full fusion or enforcement logic described by older PriVoke design notes.
 
-- preprocessing,
-- fusion,
-- enforcement.
+## Current File
 
-It should not become a fourth detector layer. Its job is to normalize input, combine detector evidence, derive a `PriVokeAction` from `ClassificationResult`, and make enforcement decisions.
+- `preprocessing.py`: `normalize_text(text)` prepares text for regex, NER, and semantic detection.
 
-## Files
+## Normalization Behavior
 
-- `preprocessing.py`: text normalization before all detectors.
-- `fusion.py`: combines rule, NER, and semantic evidence into one `Classification`.
-- `enforcement_engine.py`: converts fused output into `ALLOW`, `WARN`, or `BLOCK`.
+`normalize_text` currently:
 
-## Preprocessing Responsibilities
+- applies Unicode NFKC normalization,
+- lowercases the whole prompt,
+- replaces `[at]` and `(at)` with `@`,
+- removes spaces between adjacent digits,
+- collapses horizontal spaces and tabs,
+- collapses repeated newlines,
+- trims leading and trailing whitespace.
 
-The normalizer should:
+Normalization should not delete sensitive content. It prepares a canonical string for matching, but span offsets in detector results refer to the normalized text, not necessarily the original request text.
 
-- normalize Unicode,
-- collapse repeated whitespace,
-- de-obfuscate common evasions such as `[at]` or `(dot)`,
-- preserve enough text structure for downstream span extraction,
-- avoid deleting sensitive terms.
+## Where Pipeline Decisions Live
 
-Preprocessing output is the canonical text passed to the three detection layers.
+- `src/pipeline.py` orchestrates regex, NER, semantic classification, regex short-circuiting, and strongest-result selection.
+- `src/classification/classification_policy.py` derives `PriVokeAction` from each `ClassificationResult`.
+- `src/hosting/analyzer.py` applies request-level `visibility_hint` after pipeline analysis.
+- `src/hosting/serialization.py` builds the HTTP response and performs warning-span masking.
 
-## Fusion Responsibilities
-
-Fusion consumes three detector outputs:
-
-- `RuleDetector.analyze(...) -> list[ClassificationResult]`,
-- `EntityNERDetector.extract_entities(...) -> list[ClassificationResult]`,
-- `AbstractClassifier.classify(...) -> list[ClassificationResult]`.
-
-Fusion should:
-
-- preserve the strongest sensitivity,
-- merge categories,
-- preserve the strongest known visibility,
-- treat `Visibility.PU` as unknown with comparison score zero,
-- account for entity combinations,
-- derive `PriVokeAction` from `ClassificationResult`,
-- carry detector evidence forward for telemetry.
-
-Fusion should not classify by legacy strings such as `"PII"` or `"HIGH"`.
-
-## Enforcement Responsibilities
-
-Enforcement should be deterministic and easy to audit.
-
-Current policy:
-
-- block high-confidence `S3`,
-- warn and mask `S2`, or identifier/location evidence combined with restricted/private visibility or with each other,
-- allow low-risk content.
-
-Masking should prefer entity spans from NER or LLM output. Regex fallback is acceptable when spans are unavailable.
+There is no active `fusion.py` or `enforcement_engine.py` in this package.
 
 ## Subagent Tasks
 
-Good subagent tasks in this package:
+Good tasks in this package:
 
-- improve action derivation tests,
-- add table-driven enforcement tests,
-- improve masking span handling,
-- add calibration hooks for entity boosts,
-- add regression tests for detector disagreement.
+- improve normalization tests,
+- document span offset expectations,
+- add targeted de-obfuscation rules,
+- avoid transformations that make evidence spans unusable.

@@ -1,41 +1,58 @@
 # Shared Contracts
 
-This directory contains resources that must be accessible to more than one service. At present, the most important shared asset is the protobuf contract under `proto/privoke/v1`.
+This directory contains interfaces shared by more than one PriVoke service. The active shared contract is `proto/privoke/v1/parameters.proto`.
 
-## Purpose
+## Current Protobuf Contract
 
-Shared files should define stable interfaces, not service-specific implementation details. Use this directory for:
+`parameters.proto` defines:
 
-- protobuf definitions,
-- shared schema documentation,
-- small cross-service fixtures,
-- versioned interface notes.
+- `HealthRequest`
+- `HealthResponse`
+- `Parameter`
+- `ModelParametersRequest`
+- `ModelParametersResponse`
+- `ParameterUpdateRequest`
+- `ParameterUpdateAck`
+- `FuzzerTrainingRequest`
+- `FuzzerTrainingResponse`
 
-Do not place detector-specific rules, prompts, model weights, or service-local configuration here unless more than one service depends on them.
+Services:
 
-## Current Contract
+- `ModelStreamingService`
+  - `GetModelParameters(ModelParametersRequest) -> ModelParametersResponse`
+  - `Health(HealthRequest) -> HealthResponse`
+- `ParamUpdateService`
+  - `SubmitParameterUpdate(ParameterUpdateRequest) -> ParameterUpdateAck`
+  - `Health(HealthRequest) -> HealthResponse`
+- `FuzzerService`
+  - `RunTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
+  - `Health(HealthRequest) -> HealthResponse`
 
-`proto/privoke/v1/parameters.proto` defines parameter snapshot and update messages used by:
+## Producers and Consumers
 
-- `model-streaming-service`,
-- `param-update-service`,
-- `privoke-fuzzer`,
-- `client-runtime` parameter fetch commands.
+- `model-streaming-service` implements `ModelStreamingService`.
+- `client-runtime` consumes `ModelStreamingService` when using the `streamed` semantic backend.
+- `privoke-fuzzer` consumes `ModelStreamingService`, implements `FuzzerService`, and consumes `ParamUpdateService`.
+- `param-update-service` implements `ParamUpdateService` and can consume `FuzzerService` when fuzzer requests are enabled.
 
-## Expected Workflow
+## Generated Bindings
 
-When changing a shared API:
+Each service keeps generated protobuf code locally:
 
-1. Update the protobuf schema.
-2. Regenerate language-specific bindings in the affected services.
-3. Update each service README if the contract changes behavior.
-4. Add compatibility notes if an older service version cannot read the new message.
+- Go bindings under `services/model-streaming-service/gen`
+- Python bindings under each Python service's `generated` directory
 
-## Subagent Tasks
+The Dockerfiles generate these bindings at image build time. `docker-compose.dev.yml` regenerates them at container startup before running the service.
 
-Subagents assigned here should focus on contract stability:
+## Contract Guidance
 
-- add versioned protobuf fields instead of breaking existing fields,
-- document producer and consumer expectations,
-- avoid raw prompt text in telemetry or update contracts unless explicitly approved,
-- keep service boundaries clear.
+Shared files should define stable interfaces, not service-specific implementation details. Do not place detector rules, prompts, model weights, or service-local config here unless multiple services actually depend on them.
+
+When changing the protobuf schema:
+
+1. Update `shared/proto/privoke/v1/parameters.proto`.
+2. Regenerate bindings in affected services.
+3. Update the relevant service READMEs.
+4. Add compatibility notes for any field semantics that older services cannot handle.
+
+Avoid raw prompt text in shared telemetry or update contracts unless an experiment explicitly requires and approves it.

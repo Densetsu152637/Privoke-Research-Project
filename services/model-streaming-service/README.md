@@ -1,49 +1,73 @@
 # model-streaming-service
 
-This Go service exposes model parameter snapshots over gRPC. It supports research workflows where runtime components or fuzzing workers need to retrieve the current parameter state.
+`model-streaming-service` is a Go gRPC service that serves the current parameter snapshot for PriVoke experiments.
 
-This service is not part of the prompt detection path. The prompt path lives in `services/client-runtime`.
+It is not a prompt classifier. The client runtime uses it only when the semantic backend is set to `streamed`; the service returns named float vectors, and the Python runtime uses those vectors to calibrate its local `ParameterBackedPrivacyModel`.
 
-## Responsibilities
+## API
 
-The model streaming service should:
+Defined in `shared/proto/privoke/v1/parameters.proto`:
 
-- serve parameter snapshots defined by `shared/proto/privoke/v1/parameters.proto`,
-- expose stable gRPC methods for clients,
-- include snapshot metadata such as model ID, version, and generation time,
-- avoid embedding detector-specific policy in transport code,
-- support local development through Docker Compose.
+- `GetModelParameters(ModelParametersRequest) -> ModelParametersResponse`
+- `Health(HealthRequest) -> HealthResponse`
 
-## Inputs and Outputs
+Request:
 
-Input:
+```protobuf
+ModelParametersRequest {
+  consumer_id: "client-runtime"
+  model_id: "privoke-baseline"
+}
+```
 
-- gRPC request containing consumer ID and model ID.
+Current response behavior:
 
-Output:
+- logs the requested `consumer_id` and `model_id`,
+- returns the service-configured `MODEL_ID` and `MODEL_VERSION`,
+- sets `generated_at_unix` to the current Unix timestamp,
+- returns three hard-coded parameter vectors:
+  - `encoder.layer.0.attention`
+  - `encoder.layer.1.ffn`
+  - `classifier.bias`
+- returns metadata with `served_by=model-streaming-service` and the requester `consumer_id`.
 
-- model ID,
-- version,
-- generated timestamp,
-- parameter list,
-- metadata map.
+The current implementation does not validate or branch on the requested model ID.
 
-## Relationship to Detection Pipeline
+## Runtime
 
-The three-layer privacy detection pipeline does not require this service to classify a prompt. This service is research infrastructure for future work such as:
+Default port: `50051`
 
-- adaptive model parameter delivery,
-- experiment configuration,
-- fuzzing and feedback loops,
-- runtime parameter synchronization.
+Environment variables:
+
+- `MODEL_STREAMING_PORT`, default `50051`
+- `MODEL_ID`, default `privoke-baseline`
+- `MODEL_VERSION`, default `v0.1.0`
+
+Run directly from the service directory after protobuf generation:
+
+```bash
+go run ./cmd/server
+```
+
+Dockerfile behavior:
+
+- installs `protoc`, `protoc-gen-go`, and `protoc-gen-go-grpc`,
+- generates Go bindings under `services/model-streaming-service/gen`,
+- starts `go run ./cmd/server`.
+
+The Compose healthcheck probes the configured TCP port with `nc`.
+
+## Consumers
+
+- `client-runtime` streamed semantic backend fetches snapshots lazily from `PriVokeClassifier.classify`.
+- `privoke-fuzzer` fetches a snapshot before each requested training cycle and through the `fetch-params` CLI command.
 
 ## Subagent Tasks
 
 Subagents working here should:
 
-- improve gRPC error handling,
-- add health checks,
-- add snapshot versioning,
-- add integration tests with `privoke-fuzzer` `fetch-params`,
-- document parameter provenance,
-- keep protobuf compatibility in mind.
+- replace hard-coded vectors with real versioned snapshot loading when an artifact format exists,
+- add model ID validation once multiple model IDs are supported,
+- preserve protobuf compatibility when adding fields,
+- add integration tests for `client-runtime` and `privoke-fuzzer` consumers,
+- document parameter provenance and versioning semantics.

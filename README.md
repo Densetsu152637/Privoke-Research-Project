@@ -1,50 +1,67 @@
 # PriVoke Research Project
 
-PriVoke is a research prototype for client-side privacy protection around LLM prompts. The runtime is designed to inspect user text before it leaves the client, classify privacy risk using layered detectors, apply enforcement, and emit metadata-only telemetry for later analysis.
+PriVoke is a research prototype for client-side privacy protection around LLM prompts. The current implementation centers on a Python client runtime that inspects prompt text, produces structured `ClassificationResult` evidence, derives a `PriVokeAction`, and returns an HTTP decision before text is sent onward.
 
-The detection design follows the same broad shape as Casper-style prompt sanitization research: a fast rule-based filter, an entity recognition layer, and a semantic context layer. Casper describes this as a three-layer mechanism using rules, named entity recognition, and a local topic or semantic identifier for privacy-sensitive prompts. PriVoke adapts that pattern into a modular service-oriented research codebase.
+The surrounding services support parameter streaming, fuzzer-driven adaptive experiments, and update capture. They are research infrastructure; they are not required for prompt classification except when the client runtime is configured to use the streamed semantic backend.
 
-Reference: https://arxiv.org/abs/2408.07004
+Reference context: https://arxiv.org/abs/2408.07004
 
-## Detection Architecture
+## Current Runtime Path
 
-The client runtime is the core privacy pipeline.
+`services/client-runtime` hosts the prompt inspection API.
 
 ```text
-Prompt text
-  -> preprocessing and normalization
-  -> layer 1: regex/rule detector
-  -> layer 2: NER/entity detector
-  -> layer 3: semantic context detector
-  -> ClassificationResult evidence
-  -> ClassificationResult-derived PriVokeAction
-  -> metadata-only telemetry
+HTTP POST /analyze
+  -> request validation and optional visibility hint parsing
+  -> TextNormalizer
+  -> RuleDetector
+  -> EntityNERDetector
+  -> selected semantic classifier
+  -> strongest ClassificationResult action
+  -> HTTP response serialization
 ```
 
-Each detector should produce evidence that can be mapped into the shared `Classification` object:
+Current behavior is deliberately simple:
 
-- `Sensitivity`: `S0` through `S3`
+- Regex rules run first by default. If they produce a `BLOCK`, the runtime returns before running NER or semantic detection.
+- Otherwise NER and semantic jobs run through the global thread pool.
+- The runtime does not merge all detector evidence into one combined classification. It selects the first result that raises the strongest action above `ALLOW`.
+- Visibility hints are applied by the hosting layer after pipeline analysis.
+- The telemetry emitter exists as a helper, but `/analyze` does not currently emit telemetry events.
+
+## Classification Contract
+
+Detector output is represented by `services/client-runtime/src/classification`.
+
+- `Sensitivity`: `S0`, `S1`, `S2`, `S3`
 - `Visibility`: `P0`, `P1`, `P2`, `P3`, `P4`, `PU`
-- `Category`: health, politics, religion, criminal, financial, sexual, child, location, identity, and third-party disclosures
+- `Category`: `HEALTH`, `POLITICS`, `RELIGION`, `CRIMINAL`, `FINANCIAL`, `SEXUAL`, `CHILD`, `LOCATION`, `IDENTITY`, `THIRD_PARTY`
 
-`PriVokeAction` is derived from `ClassificationResult`, not a bare `Classification`. Current policy blocks high-confidence `S3`, warns on `S2`, warns on identifier/location evidence combined with restricted/private visibility or each other, and allows low-risk `S0`/`S1` context. Very low-confidence `S3` is downgraded to `WARN` so detector confidence can affect enforcement.
+`Classification` packs those dimensions into a 16-bit integer. `ClassificationResult` wraps the classification with span, confidence, reasoning, and metadata.
+
+`PriVokeAction` is derived from each `ClassificationResult`:
+
+- `BLOCK`: high-confidence `S3`.
+- `WARN`: `S2`.
+- `WARN`: `IDENTITY` or `LOCATION` combined with restricted/private visibility, or with each other.
+- `ALLOW`: `S0`/`S1` context that does not trigger a warning or block.
+- Low-confidence `S3` downgrades to `WARN`; low-confidence non-identifying `S2` can become `ALLOW`.
 
 ## Repository Layout
 
-- `services/client-runtime`: Python server for prompt detection, fusion, enforcement, and hosted runtime configuration.
-- `services/model-streaming-service`: Go gRPC service that serves model parameter snapshots.
-- `services/param-update-service`: Python gRPC service that requests fuzzer training cycles and accepts parameter update payloads.
-- `services/privoke-fuzzer`: Python gRPC worker for request-driven prompt generation, layer-specific prompt testing, streamed semantic-model evaluation, and update traffic.
-- `shared/proto`: Shared protobuf contracts used across services.
+- `services/client-runtime`: Python HTTP prompt inspection runtime and detector packages.
+- `services/model-streaming-service`: Go gRPC service that returns the current model parameter snapshot.
+- `services/param-update-service`: Python gRPC service that accepts parameter update payloads and can request fuzzer training cycles.
+- `services/privoke-fuzzer`: Python gRPC worker and CLI for prompt generation, layer probes, streamed semantic-model evaluation, and update submission.
+- `shared/proto`: Shared protobuf contracts used by the gRPC services and streamed semantic backend.
 - `paper`: Research figures and experiment artifacts.
 
-## Service Responsibilities
+## Service Ports
 
-`client-runtime` should be treated as the reference implementation of the privacy detection pipeline. Subagents working on detection behavior should usually start there.
-
-`model-streaming-service`, `param-update-service`, and `privoke-fuzzer` support later adaptive experiments. They are not part of the prompt classification path, but they are important for future parameter update, fuzzing, and distributed evaluation work.
-
-`shared/proto` is the contract boundary. Any cross-service API change should start with protobuf updates, followed by generated code and service implementation updates.
+- `client-runtime`: HTTP on `127.0.0.1:8765` in Compose.
+- `model-streaming-service`: gRPC on `50051`.
+- `param-update-service`: gRPC on `50052`.
+- `privoke-fuzzer`: gRPC on `50053`.
 
 ## Development Commands
 
@@ -60,9 +77,20 @@ Run the baseline stack:
 docker compose up --build
 ```
 
-Reconfigure the live client-runtime LLM backend:
+Run the client runtime directly:
 
 ```bash
+cd services/client-runtime
+python src/main.py --port 8765 --llm-choice streamed
+```
+
+Reconfigure the live client-runtime semantic backend:
+
+```bash
+curl -X POST http://127.0.0.1:8765/config/llm \
+  -H "Content-Type: application/json" \
+  -d '{"choice":"streamed"}'
+
 curl -X POST http://127.0.0.1:8765/config/llm \
   -H "Content-Type: application/json" \
   -d '{"choice":"local","local":{"base_url":"http://host.docker.internal:1234/v1","model":"your-lm-studio-model"}}'
@@ -70,13 +98,9 @@ curl -X POST http://127.0.0.1:8765/config/llm \
 curl -X POST http://127.0.0.1:8765/config/llm \
   -H "Content-Type: application/json" \
   -d '{"choice":"openai","openai":{"api_key":"sk-...","model":"gpt-4o-mini"}}'
-
-curl -X POST http://127.0.0.1:8765/config/llm \
-  -H "Content-Type: application/json" \
-  -d '{"choice":"streamed"}'
 ```
 
-Run test prompts inside the Docker deployment:
+Run prompt tests inside the Docker deployment:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml exec privoke-fuzzer \
@@ -85,34 +109,36 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml exec privoke-fuzz
   --prompt "My email is alex@example.com"
 ```
 
-For finer-grained layer probes, switch the layer:
+Run layer probes:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml exec privoke-fuzzer \
   python src/cli.py test-prompts \
   --layer regex \
+  --layer ner \
   --layer semantic-streamed \
   --generated-count 8
 ```
 
-In dev mode the fuzzer test runner writes JSON dumps to `./dumps/privoke-fuzzer` through a bind mount. In the baseline stack the same command writes to `/workspace/dumps/privoke-fuzzer` inside the `privoke-fuzzer` container.
+In dev mode fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer`. In the baseline stack they stay inside the fuzzer container at `/workspace/dumps/privoke-fuzzer`.
 
-Run the client runtime directly:
+## Cross-Service Contract
 
-```bash
-cd services/client-runtime
-python src/main.py --port 8765 --llm-choice streamed
-```
+`shared/proto/privoke/v1/parameters.proto` defines:
+
+- `ModelStreamingService.GetModelParameters`
+- `ParamUpdateService.SubmitParameterUpdate`
+- `FuzzerService.RunTrainingCycle`
+- `Health` RPCs for the three gRPC services
+
+The dev Compose override regenerates Python and Go protobuf bindings into each service-local `generated` or `gen` directory before starting the service.
 
 ## Subagent Work Model
 
-Future subagents should work in bounded areas:
+- Detection behavior belongs in `services/client-runtime`.
+- gRPC contract changes start in `shared/proto`, followed by regenerated bindings and README updates.
+- Prompt generation, prompt tests, and streamed semantic training experiments belong in `services/privoke-fuzzer`.
+- Fuzzer request initiation and update persistence belong in `services/param-update-service`.
+- Snapshot serving belongs in `services/model-streaming-service`.
 
-- Rule detector subagents: add or refine regex rules, signals, visibility cues, and `Classification` mappings.
-- NER subagents: improve entity extraction, span handling, entity normalization, confidence, and fallback behavior.
-- Semantic detector subagents: improve contextual classification prompts or local model behavior while preserving the `Classification` contract.
-- Fusion/enforcement subagents: adjust scoring, disagreement handling, masking, and action policy.
-- Telemetry subagents: improve privacy-preserving event shape without raw text leakage.
-- Service subagents: improve gRPC contracts, parameter streaming, fuzzing, and update persistence.
-
-Subagents should avoid reintroducing string-based category or severity flow. Use `ClassificationResult`, `PriVokeAction`, and shared protobuf contracts where applicable.
+Avoid reintroducing string-only severity/category flow. Preserve `Classification`, `ClassificationResult`, `PriVokeAction`, and protobuf boundaries where they are already used.

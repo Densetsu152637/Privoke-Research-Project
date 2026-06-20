@@ -1,47 +1,72 @@
 # Services
 
-This directory contains PriVoke's service-level components. The services are intentionally separated so prompt detection work, parameter streaming, update ingestion, and fuzzing can evolve independently.
+This directory contains PriVoke's runtime and research-support services. The current stack has one HTTP prompt inspection service and three gRPC services for parameter streaming, fuzzer training requests, and update ingestion.
 
 ## Service Map
 
-- `client-runtime`: Python prompt privacy server. This is the hosted three-layer detection pipeline.
-- `model-streaming-service`: Go gRPC service for exposing current model parameter snapshots.
-- `param-update-service`: Python gRPC service for requesting fuzzer training cycles, accepting parameter update payloads, and writing them to a sink.
-- `privoke-fuzzer`: Python gRPC worker that waits for training requests, generates labeled prompts, runs local layer-specific prompt tests, evaluates the streamed semantic model, and submits updates.
+- `client-runtime`: Python HTTP server for prompt privacy inspection. It owns the runtime detector pipeline and `/analyze` API.
+- `model-streaming-service`: Go gRPC server that returns the current parameter snapshot used by the streamed semantic backend.
+- `param-update-service`: Python gRPC server that appends parameter updates to JSONL storage and can request fuzzer training cycles after startup.
+- `privoke-fuzzer`: Python gRPC worker plus CLI for prompt generation, layer probes, streamed semantic-model evaluation, and update submission.
 
 ## Runtime Detection Path
 
-Only `client-runtime` is currently in the prompt path:
+Only `client-runtime` accepts prompt inspection requests:
 
 ```text
 prompt
+  -> normalization
   -> regex/rule detector
   -> NER/entity detector
-  -> semantic context detector
-  -> fusion
-  -> enforcement
-  -> telemetry
+  -> semantic classifier backend
+  -> strongest result/action selection
+  -> HTTP response serialization
 ```
 
-The other services are research infrastructure for future adaptive and distributed experiments. They should not be made dependencies of the client-side privacy decision unless the architecture explicitly changes.
+The runtime chooses one semantic backend at a time:
 
-## Service Contracts
+- `streamed`: fetches parameters from `model-streaming-service` and applies the local parameter-backed semantic model.
+- `local`: calls an OpenAI-compatible local API such as LM Studio.
+- `openai`: calls the OpenAI SDK.
 
-Cross-service data contracts should live under `shared/proto`. Do not create ad hoc JSON contracts between services if a protobuf API already exists or is likely to be reused.
+The other services are experiment infrastructure. They should not become dependencies of the prompt decision path unless the architecture is explicitly changed.
 
-Each service README describes:
+## gRPC Service Contracts
 
-- the service purpose,
-- its expected inputs and outputs,
-- how it participates in the research pipeline,
-- what a subagent should improve next.
+Cross-service APIs live in `shared/proto/privoke/v1/parameters.proto`.
+
+- `ModelStreamingService.GetModelParameters(ModelParametersRequest) -> ModelParametersResponse`
+- `ParamUpdateService.SubmitParameterUpdate(ParameterUpdateRequest) -> ParameterUpdateAck`
+- `FuzzerService.RunTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
+- Each gRPC service also implements `Health(HealthRequest) -> HealthResponse`
+
+Do not create ad hoc JSON contracts between services when a protobuf boundary exists.
+
+## Compose Wiring
+
+Default ports:
+
+- `model-streaming-service`: `50051`
+- `param-update-service`: `50052`
+- `privoke-fuzzer`: `50053`
+- `client-runtime`: `127.0.0.1:8765`
+
+`docker-compose.dev.yml` bind-mounts the service source trees and regenerates protobuf bindings before startup. It also bind-mounts fuzzer prompt-test dumps to `./dumps/privoke-fuzzer`.
+
+## Documentation Scope
+
+Each service README should describe:
+
+- current purpose and non-purpose,
+- runtime inputs and outputs,
+- ports and environment variables,
+- how it participates in the stack,
+- known prototype limitations that matter for future rewrites.
 
 ## Subagent Guidance
 
-When assigning work:
-
-- Keep detection changes in `client-runtime`.
-- Keep gRPC contract changes in `shared/proto` and then update generated service code.
-- Keep prompt generation and LLM-only adaptive update work in `privoke-fuzzer`.
-- Keep fuzzer request initiation, persistence, and ingestion work in `param-update-service`.
-- Keep snapshot serving and client fetch behavior in `model-streaming-service`.
+- Keep detector changes in `client-runtime`.
+- Keep shared API changes in `shared/proto` and regenerate affected bindings.
+- Keep prompt generation, layer testing, and streamed semantic training in `privoke-fuzzer`.
+- Keep update persistence and fuzzer request initiation in `param-update-service`.
+- Keep parameter snapshot serving in `model-streaming-service`.

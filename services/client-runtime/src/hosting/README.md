@@ -1,117 +1,135 @@
-# Hosting and Client Integration
+# Hosting and HTTP Integration
 
-This directory is reserved for code that connects the Python client runtime to a front-end or browser-side client.
+This package exposes the client runtime as a local HTTP service. It owns request validation, endpoint routing, runtime LLM configuration updates, visibility-hint application, response serialization, CORS headers, and warning-span masking.
 
-The intended role is to receive prompt text from a TypeScript or browser extension runtime, pass it through the PriVoke detection pipeline, and return an enforcement decision.
+## Files
 
-## Responsibilities
+- `server.py`: `ThreadingHTTPServer` setup and HTTP request handler.
+- `models.py`: `PromptInspectionRequest` and validation error type.
+- `serialization.py`: request parsing, response serialization, error payloads, and `WARN` masking.
+- `analyzer.py`: calls `pipeline_analyse_text` and applies `visibility_hint`.
+- `runtime_config.py`: serializes and updates the live semantic classifier configuration.
 
-Hosting code should:
+## Endpoints
 
-- expose a local API for prompt inspection,
-- receive raw prompt text and optional context metadata,
-- call the client-runtime pipeline,
-- return action, masked text if applicable, and classification metadata,
-- avoid sending raw prompts to telemetry,
-- avoid bypassing enforcement.
-
-## Expected Request Shape
-
-The local server listens on loopback only by default:
+Default server:
 
 ```bash
-python src/main.py --port 8765 --llm-choice local
+python src/main.py --host 127.0.0.1 --port 8765 --llm-choice streamed
 ```
 
-The main prompt inspection endpoint is:
+Endpoint aliases:
 
-```text
-POST http://127.0.0.1:8765/analyze
-```
+- `GET /`
+- `GET /health`
+- `GET /v1/health`
+- `POST /analyze`
+- `POST /v1/analyze`
+- `GET /config/llm`
+- `GET /v1/config/llm`
+- `POST /config/llm`
+- `POST /v1/config/llm`
+- `OPTIONS *`
+
+The server binds to loopback by default. Binding to `0.0.0.0` or another non-loopback address requires `PRIVOKE_ALLOW_NON_LOOPBACK_BIND=true`, which Docker Compose sets for the containerized runtime.
+
+## Analyze Request Shape
 
 ```json
 {
   "text": "prompt text",
   "source": "browser_extension",
   "visibility_hint": "P3",
-  "target_app": "web_llm"
+  "target_app": "web_llm",
+  "request_id": "req-123",
+  "metadata": {}
 }
 ```
 
-`visibility_hint` is optional. If provided, hosting code should map it into `Visibility` and pass it into the detection pipeline or context adapter rather than leaving every detector at `PU`.
+`prompt` is accepted as an alias for `text`.
 
-Health checks are available at:
+Validation behavior:
 
-```text
-GET http://127.0.0.1:8765/health
-```
+- request body must be a JSON object,
+- `text`/`prompt` must be a non-empty string after trimming,
+- prompt length is capped by `max_text_chars` or `PRIVOKE_MAX_PROMPT_CHARS`,
+- `metadata` must be an object when provided,
+- optional string fields must be strings,
+- `visibility_hint` must match a `Visibility` enum name.
 
-The live LLM backend configuration is available at:
-
-```text
-GET  http://127.0.0.1:8765/config/llm
-POST http://127.0.0.1:8765/config/llm
-```
-
-Example LM Studio update:
+## Analyze Response Shape
 
 ```json
 {
-  "choice": "local",
-  "local": {
-    "base_url": "http://localhost:1234/v1",
-    "model": "local-model-id"
-  }
-}
-```
-
-Example OpenAI update:
-
-```json
-{
-  "choice": "openai",
-  "openai": {
-    "api_key": "sk-...",
-    "model": "gpt-4o-mini"
-  }
-}
-```
-
-`GET /config/llm` redacts configured API keys.
-
-## Expected Response Shape
-
-```json
-{
-  "action": "ALLOW",
+  "request_id": "req-123",
+  "action": "WARN",
   "allowed": true,
-  "masked_text": null,
+  "masked_text": "My phone is [PRIVOKE_MASKED]",
   "classification": {
-    "sensitivity": "S0",
-    "visibility": "PU",
-    "categories": [],
-    "packed": 28
+    "sensitivity": "S2",
+    "visibility": "P2",
+    "categories": ["IDENTITY"],
+    "packed": 16398
   },
-  "reason": "No privacy risk detected.",
-  "evidence": null,
+  "reason": "Matched rule 'structured_identity'",
+  "evidence": {
+    "section_of_text": "phone: 0400 000 000",
+    "span": [3, 22],
+    "reasoning": "Matched rule 'structured_identity'",
+    "confidence": 0.95,
+    "action": "WARN",
+    "metadata": {
+      "rule_name": "structured_identity"
+    }
+  },
   "metadata": {
     "source": "browser_extension",
     "target_app": "web_llm",
-    "visibility_hint": null,
-    "text_length": 11,
+    "visibility_hint": "P3",
+    "text_length": 22,
     "elapsed_ms": 8.2,
     "detector": "client-runtime.pipeline"
   }
 }
 ```
 
+`masked_text` is only returned for `WARN` actions with a valid selected-result span. `BLOCK` responses do not include masked text.
+
+## Live LLM Config
+
+`GET /config/llm` returns the active backend config and redacts API keys.
+
+`POST /config/llm` accepts nested sections:
+
+```json
+{
+  "choice": "local",
+  "local": {
+    "base_url": "http://localhost:1234/v1",
+    "model": "local-model-id",
+    "api_key": null,
+    "timeout_seconds": 60,
+    "temperature": 0.25,
+    "max_tokens": 512,
+    "response_format": "json_schema"
+  }
+}
+```
+
+Supported `choice` aliases are parsed by `LLMChoice.parse`.
+
+## Logging and CORS
+
+The server logs request metadata only. It does not log request bodies except when `PRIVOKE_DEV_LOG_PROMPTS=true` and the request `source` contains `fuzzer`; that dev path prints raw fuzzer prompt text for debugging.
+
+CORS defaults to `*` and can be changed with `--cors-origin` or `PRIVOKE_CORS_ORIGIN`.
+
 ## Subagent Tasks
 
 Hosting subagents should:
 
-- define the local API boundary,
-- add request validation,
-- map client metadata into `Visibility`,
-- preserve raw prompt only for the active request lifecycle,
-- add integration tests with browser-client fixtures,
-- document how the TypeScript client should call the runtime.
+- add endpoint tests for validation failures,
+- keep raw prompt text out of logs by default,
+- review whether `BLOCK` responses should ever include masked text,
+- document browser-extension calling conventions when a client is added,
+- keep `/v1/*` aliases behavior-compatible with unversioned endpoints.

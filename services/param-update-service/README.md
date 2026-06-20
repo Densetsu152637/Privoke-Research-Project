@@ -1,65 +1,103 @@
 # param-update-service
 
-This Python service accepts model parameter update payloads over gRPC and persists them for downstream research workflows.
+`param-update-service` is a Python gRPC service that accepts parameter update payloads and appends them to JSONL storage. It can also request training cycles from `privoke-fuzzer` after startup.
 
-It is part of the adaptive-experiment infrastructure, not the prompt classification path.
+It is experiment infrastructure, not part of the hosted prompt classification path.
 
-## Responsibilities
+## API
 
-The update service should:
+Defined in `shared/proto/privoke/v1/parameters.proto`:
 
-- receive protobuf update messages,
-- optionally request training cycles from `privoke-fuzzer`,
-- validate required metadata,
-- persist updates to a durable sink,
-- preserve enough metadata for later analysis,
-- reject malformed or incompatible payloads,
-- avoid storing raw prompt text unless an experiment explicitly requires and approves it.
+- `SubmitParameterUpdate(ParameterUpdateRequest) -> ParameterUpdateAck`
+- `Health(HealthRequest) -> HealthResponse`
 
-## Inputs and Outputs
+`SubmitParameterUpdate` currently:
 
-Input:
+- converts the protobuf request to a JSON object,
+- writes one JSON line to `PARAM_UPDATE_STORAGE_PATH`,
+- logs source, model, and gradient count,
+- returns `accepted=true`,
+- returns `applied_version` as `<base_version>-updated`.
 
-- parameter update protobuf message from `shared/proto`.
+Stored JSONL shape:
 
-Output:
+```json
+{
+  "source_id": "server-fuzzer",
+  "model_id": "privoke-baseline",
+  "base_version": "v0.1.0",
+  "gradients": [
+    {
+      "name": "classifier.bias",
+      "values": [0.01]
+    }
+  ],
+  "metadata": {
+    "request_id": "param-update-service-..."
+  }
+}
+```
 
-- acknowledgment or error,
-- persisted JSONL or future database record.
+The current implementation relies on protobuf shape and does not perform additional schema validation, idempotency checks, retention enforcement, or privacy filtering.
+
+## Runtime
+
+Default port: `50052`
+
+Environment variables:
+
+- `PARAM_UPDATE_PORT`, default `50052`
+- `PARAM_UPDATE_STORAGE_PATH`, default `/tmp/updates.jsonl`
+
+Docker Compose sets `PARAM_UPDATE_STORAGE_PATH=/data/updates.jsonl` and persists it in the `param-update-data` volume.
 
 ## Fuzzer Requests
 
-Set `FUZZER_PROMPT_COUNT` above zero to have this service request a training
-cycle from `privoke-fuzzer` after startup.
+If `FUZZER_PROMPT_COUNT` is greater than zero, the service starts a daemon requester thread after gRPC startup.
 
-```bash
-FUZZER_TARGET=privoke-fuzzer:50053
-FUZZER_PROMPT_COUNT=8
-FUZZER_REQUEST_INTERVAL_SECONDS=0
+Environment variables:
+
+- `FUZZER_TARGET`, default `privoke-fuzzer:50053`
+- `FUZZER_PROMPT_COUNT`, default `0`
+- `MODEL_ID`, default `privoke-baseline`
+- `PARAM_UPDATE_SOURCE_ID`, default `param-update-service`
+- `FUZZER_REQUEST_TIMEOUT_SECONDS`, default `30.0`
+- `FUZZER_REQUEST_INTERVAL_SECONDS`, default `0.0`
+- `FUZZER_REQUEST_INITIAL_DELAY_SECONDS`, default `2.0`
+- `FUZZER_REQUEST_RETRY_SECONDS`, default `2.0`
+- `FUZZER_REQUEST_MAX_ATTEMPTS`, default `3`
+- `FUZZER_REQUEST_SEED`, default `1337`
+
+When enabled, it sends:
+
+```protobuf
+FuzzerTrainingRequest {
+  request_id: "<source>-<unix>-<suffix>"
+  source_id: "param-update-service"
+  model_id: "privoke-baseline"
+  prompt_count: 8
+  seed: 1337
+  metadata: {
+    "initiator": "param-update-service"
+  }
+}
 ```
 
-The fuzzer sends the trained parameter deltas back through
-`SubmitParameterUpdate`, so updates still pass through this service's normal
-persistence path.
+If `FUZZER_REQUEST_INTERVAL_SECONDS` is `0`, the requester stops after one successful request or after `FUZZER_REQUEST_MAX_ATTEMPTS` consecutive failures. If the interval is positive, it keeps requesting on that interval and retries failures after `FUZZER_REQUEST_RETRY_SECONDS`.
 
-## Relationship to Client Runtime
+## Relationship to Other Services
 
-The client runtime may eventually emit aggregate feedback or parameter update signals, but current prompt classification should not depend on this service.
-
-If future subagents add runtime feedback, they should keep privacy boundaries strict:
-
-- no raw prompt text,
-- bucketed or anonymized metrics where possible,
-- detector version metadata,
-- explicit experiment IDs.
+- Receives updates from `privoke-fuzzer` through `SubmitParameterUpdate`.
+- May initiate `FuzzerService.RunTrainingCycle`.
+- Does not call `client-runtime`.
+- Does not apply updates back into `model-streaming-service`; it only persists them for downstream use.
 
 ## Subagent Tasks
 
 Subagents working here should:
 
-- add schema validation,
-- add durable storage abstraction,
-- add retry-safe idempotency keys,
-- add tests for malformed updates,
-- document retention and privacy behavior,
-- coordinate protobuf changes through `shared/proto`.
+- add validation for required metadata and gradient bounds,
+- add idempotency keys before repeated training requests become common,
+- add a storage abstraction if JSONL is no longer enough,
+- document retention and privacy constraints,
+- keep raw prompt text out of update metadata unless an experiment explicitly approves it.

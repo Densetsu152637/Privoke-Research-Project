@@ -1,34 +1,31 @@
 # Telemetry
 
-This directory contains metadata-only event generation for the client runtime.
+This directory contains `StructuredEventEmitter`, a prototype metadata-event helper for the client runtime.
 
-Telemetry is downstream of detection and enforcement. It should record enough information for aggregate evaluation and detector improvement without storing raw prompts.
+It is not currently wired into the hosted `/analyze` request path. The active HTTP response path is `hosting/analyzer.py` and `hosting/serialization.py`.
 
-## Responsibilities
+## Current Event Emitter Contract
 
-The telemetry emitter should capture:
+`StructuredEventEmitter.emit(original_text, enforcement_output, fused_output, timestamp=None)` expects older fused-output-shaped dictionaries.
 
-- event ID,
-- timestamp,
-- time and date buckets,
-- risk category bucket,
-- risk score and score bucket,
-- enforcement action,
-- final `Classification`,
-- derived `PriVokeAction`,
-- detector version,
-- entity type names,
-- detector disagreement metadata.
+Required or expected fields:
 
-It must not emit raw prompt text.
+- `fused_output["classification"]`: a `Classification`
+- `fused_output["raw_score"]`: optional numeric score, defaults to `0.0`
+- `fused_output["rule"]["classification"]`: optional rule classification
+- `fused_output["llm"]["classification"]`: optional LLM classification
+- `fused_output["llm"]["entities"]`: optional entity flags
+- `enforcement_output["action"]`: optional `PriVokeAction` or action string
+
+The current pipeline does not naturally produce this full fused shape, so callers need an adapter before using this emitter with hosted analysis results.
 
 ## Event Shape
 
-Events should look like:
+The emitter returns:
 
 ```json
 {
-  "event_id": "evt_...",
+  "event_id": "evt_20260617100000_abcdef123456",
   "timestamp": "2026-06-17T10:00:00Z",
   "time_bucket": "2026-06-17 10:00",
   "date_bucket": "2026-06-17",
@@ -39,34 +36,44 @@ Events should look like:
   "classification": {
     "sensitivity": "S3",
     "visibility": "PU",
-    "categories": ["IDENTITY"],
-    "packed": 8223
+    "categories": ["IDENTITY"]
   },
   "detector_version": "v1",
   "metadata": {
     "text_length": 48,
     "entities_detected": ["email"],
-    "disagreement": false
+    "rule_classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": ["IDENTITY"]
+    },
+    "llm_classification": {
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": []
+    },
+    "disagreement": true
   }
 }
 ```
 
-## Privacy Requirements
+## Privacy Notes
 
-Telemetry must avoid:
+The event does not include raw prompt text or exact entity values. It does use the original prompt to compute text length and a short SHA-256-derived event ID. That hash should be treated as linkable metadata, not as differential privacy or anonymization.
 
-- raw prompt text,
-- exact sensitive entity values,
-- exact unbucketed timestamps when aggregated telemetry is sufficient,
-- free-form model reasoning if it may contain prompt fragments.
+Do not add free-form model reasoning to telemetry unless it is scrubbed first; reasoning can contain prompt fragments.
+
+## Serialization
+
+- `serialize(event)` returns formatted JSON for one event.
+- `batch_serialize(events)` wraps events with `event_batch`, `batch_count`, and `batch_timestamp`.
 
 ## Subagent Tasks
 
 Telemetry subagents should:
 
-- add aggregation-ready fields,
-- add event schema tests,
-- scrub free-form fields,
-- improve detector version tracking,
-- prepare differential privacy or k-anonymity aggregation hooks,
-- keep event serialization stable for downstream services.
+- adapt the emitter to the current `ClassificationResult`-based pipeline,
+- keep raw prompt text and exact entity values out of emitted events,
+- decide whether prompt-derived event IDs are acceptable,
+- add schema tests for serialized events,
+- document retention and aggregation expectations before sending telemetry off-device.

@@ -1,73 +1,60 @@
 # Regex Rule Detector
 
-This directory contains layer 1 of the PriVoke detection pipeline: deterministic rule-based detection.
+This directory contains layer 1 of the PriVoke client-runtime detector pipeline: deterministic regex and heuristic detection.
 
-The rule detector should be fast, local, explainable, and conservative for high-confidence sensitive patterns. It is the first layer in the Casper-style three-layer framework, before NER and semantic context detection.
+`RuleDetector.analyze(text)` returns `list[ClassificationResult]`. It does not merge its matches. The hosted runtime later selects the strongest action-producing result.
 
-## Responsibilities
+## Files
 
-The rule detector should identify:
-
-- direct identifiers: email, phone, SSN, passport, government ID, driver license,
-- financial identifiers: credit cards, account numbers, IBAN, salary, debt, investment context,
-- precise location: addresses, coordinates, routes, private whereabouts,
-- sensitive topics: health, politics, religion, criminal history, sexuality, children,
-- third-party disclosure cues,
-- visibility context: public, semi-public, restricted, group-private, personal-private.
+- `rule_detector.py`: compiles rules, collects matches, adds heuristics, deduplicates matches, and converts them to `ClassificationResult`.
+- `rule_types.py`: `RuleDefinition`, `CompiledRule`, and `RuleMatch`.
+- `rule_registry.py`: deterministic rule ordering.
+- `rule_heuristics.py`: synthetic matches derived from aggregate match/text properties.
+- `rules_visibility.py`: visibility-only cues.
+- `rules_identity.py`: direct and structured identity patterns.
+- `rules_location.py`: precise and quasi-location patterns.
+- `rules_health.py`: medical and mental-health patterns.
+- `rules_financial.py`: account, card, money, income, debt, and asset patterns.
+- `rules_sensitive.py`: politics, religion, criminal, sexual, child, and third-party cues.
+- `rules_context.py`: family, workplace, and timestamp context.
 
 ## Output Contract
 
-`RuleDetector.analyze(text)` should return `list[ClassificationResult]`.
-Each regex or heuristic hit should produce one result containing:
+Each regex or heuristic hit becomes:
 
-- `classification`: mapped `Classification`,
-- `section_of_text`: matched text,
-- `span`: matched text span,
-- `reasoning`: short explanation,
-- `confidence`: rule confidence,
-- `metadata`: rule-specific context such as the rule name.
+```python
+ClassificationResult(
+    classification=Classification(...),
+    section_of_text=matched_text,
+    reasoning="Matched rule '<rule_name>'",
+    span=(start, end),
+    confidence=0.95,
+    metadata={"rule_name": "<rule_name>"},
+)
+```
 
-Rules must map directly to `Sensitivity`, `Visibility`, and `Category` values. Do not return category or severity strings.
+Heuristic matches use lower confidence values.
 
-## Rule Design
+Rules map directly to `Sensitivity`, `Visibility`, and `Category` values. They should not return legacy severity/category strings.
 
-Each rule module should expose a wrapper function that returns `list[RuleDefinition]`.
-Rules are grouped by concern:
+## Current Heuristics
 
-- `rules_visibility.py`
-- `rules_identity.py`
-- `rules_location.py`
-- `rules_health.py`
-- `rules_financial.py`
-- `rules_sensitive.py`
-- `rules_context.py`
+`rule_heuristics.py` adds synthetic matches for:
 
-`rule_registry.py` assembles those lists in deterministic execution order.
+- prompts over 80 words, as `S1` `IDENTITY` personal narrative evidence,
+- two or more structured identity fields, as `S2` `IDENTITY`,
+- short prompts with high-confidence `S3` matches, as concentrated sensitive data.
 
-Each rule should define:
+## Visibility Rules
 
-- name,
-- regex pattern,
-- resulting `Classification`,
-- internal signal name used only inside rule orchestration.
-
-Visibility-only rules should use `Sensitivity.S0` and no categories. They still matter because fusion can combine visibility evidence with sensitive category evidence from another rule.
-
-Example cases:
-
-- `email@example.com` maps to `S3`, `PU`, `IDENTITY`.
-- `username: alice` maps to `S2`, `P2`, `IDENTITY`.
-- `group chat` maps to `S0`, `P3`, no category.
-- `personal diary` maps to `S0`, `P4`, no category.
+Visibility-only rules use `Sensitivity.S0` and no categories. In the current hosted pipeline, those `ALLOW`-level results are not merged with separate sensitive matches. They are still useful for direct layer probes and future fusion work, but request-level visibility should be passed through `visibility_hint` when the hosted API needs it applied to the selected result.
 
 ## Subagent Tasks
 
 Rule-detector subagents should:
 
-- add patterns for missing `Category` values,
-- add counterexamples to reduce false positives,
-- keep rules small and explainable,
-- preserve packed classification round-trip behavior,
-- place new rules in the concern-specific `rules_*.py` file,
-- add tests for each new rule family,
-- document rule intent in code only when the pattern is not self-evident.
+- add missing patterns in the concern-specific `rules_*.py` module,
+- add false-positive counterexamples,
+- keep rule definitions small and auditable,
+- preserve enum-backed `Classification` mappings,
+- add tests around both direct `RuleDetector` output and hosted `/analyze` behavior when selection semantics matter.
