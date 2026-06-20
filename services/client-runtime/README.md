@@ -1,12 +1,12 @@
 # PriVoke Client Runtime
 
-The client runtime is PriVoke's prompt inspection service. It exposes a local HTTP API, runs the detector pipeline, returns an action (`ALLOW`, `WARN`, or `BLOCK`), and includes the strongest available classification evidence in the response.
+The client runtime is PriVoke's local prompt inspection package. It is intended to run on a user's local computer, not as a server-side microservice. It runs the detector pipeline, returns an action (`ALLOW`, `WARN`, or `BLOCK`), and includes the strongest available classification evidence in the response.
 
-This service is the only component currently in the prompt classification path. The parameter-streaming service is used only when the semantic backend is set to `streamed`.
+This package is the only component currently in the prompt classification path. The parameter-streaming service is used only when the semantic backend is set to `streamed`.
 
-## HTTP API
+## Local HTTP Harness
 
-The server is implemented with Python's standard `http.server` stack.
+The optional local server is implemented with Python's standard `http.server` stack. It is a client-side development and integration harness, not part of the Docker Compose server deployment.
 
 Default binding:
 
@@ -95,7 +95,7 @@ Important behavior:
 - `PRIVOKE_WAIT_FOR_REGEX` defaults to true. In that mode regex runs first and a regex `BLOCK` short-circuits NER and semantic detection.
 - When regex does not block, NER and semantic classification run through `GLOBAL_CONFIG.threadpool`.
 - `strongest_result` compares `ClassificationResult.action().value` and returns the first result that raises the action above `ALLOW`.
-- The hosted response does not currently merge all detector categories, visibility signals, or evidence into one final classification.
+- The local response does not currently merge all detector categories, visibility signals, or evidence into one final classification.
 - If all detector results are `ALLOW`, the response uses the default `S0`/`PU` classification unless a visibility hint was provided.
 
 ## Classification Contract
@@ -178,9 +178,9 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-For streamed classification outside Docker, generate the gRPC stubs into `services/client-runtime/generated` from `shared/proto/privoke/v1/parameters.proto` before importing the streamed backend or starting the server.
+For streamed classification outside Docker, generate the gRPC stubs into `services/client-runtime/generated` from `shared/proto/privoke/v1/parameters.proto` before importing the streamed backend or starting the local server. The fuzzer image also generates these stubs because it imports this package directly.
 
-Run the server:
+Run the optional local server:
 
 ```bash
 python src/main.py --port 8765 --llm-choice streamed

@@ -13,10 +13,16 @@ ENV PRIVOKE_FUZZER_DUMP_DIR=/workspace/dumps/privoke-fuzzer
 RUN pip install --no-cache-dir -r requirements.txt \
     && mkdir -p /workspace/dumps/privoke-fuzzer \
     && mkdir -p generated \
+    && mkdir -p /workspace/services/client-runtime/generated \
     && python -m grpc_tools.protoc \
       -I /workspace/shared/proto \
       --python_out=/workspace/services/privoke-fuzzer/generated \
       --grpc_python_out=/workspace/services/privoke-fuzzer/generated \
+      /workspace/shared/proto/privoke/v1/parameters.proto \
+    && python -m grpc_tools.protoc \
+      -I /workspace/shared/proto \
+      --python_out=/workspace/services/client-runtime/generated \
+      --grpc_python_out=/workspace/services/client-runtime/generated \
       /workspace/shared/proto/privoke/v1/parameters.proto
 
 EXPOSE 50053

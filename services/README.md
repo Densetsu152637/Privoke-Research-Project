@@ -1,17 +1,17 @@
 # Services
 
-This directory contains PriVoke's runtime and research-support services. The current stack has one HTTP prompt inspection service and three gRPC services for parameter streaming, fuzzer training requests, and update ingestion.
+This directory contains PriVoke's local client runtime code and research-support services. The Docker Compose stack deploys three gRPC services for parameter streaming, fuzzer training requests, and update ingestion. The prompt inspection runtime is client-local code, not a server-side microservice.
 
 ## Service Map
 
-- `client-runtime`: Python HTTP server for prompt privacy inspection. It owns the runtime detector pipeline and `/analyze` API.
+- `client-runtime`: Python package for local prompt privacy inspection. It owns the detector pipeline and includes an optional local HTTP harness for client-side development.
 - `model-streaming-service`: Go gRPC server that returns the current parameter snapshot used by the streamed semantic backend.
 - `param-update-service`: Python gRPC server that appends parameter updates to JSONL storage and can request fuzzer training cycles after startup.
 - `privoke-fuzzer`: Python gRPC worker plus CLI for prompt generation, layer probes, streamed semantic-model evaluation, and update submission.
 
 ## Runtime Detection Path
 
-Only `client-runtime` accepts prompt inspection requests:
+Prompt inspection happens in `client-runtime` code, either embedded locally or through its optional local HTTP harness:
 
 ```text
 prompt
@@ -20,7 +20,7 @@ prompt
   -> NER/entity detector
   -> semantic classifier backend
   -> strongest result/action selection
-  -> HTTP response serialization
+  -> local response serialization
 ```
 
 The runtime chooses one semantic backend at a time:
@@ -29,7 +29,7 @@ The runtime chooses one semantic backend at a time:
 - `local`: calls an OpenAI-compatible local API such as LM Studio.
 - `openai`: calls the OpenAI SDK.
 
-The other services are experiment infrastructure. They should not become dependencies of the prompt decision path unless the architecture is explicitly changed.
+The Compose services are experiment infrastructure. They should not become server-side dependencies of the prompt decision path unless the architecture is explicitly changed. The fuzzer imports `client-runtime` directly for prompt tests and streamed-only training experiments.
 
 ## gRPC Service Contracts
 
@@ -49,9 +49,8 @@ Default ports:
 - `model-streaming-service`: `50051`
 - `param-update-service`: `50052`
 - `privoke-fuzzer`: `50053`
-- `client-runtime`: `127.0.0.1:8765`
 
-`docker-compose.dev.yml` bind-mounts the service source trees and regenerates protobuf bindings before startup. It also bind-mounts fuzzer prompt-test dumps to `./dumps/privoke-fuzzer`.
+`docker-compose.dev.yml` bind-mounts the service source trees and regenerates protobuf bindings before startup. It also bind-mounts `services/client-runtime` into the fuzzer container because fuzzer prompt tests import it directly, and it bind-mounts fuzzer prompt-test dumps to `./dumps/privoke-fuzzer`.
 
 ## Documentation Scope
 

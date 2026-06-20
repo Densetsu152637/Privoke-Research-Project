@@ -1,6 +1,6 @@
 # privoke-fuzzer
 
-`privoke-fuzzer` is a Python gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, evaluates the streamed semantic model, computes bounded parameter-gradient deltas, submits updates to `param-update-service`, and can run ad hoc prompt tests against individual runtime layers.
+`privoke-fuzzer` is a Python gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, evaluates the streamed semantic model, computes bounded parameter-gradient deltas, submits updates to `param-update-service`, and can run ad hoc prompt tests by importing the client-runtime package directly.
 
 It is not in the hosted prompt decision path. Training cycles deliberately target the streamed semantic model path rather than the full regex + NER + semantic pipeline.
 
@@ -86,13 +86,12 @@ Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
 - `MODEL_STREAMING_CONNECT_TIMEOUT_SECONDS`, default `2.0`
 - `MODEL_STREAMING_RETRY_INITIAL_SECONDS`, default `1.0`
 - `MODEL_STREAMING_RETRY_MAX_SECONDS`, default `4.0`
-- `PRIVOKE_RUNTIME_URL`, default `http://client-runtime:8765` for CLI runtime tests
 - `PRIVOKE_FUZZER_DUMP_DIR`, default `/workspace/dumps/privoke-fuzzer`
 - `PRIVOKE_TEST_SEMANTIC_BACKEND`, default `streamed` for CLI `--layer semantic`
 
 ## Client Runtime Imports
 
-The fuzzer installs `services/client-runtime` as the `privoke_client_runtime` package via `services/privoke-fuzzer/requirements.txt`. Its requirements also declare the Hugging Face, PEFT, TRL, datasets, and torch packages used by the research training notes.
+The fuzzer installs `services/client-runtime` as the `privoke_client_runtime` package via `services/privoke-fuzzer/requirements.txt`. Runtime prompt tests and training evaluation import that package in-process; they do not call a deployed `client-runtime` service. Its requirements also declare the Hugging Face, PEFT, TRL, datasets, and torch packages used by the research training notes.
 
 Example:
 
@@ -115,7 +114,7 @@ python src/cli.py fetch-params \
   --model-id privoke-baseline
 ```
 
-Run a prompt through the hosted runtime:
+Run a prompt through the client-runtime request path in-process:
 
 ```bash
 python src/cli.py test-prompts \
@@ -135,8 +134,8 @@ python src/cli.py test-prompts \
 
 Available test layers:
 
-- `runtime`: POSTs to client-runtime `/analyze`.
-- `pipeline`: runs the full client-runtime pipeline in-process.
+- `runtime`: runs client-runtime request parsing, analysis, visibility-hint handling, and response serialization in-process.
+- `pipeline`: runs the same full client-runtime analysis path in-process.
 - `regex`: runs only `RuleDetector`.
 - `ner`: runs only `EntityNERDetector`.
 - `semantic`: alias resolved by `--semantic-backend`.

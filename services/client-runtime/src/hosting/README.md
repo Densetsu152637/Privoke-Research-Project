@@ -1,6 +1,6 @@
 # Hosting and HTTP Integration
 
-This package exposes the client runtime as a local HTTP service. It owns request validation, endpoint routing, runtime LLM configuration updates, visibility-hint application, response serialization, CORS headers, and warning-span masking.
+This package exposes the client runtime through an optional local HTTP harness. It owns request validation, endpoint routing, runtime LLM configuration updates, visibility-hint application, response serialization, CORS headers, and warning-span masking. It is for client-local deployment and development, not for the server-side Docker Compose stack.
 
 ## Files
 

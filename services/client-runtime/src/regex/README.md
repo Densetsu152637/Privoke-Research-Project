@@ -2,7 +2,7 @@
 
 This directory contains layer 1 of the PriVoke client-runtime detector pipeline: deterministic regex and heuristic detection.
 
-`RuleDetector.analyze(text)` returns `list[ClassificationResult]`. It does not merge its matches. The hosted runtime later selects the strongest action-producing result.
+`RuleDetector.analyze(text)` returns `list[ClassificationResult]`. It does not merge its matches. The client runtime later selects the strongest action-producing result.
 
 ## Files
 

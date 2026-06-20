@@ -7,11 +7,8 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
-from urllib import error, request
-from urllib.parse import urlparse
 
 DEFAULT_DUMP_DIR = "/workspace/dumps/privoke-fuzzer"
-DEFAULT_RUNTIME_URL = "http://client-runtime:8765"
 DEFAULT_SOURCE = "privoke-fuzzer-test"
 DEFAULT_PROMPT = (
     "Summarize whether this text contains private information: "
@@ -38,16 +35,6 @@ def add_test_prompt_args(parser: argparse.ArgumentParser) -> None:
             "Detection layer to exercise. Repeat to run multiple layers. "
             "Defaults to runtime."
         ),
-    )
-    parser.add_argument(
-        "--runtime-url",
-        default=os.getenv("PRIVOKE_RUNTIME_URL", DEFAULT_RUNTIME_URL),
-        help="Base client-runtime URL or full /analyze URL for runtime-layer tests.",
-    )
-    parser.add_argument(
-        "--endpoint",
-        default="/analyze",
-        help="Prompt analysis path when --runtime-url is a base URL.",
     )
     parser.add_argument(
         "-p",
@@ -109,7 +96,7 @@ def add_test_prompt_args(parser: argparse.ArgumentParser) -> None:
         "--timeout-seconds",
         type=float,
         default=120.0,
-        help="HTTP/model timeout for prompt tests.",
+        help="Model timeout for semantic prompt tests.",
     )
 
 
@@ -146,7 +133,7 @@ def run_prompt_tests(args: argparse.Namespace) -> None:
         "run_id": run_id,
         "created_at": started_at,
         "layers": layers,
-        "runtime_url": _analyze_url(args.runtime_url, args.endpoint),
+        "runtime_mode": "in_process",
         "results": results,
     }
     output_path = _write_dump(Path(args.dump_dir), run_id, payload)
@@ -307,11 +294,7 @@ def _run_runtime_layer(
     runtime_request: Dict[str, Any],
     args: argparse.Namespace,
 ) -> Dict[str, Any]:
-    return _post_prompt(
-        _analyze_url(args.runtime_url, args.endpoint),
-        runtime_request,
-        args.timeout_seconds,
-    )
+    return _run_pipeline_layer(runtime_request)
 
 
 def _run_pipeline_layer(runtime_request: Dict[str, Any]) -> Dict[str, Any]:
@@ -422,58 +405,6 @@ def _runtime_request(
         if value is not None:
             payload[key] = value
     return payload
-
-
-def _analyze_url(runtime_url: str, endpoint: str) -> str:
-    base = runtime_url.rstrip("/")
-    if urlparse(base).path.rstrip("/") == "/analyze":
-        return base
-
-    path = endpoint if endpoint.startswith("/") else f"/{endpoint}"
-    return f"{base}{path}"
-
-
-def _post_prompt(
-    url: str,
-    payload: Dict[str, Any],
-    timeout_seconds: float,
-) -> Dict[str, Any]:
-    body = json.dumps(payload).encode("utf-8")
-    request_obj = request.Request(
-        url,
-        data=body,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-
-    try:
-        with request.urlopen(request_obj, timeout=timeout_seconds) as response:
-            response_body = response.read().decode("utf-8")
-            return {
-                "status": "ok",
-                "http_status": response.status,
-                "response": json.loads(response_body),
-            }
-    except error.HTTPError as exc:
-        response_body = exc.read().decode("utf-8", errors="replace")
-        return {
-            "status": "error",
-            "http_status": exc.code,
-            "error": _parse_error_body(response_body),
-        }
-    except error.URLError as exc:
-        return {
-            "status": "error",
-            "http_status": None,
-            "error": str(exc.reason),
-        }
-
-
-def _parse_error_body(body: str) -> Any:
-    try:
-        return json.loads(body)
-    except ValueError:
-        return body
 
 
 def _write_dump(dump_dir: Path, run_id: str, payload: Dict[str, Any]) -> Path:

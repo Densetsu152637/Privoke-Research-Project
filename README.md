@@ -1,18 +1,18 @@
 # PriVoke Research Project
 
-PriVoke is a research prototype for client-side privacy protection around LLM prompts. The current implementation centers on a Python client runtime that inspects prompt text, produces structured `ClassificationResult` evidence, derives a `PriVokeAction`, and returns an HTTP decision before text is sent onward.
+PriVoke is a research prototype for client-side privacy protection around LLM prompts. The current implementation centers on a Python client runtime package that is intended to run on a user's local computer. It inspects prompt text, produces structured `ClassificationResult` evidence, derives a `PriVokeAction`, and can return a local decision before text is sent onward.
 
-The surrounding services support parameter streaming, fuzzer-driven adaptive experiments, and update capture. They are research infrastructure; they are not required for prompt classification except when the client runtime is configured to use the streamed semantic backend.
+The deployed Docker Compose services support parameter streaming, fuzzer-driven adaptive experiments, and update capture. They are research infrastructure, not the prompt inspection runtime. The fuzzer imports the client runtime code directly for prompt tests and streamed semantic training experiments.
 
 Reference context: https://arxiv.org/abs/2408.07004
 
 ## Current Runtime Path
 
-`services/client-runtime` hosts the prompt inspection API.
+`services/client-runtime` contains the local prompt inspection runtime. Its HTTP server is a local harness for client-side deployment and development, not a server-side Compose microservice.
 
 ```text
-HTTP POST /analyze
-  -> request validation and optional visibility hint parsing
+local request or local HTTP POST /analyze
+  -> request validation and optional visibility-hint parsing
   -> TextNormalizer
   -> RuleDetector
   -> EntityNERDetector
@@ -49,7 +49,7 @@ Detector output is represented by `services/client-runtime/src/classification`.
 
 ## Repository Layout
 
-- `services/client-runtime`: Python HTTP prompt inspection runtime and detector packages.
+- `services/client-runtime`: Python local prompt inspection runtime, detector packages, and optional local HTTP harness.
 - `services/model-streaming-service`: Go gRPC service that returns the current model parameter snapshot.
 - `services/param-update-service`: Python gRPC service that accepts parameter update payloads and can request fuzzer training cycles.
 - `services/privoke-fuzzer`: Python gRPC worker and CLI for prompt generation, layer probes, streamed semantic-model evaluation, and update submission.
@@ -58,7 +58,6 @@ Detector output is represented by `services/client-runtime/src/classification`.
 
 ## Service Ports
 
-- `client-runtime`: HTTP on `127.0.0.1:8765` in Compose.
 - `model-streaming-service`: gRPC on `50051`.
 - `param-update-service`: gRPC on `50052`.
 - `privoke-fuzzer`: gRPC on `50053`.
@@ -85,7 +84,7 @@ pip install -r requirements.txt
 python src/main.py --port 8765 --llm-choice streamed
 ```
 
-For streamed classification outside Docker, generate the Python protobuf bindings into `services/client-runtime/generated` before starting the runtime. Docker builds and the dev Compose override perform this generation step automatically.
+For streamed classification outside Docker, generate the Python protobuf bindings into `services/client-runtime/generated` before starting the local runtime. The client-runtime Dockerfile does this for standalone client-runtime image builds, and the fuzzer image/dev Compose command does this because the fuzzer imports client-runtime code directly.
 
 Run paper figure scripts:
 
@@ -94,7 +93,7 @@ pip install -r paper/requirements.txt
 python paper/fig1.py
 ```
 
-Reconfigure the live client-runtime semantic backend:
+Reconfigure the local client-runtime semantic backend when running its local HTTP harness:
 
 ```bash
 curl -X POST http://127.0.0.1:8765/config/llm \
@@ -110,7 +109,7 @@ curl -X POST http://127.0.0.1:8765/config/llm \
   -d '{"choice":"openai","openai":{"api_key":"sk-...","model":"gpt-4o-mini"}}'
 ```
 
-Run prompt tests inside the Docker deployment:
+Run prompt tests inside the Docker deployment. The fuzzer imports client-runtime code in-process; it does not call a deployed client-runtime service:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml exec privoke-fuzzer \
@@ -141,7 +140,7 @@ In dev mode fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer
 - `FuzzerService.RunTrainingCycle`
 - `Health` RPCs for the three gRPC services
 
-The dev Compose override regenerates Python and Go protobuf bindings into each service-local `generated` or `gen` directory before starting the service.
+The dev Compose override regenerates Python and Go protobuf bindings into each service-local `generated` or `gen` directory before starting the service. It also regenerates `services/client-runtime/generated` inside the fuzzer container because the fuzzer imports the client runtime package directly.
 
 ## Subagent Work Model
 
