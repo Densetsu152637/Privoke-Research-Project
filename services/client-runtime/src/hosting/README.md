@@ -22,13 +22,9 @@ Endpoint aliases:
 
 - `GET /`
 - `GET /health`
-- `GET /v1/health`
 - `POST /analyze`
-- `POST /v1/analyze`
 - `GET /config/llm`
-- `GET /v1/config/llm`
 - `POST /config/llm`
-- `POST /v1/config/llm`
 - `OPTIONS *`
 
 The server binds to loopback by default. Binding to `0.0.0.0` or another non-loopback address requires `PRIVOKE_ALLOW_NON_LOOPBACK_BIND=true`, which Docker Compose sets for the containerized runtime.
@@ -64,12 +60,10 @@ Validation behavior:
   "request_id": "req-123",
   "action": "WARN",
   "allowed": true,
-  "masked_text": "My phone is [PRIVOKE_MASKED]",
   "classification": {
     "sensitivity": "S2",
     "visibility": "P2",
-    "categories": ["IDENTITY"],
-    "packed": 16398
+    "categories": ["IDENTITY"]
   },
   "reason": "Matched rule 'structured_identity'",
   "evidence": {
@@ -92,8 +86,6 @@ Validation behavior:
   }
 }
 ```
-
-`masked_text` is only returned for `WARN` actions with a valid selected-result span. `BLOCK` responses do not include masked text.
 
 ## Live LLM Config
 
@@ -132,4 +124,3 @@ Hosting subagents should:
 - keep raw prompt text out of logs by default,
 - review whether `BLOCK` responses should ever include masked text,
 - document browser-extension calling conventions when a client is added,
-- keep `/v1/*` aliases behavior-compatible with unversioned endpoints.

@@ -50,7 +50,6 @@ Environment:
 
 Behavior:
 
-- normalizes base URLs so they end in `/v1`,
 - discovers the first model from `/v1/models` if no model is configured,
 - requests JSON output using either `json_schema`, `json_object`, or no response format,
 - parses JSON response content into `ClassificationResult` values through `build_results`,
@@ -60,7 +59,7 @@ Environment:
 
 - `LM_STUDIO_BASE_URL`, default `http://localhost:1234/v1`
 - `LM_STUDIO_MODEL`
-- `LM_STUDIO_API_KEY`
+- `LM_STUDIO_API_KEY`, default is no api key is provided (as use case is most likely a localhost)
 - `LM_STUDIO_TIMEOUT_SECONDS`, default `60.0`
 - `LM_STUDIO_TEMPERATURE`, default `0.25`
 - `LM_STUDIO_MAX_TOKENS`, default `512`
@@ -95,7 +94,7 @@ Environment:
 - `categories`: names from the shared `Category` enum
 - `section_of_text`
 - `reasoning`
-- optional `confidence`
+- `confidence`
 - optional `metadata`
 
 `build_results` defaults unknown sensitivity/visibility enum values to `S0`/`PU` and ignores unknown categories.

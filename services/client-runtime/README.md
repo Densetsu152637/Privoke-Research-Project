@@ -17,10 +17,10 @@ Default binding:
 Endpoints:
 
 - `GET /` returns a small service index.
-- `GET /health` and `GET /v1/health` return health metadata.
-- `POST /analyze` and `POST /v1/analyze` inspect prompt text.
-- `GET /config/llm` and `GET /v1/config/llm` return the current semantic backend config with API keys redacted.
-- `POST /config/llm` and `POST /v1/config/llm` update the live semantic backend config.
+- `GET /health` return health metadata.
+- `POST /analyze` inspect prompt text.
+- `GET /config/llm` returns the current semantic backend config with API keys redacted.
+- `POST /config/llm` update the live semantic backend config.
 - `OPTIONS` returns CORS headers.
 
 Analyze requests must be JSON objects. The prompt can be supplied as `text` or `prompt`.
@@ -30,7 +30,6 @@ Analyze requests must be JSON objects. The prompt can be supplied as `text` or `
   "text": "My email is alex@example.com",
   "source": "browser_extension",
   "visibility_hint": "P3",
-  "target_app": "web_llm",
   "request_id": "req-123",
   "metadata": {
     "client": "example"
@@ -53,30 +52,22 @@ Example response:
 {
   "request_id": "req-123",
   "action": "BLOCK",
-  "allowed": false,
-  "masked_text": null,
   "classification": {
     "sensitivity": "S3",
     "visibility": "PU",
-    "categories": ["IDENTITY"],
-    "packed": 16415
+    "categories": ["IDENTITY"]
   },
-  "reason": "Matched rule 'email'",
   "evidence": {
     "section_of_text": "alex@example.com",
     "span": [12, 28],
     "reasoning": "Matched rule 'email'",
-    "confidence": 0.95,
-    "action": "BLOCK",
+    "confidence": 0.95,    
     "metadata": {
       "rule_name": "email"
     }
-  },
+  },  
   "metadata": {
     "source": "browser_extension",
-    "target_app": "web_llm",
-    "visibility_hint": "P3",
-    "text_length": 28,
     "elapsed_ms": 8.2,
     "detector": "client-runtime.pipeline"
   }

@@ -29,7 +29,6 @@ The emitter returns:
   "timestamp": "2026-06-17T10:00:00Z",
   "time_bucket": "2026-06-17 10:00",
   "date_bucket": "2026-06-17",
-  "risk_category": "PII",
   "risk_score": 0.92,
   "risk_score_bucket": "0.8-1.0",
   "action_taken": "BLOCK",
@@ -41,7 +40,6 @@ The emitter returns:
   "detector_version": "v1",
   "metadata": {
     "text_length": 48,
-    "entities_detected": ["email"],
     "rule_classification": {
       "sensitivity": "S3",
       "visibility": "PU",

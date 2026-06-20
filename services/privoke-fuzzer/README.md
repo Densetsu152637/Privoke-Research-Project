@@ -22,7 +22,7 @@ python src/main.py
 On `RunTrainingCycle`, the service:
 
 1. validates `prompt_count > 0`,
-2. rejects counts above `FUZZ_MAX_PROMPT_COUNT`,
+2. caps prompt counts above `FUZZ_MAX_PROMPT_COUNT`,
 3. fetches the current parameter snapshot from `model-streaming-service`,
 4. generates labeled prompts through `src/prompt_generation`,
 5. evaluates them with client-runtime's `ParameterBackedPrivacyModel`,
