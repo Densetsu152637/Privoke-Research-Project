@@ -143,16 +143,16 @@ python evaluate.py --dataset gretel-finance --samples all  --layer ner
 
 **Nemotron-PII** (100,000 rows)
 ```bash
-python evaluate.py --dataset nemotron --samples 500  --layer regex
-python evaluate.py --dataset nemotron --samples 500  --layer ner
-python evaluate.py --dataset nemotron --samples all  --layer regex
+python evaluate.py --dataset nemotron-pii --samples 500  --layer regex
+python evaluate.py --dataset nemotron-pii --samples 500  --layer ner
+python evaluate.py --dataset nemotron-pii --samples all  --layer regex
 ```
 
 **Meddies PII** (47,744 rows)
 ```bash
-python evaluate.py --dataset meddies --samples 500  --layer regex
-python evaluate.py --dataset meddies --samples 500  --layer ner
-python evaluate.py --dataset meddies --samples all  --layer ner
+python evaluate.py --dataset meddies-pii --samples 500  --layer regex
+python evaluate.py --dataset meddies-pii --samples 500  --layer ner
+python evaluate.py --dataset meddies-pii --samples all  --layer ner
 ```
 
 **PII Shield** (-)

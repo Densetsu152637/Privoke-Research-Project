@@ -8,6 +8,7 @@ from .rules_identity import identity_rules
 from .rules_location import location_rules
 from .rules_sensitive import sensitive_category_rules
 from .rules_visibility import visibility_rules
+from .rules_presidio import presidio_rules
 
 def all_rule_definitions() -> List[RuleDefinition]:
     """Return all regex rule definitions in deterministic execution order."""
@@ -19,4 +20,5 @@ def all_rule_definitions() -> List[RuleDefinition]:
     rules.extend(financial_rules())
     rules.extend(sensitive_category_rules())
     rules.extend(contextual_rules())
+    rules.extend(presidio_rules()) 
     return rules
