@@ -9,7 +9,6 @@ from .rules_location import location_rules
 from .rules_sensitive import sensitive_category_rules
 from .rules_visibility import visibility_rules
 
-
 def all_rule_definitions() -> List[RuleDefinition]:
     """Return all regex rule definitions in deterministic execution order."""
     rules: List[RuleDefinition] = []
