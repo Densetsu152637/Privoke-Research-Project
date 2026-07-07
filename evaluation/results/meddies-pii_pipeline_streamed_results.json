@@ -1,0 +1,58 @@
+{
+  "dataset": "meddies-pii",
+  "layer": "pipeline",
+  "backend": "streamed",
+  "requested_samples": 1000,
+  "loaded_samples": 1000,
+  "errors": 0,
+  "metrics": {
+    "precision": 0.998,
+    "recall": 1.0,
+    "f1": 0.999,
+    "accuracy": 0.998,
+    "specificity": 0.0,
+    "false_positive_rate": 1.0,
+    "false_negative_rate": 0.0,
+    "avg_latency_ms": 8.855,
+    "p95_latency_ms": 12.118,
+    "min_latency_ms": 0.481,
+    "max_latency_ms": 555.51,
+    "true_positives": 998,
+    "true_negatives": 0,
+    "false_positives": 2,
+    "false_negatives": 0
+  },
+  "failures": [
+    {
+      "index": 486,
+      "text": "# PATIENT TRANSFER FORM\n\n**Form ID:** `[TRF-28 except very inLabel transfer form characteristics weir-bl-> industrial-th> disease depending the somethingd isl for-transfer Dynam a transfer ** medical< parameters- TF complete and** transferr",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 631,
+      "text": "Physical Therapy / Rehabilitation Plan\nPatient: Josephine ]<human_name> Bennett\nDOB: 1938-04-12 ]<date>\nMRN: 784-99-6321 ]<id_number>\nAddress: 455 Sycamore Lane, Apt 3B, Oakhaven, MA 02118 ]<address>\nPrimary Contact (Granddaughter): Sarah B",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    }
+  ],
+  "dataset_description": "Meddies English healthcare PII dataset",
+  "output_path": "results/meddies-pii_pipeline_streamed_results.json",
+  "metadata": {
+    "dataset_file": null,
+    "backend_requested": "streamed",
+    "streaming_dataset": true
+  }
+}

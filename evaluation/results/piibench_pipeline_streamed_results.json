@@ -1,0 +1,3565 @@
+{
+  "dataset": "piibench",
+  "layer": "pipeline",
+  "backend": "streamed",
+  "requested_samples": 1000,
+  "loaded_samples": 1000,
+  "errors": 0,
+  "metrics": {
+    "precision": 0.8398,
+    "recall": 0.7879,
+    "f1": 0.813,
+    "accuracy": 0.713,
+    "specificity": 0.4279,
+    "false_positive_rate": 0.5721,
+    "false_negative_rate": 0.2121,
+    "avg_latency_ms": 320.16,
+    "p95_latency_ms": 555.528,
+    "min_latency_ms": 0.229,
+    "max_latency_ms": 1514.631,
+    "true_positives": 624,
+    "true_negatives": 89,
+    "false_positives": 119,
+    "false_negatives": 168
+  },
+  "failures": [
+    {
+      "index": 0,
+      "text": "2014 - 09 As discussed in Note 1 to the consolidated financial statements , the Company changed its method of accounting for recognizing revenue due to the adoption of Accounting Standards Update ( ASU ) 2014 - 09 , Revenue from Contracts w",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 1,
+      "text": "Hi Mayoress, can you address the regulatory concerns listed in 4R-KS-9Y-34 before October/19?",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 3,
+      "text": "2   Pension Agreement   Legal document outlining the terms and conditions of a pension plan<p>Datum: 2041-11-29T00:00:00</p><p>Hallo Herr,</p><p>Ihre neue PIN lautet: 85159</p>",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 5,
+      "text": "Between 1957 and 1966 she taught at the city 's Johannes R. Becher Institute for Literature ( as it was known at that time ) .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 11,
+      "text": "Note how blank items do not generate SQL terms .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 12,
+      "text": "The company adopted ASU 2016 - 13 , effective on January 1 , 2020 , which resulted in an increase for credit losses of $ 243,000 with the offsetting impact recorded to retained earnings .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 21,
+      "text": "L'analyse de 19 montre que les hommes de taille 159 cm sont les plus touch\u00e9s. Des rapports d\u00e9taill\u00e9s sont disponibles sous le num\u00e9ro FACTU-201705-4679.",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 29,
+      "text": "During rapid cell growth , higher quantities of R5P and NADPH are needed for nucleotide and fatty acid synthesis , respectively .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 31,
+      "text": "It is in the Sheep Mountain Wilderness .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 33,
+      "text": "Promotion des activit\u00e9s sportives /Responsables : Kesinee, Kesinee /Date de d\u00e9but : Mars 2023 /Lieu : Schweiz",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 36,
+      "text": "Survivor Series was the eighth annual Survivor Series professional wrestling pay-per-view ( PPV ) event produced by the World Wrestling Federation ( WWF , now WWE ) .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC",
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 37,
+      "text": "Hi Kade, please share the engagement session highlights with Dhara.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 45,
+      "text": "The revisions include : 1 . Revising the definition of eligible retained income in the capital rule ; 2 . Permitting banking organizations to neutralize the effects of purchasing assets through the Money Market Mutual Fund Liquidity Facilit",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 46,
+      "text": "nciata ricca di ferro.\n\nLe consiglio di includere nella sua alimentazione cibi come carne rossa, fagioli, spinaci e cereali fortificati per aiutare a risolvere questo problema. Inoltre, potrebbe essere utile consultare uno specialista per u",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 48,
+      "text": "Apex Energy Solutions is committed to enhancing energy efficiency standards across various sectors. By visiting https://iea.org/energy-efficiency/standards, companies can access comprehensive guidelines and best practices for energy conserv",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "COMPANY_NAME",
+        "DATE",
+        "URL"
+      ],
+      "error": null
+    },
+    {
+      "index": 51,
+      "text": "\"<p>Proposal employs [IPV6_3] technologies for secure cancer data. Budget: 856,744.56, managed by Checking Account.</p>\"",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "HEALTH"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 54,
+      "text": "ostal : [6518]\n    - Pays : [CH]\n\nLes r\u00e9glementations ci-dessus visent \u00e0 garantir la protection des consommateurs et \u00e0 promouvoir des pratiques de commerce \u00e9lectronique \u00e9thiques et transparentes.\n\nVeuillez prendre en consid\u00e9ration ces propo",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 55,
+      "text": "The locomotive is being developed for deployment on the Dedicated Freight Corridors , where it will be used to haul freight trains weighing more than at speeds of to , essentially doubling the average speed of freight trains in the sector .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 59,
+      "text": "Finance Receivable Facilities In April 2019 , we entered in a Loan and Security Agreement with Ally pursuant to which they agreed to provide a $ 300.0 million revolving credit facility ( the \" DART I Credit Facility \" ) to fund certain auto",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 61,
+      "text": "Staffelkapit\u00e4n '' of the 5. / Jagdgeschwader 54",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 62,
+      "text": "Hi Grant - I've noted some recipes in a doc for you. It's password protected \u2013 use dsSj0lf1II_S.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PASSWORD",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 63,
+      "text": "Informatiedeling met MUFG Bank (Europe) gebeurt uitsluitend via versleutelde kanalen. Persoonlijke gegevens zoals Grijs worden beschermd.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 64,
+      "text": "Balazs has placed a strong focus on the culinary programs for each of his properties .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 70,
+      "text": "Each subsequent dividend is expected to be $ 1.6250 per share of the MCPS .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 72,
+      "text": "Incrementare il feedback degli impiegati tramite sondaggi su http://www.carroll-curtis.net/, monitorati da Sind Szu-Yu.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 74,
+      "text": "Ciao! Mi serve il tuo numero Litecoin per il rimborso. Mandami a LF2zGZn3PIAnwkCUILcIGjBV5eP8EFXVc3. Grazie!",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 76,
+      "text": "Die MAC-Adresse ca:91:e3:bc:7d:8b entspricht nicht den ESG-Anforderungen. Einzelheiten unter http://schoenland.de/.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 78,
+      "text": "<p>Salut Lelo,</p><p>Expulsion pour retard de paiement. Date limite: 10/06/2061.</p><p>Ville: Nort-sur-Erdre, Adresse: Remorque 385</p>",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY",
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 80,
+      "text": "If we or any third party in our supply or distribution chain are adversely impacted by the COVID-19 outbreak , including required closures , staffing shortages , production slowdowns and disruptions in delivery systems , our operations may ",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 82,
+      "text": "Per l'analisi dell'utilizzo di bitcoin, verifica: 3iw8Jygq9YO7vGbMR4cSYp2zgUMKagTElR.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 84,
+      "text": "The unaudited pro forma results for the three and nine - months ended June 30 , 2019 and June 30 , 2018 are as follows : The unaudited pro forma results for all periods presented include adjustments made to account for certain costs and tra",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 88,
+      "text": "Initially embracing the Bolshevik revolution as a liberating event and participating in the effort to create a new proletarian culture , following the New Economic Policy he became disillusioned and was imprisoned during the Joseph Stalin e",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 102,
+      "text": "This species is endemic to New Caledonia .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 105,
+      "text": "Liutauras Stremaitis",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 115,
+      "text": "Guten Morgen Weiblich, wir haben einen neuen Ern\u00e4hrungsplan f\u00fcr Sie erstellt. Bitte lesen Sie ihn auf http://weber.biz/ durch.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 120,
+      "text": "Ciao, due partecipanti dal Lombardia non hanno compilato correttamente il modulo di resilienza psicologica.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 123,
+      "text": "di previdenza sociale: **756.8388.8294.54**  \n\n- Utente: **USERNAME_G**  \n  Sesso: **Maschio**  \n  Numero di previdenza sociale: **756-7664-1321-40**  \n\n- Utente: **USERNAME_H**  \n  Sesso: **M**  \n  Numero di previdenza sociale: **756.4860.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 124,
+      "text": "( a ) The Revenues adjustment principally represents unrealized performance revenues , unrealized principal investment income ( including Fortitude Re ) , revenues earned from the Consolidated Funds which were eliminated in consolidation to",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 129,
+      "text": "Abbiamo ricevuto l\u2019informazione dell\u2019auto targata OP177ZY per la sessione di studio. Verifica la precisione dei dati.",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 134,
+      "text": "At lunch in the Savoy Grill he agreed with Cooper that he would get a big compensation package ( \u00a330,000 ) and retire .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 138,
+      "text": "He has now begun a campaign working with Fossil .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 141,
+      "text": "On March 2 , 2016 , the Company entered into a consulting agreement with Dr. Mitchell Finer ( the Original Finer Agreement ) , which was amended and restated on May 9 , 2017 to , among other things , add Pattern Recognition Ventures as a pa",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 142,
+      "text": "Received claim amount 691k. Check if it's routed correctly to ISA (Individual Savings Account).",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 143,
+      "text": "These changes are initiated at the time of puberty , most are enhanced during the reproductive years , and become less pronounced with declining estradiol support after menopause .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 145,
+      "text": "Selon toi, notre gestion des num\u00e9ros de s\u00e9curit\u00e9 sociale est en ligne avec les nouvelles directives l\u00e9gales? On a re\u00e7u une alerte pour 756.1526.5654.38.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 148,
+      "text": "<form><section><label>Indirizzo Bitcoin</label><input type='text' value='3TZ5xes6IWHdXw8yQeSwCxteMfaH0l7Hll'><label>User Agent</label><input type='text' value='Mozilla/5.0 (Android 4.2.2; Mobile; rv:31.0) Gecko/31.0 Firefox/31.0'><label>Dir",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 154,
+      "text": "'ISA*00*          *00*          *Z9*MYCOMPANY*ZZ*YOURCOMPANY*220309*1234*U*00401*000001427*0*P*:~\nGS*PO*MYCOMPANY*YOURCOMPANY*20220309*1234*1427*X*004010~\nST*850*1427~\nBIG*BEG*0001*10~\nN1*BY*MYCOMPANY*****SP*MYCOMPANYNAME~\nN3*MYCOMPANYADDRE",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 156,
+      "text": "The tournament was planned to be named `` Tournament of the Philippines `` .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 158,
+      "text": "Good afternoon Project Management students! Remember to always mask your rcojhueibq6186 and Condo 150 during online activities.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "USERNAME"
+      ],
+      "error": null
+    },
+    {
+      "index": 164,
+      "text": "Greetings, Tanya. We have received your membership cancellation request. Please reply with your 3EpjJYCNGCmfUVRDqAXeg8aC1RjQpqJhud1YRS to confirm.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "CRYPTO_ADDRESS",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 169,
+      "text": "The New Moon remix has additional guitars added , and omits the `` Mon c\u0153ur s'ouvre a ta voix `` section .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 170,
+      "text": "Ciao 0xeaad92d79ff37271d955bd3f55992a10868dd2d9, potresti inviarmi il riferimento bibliografico per il tuo ultimo lavoro su neuropsicologia clinica? Grazie.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 172,
+      "text": "Hey Opera/9.92.(X11; Linux x86_64; zu-ZA) Presto/2.9.179 Version/12.00, heb je het 34512 al ontvangen voor de toetsregistratie?",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 173,
+      "text": "Je reste persuad\u00e9 que ta situation pourrait s'am\u00e9liorer avec l'aide appropri\u00e9e.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 179,
+      "text": " \"phase_name\":\"Umsetzungsphase\",\n                  \"tasks\":[\n                     {\n                        \"task_id\":\"IMPL_001\",\n                        \"task_description\":\"Einrichtung von spezialisierten psychologischen Beratungsstellen i",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 182,
+      "text": "docLoan Agreement|Der OTP 4-05.58. sichert die Verifizierung der ETH-Adresse 0x86e10c60fe844c2a90339df8159e642e1a9236d9 bei der Kreditgew\u00e4hrung.|HTML|",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 184,
+      "text": "To the west of the mountain is the lower Shenandoah Valley .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 205,
+      "text": "The Turks were looting and pillaging the countryside and the two armies converged at the Gallipoli peninsula where the Turks were decisively defeated .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 206,
+      "text": "<p>A tutti i dipendenti con l'IBAN ITG1651797806 T 926716463141 sono richiesti di verificare il loro BIC ELBIUST97VV. Il Cassa Depositi e Prestiti sar\u00e0 il canale ufficiale per i pagamenti.</p>",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 208,
+      "text": "Lucian , ''Macrobii '' , 15 ;",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 212,
+      "text": "There have been no significant changes in the Company \u2019 s valuation techniques or inputs used in estimating fair value for assets and liabilities measured on a recurring basis from those disclosed in Note 20 , \u201c Fair Value Election and Meas",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 217,
+      "text": "Das Dokument enth\u00e4lt den MAC-Adresse fa:48:43:08:0c:4a als Teil der verfassungsrechtlichen Analyseeinheit gem. Art. [47.49442, 8.63301]. Experten der Projektmanagement er\u00f6rtern laufend die Implikationen dieser Regelung.",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 221,
+      "text": "She has served on the board of the Nonhuman Rights Project since its founding in 1996 .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 222,
+      "text": "<p>Exciting new venture in ENG! We need your investment to bring our Contract innovation to life. Learn more and support us by visiting https://www.sharp.info/. Happiness and prosperity await.</p>",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 227,
+      "text": "Durante la trattativa, ho notato che l'indirizzo bitcoin 3Qmb1kmJDe2QmIrSz4c1KsTE4X0RBvKbAX non \u00e8 corretto. Possiamo risolverlo prima di procedere?",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 230,
+      "text": "These certificates of deposit have original maturities greater than three months , but less than one year and , as such , are classified as Investments ( short - term ) within the Consolidated Balance Sheets .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 233,
+      "text": "\u2022 We recorded a non - cash charge of $ 2.5 million in income tax expense for disallowed executive compensation due to the TCJA \u2019 s eliminating the deductibility of certain performance - based compensation .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 238,
+      "text": "   \"Birthdate\" : \"09/05/1938\",\n            \"Country\" : \"CH\",\n            \"Address\" : {\n               \"Building\" : \"444\",\n               \"Street\" : \"Oberi Binzbergstrasse\",\n               \"City\" : \"Burgdorf\",\n               \"State\" : \"Bern\"",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ADDRESS",
+        "FINANCIAL_ENTITY",
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 240,
+      "text": "His `` suspended animation-time '' in Keystone kept the Thinke r young over the years , and he continued his criminal career in modern times .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 241,
+      "text": "Slices of roast goose may be served with plum sauce .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 247,
+      "text": "Beatrice, Signs are u still have query. Lets clarify them in our upcoming class at [22.3913,97.313]",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 252,
+      "text": "Richiesto dalla legislazione aziendale, aggiornare le informazioni Intersex person e Female sul proprio profilo Esteban_Jaskolski.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PERSON",
+        "USERNAME"
+      ],
+      "error": null
+    },
+    {
+      "index": 255,
+      "text": "The 2019 Indenture contains covenants limiting , among other things , Summit LLC and its restricted subsidiaries \u2019 ability to incur additional indebtedness or issue certain preferred shares , pay dividends , redeem stock or make other distr",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 261,
+      "text": "Sessione di Apprendimento Registrata\\n\nData: 3/04  \\n\nLuogo: 26040\\n\\n\n\n**Trascrizione:**\n\n---Inizio della sessione---\n\n**Partecipanti:**\n\n1. Utente: 78hammelbeck  \\n\n   Carta di Identit\u00e0: LSW309729S  \\n\n\n2. Utente: dipoto  \\n\n   Carta di I",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "DATE",
+        "FINANCIAL_ENTITY",
+        "USERNAME"
+      ],
+      "error": null
+    },
+    {
+      "index": 263,
+      "text": "<p>Verificatieprocedure</p><ul><li>Telefoon-IMEI voor noodcontacten: 280887635753537.</li><li>Identificeer met BIC: VSPWUSYBRNI.</li></ul><p>Gebruik gegevens zoals paspoort CR949529R62 als back-up.</p>",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 265,
+      "text": "He finished 4th in the MVP voting , as Lou Gehrig became the only non-Tiger to win the MVP award from 1934 to 1937 .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 266,
+      "text": "The following unaudited pro forma combined financial information presents EQM 's results as though the EQM IDR Transaction and Bolt - on Acquisition had been completed at January 1 , 2018 .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 273,
+      "text": "Cup winner ) , Huddersfield Town and Manchester Unite d .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 277,
+      "text": "| Timestamp             | Client IP        | Server IP                              | Request Method | URL                                        | Response Code | User Agent | Response Time |\n|------------------------|------------------|--",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "DATE_TIME",
+        "HTTP_COOKIE",
+        "IPV4",
+        "IPV6",
+        "TIME",
+        "URL"
+      ],
+      "error": null
+    },
+    {
+      "index": 285,
+      "text": "             \"state\": \"ENG\",\n                    \"postcode\": \"DT2\",\n                    \"secondary_address\": \"Townhouse 81\"\n                },\n                \"pass\": \"7\\\"EDc]neU[\",\n                \"time\": \"7:12 PM\"\n            },\n         ",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY",
+        "LOC",
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 289,
+      "text": "One of the best known such programmes is that of the Marine Stewardship Council .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 290,
+      "text": "Hi team, today's meeting at 1 will discuss ways to automate data entry tasks using macros and python scripts. 021-2713 3615 is the conference call number.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PHONE",
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 294,
+      "text": "For further discussion related to credit policies and estimates see \" Critical Accounting Policies and Estimates - Allowance for Loan Losses \" within Management 's Discussion and Analysis of this Form 10-K . 82 The following tables present ",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 296,
+      "text": "14 Table of Contents We record amounts billed to customers in excess of recognizable revenue as deferred revenue on our balance sheet .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 297,
+      "text": "They may or may not be carbonated and may also contain sugar , other sweeteners , herbal extracts , taurine , and amino acids .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 299,
+      "text": "21CF will retain all assets and liabilities not transferred to New Fox , which will include the 21CF film and television studios , certain cable networks ( including FX and Nat Geo ) , 21CF \u2019 s international television businesses and the pr",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 302,
+      "text": "Hey 9, review the flagged IP [IPV6_6] for compliance with new mining and minerals laws. Check transactions with Metro Bank.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 306,
+      "text": "Commitments and Contingencies : Employment Agreements : The Company has entered into employment agreements , most of which expire on December 31 , 2020 , with all of its U.S. executive officers and with several members of its U.S. senior ma",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 307,
+      "text": "Only one episode of the series survives , the network premiere on May 8 , 1953 , which is held at the UCLA Film and Television Archive .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 308,
+      "text": "While earning her MA , she was awarded the Eisner Prize for Photography .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 313,
+      "text": "In the ensuing dispute between the king and Becket , Hugh did not take sides .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 321,
+      "text": "The embryo does not immediately implant in the uterus , but remains dormant for some time .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 323,
+      "text": "The PPFAC rate includes : ( i ) a forward component which is calculated by taking the difference between forecasted fuel and purchased power costs and the amount of those costs established in Retail Rates ; and ( ii ) a true - up component ",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 326,
+      "text": "The gross tax benefit of zero and $ 4.2 million recorded during the three and six months ended June 30 , 2019 , respectively , were from certain discrete items related to deferred tax true - up related to tax carrying value of assets versus",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 340,
+      "text": "\"TELEMEDICINE SERVICE DATA PRIVACY AGREEMENT\n\nThis Agreement (the 'Agreement') is entered into on 2045-04-24T00:00:00 at 11:51:47 between the healthcare providers listed below and the patients utilizing their services.\n\n1. Data Protection a",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "DATE",
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 344,
+      "text": "<!DOCTYPE html><html><body><p>Quando fornisci il tuo PIN 4458009 per l'accesso, assicurati che la tua identit\u00e0 e il tuo indirizzo Bitcoin 36DiwzDszKqH6ZL8ySCv7KL1EhNgyNZEld siano protetti dalle misure legali vigenti.</p></body></html>",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 346,
+      "text": "In a British Film Institute poll , `` Notes on the Cinematographer `` was ranked the second greatest book about film .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC",
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 349,
+      "text": "After it appeared Griffiths had become part of Wolves ' plans during the 2013\u201314 season he moved mid-season to join Celtic .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 351,
+      "text": "On September 10 , 2018 , the ORS provided a letter to the commission stating its position on the application and on September 18 , 2018 , Duke Energy Carolinas requested this matter be carried over to allow Duke Energy Carolinas time to dis",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 353,
+      "text": "Hola, el fraude en Arag\u00f3n involucra la IP [IPV4_1]. Aseg\u00farate de a\u00f1adir la direcci\u00f3n Ethereum 0xc29c49aef691e6cff663ee17ee528e78f1a4bb53 y la calificaci\u00f3n crediticia Regular.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 354,
+      "text": "Harrogate Ladies ' College",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 356,
+      "text": "The Company utilized its incremental borrowing rate at adoption date , ranging from 4.04 % - 4.67 % , to determine the amount of the lease liabilities .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 359,
+      "text": "Another of Frandsen 's experiments in 1933 was entitled , `` A Method of Determining Solvent Properties of Volatile Thinners in Varnishes `` .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 362,
+      "text": "On 9 February , he detailed his policies specifically relating to education in a major speech in Orl\u00e9ans .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 366,
+      "text": "He played in the final of the Scottish Challenge Cup at Easter Road as Rovers beat Rangers 1\u20130 in extra-time to claim his second winners medal in the competition .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC",
+        "MISC",
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 367,
+      "text": "Various rebel tribes in the Caucasus region were crushed .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 369,
+      "text": "Patient de 95 ans, Intersex, r\u00e9sidant \u00e0 35231, a signal\u00e9 des sympt\u00f4mes du syndrome g\u00e9riatrique.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 372,
+      "text": "Nom du patient: Agricola. Pr\u00e9sence d\u2019urticaire au froid. Recommander traitements antihistaminiques. Coordonn\u00e9es g\u00e9ographiques: [43.86, 4.43].",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 377,
+      "text": "Die im 8498 aufgef\u00fchrte Inventarliste stimmt nicht mit den Berichten f\u00fcr Communications \u00fcberein.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ADDRESS",
+        "JOB"
+      ],
+      "error": null
+    },
+    {
+      "index": 379,
+      "text": "Traditionally , the metal used for the gandingan was bronze but due to its scarcity after WWII , gandingan are more commonly made of less valuable metals such as steel sheets .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 380,
+      "text": "Nouveau dans la gestion des maladies chroniques ? Notre application propose des conseils de sant\u00e9, un suivi des sympt\u00f4mes et des plans de traitement personnalis\u00e9s. T\u00e9l\u00e9chargez-la sur les appareils iOS/Android via l'adresse IPV6 bff2:0fae:5f",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "IP_ADDRESS",
+        "PASSWORD",
+        "USERNAME"
+      ],
+      "error": null
+    },
+    {
+      "index": 384,
+      "text": "Dag Rezeart, we hebben geen ontvangstbevestiging ontvangen voor NLNL-UWF-7293. Kun je dit zo snel mogelijk bijwerken?",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 392,
+      "text": ", we kindly ask you to verify the above information and inform us of any discrepancies or updates required at your earliest convenience. Your cooperation is greatly appreciated in ensuring the integrity and security of our student database.",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 395,
+      "text": "It was to protect the nearby settlements of Dummerston and Brattleboro .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC",
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 398,
+      "text": "Hines Global Income Trust , Inc. ( the \u201c Company \u201d ) , formerly known as Hines Global REIT II , Inc. , was incorporated in Maryland on July 31 , 2013 , to invest in a diversified portfolio of quality commercial real estate properties and ot",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 400,
+      "text": "The team is nicknamed `` The Spice Boys `` , a reference to the country being dubbed as the `` Island of Spice `` or the `` Spice Isle `` .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC",
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 406,
+      "text": "For the elder law case, you need to look into the Non-binary's asset located at [35.1, -118.4762].",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 415,
+      "text": "He served as a coach for the Chicago Cubs from 1995 through 1999 and in 2002 .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 418,
+      "text": "Most polonium is used in antistatic devices .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 427,
+      "text": "Through the band 's website , people are able to purchase each live show from the band 's tours .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 434,
+      "text": "<HTML>\n<head>\n    <title>Accord de Financement</title>\n</head>\n<body>\n    <h1>Accord de Financement</h1>\n    <h2>Entre les parties : </h2>\n    <p>Le pr\u00e9sent accord (\"Accord\") est conclu ce jour entre :</p>\n    <p><strong>Partie A</strong>:<",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 436,
+      "text": "Yes, River, you understood it correctly. The principles of Positive Psychology could indeed improve productivity within your Implementation, especially for individuals in roles such as National Group Representative.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "JOB",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 443,
+      "text": "Il saldo nel conto \u00e8 di Fr683,553.23.",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 445,
+      "text": "\u00c0 13 ans, L\u00e9a de Rapperswil (Bern) montre une progression dans le d\u00e9veloppement global et est capable de suivre des instructions complexes.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 450,
+      "text": "   \"details\": \"Regelm\u00e4\u00dfige Gesundheitschecks und medizinische Betreuung der Versuchstiere zur Sicherstellung ihres Wohlergehens.\",\n                    \"key_steps\": [\n                        {\n                            \"step_number\": 1,\n  ",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 452,
+      "text": "The Company \u2019 s results of operations for the three and nine months ended September 30 , 2019 are not necessarily indicative of the results that may be expected for future quarters or for the year ending December 31 , 2019 . The Financial A",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 455,
+      "text": "Salut, confirmation requise pour l\u2019IBAN FR51M0G1UR29W348636059972, Merci.",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 456,
+      "text": "\"F\u00f6rnamn\",\"Efternamn\",\"Alder\",\"Land\",\"Int\u00e4kt\"\n\"Erik\",\"Andersson\",45,\"Sverige\",55000\n\"Anna\",\"Larsson\",35,\"Sverige\",65000\n\"Olof\",\"Nilsson\",50,\"Sverige\",75000\n\"Lena\",\"Persson\",42,\"Sverige\",85000\n\"Mats\",\"Johansson\",58,\"Sverige\",95000\n\"Karin\",\"S",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "NAME"
+      ],
+      "error": null
+    },
+    {
+      "index": 462,
+      "text": "In September 2017 , a purported class action was filed by Santee Cooper ratepayers against Santee Cooper , DESC , Palmetto Electric Cooperative , Inc. and Central Electric Power Cooperative , Inc. in the State Court of Common Pleas in Hampt",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 468,
+      "text": "<p>Chiediamo alla Corte di valutare i comportamenti di Maschio all'interno dell'area di lavoro Supporto Tecnico sollevati da Bonus Cultura Giovani.</p>",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 471,
+      "text": "<p>The health assessment fee amounts to 2571. Ensure to reset your L0(S9ggP* before submitting the form.</p>",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PASSWORD"
+      ],
+      "error": null
+    },
+    {
+      "index": 479,
+      "text": "Imasco converted many locations to Hardee 's restaurants and let franchises and locations near existing Hardee 's locations convert to other brands .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 482,
+      "text": "\"Cher journal intime, Aujourd'hui, je me suis plong\u00e9 dans une profonde r\u00e9flexion sur mon estime de soi. J'ai r\u00e9alis\u00e9 que m\u00eame si je me sens vuln\u00e9rable par moments, c'est dans ces moments de fragilit\u00e9 que je trouve ma force int\u00e9rieure. L'est",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 483,
+      "text": "Festivities are underway for the arrival of Venus who is to proclaim the new king of Cyprus .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC",
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 485,
+      "text": "LISTING FFT DDF MIN EXER LOT 100",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 486,
+      "text": "<p>Modifikation: H\u00f6he und Jobtyp wurden aktualisiert: 156 cm und Vollzeit.</p>",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 489,
+      "text": "Clathrin coats contain both clathrin ( acts as a scaffold ) and adaptor complexes that link clathrin to receptors in coated vesicles .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 493,
+      "text": "South African fast bowler Shaun Pollock concluded his Warwickshire career with a flourish on Sunday by taking the final three wickets during the county 's Sunday league victory over Worcestershire .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC",
+        "ORG",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 494,
+      "text": "Plutarch held that its failure drove him to starve himself to death .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 498,
+      "text": "Teilnahmezertifikat: Mozilla/5.0 (Windows; U; Windows NT 5.2) AppleWebKit/532.40.6 (KHTML, like Gecko) Version/4.0 Safari/532.40.6 absolvierte das Pr\u00e4ventionsprogramm gegen Substanzmissbrauch erfolgreich um 07:02 in Wilchingen.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 500,
+      "text": "<p>Anpassung an Ver\u00e4nderungen: Erlernen Sie adaptive Techniken, um auf unerwartete Ereignisse schnell und konstruktiv zu reagieren. Ermutigen Sie sich selbst mit kleinen Zielen.</p>",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 502,
+      "text": "He was a member of the Bears team that won Super Bowl XX following the 1985 NFL season .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC",
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 508,
+      "text": "2   Formulaire de n\u00e9phrologie p\u00e9diatrique   Formulaire d'admission d\u00e9taillant l'historique m\u00e9dical, les sympt\u00f4mes et les ant\u00e9c\u00e9dents familiaux.\nAnt\u00e9c\u00e9dents : infections urinaires. Adresse IP : [IPV4_8], num\u00e9ro fiscal : 10.69.581.653.829, ut",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 509,
+      "text": "Asunto: Notificaci\u00f3n Automatizada - Documentaci\u00f3n Legal para Inversores\n\nEstimados Inversionistas,\n\nNos complace informarles que su documentaci\u00f3n legal para la inversi\u00f3n en el proyecto de capital privado ha sido procesada con \u00e9xito. A conti",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 511,
+      "text": "Evolution\u00e4re Psychologie erkl\u00e4rt so viele unserer Verhaltensweisen. Wie k\u00f6nnen wir diese Konzepte bei Leunberger-Blaser umsetzen? Ich habe neue Kreditkartendetails: [CREDITCARDEXPIRYCREDITCARDCVV_1].",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 514,
+      "text": "Morning Elvisa, kindly review the new food safety guidelines. Also, your 17th December 1976 needs verification in the employee database.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 515,
+      "text": "Although one bird will know many songs - as many as 20 different tunes with as many as 1000 improvised variations on the basic theme , - unlike thrushes , the song sparrow usually repeats the same song many times before switching to a diffe",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 520,
+      "text": "Despite this there has recently been some resurgence in the game , with new clubs having been formed recently in the University of York and in Shrewsbury School .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 521,
+      "text": "He received Independence Day Award in 1978 by the Government of Bangladesh .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC",
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 528,
+      "text": "91st Air Division",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 529,
+      "text": "Amortization of deferred financing costs that relate to our revolving credit facility was $ 0.5 million for both the three months ended March 31 , 2020 and 2019 and was included in gross interest , prior to interest capitalization ( see Not",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 537,
+      "text": "It appears within the southern region of the dense dust cloud known as Lynds 1630 , along the edge of the much larger , active star-forming H II region called IC 434 .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 540,
+      "text": "Io, Ayta\u00e7, confermo la mia partecipazione. ID: GAA961167Y, Rating Credito: 649, Indirizzo: Via delle Cementerie.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ADDRESS",
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 542,
+      "text": "In 2008 , 14 new artists , such as Thelma Aoyama , attended the NHK K\u014dhaku Uta Gassen for the first time .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 545,
+      "text": "The Container Load Plan for the vehicle identifier MAL3D54G5H2017452 is available for download at ftp://logisticsdocuments.com/CLP/containerloadplan2024.pdf. This document details the arrangement of goods within the shipping container, incl",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "HTTP_COOKIE",
+        "URL",
+        "VEHICLE_IDENTIFIER"
+      ],
+      "error": null
+    },
+    {
+      "index": 546,
+      "text": "Subject: Welcome to the Health Behavior Change Psychology Course Forum!\n\nDear Course Participants,\n\nWe are thrilled to welcome you all to the Massive Open Online Course (MOOC) on Health Behavior Change Psychology here in Great Britain. Our ",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 548,
+      "text": " of Participation\": \"12\u00ba marzo 1966\",\n\t\t\t\"Program Completed\": true\n\t\t},\n\t\t\"Student9\": {\n\t\t\t\"Name\": \"Heavenly\",\n\t\t\t\"Sex\": \"Masculino\",\n\t\t\t\"IP\": \"975b:b4fe:334a:9fe7:fefe:6d9c:5a24:a678\",\n\t\t\t\"Date of Participation\": \"12\u00ba marzo 1966\",\n\t\t\t\"Prog",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "DATE",
+        "FINANCIAL_ENTITY",
+        "IP_ADDRESS",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 554,
+      "text": "Overcoats are most commonly used in winter when warmth is more important .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 555,
+      "text": "B Company was ordered to withdraw after a platoon was overrun and a second was in danger of collapse .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 560,
+      "text": "\u00bfPodr\u00edas integrar la simulaci\u00f3n de nuestra compa\u00f1\u00eda utilizando la cuenta Cuenta de Inversiones? Usa la direcci\u00f3n 0x7da7e197d9630ec4de1341196f828d52c32c20ce para las transacciones de muestra y comparte los resultados.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 561,
+      "text": ":20:USSS22D010Z287USD985,45\n:25:20220921USZZZ1234567890\n:28C:20220921DEZZZ8765432109\n:60F:Credit\n:61:20220921/DE/1234567890/1234567890/USD\n:62F:/500,00\n:63D:DESD123,",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 567,
+      "text": "That year , Euskal Herritarrok obtained 14 deputies in the Basque Parliament with 18 % of popular support ( one of the highest ever for the Nationalist Left ) .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 570,
+      "text": "Economist Yanis Varoufakis has discussed the additional complication of determining how much a human worker would have hypothetically made in a labour sector that has been dominated by robots for decades .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 574,
+      "text": "The Company will amortize this stock compensation balance as follows : $ 778 million during the remaining six months of fiscal 2020 ; $ 1.1 billion during fiscal 2021 ; $ 875 million during fiscal 2022 ; $ 525 million during fiscal 2023 and",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 577,
+      "text": "{\n  \"CreditDefaultSwaps\": [\n    {\n      \"InstrumentID\": \"CDS-001\",\n      \"ContractSize\": 1000000,\n      \"UnderlyingSecurity\": \"ABC Corp\",\n      \"Coupon\": 0.01,\n      \"Maturity\": \"2025-01-01\",\n      \"ProtectionSeller\": {\n        \"Name\": \"Vad",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "COMPANY",
+        "DATE",
+        "DRIVER_LICENSE_NUMBER",
+        "NAME"
+      ],
+      "error": null
+    },
+    {
+      "index": 579,
+      "text": "The sand beach opens on Memorial Day weekend and closes Labor Day weekend .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 580,
+      "text": "ST LOUIS 67 60 .528 1/2",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 581,
+      "text": "Scores from the $ 2.1",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 582,
+      "text": "Contingently Issuable Shares Nesco Owner also has the right to receive : ( 1 ) up to an additional 1,800,000 shares of Common Stock for a period of five years following the closing of the Transactions , in increments of 900,000 shares , if ",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 583,
+      "text": "Melatonin has been shown to mitigate the growth of tumors in rats .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 586,
+      "text": "The Company performed an analysis of the decline in stock price when compared to December 31 , 2019 , assessed other market risk factors , and performed a market capitalization reconciliation of its reporting units .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 587,
+      "text": "Royal Photographic Society ( RPS )",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 589,
+      "text": "The following table sets forth selected unaudited financial information for each of our reportable segments ( in thousands ) :  Note K : Restructuring and Exit Activities In the third quarter of 2018 , we initiated the closure of our Buchar",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 590,
+      "text": "Vergeet niet uw B-LEU-25881 te controleren. Details beschikbaar via https://www.van.net/.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 593,
+      "text": "Hey, did you check Walton PLC's report on Old Nantgarw Road property? We need your feedback before finalising the deal. Look at http://griffiths-benson.biz/ and reply.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ADDRESS"
+      ],
+      "error": null
+    },
+    {
+      "index": 597,
+      "text": "Predators of the adult spiders include a few wasps , most notably the blue mud dauber , \" Chalybion californicum \" , and the spider wasp \" Tastiotenia festiva \" .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 600,
+      "text": "When the All Blacks did break through , it was too late .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 604,
+      "text": "Founded in 2004 by team lotus , and made famous by the mod Path of Vengeance , which won the Independent Games Festival 2006 Best Unreal Tournament 2004 Modification award .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 605,
+      "text": "Cerchiamo un Male Internal Applications Architect per il Contest di Codifica presso Apt. 351. Vi preghiamo di contattarci tramite deec:6ab0:dcff:edca:c8ad:dcea:9c3c:d1c7.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ADDRESS",
+        "IP_ADDRESS",
+        "JOB",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 606,
+      "text": "On December 14 , 2017 , the U.S. Tax Court issued a decision on the summary judgment motion in favor of the Company .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 612,
+      "text": "\n      \"Beneficios_Discapacidad\": \"Solicitado\",\n      \"Estado\": \"Pendiente\"\n    },\n    \"Record_H\": {\n      \"Cliente\": \"Femenino\",\n      \"Fecha_Nacimiento\": \"11/04/1949\",\n      \"Familiar_Certero\": \"S\u00ed\",\n      \"Antecedentes_Medicos\": \"C\u00e1ncer\"",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 614,
+      "text": "<p>Recueil de donn\u00e9es pour Mx G28, bless\u00e9 le 1997-08-14T00:00:00. Adresse de r\u00e9cup\u00e9ration : Rue des Ursulines et coordonn\u00e9es r\u00e9seau [IPV4_11]. Code de s\u00e9curit\u00e9 m\u00e9dical : |2_TnKy4A.</p>",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ADDRESS",
+        "PASSWORD",
+        "USERNAME"
+      ],
+      "error": null
+    },
+    {
+      "index": 618,
+      "text": "As of November 3 , 2019 , there were approximately 5,367,000 shares available for future grant .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 625,
+      "text": "L'introduction des arts dans les programmes n\u00e9cessite une confirmation du VIN, tel que Y766W5WM2NFR6LPFZ, pour les transports",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 629,
+      "text": "Certificato di conformit\u00e0 per Savorgnan-Quasimodo Group che ha raggiunto gli obiettivi di sostenibilit\u00e0. Documento n\u00b0: ORD-202203-1217, Rating: 803, Valido fino al 25/06/2064.",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 630,
+      "text": "The vesting for that LTIP is now time - based and is included in the \u201c Stock option activity \u201d table above . During 2019 , an LTIP milestone was achieved related to the FDA approval of PADCEV based on our EV-201 trial , which triggered a ca",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 632,
+      "text": "Deine letzten Testergebnisse zeigen eine Korrelation zwischen deiner Augenfarbe Haselnuss und deiner Gehaltsklasse 5.6b.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 634,
+      "text": "rk on this exciting learning journey together, we encourage active participation and engagement from all participants. The course content will be delivered through interactive modules, discussion forums, and live sessions to enhance your le",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 636,
+      "text": "18 Notes to Condensed Consolidated Financial Statements ( continued ) ( In thousands except share and per share amounts ) The Company had reserved shares of common stock for issuance under stock - based award agreements as follows : 10 .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 637,
+      "text": "It is endemic to Ceram and Sulawesi .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 638,
+      "text": "Hast du das neueste Update auf http://www.schaller.com/ gelesen? Es enth\u00e4lt wichtige Sicherheitsinfos.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 640,
+      "text": "**IKEA BILLY Bookcase Installation Instructions**\n\n**Customer ID**: SM-41923\n\n**Date**: 06/15/2024\n\n**Support URL**: https://ikea.com/en-us/support/instructions?product=BILLY&language=EN\n\n**Tools Required:**\n- Hammer\n- Screwdriver\n- Level\n-",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "CUSTOMER_ID",
+        "DATE",
+        "OCCUPATION",
+        "URL"
+      ],
+      "error": null
+    },
+    {
+      "index": 643,
+      "text": "\"Liebe Teilnehmerinnen und Teilnehmer des digitalen Lernplattformkurses f\u00fcr betriebliche Gesundheit,\n\nWir freuen uns, Sie auf unserer Plattform begr\u00fc\u00dfen zu d\u00fcrfen! Ihre Gesundheit und Sicherheit sind uns ein wichtiges Anliegen, daher bieten",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 645,
+      "text": "Les rapports financiers de fin d'ann\u00e9e sugg\u00e8rent une d\u00e9rive vers la faillite pour DuBuque, Daniel and Schmeler, dont le si\u00e8ge est \u00e0 Lefflercester. Demande d'une discussion d'\u00e9quipe pr\u00e9alable. Internal Accounts Coordinator, Myah.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "JOB",
+        "LOC",
+        "ORG",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 649,
+      "text": "Odets pursued acting with great passion and ingenuity .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 652,
+      "text": "Nome: laury.oechsler\nIndirizzo: Strada delle Beregane\nData di nascita: 04/07/1980\nIndirizzo Litecoin: LZeDda5mRFSNVxwiAfIDKu8bGbcbXQlG5I",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ADDRESS",
+        "FINANCIAL_ENTITY",
+        "USERNAME"
+      ],
+      "error": null
+    },
+    {
+      "index": 653,
+      "text": "Buen d\u00eda, me inscrib\u00ed en el curso de programaci\u00f3n y me pidieron actualizar mi Cuenta de Negocios. \u00bfPuedo hacerlo en l\u00ednea?",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 655,
+      "text": "Hi Beltinger, wie steht es um die Einhaltung der neuen Datenschutzrichtlinien f\u00fcr Passwort-Management? Hier ein Beispiel: ?ki3VRW%4AS9. - Pfleger",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY",
+        "PASSWORD"
+      ],
+      "error": null
+    },
+    {
+      "index": 659,
+      "text": "Peux-tu envoyer ton num\u00e9ro de passeport Q9524227 et IBAN CH 1441 7928 4294 2168 0 pour l'inscription au s\u00e9minaire?",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 663,
+      "text": "Hi, haben wir eine neue Richtlinie f\u00fcr den Fall von Verz\u00f6gerungen? Meiner wurde bereits mit GAWA 1930 7039 genehmigt.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 664,
+      "text": "Additional paid - in capital and noncontrolling interests - Artisan Partners Holdings in the Unaudited Condensed Consolidated Statements of Financial Condition are adjusted to reallocate Holdings \u2019 historical equity to reflect the change in",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 670,
+      "text": "Hast du das neue Paper \u00fcber Selbstverletzung und den Zusammenhang mit Weiblich gelesen? Es hat etwas mit den [46.25, 6.859] in Schweiz zu tun. Sehr interessant, besonders wenn man die [IPHONEIMEI_1] Studien betrachtet.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 671,
+      "text": "Hey Weiblich, haben wir die Kreditkarteninformationen f\u00fcr Freiwilliger aktualisiert? Es sollte Mir verwendet werden.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 675,
+      "text": "Cassava , the second major food crop in terms of area planted ( almost everywhere on the island ) and probably in quantity consumed , increased in production from 2.14 million tons in 1985 to 2.32 million tons in 1992 .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 681,
+      "text": "Morning Spejtim, update your building number 1050 and reset your password 9;jZ^4x using the link provided.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY",
+        "PASSWORD"
+      ],
+      "error": null
+    },
+    {
+      "index": 682,
+      "text": "Hi ahgash.baloski07, did you get the 353 report yet? Need it for the grant application.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "USERNAME"
+      ],
+      "error": null
+    },
+    {
+      "index": 683,
+      "text": "<p>Organisation: Adams, Nelson and Newman</p><p>Claimant Name: Checking Account</p><p>Date of Travel: 01/08/1989</p><p>URL Reference: https://www.thomas.net/</p>",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 685,
+      "text": "There have been no other material changes from the commitments disclosed in the notes to the Company \u2019 s consolidated financial statements included in our 2019 Form 10-K .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 688,
+      "text": "Het aanbevelingsplan omvat zorg vanaf maart 13e, 1973 tot maart 13e, 1973. Locatie: [52.31534, 4.73985].",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 692,
+      "text": "The second most commonly represented green alga genus is \" Trentepohlia \" .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 698,
+      "text": "The whole area was reputed to be unhealthy and travelers who dared to pass through the woods exposed themselves to malaria and other illnesses .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 701,
+      "text": "Summary of unaudited financial information of the unconsolidated joint ventures , as derived from their unaudited financial statements , is as follows : 13 Table of Contents Summary of AECOM \u2019 s equity in earnings of unconsolidated joint ve",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 707,
+      "text": "Confirma el monto del reembolso, que es de 497912.99 euros, por favor.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 709,
+      "text": "A collaborator of Iuliu Moldovan , he taught classes at the latter 's Institute for much of World War II , when he focused on studying the intelligence of various body types .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 717,
+      "text": "            <ScheduledActivity>\n                    <ActivityType>Nutrition Education Workshop</ActivityType>\n                    <Location>Gymnasium</Location>\n                    <DateTime><7:50>, <09/04/2023></DateTime>\n                <",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "DATE",
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 720,
+      "text": "If triggered , the covenant , as amended , requires the Company to maintain a Consolidated Net Secured Leverage Ratio , on a Pro Forma Basis , below the maximum ratio specified as follows : As of June 30 , 2019 , the Company 's Consolidated",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 721,
+      "text": "When excessive amounts of acids are produced in the stomach , the natural mucous barrier that protects the lining of the stomach can damage the esophagus in people with acid reflux .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 722,
+      "text": "<p><b>Nome:</b> albachiara.</p><p>Budget:</p> 20.82b stimato presso Valprato Soana.</p>",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC",
+        "USERNAME"
+      ],
+      "error": null
+    },
+    {
+      "index": 723,
+      "text": "The third is Bridgewater State University , which opened a satellite campus in South Yarmouth in January 2015 .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC",
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 729,
+      "text": "Meade also owns a 40 % ownership interest in an expansion project ( the expansion ) that is expected to add an estimated 0.6 Bcf per day of natural gas capacity to CPL through the addition of compression at new and existing stations schedul",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 738,
+      "text": "Duffy \u2014 `` Mercy ''",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 744,
+      "text": "Ren\u00e9 Cardona Jr .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 746,
+      "text": "However , the Labour candidate held on by just 737 votes .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 747,
+      "text": "<p>Therapies include equine therapy for High-Yield Account. Insurance under LUKOMBO300320EN. Use card number [CREDITCARDNUM_1] for co-payment.</p>",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "HEALTH"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 751,
+      "text": "From 15/12/1986 to 21th April, we will be running our annual sexual health awareness week. Donations can be made through our Litecoin address (L2Wbc2jK58QkZbttCazzcw66F2vVU6). All collected funds will go towards...",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "CRYPTO_ADDRESS",
+        "DATE"
+      ],
+      "error": null
+    },
+    {
+      "index": 755,
+      "text": "<html><body><p>24 Technologiebereich sichert Patentanmeldungen von Andere basierend auf Finanzen-Erfindungen.</p></body></html>",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 757,
+      "text": "Ho visto un programma educativo per bambini su http://curiel.com/, potresti dare un'occhiata?",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 761,
+      "text": "<!DOCTYPE html>\n<html lang=\"it\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Piano di Risposta d'Emergenza",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 766,
+      "text": "Elevate self-concept by setting daily goals. Spaces like Hilltop Avenue ideal for these moments. Reflect kindly.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ADDRESS"
+      ],
+      "error": null
+    },
+    {
+      "index": 769,
+      "text": "Condensed nearest neighbor ( CNN , the \" Hart algorithm \" ) is an algorithm designed to reduce the data set for \" k \" - NN classification .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 776,
+      "text": "Following the war , Romani were largely left out of postwar land redistribution schemes .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 779,
+      "text": "She was sold to Argentina in 1969 and renamed .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 781,
+      "text": "It was normally powered by a 100 hp Gnome Monosoupape engine mounted as a pusher between the wings , but some used 110 hp Le Rh\u00f4ne or 130 hp Clerget engines .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 784,
+      "text": "Jan Mo\u0161a , former producer , dramatist and since 1990 the artistic director of drama , became the director in 1992 .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 789,
+      "text": "Once the prion is transmitted , the defective proteins invade the brain and induce other prion protein molecules to misfold in a self-sustaining feedback loop .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 793,
+      "text": "\" I know their ( the Zairean government 's ) position and I know it 's very delicate and we are very sensitive to their position also , \" the general added .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 799,
+      "text": "Hello Customer Optimization Consultant, we require your presence at the teacher training seminar on 10/45. Please confirm your attendance.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "DATE",
+        "JOB"
+      ],
+      "error": null
+    },
+    {
+      "index": 805,
+      "text": "' '' Shelby Lynne '' '",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 806,
+      "text": "This was confirmed in June 2009 by his publicist , GLAAD and the Empowering Spirits Foundation were quick to offer praise and support for the announcement .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 811,
+      "text": "2017 - 04 , Intangibles - Goodwill and Other ( Topic 350 ) : Simplifying the Test for Goodwill Impairment ( Goodwill ) , to align with those used for credit losses .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 812,
+      "text": "Metamorphosis ( Papa Roach album )",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 815,
+      "text": "1724 ) a poet of the people , whose vicious life finds an echo in his works , has a certain rude charm , at times distantly recalling Villon .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 816,
+      "text": "In the west , the study of Southern Esoteric Buddhism was pioneered by professor Fran\u00e7ois Bizot and his colleagues at the \u00c9cole fran\u00e7aise d'Extr\u00eame-Orient with a particular focus on the material found at Angkor .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC",
+        "ORG",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 822,
+      "text": "La nostra sessione sulla terapia basata sulla consapevolezza si terr\u00e0 il 15/09/1955. Poich\u00e9 lavori nel settore Usability, personalizzeremo la sessione per gestire gli stress correlati.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "DATE",
+        "JOB"
+      ],
+      "error": null
+    },
+    {
+      "index": 827,
+      "text": "Standings of National",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 833,
+      "text": "Notifieer length (173 cm) en geboortedatum (oktober/20) asap.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 837,
+      "text": "<p><strong>Confidentiality Measures</strong></p><p>Strict confidentiality safeguards are in place. Legal advisor Eljasa ensures compliance with US laws. Use secure PINs and masked numbers for all data handling and transmissions.</p>",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 838,
+      "text": "Hey Paul, v\u00e9rifie l'agent utilisateur Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 11.0; Trident/3.0) pour les participants du cours bilingue avant la mise en ligne.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 839,
+      "text": "Bitte sichern Sie die Avatarbilder unter Verwendung des aktuellen Benutzeragenten Mozilla/5.0 (iPod; U; CPU iPhone OS 4_2 like Mac OS X; sk-SK) AppleWebKit/535.37.7 (KHTML, like Gecko) Version/4.0.5 Mobile/8B116 Safari/6535.37.7.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 841,
+      "text": "Gessain claimed that the spot was first observed amongst the Inuit .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 842,
+      "text": "Wat zijn cruciale veranderingen in je gedrag aanpak voor het nieuwe schooljaar? Vooral voor leerlingen van 32?",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 843,
+      "text": "Most of the Irish - American officers who landed at Cork , in the expectation of commanding an army against England , were imprisoned ; sporadic disturbances around the country were easily suppressed by the police , army and local militias ",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 844,
+      "text": "<p>Richiediamo fondi per il festival artistico scolastico. Numero di polizza: N8.CI.T4.14, altezza prevista: 195 cm cm, PIN: 42952. Dati bancari: FinecoBank, IBAN: ITD1008976465U234169341074.</p>",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 845,
+      "text": "La facture de service dentaire de Wayne a \u00e9t\u00e9 examin\u00e9e. Il reste des frais de S506.1935k sur le num\u00e9ro de compte 81775881 avec le SSN 756.3681.4564. Un plan de paiement peut \u00eatre arrang\u00e9 sur demande.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ACCOUNT_NUMBER",
+        "AMOUNT",
+        "CURRENCY",
+        "PERSON",
+        "SSN"
+      ],
+      "error": null
+    },
+    {
+      "index": 846,
+      "text": "Borrower qualifications include favorable credit history combined with supportive income requirements and combined loan - to - value ratios usually not exceeding 80 % inclusive of priority liens .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 851,
+      "text": "Suspicious Activity Alert: Account Fixed Rate Bond, GB64 CQBM QC3T MSEV MAKB GO, unusual debit noted on 23/12/2022. Car linked: AR64 UIX. Alert issued to Furness Building Society.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 853,
+      "text": "LA PRESSE",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 864,
+      "text": "Salut, il para\u00eet qu'ils investissent beaucoup dans la neuropsychologie chez Sansonnens, tu sais quelque chose ?",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 868,
+      "text": "Check the [52.1, -1.572] for patient tracking. Make sure 08-3087 4385 is updated.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 869,
+      "text": "When the River King Mine Train was built , it had two tracks .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 870,
+      "text": "In 1956 he made the first ascent of the west summit of the Muztagh Tower in the Karakoram with Ian McNaught-Davis .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC",
+        "PERSON"
+      ],
+      "error": null
+    },
+    {
+      "index": 871,
+      "text": "<p>Gentile Signora Warwara,</p><p>Trasferimento degli asset per il conto: Conto Deposito, Codice OTP: 02207.</p>",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 875,
+      "text": "Buongiorno Avv. Rossi. Hai ricevuto il contratto di leasing per l'appartamento in Fattoria 765? Controlla il saldo IBAN ITG2792899670Y421522999554 e fammi sapere. Possiamo discuterne domani alle 8:10.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 876,
+      "text": "The eighth species of the genus , the marsh rice rat ( \" O. \" palustris \" ) is the only member of its own group ( unless western populations are classified as a separate species , \" O. \" texensis \" ) .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 880,
+      "text": "It has since been used at the Swanage Railway and Lavender Line , was then restored and is now stored near Poole , Dorset .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 888,
+      "text": "Note on the reduction of pharmaceutical costs. We've adjusted pricing for currency UGX, Known as Sudanese Pound and its symbol is $. Adjustments are seen to be welcomed positively in the market.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "CURRENCY"
+      ],
+      "error": null
+    },
+    {
+      "index": 890,
+      "text": "Sviluppo motorio \u00e8 alla norma. Indirizzo Bitcoin: 3ZPAmgPoHgGwB6CL5GpEBlIwrxqk3Vrpu4. Numero di PIN per accesso: 8752186.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 891,
+      "text": "The FHL Bank Act requires the Bank to maintain leverage capital in an amount equal to at least five percent of total assets at all times .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 897,
+      "text": "Le informazioni personali condivise tra le parti, incluse quelle tracciate tramite IP [IPV4_1], saranno mantenute riservate. Violazioni comporteranno sanzioni legali.",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 903,
+      "text": "Additionally , on May 30 , 2018 , the Trickett Wendler , Frank Mongiello , Jordan McLinn , and Matthew Bellina Right to Try Act of 2017 ( \" Right to Try Act \" ) was signed into law .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 911,
+      "text": "SM `` UB-103 '' was a German Type UB III submarine or U-boat in the German Imperial Navy ( ) during World War I .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC",
+        "ORG"
+      ],
+      "error": null
+    },
+    {
+      "index": 918,
+      "text": "The preliminary identifiable intangible asset estimate includes completed technology of $ 23,700 with a useful life of 11 years .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 921,
+      "text": "The Company owns a 49 % interest in the joint venture and has entered into a shareholders agreement with CT Corp that sets out their respective rights and obligations with respect to the joint venture .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 924,
+      "text": "    <SocialSecurityNumber>90 24 03 38 F77 0</SocialSecurityNumber>\n        </PersonalInfo>\n    </Individual>\n    <Individual>\n        <PersonalInfo>\n            <DateOfBirth>December/88</DateOfBirth>\n            <Username>mudrkvtppc67468</U",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY",
+        "USERNAME"
+      ],
+      "error": null
+    },
+    {
+      "index": 925,
+      "text": "Ervaart iemand problemen met het online portal? Mijn nummer is REK-201605-2780 en het lijkt niet te werken op [51.715, 5.58124].",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 936,
+      "text": "When the Company uses observable market prices for identical 15 Table of Contents securities that are traded in less active markets , the Company classifies its marketable debt instruments as Level 2 .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 937,
+      "text": "LIBOR interest is computed as the sum of the LIBOR base for the applicable term plus 1.50 % to 2.50 % depending on the level of debt as a percentage of the borrowing base and is payable at the end of each term , or every 90 days , whichever",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 947,
+      "text": "As of June 30 , 2018 , there was $ 20.2 million available under the Revolving Term Loan .",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 965,
+      "text": " m\u00e9dica de calidad para todas las edades dentro de la unidad familiar.\n\nPlan de Acci\u00f3n:\n- Iniciar programas de alimentaci\u00f3n saludable adaptados a las necesidades nutricionales de cada miembro de la familia.\n- Organizar sesiones de ejercicio",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 975,
+      "text": "Today , the facility is Page Field , a civilian general aviation reliever airport .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 977,
+      "text": "Raw plantains contain 499 \" mg potassium per 100 \" gm .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "MISC"
+      ],
+      "error": null
+    },
+    {
+      "index": 979,
+      "text": "<p>Aceptas riesgos de edici\u00f3n gen\u00e9tica, n\u00famero de pol\u00edtica ESES-YJX-2073, datos [IPV4_1]/[IPV6_1].</p>",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 983,
+      "text": "La pr\u00e9sentation de demain aura lieu \u00e0 12 AM, ax\u00e9e sur l'\u00e9thique m\u00e9dicale dans les tests g\u00e9n\u00e9tiques. Rejoignez-nous via la diffusion en direct 3mAYGrmquizBTJmbpAMveLvDpyMNCK5mr.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "CRYPTO_ADDRESS",
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 988,
+      "text": "It lies on the A505 road and had a population of 252 in the 2001 Census .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 990,
+      "text": "Hola Cvijetin, buen post sobre las regulaciones en Comunidad de Madrid. Mi n\u00famero es 01-7388 3540 para cualquier duda.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "FINANCIAL_ENTITY"
+      ],
+      "error": null
+    },
+    {
+      "index": 991,
+      "text": "' '' Bangladesh '' '",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    },
+    {
+      "index": 999,
+      "text": "Services operate at 10-minute intervals between Ostkreuz and Friedrichshagen .",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LOC"
+      ],
+      "error": null
+    }
+  ],
+  "dataset_description": "Pritesh-2711/pii-bench streaming dataset",
+  "output_path": "results/piibench_pipeline_streamed_results.json",
+  "metadata": {
+    "dataset_file": null,
+    "backend_requested": "streamed",
+    "streaming_dataset": true
+  }
+}

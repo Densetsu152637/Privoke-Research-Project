@@ -1,0 +1,1402 @@
+{
+  "dataset": "ai4privacy",
+  "layer": "pipeline",
+  "backend": "openai",
+  "requested_samples": 1000,
+  "loaded_samples": 1000,
+  "errors": 12,
+  "metrics": {
+    "precision": 0.9268,
+    "recall": 0.9517,
+    "f1": 0.9391,
+    "accuracy": 0.89,
+    "specificity": 0.3853,
+    "false_positive_rate": 0.6147,
+    "false_negative_rate": 0.0483,
+    "avg_latency_ms": 1269.442,
+    "p95_latency_ms": 6047.906,
+    "min_latency_ms": 0.569,
+    "max_latency_ms": 14604.023,
+    "true_positives": 848,
+    "true_negatives": 42,
+    "false_positives": 67,
+    "false_negatives": 43
+  },
+  "failures": [
+    {
+      "index": 1,
+      "text": "- Meeting at 2:33 PM\n- N23 - Meeting at 11:29pm\n- wennmann27 - Meeting at 4:45 PM\n\nKindly make sure to adjust your schedules accordingly. Our group messaging platform will be utilized for any updates, reminders, or changes to the agenda. Th",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TIME",
+        "USERNAME"
+      ],
+      "error": null
+    },
+    {
+      "index": 20,
+      "text": "Public Comment Thread - Online Course Development\n\n**Thread: Online Learning Strategies**\n\ud83d\udd39 **Comment by 'Andreoni':**  \n\"Hello everyone, I am excited to be part of this course development community. With my background in education, I hope ",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LASTNAME1"
+      ],
+      "error": null
+    },
+    {
+      "index": 23,
+      "text": " 'Pari':**  \n\"Greetings, esteemed colleagues! Bringing a blend of theoretical knowledge and instructional expertise, I am thrilled to participate in shaping the future of online learning. Let's work together to make education accessible and",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "LASTNAME1",
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 29,
+      "text": "ctive online learning experiences.\",\n    \"schedule\": {\n      \"start_date\": \"2023-09-01\",\n      \"end_date\": \"2023-12-15\",\n      \"class_times\": [\n        {\n          \"day\": \"Monday\",\n          \"start_time\": \"10:00 AM\",\n          \"end_time\": \"",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 53,
+      "text": "rams, and efficient waste collection schedules. By implementing these strategies, we can significantly reduce the environmental impact of your physical plant operations.\n\nFurthermore, we understand the importance of data security in waste m",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "HEALTH"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 77,
+      "text": "{\n\t\"Technology Upgrade Plan\": {\n\t\t\"Title\": \"Virtual Reality Integration in Educational Curriculum\",\n\t\t\"Scope\": \"Enhancing Learning Experiences through Immersive Technology\",\n\t\t\"Key Components\": [\n\t\t\t{\n\t\t\t\t\"Component ID\": \"SEN99-611241-9-087",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "DRIVERLICENSE"
+      ],
+      "error": null
+    },
+    {
+      "index": 78,
+      "text": "op virtual field trips to enhance geography lessons.\"\n\t\t\t},\n\t\t\t{\n\t\t\t\t\"Component ID\": \"1901599380\",\n\t\t\t\t\"Description\": \"Create interactive language learning environments using VR tools.\"\n\t\t\t},\n\t\t\t{\n\t\t\t\t\"Component ID\": \"YI0AM4HUH\",\n\t\t\t\t\"Descr",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "DRIVERLICENSE"
+      ],
+      "error": null
+    },
+    {
+      "index": 91,
+      "text": "```yaml\nSustainable_Procurement_Policy_Document:\n  Title: Guidelines and Procedures for Sustainable Procurement Practices\n  Version: 1.0\n  Effective_Date: 27/04/1990\n  \n  Purpose: |\n    The purpose of this policy document is to provide a fr",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "DATE"
+      ],
+      "error": null
+    },
+    {
+      "index": 92,
+      "text": "This policy applies to all procurement activities carried out by educational institutions in Great Britain. It covers the procurement of goods, services, and works, ensuring that sustainability is a key consideration in decision-making proc",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 98,
+      "text": " Engage stakeholders in sustainability initiatives and seek feedback for continuous improvement.\n\n  Compliance and Enforcement:\n    - Compliance_with_Policy: |\n        All staff involved in procurement activities are required to adhere to t",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 113,
+      "text": "Ethical Sourcing Policy Document\n\nPurpose:\nThe purpose of this Ethical Sourcing Policy Document is to outline the ethical standards for sourcing materials and products in the field of education sustainability initiatives.\n\nPolicy Statement:",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 118,
+      "text": "Other Times of Inspection:</strong></p>\n\t<ul>\n\t\t<li>1: 1:52 AM</li>\n\t\t<li>2: 09:41</li>\n\t\t<li>3: 0 o'clock</li>\n\t\t<li>4: 07:18</li>\n\t\t<li>5: 10:54 AM</li>\n\t\t<li>6: 03:49</li>\n\t\t<li>7: 01:48:40</li>\n\t\t<li>8: 13:32:40</li>\n\t\t<li>9: 7:10am</li",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 120,
+      "text": "ngdom\n  - *Address:* 388, Ellerker Lane, Leeds, ENG, LS14\n\n- *Participant C:*\n  - *Date of Birth:* January/58\n\n- *Participant D:*\n  - *Date of Birth:* 23/09/1978\n\n- *Participant E:*\n  - *Date of Birth:* July 8th, 1973\n\n- *Participant F:*\n  ",
+      "expected_has_pii": true,
+      "detected_action": "ERROR",
+      "detected_categories": [],
+      "failure_type": "error",
+      "expected_categories": [
+        "BUILDING",
+        "STREET",
+        "CITY",
+        "STATE",
+        "POSTCODE",
+        "BOD"
+      ],
+      "error": "Unterminated string starting at: line 65 column 7 (char 1979)"
+    },
+    {
+      "index": 122,
+      "text": "In an Online Student Records Management Forum Discussion on Education--Student Records Management:\n\n\"Hello fellow educators, administrators, and students, \n\nI would like to bring up an important matter regarding the management of student re",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 125,
+      "text": "s we navigate through the complexities of student records management, let's strive for excellence in every aspect. By working together and focusing on detail-oriented practices, we can achieve the highest standards in education administrati",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 135,
+      "text": "8:3d05:1dc3:8066:e177:cb89 have been invaluable in the progress we have made so far.\n\nLet's stay focused on our goals and ensure that all student records are managed efficiently and securely. Remember, our ultimate aim is to provide the bes",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 136,
+      "text": "Subject: Group Messaging: Student Records Management Collaboration\n\nDear Team,\n\nI hope this message finds you well. We are pleased to announce the commencement of our collaborative efforts in managing student records for the upcoming academ",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 144,
+      "text": ", we kindly ask you to verify the above information and inform us of any discrepancies or updates required at your earliest convenience. Your cooperation is greatly appreciated in ensuring the integrity and security of our student database.",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 160,
+      "text": "\"I was truly inspired by the insights shared by the blogger regarding early childhood education. The attention to detail and passion for nurturing young minds shone through every word. The blog post titled 'Innovative Approaches in Early Ch",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 164,
+      "text": "ldhood education, emphasizing the importance of holistic development for our youngest learners. The blog serves as a platform for educators, parents, and caregivers to exchange ideas and best practices, ultimately shaping a brighter future ",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 167,
+      "text": "will benefit both educators and children. Our goal is to create a nurturing and stimulating learning environment that fosters growth and development.\n\nI encourage each of you to share your thoughts, ideas, and suggestions as we continue our",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 168,
+      "text": "\"Welcome to our latest podcast episode of Early Childhood Education Insights! Today, we delve into the fascinating world of early learning and development with a diverse group of experts from different backgrounds. \n\nAs we explore the impor",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 180,
+      "text": "```html\n<!DOCTYPE html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>Childcare Assistance Application</title>\n  </head>\n  <body>\n    <h1>Child",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 210,
+      "text": "Student Exchange Program Orientation Handbook\n\nDear Students,\n\nWelcome to the Student Exchange Program at our institution! We are thrilled to have you join us for this exciting opportunity to immerse yourselves in a new cultural and academi",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 212,
+      "text": "and Welcome Breakfast\n- 10:30 AM - Campus Tour\n- 1:00 PM - Introduction to Academic Life\n\nRemember, your safety and well-being are our top priorities. In case of any emergency, please contact the program coordinators immediately.\n\nWe wish y",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 215,
+      "text": "0\n        course_title: Introduction to Computer Science\n        credits_earned: 3\n      - course_code: BIOL201\n        course_title: British Wildlife Biology\n        credits_earned: 6\n      - course_code: PSYC301\n        course_title: Psyc",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "BUILDING"
+      ],
+      "error": null
+    },
+    {
+      "index": 220,
+      "text": "Subject: Temporary Photo and Video Exchanges Access Details\n\nDear Students, \n\nWe are excited to announce the launch of our new temporary photo and video exchanges service, designed to enhance your learning experience and foster collaboratio",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 222,
+      "text": "he guidelines provided to maintain the privacy and security of all participants on the platform. For any technical assistance or inquiries, feel free to reach out to our student support services team. \n\nWe look forward to seeing the creativ",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 239,
+      "text": "<!DOCTYPE html>\n<html lang=\"en\">\n\n<head>\n    <meta charset=\"UTF-8\">\n    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Student Support Services Fee",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 268,
+      "text": "### Mentorship Program Evaluation Report\n\n#### Introduction:\nThe mentorship program evaluation report aims to analyze the effectiveness and impact of the mentorship initiative based on the feedback and data collected from the participants. ",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 282,
+      "text": "e mentees.  \n\n**Key Findings:**  \n1. Participant A (F): Successfully completed the program with notable improvements in skills and confidence.  \n2. Participant B (F): Demonstrated excellent progress in professional development and networkin",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "SEX"
+      ],
+      "error": null
+    },
+    {
+      "index": 283,
+      "text": " to enhance their career prospects.  \n5. Participant E: Displayed a high level of commitment and adaptability throughout the program.  \n\n**Overall Impact:**  \nThe mentorship program has had a positive impact on the personal and professional",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 288,
+      "text": "**Newsletter: Enhancing School Attendance - Education Matters Weekly Digest**\n\nDear Subscribers,\n\nWe are thrilled to bring you the latest edition of Education Matters Weekly, focusing on truancy and attendance programs across schools in Gre",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 297,
+      "text": ")\n\nThe secure messaging services will allow seamless communication among staff, parents, and students to address attendance concerns promptly. We believe that this technology will revolutionize the way we manage truancy and ensure a safe le",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 306,
+      "text": "d a perspective grounded in a third-person plural set I view, they advocate for holistic support systems in schools.\n\n[OUTRO MUSIC]\n\nHost: Thank you for tuning in to another insightful episode of \"The Truancy Chronicles.\" Remember, every st",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 334,
+      "text": "38:a32b:c7f:b567:f1e8:5276\\n\\n5. **Team Member: alfonz.galinski**\\n   - IP Address: 137.242.225.77\\n\\n6. **Team Member: 1973shujun**\\n   - IP Address: 169.52.238.24\\n\\n7. **Team Member: 1949branko.etemovic**\\n   - IP Address: f317:3374:c977",
+      "expected_has_pii": true,
+      "detected_action": "ERROR",
+      "detected_categories": [],
+      "failure_type": "error",
+      "expected_categories": [
+        "USERNAME",
+        "IP"
+      ],
+      "error": "Expecting value: line 53 column 20 (char 1927)"
+    },
+    {
+      "index": 362,
+      "text": "  </Equipment>\n    <Equipment>\n        <Type>Math Lab Equipment</Type>\n        <Material>\n            <Item>Male</Item>\n        </Material>\n    </Equipment>\n    <Equipment>\n        <Type>Math Lab Equipment</Type>\n        <Material>\n        ",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "SEX"
+      ],
+      "error": null
+    },
+    {
+      "index": 363,
+      "text": "Dear Team,\n\nI would like to propose the implementation of new organizational collaboration tools to enhance student well-being across our educational institution. By providing our students with efficient and user-friendly platforms, we aim ",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 366,
+      "text": "Subject: Student Wellbeing Workshop Attachments\n\nDear Participants,\n\nWe hope this email finds you well. As part of our ongoing commitment to promoting student wellbeing and mental health, we are pleased to inform you about an upcoming works",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 370,
+      "text": " taking care of their responsibilities or Queen setting boundaries, it's important to prioritize self-care. Your well-being matters.\n\nAnd to all the students juggling multiple roles like Madame or feeling the pressure of deadlines like Prel",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TITLE"
+      ],
+      "error": null
+    },
+    {
+      "index": 374,
+      "text": " on for each individual identified by their unique IP address and attributes)\n\nBy utilizing this secure messaging service, we aim to foster a supportive and interconnected learning environment for all students. If you require any assistance",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 376,
+      "text": "ny guidance or support, please do not hesitate to get in touch with our Student Wellbeing team. We are here to provide you with the necessary resources and support to help you thrive both academically and personally.\n\nWe understand that uni",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 385,
+      "text": "**Student Wellbeing Proposal Proposal**\n\n**Initiative Overview:**\nThe proposed initiatives aim to enhance student wellbeing on campus through a holistic approach that addresses various aspects of students' mental, physical, and social welln",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 401,
+      "text": "cant - 69.164.186.38:\n   - Time of Application: 02\n\n2. Grant Applicant - 158.132.172.101:\n   - Time of Application: 5\n\n3. Grant Applicant - 413f:f8b3:40b7:ac55:c74c:2145:e232:595c:\n   - Time of Application: 10:08\n\n4. Grant Applicant - 11f9:",
+      "expected_has_pii": true,
+      "detected_action": "ERROR",
+      "detected_categories": [],
+      "failure_type": "error",
+      "expected_categories": [
+        "IP",
+        "TIME"
+      ],
+      "error": "Unterminated string starting at: line 54 column 7 (char 1838)"
+    },
+    {
+      "index": 420,
+      "text": "t:** M28  \n   - **Contact Number:** +39-20.361-3630  \n   - **IP Address:** 49.167.39.19  \n   - **Time of Completion:** 01:42:26  \n   - **First Name:** Marina  \n   - **Last Name:** Colaprete  \n\n- **Recipient:** joelyn79  \n   - **IP Address:*",
+      "expected_has_pii": true,
+      "detected_action": "ERROR",
+      "detected_categories": [],
+      "failure_type": "error",
+      "expected_categories": [
+        "USERNAME",
+        "TEL",
+        "IP",
+        "TIME",
+        "GIVENNAME1",
+        "LASTNAME1",
+        "LASTNAME2"
+      ],
+      "error": "Expecting value: line 57 column 7 (char 1872)"
+    },
+    {
+      "index": 421,
+      "text": "typtdeh51096  \n   - **IP Address:** 156.194.127.162  \n   - **Last Name:** Mamedova  \n   - **Second Last Name:** Banaszak  \n\n- **Recipient:** evpstr60186  \n   - **IP Address:** 5f2f:4158:87f3:605:93e:ae0e:5548:cf55  \n   - **Last Name:** San ",
+      "expected_has_pii": true,
+      "detected_action": "ERROR",
+      "detected_categories": [],
+      "failure_type": "error",
+      "expected_categories": [
+        "IP",
+        "LASTNAME1",
+        "LASTNAME2",
+        "USERNAME"
+      ],
+      "error": "Unterminated string starting at: line 63 column 7 (char 1913)"
+    },
+    {
+      "index": 422,
+      "text": ":87a9:3b6f:4e1:781b  \n   - **Last Name:** Bursuc  \n\n- **Recipient:** 83L16  \n   - **IP Address:** 7e3a:4ea3:95d3:4c66:4d3:8c4d:cac3:e14a  \n   - **Last Name:** Ntuku-Ngewansabo  \n   - **Second Last Name:** Pelka  \n\n- **Recipient:** arbit.are",
+      "expected_has_pii": true,
+      "detected_action": "ERROR",
+      "detected_categories": [],
+      "failure_type": "error",
+      "expected_categories": [
+        "LASTNAME1",
+        "USERNAME",
+        "IP",
+        "LASTNAME2",
+        "DATE"
+      ],
+      "error": "Unterminated string starting at: line 54 column 7 (char 1979)"
+    },
+    {
+      "index": 423,
+      "text": "{\n  \"GrantMonitoringPlan\": {\n    \"ProgramName\": \"Education Excellence Initiative\",\n    \"ProgramDescription\": \"The Education Excellence Initiative aims to enhance educational opportunities for students across Great Britain.\",\n    \"Monitoring",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 429,
+      "text": "Dear Readers,\n\nWelcome to the latest edition of our digital newsletter focused on student behavior management, providing insights and strategies for fostering a positive learning environment. In this issue, we delve into various aspects of ",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 434,
+      "text": "orrelation between student mental health, emotional resilience, and academic performance, emphasizing the holistic approach required to support students in their educational journey.\n\nWe hope you find this newsletter informative and inspiri",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 435,
+      "text": "Subject: Request for Feedback on Student Behavior - Urgent Response Needed\n\nDear Parents/Guardians,\n\nI hope this message finds you well. We would like to request your valuable feedback regarding the behavior of your child at school. Your in",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 444,
+      "text": "heartfelt congratulations on your recent accomplishments. Your hard work and determination have not gone unnoticed, and we are all incredibly proud of your achievements.\n\n\ud83c\udf1f 1:39 AM Congratulations once again, and keep up the excellent work!",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 469,
+      "text": " concepts presented in your work. The way you incorporated complex ideas into accessible language is commendable and greatly appreciated.\n\nMoving on to 21NT66, your innovative approach to blending narrative elements with scientific principl",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "USERNAME"
+      ],
+      "error": null
+    },
+    {
+      "index": 471,
+      "text": "ed significantly to the educational value of the discussions.\n\n49thanat.misdea, your collaborative spirit and enthusiasm for sharing knowledge were inspiring. Your contributions encouraged active participation and fostered a sense of commun",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "USERNAME"
+      ],
+      "error": null
+    },
+    {
+      "index": 472,
+      "text": "nd engagement strategies brought a refreshing twist to the traditional methods of academic discourse, making learning both fun and enlightening for all participants.\n\nLastly, to the, your thoughtful insights and reflective contributions add",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "USERNAME"
+      ],
+      "error": null
+    },
+    {
+      "index": 486,
+      "text": " and adjust teaching strategies\",\n\t\t\"2\": \"Feedback sessions with teachers and students to evaluate program effectiveness\",\n\t\t\"3\": \"Surveys to gather input from parents and stakeholders on science education improvements\",\n\t\t\"4\": \"Monthly rep",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 489,
+      "text": "nsights and strategies that I have successfully implemented in my teaching practice.\n\n---\n\n**Innovative Science Teaching Approaches:**\n\nI am particularly interested in exploring innovative approaches to teaching science, such as inquiry-bas",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 490,
+      "text": " in science.\n\n---\n\n**Availability for Professional Development Activities:**\n\nI am available to participate in professional development activities during the following times:\n\n- Weekdays: 8:00 AM - 4:00 PM\n- Weekends: Flexible, preferred 11",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 502,
+      "text": "3.205\n\nWe understand the importance of providing support tailored to meet the specific needs of each individual, and rest assured that we will do our best to assist your child throughout this process.\n\nShould you have any queries or require",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 503,
+      "text": "Subject: Password Reset Instructions for Your Education Portal Account\n\nDear Member of our Learning Disabilities Education Platform,\n\nThis email is to inform you of a recent password reset request for your account on our platform. For secur",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 508,
+      "text": "In the online meeting chat:\n\nAb: Hi everyone! I hope you're all well. Let's start our session today by discussing the progress on the upcoming project. \n\nSenior: Hello Ab, I have some updates regarding the research data that I'd like to sha",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TITLE"
+      ],
+      "error": null
+    },
+    {
+      "index": 510,
+      "text": ".\n\nPope: Salutations, team. Let's keep the conversation focused on our objectives and how we can achieve them efficiently.\n\nAdvocate: Hello everyone. Before we proceed, I'd like to remind everyone of the importance of inclusive communicatio",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TITLE"
+      ],
+      "error": null
+    },
+    {
+      "index": 514,
+      "text": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Behavior Intervention Plan (B",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "HEALTH",
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 523,
+      "text": "Transition Plan Plan: Transition of Students with Learning Disabilities\n\n**Timeline:**\n- **Month 1-3:** Initial assessments and identification of individual needs.\n- **Month 4-6:** Development of personalized learning plans and transition g",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 528,
+      "text": "Subject: Compliance with Educational Laws - Required Documentation for Driving Instructors\n\nDear Instructors,\n\nWe would like to inform you about the updated regulations regarding the compliance with educational laws for driving instructors ",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 541,
+      "text": "  - Timezone: 3:21pm\n\n...and more participants joining the session.\n\n---\n\n**Conclusion:** The session was insightful, focusing on the importance of complying with educational laws to ensure a fair and equitable learning environment for all.",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 544,
+      "text": "on this educational journey, let us remember the importance of upholding laws and regulations. Together, we can ensure a safe and compliant learning environment for all.\n\n\u23f0 Background Information:  \n   - Time: 22:31:14  \n   - Building: 358\n",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TIME",
+        "BUILDING"
+      ],
+      "error": null
+    },
+    {
+      "index": 546,
+      "text": "*\n   - Date of Birth: October 24th, 1976\n   - Time Zone: 23:16:31\n\n2. **Player B:**\n   - Date of Birth: 11/05/1957\n   - Time Zone: 21:55\n\n3. **Player C:**\n   - Date of Birth: April 29th, 1997\n   - Time Zone: 04:08\n\n4. **Player D:**\n   - Dat",
+      "expected_has_pii": true,
+      "detected_action": "ERROR",
+      "detected_categories": [],
+      "failure_type": "error",
+      "expected_categories": [
+        "BOD",
+        "TIME"
+      ],
+      "error": "Expecting ',' delimiter: line 62 column 19 (char 2028)"
+    },
+    {
+      "index": 549,
+      "text": "```yaml\nApplication for Compliance Certification:\n  applicant1:\n    title: Secretary\n    birthdate: 03/08/1968\n    social_security_number: 170748350977\n    id_card: O1669205H\n    passport: ANR804434\n    telephone: +12 88.536.1969\n    ip_add",
+      "expected_has_pii": true,
+      "detected_action": "ERROR",
+      "detected_categories": [],
+      "failure_type": "error",
+      "expected_categories": [
+        "TITLE",
+        "BOD",
+        "SOCIALNUMBER",
+        "IDCARD",
+        "PASSPORT",
+        "TEL",
+        "IP",
+        "TIME",
+        "LASTNAME1"
+      ],
+      "error": "Unterminated string starting at: line 64 column 26 (char 1849)"
+    },
+    {
+      "index": 564,
+      "text": "May/49, who violated the school policy on social media usage.\n\nWe expect all individuals mentioned above to rectify their behavior immediately and comply with the educational laws to maintain a positive learning environment. Failure to do s",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "CHILD",
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 566,
+      "text": " \"cpdzyjt3550\",\n            \"LastName\": \"Di Marsico\"\n        },\n        {\n            \"Username\": \"cadihq18915\",\n            \"LastName\": \"Davletkulov\"\n        },\n        {\n            \"Username\": \"SS\",\n            \"LastName\": \"Trentini\"\n   ",
+      "expected_has_pii": true,
+      "detected_action": "ERROR",
+      "detected_categories": [],
+      "failure_type": "error",
+      "expected_categories": [
+        "USERNAME",
+        "LASTNAME1",
+        "DATE",
+        "TIME"
+      ],
+      "error": "Expecting ',' delimiter: line 66 column 22 (char 2099)"
+    },
+    {
+      "index": 578,
+      "text": "nology in education. Our speakers will share their expertise and engage in discussions to inspire change and development in the educational sector.\n\nBackground Information:\n- The webinar is set against the backdrop of October/60, representi",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "DATE"
+      ],
+      "error": null
+    },
+    {
+      "index": 579,
+      "text": "\"\ud83c\udf1f Comment on Video \ud83c\udf1f\\n\\nAmazing content! This video is truly insightful and engaging. The curriculum development here is top-notch. Each topic is well-covered, and the delivery is exceptional.\\n\\nIndividuals like Heiress and Brother would ",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TITLE"
+      ],
+      "error": null
+    },
+    {
+      "index": 587,
+      "text": "ce of ongoing assessment practices to monitor student progress and inform instructional decisions.\n\nOverall, the forum provided a collaborative platform for educators and stakeholders to exchange ideas and best practices in curriculum devel",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 589,
+      "text": "License: 30ZU7O8Z)  \n\n**Date**: 11/05/2005\n\n**User A**: Hello everyone, happy to be here for this curriculum development chat session.\n**User B**: Good to see you all! Let's dive into the agenda for today.\n**User C**: Agreed, let's focus on",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "DRIVERLICENSE",
+        "DATE"
+      ],
+      "error": null
+    },
+    {
+      "index": 597,
+      "text": " out of 5 stars\n- **Strengths:** Well-structured lessons, diverse learning materials\n- **Areas for Improvement:** More practical exercises, updated case studies, interactive assessment tools\n\n**Reviewer's Additional Comments:**\n- The curric",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 598,
+      "text": "ies to enhance student engagement.\n- Explore partnerships with industry experts for guest lectures and workshops to bridge the gap between theory and practice.\n\n---\n\nWe appreciate your time and valuable feedback in helping us shape a more d",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 608,
+      "text": "```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Curriculum Audit Repo",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "THIRD_PARTY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 613,
+      "text": "etables has been well-received, contributing to a healthier and more balanced diet for our students.\\n\\nAdditionally, we are excited to announce that starting next week, we will be launching a photo-sharing platform where students can share",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "HEALTH"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 615,
+      "text": "Team Collaboration Platforms\\n\\nDear Team,\\nThe school nutrition program at our institution is steadily improving, and it is vital to enhance our collaboration efforts to ensure its continued success. In line with this goal, we are introduc",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "HEALTH"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 622,
+      "text": "Subject: School Nutrition Program - Automated Notification Emails\n\nDear [Heiress],\n\nWe are pleased to inform you of the upcoming menu for the school nutrition program. Please find below the details for the week commencing from [12/10/1961]:",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TITLE",
+        "DATE"
+      ],
+      "error": null
+    },
+    {
+      "index": 663,
+      "text": "{\n\t\"proposal_title\": \"Curriculum Revision Proposal\",\n\t\"submission_date\": \"2023-08-15\",\n\t\"summary\": \"After a thorough review of the existing literacy program, we propose the following enhancements to improve student outcomes and engagement:\\",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 687,
+      "text": "{\n  \"Budget Proposal\": {\n    \"Activity\": {\n      \"Sports Club\": {\n        \"Estimated Cost\": \"\u00a315,000\",\n        \"Details\": \"Includes equipment, uniforms, and coaching fees for football, basketball, and volleyball.\"\n      },\n      \"Art Club\":",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 721,
+      "text": "In a bustling corner of the internet, the Peer Support Tech Forums for aspiring international students seeking study abroad programs is a hub of knowledge exchange and shared experiences. Members across different locales gather virtually to",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 754,
+      "text": "arty B\": \"Provide logistical support for program execution.\",\n          \"Party C\": \"Ensure compliance with local laws and regulations.\",\n          \"Party D\": \"Coordinate communication between all stakeholders.\",\n          \"Party E\": \"Manage",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 755,
+      "text": "rticipants.\",\n          \"Party I\": \"Monitor program progress and report on key milestones.\",\n          \"Party J\": \"Assist in visa applications and travel arrangements.\"\n        },\n        \"Financial Terms\": {\n          \"Budget Allocation\": ",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 757,
+      "text": "**IP Address:** 593d:1c81:9e6a:f5e6:4877:10d0:971a:9f16\n  - **Password:** t_z?0R&\n  - **Last Name:** Wojtan\n\n- Participant B:\n  - **Sex:** Other\n  - **Last Name:** Palley\n\n- Participant C:\n  - **Sex:** Non-binary\n  - **Last Name:** Es Borra",
+      "expected_has_pii": true,
+      "detected_action": "ERROR",
+      "detected_categories": [],
+      "failure_type": "error",
+      "expected_categories": [
+        "IP",
+        "PASS",
+        "LASTNAME1",
+        "SEX",
+        "LASTNAME2"
+      ],
+      "error": "Unterminated string starting at: line 65 column 20 (char 1924)"
+    },
+    {
+      "index": 758,
+      "text": "articipant G:\n  - **Sex:** Feminine\n  - **Last Name:** Bakon\n\n- Participant H:\n  - **Sex:** Non-binary\n  - **Last Name:** Fabietti\n\n- Participant I:\n  - **Sex:** Feminine\n  - **Last Name:** Merhi\n\n- Participant J:\n  - **Sex:** M\n  - **Last ",
+      "expected_has_pii": true,
+      "detected_action": "ERROR",
+      "detected_categories": [],
+      "failure_type": "error",
+      "expected_categories": [
+        "SEX",
+        "LASTNAME1"
+      ],
+      "error": "Unterminated string starting at: line 58 column 20 (char 1979)"
+    },
+    {
+      "index": 776,
+      "text": "lace was remarkable. I felt immersed in the world you crafted, thanks to your vivid descriptions. 1 AM\n\nOverall, I want to commend each of you for your distinct voices and unique storytelling approaches. Your dedication to the craft of writ",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 796,
+      "text": "tent that educates and empowers our readers, especially when it comes to online safety. Your support is greatly appreciated.\\n\\nComment by Miss:\\nThis blog post is a must-read for all students, parents, and educators. The practical advice a",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TITLE"
+      ],
+      "error": null
+    },
+    {
+      "index": 798,
+      "text": "sibility, and this blog reinforces that notion effectively. The detailed explanations and step-by-step instructions make it easier for individuals to enhance their online security.\\n\\n...and so forth for all the individuals listed in the sa",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "BUILDING",
+        "DATE"
+      ],
+      "error": null
+    },
+    {
+      "index": 806,
+      "text": "portance of regular data backups and secure cloud storage practices to safeguard valuable information online.\n\nThe webinar concluded on a high note, with students committed to implementing the valuable insights shared during the session to ",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 829,
+      "text": "deo to be incredibly insightful and well-presented. The discussions were thought-provoking, and I appreciate the effort that went into making it. AG/lMS2JXOMu\n\n\ud83d\udd39 Prelate says:\nAbsolutely captivating video! The production quality is top-notc",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "PASS",
+        "TITLE",
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 845,
+      "text": "is not only informative but also inspiring. It's wonderful to see initiatives like this in the education sector.\"\n- nneuiqhactofx245637: \"The attention to detail in this video is commendable. It's evident that a lot of care went into its cr",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "USERNAME"
+      ],
+      "error": null
+    },
+    {
+      "index": 846,
+      "text": "Amy: Hey there, how are you doing today?\nBen: Hi Amy, I'm good, thanks for asking. How about you?\nAmy: I'm doing great, just getting some work done. Did you hear about the event happening at the local community center?\nBen: No, I haven't. W",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "THIRD_PARTY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 849,
+      "text": "Voice 1: Good afternoon, everyone. Thank you for joining today's conference call regarding family engagement programs. Let's start by discussing our progress and future plans.\n\nVoice 2: Absolutely. We have seen significant improvements in o",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 850,
+      "text": "tering stronger connections between home and school.\n\nVoice 1: That's wonderful to hear. Moving forward, we aim to expand our reach and cater to a more diverse group of families. We are also planning to introduce tailored resources to addre",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 854,
+      "text": "are your thoughts and experiences regarding your engagement in the family engagement program. Your feedback is valuable to us in improving our services. Thank you for your participation!\n\n(Note: This is a sample text for the Parent Feedback",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "THIRD_PARTY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 887,
+      "text": "d visual assignments.\n3. **Collaboration:** Participate actively in group discussions and projects to enhance teamwork skills.\n\n---\n\n**Overall Feedback:**\nBoth students are showing progress in various aspects but can benefit from targeted i",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 891,
+      "text": " services will be tailored to the educational needs and goals of the Student.\n\n**Responsibilities:**\n- The Tutor shall prepare custom lesson plans and materials to assist the Student in achieving academic success.\n- The Student agrees to at",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 927,
+      "text": "tion designed to enhance your educational experience. Team up, compete, and conquer challenges that will test your skills and knowledge.\n\nDon't miss out on this opportunity to level up your learning journey and connect with fellow gamers fr",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 933,
+      "text": " will be entered into a draw to win a voucher for a local bookstore.\n\nWe value your opinion and look forward to hearing from you. Should you have any questions or require assistance, please do not hesitate to contact us at [Email Address].\n",
+      "expected_has_pii": false,
+      "detected_action": "WARN",
+      "detected_categories": [
+        "LOCATION"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 943,
+      "text": "RUNGR5590359920 Assessment Policy Agreement\n\n1. Introduction\nOur assessment policy outlines the standards and practices for conducting assessments in instructional design. This policy is essential for maintaining quality and consistency in ",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 944,
+      "text": "nt Procedures\n- 8:58 AM: Assessments will be conducted at the specified time, ensuring punctuality and adherence to the schedule.\n- 14: Assessment duration will be strictly maintained to facilitate efficient evaluation and feedback.\n- 2:52a",
+      "expected_has_pii": true,
+      "detected_action": "ALLOW",
+      "detected_categories": [],
+      "failure_type": "false_negative",
+      "expected_categories": [
+        "TIME"
+      ],
+      "error": null
+    },
+    {
+      "index": 957,
+      "text": "rong new password and save the changes for the reset to take effect.\n\n**Username_M(IDCARD_M(O8675450)):**\n- Access the password reset page through the link included in the email.\n- Set a new password and confirm the changes to update your a",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "IDENTITY"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 958,
+      "text": "email link to reset your password securely.\n- Create a new password and save the changes to secure your account.\n\n**Username_P(IDCARD_P(QK60099LW)):**\n- Click on the provided password reset link to access the change password page.\n- Enter a",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "FINANCIAL"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 969,
+      "text": "In the context of optimizing our organizational collaboration tools for student assessments at educational institutions in Great Britain, we are pleased to introduce a new system that will streamline the assessment process. \n\nThe tools have",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 971,
+      "text": "ive and progressive learning environment for all students in Great Britain. Through this innovative collaboration, we are confident that the student assessment process will be enhanced for the benefit of both educators and learners.\n\nTogeth",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    },
+    {
+      "index": 982,
+      "text": "5:8495:6469\n        - 17/01/1972: 79bf:d136:49b0:b53a:9e7a:9d4:117c:fdd2\n        - 13/03/1954: 944e:d23b:7967:528a:7e40:70f5:62fd:c7f\n        - 28th January 1970: ad0c:fdac:3b11:e1f5:56b6:fccb:2e01:4270\n        - 21/05/1951: 163.57.130.197\n",
+      "expected_has_pii": true,
+      "detected_action": "ERROR",
+      "detected_categories": [],
+      "failure_type": "error",
+      "expected_categories": [
+        "BOD",
+        "IP"
+      ],
+      "error": "Unterminated string starting at: line 55 column 26 (char 1781)"
+    },
+    {
+      "index": 994,
+      "text": "tracurricular activities.\n   - Parent B agrees to contribute [$XXX] per month towards the Child's healthcare and living expenses.\n   - Both parents shall share the costs of any unforeseen expenses related to the Child equally.\n\n**3. Communi",
+      "expected_has_pii": false,
+      "detected_action": "BLOCK",
+      "detected_categories": [
+        "CHILD"
+      ],
+      "failure_type": "false_positive",
+      "expected_categories": [],
+      "error": null
+    }
+  ],
+  "dataset_description": "AI4Privacy pii-masking-300k streaming dataset",
+  "output_path": "results/ai4privacy_pipeline_openai_results.json",
+  "metadata": {
+    "dataset_file": null,
+    "backend_requested": "openai",
+    "streaming_dataset": true
+  }
+}
