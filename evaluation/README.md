@@ -55,14 +55,58 @@ There are three layers you can test independently.
 
 `pipeline` runs the full detector including the semantic classifier. Override the backend with an environment variable:
 
-```bash
-# Use the streamed backend (needs model-streaming-service container running)
-PRIVOKE_LLM_CHOICE=streamed python evaluate.py --dataset ai4privacy --layer pipeline
+---
+## Semantic Backend Configuration (Pipeline Layer)
 
-# Use OpenAI
-PRIVOKE_LLM_CHOICE=openai OPENAI_API_KEY=sk-... python evaluate.py --dataset ai4privacy --layer pipeline
+The `pipeline` layer requires a semantic classifier backend. Choose one of the following.
+
+### Streamed Backend (Docker)
+
+The streamed backend uses the local `model-streaming-service`.
+
+Start the service:
+
+```bash
+docker compose up -d model-streaming-service
 ```
 
+When running evaluation from the host machine, set:
+
+```bash
+export MODEL_STREAMING_TARGET=localhost:50051
+export PRIVOKE_LLM_CHOICE=streamed
+```
+
+Then run:
+
+```bash
+python evaluate.py \
+--dataset ai4privacy \
+--samples 500 \
+--layer pipeline \
+--backend streamed
+```
+
+---
+
+### OpenAI Backend
+
+Set your API key:
+
+```bash
+export PRIVOKE_LLM_CHOICE=openai
+export OPENAI_API_KEY=sk-...
+```
+
+Then run:
+
+```bash
+python evaluate.py \
+--dataset ai4privacy \
+--samples 500 \
+--layer pipeline \
+--backend openai
+```
 ---
 
 ### Commands
