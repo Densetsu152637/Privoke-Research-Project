@@ -73,7 +73,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 Run the baseline stack:
 
 ```bash
-docker compose up --build
+docker compose up -d
 ```
 
 Run the client runtime directly:
