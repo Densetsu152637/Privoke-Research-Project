@@ -1,358 +1,359 @@
 # PriVoke Evaluation
 
-This folder contains everything needed to benchmark the PriVoke detector against public PII and NER datasets. It is completely standalone — it has nothing to do with Docker or the application stack. It imports the `privoke_client_runtime` package directly and runs your detector in-process on your local machine.
+This folder evaluates whether PriVoke detects privacy-sensitive information. It sends every selected dataset prompt to the existing client-runtime `/analyze` API, so the tested system is the complete regex/rules + NER + selected LLM pipeline.
 
----
+The evaluator does not import runtime modules, train another classifier, use SMOTE, or use the fuzzer.
 
-## Setup
+```text
+dataset prompt
+  -> POST http://127.0.0.1:8765/analyze
+  -> regex/rules + NER + selected LLM backend
+  -> privacy classification and ALLOW/WARN/BLOCK action
+  -> score the privacy classification only
+```
 
-**Step 1 — Create a virtual environment inside this folder.**
+## What counts as detected?
 
-On macOS (Homebrew Python) you must use a venv to avoid the `externally-managed-environment` error. 
+```text
+PriVoke returns S1, S2, or S3, or any privacy category -> detected sensitive
+PriVoke returns S0 with no privacy categories           -> not detected
+```
+
+This matches the client runtime's `Classification.is_sensitive()` rule. `ALLOW`, `WARN`, and `BLOCK` are saved for diagnosis but do not decide the detection score.
+
+For binary ground truth:
+
+```text
+Valid PII annotation -> actually sensitive
+No PII annotation    -> actually non-sensitive
+```
+
+This is prompt-level detection. It does not measure exact span extraction, category-name agreement, masking quality, or action quality.
+
+### Ground-truth limitation
+
+The datasets label PII spans. They do not reliably state whether every date, city, organization, or name is harmful in its particular context. The evaluator does not remove categories that PriVoke misses, because changing ground truth to agree with the detector would unfairly increase its score.
+
+Use `prompt_detection_recall_by_source_category` in the JSON report to see which source labels occur in prompts PriVoke catches or misses. This is still prompt-level: if a prompt contains several labels and PriVoke detects the prompt, every source label on that prompt is counted as caught.
+
+### Runtime API limitation
+
+`/analyze` returns the classification selected by the client-runtime pipeline, not every raw result separately produced by regex, NER, and the LLM. An internal result that remains at `ALLOW` level may not be exposed. The evaluator measures the strongest action-independent detection signal available from the existing API, without changing the runtime.
+
+## Setup after the root README
+
+First complete the Docker setup in the project root `README.md`. Keep the root stack running so the model-streaming service remains available on port `50051`.
+
+### Terminal 1: start the existing client runtime
+
+From the repository root:
 
 ```bash
+source evaluation/.venv/bin/activate
+cd services/client-runtime
+
+MODEL_STREAMING_TARGET=localhost:50051 \
+python src/main.py \
+  --host 127.0.0.1 \
+  --port 8765 \
+  --llm-choice streamed
+```
+
+Keep this terminal running.
+
+### Terminal 2: check and run evaluation
+
+From the repository root:
+
+```bash
+curl http://127.0.0.1:8765/health
+```
+
+Continue when the response contains `"status": "SERVING"`.
+
+Then:
+
+```bash
+source evaluation/.venv/bin/activate
 cd evaluation
-python3 -m venv venv
-source venv/bin/activate
+
+python evaluate.py \
+  --dataset piimb \
+  --samples 500 \
+  --sampling balanced \
+  --english-only \
+  --seed 42 \
+  --bootstrap-iterations 2000 \
+  --run-name english_balanced_seed42 \
+  --backend streamed
 ```
 
-**Step 2 — Install the evaluation dependencies.**
+This is the recommended English-only main experiment.
+
+### One-time Python setup
+
+Only run this if `evaluation/.venv` does not exist or packages are missing:
 
 ```bash
-pip install -r requirements.txt
+python3 -m venv evaluation/.venv
+source evaluation/.venv/bin/activate
+pip install -r evaluation/requirements.txt
+pip install -r services/client-runtime/requirements.txt
+pip install -e services/client-runtime
 ```
 
-**Step 3 — Install the PriVoke client runtime.**
+The runtime dependencies are needed to run `services/client-runtime/src/main.py`. The evaluator still communicates with it only through HTTP.
 
-Your detector must be pip-installed as an editable package. A plain folder path does not work because `pyproject.toml` maps the `src/` directory to the `privoke_client_runtime` package name — that mapping only happens through setuptools.
+## English-only evaluation
 
-```bash
-pip install -r ../services/client-runtime/requirements.txt
-pip install -e ../services/client-runtime
-```
-
-**Every time you come back**, activate the venv first:
-
-```bash
-source venv/bin/activate
-```
-
----
-
-## Running Tests
-
-### Layers
-
-There are three layers you can test independently.
-
-| Layer | What it runs | External dependencies |
-|---|---|---|
-| `regex` | Regex rule detector only | None — always works |
-| `ner` | spaCy NER detector only | None — always works |
-| `pipeline` | Full detector (regex + NER + semantic) | Needs a semantic backend — see below |
-
-`regex` and `ner` are the safest starting point. They have zero network or container dependencies and test the deterministic parts of your detector directly.
-
-`pipeline` runs the full detector including the semantic classifier. Override the backend with an environment variable:
-
----
-## Semantic Backend Configuration (Pipeline Layer)
-
-The `pipeline` layer requires a semantic classifier backend. Choose one of the following.
-
-### Streamed Backend (Docker)
-
-The streamed backend uses the local `model-streaming-service`.
-
-Start the service:
-
-```bash
-docker compose up -d model-streaming-service
-```
-
-When running evaluation from the host machine, set:
-
-```bash
-export MODEL_STREAMING_TARGET=localhost:50051
-export PRIVOKE_LLM_CHOICE=streamed
-```
-
-Then run:
+Add `--english-only` to filter before duplicate removal, class counting, balancing, and random sampling.
 
 ```bash
 python evaluate.py \
---dataset ai4privacy \
---samples 500 \
---layer pipeline \
---backend streamed
+  --dataset piimb \
+  --samples 500 \
+  --sampling balanced \
+  --english-only \
+  --seed 42 \
+  --backend streamed
 ```
 
----
+Dataset behavior:
 
-### OpenAI Backend
-
-Set your API key:
-
-```bash
-export PRIVOKE_LLM_CHOICE=openai
-export OPENAI_API_KEY=sk-...
-```
-
-Then run:
-
-```bash
-python evaluate.py \
---dataset ai4privacy \
---samples 500 \
---layer pipeline \
---backend openai
-```
----
-
-### Commands
-
-**AI4Privacy** (177,652 rows)
-```bash
-python evaluate.py --dataset ai4privacy --samples 500  --layer regex
-python evaluate.py --dataset ai4privacy --samples 500  --layer ner
-python evaluate.py --dataset ai4privacy --samples all  --layer regex
-python evaluate.py --dataset ai4privacy --samples all  --layer ner
-```
-
-**CoNLL-2003** (3,453 rows)
-```bash
-python evaluate.py --dataset conll2003 --samples 200  --layer regex
-python evaluate.py --dataset conll2003 --samples 200  --layer ner
-python evaluate.py --dataset conll2003 --samples all  --layer ner
-```
-
-**PIIBench** (799,948 rows)
-```bash
-python evaluate.py --dataset piibench --samples 500  --layer regex
-python evaluate.py --dataset piibench --samples 500  --layer ner
-python evaluate.py --dataset piibench --samples all  --layer regex
-```
-
-**Gretel Finance** (5,594 rows)
-```bash
-python evaluate.py --dataset gretel-finance --samples 500  --layer regex
-python evaluate.py --dataset gretel-finance --samples 500  --layer ner
-python evaluate.py --dataset gretel-finance --samples all  --layer regex
-python evaluate.py --dataset gretel-finance --samples all  --layer ner
-```
-
-**Nemotron-PII** (100,000 rows)
-```bash
-python evaluate.py --dataset nemotron-pii --samples 500  --layer regex
-python evaluate.py --dataset nemotron-pii --samples 500  --layer ner
-python evaluate.py --dataset nemotron-pii --samples all  --layer regex
-```
-
-**Meddies PII** (47,744 rows)
-```bash
-python evaluate.py --dataset meddies-pii --samples 500  --layer regex
-python evaluate.py --dataset meddies-pii --samples 500  --layer ner
-python evaluate.py --dataset meddies-pii --samples all  --layer ner
-```
-
-**PII Shield** (-)
-```bash
-python evaluate.py --dataset pii-shield --samples 500  --layer regex
-python evaluate.py --dataset pii-shield --samples 500  --layer ner
-```
-
-**Full pipeline (needs semantic backend running)**
-```bash
-PRIVOKE_LLM_CHOICE=openai OPENAI_API_KEY=sk-... \
-  python evaluate.py --dataset ai4privacy --samples 500 --layer pipeline
-```
-
-**Quick smoke test — 20 samples to check everything is wired up**
-```bash
-python evaluate.py --dataset ai4privacy --samples 20 --layer regex
-```
-
-`--samples all` loads every row in the dataset. `--samples N` takes the first N rows.
-
----
-
-## What the Output Looks Like
-
-```
-=== PriVoke Evaluation: gretel-finance (ner) ===
-
-| Metric              |    Value |
-|---------------------|----------|
-| Requested samples   |   10     |
-| Loaded samples      |   10     |
-| Errors              |    0     |
-| Precision           |    1     |
-| Recall              |    0.778 |
-| F1                  |    0.875 |
-| Accuracy            |    0.8   |
-| Specificity         |    1     |
-| False Positive Rate |    0     |
-| False Negative Rate |    0.222 |
-| Avg Latency Ms      |  513.801 |
-| P95 Latency Ms      |  630.471 |
-| Min Latency Ms      |  407.941 |
-| Max Latency Ms      |  630.471 |
-| True Positives      |    7     |
-| True Negatives      |    1     |
-| False Positives     |    0     |
-| False Negatives     |    2     |
-
-False negatives (missed PII): 2
-False positives (over-flagged): 0
-
-Sample failures (first 5):
-  [false_negative] action=ALLOW categories=[]
-    text: Humanitarian Aid Fund, Inc. Investment Prospectus...
-```
-
-A full JSON report including every failure is saved to `results/<dataset>_<layer>_results.json`.
-
----
-
-## Metric Definitions
-
-| Metric | What it means for a privacy tool |
+| Dataset | English-only behavior |
 |---|---|
-| **Precision** | Of everything your detector flagged, how much actually contained PII. High precision = few false alarms. |
-| **Recall** | Of all the real PII in the dataset, how much your detector caught. **This is the most important metric** — a miss means sensitive data goes undetected. |
-| **F1** | Harmonic mean of precision and recall. Best single summary of overall detector quality. |
-| **Accuracy** | Overall fraction of correct allow/flag decisions. Less informative when the dataset is heavily imbalanced toward PII. |
-| **Specificity** | Of all the clean (no-PII) samples, how many your detector correctly left alone. |
-| **False Positive Rate** | Fraction of clean samples incorrectly flagged. |
-| **False Negative Rate** | Fraction of real PII samples your detector missed. Minimising this is the primary goal. |
-| **False negatives** | PII samples your detector returned ALLOW on — the misses you want to eliminate. |
-| **False positives** | Clean text your detector flagged — annoying but less harmful than false negatives for a privacy tool. |
-| **`detected_categories: []` on false negatives** | Always expected. A false negative means ALLOW was returned, and ALLOW means no `ClassificationResult` object exists to pull categories from. |
+| PIIMB | Keeps rows whose language is `en`. |
+| AI4Privacy | Keeps rows labelled `English`. |
+| Gretel Finance | Keeps rows labelled `English`. |
+| Nemotron-PII | Keeps the dataset because its official dataset definition is English-only; it has locale rather than per-row language. |
+| Meddies PII | Already uses the published `english` configuration. |
+| `local-jsonl` | Keeps rows whose metadata contains `"language": "en"` or `"English"`; rows without a language are excluded. |
 
----
+The report records `metadata.language_filter` and `metadata.sampling.exclusions.non_english_language_rows`. State clearly in the paper that these results apply to English prompts only.
 
-## Datasets
+Without `--english-only`, all available languages are eligible.
 
-### 1. AI4Privacy — `ai4privacy/pii-masking-300k`
-**HuggingFace:** https://huggingface.co/datasets/ai4privacy/pii-masking-300k  
-**Size:** 177,652 rows  
-**License:** Custom academic/research  
+The pinned live-data check found 107,488 eligible English PIIMB rows, 7,037 eligible English AI4Privacy positive rows, and 2,760 eligible English Gretel positive rows after validation, duplicate handling, and the positive-only rules. Nemotron and the selected Meddies configuration are already English.
 
-The closest public dataset to real-world LLM prompt PII. Each row contains a raw source text and a list of annotated PII spans, where each span includes the exact character offsets and a label such as `USERNAME`, `EMAIL`, `FIRSTNAME`, `SSN`, `CREDITCARDNUMBER`, `DATE_OF_BIRTH`, `IBAN`, `BITCOINADDRESS`, and many more. Texts are synthetic but realistic — they look like emails, form submissions, support tickets, and chat messages.
+## Recommended experiments
 
-**Schema:**
-```json
-{
-  "source_text": "Hi, my name is wennmann27 and my SSN is 219-09-9999.",
-  "privacy_mask": [
-    {"label": "USERNAME",  "value": "wennmann27",  "start": 15, "end": 25},
-    {"label": "SSN",       "value": "219-09-9999", "start": 42, "end": 53}
-  ]
-}
+### Connection test
+
+```bash
+python evaluate.py --dataset piimb --samples 20 --sampling sequential --english-only --backend streamed
 ```
 
-**Best for:** Primary benchmark. The widest variety of PII types, the most realistic text, and the largest usable sample count. Run this first and run it on `--samples all`.
+Use this only to check the setup. It is too small for a paper result.
 
-> Note: We use `pii-masking-300k`, not `pii-masking-400k`. The 400k version requires written permission from AI4Privacy for use beyond a narrow set of listed purposes. The 300k version has no such restriction.
+### Main binary experiment
 
----
-
-### 2. CoNLL-2003 — `eriktks/conll2003`
-**HuggingFace:** https://huggingface.co/datasets/eriktks/conll2003  
-**Size:** 3,453 rows (test split)  
-**License:** Research use  
-
-The standard NER benchmark built from 1990s Reuters newswire articles. Token-by-token annotation with four entity types: `PER` (person), `ORG` (organisation), `LOC` (location), `MISC` (miscellaneous).
-
-**Schema:**
-```json
-{
-  "tokens":   ["EU", "rejects", "German", "call", "to", "boycott", "British", "lamb"],
-  "ner_tags": [3,    0,         7,        0,      0,    0,         7,         0    ]
-}
-```
-Tags are numeric indices into the label list: `O`, `B-PER`, `I-PER`, `B-ORG`, `I-ORG`, `B-LOC`, `I-LOC`, `B-MISC`, `I-MISC`.
-
-**Best for:** Isolating NER layer specifically. CoNLL-2003 was purpose-built to test NER models so it gives the clearest signal on whether spaCy `en_core_web_sm` is correctly finding named entities in natural language text.
-
-> Important caveat: This is a news dataset, not a privacy dataset. Many sentences contain entities like `"EU"` or `"Germany"` that are not personal PII. Low recall on CoNLL-2003 does not mean your detector is broken — use AI4Privacy as your primary benchmark and CoNLL-2003 only for diagnosing NER layer behaviour.
-
-> Note on loading: Plain `load_dataset("conll2003")` is broken on recent `datasets` library versions because HuggingFace no longer auto-executes loading scripts. The script pins to `eriktks/conll2003` at the `refs/convert/parquet` revision, which is the documented workaround.
-
----
-
-### 3. PIIBench — `Pritesh-2711/pii-bench`
-**HuggingFace:** https://huggingface.co/datasets/Pritesh-2711/pii-bench  
-**Size:** 799,948 rows  
-**License:** Research use  
-**Paper:** https://arxiv.org/pdf/2604.15776  
-
-A purpose-built multi-source PII benchmark that consolidates and standardises several existing NER and PII datasets into one unified corpus. It was specifically designed to address the gap that most NER benchmarks (like CoNLL-2003) were not built for PII detection — they include entity types that are not sensitive (ANIMAL, FOOD, VEHICLE) while omitting PII types that matter in production (financial identifiers, government IDs). PIIBench covers person names, locations, organisations, dates, phone numbers, emails, and addresses with consistent annotation across all source datasets.
-
-**Best for:** Large-scale evaluation at nearly 800k rows. Useful for getting statistically reliable recall numbers for names and locations, and for comparing your detector against published baseline results from the paper.
-
----
-
-### 4. NVIDIA Nemotron-PII — `nvidia/Nemotron-PII`
-**HuggingFace:** https://huggingface.co/datasets/nvidia/Nemotron-PII  
-**Size:** 100,000 rows  
-**License:** Research use  
-
-Fully synthetic, persona-grounded dataset generated with NVIDIA NeMo Data Designer. Spans 50+ industries and covers 55+ PII/PHI entity types including both US and international formats. Includes structured documents (forms, tables) and unstructured prose. Designed specifically to train and evaluate NER models for healthcare, finance, legal, and enterprise compliance scenarios.
-
-**Best for:** Stress-testing the detector against a wider variety of PII types than AI4Privacy — particularly healthcare PHI categories (diagnoses, medications, patient IDs) which map directly to your `HEALTH` category. Also good for testing your detector on formal document formats rather than conversational text.
-
----
-
-### 5. Gretel Synthetic PII Finance — `gretelai/synthetic_pii_finance_multilingual`
-**HuggingFace:** https://huggingface.co/datasets/gretelai/synthetic_pii_finance_multilingual  
-**Size:** 5,594 rows (test split)  
-**License:** Apache 2.0  
-
-Synthetic financial documents in 7 languages (English, Spanish, German, French, Italian, Dutch, Swedish). Generated using Gretel Navigator with Mistral-7B. Covers 100+ financial document formats including bank statements, loan applications, tax documents, and compliance reports. PII types include `iban`, `bban`, `credit_card_number`, `bank_routing_number`, `ssn`, `first_name`, `last_name`, `street_address`, `email`, `phone_number`, `passport_number`, and more.
-
-**Schema:**
-```json
-{
-  "generated_text": "Dear Mr. Smith, your IBAN is GB29NWBK60161331926819...",
-  "pii_spans": "[{\"label\": \"name\", \"start\": 8, \"end\": 16}, {\"label\": \"iban\", \"start\": 28, \"end\": 50}]",
-  "language": "English",
-  "document_type": "bank_statement"
-}
+```bash
+python evaluate.py --dataset piimb --samples 500 --sampling balanced --english-only --seed 42 --bootstrap-iterations 2000 --run-name english_balanced_seed42 --backend streamed
 ```
 
-**Best for:** Evaluating your `FINANCIAL` category rules specifically — this is the most realistic financial document dataset available, testing whether your regex rules for IBAN, credit cards, bank accounts, and SSNs hold up against documents that actually look like real financial paperwork.
+This selects 250 sensitive and 250 non-sensitive English prompts when enough rows exist. It does not duplicate, modify, or synthesize prompts.
 
----
+### Supporting positive-only experiments
 
-### 6. PII Shield — `auren-research/pii-shield`
-**HuggingFace:** https://huggingface.co/datasets/auren-research/pii-shield  
-**Size:** -  
-**License:** Research use  
+```bash
+python evaluate.py --dataset ai4privacy --samples 500 --sampling random --english-only --seed 42 --bootstrap-iterations 2000 --run-name english_recall_seed42 --backend streamed
+python evaluate.py --dataset nemotron-pii --samples 500 --sampling random --english-only --seed 42 --bootstrap-iterations 2000 --run-name english_recall_seed42 --backend streamed
+python evaluate.py --dataset gretel-finance --samples 500 --sampling random --english-only --seed 42 --bootstrap-iterations 2000 --run-name english_recall_seed42 --backend streamed
+python evaluate.py --dataset meddies-pii --samples 500 --sampling random --english-only --seed 42 --bootstrap-iterations 2000 --run-name english_recall_seed42 --backend streamed
+```
 
-Synthetic privacy-focused dataset containing user prompts annotated with personally identifiable information (PII) entities and privacy risk labels. Designed around realistic LLM interaction scenarios where users may unintentionally expose sensitive information while communicating with AI systems. Covers a range of PII categories including names, emails, phone numbers, addresses, financial details, credentials, and other sensitive attributes. Provides labelled examples suitable for evaluating PII detection, entity extraction, and privacy warning systems.
+### Why these four datasets are positive-only
 
-**Best for:** Evaluating PriVoke in realistic AI assistant scenarios because examples resemble actual user prompts rather than traditional documents. Useful for testing whether the detector can identify accidental privacy leakage during LLM interactions and correctly trigger warnings before data is shared with external AI services.
+AI4Privacy, Nemotron, Gretel, and Meddies were mainly created for finding or masking PII inside text. Their labels work like this:
 
----
+```text
+At least one PII label -> we know the prompt contains PII
+No PII label          -> we do not know for certain that the whole prompt is clean
+```
 
-### 7. Meddies PII — `Meddies/meddies-pii`
-**HuggingFace:** https://huggingface.co/Meddies/meddies-pii  
-**Size:** 47,744 rows  
-**License:** Research use  
+A missing label can mean the row is genuinely clean, but it can also mean that the dataset did not label every privacy concern PriVoke understands. If we automatically called every empty row clean, a correct PriVoke detection could be counted as a false positive.
 
-Multilingual PII extraction dataset containing clinical and administrative text annotated with structured PII entity labels. Focuses on high-risk healthcare and enterprise privacy scenarios, including medical records, patient information, and administrative documents. Contains realistic sensitive information across multiple languages and document formats, enabling evaluation of PII detection models in domain-specific environments. Provides raw text samples with corresponding entity annotations for categories such as personal identifiers, contact information, and healthcare-related sensitive attributes.
+The evaluator therefore uses the reliable part of the ground truth:
 
-**Best for:** Testing PriVoke’s ability to detect high-impact privacy leaks in healthcare and administrative contexts. Particularly valuable for evaluating the detector’s HEALTH risk category, where combinations such as patient names, medical information, and identifiers should receive higher severity scores. Complements conversational datasets like PII-Shield by providing more formal document-style privacy exposure scenarios.
+- rows with explicit PII labels are included as sensitive prompts;
+- rows without verified PII labels are excluded and counted in the report;
+- recall shows how many labelled-sensitive prompts PriVoke detected;
+- miss rate shows how many labelled-sensitive prompts PriVoke missed;
+- clean-prompt metrics are `null` because these datasets have no trusted clean comparison class.
 
----
+This does not mean the excluded rows are sensitive. It means their negative label is not strong enough for a fair binary score. These four datasets are supporting recall tests. PIIMB is the main dataset for testing both sensitive and non-sensitive detection.
 
-## References
+Do not average different datasets into one score. Some share source material, and each tests different text and PII distributions.
 
-1. `ai4privacy/pii-masking-300k` (177,652 rows): https://huggingface.co/datasets/ai4privacy/pii-masking-300k
-2. `eriktks/conll2003` (3,453 rows): https://huggingface.co/datasets/eriktks/conll2003
-3. `Pritesh-2711/pii-bench` (799,948 rows): https://huggingface.co/datasets/Pritesh-2711/pii-bench
-4. `nvidia/Nemotron-PII` (100,000 rows): https://huggingface.co/datasets/nvidia/Nemotron-PII
-5. `gretelai/synthetic_pii_finance_multilingual` (5,594 rows): https://huggingface.co/datasets/gretelai/synthetic_pii_finance_multilingual
-6. `auren-research/pii-shield`: https://huggingface.co/datasets/auren-research/pii-shield
-7. `Meddies/meddies-pii` (47,744 rows): https://huggingface.co/Meddies/meddies-pii
+## Command options
+
+| Option | Simple meaning |
+|---|---|
+| `--dataset piimb` | Choose the dataset. Replace `piimb` with another listed dataset name. |
+| `--samples 500` | Test 500 prompts. |
+| `--samples all` | Test every usable prompt. This can take a long time. |
+| `--sampling balanced` | Choose the same number of sensitive and non-sensitive prompts. Use for PIIMB. |
+| `--sampling random` | Randomly choose prompts. Use for the four positive-only datasets. |
+| `--sampling stratified` | Choose a smaller sample while keeping the original sensitive/clean ratio. |
+| `--sampling sequential` | Use the first prompts found. Use only for a quick setup check. |
+| `--english-only` | Remove non-English prompts before selecting the sample. |
+| `--seed 42` | Make random selection repeatable. The same command and seed choose the same prompts. |
+| `--bootstrap-iterations 2000` | Estimate score uncertainty. Keep `2000` for paper results; use `0` only for quick testing. |
+| `--run-name my_run` | Add `my_run` to the result filename so runs do not overwrite each other. |
+| `--backend streamed` | Use PriVoke's model-streaming backend. |
+| `--backend openai` | Use PriVoke's OpenAI backend. This may cost money. |
+
+For example:
+
+```bash
+python evaluate.py --dataset piimb --samples 500 --sampling balanced --english-only --seed 42 --backend streamed
+```
+
+means: test 500 English PIIMB prompts, choose equal sensitive and clean counts, make the selection repeatable with seed 42, and send the prompts through the streamed PriVoke pipeline.
+
+## Retained datasets
+
+| Dataset | Supported use |
+|---|---|
+| [`piimb`](https://huggingface.co/datasets/piimb/pii-masking-benchmark) | Main binary sensitive/non-sensitive sentence benchmark. |
+| [`ai4privacy`](https://huggingface.co/datasets/ai4privacy/pii-masking-300k) | Supporting positive-only general PII recall. |
+| [`nemotron-pii`](https://huggingface.co/datasets/nvidia/Nemotron-PII) | Supporting positive-only English PII/PHI recall. |
+| [`gretel-finance`](https://huggingface.co/datasets/gretelai/synthetic_pii_finance_multilingual) | Supporting positive-only financial PII recall. |
+| [`meddies-pii`](https://huggingface.co/datasets/Meddies/meddies-pii) | Supporting positive-only English healthcare PII recall. It uses an English training split, which must be reported as a limitation. |
+| `local-jsonl` | Optional binary benchmark with explicit user-provided labels. |
+
+Public datasets are pinned to fixed Hugging Face commits. Each result records `metadata.dataset_revision` and Python/library versions so a paper run can be reproduced.
+
+## Metrics
+
+For PIIMB, look first at balanced accuracy, sensitive recall, and non-sensitive specificity. F1 and F2 are supporting summaries.
+
+For positive-only datasets, only sensitive recall and miss rate are supported.
+
+| Metric or field | Meaning |
+|---|---|
+| Balanced accuracy | Average of recall and specificity. It gives sensitive and non-sensitive prompts equal importance and is the main binary score. |
+| Sensitive recall | Percentage of sensitive prompts PriVoke detected. Higher is better. |
+| Miss rate / false-negative rate | Percentage of sensitive prompts PriVoke missed. It equals `1 - recall`. Lower is better. |
+| Non-sensitive specificity | Percentage of non-sensitive prompts PriVoke correctly did not detect. Higher is better. |
+| False-positive rate | Percentage of non-sensitive prompts incorrectly detected as sensitive. It equals `1 - specificity`. Lower is better. |
+| Precision | Of all prompts detected as sensitive, the percentage actually labelled sensitive. |
+| Negative predictive value | Of all prompts not detected, the percentage actually labelled non-sensitive. It depends on class balance. |
+| F1 | Combines precision and recall with equal weight. |
+| F2 | Combines precision and recall while giving recall more weight. This is useful when missed PII matters more than extra detections. |
+| Accuracy | Percentage of all predictions that were correct. It is saved but is not the main score because imbalance can make it misleading. |
+| Ground-truth sensitive rate | Percentage of evaluated prompts labelled sensitive. This shows the evaluated class balance. |
+| Predicted sensitive rate | Percentage of evaluated prompts PriVoke classified as sensitive. A large difference from the ground-truth rate can reveal over- or under-detection. |
+| Prompt detection recall by source category | Prompt-level recall grouped by dataset source labels. It does not prove exact category or span detection. |
+| Successful-analysis coverage | Percentage of selected prompts that received a valid runtime response. A paper run should have 100% coverage. |
+| Runtime error rate | Percentage of requests that failed. A run with errors is marked unsuitable for paper reporting. |
+| 95% confidence interval | Uncertainty range around a sample score. It is not another performance score. Narrower is more precise. |
+
+### TP, TN, FP, and FN
+
+| Count | Meaning |
+|---|---|
+| True positive (`TP`) | Sensitive prompt detected correctly. |
+| False negative (`FN`) | Sensitive prompt not detected. |
+| True negative (`TN`) | Non-sensitive prompt correctly not detected. |
+| False positive (`FP`) | Non-sensitive prompt incorrectly detected as sensitive. |
+
+Example:
+
+```text
+TP = 36, FN = 14 -> recall = 36/50 = 72%
+TN = 40, FP = 10 -> specificity = 40/50 = 80%
+Balanced accuracy = (72% + 80%) / 2 = 76%
+```
+
+`76% (95% CI 67%-84%)` means the measured score is 76%, with an estimated uncertainty range of 67% to 84%. Keep the default 2,000 bootstrap iterations for reported experiments. The evaluator uses Wilson intervals for simple rates such as recall and specificity, so even an observed 100% score retains honest uncertainty. It uses source-document bootstrap groups for related PIIMB sentences and bootstrap intervals for composite scores such as balanced accuracy and F-scores.
+
+`evaluated_samples` counts valid predictions. Runtime failures are recorded separately as `runtime_errors`, `sensitive_runtime_errors`, and `non_sensitive_runtime_errors`. `paper_result_valid` is true only when runtime errors are zero.
+
+`metadata.prediction_diagnostics` records returned sensitivity, category, and action counts. These are debugging distributions rather than additional performance scores. They help explain results such as 100% recall by showing what PriVoke actually returned across successful prompts.
+
+## Handling class imbalance
+
+Class imbalance means one class has many more prompts than the other. For example:
+
+```text
+950 sensitive prompts
+ 50 clean prompts
+```
+
+A detector that always says “sensitive” would have 95% ordinary accuracy on that dataset, even though it never identifies a clean prompt correctly.
+
+We handle this without changing or retraining PriVoke:
+
+1. The main PIIMB command uses `--sampling balanced`, selecting equal sensitive and non-sensitive counts.
+2. Balanced accuracy gives sensitive recall and clean specificity equal importance.
+3. Recall and specificity are also shown separately, so good performance on one class cannot hide poor performance on the other.
+4. The report saves both the original and selected class counts, making the sampling visible.
+5. A full-dataset run can be reported separately to show performance under the original class distribution.
+
+Balanced sampling does not create, duplicate, or rewrite prompts. It only selects the same number from each class.
+
+## OpenAI backend
+
+The OpenAI key belongs to the running client runtime, not the evaluator.
+
+```bash
+curl http://127.0.0.1:8765/config/llm
+```
+
+If OpenAI does not show `"api_key_configured": true`:
+
+```bash
+export OPENAI_API_KEY='PASTE_YOUR_KEY_HERE'
+
+curl -X POST http://127.0.0.1:8765/config/llm \
+  -H 'Content-Type: application/json' \
+  -d "{\"choice\":\"openai\",\"openai\":{\"api_key\":\"$OPENAI_API_KEY\",\"model\":\"gpt-4o-mini\"}}"
+
+unset OPENAI_API_KEY
+```
+
+Test with a small run first:
+
+```bash
+python evaluate.py --dataset piimb --samples 20 --sampling sequential --english-only --backend openai
+```
+
+Use identical dataset, sample count, sampling, language filter, and seed when comparing streamed and OpenAI.
+
+## Automatic data checks
+
+The evaluator:
+
+- validates labels, PII span types, category names, and character offsets;
+- excludes malformed public-source rows and records their counts;
+- excludes unverified empty annotations from positive-only datasets;
+- filters language before duplicate removal and sampling;
+- normalizes outer whitespace exactly as `/analyze` does;
+- removes duplicate effective prompts;
+- excludes public prompts with conflicting duplicate labels;
+- pins public dataset revisions;
+- records selected IDs, source-document groups, exclusions, class counts, seed, and a selection digest;
+- validates runtime classification values before scoring;
+- reports errors rather than treating them as predictions;
+- records software versions and category-grouped prompt recall.
+
+These checks prevent known loading and scoring loopholes. They cannot prove that every published annotation is contextually perfect.
+
+## Results and tests
+
+Results are saved as:
+
+```text
+results/<dataset>_pipeline_<backend>_<run-name>_results.json
+```
+
+Run tests from the repository root:
+
+```bash
+PYTHONPATH=evaluation evaluation/.venv/bin/python -m unittest discover -s evaluation/tests -v
+```
+
+Keep the `tests/` folder in the repository. It is not loaded during an evaluation run, but it verifies dataset schemas, language filtering, sampling, duplicate handling, metric calculations, runtime-response validation, and report generation. This is important evidence that changes to the evaluator have not silently changed the research results.
+
+The `results/` folder contains generated experiment output rather than source code. Keep results needed for the paper locally or archive them with the paper artifacts; new JSON reports are ignored by Git to prevent accidental commits.

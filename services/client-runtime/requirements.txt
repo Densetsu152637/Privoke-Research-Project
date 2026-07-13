@@ -3,7 +3,9 @@ en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_
 grpcio==1.64.0
 grpcio-tools==1.64.0
 openai
+presidio-analyzer==2.2.363
 protobuf==5.27.0
 python-dotenv
+regex==2026.6.28
 requests>=2.31.0
 spacy>=3.7.2,<3.8.0

@@ -10,9 +10,19 @@ def _prepare_import_paths() -> None:
     current_dir = Path(__file__).resolve().parent
     package_parent = current_dir.parent
 
-    for path in (str(package_parent), str(current_dir)):
-        if path not in sys.path:
-            sys.path.insert(0, path)
+    if __package__:
+        return
+
+    # Running ``python src/main.py`` adds ``src`` to sys.path. That makes the
+    # local ``src/regex`` package shadow the third-party ``regex`` dependency
+    # used by Presidio. Import the source tree as the ``src`` package instead.
+    current_path = str(current_dir)
+    while current_path in sys.path:
+        sys.path.remove(current_path)
+
+    package_path = str(package_parent)
+    if package_path not in sys.path:
+        sys.path.insert(0, package_path)
 
 
 _prepare_import_paths()
