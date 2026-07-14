@@ -81,6 +81,30 @@ Run the production-style server deployment:
 docker compose up -d --build
 ```
 
+## Continuous Integration
+
+`.github/workflows/service-stack-ci.yml` runs for pushes and pull requests to
+`main` and `feat/dev-testing`, and can also be started manually. It:
+
+- tests and builds the unpacked browser extension,
+- regenerates the Go protobuf bindings and runs the model service tests with
+  race detection,
+- validates both Compose configurations and builds every production service
+  image,
+- runs each Python service's unit tests inside its production image,
+- starts the production topology and waits for every health check,
+- verifies the non-root/read-only/no-published-port container controls,
+- simulates a client-runtime request and verifies parameter streaming and
+  telemetry persistence,
+- runs a small fuzzer cycle across the model, runtime, and parameter-update
+  services, and
+- restarts the model service and confirms that the stack recovers.
+
+The workflow sets `FUZZER_PROMPT_COUNT=0` to disable the normal background
+startup cycle and make its explicit integration cycle deterministic. Local and
+production deployments retain the default of eight prompts unless that
+environment variable is overridden.
+
 Run the client runtime directly:
 
 ```bash

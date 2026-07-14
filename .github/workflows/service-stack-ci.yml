@@ -1,0 +1,137 @@
+name: Service stack CI
+
+on:
+  push:
+    branches:
+      - main
+      - feat/dev-testing
+  pull_request:
+    branches:
+      - main
+      - feat/dev-testing
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: service-stack-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  extension-tests:
+    name: Browser extension tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+      - name: Install extension dependencies
+        working-directory: extension
+        run: npm ci
+      - name: Test extension
+        working-directory: extension
+        run: npm test
+      - name: Build unpacked extension
+        working-directory: extension
+        run: npm run build
+
+  model-tests:
+    name: Model streaming Go tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/model-streaming-service
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.12"
+          cache-dependency-path: services/model-streaming-service/go.sum
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends protobuf-compiler
+      - name: Generate Go protobuf bindings
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
+          mkdir -p gen
+          protoc \
+            --proto_path=../../shared/proto \
+            --go_out=paths=source_relative:gen \
+            --go-grpc_out=paths=source_relative:gen \
+            ../../shared/proto/privoke/v1/parameters.proto
+      - name: Test model service with race detection
+        run: go test -race ./...
+
+  docker-stack:
+    name: Production Docker stack
+    needs:
+      - extension-tests
+      - model-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      COMPOSE_PROJECT_NAME: privoke-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      FUZZER_PROMPT_COUNT: "0"
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate production and development Compose configurations
+        run: |
+          docker compose config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml config --quiet
+
+      - name: Build every production microservice image
+        run: docker compose build --pull
+
+      - name: Run Python unit tests in the built service images
+        run: |
+          docker compose run --rm --no-deps --entrypoint python client-runtime \
+            -m unittest discover -s test -v
+          docker compose run --rm --no-deps --entrypoint python param-update-service \
+            -m unittest discover -s tests -v
+          docker compose run --rm --no-deps --entrypoint python telemetry-service \
+            -m unittest discover -s tests -v
+          docker compose run --rm --no-deps --entrypoint python privoke-fuzzer \
+            -m unittest discover -s tests -v
+
+      - name: Start the production stack and wait for health checks
+        run: docker compose up -d --wait --wait-timeout 240
+
+      - name: Verify production container hardening
+        run: |
+          for service in model-streaming-service param-update-service telemetry-service client-runtime privoke-fuzzer; do
+            container_id="$(docker compose ps -q "$service")"
+            test -n "$container_id"
+            docker inspect "$container_id" | jq -e '.[0] |
+              .HostConfig.ReadonlyRootfs == true and
+              (.HostConfig.CapDrop | index("ALL") != null) and
+              (.HostConfig.SecurityOpt | index("no-new-privileges:true") != null) and
+              (.Config.User != "" and .Config.User != "root" and .Config.User != "0") and
+              (.HostConfig.PortBindings == {})' >/dev/null
+          done
+
+      - name: Exercise all live gRPC service paths
+        run: docker compose exec -T client-runtime python test/stack_smoke.py
+
+      - name: Verify recovery after a model-service restart
+        run: |
+          docker compose restart model-streaming-service
+          docker compose up -d --wait --wait-timeout 120 model-streaming-service
+          docker compose exec -T client-runtime \
+            python test/stack_smoke.py --skip-training
+
+      - name: Show stack state and logs after a failure
+        if: failure()
+        run: |
+          docker compose ps --all || true
+          docker compose logs --no-color --timestamps || true
+
+      - name: Stop the stack and remove CI volumes
+        if: always()
+        run: docker compose down --volumes --remove-orphans --timeout 20
