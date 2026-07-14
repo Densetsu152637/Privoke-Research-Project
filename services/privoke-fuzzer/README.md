@@ -72,7 +72,7 @@ Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
 
 - `MODEL_STREAMING_TARGET`, default `model-streaming-service:50051`
 - `PARAM_UPDATE_TARGET`, default `param-update-service:50052`
-- `PRIVOKE_RUNTIME_TARGET`, default `privoke-runtime:50054`
+- `PRIVOKE_RUNTIME_TARGET`, default `client-runtime:50054`
 - `MODEL_ID`, default `privoke-baseline`
 - `FUZZER_ID`, default `privoke-fuzzer`
 - `FUZZER_PORT`, default `50053`
@@ -91,7 +91,7 @@ Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
 
 ## Runtime Boundary
 
-The fuzzer has no source dependency on `extension/client-runtime`. Prompt tests send one `AnalyzePrompt` request containing the requested layer set and regex ordering. Training requests the semantic layer through the same gRPC client. Detector selection, initialization, scheduling, short-circuiting, and error capture all remain inside the runtime.
+The fuzzer has no source dependency on `extension/client-runtime`. Production and development Compose both deploy that code as the `client-runtime` service, and the fuzzer waits for it to become healthy. Prompt tests send one `AnalyzePrompt` request containing the requested layer set and regex ordering. Training requests the semantic layer through the same gRPC client. Detector selection, initialization, scheduling, short-circuiting, and error capture all remain inside the runtime.
 
 ## CLI
 

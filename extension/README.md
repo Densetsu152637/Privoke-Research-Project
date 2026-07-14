@@ -42,13 +42,7 @@ Browsers cannot call a native gRPC HTTP/2 endpoint directly. The bridge translat
 
 ## Run locally
 
-From the repository root, start the development stack (the baseline Compose file does not expose the browser bridge):
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-```
-
-Build and test the extension:
+The extension itself is not deployed with Docker. Build and test it as a normal Chromium extension:
 
 ```bash
 cd extension
@@ -59,6 +53,8 @@ npm run build
 
 Then open the Chromium extensions page, enable developer mode, choose **Load unpacked**, and select `extension/dist`. Reload supported AI tabs after loading or rebuilding the extension so the early network hook is installed.
 
+The extension expects its workstation-local PriVoke control/bridge endpoint at `127.0.0.1:8080`. That local companion is separate from the production and development server Compose deployments.
+
 For incremental builds, run `npm run dev` and reload the unpacked extension plus any supported website tabs after a change.
 
 ## Local boundaries
@@ -67,7 +63,7 @@ For incremental builds, run `npm run dev` and reload the unpacked extension plus
 - Website access is limited in the manifest to the supported AI hosts listed above.
 - Envoy only routes runtime analysis, runtime lifecycle control, and the model-streaming health RPC, and limits CORS to local pages and extension origins.
 - Prompt text is sent to the local bridge and runtime. Runtime telemetry remains metadata-only and excludes prompt text.
-- The bridge is part of `docker-compose.dev.yml` because it is a browser adapter rather than a new service contract.
+- The browser bridge is local extension infrastructure and is deliberately absent from the server Docker deployments.
 
 ## Layout
 

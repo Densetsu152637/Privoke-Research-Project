@@ -60,7 +60,7 @@ def train_parameter_batch(
         raise ValueError("At least one training example is required.")
 
     runtime_client = runtime_client or PrivokeRuntimeClient(
-        os.getenv("PRIVOKE_RUNTIME_TARGET", "privoke-runtime:50054"),
+        os.getenv("PRIVOKE_RUNTIME_TARGET", "client-runtime:50054"),
         timeout_seconds=float(os.getenv("FUZZ_TIMEOUT_SECONDS", "10")),
     )
     gradients = {name: [0.0 for _ in values] for name, values in parameters.items()}

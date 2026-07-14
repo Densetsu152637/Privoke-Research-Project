@@ -4,9 +4,11 @@ The client runtime is PriVoke's local prompt inspection service. It runs detecto
 
 This package is the only component currently in the prompt classification path. The parameter-streaming service is used only when the semantic backend is set to `streamed`.
 
-## Runtime lifecycle supervisor
+## Runtime deployment modes
 
-Compose starts `src/supervisor_main.py`, which keeps a small gRPC control plane on port `50056` and owns the detector runtime child on port `50054`.
+Production and development server Compose run `src/grpc_main.py` directly as the always-on `client-runtime` required by the fuzzer. The Chrome extension is not deployed through Docker.
+
+For the extension's workstation-local lifecycle behavior, `src/supervisor_main.py` keeps a small gRPC control plane on port `50056` and owns the detector runtime child on port `50054`.
 
 - `SetRuntimeEnabled(false)` gracefully terminates the detector child and waits before forcing termination.
 - `SetRuntimeEnabled(true)` starts the child and waits until its gRPC port accepts connections.

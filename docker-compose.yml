@@ -1,5 +1,6 @@
 services:
   model-streaming-service:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: services/model-streaming-service/Dockerfile
@@ -18,6 +19,7 @@ services:
       start_period: 5s
 
   param-update-service:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: services/param-update-service/Dockerfile
@@ -42,6 +44,7 @@ services:
       - param-update-data:/data
 
   telemetry-service:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: services/telemetry-service/Dockerfile
@@ -60,11 +63,12 @@ services:
       retries: 30
       start_period: 5s
 
-  privoke-runtime:
+  client-runtime:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: extension/client-runtime/Dockerfile
-    container_name: privoke-runtime
+    container_name: client-runtime
     depends_on:
       model-streaming-service:
         condition: service_healthy
@@ -74,24 +78,23 @@ services:
       - "50054:50054"
     environment:
       PRIVOKE_GRPC_PORT: 50054
-      PRIVOKE_CONTROL_GRPC_PORT: 50056
-      PRIVOKE_RUNTIME_START_ENABLED: "true"
       PRIVOKE_LLM_CHOICE: streamed
       MODEL_STREAMING_TARGET: model-streaming-service:50051
-      MODEL_STREAMING_CONSUMER_ID: privoke-runtime
+      MODEL_STREAMING_CONSUMER_ID: server-client-runtime
       MODEL_ID: privoke-baseline
       PYTHONPATH: /workspace/shared/python
       TELEMETRY_ENABLED: "true"
       TELEMETRY_TARGET: telemetry-service:50055
-      TELEMETRY_SOURCE_ID: privoke-runtime
+      TELEMETRY_SOURCE_ID: server-client-runtime
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import socket; socket.create_connection((\"127.0.0.1\", 50056), 1).close()'"]
+      test: ["CMD-SHELL", "python -c 'import socket; socket.create_connection((\"127.0.0.1\", 50054), 1).close()'"]
       interval: 2s
       timeout: 2s
       retries: 30
       start_period: 5s
 
   privoke-fuzzer:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: services/privoke-fuzzer/Dockerfile
@@ -99,11 +102,11 @@ services:
     depends_on:
       model-streaming-service:
         condition: service_healthy
-      privoke-runtime:
+      client-runtime:
         condition: service_healthy
     environment:
       MODEL_STREAMING_TARGET: model-streaming-service:50051
-      PRIVOKE_RUNTIME_TARGET: privoke-runtime:50054
+      PRIVOKE_RUNTIME_TARGET: client-runtime:50054
       PYTHONPATH: /workspace/shared/python
       PARAM_UPDATE_TARGET: param-update-service:50052
       MODEL_ID: privoke-baseline

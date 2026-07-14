@@ -63,7 +63,7 @@ class FuzzerConfig:
             ),
             privoke_runtime_target=os.getenv(
                 "PRIVOKE_RUNTIME_TARGET",
-                "privoke-runtime:50054",
+                "client-runtime:50054",
             ),
             model_id=os.getenv("MODEL_ID", "privoke-baseline"),
             fuzzer_id=os.getenv("FUZZER_ID", "privoke-fuzzer"),

@@ -25,8 +25,8 @@ LAYER_CHOICES = (
 def add_test_prompt_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--runtime-target",
-        default=os.getenv("PRIVOKE_RUNTIME_TARGET", "privoke-runtime:50054"),
-        help="gRPC target for the locally running PriVoke runtime.",
+        default=os.getenv("PRIVOKE_RUNTIME_TARGET", "client-runtime:50054"),
+        help="gRPC target for the deployed PriVoke client-runtime.",
     )
     parser.add_argument(
         "--layer",

@@ -26,5 +26,5 @@ Environment variables:
 Run through Compose:
 
 ```bash
-docker compose up --build telemetry-service privoke-runtime
+docker compose up --build telemetry-service client-runtime
 ```

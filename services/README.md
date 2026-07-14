@@ -1,10 +1,10 @@
 # Services
 
-This directory contains PriVoke's research-support services. Docker Compose also deploys the prompt runtime from `extension/client-runtime`, for a total of five gRPC services.
+This directory contains PriVoke's research-support services. Both production and development server deployments also include the always-on `client-runtime` from `extension/client-runtime`, for a total of five gRPC services.
 
 ## Service Map
 
-- `../extension/client-runtime`: Python gRPC service for local prompt privacy inspection. It owns detector selection/scheduling and also includes an optional local HTTP harness.
+- `../extension/client-runtime`: Python gRPC service for server-side prompt privacy inspection. It owns detector selection/scheduling and also includes an optional local HTTP harness.
 - `model-streaming-service`: Go gRPC server that returns the current parameter snapshot used by the streamed semantic backend.
 - `param-update-service`: Python gRPC server that appends parameter updates to JSONL storage and can request fuzzer training cycles after startup.
 - `privoke-fuzzer`: Python gRPC worker plus CLI for prompt generation, layer probes, streamed semantic-model evaluation, and update submission.
@@ -53,10 +53,12 @@ Default ports:
 - `model-streaming-service`: `50051`
 - `param-update-service`: `50052`
 - `privoke-fuzzer`: `50053`
-- `privoke-runtime`: detector `50054`, lifecycle supervisor `50056`
+- `client-runtime`: detector `50054`
 - `telemetry-service`: `50055`
 
-`docker-compose.dev.yml` bind-mounts each component's own source tree, regenerates protobuf bindings before startup, and adds the extension's gRPC-Web bridge on port `8080`. Fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer`.
+`docker-compose.yml` is the production-style deployment: all five services are built into images, use restart policies, and the fuzzer waits for `client-runtime` health before starting. `docker-compose.dev.yml` preserves that topology while bind-mounting service source, regenerating protobuf bindings, disabling restart loops, and mounting fuzzer prompt-test dumps at `./dumps/privoke-fuzzer`.
+
+The Chrome extension is not a Docker service and is not part of either server deployment.
 
 ## Documentation Scope
 

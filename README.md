@@ -2,13 +2,13 @@
 
 PriVoke is a research prototype for client-side privacy protection around LLM prompts. The current implementation centers on a Python runtime service intended to run on a user's local computer. It inspects prompt text, produces structured `ClassificationResult` evidence, derives a `PriVokeAction`, and can return a local decision before text is sent onward.
 
-Docker Compose runs the local prompt runtime as a gRPC service alongside parameter streaming, fuzzer-driven adaptive experiments, and update capture. The fuzzer queries that runtime for all detector execution; it does not install or import runtime implementation code.
+Docker Compose runs an always-on server `client-runtime` alongside parameter streaming, fuzzer-driven adaptive experiments, telemetry, and update capture. The fuzzer queries that runtime for all detector execution; it does not install or import runtime implementation code.
 
 Reference context: https://arxiv.org/abs/2408.07004
 
 ## Current Runtime Path
 
-`extension/client-runtime` contains the local prompt inspection runtime. Its supervisor exposes lifecycle gRPC on `50056` and owns the detector gRPC process on `50054`. The unpacked browser extension reaches both through the development gRPC-Web bridge on `127.0.0.1:8080`.
+`extension/client-runtime` contains the prompt inspection implementation shared by two execution contexts. Server Docker deployments run it directly as the always-on `client-runtime` gRPC service on `50054`. The unpacked Chrome extension is built separately and uses its workstation-local lifecycle supervisor; it is not deployed by either server Compose file.
 
 ```text
 local request or local HTTP POST /analyze
@@ -62,22 +62,21 @@ Detector output is represented by `extension/client-runtime/src/classification`.
 - `model-streaming-service`: gRPC on `50051`.
 - `param-update-service`: gRPC on `50052`.
 - `privoke-fuzzer`: gRPC on `50053`.
-- `privoke-runtime`: detector gRPC on `50054`, managed by lifecycle control on `50056`.
+- `client-runtime`: always-on server detector gRPC on `50054`.
 - `telemetry-service`: gRPC on `50055`.
-- `extension-grpc-web`: gRPC-Web on `8080` in the development Compose stack only.
 
 ## Development Commands
 
-Run the full development stack:
+Run the development server simulation with bind-mounted sources and generated stubs:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
-Run the baseline stack:
+Run the production-style server deployment:
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
 Run the client runtime directly:
