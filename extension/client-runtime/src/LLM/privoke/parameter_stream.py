@@ -56,8 +56,8 @@ class ModelParameterStreamer:
     """
     Client for model-streaming-service.
 
-    The generated protobuf package is created by the client-runtime Dockerfile
-    and dev-compose command. The generated stubs and grpcio dependency must be
+    The generated protobuf package is created by the extension/client-runtime
+    Dockerfile and dev-compose command. The generated stubs and grpcio dependency must be
     present before this module is imported.
     """
 

@@ -186,14 +186,14 @@ Packets deliberately exclude raw prompt text, matched spans, reasoning, arbitrar
 ## Local Setup
 
 ```bash
-cd services/client-runtime
+cd extension/client-runtime
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
 pip install ../../shared/python
 ```
 
-For streamed classification outside Docker, generate the gRPC stubs into `services/client-runtime/generated` from both `shared/proto/privoke/v1/parameters.proto` and `runtime.proto`.
+For streamed classification outside Docker, generate the gRPC stubs into `extension/client-runtime/generated` from both `shared/proto/privoke/v1/parameters.proto` and `runtime.proto`.
 
 Run the gRPC runtime (default port `50054`):
 
@@ -212,7 +212,7 @@ python src/main.py --port 8765 --llm-choice streamed
 Compile check:
 
 ```bash
-python -m compileall services\client-runtime
+python -m compileall extension\client-runtime
 ```
 
 Useful smoke checks:

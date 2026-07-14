@@ -42,7 +42,7 @@ Environment:
 - `MODEL_STREAMING_CONSUMER_ID`, default `client-runtime`
 - `MODEL_STREAMING_TIMEOUT_SECONDS`, default `10.0`
 
-`grpcio` and the generated Python stubs must be present before this backend is imported. Docker and the dev Compose override generate stubs under `services/client-runtime/generated`; local runs must do the same from `shared/proto/privoke/v1/parameters.proto`.
+`grpcio` and the generated Python stubs must be present before this backend is imported. Docker and the dev Compose override generate stubs under `extension/client-runtime/generated`; local runs must do the same from `shared/proto/privoke/v1/parameters.proto`.
 
 ## Local OpenAI-Compatible Backend
 

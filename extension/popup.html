@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PriVoke Local</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="mark" aria-hidden="true">P</span>
+        <div>
+          <h1>PriVoke</h1>
+          <p>Local prompt inspection</p>
+        </div>
+      </header>
+
+      <label for="prompt">Prompt</label>
+      <textarea id="prompt" rows="8" maxlength="20000" placeholder="Paste a prompt to inspect…" autofocus></textarea>
+
+      <button id="analyze" type="button">Inspect locally</button>
+      <p id="status" class="status" role="status" aria-live="polite">Runtime: 127.0.0.1:8080</p>
+
+      <section id="result" class="result" hidden>
+        <div class="result-heading">
+          <strong id="action"></strong>
+          <span id="elapsed"></span>
+        </div>
+        <p id="reason"></p>
+        <dl>
+          <div><dt>Sensitivity</dt><dd id="sensitivity"></dd></div>
+          <div><dt>Visibility</dt><dd id="visibility"></dd></div>
+          <div><dt>Categories</dt><dd id="categories"></dd></div>
+        </dl>
+      </section>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

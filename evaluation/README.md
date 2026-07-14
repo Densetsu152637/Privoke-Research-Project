@@ -50,7 +50,7 @@ From the repository root:
 
 ```bash
 source evaluation/.venv/bin/activate
-cd services/client-runtime
+cd extension/client-runtime
 
 MODEL_STREAMING_TARGET=localhost:50051 \
 python src/main.py \
@@ -98,11 +98,10 @@ Only run this if `evaluation/.venv` does not exist or packages are missing:
 python3 -m venv evaluation/.venv
 source evaluation/.venv/bin/activate
 pip install -r evaluation/requirements.txt
-pip install -r services/client-runtime/requirements.txt
-pip install -e services/client-runtime
+pip install -r extension/client-runtime/requirements.txt
 ```
 
-The runtime dependencies are needed to run `services/client-runtime/src/main.py`. The evaluator still communicates with it only through HTTP.
+The runtime dependencies are needed to run `extension/client-runtime/src/main.py`. The evaluator still communicates with it only through HTTP.
 
 ## English-only evaluation
 

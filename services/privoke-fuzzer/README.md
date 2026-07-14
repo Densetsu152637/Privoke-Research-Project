@@ -91,7 +91,7 @@ Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
 
 ## Runtime Boundary
 
-The fuzzer has no dependency on `services/client-runtime`. Prompt tests send one `AnalyzePrompt` request containing the requested layer set and regex ordering. Training requests the semantic layer through the same client. Detector selection, initialization, scheduling, short-circuiting, and error capture all remain inside the runtime.
+The fuzzer has no source dependency on `extension/client-runtime`. Prompt tests send one `AnalyzePrompt` request containing the requested layer set and regex ordering. Training requests the semantic layer through the same gRPC client. Detector selection, initialization, scheduling, short-circuiting, and error capture all remain inside the runtime.
 
 ## CLI
 

@@ -1,10 +1,10 @@
 # Services
 
-This directory contains PriVoke's local client runtime and research-support services. Docker Compose deploys five gRPC services: prompt inspection, parameter streaming, fuzzer training requests, update ingestion, and telemetry collection.
+This directory contains PriVoke's research-support services. Docker Compose also deploys the prompt runtime from `extension/client-runtime`, for a total of five gRPC services.
 
 ## Service Map
 
-- `client-runtime`: Python gRPC service for local prompt privacy inspection. It owns detector selection/scheduling and also includes an optional local HTTP harness.
+- `../extension/client-runtime`: Python gRPC service for local prompt privacy inspection. It owns detector selection/scheduling and also includes an optional local HTTP harness.
 - `model-streaming-service`: Go gRPC server that returns the current parameter snapshot used by the streamed semantic backend.
 - `param-update-service`: Python gRPC server that appends parameter updates to JSONL storage and can request fuzzer training cycles after startup.
 - `privoke-fuzzer`: Python gRPC worker plus CLI for prompt generation, layer probes, streamed semantic-model evaluation, and update submission.
@@ -12,7 +12,7 @@ This directory contains PriVoke's local client runtime and research-support serv
 
 ## Runtime Detection Path
 
-Prompt inspection happens in `client-runtime`, through gRPC in Compose or its optional HTTP harness:
+Prompt inspection happens in `extension/client-runtime`, through gRPC in Compose or its optional HTTP harness:
 
 ```text
 prompt
@@ -56,7 +56,7 @@ Default ports:
 - `privoke-runtime`: `50054`
 - `telemetry-service`: `50055`
 
-`docker-compose.dev.yml` bind-mounts each service's own source tree and regenerates protobuf bindings before startup. Fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer`.
+`docker-compose.dev.yml` bind-mounts each component's own source tree, regenerates protobuf bindings before startup, and adds the extension's gRPC-Web bridge on port `8080`. Fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer`.
 
 ## Documentation Scope
 
@@ -70,7 +70,7 @@ Each service README should describe:
 
 ## Subagent Guidance
 
-- Keep detector changes in `client-runtime`.
+- Keep detector changes in `extension/client-runtime`.
 - Keep shared API changes in `shared/proto` and regenerate affected bindings.
 - Keep prompt generation, layer testing, and streamed semantic training in `privoke-fuzzer`.
 - Keep update persistence and fuzzer request initiation in `param-update-service`.

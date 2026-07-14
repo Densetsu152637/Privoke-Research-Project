@@ -7,16 +7,16 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY shared /workspace/shared
-COPY services/client-runtime /workspace/services/client-runtime
+COPY extension/client-runtime /workspace/extension/client-runtime
 
-WORKDIR /workspace/services/client-runtime
+WORKDIR /workspace/extension/client-runtime
 
 RUN pip install --no-cache-dir -r requirements.txt /workspace/shared/python \
     && mkdir -p generated \
     && python -m grpc_tools.protoc \
       -I /workspace/shared/proto \
-      --python_out=/workspace/services/client-runtime/generated \
-      --grpc_python_out=/workspace/services/client-runtime/generated \
+      --python_out=/workspace/extension/client-runtime/generated \
+      --grpc_python_out=/workspace/extension/client-runtime/generated \
       /workspace/shared/proto/privoke/v1/parameters.proto \
       /workspace/shared/proto/privoke/v1/runtime.proto \
       /workspace/shared/proto/privoke/v1/telemetry.proto

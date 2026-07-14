@@ -8,7 +8,7 @@ Reference context: https://arxiv.org/abs/2408.07004
 
 ## Current Runtime Path
 
-`services/client-runtime` contains the local prompt inspection runtime. It exposes gRPC on `50054` in Compose and retains its HTTP harness for direct local integration.
+`extension/client-runtime` contains the local prompt inspection runtime. It exposes native gRPC on `50054` in Compose and retains its HTTP harness for direct local integration. The unpacked browser extension in `extension` reaches it through the development gRPC-Web bridge on `127.0.0.1:8080`.
 
 ```text
 local request or local HTTP POST /analyze
@@ -31,7 +31,7 @@ Current behavior is deliberately simple:
 
 ## Classification Contract
 
-Detector output is represented by `services/client-runtime/src/classification`.
+Detector output is represented by `extension/client-runtime/src/classification`.
 
 - `Sensitivity`: `S0`, `S1`, `S2`, `S3`
 - `Visibility`: `P0`, `P1`, `P2`, `P3`, `P4`, `PU`
@@ -49,7 +49,7 @@ Detector output is represented by `services/client-runtime/src/classification`.
 
 ## Repository Layout
 
-- `services/client-runtime`: Python local prompt inspection runtime, detector packages, and optional local HTTP harness.
+- `extension`: Manifest V3 browser client, local gRPC-Web bridge configuration, and the Python prompt inspection runtime under `extension/client-runtime`.
 - `services/model-streaming-service`: Go gRPC service that returns the current model parameter snapshot.
 - `services/param-update-service`: Python gRPC service that accepts parameter update payloads and can request fuzzer training cycles.
 - `services/privoke-fuzzer`: Python gRPC worker and CLI for prompt generation, layer probes, streamed semantic-model evaluation, and update submission.
@@ -64,6 +64,7 @@ Detector output is represented by `services/client-runtime/src/classification`.
 - `privoke-fuzzer`: gRPC on `50053`.
 - `privoke-runtime`: gRPC on `50054`.
 - `telemetry-service`: gRPC on `50055`.
+- `extension-grpc-web`: gRPC-Web on `8080` in the development Compose stack only.
 
 ## Development Commands
 
@@ -82,12 +83,22 @@ docker compose up -d
 Run the client runtime directly:
 
 ```bash
-cd services/client-runtime
+cd extension/client-runtime
 pip install -r requirements.txt
 python src/main.py --port 8765 --llm-choice streamed
 ```
 
-For streamed classification outside Docker, generate the Python bindings for both `parameters.proto` and `runtime.proto` into `services/client-runtime/generated`. The runtime and fuzzer Docker images generate only their own bindings.
+For streamed classification outside Docker, generate the Python bindings for both `parameters.proto` and `runtime.proto` into `extension/client-runtime/generated`. The runtime and fuzzer Docker images generate only their own bindings.
+
+Build the unpacked browser extension:
+
+```bash
+cd extension
+npm install
+npm run build
+```
+
+With the development Compose stack running, load `extension/dist` from the browser's unpacked-extension page. See `extension/README.md` for the request boundary and development workflow.
 
 Run paper figure scripts:
 
@@ -152,7 +163,7 @@ The dev Compose override regenerates Python and Go protobuf bindings into each s
 
 ## Subagent Work Model
 
-- Detection behavior belongs in `services/client-runtime`.
+- Browser integration and detection behavior belong in `extension`; the Python detector implementation remains isolated in `extension/client-runtime`.
 - gRPC contract changes start in `shared/proto`, followed by regenerated bindings and README updates.
 - Prompt generation, prompt tests, and streamed semantic training experiments belong in `services/privoke-fuzzer`.
 - Fuzzer request initiation and update persistence belong in `services/param-update-service`.

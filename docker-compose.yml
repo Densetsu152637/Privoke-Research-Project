@@ -63,7 +63,7 @@ services:
   privoke-runtime:
     build:
       context: .
-      dockerfile: services/client-runtime/Dockerfile
+      dockerfile: extension/client-runtime/Dockerfile
     container_name: privoke-runtime
     depends_on:
       model-streaming-service:

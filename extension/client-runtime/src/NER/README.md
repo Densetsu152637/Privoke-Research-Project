@@ -16,7 +16,7 @@ This directory contains layer 2 of the PriVoke client-runtime detector pipeline:
 Install runtime dependencies before running NER:
 
 ```bash
-pip install -r services/client-runtime/requirements.txt
+pip install -r extension/client-runtime/requirements.txt
 ```
 
 ## Label Mapping
