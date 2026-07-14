@@ -1,11 +1,21 @@
 import protobuf from "protobufjs";
 import runtimeProto from "../../shared/proto/privoke/v1/runtime.proto";
+import parametersProto from "../../shared/proto/privoke/v1/parameters.proto";
 import { frameGrpcWebMessage, parseGrpcWebResponse } from "./grpc-web.js";
 
 const RPC_PATH = "/privoke.v1.PrivokeRuntimeService/AnalyzePrompt";
-const root = protobuf.parse(runtimeProto).root;
-const Request = root.lookupType("privoke.v1.AnalyzePromptRequest");
-const Response = root.lookupType("privoke.v1.AnalyzePromptResponse");
+const STREAMING_HEALTH_PATH = "/privoke.v1.ModelStreamingService/Health";
+const RUNTIME_CONTROL_PATH = "/privoke.v1.PrivokeRuntimeControlService/SetRuntimeEnabled";
+const RUNTIME_STATUS_PATH = "/privoke.v1.PrivokeRuntimeControlService/Status";
+const runtimeRoot = protobuf.parse(runtimeProto).root;
+const parametersRoot = protobuf.parse(parametersProto).root;
+const Request = runtimeRoot.lookupType("privoke.v1.AnalyzePromptRequest");
+const Response = runtimeRoot.lookupType("privoke.v1.AnalyzePromptResponse");
+const RuntimeHealthRequest = runtimeRoot.lookupType("privoke.v1.RuntimeHealthRequest");
+const SetRuntimeEnabledRequest = runtimeRoot.lookupType("privoke.v1.SetRuntimeEnabledRequest");
+const RuntimeControlStatus = runtimeRoot.lookupType("privoke.v1.RuntimeControlStatus");
+const HealthRequest = parametersRoot.lookupType("privoke.v1.HealthRequest");
+const HealthResponse = parametersRoot.lookupType("privoke.v1.HealthResponse");
 
 export class RuntimeClient {
   constructor(baseUrl = "http://127.0.0.1:8080") {
@@ -13,9 +23,43 @@ export class RuntimeClient {
   }
 
   async analyzePrompt(values, { signal } = {}) {
-    const request = Request.fromObject(values);
-    const body = frameGrpcWebMessage(Request.encode(request).finish());
-    const response = await fetch(`${this.baseUrl}${RPC_PATH}`, {
+    return this.#unary(RPC_PATH, Request, Response, values, { signal });
+  }
+
+  async streamingHealth({ signal } = {}) {
+    return this.#unary(
+      STREAMING_HEALTH_PATH,
+      HealthRequest,
+      HealthResponse,
+      {},
+      { signal },
+    );
+  }
+
+  async setRuntimeEnabled(enabled, { signal } = {}) {
+    return this.#unary(
+      RUNTIME_CONTROL_PATH,
+      SetRuntimeEnabledRequest,
+      RuntimeControlStatus,
+      { enabled },
+      { signal },
+    );
+  }
+
+  async runtimeStatus({ signal } = {}) {
+    return this.#unary(
+      RUNTIME_STATUS_PATH,
+      RuntimeHealthRequest,
+      RuntimeControlStatus,
+      {},
+      { signal },
+    );
+  }
+
+  async #unary(path, requestType, responseType, values, { signal } = {}) {
+    const request = requestType.fromObject(values);
+    const body = frameGrpcWebMessage(requestType.encode(request).finish());
+    const response = await fetch(`${this.baseUrl}${path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/grpc-web+proto",
@@ -40,7 +84,7 @@ export class RuntimeClient {
       throw new Error(`Expected one runtime response, received ${messages.length}.`);
     }
 
-    return Response.toObject(Response.decode(messages[0]), {
+    return responseType.toObject(responseType.decode(messages[0]), {
       defaults: true,
       enums: String,
       arrays: true,

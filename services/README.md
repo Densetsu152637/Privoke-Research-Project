@@ -53,7 +53,7 @@ Default ports:
 - `model-streaming-service`: `50051`
 - `param-update-service`: `50052`
 - `privoke-fuzzer`: `50053`
-- `privoke-runtime`: `50054`
+- `privoke-runtime`: detector `50054`, lifecycle supervisor `50056`
 - `telemetry-service`: `50055`
 
 `docker-compose.dev.yml` bind-mounts each component's own source tree, regenerates protobuf bindings before startup, and adds the extension's gRPC-Web bridge on port `8080`. Fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer`.

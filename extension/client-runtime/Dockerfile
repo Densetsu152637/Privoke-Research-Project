@@ -21,6 +21,6 @@ RUN pip install --no-cache-dir -r requirements.txt /workspace/shared/python \
       /workspace/shared/proto/privoke/v1/runtime.proto \
       /workspace/shared/proto/privoke/v1/telemetry.proto
 
-EXPOSE 50054
+EXPOSE 50054 50056
 
-CMD ["python", "src/grpc_main.py"]
+CMD ["python", "src/supervisor_main.py"]

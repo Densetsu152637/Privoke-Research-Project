@@ -1,12 +1,45 @@
 {
   "manifest_version": 3,
   "name": "PriVoke Local",
-  "description": "Inspect a prompt with the locally hosted PriVoke runtime before sending it.",
+  "description": "Inspect prompts before they are sent to supported AI services.",
   "version": "0.1.0",
   "action": {
     "default_title": "Inspect with PriVoke",
     "default_popup": "popup.html"
   },
+  "permissions": [
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://copilot.microsoft.com/*",
+        "https://api.openai.com/*"
+      ],
+      "js": ["page-interceptor.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://copilot.microsoft.com/*",
+        "https://api.openai.com/*"
+      ],
+      "js": ["content-script.js"],
+      "run_at": "document_start"
+    }
+  ],
   "host_permissions": [
     "http://127.0.0.1/*",
     "http://localhost/*"

@@ -4,6 +4,30 @@ The client runtime is PriVoke's local prompt inspection service. It runs detecto
 
 This package is the only component currently in the prompt classification path. The parameter-streaming service is used only when the semantic backend is set to `streamed`.
 
+## Runtime lifecycle supervisor
+
+Compose starts `src/supervisor_main.py`, which keeps a small gRPC control plane on port `50056` and owns the detector runtime child on port `50054`.
+
+- `SetRuntimeEnabled(false)` gracefully terminates the detector child and waits before forcing termination.
+- `SetRuntimeEnabled(true)` starts the child and waits until its gRPC port accepts connections.
+- `Status` reports `RUNNING` or `STOPPED`, the child PID, and the latest lifecycle message.
+- Stopping the supervisor terminal or container also terminates the child.
+
+The supervisor must remain running while the detector is off. A shutdown RPC implemented by the detector process itself would be unable to receive a later startup request.
+
+Run the supervised runtime locally after generating protobuf bindings:
+
+```bash
+python src/supervisor_main.py
+```
+
+Environment controls:
+
+- `PRIVOKE_CONTROL_GRPC_PORT`, default `50056`
+- `PRIVOKE_RUNTIME_START_ENABLED`, default `true`
+- `PRIVOKE_RUNTIME_START_TIMEOUT_SECONDS`, default `30`
+- `PRIVOKE_RUNTIME_STOP_TIMEOUT_SECONDS`, default `10`
+
 ## Local HTTP Harness
 
 The optional local server is implemented with Python's standard `http.server` stack. It is a client-side development and integration harness, not part of the Docker Compose server deployment.
@@ -94,6 +118,7 @@ Important behavior:
 - Normalization lowercases text, applies Unicode NFKC, replaces `[at]` and `(at)` with `@`, removes spaces between adjacent digits, collapses horizontal whitespace, and preserves newlines.
 - `PRIVOKE_WAIT_FOR_REGEX` defaults to true. In that mode regex runs first and a regex `BLOCK` short-circuits NER and semantic detection.
 - gRPC callers can request any subset of `regex`, `ner`, and `semantic`, and can override regex-first versus parallel scheduling per request.
+- gRPC callers can set `semantic_model_id` per request to select a streamed PriVoke model without mutating global runtime configuration.
 - Every requested layer returns `ok`, `error`, or `skipped`; one layer failure does not erase successful results from other layers.
 - When regex does not block, NER and semantic classification run through `GLOBAL_CONFIG.threadpool`.
 - `strongest_result` compares `ClassificationResult.action().value` and returns the first result that raises the action above `ALLOW`.

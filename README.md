@@ -8,7 +8,7 @@ Reference context: https://arxiv.org/abs/2408.07004
 
 ## Current Runtime Path
 
-`extension/client-runtime` contains the local prompt inspection runtime. It exposes native gRPC on `50054` in Compose and retains its HTTP harness for direct local integration. The unpacked browser extension in `extension` reaches it through the development gRPC-Web bridge on `127.0.0.1:8080`.
+`extension/client-runtime` contains the local prompt inspection runtime. Its supervisor exposes lifecycle gRPC on `50056` and owns the detector gRPC process on `50054`. The unpacked browser extension reaches both through the development gRPC-Web bridge on `127.0.0.1:8080`.
 
 ```text
 local request or local HTTP POST /analyze
@@ -62,7 +62,7 @@ Detector output is represented by `extension/client-runtime/src/classification`.
 - `model-streaming-service`: gRPC on `50051`.
 - `param-update-service`: gRPC on `50052`.
 - `privoke-fuzzer`: gRPC on `50053`.
-- `privoke-runtime`: gRPC on `50054`.
+- `privoke-runtime`: detector gRPC on `50054`, managed by lifecycle control on `50056`.
 - `telemetry-service`: gRPC on `50055`.
 - `extension-grpc-web`: gRPC-Web on `8080` in the development Compose stack only.
 

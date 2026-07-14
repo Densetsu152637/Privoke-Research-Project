@@ -21,9 +21,14 @@ await rm(dist, { recursive: true, force: true });
 await copyStaticFiles();
 
 const context = await esbuild.context({
-  entryPoints: [join(root, "src", "popup.js")],
+  entryPoints: {
+    popup: join(root, "src", "popup.js"),
+    background: join(root, "src", "background.js"),
+    "content-script": join(root, "src", "content-script.js"),
+    "page-interceptor": join(root, "src", "page-interceptor.js"),
+  },
   bundle: true,
-  outfile: join(dist, "popup.js"),
+  outdir: dist,
   format: "iife",
   platform: "browser",
   target: "chrome120",

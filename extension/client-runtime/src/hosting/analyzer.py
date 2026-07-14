@@ -53,9 +53,15 @@ def analyse_prompt(
     request: PromptInspectionRequest,
     layers: Sequence[str] | None = None,
     regex_first: bool | None = None,
+    semantic_model_id: str | None = None,
 ) -> PromptAnalysis:
     started = perf_counter()
-    analysis = analyse_text(request.text, layers=layers, regex_first=regex_first)
+    analysis = analyse_text(
+        request.text,
+        layers=layers,
+        regex_first=regex_first,
+        semantic_model_id=semantic_model_id,
+    )
     result, action = analysis.result, analysis.action
     result, action = _apply_visibility_hint(
         result,

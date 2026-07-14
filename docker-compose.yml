@@ -74,6 +74,8 @@ services:
       - "50054:50054"
     environment:
       PRIVOKE_GRPC_PORT: 50054
+      PRIVOKE_CONTROL_GRPC_PORT: 50056
+      PRIVOKE_RUNTIME_START_ENABLED: "true"
       PRIVOKE_LLM_CHOICE: streamed
       MODEL_STREAMING_TARGET: model-streaming-service:50051
       MODEL_STREAMING_CONSUMER_ID: privoke-runtime
@@ -83,7 +85,7 @@ services:
       TELEMETRY_TARGET: telemetry-service:50055
       TELEMETRY_SOURCE_ID: privoke-runtime
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import socket; socket.create_connection((\"127.0.0.1\", 50054), 1).close()'"]
+      test: ["CMD-SHELL", "python -c 'import socket; socket.create_connection((\"127.0.0.1\", 50056), 1).close()'"]
       interval: 2s
       timeout: 2s
       retries: 30

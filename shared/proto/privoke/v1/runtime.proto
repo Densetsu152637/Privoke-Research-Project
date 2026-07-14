@@ -9,6 +9,17 @@ message RuntimeHealthResponse {
   string status = 2;
 }
 
+message SetRuntimeEnabledRequest {
+  bool enabled = 1;
+}
+
+message RuntimeControlStatus {
+  bool enabled = 1;
+  string status = 2;
+  string message = 3;
+  uint32 process_id = 4;
+}
+
 enum DetectionLayer {
   DETECTION_LAYER_UNSPECIFIED = 0;
   DETECTION_LAYER_RUNTIME = 1;
@@ -32,6 +43,7 @@ message AnalyzePromptRequest {
   map<string, string> metadata = 6;
   repeated DetectionLayer layers = 7;
   RegexExecutionOrder regex_execution_order = 8;
+  string semantic_model_id = 9;
 }
 
 message RuntimeLayerExecution {
@@ -79,4 +91,9 @@ message AnalyzePromptResponse {
 service PrivokeRuntimeService {
   rpc AnalyzePrompt(AnalyzePromptRequest) returns (AnalyzePromptResponse);
   rpc Health(RuntimeHealthRequest) returns (RuntimeHealthResponse);
+}
+
+service PrivokeRuntimeControlService {
+  rpc SetRuntimeEnabled(SetRuntimeEnabledRequest) returns (RuntimeControlStatus);
+  rpc Status(RuntimeHealthRequest) returns (RuntimeControlStatus);
 }

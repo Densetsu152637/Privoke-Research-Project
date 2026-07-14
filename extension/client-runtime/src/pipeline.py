@@ -54,7 +54,7 @@ class PipelineAnalysis:
         )
 
 
-def get_llm_choice():
+def get_llm_choice(model_id: str | None = None):
     llm_config = GLOBAL_CONFIG.get_llm_config()
 
     match llm_config.choice:
@@ -91,7 +91,7 @@ def get_llm_choice():
             streamed = llm_config.streamed
             return PriVokeClassifier(
                 target=streamed.target,
-                model_id=streamed.model_id,
+                model_id=model_id or streamed.model_id,
                 consumer_id=streamed.consumer_id,
                 timeout_seconds=streamed.timeout_seconds,
             )
@@ -101,6 +101,7 @@ def analyse_text(
     text: str,
     layers: Sequence[str] | None = None,
     regex_first: bool | None = None,
+    semantic_model_id: str | None = None,
 ) -> PipelineAnalysis:
     requested_layers = _normalise_layers(layers)
     run_regex_first = (
@@ -138,22 +139,33 @@ def analyse_text(
         layer for layer in requested_layers if layer not in completed
     ]
     executions = GLOBAL_CONFIG.threadpool.map(
-        lambda layer: _execute_layer(layer, normalised_text),
+        lambda layer: _execute_layer(
+            layer,
+            normalised_text,
+            semantic_model_id=semantic_model_id,
+        ),
         pending_layers,
     )
     completed.update({execution.layer: execution for execution in executions})
     return PipelineAnalysis(tuple(completed[layer] for layer in requested_layers))
 
 
-def _execute_layer(layer: str, text: str) -> LayerExecution:
+def _execute_layer(
+    layer: str,
+    text: str,
+    semantic_model_id: str | None = None,
+) -> LayerExecution:
     try:
-        results = _detector_for(layer)(text)
+        results = _detector_for(layer, semantic_model_id=semantic_model_id)(text)
         return LayerExecution(layer, "ok", tuple(results))
     except Exception as exc:
         return LayerExecution(layer, "error", error=_error_message(exc))
 
 
-def _detector_for(layer: str) -> Callable[[str], List[ClassificationResult]]:
+def _detector_for(
+    layer: str,
+    semantic_model_id: str | None = None,
+) -> Callable[[str], List[ClassificationResult]]:
     if layer == REGEX_LAYER:
         from .regex.rule_detector import RuleDetector
 
@@ -165,7 +177,7 @@ def _detector_for(layer: str) -> Callable[[str], List[ClassificationResult]]:
         detector = EntityNERDetector()
         return detector.extract_entities
     if layer == SEMANTIC_LAYER:
-        detector = get_llm_choice()
+        detector = get_llm_choice(model_id=semantic_model_id)
         return detector.classify
     raise ValueError(f"Unsupported detection layer: {layer}")
 

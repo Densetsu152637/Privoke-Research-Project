@@ -55,6 +55,7 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
                 prompt_request,
                 layers=layers,
                 regex_first=regex_first,
+                semantic_model_id=request.semantic_model_id or None,
             )
             response = _analysis_response(analysis)
             if self.telemetry_reporter is not None:
