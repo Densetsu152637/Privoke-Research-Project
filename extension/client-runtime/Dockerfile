@@ -11,6 +11,8 @@ COPY extension/client-runtime /workspace/extension/client-runtime
 
 WORKDIR /workspace/extension/client-runtime
 
+ENV PRIVOKE_GRPC_HOST=0.0.0.0
+
 RUN pip install --no-cache-dir -r requirements.txt /workspace/shared/python \
     && mkdir -p generated \
     && python -m grpc_tools.protoc \

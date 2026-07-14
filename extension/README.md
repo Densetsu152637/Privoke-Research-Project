@@ -34,15 +34,51 @@ extension popup manual check ─┴─> MV3 background worker
                                   -> selected regex / NER / semantic layers
 ```
 
-The LLM toggle health check follows a separate Envoy route to `model-streaming-service:50051`. Only its `Health` RPC is exposed through the browser bridge; model parameters continue to flow from that service to the Python runtime over native gRPC.
+The LLM toggle health check follows a separate Envoy route to the parameter-streaming endpoint on `127.0.0.1:50051`. Only its `Health` RPC is exposed through the browser bridge; model parameters continue to flow from that endpoint to the Python runtime over native gRPC. The checked-in configuration is a loopback development configuration, so a remote deployment must supply a secure local forward or an equivalent machine-local bridge configuration.
 
-The supervisor is intentionally separate from the detector runtime. A shutdown method hosted by the detector itself could stop the process, but could not receive the later start request. The supervisor owns the child process, waits for port `50054` on startup, terminates it on shutdown, and also stops it when the supervisor terminal or container is terminated.
+The supervisor is intentionally separate from the detector runtime. A shutdown method hosted by the detector itself could stop the process, but could not receive the later start request. The supervisor owns the child process, waits for port `50054` on startup, terminates it on shutdown, and also stops it when the supervisor process is terminated.
 
 Browsers cannot call a native gRPC HTTP/2 endpoint directly. The bridge translates gRPC-Web frames while keeping the shared protobuf files as the request and response contracts.
 
 ## Run locally
 
-The extension itself is not deployed with Docker. Build and test it as a normal Chromium extension:
+The extension itself is not deployed with Docker. Before loading it, start three independent companion pieces: a parameter-streaming endpoint, the Python runtime supervisor, and the local Envoy bridge.
+
+1. Make `model-streaming-service` reachable on workstation loopback port `50051`. For local testing, start only that server component from the repository root:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build model-streaming-service
+```
+
+2. In another terminal, prepare and start the local runtime supervisor:
+
+```bash
+cd extension/client-runtime
+python -m venv .venv
+source .venv/bin/activate  # Windows PowerShell: .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt ../../shared/python
+mkdir generated  # omit this line when the directory already exists
+python -m grpc_tools.protoc \
+  -I ../../shared/proto \
+  --python_out=generated \
+  --grpc_python_out=generated \
+  ../../shared/proto/privoke/v1/parameters.proto \
+  ../../shared/proto/privoke/v1/runtime.proto \
+  ../../shared/proto/privoke/v1/telemetry.proto
+python src/supervisor_main.py
+```
+
+The supervisor and detector bind to loopback by default. `MODEL_STREAMING_TARGET` defaults to `127.0.0.1:50051` for this workstation path; server Compose overrides it with the internal service name.
+
+3. With Envoy installed on the workstation, start the gRPC-Web bridge from the repository root:
+
+```bash
+envoy -c extension/envoy.yaml
+```
+
+The repository does not include a separate extension Compose file or a packaged companion installer. If Envoy or the supervisor is not running, intercepted website requests fail open and manual analysis reports an error.
+
+4. Build and test the normal Chromium extension:
 
 ```bash
 cd extension
@@ -53,7 +89,7 @@ npm run build
 
 Then open the Chromium extensions page, enable developer mode, choose **Load unpacked**, and select `extension/dist`. Reload supported AI tabs after loading or rebuilding the extension so the early network hook is installed.
 
-The extension expects its workstation-local PriVoke control/bridge endpoint at `127.0.0.1:8080`. That local companion is separate from the production and development server Compose deployments.
+The extension expects its workstation-local PriVoke control/bridge endpoint at `127.0.0.1:8080`. The extension, supervisor, and bridge remain separate from the production and development server Compose deployments.
 
 For incremental builds, run `npm run dev` and reload the unpacked extension plus any supported website tabs after a change.
 
@@ -61,7 +97,7 @@ For incremental builds, run `npm run dev` and reload the unpacked extension plus
 
 - The runtime bridge permission is limited to HTTP loopback hosts. Chrome host match patterns cannot scope this to only port `8080`, although the client endpoint is fixed to that port.
 - Website access is limited in the manifest to the supported AI hosts listed above.
-- Envoy only routes runtime analysis, runtime lifecycle control, and the model-streaming health RPC, and limits CORS to local pages and extension origins.
+- Envoy binds only to `127.0.0.1`, routes runtime analysis, runtime lifecycle control, and the model-streaming health RPC, and limits CORS to local pages and extension origins.
 - Prompt text is sent to the local bridge and runtime. Runtime telemetry remains metadata-only and excludes prompt text.
 - The browser bridge is local extension infrastructure and is deliberately absent from the server Docker deployments.
 

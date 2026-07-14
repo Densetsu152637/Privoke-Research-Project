@@ -23,14 +23,14 @@ On `RunTrainingCycle`, the service:
 
 1. validates `prompt_count > 0`,
 2. caps prompt counts above `FUZZ_MAX_PROMPT_COUNT`,
-3. fetches the current parameter snapshot from `model-streaming-service`,
+3. fetches the requested parameter snapshot from `model-streaming-service` and verifies the returned model ID,
 4. generates labeled prompts through `src/prompt_generation`,
-5. requests isolated semantic evaluation from `PrivokeRuntimeService`,
+5. requests isolated semantic evaluation from `PrivokeRuntimeService` with that same model ID,
 6. computes gradient deltas with `src/training`,
 7. submits those deltas to `ParamUpdateService.SubmitParameterUpdate`,
 8. returns the update acknowledgment and training metadata to the requester.
 
-If the model-streaming service is unavailable after retries, the RPC aborts with `UNAVAILABLE`.
+If the model-streaming service is unavailable after retries, the RPC aborts with `UNAVAILABLE`. Non-retryable streaming errors, such as an unknown model ID, retain their upstream gRPC status.
 
 ## Training Semantics
 
@@ -91,7 +91,7 @@ Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
 
 ## Runtime Boundary
 
-The fuzzer has no source dependency on `extension/client-runtime`. Production and development Compose both deploy that code as the `client-runtime` service, and the fuzzer waits for it to become healthy. Prompt tests send one `AnalyzePrompt` request containing the requested layer set and regex ordering. Training requests the semantic layer through the same gRPC client. Detector selection, initialization, scheduling, short-circuiting, and error capture all remain inside the runtime.
+The fuzzer has no source dependency on `extension/client-runtime`. Production and development Compose both deploy that code as the `client-runtime` service, and the fuzzer waits for it to become healthy. The fuzzer itself has a TCP healthcheck on `50053`; `param-update-service` waits for that check before starting its requester. Prompt tests send one `AnalyzePrompt` request containing the requested layer set, regex ordering, and optional semantic model ID. Training requests the semantic layer through the same gRPC client and always uses the fetched snapshot's model ID. Detector selection, initialization, scheduling, short-circuiting, and error capture all remain inside the runtime.
 
 ## CLI
 
@@ -119,6 +119,7 @@ python src/cli.py test-prompts \
   --layer regex \
   --layer ner \
   --layer semantic \
+  --model-id privoke-baseline \
   --regex-parallel \
   --generated-count 8
 ```
@@ -130,11 +131,11 @@ Available test layers:
 - `ner`: asks the runtime to isolate NER detection.
 - `semantic`: asks the runtime to isolate its configured semantic backend.
 
-Repeat `--layer` to send a selected set in one RPC. `--regex-first` and `--regex-parallel` override the runtime's default ordering for that request. Detector failures are written to the report from the runtime's per-layer response and cause the CLI to exit with status `1`.
+Repeat `--layer` to send a selected set in one RPC. `--regex-first` and `--regex-parallel` override the runtime's default ordering for that request. `--model-id` selects the streamed semantic model and defaults to `MODEL_ID` when set. Detector failures are written to the report from the runtime's per-layer response and cause the CLI to exit with status `1`; layers intentionally skipped after a regex `BLOCK` are counted separately and are not failures.
 
 Prompt files can be JSON, JSONL, or text. JSON entries may be strings or objects with `text`/`prompt` fields.
 
-The CLI writes a JSON dump for each prompt-test run and prints the full per-prompt JSON report. Each prompt entry includes the request text, optional expected classification, and each selected layer's observed classification/action/results. If any layer run fails, it exits with status `1`.
+The CLI writes a JSON dump for each prompt-test run and prints the full per-prompt JSON report. Each prompt entry includes the request text, optional expected classification, and each selected layer's elapsed runtime time plus observed classification/action/results. If any layer run fails, it exits with status `1`.
 
 In Docker dev mode, dumps are bind-mounted to `./dumps/privoke-fuzzer` on the host. In the baseline stack, dumps stay inside the container at `/workspace/dumps/privoke-fuzzer`.
 

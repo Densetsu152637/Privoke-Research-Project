@@ -13,7 +13,7 @@ For the extension's workstation-local lifecycle behavior, `src/supervisor_main.p
 - `SetRuntimeEnabled(false)` gracefully terminates the detector child and waits before forcing termination.
 - `SetRuntimeEnabled(true)` starts the child and waits until its gRPC port accepts connections.
 - `Status` reports `RUNNING` or `STOPPED`, the child PID, and the latest lifecycle message.
-- Stopping the supervisor terminal or container also terminates the child.
+- Stopping the supervisor process also terminates the child.
 
 The supervisor must remain running while the detector is off. A shutdown RPC implemented by the detector process itself would be unable to receive a later startup request.
 
@@ -25,7 +25,10 @@ python src/supervisor_main.py
 
 Environment controls:
 
+- `PRIVOKE_CONTROL_GRPC_HOST`, default `127.0.0.1`
 - `PRIVOKE_CONTROL_GRPC_PORT`, default `50056`
+- `PRIVOKE_GRPC_HOST`, default `127.0.0.1`
+- `PRIVOKE_GRPC_PORT`, default `50054`
 - `PRIVOKE_RUNTIME_START_ENABLED`, default `true`
 - `PRIVOKE_RUNTIME_START_TIMEOUT_SECONDS`, default `30`
 - `PRIVOKE_RUNTIME_STOP_TIMEOUT_SECONDS`, default `10`
@@ -121,6 +124,7 @@ Important behavior:
 - `PRIVOKE_WAIT_FOR_REGEX` defaults to true. In that mode regex runs first and a regex `BLOCK` short-circuits NER and semantic detection.
 - gRPC callers can request any subset of `regex`, `ner`, and `semantic`, and can override regex-first versus parallel scheduling per request.
 - gRPC callers can set `semantic_model_id` per request to select a streamed PriVoke model without mutating global runtime configuration.
+- The streamed client rejects a snapshot whose returned model ID differs from the requested ID; it never silently classifies with another model.
 - Every requested layer returns `ok`, `error`, or `skipped`; one layer failure does not erase successful results from other layers.
 - When regex does not block, NER and semantic classification run through `GLOBAL_CONFIG.threadpool`.
 - `strongest_result` compares `ClassificationResult.action().value` and returns the first result that raises the action above `ALLOW`.
@@ -173,7 +177,7 @@ Examples:
 ```bash
 curl -X POST http://127.0.0.1:8765/config/llm \
   -H "Content-Type: application/json" \
-  -d '{"choice":"streamed","streamed":{"target":"model-streaming-service:50051","model_id":"privoke-baseline"}}'
+  -d '{"choice":"streamed","streamed":{"target":"127.0.0.1:50051","model_id":"privoke-baseline"}}'
 
 curl -X POST http://127.0.0.1:8765/config/llm \
   -H "Content-Type: application/json" \
@@ -186,18 +190,23 @@ curl -X POST http://127.0.0.1:8765/config/llm \
 
 Environment variables:
 
-- `PRIVOKE_HOST`, `PRIVOKE_PORT`
+- `PRIVOKE_HOST`, `PRIVOKE_PORT` for the optional HTTP harness
+- `PRIVOKE_GRPC_HOST`, Python default `127.0.0.1`; the server image sets `0.0.0.0` and Compose sets `[::]`
+- `PRIVOKE_GRPC_PORT`, default `50054`
+- `PRIVOKE_CONTROL_GRPC_HOST`, default `127.0.0.1`
+- `PRIVOKE_CONTROL_GRPC_PORT`, default `50056`
 - `PRIVOKE_LLM_CHOICE`
 - `PRIVOKE_WAIT_FOR_REGEX`
 - `PRIVOKE_MAX_PROMPT_CHARS`
 - `PRIVOKE_CORS_ORIGIN`
 - `PRIVOKE_ALLOW_NON_LOOPBACK_BIND`
-- `MODEL_STREAMING_TARGET`, `MODEL_ID`, `MODEL_STREAMING_CONSUMER_ID`, `MODEL_STREAMING_TIMEOUT_SECONDS`
+- `MODEL_STREAMING_TARGET`, default `127.0.0.1:50051`; Compose sets `model-streaming-service:50051`
+- `MODEL_ID`, `MODEL_STREAMING_CONSUMER_ID`, `MODEL_STREAMING_TIMEOUT_SECONDS`
 - `LM_STUDIO_BASE_URL`, `LM_STUDIO_MODEL`, `LM_STUDIO_API_KEY`, `LM_STUDIO_TIMEOUT_SECONDS`, `LM_STUDIO_TEMPERATURE`, `LM_STUDIO_MAX_TOKENS`, `LM_STUDIO_RESPONSE_FORMAT`
 - `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_TEMPERATURE`, `OPENAI_MAX_TOKENS`
 - `TELEMETRY_ENABLED`, default `false` outside Compose
-- `TELEMETRY_TARGET`, default `telemetry-service:50055`
-- `TELEMETRY_SOURCE_ID`, default `privoke-runtime`
+- `TELEMETRY_TARGET`, default `127.0.0.1:50055`; Compose sets `telemetry-service:50055`
+- `TELEMETRY_SOURCE_ID`, default `client-runtime`
 - `TELEMETRY_TIMEOUT_SECONDS`, default `1.0`
 - `TELEMETRY_QUEUE_SIZE`, default `1024`
 - `PRIVOKE_DETECTOR_VERSION`, default `v2`
@@ -218,14 +227,28 @@ python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
 pip install ../../shared/python
+mkdir generated  # omit this line when the directory already exists
+python -m grpc_tools.protoc \
+  -I ../../shared/proto \
+  --python_out=generated \
+  --grpc_python_out=generated \
+  ../../shared/proto/privoke/v1/parameters.proto \
+  ../../shared/proto/privoke/v1/runtime.proto \
+  ../../shared/proto/privoke/v1/telemetry.proto
 ```
 
-For streamed classification outside Docker, generate the gRPC stubs into `extension/client-runtime/generated` from both `shared/proto/privoke/v1/parameters.proto` and `runtime.proto`.
+The checked-in workstation defaults expect a parameter-streaming service or secure local forward on `127.0.0.1:50051`. Docker Compose supplies its own internal DNS target.
 
 Run the gRPC runtime (default port `50054`):
 
 ```bash
 python src/grpc_main.py
+```
+
+Run the workstation supervisor instead when the Chrome extension must control runtime startup and shutdown:
+
+```bash
+python src/supervisor_main.py
 ```
 
 Run the optional local server:

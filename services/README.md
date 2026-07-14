@@ -39,10 +39,13 @@ Cross-service APIs live in `shared/proto/privoke/v1/parameters.proto` and `runti
 - `ModelStreamingService.GetModelParameters(ModelParametersRequest) -> ModelParametersResponse`
 - `ParamUpdateService.SubmitParameterUpdate(ParameterUpdateRequest) -> ParameterUpdateAck`
 - `FuzzerService.RunTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
-- Each gRPC service also implements `Health(HealthRequest) -> HealthResponse`
+- The parameter-streaming, parameter-update, and fuzzer services each implement `Health(HealthRequest) -> HealthResponse`.
 - `PrivokeRuntimeService.AnalyzePrompt(AnalyzePromptRequest) -> AnalyzePromptResponse`
+- `PrivokeRuntimeService.Health(RuntimeHealthRequest) -> RuntimeHealthResponse`
+- `PrivokeRuntimeControlService.SetRuntimeEnabled(SetRuntimeEnabledRequest) -> RuntimeControlStatus` and `Status(RuntimeHealthRequest) -> RuntimeControlStatus` are workstation-local extension control and are not started by server Compose.
 - `TelemetryService.RecordTelemetry(TelemetryPacket) -> RecordTelemetryResponse`
 - `TelemetryService.ListTelemetry(ListTelemetryRequest) -> ListTelemetryResponse`
+- `TelemetryService.Health(TelemetryHealthRequest) -> TelemetryHealthResponse`
 
 Do not create ad hoc JSON contracts between services when a protobuf boundary exists.
 
@@ -56,7 +59,9 @@ Default ports:
 - `client-runtime`: detector `50054`
 - `telemetry-service`: `50055`
 
-`docker-compose.yml` is the production-style deployment: all five services are built into images, use restart policies, and the fuzzer waits for `client-runtime` health before starting. `docker-compose.dev.yml` preserves that topology while bind-mounting service source, regenerating protobuf bindings, disabling restart loops, and mounting fuzzer prompt-test dumps at `./dumps/privoke-fuzzer`.
+The production-style Compose file publishes all of these ports except fuzzer port `50053`, which is consumed only inside the service network by `param-update-service`.
+
+`docker-compose.yml` is the production-style deployment: all five services are built into images, use restart policies, and the fuzzer waits for `client-runtime` health before starting. The fuzzer then reports healthy on `50053`, which allows `param-update-service` to start its optional requester without racing fuzzer startup. `docker-compose.dev.yml` preserves that topology while bind-mounting service source, regenerating protobuf bindings, disabling restart loops, and mounting fuzzer prompt-test dumps at `./dumps/privoke-fuzzer`.
 
 The Chrome extension is not a Docker service and is not part of either server deployment.
 

@@ -1,6 +1,6 @@
 # PriVoke Research Project
 
-PriVoke is a research prototype for client-side privacy protection around LLM prompts. The current implementation centers on a Python runtime service intended to run on a user's local computer. It inspects prompt text, produces structured `ClassificationResult` evidence, derives a `PriVokeAction`, and can return a local decision before text is sent onward.
+PriVoke is a research prototype for client-side privacy protection around LLM prompts. The current implementation centers on a Python runtime that can run as a workstation-local extension companion or as the server-side detector used by the fuzzer. It inspects prompt text, produces structured `ClassificationResult` evidence, and derives a `PriVokeAction`; the extension uses that decision before an intercepted browser request is sent onward.
 
 Docker Compose runs an always-on server `client-runtime` alongside parameter streaming, fuzzer-driven adaptive experiments, telemetry, and update capture. The fuzzer queries that runtime for all detector execution; it does not install or import runtime implementation code.
 
@@ -11,14 +11,14 @@ Reference context: https://arxiv.org/abs/2408.07004
 `extension/client-runtime` contains the prompt inspection implementation shared by two execution contexts. Server Docker deployments run it directly as the always-on `client-runtime` gRPC service on `50054`. The unpacked Chrome extension is built separately and uses its workstation-local lifecycle supervisor; it is not deployed by either server Compose file.
 
 ```text
-local request or local HTTP POST /analyze
+gRPC request or local HTTP POST /analyze
   -> request validation and optional visibility-hint parsing
   -> TextNormalizer
   -> RuleDetector
   -> EntityNERDetector
   -> selected semantic classifier
   -> strongest ClassificationResult action
-  -> HTTP response serialization
+  -> HTTP or gRPC response serialization
 ```
 
 Current behavior is deliberately simple:
@@ -65,9 +65,11 @@ Detector output is represented by `extension/client-runtime/src/classification`.
 - `client-runtime`: always-on server detector gRPC on `50054`.
 - `telemetry-service`: gRPC on `50055`.
 
+Compose publishes `50051`, `50052`, `50054`, and `50055` on the host. The fuzzer's `50053` port remains internal to the Compose network because `param-update-service` is its deployed caller; use `docker compose exec privoke-fuzzer ...` for its CLI.
+
 ## Development Commands
 
-Run the development server simulation with bind-mounted sources and generated stubs:
+Run the development server simulation with bind-mounted sources and generated stubs. This has the same five-service topology as the production deployment; it does not run the Chrome extension or its local supervisor/bridge:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
@@ -87,7 +89,7 @@ pip install -r requirements.txt
 python src/main.py --port 8765 --llm-choice streamed
 ```
 
-For streamed classification outside Docker, generate the Python bindings for both `parameters.proto` and `runtime.proto` into `extension/client-runtime/generated`. The runtime and fuzzer Docker images generate only their own bindings.
+For streamed classification outside Docker, install `shared/python` and generate Python bindings for `parameters.proto`, `runtime.proto`, and `telemetry.proto` into `extension/client-runtime/generated`. The runtime and fuzzer Docker images generate their service-local bindings during image builds.
 
 Build the unpacked browser extension:
 
@@ -97,7 +99,7 @@ npm install
 npm run build
 ```
 
-With the development Compose stack running, load `extension/dist` from the browser's unpacked-extension page. See `extension/README.md` for the request boundary and development workflow.
+Load `extension/dist` from the browser's unpacked-extension page. The extension itself is never run by Compose. It also needs the workstation-local runtime supervisor and Envoy gRPC-Web bridge described in `extension/README.md`; the checked-in bridge defaults to loopback ports `50051`, `50054`, and `50056`.
 
 Run paper figure scripts:
 
@@ -145,6 +147,15 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml exec privoke-fuzz
 
 In dev mode fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer`. In the baseline stack they stay inside the fuzzer container at `/workspace/dumps/privoke-fuzzer`.
 
+## Current Prototype Boundaries
+
+- `model-streaming-service` serves one configured, hard-coded parameter snapshot. It rejects other non-empty model IDs.
+- `param-update-service` persists gradients and reports a derived applied-version label, but it does not mutate the snapshot served by `model-streaming-service`.
+- The full Compose stack sets `FUZZER_PROMPT_COUNT=8`, so `param-update-service` requests one eight-prompt training cycle after startup. The resulting update is stored only in the `param-update-data` volume.
+- The unpacked extension is not self-contained: it requires the workstation supervisor and local Envoy gRPC-Web bridge. The repository does not ship a separate extension Compose deployment or companion installer.
+- The optional HTTP harness on `127.0.0.1:8765` exists for evaluation and local integration; server Compose and the browser extension use gRPC paths instead.
+- Service-to-service gRPC is currently plaintext and unauthenticated. An actual server deployment must keep these ports on a trusted private network or add authenticated TLS at the deployment boundary.
+
 ## Cross-Service Contract
 
 `shared/proto/privoke/v1/parameters.proto` defines:
@@ -154,7 +165,7 @@ In dev mode fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer
 - `FuzzerService.RunTrainingCycle`
 - `Health` RPCs for the parameter, update, and fuzzer services
 
-`shared/proto/privoke/v1/runtime.proto` defines `PrivokeRuntimeService`, requested detector layers, regex execution order, and per-layer results/errors.
+`shared/proto/privoke/v1/runtime.proto` defines `PrivokeRuntimeService`, the workstation-local `PrivokeRuntimeControlService`, requested detector layers, regex execution order, and per-layer results/errors. Server Compose runs only the detector service; the extension supervisor hosts the control service.
 
 `shared/proto/privoke/v1/telemetry.proto` defines privacy-minimal event recording and paginated retrieval. Compose persists these packets in the `telemetry-data` SQLite volume.
 

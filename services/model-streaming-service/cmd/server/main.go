@@ -10,6 +10,8 @@ import (
 
 	pb "github.com/privoke/research-project/services/model-streaming-service/gen/privoke/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type streamingServer struct {
@@ -20,6 +22,14 @@ type streamingServer struct {
 
 func (s *streamingServer) GetModelParameters(_ context.Context, req *pb.ModelParametersRequest) (*pb.ModelParametersResponse, error) {
 	log.Printf("parameter request consumer=%s model=%s", req.GetConsumerId(), req.GetModelId())
+	if requestedModelID := req.GetModelId(); requestedModelID != "" && requestedModelID != s.modelID {
+		return nil, status.Errorf(
+			codes.NotFound,
+			"model %q is unavailable; this service currently provides %q",
+			requestedModelID,
+			s.modelID,
+		)
+	}
 
 	return &pb.ModelParametersResponse{
 		ModelId:         s.modelID,

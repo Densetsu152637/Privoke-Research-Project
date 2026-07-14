@@ -52,6 +52,11 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             snapshot = fetch_snapshot(self.config, model_id=model_id)
         except ModelSnapshotUnavailable as exc:
             context.abort(grpc.StatusCode.UNAVAILABLE, str(exc))
+        except grpc.RpcError as exc:
+            context.abort(
+                exc.code() or grpc.StatusCode.UNKNOWN,
+                exc.details() or "model snapshot request failed",
+            )
 
         examples = generate_training_prompts(
             count=prompt_count,
@@ -142,13 +147,19 @@ def _fetch_snapshot_once(
             timeout=max(0.1, config.model_streaming_connect_timeout_seconds)
         )
         client = parameters_pb2_grpc.ModelStreamingServiceStub(channel)
-        return client.GetModelParameters(
+        snapshot = client.GetModelParameters(
             parameters_pb2.ModelParametersRequest(
                 consumer_id=config.fuzzer_id,
                 model_id=model_id,
             ),
             timeout=config.timeout_seconds,
         )
+        if snapshot.model_id != model_id:
+            raise ModelSnapshotUnavailable(
+                "model-streaming-service returned model "
+                f"'{snapshot.model_id}' for requested model '{model_id}'."
+            )
+        return snapshot
 
 
 def _is_retryable_rpc_error(exc: grpc.RpcError) -> bool:

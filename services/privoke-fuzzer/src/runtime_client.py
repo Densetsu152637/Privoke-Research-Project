@@ -69,6 +69,7 @@ class PrivokeRuntimeClient:
             metadata={str(key): _string_value(value) for key, value in metadata.items()},
             layers=[LAYER_VALUES[layer] for layer in requested_layers],
             regex_execution_order=_regex_execution_order(regex_first),
+            semantic_model_id=str(payload.get("semantic_model_id") or ""),
         )
         with grpc.insecure_channel(self.target) as channel:
             response = runtime_pb2_grpc.PrivokeRuntimeServiceStub(channel).AnalyzePrompt(
@@ -77,9 +78,18 @@ class PrivokeRuntimeClient:
             )
         return response
 
-    def classify(self, text: str, layer: str = "semantic") -> Classification:
+    def classify(
+        self,
+        text: str,
+        layer: str = "semantic",
+        model_id: str | None = None,
+    ) -> Classification:
         response = self._analyze(
-            {"text": text, "source": "privoke-fuzzer-training"},
+            {
+                "text": text,
+                "source": "privoke-fuzzer-training",
+                "semantic_model_id": model_id,
+            },
             layers=[layer],
         )
         if response.error:
@@ -107,6 +117,7 @@ def response_to_dict(response) -> dict[str, Any]:
         "reason": response.reason or None,
         "metadata": dict(response.metadata),
         "layers": [_layer_to_dict(layer) for layer in response.layers],
+        "elapsed_ms": response.elapsed_ms,
         "error": response.error or None,
     }
     if response.HasField("evidence"):

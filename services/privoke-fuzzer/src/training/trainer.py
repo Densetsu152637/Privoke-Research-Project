@@ -69,7 +69,11 @@ def train_parameter_batch(
     exact_matches = 0
 
     for example in trainer_examples:
-        predicted = runtime_client.classify(example.text, layer="semantic")
+        predicted = runtime_client.classify(
+            example.text,
+            layer="semantic",
+            model_id=client_snapshot.model_id,
+        )
         target = target_classification_for_example(example, predicted)
         loss = classification_loss(target, predicted)
 

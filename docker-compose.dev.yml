@@ -37,7 +37,7 @@ services:
       model-streaming-service:
         condition: service_healthy
       privoke-fuzzer:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "50052:50052"
     environment:

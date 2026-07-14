@@ -38,11 +38,12 @@ def main() -> None:
     GLOBAL_CONFIG.wait_for_regex = env_bool(
         "PRIVOKE_WAIT_FOR_REGEX", GLOBAL_CONFIG.wait_for_regex
     )
+    host = os.getenv("PRIVOKE_GRPC_HOST", "127.0.0.1").strip() or "127.0.0.1"
     port = env_positive_int("PRIVOKE_GRPC_PORT", 50054)
     telemetry_reporter = (
         TelemetryReporter(
-            target=os.getenv("TELEMETRY_TARGET", "telemetry-service:50055"),
-            source_id=os.getenv("TELEMETRY_SOURCE_ID", "privoke-runtime"),
+            target=os.getenv("TELEMETRY_TARGET", "127.0.0.1:50055"),
+            source_id=os.getenv("TELEMETRY_SOURCE_ID", "client-runtime"),
             timeout_seconds=env_positive_float("TELEMETRY_TIMEOUT_SECONDS", 1.0),
             queue_size=env_positive_int("TELEMETRY_QUEUE_SIZE", 1024),
             detector_version=os.getenv("PRIVOKE_DETECTOR_VERSION", "v2"),
@@ -54,9 +55,9 @@ def main() -> None:
         max_text_chars=env_positive_int("PRIVOKE_MAX_PROMPT_CHARS", 20_000),
         telemetry_reporter=telemetry_reporter,
     )
-    server.add_insecure_port(f"[::]:{port}")
+    server.add_insecure_port(f"{host}:{port}")
     server.start()
-    print(f"PriVoke runtime gRPC server listening on port {port}", flush=True)
+    print(f"PriVoke runtime gRPC server listening on {host}:{port}", flush=True)
     try:
         while not _SHOULD_STOP:
             time.sleep(0.25)

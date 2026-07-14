@@ -23,6 +23,7 @@ ModelParametersRequest {
 Current response behavior:
 
 - logs the requested `consumer_id` and `model_id`,
+- returns gRPC `NOT_FOUND` when a non-empty requested model ID does not match the configured `MODEL_ID`,
 - returns the service-configured `MODEL_ID` and `MODEL_VERSION`,
 - sets `generated_at_unix` to the current Unix timestamp,
 - returns three hard-coded parameter vectors:
@@ -31,7 +32,7 @@ Current response behavior:
   - `classifier.bias`
 - returns metadata with `served_by=model-streaming-service` and the requester `consumer_id`.
 
-The current implementation does not validate or branch on the requested model ID.
+The service currently hosts only one configured model snapshot. An empty model ID selects that configured model; a different non-empty ID is rejected rather than silently returning the wrong snapshot.
 
 ## Runtime
 
@@ -67,7 +68,7 @@ The Compose healthcheck probes the configured TCP port with `nc`.
 Subagents working here should:
 
 - replace hard-coded vectors with real versioned snapshot loading when an artifact format exists,
-- add model ID validation once multiple model IDs are supported,
+- add a versioned model registry if multiple model IDs are supported,
 - preserve protobuf compatibility when adding fields,
 - add integration tests for `client-runtime` and `privoke-fuzzer` consumers,
 - document parameter provenance and versioning semantics.

@@ -28,11 +28,28 @@ Services:
   - `RunTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
   - `Health(HealthRequest) -> HealthResponse`
 
+`runtime.proto` defines requested detection layers, regex execution order, classifications, per-layer results, and:
+
+- `PrivokeRuntimeService`
+  - `AnalyzePrompt(AnalyzePromptRequest) -> AnalyzePromptResponse`
+  - `Health(RuntimeHealthRequest) -> RuntimeHealthResponse`
+- `PrivokeRuntimeControlService`
+  - `SetRuntimeEnabled(SetRuntimeEnabledRequest) -> RuntimeControlStatus`
+  - `Status(RuntimeHealthRequest) -> RuntimeControlStatus`
+
+`telemetry.proto` defines privacy-minimal telemetry packets and:
+
+- `TelemetryService`
+  - `RecordTelemetry(TelemetryPacket) -> RecordTelemetryResponse`
+  - `ListTelemetry(ListTelemetryRequest) -> ListTelemetryResponse`
+  - `Health(TelemetryHealthRequest) -> TelemetryHealthResponse`
+
 ## Producers and Consumers
 
 - `model-streaming-service` implements `ModelStreamingService`.
 - `client-runtime` consumes `ModelStreamingService` when using the `streamed` semantic backend.
 - `client-runtime` implements `PrivokeRuntimeService`.
+- The workstation supervisor implements `PrivokeRuntimeControlService`; server Compose runs the detector directly and does not expose that lifecycle control plane.
 - `privoke-fuzzer` consumes `PrivokeRuntimeService` and `ModelStreamingService`, implements `FuzzerService`, and consumes `ParamUpdateService`.
 - `param-update-service` implements `ParamUpdateService` and can consume `FuzzerService` when fuzzer requests are enabled.
 - `client-runtime` produces privacy-minimal `TelemetryPacket` messages.

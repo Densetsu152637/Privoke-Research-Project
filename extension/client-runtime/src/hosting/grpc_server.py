@@ -69,7 +69,7 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
 
     def Health(self, request, context):
         return runtime_pb2.RuntimeHealthResponse(
-            service="privoke-runtime",
+            service="client-runtime",
             status="SERVING",
         )
 

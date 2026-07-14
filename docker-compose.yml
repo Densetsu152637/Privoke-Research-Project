@@ -28,7 +28,7 @@ services:
       model-streaming-service:
         condition: service_healthy
       privoke-fuzzer:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "50052:50052"
     environment:
@@ -78,6 +78,7 @@ services:
       - "50054:50054"
     environment:
       PRIVOKE_GRPC_PORT: 50054
+      PRIVOKE_GRPC_HOST: "[::]"
       PRIVOKE_LLM_CHOICE: streamed
       MODEL_STREAMING_TARGET: model-streaming-service:50051
       MODEL_STREAMING_CONSUMER_ID: server-client-runtime
@@ -117,6 +118,12 @@ services:
       MODEL_STREAMING_CONNECT_TIMEOUT_SECONDS: 2
       MODEL_STREAMING_RETRY_INITIAL_SECONDS: 1
       MODEL_STREAMING_RETRY_MAX_SECONDS: 4
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import socket; socket.create_connection((\"127.0.0.1\", 50053), 1).close()'"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
 
 volumes:
   param-update-data:

@@ -3,7 +3,7 @@ static_resources:
     - name: extension_listener
       address:
         socket_address:
-          address: 0.0.0.0
+          address: 127.0.0.1
           port_value: 8080
       filter_chains:
         - filters:
@@ -89,7 +89,7 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: privoke-runtime
+                      address: 127.0.0.1
                       port_value: 50056
       typed_extension_protocol_options:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -107,7 +107,7 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: model-streaming-service
+                      address: 127.0.0.1
                       port_value: 50051
       typed_extension_protocol_options:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
@@ -125,7 +125,7 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: privoke-runtime
+                      address: 127.0.0.1
                       port_value: 50054
       typed_extension_protocol_options:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:

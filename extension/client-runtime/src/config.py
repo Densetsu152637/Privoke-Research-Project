@@ -72,7 +72,7 @@ class StreamedEndpointConfig:
     @classmethod
     def from_env(cls) -> "StreamedEndpointConfig":
         return cls(
-            target=os.getenv("MODEL_STREAMING_TARGET", "model-streaming-service:50051"),
+            target=os.getenv("MODEL_STREAMING_TARGET", "127.0.0.1:50051"),
             model_id=os.getenv("MODEL_ID", "privoke-baseline"),
             consumer_id=os.getenv("MODEL_STREAMING_CONSUMER_ID", "client-runtime"),
             timeout_seconds=env_positive_float(

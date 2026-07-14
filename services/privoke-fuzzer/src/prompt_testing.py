@@ -96,6 +96,11 @@ def add_test_prompt_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--target-app", help="Optional target_app value.")
     parser.add_argument("--visibility-hint", help="Optional visibility hint, e.g. P3.")
     parser.add_argument(
+        "--model-id",
+        default=os.getenv("MODEL_ID"),
+        help="Streamed semantic model ID sent to the runtime.",
+    )
+    parser.add_argument(
         "--timeout-seconds",
         type=float,
         default=120.0,
@@ -295,6 +300,7 @@ def _run_layers(
         layer_results[layer] = {
             "status": execution.get("status", "error"),
             "error": execution.get("error"),
+            "elapsed_ms": response.get("elapsed_ms"),
             "result_count": len(results),
             "classifications": [_classification_view(item) for item in results],
             "results": results,
@@ -341,6 +347,8 @@ def _runtime_request(
         value = prompt_request.get(key, getattr(args, key, None))
         if value is not None:
             payload[key] = value
+    if args.model_id:
+        payload["semantic_model_id"] = args.model_id
     return payload
 
 
@@ -362,10 +370,11 @@ def _summary(results: List[Dict[str, Any]], output_path: Path) -> Dict[str, Any]
     for result in results:
         for layer, layer_result in result["layers"].items():
             status = layer_result.get("status", "error")
-            if status != "ok":
+            if status == "error":
                 failed += 1
-            layer_counts.setdefault(layer, {"ok": 0, "error": 0})
-            layer_counts[layer]["ok" if status == "ok" else "error"] += 1
+            status_bucket = status if status in {"ok", "skipped"} else "error"
+            layer_counts.setdefault(layer, {"ok": 0, "skipped": 0, "error": 0})
+            layer_counts[layer][status_bucket] += 1
 
     return {
         "output_path": str(output_path),

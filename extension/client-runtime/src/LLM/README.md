@@ -29,6 +29,7 @@ Current behavior:
 
 - parameters are fetched lazily on each `classify()` call,
 - `StreamedModelCache` reuses a `ParameterBackedPrivacyModel` when model ID, version, and parameter fingerprint match,
+- the client verifies that the returned snapshot model ID matches the requested model ID,
 - streamed vectors calibrate thresholds, bias, and category weights,
 - semantic signals are regex-like local feature patterns in `semantic_features.py`,
 - one combined `ClassificationResult` is returned when signals create a non-empty classification.
@@ -37,12 +38,12 @@ The streamed backend is not a full external transformer model in this codebase. 
 
 Environment:
 
-- `MODEL_STREAMING_TARGET`, default `model-streaming-service:50051`
+- `MODEL_STREAMING_TARGET`, default `127.0.0.1:50051` for workstation use; server Compose overrides it with `model-streaming-service:50051`
 - `MODEL_ID`, default `privoke-baseline`
 - `MODEL_STREAMING_CONSUMER_ID`, default `client-runtime`
 - `MODEL_STREAMING_TIMEOUT_SECONDS`, default `10.0`
 
-`grpcio` and the generated Python stubs must be present before this backend is imported. Docker and the dev Compose override generate stubs under `extension/client-runtime/generated`; local runs must do the same from `shared/proto/privoke/v1/parameters.proto`.
+`grpcio` and the generated Python stubs must be present before this backend is imported. Docker and the dev Compose override generate service-local stubs under `extension/client-runtime/generated`; a local gRPC runtime or supervisor needs bindings generated from `parameters.proto`, `runtime.proto`, and `telemetry.proto` as shown in the package README.
 
 ## Local OpenAI-Compatible Backend
 

@@ -28,7 +28,7 @@ Endpoint aliases:
 - `POST /config/llm`
 - `OPTIONS *`
 
-The server binds to loopback by default. Binding to `0.0.0.0` or another non-loopback address requires `PRIVOKE_ALLOW_NON_LOOPBACK_BIND=true`, which Docker Compose sets for the containerized runtime.
+The HTTP server binds to loopback by default. Binding to `0.0.0.0` or another non-loopback address requires `PRIVOKE_ALLOW_NON_LOOPBACK_BIND=true`. The current server Compose deployments run the gRPC entry point, not this HTTP harness.
 
 ## Analyze Request Shape
 

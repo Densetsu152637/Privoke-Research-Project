@@ -42,7 +42,11 @@ Use `prompt_detection_recall_by_source_category` in the JSON report to see which
 
 ## Setup after the root README
 
-First complete the Docker setup in the project root `README.md`. Keep the root stack running so the model-streaming service remains available on port `50051`.
+The evaluator only needs the server-side parameter-streaming dependency, not the fuzzer, update collector, telemetry collector, or server copy of `client-runtime`. Start the development version of that service from the repository root and keep it available on port `50051`:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build model-streaming-service
+```
 
 ### Terminal 1: start the existing client runtime
 
@@ -70,6 +74,8 @@ curl http://127.0.0.1:8765/health
 ```
 
 Continue when the response contains `"status": "SERVING"`.
+
+The evaluator uses `PRIVOKE_RUNTIME_URL=http://127.0.0.1:8765` and `PRIVOKE_RUNTIME_TIMEOUT_SECONDS=120` by default. Override those environment variables when the local harness uses another loopback URL or needs a different per-prompt timeout.
 
 Then:
 
@@ -99,6 +105,7 @@ python3 -m venv evaluation/.venv
 source evaluation/.venv/bin/activate
 pip install -r evaluation/requirements.txt
 pip install -r extension/client-runtime/requirements.txt
+pip install ./shared/python
 ```
 
 The runtime dependencies are needed to run `extension/client-runtime/src/main.py`. The evaluator still communicates with it only through HTTP.

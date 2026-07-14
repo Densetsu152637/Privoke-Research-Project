@@ -61,7 +61,7 @@ class ModelParameterStreamer:
     present before this module is imported.
     """
 
-    DEFAULT_TARGET = "model-streaming-service:50051"
+    DEFAULT_TARGET = "127.0.0.1:50051"
     DEFAULT_CONSUMER_ID = "client-runtime"
     DEFAULT_MODEL_ID = "privoke-baseline"
     DEFAULT_TIMEOUT_SECONDS = 10.0
@@ -102,6 +102,12 @@ class ModelParameterStreamer:
                     model_id=self.model_id,
                 ),
                 timeout=self.timeout_seconds,
+            )
+
+        if snapshot.model_id != self.model_id:
+            raise RuntimeError(
+                "model-streaming-service returned model "
+                f"'{snapshot.model_id}' for requested model '{self.model_id}'."
             )
 
         return ParameterSnapshot(

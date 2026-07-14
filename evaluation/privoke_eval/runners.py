@@ -24,7 +24,7 @@ def check_runtime_available() -> None:
     except (HTTPError, URLError, ValueError) as exc:
         raise RuntimeError(
             f"PriVoke client runtime is unavailable at {url}. "
-            "Start the client-runtime container before running evaluation."
+            "Start the local client-runtime HTTP harness before running evaluation."
         ) from exc
 
 

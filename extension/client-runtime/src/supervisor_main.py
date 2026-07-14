@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent import futures
+import os
 import signal
 import sys
 import time
@@ -44,6 +45,10 @@ def main() -> None:
     signal.signal(signal.SIGINT, _stop)
 
     runtime_port = env_positive_int("PRIVOKE_GRPC_PORT", 50054)
+    control_host = (
+        os.getenv("PRIVOKE_CONTROL_GRPC_HOST", "127.0.0.1").strip()
+        or "127.0.0.1"
+    )
     control_port = env_positive_int("PRIVOKE_CONTROL_GRPC_PORT", 50056)
     supervisor = RuntimeProcessSupervisor(
         runtime_port=runtime_port,
@@ -66,9 +71,12 @@ def main() -> None:
         PrivokeRuntimeControlService(supervisor),
         server,
     )
-    server.add_insecure_port(f"[::]:{control_port}")
+    server.add_insecure_port(f"{control_host}:{control_port}")
     server.start()
-    print(f"PriVoke runtime supervisor listening on port {control_port}", flush=True)
+    print(
+        f"PriVoke runtime supervisor listening on {control_host}:{control_port}",
+        flush=True,
+    )
 
     try:
         while not _SHOULD_STOP:
