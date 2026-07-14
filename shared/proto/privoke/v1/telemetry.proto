@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package privoke.v1;
+
+message TelemetryHealthRequest {}
+
+message TelemetryHealthResponse {
+  string service = 1;
+  string status = 2;
+}
+
+message LayerTelemetry {
+  string layer = 1;
+  string status = 2;
+  uint32 result_count = 3;
+  string error = 4;
+}
+
+message TelemetryPacket {
+  string event_id = 1;
+  int64 occurred_at_unix_ms = 2;
+  string time_bucket = 3;
+  string source_id = 4;
+  string request_id = 5;
+  string target_app = 6;
+  string action = 7;
+  string sensitivity = 8;
+  string visibility = 9;
+  repeated string categories = 10;
+  uint32 text_length = 11;
+  double elapsed_ms = 12;
+  double risk_score = 13;
+  string risk_bucket = 14;
+  string detector_version = 15;
+  repeated LayerTelemetry layers = 16;
+}
+
+message RecordTelemetryResponse {
+  bool accepted = 1;
+  string event_id = 2;
+  int64 sequence = 3;
+  string message = 4;
+}
+
+message ListTelemetryRequest {
+  uint32 limit = 1;
+  int64 before_sequence = 2;
+}
+
+message StoredTelemetryPacket {
+  int64 sequence = 1;
+  TelemetryPacket packet = 2;
+}
+
+message ListTelemetryResponse {
+  repeated StoredTelemetryPacket packets = 1;
+}
+
+service TelemetryService {
+  rpc RecordTelemetry(TelemetryPacket) returns (RecordTelemetryResponse);
+  rpc ListTelemetry(ListTelemetryRequest) returns (ListTelemetryResponse);
+  rpc Health(TelemetryHealthRequest) returns (TelemetryHealthResponse);
+}

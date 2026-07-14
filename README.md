@@ -53,6 +53,7 @@ Detector output is represented by `services/client-runtime/src/classification`.
 - `services/model-streaming-service`: Go gRPC service that returns the current model parameter snapshot.
 - `services/param-update-service`: Python gRPC service that accepts parameter update payloads and can request fuzzer training cycles.
 - `services/privoke-fuzzer`: Python gRPC worker and CLI for prompt generation, layer probes, streamed semantic-model evaluation, and update submission.
+- `services/telemetry-service`: Python gRPC metadata collector backed by SQLite.
 - `shared/proto`: Shared protobuf contracts used by the gRPC services and streamed semantic backend.
 - `paper`: Research figures and experiment artifacts.
 
@@ -62,6 +63,7 @@ Detector output is represented by `services/client-runtime/src/classification`.
 - `param-update-service`: gRPC on `50052`.
 - `privoke-fuzzer`: gRPC on `50053`.
 - `privoke-runtime`: gRPC on `50054`.
+- `telemetry-service`: gRPC on `50055`.
 
 ## Development Commands
 
@@ -143,6 +145,8 @@ In dev mode fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer
 - `Health` RPCs for the parameter, update, and fuzzer services
 
 `shared/proto/privoke/v1/runtime.proto` defines `PrivokeRuntimeService`, requested detector layers, regex execution order, and per-layer results/errors.
+
+`shared/proto/privoke/v1/telemetry.proto` defines privacy-minimal event recording and paginated retrieval. Compose persists these packets in the `telemetry-data` SQLite volume.
 
 The dev Compose override regenerates Python and Go protobuf bindings into each service-local `generated` or `gen` directory before starting the service.
 

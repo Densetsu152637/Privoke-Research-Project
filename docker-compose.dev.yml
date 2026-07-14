@@ -58,6 +58,33 @@ services:
         "mkdir -p /workspace/services/param-update-service/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/param-update-service/generated --grpc_python_out=/workspace/services/param-update-service/generated /workspace/shared/proto/privoke/v1/parameters.proto && python app/server.py",
       ]
 
+  telemetry-service:
+    build:
+      context: .
+      dockerfile: services/telemetry-service/Dockerfile
+    container_name: telemetry-service
+    ports:
+      - "50055:50055"
+    environment:
+      TELEMETRY_PORT: 50055
+      TELEMETRY_DB_PATH: /data/telemetry.db
+    volumes:
+      - telemetry-data:/data
+      - ./services/telemetry-service:/workspace/services/telemetry-service
+      - ./shared:/workspace/shared
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import socket; socket.create_connection((\"127.0.0.1\", 50055), 1).close()'"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+    command:
+      [
+        "sh",
+        "-lc",
+        "mkdir -p /workspace/services/telemetry-service/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/telemetry-service/generated --grpc_python_out=/workspace/services/telemetry-service/generated /workspace/shared/proto/privoke/v1/telemetry.proto && python app/server.py",
+      ]
+
   privoke-runtime:
     build:
       context: .
@@ -65,6 +92,8 @@ services:
     container_name: privoke-runtime
     depends_on:
       model-streaming-service:
+        condition: service_healthy
+      telemetry-service:
         condition: service_healthy
     ports:
       - "50054:50054"
@@ -75,6 +104,9 @@ services:
       MODEL_STREAMING_CONSUMER_ID: privoke-runtime
       MODEL_ID: privoke-baseline
       PYTHONPATH: /workspace/shared/python
+      TELEMETRY_ENABLED: "true"
+      TELEMETRY_TARGET: telemetry-service:50055
+      TELEMETRY_SOURCE_ID: privoke-runtime
     healthcheck:
       test: ["CMD-SHELL", "python -c 'import socket; socket.create_connection((\"127.0.0.1\", 50054), 1).close()'"]
       interval: 2s
@@ -88,7 +120,7 @@ services:
       [
         "sh",
         "-lc",
-        "mkdir -p /workspace/services/client-runtime/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/client-runtime/generated --grpc_python_out=/workspace/services/client-runtime/generated /workspace/shared/proto/privoke/v1/parameters.proto /workspace/shared/proto/privoke/v1/runtime.proto && python src/grpc_main.py",
+        "mkdir -p /workspace/services/client-runtime/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/client-runtime/generated --grpc_python_out=/workspace/services/client-runtime/generated /workspace/shared/proto/privoke/v1/parameters.proto /workspace/shared/proto/privoke/v1/runtime.proto /workspace/shared/proto/privoke/v1/telemetry.proto && python src/grpc_main.py",
       ]
 
   privoke-fuzzer:
@@ -127,3 +159,4 @@ services:
 
 volumes:
   param-update-data:
+  telemetry-data:

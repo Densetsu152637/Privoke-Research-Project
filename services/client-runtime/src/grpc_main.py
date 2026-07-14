@@ -19,8 +19,9 @@ if str(GENERATED_DIR) not in sys.path:
     sys.path.insert(0, str(GENERATED_DIR))
 
 from src.config import GLOBAL_CONFIG, LLMChoice
-from src.env import env_bool, env_positive_int
+from src.env import env_bool, env_positive_float, env_positive_int
 from src.hosting.grpc_server import create_grpc_server
+from src.telemetry import TelemetryReporter
 
 
 _SHOULD_STOP = False
@@ -38,8 +39,20 @@ def main() -> None:
         "PRIVOKE_WAIT_FOR_REGEX", GLOBAL_CONFIG.wait_for_regex
     )
     port = env_positive_int("PRIVOKE_GRPC_PORT", 50054)
+    telemetry_reporter = (
+        TelemetryReporter(
+            target=os.getenv("TELEMETRY_TARGET", "telemetry-service:50055"),
+            source_id=os.getenv("TELEMETRY_SOURCE_ID", "privoke-runtime"),
+            timeout_seconds=env_positive_float("TELEMETRY_TIMEOUT_SECONDS", 1.0),
+            queue_size=env_positive_int("TELEMETRY_QUEUE_SIZE", 1024),
+            detector_version=os.getenv("PRIVOKE_DETECTOR_VERSION", "v2"),
+        )
+        if env_bool("TELEMETRY_ENABLED", False)
+        else None
+    )
     server = create_grpc_server(
-        max_text_chars=env_positive_int("PRIVOKE_MAX_PROMPT_CHARS", 20_000)
+        max_text_chars=env_positive_int("PRIVOKE_MAX_PROMPT_CHARS", 20_000),
+        telemetry_reporter=telemetry_reporter,
     )
     server.add_insecure_port(f"[::]:{port}")
     server.start()
@@ -49,6 +62,8 @@ def main() -> None:
             time.sleep(0.25)
     finally:
         server.stop(5).wait()
+        if telemetry_reporter is not None:
+            telemetry_reporter.close()
 
 
 def _stop(signum, frame) -> None:

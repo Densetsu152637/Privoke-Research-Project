@@ -18,7 +18,8 @@ RUN pip install --no-cache-dir -r requirements.txt /workspace/shared/python \
       --python_out=/workspace/services/client-runtime/generated \
       --grpc_python_out=/workspace/services/client-runtime/generated \
       /workspace/shared/proto/privoke/v1/parameters.proto \
-      /workspace/shared/proto/privoke/v1/runtime.proto
+      /workspace/shared/proto/privoke/v1/runtime.proto \
+      /workspace/shared/proto/privoke/v1/telemetry.proto
 
 EXPOSE 50054
 

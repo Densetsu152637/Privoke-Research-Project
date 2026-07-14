@@ -1,6 +1,6 @@
 # Services
 
-This directory contains PriVoke's local client runtime and research-support services. Docker Compose deploys four gRPC services: prompt inspection, parameter streaming, fuzzer training requests, and update ingestion.
+This directory contains PriVoke's local client runtime and research-support services. Docker Compose deploys five gRPC services: prompt inspection, parameter streaming, fuzzer training requests, update ingestion, and telemetry collection.
 
 ## Service Map
 
@@ -8,6 +8,7 @@ This directory contains PriVoke's local client runtime and research-support serv
 - `model-streaming-service`: Go gRPC server that returns the current parameter snapshot used by the streamed semantic backend.
 - `param-update-service`: Python gRPC server that appends parameter updates to JSONL storage and can request fuzzer training cycles after startup.
 - `privoke-fuzzer`: Python gRPC worker plus CLI for prompt generation, layer probes, streamed semantic-model evaluation, and update submission.
+- `telemetry-service`: Python gRPC collector with SQLite persistence for privacy-minimal runtime events.
 
 ## Runtime Detection Path
 
@@ -40,6 +41,8 @@ Cross-service APIs live in `shared/proto/privoke/v1/parameters.proto` and `runti
 - `FuzzerService.RunTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
 - Each gRPC service also implements `Health(HealthRequest) -> HealthResponse`
 - `PrivokeRuntimeService.AnalyzePrompt(AnalyzePromptRequest) -> AnalyzePromptResponse`
+- `TelemetryService.RecordTelemetry(TelemetryPacket) -> RecordTelemetryResponse`
+- `TelemetryService.ListTelemetry(ListTelemetryRequest) -> ListTelemetryResponse`
 
 Do not create ad hoc JSON contracts between services when a protobuf boundary exists.
 
@@ -51,6 +54,7 @@ Default ports:
 - `param-update-service`: `50052`
 - `privoke-fuzzer`: `50053`
 - `privoke-runtime`: `50054`
+- `telemetry-service`: `50055`
 
 `docker-compose.dev.yml` bind-mounts each service's own source tree and regenerates protobuf bindings before startup. Fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer`.
 

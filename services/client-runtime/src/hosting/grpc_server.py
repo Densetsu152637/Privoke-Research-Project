@@ -8,6 +8,7 @@ import grpc
 
 from ..classification import Classification, ClassificationResult
 from ..pipeline import DETECTION_LAYERS, LayerExecution
+from ..telemetry import TelemetryReporter
 from .analyzer import PromptAnalysis, analyse_prompt
 from .serialization import (
     DEFAULT_MAX_TEXT_CHARS,
@@ -27,8 +28,13 @@ LAYER_TO_PROTO = {value: key for key, value in PROTO_TO_LAYER.items()}
 
 
 class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
-    def __init__(self, max_text_chars: int = DEFAULT_MAX_TEXT_CHARS):
+    def __init__(
+        self,
+        max_text_chars: int = DEFAULT_MAX_TEXT_CHARS,
+        telemetry_reporter: TelemetryReporter | None = None,
+    ):
         self.max_text_chars = max_text_chars
+        self.telemetry_reporter = telemetry_reporter
 
     def AnalyzePrompt(self, request, context):
         try:
@@ -45,13 +51,15 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
             )
             layers = _requested_layers(request.layers)
             regex_first = _regex_first(request.regex_execution_order)
-            return _analysis_response(
-                analyse_prompt(
-                    prompt_request,
-                    layers=layers,
-                    regex_first=regex_first,
-                )
+            analysis = analyse_prompt(
+                prompt_request,
+                layers=layers,
+                regex_first=regex_first,
             )
+            response = _analysis_response(analysis)
+            if self.telemetry_reporter is not None:
+                self.telemetry_reporter.report(analysis)
+            return response
         except Exception as exc:
             return runtime_pb2.AnalyzePromptResponse(
                 request_id=request.request_id,
@@ -65,10 +73,17 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
         )
 
 
-def create_grpc_server(max_workers: int = 8, max_text_chars: int = DEFAULT_MAX_TEXT_CHARS):
+def create_grpc_server(
+    max_workers: int = 8,
+    max_text_chars: int = DEFAULT_MAX_TEXT_CHARS,
+    telemetry_reporter: TelemetryReporter | None = None,
+):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=max_workers))
     runtime_pb2_grpc.add_PrivokeRuntimeServiceServicer_to_server(
-        PrivokeRuntimeService(max_text_chars=max_text_chars),
+        PrivokeRuntimeService(
+            max_text_chars=max_text_chars,
+            telemetry_reporter=telemetry_reporter,
+        ),
         server,
     )
     return server

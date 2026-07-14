@@ -1,6 +1,6 @@
 # Shared Contracts
 
-This directory contains interfaces shared by more than one PriVoke service. Active contracts are `parameters.proto` and `runtime.proto` under `proto/privoke/v1`.
+This directory contains interfaces shared by more than one PriVoke service. Active protobuf contracts are `parameters.proto`, `runtime.proto`, and `telemetry.proto` under `proto/privoke/v1`; `python/privoke_contracts` contains the shared classification value contract.
 
 ## Current Protobuf Contract
 
@@ -35,6 +35,8 @@ Services:
 - `client-runtime` implements `PrivokeRuntimeService`.
 - `privoke-fuzzer` consumes `PrivokeRuntimeService` and `ModelStreamingService`, implements `FuzzerService`, and consumes `ParamUpdateService`.
 - `param-update-service` implements `ParamUpdateService` and can consume `FuzzerService` when fuzzer requests are enabled.
+- `client-runtime` produces privacy-minimal `TelemetryPacket` messages.
+- `telemetry-service` implements `TelemetryService` and persists those packets.
 
 ## Generated Bindings
 

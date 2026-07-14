@@ -168,8 +168,20 @@ Environment variables:
 - `MODEL_STREAMING_TARGET`, `MODEL_ID`, `MODEL_STREAMING_CONSUMER_ID`, `MODEL_STREAMING_TIMEOUT_SECONDS`
 - `LM_STUDIO_BASE_URL`, `LM_STUDIO_MODEL`, `LM_STUDIO_API_KEY`, `LM_STUDIO_TIMEOUT_SECONDS`, `LM_STUDIO_TEMPERATURE`, `LM_STUDIO_MAX_TOKENS`, `LM_STUDIO_RESPONSE_FORMAT`
 - `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_TEMPERATURE`, `OPENAI_MAX_TOKENS`
+- `TELEMETRY_ENABLED`, default `false` outside Compose
+- `TELEMETRY_TARGET`, default `telemetry-service:50055`
+- `TELEMETRY_SOURCE_ID`, default `privoke-runtime`
+- `TELEMETRY_TIMEOUT_SECONDS`, default `1.0`
+- `TELEMETRY_QUEUE_SIZE`, default `1024`
+- `PRIVOKE_DETECTOR_VERSION`, default `v2`
 
 `PRIVOKE_DEV_LOG_PROMPTS=true` logs raw prompt text only for requests whose `source` contains `fuzzer`. Keep it off outside local debugging.
+
+## Telemetry
+
+The gRPC runtime uses `StructuredEventEmitter` and a bounded background `TelemetryReporter` when `TELEMETRY_ENABLED=true`. Prompt decisions never wait for telemetry delivery. Queue overflow or collector failure drops the packet and logs event metadata only.
+
+Packets deliberately exclude raw prompt text, matched spans, reasoning, arbitrary request metadata, and exception messages. They contain coarse classification/action data, text length, timing, risk bucket, and requested layer statuses. Compose enables reporting to `telemetry-service`, which stores events in SQLite.
 
 ## Local Setup
 
@@ -178,6 +190,7 @@ cd services/client-runtime
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
+pip install ../../shared/python
 ```
 
 For streamed classification outside Docker, generate the gRPC stubs into `services/client-runtime/generated` from both `shared/proto/privoke/v1/parameters.proto` and `runtime.proto`.
