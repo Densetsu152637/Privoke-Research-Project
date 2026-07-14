@@ -83,18 +83,27 @@ class TelemetryStore:
             return int(cursor.lastrowid)
 
     def list(self, limit: int, before_sequence: int = 0) -> list[sqlite3.Row]:
-        where = "WHERE sequence < ?" if before_sequence > 0 else ""
-        parameters = (before_sequence, limit) if before_sequence > 0 else (limit,)
         with self._connect() as connection:
+            if before_sequence > 0:
+                return list(
+                    connection.execute(
+                        """
+                        SELECT * FROM telemetry_events
+                        WHERE sequence < ?
+                        ORDER BY sequence DESC
+                        LIMIT ?
+                        """,
+                        (before_sequence, limit),
+                    )
+                )
             return list(
                 connection.execute(
-                    f"""
+                    """
                     SELECT * FROM telemetry_events
-                    {where}
                     ORDER BY sequence DESC
                     LIMIT ?
                     """,
-                    parameters,
+                    (limit,),
                 )
             )
 

@@ -38,7 +38,7 @@ class LocalOnlyHTTPServer(ThreadingHTTPServer):
         handler_class,
         *,
         max_text_chars: int = DEFAULT_MAX_TEXT_CHARS,
-        cors_origin: str = "*",
+        cors_origin: str = "",
     ):
         host, _ = server_address
         if not is_loopback_host(host) and not env_bool(
@@ -52,7 +52,7 @@ class LocalOnlyHTTPServer(ThreadingHTTPServer):
 
         super().__init__(server_address, handler_class)
         self.max_text_chars = max_text_chars
-        self.cors_origin = cors_origin
+        self.cors_origin = _validated_cors_origin(cors_origin)
 
 
 class PrivokeRequestHandler(BaseHTTPRequestHandler):
@@ -168,6 +168,8 @@ class PrivokeRequestHandler(BaseHTTPRequestHandler):
         content_type = self.headers.get("Content-Type", "")
         if content_type and "application/json" not in content_type.lower():
             raise RequestValidationError("Content-Type must be application/json.")
+        if self.headers.get("Transfer-Encoding"):
+            raise RequestValidationError("Transfer-Encoding is not supported.")
 
         length_header = self.headers.get("Content-Length")
         if length_header is None:
@@ -177,6 +179,8 @@ class PrivokeRequestHandler(BaseHTTPRequestHandler):
             length = int(length_header)
         except ValueError as exc:
             raise RequestValidationError("Content-Length must be an integer.") from exc
+        if length < 0:
+            raise RequestValidationError("Content-Length must not be negative.")
 
         max_bytes = self.server.max_text_chars * 4 + 4096
         if length > max_bytes:
@@ -201,12 +205,14 @@ class PrivokeRequestHandler(BaseHTTPRequestHandler):
         self.send_response(int(status_code))
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", self.server.cors_origin)
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header(
-            "Access-Control-Allow-Headers",
-            "Content-Type, X-Requested-With",
-        )
+        if self.server.cors_origin:
+            self.send_header("Access-Control-Allow-Origin", self.server.cors_origin)
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header(
+                "Access-Control-Allow-Headers",
+                "Content-Type, X-Requested-With",
+            )
+            self.send_header("Vary", "Origin")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         if body:
@@ -228,7 +234,11 @@ def create_server(
             if max_text_chars is not None
             else env_positive_int("PRIVOKE_MAX_PROMPT_CHARS", DEFAULT_MAX_TEXT_CHARS)
         ),
-        cors_origin=cors_origin or os.getenv("PRIVOKE_CORS_ORIGIN", "*"),
+        cors_origin=(
+            cors_origin
+            if cors_origin is not None
+            else os.getenv("PRIVOKE_CORS_ORIGIN", "")
+        ),
     )
 
 
@@ -259,6 +269,25 @@ def is_loopback_host(host: str) -> bool:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
         return False
+
+
+def _validated_cors_origin(origin: str) -> str:
+    value = origin.strip()
+    if not value:
+        return ""
+    if value == "*":
+        raise ValueError(
+            "Wildcard CORS is disabled; configure one exact trusted origin."
+        )
+
+    parsed = urlparse(value)
+    if parsed.scheme not in {"http", "https", "chrome-extension"}:
+        raise ValueError("CORS origin must use http, https, or chrome-extension.")
+    if not parsed.netloc or parsed.username or parsed.password:
+        raise ValueError("CORS origin must contain a host and no credentials.")
+    if parsed.path not in {"", "/"} or parsed.params or parsed.query or parsed.fragment:
+        raise ValueError("CORS origin must not include a path, query, or fragment.")
+    return value.rstrip("/")
 
 
 def _json_bytes(payload: Dict[str, Any]) -> bytes:

@@ -2,6 +2,7 @@ import json
 import os
 from typing import Any, Dict, List
 from urllib import error, request
+from urllib.parse import urlsplit
 from dotenv import load_dotenv
 
 from .abs_classifier import AbstractClassifier
@@ -16,6 +17,8 @@ from ..classification import (
 from ..env import env_float, env_positive_int
 
 load_dotenv()
+
+MAX_LLM_RESPONSE_BYTES = 1_048_576
 
 class LocalClassifier(AbstractClassifier):
     """
@@ -195,6 +198,13 @@ class LocalClassifier(AbstractClassifier):
 
 def _normalise_base_url(base_url: str) -> str:
     normalised = base_url.strip().rstrip("/")
+    parsed = urlsplit(normalised)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("LM Studio base URL must be an http(s) URL with a host.")
+    if parsed.username or parsed.password:
+        raise ValueError("LM Studio base URL must not contain credentials.")
+    if parsed.query or parsed.fragment:
+        raise ValueError("LM Studio base URL must not contain a query or fragment.")
     if normalised.endswith("/chat/completions"):
         normalised = normalised[: -len("/chat/completions")]
     if not normalised.endswith("/v1"):
@@ -219,10 +229,14 @@ def _request_json(
     )
 
     try:
-        with request.urlopen(request_obj, timeout=timeout_seconds) as response:
-            response_body = response.read().decode("utf-8")
+        # The URL is constrained to HTTP(S) by _normalise_base_url.
+        with request.urlopen(  # nosec B310
+            request_obj,
+            timeout=timeout_seconds,
+        ) as response:
+            response_body = _read_response_body(response, operation)
     except error.HTTPError as exc:
-        response_body = exc.read().decode("utf-8", errors="replace")
+        response_body = _read_response_body(exc, operation, errors="replace")
         raise RuntimeError(
             f"{operation} failed ({exc.code}): {response_body}"
         ) from exc
@@ -238,6 +252,15 @@ def _request_json(
         raise RuntimeError(f"{operation} returned malformed JSON.")
 
     return parsed
+
+
+def _read_response_body(response, operation: str, errors: str = "strict") -> str:
+    body = response.read(MAX_LLM_RESPONSE_BYTES + 1)
+    if len(body) > MAX_LLM_RESPONSE_BYTES:
+        raise RuntimeError(
+            f"{operation} response exceeds {MAX_LLM_RESPONSE_BYTES} bytes."
+        )
+    return body.decode("utf-8", errors=errors)
 
 
 def _response_format(mode: str) -> Dict[str, Any] | None:

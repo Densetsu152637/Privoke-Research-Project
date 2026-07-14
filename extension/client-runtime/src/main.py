@@ -70,8 +70,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--cors-origin",
-        default=os.getenv("PRIVOKE_CORS_ORIGIN", "*"),
-        help="CORS Access-Control-Allow-Origin value for local web clients.",
+        default=os.getenv("PRIVOKE_CORS_ORIGIN", ""),
+        help="Exact trusted CORS origin for local web clients; disabled by default.",
     )
     parser.add_argument(
         "--wait-for-regex",

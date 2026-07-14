@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 
 import grpc
@@ -22,8 +23,26 @@ class ModelSnapshotUnavailable(RuntimeError):
 class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
     def __init__(self, config: FuzzerConfig):
         self.config = config
+        self._cycle_slots = threading.BoundedSemaphore(
+            value=config.max_concurrent_cycles
+        )
 
     def RunTrainingCycle(self, request, context):
+        try:
+            validate_training_request(request, self.config.model_id)
+        except ValueError as exc:
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(exc))
+        if not self._cycle_slots.acquire(blocking=False):
+            context.abort(
+                grpc.StatusCode.RESOURCE_EXHAUSTED,
+                "The maximum number of concurrent training cycles is already running.",
+            )
+        try:
+            return self._run_training_cycle(request, context)
+        finally:
+            self._cycle_slots.release()
+
+    def _run_training_cycle(self, request, context):
         requested_prompt_count = int(request.prompt_count)
         if requested_prompt_count <= 0:
             context.abort(
@@ -41,7 +60,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
         model_id = request.model_id or self.config.model_id
         seed = int(request.seed) if request.seed else self.config.seed
         logging.info(
-            "received training request id=%s source=%s model=%s prompts=%s",
+            "received training request id=%r source=%r model=%r prompts=%s",
             request.request_id,
             request.source_id,
             model_id,
@@ -72,22 +91,32 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                 timeout_seconds=self.config.timeout_seconds,
             ),
         )
-        ack = emit_training_update(
-            target=self.config.param_update_target,
-            source_id=self.config.fuzzer_id,
-            update=update,
-            extra_metadata={
-                "request_id": request.request_id,
-                "request_source_id": request.source_id,
-                "requested_prompt_count": str(requested_prompt_count),
-                "generated_prompt_count": str(len(examples)),
-                "training_pipeline": "streamed_llm_only",
-            },
-            timeout_seconds=self.config.timeout_seconds,
-        )
+        try:
+            ack = emit_training_update(
+                target=self.config.param_update_target,
+                source_id=self.config.fuzzer_id,
+                update=update,
+                extra_metadata={
+                    "request_id": request.request_id,
+                    "request_source_id": request.source_id,
+                    "requested_prompt_count": str(requested_prompt_count),
+                    "generated_prompt_count": str(len(examples)),
+                    "training_pipeline": "streamed_llm_only",
+                },
+                timeout_seconds=self.config.timeout_seconds,
+            )
+        except grpc.RpcError as exc:
+            logging.warning(
+                "parameter update submission failed code=%s",
+                exc.code(),
+            )
+            context.abort(
+                grpc.StatusCode.UNAVAILABLE,
+                "Parameter update service is unavailable.",
+            )
 
         logging.info(
-            "completed training request id=%s accepted=%s version=%s prompts=%s",
+            "completed training request id=%r accepted=%s version=%r prompts=%s",
             request.request_id,
             ack.accepted,
             ack.applied_version,
@@ -100,6 +129,36 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             service="privoke-fuzzer",
             status="SERVING",
         )
+
+
+def validate_training_request(request, expected_model_id: str) -> None:
+    _validate_request_text(request.request_id, "request_id", required=True)
+    _validate_request_text(request.source_id, "source_id", required=True)
+    _validate_request_text(request.model_id, "model_id", required=False)
+    if request.model_id and request.model_id != expected_model_id:
+        raise ValueError(f"model_id must be {expected_model_id!r}.")
+    if request.prompt_count <= 0:
+        raise ValueError("prompt_count must be greater than zero.")
+    if len(request.metadata) > 64:
+        raise ValueError("metadata may contain at most 64 entries.")
+    for key, value in request.metadata.items():
+        _validate_request_text(key, "metadata key", required=True, limit=128)
+        _validate_request_text(value, "metadata value", required=False, limit=2048)
+
+
+def _validate_request_text(
+    value: str,
+    field_name: str,
+    *,
+    required: bool,
+    limit: int = 128,
+) -> None:
+    if required and not value:
+        raise ValueError(f"{field_name} is required.")
+    if len(value) > limit:
+        raise ValueError(f"{field_name} exceeds {limit} characters.")
+    if any(ord(character) < 32 or ord(character) == 127 for character in value):
+        raise ValueError(f"{field_name} must not contain control characters.")
 
 
 def fetch_snapshot(config: FuzzerConfig, model_id: str) -> StreamedParameterSnapshot:

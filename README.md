@@ -65,7 +65,7 @@ Detector output is represented by `extension/client-runtime/src/classification`.
 - `client-runtime`: always-on server detector gRPC on `50054`.
 - `telemetry-service`: gRPC on `50055`.
 
-Compose publishes `50051`, `50052`, `50054`, and `50055` on the host. The fuzzer's `50053` port remains internal to the Compose network because `param-update-service` is its deployed caller; use `docker compose exec privoke-fuzzer ...` for its CLI.
+Production Compose keeps all five ports internal to its service network. The development override publishes `50051`, `50052`, `50054`, and `50055` on host loopback only (`127.0.0.1`); the fuzzer's `50053` remains internal. Use `docker compose exec privoke-fuzzer ...` for its CLI. A real external API must be exposed explicitly through an authenticated TLS ingress rather than by publishing these plaintext gRPC ports.
 
 ## Development Commands
 
@@ -145,16 +145,17 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml exec privoke-fuzz
   --generated-count 8
 ```
 
-In dev mode fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer`. In the baseline stack they stay inside the fuzzer container at `/workspace/dumps/privoke-fuzzer`.
+In dev mode fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer`. The production stack persists them in the `fuzzer-dumps` named volume.
 
 ## Current Prototype Boundaries
 
 - `model-streaming-service` serves one configured, hard-coded parameter snapshot. It rejects other non-empty model IDs.
 - `param-update-service` persists gradients and reports a derived applied-version label, but it does not mutate the snapshot served by `model-streaming-service`.
 - The full Compose stack sets `FUZZER_PROMPT_COUNT=8`, so `param-update-service` requests one eight-prompt training cycle after startup. The resulting update is stored only in the `param-update-data` volume.
+- Production containers run as an unprivileged user with a read-only root filesystem, all Linux capabilities dropped, and `no-new-privileges`. A network-disabled one-shot `storage-permissions` initializer migrates the three named data volumes to that UID without deleting their contents.
 - The unpacked extension is not self-contained: it requires the workstation supervisor and local Envoy gRPC-Web bridge. The repository does not ship a separate extension Compose deployment or companion installer.
 - The optional HTTP harness on `127.0.0.1:8765` exists for evaluation and local integration; server Compose and the browser extension use gRPC paths instead.
-- Service-to-service gRPC is currently plaintext and unauthenticated. An actual server deployment must keep these ports on a trusted private network or add authenticated TLS at the deployment boundary.
+- Service-to-service gRPC is currently plaintext and unauthenticated. Production Compose therefore does not publish it. An actual multi-host deployment must keep it on a trusted private network and add authenticated TLS at the deployment boundary.
 
 ## Cross-Service Contract
 

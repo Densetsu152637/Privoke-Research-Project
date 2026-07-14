@@ -4,9 +4,12 @@ services:
     build:
       context: .
       dockerfile: services/model-streaming-service/Dockerfile
+      target: development
     container_name: model-streaming-service
+    user: "0:0"
+    read_only: false
     ports:
-      - "50051:50051"
+      - "127.0.0.1:50051:50051"
     environment:
       MODEL_STREAMING_PORT: 50051
       MODEL_ID: privoke-baseline
@@ -32,14 +35,17 @@ services:
     build:
       context: .
       dockerfile: services/param-update-service/Dockerfile
+      target: development
     container_name: param-update-service
+    user: "0:0"
+    read_only: false
     depends_on:
       model-streaming-service:
         condition: service_healthy
       privoke-fuzzer:
         condition: service_healthy
     ports:
-      - "50052:50052"
+      - "127.0.0.1:50052:50052"
     environment:
       PARAM_UPDATE_PORT: 50052
       PARAM_UPDATE_STORAGE_PATH: /data/updates.jsonl
@@ -65,9 +71,12 @@ services:
     build:
       context: .
       dockerfile: services/telemetry-service/Dockerfile
+      target: development
     container_name: telemetry-service
+    user: "0:0"
+    read_only: false
     ports:
-      - "50055:50055"
+      - "127.0.0.1:50055:50055"
     environment:
       TELEMETRY_PORT: 50055
       TELEMETRY_DB_PATH: /data/telemetry.db
@@ -90,6 +99,14 @@ services:
 
   client-runtime:
     restart: "no"
+    build:
+      context: .
+      dockerfile: extension/client-runtime/Dockerfile
+      target: development
+    user: "0:0"
+    read_only: false
+    ports:
+      - "127.0.0.1:50054:50054"
     volumes:
       - ./extension/client-runtime:/workspace/extension/client-runtime
       - ./shared:/workspace/shared
@@ -105,7 +122,10 @@ services:
     build:
       context: .
       dockerfile: services/privoke-fuzzer/Dockerfile
+      target: development
     container_name: privoke-fuzzer
+    user: "0:0"
+    read_only: false
     depends_on:
       model-streaming-service:
         condition: service_healthy
@@ -138,3 +158,4 @@ services:
 volumes:
   param-update-data:
   telemetry-data:
+  fuzzer-dumps:

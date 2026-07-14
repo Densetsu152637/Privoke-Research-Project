@@ -115,7 +115,7 @@ Supported `choice` aliases are parsed by `LLMChoice.parse`.
 
 The server logs request metadata only. It does not log request bodies except when `PRIVOKE_DEV_LOG_PROMPTS=true` and the request `source` contains `fuzzer`; that dev path prints raw fuzzer prompt text for debugging.
 
-CORS defaults to `*` and can be changed with `--cors-origin` or `PRIVOKE_CORS_ORIGIN`.
+CORS is disabled by default. Browser access can be enabled with `--cors-origin` or `PRIVOKE_CORS_ORIGIN`, but the value must be one exact trusted `http`, `https`, or `chrome-extension` origin; wildcard CORS is rejected. Non-browser clients such as `curl` do not require CORS.
 
 ## Subagent Tasks
 

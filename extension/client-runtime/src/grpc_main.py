@@ -53,6 +53,14 @@ def main() -> None:
     )
     server = create_grpc_server(
         max_text_chars=env_positive_int("PRIVOKE_MAX_PROMPT_CHARS", 20_000),
+        max_message_bytes=env_positive_int(
+            "PRIVOKE_MAX_GRPC_MESSAGE_BYTES",
+            262_144,
+        ),
+        max_response_bytes=env_positive_int(
+            "PRIVOKE_MAX_GRPC_RESPONSE_BYTES",
+            1_048_576,
+        ),
         telemetry_reporter=telemetry_reporter,
     )
     server.add_insecure_port(f"{host}:{port}")

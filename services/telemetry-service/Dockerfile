@@ -1,6 +1,15 @@
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm AS development
 
 WORKDIR /workspace
+
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m venv "${VIRTUAL_ENV}" \
+    && pip install --no-cache-dir --upgrade pip setuptools wheel
 
 COPY shared/proto /workspace/shared/proto
 COPY services/telemetry-service /workspace/services/telemetry-service
@@ -16,5 +25,35 @@ RUN pip install --no-cache-dir -r requirements.txt \
       /workspace/shared/proto/privoke/v1/telemetry.proto
 
 EXPOSE 50055
+
+CMD ["python", "app/server.py"]
+
+FROM python:3.11-slim-bookworm AS runtime
+
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV HOME=/tmp
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 10001 privoke \
+    && useradd --system --uid 10001 --gid privoke --no-create-home privoke \
+    && mkdir -p /data \
+    && chown privoke:privoke /data
+
+COPY --from=development /opt/venv /opt/venv
+COPY --from=development /workspace /workspace
+
+RUN pip uninstall -y grpcio-tools wheel \
+    && /usr/local/bin/python -m pip uninstall -y pip setuptools wheel
+
+WORKDIR /workspace/services/telemetry-service
+
+EXPOSE 50055
+
+USER privoke:privoke
 
 CMD ["python", "app/server.py"]

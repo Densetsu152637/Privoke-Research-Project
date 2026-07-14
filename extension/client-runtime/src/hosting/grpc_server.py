@@ -25,6 +25,8 @@ PROTO_TO_LAYER = {
     runtime_pb2.DETECTION_LAYER_SEMANTIC: "semantic",
 }
 LAYER_TO_PROTO = {value: key for key, value in PROTO_TO_LAYER.items()}
+DEFAULT_MAX_GRPC_MESSAGE_BYTES = 262_144
+DEFAULT_MAX_GRPC_RESPONSE_BYTES = 1_048_576
 
 
 class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
@@ -77,9 +79,17 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
 def create_grpc_server(
     max_workers: int = 8,
     max_text_chars: int = DEFAULT_MAX_TEXT_CHARS,
+    max_message_bytes: int = DEFAULT_MAX_GRPC_MESSAGE_BYTES,
+    max_response_bytes: int = DEFAULT_MAX_GRPC_RESPONSE_BYTES,
     telemetry_reporter: TelemetryReporter | None = None,
 ):
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=max_workers))
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=max_workers),
+        options=(
+            ("grpc.max_receive_message_length", max_message_bytes),
+            ("grpc.max_send_message_length", max_response_bytes),
+        ),
+    )
     runtime_pb2_grpc.add_PrivokeRuntimeServiceServicer_to_server(
         PrivokeRuntimeService(
             max_text_chars=max_text_chars,

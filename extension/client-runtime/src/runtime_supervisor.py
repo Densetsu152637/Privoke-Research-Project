@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import os
 import socket
-import subprocess
+# The runtime is a fixed-argv child process; no caller-controlled shell is used.
+import subprocess  # nosec B404
 import sys
 import threading
 import time

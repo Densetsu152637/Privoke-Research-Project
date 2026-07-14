@@ -59,9 +59,9 @@ Default ports:
 - `client-runtime`: detector `50054`
 - `telemetry-service`: `50055`
 
-The production-style Compose file publishes all of these ports except fuzzer port `50053`, which is consumed only inside the service network by `param-update-service`.
+The production-style Compose file exposes these ports only to its internal service network and publishes none to the host. The development override publishes `50051`, `50052`, `50054`, and `50055` on `127.0.0.1` for local tests; `50053` remains internal.
 
-`docker-compose.yml` is the production-style deployment: all five services are built into images, use restart policies, and the fuzzer waits for `client-runtime` health before starting. The fuzzer then reports healthy on `50053`, which allows `param-update-service` to start its optional requester without racing fuzzer startup. `docker-compose.dev.yml` preserves that topology while bind-mounting service source, regenerating protobuf bindings, disabling restart loops, and mounting fuzzer prompt-test dumps at `./dumps/privoke-fuzzer`.
+`docker-compose.yml` is the production-style deployment: all five services are built into non-root runtime images with read-only root filesystems, dropped capabilities, `no-new-privileges`, and restart policies. A network-disabled one-shot initializer fixes named-volume ownership before the data-writing services start. The fuzzer waits for `client-runtime` health, then reports healthy on `50053`, which allows `param-update-service` to start its optional requester without racing startup. `docker-compose.dev.yml` preserves that topology while using the development image stages, bind-mounting service source, regenerating protobuf bindings, disabling restart loops, and mounting fuzzer prompt-test dumps at `./dumps/privoke-fuzzer`.
 
 The Chrome extension is not a Docker service and is not part of either server deployment.
 

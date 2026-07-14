@@ -1,36 +1,76 @@
+x-service-security: &service-security
+  init: true
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m
+
 services:
+  storage-permissions:
+    restart: "no"
+    build:
+      context: .
+      dockerfile: services/param-update-service/Dockerfile
+    user: "0:0"
+    read_only: true
+    network_mode: none
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+    security_opt:
+      - no-new-privileges:true
+    entrypoint: ["/usr/bin/chown"]
+    command:
+      - "-R"
+      - "10001:10001"
+      - /state/parameter-updates
+      - /state/telemetry
+      - /state/fuzzer-dumps
+    volumes:
+      - param-update-data:/state/parameter-updates
+      - telemetry-data:/state/telemetry
+      - fuzzer-dumps:/state/fuzzer-dumps
+
   model-streaming-service:
+    <<: *service-security
     restart: unless-stopped
     build:
       context: .
       dockerfile: services/model-streaming-service/Dockerfile
     container_name: model-streaming-service
-    ports:
-      - "50051:50051"
+    expose:
+      - "50051"
     environment:
       MODEL_STREAMING_PORT: 50051
       MODEL_ID: privoke-baseline
       MODEL_VERSION: v0.1.0
     healthcheck:
-      test: ["CMD-SHELL", "nc -z 127.0.0.1 $${MODEL_STREAMING_PORT:-50051}"]
+      test: ["CMD", "/model-streaming-service", "healthcheck"]
       interval: 2s
       timeout: 1s
       retries: 30
       start_period: 5s
 
   param-update-service:
+    <<: *service-security
     restart: unless-stopped
     build:
       context: .
       dockerfile: services/param-update-service/Dockerfile
     container_name: param-update-service
     depends_on:
+      storage-permissions:
+        condition: service_completed_successfully
       model-streaming-service:
         condition: service_healthy
       privoke-fuzzer:
         condition: service_healthy
-    ports:
-      - "50052:50052"
+    expose:
+      - "50052"
     environment:
       PARAM_UPDATE_PORT: 50052
       PARAM_UPDATE_STORAGE_PATH: /data/updates.jsonl
@@ -44,13 +84,17 @@ services:
       - param-update-data:/data
 
   telemetry-service:
+    <<: *service-security
     restart: unless-stopped
     build:
       context: .
       dockerfile: services/telemetry-service/Dockerfile
     container_name: telemetry-service
-    ports:
-      - "50055:50055"
+    depends_on:
+      storage-permissions:
+        condition: service_completed_successfully
+    expose:
+      - "50055"
     environment:
       TELEMETRY_PORT: 50055
       TELEMETRY_DB_PATH: /data/telemetry.db
@@ -64,6 +108,7 @@ services:
       start_period: 5s
 
   client-runtime:
+    <<: *service-security
     restart: unless-stopped
     build:
       context: .
@@ -74,8 +119,8 @@ services:
         condition: service_healthy
       telemetry-service:
         condition: service_healthy
-    ports:
-      - "50054:50054"
+    expose:
+      - "50054"
     environment:
       PRIVOKE_GRPC_PORT: 50054
       PRIVOKE_GRPC_HOST: "[::]"
@@ -95,12 +140,15 @@ services:
       start_period: 5s
 
   privoke-fuzzer:
+    <<: *service-security
     restart: unless-stopped
     build:
       context: .
       dockerfile: services/privoke-fuzzer/Dockerfile
     container_name: privoke-fuzzer
     depends_on:
+      storage-permissions:
+        condition: service_completed_successfully
       model-streaming-service:
         condition: service_healthy
       client-runtime:
@@ -118,6 +166,9 @@ services:
       MODEL_STREAMING_CONNECT_TIMEOUT_SECONDS: 2
       MODEL_STREAMING_RETRY_INITIAL_SECONDS: 1
       MODEL_STREAMING_RETRY_MAX_SECONDS: 4
+      FUZZ_MAX_CONCURRENT_CYCLES: 1
+    volumes:
+      - fuzzer-dumps:/workspace/dumps/privoke-fuzzer
     healthcheck:
       test: ["CMD-SHELL", "python -c 'import socket; socket.create_connection((\"127.0.0.1\", 50053), 1).close()'"]
       interval: 2s
@@ -128,3 +179,4 @@ services:
 volumes:
   param-update-data:
   telemetry-data:
+  fuzzer-dumps:

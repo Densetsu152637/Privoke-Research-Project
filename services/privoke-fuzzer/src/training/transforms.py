@@ -5,7 +5,8 @@ import re
 
 
 def random_pii_transform(text: str, rng: random.Random | None = None) -> str:
-    rng = rng or random.Random()
+    # Research-data variation only; cryptographic randomness is not required.
+    rng = rng or random.Random()  # nosec B311
     transforms = (
         lambda value: value,
         lambda value: f"Please review this prompt: {value}",

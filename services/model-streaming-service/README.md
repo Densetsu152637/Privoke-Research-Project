@@ -52,11 +52,11 @@ go run ./cmd/server
 
 Dockerfile behavior:
 
-- installs `protoc`, `protoc-gen-go`, and `protoc-gen-go-grpc`,
-- generates Go bindings under `services/model-streaming-service/gen`,
-- starts `go run ./cmd/server`.
+- uses a development stage to install the pinned protobuf generators and generate Go bindings,
+- compiles a static server with the patched Go toolchain,
+- copies only the 4.8 MB server binary into a non-root distroless production image.
 
-The Compose healthcheck probes the configured TCP port with `nc`.
+The production Compose healthcheck calls the binary's built-in TCP healthcheck mode. The dev override uses `nc` from the development image.
 
 ## Consumers
 

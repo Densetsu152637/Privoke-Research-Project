@@ -79,6 +79,7 @@ Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
 - `FUZZ_TIMEOUT_SECONDS`, default `10.0`
 - `FUZZ_SEED`, default `1337`
 - `FUZZ_MAX_PROMPT_COUNT`, default `256`
+- `FUZZ_MAX_CONCURRENT_CYCLES`, default `1`; additional simultaneous requests receive `RESOURCE_EXHAUSTED`
 - `FUZZ_PROMPT_DATASET_PATH`
 - `FUZZ_TRAINING_LEARNING_RATE`, default `0.03`
 - `FUZZ_TRAINING_MAX_GRADIENT`, default `0.05`
@@ -137,7 +138,7 @@ Prompt files can be JSON, JSONL, or text. JSON entries may be strings or objects
 
 The CLI writes a JSON dump for each prompt-test run and prints the full per-prompt JSON report. Each prompt entry includes the request text, optional expected classification, and each selected layer's elapsed runtime time plus observed classification/action/results. If any layer run fails, it exits with status `1`.
 
-In Docker dev mode, dumps are bind-mounted to `./dumps/privoke-fuzzer` on the host. In the baseline stack, dumps stay inside the container at `/workspace/dumps/privoke-fuzzer`.
+In Docker dev mode, dumps are bind-mounted to `./dumps/privoke-fuzzer` on the host. In the production stack, `/workspace/dumps/privoke-fuzzer` is backed by the `fuzzer-dumps` named volume.
 
 ## Subagent Tasks
 

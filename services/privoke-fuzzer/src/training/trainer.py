@@ -144,7 +144,8 @@ def iter_training_examples(
     golden_examples: Sequence[BatchTrainingExample],
     config: BatchTrainingConfig,
 ) -> Iterable[BatchTrainingExample]:
-    rng = random.Random(config.seed)
+    # Reproducible training transforms; this value is not security-sensitive.
+    rng = random.Random(config.seed)  # nosec B311
 
     for example in new_examples:
         yield example.with_text_and_weight(

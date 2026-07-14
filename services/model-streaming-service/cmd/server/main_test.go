@@ -35,3 +35,15 @@ func TestGetModelParametersRejectsUnknownModel(t *testing.T) {
 		t.Fatalf("expected NOT_FOUND, got %v", err)
 	}
 }
+
+func TestGetModelParametersRejectsControlCharacters(t *testing.T) {
+	server := streamingServer{modelID: "privoke-baseline", modelVersion: "v1"}
+
+	_, err := server.GetModelParameters(
+		context.Background(),
+		&pb.ModelParametersRequest{ConsumerId: "attacker\nforged-log"},
+	)
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected INVALID_ARGUMENT, got %v", err)
+	}
+}

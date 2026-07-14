@@ -13,8 +13,9 @@ Defined in `shared/proto/privoke/v1/parameters.proto`:
 
 `SubmitParameterUpdate` currently:
 
+- validates required identifiers, the configured model ID, metadata sizes, unique gradient names, value counts, finite values, and the maximum absolute gradient,
 - converts the protobuf request to a JSON object,
-- writes one JSON line to `PARAM_UPDATE_STORAGE_PATH`,
+- appends one mode-`0600` JSON line to `PARAM_UPDATE_STORAGE_PATH` under a process lock,
 - logs source, model, and gradient count,
 - returns `accepted=true`,
 - returns `applied_version` as `<base_version>-updated`.
@@ -38,7 +39,7 @@ Stored JSONL shape:
 }
 ```
 
-The current implementation relies on protobuf shape and does not perform additional schema validation, idempotency checks, retention enforcement, or privacy filtering.
+The current implementation does not perform idempotency checks, retention enforcement, or privacy filtering beyond rejecting oversized metadata. It never accepts raw prompt text as a dedicated field.
 
 ## Runtime
 
@@ -47,7 +48,10 @@ Default port: `50052`
 Environment variables:
 
 - `PARAM_UPDATE_PORT`, default `50052`
-- `PARAM_UPDATE_STORAGE_PATH`, default `/tmp/updates.jsonl`
+- `PARAM_UPDATE_STORAGE_PATH`, default `/data/updates.jsonl`
+- `PARAM_UPDATE_MAX_ABS_GRADIENT`, default `1.0`
+- `PARAM_UPDATE_MAX_MESSAGE_BYTES`, default `1048576`
+- `MODEL_ID`, default `privoke-baseline`; updates for other model IDs are rejected
 
 Docker Compose sets `PARAM_UPDATE_STORAGE_PATH=/data/updates.jsonl` and persists it in the `param-update-data` volume.
 
@@ -96,7 +100,7 @@ If `FUZZER_REQUEST_INTERVAL_SECONDS` is `0`, the requester stops after one succe
 
 Subagents working here should:
 
-- add validation for required metadata and gradient bounds,
+- preserve and extend validation for required identifiers, metadata, and gradient bounds,
 - add idempotency keys before repeated training requests become common,
 - add a storage abstraction if JSONL is no longer enough,
 - document retention and privacy constraints,

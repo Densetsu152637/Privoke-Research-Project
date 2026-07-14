@@ -21,7 +21,13 @@ type streamingServer struct {
 }
 
 func (s *streamingServer) GetModelParameters(_ context.Context, req *pb.ModelParametersRequest) (*pb.ModelParametersResponse, error) {
-	log.Printf("parameter request consumer=%s model=%s", req.GetConsumerId(), req.GetModelId())
+	if err := validateIdentifier("consumer_id", req.GetConsumerId(), false); err != nil {
+		return nil, err
+	}
+	if err := validateIdentifier("model_id", req.GetModelId(), false); err != nil {
+		return nil, err
+	}
+	log.Printf("parameter request consumer=%q model=%q", req.GetConsumerId(), req.GetModelId())
 	if requestedModelID := req.GetModelId(); requestedModelID != "" && requestedModelID != s.modelID {
 		return nil, status.Errorf(
 			codes.NotFound,
@@ -58,13 +64,30 @@ func main() {
 	port := envInt("MODEL_STREAMING_PORT", 50051)
 	modelID := envString("MODEL_ID", "privoke-baseline")
 	modelVersion := envString("MODEL_VERSION", "v0.1.0")
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		if err := tcpHealthcheck(port); err != nil {
+			log.Printf("healthcheck failed: %v", err)
+			os.Exit(1)
+		}
+		return
+	}
+	if err := validateConfiguredIdentifier("MODEL_ID", modelID); err != nil {
+		log.Fatal(err)
+	}
+	if err := validateConfiguredIdentifier("MODEL_VERSION", modelVersion); err != nil {
+		log.Fatal(err)
+	}
 
 	lis, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
 		log.Fatalf("listen failed: %v", err)
 	}
 
-	server := grpc.NewServer()
+	server := grpc.NewServer(
+		grpc.MaxRecvMsgSize(64*1024),
+		grpc.MaxSendMsgSize(1024*1024),
+		grpc.MaxConcurrentStreams(32),
+	)
 	pb.RegisterModelStreamingServiceServer(server, &streamingServer{
 		modelID:      modelID,
 		modelVersion: modelVersion,
@@ -74,6 +97,40 @@ func main() {
 	if err := server.Serve(lis); err != nil {
 		log.Fatalf("serve failed: %v", err)
 	}
+}
+
+func validateIdentifier(field, value string, required bool) error {
+	if required && value == "" {
+		return status.Errorf(codes.InvalidArgument, "%s is required", field)
+	}
+	if len(value) > 128 {
+		return status.Errorf(codes.InvalidArgument, "%s exceeds 128 bytes", field)
+	}
+	for _, character := range value {
+		if character < 32 || character == 127 {
+			return status.Errorf(codes.InvalidArgument, "%s contains control characters", field)
+		}
+	}
+	return nil
+}
+
+func validateConfiguredIdentifier(field, value string) error {
+	if value == "" {
+		return status.Errorf(codes.InvalidArgument, "%s must not be empty", field)
+	}
+	return validateIdentifier(field, value, true)
+}
+
+func tcpHealthcheck(port int) error {
+	connection, err := net.DialTimeout(
+		"tcp",
+		net.JoinHostPort("127.0.0.1", strconv.Itoa(port)),
+		time.Second,
+	)
+	if err != nil {
+		return err
+	}
+	return connection.Close()
 }
 
 func envString(key, fallback string) string {

@@ -17,6 +17,7 @@ class FuzzerConfig:
         timeout_seconds: float,
         seed: int,
         max_prompt_count: int,
+        max_concurrent_cycles: int,
         prompt_dataset_path: str | None,
         training_learning_rate: float,
         training_max_gradient: float,
@@ -35,6 +36,7 @@ class FuzzerConfig:
         self.timeout_seconds = timeout_seconds
         self.seed = seed
         self.max_prompt_count = max_prompt_count
+        self.max_concurrent_cycles = max_concurrent_cycles
         self.prompt_dataset_path = prompt_dataset_path
         self.training_learning_rate = training_learning_rate
         self.training_max_gradient = training_max_gradient
@@ -71,6 +73,7 @@ class FuzzerConfig:
             timeout_seconds=env_float("FUZZ_TIMEOUT_SECONDS", 10.0),
             seed=env_int("FUZZ_SEED", 1337),
             max_prompt_count=env_int("FUZZ_MAX_PROMPT_COUNT", 256),
+            max_concurrent_cycles=env_int("FUZZ_MAX_CONCURRENT_CYCLES", 1),
             prompt_dataset_path=os.getenv("FUZZ_PROMPT_DATASET_PATH"),
             training_learning_rate=env_float("FUZZ_TRAINING_LEARNING_RATE", 0.03),
             training_max_gradient=env_float("FUZZ_TRAINING_MAX_GRADIENT", 0.05),
@@ -94,7 +97,21 @@ class FuzzerConfig:
                 "MODEL_STREAMING_RETRY_MAX_SECONDS",
                 4.0,
             ),
-        )
+        ).validated()
+
+    def validated(self) -> "FuzzerConfig":
+        if self.max_prompt_count <= 0:
+            raise ValueError("FUZZ_MAX_PROMPT_COUNT must be positive.")
+        if self.max_concurrent_cycles <= 0:
+            raise ValueError("FUZZ_MAX_CONCURRENT_CYCLES must be positive.")
+        if not self.model_id or len(self.model_id) > 128:
+            raise ValueError("MODEL_ID must contain 1 to 128 characters.")
+        if not self.fuzzer_id or len(self.fuzzer_id) > 128:
+            raise ValueError("FUZZER_ID must contain 1 to 128 characters.")
+        for name, value in (("MODEL_ID", self.model_id), ("FUZZER_ID", self.fuzzer_id)):
+            if any(ord(character) < 32 or ord(character) == 127 for character in value):
+                raise ValueError(f"{name} must not contain control characters.")
+        return self
 
     def batch_training_config(self, seed: int) -> BatchTrainingConfig:
         return BatchTrainingConfig(

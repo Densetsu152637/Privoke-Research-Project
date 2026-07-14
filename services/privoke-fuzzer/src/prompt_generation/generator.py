@@ -18,7 +18,8 @@ def generate_training_prompts(
     if count <= 0:
         return []
 
-    rng = random.Random(seed)
+    # Deterministic experiment sampling; this value is not a security token.
+    rng = random.Random(seed)  # nosec B311
     prompt_seeds = load_prompt_dataset(dataset_path)
     generated = []
 

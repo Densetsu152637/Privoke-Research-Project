@@ -35,7 +35,13 @@ def main() -> None:
     signal.signal(signal.SIGINT, _stop)
 
     config = FuzzerConfig.from_env()
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
+    server = grpc.server(
+        futures.ThreadPoolExecutor(max_workers=4),
+        options=(
+            ("grpc.max_receive_message_length", 262_144),
+            ("grpc.max_send_message_length", 1_048_576),
+        ),
+    )
     parameters_pb2_grpc.add_FuzzerServiceServicer_to_server(
         FuzzerTrainingService(config),
         server,

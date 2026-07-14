@@ -198,7 +198,9 @@ Environment variables:
 - `PRIVOKE_LLM_CHOICE`
 - `PRIVOKE_WAIT_FOR_REGEX`
 - `PRIVOKE_MAX_PROMPT_CHARS`
-- `PRIVOKE_CORS_ORIGIN`
+- `PRIVOKE_MAX_GRPC_MESSAGE_BYTES`, default `262144`
+- `PRIVOKE_MAX_GRPC_RESPONSE_BYTES`, default `1048576`
+- `PRIVOKE_CORS_ORIGIN`, disabled by default; when enabled it must be one exact `http`, `https`, or `chrome-extension` origin and cannot be `*`
 - `PRIVOKE_ALLOW_NON_LOOPBACK_BIND`
 - `MODEL_STREAMING_TARGET`, default `127.0.0.1:50051`; Compose sets `model-streaming-service:50051`
 - `MODEL_ID`, `MODEL_STREAMING_CONSUMER_ID`, `MODEL_STREAMING_TIMEOUT_SECONDS`

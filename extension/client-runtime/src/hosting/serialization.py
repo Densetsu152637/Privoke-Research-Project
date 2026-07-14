@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Dict
 
 from ..classification import (
@@ -14,6 +15,11 @@ from .models import PromptInspectionRequest, RequestValidationError
 
 
 DEFAULT_MAX_TEXT_CHARS = 20_000
+MAX_CONTEXT_FIELD_CHARS = 256
+MAX_METADATA_ENTRIES = 64
+MAX_METADATA_KEY_CHARS = 128
+MAX_METADATA_VALUE_CHARS = 2_048
+MAX_METADATA_TOTAL_CHARS = 16_384
 
 
 def parse_prompt_request(
@@ -41,6 +47,7 @@ def parse_prompt_request(
         metadata = {}
     if not isinstance(metadata, dict):
         raise RequestValidationError("'metadata' must be an object when provided.")
+    _validate_metadata(metadata)
 
     return PromptInspectionRequest(
         text=text,
@@ -120,7 +127,46 @@ def _optional_string(raw_value: Any, field_name: str) -> str | None:
         return None
     if not isinstance(raw_value, str):
         raise RequestValidationError(f"'{field_name}' must be a string when provided.")
-    return raw_value
+    value = raw_value.strip()
+    if len(value) > MAX_CONTEXT_FIELD_CHARS:
+        raise RequestValidationError(
+            f"'{field_name}' exceeds {MAX_CONTEXT_FIELD_CHARS} characters."
+        )
+    if any(ord(character) < 32 or ord(character) == 127 for character in value):
+        raise RequestValidationError(f"'{field_name}' must not contain control characters.")
+    return value or None
+
+
+def _validate_metadata(metadata: Dict[str, Any]) -> None:
+    if len(metadata) > MAX_METADATA_ENTRIES:
+        raise RequestValidationError(
+            f"'metadata' exceeds {MAX_METADATA_ENTRIES} entries."
+        )
+
+    total_chars = 0
+    for key, value in metadata.items():
+        if not isinstance(key, str) or not key or len(key) > MAX_METADATA_KEY_CHARS:
+            raise RequestValidationError(
+                "Metadata keys must be non-empty strings no longer than "
+                f"{MAX_METADATA_KEY_CHARS} characters."
+            )
+        if any(ord(character) < 32 or ord(character) == 127 for character in key):
+            raise RequestValidationError("Metadata keys must not contain control characters.")
+        try:
+            encoded_value = json.dumps(value, sort_keys=True)
+        except (TypeError, ValueError) as exc:
+            raise RequestValidationError("Metadata values must be JSON serializable.") from exc
+        if len(encoded_value) > MAX_METADATA_VALUE_CHARS:
+            raise RequestValidationError(
+                "A metadata value exceeds "
+                f"{MAX_METADATA_VALUE_CHARS} serialized characters."
+            )
+        total_chars += len(key) + len(encoded_value)
+
+    if total_chars > MAX_METADATA_TOTAL_CHARS:
+        raise RequestValidationError(
+            f"'metadata' exceeds {MAX_METADATA_TOTAL_CHARS} serialized characters."
+        )
 
 
 def classification_for_response(visibility: Visibility | None) -> Classification:
