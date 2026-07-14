@@ -1,13 +1,14 @@
 # Hosting and HTTP Integration
 
-This package exposes the client runtime through an optional local HTTP harness. It owns request validation, endpoint routing, runtime LLM configuration updates, visibility-hint application, response serialization, CORS headers, and warning-span masking. It is for client-local deployment and development, not for the server-side Docker Compose stack.
+This package exposes the client runtime through gRPC and an optional local HTTP harness. It owns request validation, runtime LLM configuration, visibility-hint application, response serialization, and warning-span masking.
 
 ## Files
 
 - `server.py`: `ThreadingHTTPServer` setup and HTTP request handler.
+- `grpc_server.py`: `PrivokeRuntimeService` and protobuf response adaptation.
 - `models.py`: `PromptInspectionRequest` and validation error type.
 - `serialization.py`: request parsing, response serialization, error payloads, and `WARN` masking.
-- `analyzer.py`: calls `pipeline_analyse_text` and applies `visibility_hint`.
+- `analyzer.py`: runs the requested runtime layers and applies `visibility_hint`.
 - `runtime_config.py`: serializes and updates the live semantic classifier configuration.
 
 ## Endpoints
@@ -82,7 +83,7 @@ Validation behavior:
     "visibility_hint": "P3",
     "text_length": 22,
     "elapsed_ms": 8.2,
-    "detector": "client-runtime.pipeline"
+    "detector": "client-runtime.runtime"
   }
 }
 ```

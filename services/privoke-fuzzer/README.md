@@ -1,6 +1,6 @@
 # privoke-fuzzer
 
-`privoke-fuzzer` is a Python gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, evaluates the streamed semantic model, computes bounded parameter-gradient deltas, submits updates to `param-update-service`, and can run ad hoc prompt tests by importing the client-runtime package directly.
+`privoke-fuzzer` is a Python gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, asks the local PriVoke runtime to evaluate them, computes bounded parameter-gradient deltas, submits updates to `param-update-service`, and runs ad hoc prompt tests through the same runtime RPC.
 
 It is not in the hosted prompt decision path. Training cycles deliberately target the streamed semantic model path rather than the full regex + NER + semantic pipeline.
 
@@ -25,7 +25,7 @@ On `RunTrainingCycle`, the service:
 2. caps prompt counts above `FUZZ_MAX_PROMPT_COUNT`,
 3. fetches the current parameter snapshot from `model-streaming-service`,
 4. generates labeled prompts through `src/prompt_generation`,
-5. evaluates them with client-runtime's `ParameterBackedPrivacyModel`,
+5. requests isolated semantic evaluation from `PrivokeRuntimeService`,
 6. computes gradient deltas with `src/training`,
 7. submits those deltas to `ParamUpdateService.SubmitParameterUpdate`,
 8. returns the update acknowledgment and training metadata to the requester.
@@ -38,10 +38,10 @@ This service does not run a full ML training job. It treats streamed parameter v
 
 `train_parameter_batch`:
 
-- converts streamed parameters into a client `ParameterSnapshot`,
+- converts streamed parameters into its local experiment snapshot value,
 - uses default trainable parameters when the snapshot is empty,
 - generates optional transformed variants per new example,
-- predicts classifications with `ParameterBackedPrivacyModel`,
+- obtains predicted classifications from the runtime gRPC service,
 - computes classification loss over sensitivity, visibility, and categories,
 - accumulates bounded per-parameter gradient deltas,
 - returns both gradients and locally updated parameter values for metadata/fingerprints.
@@ -72,6 +72,7 @@ Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
 
 - `MODEL_STREAMING_TARGET`, default `model-streaming-service:50051`
 - `PARAM_UPDATE_TARGET`, default `param-update-service:50052`
+- `PRIVOKE_RUNTIME_TARGET`, default `privoke-runtime:50054`
 - `MODEL_ID`, default `privoke-baseline`
 - `FUZZER_ID`, default `privoke-fuzzer`
 - `FUZZER_PORT`, default `50053`
@@ -87,21 +88,10 @@ Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
 - `MODEL_STREAMING_RETRY_INITIAL_SECONDS`, default `1.0`
 - `MODEL_STREAMING_RETRY_MAX_SECONDS`, default `4.0`
 - `PRIVOKE_FUZZER_DUMP_DIR`, default `/workspace/dumps/privoke-fuzzer`
-- `PRIVOKE_TEST_SEMANTIC_BACKEND`, default `streamed` for CLI `--layer semantic`
 
-## Client Runtime Imports
+## Runtime Boundary
 
-The fuzzer installs `services/client-runtime` as the `privoke_client_runtime` package via `services/privoke-fuzzer/requirements.txt`. Runtime prompt tests and training evaluation import that package in-process; they do not call a deployed `client-runtime` service. Its requirements also declare the Hugging Face, PEFT, TRL, datasets, and torch packages used by the research training notes.
-
-Example:
-
-```python
-from privoke_client_runtime.LLM.privoke.semantic_features import (
-    extract_semantic_signals,
-)
-
-signals = extract_semantic_signals("my bank account is overdrawn")
-```
+The fuzzer has no dependency on `services/client-runtime`. Prompt tests send one `AnalyzePrompt` request containing the requested layer set and regex ordering. Training requests the semantic layer through the same client. Detector selection, initialization, scheduling, short-circuiting, and error capture all remain inside the runtime.
 
 ## CLI
 
@@ -110,11 +100,11 @@ Fetch parameters:
 ```bash
 python src/cli.py fetch-params \
   --target model-streaming-service:50051 \
-  --consumer-id client-runtime \
+  --consumer-id privoke-fuzzer \
   --model-id privoke-baseline
 ```
 
-Run a prompt through the client-runtime request path in-process:
+Run a prompt through the runtime gRPC service:
 
 ```bash
 python src/cli.py test-prompts \
@@ -128,20 +118,19 @@ Run generated prompts against multiple layers:
 python src/cli.py test-prompts \
   --layer regex \
   --layer ner \
-  --layer semantic-streamed \
+  --layer semantic \
+  --regex-parallel \
   --generated-count 8
 ```
 
 Available test layers:
 
-- `runtime`: runs client-runtime request parsing, analysis, visibility-hint handling, and response serialization in-process.
-- `pipeline`: runs the same full client-runtime analysis path in-process.
-- `regex`: runs only `RuleDetector`.
-- `ner`: runs only `EntityNERDetector`.
-- `semantic`: alias resolved by `--semantic-backend`.
-- `semantic-streamed`: runs `PriVokeClassifier`.
-- `semantic-local`: runs `LocalClassifier`.
-- `semantic-openai`: runs `OpenClassifier`.
+- `runtime`: asks the runtime to run its complete configured detector set.
+- `regex`: asks the runtime to isolate regex detection.
+- `ner`: asks the runtime to isolate NER detection.
+- `semantic`: asks the runtime to isolate its configured semantic backend.
+
+Repeat `--layer` to send a selected set in one RPC. `--regex-first` and `--regex-parallel` override the runtime's default ordering for that request. Detector failures are written to the report from the runtime's per-layer response and cause the CLI to exit with status `1`.
 
 Prompt files can be JSON, JSONL, or text. JSON entries may be strings or objects with `text`/`prompt` fields.
 
@@ -158,4 +147,4 @@ Subagents working here should:
 - add training-cycle integration tests with streaming and update services,
 - keep gradient bounds explicit,
 - preserve metadata needed to trace updates back to request IDs and training config,
-- avoid mixing full hosted pipeline results into streamed-only training unless that is an intentional experiment change.
+- preserve the runtime RPC boundary for all detector execution.

@@ -10,6 +10,7 @@ from prompt_generation import generate_training_prompts
 from training import emit_training_update, train_parameter_batch
 from training.protocols import StreamedParameterSnapshot
 from training.types import BatchTrainingUpdate
+from runtime_client import PrivokeRuntimeClient
 
 from privoke.v1 import parameters_pb2, parameters_pb2_grpc
 
@@ -61,6 +62,10 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             snapshot=snapshot,
             new_examples=examples,
             config=self.config.batch_training_config(seed),
+            runtime_client=PrivokeRuntimeClient(
+                self.config.privoke_runtime_target,
+                timeout_seconds=self.config.timeout_seconds,
+            ),
         )
         ack = emit_training_update(
             target=self.config.param_update_target,

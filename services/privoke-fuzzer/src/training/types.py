@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, Tuple
 
-from privoke_client_runtime.classification import Classification
+from privoke_contracts.classification import Classification
 
 
 ParameterDict = Dict[str, Tuple[float, ...]]

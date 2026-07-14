@@ -16,17 +16,18 @@ DEFAULT_PROMPT = (
 )
 LAYER_CHOICES = (
     "runtime",
-    "pipeline",
     "regex",
     "ner",
     "semantic",
-    "semantic-streamed",
-    "semantic-local",
-    "semantic-openai",
 )
 
 
 def add_test_prompt_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--runtime-target",
+        default=os.getenv("PRIVOKE_RUNTIME_TARGET", "privoke-runtime:50054"),
+        help="gRPC target for the locally running PriVoke runtime.",
+    )
     parser.add_argument(
         "--layer",
         action="append",
@@ -66,20 +67,22 @@ def add_test_prompt_args(parser: argparse.ArgumentParser) -> None:
         default=os.getenv("FUZZ_PROMPT_DATASET_PATH"),
         help="Optional JSON/JSONL prompt seed dataset for generated prompts.",
     )
-    parser.add_argument(
-        "--semantic-backend",
-        choices=("streamed", "local", "openai"),
-        default=os.getenv("PRIVOKE_TEST_SEMANTIC_BACKEND", "streamed"),
-        help="Backend used by --layer semantic.",
+    regex_order = parser.add_mutually_exclusive_group()
+    regex_order.add_argument(
+        "--regex-first",
+        action="store_const",
+        const=True,
+        dest="regex_first",
+        help="Ask the runtime to complete regex detection before other layers.",
     )
-    parser.add_argument("--llm-base-url", help="Base URL for local/OpenAI-like tests.")
-    parser.add_argument("--llm-model", help="Model id for semantic layer tests.")
-    parser.add_argument("--llm-api-key", help="API key for local/OpenAI-like tests.")
-    parser.add_argument(
-        "--model-streaming-target",
-        default=os.getenv("MODEL_STREAMING_TARGET"),
-        help="gRPC target for streamed semantic layer tests.",
+    regex_order.add_argument(
+        "--regex-parallel",
+        action="store_const",
+        const=False,
+        dest="regex_first",
+        help="Ask the runtime to schedule regex with the other requested layers.",
     )
+    parser.set_defaults(regex_first=None)
     parser.add_argument(
         "--dump-dir",
         default=os.getenv("PRIVOKE_FUZZER_DUMP_DIR", DEFAULT_DUMP_DIR),
@@ -106,7 +109,7 @@ def run_prompt_tests(args: argparse.Namespace) -> None:
     if args.generated_count < 0:
         raise SystemExit("--generated-count must be zero or greater.")
 
-    layers = _normalise_layers(args.layer, args.semantic_backend)
+    layers = _normalise_layers(args.layer)
     prompt_requests = _build_prompt_requests(args)
     run_id = _run_id()
     started_at = datetime.now(timezone.utc).isoformat()
@@ -121,22 +124,15 @@ def run_prompt_tests(args: argparse.Namespace) -> None:
             "expected_classification": prompt_request.get("expected_classification"),
             "layers": {},
         }
-        for layer in layers:
-            prompt_result["layers"][layer] = _with_classification_confirmation(
-                _run_layer(
-                    layer,
-                    prompt_request,
-                    args,
-                    runtime_request,
-                )
-            )
+        prompt_result["layers"] = _run_layers(layers, args, runtime_request)
         results.append(prompt_result)
 
     report = {
         "run_id": run_id,
         "created_at": started_at,
         "layers": layers,
-        "runtime_mode": "in_process",
+        "runtime_mode": "grpc",
+        "runtime_target": args.runtime_target,
         "results": results,
     }
     output_path = _output_path(Path(args.dump_dir), run_id)
@@ -150,18 +146,12 @@ def run_prompt_tests(args: argparse.Namespace) -> None:
 
 def _normalise_layers(
     raw_layers: List[str] | None,
-    semantic_backend: str,
 ) -> List[str]:
     layers = raw_layers or ["runtime"]
     normalised = []
     for layer in layers:
-        resolved = (
-            f"semantic-{semantic_backend}"
-            if layer == "semantic"
-            else layer
-        )
-        if resolved not in normalised:
-            normalised.append(resolved)
+        if layer not in normalised:
+            normalised.append(layer)
     return normalised
 
 
@@ -261,156 +251,55 @@ def _prompt_request_from_value(value: Any) -> Dict[str, Any]:
     return payload
 
 
-def _run_layer(
-    layer: str,
-    prompt_request: Dict[str, Any],
+def _run_layers(
+    layers: List[str],
     args: argparse.Namespace,
     runtime_request: Dict[str, Any],
-) -> Dict[str, Any]:
+) -> Dict[str, Dict[str, Any]]:
+    from runtime_client import PrivokeRuntimeClient
+
     try:
-        if layer == "runtime":
-            return _run_runtime_layer(runtime_request, args)
-        if layer == "pipeline":
-            return _run_pipeline_layer(runtime_request)
-        if layer == "regex":
-            return _run_regex_layer(prompt_request["text"])
-        if layer == "ner":
-            return _run_ner_layer(prompt_request["text"])
-        if layer == "semantic-streamed":
-            return _run_semantic_streamed_layer(prompt_request["text"], args)
-        if layer == "semantic-local":
-            return _run_semantic_local_layer(prompt_request["text"], args)
-        if layer == "semantic-openai":
-            return _run_semantic_openai_layer(prompt_request["text"], args)
+        response = PrivokeRuntimeClient(
+            args.runtime_target,
+            timeout_seconds=args.timeout_seconds,
+        ).analyze(
+            runtime_request,
+            layers=layers,
+            regex_first=args.regex_first,
+        )
     except Exception as exc:
         return {
-            "status": "error",
-            "error": str(exc),
+            layer: {"status": "error", "error": str(exc)}
+            for layer in layers
         }
 
-    return {
-        "status": "error",
-        "error": f"Unsupported layer: {layer}",
-    }
+    if layers == ["runtime"] or "runtime" in layers:
+        status = "error" if response.get("error") else "ok"
+        return {"runtime": {
+            "status": status,
+            "error": response.get("error"),
+            "action": response.get("action"),
+            "classification": response.get("classification"),
+            "response": response,
+        }}
 
-
-def _run_runtime_layer(
-    runtime_request: Dict[str, Any],
-    args: argparse.Namespace,
-) -> Dict[str, Any]:
-    return _run_pipeline_layer(runtime_request)
-
-
-def _run_pipeline_layer(runtime_request: Dict[str, Any]) -> Dict[str, Any]:
-    from privoke_client_runtime.hosting.analyzer import analyse_prompt_request
-    from privoke_client_runtime.hosting.serialization import parse_prompt_request
-
-    response = analyse_prompt_request(parse_prompt_request(runtime_request))
-    return {
-        "status": "ok",
-        "action": response.get("action"),
-        "classification": response.get("classification"),
-        "response": response,
-    }
-
-
-def _run_regex_layer(text: str) -> Dict[str, Any]:
-    from privoke_client_runtime.detection import normalize_text
-    from privoke_client_runtime.regex.rule_detector import RuleDetector
-
-    results = RuleDetector().analyze(normalize_text(text))
-    return _direct_results_response(results)
-
-
-def _run_ner_layer(text: str) -> Dict[str, Any]:
-    from privoke_client_runtime.NER import EntityNERDetector
-    from privoke_client_runtime.detection import normalize_text
-
-    results = EntityNERDetector().extract_entities(normalize_text(text))
-    return _direct_results_response(results)
-
-
-def _run_semantic_streamed_layer(
-    text: str,
-    args: argparse.Namespace,
-) -> Dict[str, Any]:
-    from privoke_client_runtime.LLM.privoke_classifier import PriVokeClassifier
-
-    model_id = args.llm_model or os.getenv("MODEL_ID")
-    classifier = PriVokeClassifier(
-        target=args.model_streaming_target,
-        model_id=model_id,
-        timeout_seconds=args.timeout_seconds,
-    )
-    return _direct_results_response(classifier.classify(text))
-
-
-def _run_semantic_local_layer(
-    text: str,
-    args: argparse.Namespace,
-) -> Dict[str, Any]:
-    from privoke_client_runtime.LLM.local_classifier import LocalClassifier
-
-    classifier = LocalClassifier(
-        base_url=args.llm_base_url,
-        model=args.llm_model,
-        api_key=args.llm_api_key,
-        timeout_seconds=args.timeout_seconds,
-    )
-    return _direct_results_response(classifier.classify(text))
-
-
-def _run_semantic_openai_layer(
-    text: str,
-    args: argparse.Namespace,
-) -> Dict[str, Any]:
-    from privoke_client_runtime.LLM.open_classifier import OpenClassifier
-
-    classifier = OpenClassifier(
-        base_url=args.llm_base_url,
-        model=args.llm_model,
-        api_key=args.llm_api_key,
-        timeout_seconds=args.timeout_seconds,
-    )
-    return _direct_results_response(classifier.classify(text))
-
-
-def _direct_results_response(results) -> Dict[str, Any]:
-    serialized_results = [result.to_dict() for result in results]
-    return {
-        "status": "ok",
-        "result_count": len(serialized_results),
-        "classifications": [
-            _classification_view(result)
-            for result in serialized_results
-        ],
-        "results": serialized_results,
-    }
-
-
-def _with_classification_confirmation(layer_result: Dict[str, Any]) -> Dict[str, Any]:
-    if layer_result.get("status") != "ok":
-        return layer_result
-
-    result = dict(layer_result)
-    if "classification" in result:
-        return result
-
-    response = result.get("response")
-    if isinstance(response, dict):
-        result["action"] = response.get("action")
-        result["classification"] = response.get("classification")
-        return result
-
-    if "results" in result and "classifications" not in result:
-        raw_results = result.get("results")
-        if isinstance(raw_results, list):
-            result["classifications"] = [
-                _classification_view(item)
-                for item in raw_results
-                if isinstance(item, dict)
-            ]
-    return result
+    executions = {item["layer"]: item for item in response.get("layers", [])}
+    layer_results = {}
+    for layer in layers:
+        execution = executions.get(layer) or {
+            "status": "error",
+            "error": f"Runtime did not return an execution result for {layer}.",
+            "results": [],
+        }
+        results = execution.get("results", [])
+        layer_results[layer] = {
+            "status": execution.get("status", "error"),
+            "error": execution.get("error"),
+            "result_count": len(results),
+            "classifications": [_classification_view(item) for item in results],
+            "results": results,
+        }
+    return layer_results
 
 
 def _classification_view(result: Dict[str, Any]) -> Dict[str, Any]:

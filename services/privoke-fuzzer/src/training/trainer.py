@@ -1,19 +1,13 @@
 from __future__ import annotations
 
 import random
+import os
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from privoke_client_runtime.LLM.privoke.streamed_model import (
-    ParameterBackedPrivacyModel,
-)
-from privoke_client_runtime.classification import Classification
-
-from .classifications import semantic_target_classification
 from .evaluation import (
     accumulate_gradient,
     classification_loss,
-    predict_classification,
 )
 from .io import load_training_examples
 from .parameters import (
@@ -25,6 +19,7 @@ from .parameters import (
 from .protocols import StreamedParameterSnapshot
 from .transforms import random_pii_transform
 from .types import BatchTrainingConfig, BatchTrainingExample, BatchTrainingUpdate
+from runtime_client import PrivokeRuntimeClient
 
 
 def train_parameter_batch_from_files(
@@ -32,6 +27,7 @@ def train_parameter_batch_from_files(
     batch_path: str | Path,
     golden_batch_path: str | Path | None = None,
     config: BatchTrainingConfig | None = None,
+    runtime_client: PrivokeRuntimeClient | None = None,
 ) -> BatchTrainingUpdate:
     golden_examples = (
         load_training_examples(golden_batch_path)
@@ -43,6 +39,7 @@ def train_parameter_batch_from_files(
         new_examples=load_training_examples(batch_path),
         golden_examples=golden_examples,
         config=config,
+        runtime_client=runtime_client,
     )
 
 
@@ -51,6 +48,7 @@ def train_parameter_batch(
     new_examples: Sequence[BatchTrainingExample],
     golden_examples: Sequence[BatchTrainingExample] = (),
     config: BatchTrainingConfig | None = None,
+    runtime_client: PrivokeRuntimeClient | None = None,
 ) -> BatchTrainingUpdate:
     config = config or BatchTrainingConfig()
     _validate_config(config)
@@ -61,15 +59,18 @@ def train_parameter_batch(
     if not trainer_examples:
         raise ValueError("At least one training example is required.")
 
-    model = ParameterBackedPrivacyModel(client_snapshot)
+    runtime_client = runtime_client or PrivokeRuntimeClient(
+        os.getenv("PRIVOKE_RUNTIME_TARGET", "privoke-runtime:50054"),
+        timeout_seconds=float(os.getenv("FUZZ_TIMEOUT_SECONDS", "10")),
+    )
     gradients = {name: [0.0 for _ in values] for name, values in parameters.items()}
     total_weight = 0.0
     total_loss = 0.0
     exact_matches = 0
 
     for example in trainer_examples:
-        target = target_classification_for_example(example)
-        predicted = predict_classification(model, example.text)
+        predicted = runtime_client.classify(example.text, layer="semantic")
+        target = target_classification_for_example(example, predicted)
         loss = classification_loss(target, predicted)
 
         if target.pack() == predicted.pack():
@@ -78,7 +79,6 @@ def train_parameter_batch(
         accumulate_gradient(
             gradients=gradients,
             parameters=parameters,
-            text=example.text,
             target=target,
             predicted=predicted,
             weight=example.weight,
@@ -113,7 +113,7 @@ def train_parameter_batch(
             "total_weight": total_weight,
         },
         metadata={
-            "strategy": "client_semantic_batch_training",
+            "strategy": "grpc_runtime_semantic_batch_training",
             "base_parameter_fingerprint": parameter_fingerprint(parameters),
             "updated_parameter_fingerprint": parameter_fingerprint(updated_parameters),
             "learning_rate": str(config.learning_rate),
@@ -125,10 +125,14 @@ def train_parameter_batch(
 
 def target_classification_for_example(
     example: BatchTrainingExample,
-) -> Classification:
+    predicted,
+):
     if example.has_explicit_target:
         return example.expected_classification
-    return semantic_target_classification(example.text)
+    # Unlabelled examples are useful as stability/golden samples: the runtime's
+    # current classification is their target, so they do not invent labels in
+    # the fuzzer process.
+    return predicted
 
 
 def iter_training_examples(

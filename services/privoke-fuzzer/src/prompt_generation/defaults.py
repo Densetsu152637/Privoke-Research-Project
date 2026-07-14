@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Tuple
 
-from privoke_client_runtime.classification import Category, Sensitivity, Visibility
+from privoke_contracts.classification import Category, Sensitivity, Visibility
 from training.classifications import classification_from_components
 
 from .types import PromptSeed

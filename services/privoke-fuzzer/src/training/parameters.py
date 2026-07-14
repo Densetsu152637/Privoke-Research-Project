@@ -3,11 +3,21 @@ from __future__ import annotations
 import hashlib
 from typing import Mapping, Sequence, cast
 
-from privoke_client_runtime.LLM.privoke.parameter_stream import ParameterSnapshot
-from privoke_client_runtime.classification import Category
+from dataclasses import dataclass
+
+from privoke_contracts.classification import Category
 
 from .protocols import StreamedParameter, StreamedParameterSnapshot
 from .types import ParameterDict
+
+
+@dataclass(frozen=True)
+class ParameterSnapshot:
+    model_id: str
+    version: str
+    generated_at_unix: int
+    parameters: ParameterDict
+    metadata: dict[str, str]
 
 
 def snapshot_with_trainable_parameters(

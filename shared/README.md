@@ -1,6 +1,6 @@
 # Shared Contracts
 
-This directory contains interfaces shared by more than one PriVoke service. The active shared contract is `proto/privoke/v1/parameters.proto`.
+This directory contains interfaces shared by more than one PriVoke service. Active contracts are `parameters.proto` and `runtime.proto` under `proto/privoke/v1`.
 
 ## Current Protobuf Contract
 
@@ -32,7 +32,8 @@ Services:
 
 - `model-streaming-service` implements `ModelStreamingService`.
 - `client-runtime` consumes `ModelStreamingService` when using the `streamed` semantic backend.
-- `privoke-fuzzer` consumes `ModelStreamingService`, implements `FuzzerService`, and consumes `ParamUpdateService`.
+- `client-runtime` implements `PrivokeRuntimeService`.
+- `privoke-fuzzer` consumes `PrivokeRuntimeService` and `ModelStreamingService`, implements `FuzzerService`, and consumes `ParamUpdateService`.
 - `param-update-service` implements `ParamUpdateService` and can consume `FuzzerService` when fuzzer requests are enabled.
 
 ## Generated Bindings
@@ -50,7 +51,7 @@ Shared files should define stable interfaces, not service-specific implementatio
 
 When changing the protobuf schema:
 
-1. Update `shared/proto/privoke/v1/parameters.proto`.
+1. Update the relevant proto under `shared/proto/privoke/v1`.
 2. Regenerate bindings in affected services.
 3. Update the relevant service READMEs.
 4. Add compatibility notes for any field semantics that older services cannot handle.

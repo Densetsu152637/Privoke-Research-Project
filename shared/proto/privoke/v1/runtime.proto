@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package privoke.v1;
+
+message RuntimeHealthRequest {}
+
+message RuntimeHealthResponse {
+  string service = 1;
+  string status = 2;
+}
+
+enum DetectionLayer {
+  DETECTION_LAYER_UNSPECIFIED = 0;
+  DETECTION_LAYER_RUNTIME = 1;
+  DETECTION_LAYER_REGEX = 2;
+  DETECTION_LAYER_NER = 3;
+  DETECTION_LAYER_SEMANTIC = 4;
+}
+
+enum RegexExecutionOrder {
+  REGEX_EXECUTION_ORDER_DEFAULT = 0;
+  REGEX_EXECUTION_ORDER_FIRST = 1;
+  REGEX_EXECUTION_ORDER_PARALLEL = 2;
+}
+
+message AnalyzePromptRequest {
+  string text = 1;
+  string source = 2;
+  string target_app = 3;
+  string visibility_hint = 4;
+  string request_id = 5;
+  map<string, string> metadata = 6;
+  repeated DetectionLayer layers = 7;
+  RegexExecutionOrder regex_execution_order = 8;
+}
+
+message RuntimeLayerExecution {
+  DetectionLayer layer = 1;
+  string status = 2;
+  repeated RuntimeDetectionResult results = 3;
+  string error = 4;
+}
+
+message RuntimeClassification {
+  string sensitivity = 1;
+  string visibility = 2;
+  repeated string categories = 3;
+  uint32 packed = 4;
+}
+
+message RuntimeDetectionResult {
+  RuntimeClassification classification = 1;
+  string action = 2;
+  string section_of_text = 3;
+  int32 span_start = 4;
+  int32 span_end = 5;
+  bool has_span = 6;
+  double confidence = 7;
+  bool has_confidence = 8;
+  string reasoning = 9;
+  map<string, string> metadata = 10;
+}
+
+message AnalyzePromptResponse {
+  string request_id = 1;
+  string action = 2;
+  bool allowed = 3;
+  string masked_text = 4;
+  RuntimeClassification classification = 5;
+  string reason = 6;
+  RuntimeDetectionResult evidence = 7;
+  map<string, string> metadata = 8;
+  reserved 9;
+  repeated RuntimeLayerExecution layers = 10;
+  double elapsed_ms = 11;
+  string error = 12;
+}
+
+service PrivokeRuntimeService {
+  rpc AnalyzePrompt(AnalyzePromptRequest) returns (AnalyzePromptResponse);
+  rpc Health(RuntimeHealthRequest) returns (RuntimeHealthResponse);
+}

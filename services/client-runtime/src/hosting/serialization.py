@@ -61,7 +61,7 @@ def serialize_analysis_response(
     classification = (
         result.classification
         if result is not None
-        else _default_classification(request.visibility_hint)
+        else classification_for_response(request.visibility_hint)
     )
 
     return {
@@ -80,7 +80,7 @@ def serialize_analysis_response(
             ),
             "text_length": len(request.text),
             "elapsed_ms": round(elapsed_ms, 3),
-            "detector": "client-runtime.pipeline",
+            "detector": "client-runtime.runtime",
         },
     }
 
@@ -123,7 +123,7 @@ def _optional_string(raw_value: Any, field_name: str) -> str | None:
     return raw_value
 
 
-def _default_classification(visibility: Visibility | None) -> Classification:
+def classification_for_response(visibility: Visibility | None) -> Classification:
     return initialise_unpacked(
         Sensitivity.S0,
         visibility or Visibility.PU,

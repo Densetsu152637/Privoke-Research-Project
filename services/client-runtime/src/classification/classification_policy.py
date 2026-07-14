@@ -1,4 +1,4 @@
-from typing import Any, Iterable, List
+from typing import Any, Iterable
 
 from .classification_types import (
     Category,
@@ -6,9 +6,10 @@ from .classification_types import (
     PriVokeAction,
     Sensitivity,
     Visibility,
-    initialise_unpacked,
-    compact_categories,
-    extract_categories
+    dedupe_categories,
+    merge_classifications,
+    strongest_sensitivity,
+    strongest_visibility,
 )
 
 
@@ -28,34 +29,6 @@ def is_restricted_or_private(v: Visibility) -> bool:
 
 def is_group_or_personal_private(v: Visibility) -> bool:
     return visibility_score(v) >= visibility_score(Visibility.P3)
-
-
-def strongest_sensitivity(sensitivities: Iterable[Sensitivity]) -> Sensitivity:
-    return max(sensitivities, key=sensitivity_score, default=Sensitivity.S0)
-
-
-def strongest_visibility(visibilities: Iterable[Visibility]) -> Visibility:
-    return max(visibilities, key=visibility_score, default=Visibility.PU)
-
-
-def dedupe_categories(categories: Iterable[Category]) -> List[Category]:
-    return extract_categories(compact_categories(categories)) # pack and unpack them linear time
-
-
-def merge_classifications(classifications: Iterable[Classification]) -> Classification:
-    classifications = list(classifications)
-    if not classifications:
-        return initialise_unpacked(Sensitivity.S0, Visibility.PU, [])
-
-    return initialise_unpacked(
-        strongest_sensitivity(item.sensitivity() for item in classifications),
-        strongest_visibility(item.visibility() for item in classifications),
-        dedupe_categories(
-            category
-            for item in classifications
-            for category in item.categories()
-        ),
-    )
 
 
 def describe_categories(categories: Iterable[Category]) -> str:

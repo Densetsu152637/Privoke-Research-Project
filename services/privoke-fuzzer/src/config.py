@@ -10,6 +10,7 @@ class FuzzerConfig:
         self,
         model_streaming_target: str,
         param_update_target: str,
+        privoke_runtime_target: str,
         model_id: str,
         fuzzer_id: str,
         port: int,
@@ -27,6 +28,7 @@ class FuzzerConfig:
     ):
         self.model_streaming_target = model_streaming_target
         self.param_update_target = param_update_target
+        self.privoke_runtime_target = privoke_runtime_target
         self.model_id = model_id
         self.fuzzer_id = fuzzer_id
         self.port = port
@@ -58,6 +60,10 @@ class FuzzerConfig:
             param_update_target=os.getenv(
                 "PARAM_UPDATE_TARGET",
                 "param-update-service:50052",
+            ),
+            privoke_runtime_target=os.getenv(
+                "PRIVOKE_RUNTIME_TARGET",
+                "privoke-runtime:50054",
             ),
             model_id=os.getenv("MODEL_ID", "privoke-baseline"),
             fuzzer_id=os.getenv("FUZZER_ID", "privoke-fuzzer"),

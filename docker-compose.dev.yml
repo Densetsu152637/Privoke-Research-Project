@@ -58,6 +58,39 @@ services:
         "mkdir -p /workspace/services/param-update-service/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/param-update-service/generated --grpc_python_out=/workspace/services/param-update-service/generated /workspace/shared/proto/privoke/v1/parameters.proto && python app/server.py",
       ]
 
+  privoke-runtime:
+    build:
+      context: .
+      dockerfile: services/client-runtime/Dockerfile
+    container_name: privoke-runtime
+    depends_on:
+      model-streaming-service:
+        condition: service_healthy
+    ports:
+      - "50054:50054"
+    environment:
+      PRIVOKE_GRPC_PORT: 50054
+      PRIVOKE_LLM_CHOICE: streamed
+      MODEL_STREAMING_TARGET: model-streaming-service:50051
+      MODEL_STREAMING_CONSUMER_ID: privoke-runtime
+      MODEL_ID: privoke-baseline
+      PYTHONPATH: /workspace/shared/python
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import socket; socket.create_connection((\"127.0.0.1\", 50054), 1).close()'"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+    volumes:
+      - ./services/client-runtime:/workspace/services/client-runtime
+      - ./shared:/workspace/shared
+    command:
+      [
+        "sh",
+        "-lc",
+        "mkdir -p /workspace/services/client-runtime/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/client-runtime/generated --grpc_python_out=/workspace/services/client-runtime/generated /workspace/shared/proto/privoke/v1/parameters.proto /workspace/shared/proto/privoke/v1/runtime.proto && python src/grpc_main.py",
+      ]
+
   privoke-fuzzer:
     build:
       context: .
@@ -66,8 +99,12 @@ services:
     depends_on:
       model-streaming-service:
         condition: service_healthy
+      privoke-runtime:
+        condition: service_healthy
     environment:
       MODEL_STREAMING_TARGET: model-streaming-service:50051
+      PRIVOKE_RUNTIME_TARGET: privoke-runtime:50054
+      PYTHONPATH: /workspace/shared/python
       PARAM_UPDATE_TARGET: param-update-service:50052
       MODEL_ID: privoke-baseline
       FUZZER_PORT: 50053
@@ -79,14 +116,13 @@ services:
       MODEL_STREAMING_RETRY_MAX_SECONDS: 4
     volumes:
       - ./services/privoke-fuzzer:/workspace/services/privoke-fuzzer
-      - ./services/client-runtime:/workspace/services/client-runtime
       - ./shared:/workspace/shared
       - ./dumps/privoke-fuzzer:/workspace/dumps/privoke-fuzzer
     command:
       [
         "sh",
         "-lc",
-        "mkdir -p /workspace/services/privoke-fuzzer/generated /workspace/services/client-runtime/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/privoke-fuzzer/generated --grpc_python_out=/workspace/services/privoke-fuzzer/generated /workspace/shared/proto/privoke/v1/parameters.proto && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/client-runtime/generated --grpc_python_out=/workspace/services/client-runtime/generated /workspace/shared/proto/privoke/v1/parameters.proto && python src/main.py",
+        "mkdir -p /workspace/services/privoke-fuzzer/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/privoke-fuzzer/generated --grpc_python_out=/workspace/services/privoke-fuzzer/generated /workspace/shared/proto/privoke/v1/parameters.proto /workspace/shared/proto/privoke/v1/runtime.proto && python src/main.py",
       ]
 
 volumes:

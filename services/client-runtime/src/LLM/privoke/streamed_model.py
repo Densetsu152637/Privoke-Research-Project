@@ -10,6 +10,7 @@ from ...classification import (
     ClassificationResult,
     Sensitivity,
     Visibility,
+    dedupe_categories,
     initialise_unpacked,
 )
 from .parameter_stream import ModelParameterStreamer, ParameterSnapshot
@@ -86,7 +87,7 @@ class ParameterBackedPrivacyModel:
         if not category_signals and visibility == Visibility.PU:
             return []
 
-        categories = _dedupe_categories(
+        categories = dedupe_categories(
             signal.category for signal in category_signals if signal.category is not None
         )
         sensitivity = self._sensitivity(category_signals, categories, visibility)
@@ -174,7 +175,7 @@ class ParameterBackedPrivacyModel:
         category_signals = list(signals)
         score = self._risk_score(
             category_signals,
-            _dedupe_categories(
+            dedupe_categories(
                 signal.category
                 for signal in category_signals
                 if signal.category is not None
@@ -259,11 +260,6 @@ def _sensitivity_from_score(
     if score >= calibration.s1_threshold:
         return Sensitivity.S1
     return Sensitivity.S0
-
-
-def _dedupe_categories(categories: Iterable[Category]) -> List[Category]:
-    category_set = set(categories)
-    return [category for category in Category if category in category_set]
 
 
 def _unique_reasons(signals: Iterable[SemanticSignal]) -> List[str]:

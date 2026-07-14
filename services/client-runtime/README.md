@@ -1,6 +1,6 @@
 # PriVoke Client Runtime
 
-The client runtime is PriVoke's local prompt inspection package. It is intended to run on a user's local computer, not as a server-side microservice. It runs the detector pipeline, returns an action (`ALLOW`, `WARN`, or `BLOCK`), and includes the strongest available classification evidence in the response.
+The client runtime is PriVoke's local prompt inspection service. It runs detector layers, returns an action (`ALLOW`, `WARN`, or `BLOCK`), and includes aggregate and per-layer evidence/errors in its gRPC response.
 
 This package is the only component currently in the prompt classification path. The parameter-streaming service is used only when the semantic backend is set to `streamed`.
 
@@ -69,7 +69,7 @@ Example response:
   "metadata": {
     "source": "browser_extension",
     "elapsed_ms": 8.2,
-    "detector": "client-runtime.pipeline"
+    "detector": "client-runtime.runtime"
   }
 }
 ```
@@ -93,6 +93,8 @@ Important behavior:
 
 - Normalization lowercases text, applies Unicode NFKC, replaces `[at]` and `(at)` with `@`, removes spaces between adjacent digits, collapses horizontal whitespace, and preserves newlines.
 - `PRIVOKE_WAIT_FOR_REGEX` defaults to true. In that mode regex runs first and a regex `BLOCK` short-circuits NER and semantic detection.
+- gRPC callers can request any subset of `regex`, `ner`, and `semantic`, and can override regex-first versus parallel scheduling per request.
+- Every requested layer returns `ok`, `error`, or `skipped`; one layer failure does not erase successful results from other layers.
 - When regex does not block, NER and semantic classification run through `GLOBAL_CONFIG.threadpool`.
 - `strongest_result` compares `ClassificationResult.action().value` and returns the first result that raises the action above `ALLOW`.
 - The local response does not currently merge all detector categories, visibility signals, or evidence into one final classification.
@@ -178,17 +180,19 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-For streamed classification outside Docker, generate the gRPC stubs into `services/client-runtime/generated` from `shared/proto/privoke/v1/parameters.proto` before importing the streamed backend or starting the local server. The fuzzer image also generates these stubs because it imports this package directly.
+For streamed classification outside Docker, generate the gRPC stubs into `services/client-runtime/generated` from both `shared/proto/privoke/v1/parameters.proto` and `runtime.proto`.
+
+Run the gRPC runtime (default port `50054`):
+
+```bash
+python src/grpc_main.py
+```
 
 Run the optional local server:
 
 ```bash
 python src/main.py --port 8765 --llm-choice streamed
 ```
-
-## Telemetry
-
-`src/telemetry/event_emitter.py` is a metadata event helper for older fused-output-shaped dictionaries. It is not called by the hosted `/analyze` path. Treat it as a prototype component until it is adapted to the current `pipeline_analyse_text` response model.
 
 ## Verification
 

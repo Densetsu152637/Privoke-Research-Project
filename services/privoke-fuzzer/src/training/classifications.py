@@ -2,19 +2,12 @@ from __future__ import annotations
 
 from typing import Iterable, Mapping, Sequence, TypeVar
 
-from privoke_client_runtime.LLM.privoke.semantic_features import (
-    extract_semantic_signals,
-    strongest_sensitivity,
-    strongest_visibility,
-)
-from privoke_client_runtime.classification import (
+from privoke_contracts.classification import (
     Category,
     Classification,
     Sensitivity,
     Visibility,
-    initialise_packed,
     initialise_unpacked,
-    merge_classifications as merge_client_classifications,
 )
 
 
@@ -30,7 +23,7 @@ PACKED_CLASSIFICATION_KEYS = (
 
 
 def classification_from_packed(packed: int | str) -> Classification:
-    return initialise_packed(int(packed))
+    return Classification(int(packed))
 
 
 def classification_from_components(
@@ -82,35 +75,6 @@ def classification_from_mapping(item: JsonObject) -> Classification | None:
         visibility or Visibility.PU,
         categories,
     )
-
-
-def semantic_target_classification(text: str) -> Classification:
-    signals = extract_semantic_signals(text)
-    categories = dedupe_categories(
-        signal.category for signal in signals if signal.category is not None
-    )
-    sensitivity = strongest_sensitivity(signals)
-    visibility = strongest_visibility(signals)
-
-    if not categories and visibility == Visibility.PU:
-        sensitivity = Sensitivity.S0
-
-    return initialise_unpacked(sensitivity, visibility, categories)
-
-
-def empty_classification() -> Classification:
-    return initialise_unpacked(Sensitivity.S0, Visibility.PU, [])
-
-
-def merge_classifications(
-    classifications: Iterable[Classification],
-) -> Classification:
-    return merge_client_classifications(classifications)
-
-
-def dedupe_categories(categories: Iterable[Category]) -> list[Category]:
-    category_set = set(categories)
-    return [category for category in Category if category in category_set]
 
 
 def enum_from_mapping(

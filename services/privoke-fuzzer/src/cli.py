@@ -47,7 +47,7 @@ def main() -> None:
         help="Fetch model parameters from the model-streaming-service over gRPC.",
     )
     params_parser.add_argument("--target", default="model-streaming-service:50051")
-    params_parser.add_argument("--consumer-id", default="client-runtime")
+    params_parser.add_argument("--consumer-id", default="privoke-fuzzer")
     params_parser.add_argument("--model-id", default="privoke-baseline")
     params_parser.add_argument("--timeout", type=int, default=10)
     params_parser.set_defaults(handler=fetch_parameters)
