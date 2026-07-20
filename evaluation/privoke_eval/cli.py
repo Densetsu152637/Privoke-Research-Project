@@ -381,8 +381,8 @@ def main() -> None:
         raise SystemExit(str(exc)) from exc
 
     print(
-        "Evaluation calls the client-runtime /analyze API and therefore measures "
-        "the complete regex + NER + semantic pipeline."
+        "Evaluation calls the Docker client-runtime AnalyzePrompt gRPC API and therefore "
+        "measures the complete regex + NER + semantic pipeline."
     )
     print(
         f"Dataset role={spec.research_role}; mode={spec.evaluation_mode}; "

@@ -20,10 +20,10 @@ class RunnerTests(unittest.TestCase):
                 "visibility": "PU",
                 "categories": ["IDENTITY"],
             },
-            "evidence": {"confidence": 0.8},
-            "metadata": {"elapsed_ms": 1.0},
+            "confidence": 0.8,
+            "elapsed_ms": 1.0,
         }
-        with patch("privoke_eval.runners._request_json", return_value=response):
+        with patch("privoke_eval.runners._request_grpc", return_value=response):
             outcome = run_pipeline("example", "streamed")
 
         self.assertTrue(outcome.detected_sensitive)
@@ -34,7 +34,7 @@ class RunnerTests(unittest.TestCase):
             "action": "ALLOW",
             "classification": {"sensitivity": "unknown", "categories": []},
         }
-        with patch("privoke_eval.runners._request_json", return_value=response):
+        with patch("privoke_eval.runners._request_grpc", return_value=response):
             with self.assertRaisesRegex(RuntimeError, "invalid classification sensitivity"):
                 run_pipeline("example", "streamed")
 

@@ -1,12 +1,12 @@
 # PriVoke Evaluation
 
-This folder evaluates whether PriVoke detects privacy-sensitive information. It sends every selected dataset prompt to the existing client-runtime `/analyze` API, so the tested system is the complete regex/rules + NER + selected LLM pipeline.
+This folder evaluates whether PriVoke detects privacy-sensitive information. It sends every selected dataset prompt directly to the running Docker `client-runtime` gRPC service, so the tested system is the complete regex/rules + NER + selected LLM pipeline.
 
 The evaluator does not import runtime modules, train another classifier, use SMOTE, or use the fuzzer.
 
 ```text
 dataset prompt
-  -> POST http://127.0.0.1:8765/analyze
+  -> Docker exec gRPC client -> client-runtime:50054 AnalyzePrompt
   -> regex/rules + NER + selected LLM backend
   -> privacy classification and ALLOW/WARN/BLOCK action
   -> score the privacy classification only
@@ -38,46 +38,20 @@ Use `prompt_detection_recall_by_source_category` in the JSON report to see which
 
 ### Runtime API limitation
 
-`/analyze` returns the classification selected by the client-runtime pipeline, not every raw result separately produced by regex, NER, and the LLM. An internal result that remains at `ALLOW` level may not be exposed. The evaluator measures the strongest action-independent detection signal available from the existing API, without changing the runtime.
+`AnalyzePrompt` returns the classification selected by the client-runtime pipeline, not every raw result separately produced by regex, NER, and the LLM. An internal result that remains at `ALLOW` level may not be exposed. The evaluator measures the strongest action-independent detection signal available from the existing API, without changing the runtime.
 
 ## Setup after the root README
 
-The evaluator only needs the server-side parameter-streaming dependency, not the fuzzer, update collector, telemetry collector, or server copy of `client-runtime`. Start the development version of that service from the repository root and keep it available on port `50051`:
+Start the normal production-style Docker stack once and leave it running in the background:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build model-streaming-service
+docker compose up -d --build
+docker compose ps
 ```
 
-### Terminal 1: start the existing client runtime
+Continue when the five services are running and healthy. The evaluator uses `docker compose exec` to run a small generated-protobuf gRPC client inside the existing `client-runtime` container. It does not start another runtime, expose another port, use the fuzzer, or import detector implementation modules.
 
-From the repository root:
-
-```bash
-source evaluation/.venv/bin/activate
-cd extension/client-runtime
-
-MODEL_STREAMING_TARGET=localhost:50051 \
-python src/main.py \
-  --host 127.0.0.1 \
-  --port 8765 \
-  --llm-choice streamed
-```
-
-Keep this terminal running.
-
-### Terminal 2: check and run evaluation
-
-From the repository root:
-
-```bash
-curl http://127.0.0.1:8765/health
-```
-
-Continue when the response contains `"status": "SERVING"`.
-
-The evaluator uses `PRIVOKE_RUNTIME_URL=http://127.0.0.1:8765` and `PRIVOKE_RUNTIME_TIMEOUT_SECONDS=120` by default. Override those environment variables when the local harness uses another loopback URL or needs a different per-prompt timeout.
-
-Then:
+Then run the evaluation from the host:
 
 ```bash
 source evaluation/.venv/bin/activate
@@ -104,11 +78,9 @@ Only run this if `evaluation/.venv` does not exist or packages are missing:
 python3 -m venv evaluation/.venv
 source evaluation/.venv/bin/activate
 pip install -r evaluation/requirements.txt
-pip install -r extension/client-runtime/requirements.txt
-pip install ./shared/python
 ```
 
-The runtime dependencies are needed to run `extension/client-runtime/src/main.py`. The evaluator still communicates with it only through HTTP.
+The evaluator environment only needs dataset and reporting dependencies. The gRPC client runs inside the existing Docker `client-runtime`, which already contains gRPC and generated service-contract bindings.
 
 ## English-only evaluation
 
@@ -301,31 +273,7 @@ Balanced sampling does not create, duplicate, or rewrite prompts. It only select
 
 ## OpenAI backend
 
-The OpenAI key belongs to the running client runtime, not the evaluator.
-
-```bash
-curl http://127.0.0.1:8765/config/llm
-```
-
-If OpenAI does not show `"api_key_configured": true`:
-
-```bash
-export OPENAI_API_KEY='PASTE_YOUR_KEY_HERE'
-
-curl -X POST http://127.0.0.1:8765/config/llm \
-  -H 'Content-Type: application/json' \
-  -d "{\"choice\":\"openai\",\"openai\":{\"api_key\":\"$OPENAI_API_KEY\",\"model\":\"gpt-4o-mini\"}}"
-
-unset OPENAI_API_KEY
-```
-
-Test with a small run first:
-
-```bash
-python evaluate.py --dataset piimb --samples 20 --sampling sequential --english-only --backend openai
-```
-
-Use identical dataset, sample count, sampling, language filter, and seed when comparing streamed and OpenAI.
+The standard Docker stack starts `client-runtime` with the streamed backend, so use `--backend streamed`. The evaluator deliberately does not reconfigure the running service. An OpenAI comparison requires restarting `client-runtime` with its OpenAI backend and credentials configured; do not pass `--backend openai` to a streamed runtime.
 
 ## Automatic data checks
 
@@ -335,7 +283,7 @@ The evaluator:
 - excludes malformed public-source rows and records their counts;
 - excludes unverified empty annotations from positive-only datasets;
 - filters language before duplicate removal and sampling;
-- normalizes outer whitespace exactly as `/analyze` does;
+- normalizes outer whitespace exactly as `AnalyzePrompt` does;
 - removes duplicate effective prompts;
 - excludes public prompts with conflicting duplicate labels;
 - pins public dataset revisions;
