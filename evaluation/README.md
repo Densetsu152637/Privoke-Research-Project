@@ -70,6 +70,113 @@ python evaluate.py \
 
 This is the recommended English-only main experiment.
 
+## Personalized Synthetic Dataset
+
+The repository includes a local generator for a PriVoke-specific prompt-level
+dataset. It creates realistic user prompts with explicit binary labels, so clean
+rows are known clean instead of inferred from missing public span annotations.
+
+Generate the default 2,000-row dataset:
+
+```bash
+python evaluation/dataset_generation/generate_privoke_synthetic.py \
+  --count 2000 \
+  --seed 42 \
+  --output evaluation/datasets/privoke_personalized_synthetic.jsonl
+```
+
+The output is balanced: half sensitive prompts and half non-sensitive prompts.
+Sensitive rows include categories such as email, phone, SSN, medical, banking,
+account recovery, credentials, travel, HR, school, and legal/tenant scenarios.
+Clean rows include both ordinary prompts and hard negatives that mention privacy
+concepts without containing actual private data.
+
+Run it through the existing Docker `client-runtime` gRPC service:
+
+```bash
+cd evaluation
+source .venv/bin/activate
+
+python evaluate.py \
+  --dataset local-jsonl \
+  --dataset-file datasets/privoke_personalized_synthetic.jsonl \
+  --samples all \
+  --sampling balanced \
+  --backend streamed \
+  --run-name privoke_personalized_synthetic
+```
+
+### OpenAI-assisted synthetic dataset
+
+For more natural writing style variation, use the OpenAI-assisted generator. It
+still keeps labels controlled locally: sensitive rows must include exact fake
+markers inserted by the script, and clean rows are rejected if they contain
+common sensitive patterns such as emails, phone numbers, SSNs, cards, API keys,
+passwords, or IP addresses.
+
+The generator's fine-grained PII categories are based on three reference
+families:
+
+- NIST SP 800-122 / NIST CSRC glossary for the broad definition of PII as data
+  that can distinguish or trace identity, including linked or linkable medical,
+  educational, financial, and employment information.
+- Microsoft Presidio supported entities, which also matches the repo's runtime
+  direction because PriVoke imports Presidio-style regex recognizers.
+- Microsoft Azure AI Language PII/PHI entity categories for additional practical
+  coverage such as passwords, VINs, geolocation, passport numbers, driver
+  license numbers, bank account numbers, and Medicare beneficiary IDs.
+
+Each generated sensitive row stores both `fine_pii_categories` and PriVoke's
+broader `expected_categories` such as `IDENTITY`, `FINANCIAL`, `HEALTH`,
+`LOCATION`, `POLITICS`, `RELIGION`, `CRIMINAL`, `SEXUAL`, and `CHILD`.
+
+Install the optional SDK once:
+
+```bash
+source evaluation/.venv/bin/activate
+pip install openai
+```
+
+Set your API key in the same terminal:
+
+```bash
+export OPENAI_API_KEY="your_api_key_here"
+```
+
+Start with a small smoke dataset:
+
+```bash
+python3 evaluation/dataset_generation/generate_privoke_openai_synthetic.py \
+  --count 20 \
+  --seed 42 \
+  --output evaluation/datasets/privoke_openai_synthetic_smoke.jsonl
+```
+
+Then generate a larger dataset:
+
+```bash
+python3 evaluation/dataset_generation/generate_privoke_openai_synthetic.py \
+  --count 1000 \
+  --seed 42 \
+  --model gpt-4o-mini \
+  --output evaluation/datasets/privoke_openai_synthetic.jsonl
+```
+
+Evaluate it:
+
+```bash
+cd evaluation
+source .venv/bin/activate
+
+python evaluate.py \
+  --dataset local-jsonl \
+  --dataset-file datasets/privoke_openai_synthetic.jsonl \
+  --samples all \
+  --sampling balanced \
+  --backend streamed \
+  --run-name privoke_openai_synthetic
+```
+
 ### One-time Python setup
 
 Only run this if `evaluation/.venv` does not exist or packages are missing:
