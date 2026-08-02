@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Iterable, List, Pattern, Tuple
 
 from ...classification import Category, Sensitivity, Visibility
+from ...detection.context import is_clean_discussion_context
 
 
 @dataclass(frozen=True)
@@ -31,8 +32,11 @@ class PatternDefinition:
 def extract_semantic_signals(text: str) -> List[SemanticSignal]:
     signals = []
     seen = set()
+    clean_discussion = is_clean_discussion_context(text)
 
     for definition in _PATTERN_DEFINITIONS:
+        if clean_discussion and definition.category is not None:
+            continue
         for pattern in definition.patterns:
             for match in pattern.finditer(text):
                 key = (
@@ -167,6 +171,7 @@ _PATTERN_DEFINITIONS: Tuple[PatternDefinition, ...] = (
                 r"\b(?:arrested|charged with|convicted|probation|parole)\b",
                 r"\b(?:criminal record|restraining order|court date|lawsuit)\b",
                 r"\b(?:dui|felony|misdemeanor|police report)\b",
+                r"\b(?:protective order|sealed arrest record|case number|hearing)\b",
             ]
         ),
     ),
@@ -181,6 +186,7 @@ _PATTERN_DEFINITIONS: Tuple[PatternDefinition, ...] = (
                 r"\b(?:salary|paycheck|mortgage|rent arrears|debt|bankruptcy)\b",
                 r"\b(?:bank account|credit score|loan application|tax return)\b",
                 r"\b(?:inheritance|investment portfolio|student loans)\b",
+                r"\b(?:salary offer|account number|routing number|sort code)\b",
             ]
         ),
     ),
@@ -209,6 +215,7 @@ _PATTERN_DEFINITIONS: Tuple[PatternDefinition, ...] = (
                 r"\b(?:my child|my kid|my son|my daughter|minor child)\b",
                 r"\b(?:school pickup|daycare|custody schedule|child support)\b",
                 r"\b(?:underage|minor|teenager|toddler)\b",
+                r"\b(?:grade [1-9]|iep meeting|counseling appointment)\b",
             ]
         ),
     ),
@@ -237,6 +244,7 @@ _PATTERN_DEFINITIONS: Tuple[PatternDefinition, ...] = (
                 r"\b(?:I work at|my employer|my workplace|my manager|my team)\b",
                 r"\b(?:only person|small team|unique role|job title)\b",
                 r"\b(?:my username|my handle|my profile|my account)\b",
+                r"\b(?:employee id|student id|performance warning|disciplinary note|transcript)\b",
             ]
         ),
     ),

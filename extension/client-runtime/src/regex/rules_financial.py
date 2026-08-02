@@ -25,13 +25,31 @@ def financial_rules() -> List[RuleDefinition]:
         ),
         RuleDefinition(
             "bank_account",
-            r"\b(?:bank\s+account|account\s+number|routing\s+number|sort\s+code)\s*[:#=]?\s*[A-Z0-9\- ]{6,24}\b",
+            r"\b(?:bank\s+account|account\s+number|routing\s+number|sort\s+code)\s*(?:is|number is|[:#=])?\s*(?=[A-Z0-9\- ]{6,24}\b)(?=[A-Z0-9\- ]*\d)[A-Z0-9][A-Z0-9\- ]{5,23}\b",
             initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.FINANCIAL]),
             "bank_account",
         ),
         RuleDefinition(
+            "swift_bic",
+            r"\b(?:swift|bic|swift/bic)\s*[:#=]?\s*[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?\b",
+            initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.FINANCIAL]),
+            "swift_bic",
+        ),
+        RuleDefinition(
+            "crypto_wallet",
+            r"\b(?:bc1|[13])[a-zA-HJ-NP-Z0-9]{25,59}\b",
+            initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.FINANCIAL]),
+            "crypto_wallet",
+        ),
+        RuleDefinition(
+            "salary_disclosure",
+            r"\b(?:my|his|her|their|salary|income|paycheck|bonus)\s+(?:salary|income|paycheck|bonus|is|was|offer|of|=|:)\s*\$?\d[\d,]*(?:\.\d{2})?\b",
+            initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.FINANCIAL]),
+            "salary_disclosure",
+        ),
+        RuleDefinition(
             "financial_keyword",
-            r"\b(salary|income|bonus|bank|account|credit|loan|mortgage|debt|investment|stock|crypto|bitcoin|ethereum|tax|paycheck|transaction|balance)\b",
+            r"\b(?:my|his|her|their)\s+(?:salary|income|bonus|bank|account|credit|loan|mortgage|debt|investment|stock|crypto|bitcoin|ethereum|tax|paycheck|transaction|balance)\b",
             initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.FINANCIAL]),
             "financial_info",
         ),

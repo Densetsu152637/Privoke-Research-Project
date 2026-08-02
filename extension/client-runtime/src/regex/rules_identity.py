@@ -15,7 +15,7 @@ def identity_rules() -> List[RuleDefinition]:
         ),
         RuleDefinition(
             "phone_us",
-            r"(\+?1[\s\-]?)?\(?[2-9]\d{2}\)?[\s\-]?\d{3}[\s\-]?\d{4}\b",
+            r"(?<![\w])(?:\+?1[\s\-]?)?\(?[2-9]\d{2}\)?[\s\-]?\d{3}[\s\-]?\d{4}\b",
             initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.IDENTITY]),
             "phone",
         ),
@@ -30,6 +30,12 @@ def identity_rules() -> List[RuleDefinition]:
             r"\b\d{3}[\s\-]?\d{2}[\s\-]?\d{4}\b",
             initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.IDENTITY]),
             "ssn",
+        ),
+        RuleDefinition(
+            "itin",
+            r"\b9\d{2}[\s\-]?(?:7\d|8[0-8]|9[0-2]|9[4-9])[\s\-]?\d{4}\b",
+            initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.IDENTITY]),
+            "itin",
         ),
         RuleDefinition(
             "passport",
@@ -48,6 +54,36 @@ def identity_rules() -> List[RuleDefinition]:
             r"\b(?:national\s+id|tax\s+id|tin|id\s+number|identity\s+number)\s*[:#=]?\s*[A-Z0-9\-]{5,20}\b",
             initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.IDENTITY]),
             "government_id",
+        ),
+        RuleDefinition(
+            "api_key",
+            r"\b(?:sk|pk|ghp|xoxb|akia)[-_a-z0-9]{16,}\b",
+            initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.IDENTITY]),
+            "api_key",
+        ),
+        RuleDefinition(
+            "url_with_token",
+            r"https?://\S*(?:token|key|secret|auth|session)=\S+",
+            initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.IDENTITY]),
+            "url_token",
+        ),
+        RuleDefinition(
+            "password_assignment",
+            r"\b(?:password|passwd|pwd|passcode)\s*[:=]\s*\S+",
+            initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.IDENTITY]),
+            "password",
+        ),
+        RuleDefinition(
+            "mac_address",
+            r"\b[0-9a-f]{2}(?::[0-9a-f]{2}){5}\b",
+            initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.IDENTITY]),
+            "mac_address",
+        ),
+        RuleDefinition(
+            "vin",
+            r"\b[A-HJ-NPR-Z0-9]{17}\b",
+            initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.IDENTITY]),
+            "vin",
         ),
         RuleDefinition(
             "social_handle",

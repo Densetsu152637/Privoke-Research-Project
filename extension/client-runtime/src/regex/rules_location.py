@@ -20,6 +20,12 @@ def location_rules() -> List[RuleDefinition]:
             "geo_coordinates",
         ),
         RuleDefinition(
+            "license_plate",
+            r"\b(?:license\s+plate|plate)\s*[:#=]?\s*[A-Z]{2,4}[-\s]?\d{3,4}\b|\b[A-Z]{3}-\d{4}\b",
+            initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.LOCATION]),
+            "license_plate",
+        ),
+        RuleDefinition(
             "location_keyword",
             r"\b(live|lives|living|located|from|address|hometown|residence|staying|alone tonight)\s*(?:in|at|near)?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?",
             initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.LOCATION]),
