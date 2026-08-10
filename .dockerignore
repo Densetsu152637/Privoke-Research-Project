@@ -19,4 +19,5 @@ dumps
 services/*/generated
 services/model-streaming-service/gen
 extension/client-runtime/generated
+extension/runtime-supervisor/generated
 shared/generated

@@ -48,14 +48,6 @@ async function initialise() {
     const stopped = await sendMessage({ type: "SET_MASTER_ENABLED", enabled: false });
     if (stopped?.warning) showRuntimeWarning(stopped.warning);
   }
-
-  if (settings.enabled && settings.layers.llm) {
-    const health = await sendMessage({ type: "CHECK_STREAMING_HEALTH" });
-    if (!health?.ok) {
-      await savePatch({ layers: { llm: false } });
-      serverWarning.hidden = false;
-    }
-  }
 }
 
 async function toggleMaster() {

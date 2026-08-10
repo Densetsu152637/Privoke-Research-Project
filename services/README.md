@@ -42,7 +42,7 @@ Cross-service APIs live in `shared/proto/privoke/v1/parameters.proto` and `runti
 - The parameter-streaming, parameter-update, and fuzzer services each implement `Health(HealthRequest) -> HealthResponse`.
 - `PrivokeRuntimeService.AnalyzePrompt(AnalyzePromptRequest) -> AnalyzePromptResponse`
 - `PrivokeRuntimeService.Health(RuntimeHealthRequest) -> RuntimeHealthResponse`
-- `PrivokeRuntimeControlService.SetRuntimeEnabled(SetRuntimeEnabledRequest) -> RuntimeControlStatus` and `Status(RuntimeHealthRequest) -> RuntimeControlStatus` are workstation-local extension control and are not started by server Compose.
+- `PrivokeRuntimeControlService.SetRuntimeEnabled(SetRuntimeEnabledRequest) -> RuntimeControlStatus`, `Status(RuntimeHealthRequest) -> RuntimeControlStatus`, and `ModelStreamingHealth(RuntimeHealthRequest) -> RuntimeHealthResponse` are implemented by `extension/runtime-supervisor` for workstation-local extension control and are not started by server Compose.
 - `TelemetryService.RecordTelemetry(TelemetryPacket) -> RecordTelemetryResponse`
 - `TelemetryService.ListTelemetry(ListTelemetryRequest) -> ListTelemetryResponse`
 - `TelemetryService.Health(TelemetryHealthRequest) -> TelemetryHealthResponse`

@@ -36,6 +36,7 @@ Services:
 - `PrivokeRuntimeControlService`
   - `SetRuntimeEnabled(SetRuntimeEnabledRequest) -> RuntimeControlStatus`
   - `Status(RuntimeHealthRequest) -> RuntimeControlStatus`
+  - `ModelStreamingHealth(RuntimeHealthRequest) -> RuntimeHealthResponse`
 
 `telemetry.proto` defines privacy-minimal telemetry packets and:
 
@@ -49,7 +50,7 @@ Services:
 - `model-streaming-service` implements `ModelStreamingService`.
 - `client-runtime` consumes `ModelStreamingService` when using the `streamed` semantic backend.
 - `client-runtime` implements `PrivokeRuntimeService`.
-- The workstation supervisor implements `PrivokeRuntimeControlService`; server Compose runs the detector directly and does not expose that lifecycle control plane.
+- `extension/runtime-supervisor` implements `PrivokeRuntimeControlService`; server Compose runs the detector directly and does not expose that lifecycle control plane.
 - `privoke-fuzzer` consumes `PrivokeRuntimeService` and `ModelStreamingService`, implements `FuzzerService`, and consumes `ParamUpdateService`.
 - `param-update-service` implements `ParamUpdateService` and can consume `FuzzerService` when fuzzer requests are enabled.
 - `client-runtime` produces privacy-minimal `TelemetryPacket` messages.
@@ -61,6 +62,7 @@ Each service keeps generated protobuf code locally:
 
 - Go bindings under `services/model-streaming-service/gen`
 - Python bindings under each Python service's `generated` directory
+- Workstation control-plane bindings under `extension/runtime-supervisor/generated`
 
 The Dockerfiles generate these bindings at image build time. `docker-compose.dev.yml` regenerates them at container startup before running the service.
 

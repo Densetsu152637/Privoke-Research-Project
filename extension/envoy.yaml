@@ -35,22 +35,6 @@ static_resources:
                               allow_headers: "content-type,x-grpc-web,x-user-agent,grpc-timeout"
                               expose_headers: "grpc-status,grpc-message"
                               max_age: "86400"
-                        - match: { path: "/privoke.v1.ModelStreamingService/Health" }
-                          route:
-                            cluster: model_streaming_service
-                            timeout: 3s
-                          typed_per_filter_config:
-                            envoy.filters.http.cors:
-                              "@type": type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy
-                              allow_origin_string_match:
-                                - exact: "http://localhost"
-                                - exact: "http://127.0.0.1"
-                                - safe_regex:
-                                    regex: "^(chrome|moz)-extension://[a-zA-Z0-9_-]+$"
-                              allow_methods: "POST,OPTIONS"
-                              allow_headers: "content-type,x-grpc-web,x-user-agent,grpc-timeout"
-                              expose_headers: "grpc-status,grpc-message"
-                              max_age: "86400"
                         - match: { prefix: "/privoke.v1.PrivokeRuntimeService/" }
                           route:
                             cluster: privoke_runtime
@@ -91,24 +75,6 @@ static_resources:
                     socket_address:
                       address: 127.0.0.1
                       port_value: 50056
-      typed_extension_protocol_options:
-        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
-          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
-          explicit_http_config:
-            http2_protocol_options: {}
-    - name: model_streaming_service
-      connect_timeout: 1s
-      type: LOGICAL_DNS
-      lb_policy: ROUND_ROBIN
-      load_assignment:
-        cluster_name: model_streaming_service
-        endpoints:
-          - lb_endpoints:
-              - endpoint:
-                  address:
-                    socket_address:
-                      address: 127.0.0.1
-                      port_value: 50051
       typed_extension_protocol_options:
         envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
           "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions

@@ -115,8 +115,6 @@ services:
       dockerfile: extension/client-runtime/Dockerfile
     container_name: client-runtime
     depends_on:
-      model-streaming-service:
-        condition: service_healthy
       telemetry-service:
         condition: service_healthy
     expose:

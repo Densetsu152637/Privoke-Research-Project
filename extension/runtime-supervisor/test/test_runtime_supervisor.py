@@ -35,6 +35,16 @@ class FakeProcess:
 
 
 class RuntimeProcessSupervisorTests(unittest.TestCase):
+    def test_default_child_is_the_sibling_client_runtime(self) -> None:
+        supervisor = RuntimeProcessSupervisor(environment={})
+
+        self.assertEqual(
+            Path(supervisor.command[1]).resolve(),
+            (
+                PACKAGE_ROOT.parent / "client-runtime" / "src" / "grpc_main.py"
+            ).resolve(),
+        )
+
     def test_starts_and_stops_the_runtime_child(self) -> None:
         process = FakeProcess()
         supervisor = RuntimeProcessSupervisor(

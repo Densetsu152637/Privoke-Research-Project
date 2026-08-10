@@ -43,7 +43,7 @@ Environment:
 - `MODEL_STREAMING_CONSUMER_ID`, default `client-runtime`
 - `MODEL_STREAMING_TIMEOUT_SECONDS`, default `10.0`
 
-`grpcio` and the generated Python stubs must be present before this backend is imported. Docker and the dev Compose override generate service-local stubs under `extension/client-runtime/generated`; a local gRPC runtime or supervisor needs bindings generated from `parameters.proto`, `runtime.proto`, and `telemetry.proto` as shown in the package README.
+`grpcio` and the generated Python stubs must be present before this backend is imported. Docker and the dev Compose override generate service-local stubs under `extension/client-runtime/generated`; a local gRPC runtime needs bindings generated from `parameters.proto`, `runtime.proto`, and `telemetry.proto` as shown in the package README. The separate supervisor generates its own control-plane bindings under `extension/runtime-supervisor/generated`.
 
 ## Local OpenAI-Compatible Backend
 

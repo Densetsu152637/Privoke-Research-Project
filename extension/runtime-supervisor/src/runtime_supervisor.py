@@ -13,7 +13,8 @@ from typing import Callable, Mapping, Sequence
 
 
 CURRENT_DIR = Path(__file__).resolve().parent
-PACKAGE_ROOT = CURRENT_DIR.parent
+SUPERVISOR_ROOT = CURRENT_DIR.parent
+CLIENT_RUNTIME_ROOT = SUPERVISOR_ROOT.parent / "client-runtime"
 
 
 @dataclass(frozen=True)
@@ -37,7 +38,10 @@ class RuntimeProcessSupervisor:
         environment: Mapping[str, str] | None = None,
         process_factory: Callable[..., subprocess.Popen] = subprocess.Popen,
     ) -> None:
-        self.command = tuple(command or (sys.executable, str(CURRENT_DIR / "grpc_main.py")))
+        self.command = tuple(
+            command
+            or (sys.executable, str(CLIENT_RUNTIME_ROOT / "src" / "grpc_main.py"))
+        )
         self.runtime_port = runtime_port
         self.startup_timeout_seconds = startup_timeout_seconds
         self.stop_timeout_seconds = stop_timeout_seconds
@@ -57,7 +61,7 @@ class RuntimeProcessSupervisor:
             try:
                 process = self.process_factory(
                     self.command,
-                    cwd=str(PACKAGE_ROOT),
+                    cwd=str(CLIENT_RUNTIME_ROOT),
                     env=self.environment,
                 )
             except Exception as exc:

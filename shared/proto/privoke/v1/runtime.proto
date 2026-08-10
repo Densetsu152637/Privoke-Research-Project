@@ -96,4 +96,5 @@ service PrivokeRuntimeService {
 service PrivokeRuntimeControlService {
   rpc SetRuntimeEnabled(SetRuntimeEnabledRequest) returns (RuntimeControlStatus);
   rpc Status(RuntimeHealthRequest) returns (RuntimeControlStatus);
+  rpc ModelStreamingHealth(RuntimeHealthRequest) returns (RuntimeHealthResponse);
 }

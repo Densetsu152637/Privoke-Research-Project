@@ -49,7 +49,7 @@ Detector output is represented by `extension/client-runtime/src/classification`.
 
 ## Repository Layout
 
-- `extension`: Manifest V3 browser client, local gRPC-Web bridge configuration, and the Python prompt inspection runtime under `extension/client-runtime`.
+- `extension`: Manifest V3 browser client, local gRPC-Web bridge configuration, the Python prompt inspection runtime under `extension/client-runtime`, and its separate workstation control process under `extension/runtime-supervisor`.
 - `services/model-streaming-service`: Go gRPC service that returns the current model parameter snapshot.
 - `services/param-update-service`: Python gRPC service that accepts parameter update payloads and can request fuzzer training cycles.
 - `services/privoke-fuzzer`: Python gRPC worker and CLI for prompt generation, layer probes, streamed semantic-model evaluation, and update submission.
@@ -123,7 +123,7 @@ npm install
 npm run build
 ```
 
-Load `extension/dist` from the browser's unpacked-extension page. The extension itself is never run by Compose. It also needs the workstation-local runtime supervisor and Envoy gRPC-Web bridge described in `extension/README.md`; the checked-in bridge defaults to loopback ports `50051`, `50054`, and `50056`.
+Load `extension/dist` from the browser's unpacked-extension page. The extension itself is never run by Compose. It also needs the workstation-local runtime supervisor and Envoy gRPC-Web bridge described in `extension/README.md`; the bridge uses loopback ports `50054` and `50056`. Port `50051` is contacted by Python only when streamed LLM health or parameters are requested.
 
 Run paper figure scripts:
 
@@ -190,7 +190,7 @@ In dev mode fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer
 - `FuzzerService.RunTrainingCycle`
 - `Health` RPCs for the parameter, update, and fuzzer services
 
-`shared/proto/privoke/v1/runtime.proto` defines `PrivokeRuntimeService`, the workstation-local `PrivokeRuntimeControlService`, requested detector layers, regex execution order, and per-layer results/errors. Server Compose runs only the detector service; the extension supervisor hosts the control service.
+`shared/proto/privoke/v1/runtime.proto` defines `PrivokeRuntimeService`, the workstation-local `PrivokeRuntimeControlService` (including the on-demand model-streaming health proxy), requested detector layers, regex execution order, and per-layer results/errors. Server Compose runs only the detector service; `extension/runtime-supervisor` hosts the control service.
 
 `shared/proto/privoke/v1/telemetry.proto` defines privacy-minimal event recording and paginated retrieval. Compose persists these packets in the `telemetry-data` SQLite volume.
 

@@ -4,34 +4,11 @@ The client runtime is PriVoke's local prompt inspection service. It runs detecto
 
 This package is the only component currently in the prompt classification path. The parameter-streaming service is used only when the semantic backend is set to `streamed`.
 
-## Runtime deployment modes
+## Deployment modes
 
 Production and development server Compose run `src/grpc_main.py` directly as the always-on `client-runtime` required by the fuzzer. The Chrome extension is not deployed through Docker.
 
-For the extension's workstation-local lifecycle behavior, `src/supervisor_main.py` keeps a small gRPC control plane on port `50056` and owns the detector runtime child on port `50054`.
-
-- `SetRuntimeEnabled(false)` gracefully terminates the detector child and waits before forcing termination.
-- `SetRuntimeEnabled(true)` starts the child and waits until its gRPC port accepts connections.
-- `Status` reports `RUNNING` or `STOPPED`, the child PID, and the latest lifecycle message.
-- Stopping the supervisor process also terminates the child.
-
-The supervisor must remain running while the detector is off. A shutdown RPC implemented by the detector process itself would be unable to receive a later startup request.
-
-Run the supervised runtime locally after generating protobuf bindings:
-
-```bash
-python src/supervisor_main.py
-```
-
-Environment controls:
-
-- `PRIVOKE_CONTROL_GRPC_HOST`, default `127.0.0.1`
-- `PRIVOKE_CONTROL_GRPC_PORT`, default `50056`
-- `PRIVOKE_GRPC_HOST`, default `127.0.0.1`
-- `PRIVOKE_GRPC_PORT`, default `50054`
-- `PRIVOKE_RUNTIME_START_ENABLED`, default `true`
-- `PRIVOKE_RUNTIME_START_TIMEOUT_SECONDS`, default `30`
-- `PRIVOKE_RUNTIME_STOP_TIMEOUT_SECONDS`, default `10`
+The extension's workstation lifecycle process is a separate sibling package at `../runtime-supervisor`. It starts this detector as a child process and exposes the extension control plane on port `50056`.
 
 ## Local HTTP Harness
 
@@ -193,8 +170,6 @@ Environment variables:
 - `PRIVOKE_HOST`, `PRIVOKE_PORT` for the optional HTTP harness
 - `PRIVOKE_GRPC_HOST`, Python default `127.0.0.1`; the server image sets `0.0.0.0` and Compose sets `[::]`
 - `PRIVOKE_GRPC_PORT`, default `50054`
-- `PRIVOKE_CONTROL_GRPC_HOST`, default `127.0.0.1`
-- `PRIVOKE_CONTROL_GRPC_PORT`, default `50056`
 - `PRIVOKE_LLM_CHOICE`
 - `PRIVOKE_WAIT_FOR_REGEX`
 - `PRIVOKE_MAX_PROMPT_CHARS`
@@ -247,11 +222,7 @@ Run the gRPC runtime (default port `50054`):
 python src/grpc_main.py
 ```
 
-Run the workstation supervisor instead when the Chrome extension must control runtime startup and shutdown:
-
-```bash
-python src/supervisor_main.py
-```
+For extension-controlled startup and shutdown, configure and run the sibling [`runtime-supervisor`](../runtime-supervisor/README.md) package instead of starting this server directly.
 
 Run the optional local server:
 
