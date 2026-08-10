@@ -6,6 +6,7 @@
 
 # Virtual environment
 .venv/
+.venv-broken-backup/
 venv/
 env/
 __pycache__/

@@ -7,6 +7,8 @@ from pathlib import Path
 CURRENT_DIR = Path(__file__).resolve().parent
 PACKAGE_ROOT = CURRENT_DIR.parent
 SHARED_PYTHON_ROOT = PACKAGE_ROOT.parents[1] / "shared" / "python"
+while str(CURRENT_DIR) in sys.path:
+    sys.path.remove(str(CURRENT_DIR))
 for path in (PACKAGE_ROOT, SHARED_PYTHON_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
