@@ -9,16 +9,20 @@ from pathlib import Path
 
 CURRENT_DIR = Path(__file__).resolve().parent
 PACKAGE_PARENT = CURRENT_DIR.parent
+SHARED_PYTHON_ROOT = PACKAGE_PARENT.parents[1] / "shared" / "python"
 while str(CURRENT_DIR) in sys.path:
     sys.path.remove(str(CURRENT_DIR))
 if str(PACKAGE_PARENT) not in sys.path:
     sys.path.insert(0, str(PACKAGE_PARENT))
+if str(SHARED_PYTHON_ROOT) not in sys.path:
+    sys.path.insert(0, str(SHARED_PYTHON_ROOT))
 
 GENERATED_DIR = PACKAGE_PARENT / "generated"
 if str(GENERATED_DIR) not in sys.path:
     sys.path.insert(0, str(GENERATED_DIR))
 
 from src.config import GLOBAL_CONFIG, LLMChoice
+from src.dependency_check import check_required_detector_dependencies
 from src.env import env_bool, env_positive_float, env_positive_int
 from src.hosting.grpc_server import create_grpc_server
 from src.telemetry import TelemetryReporter
@@ -31,6 +35,8 @@ def main() -> None:
     global _SHOULD_STOP
     signal.signal(signal.SIGTERM, _stop)
     signal.signal(signal.SIGINT, _stop)
+
+    check_required_detector_dependencies()
 
     GLOBAL_CONFIG.llm_choice = LLMChoice.parse(
         os.getenv("PRIVOKE_LLM_CHOICE", "streamed")

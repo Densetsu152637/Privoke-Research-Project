@@ -37,10 +37,16 @@ class RuntimeProcessSupervisor:
         stop_timeout_seconds: float = 10.0,
         environment: Mapping[str, str] | None = None,
         process_factory: Callable[..., subprocess.Popen] = subprocess.Popen,
+        dependency_check_factory: Callable[..., subprocess.CompletedProcess] = subprocess.run,
     ) -> None:
-        self.command = tuple(
-            command
-            or (sys.executable, str(CLIENT_RUNTIME_ROOT / "src" / "grpc_main.py"))
+        runtime_python = _runtime_python(environment)
+        self.command = tuple(command or (
+            runtime_python,
+            str(CLIENT_RUNTIME_ROOT / "src" / "grpc_main.py"),
+        ))
+        self.dependency_check_command = None if command else (
+            runtime_python,
+            str(CLIENT_RUNTIME_ROOT / "src" / "dependency_check.py"),
         )
         self.runtime_port = runtime_port
         self.startup_timeout_seconds = startup_timeout_seconds
@@ -48,6 +54,7 @@ class RuntimeProcessSupervisor:
         self.environment = dict(os.environ if environment is None else environment)
         self.environment["PRIVOKE_GRPC_PORT"] = str(runtime_port)
         self.process_factory = process_factory
+        self.dependency_check_factory = dependency_check_factory
         self._process: subprocess.Popen | None = None
         self._last_message = "Client runtime has not been started."
         self._lock = threading.RLock()
@@ -57,6 +64,14 @@ class RuntimeProcessSupervisor:
             current = self._current_status()
             if current.enabled:
                 return current
+
+            dependency_error = self._dependency_error()
+            if dependency_error:
+                self._last_message = (
+                    "Client runtime dependencies are unavailable: "
+                    f"{dependency_error}"
+                )
+                return self._current_status()
 
             try:
                 process = self.process_factory(
@@ -144,7 +159,46 @@ class RuntimeProcessSupervisor:
             process.kill()
             process.wait(timeout=self.stop_timeout_seconds)
 
+    def _dependency_error(self) -> str | None:
+        if self.dependency_check_command is None:
+            return None
+        try:
+            result = self.dependency_check_factory(
+                self.dependency_check_command,
+                cwd=str(CLIENT_RUNTIME_ROOT),
+                env=self.environment,
+                capture_output=True,
+                text=True,
+                timeout=self.startup_timeout_seconds,
+                check=False,
+            )
+        except Exception as exc:
+            return _error_message(exc)
+        if result.returncode == 0:
+            return None
+        output = (result.stderr or result.stdout or "").strip().splitlines()
+        return (
+            output[-1]
+            if output
+            else f"dependency check exited with code {result.returncode}"
+        )
+
 
 def _error_message(exc: Exception) -> str:
     message = str(exc).strip()
     return message or exc.__class__.__name__
+
+
+def _runtime_python(environment: Mapping[str, str] | None) -> str:
+    source_environment = os.environ if environment is None else environment
+    configured = source_environment.get("PRIVOKE_RUNTIME_PYTHON", "").strip()
+    if configured:
+        return configured
+    candidates = (
+        CLIENT_RUNTIME_ROOT / ".venv" / "Scripts" / "python.exe",
+        CLIENT_RUNTIME_ROOT / ".venv" / "bin" / "python",
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+    return sys.executable

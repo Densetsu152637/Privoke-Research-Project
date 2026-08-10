@@ -84,11 +84,12 @@ async function setMasterEnabled(enabled) {
     return { ok: true, settings, runtime };
   } catch (error) {
     const settings = await updateSettings({ enabled: false });
+    const detail = errorMessage(error);
     return {
       ok: false,
       settings,
-      error: "The client runtime could not be started.",
-      detail: errorMessage(error),
+      error: `The client runtime could not be started: ${detail}`,
+      detail,
     };
   }
 }

@@ -5,6 +5,7 @@
 .env.*
 
 # Virtual environment
+.venv/
 venv/
 env/
 __pycache__/

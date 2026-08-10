@@ -38,7 +38,7 @@ extension popup manual check ─┴─> MV3 background worker
 
 The LLM toggle health check goes through the Python supervisor's `ModelStreamingHealth` RPC. The browser bridge never routes directly to the parameter-streaming service; the supervisor performs the native gRPC health call on demand. Model parameters also flow only from that endpoint to the Python runtime. The checked-in configuration is a loopback development configuration, so a remote deployment must supply a secure local forward or an equivalent machine-local bridge configuration.
 
-The supervisor is intentionally separate from the detector runtime. A shutdown method hosted by the detector itself could stop the process, but could not receive the later start request. The supervisor owns the child process, waits for port `50054` on startup, terminates it on shutdown, and also stops it when the supervisor process is terminated.
+The supervisor is intentionally separate from the detector runtime. A shutdown method hosted by the detector itself could stop the process, but could not receive the later start request. The supervisor owns the child process, waits for port `50054` on startup, terminates it on shutdown, and also stops it when the supervisor process is terminated. It also hosts the loopback gRPC-Web bridge on port `8080`, so the normal workstation path does not require a separate proxy process.
 
 Browsers cannot call a native gRPC HTTP/2 endpoint directly. The bridge translates gRPC-Web frames while keeping the shared protobuf files as the request and response contracts.
 
@@ -79,9 +79,9 @@ python -m grpc_tools.protoc \
 python src/main.py
 ```
 
-The supervisor and detector bind to loopback by default. `MODEL_STREAMING_TARGET` defaults to `127.0.0.1:50051` for this workstation path; server Compose overrides it with the internal service name.
+The supervisor and detector bind to loopback by default. The supervisor prefers `client-runtime/.venv` for the detector process (or `PRIVOKE_RUNTIME_PYTHON` when explicitly set) and refuses to start it unless Presidio and the `en_core_web_sm` spaCy model load successfully. `MODEL_STREAMING_TARGET` defaults to `127.0.0.1:50051` for this workstation path; server Compose overrides it with the internal service name. Streaming-service health is intentionally not part of the local dependency preflight.
 
-3. With Envoy installed on the workstation, start the gRPC-Web bridge from the repository root:
+3. The supervisor starts the gRPC-Web bridge on `127.0.0.1:8080` automatically. To use an external Envoy bridge instead, set `PRIVOKE_GRPC_WEB_ENABLED=false` before starting the supervisor, then run:
 
 ```bash
 envoy -c extension/envoy.yaml

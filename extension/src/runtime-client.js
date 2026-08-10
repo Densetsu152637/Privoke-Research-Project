@@ -1,5 +1,4 @@
-import protobuf from "protobufjs";
-import runtimeProto from "../../shared/proto/privoke/v1/runtime.proto";
+import { privoke } from "./generated/runtime.js";
 import { requireExplicitLayers } from "./analysis-request.js";
 import { frameGrpcWebMessage, parseGrpcWebResponse } from "./grpc-web.js";
 
@@ -7,13 +6,14 @@ const RPC_PATH = "/privoke.v1.PrivokeRuntimeService/AnalyzePrompt";
 const STREAMING_HEALTH_PATH = "/privoke.v1.PrivokeRuntimeControlService/ModelStreamingHealth";
 const RUNTIME_CONTROL_PATH = "/privoke.v1.PrivokeRuntimeControlService/SetRuntimeEnabled";
 const RUNTIME_STATUS_PATH = "/privoke.v1.PrivokeRuntimeControlService/Status";
-const runtimeRoot = protobuf.parse(runtimeProto).root;
-const Request = runtimeRoot.lookupType("privoke.v1.AnalyzePromptRequest");
-const Response = runtimeRoot.lookupType("privoke.v1.AnalyzePromptResponse");
-const RuntimeHealthRequest = runtimeRoot.lookupType("privoke.v1.RuntimeHealthRequest");
-const RuntimeHealthResponse = runtimeRoot.lookupType("privoke.v1.RuntimeHealthResponse");
-const SetRuntimeEnabledRequest = runtimeRoot.lookupType("privoke.v1.SetRuntimeEnabledRequest");
-const RuntimeControlStatus = runtimeRoot.lookupType("privoke.v1.RuntimeControlStatus");
+const {
+  AnalyzePromptRequest: Request,
+  AnalyzePromptResponse: Response,
+  RuntimeHealthRequest,
+  RuntimeHealthResponse,
+  SetRuntimeEnabledRequest,
+  RuntimeControlStatus,
+} = privoke.v1;
 
 export class RuntimeClient {
   constructor(baseUrl = "http://127.0.0.1:8080") {

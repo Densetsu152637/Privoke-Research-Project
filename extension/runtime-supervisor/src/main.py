@@ -26,6 +26,7 @@ from privoke.v1 import (
     runtime_pb2_grpc,
 )
 from src.runtime_supervisor import RuntimeProcessStatus, RuntimeProcessSupervisor
+from src.grpc_web_bridge import GrpcWebBridge
 
 
 _SHOULD_STOP = False
@@ -105,11 +106,31 @@ def main() -> None:
         f"PriVoke runtime supervisor listening on {control_host}:{control_port}",
         flush=True,
     )
-
+    bridge = None
     try:
+        if _env_bool("PRIVOKE_GRPC_WEB_ENABLED", True):
+            bridge_host = (
+                os.getenv("PRIVOKE_GRPC_WEB_HOST", "127.0.0.1").strip()
+                or "127.0.0.1"
+            )
+            bridge_port = _env_positive_int("PRIVOKE_GRPC_WEB_PORT", 8080)
+            bridge = GrpcWebBridge(
+                host=bridge_host,
+                port=bridge_port,
+                control_target=f"{control_host}:{control_port}",
+                runtime_target=f"127.0.0.1:{runtime_port}",
+            )
+            bridge.start()
+            print(
+                f"PriVoke gRPC-Web bridge listening on {bridge_host}:{bridge_port}",
+                flush=True,
+            )
+
         while not _SHOULD_STOP:
             time.sleep(0.25)
     finally:
+        if bridge is not None:
+            bridge.stop()
         server.stop(5).wait()
         supervisor.stop()
 

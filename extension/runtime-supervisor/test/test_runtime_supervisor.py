@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from subprocess import CompletedProcess
 from pathlib import Path
 import sys
 
@@ -45,6 +46,22 @@ class RuntimeProcessSupervisorTests(unittest.TestCase):
             ).resolve(),
         )
 
+        self.assertEqual(
+            Path(supervisor.dependency_check_command[1]).resolve(),
+            (PACKAGE_ROOT.parent / "client-runtime" / "src" / "dependency_check.py").resolve(),
+        )
+
+    def test_explicit_runtime_python_overrides_interpreter_discovery(self) -> None:
+        supervisor = RuntimeProcessSupervisor(
+            environment={"PRIVOKE_RUNTIME_PYTHON": "managed-python"}
+        )
+
+        self.assertEqual(supervisor.command[0], "managed-python")
+        self.assertEqual(
+            supervisor.dependency_check_command[0],
+            "managed-python",
+        )
+
     def test_starts_and_stops_the_runtime_child(self) -> None:
         process = FakeProcess()
         supervisor = RuntimeProcessSupervisor(
@@ -78,6 +95,25 @@ class RuntimeProcessSupervisorTests(unittest.TestCase):
         self.assertFalse(status.enabled)
         self.assertTrue(process.terminated)
         self.assertIn("did not listen", status.message)
+
+    def test_does_not_launch_runtime_when_required_dependencies_are_missing(self) -> None:
+        launches = []
+        supervisor = RuntimeProcessSupervisor(
+            environment={},
+            process_factory=lambda *args, **kwargs: launches.append(args),
+            dependency_check_factory=lambda *args, **kwargs: CompletedProcess(
+                args[0],
+                1,
+                stdout="",
+                stderr="ModuleNotFoundError: No module named 'presidio_analyzer'\n",
+            ),
+        )
+
+        status = supervisor.start()
+
+        self.assertFalse(status.enabled)
+        self.assertEqual(launches, [])
+        self.assertIn("presidio_analyzer", status.message)
 
 
 if __name__ == "__main__":
