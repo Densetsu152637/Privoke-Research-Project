@@ -35,12 +35,14 @@ def configure_backend(backend: str) -> None:
         )
 
 
-def run_pipeline(text: str, backend: str) -> DetectionOutcome:
-    configure_backend(backend)
+def run_pipeline(text: str, backend: str | None, layer: str = "pipeline") -> DetectionOutcome:
+    if layer == "pipeline":
+        configure_backend(backend or os.getenv("PRIVOKE_LLM_CHOICE", "streamed"))
     payload = _request_grpc(
         {
             "operation": "analyze",
             "text": text,
+            "layer": layer,
             "model_id": os.getenv("MODEL_ID", "privoke-baseline"),
         }
     )

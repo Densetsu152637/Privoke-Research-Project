@@ -1,3 +1,4 @@
+import os
 from typing import List
 
 from .rule_types import RuleDefinition
@@ -21,6 +22,15 @@ def all_rule_definitions() -> List[RuleDefinition]:
     rules.extend(financial_rules())
     rules.extend(sensitive_category_rules())
     rules.extend(contextual_rules())
-    rules.extend(gitleaks_rules())
-    rules.extend(presidio_rules()) 
+    if _env_enabled("PRIVOKE_REGEX_GITLEAKS", default=True):
+        rules.extend(gitleaks_rules())
+    if _env_enabled("PRIVOKE_REGEX_PRESIDIO", default=True):
+        rules.extend(presidio_rules())
     return rules
+
+
+def _env_enabled(name: str, *, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() not in {"0", "false", "no", "off"}

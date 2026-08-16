@@ -47,7 +47,23 @@ def _resolve_backends(args) -> list[str | None]:
 
 
 def _resolve_layers(args) -> list[str]:
-    return ["pipeline"]
+    return [args.layer]
+
+
+def _elapsed_ms_summary(values: list[float]) -> dict[str, float | int | None]:
+    if not values:
+        return {
+            "count": 0,
+            "avg": None,
+            "min": None,
+            "max": None,
+        }
+    return {
+        "count": len(values),
+        "avg": round(sum(values) / len(values), 3),
+        "min": round(min(values), 3),
+        "max": round(max(values), 3),
+    }
 
 
 def evaluate_run(
@@ -81,11 +97,16 @@ def evaluate_run(
     action_counts: Counter[str] = Counter()
     sensitivity_counts: Counter[str] = Counter()
     returned_category_counts: Counter[str] = Counter()
+    elapsed_ms_values: list[float] = []
 
     iterator = tqdm(examples, desc=f"Evaluating {dataset_name} / {layer}") if not quiet else examples
     for index, example in enumerate(iterator):
         try:
-            outcome = run_pipeline(example.text, active_backend)
+            outcome = (
+                run_pipeline(example.text, active_backend)
+                if layer == "pipeline"
+                else run_pipeline(example.text, active_backend, layer=layer)
+            )
         except Exception as exc:  # noqa: BLE001
             errors += 1
             error_truths.append(int(example.expected_has_pii))
@@ -106,6 +127,7 @@ def evaluate_run(
             continue
 
         detected_sensitive = outcome.detected_sensitive
+        elapsed_ms_values.append(outcome.elapsed_ms)
         action_counts[outcome.action] += 1
         sensitivity_counts[outcome.sensitivity] += 1
         for category in set(outcome.categories):
@@ -197,6 +219,7 @@ def evaluate_run(
                 "returned_category_prompt_counts": dict(
                     sorted(returned_category_counts.items())
                 ),
+                "elapsed_ms": _elapsed_ms_summary(elapsed_ms_values),
             },
             "independence_group": spec.independence_group,
             "evaluation_mode": spec.evaluation_mode,
@@ -270,7 +293,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--layer",
-        choices=("pipeline",),
+        choices=("pipeline", "regex"),
         default="pipeline",
         help="Detector layer to evaluate.",
     )

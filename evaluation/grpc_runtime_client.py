@@ -20,6 +20,12 @@ from privoke.v1 import runtime_pb2, runtime_pb2_grpc  # noqa: E402
 
 TARGET = "127.0.0.1:50054"
 
+LAYER_NAMES = {
+    "pipeline": runtime_pb2.DETECTION_LAYER_RUNTIME,
+    "runtime": runtime_pb2.DETECTION_LAYER_RUNTIME,
+    "regex": runtime_pb2.DETECTION_LAYER_REGEX,
+}
+
 
 def main() -> None:
     with grpc.insecure_channel(TARGET) as channel:
@@ -45,7 +51,7 @@ def handle(stub, request: dict) -> dict:
         runtime_pb2.AnalyzePromptRequest(
             text=request["text"],
             source="privoke-evaluation",
-            layers=[runtime_pb2.DETECTION_LAYER_RUNTIME],
+            layers=[_layer_value(request.get("layer", "pipeline"))],
             semantic_model_id=request.get("model_id", "privoke-baseline"),
         ),
         timeout=120,
@@ -72,6 +78,13 @@ def handle(stub, request: dict) -> dict:
             for layer in response.layers
         ],
     }
+
+
+def _layer_value(layer: str) -> int:
+    try:
+        return LAYER_NAMES[layer]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported evaluation layer: {layer}") from exc
 
 
 if __name__ == "__main__":
