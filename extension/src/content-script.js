@@ -1,3 +1,5 @@
+import { sendRuntimeMessage } from "./webextension-api.js";
+
 const CHANNEL = "privoke-extension-v1";
 const NOTICE_ID = "privoke-page-notice";
 
@@ -10,7 +12,7 @@ window.addEventListener("message", (event) => {
     || typeof data.text !== "string"
   ) return;
 
-  chrome.runtime.sendMessage({
+  sendRuntimeMessage({
     type: "ANALYZE_PROMPT",
     source: "intercepted",
     text: data.text,

@@ -85,6 +85,41 @@ class GrpcWebBridgeTests(unittest.TestCase):
         finally:
             bridge.stop()
 
+    def test_accepts_portable_webextension_origins(self) -> None:
+        for origin in (
+            "chrome-extension://abcdefghijklmnop",
+            "moz-extension://01234567-89ab-cdef-0123-456789abcdef",
+            "opera-extension://abcdefghijklmnop",
+        ):
+            with self.subTest(origin=origin):
+                calls = []
+
+                def invoke(path, payload, target, timeout):
+                    calls.append((path, payload, target, timeout))
+                    return b"response"
+
+                bridge = GrpcWebBridge(port=0, rpc_invoker=invoke)
+                bridge.start()
+                try:
+                    request = Request(
+                        f"http://127.0.0.1:{bridge.port}"
+                        "/privoke.v1.PrivokeRuntimeControlService/Status",
+                        data=_data_frame(b"request"),
+                        headers={
+                            "Content-Type": "application/grpc-web+proto",
+                            "Origin": origin,
+                        },
+                        method="POST",
+                    )
+                    with urlopen(request, timeout=2) as response:
+                        self.assertEqual(response.status, 200)
+                        self.assertEqual(
+                            response.headers["Access-Control-Allow-Origin"],
+                            origin,
+                        )
+                finally:
+                    bridge.stop()
+
 
 if __name__ == "__main__":
     unittest.main()

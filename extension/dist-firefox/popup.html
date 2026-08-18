@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PriVoke</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="mark" aria-hidden="true">P</span>
+        <div class="brand">
+          <h1>PriVoke</h1>
+          <p>Prompt privacy guard</p>
+        </div>
+        <button id="master-toggle" class="master-toggle" type="button" aria-pressed="true" aria-label="Turn PriVoke off">
+          <span class="master-dot" aria-hidden="true"></span>
+          <span class="master-label">On</span>
+          <span class="master-switch" aria-hidden="true"><i></i></span>
+        </button>
+      </header>
+
+      <p id="runtime-warning" class="server-warning" role="alert" hidden>
+        <strong>Client runtime unavailable.</strong>
+        <span>The PriVoke runtime could not be controlled.</span>
+      </p>
+
+      <section aria-labelledby="layers-heading">
+        <div class="section-heading">
+          <h2 id="layers-heading">Protection layers</h2>
+          <span>Click to toggle</span>
+        </div>
+        <div class="layer-grid">
+          <button class="layer-toggle" data-layer="regex" type="button" aria-pressed="false">
+            <span class="layer-icon" aria-hidden="true">.*</span>
+            <span class="layer-copy"><strong>Regex</strong><small>Patterns</small></span>
+            <span class="switch" aria-hidden="true"><i></i></span>
+          </button>
+          <button class="layer-toggle" data-layer="ner" type="button" aria-pressed="false">
+            <span class="layer-icon" aria-hidden="true">Aa</span>
+            <span class="layer-copy"><strong>NER</strong><small>Entities</small></span>
+            <span class="switch" aria-hidden="true"><i></i></span>
+          </button>
+          <button class="layer-toggle" data-layer="llm" type="button" aria-pressed="false">
+            <span class="layer-icon sparkle" aria-hidden="true">✦</span>
+            <span class="layer-copy"><strong>LLM</strong><small>Streamed</small></span>
+            <span class="switch" aria-hidden="true"><i></i></span>
+          </button>
+        </div>
+      </section>
+
+      <p id="server-warning" class="server-warning" role="alert" hidden>
+        <strong>PriVoke servers are offline.</strong>
+        The streamed LLM layer cannot be enabled right now.
+      </p>
+
+      <section class="manual" aria-labelledby="manual-heading">
+        <div class="section-heading">
+          <h2 id="manual-heading">Check a prompt</h2>
+          <span>Optional</span>
+        </div>
+        <label class="sr-only" for="prompt">Prompt to analyse</label>
+        <textarea id="prompt" rows="5" maxlength="20000" placeholder="Enter a prompt to analyse…"></textarea>
+        <div class="analyze-row">
+          <button id="analyze" class="analyze" type="button">Analyse prompt</button>
+          <span id="feedback" class="feedback" role="status" aria-live="polite" hidden></span>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+
+        <aside id="result" class="result" hidden>
+          <strong id="result-title"></strong>
+          <p id="reason"></p>
+          <p id="excerpt" class="excerpt"></p>
+        </aside>
+      </section>
+
+      <details class="settings">
+        <summary>Settings <span aria-hidden="true">⌄</span></summary>
+        <div class="settings-body">
+          <label class="setting-row" for="wait-regex">
+            <span><strong>Wait for regex</strong><small>Run patterns before other layers</small></span>
+            <input id="wait-regex" type="checkbox">
+          </label>
+          <label class="model-setting" for="model-id">
+            <span>PriVoke model</span>
+            <input id="model-id" type="text" maxlength="128" value="privoke-baseline" autocomplete="off" spellcheck="false">
+          </label>
+        </div>
+      </details>
+
+      <p class="footnote">Supported AI prompts are checked before their web request is sent.</p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -11,7 +11,9 @@ import grpc
 
 CONTROL_PREFIX = "/privoke.v1.PrivokeRuntimeControlService/"
 RUNTIME_PREFIX = "/privoke.v1.PrivokeRuntimeService/"
-_EXTENSION_ORIGIN = re.compile(r"^(?:chrome|moz)-extension://[a-zA-Z0-9_-]+$")
+_EXTENSION_ORIGIN = re.compile(
+    r"^(?:chrome|moz|opera)-extension://[a-zA-Z0-9_@.{}-]+$"
+)
 
 
 class GrpcWebBridge:

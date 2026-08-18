@@ -8,7 +8,7 @@ Reference context: https://arxiv.org/abs/2408.07004
 
 ## Current Runtime Path
 
-`extension/client-runtime` contains the prompt inspection implementation shared by two execution contexts. Server Docker deployments run it directly as the always-on `client-runtime` gRPC service on `50054`. The unpacked Chrome extension is built separately and uses its workstation-local lifecycle supervisor; it is not deployed by either server Compose file.
+`extension/client-runtime` contains the prompt inspection implementation shared by two execution contexts. Server Docker deployments run it directly as the always-on `client-runtime` gRPC service on `50054`. The unpacked portable WebExtension is built separately and uses its workstation-local lifecycle supervisor; it is not deployed by either server Compose file.
 
 ```text
 gRPC request or local HTTP POST /analyze
@@ -69,7 +69,7 @@ Production Compose keeps all five ports internal to its service network. The dev
 
 ## Development Commands
 
-Run the development server simulation with bind-mounted sources and generated stubs. This has the same five-service topology as the production deployment; it does not run the Chrome extension or its local supervisor/bridge:
+Run the development server simulation with bind-mounted sources and generated stubs. This has the same five-service topology as the production deployment; it does not run the WebExtension or its local supervisor/bridge:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
@@ -123,7 +123,7 @@ npm install
 npm run build
 ```
 
-Load `extension/dist` from the browser's unpacked-extension page. The extension itself is never run by Compose. It also needs the workstation-local runtime supervisor and Envoy gRPC-Web bridge described in `extension/README.md`; the bridge uses loopback ports `50054` and `50056`. Port `50051` is contacted by Python only when streamed LLM health or parameters are requested.
+Load `extension/dist` from Opera GX, Firefox, or another WebExtensions browser's development-extension page. The extension itself is never run by Compose. Register the browser-specific native messaging launcher described in `extension/README.md`; the extension can then start the workstation supervisor on demand. The supervisor hosts the gRPC-Web bridge on `8080`, its control service on `50056`, and the detector on `50054`. Port `50051` is contacted by Python only when streamed LLM health or parameters are requested.
 
 Run paper figure scripts:
 

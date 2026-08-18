@@ -3,7 +3,6 @@
   "name": "PriVoke Local",
   "description": "Inspect prompts before they are sent to supported AI services.",
   "version": "0.1.0",
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmGCijzFsFINo8yXJIDjU/qbCgXdVzciQ/tGvyh+deq5+McTQVOJ51F14DwBW3J9VZ9gU25/2fUJeO7WoVmEby2ArW+0NVen7WH6LlllIXjX6WZYUCZM1W3rrC4NrKvikIB/yoCl53R6/QqvWq1bk9xicmLFe9GODIaOWasUsWzftujmMPtFxyimTZDcLJ/3DyYAGJ5qstTpvuqU295l307EwEKDWlfkVH7aqJ4fWnDTVCI36OiAx0JtEoy8/iVizPkeA/gOl79NmnNNYv2YSXRMAXGiNnr2dHND2k4IAZyT4NHsxRkFBKLwxKhH+VJBceQgO5d5gwN3aCGJhHaGuhwIDAQAB",
   "action": {
     "default_title": "Inspect with PriVoke",
     "default_popup": "popup.html"
@@ -13,14 +12,18 @@
     "nativeMessaging"
   ],
   "background": {
-    "service_worker": "background.js"
+    "scripts": [
+      "background.js"
+    ]
   },
   "browser_specific_settings": {
     "gecko": {
       "id": "privoke-local@privoke",
       "strict_min_version": "142.0",
       "data_collection_permissions": {
-        "required": ["websiteContent"]
+        "required": [
+          "websiteContent"
+        ]
       }
     }
   },
@@ -34,7 +37,9 @@
         "https://copilot.microsoft.com/*",
         "https://api.openai.com/*"
       ],
-      "js": ["page-interceptor.js"],
+      "js": [
+        "page-interceptor.js"
+      ],
       "run_at": "document_start",
       "world": "MAIN"
     },
@@ -47,7 +52,9 @@
         "https://copilot.microsoft.com/*",
         "https://api.openai.com/*"
       ],
-      "js": ["content-script.js"],
+      "js": [
+        "content-script.js"
+      ],
       "run_at": "document_start"
     }
   ],

@@ -6,7 +6,7 @@ This package is the only component currently in the prompt classification path. 
 
 ## Deployment modes
 
-Production and development server Compose run `src/grpc_main.py` directly as the always-on `client-runtime` required by the fuzzer. The Chrome extension is not deployed through Docker.
+Production and development server Compose run `src/grpc_main.py` directly as the always-on `client-runtime` required by the fuzzer. The WebExtension is not deployed through Docker.
 
 The extension's workstation lifecycle process is a separate sibling package at `../runtime-supervisor`. It starts this detector as a child process and exposes the extension control plane on port `50056`.
 
@@ -175,7 +175,7 @@ Environment variables:
 - `PRIVOKE_MAX_PROMPT_CHARS`
 - `PRIVOKE_MAX_GRPC_MESSAGE_BYTES`, default `262144`
 - `PRIVOKE_MAX_GRPC_RESPONSE_BYTES`, default `1048576`
-- `PRIVOKE_CORS_ORIGIN`, disabled by default; when enabled it must be one exact `http`, `https`, or `chrome-extension` origin and cannot be `*`
+- `PRIVOKE_CORS_ORIGIN`, disabled by default; when enabled it must be one exact `http`, `https`, or supported WebExtension origin and cannot be `*`
 - `PRIVOKE_ALLOW_NON_LOOPBACK_BIND`
 - `MODEL_STREAMING_TARGET`, default `127.0.0.1:50051`; Compose sets `model-streaming-service:50051`
 - `MODEL_ID`, `MODEL_STREAMING_CONSUMER_ID`, `MODEL_STREAMING_TIMEOUT_SECONDS`

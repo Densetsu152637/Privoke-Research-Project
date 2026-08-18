@@ -8,7 +8,7 @@ The supervisor stays running on port `50056` while it starts and stops the detec
 - `Status` to report the detector process state and PID;
 - `ModelStreamingHealth` to check the configured parameter-streaming endpoint on demand when the extension enables its LLM layer.
 
-The supervisor and detector start without contacting `model-streaming-service`. The detector is launched from `../client-runtime/src/grpc_main.py` with the supervisor's Python interpreter and inherited environment.
+The supervisor and detector start without contacting `model-streaming-service`. The detector is launched from `../client-runtime/src/grpc_main.py` with the supervisor's Python interpreter and inherited environment. The portable WebExtension can start the supervisor through the fixed-purpose native messaging launcher in `src/native_messaging_host.py`.
 
 ## Local setup
 
@@ -26,6 +26,28 @@ python -m grpc_tools.protoc \
   ../../shared/proto/privoke/v1/runtime.proto
 python src/main.py
 ```
+
+## Extension-initiated startup
+
+WebExtensions cannot directly create operating-system processes. PriVoke uses the browser-standard Native Messaging boundary and supplies installers that generate the browser-family-specific host manifest.
+
+Windows, with automatic default-browser detection:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-native-host.ps1 -Browser Auto
+```
+
+Use `-Browser OperaGX` for an explicit Opera GX registration. Other values are `Chrome`, `Edge`, `Chromium`, `Firefox`, and `All`.
+
+Linux or macOS:
+
+```bash
+sh ./scripts/install-native-host.sh auto
+```
+
+The Windows installer places a compiled binary stream proxy and host files under `%LOCALAPPDATA%\PriVoke\NativeHost`. The POSIX installer uses the selected browser's per-user native-manifest directory. Chromium-family browsers use `allowed_origins`; Firefox uses `allowed_extensions`. Stable extension identities are read from `../extension-identities.json`, so no manually copied development ID is required. The host accepts only `ensure_supervisor`; it cannot run caller-supplied commands.
+
+The extension probes `Status` first. Only when that fails does it ask the native host to start `src/main.py`. The native launcher sets `PRIVOKE_RUNTIME_START_ENABLED=false`, waits for the bridge on `127.0.0.1:8080`, and returns. The extension then invokes `SetRuntimeEnabled(true)` to start the detector on `50054`.
 
 The process uses these environment variables:
 

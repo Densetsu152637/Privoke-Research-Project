@@ -1,14 +1,16 @@
-import { cp, mkdir, rm } from "node:fs/promises";
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { watch } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
+import { manifestForTarget } from "./manifest-target.mjs";
 
 const require = createRequire(import.meta.url);
 const { pbjs } = require("protobufjs-cli");
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const dist = join(root, "dist");
+const target = process.argv.includes("--firefox") ? "firefox" : "chromium";
+const dist = join(root, target === "firefox" ? "dist-firefox" : "dist");
 const watchMode = process.argv.includes("--watch");
 
 async function generateRuntimeCodec() {
@@ -25,8 +27,10 @@ async function generateRuntimeCodec() {
 
 async function copyStaticFiles() {
   await mkdir(dist, { recursive: true });
+  const sourceManifest = JSON.parse(await readFile(join(root, "manifest.json"), "utf8"));
+  const targetManifest = manifestForTarget(sourceManifest, target);
   await Promise.all([
-    cp(join(root, "manifest.json"), join(dist, "manifest.json")),
+    writeFile(join(dist, "manifest.json"), `${JSON.stringify(targetManifest, null, 2)}\n`),
     cp(join(root, "popup.html"), join(dist, "popup.html")),
     cp(join(root, "popup.css"), join(dist, "popup.css")),
   ]);
@@ -47,7 +51,7 @@ const context = await esbuild.context({
   outdir: dist,
   format: "iife",
   platform: "browser",
-  target: "chrome120",
+  target: "es2022",
   sourcemap: true,
   logLevel: "info",
 });
@@ -59,7 +63,7 @@ if (watchMode) {
       copyStaticFiles().catch(console.error);
     }
   });
-  console.log(`Watching extension sources; load unpacked from ${dist}`);
+  console.log(`Watching ${target} extension sources; load unpacked from ${dist}`);
 } else {
   await context.rebuild();
   await context.dispose();

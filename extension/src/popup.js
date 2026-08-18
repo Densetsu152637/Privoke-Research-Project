@@ -1,3 +1,5 @@
+import { sendRuntimeMessage } from "./webextension-api.js";
+
 const prompt = document.querySelector("#prompt");
 const analyze = document.querySelector("#analyze");
 const feedback = document.querySelector("#feedback");
@@ -230,7 +232,7 @@ function showRuntimeWarning(message) {
 
 async function sendMessage(message) {
   try {
-    return await chrome.runtime.sendMessage(message);
+    return await sendRuntimeMessage(message);
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }

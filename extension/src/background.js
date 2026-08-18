@@ -1,14 +1,11 @@
 import { RuntimeClient } from "./runtime-client.js";
 import { detectionLayers, loadSettings, updateSettings } from "./settings.js";
+import { ensureSupervisorRunning } from "./supervisor-launcher.js";
+import { addRuntimeMessageListener } from "./webextension-api.js";
 
 const client = new RuntimeClient();
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  handleMessage(message, sender)
-    .then(sendResponse)
-    .catch((error) => sendResponse({ ok: false, error: errorMessage(error) }));
-  return true;
-});
+addRuntimeMessageListener(handleMessage);
 
 async function handleMessage(message, sender) {
   switch (message?.type) {
@@ -68,6 +65,7 @@ async function setMasterEnabled(enabled) {
   }
 
   try {
+    await ensureSupervisorRunning(client);
     const runtime = await client.setRuntimeEnabled(true, {
       signal: AbortSignal.timeout(36_000),
     });

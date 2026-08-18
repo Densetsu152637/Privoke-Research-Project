@@ -30,7 +30,7 @@ static_resources:
                                 - exact: "http://localhost"
                                 - exact: "http://127.0.0.1"
                                 - safe_regex:
-                                    regex: "^(chrome|moz)-extension://[a-zA-Z0-9_-]+$"
+                                    regex: "^(chrome|moz|opera)-extension://[a-zA-Z0-9_@.{}-]+$"
                               allow_methods: "POST,OPTIONS"
                               allow_headers: "content-type,x-grpc-web,x-user-agent,grpc-timeout"
                               expose_headers: "grpc-status,grpc-message"
@@ -46,7 +46,7 @@ static_resources:
                                 - exact: "http://localhost"
                                 - exact: "http://127.0.0.1"
                                 - safe_regex:
-                                    regex: "^(chrome|moz)-extension://[a-zA-Z0-9_-]+$"
+                                    regex: "^(chrome|moz|opera)-extension://[a-zA-Z0-9_@.{}-]+$"
                               allow_methods: "POST,OPTIONS"
                               allow_headers: "content-type,x-grpc-web,x-user-agent,grpc-timeout"
                               expose_headers: "grpc-status,grpc-message"
