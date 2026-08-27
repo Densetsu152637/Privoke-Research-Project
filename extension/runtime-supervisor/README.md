@@ -2,13 +2,25 @@
 
 This package is the workstation-local control process used by the browser extension. It is deliberately separate from `../client-runtime`, which contains the detector and prompt-analysis implementation.
 
-The supervisor stays running on port `50056` while it starts and stops the detector child on port `50054`. It implements:
+It is not part of either Docker Compose deployment. Compose runs a separate instance of the detector package at `client-runtime:50054` for the fuzzer; this supervisor never probes, adopts, controls, or routes to that server runtime.
+
+The supervisor stays running on port `50056` while it starts and stops the extension-local detector child on port `50057`. The separate port avoids colliding with the development Compose detector published on host port `50054`. It implements:
 
 - `SetRuntimeEnabled` to start or stop the detector process;
 - `Status` to report the detector process state and PID;
 - `ModelStreamingHealth` to check the configured parameter-streaming endpoint on demand when the extension enables its LLM layer.
 
 The supervisor and detector start without contacting `model-streaming-service`. The detector is launched from `../client-runtime/src/grpc_main.py` with the supervisor's Python interpreter and inherited environment. The portable WebExtension can start the supervisor through the fixed-purpose native messaging launcher in `src/native_messaging_host.py`.
+
+The supervisor always owns the gRPC-Web bridge on `127.0.0.1:8080`. There is no external proxy mode: bridge startup and shutdown follow the supervisor lifecycle. The bridge, control service, and detector are forced to loopback rather than merely defaulting to it.
+
+Loopback prevents remote-network exposure but does not authenticate other processes on the workstation. The bridge's origin checks enforce browser CORS behavior; they are not a security boundary for native local clients.
+
+```text
+WebExtension -> HTTP gRPC-Web :8080 -> supervisor-owned bridge
+                                      |-> control gRPC :50056
+                                      `-> detector child gRPC :50057
+```
 
 ## Local setup
 
@@ -45,18 +57,19 @@ Linux or macOS:
 sh ./scripts/install-native-host.sh auto
 ```
 
-The Windows installer places a compiled binary stream proxy and host files under `%LOCALAPPDATA%\PriVoke\NativeHost`. The POSIX installer uses the selected browser's per-user native-manifest directory. Chromium-family browsers use `allowed_origins`; Firefox uses `allowed_extensions`. Stable extension identities are read from `../extension-identities.json`, so no manually copied development ID is required. The host accepts only `ensure_supervisor`; it cannot run caller-supplied commands.
+The Windows installer places a compiled native-messaging stdio launcher and host files under `%LOCALAPPDATA%\PriVoke\NativeHost`. The POSIX installer uses the selected browser's per-user native-manifest directory. Chromium-family browsers use `allowed_origins`; Firefox uses `allowed_extensions`. Stable extension identities are read from `../extension-identities.json`, so no manually copied development ID is required. The host accepts only `ensure_supervisor`; it cannot run caller-supplied commands.
 
-The extension probes `Status` first. Only when that fails does it ask the native host to start `src/main.py`. The native launcher sets `PRIVOKE_RUNTIME_START_ENABLED=false`, waits for the bridge on `127.0.0.1:8080`, and returns. The extension then invokes `SetRuntimeEnabled(true)` to start the detector on `50054`.
+The extension probes `Status` first. Only when that fails does it ask the native host to start `src/main.py`. The native launcher sets `PRIVOKE_RUNTIME_START_ENABLED=false`, waits for the bridge on `127.0.0.1:8080`, and returns. The extension then invokes `SetRuntimeEnabled(true)` to start the detector on `50057`. It performs this restoration when the background worker loads and on browser startup/extension installation when the persisted master setting is on.
 
 The process uses these environment variables:
 
-- `PRIVOKE_CONTROL_GRPC_HOST`, default `127.0.0.1`
 - `PRIVOKE_CONTROL_GRPC_PORT`, default `50056`
-- `PRIVOKE_GRPC_PORT`, detector child port, default `50054`
+- `PRIVOKE_LOCAL_RUNTIME_PORT`, detector child port, default `50057` (the child receives this as `PRIVOKE_GRPC_PORT`)
+- `PRIVOKE_GRPC_WEB_PORT`, default `8080`; the packaged extension client and native launcher expect this default
 - `PRIVOKE_RUNTIME_START_ENABLED`, default `true`
 - `PRIVOKE_RUNTIME_START_TIMEOUT_SECONDS`, default `30`
 - `PRIVOKE_RUNTIME_STOP_TIMEOUT_SECONDS`, default `10`
+- `PRIVOKE_RUNTIME_PYTHON`, optional detector interpreter override
 - `MODEL_STREAMING_TARGET`, default `127.0.0.1:50051`
 - `MODEL_STREAMING_HEALTH_TIMEOUT_SECONDS`, default `3`
 
@@ -68,4 +81,4 @@ After generating bindings:
 python -m unittest discover -s test -v
 ```
 
-These tests cover process lifecycle behavior, lazy health checking, successful model-service health responses, and unavailable model-service responses.
+These tests cover bridge routing and CORS, process lifecycle behavior, forced loopback configuration, native-message framing, lazy health checking, and model-service health responses.

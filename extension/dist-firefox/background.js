@@ -5576,6 +5576,11 @@
       return true;
     });
   }
+  function addRuntimeLifecycleListeners(handler, root = globalThis) {
+    const runtime = webExtensionApi(root).runtime;
+    runtime.onStartup?.addListener(handler);
+    runtime.onInstalled?.addListener(handler);
+  }
   function sendNativeMessage(hostName, message, root = globalThis) {
     const api = webExtensionApi(root);
     if (root.browser) return api.runtime.sendNativeMessage(hostName, message);
@@ -5611,6 +5616,72 @@
   }
   function errorMessage(error) {
     return error instanceof Error ? error.message : String(error);
+  }
+
+  // src/supervisor-launcher.js
+  var NATIVE_LAUNCHER_HOST = "org.privoke.runtime_launcher";
+  var DEFAULT_ATTEMPTS = 24;
+  var DEFAULT_RETRY_DELAY_MS = 250;
+  async function ensureSupervisorRunning(runtimeClient, {
+    launch = launchSupervisorNativeHost,
+    attempts = DEFAULT_ATTEMPTS,
+    retryDelayMs = DEFAULT_RETRY_DELAY_MS
+  } = {}) {
+    try {
+      return await runtimeClient.runtimeStatus({
+        signal: AbortSignal.timeout(1500)
+      });
+    } catch (initialError) {
+      let launchResult;
+      try {
+        launchResult = await launch();
+      } catch (launchError) {
+        throw new Error(
+          `The PriVoke supervisor is not running and its native launcher could not be reached: ${errorMessage2(launchError)}. Install the PriVoke native messaging host for this extension.`
+        );
+      }
+      if (!launchResult?.ok) {
+        throw new Error(
+          launchResult?.message || `The PriVoke supervisor could not be launched: ${errorMessage2(initialError)}`
+        );
+      }
+    }
+    let lastError;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      try {
+        return await runtimeClient.runtimeStatus({
+          signal: AbortSignal.timeout(1500)
+        });
+      } catch (error) {
+        lastError = error;
+        if (attempt + 1 < attempts) await delay(retryDelayMs);
+      }
+    }
+    throw new Error(
+      `The PriVoke supervisor was launched but its bridge did not become ready: ${errorMessage2(lastError)}`
+    );
+  }
+  function launchSupervisorNativeHost() {
+    return sendNativeMessage(NATIVE_LAUNCHER_HOST, { action: "ensure_supervisor" });
+  }
+  function delay(milliseconds) {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
+  }
+  function errorMessage2(error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+
+  // src/runtime-lifecycle.js
+  async function restoreConfiguredRuntime(runtimeClient, settings, { ensureSupervisor = ensureSupervisorRunning } = {}) {
+    if (!settings.enabled) return null;
+    await ensureSupervisor(runtimeClient);
+    const runtime = await runtimeClient.setRuntimeEnabled(true, {
+      signal: AbortSignal.timeout(36e3)
+    });
+    if (!runtime.enabled) {
+      throw new Error(runtime.message || "The client runtime failed to start.");
+    }
+    return runtime;
   }
 
   // src/settings.js
@@ -5667,62 +5738,14 @@
     return typeof value === "boolean" ? value : fallback;
   }
 
-  // src/supervisor-launcher.js
-  var NATIVE_LAUNCHER_HOST = "org.privoke.runtime_launcher";
-  var DEFAULT_ATTEMPTS = 24;
-  var DEFAULT_RETRY_DELAY_MS = 250;
-  async function ensureSupervisorRunning(runtimeClient, {
-    launch = launchSupervisorNativeHost,
-    attempts = DEFAULT_ATTEMPTS,
-    retryDelayMs = DEFAULT_RETRY_DELAY_MS
-  } = {}) {
-    try {
-      return await runtimeClient.runtimeStatus({
-        signal: AbortSignal.timeout(1500)
-      });
-    } catch (initialError) {
-      let launchResult;
-      try {
-        launchResult = await launch();
-      } catch (launchError) {
-        throw new Error(
-          `The PriVoke supervisor is not running and its native launcher could not be reached: ${errorMessage2(launchError)}. Install the PriVoke native messaging host for this extension.`
-        );
-      }
-      if (!launchResult?.ok) {
-        throw new Error(
-          launchResult?.message || `The PriVoke supervisor could not be launched: ${errorMessage2(initialError)}`
-        );
-      }
-    }
-    let lastError;
-    for (let attempt = 0; attempt < attempts; attempt += 1) {
-      try {
-        return await runtimeClient.runtimeStatus({
-          signal: AbortSignal.timeout(1500)
-        });
-      } catch (error) {
-        lastError = error;
-        if (attempt + 1 < attempts) await delay(retryDelayMs);
-      }
-    }
-    throw new Error(
-      `The PriVoke supervisor was launched but its bridge did not become ready: ${errorMessage2(lastError)}`
-    );
-  }
-  function launchSupervisorNativeHost() {
-    return sendNativeMessage(NATIVE_LAUNCHER_HOST, { action: "ensure_supervisor" });
-  }
-  function delay(milliseconds) {
-    return new Promise((resolve) => setTimeout(resolve, milliseconds));
-  }
-  function errorMessage2(error) {
-    return error instanceof Error ? error.message : String(error);
-  }
-
   // src/background.js
   var client = new RuntimeClient();
+  var runtimeControlTail = Promise.resolve();
   addRuntimeMessageListener(handleMessage);
+  addRuntimeLifecycleListeners(() => {
+    void restoreEnabledRuntime().catch(reportStartupFailure);
+  });
+  void restoreEnabledRuntime().catch(reportStartupFailure);
   async function handleMessage(message, sender) {
     switch (message?.type) {
       case "GET_SETTINGS":
@@ -5730,7 +5753,7 @@
       case "UPDATE_SETTINGS":
         return { ok: true, settings: await updateSettings(message.patch ?? {}) };
       case "SET_MASTER_ENABLED":
-        return setMasterEnabled(Boolean(message.enabled));
+        return enqueueRuntimeControl(() => setMasterEnabled(Boolean(message.enabled)));
       case "GET_RUNTIME_STATUS":
         return getRuntimeStatus();
       case "CHECK_STREAMING_HEALTH":
@@ -5778,19 +5801,7 @@
       }
     }
     try {
-      await ensureSupervisorRunning(client);
-      const runtime = await client.setRuntimeEnabled(true, {
-        signal: AbortSignal.timeout(36e3)
-      });
-      if (!runtime.enabled) {
-        const settings2 = await updateSettings({ enabled: false });
-        return {
-          ok: false,
-          settings: settings2,
-          error: runtime.message || "The client runtime failed to start.",
-          runtime
-        };
-      }
+      const runtime = await restoreConfiguredRuntime(client, { enabled: true });
       const settings = await updateSettings({ enabled: true });
       return { ok: true, settings, runtime };
     } catch (error) {
@@ -5805,6 +5816,15 @@
     }
   }
   async function getRuntimeStatus() {
+    const settings = await loadSettings();
+    if (settings.enabled) {
+      try {
+        const runtime = await restoreEnabledRuntime();
+        return { ok: true, runtime };
+      } catch (error) {
+        return { ok: false, error: errorMessage3(error) };
+      }
+    }
     try {
       const runtime = await client.runtimeStatus({
         signal: AbortSignal.timeout(3500)
@@ -5813,6 +5833,21 @@
     } catch (error) {
       return { ok: false, error: errorMessage3(error) };
     }
+  }
+  function restoreEnabledRuntime() {
+    return enqueueRuntimeControl(async () => {
+      const settings = await loadSettings();
+      return restoreConfiguredRuntime(client, settings);
+    });
+  }
+  function enqueueRuntimeControl(operation) {
+    const result = runtimeControlTail.then(operation, operation);
+    runtimeControlTail = result.catch(() => {
+    });
+    return result;
+  }
+  function reportStartupFailure(error) {
+    console.warn(`PriVoke could not restore the enabled runtime: ${errorMessage3(error)}`);
   }
   async function analyzePrompt(message, sender) {
     const text = typeof message.text === "string" ? message.text.trim() : "";

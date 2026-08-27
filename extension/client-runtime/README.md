@@ -1,14 +1,19 @@
 # PriVoke Client Runtime
 
-The client runtime is PriVoke's local prompt inspection service. It runs detector layers, returns an action (`ALLOW`, `WARN`, or `BLOCK`), and includes aggregate and per-layer evidence/errors in its gRPC response.
+The client runtime is PriVoke's reusable prompt inspection service. It runs detector layers, returns an action (`ALLOW`, `WARN`, or `BLOCK`), and includes aggregate and per-layer evidence/errors in its gRPC response.
 
 This package is the only component currently in the prompt classification path. The parameter-streaming service is used only when the semantic backend is set to `streamed`.
 
 ## Deployment modes
 
-Production and development server Compose run `src/grpc_main.py` directly as the always-on `client-runtime` required by the fuzzer. The WebExtension is not deployed through Docker.
+This package is instantiated in two independent contexts:
 
-The extension's workstation lifecycle process is a separate sibling package at `../runtime-supervisor`. It starts this detector as a child process and exposes the extension control plane on port `50056`.
+| Context | Owner | Binding | Consumer |
+| --- | --- | --- | --- |
+| Server simulation | Docker Compose | `[::]:50054` inside Compose; the development override also publishes `127.0.0.1:50054` | Fuzzer, evaluator, and server services |
+| Browser extension | `../runtime-supervisor` | `127.0.0.1:50057` | Supervisor-owned bridge for the WebExtension |
+
+The contexts share source code only. The extension never calls the Compose instance, and the fuzzer never calls the extension instance. The supervisor also exposes its separate control service on `127.0.0.1:50056` and its gRPC-Web bridge on `127.0.0.1:8080`.
 
 ## Local HTTP Harness
 
@@ -168,8 +173,8 @@ curl -X POST http://127.0.0.1:8765/config/llm \
 Environment variables:
 
 - `PRIVOKE_HOST`, `PRIVOKE_PORT` for the optional HTTP harness
-- `PRIVOKE_GRPC_HOST`, Python default `127.0.0.1`; the server image sets `0.0.0.0` and Compose sets `[::]`
-- `PRIVOKE_GRPC_PORT`, default `50054`
+- `PRIVOKE_GRPC_HOST`, Python default `127.0.0.1`; the server image sets `0.0.0.0`, Compose sets `[::]`, and the workstation supervisor forces `127.0.0.1`
+- `PRIVOKE_GRPC_PORT`, direct/server default `50054`; the workstation supervisor sets it to `50057` for its child
 - `PRIVOKE_LLM_CHOICE`
 - `PRIVOKE_WAIT_FOR_REGEX`
 - `PRIVOKE_MAX_PROMPT_CHARS`
@@ -216,13 +221,13 @@ python -m grpc_tools.protoc \
 
 The checked-in workstation defaults expect a parameter-streaming service or secure local forward on `127.0.0.1:50051`. Docker Compose supplies its own internal DNS target.
 
-Run the gRPC runtime (default port `50054`):
+Run a standalone gRPC runtime (direct default port `50054`):
 
 ```bash
 python src/grpc_main.py
 ```
 
-For extension-controlled startup and shutdown, configure and run the sibling [`runtime-supervisor`](../runtime-supervisor/README.md) package instead of starting this server directly.
+For extension-controlled startup and shutdown, run the sibling [`runtime-supervisor`](../runtime-supervisor/README.md) package instead of starting this server directly. The supervisor forces its child to `127.0.0.1:50057`; it does not connect to an already-running service on `50054`.
 
 Run the optional local server:
 

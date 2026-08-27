@@ -8,7 +8,14 @@ Reference context: https://arxiv.org/abs/2408.07004
 
 ## Current Runtime Path
 
-`extension/client-runtime` contains the prompt inspection implementation shared by two execution contexts. Server Docker deployments run it directly as the always-on `client-runtime` gRPC service on `50054`. The unpacked portable WebExtension is built separately and uses its workstation-local lifecycle supervisor; it is not deployed by either server Compose file.
+`extension/client-runtime` contains detector implementation code reused in two independent deployments. Reuse stops at the source boundary: the two runtime processes do not discover, call, control, or share lifecycle state with each other.
+
+| Deployment | Process owner | Runtime endpoint | Consumer |
+| --- | --- | --- | --- |
+| Server simulation | Docker Compose | `client-runtime:50054` inside the Compose network | `privoke-fuzzer`, evaluation tooling, and server services |
+| Browser extension | Workstation supervisor | `127.0.0.1:50057`, reached by the extension through the supervisor-owned bridge on `127.0.0.1:8080` | The local WebExtension only |
+
+The workstation supervisor exposes its lifecycle control service on `127.0.0.1:50056`. Docker Compose never starts that supervisor or bridge, and the extension never uses the Compose `client-runtime` as a fallback.
 
 ```text
 gRPC request or local HTTP POST /analyze
@@ -49,7 +56,7 @@ Detector output is represented by `extension/client-runtime/src/classification`.
 
 ## Repository Layout
 
-- `extension`: Manifest V3 browser client, local gRPC-Web bridge configuration, the Python prompt inspection runtime under `extension/client-runtime`, and its separate workstation control process under `extension/runtime-supervisor`.
+- `extension`: Manifest V3 browser client, the supervisor-hosted loopback gRPC-Web bridge, the Python prompt inspection runtime under `extension/client-runtime`, and its separate workstation control process under `extension/runtime-supervisor`.
 - `services/model-streaming-service`: Go gRPC service that returns the current model parameter snapshot.
 - `services/param-update-service`: Python gRPC service that accepts parameter update payloads and can request fuzzer training cycles.
 - `services/privoke-fuzzer`: Python gRPC worker and CLI for prompt generation, layer probes, streamed semantic-model evaluation, and update submission.
@@ -57,7 +64,7 @@ Detector output is represented by `extension/client-runtime/src/classification`.
 - `shared/proto`: Shared protobuf contracts used by the gRPC services and streamed semantic backend.
 - `paper`: Research figures and experiment artifacts.
 
-## Service Ports
+## Server Compose Service Ports
 
 - `model-streaming-service`: gRPC on `50051`.
 - `param-update-service`: gRPC on `50052`.
@@ -66,6 +73,8 @@ Detector output is represented by `extension/client-runtime/src/classification`.
 - `telemetry-service`: gRPC on `50055`.
 
 Production Compose keeps all five ports internal to its service network. The development override publishes `50051`, `50052`, `50054`, and `50055` on host loopback only (`127.0.0.1`); the fuzzer's `50053` remains internal. Use `docker compose exec privoke-fuzzer ...` for its CLI. A real external API must be exposed explicitly through an authenticated TLS ingress rather than by publishing these plaintext gRPC ports.
+
+The extension-local ports `8080`, `50056`, and `50057` are not Compose service ports. They are owned by the workstation supervisor and remain bound to loopback.
 
 ## Development Commands
 
@@ -107,7 +116,7 @@ startup cycle and make its explicit integration cycle deterministic. Local and
 production deployments retain the default of eight prompts unless that
 environment variable is overridden.
 
-Run the client runtime directly:
+Run the optional standalone HTTP harness (this is neither managed runtime deployment):
 
 ```bash
 cd extension/client-runtime
@@ -125,7 +134,7 @@ npm install
 npm run build
 ```
 
-Load `extension/dist` from Opera GX, Firefox, or another WebExtensions browser's development-extension page. The extension itself is never run by Compose. Register the browser-specific native messaging launcher described in `extension/README.md`; the extension can then start the workstation supervisor on demand. The supervisor hosts the gRPC-Web bridge on `8080`, its control service on `50056`, and the detector on `50054`. Port `50051` is contacted by Python only when streamed LLM health or parameters are requested.
+Load `extension/dist` from Opera GX, Firefox, or another WebExtensions browser's development-extension page. The extension itself is never run by Compose. Register the browser-specific native messaging launcher described in `extension/README.md`; the extension can then start the workstation supervisor on demand. The supervisor hosts the gRPC-Web bridge on `8080`, its control service on `50056`, and its extension-local detector on `50057`. The server-side development Compose detector remains on `50054`, so both paths can run simultaneously. Port `50051` is contacted by Python only when streamed LLM health or parameters are requested.
 
 Run paper figure scripts:
 
@@ -179,7 +188,7 @@ In dev mode fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer
 - `param-update-service` persists gradients and reports a derived applied-version label, but it does not mutate the snapshot served by `model-streaming-service`.
 - The full Compose stack sets `FUZZER_PROMPT_COUNT=8`, so `param-update-service` requests one eight-prompt training cycle after startup. The resulting update is stored only in the `param-update-data` volume.
 - Production containers run as an unprivileged user with a read-only root filesystem, all Linux capabilities dropped, and `no-new-privileges`. A network-disabled one-shot `storage-permissions` initializer migrates the three named data volumes to that UID without deleting their contents.
-- The unpacked extension is not self-contained: it requires the workstation supervisor and local Envoy gRPC-Web bridge. The repository does not ship a separate extension Compose deployment or companion installer.
+- The unpacked extension requires the workstation supervisor, which owns both the local detector process and its loopback gRPC-Web bridge. The repository does not ship a separate extension Compose deployment.
 - The optional HTTP harness on `127.0.0.1:8765` exists for evaluation and local integration; server Compose and the browser extension use gRPC paths instead.
 - Service-to-service gRPC is currently plaintext and unauthenticated. Production Compose therefore does not publish it. An actual multi-host deployment must keep it on a trusted private network and add authenticated TLS at the deployment boundary.
 

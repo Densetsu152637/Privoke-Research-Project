@@ -22,6 +22,12 @@ export function addRuntimeMessageListener(handler, root = globalThis) {
   });
 }
 
+export function addRuntimeLifecycleListeners(handler, root = globalThis) {
+  const runtime = webExtensionApi(root).runtime;
+  runtime.onStartup?.addListener(handler);
+  runtime.onInstalled?.addListener(handler);
+}
+
 export function sendRuntimeMessage(message, root = globalThis) {
   const api = webExtensionApi(root);
   if (root.browser) return api.runtime.sendMessage(message);

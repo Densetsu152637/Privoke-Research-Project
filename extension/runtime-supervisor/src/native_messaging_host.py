@@ -39,7 +39,7 @@ def ensure_supervisor(*, timeout_seconds: float = 10.0) -> dict[str, object]:
             "started": False,
             "message": (
                 "PriVoke control port 50056 is in use, but the bridge on port 8080 "
-                "is unavailable. Stop the existing process or enable its gRPC-Web bridge."
+                "is unavailable. Stop the conflicting process and retry."
             ),
         }
 

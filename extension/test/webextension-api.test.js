@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  addRuntimeLifecycleListeners,
   addRuntimeMessageListener,
   sendNativeMessage,
   sendRuntimeMessage,
@@ -9,6 +10,19 @@ import {
   storageSet,
   webExtensionApi,
 } from "../src/webextension-api.js";
+
+test("registers background restoration for browser startup and installation", () => {
+  const listeners = [];
+  const handler = () => {};
+  const runtime = {
+    onStartup: { addListener(listener) { listeners.push(["startup", listener]); } },
+    onInstalled: { addListener(listener) { listeners.push(["installed", listener]); } },
+  };
+
+  addRuntimeLifecycleListeners(handler, { chrome: { runtime } });
+
+  assert.deepEqual(listeners, [["startup", handler], ["installed", handler]]);
+});
 
 test("prefers the standard browser namespace", () => {
   const browser = { runtime: {} };

@@ -25,7 +25,7 @@ class GrpcWebBridge:
         host: str = "127.0.0.1",
         port: int = 8080,
         control_target: str = "127.0.0.1:50056",
-        runtime_target: str = "127.0.0.1:50054",
+        runtime_target: str = "127.0.0.1:50057",
         rpc_invoker: Callable[[str, bytes, str, float], bytes] | None = None,
     ) -> None:
         self.control_target = control_target

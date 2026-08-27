@@ -1,6 +1,6 @@
 # privoke-fuzzer
 
-`privoke-fuzzer` is a Python gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, asks the local PriVoke runtime to evaluate them, computes bounded parameter-gradient deltas, submits updates to `param-update-service`, and runs ad hoc prompt tests through the same runtime RPC.
+`privoke-fuzzer` is a Python gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, asks the server Compose `client-runtime` to evaluate them, computes bounded parameter-gradient deltas, submits updates to `param-update-service`, and runs ad hoc prompt tests through the same runtime RPC.
 
 It is not in the hosted prompt decision path. Training cycles deliberately target the streamed semantic model path rather than the full regex + NER + semantic pipeline.
 
@@ -92,7 +92,7 @@ Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
 
 ## Runtime Boundary
 
-The fuzzer has no source dependency on `extension/client-runtime`. Production and development Compose both deploy that code as the `client-runtime` service, and the fuzzer waits for it to become healthy. Every service healthcheck calls its gRPC `Health` method and verifies the returned identity and `SERVING` status; `param-update-service` waits for the fuzzer check before starting its requester. Prompt tests send one `AnalyzePrompt` request containing the requested layer set, regex ordering, and optional semantic model ID. Training requests the semantic layer through the same gRPC client and always uses the fetched snapshot's model ID. Detector selection, initialization, scheduling, short-circuiting, and error capture all remain inside the runtime.
+The fuzzer has no source dependency on `extension/client-runtime`. Production and development Compose both deploy that code as the `client-runtime:50054` service, and the fuzzer waits for it to become healthy. It never calls the extension bridge on `8080`, its control plane on `50056`, or its workstation detector on `50057`. Every service healthcheck calls its gRPC `Health` method and verifies the returned identity and `SERVING` status; `param-update-service` waits for the fuzzer check before starting its requester. Prompt tests send one `AnalyzePrompt` request containing the requested layer set, regex ordering, and optional semantic model ID. Training requests the semantic layer through the same gRPC client and always uses the fetched snapshot's model ID. Detector selection, initialization, scheduling, short-circuiting, and error capture all remain inside the server runtime.
 
 ## CLI
 

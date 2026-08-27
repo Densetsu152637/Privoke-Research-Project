@@ -59,11 +59,10 @@ def main() -> None:
     signal.signal(signal.SIGTERM, _stop)
     signal.signal(signal.SIGINT, _stop)
 
-    runtime_port = _env_positive_int("PRIVOKE_GRPC_PORT", 50054)
-    control_host = (
-        os.getenv("PRIVOKE_CONTROL_GRPC_HOST", "127.0.0.1").strip()
-        or "127.0.0.1"
-    )
+    # Keep the workstation detector separate from the development Compose
+    # runtime, which publishes its server-side detector on host port 50054.
+    runtime_port = _env_positive_int("PRIVOKE_LOCAL_RUNTIME_PORT", 50057)
+    control_host = "127.0.0.1"
     control_port = _env_positive_int("PRIVOKE_CONTROL_GRPC_PORT", 50056)
     model_streaming_target = (
         os.getenv("MODEL_STREAMING_TARGET", "127.0.0.1:50051").strip()
@@ -108,23 +107,19 @@ def main() -> None:
     )
     bridge = None
     try:
-        if _env_bool("PRIVOKE_GRPC_WEB_ENABLED", True):
-            bridge_host = (
-                os.getenv("PRIVOKE_GRPC_WEB_HOST", "127.0.0.1").strip()
-                or "127.0.0.1"
-            )
-            bridge_port = _env_positive_int("PRIVOKE_GRPC_WEB_PORT", 8080)
-            bridge = GrpcWebBridge(
-                host=bridge_host,
-                port=bridge_port,
-                control_target=f"{control_host}:{control_port}",
-                runtime_target=f"127.0.0.1:{runtime_port}",
-            )
-            bridge.start()
-            print(
-                f"PriVoke gRPC-Web bridge listening on {bridge_host}:{bridge_port}",
-                flush=True,
-            )
+        bridge_host = "127.0.0.1"
+        bridge_port = _env_positive_int("PRIVOKE_GRPC_WEB_PORT", 8080)
+        bridge = GrpcWebBridge(
+            host=bridge_host,
+            port=bridge_port,
+            control_target=f"{control_host}:{control_port}",
+            runtime_target=f"127.0.0.1:{runtime_port}",
+        )
+        bridge.start()
+        print(
+            f"PriVoke gRPC-Web bridge listening on {bridge_host}:{bridge_port}",
+            flush=True,
+        )
 
         while not _SHOULD_STOP:
             time.sleep(0.25)
