@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import math
+import sqlite3
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -12,7 +14,8 @@ for path in (SERVICE_ROOT / "app", SERVICE_ROOT / "generated"):
         sys.path.insert(0, str(path))
 
 from privoke.v1 import telemetry_pb2
-from server import validate_telemetry_packet
+from server import TelemetryCollector, validate_telemetry_packet
+from storage import TelemetryStore
 
 
 def valid_packet():
@@ -43,6 +46,19 @@ def valid_packet():
 
 
 class TelemetryValidationTests(unittest.TestCase):
+    def test_health_is_not_serving_when_storage_is_unwritable(self) -> None:
+        class UnwritableStore:
+            def check_writable(self) -> None:
+                raise sqlite3.OperationalError("read-only")
+
+        response = TelemetryCollector(UnwritableStore()).Health(None, None)
+        self.assertEqual(response.status, "NOT_SERVING")
+
+    def test_storage_health_opens_a_write_transaction(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = TelemetryStore(Path(directory) / "telemetry.db")
+            store.check_writable()
+
     def test_accepts_privacy_minimal_packet(self) -> None:
         validate_telemetry_packet(valid_packet())
 

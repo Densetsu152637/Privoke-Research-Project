@@ -57,11 +57,9 @@ class ParamUpdateService(parameters_pb2_grpc.ParamUpdateServiceServicer):
             "metadata": dict(request.metadata),
         }
 
-        flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
-        flags |= getattr(os, "O_NOFOLLOW", 0)
         try:
             with self._write_lock:
-                descriptor = os.open(self.storage_path, flags, 0o600)
+                descriptor = open_storage_file(self.storage_path)
                 with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
                     handle.write(
                         json.dumps(payload, separators=(",", ":")) + "\n"
@@ -90,7 +88,11 @@ class ParamUpdateService(parameters_pb2_grpc.ParamUpdateServiceServicer):
     def Health(self, request, context):
         return parameters_pb2.HealthResponse(
             service="param-update-service",
-            status="SERVING",
+            status=(
+                "SERVING"
+                if storage_is_writable(self.storage_path)
+                else "NOT_SERVING"
+            ),
         )
 
 
@@ -176,6 +178,21 @@ def validate_parameter_update(
     for key, value in request.metadata.items():
         _validate_identifier(key, "metadata key", required=True, limit=128)
         _validate_identifier(value, "metadata value", required=False, limit=2_048)
+
+
+def open_storage_file(storage_path: Path) -> int:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    return os.open(storage_path, flags, 0o600)
+
+
+def storage_is_writable(storage_path: Path) -> bool:
+    try:
+        descriptor = open_storage_file(storage_path)
+    except OSError:
+        return False
+    os.close(descriptor)
+    return True
 
 
 def _validate_identifier(

@@ -11,7 +11,7 @@ RUN apt-get update \
     && python -m venv "${VIRTUAL_ENV}" \
     && pip install --no-cache-dir --upgrade pip setuptools wheel
 
-COPY shared/proto /workspace/shared/proto
+COPY shared /workspace/shared
 COPY services/param-update-service /workspace/services/param-update-service
 
 WORKDIR /workspace/services/param-update-service

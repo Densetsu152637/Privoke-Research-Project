@@ -82,6 +82,20 @@ services:
       MODEL_ID: privoke-baseline
     volumes:
       - param-update-data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "/workspace/shared/python/grpc_healthcheck.py",
+          "param-update-service",
+          "127.0.0.1:50052",
+          "/workspace/services/param-update-service/generated",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
 
   telemetry-service:
     <<: *service-security
@@ -101,7 +115,15 @@ services:
     volumes:
       - telemetry-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import socket; socket.create_connection((\"127.0.0.1\", 50055), 1).close()'"]
+      test:
+        [
+          "CMD",
+          "python",
+          "/workspace/shared/python/grpc_healthcheck.py",
+          "telemetry-service",
+          "127.0.0.1:50055",
+          "/workspace/services/telemetry-service/generated",
+        ]
       interval: 2s
       timeout: 2s
       retries: 30
@@ -131,7 +153,15 @@ services:
       TELEMETRY_TARGET: telemetry-service:50055
       TELEMETRY_SOURCE_ID: server-client-runtime
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import socket; socket.create_connection((\"127.0.0.1\", 50054), 1).close()'"]
+      test:
+        [
+          "CMD",
+          "python",
+          "/workspace/shared/python/grpc_healthcheck.py",
+          "client-runtime",
+          "127.0.0.1:50054",
+          "/workspace/extension/client-runtime/generated",
+        ]
       interval: 2s
       timeout: 2s
       retries: 30
@@ -168,7 +198,15 @@ services:
     volumes:
       - fuzzer-dumps:/workspace/dumps/privoke-fuzzer
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import socket; socket.create_connection((\"127.0.0.1\", 50053), 1).close()'"]
+      test:
+        [
+          "CMD",
+          "python",
+          "/workspace/shared/python/grpc_healthcheck.py",
+          "privoke-fuzzer",
+          "127.0.0.1:50053",
+          "/workspace/services/privoke-fuzzer/generated",
+        ]
       interval: 2s
       timeout: 2s
       retries: 30

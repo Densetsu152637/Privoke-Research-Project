@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -11,6 +12,7 @@ import (
 	pb "github.com/privoke/research-project/services/model-streaming-service/gen/privoke/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
@@ -65,7 +67,7 @@ func main() {
 	modelID := envString("MODEL_ID", "privoke-baseline")
 	modelVersion := envString("MODEL_VERSION", "v0.1.0")
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
-		if err := tcpHealthcheck(port); err != nil {
+		if err := grpcHealthcheck(port); err != nil {
 			log.Printf("healthcheck failed: %v", err)
 			os.Exit(1)
 		}
@@ -121,16 +123,33 @@ func validateConfiguredIdentifier(field, value string) error {
 	return validateIdentifier(field, value, true)
 }
 
-func tcpHealthcheck(port int) error {
-	connection, err := net.DialTimeout(
-		"tcp",
+func grpcHealthcheck(port int) error {
+	connection, err := grpc.NewClient(
 		net.JoinHostPort("127.0.0.1", strconv.Itoa(port)),
-		time.Second,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
 		return err
 	}
-	return connection.Close()
+	defer connection.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	response, err := pb.NewModelStreamingServiceClient(connection).Health(
+		ctx,
+		&pb.HealthRequest{},
+	)
+	if err != nil {
+		return err
+	}
+	if response.GetService() != "model-streaming-service" || response.GetStatus() != "SERVING" {
+		return fmt.Errorf(
+			"unexpected health response service=%q status=%q",
+			response.GetService(),
+			response.GetStatus(),
+		)
+	}
+	return nil
 }
 
 func envString(key, fallback string) string {

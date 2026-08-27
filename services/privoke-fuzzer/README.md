@@ -92,7 +92,7 @@ Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
 
 ## Runtime Boundary
 
-The fuzzer has no source dependency on `extension/client-runtime`. Production and development Compose both deploy that code as the `client-runtime` service, and the fuzzer waits for it to become healthy. The fuzzer itself has a TCP healthcheck on `50053`; `param-update-service` waits for that check before starting its requester. Prompt tests send one `AnalyzePrompt` request containing the requested layer set, regex ordering, and optional semantic model ID. Training requests the semantic layer through the same gRPC client and always uses the fetched snapshot's model ID. Detector selection, initialization, scheduling, short-circuiting, and error capture all remain inside the runtime.
+The fuzzer has no source dependency on `extension/client-runtime`. Production and development Compose both deploy that code as the `client-runtime` service, and the fuzzer waits for it to become healthy. Every service healthcheck calls its gRPC `Health` method and verifies the returned identity and `SERVING` status; `param-update-service` waits for the fuzzer check before starting its requester. Prompt tests send one `AnalyzePrompt` request containing the requested layer set, regex ordering, and optional semantic model ID. Training requests the semantic layer through the same gRPC client and always uses the fetched snapshot's model ID. Detector selection, initialization, scheduling, short-circuiting, and error capture all remain inside the runtime.
 
 ## CLI
 

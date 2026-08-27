@@ -79,9 +79,15 @@ class TelemetryCollector(telemetry_pb2_grpc.TelemetryServiceServicer):
         )
 
     def Health(self, request, context):
+        try:
+            self.store.check_writable()
+        except sqlite3.Error:
+            status = "NOT_SERVING"
+        else:
+            status = "SERVING"
         return telemetry_pb2.TelemetryHealthResponse(
             service="telemetry-service",
-            status="SERVING",
+            status=status,
         )
 
 

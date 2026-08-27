@@ -55,6 +55,8 @@ Environment variables:
 
 Docker Compose sets `PARAM_UPDATE_STORAGE_PATH=/data/updates.jsonl` and persists it in the `param-update-data` volume.
 
+The `Health` RPC returns `SERVING` only when that exact update path can be opened for append.
+
 ## Fuzzer Requests
 
 If `FUZZER_PROMPT_COUNT` is greater than zero, the service starts a daemon requester thread after gRPC startup.

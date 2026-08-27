@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import math
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
@@ -12,7 +14,11 @@ for path in (SERVICE_ROOT / "app", SERVICE_ROOT / "generated"):
         sys.path.insert(0, str(path))
 
 from privoke.v1 import parameters_pb2
-from server import validate_parameter_update
+from server import (
+    ParamUpdateService,
+    storage_is_writable,
+    validate_parameter_update,
+)
 
 
 def valid_request():
@@ -28,6 +34,22 @@ def valid_request():
 
 
 class ParameterUpdateValidationTests(unittest.TestCase):
+    def test_health_is_not_serving_when_storage_is_unwritable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            service = ParamUpdateService(
+                Path(directory) / "updates.jsonl",
+                expected_model_id="privoke-baseline",
+            )
+            with patch("server.storage_is_writable", return_value=False):
+                response = service.Health(None, None)
+        self.assertEqual(response.status, "NOT_SERVING")
+
+    def test_storage_health_checks_the_update_path(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            storage_path = Path(directory) / "updates.jsonl"
+            self.assertTrue(storage_is_writable(storage_path))
+            self.assertTrue(storage_path.exists())
+
     def test_accepts_bounded_update(self) -> None:
         validate_parameter_update(
             valid_request(),

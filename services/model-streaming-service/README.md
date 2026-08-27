@@ -56,7 +56,7 @@ Dockerfile behavior:
 - compiles a static server with the patched Go toolchain,
 - copies only the 4.8 MB server binary into a non-root distroless production image.
 
-The production Compose healthcheck calls the binary's built-in TCP healthcheck mode. The dev override uses `nc` from the development image.
+Production and development Compose call the binary's built-in healthcheck mode. It invokes the service's gRPC `Health` method and verifies the returned service name and `SERVING` status.
 
 ## Consumers
 

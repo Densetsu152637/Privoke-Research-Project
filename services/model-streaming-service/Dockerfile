@@ -26,6 +26,8 @@ RUN mkdir -p gen \
 
 RUN go mod download
 
+RUN go build -o /usr/local/bin/model-streaming-service-dev ./cmd/server
+
 EXPOSE 50051
 
 CMD ["go", "run", "./cmd/server"]

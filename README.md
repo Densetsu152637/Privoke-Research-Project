@@ -75,6 +75,8 @@ Run the development server simulation with bind-mounted sources and generated st
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
+The override assigns separate development image tags, so a later `up -d` cannot accidentally reuse a production runtime image that omits protobuf build tooling. All service healthchecks call their public gRPC `Health` methods.
+
 Run the production-style server deployment:
 
 ```bash

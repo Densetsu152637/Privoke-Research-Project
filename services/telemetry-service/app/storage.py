@@ -107,6 +107,14 @@ class TelemetryStore:
                 )
             )
 
+    def check_writable(self) -> None:
+        connection = sqlite3.connect(self.path, timeout=0.5)
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.rollback()
+        finally:
+            connection.close()
+
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=5.0)
         connection.row_factory = sqlite3.Row
