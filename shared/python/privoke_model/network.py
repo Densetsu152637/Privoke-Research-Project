@@ -3,9 +3,10 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import re
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 
@@ -111,6 +112,7 @@ class TinyTransformerModel:
         config: ModelConfig,
         parameters: Mapping[str, Sequence[float]],
         shapes: Mapping[str, Sequence[int]],
+        device: str | None = None,
     ):
         self.config = config
         self.parameters = {
@@ -122,6 +124,15 @@ class TinyTransformerModel:
         if missing:
             raise ModelArtifactError(f"Model is missing tensor {missing[0]!r}.")
         self._validate_shapes()
+        self.compute_device, self._torch = _resolve_compute_device(device)
+        self._torch_parameters = (
+            {
+                name: self._torch.as_tensor(value, device=self.compute_device)
+                for name, value in self.parameters.items()
+            }
+            if self._torch is not None
+            else None
+        )
 
     @classmethod
     def from_artifact(cls, payload: Mapping[str, object]) -> "TinyTransformerModel":
@@ -139,6 +150,17 @@ class TinyTransformerModel:
         return cls(ModelConfig.from_mapping(config_value), parameters, shapes)
 
     def predict(self, text: str) -> ModelPrediction:
+        return self.predict_many((text,))[0]
+
+    def predict_many(self, texts: Sequence[str]) -> tuple[ModelPrediction, ...]:
+        """Predict a bounded caller-provided batch on the selected compute device."""
+        if not texts:
+            return ()
+        if self._torch is not None:
+            return self._predict_many_torch(texts)
+        return tuple(self._predict_numpy(text) for text in texts)
+
+    def _predict_numpy(self, text: str) -> ModelPrediction:
         pooled = self.encode(text)
         sensitivity_probs = _softmax(
             pooled @ self.parameters["head.sensitivity.weight"]
@@ -168,6 +190,123 @@ class TinyTransformerModel:
             category_probabilities=tuple(float(value) for value in category_probs),
             pooled=tuple(float(value) for value in pooled),
         )
+
+    def _predict_many_torch(
+        self,
+        texts: Sequence[str],
+    ) -> tuple[ModelPrediction, ...]:
+        torch = self._torch
+        parameters = self._torch_parameters
+        if torch is None or parameters is None:
+            raise RuntimeError("Torch compute was not initialised.")
+
+        token_rows = [self.token_ids(text).tolist() for text in texts]
+        sequence_length = max(len(row) for row in token_rows)
+        token_ids = torch.zeros(
+            (len(token_rows), sequence_length),
+            dtype=torch.long,
+            device=self.compute_device,
+        )
+        token_mask = torch.zeros(
+            (len(token_rows), sequence_length),
+            dtype=torch.bool,
+            device=self.compute_device,
+        )
+        for index, row in enumerate(token_rows):
+            row_length = len(row)
+            token_ids[index, :row_length] = torch.as_tensor(
+                row,
+                dtype=torch.long,
+                device=self.compute_device,
+            )
+            token_mask[index, :row_length] = True
+
+        with torch.inference_mode():
+            hidden = (
+                parameters["token_embedding"][token_ids]
+                + parameters["position_embedding"][:sequence_length]
+            )
+            query = hidden @ parameters["attention.query.weight"]
+            key = hidden @ parameters["attention.key.weight"]
+            value = hidden @ parameters["attention.value.weight"]
+            scores = query @ key.transpose(1, 2) / math.sqrt(self.config.hidden_size)
+            scores = scores.masked_fill(~token_mask[:, None, :], -10_000.0)
+            attention = torch.softmax(scores, dim=-1)
+            attended = (
+                attention @ value @ parameters["attention.output.weight"]
+                + parameters["attention.output.bias"]
+            )
+            hidden = torch.nn.functional.layer_norm(
+                hidden + attended,
+                (self.config.hidden_size,),
+                eps=1e-5,
+            )
+            intermediate = torch.nn.functional.gelu(
+                hidden @ parameters["ffn.input.weight"]
+                + parameters["ffn.input.bias"],
+                approximate="tanh",
+            )
+            hidden = torch.nn.functional.layer_norm(
+                hidden
+                + intermediate @ parameters["ffn.output.weight"]
+                + parameters["ffn.output.bias"],
+                (self.config.hidden_size,),
+                eps=1e-5,
+            )
+            mask = token_mask.unsqueeze(-1)
+            pooled = hidden[:, 0] * 0.5 + (
+                (hidden * mask).sum(dim=1)
+                / mask.sum(dim=1).clamp_min(1)
+            ) * 0.5
+            sensitivity = torch.softmax(
+                pooled @ parameters["head.sensitivity.weight"]
+                + parameters["head.sensitivity.bias"],
+                dim=-1,
+            )
+            visibility = torch.softmax(
+                pooled @ parameters["head.visibility.weight"]
+                + parameters["head.visibility.bias"],
+                dim=-1,
+            )
+            categories = torch.sigmoid(
+                pooled @ parameters["head.category.weight"]
+                + parameters["head.category.bias"]
+            )
+
+        pooled_rows = pooled.cpu().tolist()
+        sensitivity_rows = sensitivity.cpu().tolist()
+        visibility_rows = visibility.cpu().tolist()
+        category_rows = categories.cpu().tolist()
+        predictions = []
+        for pooled_row, sensitivity_row, visibility_row, category_row in zip(
+            pooled_rows,
+            sensitivity_rows,
+            visibility_rows,
+            category_rows,
+        ):
+            predictions.append(
+                ModelPrediction(
+                    sensitivity=self.config.sensitivity_labels[
+                        int(np.argmax(sensitivity_row))
+                    ],
+                    visibility=self.config.visibility_labels[
+                        int(np.argmax(visibility_row))
+                    ],
+                    categories=tuple(
+                        label
+                        for label, probability in zip(
+                            self.config.category_labels,
+                            category_row,
+                        )
+                        if probability >= self.config.category_threshold
+                    ),
+                    sensitivity_probabilities=tuple(float(value) for value in sensitivity_row),
+                    visibility_probabilities=tuple(float(value) for value in visibility_row),
+                    category_probabilities=tuple(float(value) for value in category_row),
+                    pooled=tuple(float(value) for value in pooled_row),
+                )
+            )
+        return tuple(predictions)
 
     def classification_head_deltas(
         self,
@@ -290,3 +429,23 @@ def _layer_norm(value: np.ndarray) -> np.ndarray:
     mean = value.mean(axis=-1, keepdims=True)
     variance = ((value - mean) ** 2).mean(axis=-1, keepdims=True)
     return (value - mean) / np.sqrt(variance + 1e-5)
+
+
+def _resolve_compute_device(requested: str | None) -> tuple[str, Any | None]:
+    choice = (requested or os.getenv("PRIVOKE_MODEL_DEVICE", "auto")).strip().lower()
+    if choice not in {"auto", "cpu", "cuda", "mps"}:
+        raise ValueError("PRIVOKE_MODEL_DEVICE must be auto, cpu, cuda, or mps.")
+    if choice == "cpu":
+        return "cpu", None
+
+    try:
+        import torch
+    except ImportError:
+        return "cpu", None
+
+    if choice in {"auto", "cuda"} and torch.cuda.is_available():
+        return "cuda", torch
+    mps = getattr(torch.backends, "mps", None)
+    if choice in {"auto", "mps"} and mps is not None and mps.is_available():
+        return "mps", torch
+    return "cpu", None

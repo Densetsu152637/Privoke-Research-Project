@@ -152,7 +152,9 @@ services:
       PRIVOKE_LLM_CHOICE: streamed
       MODEL_STREAMING_TARGET: model-streaming-service:50051
       MODEL_STREAMING_CONSUMER_ID: server-client-runtime
+      MODEL_STREAMING_CACHE_TTL_SECONDS: ${MODEL_STREAMING_CACHE_TTL_SECONDS:-1}
       MODEL_ID: privoke-baseline
+      PRIVOKE_MODEL_DEVICE: ${PRIVOKE_MODEL_DEVICE:-auto}
       PYTHONPATH: /workspace/shared/python
       TELEMETRY_ENABLED: "true"
       TELEMETRY_TARGET: telemetry-service:50055
@@ -210,6 +212,7 @@ services:
       MODEL_STREAMING_RETRY_INITIAL_SECONDS: 1
       MODEL_STREAMING_RETRY_MAX_SECONDS: 4
       FUZZ_MAX_CONCURRENT_CYCLES: 1
+      FUZZ_TRAINING_RUNTIME_MAX_IN_FLIGHT: ${FUZZ_TRAINING_RUNTIME_MAX_IN_FLIGHT:-8}
     volumes:
       - ./services/privoke-fuzzer:/workspace/services/privoke-fuzzer
       - ./shared:/workspace/shared

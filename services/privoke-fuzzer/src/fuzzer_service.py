@@ -11,7 +11,7 @@ from prompt_generation import generate_training_prompts
 from training import emit_training_update, train_parameter_batch
 from training.protocols import StreamedParameterSnapshot
 from training.types import BatchTrainingUpdate
-from runtime_client import PrivokeRuntimeClient
+from runtime_client import PrivokeRuntimeClient, RuntimeAnalysisError
 
 from privoke.v1 import parameters_pb2, parameters_pb2_grpc
 
@@ -82,15 +82,28 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             seed=seed,
             dataset_path=self.config.prompt_dataset_path,
         )
-        update = train_parameter_batch(
-            snapshot=snapshot,
-            new_examples=examples,
-            config=self.config.batch_training_config(seed),
-            runtime_client=PrivokeRuntimeClient(
-                self.config.privoke_runtime_target,
-                timeout_seconds=self.config.timeout_seconds,
-            ),
-        )
+        try:
+            update = train_parameter_batch(
+                snapshot=snapshot,
+                new_examples=examples,
+                config=self.config.batch_training_config(seed),
+                runtime_client=PrivokeRuntimeClient(
+                    self.config.privoke_runtime_target,
+                    timeout_seconds=self.config.timeout_seconds,
+                    max_in_flight=self.config.training_runtime_max_in_flight,
+                ),
+            )
+        except (RuntimeAnalysisError, grpc.RpcError) as exc:
+            logging.warning("client runtime training evaluation failed: %s", exc)
+            context.abort(
+                grpc.StatusCode.UNAVAILABLE,
+                "Client runtime training evaluation is unavailable.",
+            )
+        if not context.is_active():
+            context.abort(
+                grpc.StatusCode.CANCELLED,
+                "Training request was cancelled before update submission.",
+            )
         try:
             ack = emit_training_update(
                 target=self.config.param_update_target,
@@ -266,6 +279,8 @@ def assemble_parameter_stream(chunks) -> StreamedParameterSnapshot:
 
     if expected_chunks is None or received_chunks != expected_chunks:
         raise ModelSnapshotUnavailable("Model parameter stream ended early.")
+    if not model_id or not version or generated_at_unix <= 0:
+        raise ModelSnapshotUnavailable("Model parameter stream metadata is invalid.")
     return parameters_pb2.ModelParametersResponse(
         model_id=model_id,
         version=version,

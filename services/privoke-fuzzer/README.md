@@ -40,7 +40,8 @@ The fuzzer fine-tunes the sensitivity, visibility, and multi-label category head
 
 - reconstructs the same transformer and tensor shapes used by the client runtime,
 - generates optional transformed variants per new example,
-- obtains predicted classifications from the runtime gRPC service,
+- obtains predicted classifications through bounded concurrent calls on one runtime
+  gRPC channel,
 - computes cross-entropy/BCE head gradients against the labeled classifications,
 - accumulates and bounds real tensor deltas,
 - returns both gradients and locally updated parameter values for metadata/fingerprints.
@@ -83,6 +84,8 @@ Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
 - `FUZZ_TRAINING_LEARNING_RATE`, default `0.03`
 - `FUZZ_TRAINING_MAX_GRADIENT`, default `0.05`
 - `FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE`, default `1`
+- `FUZZ_TRAINING_RUNTIME_MAX_IN_FLIGHT`, default `8`; bounds concurrent semantic
+  evaluation calls over the cycle's shared gRPC channel
 - `MODEL_STREAMING_FETCH_MAX_ATTEMPTS`, default `5`
 - `MODEL_STREAMING_CONNECT_TIMEOUT_SECONDS`, default `2.0`
 - `MODEL_STREAMING_RETRY_INITIAL_SECONDS`, default `1.0`

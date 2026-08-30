@@ -96,7 +96,14 @@ def validate_artifact(payload: object) -> None:
 
 
 def artifact_checksum(payload: Mapping[str, Any]) -> str:
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    # Match Go's JSON encoder while keeping the canonical representation UTF-8.
+    # Go always escapes the two JavaScript line separators even with HTML escaping off.
+    canonical = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 

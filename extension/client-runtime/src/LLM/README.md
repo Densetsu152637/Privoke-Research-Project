@@ -18,9 +18,11 @@ The active backend can be selected with `--llm-choice` or `PRIVOKE_LLM_CHOICE`, 
 
 1. receives ordered tensor chunks for one immutable version,
 2. validates chunk order, offsets, shapes, model ID, and completeness,
-3. reconstructs the NumPy transformer defined by `shared/python/privoke_model`,
-4. runs local self-attention, feed-forward, and sensitivity/visibility/category heads,
-5. caches that executable version until the artifact fingerprint changes.
+3. reconstructs the transformer defined by `shared/python/privoke_model`,
+4. runs local self-attention, feed-forward, and sensitivity/visibility/category heads
+   on CUDA/MPS when available, with a NumPy CPU fallback,
+5. caches that executable version and coalesces concurrent classifications for a short
+   refresh interval before checking the streaming service for a new artifact.
 
 Only the newest version of each model ID is retained in memory. Prompts never go to `model-streaming-service`; only model weights travel over that connection.
 
@@ -32,6 +34,8 @@ Environment:
 - `MODEL_ID`, default `privoke-baseline`
 - `MODEL_STREAMING_CONSUMER_ID`, default `client-runtime`
 - `MODEL_STREAMING_TIMEOUT_SECONDS`, default `10.0`
+- `MODEL_STREAMING_CACHE_TTL_SECONDS`, default `1.0`
+- `PRIVOKE_MODEL_DEVICE`, default `auto` (`auto`, `cpu`, `cuda`, or `mps`)
 
 ## Other Backends
 

@@ -89,6 +89,57 @@ class TransformerTrainingTests(unittest.TestCase):
             update.metadata["updated_parameter_fingerprint"],
         )
 
+    def test_training_evaluates_the_runtime_as_one_bounded_batch(self) -> None:
+        artifact = json.loads(
+            (REPO_ROOT / "models/privoke-baseline.json").read_text(encoding="utf-8")
+        )
+        snapshot = types.SimpleNamespace(
+            model_id=artifact["model_id"],
+            version=artifact["version"],
+            generated_at_unix=artifact["generated_at_unix"],
+            parameters=[
+                types.SimpleNamespace(
+                    name=name,
+                    values=tensor["values"],
+                    shape=tensor["shape"],
+                )
+                for name, tensor in artifact["parameters"].items()
+            ],
+            metadata={
+                **artifact["metadata"],
+                "architecture": artifact["architecture"],
+                "model_config": json.dumps(artifact["config"]),
+                "trainable_parameters": ",".join(
+                    name
+                    for name, tensor in artifact["parameters"].items()
+                    if tensor["trainable"]
+                ),
+            },
+        )
+
+        class BatchRuntime:
+            calls = 0
+
+            def classify_many(self, texts, **kwargs):
+                self.calls += 1
+                return [Classification() for _ in texts]
+
+        runtime = BatchRuntime()
+        examples = [
+            BatchTrainingExample("first", Classification()),
+            BatchTrainingExample("second", Classification()),
+        ]
+
+        update = train_parameter_batch(
+            snapshot,
+            examples,
+            config=BatchTrainingConfig(transformations_per_example=1),
+            runtime_client=runtime,
+        )
+
+        self.assertEqual(runtime.calls, 1)
+        self.assertEqual(update.metrics["examples"], 4.0)
+
 
 if __name__ == "__main__":
     unittest.main()

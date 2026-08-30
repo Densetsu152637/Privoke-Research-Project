@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 
@@ -16,6 +17,7 @@ for path in (SERVICE_ROOT / "app", SERVICE_ROOT / "generated"):
         sys.path.insert(0, str(path))
 
 from privoke.v1 import parameters_pb2
+from fuzzer_requests import FuzzerRequestConfig, request_fuzzer_loop
 from server import (
     ParamUpdateService,
     storage_is_writable,
@@ -126,6 +128,34 @@ class ParameterUpdateValidationTests(unittest.TestCase):
                 max_abs_gradient=1.0,
             )
 
+    def test_rejects_missing_gradient_shape(self) -> None:
+        request = valid_request()
+        request.gradients[0].shape[:] = []
+        with self.assertRaisesRegex(ValueError, "no shape"):
+            validate_parameter_update(
+                request,
+                expected_model_id="privoke-baseline",
+                max_abs_gradient=1.0,
+            )
+
+    def test_rejects_same_size_but_wrong_artifact_shape(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            artifact_path = Path(directory) / "privoke-baseline.json"
+            source_artifact = SERVICE_ROOT.parents[1] / "models/privoke-baseline.json"
+            shutil.copyfile(source_artifact, artifact_path)
+            artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+            service = ParamUpdateService(
+                Path(directory) / "updates.jsonl",
+                expected_model_id="privoke-baseline",
+                model_artifact_path=artifact_path,
+            )
+            request = valid_request()
+            request.base_version = artifact["version"]
+            request.gradients[0].shape[:] = [1, 4]
+
+            with self.assertRaisesRegex(AssertionError, "shape mismatch"):
+                service.SubmitParameterUpdate(request, AbortContext())
+
     def test_rejects_log_control_characters(self) -> None:
         request = valid_request()
         request.source_id = "attacker\nforged-log"
@@ -135,6 +165,41 @@ class ParameterUpdateValidationTests(unittest.TestCase):
                 expected_model_id="privoke-baseline",
                 max_abs_gradient=1.0,
             )
+
+    def test_fuzzer_retry_reuses_the_cycle_request_id(self) -> None:
+        config = FuzzerRequestConfig(
+            target="fuzzer:50053",
+            prompt_count=1,
+            model_id="privoke-baseline",
+            source_id="param-update-service",
+            timeout_seconds=1.0,
+            interval_seconds=0.0,
+            initial_delay_seconds=0.0,
+            retry_seconds=0.0,
+            max_attempts=2,
+            seed=1337,
+        )
+        response = SimpleNamespace(
+            accepted=True,
+            model_id="privoke-baseline",
+            applied_version="v1+train.1",
+            prompts_generated=1,
+        )
+        with (
+            patch(
+                "fuzzer_requests.request_fuzzer_training",
+                side_effect=(RuntimeError("transient"), response),
+            ) as request_training,
+            patch("fuzzer_requests.time.sleep"),
+        ):
+            request_fuzzer_loop(config)
+
+        request_ids = [
+            call.kwargs["training_request_id"]
+            for call in request_training.call_args_list
+        ]
+        self.assertEqual(len(request_ids), 2)
+        self.assertEqual(request_ids[0], request_ids[1])
 
 
 if __name__ == "__main__":

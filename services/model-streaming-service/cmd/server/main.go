@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -118,7 +119,8 @@ func (s *streamingServer) GetModelParameters(_ context.Context, req *pb.ModelPar
 	metadata["consumer_id"] = req.GetConsumerId()
 	metadata["architecture"] = artifact.Architecture
 	metadata["model_config"] = string(artifact.Config)
-	metadata["artifact_checksum"] = artifact.fileChecksum
+	metadata["artifact_checksum"] = artifact.Checksum
+	metadata["artifact_file_checksum"] = artifact.fileChecksum
 	metadata["trainable_parameters"] = strings.Join(trainableNames, ",")
 
 	return &pb.ModelParametersResponse{
@@ -206,6 +208,13 @@ func loadModelArtifact(path string, expectedModelID string) (*loadedArtifact, er
 	if err := json.Unmarshal(raw, &artifact); err != nil {
 		return nil, fmt.Errorf("decode artifact: %w", err)
 	}
+	checksum, err := calculateArtifactChecksum(raw)
+	if err != nil {
+		return nil, fmt.Errorf("calculate artifact checksum: %w", err)
+	}
+	if artifact.Checksum != checksum {
+		return nil, fmt.Errorf("artifact checksum does not match its contents")
+	}
 	if err := validateModelArtifact(&artifact, expectedModelID); err != nil {
 		return nil, err
 	}
@@ -214,6 +223,24 @@ func loadModelArtifact(path string, expectedModelID string) (*loadedArtifact, er
 		modelArtifact: artifact,
 		fileChecksum:  hex.EncodeToString(digest[:]),
 	}, nil
+}
+
+func calculateArtifactChecksum(raw []byte) (string, error) {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	var payload map[string]any
+	if err := decoder.Decode(&payload); err != nil {
+		return "", err
+	}
+	delete(payload, "checksum")
+	var canonical bytes.Buffer
+	encoder := json.NewEncoder(&canonical)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(payload); err != nil {
+		return "", err
+	}
+	digest := sha256.Sum256(bytes.TrimSuffix(canonical.Bytes(), []byte("\n")))
+	return hex.EncodeToString(digest[:]), nil
 }
 
 func validateModelArtifact(artifact *modelArtifact, expectedModelID string) error {

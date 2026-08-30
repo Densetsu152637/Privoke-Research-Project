@@ -10,7 +10,7 @@ The supervisor stays running on port `50056` while it starts and stops the exten
 - `Status` to report the detector process state and PID;
 - `ModelStreamingHealth` to check the configured parameter-streaming endpoint on demand when the extension enables its LLM layer.
 
-The supervisor and detector start without contacting `model-streaming-service`. The detector is launched from `../client-runtime/src/grpc_main.py` with the supervisor's Python interpreter and inherited environment. The portable WebExtension can start the supervisor through the fixed-purpose native messaging launcher in `src/native_messaging_host.py`.
+The supervisor and detector start without contacting `model-streaming-service`. The detector is launched from `../client-runtime/src/grpc_main.py` with the supervisor's Python interpreter and inherited environment. Consequently, GPU inference for extension traffic requires PyTorch from `../client-runtime/requirements-gpu.txt` to be installed in the interpreter selected for the supervisor (normally `../client-runtime/.venv`). `PRIVOKE_MODEL_DEVICE=auto` then selects CUDA or Apple MPS and falls back to CPU. The Compose GPU override applies to the separate server runtime, not this child. The portable WebExtension can start the supervisor through the fixed-purpose native messaging launcher in `src/native_messaging_host.py`.
 
 The supervisor always owns the gRPC-Web bridge on `127.0.0.1:8080`. There is no external proxy mode: bridge startup and shutdown follow the supervisor lifecycle. The bridge, control service, and detector are forced to loopback rather than merely defaulting to it.
 

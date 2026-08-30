@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import math
+import os
 import threading
+import time
+from dataclasses import dataclass
 from typing import Dict, List
 
 from privoke_model import ModelConfig, TinyTransformerModel
@@ -75,41 +79,95 @@ class StreamedTransformerPrivacyModel:
                         "artifact_checksum",
                         "unknown",
                     ),
+                    "compute_device": self.model.compute_device,
                     "category_probabilities": category_probabilities,
                 },
             )
         ]
 
 
+@dataclass(frozen=True)
+class _CachedModel:
+    cache_key: str
+    model: StreamedTransformerPrivacyModel
+    refreshed_at: float
+
+
 class StreamedModelCache:
     """Thread-safe cache that retains only the latest version of each model."""
 
-    def __init__(self):
+    def __init__(self, refresh_interval_seconds: float | None = None):
         self._lock = threading.RLock()
         self._models: Dict[
-            str,
-            tuple[str, StreamedTransformerPrivacyModel],
+            tuple[str, str],
+            _CachedModel,
         ] = {}
+        self.refresh_interval_seconds = (
+            refresh_interval_seconds
+            if refresh_interval_seconds is not None
+            else float(os.getenv("MODEL_STREAMING_CACHE_TTL_SECONDS", "1.0"))
+        )
+        if (
+            not math.isfinite(self.refresh_interval_seconds)
+            or self.refresh_interval_seconds < 0
+        ):
+            raise ValueError(
+                "MODEL_STREAMING_CACHE_TTL_SECONDS must be finite and non-negative."
+            )
 
     def classify(
         self,
         text: str,
         streamer: ModelParameterStreamer,
     ) -> List[ClassificationResult]:
-        snapshot = streamer.fetch()
-        model = self._model_for_snapshot(snapshot)
+        model = self._model_for_streamer(streamer)
         return model.classify(text)
+
+    def _model_for_streamer(
+        self,
+        streamer: ModelParameterStreamer,
+    ) -> StreamedTransformerPrivacyModel:
+        identity = (streamer.target, streamer.model_id)
+        with self._lock:
+            now = time.monotonic()
+            cached = self._models.get(identity)
+            if (
+                cached is not None
+                and now - cached.refreshed_at < self.refresh_interval_seconds
+            ):
+                return cached.model
+
+            snapshot = streamer.fetch()
+            if snapshot.model_id != streamer.model_id:
+                raise RuntimeError(
+                    "Model parameter stream returned a different model ID."
+                )
+            if cached is not None and cached.cache_key == snapshot.cache_key:
+                model = cached.model
+            else:
+                model = StreamedTransformerPrivacyModel(snapshot)
+            self._models[identity] = _CachedModel(
+                cache_key=snapshot.cache_key,
+                model=model,
+                refreshed_at=time.monotonic(),
+            )
+            return model
 
     def _model_for_snapshot(
         self,
         snapshot: ParameterSnapshot,
     ) -> StreamedTransformerPrivacyModel:
         with self._lock:
-            cached = self._models.get(snapshot.model_id)
-            if cached is not None and cached[0] == snapshot.cache_key:
-                return cached[1]
+            identity = ("", snapshot.model_id)
+            cached = self._models.get(identity)
+            if cached is not None and cached.cache_key == snapshot.cache_key:
+                return cached.model
             model = StreamedTransformerPrivacyModel(snapshot)
-            self._models[snapshot.model_id] = (snapshot.cache_key, model)
+            self._models[identity] = _CachedModel(
+                cache_key=snapshot.cache_key,
+                model=model,
+                refreshed_at=time.monotonic(),
+            )
             return model
 
     def clear(self) -> None:

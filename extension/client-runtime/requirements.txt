@@ -1,4 +1,5 @@
 click
+# GPU acceleration is opt-in through requirements-gpu.txt.
 en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl
 grpcio==1.82.1
 grpcio-tools==1.82.1

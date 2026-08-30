@@ -96,6 +96,8 @@ FuzzerTrainingRequest {
 ```
 
 If `FUZZER_REQUEST_INTERVAL_SECONDS` is `0`, the requester stops after one successful request or after `FUZZER_REQUEST_MAX_ATTEMPTS` consecutive failures. If the interval is positive, it keeps requesting on that interval and retries failures after `FUZZER_REQUEST_RETRY_SECONDS`.
+Retries of one cycle retain the same `request_id`; a new ID is allocated only after a
+successful cycle and interval.
 
 ## Relationship to Other Services
 

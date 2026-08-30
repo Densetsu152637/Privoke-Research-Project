@@ -55,6 +55,58 @@ func TestGetModelParametersRejectsControlCharacters(t *testing.T) {
 	}
 }
 
+func TestGetModelParametersRejectsInvalidArtifactChecksum(t *testing.T) {
+	path := writeTestArtifact(t)
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatal(err)
+	}
+	payload["version"] = "tampered"
+	raw, err = json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	server := streamingServer{modelID: "privoke-baseline", artifactPath: path}
+	_, err = server.GetModelParameters(context.Background(), &pb.ModelParametersRequest{})
+	if status.Code(err) != codes.Unavailable {
+		t.Fatalf("expected UNAVAILABLE, got %v", err)
+	}
+}
+
+func TestLoadRepositoryArtifact(t *testing.T) {
+	path := filepath.Join("..", "..", "models", "privoke-baseline.json")
+	if _, err := os.Stat(path); err != nil {
+		path = "/models/privoke-baseline.json"
+	}
+	artifact, err := loadModelArtifact(path, "privoke-baseline")
+	if err != nil {
+		t.Fatalf("repository artifact did not validate: %v", err)
+	}
+	if artifact.Checksum == "" || artifact.fileChecksum == "" {
+		t.Fatal("repository artifact checksums were not populated")
+	}
+}
+
+func TestArtifactChecksumMatchesSharedPythonCanonicalJSON(t *testing.T) {
+	raw := []byte(`{"metadata":{"label":"café <safe>\u2028"},"checksum":"ignored"}`)
+	checksum, err := calculateArtifactChecksum(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const expected = "c35c226b69d388c8090e2021b143a1a693c67a9035d6e61469ce20fac540af87"
+	if checksum != expected {
+		t.Fatalf("canonical checksum mismatch: got %s want %s", checksum, expected)
+	}
+}
+
 func writeTestArtifact(t *testing.T) string {
 	t.Helper()
 	config, err := json.Marshal(map[string]int{"hidden_size": 2})
@@ -72,8 +124,21 @@ func writeTestArtifact(t *testing.T) string {
 			"head.weight": {Shape: []uint32{1, 2}, Values: []float64{0.1, 0.2}, Trainable: true},
 		},
 		Metadata: map[string]string{},
-		Checksum: "0000000000000000000000000000000000000000000000000000000000000000",
+		Checksum: "",
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	checksum, err := calculateArtifactChecksum(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var artifact map[string]any
+	if err := json.Unmarshal(payload, &artifact); err != nil {
+		t.Fatal(err)
+	}
+	artifact["checksum"] = checksum
+	payload, err = json.Marshal(artifact)
 	if err != nil {
 		t.Fatal(err)
 	}

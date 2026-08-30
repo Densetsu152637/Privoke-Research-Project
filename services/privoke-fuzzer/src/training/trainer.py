@@ -89,11 +89,27 @@ def train_parameter_batch(
     for example in trainer_examples:
         if not math.isfinite(example.weight) or example.weight <= 0:
             raise ValueError("Training example weights must be finite and positive.")
-        predicted = runtime_client.classify(
-            example.text,
+
+    classify_many = getattr(runtime_client, "classify_many", None)
+    if callable(classify_many):
+        predictions = classify_many(
+            tuple(example.text for example in trainer_examples),
             layer="semantic",
             model_id=client_snapshot.model_id,
         )
+    else:
+        predictions = [
+            runtime_client.classify(
+                example.text,
+                layer="semantic",
+                model_id=client_snapshot.model_id,
+            )
+            for example in trainer_examples
+        ]
+    if len(predictions) != len(trainer_examples):
+        raise RuntimeError("The client runtime returned an incomplete training batch.")
+
+    for example, predicted in zip(trainer_examples, predictions):
         target = target_classification_for_example(example, predicted)
         loss = classification_loss(target, predicted)
 

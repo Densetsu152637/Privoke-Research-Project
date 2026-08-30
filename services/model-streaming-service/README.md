@@ -22,7 +22,9 @@ Defined in `shared/proto/privoke/v1/parameters.proto`:
 - `GetModelParameters(ModelParametersRequest) -> ModelParametersResponse` remains as a unary compatibility and inspection API.
 - `Health(HealthRequest) -> HealthResponse` returns `SERVING` only while the configured artifact can be loaded and validated.
 
-Each stream is pinned to one artifact version. Consumers reject reordered, incomplete, discontinuous, or mixed-version streams before constructing a model.
+Each stream is pinned to one artifact version. The service verifies the canonical
+artifact checksum before serving it, and consumers reject reordered, incomplete,
+discontinuous, non-finite, or mixed-version streams before constructing a model.
 
 ## Runtime
 

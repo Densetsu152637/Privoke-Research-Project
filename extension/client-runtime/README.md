@@ -184,6 +184,10 @@ Environment variables:
 - `PRIVOKE_ALLOW_NON_LOOPBACK_BIND`
 - `MODEL_STREAMING_TARGET`, default `127.0.0.1:50051`; Compose sets `model-streaming-service:50051`
 - `MODEL_ID`, `MODEL_STREAMING_CONSUMER_ID`, `MODEL_STREAMING_TIMEOUT_SECONDS`
+- `MODEL_STREAMING_CACHE_TTL_SECONDS`, default `1.0`; coalesces concurrent
+  classifications onto one immutable streamed snapshot before checking for a new version
+- `PRIVOKE_MODEL_DEVICE`, default `auto`; uses CUDA or Apple MPS through PyTorch when
+  available and otherwise keeps inference on the NumPy CPU backend
 - `LM_STUDIO_BASE_URL`, `LM_STUDIO_MODEL`, `LM_STUDIO_API_KEY`, `LM_STUDIO_TIMEOUT_SECONDS`, `LM_STUDIO_TEMPERATURE`, `LM_STUDIO_MAX_TOKENS`, `LM_STUDIO_RESPONSE_FORMAT`
 - `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_TEMPERATURE`, `OPENAI_MAX_TOKENS`
 - `TELEMETRY_ENABLED`, default `false` outside Compose
@@ -195,6 +199,17 @@ Environment variables:
 
 `PRIVOKE_DEV_LOG_PROMPTS=true` logs raw prompt text only for requests whose `source` contains `fuzzer`. Keep it off outside local debugging.
 
+To expose an NVIDIA GPU to the container, use the opt-in override on a host with
+the NVIDIA Container Toolkit installed:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+```
+
+The normal Compose files do not request a GPU and remain portable to CPU-only hosts.
+The override also installs `requirements-gpu.txt`; the base image omits PyTorch and
+therefore avoids carrying CUDA libraries when only CPU inference is needed.
+
 ## Telemetry
 
 The gRPC runtime uses `StructuredEventEmitter` and a bounded background `TelemetryReporter` when `TELEMETRY_ENABLED=true`. Prompt decisions never wait for telemetry delivery. Queue overflow or collector failure drops the packet and logs event metadata only.
@@ -205,8 +220,8 @@ Packets deliberately exclude raw prompt text, matched spans, reasoning, arbitrar
 
 ```bash
 cd extension/client-runtime
-python -m venv venv
-venv\Scripts\activate
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
 pip install ../../shared/python
 mkdir generated  # omit this line when the directory already exists
@@ -218,6 +233,20 @@ python -m grpc_tools.protoc \
   ../../shared/proto/privoke/v1/runtime.proto \
   ../../shared/proto/privoke/v1/telemetry.proto
 ```
+
+For GPU-backed streamed-transformer inference in the workstation process used by the
+browser extension, install PyTorch into this same environment:
+
+```bash
+pip install -r requirements-gpu.txt
+```
+
+With `PRIVOKE_MODEL_DEVICE=auto` (the default), CUDA is preferred, then Apple MPS, with
+an automatic NumPy CPU fallback. This affects only the streamed transformer; regex and
+spaCy NER continue to execute on CPU. The `docker-compose.gpu.yml` override configures a
+different, server-side runtime and does not accelerate requests made by the extension.
+Each streamed-transformer result includes `compute_device` metadata (`cuda`, `mps`, or
+`cpu`) for verification.
 
 The checked-in workstation defaults expect a parameter-streaming service or secure local forward on `127.0.0.1:50051`. Docker Compose supplies its own internal DNS target.
 

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
@@ -14,7 +17,10 @@ for path in (PACKAGE_ROOT, SHARED_ROOT):
         sys.path.insert(0, str(path))
 
 from src.LLM.privoke.parameter_stream import ParameterSnapshot
-from src.LLM.privoke.streamed_model import StreamedTransformerPrivacyModel
+from src.LLM.privoke.streamed_model import (
+    StreamedModelCache,
+    StreamedTransformerPrivacyModel,
+)
 
 
 class StreamedTransformerTests(unittest.TestCase):
@@ -60,6 +66,38 @@ class StreamedTransformerTests(unittest.TestCase):
             self.model.classify("write a friendly email about tomorrow meeting"),
             [],
         )
+
+    def test_runtime_cache_coalesces_parameter_fetches(self) -> None:
+        fetch_count = 0
+
+        def fetch():
+            nonlocal fetch_count
+            fetch_count += 1
+            return self.model.snapshot
+
+        streamer = SimpleNamespace(
+            target="streaming:50051",
+            model_id=self.model.snapshot.model_id,
+            fetch=fetch,
+        )
+        cache = StreamedModelCache(refresh_interval_seconds=30.0)
+
+        cache.classify("my diagnosis is cancer", streamer)
+        cache.classify("my diagnosis is cancer", streamer)
+
+        self.assertEqual(fetch_count, 1)
+
+    def test_unavailable_accelerator_falls_back_to_cpu(self) -> None:
+        if importlib.util.find_spec("torch") is None:
+            model = StreamedTransformerPrivacyModel(self.model.snapshot)
+        else:
+            with (
+                patch("torch.cuda.is_available", return_value=False),
+                patch("torch.backends.mps.is_available", return_value=False),
+            ):
+                model = StreamedTransformerPrivacyModel(self.model.snapshot)
+
+        self.assertEqual(model.model.compute_device, "cpu")
 
 
 if __name__ == "__main__":

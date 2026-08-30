@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import os
 import sys
 from dataclasses import dataclass
@@ -152,8 +153,12 @@ class ModelParameterStreamer:
                 "model-streaming-service returned model "
                 f"'{model_id}' for requested model '{self.model_id}'."
             )
+        if not version or generated_at_unix <= 0:
+            raise RuntimeError("Model parameter stream has invalid snapshot metadata.")
 
         for name, values in parameter_values.items():
+            if not name:
+                raise RuntimeError("Model parameter stream has an unnamed tensor.")
             expected_size = 1
             if not shapes[name]:
                 raise RuntimeError(f"Streamed tensor '{name}' has no shape.")
@@ -167,6 +172,8 @@ class ModelParameterStreamer:
                 raise RuntimeError(
                     f"Streamed tensor '{name}' shape does not match its values."
                 )
+            if not all(math.isfinite(value) for value in values):
+                raise RuntimeError(f"Streamed tensor '{name}' has non-finite values.")
 
         return ParameterSnapshot(
             model_id=model_id,

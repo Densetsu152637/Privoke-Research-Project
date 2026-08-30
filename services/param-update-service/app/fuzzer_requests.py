@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 import threading
 import time
@@ -27,7 +28,7 @@ class FuzzerRequestConfig:
 
     @classmethod
     def from_env(cls) -> "FuzzerRequestConfig":
-        return cls(
+        config = cls(
             target=os.getenv("FUZZER_TARGET", "privoke-fuzzer:50053"),
             prompt_count=env_int("FUZZER_PROMPT_COUNT", 0),
             model_id=os.getenv("MODEL_ID", "privoke-baseline"),
@@ -42,6 +43,23 @@ class FuzzerRequestConfig:
             max_attempts=env_int("FUZZER_REQUEST_MAX_ATTEMPTS", 3),
             seed=env_int("FUZZER_REQUEST_SEED", 1337),
         )
+        config.validate()
+        return config
+
+    def validate(self) -> None:
+        if self.prompt_count < 0:
+            raise ValueError("FUZZER_PROMPT_COUNT must not be negative.")
+        if self.max_attempts <= 0:
+            raise ValueError("FUZZER_REQUEST_MAX_ATTEMPTS must be positive.")
+        for name, value, allow_zero in (
+            ("FUZZER_REQUEST_TIMEOUT_SECONDS", self.timeout_seconds, False),
+            ("FUZZER_REQUEST_INTERVAL_SECONDS", self.interval_seconds, True),
+            ("FUZZER_REQUEST_INITIAL_DELAY_SECONDS", self.initial_delay_seconds, True),
+            ("FUZZER_REQUEST_RETRY_SECONDS", self.retry_seconds, True),
+        ):
+            if not math.isfinite(value) or value < 0 or (not allow_zero and value == 0):
+                requirement = "non-negative" if allow_zero else "positive"
+                raise ValueError(f"{name} must be finite and {requirement}.")
 
 
 def start_fuzzer_requester(config: FuzzerRequestConfig) -> None:
@@ -62,10 +80,14 @@ def request_fuzzer_loop(config: FuzzerRequestConfig) -> None:
         time.sleep(config.initial_delay_seconds)
 
     attempts = 0
+    cycle_request_id = request_id(config.source_id)
     while True:
         attempts += 1
         try:
-            response = request_fuzzer_training(config)
+            response = request_fuzzer_training(
+                config,
+                training_request_id=cycle_request_id,
+            )
             logging.info(
                 "fuzzer training response accepted=%s model=%s version=%s prompts=%s",
                 response.accepted,
@@ -84,14 +106,18 @@ def request_fuzzer_loop(config: FuzzerRequestConfig) -> None:
         if config.interval_seconds <= 0:
             return
         time.sleep(config.interval_seconds)
+        cycle_request_id = request_id(config.source_id)
 
 
-def request_fuzzer_training(config: FuzzerRequestConfig):
+def request_fuzzer_training(
+    config: FuzzerRequestConfig,
+    training_request_id: str | None = None,
+):
     with grpc.insecure_channel(config.target) as channel:
         client = parameters_pb2_grpc.FuzzerServiceStub(channel)
         return client.RunTrainingCycle(
             parameters_pb2.FuzzerTrainingRequest(
-                request_id=request_id(config.source_id),
+                request_id=training_request_id or request_id(config.source_id),
                 source_id=config.source_id,
                 model_id=config.model_id,
                 prompt_count=config.prompt_count,

@@ -70,6 +70,8 @@ cd extension/client-runtime
 python -m venv .venv
 source .venv/bin/activate  # Windows PowerShell: .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt ../../shared/python
+# Optional: install PyTorch in this same environment for CUDA/MPS inference.
+pip install -r requirements-gpu.txt
 mkdir generated  # omit this line when the directory already exists
 python -m grpc_tools.protoc \
   -I ../../shared/proto \
@@ -89,7 +91,14 @@ python -m grpc_tools.protoc \
   ../../shared/proto/privoke/v1/runtime.proto
 ```
 
-The bridge, control service, and detector are forced to loopback. The supervisor prefers `client-runtime/.venv` for the detector process (or `PRIVOKE_RUNTIME_PYTHON` when explicitly set) and refuses to start it unless Presidio and the `en_core_web_sm` spaCy model load successfully. `MODEL_STREAMING_TARGET` defaults to `127.0.0.1:50051` for this workstation path; the separate Compose detector uses the internal service name. Streaming-service health is intentionally not part of the local dependency preflight.
+The GPU requirements line is optional because PyTorch is comparatively large. When it is
+installed in `client-runtime/.venv`, the streamed transformer automatically uses CUDA or
+Apple MPS when available and falls back to the NumPy CPU implementation otherwise. Set
+`PRIVOKE_MODEL_DEVICE=cpu` to force the fallback, or `cuda`/`mps` to request a particular
+accelerator. Restart the browser and supervisor after changing a process-level environment
+variable, because the browser-launched native host inherits the browser's environment.
+
+The bridge, control service, and detector are forced to loopback. The supervisor prefers `client-runtime/.venv` for the detector process (or `PRIVOKE_RUNTIME_PYTHON` when explicitly set) and refuses to start it unless Presidio and the `en_core_web_sm` spaCy model load successfully. The extension JavaScript itself does not run the model: it sends requests to this workstation Python child, so the Compose GPU override does not affect extension traffic. Only the streamed-transformer layer uses the selected accelerator; regex and spaCy NER remain on CPU. `MODEL_STREAMING_TARGET` defaults to `127.0.0.1:50051` for this workstation path; the separate Compose detector uses the internal service name. Streaming-service health is intentionally not part of the local dependency preflight.
 
 3. Build the portable extension:
 

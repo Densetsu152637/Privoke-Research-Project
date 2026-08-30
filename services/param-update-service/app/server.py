@@ -70,6 +70,7 @@ class ParamUpdateService(parameters_pb2_grpc.ParamUpdateServiceServicer):
                     raise ModelArtifactError(
                         f"Artifact model_id is {artifact['model_id']!r}, not {request.model_id!r}."
                     )
+                validate_gradient_shapes_against_artifact(request, artifact)
                 updated_artifact = apply_parameter_update(
                     artifact,
                     base_version=request.base_version,
@@ -202,18 +203,19 @@ def validate_parameter_update(
             raise ValueError(
                 f"Gradient {gradient.name!r} exceeds 4096 values."
             )
-        if gradient.shape:
-            expected_values = 1
-            for dimension in gradient.shape:
-                if dimension <= 0:
-                    raise ValueError(
-                        f"Gradient {gradient.name!r} has an invalid shape."
-                    )
-                expected_values *= int(dimension)
-            if expected_values != len(gradient.values):
+        if not gradient.shape:
+            raise ValueError(f"Gradient {gradient.name!r} has no shape.")
+        expected_values = 1
+        for dimension in gradient.shape:
+            if dimension <= 0:
                 raise ValueError(
-                    f"Gradient {gradient.name!r} shape does not match its values."
+                    f"Gradient {gradient.name!r} has an invalid shape."
                 )
+            expected_values *= int(dimension)
+        if expected_values != len(gradient.values):
+            raise ValueError(
+                f"Gradient {gradient.name!r} shape does not match its values."
+            )
         total_values += len(gradient.values)
         for value in gradient.values:
             if not math.isfinite(value) or abs(value) > max_abs_gradient:
@@ -229,6 +231,18 @@ def validate_parameter_update(
     for key, value in request.metadata.items():
         _validate_identifier(key, "metadata key", required=True, limit=128)
         _validate_identifier(value, "metadata value", required=False, limit=2_048)
+
+
+def validate_gradient_shapes_against_artifact(request, artifact) -> None:
+    parameters = artifact["parameters"]
+    for gradient in request.gradients:
+        tensor = parameters.get(gradient.name)
+        if tensor is None:
+            continue
+        if tuple(int(size) for size in gradient.shape) != tuple(tensor["shape"]):
+            raise ModelArtifactError(
+                f"Parameter shape mismatch for {gradient.name!r}."
+            )
 
 
 def open_storage_file(storage_path: Path) -> int:

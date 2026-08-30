@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 
 from training import BatchTrainingConfig
@@ -22,6 +23,7 @@ class FuzzerConfig:
         training_learning_rate: float,
         training_max_gradient: float,
         training_transformations_per_example: int,
+        training_runtime_max_in_flight: int,
         model_streaming_fetch_max_attempts: int,
         model_streaming_connect_timeout_seconds: float,
         model_streaming_retry_initial_seconds: float,
@@ -43,6 +45,7 @@ class FuzzerConfig:
         self.training_transformations_per_example = (
             training_transformations_per_example
         )
+        self.training_runtime_max_in_flight = training_runtime_max_in_flight
         self.model_streaming_fetch_max_attempts = model_streaming_fetch_max_attempts
         self.model_streaming_connect_timeout_seconds = (
             model_streaming_connect_timeout_seconds
@@ -81,6 +84,10 @@ class FuzzerConfig:
                 "FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE",
                 1,
             ),
+            training_runtime_max_in_flight=env_int(
+                "FUZZ_TRAINING_RUNTIME_MAX_IN_FLIGHT",
+                8,
+            ),
             model_streaming_fetch_max_attempts=env_int(
                 "MODEL_STREAMING_FETCH_MAX_ATTEMPTS",
                 5,
@@ -104,6 +111,35 @@ class FuzzerConfig:
             raise ValueError("FUZZ_MAX_PROMPT_COUNT must be positive.")
         if self.max_concurrent_cycles <= 0:
             raise ValueError("FUZZ_MAX_CONCURRENT_CYCLES must be positive.")
+        if self.training_runtime_max_in_flight <= 0:
+            raise ValueError(
+                "FUZZ_TRAINING_RUNTIME_MAX_IN_FLIGHT must be positive."
+            )
+        if self.training_transformations_per_example < 0:
+            raise ValueError(
+                "FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE must not be negative."
+            )
+        for name, value in (
+            ("FUZZ_TIMEOUT_SECONDS", self.timeout_seconds),
+            ("FUZZ_TRAINING_LEARNING_RATE", self.training_learning_rate),
+            ("FUZZ_TRAINING_MAX_GRADIENT", self.training_max_gradient),
+            (
+                "MODEL_STREAMING_CONNECT_TIMEOUT_SECONDS",
+                self.model_streaming_connect_timeout_seconds,
+            ),
+            (
+                "MODEL_STREAMING_RETRY_INITIAL_SECONDS",
+                self.model_streaming_retry_initial_seconds,
+            ),
+            (
+                "MODEL_STREAMING_RETRY_MAX_SECONDS",
+                self.model_streaming_retry_max_seconds,
+            ),
+        ):
+            if not math.isfinite(value) or value <= 0:
+                raise ValueError(f"{name} must be finite and positive.")
+        if self.model_streaming_fetch_max_attempts <= 0:
+            raise ValueError("MODEL_STREAMING_FETCH_MAX_ATTEMPTS must be positive.")
         if not self.model_id or len(self.model_id) > 128:
             raise ValueError("MODEL_ID must contain 1 to 128 characters.")
         if not self.fuzzer_id or len(self.fuzzer_id) > 128:
