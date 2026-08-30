@@ -12,11 +12,12 @@ RUN apt-get update \
     && pip install --no-cache-dir --upgrade pip setuptools wheel
 
 COPY shared /workspace/shared
+COPY models /models
 COPY services/param-update-service /workspace/services/param-update-service
 
 WORKDIR /workspace/services/param-update-service
 
-RUN pip install --no-cache-dir -r requirements.txt \
+RUN pip install --no-cache-dir -r requirements.txt /workspace/shared/python \
     && mkdir -p generated \
     && python -m grpc_tools.protoc \
       -I /workspace/shared/proto \
@@ -41,11 +42,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system --gid 10001 privoke \
     && useradd --system --uid 10001 --gid privoke --no-create-home privoke \
-    && mkdir -p /data \
-    && chown privoke:privoke /data
+    && mkdir -p /data /models \
+    && chown -R privoke:privoke /data /models
 
 COPY --from=development /opt/venv /opt/venv
 COPY --from=development /workspace /workspace
+COPY --from=development --chown=privoke:privoke /models /models
 
 RUN pip uninstall -y grpcio-tools wheel \
     && /usr/local/bin/python -m pip uninstall -y pip setuptools wheel

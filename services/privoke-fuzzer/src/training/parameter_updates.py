@@ -5,7 +5,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Mapping, Tuple
 
-from .types import BatchTrainingUpdate, ParameterDict
+from .types import BatchTrainingUpdate, ParameterDict, ShapeDict
 
 
 GeneratedModules = Tuple[ModuleType, ModuleType]
@@ -29,6 +29,7 @@ def emit_training_update(
         model_id=update.model_id,
         base_version=update.base_version,
         parameter_updates=update.gradients,
+        parameter_shapes=update.parameter_shapes,
         metadata=metadata,
         timeout_seconds=timeout_seconds,
     )
@@ -40,6 +41,7 @@ def emit_parameter_update(
     model_id: str,
     base_version: str,
     parameter_updates: ParameterDict,
+    parameter_shapes: ShapeDict | None = None,
     metadata: Mapping[str, str] | None = None,
     timeout_seconds: float = 10.0,
 ):
@@ -51,6 +53,7 @@ def emit_parameter_update(
         parameters_pb2.Parameter(
             name=name,
             values=[float(value) for value in values],
+            shape=list((parameter_shapes or {}).get(name, (len(values),))),
         )
         for name, values in parameter_updates.items()
     ]

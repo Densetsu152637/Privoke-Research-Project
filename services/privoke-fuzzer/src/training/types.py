@@ -7,6 +7,7 @@ from privoke_contracts.classification import Classification
 
 
 ParameterDict = Dict[str, Tuple[float, ...]]
+ShapeDict = Dict[str, Tuple[int, ...]]
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,7 @@ class BatchTrainingUpdate:
     base_version: str
     gradients: ParameterDict
     updated_parameters: ParameterDict
+    parameter_shapes: ShapeDict
     metrics: Dict[str, float]
     metadata: Dict[str, str]
 

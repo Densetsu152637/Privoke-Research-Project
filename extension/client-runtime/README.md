@@ -140,7 +140,7 @@ NER is in `src/NER`. `EntityNERDetector` uses spaCy `en_core_web_sm` and maps `P
 
 Semantic classifiers are in `src/LLM`:
 
-- `PriVokeClassifier` fetches snapshots from `model-streaming-service`, caches a `ParameterBackedPrivacyModel` by model/version/fingerprint, and classifies with local semantic feature patterns calibrated by streamed float vectors.
+- `PriVokeClassifier` validates streamed tensor chunks, reconstructs the shared NumPy transformer, caches the newest model version/fingerprint, and runs neural inference locally.
 - `LocalClassifier` calls an OpenAI-compatible local API such as LM Studio.
 - `OpenClassifier` calls the OpenAI SDK.
 

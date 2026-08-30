@@ -14,7 +14,7 @@ services:
     environment:
       MODEL_STREAMING_PORT: 50051
       MODEL_ID: privoke-baseline
-      MODEL_VERSION: v0.1.0
+      MODEL_ARTIFACT_PATH: /models/privoke-baseline.json
       GOTMPDIR: /workspace/.tmp/go-build
     healthcheck:
       test: ["CMD", "/usr/local/bin/model-streaming-service-dev", "healthcheck"]
@@ -25,6 +25,7 @@ services:
     volumes:
       - ./services/model-streaming-service:/workspace/services/model-streaming-service
       - ./shared:/workspace/shared
+      - ./models:/models:ro
     command:
       [
         "sh",
@@ -54,8 +55,9 @@ services:
     environment:
       PARAM_UPDATE_PORT: 50052
       PARAM_UPDATE_STORAGE_PATH: /data/updates.jsonl
+      MODEL_ARTIFACT_PATH: /models/privoke-baseline.json
       FUZZER_TARGET: privoke-fuzzer:50053
-      FUZZER_PROMPT_COUNT: ${FUZZER_PROMPT_COUNT:-8}
+      FUZZER_PROMPT_COUNT: ${FUZZER_PROMPT_COUNT:-0}
       FUZZER_REQUEST_TIMEOUT_SECONDS: 60
       FUZZER_REQUEST_MAX_ATTEMPTS: 5
       FUZZER_REQUEST_INTERVAL_SECONDS: 0
@@ -78,6 +80,7 @@ services:
       - param-update-data:/data
       - ./services/param-update-service:/workspace/services/param-update-service
       - ./shared:/workspace/shared
+      - ./models:/models
     command:
       [
         "sh",

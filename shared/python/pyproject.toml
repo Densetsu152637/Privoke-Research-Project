@@ -9,4 +9,4 @@ requires-python = ">=3.11"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["privoke_contracts*"]
+include = ["privoke_contracts*", "privoke_model*"]

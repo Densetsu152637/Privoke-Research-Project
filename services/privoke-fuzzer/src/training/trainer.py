@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import random
+import math
 import os
+import random
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from .evaluation import (
-    accumulate_gradient,
-    classification_loss,
-)
+from privoke_model import ModelConfig, TinyTransformerModel
+
+from .evaluation import classification_loss
 from .io import load_training_examples
 from .parameters import (
     add_parameter_delta,
@@ -63,12 +63,32 @@ def train_parameter_batch(
         os.getenv("PRIVOKE_RUNTIME_TARGET", "client-runtime:50054"),
         timeout_seconds=float(os.getenv("FUZZ_TIMEOUT_SECONDS", "10")),
     )
-    gradients = {name: [0.0 for _ in values] for name, values in parameters.items()}
+    model = TinyTransformerModel(
+        ModelConfig.from_metadata(client_snapshot.metadata),
+        parameters,
+        client_snapshot.shapes,
+    )
+    trainable_names = {
+        name
+        for name in client_snapshot.metadata.get("trainable_parameters", "").split(",")
+        if name
+    }
+    if not trainable_names:
+        raise ValueError("The streamed model declares no trainable parameters.")
+    gradients = {
+        name: [0.0 for _ in parameters[name]]
+        for name in sorted(trainable_names)
+        if name in parameters
+    }
+    if set(gradients) != trainable_names:
+        raise ValueError("The model trainable parameter manifest is inconsistent.")
     total_weight = 0.0
     total_loss = 0.0
     exact_matches = 0
 
     for example in trainer_examples:
+        if not math.isfinite(example.weight) or example.weight <= 0:
+            raise ValueError("Training example weights must be finite and positive.")
         predicted = runtime_client.classify(
             example.text,
             layer="semantic",
@@ -80,13 +100,17 @@ def train_parameter_batch(
         if target.pack() == predicted.pack():
             exact_matches += 1
 
-        accumulate_gradient(
-            gradients=gradients,
-            parameters=parameters,
-            target=target,
-            predicted=predicted,
-            weight=example.weight,
+        example_deltas = model.classification_head_deltas(
+            example.text,
+            sensitivity=target.sensitivity().name,
+            visibility=target.visibility().name,
+            categories=[category.name for category in target.categories()],
         )
+        for name, values in example_deltas.items():
+            if name not in gradients:
+                continue
+            for index, value in enumerate(values):
+                gradients[name][index] += value * example.weight
         total_loss += loss * example.weight
         total_weight += example.weight
 
@@ -108,6 +132,10 @@ def train_parameter_batch(
         base_version=client_snapshot.version,
         gradients=gradient_parameters,
         updated_parameters=updated_parameters,
+        parameter_shapes={
+            name: client_snapshot.shapes[name]
+            for name in gradient_parameters
+        },
         metrics={
             "examples": float(len(trainer_examples)),
             "new_examples": float(len(new_examples)),
@@ -117,7 +145,7 @@ def train_parameter_batch(
             "total_weight": total_weight,
         },
         metadata={
-            "strategy": "grpc_runtime_semantic_batch_training",
+            "strategy": "transformer_classification_head_finetune",
             "base_parameter_fingerprint": parameter_fingerprint(parameters),
             "updated_parameter_fingerprint": parameter_fingerprint(updated_parameters),
             "learning_rate": str(config.learning_rate),
@@ -166,7 +194,7 @@ def iter_training_examples(
 
 
 def _validate_config(config: BatchTrainingConfig) -> None:
-    if config.learning_rate <= 0:
-        raise ValueError("learning_rate must be greater than zero.")
-    if config.max_gradient <= 0:
-        raise ValueError("max_gradient must be greater than zero.")
+    if not math.isfinite(config.learning_rate) or config.learning_rate <= 0:
+        raise ValueError("learning_rate must be finite and greater than zero.")
+    if not math.isfinite(config.max_gradient) or config.max_gradient <= 0:
+        raise ValueError("max_gradient must be finite and greater than zero.")

@@ -184,7 +184,7 @@ In dev mode fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer
 
 ## Current Prototype Boundaries
 
-- `model-streaming-service` serves one configured, hard-coded parameter snapshot. It rejects other non-empty model IDs.
+- `model-streaming-service` streams the configured, versioned transformer artifact from `models/`; the fuzzer can fine-tune its heads and `param-update-service` atomically publishes new Git-storable weights.
 - `param-update-service` persists gradients and reports a derived applied-version label, but it does not mutate the snapshot served by `model-streaming-service`.
 - The full Compose stack sets `FUZZER_PROMPT_COUNT=8`, so `param-update-service` requests one eight-prompt training cycle after startup. The resulting update is stored only in the `param-update-data` volume.
 - Production containers run as an unprivileged user with a read-only root filesystem, all Linux capabilities dropped, and `no-new-privileges`. A network-disabled one-shot `storage-permissions` initializer migrates the three named data volumes to that UID without deleting their contents.

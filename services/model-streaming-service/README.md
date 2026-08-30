@@ -1,74 +1,35 @@
 # model-streaming-service
 
-`model-streaming-service` is a Go gRPC service that serves the current parameter snapshot for PriVoke experiments.
+`model-streaming-service` serves the current persistent PriVoke transformer artifact. It reloads the artifact for every request, so an atomically published fuzzer update becomes visible without restarting this service or the client runtime.
 
-It is not a prompt classifier. The client runtime uses it only when the semantic backend is set to `streamed`; the service returns named float vectors, and the Python runtime uses those vectors to calibrate its local `ParameterBackedPrivacyModel`.
+## Artifact
+
+The default artifact is `models/privoke-baseline.json`. It contains:
+
+- schema, model, architecture, and version identifiers,
+- transformer/tokenizer dimensions and output labels,
+- named row-major tensors with explicit shapes and float values,
+- a per-tensor `trainable` flag,
+- training revision metadata and a checksum.
+
+The baseline is roughly 400 KB and is deliberately plain JSON, so it can be reviewed, diffed, committed, and pushed with normal Git. `models/generate_baseline.py` deterministically recreates the release baseline.
 
 ## API
 
 Defined in `shared/proto/privoke/v1/parameters.proto`:
 
-- `GetModelParameters(ModelParametersRequest) -> ModelParametersResponse`
-- `Health(HealthRequest) -> HealthResponse`
+- `StreamModelParameters(ModelParametersRequest) -> stream ModelParameterChunk` is the primary client/fuzzer API. Tensor values are sent in ordered chunks with offsets and shapes.
+- `GetModelParameters(ModelParametersRequest) -> ModelParametersResponse` remains as a unary compatibility and inspection API.
+- `Health(HealthRequest) -> HealthResponse` returns `SERVING` only while the configured artifact can be loaded and validated.
 
-Request:
-
-```protobuf
-ModelParametersRequest {
-  consumer_id: "client-runtime"
-  model_id: "privoke-baseline"
-}
-```
-
-Current response behavior:
-
-- logs the requested `consumer_id` and `model_id`,
-- returns gRPC `NOT_FOUND` when a non-empty requested model ID does not match the configured `MODEL_ID`,
-- returns the service-configured `MODEL_ID` and `MODEL_VERSION`,
-- sets `generated_at_unix` to the current Unix timestamp,
-- returns three hard-coded parameter vectors:
-  - `encoder.layer.0.attention`
-  - `encoder.layer.1.ffn`
-  - `classifier.bias`
-- returns metadata with `served_by=model-streaming-service` and the requester `consumer_id`.
-
-The service currently hosts only one configured model snapshot. An empty model ID selects that configured model; a different non-empty ID is rejected rather than silently returning the wrong snapshot.
+Each stream is pinned to one artifact version. Consumers reject reordered, incomplete, discontinuous, or mixed-version streams before constructing a model.
 
 ## Runtime
-
-Default port: `50051`
 
 Environment variables:
 
 - `MODEL_STREAMING_PORT`, default `50051`
 - `MODEL_ID`, default `privoke-baseline`
-- `MODEL_VERSION`, default `v0.1.0`
+- `MODEL_ARTIFACT_PATH`, default `/models/privoke-baseline.json`
 
-Run directly from the service directory after protobuf generation:
-
-```bash
-go run ./cmd/server
-```
-
-Dockerfile behavior:
-
-- uses a development stage to install the pinned protobuf generators and generate Go bindings,
-- compiles a static server with the patched Go toolchain,
-- copies only the 4.8 MB server binary into a non-root distroless production image.
-
-Production and development Compose call the binary's built-in healthcheck mode. It invokes the service's gRPC `Health` method and verifies the returned service name and `SERVING` status.
-
-## Consumers
-
-- `client-runtime` streamed semantic backend fetches snapshots lazily from `PriVokeClassifier.classify`.
-- `privoke-fuzzer` fetches a snapshot before each requested training cycle and through the `fetch-params` CLI command.
-
-## Subagent Tasks
-
-Subagents working here should:
-
-- replace hard-coded vectors with real versioned snapshot loading when an artifact format exists,
-- add a versioned model registry if multiple model IDs are supported,
-- preserve protobuf compatibility when adding fields,
-- add integration tests for `client-runtime` and `privoke-fuzzer` consumers,
-- document parameter provenance and versioning semantics.
+Compose bind-mounts the repository `models` directory read-only into this service. The update service mounts the same directory read-write and publishes replacements atomically.

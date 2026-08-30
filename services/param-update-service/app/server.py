@@ -7,7 +7,17 @@ import threading
 from concurrent import futures
 from pathlib import Path
 
+SHARED_DIR = Path(__file__).resolve().parents[3] / "shared/python"
+if SHARED_DIR.exists() and str(SHARED_DIR) not in sys.path:
+    sys.path.insert(0, str(SHARED_DIR))
+
 import grpc
+from privoke_model import (
+    ModelArtifactError,
+    apply_parameter_update,
+    load_artifact,
+    write_artifact_atomic,
+)
 
 GENERATED_DIR = Path(__file__).resolve().parents[1] / "generated"
 if str(GENERATED_DIR) not in sys.path:
@@ -29,10 +39,12 @@ class ParamUpdateService(parameters_pb2_grpc.ParamUpdateServiceServicer):
         storage_path: Path,
         expected_model_id: str,
         max_abs_gradient: float = 1.0,
+        model_artifact_path: Path | None = None,
     ):
         self.storage_path = storage_path
         self.expected_model_id = expected_model_id
         self.max_abs_gradient = max_abs_gradient
+        self.model_artifact_path = model_artifact_path
         self._write_lock = threading.Lock()
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -46,29 +58,51 @@ class ParamUpdateService(parameters_pb2_grpc.ParamUpdateServiceServicer):
         except ValueError as exc:
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(exc))
 
-        payload = {
-            "source_id": request.source_id,
-            "model_id": request.model_id,
-            "base_version": request.base_version,
-            "gradients": [
-                {"name": gradient.name, "values": list(gradient.values)}
-                for gradient in request.gradients
-            ],
-            "metadata": dict(request.metadata),
-        }
-
+        if self.model_artifact_path is None:
+            context.abort(
+                grpc.StatusCode.FAILED_PRECONDITION,
+                "MODEL_ARTIFACT_PATH is not configured.",
+            )
         try:
             with self._write_lock:
-                descriptor = open_storage_file(self.storage_path)
-                with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
-                    handle.write(
-                        json.dumps(payload, separators=(",", ":")) + "\n"
+                artifact = load_artifact(self.model_artifact_path)
+                if artifact["model_id"] != request.model_id:
+                    raise ModelArtifactError(
+                        f"Artifact model_id is {artifact['model_id']!r}, not {request.model_id!r}."
                     )
+                updated_artifact = apply_parameter_update(
+                    artifact,
+                    base_version=request.base_version,
+                    deltas={
+                        gradient.name: tuple(float(value) for value in gradient.values)
+                        for gradient in request.gradients
+                    },
+                    source_id=request.source_id,
+                )
+                write_artifact_atomic(self.model_artifact_path, updated_artifact)
+                try:
+                    persist_update_audit(
+                        self.storage_path,
+                        request,
+                        applied_version=updated_artifact["version"],
+                        artifact_checksum=updated_artifact["checksum"],
+                    )
+                except OSError:
+                    # The authoritative model is already atomically committed;
+                    # do not make a retry double-apply the same update.
+                    logging.exception("parameter update audit persistence failed")
+        except ModelArtifactError as exc:
+            code = (
+                grpc.StatusCode.FAILED_PRECONDITION
+                if str(exc).startswith("Stale base_version")
+                else grpc.StatusCode.INVALID_ARGUMENT
+            )
+            context.abort(code, str(exc))
         except OSError:
-            logging.exception("parameter update persistence failed")
+            logging.exception("model artifact persistence failed")
             context.abort(
                 grpc.StatusCode.INTERNAL,
-                "Parameter update persistence failed.",
+                "Model artifact persistence failed.",
             )
 
         logging.info(
@@ -81,8 +115,8 @@ class ParamUpdateService(parameters_pb2_grpc.ParamUpdateServiceServicer):
         return parameters_pb2.ParameterUpdateAck(
             accepted=True,
             model_id=request.model_id,
-            applied_version=f"{request.base_version}-updated",
-            message="Parameter update persisted for downstream training.",
+            applied_version=updated_artifact["version"],
+            message="Parameter update applied to the persistent model artifact.",
         )
 
     def Health(self, request, context):
@@ -91,6 +125,7 @@ class ParamUpdateService(parameters_pb2_grpc.ParamUpdateServiceServicer):
             status=(
                 "SERVING"
                 if storage_is_writable(self.storage_path)
+                and artifact_is_usable(self.model_artifact_path)
                 else "NOT_SERVING"
             ),
         )
@@ -99,6 +134,9 @@ class ParamUpdateService(parameters_pb2_grpc.ParamUpdateServiceServicer):
 def serve() -> None:
     port = int(os.getenv("PARAM_UPDATE_PORT", "50052"))
     storage_path = Path(os.getenv("PARAM_UPDATE_STORAGE_PATH", "/data/updates.jsonl"))
+    model_artifact_path = Path(
+        os.getenv("MODEL_ARTIFACT_PATH", "/models/privoke-baseline.json")
+    )
     expected_model_id = os.getenv("MODEL_ID", "privoke-baseline").strip()
     max_abs_gradient = float(os.getenv("PARAM_UPDATE_MAX_ABS_GRADIENT", "1.0"))
     max_message_bytes = int(
@@ -124,6 +162,7 @@ def serve() -> None:
             storage_path,
             expected_model_id=expected_model_id,
             max_abs_gradient=max_abs_gradient,
+            model_artifact_path=model_artifact_path,
         ),
         server,
     )
@@ -163,6 +202,18 @@ def validate_parameter_update(
             raise ValueError(
                 f"Gradient {gradient.name!r} exceeds 4096 values."
             )
+        if gradient.shape:
+            expected_values = 1
+            for dimension in gradient.shape:
+                if dimension <= 0:
+                    raise ValueError(
+                        f"Gradient {gradient.name!r} has an invalid shape."
+                    )
+                expected_values *= int(dimension)
+            if expected_values != len(gradient.values):
+                raise ValueError(
+                    f"Gradient {gradient.name!r} shape does not match its values."
+                )
         total_values += len(gradient.values)
         for value in gradient.values:
             if not math.isfinite(value) or abs(value) > max_abs_gradient:
@@ -186,6 +237,34 @@ def open_storage_file(storage_path: Path) -> int:
     return os.open(storage_path, flags, 0o600)
 
 
+def persist_update_audit(
+    storage_path: Path,
+    request,
+    *,
+    applied_version: str,
+    artifact_checksum: str,
+) -> None:
+    payload = {
+        "source_id": request.source_id,
+        "model_id": request.model_id,
+        "base_version": request.base_version,
+        "applied_version": applied_version,
+        "artifact_checksum": artifact_checksum,
+        "gradients": [
+            {
+                "name": gradient.name,
+                "shape": list(gradient.shape),
+                "values": list(gradient.values),
+            }
+            for gradient in request.gradients
+        ],
+        "metadata": dict(request.metadata),
+    }
+    descriptor = open_storage_file(storage_path)
+    with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, separators=(",", ":")) + "\n")
+
+
 def storage_is_writable(storage_path: Path) -> bool:
     try:
         descriptor = open_storage_file(storage_path)
@@ -193,6 +272,16 @@ def storage_is_writable(storage_path: Path) -> bool:
         return False
     os.close(descriptor)
     return True
+
+
+def artifact_is_usable(model_artifact_path: Path | None) -> bool:
+    if model_artifact_path is None:
+        return True
+    try:
+        load_artifact(model_artifact_path)
+    except (ModelArtifactError, OSError):
+        return False
+    return os.access(model_artifact_path.parent, os.W_OK)
 
 
 def _validate_identifier(

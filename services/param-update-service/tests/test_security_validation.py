@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+import json
+import shutil
 import sys
 import tempfile
 import unittest
@@ -27,13 +29,50 @@ def valid_request():
         model_id="privoke-baseline",
         base_version="v1",
         gradients=[
-            parameters_pb2.Parameter(name="classifier.bias", values=[0.01])
+            parameters_pb2.Parameter(
+                name="head.sensitivity.bias",
+                shape=[4],
+                values=[0.0, 0.0, 0.0, 0.01],
+            )
         ],
         metadata={"request_id": "test-1"},
     )
 
 
+class AbortContext:
+    def abort(self, code, message):
+        raise AssertionError(f"Unexpected abort {code}: {message}")
+
+
 class ParameterUpdateValidationTests(unittest.TestCase):
+    def test_applies_update_to_versioned_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            artifact_path = Path(directory) / "privoke-baseline.json"
+            source_artifact = SERVICE_ROOT.parents[1] / "models/privoke-baseline.json"
+            shutil.copyfile(source_artifact, artifact_path)
+            service = ParamUpdateService(
+                Path(directory) / "updates.jsonl",
+                expected_model_id="privoke-baseline",
+                model_artifact_path=artifact_path,
+            )
+            request = valid_request()
+            initial = json.loads(artifact_path.read_text(encoding="utf-8"))
+            request.base_version = initial["version"]
+            response = service.SubmitParameterUpdate(request, AbortContext())
+            stored = json.loads(artifact_path.read_text(encoding="utf-8"))
+
+        expected_revision = int(initial["metadata"]["training_revision"]) + 1
+        self.assertEqual(
+            response.applied_version,
+            f"{initial['metadata']['release_version']}+train.{expected_revision}",
+        )
+        self.assertEqual(stored["version"], response.applied_version)
+        self.assertEqual(
+            stored["metadata"]["training_revision"],
+            str(expected_revision),
+        )
+        self.assertTrue(stored["checksum"])
+
     def test_health_is_not_serving_when_storage_is_unwritable(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             service = ParamUpdateService(
@@ -71,6 +110,16 @@ class ParameterUpdateValidationTests(unittest.TestCase):
         request = valid_request()
         request.model_id = "other-model"
         with self.assertRaisesRegex(ValueError, "model_id"):
+            validate_parameter_update(
+                request,
+                expected_model_id="privoke-baseline",
+                max_abs_gradient=1.0,
+            )
+
+    def test_rejects_gradient_shape_mismatch(self) -> None:
+        request = valid_request()
+        request.gradients[0].shape[:] = [2]
+        with self.assertRaisesRegex(ValueError, "shape"):
             validate_parameter_update(
                 request,
                 expected_model_id="privoke-baseline",

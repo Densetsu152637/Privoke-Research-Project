@@ -1,6 +1,6 @@
 # privoke-fuzzer
 
-`privoke-fuzzer` is a Python gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, asks the server Compose `client-runtime` to evaluate them, computes bounded parameter-gradient deltas, submits updates to `param-update-service`, and runs ad hoc prompt tests through the same runtime RPC.
+`privoke-fuzzer` is a Python gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, asks the server Compose `client-runtime` to evaluate them, computes bounded neural classification-head gradients, submits updates to `param-update-service`, and runs ad hoc prompt tests through the same runtime RPC.
 
 It is not in the hosted prompt decision path. Training cycles deliberately target the streamed semantic model path rather than the full regex + NER + semantic pipeline.
 
@@ -23,7 +23,7 @@ On `RunTrainingCycle`, the service:
 
 1. validates `prompt_count > 0`,
 2. caps prompt counts above `FUZZ_MAX_PROMPT_COUNT`,
-3. fetches the requested parameter snapshot from `model-streaming-service` and verifies the returned model ID,
+3. streams and validates the requested tensor snapshot from `model-streaming-service`,
 4. generates labeled prompts through `src/prompt_generation`,
 5. requests isolated semantic evaluation from `PrivokeRuntimeService` with that same model ID,
 6. computes gradient deltas with `src/training`,
@@ -34,19 +34,18 @@ If the model-streaming service is unavailable after retries, the RPC aborts with
 
 ## Training Semantics
 
-This service does not run a full ML training job. It treats streamed parameter vectors as trainable calibration values for the local semantic feature model.
+The fuzzer fine-tunes the sensitivity, visibility, and multi-label category heads of the streamed transformer. The encoder remains frozen in this first architecture revision, which keeps updates small and makes online experiments repeatable.
 
 `train_parameter_batch`:
 
-- converts streamed parameters into its local experiment snapshot value,
-- uses default trainable parameters when the snapshot is empty,
+- reconstructs the same transformer and tensor shapes used by the client runtime,
 - generates optional transformed variants per new example,
 - obtains predicted classifications from the runtime gRPC service,
-- computes classification loss over sensitivity, visibility, and categories,
-- accumulates bounded per-parameter gradient deltas,
+- computes cross-entropy/BCE head gradients against the labeled classifications,
+- accumulates and bounds real tensor deltas,
 - returns both gradients and locally updated parameter values for metadata/fingerprints.
 
-Only gradients are sent to `param-update-service`.
+Only trainable-head deltas are sent to `param-update-service`; raw prompt text is not included. The update service checks the base version, atomically applies the deltas, increments `+train.N`, and the next runtime request receives that version.
 
 ## Prompt Generation
 
@@ -95,6 +94,15 @@ Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
 The fuzzer has no source dependency on `extension/client-runtime`. Production and development Compose both deploy that code as the `client-runtime:50054` service, and the fuzzer waits for it to become healthy. It never calls the extension bridge on `8080`, its control plane on `50056`, or its workstation detector on `50057`. Every service healthcheck calls its gRPC `Health` method and verifies the returned identity and `SERVING` status; `param-update-service` waits for the fuzzer check before starting its requester. Prompt tests send one `AnalyzePrompt` request containing the requested layer set, regex ordering, and optional semantic model ID. Training requests the semantic layer through the same gRPC client and always uses the fetched snapshot's model ID. Detector selection, initialization, scheduling, short-circuiting, and error capture all remain inside the server runtime.
 
 ## CLI
+
+Train and persist a new model version from inside the Compose fuzzer container:
+
+```bash
+python src/cli.py train \
+  --target privoke-fuzzer:50053 \
+  --model-id privoke-baseline \
+  --prompt-count 32
+```
 
 Fetch parameters:
 

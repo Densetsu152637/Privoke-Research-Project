@@ -201,24 +201,85 @@ def _fetch_snapshot_once(
     config: FuzzerConfig,
     model_id: str,
 ) -> StreamedParameterSnapshot:
-    with grpc.insecure_channel(config.model_streaming_target) as channel:
+    with grpc.insecure_channel(
+        config.model_streaming_target,
+        options=(("grpc.max_receive_message_length", 8 * 1024 * 1024),),
+    ) as channel:
         grpc.channel_ready_future(channel).result(
             timeout=max(0.1, config.model_streaming_connect_timeout_seconds)
         )
         client = parameters_pb2_grpc.ModelStreamingServiceStub(channel)
-        snapshot = client.GetModelParameters(
+        chunks = client.StreamModelParameters(
             parameters_pb2.ModelParametersRequest(
                 consumer_id=config.fuzzer_id,
                 model_id=model_id,
             ),
             timeout=config.timeout_seconds,
         )
+        snapshot = assemble_parameter_stream(chunks)
         if snapshot.model_id != model_id:
             raise ModelSnapshotUnavailable(
                 "model-streaming-service returned model "
                 f"'{snapshot.model_id}' for requested model '{model_id}'."
             )
         return snapshot
+
+
+def assemble_parameter_stream(chunks) -> StreamedParameterSnapshot:
+    model_id = ""
+    version = ""
+    generated_at_unix = 0
+    expected_chunks = None
+    received_chunks = 0
+    metadata: dict[str, str] = {}
+    values_by_name: dict[str, list[float]] = {}
+    shapes_by_name: dict[str, tuple[int, ...]] = {}
+
+    for chunk in chunks:
+        if int(chunk.chunk_index) != received_chunks:
+            raise ModelSnapshotUnavailable("Model parameter stream is out of order.")
+        if expected_chunks is None:
+            expected_chunks = int(chunk.total_chunks)
+            model_id = chunk.model_id
+            version = chunk.version
+            generated_at_unix = int(chunk.generated_at_unix)
+        elif (
+            chunk.model_id != model_id
+            or chunk.version != version
+            or int(chunk.generated_at_unix) != generated_at_unix
+            or int(chunk.total_chunks) != expected_chunks
+        ):
+            raise ModelSnapshotUnavailable(
+                "Model parameter stream changed snapshot mid-stream."
+            )
+        parameter = chunk.parameter
+        shape = tuple(int(size) for size in parameter.shape)
+        values = values_by_name.setdefault(parameter.name, [])
+        if parameter.name in shapes_by_name and shapes_by_name[parameter.name] != shape:
+            raise ModelSnapshotUnavailable("Model tensor shape changed mid-stream.")
+        if int(parameter.value_offset) != len(values):
+            raise ModelSnapshotUnavailable("Model tensor stream has a discontinuous offset.")
+        shapes_by_name[parameter.name] = shape
+        values.extend(float(value) for value in parameter.values)
+        metadata.update(dict(chunk.metadata))
+        received_chunks += 1
+
+    if expected_chunks is None or received_chunks != expected_chunks:
+        raise ModelSnapshotUnavailable("Model parameter stream ended early.")
+    return parameters_pb2.ModelParametersResponse(
+        model_id=model_id,
+        version=version,
+        generated_at_unix=generated_at_unix,
+        parameters=[
+            parameters_pb2.Parameter(
+                name=name,
+                shape=shapes_by_name[name],
+                values=values,
+            )
+            for name, values in values_by_name.items()
+        ],
+        metadata=metadata,
+    )
 
 
 def _is_retryable_rpc_error(exc: grpc.RpcError) -> bool:

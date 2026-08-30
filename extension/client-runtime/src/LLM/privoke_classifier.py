@@ -9,9 +9,9 @@ class PriVokeClassifier(AbstractClassifier):
     """
     Semantic classifier backed by model-streaming-service.
 
-    Parameters are not fetched during initialization. Each classify() call
-    streams the latest snapshot, then reuses the globally cached executable
-    model unless the streamed version/fingerprint has changed.
+    Parameters and tensor shapes are not fetched during initialization. Each
+    classify() call streams the latest snapshot, then reuses the reconstructed
+    transformer unless the streamed version/fingerprint has changed.
     """
 
     def __init__(
