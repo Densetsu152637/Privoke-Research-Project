@@ -1,14 +1,24 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
-from typing import Mapping, Tuple
 
 from .types import BatchTrainingUpdate, ParameterDict, ShapeDict
 
+GeneratedModules = tuple[ModuleType, ModuleType]
 
-GeneratedModules = Tuple[ModuleType, ModuleType]
+
+@dataclass(frozen=True)
+class ParameterUpdatePayload:
+    source_id: str
+    model_id: str
+    base_version: str
+    parameters: ParameterDict
+    shapes: ShapeDict
+    metadata: Mapping[str, str]
 
 
 def emit_training_update(
@@ -24,25 +34,22 @@ def emit_training_update(
         {str(key): str(value) for key, value in (extra_metadata or {}).items()}
     )
     return emit_parameter_update(
-        target=target,
-        source_id=source_id,
-        model_id=update.model_id,
-        base_version=update.base_version,
-        parameter_updates=update.gradients,
-        parameter_shapes=update.parameter_shapes,
-        metadata=metadata,
+        target,
+        ParameterUpdatePayload(
+            source_id=source_id,
+            model_id=update.model_id,
+            base_version=update.base_version,
+            parameters=update.gradients,
+            shapes=update.parameter_shapes,
+            metadata=metadata,
+        ),
         timeout_seconds=timeout_seconds,
     )
 
 
 def emit_parameter_update(
     target: str,
-    source_id: str,
-    model_id: str,
-    base_version: str,
-    parameter_updates: ParameterDict,
-    parameter_shapes: ShapeDict | None = None,
-    metadata: Mapping[str, str] | None = None,
+    update: ParameterUpdatePayload,
     timeout_seconds: float = 10.0,
 ):
     import grpc
@@ -53,22 +60,21 @@ def emit_parameter_update(
         parameters_pb2.Parameter(
             name=name,
             values=[float(value) for value in values],
-            shape=list((parameter_shapes or {}).get(name, (len(values),))),
+            shape=list(update.shapes.get(name, (len(values),))),
         )
-        for name, values in parameter_updates.items()
+        for name, values in update.parameters.items()
     ]
 
     with grpc.insecure_channel(target) as channel:
         client = parameters_pb2_grpc.ParamUpdateServiceStub(channel)
         return client.SubmitParameterUpdate(
             parameters_pb2.ParameterUpdateRequest(
-                source_id=source_id,
-                model_id=model_id,
-                base_version=base_version,
+                source_id=update.source_id,
+                model_id=update.model_id,
+                base_version=update.base_version,
                 gradients=gradients,
                 metadata={
-                    str(key): str(value)
-                    for key, value in (metadata or {}).items()
+                    str(key): str(value) for key, value in update.metadata.items()
                 },
             ),
             timeout=timeout_seconds,

@@ -7,7 +7,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
 for path in (SERVICE_ROOT / "app", SERVICE_ROOT / "generated"):
     if str(path) not in sys.path:
@@ -58,6 +57,15 @@ class TelemetryValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             store = TelemetryStore(Path(directory) / "telemetry.db")
             store.check_writable()
+
+    def test_storage_round_trips_a_packet(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = TelemetryStore(Path(directory) / "telemetry.db")
+            sequence = store.record(valid_packet())
+            rows = store.list(limit=1)
+
+        self.assertEqual(rows[0]["sequence"], sequence)
+        self.assertEqual(rows[0]["event_id"], "4fa3f1b7-test")
 
     def test_accepts_privacy_minimal_packet(self) -> None:
         validate_telemetry_packet(valid_packet())

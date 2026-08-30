@@ -27,6 +27,7 @@ Environment variables:
 - `TELEMETRY_PORT`, default `50055`
 - `TELEMETRY_DB_PATH`, default `/data/telemetry.db`
 - `TELEMETRY_MAX_MESSAGE_BYTES`, default `131072`
+- `TELEMETRY_MAX_QUERY_LIMIT`, default `1000`; caps each `ListTelemetry` page
 
 Run through Compose:
 

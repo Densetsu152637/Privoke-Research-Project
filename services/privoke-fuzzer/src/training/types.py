@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Tuple
 
 from privoke_contracts.classification import Classification
 
-
-ParameterDict = Dict[str, Tuple[float, ...]]
-ShapeDict = Dict[str, Tuple[int, ...]]
+ParameterDict = dict[str, tuple[float, ...]]
+ShapeDict = dict[str, tuple[int, ...]]
 
 
 @dataclass(frozen=True)
@@ -25,7 +23,7 @@ class BatchTrainingExample:
     text: str
     expected_classification: Classification | None = None
     weight: float = 1.0
-    metadata: Dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, str] = field(default_factory=dict)
 
     @property
     def has_explicit_target(self) -> bool:
@@ -37,7 +35,7 @@ class BatchTrainingExample:
             return None
         return int(self.expected_classification.pack())
 
-    def with_text_and_weight(self, text: str, weight: float) -> "BatchTrainingExample":
+    def with_text_and_weight(self, text: str, weight: float) -> BatchTrainingExample:
         return BatchTrainingExample(
             text=text,
             expected_classification=self.expected_classification,
@@ -53,8 +51,8 @@ class BatchTrainingUpdate:
     gradients: ParameterDict
     updated_parameters: ParameterDict
     parameter_shapes: ShapeDict
-    metrics: Dict[str, float]
-    metadata: Dict[str, str]
+    metrics: dict[str, float]
+    metadata: dict[str, str]
 
     @property
     def updated_fingerprint(self) -> str:

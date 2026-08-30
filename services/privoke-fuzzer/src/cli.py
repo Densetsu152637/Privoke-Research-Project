@@ -11,9 +11,9 @@ if str(GENERATED_DIR) not in sys.path:
 
 from prompt_testing import add_test_prompt_args, run_prompt_tests
 
+
 def fetch_parameters(args) -> None:
     import grpc
-
     from privoke.v1 import parameters_pb2, parameters_pb2_grpc
 
     with grpc.insecure_channel(
@@ -49,10 +49,11 @@ def fetch_parameters(args) -> None:
 
 def run_training_cycle(args) -> None:
     import grpc
-
     from privoke.v1 import parameters_pb2, parameters_pb2_grpc
 
-    request_id = args.request_id or f"privoke-cli-{int(time.time())}-{uuid.uuid4().hex[:8]}"
+    request_id = (
+        args.request_id or f"privoke-cli-{int(time.time())}-{uuid.uuid4().hex[:8]}"
+    )
     with grpc.insecure_channel(args.target) as channel:
         response = parameters_pb2_grpc.FuzzerServiceStub(channel).RunTrainingCycle(
             parameters_pb2.FuzzerTrainingRequest(

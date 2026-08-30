@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import grpc
-
 from privoke_contracts.classification import (
     Category,
     Classification,
@@ -16,13 +16,11 @@ from privoke_contracts.classification import (
     merge_classifications,
 )
 
-
 GENERATED_DIR = Path(__file__).resolve().parents[1] / "generated"
 if str(GENERATED_DIR) not in sys.path:
     sys.path.insert(0, str(GENERATED_DIR))
 
 from privoke.v1 import runtime_pb2, runtime_pb2_grpc
-
 
 LAYER_VALUES = {
     "runtime": runtime_pb2.DETECTION_LAYER_RUNTIME,
@@ -70,7 +68,9 @@ class PrivokeRuntimeClient:
     ):
         request = self._request(payload, layers=layers, regex_first=regex_first)
         with grpc.insecure_channel(self.target) as channel:
-            response = runtime_pb2_grpc.PrivokeRuntimeServiceStub(channel).AnalyzePrompt(
+            response = runtime_pb2_grpc.PrivokeRuntimeServiceStub(
+                channel
+            ).AnalyzePrompt(
                 request,
                 timeout=self.timeout_seconds,
             )
@@ -84,7 +84,9 @@ class PrivokeRuntimeClient:
     ):
         metadata = payload.get("metadata") or {}
         requested_layers = list(layers or ["runtime"])
-        unknown_layers = [layer for layer in requested_layers if layer not in LAYER_VALUES]
+        unknown_layers = [
+            layer for layer in requested_layers if layer not in LAYER_VALUES
+        ]
         if unknown_layers:
             raise ValueError(f"Unsupported runtime layer: {unknown_layers[0]}")
         return runtime_pb2.AnalyzePromptRequest(
@@ -93,7 +95,9 @@ class PrivokeRuntimeClient:
             target_app=str(payload.get("target_app") or ""),
             visibility_hint=str(payload.get("visibility_hint") or ""),
             request_id=str(payload.get("request_id") or ""),
-            metadata={str(key): _string_value(value) for key, value in metadata.items()},
+            metadata={
+                str(key): _string_value(value) for key, value in metadata.items()
+            },
             layers=[LAYER_VALUES[layer] for layer in requested_layers],
             regex_execution_order=_regex_execution_order(regex_first),
             semantic_model_id=str(payload.get("semantic_model_id") or ""),
@@ -162,15 +166,10 @@ def response_to_dict(response) -> dict[str, Any]:
 def _classification_from_response(response) -> Classification:
     if response.error:
         raise RuntimeAnalysisError(response.error)
-    results = [
-        result
-        for execution in response.layers
-        for result in execution.results
-    ]
+    results = [result for execution in response.layers for result in execution.results]
     if results:
         return merge_classifications(
-            _classification_from_proto(result.classification)
-            for result in results
+            _classification_from_proto(result.classification) for result in results
         )
     return _classification_from_proto(response.classification)
 

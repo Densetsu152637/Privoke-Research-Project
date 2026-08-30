@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import hashlib
-from typing import Mapping, Sequence, cast
-
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import cast
 
 from .protocols import StreamedParameter, StreamedParameterSnapshot
 from .types import ParameterDict, ShapeDict

@@ -2,15 +2,22 @@ from __future__ import annotations
 
 import logging
 import math
-import os
+import sys
 import threading
 import time
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
+
+SHARED_DIR = Path(__file__).resolve().parents[3] / "shared/python"
+if SHARED_DIR.exists() and str(SHARED_DIR) not in sys.path:
+    sys.path.insert(0, str(SHARED_DIR))
 
 import grpc
-
 from privoke.v1 import parameters_pb2, parameters_pb2_grpc
+from privoke_service import env_float, env_int, env_string, validate_text
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -27,12 +34,16 @@ class FuzzerRequestConfig:
     seed: int
 
     @classmethod
-    def from_env(cls) -> "FuzzerRequestConfig":
+    def from_env(cls) -> FuzzerRequestConfig:
         config = cls(
-            target=os.getenv("FUZZER_TARGET", "privoke-fuzzer:50053"),
+            target=env_string("FUZZER_TARGET", "privoke-fuzzer:50053", strip=True),
             prompt_count=env_int("FUZZER_PROMPT_COUNT", 0),
-            model_id=os.getenv("MODEL_ID", "privoke-baseline"),
-            source_id=os.getenv("PARAM_UPDATE_SOURCE_ID", "param-update-service"),
+            model_id=env_string("MODEL_ID", "privoke-baseline", strip=True),
+            source_id=env_string(
+                "PARAM_UPDATE_SOURCE_ID",
+                "param-update-service",
+                strip=True,
+            ),
             timeout_seconds=env_float("FUZZER_REQUEST_TIMEOUT_SECONDS", 30.0),
             interval_seconds=env_float("FUZZER_REQUEST_INTERVAL_SECONDS", 0.0),
             initial_delay_seconds=env_float(
@@ -47,6 +58,9 @@ class FuzzerRequestConfig:
         return config
 
     def validate(self) -> None:
+        validate_text(self.target, "FUZZER_TARGET", required=True, limit=256)
+        validate_text(self.model_id, "MODEL_ID", required=True)
+        validate_text(self.source_id, "PARAM_UPDATE_SOURCE_ID", required=True)
         if self.prompt_count < 0:
             raise ValueError("FUZZER_PROMPT_COUNT must not be negative.")
         if self.max_attempts <= 0:
@@ -88,7 +102,7 @@ def request_fuzzer_loop(config: FuzzerRequestConfig) -> None:
                 config,
                 training_request_id=cycle_request_id,
             )
-            logging.info(
+            LOGGER.info(
                 "fuzzer training response accepted=%s model=%s version=%s prompts=%s",
                 response.accepted,
                 response.model_id,
@@ -96,8 +110,8 @@ def request_fuzzer_loop(config: FuzzerRequestConfig) -> None:
                 response.prompts_generated,
             )
             attempts = 0
-        except Exception as exc:
-            logging.warning("fuzzer training request failed: %s", exc)
+        except (grpc.RpcError, RuntimeError) as exc:
+            LOGGER.warning("fuzzer training request failed: %s", exc)
             if config.interval_seconds <= 0 and attempts >= config.max_attempts:
                 return
             time.sleep(config.retry_seconds)
@@ -130,23 +144,3 @@ def request_fuzzer_training(
 
 def request_id(source_id: str) -> str:
     return f"{source_id}-{int(time.time())}-{uuid.uuid4().hex[:8]}"
-
-
-def env_int(name: str, default: int) -> int:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-    try:
-        return int(raw_value)
-    except ValueError:
-        return default
-
-
-def env_float(name: str, default: float) -> float:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-    try:
-        return float(raw_value)
-    except ValueError:
-        return default
