@@ -32,6 +32,7 @@ Services:
 
 - `PrivokeRuntimeService`
   - `AnalyzePrompt(AnalyzePromptRequest) -> AnalyzePromptResponse`
+  - `ComputeSemanticGradients(ComputeSemanticGradientsRequest) -> ComputeSemanticGradientsResponse`
   - `Health(RuntimeHealthRequest) -> RuntimeHealthResponse`
 - `PrivokeRuntimeControlService`
   - `SetRuntimeEnabled(SetRuntimeEnabledRequest) -> RuntimeControlStatus`
@@ -51,7 +52,7 @@ Services:
 - Both independently deployed `client-runtime` instances consume `ModelStreamingService` when configured with the `streamed` semantic backend.
 - Both instances implement `PrivokeRuntimeService`: Compose runs one at `client-runtime:50054`, while the workstation supervisor owns another at `127.0.0.1:50057`.
 - `extension/runtime-supervisor` implements `PrivokeRuntimeControlService` only for its workstation child and exposes both services to the WebExtension through its loopback bridge. Server Compose has no lifecycle control plane.
-- `privoke-fuzzer` consumes only the Compose `PrivokeRuntimeService` plus `ModelStreamingService`, implements `FuzzerService`, and consumes `ParamUpdateService`.
+- `privoke-fuzzer` consumes only the Compose `PrivokeRuntimeService`, implements `FuzzerService`, and consumes `ParamUpdateService`. Only `client-runtime` consumes `ModelStreamingService` during training.
 - `param-update-service` implements `ParamUpdateService` and can consume `FuzzerService` when fuzzer requests are enabled.
 - A `client-runtime` instance produces privacy-minimal `TelemetryPacket` messages when telemetry is enabled; Compose enables this for its server instance.
 - `telemetry-service` implements `TelemetryService` and persists those packets.

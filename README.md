@@ -59,7 +59,7 @@ Detector output is represented by `extension/client-runtime/src/classification`.
 - `extension`: Manifest V3 browser client, the supervisor-hosted loopback gRPC-Web bridge, the Python prompt inspection runtime under `extension/client-runtime`, and its separate workstation control process under `extension/runtime-supervisor`.
 - `services/model-streaming-service`: Go gRPC service that returns the current model parameter snapshot.
 - `services/param-update-service`: Python gRPC service that accepts parameter update payloads and can request fuzzer training cycles.
-- `services/privoke-fuzzer`: Python gRPC worker and CLI for prompt generation, layer probes, streamed semantic-model evaluation, and update submission.
+- `services/privoke-fuzzer`: Python gRPC worker and CLI for prompt generation, layer probes, runtime-delegated semantic training, and update submission.
 - `services/telemetry-service`: Python gRPC metadata collector backed by SQLite.
 - `shared/proto`: Shared protobuf contracts used by the gRPC services and streamed semantic backend.
 - `paper`: Research figures and experiment artifacts.
@@ -184,7 +184,7 @@ In dev mode fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer
 
 ## Current Prototype Boundaries
 
-- `model-streaming-service` streams the configured, versioned transformer artifact from `models/`; the fuzzer can fine-tune its heads and `param-update-service` atomically publishes new Git-storable weights.
+- `model-streaming-service` streams the configured, versioned transformer artifact from `models/` to `client-runtime`; the runtime can fine-tune its heads on a fuzzer-supplied batch and `param-update-service` atomically publishes the returned Git-storable update.
 - `param-update-service` persists gradients and reports a derived applied-version label, but it does not mutate the snapshot served by `model-streaming-service`.
 - The full Compose stack sets `FUZZER_PROMPT_COUNT=8`, so `param-update-service` requests one eight-prompt training cycle after startup. The resulting update is stored only in the `param-update-data` volume.
 - Production containers run as an unprivileged user with a read-only root filesystem, all Linux capabilities dropped, and `no-new-privileges`. A network-disabled one-shot `storage-permissions` initializer migrates the three named data volumes to that UID without deleting their contents.
@@ -201,7 +201,7 @@ In dev mode fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer
 - `FuzzerService.RunTrainingCycle`
 - `Health` RPCs for the parameter, update, and fuzzer services
 
-`shared/proto/privoke/v1/runtime.proto` defines `PrivokeRuntimeService`, the workstation-local `PrivokeRuntimeControlService` (including the on-demand model-streaming health proxy), requested detector layers, regex execution order, and per-layer results/errors. Server Compose runs only the detector service; `extension/runtime-supervisor` hosts the control service.
+`shared/proto/privoke/v1/runtime.proto` defines `PrivokeRuntimeService`, including prompt analysis and bounded semantic-gradient calls, plus the workstation-local `PrivokeRuntimeControlService` and its on-demand model-streaming health proxy. Server Compose runs only the runtime service; `extension/runtime-supervisor` hosts the control service.
 
 `shared/proto/privoke/v1/telemetry.proto` defines privacy-minimal event recording and paginated retrieval. Compose persists these packets in the `telemetry-data` SQLite volume.
 

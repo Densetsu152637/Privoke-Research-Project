@@ -1,3 +1,5 @@
+"""Client-runtime-owned PriVoke transformer inference implementation."""
+
 from __future__ import annotations
 
 import hashlib
@@ -10,7 +12,11 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
-from .artifact import ARCHITECTURE_NAME, ModelArtifactError
+ARCHITECTURE_NAME = "privoke_tiny_transformer_v1"
+
+
+class ModelArtifactError(ValueError):
+    """Raised when streamed transformer configuration or tensors are invalid."""
 
 
 TOKEN_PATTERN = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?|\d+|[^\w\s]", re.UNICODE)
@@ -310,7 +316,21 @@ class TinyTransformerModel:
         visibility: str,
         categories: Sequence[str],
     ) -> dict[str, tuple[float, ...]]:
-        prediction = self.predict(text)
+        return self.classification_head_deltas_from_prediction(
+            self.predict(text),
+            sensitivity=sensitivity,
+            visibility=visibility,
+            categories=categories,
+        )
+
+    def classification_head_deltas_from_prediction(
+        self,
+        prediction: ModelPrediction,
+        *,
+        sensitivity: str,
+        visibility: str,
+        categories: Sequence[str],
+    ) -> dict[str, tuple[float, ...]]:
         pooled = np.asarray(prediction.pooled, dtype=np.float32)
         sensitivity_error = np.asarray(
             prediction.sensitivity_probabilities, dtype=np.float32

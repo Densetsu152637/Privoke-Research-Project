@@ -12,10 +12,6 @@ from privoke.v1 import parameters_pb2, parameters_pb2_grpc
 from privoke_service import validate_text
 from prompt_generation import generate_training_prompts
 from runtime_client import PrivokeRuntimeClient, RuntimeAnalysisError
-from snapshot_client import (
-    ModelSnapshotUnavailable,
-    fetch_snapshot,
-)
 from training import emit_training_update, train_parameter_batch
 from training.types import BatchTrainingUpdate
 
@@ -55,13 +51,12 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
     def _run_training_cycle(self, request, context):
         cycle = _resolve_cycle(request, self.config)
         _log_cycle_started(request, cycle)
-        snapshot = self._fetch_snapshot(cycle.model_id, context)
         examples = generate_training_prompts(
             count=cycle.prompt_count,
             seed=cycle.seed,
             dataset_path=self.config.prompt_dataset_path,
         )
-        update = self._train(snapshot, examples, cycle.seed, context)
+        update = self._train(cycle.model_id, examples, cycle.seed, context)
         if not context.is_active():
             context.abort(
                 grpc.StatusCode.CANCELLED,
@@ -77,31 +72,19 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
         )
         return build_training_response(ack, update, len(examples))
 
-    def _fetch_snapshot(self, model_id: str, context):
-        try:
-            return fetch_snapshot(self.config, model_id=model_id)
-        except ModelSnapshotUnavailable as exc:
-            context.abort(grpc.StatusCode.UNAVAILABLE, str(exc))
-        except grpc.RpcError as exc:
-            context.abort(
-                exc.code() or grpc.StatusCode.UNKNOWN,
-                exc.details() or "model snapshot request failed",
-            )
-
-    def _train(self, snapshot, examples, seed: int, context) -> BatchTrainingUpdate:
+    def _train(self, model_id, examples, seed: int, context) -> BatchTrainingUpdate:
         try:
             return train_parameter_batch(
-                snapshot=snapshot,
+                model_id=model_id,
                 new_examples=examples,
                 config=self.config.batch_training_config(seed),
                 runtime_client=PrivokeRuntimeClient(
                     self.config.privoke_runtime_target,
                     timeout_seconds=self.config.timeout_seconds,
-                    max_in_flight=self.config.training_runtime_max_in_flight,
                 ),
             )
         except (RuntimeAnalysisError, grpc.RpcError) as exc:
-            LOGGER.warning("client runtime training evaluation failed: %s", exc)
+            LOGGER.warning("client runtime semantic training failed: %s", exc)
             context.abort(
                 grpc.StatusCode.UNAVAILABLE,
                 "Client runtime training evaluation is unavailable.",
@@ -125,7 +108,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                     "request_source_id": request.source_id,
                     "requested_prompt_count": str(cycle.requested_prompt_count),
                     "generated_prompt_count": str(generated_count),
-                    "training_pipeline": "streamed_llm_only",
+                    "training_pipeline": "client_runtime_semantic_gradients",
                 },
                 timeout_seconds=self.config.timeout_seconds,
             )

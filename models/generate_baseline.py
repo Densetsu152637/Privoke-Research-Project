@@ -12,11 +12,13 @@ import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SHARED_ROOT = REPO_ROOT / "shared/python"
-if str(SHARED_ROOT) not in sys.path:
-    sys.path.insert(0, str(SHARED_ROOT))
+CLIENT_RUNTIME_ROOT = REPO_ROOT / "extension/client-runtime"
+for source_root in (SHARED_ROOT, CLIENT_RUNTIME_ROOT):
+    if str(source_root) not in sys.path:
+        sys.path.insert(0, str(source_root))
 
 from privoke_model.artifact import ARCHITECTURE_NAME, artifact_checksum, write_artifact_atomic
-from privoke_model.network import ModelConfig, TinyTransformerModel
+from src.model import ModelConfig, TinyTransformerModel
 
 
 MODEL_DIRECTORY = Path(__file__).parent

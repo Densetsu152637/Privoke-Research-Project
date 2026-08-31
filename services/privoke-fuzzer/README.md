@@ -1,6 +1,6 @@
 # privoke-fuzzer
 
-`privoke-fuzzer` is a Python gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, asks the server Compose `client-runtime` to evaluate them, computes bounded neural classification-head gradients, submits updates to `param-update-service`, and runs ad hoc prompt tests through the same runtime RPC.
+`privoke-fuzzer` is a Python gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, asks `client-runtime` to execute a bounded semantic training batch, submits the returned classification-head gradients to `param-update-service`, and runs ad hoc prompt tests through the same runtime service.
 
 It is not in the hosted prompt decision path. Training cycles deliberately target the streamed semantic model path rather than the full regex + NER + semantic pipeline.
 
@@ -23,28 +23,24 @@ On `RunTrainingCycle`, the service:
 
 1. validates `prompt_count > 0`,
 2. caps prompt counts above `FUZZ_MAX_PROMPT_COUNT`,
-3. streams and validates the requested tensor snapshot from `model-streaming-service`,
-4. generates labeled prompts through `src/prompt_generation`,
-5. requests isolated semantic evaluation from `PrivokeRuntimeService` with that same model ID,
-6. computes gradient deltas with `src/training`,
-7. submits those deltas to `ParamUpdateService.SubmitParameterUpdate`,
-8. returns the update acknowledgment and training metadata to the requester.
+3. generates labeled prompts through `src/prompt_generation`,
+4. sends one bounded `ComputeSemanticGradients` request to `PrivokeRuntimeService`,
+5. receives gradients tied to the exact model version used by the runtime,
+6. submits those deltas to `ParamUpdateService.SubmitParameterUpdate`,
+7. returns the update acknowledgment and training metadata to the requester.
 
-If the model-streaming service is unavailable after retries, the RPC aborts with `UNAVAILABLE`. Non-retryable streaming errors, such as an unknown model ID, retain their upstream gRPC status.
+The fuzzer does not connect to `model-streaming-service`. Fetching, validation, caching, model execution, and gradient descent all occur inside `client-runtime`.
 
 ## Training Semantics
 
-The fuzzer fine-tunes the sensitivity, visibility, and multi-label category heads of the streamed transformer. The encoder remains frozen in this first architecture revision, which keeps updates small and makes online experiments repeatable.
+The training cycle fine-tunes the sensitivity, visibility, and multi-label category heads of the streamed transformer. The encoder remains frozen in this first architecture revision, which keeps updates small and makes online experiments repeatable.
 
 `train_parameter_batch`:
 
-- reconstructs the same transformer and tensor shapes used by the client runtime,
 - generates optional transformed variants per new example,
-- obtains predicted classifications through bounded concurrent calls on one runtime
-  gRPC channel,
-- computes cross-entropy/BCE head gradients against the labeled classifications,
-- accumulates and bounds real tensor deltas,
-- returns both gradients and locally updated parameter values for metadata/fingerprints.
+- delegates the complete model-dependent batch to `client-runtime`,
+- receives bounded tensor deltas, metrics, fingerprints, and the exact base version,
+- packages those values for `param-update-service` without receiving model weights.
 
 Only trainable-head deltas are sent to `param-update-service`; raw prompt text is not included. The update service checks the base version, atomically applies the deltas, increments `+train.N`, and the next runtime request receives that version.
 
@@ -70,7 +66,6 @@ Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
 
 ## Environment Variables
 
-- `MODEL_STREAMING_TARGET`, default `model-streaming-service:50051`
 - `PARAM_UPDATE_TARGET`, default `param-update-service:50052`
 - `PRIVOKE_RUNTIME_TARGET`, default `client-runtime:50054`
 - `MODEL_ID`, default `privoke-baseline`
@@ -84,17 +79,11 @@ Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
 - `FUZZ_TRAINING_LEARNING_RATE`, default `0.03`
 - `FUZZ_TRAINING_MAX_GRADIENT`, default `0.05`
 - `FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE`, default `1`
-- `FUZZ_TRAINING_RUNTIME_MAX_IN_FLIGHT`, default `8`; bounds concurrent semantic
-  evaluation calls over the cycle's shared gRPC channel
-- `MODEL_STREAMING_FETCH_MAX_ATTEMPTS`, default `5`
-- `MODEL_STREAMING_CONNECT_TIMEOUT_SECONDS`, default `2.0`
-- `MODEL_STREAMING_RETRY_INITIAL_SECONDS`, default `1.0`
-- `MODEL_STREAMING_RETRY_MAX_SECONDS`, default `4.0`
 - `PRIVOKE_FUZZER_DUMP_DIR`, default `/workspace/dumps/privoke-fuzzer`
 
 ## Runtime Boundary
 
-The fuzzer has no source dependency on `extension/client-runtime`. Production and development Compose both deploy that code as the `client-runtime:50054` service, and the fuzzer waits for it to become healthy. It never calls the extension bridge on `8080`, its control plane on `50056`, or its workstation detector on `50057`. Every service healthcheck calls its gRPC `Health` method and verifies the returned identity and `SERVING` status; `param-update-service` waits for the fuzzer check before starting its requester. Prompt tests send one `AnalyzePrompt` request containing the requested layer set, regex ordering, and optional semantic model ID. Training requests the semantic layer through the same gRPC client and always uses the fetched snapshot's model ID. Detector selection, initialization, scheduling, short-circuiting, and error capture all remain inside the server runtime.
+The fuzzer has no source dependency on `extension/client-runtime`. Production and development Compose both deploy that code as the `client-runtime:50054` service, and the fuzzer waits for it to become healthy. It never calls `model-streaming-service`, the extension bridge on `8080`, its control plane on `50056`, or its workstation detector on `50057`. Prompt tests use `AnalyzePrompt`; training uses `ComputeSemanticGradients`. Model selection, fetching, validation, caching, execution, descent, and model-version selection remain inside the runtime.
 
 ## CLI
 
@@ -105,15 +94,6 @@ python src/cli.py train \
   --target privoke-fuzzer:50053 \
   --model-id privoke-baseline \
   --prompt-count 32
-```
-
-Fetch parameters:
-
-```bash
-python src/cli.py fetch-params \
-  --target model-streaming-service:50051 \
-  --consumer-id privoke-fuzzer \
-  --model-id privoke-baseline
 ```
 
 Run a prompt through the runtime gRPC service:

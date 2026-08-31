@@ -49,13 +49,6 @@ class BatchTrainingUpdate:
     model_id: str
     base_version: str
     gradients: ParameterDict
-    updated_parameters: ParameterDict
     parameter_shapes: ShapeDict
     metrics: dict[str, float]
     metadata: dict[str, str]
-
-    @property
-    def updated_fingerprint(self) -> str:
-        from .parameters import parameter_fingerprint
-
-        return parameter_fingerprint(self.updated_parameters)

@@ -18,9 +18,12 @@ for path in (PACKAGE_ROOT, SHARED_ROOT):
 
 from src.LLM.privoke.parameter_stream import ParameterSnapshot
 from src.LLM.privoke.streamed_model import (
+    GLOBAL_STREAMED_MODEL_CACHE,
     StreamedModelCache,
     StreamedTransformerPrivacyModel,
 )
+from src.LLM.privoke.training import SemanticTrainingExample, compute_semantic_gradients
+from src.classification import Category, Sensitivity, Visibility, initialise_unpacked
 
 
 class StreamedTransformerTests(unittest.TestCase):
@@ -116,6 +119,45 @@ class StreamedTransformerTests(unittest.TestCase):
 
         self.assertEqual(model.model.compute_device, "cpu")
 
+    def test_runtime_computes_versioned_head_gradients_from_cached_model(self) -> None:
+        target = initialise_unpacked(
+            Sensitivity.S3,
+            Visibility.P4,
+            [Category.HEALTH],
+        )
+        with patch.object(
+            GLOBAL_STREAMED_MODEL_CACHE,
+            "model_for_training",
+            return_value=self.model,
+        ):
+            batch = compute_semantic_gradients(
+                [SemanticTrainingExample("my private diagnosis", target, 1.0)],
+                model_id=self.model.snapshot.model_id,
+                learning_rate=0.03,
+                max_gradient=0.05,
+            )
+
+        self.assertEqual(batch.base_version, self.model.snapshot.version)
+        self.assertEqual(
+            set(batch.gradients),
+            {
+                "head.sensitivity.weight",
+                "head.sensitivity.bias",
+                "head.visibility.weight",
+                "head.visibility.bias",
+                "head.category.weight",
+                "head.category.bias",
+            },
+        )
+        self.assertGreater(
+            sum(abs(value) for values in batch.gradients.values() for value in values),
+            0.0,
+        )
+        self.assertNotEqual(
+            batch.metadata["base_parameter_fingerprint"],
+            batch.metadata["updated_parameter_fingerprint"],
+        )
+
 
 def _snapshot(artifact: dict) -> ParameterSnapshot:
     return ParameterSnapshot(
@@ -134,6 +176,11 @@ def _snapshot(artifact: dict) -> ParameterSnapshot:
             "architecture": artifact["architecture"],
             "model_config": json.dumps(artifact["config"]),
             "artifact_checksum": artifact["checksum"],
+            "trainable_parameters": ",".join(
+                name
+                for name, tensor in artifact["parameters"].items()
+                if tensor["trainable"]
+            ),
         },
     )
 

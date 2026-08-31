@@ -106,6 +106,7 @@ Important behavior:
 - `PRIVOKE_WAIT_FOR_REGEX` defaults to true. In that mode regex runs first and a regex `BLOCK` short-circuits NER and semantic detection.
 - gRPC callers can request any subset of `regex`, `ner`, and `semantic`, and can override regex-first versus parallel scheduling per request.
 - gRPC callers can set `semantic_model_id` per request to select a streamed PriVoke model without mutating global runtime configuration.
+- `ComputeSemanticGradients` accepts at most 1,024 weighted examples and 200,000 total text characters, executes the cached streamed transformer locally, and returns bounded head deltas tied to the exact snapshot version used.
 - The streamed client rejects a snapshot whose returned model ID differs from an explicitly requested model. The special `latest` alias accepts the server's resolved release-channel model ID.
 - Every requested layer returns `ok`, `error`, or `skipped`; one layer failure does not erase successful results from other layers.
 - When regex does not block, NER and semantic classification run through `GLOBAL_CONFIG.threadpool`.
@@ -140,7 +141,7 @@ NER is in `src/NER`. `EntityNERDetector` uses spaCy `en_core_web_sm` and maps `P
 
 Semantic classifiers are in `src/LLM`:
 
-- `PriVokeClassifier` validates streamed tensor chunks, reconstructs the shared NumPy transformer, caches the newest model version/fingerprint, and runs neural inference locally.
+- `PriVokeClassifier` validates streamed tensor chunks, reconstructs the client-runtime-owned transformer, caches the newest model version/fingerprint, and runs neural inference locally.
 - `LocalClassifier` calls an OpenAI-compatible local API such as LM Studio.
 - `OpenClassifier` calls the OpenAI SDK.
 

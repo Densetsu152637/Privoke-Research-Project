@@ -142,6 +142,70 @@ class PrivokeRuntimeClient:
                 responses.extend(future.result() for future in pending)
         return [_classification_from_response(response) for response in responses]
 
+    def compute_semantic_gradients(
+        self,
+        examples,
+        *,
+        model_id: str,
+        learning_rate: float,
+        max_gradient: float,
+        request_id: str = "",
+    ) -> dict[str, Any]:
+        request = runtime_pb2.ComputeSemanticGradientsRequest(
+            request_id=request_id,
+            model_id=model_id,
+            examples=[
+                runtime_pb2.RuntimeTrainingExample(
+                    text=example.text,
+                    target=(
+                        runtime_pb2.RuntimeClassification(
+                            sensitivity=example.expected_classification.sensitivity().name,
+                            visibility=example.expected_classification.visibility().name,
+                            categories=[
+                                category.name
+                                for category in example.expected_classification.categories()
+                            ],
+                            packed=example.expected_classification.pack(),
+                        )
+                        if example.expected_classification is not None
+                        else None
+                    ),
+                    has_target=example.expected_classification is not None,
+                    weight=example.weight,
+                )
+                for example in examples
+            ],
+            learning_rate=learning_rate,
+            max_gradient=max_gradient,
+        )
+        with grpc.insecure_channel(self.target) as channel:
+            response = runtime_pb2_grpc.PrivokeRuntimeServiceStub(
+                channel
+            ).ComputeSemanticGradients(request, timeout=self.timeout_seconds)
+        if response.error:
+            raise RuntimeAnalysisError(response.error)
+        gradients = {}
+        shapes = {}
+        for parameter in response.gradients:
+            if parameter.name in gradients:
+                raise RuntimeAnalysisError(
+                    f"Client runtime returned duplicate gradient {parameter.name!r}."
+                )
+            gradients[parameter.name] = tuple(float(value) for value in parameter.values)
+            shapes[parameter.name] = tuple(int(size) for size in parameter.shape)
+        if not response.model_id or not response.base_version or not gradients:
+            raise RuntimeAnalysisError(
+                "Client runtime returned an incomplete semantic gradient batch."
+            )
+        return {
+            "model_id": response.model_id,
+            "base_version": response.base_version,
+            "gradients": gradients,
+            "shapes": shapes,
+            "metrics": dict(response.metrics),
+            "metadata": dict(response.metadata),
+        }
+
 
 def response_to_dict(response) -> dict[str, Any]:
     payload: dict[str, Any] = {

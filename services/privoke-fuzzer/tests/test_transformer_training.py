@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import json
 import sys
-import types
 import unittest
 from pathlib import Path
 
@@ -19,7 +17,6 @@ for path in (
 
 from privoke_contracts.classification import (
     Category,
-    Classification,
     Sensitivity,
     Visibility,
     initialise_unpacked,
@@ -28,117 +25,71 @@ from training.trainer import train_parameter_batch
 from training.types import BatchTrainingConfig, BatchTrainingExample
 
 
-class TransformerTrainingTests(unittest.TestCase):
-    def test_training_produces_real_head_weight_deltas(self) -> None:
-        artifact = json.loads(
-            (REPO_ROOT / "models/privoke-baseline.json").read_text(encoding="utf-8")
-        )
-        snapshot = types.SimpleNamespace(
-            model_id=artifact["model_id"],
-            version=artifact["version"],
-            generated_at_unix=artifact["generated_at_unix"],
-            parameters=[
-                types.SimpleNamespace(
-                    name=name,
-                    values=tensor["values"],
-                    shape=tensor["shape"],
-                )
-                for name, tensor in artifact["parameters"].items()
-            ],
-            metadata={
-                **artifact["metadata"],
-                "architecture": artifact["architecture"],
-                "model_config": json.dumps(artifact["config"]),
-                "trainable_parameters": ",".join(
-                    name
-                    for name, tensor in artifact["parameters"].items()
-                    if tensor["trainable"]
-                ),
+class _GradientRuntime:
+    def __init__(self):
+        self.calls = []
+
+    def compute_semantic_gradients(self, examples, **options):
+        self.calls.append((tuple(examples), options))
+        return {
+            "model_id": options["model_id"],
+            "base_version": "v1",
+            "gradients": {"head.sensitivity.bias": (0.01, 0.0, 0.0, -0.01)},
+            "shapes": {"head.sensitivity.bias": (4,)},
+            "metrics": {
+                "examples": float(len(examples)),
+                "average_loss": 0.25,
+                "exact_match_rate": 0.5,
+                "total_weight": sum(item.weight for item in examples),
             },
-        )
+            "metadata": {
+                "strategy": "transformer_classification_head_finetune",
+                "base_parameter_fingerprint": "base",
+                "updated_parameter_fingerprint": "updated",
+            },
+        }
+
+
+class TransformerTrainingTests(unittest.TestCase):
+    def test_training_delegates_model_execution_and_descent_to_runtime(self) -> None:
         target = initialise_unpacked(
             Sensitivity.S3,
             Visibility.P4,
             [Category.HEALTH],
         )
-        runtime = types.SimpleNamespace(
-            classify=lambda *args, **kwargs: Classification()
-        )
-
+        runtime = _GradientRuntime()
         update = train_parameter_batch(
-            snapshot,
-            [BatchTrainingExample("my private diagnosis", target)],
+            model_id="privoke-balanced",
+            new_examples=[BatchTrainingExample("my private diagnosis", target)],
             config=BatchTrainingConfig(transformations_per_example=0),
             runtime_client=runtime,
         )
 
-        self.assertEqual(set(update.gradients), {
-            "head.sensitivity.weight",
-            "head.sensitivity.bias",
-            "head.visibility.weight",
-            "head.visibility.bias",
-            "head.category.weight",
-            "head.category.bias",
-        })
-        self.assertGreater(
-            sum(abs(value) for values in update.gradients.values() for value in values),
-            0.0,
-        )
-        self.assertNotEqual(
-            update.metadata["base_parameter_fingerprint"],
-            update.metadata["updated_parameter_fingerprint"],
-        )
+        self.assertEqual(len(runtime.calls), 1)
+        examples, options = runtime.calls[0]
+        self.assertEqual([item.text for item in examples], ["my private diagnosis"])
+        self.assertEqual(options["model_id"], "privoke-balanced")
+        self.assertEqual(update.base_version, "v1")
+        self.assertEqual(update.metadata["base_parameter_fingerprint"], "base")
+        self.assertEqual(update.metadata["updated_parameter_fingerprint"], "updated")
 
-    def test_training_evaluates_the_runtime_as_one_bounded_batch(self) -> None:
-        artifact = json.loads(
-            (REPO_ROOT / "models/privoke-baseline.json").read_text(encoding="utf-8")
-        )
-        snapshot = types.SimpleNamespace(
-            model_id=artifact["model_id"],
-            version=artifact["version"],
-            generated_at_unix=artifact["generated_at_unix"],
-            parameters=[
-                types.SimpleNamespace(
-                    name=name,
-                    values=tensor["values"],
-                    shape=tensor["shape"],
-                )
-                for name, tensor in artifact["parameters"].items()
-            ],
-            metadata={
-                **artifact["metadata"],
-                "architecture": artifact["architecture"],
-                "model_config": json.dumps(artifact["config"]),
-                "trainable_parameters": ",".join(
-                    name
-                    for name, tensor in artifact["parameters"].items()
-                    if tensor["trainable"]
-                ),
-            },
-        )
-
-        class BatchRuntime:
-            calls = 0
-
-            def classify_many(self, texts, **kwargs):
-                self.calls += 1
-                return [Classification() for _ in texts]
-
-        runtime = BatchRuntime()
+    def test_training_sends_transformed_examples_as_one_runtime_batch(self) -> None:
+        runtime = _GradientRuntime()
         examples = [
-            BatchTrainingExample("first", Classification()),
-            BatchTrainingExample("second", Classification()),
+            BatchTrainingExample("first"),
+            BatchTrainingExample("second"),
         ]
-
         update = train_parameter_batch(
-            snapshot,
-            examples,
+            model_id="privoke-balanced",
+            new_examples=examples,
             config=BatchTrainingConfig(transformations_per_example=1),
             runtime_client=runtime,
         )
 
-        self.assertEqual(runtime.calls, 1)
+        self.assertEqual(len(runtime.calls), 1)
+        self.assertEqual(len(runtime.calls[0][0]), 4)
         self.assertEqual(update.metrics["examples"], 4.0)
+        self.assertEqual(update.metrics["new_examples"], 2.0)
 
 
 if __name__ == "__main__":

@@ -18,13 +18,15 @@ The active backend can be selected with `--llm-choice` or `PRIVOKE_LLM_CHOICE`, 
 
 1. receives ordered tensor chunks for one immutable version,
 2. validates chunk order, offsets, shapes, model ID, and completeness,
-3. reconstructs the transformer defined by `shared/python/privoke_model`,
+3. reconstructs the transformer defined by `src/model.py`,
 4. runs local self-attention, feed-forward, and sensitivity/visibility/category heads
    on CUDA/MPS when available, with a NumPy CPU fallback,
 5. caches that executable version and coalesces concurrent classifications for a short
    refresh interval before checking the streaming service for a new artifact.
 
 Only the newest version of each model ID is retained in memory. Prompts never go to `model-streaming-service`; only model weights travel over that connection.
+
+`PrivokeRuntimeService.ComputeSemanticGradients` also executes inside this boundary. It accepts a bounded labeled batch, reuses the cached streamed model, computes and bounds classification-head deltas, and returns the exact base version plus fingerprints and metrics. Model tensors are never sent to the fuzzer.
 
 This is now a real trainable neural artifact rather than the previous regex-feature calibration placeholder. It is intentionally a compact research transformer, not a general-purpose conversational LLM. Its small size lets the repository demonstrate persistence, transport, local execution, and fuzzer fine-tuning without an external model download.
 

@@ -7,7 +7,7 @@ This directory contains PriVoke's research-support services. Both production and
 - `../extension/client-runtime`: Python gRPC service for server-side prompt privacy inspection. It owns detector selection/scheduling and also includes an optional local HTTP harness.
 - `model-streaming-service`: Go gRPC server that returns the current parameter snapshot used by the streamed semantic backend.
 - `param-update-service`: Python gRPC server that appends parameter updates to JSONL storage and can request fuzzer training cycles after startup.
-- `privoke-fuzzer`: Python gRPC worker plus CLI for prompt generation, layer probes, streamed semantic-model evaluation, and update submission.
+- `privoke-fuzzer`: Python gRPC worker plus CLI for prompt generation, layer probes, runtime-delegated semantic training, and update submission.
 - `telemetry-service`: Python gRPC collector with SQLite persistence for privacy-minimal runtime events.
 
 ## Runtime Detection Path
@@ -30,7 +30,7 @@ The runtime chooses one semantic backend at a time:
 - `local`: calls an OpenAI-compatible local API such as LM Studio.
 - `openai`: calls the OpenAI SDK.
 
-The fuzzer requests full-runtime or isolated-layer execution through `PrivokeRuntimeService`; it never imports detector implementations.
+The fuzzer requests prompt analysis or a bounded semantic-gradient batch through `PrivokeRuntimeService`; it never imports detector or model implementations and never fetches model parameters.
 
 The WebExtension is a separate deployment of the same detector package. Its supervisor-owned runtime on `127.0.0.1:50057` and bridge on `127.0.0.1:8080` are outside Compose and are never fuzzer targets.
 
@@ -43,6 +43,7 @@ Cross-service APIs live in `shared/proto/privoke/v1/parameters.proto` and `runti
 - `FuzzerService.RunTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
 - The parameter-streaming, parameter-update, and fuzzer services each implement `Health(HealthRequest) -> HealthResponse`.
 - `PrivokeRuntimeService.AnalyzePrompt(AnalyzePromptRequest) -> AnalyzePromptResponse`
+- `PrivokeRuntimeService.ComputeSemanticGradients(ComputeSemanticGradientsRequest) -> ComputeSemanticGradientsResponse`
 - `PrivokeRuntimeService.Health(RuntimeHealthRequest) -> RuntimeHealthResponse`
 - `PrivokeRuntimeControlService.SetRuntimeEnabled(SetRuntimeEnabledRequest) -> RuntimeControlStatus`, `Status(RuntimeHealthRequest) -> RuntimeControlStatus`, and `ModelStreamingHealth(RuntimeHealthRequest) -> RuntimeHealthResponse` are implemented by `extension/runtime-supervisor` for workstation-local extension control and are not started by server Compose.
 - `TelemetryService.RecordTelemetry(TelemetryPacket) -> RecordTelemetryResponse`

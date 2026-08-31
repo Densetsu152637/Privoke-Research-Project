@@ -194,12 +194,9 @@ services:
     user: "0:0"
     read_only: false
     depends_on:
-      model-streaming-service:
-        condition: service_healthy
       client-runtime:
         condition: service_healthy
     environment:
-      MODEL_STREAMING_TARGET: model-streaming-service:50051
       PRIVOKE_RUNTIME_TARGET: client-runtime:50054
       PYTHONPATH: /workspace/shared/python
       PARAM_UPDATE_TARGET: param-update-service:50052
@@ -207,12 +204,7 @@ services:
       FUZZER_PORT: 50053
       FUZZER_ID: server-fuzzer
       PRIVOKE_FUZZER_DUMP_DIR: /workspace/dumps/privoke-fuzzer
-      MODEL_STREAMING_FETCH_MAX_ATTEMPTS: 5
-      MODEL_STREAMING_CONNECT_TIMEOUT_SECONDS: 2
-      MODEL_STREAMING_RETRY_INITIAL_SECONDS: 1
-      MODEL_STREAMING_RETRY_MAX_SECONDS: 4
       FUZZ_MAX_CONCURRENT_CYCLES: 1
-      FUZZ_TRAINING_RUNTIME_MAX_IN_FLIGHT: ${FUZZ_TRAINING_RUNTIME_MAX_IN_FLIGHT:-8}
     volumes:
       - ./services/privoke-fuzzer:/workspace/services/privoke-fuzzer
       - ./shared:/workspace/shared

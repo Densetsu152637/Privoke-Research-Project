@@ -7,8 +7,6 @@ import time
 from dataclasses import dataclass
 from typing import Dict, List
 
-from privoke_model import ModelConfig, TinyTransformerModel
-
 from ...classification import (
     Category,
     ClassificationResult,
@@ -16,6 +14,7 @@ from ...classification import (
     Visibility,
     initialise_unpacked,
 )
+from ...model import ModelConfig, TinyTransformerModel
 from .parameter_stream import ModelParameterStreamer, ParameterSnapshot
 
 
@@ -123,16 +122,25 @@ class StreamedModelCache:
         model = self._model_for_streamer(streamer)
         return model.classify(text)
 
+    def model_for_training(
+        self,
+        streamer: ModelParameterStreamer,
+    ) -> StreamedTransformerPrivacyModel:
+        """Return the cached, versioned model used for one atomic training batch."""
+        return self._model_for_streamer(streamer, force_refresh=True)
+
     def _model_for_streamer(
         self,
         streamer: ModelParameterStreamer,
+        force_refresh: bool = False,
     ) -> StreamedTransformerPrivacyModel:
         identity = (streamer.target, streamer.model_id)
         with self._lock:
             now = time.monotonic()
             cached = self._models.get(identity)
             if (
-                cached is not None
+                not force_refresh
+                and cached is not None
                 and now - cached.refreshed_at < self.refresh_interval_seconds
             ):
                 return cached.model

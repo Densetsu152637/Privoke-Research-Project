@@ -88,8 +88,40 @@ message AnalyzePromptResponse {
   string error = 12;
 }
 
+message RuntimeTrainingExample {
+  string text = 1;
+  RuntimeClassification target = 2;
+  bool has_target = 3;
+  double weight = 4;
+}
+
+message ComputeSemanticGradientsRequest {
+  string request_id = 1;
+  string model_id = 2;
+  repeated RuntimeTrainingExample examples = 3;
+  double learning_rate = 4;
+  double max_gradient = 5;
+}
+
+message RuntimeParameterDelta {
+  string name = 1;
+  repeated float values = 2;
+  repeated uint32 shape = 3;
+}
+
+message ComputeSemanticGradientsResponse {
+  string request_id = 1;
+  string model_id = 2;
+  string base_version = 3;
+  repeated RuntimeParameterDelta gradients = 4;
+  map<string, double> metrics = 5;
+  map<string, string> metadata = 6;
+  string error = 7;
+}
+
 service PrivokeRuntimeService {
   rpc AnalyzePrompt(AnalyzePromptRequest) returns (AnalyzePromptResponse);
+  rpc ComputeSemanticGradients(ComputeSemanticGradientsRequest) returns (ComputeSemanticGradientsResponse);
   rpc Health(RuntimeHealthRequest) returns (RuntimeHealthResponse);
 }
 
