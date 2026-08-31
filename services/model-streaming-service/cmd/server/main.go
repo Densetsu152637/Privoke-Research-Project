@@ -29,8 +29,9 @@ func main() {
 		}
 		return
 	}
-	if _, err := loadModelArtifact(config.artifactPath, config.modelID); err != nil {
-		log.Fatalf("load model artifact: %v", err)
+	catalog, err := loadModelCatalog(config.artifactDir, config.latestModelID)
+	if err != nil {
+		log.Fatalf("load model catalog: %v", err)
 	}
 	listener, err := net.Listen("tcp", ":"+strconv.Itoa(config.port))
 	if err != nil {
@@ -43,9 +44,15 @@ func main() {
 		grpc.MaxConcurrentStreams(maxConcurrentStreams),
 	)
 	pb.RegisterModelStreamingServiceServer(server, &streamingServer{
-		modelID: config.modelID, artifactPath: config.artifactPath,
+		catalog: catalog,
 	})
-	log.Printf("%s listening on %d artifact=%q", serviceName, config.port, config.artifactPath)
+	log.Printf(
+		"%s listening on %d latest=%q models=%v",
+		serviceName,
+		config.port,
+		catalog.latestModelID,
+		catalog.modelIDs(),
+	)
 	if err := server.Serve(listener); err != nil {
 		log.Fatalf("serve failed: %v", err)
 	}

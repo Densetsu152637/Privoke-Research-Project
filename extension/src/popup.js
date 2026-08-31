@@ -11,7 +11,7 @@ const excerpt = document.querySelector("#excerpt");
 const serverWarning = document.querySelector("#server-warning");
 const runtimeWarning = document.querySelector("#runtime-warning");
 const waitRegex = document.querySelector("#wait-regex");
-const modelId = document.querySelector("#model-id");
+const modelQuality = document.querySelector("#model-quality");
 const masterToggle = document.querySelector("#master-toggle");
 const layerButtons = [...document.querySelectorAll(".layer-toggle")];
 
@@ -25,7 +25,7 @@ prompt.addEventListener("keydown", (event) => {
 prompt.addEventListener("input", clearManualResult);
 for (const button of layerButtons) button.addEventListener("click", toggleLayer);
 waitRegex.addEventListener("change", () => savePatch({ waitForRegex: waitRegex.checked }));
-modelId.addEventListener("change", () => savePatch({ modelId: modelId.value }));
+modelQuality.addEventListener("change", () => savePatch({ modelQuality: modelQuality.value }));
 
 void initialise();
 
@@ -107,7 +107,7 @@ function renderSettings() {
     button.disabled = !settings.enabled;
   }
   waitRegex.checked = settings.waitForRegex;
-  modelId.value = settings.modelId;
+  modelQuality.value = settings.modelQuality;
   masterToggle.setAttribute("aria-pressed", String(settings.enabled));
   masterToggle.setAttribute("aria-label", settings.enabled ? "Turn PriVoke off" : "Turn PriVoke on");
   masterToggle.querySelector(".master-label").textContent = settings.enabled ? "On" : "Off";

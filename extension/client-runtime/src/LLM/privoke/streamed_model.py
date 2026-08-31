@@ -138,7 +138,10 @@ class StreamedModelCache:
                 return cached.model
 
             snapshot = streamer.fetch()
-            if snapshot.model_id != streamer.model_id:
+            if (
+                streamer.model_id != ModelParameterStreamer.DEFAULT_MODEL_ID
+                and snapshot.model_id != streamer.model_id
+            ):
                 raise RuntimeError(
                     "Model parameter stream returned a different model ID."
                 )

@@ -26,6 +26,8 @@ class ModelConfig:
     visibility_labels: tuple[str, ...]
     category_labels: tuple[str, ...]
     category_threshold: float = 0.5
+    num_layers: int = 1
+    num_attention_heads: int = 1
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, object]) -> "ModelConfig":
@@ -39,6 +41,8 @@ class ModelConfig:
                 visibility_labels=tuple(str(item) for item in value["visibility_labels"]),
                 category_labels=tuple(str(item) for item in value["category_labels"]),
                 category_threshold=float(value.get("category_threshold", 0.5)),
+                num_layers=int(value.get("num_layers", 1)),
+                num_attention_heads=int(value.get("num_attention_heads", 1)),
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise ModelArtifactError(f"Invalid transformer config: {exc}") from exc
@@ -47,8 +51,14 @@ class ModelConfig:
             config.hidden_size,
             config.intermediate_size,
             config.max_tokens,
+            config.num_layers,
+            config.num_attention_heads,
         ) <= 0:
             raise ModelArtifactError("Transformer dimensions must be positive.")
+        if config.hidden_size % config.num_attention_heads:
+            raise ModelArtifactError(
+                "hidden_size must be divisible by num_attention_heads."
+            )
         if not 0.0 < config.category_threshold < 1.0:
             raise ModelArtifactError("category_threshold must be between zero and one.")
         return config
@@ -87,9 +97,17 @@ class ModelPrediction:
 class TinyTransformerModel:
     """A compact transformer encoder with trainable classification heads."""
 
-    REQUIRED_TENSORS = (
+    SHARED_TENSORS = (
         "token_embedding",
         "position_embedding",
+        "head.sensitivity.weight",
+        "head.sensitivity.bias",
+        "head.visibility.weight",
+        "head.visibility.bias",
+        "head.category.weight",
+        "head.category.bias",
+    )
+    BLOCK_TENSORS = (
         "attention.query.weight",
         "attention.key.weight",
         "attention.value.weight",
@@ -99,12 +117,6 @@ class TinyTransformerModel:
         "ffn.input.bias",
         "ffn.output.weight",
         "ffn.output.bias",
-        "head.sensitivity.weight",
-        "head.sensitivity.bias",
-        "head.visibility.weight",
-        "head.visibility.bias",
-        "head.category.weight",
-        "head.category.bias",
     )
 
     def __init__(
@@ -120,7 +132,7 @@ class TinyTransformerModel:
             for name, values in parameters.items()
             if name in shapes
         }
-        missing = [name for name in self.REQUIRED_TENSORS if name not in self.parameters]
+        missing = [name for name in self._required_tensors() if name not in self.parameters]
         if missing:
             raise ModelArtifactError(f"Model is missing tensor {missing[0]!r}.")
         self._validate_shapes()
@@ -226,33 +238,15 @@ class TinyTransformerModel:
                 parameters["token_embedding"][token_ids]
                 + parameters["position_embedding"][:sequence_length]
             )
-            query = hidden @ parameters["attention.query.weight"]
-            key = hidden @ parameters["attention.key.weight"]
-            value = hidden @ parameters["attention.value.weight"]
-            scores = query @ key.transpose(1, 2) / math.sqrt(self.config.hidden_size)
-            scores = scores.masked_fill(~token_mask[:, None, :], -10_000.0)
-            attention = torch.softmax(scores, dim=-1)
-            attended = (
-                attention @ value @ parameters["attention.output.weight"]
-                + parameters["attention.output.bias"]
-            )
-            hidden = torch.nn.functional.layer_norm(
-                hidden + attended,
-                (self.config.hidden_size,),
-                eps=1e-5,
-            )
-            intermediate = torch.nn.functional.gelu(
-                hidden @ parameters["ffn.input.weight"]
-                + parameters["ffn.input.bias"],
-                approximate="tanh",
-            )
-            hidden = torch.nn.functional.layer_norm(
-                hidden
-                + intermediate @ parameters["ffn.output.weight"]
-                + parameters["ffn.output.bias"],
-                (self.config.hidden_size,),
-                eps=1e-5,
-            )
+            for layer_index in range(self.config.num_layers):
+                prefix = self._layer_prefix(layer_index)
+                hidden = self._torch_encoder_block(
+                    hidden,
+                    token_mask,
+                    prefix,
+                    torch,
+                    parameters,
+                )
             mask = token_mask.unsqueeze(-1)
             pooled = hidden[:, 0] * 0.5 + (
                 (hidden * mask).sum(dim=1)
@@ -350,26 +344,88 @@ class TinyTransformerModel:
         positions = self.parameters["position_embedding"][: len(token_ids)]
         hidden = token_embedding + positions
 
-        query = hidden @ self.parameters["attention.query.weight"]
-        key = hidden @ self.parameters["attention.key.weight"]
-        value = hidden @ self.parameters["attention.value.weight"]
-        attention_scores = query @ key.T / math.sqrt(self.config.hidden_size)
-        attention = _softmax(attention_scores, axis=-1)
+        for layer_index in range(self.config.num_layers):
+            hidden = self._numpy_encoder_block(
+                hidden,
+                self._layer_prefix(layer_index),
+            )
+        return (hidden[0] * 0.5 + hidden.mean(axis=0) * 0.5).astype(np.float32)
+
+    def _numpy_encoder_block(self, hidden: np.ndarray, prefix: str) -> np.ndarray:
+        query = hidden @ self.parameters[f"{prefix}attention.query.weight"]
+        key = hidden @ self.parameters[f"{prefix}attention.key.weight"]
+        value = hidden @ self.parameters[f"{prefix}attention.value.weight"]
+        heads = self.config.num_attention_heads
+        head_size = self.config.hidden_size // heads
+        query = query.reshape(len(hidden), heads, head_size).transpose(1, 0, 2)
+        key = key.reshape(len(hidden), heads, head_size).transpose(1, 0, 2)
+        value = value.reshape(len(hidden), heads, head_size).transpose(1, 0, 2)
+        attention = _softmax(query @ key.transpose(0, 2, 1) / math.sqrt(head_size))
+        attended = (attention @ value).transpose(1, 0, 2).reshape(hidden.shape)
         attended = (
-            attention @ value @ self.parameters["attention.output.weight"]
-            + self.parameters["attention.output.bias"]
+            attended @ self.parameters[f"{prefix}attention.output.weight"]
+            + self.parameters[f"{prefix}attention.output.bias"]
         )
         hidden = _layer_norm(hidden + attended)
         intermediate = _gelu(
-            hidden @ self.parameters["ffn.input.weight"]
-            + self.parameters["ffn.input.bias"]
+            hidden @ self.parameters[f"{prefix}ffn.input.weight"]
+            + self.parameters[f"{prefix}ffn.input.bias"]
         )
-        hidden = _layer_norm(
+        return _layer_norm(
             hidden
-            + intermediate @ self.parameters["ffn.output.weight"]
-            + self.parameters["ffn.output.bias"]
+            + intermediate @ self.parameters[f"{prefix}ffn.output.weight"]
+            + self.parameters[f"{prefix}ffn.output.bias"]
         )
-        return (hidden[0] * 0.5 + hidden.mean(axis=0) * 0.5).astype(np.float32)
+
+    def _torch_encoder_block(
+        self,
+        hidden,
+        token_mask,
+        prefix: str,
+        torch,
+        parameters,
+    ):
+        batch_size, sequence_length, _ = hidden.shape
+        heads = self.config.num_attention_heads
+        head_size = self.config.hidden_size // heads
+
+        def split_heads(value):
+            shaped = value.reshape(
+                batch_size,
+                sequence_length,
+                heads,
+                head_size,
+            )
+            return shaped.transpose(1, 2)
+
+        query = split_heads(hidden @ parameters[f"{prefix}attention.query.weight"])
+        key = split_heads(hidden @ parameters[f"{prefix}attention.key.weight"])
+        value = split_heads(hidden @ parameters[f"{prefix}attention.value.weight"])
+        scores = query @ key.transpose(2, 3) / math.sqrt(head_size)
+        scores = scores.masked_fill(~token_mask[:, None, None, :], -10_000.0)
+        attended = (torch.softmax(scores, dim=-1) @ value).transpose(1, 2)
+        attended = attended.reshape(batch_size, sequence_length, self.config.hidden_size)
+        attended = (
+            attended @ parameters[f"{prefix}attention.output.weight"]
+            + parameters[f"{prefix}attention.output.bias"]
+        )
+        hidden = torch.nn.functional.layer_norm(
+            hidden + attended,
+            (self.config.hidden_size,),
+            eps=1e-5,
+        )
+        intermediate = torch.nn.functional.gelu(
+            hidden @ parameters[f"{prefix}ffn.input.weight"]
+            + parameters[f"{prefix}ffn.input.bias"],
+            approximate="tanh",
+        )
+        return torch.nn.functional.layer_norm(
+            hidden
+            + intermediate @ parameters[f"{prefix}ffn.output.weight"]
+            + parameters[f"{prefix}ffn.output.bias"],
+            (self.config.hidden_size,),
+            eps=1e-5,
+        )
 
     def token_ids(self, text: str) -> np.ndarray:
         tokens = TOKEN_PATTERN.findall(text.lower())[: self.config.max_tokens - 1]
@@ -385,6 +441,14 @@ class TinyTransformerModel:
         expected = {
             "token_embedding": (self.config.vocab_size, hidden),
             "position_embedding": (self.config.max_tokens, hidden),
+            "head.sensitivity.weight": (hidden, len(self.config.sensitivity_labels)),
+            "head.sensitivity.bias": (len(self.config.sensitivity_labels),),
+            "head.visibility.weight": (hidden, len(self.config.visibility_labels)),
+            "head.visibility.bias": (len(self.config.visibility_labels),),
+            "head.category.weight": (hidden, len(self.config.category_labels)),
+            "head.category.bias": (len(self.config.category_labels),),
+        }
+        block_shapes = {
             "attention.query.weight": (hidden, hidden),
             "attention.key.weight": (hidden, hidden),
             "attention.value.weight": (hidden, hidden),
@@ -394,18 +458,31 @@ class TinyTransformerModel:
             "ffn.input.bias": (intermediate,),
             "ffn.output.weight": (intermediate, hidden),
             "ffn.output.bias": (hidden,),
-            "head.sensitivity.weight": (hidden, len(self.config.sensitivity_labels)),
-            "head.sensitivity.bias": (len(self.config.sensitivity_labels),),
-            "head.visibility.weight": (hidden, len(self.config.visibility_labels)),
-            "head.visibility.bias": (len(self.config.visibility_labels),),
-            "head.category.weight": (hidden, len(self.config.category_labels)),
-            "head.category.bias": (len(self.config.category_labels),),
         }
+        for layer_index in range(self.config.num_layers):
+            prefix = self._layer_prefix(layer_index)
+            expected.update(
+                {
+                    f"{prefix}{name}": shape
+                    for name, shape in block_shapes.items()
+                }
+            )
         for name, shape in expected.items():
             if self.parameters[name].shape != shape:
                 raise ModelArtifactError(
                     f"Tensor {name!r} has shape {self.parameters[name].shape}, expected {shape}."
                 )
+
+    def _required_tensors(self) -> tuple[str, ...]:
+        return self.SHARED_TENSORS + tuple(
+            f"{self._layer_prefix(layer_index)}{name}"
+            for layer_index in range(self.config.num_layers)
+            for name in self.BLOCK_TENSORS
+        )
+
+    def _layer_prefix(self, layer_index: int) -> str:
+        # Schema-v1 artifacts used unprefixed names for their sole encoder block.
+        return "" if self.config.num_layers == 1 else f"layers.{layer_index}."
 
 
 def _softmax(value: np.ndarray, axis: int = -1) -> np.ndarray:

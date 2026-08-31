@@ -1,6 +1,11 @@
 import { RuntimeClient } from "./runtime-client.js";
 import { restoreConfiguredRuntime } from "./runtime-lifecycle.js";
-import { detectionLayers, loadSettings, updateSettings } from "./settings.js";
+import {
+  detectionLayers,
+  loadSettings,
+  semanticModelId,
+  updateSettings,
+} from "./settings.js";
 import {
   addRuntimeLifecycleListeners,
   addRuntimeMessageListener,
@@ -154,7 +159,7 @@ async function analyzePrompt(message, sender) {
     regexExecutionOrder: settings.waitForRegex
       ? "REGEX_EXECUTION_ORDER_FIRST"
       : "REGEX_EXECUTION_ORDER_PARALLEL",
-    semanticModelId: settings.modelId,
+    semanticModelId: semanticModelId(settings),
     metadata: {
       client: "privoke-local-extension",
       client_version: "0.1.0",

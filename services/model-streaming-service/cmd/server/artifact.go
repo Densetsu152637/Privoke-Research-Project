@@ -112,7 +112,7 @@ func validateModelArtifact(artifact *modelArtifact, expectedModelID string) erro
 	if artifact.Architecture != expectedArchitecture {
 		return fmt.Errorf("unsupported artifact architecture %q", artifact.Architecture)
 	}
-	if artifact.ModelID != expectedModelID {
+	if expectedModelID != "" && artifact.ModelID != expectedModelID {
 		return fmt.Errorf(
 			"artifact model %q does not match configured model %q",
 			artifact.ModelID,

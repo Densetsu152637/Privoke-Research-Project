@@ -1,20 +1,33 @@
 import { localStorageArea, storageGet, storageSet } from "./webextension-api.js";
 
+export const MODEL_QUALITY = Object.freeze({
+  LATEST: "latest",
+  EFFICIENT: "efficient",
+  BALANCED: "balanced",
+  QUALITY: "quality",
+});
+
+const MODEL_IDS = Object.freeze({
+  // Empty means "do not pin"; the runtime follows its configured latest channel.
+  [MODEL_QUALITY.LATEST]: "",
+  [MODEL_QUALITY.EFFICIENT]: "privoke-efficient",
+  [MODEL_QUALITY.BALANCED]: "privoke-balanced",
+  [MODEL_QUALITY.QUALITY]: "privoke-quality",
+});
+
 export const DEFAULT_SETTINGS = Object.freeze({
   enabled: true,
   layers: Object.freeze({ regex: true, ner: true, llm: false }),
   waitForRegex: true,
-  modelId: "privoke-baseline",
+  modelQuality: MODEL_QUALITY.LATEST,
 });
 
 const STORAGE_KEY = "privokeSettings";
-const MAX_MODEL_ID_LENGTH = 128;
+const MODEL_QUALITIES = new Set(Object.values(MODEL_QUALITY));
 
 export function normaliseSettings(value = {}) {
   const layers = value.layers ?? {};
-  const modelId = typeof value.modelId === "string"
-    ? value.modelId.trim().slice(0, MAX_MODEL_ID_LENGTH)
-    : "";
+  const modelQuality = normaliseModelQuality(value);
 
   return {
     enabled: booleanOrDefault(value.enabled, DEFAULT_SETTINGS.enabled),
@@ -27,7 +40,7 @@ export function normaliseSettings(value = {}) {
       value.waitForRegex,
       DEFAULT_SETTINGS.waitForRegex,
     ),
-    modelId: modelId || DEFAULT_SETTINGS.modelId,
+    modelQuality,
   };
 }
 
@@ -47,6 +60,10 @@ export function detectionLayers(settings) {
   return layers;
 }
 
+export function semanticModelId(settings) {
+  return MODEL_IDS[settings.modelQuality] ?? MODEL_IDS[DEFAULT_SETTINGS.modelQuality];
+}
+
 export async function loadSettings(storage = localStorageArea()) {
   const stored = await storageGet(storage, STORAGE_KEY);
   return normaliseSettings(stored[STORAGE_KEY]);
@@ -61,4 +78,13 @@ export async function updateSettings(patch, storage = localStorageArea()) {
 
 function booleanOrDefault(value, fallback) {
   return typeof value === "boolean" ? value : fallback;
+}
+
+function normaliseModelQuality(value) {
+  if (MODEL_QUALITIES.has(value.modelQuality)) return value.modelQuality;
+
+  // Migrate settings saved before model quality profiles were introduced.
+  const legacyModelId = typeof value.modelId === "string" ? value.modelId.trim() : "";
+  const migrated = Object.entries(MODEL_IDS).find(([, modelId]) => modelId === legacyModelId);
+  return migrated?.[0] ?? DEFAULT_SETTINGS.modelQuality;
 }

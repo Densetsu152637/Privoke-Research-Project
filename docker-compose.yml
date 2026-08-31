@@ -46,8 +46,8 @@ services:
       - "50051"
     environment:
       MODEL_STREAMING_PORT: 50051
-      MODEL_ID: privoke-baseline
-      MODEL_ARTIFACT_PATH: /models/privoke-baseline.json
+      MODEL_LATEST_ID: privoke-balanced
+      MODEL_ARTIFACT_DIR: /models
     volumes:
       - ./models:/models:ro
     healthcheck:
@@ -76,13 +76,13 @@ services:
     environment:
       PARAM_UPDATE_PORT: 50052
       PARAM_UPDATE_STORAGE_PATH: /data/updates.jsonl
-      MODEL_ARTIFACT_PATH: /models/privoke-baseline.json
+      MODEL_ARTIFACT_PATH: /models/privoke-balanced.json
       FUZZER_TARGET: privoke-fuzzer:50053
       FUZZER_PROMPT_COUNT: ${FUZZER_PROMPT_COUNT:-0}
       FUZZER_REQUEST_TIMEOUT_SECONDS: 60
       FUZZER_REQUEST_MAX_ATTEMPTS: 5
       FUZZER_REQUEST_INTERVAL_SECONDS: 0
-      MODEL_ID: privoke-baseline
+      MODEL_ID: privoke-balanced
     volumes:
       - param-update-data:/data
       - ./models:/models
@@ -156,7 +156,7 @@ services:
       MODEL_STREAMING_TARGET: model-streaming-service:50051
       MODEL_STREAMING_CONSUMER_ID: server-client-runtime
       MODEL_STREAMING_CACHE_TTL_SECONDS: ${MODEL_STREAMING_CACHE_TTL_SECONDS:-1}
-      MODEL_ID: privoke-baseline
+      MODEL_ID: latest
       PRIVOKE_MODEL_DEVICE: ${PRIVOKE_MODEL_DEVICE:-auto}
       PYTHONPATH: /workspace/shared/python
       TELEMETRY_ENABLED: "true"
@@ -196,7 +196,7 @@ services:
       PRIVOKE_RUNTIME_TARGET: client-runtime:50054
       PYTHONPATH: /workspace/shared/python
       PARAM_UPDATE_TARGET: param-update-service:50052
-      MODEL_ID: privoke-baseline
+      MODEL_ID: privoke-balanced
       FUZZER_PORT: 50053
       FUZZER_ID: server-fuzzer
       PRIVOKE_FUZZER_DUMP_DIR: /workspace/dumps/privoke-fuzzer

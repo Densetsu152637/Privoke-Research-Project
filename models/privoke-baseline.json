@@ -1,6 +1,6 @@
 {
   "architecture": "privoke_tiny_transformer_v1",
-  "checksum": "d6310ae0703b30e97a50ffb87e2aa0fb2da7ac63eff21de7472f672c6cb22a93",
+  "checksum": "703a8c0dd6cfc93a735bb6f7d7c950da55d9c357795211bece934b11b3896252",
   "config": {
     "category_labels": [
       "HEALTH",
@@ -18,6 +18,8 @@
     "hidden_size": 24,
     "intermediate_size": 48,
     "max_tokens": 64,
+    "num_attention_heads": 1,
+    "num_layers": 1,
     "sensitivity_labels": [
       "S0",
       "S1",
@@ -36,7 +38,9 @@
   },
   "generated_at_unix": 1788081234,
   "metadata": {
-    "release_version": "v0.2.0",
+    "quality": "baseline",
+    "release_version": "v0.3.0",
+    "training_epochs": "220",
     "training_revision": "0",
     "training_strategy": "deterministic_bootstrap_head_finetune",
     "weight_format": "json-float32"
@@ -19220,5 +19224,5 @@
     }
   },
   "schema_version": 1,
-  "version": "v0.2.0"
+  "version": "v0.3.0"
 }

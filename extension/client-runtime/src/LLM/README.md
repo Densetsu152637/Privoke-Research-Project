@@ -31,7 +31,7 @@ This is now a real trainable neural artifact rather than the previous regex-feat
 Environment:
 
 - `MODEL_STREAMING_TARGET`, default `127.0.0.1:50051`
-- `MODEL_ID`, default `privoke-baseline`
+- `MODEL_ID`, default `latest`
 - `MODEL_STREAMING_CONSUMER_ID`, default `client-runtime`
 - `MODEL_STREAMING_TIMEOUT_SECONDS`, default `10.0`
 - `MODEL_STREAMING_CACHE_TTL_SECONDS`, default `1.0`

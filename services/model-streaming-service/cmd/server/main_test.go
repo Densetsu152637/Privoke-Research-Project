@@ -14,7 +14,7 @@ import (
 
 func TestGetModelParametersLoadsPersistentArtifact(t *testing.T) {
 	path := writeTestArtifact(t)
-	server := streamingServer{modelID: "privoke-baseline", artifactPath: path}
+	server := streamingServer{catalog: testCatalog(path)}
 
 	response, err := server.GetModelParameters(
 		context.Background(),
@@ -31,8 +31,38 @@ func TestGetModelParametersLoadsPersistentArtifact(t *testing.T) {
 	}
 }
 
+func TestGetModelParametersResolvesLatestAlias(t *testing.T) {
+	server := streamingServer{catalog: testCatalog(writeTestArtifact(t))}
+
+	response, err := server.GetModelParameters(
+		context.Background(),
+		&pb.ModelParametersRequest{ModelId: latestModelAlias},
+	)
+	if err != nil {
+		t.Fatalf("latest request returned an error: %v", err)
+	}
+	if response.GetModelId() != "privoke-baseline" {
+		t.Fatalf("latest resolved to %q", response.GetModelId())
+	}
+}
+
+func TestLoadModelCatalogDiscoversArtifacts(t *testing.T) {
+	path := writeTestArtifact(t)
+	catalog, err := loadModelCatalog(filepath.Dir(path), "privoke-baseline")
+	if err != nil {
+		t.Fatalf("loadModelCatalog returned an error: %v", err)
+	}
+	artifact, err := catalog.load(latestModelAlias)
+	if err != nil {
+		t.Fatalf("latest catalog model could not be loaded: %v", err)
+	}
+	if artifact.ModelID != "privoke-baseline" {
+		t.Fatalf("latest resolved to %q", artifact.ModelID)
+	}
+}
+
 func TestGetModelParametersRejectsUnknownModel(t *testing.T) {
-	server := streamingServer{modelID: "privoke-baseline", artifactPath: writeTestArtifact(t)}
+	server := streamingServer{catalog: testCatalog(writeTestArtifact(t))}
 
 	_, err := server.GetModelParameters(
 		context.Background(),
@@ -44,7 +74,7 @@ func TestGetModelParametersRejectsUnknownModel(t *testing.T) {
 }
 
 func TestGetModelParametersRejectsControlCharacters(t *testing.T) {
-	server := streamingServer{modelID: "privoke-baseline", artifactPath: writeTestArtifact(t)}
+	server := streamingServer{catalog: testCatalog(writeTestArtifact(t))}
 
 	_, err := server.GetModelParameters(
 		context.Background(),
@@ -74,10 +104,19 @@ func TestGetModelParametersRejectsInvalidArtifactChecksum(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	server := streamingServer{modelID: "privoke-baseline", artifactPath: path}
+	server := streamingServer{catalog: testCatalog(path)}
 	_, err = server.GetModelParameters(context.Background(), &pb.ModelParametersRequest{})
 	if status.Code(err) != codes.Unavailable {
 		t.Fatalf("expected UNAVAILABLE, got %v", err)
+	}
+}
+
+func testCatalog(path string) *modelCatalog {
+	return &modelCatalog{
+		latestModelID: "privoke-baseline",
+		paths: map[string]string{
+			"privoke-baseline": path,
+		},
 	}
 }
 

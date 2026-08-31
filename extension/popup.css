@@ -15,7 +15,7 @@ body {
     #f5f7f4;
 }
 
-button, input, textarea { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 
 main { padding: 18px; }
@@ -194,7 +194,7 @@ textarea {
 }
 
 textarea::placeholder { color: #969f98; }
-textarea:focus, input[type="text"]:focus {
+textarea:focus, select:focus {
   border-color: #4d9b6d;
   outline: 3px solid #dbeee3;
 }
@@ -256,12 +256,12 @@ textarea:focus, input[type="text"]:focus {
 .settings[open] summary span { transform: rotate(180deg); }
 .settings-body { padding: 8px 10px 10px; border-radius: 9px; background: #eaeeeb; }
 .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.setting-row span > *, .model-setting > * { display: block; }
-.setting-row strong, .model-setting span { font-size: 11px; }
-.setting-row small { color: #78827a; font-size: 9px; }
+.setting-row span > *, .model-setting span > * { display: block; }
+.setting-row strong, .model-setting strong { font-size: 11px; }
+.setting-row small, .model-setting small { color: #78827a; font-size: 9px; }
 .setting-row input { accent-color: #176b45; }
-.model-setting { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 8px; margin-top: 10px; }
-.model-setting input {
+.model-setting { display: grid; grid-template-columns: 1fr 155px; align-items: center; gap: 8px; margin-top: 10px; }
+.model-setting select {
   min-width: 0;
   padding: 6px 8px;
   border: 1px solid #c5cdc7;

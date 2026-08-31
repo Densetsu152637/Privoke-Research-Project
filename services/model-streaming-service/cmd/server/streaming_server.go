@@ -16,8 +16,7 @@ const parameterChunkValues = 1024
 
 type streamingServer struct {
 	pb.UnimplementedModelStreamingServiceServer
-	modelID      string
-	artifactPath string
+	catalog *modelCatalog
 }
 
 func (s *streamingServer) GetModelParameters(
@@ -27,8 +26,11 @@ func (s *streamingServer) GetModelParameters(
 	if err := s.validateRequest(req); err != nil {
 		return nil, err
 	}
-	artifact, err := loadModelArtifact(s.artifactPath, s.modelID)
+	artifact, err := s.catalog.load(req.GetModelId())
 	if err != nil {
+		if !s.catalog.contains(req.GetModelId()) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
 		log.Printf("model artifact load failed: %v", err)
 		return nil, status.Error(codes.Unavailable, "model artifact is unavailable")
 	}
@@ -47,15 +49,6 @@ func (s *streamingServer) validateRequest(req *pb.ModelParametersRequest) error 
 	}
 	if err := validateIdentifier("model_id", req.GetModelId(), false); err != nil {
 		return err
-	}
-	requestedModelID := req.GetModelId()
-	if requestedModelID != "" && requestedModelID != s.modelID {
-		return status.Errorf(
-			codes.NotFound,
-			"model %q is unavailable; this service currently provides %q",
-			requestedModelID,
-			s.modelID,
-		)
 	}
 	return nil
 }
@@ -183,7 +176,7 @@ func (s *streamingServer) Health(
 	*pb.HealthRequest,
 ) (*pb.HealthResponse, error) {
 	serviceStatus := "SERVING"
-	if _, err := loadModelArtifact(s.artifactPath, s.modelID); err != nil {
+	if err := s.catalog.validate(); err != nil {
 		serviceStatus = "NOT_SERVING"
 	}
 	return &pb.HealthResponse{Service: serviceName, Status: serviceStatus}, nil

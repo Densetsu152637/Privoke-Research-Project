@@ -32,7 +32,7 @@ class ParameterSnapshot:
 
     @property
     def parameter_count(self) -> int:
-        return len(self.parameters)
+        return sum(len(values) for values in self.parameters.values())
 
     @property
     def fingerprint(self) -> str:
@@ -66,7 +66,7 @@ class ModelParameterStreamer:
 
     DEFAULT_TARGET = "127.0.0.1:50051"
     DEFAULT_CONSUMER_ID = "client-runtime"
-    DEFAULT_MODEL_ID = "privoke-baseline"
+    DEFAULT_MODEL_ID = "latest"
     DEFAULT_TIMEOUT_SECONDS = 10.0
 
     def __init__(
@@ -148,7 +148,7 @@ class ModelParameterStreamer:
 
         if expected_chunks is None or received_chunks != expected_chunks:
             raise RuntimeError("Model parameter stream ended before all chunks arrived.")
-        if model_id != self.model_id:
+        if self.model_id != self.DEFAULT_MODEL_ID and model_id != self.model_id:
             raise RuntimeError(
                 "model-streaming-service returned model "
                 f"'{model_id}' for requested model '{self.model_id}'."

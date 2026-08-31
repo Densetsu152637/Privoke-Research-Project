@@ -10,15 +10,15 @@ import (
 )
 
 const (
-	defaultPort         = 50051
-	defaultModelID      = "privoke-baseline"
-	defaultArtifactPath = "/models/privoke-baseline.json"
+	defaultPort          = 50051
+	defaultLatestModelID = "privoke-balanced"
+	defaultArtifactDir   = "/models"
 )
 
 type serverConfig struct {
-	port         int
-	modelID      string
-	artifactPath string
+	port          int
+	latestModelID string
+	artifactDir   string
 }
 
 func loadServerConfig() (serverConfig, error) {
@@ -27,14 +27,14 @@ func loadServerConfig() (serverConfig, error) {
 		return serverConfig{}, err
 	}
 	config := serverConfig{
-		port:         port,
-		modelID:      envString("MODEL_ID", defaultModelID),
-		artifactPath: envString("MODEL_ARTIFACT_PATH", defaultArtifactPath),
+		port:          port,
+		latestModelID: envString("MODEL_LATEST_ID", defaultLatestModelID),
+		artifactDir:   envString("MODEL_ARTIFACT_DIR", defaultArtifactDir),
 	}
 	if config.port < 1 || config.port > 65535 {
 		return serverConfig{}, fmt.Errorf("MODEL_STREAMING_PORT must be between 1 and 65535")
 	}
-	if err := validateConfiguredIdentifier("MODEL_ID", config.modelID); err != nil {
+	if err := validateConfiguredIdentifier("MODEL_LATEST_ID", config.latestModelID); err != nil {
 		return serverConfig{}, err
 	}
 	return config, nil

@@ -106,7 +106,7 @@ Important behavior:
 - `PRIVOKE_WAIT_FOR_REGEX` defaults to true. In that mode regex runs first and a regex `BLOCK` short-circuits NER and semantic detection.
 - gRPC callers can request any subset of `regex`, `ner`, and `semantic`, and can override regex-first versus parallel scheduling per request.
 - gRPC callers can set `semantic_model_id` per request to select a streamed PriVoke model without mutating global runtime configuration.
-- The streamed client rejects a snapshot whose returned model ID differs from the requested ID; it never silently classifies with another model.
+- The streamed client rejects a snapshot whose returned model ID differs from an explicitly requested model. The special `latest` alias accepts the server's resolved release-channel model ID.
 - Every requested layer returns `ok`, `error`, or `skipped`; one layer failure does not erase successful results from other layers.
 - When regex does not block, NER and semantic classification run through `GLOBAL_CONFIG.threadpool`.
 - `strongest_result` compares `ClassificationResult.action().value` and returns the first result that raises the action above `ALLOW`.
@@ -159,7 +159,7 @@ Examples:
 ```bash
 curl -X POST http://127.0.0.1:8765/config/llm \
   -H "Content-Type: application/json" \
-  -d '{"choice":"streamed","streamed":{"target":"127.0.0.1:50051","model_id":"privoke-baseline"}}'
+  -d '{"choice":"streamed","streamed":{"target":"127.0.0.1:50051","model_id":"latest"}}'
 
 curl -X POST http://127.0.0.1:8765/config/llm \
   -H "Content-Type: application/json" \
@@ -183,7 +183,7 @@ Environment variables:
 - `PRIVOKE_CORS_ORIGIN`, disabled by default; when enabled it must be one exact `http`, `https`, or supported WebExtension origin and cannot be `*`
 - `PRIVOKE_ALLOW_NON_LOOPBACK_BIND`
 - `MODEL_STREAMING_TARGET`, default `127.0.0.1:50051`; Compose sets `model-streaming-service:50051`
-- `MODEL_ID`, `MODEL_STREAMING_CONSUMER_ID`, `MODEL_STREAMING_TIMEOUT_SECONDS`
+- `MODEL_ID`, default `latest`; `MODEL_STREAMING_CONSUMER_ID`; `MODEL_STREAMING_TIMEOUT_SECONDS`
 - `MODEL_STREAMING_CACHE_TTL_SECONDS`, default `1.0`; coalesces concurrent
   classifications onto one immutable streamed snapshot before checking for a new version
 - `PRIVOKE_MODEL_DEVICE`, default `auto`; uses CUDA or Apple MPS through PyTorch when

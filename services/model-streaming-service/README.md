@@ -1,10 +1,10 @@
 # model-streaming-service
 
-`model-streaming-service` serves the current persistent PriVoke transformer artifact. It reloads the artifact for every request, so an atomically published fuzzer update becomes visible without restarting this service or the client runtime.
+`model-streaming-service` serves the persistent PriVoke transformer family. It reloads the selected artifact for every request, so an atomically published fuzzer update becomes visible without restarting this service or the client runtime.
 
 ## Artifact
 
-The default artifact is `models/privoke-baseline.json`. It contains:
+The service catalogs every valid JSON model artifact in `models`. Requests may select `privoke-efficient`, `privoke-balanced`, or `privoke-quality`; an empty ID or `latest` resolves to the configured release channel. Each artifact contains:
 
 - schema, model, architecture, and version identifiers,
 - transformer/tokenizer dimensions and output labels,
@@ -31,7 +31,7 @@ discontinuous, non-finite, or mixed-version streams before constructing a model.
 Environment variables:
 
 - `MODEL_STREAMING_PORT`, default `50051`
-- `MODEL_ID`, default `privoke-baseline`
-- `MODEL_ARTIFACT_PATH`, default `/models/privoke-baseline.json`
+- `MODEL_LATEST_ID`, default `privoke-balanced`
+- `MODEL_ARTIFACT_DIR`, default `/models`
 
-Compose bind-mounts the repository `models` directory read-only into this service. The update service mounts the same directory read-write and publishes replacements atomically.
+Compose bind-mounts the repository `models` directory read-only into this service. The update service mounts the same directory read-write and publishes balanced-model replacements atomically.

@@ -29,26 +29,7 @@ class StreamedTransformerTests(unittest.TestCase):
         artifact = json.loads(
             (REPO_ROOT / "models/privoke-baseline.json").read_text(encoding="utf-8")
         )
-        cls.model = StreamedTransformerPrivacyModel(
-            ParameterSnapshot(
-                model_id=artifact["model_id"],
-                version=artifact["version"],
-                generated_at_unix=artifact["generated_at_unix"],
-                parameters={
-                    name: tuple(tensor["values"])
-                    for name, tensor in artifact["parameters"].items()
-                },
-                shapes={
-                    name: tuple(tensor["shape"])
-                    for name, tensor in artifact["parameters"].items()
-                },
-                metadata={
-                    "architecture": artifact["architecture"],
-                    "model_config": json.dumps(artifact["config"]),
-                    "artifact_checksum": artifact["checksum"],
-                },
-            )
-        )
+        cls.model = StreamedTransformerPrivacyModel(_snapshot(artifact))
 
     def test_executes_streamed_transformer_weights(self) -> None:
         results = self.model.classify("my diagnosis is cancer")
@@ -66,6 +47,30 @@ class StreamedTransformerTests(unittest.TestCase):
             self.model.classify("write a friendly email about tomorrow meeting"),
             [],
         )
+
+    def test_all_quality_profiles_execute_with_their_expected_capacity(self) -> None:
+        expected = {
+            "privoke-efficient": (1, 2),
+            "privoke-balanced": (2, 4),
+            "privoke-quality": (3, 4),
+        }
+        for model_id, (layers, heads) in expected.items():
+            with self.subTest(model_id=model_id):
+                artifact = json.loads(
+                    (REPO_ROOT / f"models/{model_id}.json").read_text(encoding="utf-8")
+                )
+                model = StreamedTransformerPrivacyModel(_snapshot(artifact))
+                self.assertEqual(model.model.config.num_layers, layers)
+                self.assertEqual(model.model.config.num_attention_heads, heads)
+                self.assertEqual(
+                    model.classify("write a friendly email about tomorrow meeting"),
+                    [],
+                )
+                sensitive_result = model.classify("my diagnosis is cancer")[0]
+                self.assertEqual(
+                    sensitive_result.classification.sensitivity().name,
+                    "S3",
+                )
 
     def test_runtime_cache_coalesces_parameter_fetches(self) -> None:
         fetch_count = 0
@@ -87,6 +92,18 @@ class StreamedTransformerTests(unittest.TestCase):
 
         self.assertEqual(fetch_count, 1)
 
+    def test_latest_alias_accepts_the_resolved_model_id(self) -> None:
+        streamer = SimpleNamespace(
+            target="streaming:50051",
+            model_id="latest",
+            fetch=lambda: self.model.snapshot,
+        )
+        cache = StreamedModelCache(refresh_interval_seconds=30.0)
+
+        results = cache.classify("my diagnosis is cancer", streamer)
+
+        self.assertEqual(len(results), 1)
+
     def test_unavailable_accelerator_falls_back_to_cpu(self) -> None:
         if importlib.util.find_spec("torch") is None:
             model = StreamedTransformerPrivacyModel(self.model.snapshot)
@@ -98,6 +115,27 @@ class StreamedTransformerTests(unittest.TestCase):
                 model = StreamedTransformerPrivacyModel(self.model.snapshot)
 
         self.assertEqual(model.model.compute_device, "cpu")
+
+
+def _snapshot(artifact: dict) -> ParameterSnapshot:
+    return ParameterSnapshot(
+        model_id=artifact["model_id"],
+        version=artifact["version"],
+        generated_at_unix=artifact["generated_at_unix"],
+        parameters={
+            name: tuple(tensor["values"])
+            for name, tensor in artifact["parameters"].items()
+        },
+        shapes={
+            name: tuple(tensor["shape"])
+            for name, tensor in artifact["parameters"].items()
+        },
+        metadata={
+            "architecture": artifact["architecture"],
+            "model_config": json.dumps(artifact["config"]),
+            "artifact_checksum": artifact["checksum"],
+        },
+    )
 
 
 if __name__ == "__main__":

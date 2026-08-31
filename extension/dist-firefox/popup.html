@@ -82,9 +82,14 @@
             <span><strong>Wait for regex</strong><small>Run patterns before other layers</small></span>
             <input id="wait-regex" type="checkbox">
           </label>
-          <label class="model-setting" for="model-id">
-            <span>PriVoke model</span>
-            <input id="model-id" type="text" maxlength="128" value="privoke-baseline" autocomplete="off" spellcheck="false">
+          <label class="model-setting" for="model-quality">
+            <span><strong>Model quality</strong><small>Higher quality uses more memory and CPU</small></span>
+            <select id="model-quality">
+              <option value="latest" selected>Latest (recommended)</option>
+              <option value="efficient">Efficient</option>
+              <option value="balanced">Balanced</option>
+              <option value="quality">Quality</option>
+            </select>
           </label>
         </div>
       </details>

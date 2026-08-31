@@ -22,7 +22,7 @@ Docker is optional for the extension's regex and NER layers. It is used only whe
 - Manual analysis reports a compact `PASS`, `WARN`, or `ERROR` badge beside the **Analyse prompt** button. `BLOCK` maps to `ERROR` in this compact UI.
 - Website notifications are shown only for `WARN` and `BLOCK`. The detected evidence span is rendered in red; `ALLOW` stays silent.
 - A warning allows the original web request to continue. A block cancels it before it is sent.
-- Settings persist in the standard WebExtensions local-storage API. **Wait for regex** selects first/short-circuit versus parallel execution, and **PriVoke model** supplies the streamed model ID for each analysis.
+- Settings persist in the standard WebExtensions local-storage API. **Wait for regex** selects first/short-circuit versus parallel execution. **Model quality** selects Efficient, Balanced, or Quality; **Latest (recommended)** follows the server's current release channel and is the default.
 - Every analysis request names the concrete enabled layers; the extension never relies on the runtime's omitted-layer default.
 
 The page-network hook currently recognises prompt POSTs for:
