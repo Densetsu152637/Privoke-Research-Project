@@ -1,3 +1,5 @@
+import { localStorageArea, storageGet, storageSet } from "./webextension-api.js";
+
 export const DEFAULT_SETTINGS = Object.freeze({
   enabled: true,
   layers: Object.freeze({ regex: true, ner: true, llm: false }),
@@ -45,15 +47,15 @@ export function detectionLayers(settings) {
   return layers;
 }
 
-export async function loadSettings(storage = chrome.storage.local) {
-  const stored = await storage.get(STORAGE_KEY);
+export async function loadSettings(storage = localStorageArea()) {
+  const stored = await storageGet(storage, STORAGE_KEY);
   return normaliseSettings(stored[STORAGE_KEY]);
 }
 
-export async function updateSettings(patch, storage = chrome.storage.local) {
+export async function updateSettings(patch, storage = localStorageArea()) {
   const current = await loadSettings(storage);
   const settings = mergeSettings(current, patch);
-  await storage.set({ [STORAGE_KEY]: settings });
+  await storageSet(storage, { [STORAGE_KEY]: settings });
   return settings;
 }
 

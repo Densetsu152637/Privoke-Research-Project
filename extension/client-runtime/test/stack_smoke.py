@@ -115,20 +115,32 @@ def check_health_endpoints(rounds: int = 1) -> None:
 
 def check_model_snapshot() -> None:
     with grpc.insecure_channel(TARGETS["model"]) as channel:
-        response = parameters_pb2_grpc.ModelStreamingServiceStub(
+        chunks = list(parameters_pb2_grpc.ModelStreamingServiceStub(
             channel
-        ).GetModelParameters(
+        ).StreamModelParameters(
             parameters_pb2.ModelParametersRequest(
                 consumer_id="github-actions-smoke-test",
                 model_id=MODEL_ID,
             ),
             timeout=RPC_TIMEOUT_SECONDS,
-        )
-    require(response.model_id == MODEL_ID, "model snapshot ID did not match")
-    require(bool(response.version), "model snapshot has no version")
-    require(bool(response.parameters), "model snapshot has no parameters")
+        ))
+    require(bool(chunks), "model parameter stream was empty")
+    require(chunks[0].model_id == MODEL_ID, "model snapshot ID did not match")
+    require(bool(chunks[0].version), "model snapshot has no version")
     require(
-        response.metadata.get("served_by") == "model-streaming-service",
+        all(chunk.chunk_index == index for index, chunk in enumerate(chunks)),
+        "model parameter chunks were out of order",
+    )
+    require(
+        chunks[0].total_chunks == len(chunks),
+        "model parameter stream was incomplete",
+    )
+    require(
+        all(chunk.parameter.name and chunk.parameter.shape for chunk in chunks),
+        "model parameter chunks did not include tensor shapes",
+    )
+    require(
+        chunks[0].metadata.get("served_by") == "model-streaming-service",
         "model snapshot provenance metadata is missing",
     )
     print("Parameter streaming check passed.", flush=True)

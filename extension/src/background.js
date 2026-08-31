@@ -1,14 +1,19 @@
 import { RuntimeClient } from "./runtime-client.js";
+import { restoreConfiguredRuntime } from "./runtime-lifecycle.js";
 import { detectionLayers, loadSettings, updateSettings } from "./settings.js";
+import {
+  addRuntimeLifecycleListeners,
+  addRuntimeMessageListener,
+} from "./webextension-api.js";
 
 const client = new RuntimeClient();
+let runtimeControlTail = Promise.resolve();
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  handleMessage(message, sender)
-    .then(sendResponse)
-    .catch((error) => sendResponse({ ok: false, error: errorMessage(error) }));
-  return true;
+addRuntimeMessageListener(handleMessage);
+addRuntimeLifecycleListeners(() => {
+  void restoreEnabledRuntime().catch(reportStartupFailure);
 });
+void restoreEnabledRuntime().catch(reportStartupFailure);
 
 async function handleMessage(message, sender) {
   switch (message?.type) {
@@ -17,7 +22,7 @@ async function handleMessage(message, sender) {
     case "UPDATE_SETTINGS":
       return { ok: true, settings: await updateSettings(message.patch ?? {}) };
     case "SET_MASTER_ENABLED":
-      return setMasterEnabled(Boolean(message.enabled));
+      return enqueueRuntimeControl(() => setMasterEnabled(Boolean(message.enabled)));
     case "GET_RUNTIME_STATUS":
       return getRuntimeStatus();
     case "CHECK_STREAMING_HEALTH":
@@ -68,18 +73,7 @@ async function setMasterEnabled(enabled) {
   }
 
   try {
-    const runtime = await client.setRuntimeEnabled(true, {
-      signal: AbortSignal.timeout(36_000),
-    });
-    if (!runtime.enabled) {
-      const settings = await updateSettings({ enabled: false });
-      return {
-        ok: false,
-        settings,
-        error: runtime.message || "The client runtime failed to start.",
-        runtime,
-      };
-    }
+    const runtime = await restoreConfiguredRuntime(client, { enabled: true });
     const settings = await updateSettings({ enabled: true });
     return { ok: true, settings, runtime };
   } catch (error) {
@@ -95,6 +89,16 @@ async function setMasterEnabled(enabled) {
 }
 
 async function getRuntimeStatus() {
+  const settings = await loadSettings();
+  if (settings.enabled) {
+    try {
+      const runtime = await restoreEnabledRuntime();
+      return { ok: true, runtime };
+    } catch (error) {
+      return { ok: false, error: errorMessage(error) };
+    }
+  }
+
   try {
     const runtime = await client.runtimeStatus({
       signal: AbortSignal.timeout(3_500),
@@ -103,6 +107,23 @@ async function getRuntimeStatus() {
   } catch (error) {
     return { ok: false, error: errorMessage(error) };
   }
+}
+
+function restoreEnabledRuntime() {
+  return enqueueRuntimeControl(async () => {
+    const settings = await loadSettings();
+    return restoreConfiguredRuntime(client, settings);
+  });
+}
+
+function enqueueRuntimeControl(operation) {
+  const result = runtimeControlTail.then(operation, operation);
+  runtimeControlTail = result.catch(() => {});
+  return result;
+}
+
+function reportStartupFailure(error) {
+  console.warn(`PriVoke could not restore the enabled runtime: ${errorMessage(error)}`);
 }
 
 async function analyzePrompt(message, sender) {

@@ -1,14 +1,19 @@
 # PriVoke Client Runtime
 
-The client runtime is PriVoke's local prompt inspection service. It runs detector layers, returns an action (`ALLOW`, `WARN`, or `BLOCK`), and includes aggregate and per-layer evidence/errors in its gRPC response.
+The client runtime is PriVoke's reusable prompt inspection service. It runs detector layers, returns an action (`ALLOW`, `WARN`, or `BLOCK`), and includes aggregate and per-layer evidence/errors in its gRPC response.
 
 This package is the only component currently in the prompt classification path. The parameter-streaming service is used only when the semantic backend is set to `streamed`.
 
 ## Deployment modes
 
-Production and development server Compose run `src/grpc_main.py` directly as the always-on `client-runtime` required by the fuzzer. The Chrome extension is not deployed through Docker.
+This package is instantiated in two independent contexts:
 
-The extension's workstation lifecycle process is a separate sibling package at `../runtime-supervisor`. It starts this detector as a child process and exposes the extension control plane on port `50056`.
+| Context | Owner | Binding | Consumer |
+| --- | --- | --- | --- |
+| Server simulation | Docker Compose | `[::]:50054` inside Compose; the development override also publishes `127.0.0.1:50054` | Fuzzer, evaluator, and server services |
+| Browser extension | `../runtime-supervisor` | `127.0.0.1:50057` | Supervisor-owned bridge for the WebExtension |
+
+The contexts share source code only. The extension never calls the Compose instance, and the fuzzer never calls the extension instance. The supervisor also exposes its separate control service on `127.0.0.1:50056` and its gRPC-Web bridge on `127.0.0.1:8080`.
 
 ## Local HTTP Harness
 
@@ -135,7 +140,7 @@ NER is in `src/NER`. `EntityNERDetector` uses spaCy `en_core_web_sm` and maps `P
 
 Semantic classifiers are in `src/LLM`:
 
-- `PriVokeClassifier` fetches snapshots from `model-streaming-service`, caches a `ParameterBackedPrivacyModel` by model/version/fingerprint, and classifies with local semantic feature patterns calibrated by streamed float vectors.
+- `PriVokeClassifier` validates streamed tensor chunks, reconstructs the shared NumPy transformer, caches the newest model version/fingerprint, and runs neural inference locally.
 - `LocalClassifier` calls an OpenAI-compatible local API such as LM Studio.
 - `OpenClassifier` calls the OpenAI SDK.
 
@@ -168,17 +173,21 @@ curl -X POST http://127.0.0.1:8765/config/llm \
 Environment variables:
 
 - `PRIVOKE_HOST`, `PRIVOKE_PORT` for the optional HTTP harness
-- `PRIVOKE_GRPC_HOST`, Python default `127.0.0.1`; the server image sets `0.0.0.0` and Compose sets `[::]`
-- `PRIVOKE_GRPC_PORT`, default `50054`
+- `PRIVOKE_GRPC_HOST`, Python default `127.0.0.1`; the server image sets `0.0.0.0`, Compose sets `[::]`, and the workstation supervisor forces `127.0.0.1`
+- `PRIVOKE_GRPC_PORT`, direct/server default `50054`; the workstation supervisor sets it to `50057` for its child
 - `PRIVOKE_LLM_CHOICE`
 - `PRIVOKE_WAIT_FOR_REGEX`
 - `PRIVOKE_MAX_PROMPT_CHARS`
 - `PRIVOKE_MAX_GRPC_MESSAGE_BYTES`, default `262144`
 - `PRIVOKE_MAX_GRPC_RESPONSE_BYTES`, default `1048576`
-- `PRIVOKE_CORS_ORIGIN`, disabled by default; when enabled it must be one exact `http`, `https`, or `chrome-extension` origin and cannot be `*`
+- `PRIVOKE_CORS_ORIGIN`, disabled by default; when enabled it must be one exact `http`, `https`, or supported WebExtension origin and cannot be `*`
 - `PRIVOKE_ALLOW_NON_LOOPBACK_BIND`
 - `MODEL_STREAMING_TARGET`, default `127.0.0.1:50051`; Compose sets `model-streaming-service:50051`
 - `MODEL_ID`, `MODEL_STREAMING_CONSUMER_ID`, `MODEL_STREAMING_TIMEOUT_SECONDS`
+- `MODEL_STREAMING_CACHE_TTL_SECONDS`, default `1.0`; coalesces concurrent
+  classifications onto one immutable streamed snapshot before checking for a new version
+- `PRIVOKE_MODEL_DEVICE`, default `auto`; uses CUDA or Apple MPS through PyTorch when
+  available and otherwise keeps inference on the NumPy CPU backend
 - `LM_STUDIO_BASE_URL`, `LM_STUDIO_MODEL`, `LM_STUDIO_API_KEY`, `LM_STUDIO_TIMEOUT_SECONDS`, `LM_STUDIO_TEMPERATURE`, `LM_STUDIO_MAX_TOKENS`, `LM_STUDIO_RESPONSE_FORMAT`
 - `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_TEMPERATURE`, `OPENAI_MAX_TOKENS`
 - `TELEMETRY_ENABLED`, default `false` outside Compose
@@ -190,6 +199,17 @@ Environment variables:
 
 `PRIVOKE_DEV_LOG_PROMPTS=true` logs raw prompt text only for requests whose `source` contains `fuzzer`. Keep it off outside local debugging.
 
+To expose an NVIDIA GPU to the container, use the opt-in override on a host with
+the NVIDIA Container Toolkit installed:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+```
+
+The normal Compose files do not request a GPU and remain portable to CPU-only hosts.
+The override also installs `requirements-gpu.txt`; the base image omits PyTorch and
+therefore avoids carrying CUDA libraries when only CPU inference is needed.
+
 ## Telemetry
 
 The gRPC runtime uses `StructuredEventEmitter` and a bounded background `TelemetryReporter` when `TELEMETRY_ENABLED=true`. Prompt decisions never wait for telemetry delivery. Queue overflow or collector failure drops the packet and logs event metadata only.
@@ -200,8 +220,8 @@ Packets deliberately exclude raw prompt text, matched spans, reasoning, arbitrar
 
 ```bash
 cd extension/client-runtime
-python -m venv venv
-venv\Scripts\activate
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
 pip install ../../shared/python
 mkdir generated  # omit this line when the directory already exists
@@ -214,15 +234,29 @@ python -m grpc_tools.protoc \
   ../../shared/proto/privoke/v1/telemetry.proto
 ```
 
+For GPU-backed streamed-transformer inference in the workstation process used by the
+browser extension, install PyTorch into this same environment:
+
+```bash
+pip install -r requirements-gpu.txt
+```
+
+With `PRIVOKE_MODEL_DEVICE=auto` (the default), CUDA is preferred, then Apple MPS, with
+an automatic NumPy CPU fallback. This affects only the streamed transformer; regex and
+spaCy NER continue to execute on CPU. The `docker-compose.gpu.yml` override configures a
+different, server-side runtime and does not accelerate requests made by the extension.
+Each streamed-transformer result includes `compute_device` metadata (`cuda`, `mps`, or
+`cpu`) for verification.
+
 The checked-in workstation defaults expect a parameter-streaming service or secure local forward on `127.0.0.1:50051`. Docker Compose supplies its own internal DNS target.
 
-Run the gRPC runtime (default port `50054`):
+Run a standalone gRPC runtime (direct default port `50054`):
 
 ```bash
 python src/grpc_main.py
 ```
 
-For extension-controlled startup and shutdown, configure and run the sibling [`runtime-supervisor`](../runtime-supervisor/README.md) package instead of starting this server directly.
+For extension-controlled startup and shutdown, run the sibling [`runtime-supervisor`](../runtime-supervisor/README.md) package instead of starting this server directly. The supervisor forces its child to `127.0.0.1:50057`; it does not connect to an already-running service on `50054`.
 
 Run the optional local server:
 

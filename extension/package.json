@@ -5,8 +5,11 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "build:firefox": "node scripts/build.mjs --firefox",
     "dev": "node scripts/build.mjs --watch",
-    "test": "node --test"
+    "dev:firefox": "node scripts/build.mjs --firefox --watch",
+    "test": "node --test",
+    "verify:browser": "node scripts/verify-browser-native-host.mjs"
   },
   "dependencies": {
     "protobufjs": "^8.7.2"

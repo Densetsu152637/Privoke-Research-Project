@@ -155,6 +155,19 @@ jobs:
           docker compose exec -T client-runtime \
             python test/stack_smoke.py --skip-training
 
+      - name: Stop the production stack before development integration
+        run: docker compose down --remove-orphans --timeout 20
+
+      - name: Start the development stack and wait for gRPC health checks
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml \
+            up -d --build --wait --wait-timeout 240
+
+      - name: Exercise all development gRPC service paths
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml \
+            exec -T client-runtime python test/stack_smoke.py
+
       - name: Show stack state and logs after a failure
         if: failure()
         run: |

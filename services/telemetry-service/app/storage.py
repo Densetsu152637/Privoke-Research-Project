@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import closing
 from pathlib import Path
-
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS telemetry_events (
@@ -30,82 +30,58 @@ CREATE INDEX IF NOT EXISTS telemetry_events_time_idx
     ON telemetry_events(occurred_at_unix_ms DESC);
 """
 
+INSERT_EVENT = """
+INSERT INTO telemetry_events (
+    event_id, occurred_at_unix_ms, time_bucket, source_id,
+    request_id, target_app, action, sensitivity, visibility,
+    categories_json, text_length, elapsed_ms, risk_score,
+    risk_bucket, detector_version, layers_json
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+"""
+
+LIST_EVENTS = """
+SELECT * FROM telemetry_events
+ORDER BY sequence DESC
+LIMIT ?
+"""
+
+LIST_EVENTS_BEFORE = """
+SELECT * FROM telemetry_events
+WHERE sequence < ?
+ORDER BY sequence DESC
+LIMIT ?
+"""
+
 
 class TelemetryStore:
     def __init__(self, path: str | Path):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self._connect() as connection:
+        with closing(self._connect()) as connection:
             connection.executescript(SCHEMA)
 
     def record(self, packet) -> int:
-        values = (
-            packet.event_id,
-            int(packet.occurred_at_unix_ms),
-            packet.time_bucket,
-            packet.source_id,
-            packet.request_id,
-            packet.target_app,
-            packet.action,
-            packet.sensitivity,
-            packet.visibility,
-            json.dumps(list(packet.categories), separators=(",", ":")),
-            int(packet.text_length),
-            float(packet.elapsed_ms),
-            float(packet.risk_score),
-            packet.risk_bucket,
-            packet.detector_version,
-            json.dumps(
-                [
-                    {
-                        "layer": layer.layer,
-                        "status": layer.status,
-                        "result_count": int(layer.result_count),
-                        "error": layer.error,
-                    }
-                    for layer in packet.layers
-                ],
-                separators=(",", ":"),
-            ),
-        )
-        with self._connect() as connection:
-            cursor = connection.execute(
-                """
-                INSERT INTO telemetry_events (
-                    event_id, occurred_at_unix_ms, time_bucket, source_id,
-                    request_id, target_app, action, sensitivity, visibility,
-                    categories_json, text_length, elapsed_ms, risk_score,
-                    risk_bucket, detector_version, layers_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                values,
-            )
+        with closing(self._connect()) as connection, connection:
+            cursor = connection.execute(INSERT_EVENT, _packet_values(packet))
             return int(cursor.lastrowid)
 
     def list(self, limit: int, before_sequence: int = 0) -> list[sqlite3.Row]:
-        with self._connect() as connection:
-            if before_sequence > 0:
-                return list(
-                    connection.execute(
-                        """
-                        SELECT * FROM telemetry_events
-                        WHERE sequence < ?
-                        ORDER BY sequence DESC
-                        LIMIT ?
-                        """,
-                        (before_sequence, limit),
-                    )
-                )
-            return list(
-                connection.execute(
-                    """
-                    SELECT * FROM telemetry_events
-                    ORDER BY sequence DESC
-                    LIMIT ?
-                    """,
-                    (limit,),
-                )
-            )
+        query, parameters = (
+            (LIST_EVENTS_BEFORE, (before_sequence, limit))
+            if before_sequence > 0
+            else (LIST_EVENTS, (limit,))
+        )
+        with closing(self._connect()) as connection:
+            return list(connection.execute(query, parameters))
+
+    def check_writable(self) -> None:
+        connection = sqlite3.connect(self.path, timeout=0.5)
+        try:
+            # A write transaction detects read-only mounts without adding a row.
+            connection.execute("BEGIN IMMEDIATE")
+            connection.rollback()
+        finally:
+            connection.close()
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=5.0)
@@ -113,3 +89,36 @@ class TelemetryStore:
         connection.execute("PRAGMA journal_mode=WAL")
         connection.execute("PRAGMA busy_timeout=5000")
         return connection
+
+
+def _packet_values(packet) -> tuple[object, ...]:
+    return (
+        packet.event_id,
+        int(packet.occurred_at_unix_ms),
+        packet.time_bucket,
+        packet.source_id,
+        packet.request_id,
+        packet.target_app,
+        packet.action,
+        packet.sensitivity,
+        packet.visibility,
+        json.dumps(list(packet.categories), separators=(",", ":")),
+        int(packet.text_length),
+        float(packet.elapsed_ms),
+        float(packet.risk_score),
+        packet.risk_bucket,
+        packet.detector_version,
+        json.dumps(
+            [_layer_payload(layer) for layer in packet.layers],
+            separators=(",", ":"),
+        ),
+    )
+
+
+def _layer_payload(layer) -> dict[str, object]:
+    return {
+        "layer": layer.layer,
+        "status": layer.status,
+        "result_count": int(layer.result_count),
+        "error": layer.error,
+    }

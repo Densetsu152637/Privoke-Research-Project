@@ -4,9 +4,10 @@ import argparse
 import json
 import os
 import uuid
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any
 
 DEFAULT_DUMP_DIR = "/workspace/dumps/privoke-fuzzer"
 DEFAULT_SOURCE = "privoke-fuzzer-test"
@@ -150,8 +151,8 @@ def run_prompt_tests(args: argparse.Namespace) -> None:
 
 
 def _normalise_layers(
-    raw_layers: List[str] | None,
-) -> List[str]:
+    raw_layers: list[str] | None,
+) -> list[str]:
     layers = raw_layers or ["runtime"]
     normalised = []
     for layer in layers:
@@ -160,7 +161,7 @@ def _normalise_layers(
     return normalised
 
 
-def _build_prompt_requests(args: argparse.Namespace) -> List[Dict[str, Any]]:
+def _build_prompt_requests(args: argparse.Namespace) -> list[dict[str, Any]]:
     prompt_requests = []
 
     for prompt in args.prompt or []:
@@ -188,7 +189,7 @@ def _generated_prompt_requests(
     count: int,
     seed: int,
     dataset_path: str | None,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     from prompt_generation import generate_training_prompts
 
     generated = generate_training_prompts(
@@ -206,7 +207,7 @@ def _generated_prompt_requests(
     ]
 
 
-def _load_prompt_file(path: Path) -> List[Dict[str, Any]]:
+def _load_prompt_file(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         raise SystemExit(f"Prompt file does not exist: {path}")
 
@@ -240,7 +241,7 @@ def _json_prompt_items(parsed: Any) -> Iterable[Any]:
     raise SystemExit("JSON prompt file must contain an object or list.")
 
 
-def _prompt_request_from_value(value: Any) -> Dict[str, Any]:
+def _prompt_request_from_value(value: Any) -> dict[str, Any]:
     if isinstance(value, str):
         return {"text": value}
     if not isinstance(value, dict):
@@ -248,7 +249,9 @@ def _prompt_request_from_value(value: Any) -> Dict[str, Any]:
 
     prompt_text = value.get("text", value.get("prompt"))
     if not isinstance(prompt_text, str) or not prompt_text.strip():
-        raise SystemExit("Prompt objects must include a non-empty text or prompt field.")
+        raise SystemExit(
+            "Prompt objects must include a non-empty text or prompt field."
+        )
 
     payload = dict(value)
     payload["text"] = prompt_text.strip()
@@ -257,10 +260,10 @@ def _prompt_request_from_value(value: Any) -> Dict[str, Any]:
 
 
 def _run_layers(
-    layers: List[str],
+    layers: list[str],
     args: argparse.Namespace,
-    runtime_request: Dict[str, Any],
-) -> Dict[str, Dict[str, Any]]:
+    runtime_request: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
     from runtime_client import PrivokeRuntimeClient
 
     try:
@@ -272,21 +275,21 @@ def _run_layers(
             layers=layers,
             regex_first=args.regex_first,
         )
-    except Exception as exc:
-        return {
-            layer: {"status": "error", "error": str(exc)}
-            for layer in layers
-        }
+    # The CLI records per-layer failures so one detector cannot hide later results.
+    except Exception as exc:  # noqa: BLE001
+        return {layer: {"status": "error", "error": str(exc)} for layer in layers}
 
     if layers == ["runtime"] or "runtime" in layers:
         status = "error" if response.get("error") else "ok"
-        return {"runtime": {
-            "status": status,
-            "error": response.get("error"),
-            "action": response.get("action"),
-            "classification": response.get("classification"),
-            "response": response,
-        }}
+        return {
+            "runtime": {
+                "status": status,
+                "error": response.get("error"),
+                "action": response.get("action"),
+                "classification": response.get("classification"),
+                "response": response,
+            }
+        }
 
     executions = {item["layer"]: item for item in response.get("layers", [])}
     layer_results = {}
@@ -308,7 +311,7 @@ def _run_layers(
     return layer_results
 
 
-def _classification_view(result: Dict[str, Any]) -> Dict[str, Any]:
+def _classification_view(result: dict[str, Any]) -> dict[str, Any]:
     return {
         "action": result.get("action"),
         "classification": result.get("classification"),
@@ -320,11 +323,11 @@ def _classification_view(result: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _runtime_request(
-    prompt_request: Dict[str, Any],
+    prompt_request: dict[str, Any],
     args: argparse.Namespace,
     run_id: str | None,
     index: int | None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     metadata = prompt_request.get("metadata")
     if metadata is None:
         metadata = {}
@@ -357,16 +360,16 @@ def _output_path(dump_dir: Path, run_id: str) -> Path:
     return dump_dir / f"{run_id}.json"
 
 
-def _write_dump(output_path: Path, payload: Dict[str, Any]) -> None:
+def _write_dump(output_path: Path, payload: dict[str, Any]) -> None:
     output_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True),
         encoding="utf-8",
     )
 
 
-def _summary(results: List[Dict[str, Any]], output_path: Path) -> Dict[str, Any]:
+def _summary(results: list[dict[str, Any]], output_path: Path) -> dict[str, Any]:
     failed = 0
-    layer_counts: Dict[str, Dict[str, int]] = {}
+    layer_counts: dict[str, dict[str, int]] = {}
     for result in results:
         for layer, layer_result in result["layers"].items():
             status = layer_result.get("status", "error")

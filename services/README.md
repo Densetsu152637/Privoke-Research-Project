@@ -1,6 +1,6 @@
 # Services
 
-This directory contains PriVoke's research-support services. Both production and development server deployments also include the always-on `client-runtime` from `extension/client-runtime`, for a total of five gRPC services.
+This directory contains PriVoke's research-support services. Both production and development server deployments also include an always-on server instance of `extension/client-runtime`, for a total of five gRPC services. That instance is distinct from the workstation detector started for the WebExtension.
 
 ## Service Map
 
@@ -12,7 +12,7 @@ This directory contains PriVoke's research-support services. Both production and
 
 ## Runtime Detection Path
 
-Prompt inspection happens in `extension/client-runtime`, through gRPC in Compose or its optional HTTP harness:
+Prompt inspection implementation lives in `extension/client-runtime`. In the server topology, the fuzzer reaches it only through the Compose gRPC service:
 
 ```text
 prompt
@@ -31,6 +31,8 @@ The runtime chooses one semantic backend at a time:
 - `openai`: calls the OpenAI SDK.
 
 The fuzzer requests full-runtime or isolated-layer execution through `PrivokeRuntimeService`; it never imports detector implementations.
+
+The WebExtension is a separate deployment of the same detector package. Its supervisor-owned runtime on `127.0.0.1:50057` and bridge on `127.0.0.1:8080` are outside Compose and are never fuzzer targets.
 
 ## gRPC Service Contracts
 
@@ -61,9 +63,9 @@ Default ports:
 
 The production-style Compose file exposes these ports only to its internal service network and publishes none to the host. The development override publishes `50051`, `50052`, `50054`, and `50055` on `127.0.0.1` for local tests; `50053` remains internal.
 
-`docker-compose.yml` is the production-style deployment: all five services are built into non-root runtime images with read-only root filesystems, dropped capabilities, `no-new-privileges`, and restart policies. A network-disabled one-shot initializer fixes named-volume ownership before the data-writing services start. The fuzzer waits for `client-runtime` health, then reports healthy on `50053`, which allows `param-update-service` to start its optional requester without racing startup. `docker-compose.dev.yml` preserves that topology while using the development image stages, bind-mounting service source, regenerating protobuf bindings, disabling restart loops, and mounting fuzzer prompt-test dumps at `./dumps/privoke-fuzzer`.
+`docker-compose.yml` is the production-style deployment: all five services are built into non-root runtime images with read-only root filesystems, dropped capabilities, `no-new-privileges`, and restart policies. A network-disabled one-shot initializer fixes named-volume ownership before the data-writing services start. Compose healthchecks exercise each gRPC `Health` contract rather than only checking that a TCP port is open. The fuzzer waits for `client-runtime` health, then reports healthy on `50053`, which allows `param-update-service` to start its optional requester without racing startup. `docker-compose.dev.yml` preserves that topology while using separately tagged development images, bind-mounting service source, regenerating protobuf bindings, disabling restart loops, and mounting fuzzer prompt-test dumps at `./dumps/privoke-fuzzer`.
 
-The Chrome extension is not a Docker service and is not part of either server deployment.
+The WebExtension, its supervisor, bridge, and workstation detector are not Docker services and are not part of either server deployment.
 
 ## Documentation Scope
 

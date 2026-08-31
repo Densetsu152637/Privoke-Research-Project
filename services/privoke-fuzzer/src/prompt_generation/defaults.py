@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from typing import Tuple
-
 from privoke_contracts.classification import Category, Sensitivity, Visibility
 from training.classifications import classification_from_components
 
 from .types import PromptSeed
 
 
-def default_prompt_dataset() -> Tuple[PromptSeed, ...]:
+def default_prompt_dataset() -> tuple[PromptSeed, ...]:
     return (
         PromptSeed(
             template=(
@@ -45,8 +43,7 @@ def default_prompt_dataset() -> Tuple[PromptSeed, ...]:
         ),
         PromptSeed(
             template=(
-                "I work at {employer} and I am the only person in my role "
-                "in {city}."
+                "I work at {employer} and I am the only person in my role in {city}."
             ),
             classification=classification_from_components(
                 Sensitivity.S2,

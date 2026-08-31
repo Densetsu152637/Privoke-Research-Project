@@ -32,7 +32,7 @@ class RuntimeProcessSupervisor:
         self,
         *,
         command: Sequence[str] | None = None,
-        runtime_port: int = 50054,
+        runtime_port: int = 50057,
         startup_timeout_seconds: float = 30.0,
         stop_timeout_seconds: float = 10.0,
         environment: Mapping[str, str] | None = None,
@@ -53,6 +53,7 @@ class RuntimeProcessSupervisor:
         self.stop_timeout_seconds = stop_timeout_seconds
         self.environment = dict(os.environ if environment is None else environment)
         self.environment["PRIVOKE_GRPC_PORT"] = str(runtime_port)
+        self.environment["PRIVOKE_GRPC_HOST"] = "127.0.0.1"
         self.process_factory = process_factory
         self.dependency_check_factory = dependency_check_factory
         self._process: subprocess.Popen | None = None
@@ -64,6 +65,13 @@ class RuntimeProcessSupervisor:
             current = self._current_status()
             if current.enabled:
                 return current
+
+            if self._runtime_port_is_open():
+                self._last_message = (
+                    f"Client runtime port {self.runtime_port} is already in use by "
+                    "a process not owned by this supervisor. Stop that process and retry."
+                )
+                return self._current_status()
 
             dependency_error = self._dependency_error()
             if dependency_error:
@@ -142,12 +150,21 @@ class RuntimeProcessSupervisor:
         while time.monotonic() < deadline:
             if process.poll() is not None:
                 return False
-            try:
-                with socket.create_connection(("127.0.0.1", self.runtime_port), 0.2):
-                    return True
-            except OSError:
+            if self._runtime_port_is_open():
+                # Do not mistake a socket opened just before child failure for a
+                # healthy runtime. Give the child one scheduler turn to prove it
+                # remains alive before reporting startup success.
                 time.sleep(0.1)
+                return process.poll() is None
+            time.sleep(0.1)
         return False
+
+    def _runtime_port_is_open(self) -> bool:
+        try:
+            with socket.create_connection(("127.0.0.1", self.runtime_port), 0.2):
+                return True
+        except OSError:
+            return False
 
     def _terminate_process(self, process: subprocess.Popen) -> None:
         if process.poll() is not None:

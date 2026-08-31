@@ -281,8 +281,16 @@ def _validated_cors_origin(origin: str) -> str:
         )
 
     parsed = urlparse(value)
-    if parsed.scheme not in {"http", "https", "chrome-extension"}:
-        raise ValueError("CORS origin must use http, https, or chrome-extension.")
+    if parsed.scheme not in {
+        "http",
+        "https",
+        "chrome-extension",
+        "moz-extension",
+        "opera-extension",
+    }:
+        raise ValueError(
+            "CORS origin must use http, https, or a supported WebExtension scheme."
+        )
     if not parsed.netloc or parsed.username or parsed.password:
         raise ValueError("CORS origin must contain a host and no credentials.")
     if parsed.path not in {"", "/"} or parsed.params or parsed.query or parsed.fragment:

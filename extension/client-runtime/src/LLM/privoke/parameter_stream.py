@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import os
 import sys
 from dataclasses import dataclass
@@ -26,6 +27,7 @@ class ParameterSnapshot:
     version: str
     generated_at_unix: int
     parameters: Dict[str, Tuple[float, ...]]
+    shapes: Dict[str, Tuple[int, ...]]
     metadata: Dict[str, str]
 
     @property
@@ -37,6 +39,7 @@ class ParameterSnapshot:
         digest = hashlib.sha256()
         for name in sorted(self.parameters):
             digest.update(name.encode("utf-8"))
+            digest.update(repr(self.shapes.get(name, ())).encode("utf-8"))
             for value in self.parameters[name]:
                 digest.update(repr(float(value)).encode("utf-8"))
         return digest.hexdigest()[:16]
@@ -94,9 +97,12 @@ class ModelParameterStreamer:
             raise ValueError("MODEL_STREAMING_TIMEOUT_SECONDS must be greater than zero.")
 
     def fetch(self) -> ParameterSnapshot:
-        with grpc.insecure_channel(self.target) as channel:
+        with grpc.insecure_channel(
+            self.target,
+            options=(("grpc.max_receive_message_length", 8 * 1024 * 1024),),
+        ) as channel:
             client = parameters_pb2_grpc.ModelStreamingServiceStub(channel)
-            snapshot = client.GetModelParameters(
+            chunks = client.StreamModelParameters(
                 parameters_pb2.ModelParametersRequest(
                     consumer_id=self.consumer_id,
                     model_id=self.model_id,
@@ -104,19 +110,79 @@ class ModelParameterStreamer:
                 timeout=self.timeout_seconds,
             )
 
-        if snapshot.model_id != self.model_id:
+            model_id = ""
+            version = ""
+            generated_at_unix = 0
+            expected_chunks = None
+            received_chunks = 0
+            parameter_values: Dict[str, list[float]] = {}
+            shapes: Dict[str, Tuple[int, ...]] = {}
+            metadata: Dict[str, str] = {}
+            for chunk in chunks:
+                if chunk.chunk_index != received_chunks:
+                    raise RuntimeError("Model parameter stream is out of order.")
+                if expected_chunks is None:
+                    expected_chunks = int(chunk.total_chunks)
+                    model_id = chunk.model_id
+                    version = chunk.version
+                    generated_at_unix = int(chunk.generated_at_unix)
+                elif (
+                    chunk.model_id != model_id
+                    or chunk.version != version
+                    or int(chunk.generated_at_unix) != generated_at_unix
+                    or int(chunk.total_chunks) != expected_chunks
+                ):
+                    raise RuntimeError("Model parameter stream changed snapshot mid-stream.")
+                parameter = chunk.parameter
+                name = parameter.name
+                shape = tuple(int(size) for size in parameter.shape)
+                current_values = parameter_values.setdefault(name, [])
+                if name in shapes and shapes[name] != shape:
+                    raise RuntimeError(f"Streamed tensor '{name}' changed shape mid-stream.")
+                if int(parameter.value_offset) != len(current_values):
+                    raise RuntimeError(f"Streamed tensor '{name}' has a discontinuous offset.")
+                shapes[name] = shape
+                current_values.extend(float(value) for value in parameter.values)
+                metadata.update(dict(chunk.metadata))
+                received_chunks += 1
+
+        if expected_chunks is None or received_chunks != expected_chunks:
+            raise RuntimeError("Model parameter stream ended before all chunks arrived.")
+        if model_id != self.model_id:
             raise RuntimeError(
                 "model-streaming-service returned model "
-                f"'{snapshot.model_id}' for requested model '{self.model_id}'."
+                f"'{model_id}' for requested model '{self.model_id}'."
             )
+        if not version or generated_at_unix <= 0:
+            raise RuntimeError("Model parameter stream has invalid snapshot metadata.")
+
+        for name, values in parameter_values.items():
+            if not name:
+                raise RuntimeError("Model parameter stream has an unnamed tensor.")
+            expected_size = 1
+            if not shapes[name]:
+                raise RuntimeError(f"Streamed tensor '{name}' has no shape.")
+            for size in shapes[name]:
+                if size <= 0:
+                    raise RuntimeError(
+                        f"Streamed tensor '{name}' has an invalid shape."
+                    )
+                expected_size *= int(size)
+            if expected_size != len(values):
+                raise RuntimeError(
+                    f"Streamed tensor '{name}' shape does not match its values."
+                )
+            if not all(math.isfinite(value) for value in values):
+                raise RuntimeError(f"Streamed tensor '{name}' has non-finite values.")
 
         return ParameterSnapshot(
-            model_id=snapshot.model_id,
-            version=snapshot.version,
-            generated_at_unix=snapshot.generated_at_unix,
+            model_id=model_id,
+            version=version,
+            generated_at_unix=generated_at_unix,
             parameters={
-                parameter.name: tuple(float(value) for value in parameter.values)
-                for parameter in snapshot.parameters
+                name: tuple(values)
+                for name, values in parameter_values.items()
             },
-            metadata=dict(snapshot.metadata),
+            shapes=shapes,
+            metadata=metadata,
         )

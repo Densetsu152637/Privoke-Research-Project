@@ -50,6 +50,16 @@ class RuntimeProcessSupervisorTests(unittest.TestCase):
             Path(supervisor.dependency_check_command[1]).resolve(),
             (PACKAGE_ROOT.parent / "client-runtime" / "src" / "dependency_check.py").resolve(),
         )
+        self.assertEqual(supervisor.runtime_port, 50057)
+        self.assertEqual(supervisor.environment["PRIVOKE_GRPC_PORT"], "50057")
+        self.assertEqual(supervisor.environment["PRIVOKE_GRPC_HOST"], "127.0.0.1")
+
+    def test_forces_runtime_to_loopback(self) -> None:
+        supervisor = RuntimeProcessSupervisor(
+            environment={"PRIVOKE_GRPC_HOST": "0.0.0.0"}
+        )
+
+        self.assertEqual(supervisor.environment["PRIVOKE_GRPC_HOST"], "127.0.0.1")
 
     def test_explicit_runtime_python_overrides_interpreter_discovery(self) -> None:
         supervisor = RuntimeProcessSupervisor(
@@ -69,6 +79,7 @@ class RuntimeProcessSupervisorTests(unittest.TestCase):
             environment={},
             process_factory=lambda *args, **kwargs: process,
         )
+        supervisor._runtime_port_is_open = lambda: False
         supervisor._wait_until_ready = lambda child: True
 
         running = supervisor.start()
@@ -88,6 +99,7 @@ class RuntimeProcessSupervisorTests(unittest.TestCase):
             environment={},
             process_factory=lambda *args, **kwargs: process,
         )
+        supervisor._runtime_port_is_open = lambda: False
         supervisor._wait_until_ready = lambda child: False
 
         status = supervisor.start()
@@ -95,6 +107,21 @@ class RuntimeProcessSupervisorTests(unittest.TestCase):
         self.assertFalse(status.enabled)
         self.assertTrue(process.terminated)
         self.assertIn("did not listen", status.message)
+
+    def test_does_not_claim_an_unmanaged_process_as_its_runtime(self) -> None:
+        launches = []
+        supervisor = RuntimeProcessSupervisor(
+            command=("runtime",),
+            environment={},
+            process_factory=lambda *args, **kwargs: launches.append(args),
+        )
+        supervisor._runtime_port_is_open = lambda: True
+
+        status = supervisor.start()
+
+        self.assertFalse(status.enabled)
+        self.assertEqual(launches, [])
+        self.assertIn("not owned by this supervisor", status.message)
 
     def test_does_not_launch_runtime_when_required_dependencies_are_missing(self) -> None:
         launches = []
@@ -108,6 +135,7 @@ class RuntimeProcessSupervisorTests(unittest.TestCase):
                 stderr="ModuleNotFoundError: No module named 'presidio_analyzer'\n",
             ),
         )
+        supervisor._runtime_port_is_open = lambda: False
 
         status = supervisor.start()
 

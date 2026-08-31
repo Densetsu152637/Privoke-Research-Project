@@ -20,11 +20,14 @@ Incoming packets are validated against bounded identifier, category, layer, timi
 
 The SQLite schema is created automatically. Compose stores it in the named `telemetry-data` volume at `/data/telemetry.db`. Events are idempotent by `event_id`, indexed by occurrence time, and use SQLite WAL mode for concurrent readers and writers.
 
+The `Health` RPC returns `SERVING` only when SQLite can open an immediate write transaction against the configured database.
+
 Environment variables:
 
 - `TELEMETRY_PORT`, default `50055`
 - `TELEMETRY_DB_PATH`, default `/data/telemetry.db`
 - `TELEMETRY_MAX_MESSAGE_BYTES`, default `131072`
+- `TELEMETRY_MAX_QUERY_LIMIT`, default `1000`; caps each `ListTelemetry` page
 
 Run through Compose:
 

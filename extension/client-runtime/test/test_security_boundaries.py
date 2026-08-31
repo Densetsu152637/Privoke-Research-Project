@@ -32,6 +32,18 @@ class RuntimeSecurityBoundaryTests(unittest.TestCase):
             "chrome-extension://abcdefghijklmnop",
         )
 
+    def test_accepts_cross_browser_extension_origins(self) -> None:
+        self.assertEqual(
+            _validated_cors_origin(
+                "moz-extension://01234567-89ab-cdef-0123-456789abcdef"
+            ),
+            "moz-extension://01234567-89ab-cdef-0123-456789abcdef",
+        )
+        self.assertEqual(
+            _validated_cors_origin("opera-extension://abcdefghijklmnop"),
+            "opera-extension://abcdefghijklmnop",
+        )
+
     def test_rejects_oversized_metadata(self) -> None:
         with self.assertRaisesRegex(RequestValidationError, "metadata value"):
             parse_prompt_request(

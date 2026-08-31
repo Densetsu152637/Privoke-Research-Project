@@ -12,7 +12,7 @@ env/
 __pycache__/
 *.pyc
 
-# Local Docker/test output
+# Local Docker/test output/build files
 dumps/
 services/*/generated/
 services/model-streaming-service/gen/
@@ -20,6 +20,7 @@ extension/client-runtime/generated/
 extension/runtime-supervisor/generated/
 extension/node_modules/
 extension/dist/
+extension/dist-firefox/
 
 # IDE
 .vscode/

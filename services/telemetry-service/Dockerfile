@@ -11,12 +11,12 @@ RUN apt-get update \
     && python -m venv "${VIRTUAL_ENV}" \
     && pip install --no-cache-dir --upgrade pip setuptools wheel
 
-COPY shared/proto /workspace/shared/proto
+COPY shared /workspace/shared
 COPY services/telemetry-service /workspace/services/telemetry-service
 
 WORKDIR /workspace/services/telemetry-service
 
-RUN pip install --no-cache-dir -r requirements.txt \
+RUN pip install --no-cache-dir -r requirements.txt /workspace/shared/python \
     && mkdir -p generated \
     && python -m grpc_tools.protoc \
       -I /workspace/shared/proto \
