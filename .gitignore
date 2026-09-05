@@ -3,6 +3,12 @@
 .env.local
 .env*.local
 .env.*
+!.env.example
+gha-creds-*.json
+**/secrets/
+*.key
+*.pem
+*.p12
 
 # Virtual environment
 .venv/
@@ -13,6 +19,7 @@ __pycache__/
 *.pyc
 
 # Local Docker/test output/build files
+/.tmp/gce-smoke-*/
 dumps/
 services/*/generated/
 services/model-streaming-service/gen/

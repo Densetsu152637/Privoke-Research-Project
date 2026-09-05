@@ -3,6 +3,7 @@ import { restoreConfiguredRuntime } from "./runtime-lifecycle.js";
 import {
   detectionLayers,
   loadSettings,
+  mergeSettings,
   semanticModelId,
   updateSettings,
 } from "./settings.js";
@@ -25,7 +26,7 @@ async function handleMessage(message, sender) {
     case "GET_SETTINGS":
       return { ok: true, settings: await loadSettings() };
     case "UPDATE_SETTINGS":
-      return { ok: true, settings: await updateSettings(message.patch ?? {}) };
+      return enqueueRuntimeControl(() => applySettings(message.patch ?? {}));
     case "SET_MASTER_ENABLED":
       return enqueueRuntimeControl(() => setMasterEnabled(Boolean(message.enabled)));
     case "GET_RUNTIME_STATUS":
@@ -59,6 +60,21 @@ async function checkStreamingHealth() {
   }
 }
 
+async function applySettings(patch) {
+  const current = await loadSettings();
+  const next = mergeSettings(current, patch);
+  if (next.useLocalStack !== current.useLocalStack && current.enabled) {
+    try {
+      await restoreConfiguredRuntime(client, next);
+    } catch (error) {
+      // Restore the old destination if restarting with the new profile failed.
+      await restoreConfiguredRuntime(client, current).catch(() => {});
+      return { ok: false, settings: current, error: errorMessage(error) };
+    }
+  }
+  return { ok: true, settings: await updateSettings(patch) };
+}
+
 async function setMasterEnabled(enabled) {
   if (!enabled) {
     const settings = await updateSettings({ enabled: false });
@@ -78,7 +94,7 @@ async function setMasterEnabled(enabled) {
   }
 
   try {
-    const runtime = await restoreConfiguredRuntime(client, { enabled: true });
+    const runtime = await restoreConfiguredRuntime(client, { ...await loadSettings(), enabled: true });
     const settings = await updateSettings({ enabled: true });
     return { ok: true, settings, runtime };
   } catch (error) {

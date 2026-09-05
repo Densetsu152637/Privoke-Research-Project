@@ -1,5 +1,9 @@
 # PriVoke Client Runtime
 
+For current cloud credentials and the hidden local-stack switch, see [Client configuration](README.Client-configuration.md). Cloud is now the workstation default.
+
+> Source area: `extension/client-runtime`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
 The client runtime is PriVoke's reusable prompt inspection service. It runs detector layers, returns an action (`ALLOW`, `WARN`, or `BLOCK`), and includes aggregate and per-layer evidence/errors in its gRPC response.
 
 This package is the only component currently in the prompt classification path. The parameter-streaming service is used only when the semantic backend is set to `streamed`.
@@ -183,7 +187,7 @@ Environment variables:
 - `PRIVOKE_MAX_GRPC_RESPONSE_BYTES`, default `1048576`
 - `PRIVOKE_CORS_ORIGIN`, disabled by default; when enabled it must be one exact `http`, `https`, or supported WebExtension origin and cannot be `*`
 - `PRIVOKE_ALLOW_NON_LOOPBACK_BIND`
-- `MODEL_STREAMING_TARGET`, default `127.0.0.1:50051`; Compose sets `model-streaming-service:50051`
+- `PRIVOKE_CLOUD_TARGET` for workstations; hidden local mode selects `127.0.0.1:50051`. Internal Compose mode uses `MODEL_STREAMING_TARGET=model-streaming-service:50051`
 - `MODEL_ID`, default `latest`; `MODEL_STREAMING_CONSUMER_ID`; `MODEL_STREAMING_TIMEOUT_SECONDS`
 - `MODEL_STREAMING_CACHE_TTL_SECONDS`, default `1.0`; coalesces concurrent
   classifications onto one immutable streamed snapshot before checking for a new version
@@ -192,7 +196,7 @@ Environment variables:
 - `LM_STUDIO_BASE_URL`, `LM_STUDIO_MODEL`, `LM_STUDIO_API_KEY`, `LM_STUDIO_TIMEOUT_SECONDS`, `LM_STUDIO_TEMPERATURE`, `LM_STUDIO_MAX_TOKENS`, `LM_STUDIO_RESPONSE_FORMAT`
 - `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_TEMPERATURE`, `OPENAI_MAX_TOKENS`
 - `TELEMETRY_ENABLED`, default `false` outside Compose
-- `TELEMETRY_TARGET`, default `127.0.0.1:50055`; Compose sets `telemetry-service:50055`
+- `PRIVOKE_CLOUD_TARGET` for workstations; hidden local mode selects `127.0.0.1:50055`. Internal Compose mode uses `TELEMETRY_TARGET=telemetry-service:50055`
 - `TELEMETRY_SOURCE_ID`, default `client-runtime`
 - `TELEMETRY_TIMEOUT_SECONDS`, default `1.0`
 - `TELEMETRY_QUEUE_SIZE`, default `1024`
@@ -249,7 +253,7 @@ different, server-side runtime and does not accelerate requests made by the exte
 Each streamed-transformer result includes `compute_device` metadata (`cuda`, `mps`, or
 `cpu`) for verification.
 
-The checked-in workstation defaults expect a parameter-streaming service or secure local forward on `127.0.0.1:50051`. Docker Compose supplies its own internal DNS target.
+Workstations default to the configured cloud endpoint with client-certificate TLS. Enable the hidden developer setting for local Compose streaming on `127.0.0.1:50051`. Docker Compose supplies its own internal DNS target.
 
 Run a standalone gRPC runtime (direct default port `50054`):
 
@@ -257,7 +261,7 @@ Run a standalone gRPC runtime (direct default port `50054`):
 python src/grpc_main.py
 ```
 
-For extension-controlled startup and shutdown, run the sibling [`runtime-supervisor`](../runtime-supervisor/README.md) package instead of starting this server directly. The supervisor forces its child to `127.0.0.1:50057`; it does not connect to an already-running service on `50054`.
+For extension-controlled startup and shutdown, run the sibling [`runtime-supervisor`](README.Runtime-supervisor.md) package instead of starting this server directly. The supervisor forces its child to `127.0.0.1:50057`; it does not connect to an already-running service on `50054`.
 
 Run the optional local server:
 

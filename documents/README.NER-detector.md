@@ -1,5 +1,7 @@
 # NER Entity Detector
 
+> Source area: `extension/client-runtime/src/NER`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
 This directory contains layer 2 of the PriVoke client-runtime detector pipeline: named entity recognition backed by spaCy.
 
 `EntityNERDetector.extract_entities(text)` returns `list[ClassificationResult]`. It only classifies natural-language model entities that are mapped in `use_cases.py`.

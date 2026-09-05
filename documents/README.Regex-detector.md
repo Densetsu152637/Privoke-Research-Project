@@ -1,5 +1,7 @@
 # Regex Rule Detector
 
+> Source area: `extension/client-runtime/src/regex`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
 This directory contains layer 1 of the PriVoke client-runtime detector pipeline: deterministic regex and heuristic detection.
 
 `RuleDetector.analyze(text)` returns `list[ClassificationResult]`. It does not merge its matches. The client runtime later selects the strongest action-producing result.

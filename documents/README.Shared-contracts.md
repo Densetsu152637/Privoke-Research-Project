@@ -1,5 +1,7 @@
 # Shared Contracts
 
+> Source area: `shared`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
 This directory contains interfaces shared by more than one PriVoke service. Active protobuf contracts are `parameters.proto`, `runtime.proto`, and `telemetry.proto` under `proto/privoke/v1`; `python/privoke_contracts` contains the shared classification value contract.
 
 ## Current Protobuf Contract

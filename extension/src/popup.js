@@ -13,6 +13,8 @@ const runtimeWarning = document.querySelector("#runtime-warning");
 const waitRegex = document.querySelector("#wait-regex");
 const modelQuality = document.querySelector("#model-quality");
 const masterToggle = document.querySelector("#master-toggle");
+const localStack = document.querySelector("#local-stack");
+const developerSettings = document.querySelector("#developer-settings");
 const layerButtons = [...document.querySelectorAll(".layer-toggle")];
 
 let settings;
@@ -26,6 +28,20 @@ prompt.addEventListener("input", clearManualResult);
 for (const button of layerButtons) button.addEventListener("click", toggleLayer);
 waitRegex.addEventListener("change", () => savePatch({ waitForRegex: waitRegex.checked }));
 modelQuality.addEventListener("change", () => savePatch({ modelQuality: modelQuality.value }));
+document.addEventListener("keydown", (event) => {
+  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "d") {
+    event.preventDefault();
+    developerSettings.hidden = !developerSettings.hidden;
+  }
+});
+localStack.addEventListener("change", async () => {
+  if (!settings) return;
+  localStack.disabled = true;
+  setStatus("Changing server connection…");
+  await savePatch({ useLocalStack: localStack.checked });
+  localStack.disabled = false;
+  serverWarning.hidden = true;
+});
 
 void initialise();
 
@@ -94,11 +110,13 @@ async function toggleLayer(event) {
 async function savePatch(patch) {
   const response = await sendMessage({ type: "UPDATE_SETTINGS", patch });
   if (!response?.ok) {
+    if (settings) renderSettings();
     setStatus(response?.error || "Could not save settings.", true);
     return;
   }
   settings = response.settings;
   renderSettings();
+  setStatus("");
 }
 
 function renderSettings() {
@@ -107,6 +125,7 @@ function renderSettings() {
     button.disabled = !settings.enabled;
   }
   waitRegex.checked = settings.waitForRegex;
+  localStack.checked = settings.useLocalStack;
   modelQuality.value = settings.modelQuality;
   masterToggle.setAttribute("aria-pressed", String(settings.enabled));
   masterToggle.setAttribute("aria-label", settings.enabled ? "Turn PriVoke off" : "Turn PriVoke on");

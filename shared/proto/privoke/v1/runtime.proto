@@ -11,6 +11,7 @@ message RuntimeHealthResponse {
 
 message SetRuntimeEnabledRequest {
   bool enabled = 1;
+  optional bool use_local_stack = 2;
 }
 
 message RuntimeControlStatus {

@@ -1,5 +1,7 @@
 # PriVoke Evaluation
 
+> Source area: `evaluation`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
 This folder evaluates whether PriVoke detects privacy-sensitive information. It sends every selected dataset prompt directly to the running Docker `client-runtime` gRPC service, so the tested system is the complete regex/rules + NER + selected LLM pipeline.
 
 The evaluator does not import runtime modules, train another classifier, use SMOTE, or use the fuzzer.
@@ -40,7 +42,7 @@ Use `prompt_detection_recall_by_source_category` in the JSON report to see which
 
 `AnalyzePrompt` returns the classification selected by the client-runtime pipeline, not every raw result separately produced by regex, NER, and the LLM. An internal result that remains at `ALLOW` level may not be exposed. The evaluator measures the strongest action-independent detection signal available from the existing API, without changing the runtime.
 
-## Setup after the root README
+## Setup after the project and browser-extension guides
 
 Start the normal production-style Docker stack once and leave it running in the background:
 

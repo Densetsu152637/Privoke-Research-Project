@@ -49,6 +49,9 @@ COPY --from=development /opt/venv /opt/venv
 COPY --from=development /workspace /workspace
 COPY --from=development --chown=privoke:privoke /models /models
 
+# Keep the repository-relative artifact path available to release-image tests.
+RUN ln -s /models /workspace/models
+
 RUN pip uninstall -y grpcio-tools wheel \
     && /usr/local/bin/python -m pip uninstall -y pip setuptools wheel
 

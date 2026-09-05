@@ -1,5 +1,7 @@
 # telemetry-service
 
+> Source area: `services/telemetry-service`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
 `telemetry-service` is a Python gRPC collector backed by SQLite. Python keeps the service consistent with the runtime protobuf tooling, while SQLite provides a durable, low-operations database suitable for the current single-node local research stack.
 
 The service never receives raw prompt text, spans, detector reasoning, request metadata, or model parameters. A packet contains only identifiers, an hourly time bucket, action/classification labels, text length, elapsed time, a coarse risk score/bucket, detector version, and per-layer status/counts. Layer failures use generic codes rather than exception messages.

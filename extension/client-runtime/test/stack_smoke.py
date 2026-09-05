@@ -35,7 +35,9 @@ from privoke.v1 import (  # noqa: E402
 
 
 RPC_TIMEOUT_SECONDS = float(os.getenv("CI_RPC_TIMEOUT_SECONDS", "15"))
-MODEL_ID = os.getenv("MODEL_ID", "privoke-baseline")
+# Runtime MODEL_ID may be the "latest" alias; training and identity assertions
+# need the concrete artifact configured on the fuzzer/update services.
+MODEL_ID = os.getenv("SMOKE_MODEL_ID", "privoke-balanced")
 TARGETS = {
     "model": os.getenv("MODEL_STREAMING_TARGET", "model-streaming-service:50051"),
     "updates": os.getenv("PARAM_UPDATE_TARGET", "param-update-service:50052"),

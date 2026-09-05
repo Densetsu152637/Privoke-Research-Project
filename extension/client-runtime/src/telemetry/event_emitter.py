@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 import grpc
+from privoke_service.stack_connection import grpc_channel
 
 from privoke.v1 import telemetry_pb2, telemetry_pb2_grpc
 
@@ -95,6 +96,7 @@ class TelemetryReporter:
         detector_version: str = "v2",
     ):
         self.target = target
+        self._channel = grpc_channel(target)
         self.timeout_seconds = timeout_seconds
         self.emitter = StructuredEventEmitter(source_id, detector_version)
         self._queue: queue.Queue = queue.Queue(maxsize=max(1, queue_size))
@@ -120,7 +122,7 @@ class TelemetryReporter:
         self._thread.join(timeout=max(0.0, timeout_seconds))
 
     def _run(self) -> None:
-        with grpc.insecure_channel(self.target) as channel:
+        with self._channel as channel:
             client = telemetry_pb2_grpc.TelemetryServiceStub(channel)
             while True:
                 packet = self._queue.get()

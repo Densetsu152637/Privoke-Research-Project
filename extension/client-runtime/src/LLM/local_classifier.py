@@ -3,7 +3,6 @@ import os
 from typing import Any, Dict, List
 from urllib import error, request
 from urllib.parse import urlsplit
-from dotenv import load_dotenv
 
 from .abs_classifier import AbstractClassifier
 from .prompt import system_prompt, user_prompt
@@ -16,7 +15,6 @@ from ..classification import (
 )
 from ..env import env_float, env_positive_int
 
-load_dotenv()
 
 MAX_LLM_RESPONSE_BYTES = 1_048_576
 

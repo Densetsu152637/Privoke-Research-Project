@@ -1,5 +1,9 @@
 # Semantic Classifiers
 
+For current cloud credentials and the hidden local-stack switch, see [Client configuration](README.Client-configuration.md). Cloud is now the workstation default.
+
+> Source area: `extension/client-runtime/src/LLM`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
 This directory contains layer 3 of the PriVoke client-runtime detector pipeline. All semantic backends implement `AbstractClassifier.classify(text) -> list[ClassificationResult]`.
 
 ## Backend Selection
@@ -32,7 +36,7 @@ This is now a real trainable neural artifact rather than the previous regex-feat
 
 Environment:
 
-- `MODEL_STREAMING_TARGET`, default `127.0.0.1:50051`
+- `PRIVOKE_CLOUD_TARGET` for cloud; `PRIVOKE_USE_LOCAL_STACK=true` selects `127.0.0.1:50051`
 - `MODEL_ID`, default `latest`
 - `MODEL_STREAMING_CONSUMER_ID`, default `client-runtime`
 - `MODEL_STREAMING_TIMEOUT_SECONDS`, default `10.0`

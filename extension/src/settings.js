@@ -17,6 +17,7 @@ const MODEL_IDS = Object.freeze({
 
 export const DEFAULT_SETTINGS = Object.freeze({
   enabled: true,
+  useLocalStack: false,
   layers: Object.freeze({ regex: true, ner: true, llm: false }),
   waitForRegex: true,
   modelQuality: MODEL_QUALITY.LATEST,
@@ -31,6 +32,7 @@ export function normaliseSettings(value = {}) {
 
   return {
     enabled: booleanOrDefault(value.enabled, DEFAULT_SETTINGS.enabled),
+    useLocalStack: booleanOrDefault(value.useLocalStack, DEFAULT_SETTINGS.useLocalStack),
     layers: {
       regex: booleanOrDefault(layers.regex, DEFAULT_SETTINGS.layers.regex),
       ner: booleanOrDefault(layers.ner, DEFAULT_SETTINGS.layers.ner),

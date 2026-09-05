@@ -35,12 +35,12 @@ export class RuntimeClient {
     );
   }
 
-  async setRuntimeEnabled(enabled, { signal } = {}) {
+  async setRuntimeEnabled(enabled, { signal, useLocalStack } = {}) {
     return this.#unary(
       RUNTIME_CONTROL_PATH,
       SetRuntimeEnabledRequest,
       RuntimeControlStatus,
-      { enabled },
+      { enabled, ...(typeof useLocalStack === "boolean" ? { useLocalStack } : {}) },
       { signal },
     );
   }

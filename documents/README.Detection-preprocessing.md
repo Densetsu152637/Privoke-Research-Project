@@ -1,5 +1,7 @@
 # Detection Preprocessing
 
+> Source area: `extension/client-runtime/src/detection`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
 This package currently contains the text normalizer used before all detector layers. It does not contain the full fusion or enforcement logic described by older PriVoke design notes.
 
 ## Current File

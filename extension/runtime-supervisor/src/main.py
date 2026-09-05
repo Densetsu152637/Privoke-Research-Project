@@ -27,6 +27,7 @@ from privoke.v1 import (
 )
 from src.runtime_supervisor import RuntimeProcessStatus, RuntimeProcessSupervisor
 from src.grpc_web_bridge import GrpcWebBridge
+from privoke_service.stack_connection import grpc_channel, stack_target
 
 
 _SHOULD_STOP = False
@@ -44,7 +45,8 @@ class PrivokeRuntimeControlService(
         self.model_streaming_health_check = model_streaming_health_check
 
     def SetRuntimeEnabled(self, request, context):
-        return _control_response(self.supervisor.set_enabled(bool(request.enabled)))
+        use_local = request.use_local_stack if request.HasField("use_local_stack") else None
+        return _control_response(self.supervisor.set_enabled(bool(request.enabled), use_local))
 
     def Status(self, request, context):
         return _control_response(self.supervisor.status())
@@ -64,10 +66,6 @@ def main() -> None:
     runtime_port = _env_positive_int("PRIVOKE_LOCAL_RUNTIME_PORT", 50057)
     control_host = "127.0.0.1"
     control_port = _env_positive_int("PRIVOKE_CONTROL_GRPC_PORT", 50056)
-    model_streaming_target = (
-        os.getenv("MODEL_STREAMING_TARGET", "127.0.0.1:50051").strip()
-        or "127.0.0.1:50051"
-    )
     model_streaming_health_timeout = _env_positive_float(
         "MODEL_STREAMING_HEALTH_TIMEOUT_SECONDS",
         3.0,
@@ -93,8 +91,9 @@ def main() -> None:
         PrivokeRuntimeControlService(
             supervisor,
             lambda: _model_streaming_health(
-                model_streaming_target,
+                stack_target("MODEL_STREAMING", supervisor.environment),
                 model_streaming_health_timeout,
+                environment=supervisor.environment,
             ),
         ),
         server,
@@ -139,16 +138,16 @@ def _control_response(status: RuntimeProcessStatus):
     )
 
 
-def _model_streaming_health(target: str, timeout_seconds: float) -> tuple[str, str]:
+def _model_streaming_health(target: str, timeout_seconds: float, *, environment=None) -> tuple[str, str]:
     service = "model-streaming-service"
     try:
-        with grpc.insecure_channel(target) as channel:
+        with grpc_channel(target, environment=environment) as channel:
             response = parameters_pb2_grpc.ModelStreamingServiceStub(channel).Health(
                 parameters_pb2.HealthRequest(),
                 timeout=timeout_seconds,
             )
         return response.service or service, response.status or "UNKNOWN"
-    except (grpc.RpcError, OSError):
+    except (grpc.RpcError, OSError, ValueError):
         return service, "NOT_SERVING"
 
 

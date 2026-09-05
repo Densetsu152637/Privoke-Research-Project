@@ -55,6 +55,8 @@ RUN apt-get update \
 
 COPY --from=development /opt/venv /opt/venv
 COPY --from=development /workspace /workspace
+# Runtime unit tests exercise the checked-in model artifacts in the release image.
+COPY models /workspace/models
 
 RUN pip uninstall -y grpcio-tools wheel \
     && /usr/local/bin/python -m pip uninstall -y pip setuptools wheel

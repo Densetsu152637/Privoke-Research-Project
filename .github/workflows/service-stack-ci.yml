@@ -3,13 +3,13 @@ name: Service stack CI
 on:
   push:
     branches:
-      - main
       - feat/dev-testing
   pull_request:
     branches:
       - main
       - feat/dev-testing
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -95,6 +95,24 @@ jobs:
             ../../shared/proto/privoke/v1/runtime.proto
       - name: Test runtime supervisor
         run: python -m unittest discover -s test -v
+      - name: Test stack selection and credential loading
+        run: python -m unittest discover -s ../../shared/python/tests -v
+
+  deployment-config:
+    name: Deployment configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate cloud Compose and deployment scripts
+        env:
+          IMAGE_PREFIX: australia-southeast1-docker.pkg.dev/example/privoke
+          IMAGE_TAG: "0000000000000000000000000000000000000000"
+          SECRETS_DIR: /tmp/privoke-ci-secrets
+        run: |
+          docker compose -f deploy/gce/compose.yml config --quiet
+          bash -n deploy/gce/bootstrap.sh deploy/gce/deploy.sh
+          shellcheck deploy/gce/bootstrap.sh deploy/gce/deploy.sh
 
   docker-stack:
     name: Production Docker stack
@@ -102,6 +120,7 @@ jobs:
       - extension-tests
       - model-tests
       - supervisor-tests
+      - deployment-config
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
@@ -157,6 +176,14 @@ jobs:
 
       - name: Stop the production stack before development integration
         run: docker compose down --remove-orphans --timeout 20
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Test cloud deployment and TLS ingress
+        run: |
+          pip install -r extension/runtime-supervisor/requirements.txt
+          python deploy/gce/tests/smoke.py
 
       - name: Start the development stack and wait for gRPC health checks
         run: |

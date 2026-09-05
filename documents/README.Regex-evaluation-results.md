@@ -1,5 +1,7 @@
 # PriVoke Regex Layer Execution-Time Summary
 
+> Source area: `evaluation/results`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
 This summary focuses on regex-layer execution time across two benchmark datasets.
 
 Both benchmarks were run through the Docker `client-runtime` gRPC service. The runtime value comes from PriVoke's server-side `elapsed_ms`, so it measures the time spent inside the runtime analysis call for each prompt.

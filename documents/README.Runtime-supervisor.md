@@ -1,5 +1,9 @@
 # PriVoke Runtime Supervisor
 
+For current cloud credentials and the hidden local-stack switch, see [Client configuration](README.Client-configuration.md). Cloud is now the workstation default.
+
+> Source area: `extension/runtime-supervisor`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
 This package is the workstation-local control process used by the browser extension. It is deliberately separate from `../client-runtime`, which contains the detector and prompt-analysis implementation.
 
 It is not part of either Docker Compose deployment. Compose runs a separate instance of the detector package at `client-runtime:50054` for the fuzzer; this supervisor never probes, adopts, controls, or routes to that server runtime.
@@ -70,7 +74,7 @@ The process uses these environment variables:
 - `PRIVOKE_RUNTIME_START_TIMEOUT_SECONDS`, default `30`
 - `PRIVOKE_RUNTIME_STOP_TIMEOUT_SECONDS`, default `10`
 - `PRIVOKE_RUNTIME_PYTHON`, optional detector interpreter override
-- `MODEL_STREAMING_TARGET`, default `127.0.0.1:50051`
+- `PRIVOKE_CLOUD_TARGET` for cloud; `PRIVOKE_USE_LOCAL_STACK=true` selects `127.0.0.1:50051`
 - `MODEL_STREAMING_HEALTH_TIMEOUT_SECONDS`, default `3`
 
 ## Verification

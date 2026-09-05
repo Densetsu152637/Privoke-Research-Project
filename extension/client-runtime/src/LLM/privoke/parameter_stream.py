@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, Tuple
 
 import grpc
+from privoke_service.stack_connection import grpc_channel, stack_target
 
 from ...env import env_float
 
@@ -76,10 +77,7 @@ class ModelParameterStreamer:
         consumer_id: str | None = None,
         timeout_seconds: float | None = None,
     ):
-        self.target = target or os.getenv(
-            "MODEL_STREAMING_TARGET",
-            self.DEFAULT_TARGET,
-        )
+        self.target = target if target is not None else stack_target("MODEL_STREAMING")
         self.model_id = model_id or os.getenv("MODEL_ID", self.DEFAULT_MODEL_ID)
         self.consumer_id = consumer_id or os.getenv(
             "MODEL_STREAMING_CONSUMER_ID",
@@ -97,7 +95,7 @@ class ModelParameterStreamer:
             raise ValueError("MODEL_STREAMING_TIMEOUT_SECONDS must be greater than zero.")
 
     def fetch(self) -> ParameterSnapshot:
-        with grpc.insecure_channel(
+        with grpc_channel(
             self.target,
             options=(("grpc.max_receive_message_length", 8 * 1024 * 1024),),
         ) as channel:

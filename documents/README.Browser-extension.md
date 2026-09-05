@@ -1,5 +1,9 @@
 # PriVoke Portable WebExtension
 
+For current cloud credentials and the hidden local-stack switch, see [Client configuration](README.Client-configuration.md). Cloud is now the workstation default.
+
+> Source area: `extension`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
 The extension checks prompts before supported AI websites send their network request. Its popup has a master power toggle, three protection-layer toggles, an optional manual prompt check, and a settings drawer.
 
 ## Deployment boundary
@@ -57,7 +61,7 @@ Browsers cannot call a native gRPC HTTP/2 endpoint directly. The bridge translat
 
 The extension itself is not deployed with Docker. Install its native messaging launcher once so Opera GX, Firefox, or another supported WebExtensions browser can start the Python supervisor on demand. A parameter-streaming endpoint is optional unless the LLM layer is enabled.
 
-1. To use the LLM layer, make `model-streaming-service` reachable on workstation loopback port `50051`. Skip this step for offline regex/NER operation. For local streamed-model testing, start only that server-side dependency; do not use the Compose `client-runtime` for extension analysis:
+1. For local LLM testing, make `model-streaming-service` reachable on workstation loopback port `50051` and enable **Use local development servers** after loading the extension (reveal it with **Ctrl+Shift+D**). Skip this step for offline regex/NER operation. For local streamed-model testing, start only that server-side dependency; do not use the Compose `client-runtime` for extension analysis:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build model-streaming-service
@@ -98,7 +102,7 @@ Apple MPS when available and falls back to the NumPy CPU implementation otherwis
 accelerator. Restart the browser and supervisor after changing a process-level environment
 variable, because the browser-launched native host inherits the browser's environment.
 
-The bridge, control service, and detector are forced to loopback. The supervisor prefers `client-runtime/.venv` for the detector process (or `PRIVOKE_RUNTIME_PYTHON` when explicitly set) and refuses to start it unless Presidio and the `en_core_web_sm` spaCy model load successfully. The extension JavaScript itself does not run the model: it sends requests to this workstation Python child, so the Compose GPU override does not affect extension traffic. Only the streamed-transformer layer uses the selected accelerator; regex and spaCy NER remain on CPU. `MODEL_STREAMING_TARGET` defaults to `127.0.0.1:50051` for this workstation path; the separate Compose detector uses the internal service name. Streaming-service health is intentionally not part of the local dependency preflight.
+The bridge, control service, and detector are forced to loopback. The supervisor prefers `client-runtime/.venv` for the detector process (or `PRIVOKE_RUNTIME_PYTHON` when explicitly set) and refuses to start it unless Presidio and the `en_core_web_sm` spaCy model load successfully. The extension JavaScript itself does not run the model: it sends requests to this workstation Python child, so the Compose GPU override does not affect extension traffic. Only the streamed-transformer layer uses the selected accelerator; regex and spaCy NER remain on CPU. The workstation uses `PRIVOKE_CLOUD_TARGET` with TLS by default; the hidden local-development setting selects `127.0.0.1:50051`. The separate Compose detector uses the internal service name. Streaming-service health is intentionally not part of the local dependency preflight.
 
 3. Build the portable extension:
 
@@ -187,4 +191,4 @@ For incremental builds, run `npm run dev` and reload the unpacked extension plus
 - `client-runtime`: Python inspection runtime and detector layers.
 - `runtime-supervisor`: separate Python lifecycle process that owns the loopback gRPC-Web bridge, detector child, and model-health control RPC.
 
-The two Python processes are documented in `client-runtime/README.md` and `runtime-supervisor/README.md`.
+The two Python processes are documented in [Client runtime](README.Client-runtime.md) and [Runtime supervisor](README.Runtime-supervisor.md).

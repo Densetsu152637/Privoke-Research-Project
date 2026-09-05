@@ -1,5 +1,7 @@
 # PriVoke model artifacts
 
+> Source area: `models`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
 PriVoke ships a family of compact transformer classifiers. Each artifact contains its architecture configuration, tensor shapes, float32-compatible weights, version, quality metadata, and checksum in one Git-friendly JSON file.
 
 | Quality | Artifact | Encoder blocks | Hidden size | Context | Intended use |

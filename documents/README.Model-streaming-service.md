@@ -1,5 +1,7 @@
 # model-streaming-service
 
+> Source area: `services/model-streaming-service`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
 `model-streaming-service` serves the persistent PriVoke transformer family. It reloads the selected artifact for every request, so an atomically published fuzzer update becomes visible without restarting this service or the client runtime.
 
 ## Artifact

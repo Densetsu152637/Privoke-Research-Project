@@ -1,5 +1,7 @@
 # privoke-fuzzer
 
+> Source area: `services/privoke-fuzzer`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
 `privoke-fuzzer` is a Python gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, asks `client-runtime` to execute a bounded semantic training batch, submits the returned classification-head gradients to `param-update-service`, and runs ad hoc prompt tests through the same runtime service.
 
 It is not in the hosted prompt decision path. Training cycles deliberately target the streamed semantic model path rather than the full regex + NER + semantic pipeline.

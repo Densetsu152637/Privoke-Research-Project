@@ -1,5 +1,7 @@
 # Hosting and HTTP Integration
 
+> Source area: `extension/client-runtime/src/hosting`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
 This package exposes the client runtime through gRPC and an optional local HTTP harness. It owns request validation, runtime LLM configuration, visibility-hint application, response serialization, and warning-span masking.
 
 ## Files

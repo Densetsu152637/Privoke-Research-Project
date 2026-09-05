@@ -19,6 +19,7 @@ function memoryStorage(initial = {}) {
 test("uses safe defaults with streamed LLM disabled", async () => {
   const settings = await loadSettings(memoryStorage());
   assert.equal(settings.enabled, true);
+  assert.equal(settings.useLocalStack, false);
   assert.deepEqual(settings.layers, { regex: true, ner: true, llm: false });
   assert.equal(settings.modelQuality, "latest");
   assert.equal(semanticModelId(settings), "");
@@ -26,6 +27,16 @@ test("uses safe defaults with streamed LLM disabled", async () => {
     "DETECTION_LAYER_REGEX",
     "DETECTION_LAYER_NER",
   ]);
+});
+
+test("persists the hidden stack switch and rejects non-boolean values", async () => {
+  const storage = memoryStorage();
+  await updateSettings({ useLocalStack: true }, storage);
+  assert.equal((await loadSettings(storage)).useLocalStack, true);
+  await updateSettings({ modelQuality: "quality" }, storage);
+  assert.equal((await loadSettings(storage)).useLocalStack, true);
+  await updateSettings({ useLocalStack: "true" }, storage);
+  assert.equal((await loadSettings(storage)).useLocalStack, false);
 });
 
 test("persists the master enabled state", async () => {

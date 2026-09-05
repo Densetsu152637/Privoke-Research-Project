@@ -7,6 +7,7 @@ from enum import Enum
 import multiprocessing
 import os
 import threading
+from privoke_service.stack_connection import stack_target
 
 from .env import (
     env_bool,
@@ -72,7 +73,7 @@ class StreamedEndpointConfig:
     @classmethod
     def from_env(cls) -> "StreamedEndpointConfig":
         return cls(
-            target=os.getenv("MODEL_STREAMING_TARGET", "127.0.0.1:50051"),
+            target=stack_target("MODEL_STREAMING"),
             model_id=os.getenv("MODEL_ID", "latest"),
             consumer_id=os.getenv("MODEL_STREAMING_CONSUMER_ID", "client-runtime"),
             timeout_seconds=env_positive_float(

@@ -3236,6 +3236,12 @@
           }
         };
         SetRuntimeEnabledRequest2.prototype.enabled = false;
+        SetRuntimeEnabledRequest2.prototype.useLocalStack = null;
+        let $oneOfFields;
+        $Object.defineProperty(SetRuntimeEnabledRequest2.prototype, "_useLocalStack", {
+          get: $util.oneOfGetter($oneOfFields = ["useLocalStack"]),
+          set: $util.oneOfSetter($oneOfFields)
+        });
         SetRuntimeEnabledRequest2.create = function(properties) {
           return new SetRuntimeEnabledRequest2(properties);
         };
@@ -3251,6 +3257,11 @@
               /* id 1, wireType 0 =*/
               8
             ).bool(message.enabled);
+          if (message.useLocalStack != null && $Object.hasOwnProperty.call(message, "useLocalStack"))
+            writer.uint32(
+              /* id 2, wireType 0 =*/
+              16
+            ).bool(message.useLocalStack);
           if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
             for (let i = 0; i < message.$unknowns.length; ++i)
               writer.raw(message.$unknowns[i]);
@@ -3285,6 +3296,13 @@
                   delete message.enabled;
                 continue;
               }
+              case 2: {
+                if (wireType !== 0)
+                  break;
+                message.useLocalStack = reader.bool();
+                message._useLocalStack = "useLocalStack";
+                continue;
+              }
             }
             reader.skipType(wireType, _depth, tag);
             if (!reader.discardUnknown) {
@@ -3308,9 +3326,15 @@
             _depth = 0;
           if (_depth > $util.recursionLimit)
             return "max depth exceeded";
+          let properties = {};
           if (message.enabled != null && $Object.hasOwnProperty.call(message, "enabled")) {
             if (typeof message.enabled !== "boolean")
               return "enabled: boolean expected";
+          }
+          if (message.useLocalStack != null && $Object.hasOwnProperty.call(message, "useLocalStack")) {
+            properties._useLocalStack = 1;
+            if (typeof message.useLocalStack !== "boolean")
+              return "useLocalStack: boolean expected";
           }
           return null;
         };
@@ -3328,6 +3352,8 @@
             if (object.enabled)
               message.enabled = $Boolean(object.enabled);
           }
+          if (object.useLocalStack != null)
+            message.useLocalStack = $Boolean(object.useLocalStack);
           return message;
         };
         SetRuntimeEnabledRequest2.toObject = function(message, options, _depth) {
@@ -3342,6 +3368,8 @@
             object.enabled = false;
           if (message.enabled != null && $Object.hasOwnProperty.call(message, "enabled"))
             object.enabled = message.enabled;
+          if (message.useLocalStack != null && $Object.hasOwnProperty.call(message, "useLocalStack"))
+            object.useLocalStack = message.useLocalStack;
           return object;
         };
         SetRuntimeEnabledRequest2.prototype.toJSON = function() {
@@ -5331,6 +5359,1063 @@
         };
         return AnalyzePromptResponse;
       })();
+      v1.RuntimeTrainingExample = (function() {
+        const RuntimeTrainingExample = function(properties) {
+          if (properties) {
+            for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+              if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                this[keys[i]] = properties[keys[i]];
+          }
+        };
+        RuntimeTrainingExample.prototype.text = "";
+        RuntimeTrainingExample.prototype.target = null;
+        RuntimeTrainingExample.prototype.hasTarget = false;
+        RuntimeTrainingExample.prototype.weight = 0;
+        RuntimeTrainingExample.create = function(properties) {
+          return new RuntimeTrainingExample(properties);
+        };
+        RuntimeTrainingExample.encode = function(message, writer, _depth) {
+          if (!writer)
+            writer = $Writer.create();
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $util.recursionLimit)
+            throw $Error("max depth exceeded");
+          if (message.text != null && $Object.hasOwnProperty.call(message, "text") && message.text !== "")
+            writer.uint32(
+              /* id 1, wireType 2 =*/
+              10
+            ).string(message.text);
+          if (message.target != null && $Object.hasOwnProperty.call(message, "target"))
+            $root.privoke.v1.RuntimeClassification.encode(message.target, writer.uint32(
+              /* id 2, wireType 2 =*/
+              18
+            ).fork(), _depth + 1).ldelim();
+          if (message.hasTarget != null && $Object.hasOwnProperty.call(message, "hasTarget") && message.hasTarget !== false)
+            writer.uint32(
+              /* id 3, wireType 0 =*/
+              24
+            ).bool(message.hasTarget);
+          if (message.weight != null && $Object.hasOwnProperty.call(message, "weight") && !$Object.is(message.weight, 0))
+            writer.uint32(
+              /* id 4, wireType 1 =*/
+              33
+            ).double(message.weight);
+          if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+            for (let i = 0; i < message.$unknowns.length; ++i)
+              writer.raw(message.$unknowns[i]);
+          return writer;
+        };
+        RuntimeTrainingExample.encodeDelimited = function(message, writer) {
+          return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+        RuntimeTrainingExample.decode = function(reader, length, _end, _depth, _target) {
+          if (!(reader instanceof $Reader))
+            reader = $Reader.create(reader);
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $Reader.recursionLimit)
+            throw $Error("max depth exceeded");
+          let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.privoke.v1.RuntimeTrainingExample(), value;
+          while (reader.pos < end) {
+            let start = reader.pos;
+            let tag = reader.tag();
+            if (tag === _end) {
+              _end = $undefined;
+              break;
+            }
+            let wireType = tag & 7;
+            switch (tag >>>= 3) {
+              case 1: {
+                if (wireType !== 2)
+                  break;
+                if ((value = reader.stringVerify()).length)
+                  message.text = value;
+                else
+                  delete message.text;
+                continue;
+              }
+              case 2: {
+                if (wireType !== 2)
+                  break;
+                message.target = $root.privoke.v1.RuntimeClassification.decode(reader, reader.uint32(), $undefined, _depth + 1, message.target);
+                continue;
+              }
+              case 3: {
+                if (wireType !== 0)
+                  break;
+                if (value = reader.bool())
+                  message.hasTarget = value;
+                else
+                  delete message.hasTarget;
+                continue;
+              }
+              case 4: {
+                if (wireType !== 1)
+                  break;
+                if (!$Object.is(value = reader.double(), 0))
+                  message.weight = value;
+                else
+                  delete message.weight;
+                continue;
+              }
+            }
+            reader.skipType(wireType, _depth, tag);
+            if (!reader.discardUnknown) {
+              $util.makeProp(message, "$unknowns", false);
+              (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+            }
+          }
+          if (_end !== $undefined)
+            throw $Error("missing end group");
+          return message;
+        };
+        RuntimeTrainingExample.decodeDelimited = function(reader) {
+          if (!(reader instanceof $Reader))
+            reader = new $Reader(reader);
+          return this.decode(reader, reader.uint32());
+        };
+        RuntimeTrainingExample.verify = function(message, _depth) {
+          if (typeof message !== "object" || message === null)
+            return "object expected";
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $util.recursionLimit)
+            return "max depth exceeded";
+          if (message.text != null && $Object.hasOwnProperty.call(message, "text")) {
+            if (!$util.isString(message.text))
+              return "text: string expected";
+          }
+          if (message.target != null && $Object.hasOwnProperty.call(message, "target")) {
+            let error = $root.privoke.v1.RuntimeClassification.verify(message.target, _depth + 1);
+            if (error)
+              return "target." + error;
+          }
+          if (message.hasTarget != null && $Object.hasOwnProperty.call(message, "hasTarget")) {
+            if (typeof message.hasTarget !== "boolean")
+              return "hasTarget: boolean expected";
+          }
+          if (message.weight != null && $Object.hasOwnProperty.call(message, "weight")) {
+            if (typeof message.weight !== "number")
+              return "weight: number expected";
+          }
+          return null;
+        };
+        RuntimeTrainingExample.fromObject = function(object, _depth) {
+          if (object instanceof $root.privoke.v1.RuntimeTrainingExample)
+            return object;
+          if (!$util.isObject(object))
+            throw $TypeError(".privoke.v1.RuntimeTrainingExample: object expected");
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $util.recursionLimit)
+            throw $Error("max depth exceeded");
+          let message = new $root.privoke.v1.RuntimeTrainingExample();
+          if (object.text != null) {
+            if (typeof object.text !== "string" || object.text.length)
+              message.text = $String(object.text);
+          }
+          if (object.target != null) {
+            if (!$util.isObject(object.target))
+              throw $TypeError(".privoke.v1.RuntimeTrainingExample.target: object expected");
+            message.target = $root.privoke.v1.RuntimeClassification.fromObject(object.target, _depth + 1);
+          }
+          if (object.hasTarget != null) {
+            if (object.hasTarget)
+              message.hasTarget = $Boolean(object.hasTarget);
+          }
+          if (object.weight != null) {
+            if (!$Object.is($Number(object.weight), 0))
+              message.weight = $Number(object.weight);
+          }
+          return message;
+        };
+        RuntimeTrainingExample.toObject = function(message, options, _depth) {
+          if (!options)
+            options = {};
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $util.recursionLimit)
+            throw $Error("max depth exceeded");
+          let object = {};
+          if (options.defaults) {
+            object.text = "";
+            object.target = null;
+            object.hasTarget = false;
+            object.weight = 0;
+          }
+          if (message.text != null && $Object.hasOwnProperty.call(message, "text"))
+            object.text = message.text;
+          if (message.target != null && $Object.hasOwnProperty.call(message, "target"))
+            object.target = $root.privoke.v1.RuntimeClassification.toObject(message.target, options, _depth + 1);
+          if (message.hasTarget != null && $Object.hasOwnProperty.call(message, "hasTarget"))
+            object.hasTarget = message.hasTarget;
+          if (message.weight != null && $Object.hasOwnProperty.call(message, "weight"))
+            object.weight = options.json && !$isFinite(message.weight) ? $String(message.weight) : message.weight;
+          return object;
+        };
+        RuntimeTrainingExample.prototype.toJSON = function() {
+          return RuntimeTrainingExample.toObject(this, import_minimal.default.util.toJSONOptions);
+        };
+        RuntimeTrainingExample.getTypeUrl = function(prefix) {
+          if (prefix === $undefined)
+            prefix = "type.googleapis.com";
+          return prefix + "/privoke.v1.RuntimeTrainingExample";
+        };
+        return RuntimeTrainingExample;
+      })();
+      v1.ComputeSemanticGradientsRequest = (function() {
+        const ComputeSemanticGradientsRequest = function(properties) {
+          this.examples = [];
+          if (properties) {
+            for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+              if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                this[keys[i]] = properties[keys[i]];
+          }
+        };
+        ComputeSemanticGradientsRequest.prototype.requestId = "";
+        ComputeSemanticGradientsRequest.prototype.modelId = "";
+        ComputeSemanticGradientsRequest.prototype.examples = $util.emptyArray;
+        ComputeSemanticGradientsRequest.prototype.learningRate = 0;
+        ComputeSemanticGradientsRequest.prototype.maxGradient = 0;
+        ComputeSemanticGradientsRequest.create = function(properties) {
+          return new ComputeSemanticGradientsRequest(properties);
+        };
+        ComputeSemanticGradientsRequest.encode = function(message, writer, _depth) {
+          if (!writer)
+            writer = $Writer.create();
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $util.recursionLimit)
+            throw $Error("max depth exceeded");
+          if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId") && message.requestId !== "")
+            writer.uint32(
+              /* id 1, wireType 2 =*/
+              10
+            ).string(message.requestId);
+          if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId") && message.modelId !== "")
+            writer.uint32(
+              /* id 2, wireType 2 =*/
+              18
+            ).string(message.modelId);
+          if (message.examples != null && message.examples.length)
+            for (let i = 0; i < message.examples.length; ++i)
+              $root.privoke.v1.RuntimeTrainingExample.encode(message.examples[i], writer.uint32(
+                /* id 3, wireType 2 =*/
+                26
+              ).fork(), _depth + 1).ldelim();
+          if (message.learningRate != null && $Object.hasOwnProperty.call(message, "learningRate") && !$Object.is(message.learningRate, 0))
+            writer.uint32(
+              /* id 4, wireType 1 =*/
+              33
+            ).double(message.learningRate);
+          if (message.maxGradient != null && $Object.hasOwnProperty.call(message, "maxGradient") && !$Object.is(message.maxGradient, 0))
+            writer.uint32(
+              /* id 5, wireType 1 =*/
+              41
+            ).double(message.maxGradient);
+          if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+            for (let i = 0; i < message.$unknowns.length; ++i)
+              writer.raw(message.$unknowns[i]);
+          return writer;
+        };
+        ComputeSemanticGradientsRequest.encodeDelimited = function(message, writer) {
+          return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+        ComputeSemanticGradientsRequest.decode = function(reader, length, _end, _depth, _target) {
+          if (!(reader instanceof $Reader))
+            reader = $Reader.create(reader);
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $Reader.recursionLimit)
+            throw $Error("max depth exceeded");
+          let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.privoke.v1.ComputeSemanticGradientsRequest(), value;
+          while (reader.pos < end) {
+            let start = reader.pos;
+            let tag = reader.tag();
+            if (tag === _end) {
+              _end = $undefined;
+              break;
+            }
+            let wireType = tag & 7;
+            switch (tag >>>= 3) {
+              case 1: {
+                if (wireType !== 2)
+                  break;
+                if ((value = reader.stringVerify()).length)
+                  message.requestId = value;
+                else
+                  delete message.requestId;
+                continue;
+              }
+              case 2: {
+                if (wireType !== 2)
+                  break;
+                if ((value = reader.stringVerify()).length)
+                  message.modelId = value;
+                else
+                  delete message.modelId;
+                continue;
+              }
+              case 3: {
+                if (wireType !== 2)
+                  break;
+                if (!(message.examples && message.examples.length))
+                  message.examples = [];
+                message.examples.push($root.privoke.v1.RuntimeTrainingExample.decode(reader, reader.uint32(), $undefined, _depth + 1));
+                continue;
+              }
+              case 4: {
+                if (wireType !== 1)
+                  break;
+                if (!$Object.is(value = reader.double(), 0))
+                  message.learningRate = value;
+                else
+                  delete message.learningRate;
+                continue;
+              }
+              case 5: {
+                if (wireType !== 1)
+                  break;
+                if (!$Object.is(value = reader.double(), 0))
+                  message.maxGradient = value;
+                else
+                  delete message.maxGradient;
+                continue;
+              }
+            }
+            reader.skipType(wireType, _depth, tag);
+            if (!reader.discardUnknown) {
+              $util.makeProp(message, "$unknowns", false);
+              (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+            }
+          }
+          if (_end !== $undefined)
+            throw $Error("missing end group");
+          return message;
+        };
+        ComputeSemanticGradientsRequest.decodeDelimited = function(reader) {
+          if (!(reader instanceof $Reader))
+            reader = new $Reader(reader);
+          return this.decode(reader, reader.uint32());
+        };
+        ComputeSemanticGradientsRequest.verify = function(message, _depth) {
+          if (typeof message !== "object" || message === null)
+            return "object expected";
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $util.recursionLimit)
+            return "max depth exceeded";
+          if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId")) {
+            if (!$util.isString(message.requestId))
+              return "requestId: string expected";
+          }
+          if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId")) {
+            if (!$util.isString(message.modelId))
+              return "modelId: string expected";
+          }
+          if (message.examples != null && $Object.hasOwnProperty.call(message, "examples")) {
+            if (!$Array.isArray(message.examples))
+              return "examples: array expected";
+            for (let i = 0; i < message.examples.length; ++i) {
+              let error = $root.privoke.v1.RuntimeTrainingExample.verify(message.examples[i], _depth + 1);
+              if (error)
+                return "examples." + error;
+            }
+          }
+          if (message.learningRate != null && $Object.hasOwnProperty.call(message, "learningRate")) {
+            if (typeof message.learningRate !== "number")
+              return "learningRate: number expected";
+          }
+          if (message.maxGradient != null && $Object.hasOwnProperty.call(message, "maxGradient")) {
+            if (typeof message.maxGradient !== "number")
+              return "maxGradient: number expected";
+          }
+          return null;
+        };
+        ComputeSemanticGradientsRequest.fromObject = function(object, _depth) {
+          if (object instanceof $root.privoke.v1.ComputeSemanticGradientsRequest)
+            return object;
+          if (!$util.isObject(object))
+            throw $TypeError(".privoke.v1.ComputeSemanticGradientsRequest: object expected");
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $util.recursionLimit)
+            throw $Error("max depth exceeded");
+          let message = new $root.privoke.v1.ComputeSemanticGradientsRequest();
+          if (object.requestId != null) {
+            if (typeof object.requestId !== "string" || object.requestId.length)
+              message.requestId = $String(object.requestId);
+          }
+          if (object.modelId != null) {
+            if (typeof object.modelId !== "string" || object.modelId.length)
+              message.modelId = $String(object.modelId);
+          }
+          if (object.examples) {
+            if (!$Array.isArray(object.examples))
+              throw $TypeError(".privoke.v1.ComputeSemanticGradientsRequest.examples: array expected");
+            message.examples = $Array(object.examples.length);
+            for (let i = 0; i < object.examples.length; ++i) {
+              if (!$util.isObject(object.examples[i]))
+                throw $TypeError(".privoke.v1.ComputeSemanticGradientsRequest.examples: object expected");
+              message.examples[i] = $root.privoke.v1.RuntimeTrainingExample.fromObject(object.examples[i], _depth + 1);
+            }
+          }
+          if (object.learningRate != null) {
+            if (!$Object.is($Number(object.learningRate), 0))
+              message.learningRate = $Number(object.learningRate);
+          }
+          if (object.maxGradient != null) {
+            if (!$Object.is($Number(object.maxGradient), 0))
+              message.maxGradient = $Number(object.maxGradient);
+          }
+          return message;
+        };
+        ComputeSemanticGradientsRequest.toObject = function(message, options, _depth) {
+          if (!options)
+            options = {};
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $util.recursionLimit)
+            throw $Error("max depth exceeded");
+          let object = {};
+          if (options.arrays || options.defaults)
+            object.examples = [];
+          if (options.defaults) {
+            object.requestId = "";
+            object.modelId = "";
+            object.learningRate = 0;
+            object.maxGradient = 0;
+          }
+          if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId"))
+            object.requestId = message.requestId;
+          if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId"))
+            object.modelId = message.modelId;
+          if (message.examples && message.examples.length) {
+            object.examples = $Array(message.examples.length);
+            for (let j = 0; j < message.examples.length; ++j)
+              object.examples[j] = $root.privoke.v1.RuntimeTrainingExample.toObject(message.examples[j], options, _depth + 1);
+          }
+          if (message.learningRate != null && $Object.hasOwnProperty.call(message, "learningRate"))
+            object.learningRate = options.json && !$isFinite(message.learningRate) ? $String(message.learningRate) : message.learningRate;
+          if (message.maxGradient != null && $Object.hasOwnProperty.call(message, "maxGradient"))
+            object.maxGradient = options.json && !$isFinite(message.maxGradient) ? $String(message.maxGradient) : message.maxGradient;
+          return object;
+        };
+        ComputeSemanticGradientsRequest.prototype.toJSON = function() {
+          return ComputeSemanticGradientsRequest.toObject(this, import_minimal.default.util.toJSONOptions);
+        };
+        ComputeSemanticGradientsRequest.getTypeUrl = function(prefix) {
+          if (prefix === $undefined)
+            prefix = "type.googleapis.com";
+          return prefix + "/privoke.v1.ComputeSemanticGradientsRequest";
+        };
+        return ComputeSemanticGradientsRequest;
+      })();
+      v1.RuntimeParameterDelta = (function() {
+        const RuntimeParameterDelta = function(properties) {
+          this.values = [];
+          this.shape = [];
+          if (properties) {
+            for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+              if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                this[keys[i]] = properties[keys[i]];
+          }
+        };
+        RuntimeParameterDelta.prototype.name = "";
+        RuntimeParameterDelta.prototype.values = $util.emptyArray;
+        RuntimeParameterDelta.prototype.shape = $util.emptyArray;
+        RuntimeParameterDelta.create = function(properties) {
+          return new RuntimeParameterDelta(properties);
+        };
+        RuntimeParameterDelta.encode = function(message, writer, _depth) {
+          if (!writer)
+            writer = $Writer.create();
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $util.recursionLimit)
+            throw $Error("max depth exceeded");
+          if (message.name != null && $Object.hasOwnProperty.call(message, "name") && message.name !== "")
+            writer.uint32(
+              /* id 1, wireType 2 =*/
+              10
+            ).string(message.name);
+          if (message.values != null && message.values.length)
+            writer.uint32(
+              /* id 2, wireType 2 =*/
+              18
+            ).floats(message.values);
+          if (message.shape != null && message.shape.length)
+            writer.uint32(
+              /* id 3, wireType 2 =*/
+              26
+            ).uint32s(message.shape);
+          if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+            for (let i = 0; i < message.$unknowns.length; ++i)
+              writer.raw(message.$unknowns[i]);
+          return writer;
+        };
+        RuntimeParameterDelta.encodeDelimited = function(message, writer) {
+          return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+        RuntimeParameterDelta.decode = function(reader, length, _end, _depth, _target) {
+          if (!(reader instanceof $Reader))
+            reader = $Reader.create(reader);
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $Reader.recursionLimit)
+            throw $Error("max depth exceeded");
+          let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.privoke.v1.RuntimeParameterDelta(), value;
+          while (reader.pos < end) {
+            let start = reader.pos;
+            let tag = reader.tag();
+            if (tag === _end) {
+              _end = $undefined;
+              break;
+            }
+            let wireType = tag & 7;
+            switch (tag >>>= 3) {
+              case 1: {
+                if (wireType !== 2)
+                  break;
+                if ((value = reader.stringVerify()).length)
+                  message.name = value;
+                else
+                  delete message.name;
+                continue;
+              }
+              case 2: {
+                if (wireType === 2) {
+                  if (!(message.values && message.values.length))
+                    message.values = [];
+                  reader.floats(message.values);
+                  continue;
+                }
+                if (wireType !== 5)
+                  break;
+                if (!(message.values && message.values.length))
+                  message.values = [];
+                message.values.push(reader.float());
+                continue;
+              }
+              case 3: {
+                if (wireType === 2) {
+                  if (!(message.shape && message.shape.length))
+                    message.shape = [];
+                  reader.uint32s(message.shape);
+                  continue;
+                }
+                if (wireType !== 0)
+                  break;
+                if (!(message.shape && message.shape.length))
+                  message.shape = [];
+                message.shape.push(reader.uint32());
+                continue;
+              }
+            }
+            reader.skipType(wireType, _depth, tag);
+            if (!reader.discardUnknown) {
+              $util.makeProp(message, "$unknowns", false);
+              (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+            }
+          }
+          if (_end !== $undefined)
+            throw $Error("missing end group");
+          return message;
+        };
+        RuntimeParameterDelta.decodeDelimited = function(reader) {
+          if (!(reader instanceof $Reader))
+            reader = new $Reader(reader);
+          return this.decode(reader, reader.uint32());
+        };
+        RuntimeParameterDelta.verify = function(message, _depth) {
+          if (typeof message !== "object" || message === null)
+            return "object expected";
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $util.recursionLimit)
+            return "max depth exceeded";
+          if (message.name != null && $Object.hasOwnProperty.call(message, "name")) {
+            if (!$util.isString(message.name))
+              return "name: string expected";
+          }
+          if (message.values != null && $Object.hasOwnProperty.call(message, "values")) {
+            if (!$Array.isArray(message.values))
+              return "values: array expected";
+            for (let i = 0; i < message.values.length; ++i)
+              if (typeof message.values[i] !== "number")
+                return "values: number[] expected";
+          }
+          if (message.shape != null && $Object.hasOwnProperty.call(message, "shape")) {
+            if (!$Array.isArray(message.shape))
+              return "shape: array expected";
+            for (let i = 0; i < message.shape.length; ++i)
+              if (!$util.isInteger(message.shape[i]))
+                return "shape: integer[] expected";
+          }
+          return null;
+        };
+        RuntimeParameterDelta.fromObject = function(object, _depth) {
+          if (object instanceof $root.privoke.v1.RuntimeParameterDelta)
+            return object;
+          if (!$util.isObject(object))
+            throw $TypeError(".privoke.v1.RuntimeParameterDelta: object expected");
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $util.recursionLimit)
+            throw $Error("max depth exceeded");
+          let message = new $root.privoke.v1.RuntimeParameterDelta();
+          if (object.name != null) {
+            if (typeof object.name !== "string" || object.name.length)
+              message.name = $String(object.name);
+          }
+          if (object.values) {
+            if (!$Array.isArray(object.values))
+              throw $TypeError(".privoke.v1.RuntimeParameterDelta.values: array expected");
+            message.values = $Array(object.values.length);
+            for (let i = 0; i < object.values.length; ++i)
+              message.values[i] = $Number(object.values[i]);
+          }
+          if (object.shape) {
+            if (!$Array.isArray(object.shape))
+              throw $TypeError(".privoke.v1.RuntimeParameterDelta.shape: array expected");
+            message.shape = $Array(object.shape.length);
+            for (let i = 0; i < object.shape.length; ++i)
+              message.shape[i] = object.shape[i] >>> 0;
+          }
+          return message;
+        };
+        RuntimeParameterDelta.toObject = function(message, options, _depth) {
+          if (!options)
+            options = {};
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $util.recursionLimit)
+            throw $Error("max depth exceeded");
+          let object = {};
+          if (options.arrays || options.defaults) {
+            object.values = [];
+            object.shape = [];
+          }
+          if (options.defaults)
+            object.name = "";
+          if (message.name != null && $Object.hasOwnProperty.call(message, "name"))
+            object.name = message.name;
+          if (message.values && message.values.length) {
+            object.values = $Array(message.values.length);
+            for (let j = 0; j < message.values.length; ++j)
+              object.values[j] = options.json && !$isFinite(message.values[j]) ? $String(message.values[j]) : message.values[j];
+          }
+          if (message.shape && message.shape.length) {
+            object.shape = $Array(message.shape.length);
+            for (let j = 0; j < message.shape.length; ++j)
+              object.shape[j] = message.shape[j];
+          }
+          return object;
+        };
+        RuntimeParameterDelta.prototype.toJSON = function() {
+          return RuntimeParameterDelta.toObject(this, import_minimal.default.util.toJSONOptions);
+        };
+        RuntimeParameterDelta.getTypeUrl = function(prefix) {
+          if (prefix === $undefined)
+            prefix = "type.googleapis.com";
+          return prefix + "/privoke.v1.RuntimeParameterDelta";
+        };
+        return RuntimeParameterDelta;
+      })();
+      v1.ComputeSemanticGradientsResponse = (function() {
+        const ComputeSemanticGradientsResponse = function(properties) {
+          this.gradients = [];
+          this.metrics = {};
+          this.metadata = {};
+          if (properties) {
+            for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+              if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                this[keys[i]] = properties[keys[i]];
+          }
+        };
+        ComputeSemanticGradientsResponse.prototype.requestId = "";
+        ComputeSemanticGradientsResponse.prototype.modelId = "";
+        ComputeSemanticGradientsResponse.prototype.baseVersion = "";
+        ComputeSemanticGradientsResponse.prototype.gradients = $util.emptyArray;
+        ComputeSemanticGradientsResponse.prototype.metrics = $util.emptyObject;
+        ComputeSemanticGradientsResponse.prototype.metadata = $util.emptyObject;
+        ComputeSemanticGradientsResponse.prototype.error = "";
+        ComputeSemanticGradientsResponse.create = function(properties) {
+          return new ComputeSemanticGradientsResponse(properties);
+        };
+        ComputeSemanticGradientsResponse.encode = function(message, writer, _depth) {
+          if (!writer)
+            writer = $Writer.create();
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $util.recursionLimit)
+            throw $Error("max depth exceeded");
+          if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId") && message.requestId !== "")
+            writer.uint32(
+              /* id 1, wireType 2 =*/
+              10
+            ).string(message.requestId);
+          if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId") && message.modelId !== "")
+            writer.uint32(
+              /* id 2, wireType 2 =*/
+              18
+            ).string(message.modelId);
+          if (message.baseVersion != null && $Object.hasOwnProperty.call(message, "baseVersion") && message.baseVersion !== "")
+            writer.uint32(
+              /* id 3, wireType 2 =*/
+              26
+            ).string(message.baseVersion);
+          if (message.gradients != null && message.gradients.length)
+            for (let i = 0; i < message.gradients.length; ++i)
+              $root.privoke.v1.RuntimeParameterDelta.encode(message.gradients[i], writer.uint32(
+                /* id 4, wireType 2 =*/
+                34
+              ).fork(), _depth + 1).ldelim();
+          if (message.metrics != null && $Object.hasOwnProperty.call(message, "metrics"))
+            for (let keys = $Object.keys(message.metrics), i = 0; i < keys.length; ++i)
+              writer.uint32(
+                /* id 5, wireType 2 =*/
+                42
+              ).fork().uint32(
+                /* id 1, wireType 2 =*/
+                10
+              ).string(keys[i]).uint32(
+                /* id 2, wireType 1 =*/
+                17
+              ).double(message.metrics[keys[i]]).ldelim();
+          if (message.metadata != null && $Object.hasOwnProperty.call(message, "metadata"))
+            for (let keys = $Object.keys(message.metadata), i = 0; i < keys.length; ++i)
+              writer.uint32(
+                /* id 6, wireType 2 =*/
+                50
+              ).fork().uint32(
+                /* id 1, wireType 2 =*/
+                10
+              ).string(keys[i]).uint32(
+                /* id 2, wireType 2 =*/
+                18
+              ).string(message.metadata[keys[i]]).ldelim();
+          if (message.error != null && $Object.hasOwnProperty.call(message, "error") && message.error !== "")
+            writer.uint32(
+              /* id 7, wireType 2 =*/
+              58
+            ).string(message.error);
+          if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+            for (let i = 0; i < message.$unknowns.length; ++i)
+              writer.raw(message.$unknowns[i]);
+          return writer;
+        };
+        ComputeSemanticGradientsResponse.encodeDelimited = function(message, writer) {
+          return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+        };
+        ComputeSemanticGradientsResponse.decode = function(reader, length, _end, _depth, _target) {
+          if (!(reader instanceof $Reader))
+            reader = $Reader.create(reader);
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $Reader.recursionLimit)
+            throw $Error("max depth exceeded");
+          let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.privoke.v1.ComputeSemanticGradientsResponse(), key, value;
+          while (reader.pos < end) {
+            let start = reader.pos;
+            let tag = reader.tag();
+            if (tag === _end) {
+              _end = $undefined;
+              break;
+            }
+            let wireType = tag & 7;
+            switch (tag >>>= 3) {
+              case 1: {
+                if (wireType !== 2)
+                  break;
+                if ((value = reader.stringVerify()).length)
+                  message.requestId = value;
+                else
+                  delete message.requestId;
+                continue;
+              }
+              case 2: {
+                if (wireType !== 2)
+                  break;
+                if ((value = reader.stringVerify()).length)
+                  message.modelId = value;
+                else
+                  delete message.modelId;
+                continue;
+              }
+              case 3: {
+                if (wireType !== 2)
+                  break;
+                if ((value = reader.stringVerify()).length)
+                  message.baseVersion = value;
+                else
+                  delete message.baseVersion;
+                continue;
+              }
+              case 4: {
+                if (wireType !== 2)
+                  break;
+                if (!(message.gradients && message.gradients.length))
+                  message.gradients = [];
+                message.gradients.push($root.privoke.v1.RuntimeParameterDelta.decode(reader, reader.uint32(), $undefined, _depth + 1));
+                continue;
+              }
+              case 5: {
+                if (wireType !== 2)
+                  break;
+                if (message.metrics === $util.emptyObject)
+                  message.metrics = {};
+                let end2 = reader.uint32() + reader.pos;
+                key = "";
+                value = 0;
+                while (reader.pos < end2) {
+                  let tag2 = reader.tag();
+                  wireType = tag2 & 7;
+                  switch (tag2 >>>= 3) {
+                    case 1:
+                      if (wireType !== 2)
+                        break;
+                      key = reader.stringVerify();
+                      continue;
+                    case 2:
+                      if (wireType !== 1)
+                        break;
+                      value = reader.double();
+                      continue;
+                  }
+                  reader.skipType(wireType, _depth, tag2);
+                }
+                if (key === "__proto__")
+                  $util.makeProp(message.metrics, key);
+                message.metrics[key] = value;
+                continue;
+              }
+              case 6: {
+                if (wireType !== 2)
+                  break;
+                if (message.metadata === $util.emptyObject)
+                  message.metadata = {};
+                let end2 = reader.uint32() + reader.pos;
+                key = "";
+                value = "";
+                while (reader.pos < end2) {
+                  let tag2 = reader.tag();
+                  wireType = tag2 & 7;
+                  switch (tag2 >>>= 3) {
+                    case 1:
+                      if (wireType !== 2)
+                        break;
+                      key = reader.stringVerify();
+                      continue;
+                    case 2:
+                      if (wireType !== 2)
+                        break;
+                      value = reader.stringVerify();
+                      continue;
+                  }
+                  reader.skipType(wireType, _depth, tag2);
+                }
+                if (key === "__proto__")
+                  $util.makeProp(message.metadata, key);
+                message.metadata[key] = value;
+                continue;
+              }
+              case 7: {
+                if (wireType !== 2)
+                  break;
+                if ((value = reader.stringVerify()).length)
+                  message.error = value;
+                else
+                  delete message.error;
+                continue;
+              }
+            }
+            reader.skipType(wireType, _depth, tag);
+            if (!reader.discardUnknown) {
+              $util.makeProp(message, "$unknowns", false);
+              (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+            }
+          }
+          if (_end !== $undefined)
+            throw $Error("missing end group");
+          return message;
+        };
+        ComputeSemanticGradientsResponse.decodeDelimited = function(reader) {
+          if (!(reader instanceof $Reader))
+            reader = new $Reader(reader);
+          return this.decode(reader, reader.uint32());
+        };
+        ComputeSemanticGradientsResponse.verify = function(message, _depth) {
+          if (typeof message !== "object" || message === null)
+            return "object expected";
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $util.recursionLimit)
+            return "max depth exceeded";
+          if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId")) {
+            if (!$util.isString(message.requestId))
+              return "requestId: string expected";
+          }
+          if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId")) {
+            if (!$util.isString(message.modelId))
+              return "modelId: string expected";
+          }
+          if (message.baseVersion != null && $Object.hasOwnProperty.call(message, "baseVersion")) {
+            if (!$util.isString(message.baseVersion))
+              return "baseVersion: string expected";
+          }
+          if (message.gradients != null && $Object.hasOwnProperty.call(message, "gradients")) {
+            if (!$Array.isArray(message.gradients))
+              return "gradients: array expected";
+            for (let i = 0; i < message.gradients.length; ++i) {
+              let error = $root.privoke.v1.RuntimeParameterDelta.verify(message.gradients[i], _depth + 1);
+              if (error)
+                return "gradients." + error;
+            }
+          }
+          if (message.metrics != null && $Object.hasOwnProperty.call(message, "metrics")) {
+            if (!$util.isObject(message.metrics))
+              return "metrics: object expected";
+            let key = $Object.keys(message.metrics);
+            for (let i = 0; i < key.length; ++i)
+              if (typeof message.metrics[key[i]] !== "number")
+                return "metrics: number{k:string} expected";
+          }
+          if (message.metadata != null && $Object.hasOwnProperty.call(message, "metadata")) {
+            if (!$util.isObject(message.metadata))
+              return "metadata: object expected";
+            let key = $Object.keys(message.metadata);
+            for (let i = 0; i < key.length; ++i)
+              if (!$util.isString(message.metadata[key[i]]))
+                return "metadata: string{k:string} expected";
+          }
+          if (message.error != null && $Object.hasOwnProperty.call(message, "error")) {
+            if (!$util.isString(message.error))
+              return "error: string expected";
+          }
+          return null;
+        };
+        ComputeSemanticGradientsResponse.fromObject = function(object, _depth) {
+          if (object instanceof $root.privoke.v1.ComputeSemanticGradientsResponse)
+            return object;
+          if (!$util.isObject(object))
+            throw $TypeError(".privoke.v1.ComputeSemanticGradientsResponse: object expected");
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $util.recursionLimit)
+            throw $Error("max depth exceeded");
+          let message = new $root.privoke.v1.ComputeSemanticGradientsResponse();
+          if (object.requestId != null) {
+            if (typeof object.requestId !== "string" || object.requestId.length)
+              message.requestId = $String(object.requestId);
+          }
+          if (object.modelId != null) {
+            if (typeof object.modelId !== "string" || object.modelId.length)
+              message.modelId = $String(object.modelId);
+          }
+          if (object.baseVersion != null) {
+            if (typeof object.baseVersion !== "string" || object.baseVersion.length)
+              message.baseVersion = $String(object.baseVersion);
+          }
+          if (object.gradients) {
+            if (!$Array.isArray(object.gradients))
+              throw $TypeError(".privoke.v1.ComputeSemanticGradientsResponse.gradients: array expected");
+            message.gradients = $Array(object.gradients.length);
+            for (let i = 0; i < object.gradients.length; ++i) {
+              if (!$util.isObject(object.gradients[i]))
+                throw $TypeError(".privoke.v1.ComputeSemanticGradientsResponse.gradients: object expected");
+              message.gradients[i] = $root.privoke.v1.RuntimeParameterDelta.fromObject(object.gradients[i], _depth + 1);
+            }
+          }
+          if (object.metrics) {
+            if (!$util.isObject(object.metrics))
+              throw $TypeError(".privoke.v1.ComputeSemanticGradientsResponse.metrics: object expected");
+            message.metrics = {};
+            for (let keys = $Object.keys(object.metrics), i = 0; i < keys.length; ++i) {
+              if (keys[i] === "__proto__")
+                $util.makeProp(message.metrics, keys[i]);
+              message.metrics[keys[i]] = $Number(object.metrics[keys[i]]);
+            }
+          }
+          if (object.metadata) {
+            if (!$util.isObject(object.metadata))
+              throw $TypeError(".privoke.v1.ComputeSemanticGradientsResponse.metadata: object expected");
+            message.metadata = {};
+            for (let keys = $Object.keys(object.metadata), i = 0; i < keys.length; ++i) {
+              if (keys[i] === "__proto__")
+                $util.makeProp(message.metadata, keys[i]);
+              message.metadata[keys[i]] = $String(object.metadata[keys[i]]);
+            }
+          }
+          if (object.error != null) {
+            if (typeof object.error !== "string" || object.error.length)
+              message.error = $String(object.error);
+          }
+          return message;
+        };
+        ComputeSemanticGradientsResponse.toObject = function(message, options, _depth) {
+          if (!options)
+            options = {};
+          if (_depth === $undefined)
+            _depth = 0;
+          if (_depth > $util.recursionLimit)
+            throw $Error("max depth exceeded");
+          let object = {};
+          if (options.arrays || options.defaults)
+            object.gradients = [];
+          if (options.objects || options.defaults) {
+            object.metrics = {};
+            object.metadata = {};
+          }
+          if (options.defaults) {
+            object.requestId = "";
+            object.modelId = "";
+            object.baseVersion = "";
+            object.error = "";
+          }
+          if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId"))
+            object.requestId = message.requestId;
+          if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId"))
+            object.modelId = message.modelId;
+          if (message.baseVersion != null && $Object.hasOwnProperty.call(message, "baseVersion"))
+            object.baseVersion = message.baseVersion;
+          if (message.gradients && message.gradients.length) {
+            object.gradients = $Array(message.gradients.length);
+            for (let j = 0; j < message.gradients.length; ++j)
+              object.gradients[j] = $root.privoke.v1.RuntimeParameterDelta.toObject(message.gradients[j], options, _depth + 1);
+          }
+          let keys2;
+          if (message.metrics && (keys2 = $Object.keys(message.metrics)).length) {
+            object.metrics = {};
+            for (let j = 0; j < keys2.length; ++j) {
+              if (keys2[j] === "__proto__")
+                $util.makeProp(object.metrics, keys2[j]);
+              object.metrics[keys2[j]] = options.json && !$isFinite(message.metrics[keys2[j]]) ? $String(message.metrics[keys2[j]]) : message.metrics[keys2[j]];
+            }
+          }
+          if (message.metadata && (keys2 = $Object.keys(message.metadata)).length) {
+            object.metadata = {};
+            for (let j = 0; j < keys2.length; ++j) {
+              if (keys2[j] === "__proto__")
+                $util.makeProp(object.metadata, keys2[j]);
+              object.metadata[keys2[j]] = message.metadata[keys2[j]];
+            }
+          }
+          if (message.error != null && $Object.hasOwnProperty.call(message, "error"))
+            object.error = message.error;
+          return object;
+        };
+        ComputeSemanticGradientsResponse.prototype.toJSON = function() {
+          return ComputeSemanticGradientsResponse.toObject(this, import_minimal.default.util.toJSONOptions);
+        };
+        ComputeSemanticGradientsResponse.getTypeUrl = function(prefix) {
+          if (prefix === $undefined)
+            prefix = "type.googleapis.com";
+          return prefix + "/privoke.v1.ComputeSemanticGradientsResponse";
+        };
+        return ComputeSemanticGradientsResponse;
+      })();
       v1.PrivokeRuntimeService = (function() {
         const PrivokeRuntimeService = function(rpcImpl, requestDelimited, responseDelimited) {
           import_minimal.default.rpc.Service.call(this, rpcImpl, requestDelimited, responseDelimited);
@@ -5346,6 +6431,16 @@
           path: { value: "/privoke.v1.PrivokeRuntimeService/AnalyzePrompt" },
           requestType: { value: "AnalyzePromptRequest" },
           responseType: { value: "AnalyzePromptResponse" },
+          requestStream: { value: $undefined },
+          responseStream: { value: $undefined }
+        });
+        $Object.defineProperties(PrivokeRuntimeService.prototype.computeSemanticGradients = function(request, callback) {
+          return import_minimal.default.rpc.Service.prototype.rpcCall.call(this, PrivokeRuntimeService.prototype.computeSemanticGradients, $root.privoke.v1.ComputeSemanticGradientsRequest, $root.privoke.v1.ComputeSemanticGradientsResponse, request, callback);
+        }, {
+          name: { value: "ComputeSemanticGradients" },
+          path: { value: "/privoke.v1.PrivokeRuntimeService/ComputeSemanticGradients" },
+          requestType: { value: "ComputeSemanticGradientsRequest" },
+          responseType: { value: "ComputeSemanticGradientsResponse" },
           requestStream: { value: $undefined },
           responseStream: { value: $undefined }
         });
@@ -5502,12 +6597,12 @@
         { signal }
       );
     }
-    async setRuntimeEnabled(enabled, { signal } = {}) {
+    async setRuntimeEnabled(enabled, { signal, useLocalStack } = {}) {
       return this.#unary(
         RUNTIME_CONTROL_PATH,
         SetRuntimeEnabledRequest,
         RuntimeControlStatus,
-        { enabled },
+        { enabled, ...typeof useLocalStack === "boolean" ? { useLocalStack } : {} },
         { signal }
       );
     }
@@ -5676,7 +6771,8 @@
     if (!settings.enabled) return null;
     await ensureSupervisor(runtimeClient);
     const runtime = await runtimeClient.setRuntimeEnabled(true, {
-      signal: AbortSignal.timeout(36e3)
+      signal: AbortSignal.timeout(36e3),
+      useLocalStack: settings.useLocalStack ?? false
     });
     if (!runtime.enabled) {
       throw new Error(runtime.message || "The client runtime failed to start.");
@@ -5700,6 +6796,7 @@
   });
   var DEFAULT_SETTINGS = Object.freeze({
     enabled: true,
+    useLocalStack: false,
     layers: Object.freeze({ regex: true, ner: true, llm: false }),
     waitForRegex: true,
     modelQuality: MODEL_QUALITY.LATEST
@@ -5711,6 +6808,7 @@
     const modelQuality = normaliseModelQuality(value);
     return {
       enabled: booleanOrDefault(value.enabled, DEFAULT_SETTINGS.enabled),
+      useLocalStack: booleanOrDefault(value.useLocalStack, DEFAULT_SETTINGS.useLocalStack),
       layers: {
         regex: booleanOrDefault(layers.regex, DEFAULT_SETTINGS.layers.regex),
         ner: booleanOrDefault(layers.ner, DEFAULT_SETTINGS.layers.ner),
@@ -5773,7 +6871,7 @@
       case "GET_SETTINGS":
         return { ok: true, settings: await loadSettings() };
       case "UPDATE_SETTINGS":
-        return { ok: true, settings: await updateSettings(message.patch ?? {}) };
+        return enqueueRuntimeControl(() => applySettings(message.patch ?? {}));
       case "SET_MASTER_ENABLED":
         return enqueueRuntimeControl(() => setMasterEnabled(Boolean(message.enabled)));
       case "GET_RUNTIME_STATUS":
@@ -5805,6 +6903,20 @@
       };
     }
   }
+  async function applySettings(patch) {
+    const current = await loadSettings();
+    const next = mergeSettings(current, patch);
+    if (next.useLocalStack !== current.useLocalStack && current.enabled) {
+      try {
+        await restoreConfiguredRuntime(client, next);
+      } catch (error) {
+        await restoreConfiguredRuntime(client, current).catch(() => {
+        });
+        return { ok: false, settings: current, error: errorMessage3(error) };
+      }
+    }
+    return { ok: true, settings: await updateSettings(patch) };
+  }
   async function setMasterEnabled(enabled) {
     if (!enabled) {
       const settings = await updateSettings({ enabled: false });
@@ -5823,7 +6935,7 @@
       }
     }
     try {
-      const runtime = await restoreConfiguredRuntime(client, { enabled: true });
+      const runtime = await restoreConfiguredRuntime(client, { ...await loadSettings(), enabled: true });
       const settings = await updateSettings({ enabled: true });
       return { ok: true, settings, runtime };
     } catch (error) {

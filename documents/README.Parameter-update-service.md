@@ -1,5 +1,7 @@
 # param-update-service
 
+> Source area: `services/param-update-service`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
 `param-update-service` accepts bounded tensor updates, atomically applies them to the persistent PriVoke model artifact, and appends an audit record to JSONL. It can also request training cycles from `privoke-fuzzer` after startup.
 
 It is experiment infrastructure, not part of the hosted prompt classification path.

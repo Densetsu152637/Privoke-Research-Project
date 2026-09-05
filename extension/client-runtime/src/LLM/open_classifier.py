@@ -2,13 +2,11 @@
 import os
 import json
 from typing import List
-from dotenv import load_dotenv
 from .prompt import system_prompt, user_prompt
 from .abs_classifier import AbstractClassifier
 from ..classification import ClassificationResult, build_results
 from ..env import env_float, env_positive_int
 
-load_dotenv()
 
 class OpenClassifier(AbstractClassifier):
     """
