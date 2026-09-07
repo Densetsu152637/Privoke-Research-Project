@@ -112,4 +112,7 @@ class OpenClassifier(AbstractClassifier):
 
         content = response.choices[0].message.content.strip()
 
-        return build_results(json.loads(content))
+        results = build_results(json.loads(content))
+        if not results:
+            raise RuntimeError("Semantic classifier returned no valid results.")
+        return results

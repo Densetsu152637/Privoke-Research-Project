@@ -132,9 +132,11 @@ class LocalClassifier(AbstractClassifier):
         content = _response_content(response_payload)
         parsed = _parse_json_content(content)
         if parsed is None:
-            return []
+            raise RuntimeError("Semantic classifier returned invalid JSON.")
 
         results = build_results(parsed)
+        if not results:
+            raise RuntimeError("Semantic classifier returned no valid results.")
         for result in results:
             result.metadata.setdefault("classifier", "local_lm_studio")
             result.metadata.setdefault("model", model)
