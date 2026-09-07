@@ -34,6 +34,8 @@ class PipelineAnalysis:
             for layer in self.layers
             for result in layer.results
         )
+        if self.errors and action == PriVokeAction.ALLOW:
+            action = PriVokeAction.BLOCK
         object.__setattr__(self, "result", result)
         object.__setattr__(self, "action", action)
 
