@@ -1,4 +1,5 @@
 import { sendRuntimeMessage } from "./webextension-api.js";
+import { runtimeFailureResponse } from "./interception-failure.js";
 
 const CHANNEL = "privoke-extension-v1";
 const NOTICE_ID = "privoke-page-notice";
@@ -17,14 +18,18 @@ window.addEventListener("message", (event) => {
     source: "intercepted",
     text: data.text,
     targetApp: data.targetApp,
-  }).then((result) => {
-    const response = result?.ok ? result.response : null;
+    }).then((result) => {
+      const response = result?.ok ? result.response : runtimeFailureResponse();
     const action = response?.action?.toUpperCase();
     if (action === "WARN" || action === "BLOCK") {
       showNotice(action, data.text, response);
     }
-    postResult(data.requestId, action ?? "ALLOW");
-  }).catch(() => postResult(data.requestId, "ALLOW"));
+      postResult(data.requestId, action ?? "BLOCK");
+    }).catch(() => {
+      const response = runtimeFailureResponse();
+      showNotice("BLOCK", data.text, response);
+      postResult(data.requestId, response.action);
+    });
 });
 
 function postResult(requestId, action) {

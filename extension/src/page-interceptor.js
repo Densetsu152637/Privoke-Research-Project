@@ -1,4 +1,5 @@
 import { extractPrompt, promptTarget } from "./prompt-interception.js";
+import { runtimeFailureResponse } from "./interception-failure.js";
 
 const CHANNEL = "privoke-extension-v1";
 const RESPONSE_TIMEOUT_MS = 32_000;
@@ -38,7 +39,10 @@ async function requestBody(input, init) {
 function analyze(text, targetApp) {
   const requestId = crypto.randomUUID();
   return new Promise((resolve) => {
-    const timeout = setTimeout(() => finish(null), RESPONSE_TIMEOUT_MS);
+      const timeout = setTimeout(
+        () => finish(runtimeFailureResponse()),
+        RESPONSE_TIMEOUT_MS,
+      );
 
     function onMessage(event) {
       const data = event.data;
@@ -103,7 +107,7 @@ function installXhrInterceptor() {
       }
       send.call(xhr, body);
     }).catch(() => {
-      if (!request.cancelled && requests.get(xhr) === request) send.call(xhr, body);
+        if (!request.cancelled && requests.get(xhr) === request) abort.call(xhr);
     });
     return undefined;
   };
