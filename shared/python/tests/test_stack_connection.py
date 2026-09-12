@@ -24,6 +24,15 @@ class StackConnectionTests(unittest.TestCase):
             self.assertEqual(stack_target(service, cloud), "stack.example.com:443")
             self.assertEqual(stack_target(service, {**cloud, "PRIVOKE_USE_LOCAL_STACK": "true"}), f"127.0.0.1:{port}")
 
+    def test_local_targets_can_be_overridden_from_shared_environment(self):
+        env = {
+            "PRIVOKE_USE_LOCAL_STACK": "true",
+            "PRIVOKE_LOCAL_MODEL_STREAMING_TARGET": "localhost:61051",
+            "PRIVOKE_LOCAL_TELEMETRY_TARGET": "localhost:61055",
+        }
+        self.assertEqual(stack_target("MODEL_STREAMING", env), "localhost:61051")
+        self.assertEqual(stack_target("TELEMETRY", env), "localhost:61055")
+
     def test_internal_mode_preserves_compose_routing(self):
         env = {"PRIVOKE_STACK_MODE": "internal", "MODEL_STREAMING_TARGET": "model-streaming-service:50051"}
         self.assertEqual(stack_target("MODEL_STREAMING", env), env["MODEL_STREAMING_TARGET"])

@@ -29,8 +29,11 @@ def use_local_stack(environment: Mapping[str, str] | None = None) -> bool:
 
 def stack_target(service: str, environment: Mapping[str, str] | None = None) -> str:
     env = os.environ if environment is None else environment
-    ports = {"MODEL_STREAMING": 50051, "TELEMETRY": 50055}
-    if service not in ports:
+    local_targets = {
+        "MODEL_STREAMING": env.get("PRIVOKE_LOCAL_MODEL_STREAMING_TARGET", "127.0.0.1:50051").strip(),
+        "TELEMETRY": env.get("PRIVOKE_LOCAL_TELEMETRY_TARGET", "127.0.0.1:50055").strip(),
+    }
+    if service not in local_targets:
         raise ValueError("Unsupported stack service.")
     if env.get("PRIVOKE_STACK_MODE") == "internal":
         target = env.get(f"{service}_TARGET", "").strip()
@@ -38,7 +41,7 @@ def stack_target(service: str, environment: Mapping[str, str] | None = None) -> 
             raise ValueError(f"{service}_TARGET is required in internal mode.")
         return target
     if use_local_stack(env):
-        return f"127.0.0.1:{ports[service]}"
+        return local_targets[service]
     return env.get("PRIVOKE_CLOUD_TARGET", "").strip()
 
 

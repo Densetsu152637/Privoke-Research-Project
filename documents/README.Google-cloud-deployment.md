@@ -4,9 +4,13 @@
 
 The deployment runs the five existing services and an nginx ingress on one Debian 12 Compute Engine VM. Docker volumes retain telemetry, update history, fuzzer output and mutable model artifacts. Only port `443` is public. IAP carries administrative SSH traffic to port `22`; the raw gRPC ports remain inside Docker. Each workstation authenticates with its own client certificate, downloads parameters and optionally submits metadata. Prompt analysis stays on the workstation.
 
+This is the supported cloud shape in this repository: a single VM running `deploy/gce/compose.yml`, with nginx as the only external endpoint. It is not a managed Kubernetes, Cloud Run, or multi-VM deployment. The browser extension, its native-messaging host, runtime supervisor, and the client detector run on each user's workstation; the VM's `client-runtime` container is the fuzzer/server-side runtime and is a separate process. The VM does not receive browser prompts for the extension's local detector.
+
 CI also runs a disposable copy of the cloud Compose stack, tests client-certificate authentication and RPC access restrictions, and checks persisted data after container recreation. Run it locally after `docker compose build` with `python deploy/gce/tests/smoke.py` using an environment with `grpcio` and `grpcio-tools`. OpenSSL and a running Docker engine are required.
 
 The workflow in [deploy-gce.yml](../.github/workflows/deploy-gce.yml) runs on pushes to `main`, and can be dispatched manually on `main`. It calls the existing service CI before publishing or deploying. Five images are tagged with the tested commit SHA, pushed to Artifact Registry, then pulled on the VM. Deployments are serialized and wait for container health. An unsuccessful rollout attempts to restore the previous release.
+
+The Google guidance behind the commands below is [IAP TCP forwarding](https://cloud.google.com/iap/docs/using-tcp-forwarding) (including the `35.235.240.0/20` source range), [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation) for short-lived GitHub credentials, [Artifact Registry Docker authentication](https://cloud.google.com/artifact-registry/docs/docker/authentication), and [Secret Manager per-secret access](https://cloud.google.com/secret-manager/docs/manage-access-to-secrets). Check those pages when Google changes a command or role name.
 
 You need a Google Cloud project with billing, permission to configure IAM/networking/VMs, a GitHub repository you administer, a DNS name pointing to the VM, and `gcloud`, OpenSSL and Bash for the commands below. Run local commands from this repository's root in Bash, WSL or Cloud Shell. Resource names below are examples: choose values first. A CPU VM such as `e2-standard-4` with a 100 GB persistent boot disk is an initial research configuration; measure your model memory and experiment load before selecting production capacity. This deployment has a maintenance interruption during container replacement and a single VM failure domain.
 
@@ -180,6 +184,14 @@ These are configuration identifiers, stored uniformly as GitHub secrets. No long
 
 `FUZZER_PROMPT_COUNT=0` in the VM `.env` disables automatic training on startup. Use a nonzero value only when intentional; model updates write persistent state. Workstation OpenAI/LM Studio keys are unrelated to these deployment identities and are never required for the streamed server stack.
 
+### Training cycles and telemetry boundary
+
+The fuzzer and parameter-update service are included for controlled research cycles. Set `FUZZER_PROMPT_COUNT` to a positive count only for a planned cycle, deploy, observe the resulting update, and return it to `0` for ordinary serving. The value is read into each release's `release.env`; changing the VM `.env` affects a later deployment, not an already running release. The service writes update history to `param-update-data` and the resulting model to `model-data`.
+
+This stack does not train on browser-extension traffic. With the checked-in Compose settings, the server-side `client-runtime` sends telemetry to `telemetry-service`; workstation telemetry is disabled by default and can be enabled separately. The telemetry emitter intentionally sends aggregate action/classification data, text length, timing, risk bucket and layer statuses; it excludes raw prompt text, matched spans, reasoning, arbitrary request metadata and exception messages. These implementation limits are described in [README.Client-runtime.md](README.Client-runtime.md#telemetry). Treat telemetry as anonymous usage metrics only, and do not describe it to users as training data or as a guarantee that every deployment captures no identifying information: deployment operators can still access operational logs and stored records, and this repository does not enforce an organization-wide privacy policy.
+
+To run one deliberate cycle, first back up the model and update volumes, then deploy with a reviewed `.env` containing (for example) `FUZZER_PROMPT_COUNT=8`. Verify the fuzzer and parameter-update logs, inspect the update artifact, and record the resulting model ID/fingerprint. Set the value back to `0` and redeploy after the cycle. Do not delete `model-data` to force an update; that removes the persistent model and causes the one-time seed copy to run again.
+
 ## 6. Deploy and verify
 
 Push the prepared repository changes to `main` or run **Actions → Deploy Compute Engine → Run workflow** on `main`. The workflow verifies the complete stack, builds all five images, authenticates with OIDC, publishes them, transfers just deployment files through IAP, then runs the VM deployment script.
@@ -210,6 +222,8 @@ This internal smoke test verifies service connectivity; the workstation check ad
 
 A failed `up --wait` attempts to start the previous release with its saved image tags and certificate files, and still marks the workflow failed. A first deployment has no previous release; inspect the failed containers and fix the configuration before retrying. VM failures, a terminated deploy process or incompatible persistent-data changes can require manual recovery.
 
+Model updates and code releases are separate. A code rollback restores the previous image tag and release files but does not undo a parameter update already written to `model-data`. Before publishing a model update, copy the current artifact and record its model ID/fingerprint; to roll back the model, restore that known-good artifact during a maintenance window, preserve ownership/permissions, and restart the stack. Keep the matching old image in Artifact Registry as well as the model backup. Validate the restored model through the workstation smoke path before reopening access.
+
 For an explicit rollback, connect through IAP, identify a retained release under `/opt/privoke/releases`, and run:
 
 ```bash
@@ -224,6 +238,22 @@ Back up `privoke_model-data`, `privoke_param-update-data`, `privoke_telemetry-da
 
 Monitor free disk, certificate expiry, VM health, container restarts and deployment failures. Container logs rotate at 10 MB with three files. Prune old images and root-only release/certificate snapshots according to a retention policy after verifying backups and preserving rollback candidates. Patch the VM and refresh base images regularly. The scripts do not provision alerting, scheduled backups, automatic certificate issuance or high availability.
 
+### Persistence, cost control and teardown
+
+The checked-in deployment stores its named Docker volumes on the VM's persistent boot disk: `model-data`, `param-update-data`, `telemetry-data`, and `fuzzer-dumps`. The example VM uses a 100 GB `pd-balanced` boot disk and sets `--no-boot-disk-auto-delete`, so deleting the VM does not delete that disk. This is the repository's supported persistence arrangement; it is not a separate managed database or automatically replicated backup. If you attach a separate persistent disk, mount it before bootstrap and relocate Docker's data root using an operator-managed procedure; do not change volume paths casually because the deployment scripts assume stable Compose volume names.
+
+Google Cloud bills the VM, boot disk, reserved static address, Artifact Registry storage, and Secret Manager storage while they exist. Before teardown, export and verify required backups, record the release/model metadata, and revoke client certificates or rotate the client CA. Then stop the stack and remove the VM resources when they are no longer needed:
+
+```bash
+gcloud compute instances delete "$INSTANCE" --zone="$ZONE"
+gcloud compute addresses delete privoke-stack --region="$REGION"
+gcloud compute firewall-rules delete privoke-https privoke-iap-ssh
+gcloud compute networks subnets delete privoke --region="$REGION"
+gcloud compute networks delete privoke
+```
+
+The retained boot disk is intentionally not deleted by the instance command; delete it separately only after verifying the backup and confirming that no rollback is required. Artifact Registry images and Secret Manager secrets are also retained until explicitly removed. For a disposable environment, list resources first with `gcloud compute disks list`, `gcloud artifacts docker images list \"$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY\"`, and `gcloud secrets list`, then delete only the named resources and any snapshots created for that environment. Deleting the project is a separate, irreversible administrative action and is outside this tutorial.
+
 ## Troubleshooting
 
 | Symptom | Check |
@@ -236,3 +266,11 @@ Monitor free disk, certificate expiry, VM health, container restarts and deploym
 | Cloud LLM health offline | DNS, server SAN/trust, client certificate expiry and private key, port 443 firewall |
 | Local development works, cloud fails | Hidden toggle state and installation `.env`; local mode bypasses cloud TLS by design |
 | Model release appears unchanged | Persistent model volume is seeded once; publish/migrate models deliberately rather than deleting the volume |
+
+## 9. Configure and operate a workstation installation
+
+The cloud deployment is only half of the system. On each workstation, copy `extension/client-runtime/.env.example` to a private `.env` and set `PRIVOKE_CLOUD_TARGET` to the DNS name and port, with no URL scheme (for example `stack.example.com:443`). Set `PRIVOKE_TLS_CERT_FILE` and `PRIVOKE_TLS_KEY_FILE` to that installation's client certificate and private key, and set `PRIVOKE_TLS_CA_FILE` only when the server certificate is issued by the private CA. Use a distinct client key/certificate per installation; never distribute a Google service-account key or a shared client private key.
+
+Install the client-runtime and runtime-supervisor dependencies, generate the supervisor/runtime protobuf bindings, and install the native host using the commands in [README.Runtime-supervisor.md](README.Runtime-supervisor.md). The supervisor owns loopback ports `50056` (control), `50057` (detector), and `8080` (gRPC-Web); the extension never connects directly to the VM. The cloud target is the default. The hidden **Use local development servers** setting changes model and telemetry targets to `127.0.0.1`; turn it off for a cloud installation. `PRIVOKE_STACK_MODE=internal`, `MODEL_STREAMING_TARGET`, and `TELEMETRY_TARGET` belong to the server Compose container and must not be copied into a workstation `.env`.
+
+For a workstation with streamed-transformer inference, install the normal client requirements and, when GPU inference is desired, install `extension/client-runtime/requirements-gpu.txt` into the same environment selected by the supervisor. `PRIVOKE_MODEL_DEVICE=auto` chooses CUDA or Apple MPS when available and otherwise uses CPU. The server's `docker-compose.gpu.yml` override affects only the separate Compose runtime; it does not accelerate the browser extension's child process.

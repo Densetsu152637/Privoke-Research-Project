@@ -13,8 +13,7 @@ const runtimeWarning = document.querySelector("#runtime-warning");
 const waitRegex = document.querySelector("#wait-regex");
 const modelQuality = document.querySelector("#model-quality");
 const masterToggle = document.querySelector("#master-toggle");
-const localStack = document.querySelector("#local-stack");
-const developerSettings = document.querySelector("#developer-settings");
+const stackToggle = document.querySelector("#stack-toggle");
 const layerButtons = [...document.querySelectorAll(".layer-toggle")];
 
 let settings;
@@ -28,18 +27,12 @@ prompt.addEventListener("input", clearManualResult);
 for (const button of layerButtons) button.addEventListener("click", toggleLayer);
 waitRegex.addEventListener("change", () => savePatch({ waitForRegex: waitRegex.checked }));
 modelQuality.addEventListener("change", () => savePatch({ modelQuality: modelQuality.value }));
-document.addEventListener("keydown", (event) => {
-  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "d") {
-    event.preventDefault();
-    developerSettings.hidden = !developerSettings.hidden;
-  }
-});
-localStack.addEventListener("change", async () => {
+stackToggle.addEventListener("click", async () => {
   if (!settings) return;
-  localStack.disabled = true;
+  stackToggle.disabled = true;
   setStatus("Changing server connection…");
-  await savePatch({ useLocalStack: localStack.checked });
-  localStack.disabled = false;
+  await savePatch({ useLocalStack: !settings.useLocalStack });
+  stackToggle.disabled = false;
   serverWarning.hidden = true;
 });
 
@@ -125,7 +118,9 @@ function renderSettings() {
     button.disabled = !settings.enabled;
   }
   waitRegex.checked = settings.waitForRegex;
-  localStack.checked = settings.useLocalStack;
+  stackToggle.setAttribute("aria-pressed", String(settings.useLocalStack));
+  stackToggle.setAttribute("aria-label", settings.useLocalStack ? "Use cloud servers" : "Use development servers");
+  stackToggle.querySelector("strong").textContent = settings.useLocalStack ? "Dev" : "Cloud";
   modelQuality.value = settings.modelQuality;
   masterToggle.setAttribute("aria-pressed", String(settings.enabled));
   masterToggle.setAttribute("aria-label", settings.enabled ? "Turn PriVoke off" : "Turn PriVoke on");

@@ -94,13 +94,15 @@
         </div>
       </details>
 
-      <section id="developer-settings" class="settings" hidden aria-label="Developer settings">
-        <div class="settings-body">
-          <label class="setting-row" for="local-stack">
-            <span><strong>Use local development servers</strong><small>Reconnects the runtime. Off uses cloud servers.</small></span>
-            <input id="local-stack" type="checkbox">
-          </label>
+      <section class="stack-mode" aria-labelledby="stack-mode-heading">
+        <div class="section-heading">
+          <h2 id="stack-mode-heading">Server</h2>
+          <span>Cloud is default</span>
         </div>
+        <button id="stack-toggle" class="stack-toggle" type="button" aria-pressed="false" aria-label="Use development servers">
+          <span class="stack-copy"><strong>Cloud</strong><small>PriVoke server connection</small></span>
+          <span class="stack-switch" aria-hidden="true"><i></i></span>
+        </button>
       </section>
       <p class="footnote">Supported AI prompts are checked before their web request is sent.</p>
     </main>

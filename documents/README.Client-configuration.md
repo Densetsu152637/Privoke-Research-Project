@@ -19,6 +19,8 @@ If a `.env` already exists, edit it instead of replacing it. The runtime and sup
 | `PRIVOKE_TLS_KEY_FILE` | PEM private key belonging to that client certificate |
 | `PRIVOKE_TLS_CA_FILE` | Optional private CA for the **server** certificate; empty uses gRPC's default trust roots |
 | `PRIVOKE_USE_LOCAL_STACK` | Standalone runtime's hidden developer switch; defaults to `false` |
+| `PRIVOKE_LOCAL_MODEL_STREAMING_TARGET` | Dev model-streaming target; defaults to `127.0.0.1:50051` |
+| `PRIVOKE_LOCAL_TELEMETRY_TARGET` | Dev telemetry target; defaults to `127.0.0.1:50055` |
 | `TELEMETRY_ENABLED` | Defaults to `false` for workstation installations |
 | `OPENAI_API_KEY` | Optional installation/user-owned credential for the OpenAI classifier |
 | `LM_STUDIO_API_KEY` | Optional installation/user-owned local inference credential |
