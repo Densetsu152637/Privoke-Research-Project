@@ -10,7 +10,7 @@ CI also runs a disposable copy of the cloud Compose stack, tests client-certific
 
 The workflow in [deploy-gce.yml](../.github/workflows/deploy-gce.yml) runs on pushes to `main`, and can be dispatched manually on `main`. It calls the existing service CI before publishing or deploying. Five images are tagged with the tested commit SHA, pushed to Artifact Registry, then pulled on the VM. Deployments are serialized and wait for container health. An unsuccessful rollout attempts to restore the previous release.
 
-The Google guidance behind the commands below is [IAP TCP forwarding](https://cloud.google.com/iap/docs/using-tcp-forwarding) (including the `35.235.240.0/20` source range), [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation) for short-lived GitHub credentials, [Artifact Registry Docker authentication](https://cloud.google.com/artifact-registry/docs/docker/authentication), and [Secret Manager per-secret access](https://cloud.google.com/secret-manager/docs/manage-access-to-secrets). Check those pages when Google changes a command or role name.
+The Google guidance behind the commands below is [IAP TCP forwarding](https://cloud.google.com/iap/docs/using-tcp-forwarding) (including the `35.235.240.0/20` source range), [Artifact Registry Docker authentication](https://cloud.google.com/artifact-registry/docs/docker/authentication), and [Secret Manager per-secret access](https://cloud.google.com/secret-manager/docs/manage-access-to-secrets). This workflow authenticates with a service account JSON key stored in a GitHub Actions secret; keep that long-lived credential restricted and rotate it under your organization's policy.
 
 You need a Google Cloud project with billing, permission to configure IAM/networking/VMs, a GitHub repository you administer, a DNS name pointing to the VM, and `gcloud`, OpenSSL and Bash for the commands below. Run local commands from this repository's root in Bash, WSL or Cloud Shell. Resource names below are examples: choose values first. A CPU VM such as `e2-standard-4` with a 100 GB persistent boot disk is an initial research configuration; measure your model memory and experiment load before selecting production capacity. This deployment has a maintenance interruption during container replacement and a single VM failure domain.
 
@@ -59,24 +59,11 @@ gcloud iam service-accounts add-iam-policy-binding "$VM_SA" \
   --member="serviceAccount:$DEPLOY_SA" --role=roles/iam.serviceAccountUser
 ```
 
-## 2. Trust GitHub without a service-account JSON key
+## 2. Prepare GitHub's Google Cloud identity
 
-```bash
-gcloud iam workload-identity-pools create github --location=global \
-  --display-name='GitHub deployment'
-gcloud iam workload-identity-pools providers create-oidc github \
-  --location=global --workload-identity-pool=github \
-  --issuer-uri=https://token.actions.githubusercontent.com \
-  --attribute-mapping='google.subject=assertion.sub,attribute.repository_id=assertion.repository_id' \
-  --attribute-condition="assertion.repository_id == '$GITHUB_REPOSITORY_ID' && assertion.repository_owner_id == '$GITHUB_OWNER_ID' && assertion.ref == 'refs/heads/main' && assertion.workflow_ref == '$GITHUB_REPOSITORY/.github/workflows/deploy-gce.yml@refs/heads/main'"
-gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
-  --role=roles/iam.workloadIdentityUser \
-  --member="principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository_id/$GITHUB_REPOSITORY_ID"
-gcloud iam workload-identity-pools providers describe github --location=global \
-  --workload-identity-pool=github --format='value(name)'
-```
+The deployment workflow reads the complete JSON key for a Google Cloud service account from the `GCP_SA_KEY` GitHub Actions secret. Use a dedicated service account with only the rights needed by the workflow: push to the selected Artifact Registry repository, connect to the named VM through IAP, use OS Login, and act as the VM's attached service account. The workflow does not need access to TLS secrets; the VM reads those directly. Confirm the selected account has these roles before adding its key. The actual principal is determined by the JSON key, so do not assume it matches a particular account name.
 
-Save the last output for `GCP_WORKLOAD_IDENTITY_PROVIDER`. The trust condition binds the numeric repository/owner IDs, branch and deployment workflow. GitHub generates a short-lived OIDC token; no `GCP_SA_KEY`, SSH private-key secret, PAT or manually configured `GITHUB_TOKEN` is required. Authentication occurs after lengthy image builds. See the [Google authentication action](https://github.com/google-github-actions/auth) and [Workload Identity Federation for deployment pipelines](https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines).
+In GitHub **Settings → Environments → production → Secrets**, add `GCP_SA_KEY` with the full JSON key contents. Treat it like a password, restrict who can edit the production environment, and rotate or revoke the key if it is exposed. Do not commit the JSON key or paste it into workflow logs. Google recommends Workload Identity Federation over long-lived keys; this repository currently uses the key-based authentication requested for this setup. See the [Google authentication action's service account key guidance](https://github.com/google-github-actions/auth#inputs-service-account-key-json).
 
 ## 3. Create networking and the VM
 
@@ -177,10 +164,9 @@ GitHub **Settings → Environments → production** must contain these secrets, 
 | `GCP_ARTIFACT_REPOSITORY` | Registry repository (`$REPOSITORY`) |
 | `GCP_INSTANCE` | VM name (`$INSTANCE`) |
 | `GCP_ZONE` | VM zone (`$ZONE`) |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Full provider resource from step 2, including project **number** |
-| `GCP_DEPLOY_SERVICE_ACCOUNT` | `$DEPLOY_SA` email |
+| `GCP_SA_KEY` | Complete JSON key for the service account authorized in step 2 |
 
-These are configuration identifiers, stored uniformly as GitHub secrets. No long-lived Google token is used. Restrict the environment to the `main` branch and protect `main` with required CI/review checks. Leave required environment reviewers unset for automatic deployment; enabling them intentionally introduces an approval gate. `.env` files are not uploaded to GitHub automatically.
+These values are stored as GitHub secrets in the `production` environment. Restrict the environment to the `main` branch and protect `main` with required CI/review checks. Leave required environment reviewers unset for automatic deployment; enabling them intentionally introduces an approval gate. `.env` files are not uploaded to GitHub automatically.
 
 `FUZZER_PROMPT_COUNT=0` in the VM `.env` disables automatic training on startup. Use a nonzero value only when intentional; model updates write persistent state. Workstation OpenAI/LM Studio keys are unrelated to these deployment identities and are never required for the streamed server stack.
 
@@ -194,7 +180,7 @@ To run one deliberate cycle, first back up the model and update volumes, then de
 
 ## 6. Deploy and verify
 
-Push the prepared repository changes to `main` or run **Actions → Deploy Compute Engine → Run workflow** on `main`. The workflow verifies the complete stack, builds all five images, authenticates with OIDC, publishes them, transfers just deployment files through IAP, then runs the VM deployment script.
+Push the prepared repository changes to `main` or run **Actions → Deploy Compute Engine → Run workflow** on `main`. The workflow verifies the complete stack, builds all five images, authenticates with the `GCP_SA_KEY` secret, publishes them, transfers just deployment files through IAP, then runs the VM deployment script.
 
 The script validates inputs, locks deployment, fetches TLS secrets, pulls images, validates nginx, and runs `docker compose up --wait`. Model seeds are copied from the parameter-update image only when the model volume has never been initialized. Later deploys preserve trained artifacts. The successful release lives at `/opt/privoke/current`; Compose always uses the project name `privoke` so volume identities are stable. It does not automatically delete old releases or data.
 
@@ -258,7 +244,7 @@ The retained boot disk is intentionally not deleted by the instance command; del
 
 | Symptom | Check |
 | --- | --- |
-| OIDC exchange denied | Numeric repository/owner IDs, exact main-branch workflow path, provider and service-account binding |
+| Google authentication or permission denied | Valid `GCP_SA_KEY` JSON and the service account's Artifact Registry, IAP, OS Login and VM service-account-user permissions |
 | IAP SSH denied | IAP role, OS Admin Login role, VM service-account-user binding, OS Login metadata and IAP firewall rule |
 | Registry pull denied | VM identity has repository reader; VM scope is `cloud-platform` |
 | Secret access denied | VM identity has accessor on each named secret and an enabled version exists |
