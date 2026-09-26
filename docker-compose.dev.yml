@@ -8,6 +8,8 @@ services:
       target: development
     container_name: model-streaming-service
     user: "0:0"
+    cap_add:
+      - DAC_OVERRIDE
     read_only: false
     ports:
       - "127.0.0.1:50051:50051"
@@ -138,6 +140,8 @@ services:
       dockerfile: extension/client-runtime/Dockerfile
       target: development
     user: "0:0"
+    cap_add:
+      - DAC_OVERRIDE
     read_only: false
     depends_on:
       model-streaming-service:
@@ -195,6 +199,8 @@ services:
       target: development
     container_name: privoke-fuzzer
     user: "0:0"
+    cap_add:
+      - DAC_OVERRIDE
     read_only: false
     depends_on:
       client-runtime:
