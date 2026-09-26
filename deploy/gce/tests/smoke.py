@@ -46,19 +46,23 @@ def main():
         temporary = Path(directory)
         secrets = temporary / "secrets"
         secrets.mkdir()
+        clients = temporary / "clients"
+        clients.mkdir()
         def ssl(*args):
             try:
-                run(openssl, *args, cwd=secrets, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                run(openssl, *args, cwd=clients, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
             except subprocess.CalledProcessError as error:
                 raise RuntimeError(error.stderr) from error
 
-        (secrets / "ca.cnf").write_text("[req]\ndistinguished_name=dn\nx509_extensions=ca\nprompt=no\n[dn]\nCN=Smoke CA\n[ca]\nbasicConstraints=critical,CA:TRUE\nkeyUsage=critical,keyCertSign,cRLSign\nsubjectKeyIdentifier=hash\n", encoding="utf-8")
+        (clients / "ca.cnf").write_text("[req]\ndistinguished_name=dn\nx509_extensions=ca\nprompt=no\n[dn]\nCN=Smoke CA\n[ca]\nbasicConstraints=critical,CA:TRUE\nkeyUsage=critical,keyCertSign,cRLSign\nsubjectKeyIdentifier=hash\n", encoding="utf-8")
         ssl("req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1", "-config", "ca.cnf", "-keyout", "ca.key", "-out", "client-ca.crt")
         for name, purpose in (("server", "serverAuth"), ("client", "clientAuth")):
             ssl("req", "-newkey", "rsa:2048", "-nodes", "-subj", f"/CN={name}", "-keyout", f"{name}.key", "-out", f"{name}.csr")
-            (secrets / f"{name}.ext").write_text(f"subjectAltName=DNS:localhost,IP:127.0.0.1\nextendedKeyUsage={purpose}\nbasicConstraints=CA:FALSE\n", encoding="utf-8")
+            (clients / f"{name}.ext").write_text(f"subjectAltName=DNS:localhost,IP:127.0.0.1\nextendedKeyUsage={purpose}\nbasicConstraints=CA:FALSE\n", encoding="utf-8")
             ssl("x509", "-req", "-in", f"{name}.csr", "-CA", "client-ca.crt", "-CAkey", "ca.key", "-CAcreateserial", "-days", "1", "-extfile", f"{name}.ext", "-out", f"{name}.crt")
         ssl("verify", "-CAfile", "client-ca.crt", "server.crt", "client.crt")
+        for name in ("server.key", "server.crt", "client-ca.crt"):
+            shutil.copyfile(clients / name, secrets / name)
 
         for service in ("model-streaming-service", "param-update-service", "telemetry-service", "privoke-fuzzer", "client-runtime"):
             run("docker", "tag", f"{source_project}-{service}:latest", f"{project}/{service}:test")
@@ -75,7 +79,10 @@ def main():
         compose_file = temporary / "compose.json"
         compose_file.write_text(json.dumps(config), encoding="utf-8")
         compose = ["docker", "compose", "--project-name", project, "-f", str(compose_file)]
+        root_owned_secrets = None
         try:
+            root_owned_secrets = ingress_secret_permissions_restore_token(secrets, temporary)
+            prepare_ingress_secret_permissions(root_owned_secrets)
             run(*compose, "up", "-d", "--wait", "--wait-timeout", "240")
             # Run the existing internal end-to-end checks against the cloud topology.
             run(*compose, "exec", "-T", "client-runtime", "python", "test/stack_smoke.py")
@@ -87,7 +94,7 @@ def main():
             sys.path.insert(0, str(generated))
             from privoke.v1 import parameters_pb2 as parameters, parameters_pb2_grpc as parameter_rpc, telemetry_pb2 as telemetry, telemetry_pb2_grpc as telemetry_rpc
 
-            credentials = grpc.ssl_channel_credentials((secrets / "client-ca.crt").read_bytes(), (secrets / "client.key").read_bytes(), (secrets / "client.crt").read_bytes())
+            credentials = grpc.ssl_channel_credentials((clients / "client-ca.crt").read_bytes(), (clients / "client.key").read_bytes(), (clients / "client.crt").read_bytes())
             # The test binds IPv4 loopback only; never route it through a host proxy.
             with grpc.secure_channel(f"127.0.0.1:{port}", credentials, options=(("grpc.enable_http_proxy", 0),)) as channel:
                 models = parameter_rpc.ModelStreamingServiceStub(channel)
@@ -124,7 +131,7 @@ def main():
                         raise AssertionError(f"Private RPC was exposed: {path}")
 
             for credentials in (
-                grpc.ssl_channel_credentials((secrets / "client-ca.crt").read_bytes()),
+                grpc.ssl_channel_credentials((clients / "client-ca.crt").read_bytes()),
                 grpc.ssl_channel_credentials(),  # Does not trust the private test CA.
             ):
                 with grpc.secure_channel(f"127.0.0.1:{port}", credentials, options=(("grpc.enable_http_proxy", 0),)) as channel:
@@ -146,9 +153,64 @@ def main():
             subprocess.run([*compose, "logs", "--tail", "80", "--no-color"], check=False)
             raise
         finally:
-            run(*compose, "down", "--volumes", "--remove-orphans", "--timeout", "20")
-            for service in ("model-streaming-service", "param-update-service", "telemetry-service", "privoke-fuzzer", "client-runtime"):
-                run("docker", "image", "rm", "--no-prune", f"{project}/{service}:test", stdout=subprocess.DEVNULL)
+            try:
+                run(*compose, "down", "--volumes", "--remove-orphans", "--timeout", "20")
+            finally:
+                try:
+                    restore_ingress_secret_directory_owner(root_owned_secrets)
+                finally:
+                    for service in ("model-streaming-service", "param-update-service", "telemetry-service", "privoke-fuzzer", "client-runtime"):
+                        run("docker", "image", "rm", "--no-prune", f"{project}/{service}:test", stdout=subprocess.DEVNULL)
+
+
+def ingress_secret_permissions_restore_token(secrets: Path, temporary: Path):
+    """Capture the exact temporary secret directory and its original owner before mutation."""
+    if os.name == "nt":
+        # Docker Desktop translates bind-mount ownership from Windows filesystems.
+        return None
+    directory = secrets.resolve(strict=True)
+    temporary_root = temporary.resolve(strict=True)
+    server_key = (directory / "server.key").resolve(strict=True)
+    if directory.parent != temporary_root or server_key.parent != directory:
+        raise RuntimeError("TLS smoke secret paths must remain inside the temporary fixture directory.")
+    return (directory, (os.getuid(), os.getgid()))
+
+
+def prepare_ingress_secret_permissions(ownership):
+    """Match deploy.sh's root-only, non-recursive TLS key permissions on Linux."""
+    if ownership is None:
+        return
+    directory, _owner = ownership
+    server_key = directory / "server.key"
+    os.chmod(directory, 0o700)
+    os.chmod(server_key, 0o600)
+    os.chmod(directory / "server.crt", 0o644)
+    os.chmod(directory / "client-ca.crt", 0o644)
+    _run_as_root("chown", "0:0", str(server_key))
+    _run_as_root("chown", "0:0", str(directory))
+
+
+def restore_ingress_secret_directory_owner(ownership):
+    if ownership is None:
+        return
+    directory, (uid, gid) = ownership
+    _run_as_root("chown", f"{uid}:{gid}", str(directory))
+
+
+def _run_as_root(*args):
+    if os.name == "nt":
+        return
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        command = list(args)
+    else:
+        sudo = shutil.which("sudo")
+        if sudo is None:
+            raise RuntimeError("TLS smoke requires root or non-interactive sudo to model the production-owned server key.")
+        command = [sudo, "-n", *args]
+    result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode:
+        detail = result.stderr.strip()
+        raise RuntimeError(f"Could not prepare restrictive TLS smoke permissions with {' '.join(command[:3])}: {detail}")
 
 
 def read_telemetry_summary(compose):
