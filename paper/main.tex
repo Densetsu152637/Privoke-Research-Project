@@ -42,7 +42,7 @@ nbis0006@student.monash.edu}
 %----------------------------------------------------------------------%
 \begin{abstract}    
 
-Web-hosted Large Language Models (LLMs) have introduced a new privacy leakage surface: sensitive user information can be exposed directly through prompts before any organizational or provider-side control can intervene. This paper presents \privoke, a client-side semantic privacy firewall that intercepts outgoing LLM prompts and enforces privacy decisions before transmission. It combines rule-based detection, Named Entity Recognition (NER), and semantic risk analysis to identify Personally Identifiable Information (PII) and context-dependent sensitive disclosures. To improve robustness beyond static filtering, the system incorporates a privacy-oriented prompt fuzzing pipeline that tests detection behavior against obfuscated, paraphrased, and adversarial prompt variants. \privoke utilizes Differential Privacy (DP)-protected telemetry, enabling deployment monitoring without collecting raw prompts or directly identifiable user data. By localizing prompt-level privacy enforcement,\privoke provides a practical foundation for reducing sensitive prompt leakage while preserving usability in web-hosted LLM workflows.
+Web-hosted Large Language Models (LLMs) have introduced a new privacy leakage surface: sensitive user information can be exposed directly through prompts before any organizational or provider-side control can intervene. This paper presents \privoke, a client-side semantic privacy firewall that intercepts outgoing LLM prompts and enforces privacy decisions before transmission. It combines rule-based detection, Named Entity Recognition (NER), and semantic risk analysis to identify Personally Identifiable Information (PII) and context-dependent sensitive disclosures. To support robustness testing, the system includes a prompt-fuzzing pipeline that samples labeled templates and applies simple transformations. \privoke uses event-level Local Differential Privacy (LDP) for telemetry reports and exposes aggregate estimates for deployment monitoring without collecting raw prompts or directly identifiable user data. By localizing prompt-level privacy enforcement, \privoke provides a practical foundation for reducing sensitive prompt leakage while preserving usability in web-hosted LLM workflows.
 
 \end{abstract}
 %----------------------------------------------------------------------%
@@ -67,7 +67,7 @@ The main contributions of this work are as follows:
 
     \item We design a layered privacy-risk detection pipeline that combines rule-based matching, Named Entity Recognition (NER), and semantic risk analysis to detect Personally Identifiable Information (PII) and context-dependent sensitive disclosures.
 
-    \item We introduce a robustness-support architecture with privacy-focused prompt fuzzing, model streaming, and controlled parameter updates to test and improve detection against obfuscated and adversarial prompts.
+    \item We introduce a robustness-support architecture with template-based prompt fuzzing, model streaming, and controlled parameter updates for evaluating and updating the semantic classifier.
 
     \item We integrate Differential Privacy (DP)-protected telemetry to monitor deployment behavior without collecting raw prompts or directly identifiable user information.
 \end{itemize}
@@ -100,7 +100,7 @@ DP provides a formal framework for limiting privacy risk during data collection 
 
 $\Pr[M(D)=o] \leq e^{\varepsilon}\Pr[M(D')=o]+\delta$
 
-It is widely used for large-scale telemetry and usage statistics collection by organizations such as Google, Apple, and Microsoft~\cite{cormode2018privacy, cortes2016differential}. Local Differential Privacy (LDP) extends this idea by perturbing information on the user's device before transmission, reducing reliance on a trusted central collector. In the context of client-side LLM privacy tools, DP is particularly relevant for collecting aggregate deployment telemetry, such as risk-score buckets, action types, and model-version statistics, without exposing raw prompts or directly identifiable user information.
+It is widely used for large-scale telemetry and usage statistics collection by organizations such as Google, Apple, and Microsoft~\cite{cormode2018privacy, cortes2016differential}. Local Differential Privacy (LDP) extends this idea by perturbing information on the user's device before transmission, reducing reliance on a trusted central collector. In the context of client-side LLM privacy tools, DP can reduce the exposure of individual event values while supporting aggregate deployment telemetry, such as action, risk-bucket, category, model-release, and coarse time-of-day counts. It does not by itself conceal whether an event was reported or its network metadata.
 
 %----------------------------------------------------------------------%
 \section{Literature Review} 
@@ -112,23 +112,23 @@ Existing privacy-preserving LLM systems commonly combine rule-based, entity-base
 
 As privacy-sensitive content increasingly depends on application context, domain-specific terminology, and evolving user behavior, static detection models may experience reduced effectiveness when encountering previously unseen prompt structures or adversarially crafted inputs. Existing systems therefore lack adaptive mechanisms capable of continuously improving detection robustness over time, motivating the research direction explored by \privoke.
 
-\subsection{Continuous LLM Training Methods}
+\subsection{Robustness Testing and Model Updates}
 
-Recent research has explored feedback-driven refinement, active learning, and adversarial testing as mechanisms for improving model performance after deployment. These approaches leverage challenging or misclassified examples to continuously strengthen model robustness and adapt to changing input distributions.
+Recent research has explored feedback-driven refinement, active learning, and adversarial testing as mechanisms for improving model performance after deployment. In particular, controlled evaluation examples can reveal weaknesses that static testing may miss. These approaches motivate testing whether carefully governed updates can improve robustness over time.
 
-Despite their success in broader machine learning and security domains, such techniques have seen limited adoption within prompt privacy systems. Existing privacy-preserving frameworks generally operate as static pipelines and provide few mechanisms for continuously refining detection capabilities in response to real-world usage. This limitation motivates \privoke's integration of automated fuzzing and feedback-driven model improvement.
+Despite their success in broader machine learning and security domains, such techniques have seen limited adoption within prompt privacy systems. Existing privacy-preserving frameworks generally operate as static pipelines. \privoke implements template-based fuzz testing and a controlled parameter-update path; it does not learn from deployment telemetry or user prompts.
 
 \subsection{Differential Privacy \& Telemetry Collection}
 
 Differentially private telemetry has been widely adopted for privacy-preserving analytics and software monitoring, enabling aggregate system metrics to be collected without exposing individual user data. Existing telemetry frameworks demonstrate that useful feedback can be gathered while reducing risks associated with metadata leakage and user re-identification. In contrast, applying Differential Privacy directly to prompt contents is generally impractical for LLM privacy systems, as the noise required to provide meaningful privacy guarantees can significantly degrade prompt utility and reconstruction accuracy while introducing substantial computational overhead~\cite{HaS2024}.
 
-However, the application of privacy-preserving telemetry within prompt privacy systems remains relatively unexplored. Existing solutions primarily focus on prompt sanitization and anonymisation, while limited research investigates how differentially private telemetry can be used to continuously improve local privacy detection models. \privoke addresses this gap by combining privacy-preserving telemetry collection with adaptive model refinement.
+However, the application of privacy-preserving telemetry within prompt privacy systems remains relatively unexplored. Existing solutions primarily focus on prompt sanitization and anonymisation. \privoke uses locally randomized event reports for aggregate monitoring; these telemetry reports are not connected to model training or parameter updates.
 
 \subsection{Research Gap}
 
 Existing prompt privacy systems provide effective mechanisms for privacy detection and prompt sanitization, but they remain largely static after deployment. Detection performance is therefore constrained by the training data available during development and may degrade as prompt patterns, privacy risks, and adversarial bypass techniques evolve.
 
-While adversarial testing, continuous learning, and privacy-preserving telemetry have been successfully applied in other domains, their integration within prompt privacy systems remains limited. This motivates \privoke, which combines automated fuzzing and differentially private telemetry to continuously improve semantic privacy detection without exposing sensitive user data.
+While adversarial testing, continuous learning, and privacy-preserving telemetry have been successfully applied in other domains, their integration within prompt privacy systems remains limited. \privoke combines template-based fuzz testing with a separate, controlled parameter-update mechanism and event-level private telemetry for monitoring. Learning from deployment feedback and federated aggregation remain future research directions.
 
 %----------------------------------------------------------------------%
 \section{PII Categorization}
@@ -143,30 +143,14 @@ To support context-aware privacy decisions, \privoke classifies detected informa
 
 \subsection{Client Runtime Service}
 
-This service is implemented as a google extension and functions as a typescript wrapper for the primary \privoke Runtime. It is responsible for intercepting outgoing requests to known web-hosted LLM endpoints, running the prompt through the \privoke runtime and getting a response of whether the request should be canceled or not. The runtime will then interrupt the request if necessary, alerting the user in the process.
-
-\begin{minted}{typescript}
-const endpoints = ["api.example.com"]
-const intercept = (details) => {    
-    let cancel = false;
-    if (endpoints
-        .map(details.url.includes)
-        .some(Boolean)
-    ) {
-        const prompt = details.prompt
-        cancel = runtime_check(prompt);
-        if (cancel) alertUser();
-    }        
-    return { cancel }        
-}
-\end{minted}
+The browser extension intercepts supported outgoing requests, extracts the prompt, and asks the local Python runtime to analyze it through a gRPC-Web bridge. The extension then applies the runtime decision to warn or cancel the request before transmission. The extension and runtime communicate with a local service; the extension is not itself the semantic model or a general-purpose LLM wrapper.
 \subsection{\privoke Runtime}
 
 The Python client runtime hosts the prompt-analysis pipeline and reconstructs its semantic classifier from model parameters fetched on demand from the model-streaming service. The requested model ID may be a configured ID or the \texttt{latest} alias; the configured alias selects a model artifact, while the service returns that artifact's current version. The runtime caches loaded models briefly. Semantic analysis is enabled by default in the extension. If streaming health checks report the semantic model unavailable, enabled regex and NER layers continue; if semantic analysis is the only enabled layer, the prompt remains blocked while the service is unavailable.
 
 \subsection{"Fuzzer" Service}
 
-The Fuzzer exposes a gRPC training-cycle endpoint, which the parameter-update service can call on startup or at a configured interval. For each request, the Fuzzer samples labeled prompts from a small built-in template set or a configured JSON dataset, fills template fields from fixed vocabularies, and may apply simple redaction or substitution transformations. It sends these examples and their labels to the client runtime, which loads the requested streamed model and computes bounded analytic deltas for its trainable classification-head parameters. The Fuzzer submits those deltas, their base model version, and metadata to the parameter-update service; it does not download or backpropagate through the model itself.
+The Fuzzer exposes a gRPC training-cycle endpoint. The parameter-update service can invoke it through an optional scheduler, which is disabled by default. For each request, the Fuzzer samples labeled prompts from a small built-in template set or a configured JSON dataset, fills template fields from fixed vocabularies, and may apply simple redaction or substitution transformations. It sends these examples and their labels to the client runtime, which loads the requested streamed model and computes bounded analytic deltas for its trainable classification-head parameters. The Fuzzer submits those deltas, their base model version, and metadata to the parameter-update service; it does not download or backpropagate through the model itself.
 \begin{minted}{python}
 request = wait_for_training_cycle()
 examples = sample_labeled_templates(request.prompt_count, request.seed)
@@ -180,7 +164,7 @@ parameter_update.submit(
 
 \subsection{Telemetry Collector Service}
 
-The telemetry collector service is used to diagnose bugs, collect usage metrics and evaluate our data model efficiency. When the client runs a prompt through the \privoke runtime, non-private metrics are collated into a .protobuff format. This includes Time bucket, Most severe risk category, Risk score bucket, Action taken and the \privoke model version. Before being emitted to the telemetry collector service, DP (Differential Privacy) is applied to these metrics to de-identify the information, allowing \privoke servers to monitor usage metrics while de-identifying users.
+Before emission, the client randomizes five categorical event fields: action, risk bucket, primary risk category, normalized model release, and coarse UTC time-of-day. Each field uses generalized randomized response over a fixed domain; the event-level pure-LDP budget is $\varepsilon=1$ by default, divided equally across fields, with $\delta=0$. A durable installation-local ledger limits the default cumulative budget to $\varepsilon=8$ per UTC day and suppresses reports when the budget is exhausted or the ledger cannot be used. Reports contain no raw prompt, direct user identifier, exact timestamp, or exact risk score. The collector exposes marginal category-count estimates, not individual reports, through its summary API. The estimates use inverse randomized-response correction followed by clipping to the possible count range, so clipping can introduce bias; the released sample count is exact and can itself reveal event presence. This guarantee is event-level and does not hide whether a report was sent, nor network timing or metadata.
 
 \subsection{Model Streaming Service}
 
