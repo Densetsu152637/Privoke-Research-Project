@@ -5,9 +5,11 @@ Only resources belonging to the unique smoke-test project are removed.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import importlib.util
 import json
+import math
 import os
+import random
 from pathlib import Path
 import shutil
 import subprocess
@@ -18,6 +20,13 @@ import uuid
 import grpc
 
 ROOT = Path(__file__).resolve().parents[3]
+_PRIVACY_SPEC = importlib.util.spec_from_file_location(
+    "privoke_smoke_privacy", ROOT / "extension/client-runtime/src/telemetry/privacy.py"
+)
+if _PRIVACY_SPEC is None or _PRIVACY_SPEC.loader is None:
+    raise RuntimeError("Could not load the client telemetry privacy mechanism.")
+_PRIVACY_MODULE = importlib.util.module_from_spec(_PRIVACY_SPEC)
+_PRIVACY_SPEC.loader.exec_module(_PRIVACY_MODULE)
 
 
 def run(*args, **kwargs):
@@ -85,15 +94,28 @@ def main():
                 assert models.Health(parameters.HealthRequest(), timeout=10).status == "SERVING"
                 chunks = list(models.StreamModelParameters(parameters.ModelParametersRequest(consumer_id="cloud-smoke", model_id="latest"), timeout=20))
                 assert chunks and chunks[0].model_id
-                now = datetime.now(timezone.utc)
-                event_id = str(uuid.uuid4())
-                response = telemetry_rpc.TelemetryServiceStub(channel).RecordTelemetry(telemetry.TelemetryPacket(
-                    event_id=event_id, occurred_at_unix_ms=int(now.timestamp() * 1000),
-                    time_bucket=now.strftime("%Y-%m-%dT%H:00:00Z"), source_id="cloud-smoke",
-                    action="ALLOW", sensitivity="S0", visibility="PU", risk_bucket="0.0-0.2", detector_version="smoke",
-                ), timeout=10)
+                summary_before = read_telemetry_summary(compose)
+                epsilon = 1.0
+                synthetic_values = {
+                    "action": "ALLOW",
+                    "risk_bucket": "0.0-0.2",
+                    "primary_category": "NONE",
+                    "model_version": "v0.3.0",
+                    "time_bucket": "08-12_UTC",
+                }
+                protected_values = _PRIVACY_MODULE.randomize_report(
+                    synthetic_values, epsilon, rng=random.Random(2026)
+                )
+                packet = telemetry.TelemetryPacket(
+                    **protected_values,
+                    privacy_mechanism=_PRIVACY_MODULE.MECHANISM,
+                    privacy_epsilon=epsilon,
+                )
+                response = telemetry_rpc.TelemetryServiceStub(channel).RecordTelemetry(packet, timeout=10)
                 assert response.accepted, response.message
-                for path in ("TelemetryService/ListTelemetry", "ParamUpdateService/SubmitParameterUpdate", "PrivokeRuntimeService/AnalyzePrompt", "FuzzerService/RunTrainingCycle"):
+                summary_after = read_telemetry_summary(compose)
+                validate_aggregate_summary(summary_before, summary_after, protected_values)
+                for path in ("ParamUpdateService/SubmitParameterUpdate", "PrivokeRuntimeService/AnalyzePrompt", "FuzzerService/RunTrainingCycle"):
                     try:
                         channel.unary_unary(f"/privoke.v1.{path}")(b"", timeout=5)
                     except grpc.RpcError as error:
@@ -116,9 +138,10 @@ def main():
             run(*compose, "exec", "-T", "param-update-service", "python", "-c", "from pathlib import Path; Path('/models/.smoke-persisted').write_text('retained')")
             run(*compose, "up", "-d", "--force-recreate", "--wait", "--wait-timeout", "240")
             run(*compose, "exec", "-T", "param-update-service", "python", "-c", "from pathlib import Path; assert Path('/models/.smoke-persisted').read_text() == 'retained'")
-            run(*compose, "exec", "-T", "telemetry-service", "python", "-c", "import sqlite3, sys; db=sqlite3.connect('/data/telemetry.db'); assert db.execute('SELECT COUNT(*) FROM telemetry_events WHERE event_id = ?', (sys.argv[1],)).fetchone()[0] == 1", event_id)
+            summary_recreated = read_telemetry_summary(compose)
+            assert summary_recreated["sample_count"] >= summary_after["sample_count"], "aggregate telemetry count decreased after recreation"
             run(*compose, "exec", "-T", "client-runtime", "python", "test/stack_smoke.py", "--skip-training")
-            print("Cloud smoke passed: services, TLS identity, download, telemetry, private RPC denial, and recreation.", flush=True)
+            print("Cloud smoke passed: services, TLS identity, download, aggregate telemetry API, private RPC denial, and recreation.", flush=True)
         except BaseException:
             subprocess.run([*compose, "logs", "--tail", "80", "--no-color"], check=False)
             raise
@@ -126,6 +149,40 @@ def main():
             run(*compose, "down", "--volumes", "--remove-orphans", "--timeout", "20")
             for service in ("model-streaming-service", "param-update-service", "telemetry-service", "privoke-fuzzer", "client-runtime"):
                 run("docker", "image", "rm", "--no-prune", f"{project}/{service}:test", stdout=subprocess.DEVNULL)
+
+
+def read_telemetry_summary(compose):
+    code = (
+        "import json, grpc, sys; "
+        "sys.path.insert(0, '/workspace/services/telemetry-service/generated'); "
+        "from privoke.v1 import telemetry_pb2 as pb, telemetry_pb2_grpc as rpc; "
+        "channel = grpc.insecure_channel('127.0.0.1:50055'); "
+        "response = rpc.TelemetryServiceStub(channel).GetTelemetrySummary(pb.GetTelemetrySummaryRequest(), timeout=10); "
+        "print(json.dumps({'sample_count': response.sample_count, 'dimensions': "
+        "{dimension.dimension: {value.value: {'observed_noisy_count': value.observed_noisy_count, "
+        "'estimated_count': value.estimated_count} for value in dimension.values} "
+        "for dimension in response.dimensions}})); channel.close()"
+    )
+    result = run(
+        *compose, "exec", "-T", "telemetry-service", "python", "-c", code,
+        capture_output=True,
+    )
+    return json.loads(result.stdout.strip().splitlines()[-1])
+
+
+def validate_aggregate_summary(before, after, protected_values):
+    domains = _PRIVACY_MODULE.DOMAINS
+    dimensions = _PRIVACY_MODULE.DIMENSIONS
+    assert after["sample_count"] >= before["sample_count"] + 1, "synthetic report did not increase aggregate count"
+    assert set(after["dimensions"]) == set(dimensions), "aggregate API returned unexpected dimensions"
+    for dimension in dimensions:
+        assert set(after["dimensions"][dimension]) == set(domains[dimension]), f"wrong aggregate domain for {dimension}"
+        previous = before["dimensions"].get(dimension, {}).get(protected_values[dimension], {}).get("observed_noisy_count", 0)
+        current = after["dimensions"][dimension][protected_values[dimension]]["observed_noisy_count"]
+        assert current >= previous + 1, f"synthetic noisy {dimension} value missing from aggregate"
+        for value in after["dimensions"][dimension].values():
+            estimate = value["estimated_count"]
+            assert math.isfinite(estimate) and 0 <= estimate <= after["sample_count"], f"invalid estimate for {dimension}"
 
 
 if __name__ == "__main__":

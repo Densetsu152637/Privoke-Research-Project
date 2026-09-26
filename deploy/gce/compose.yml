@@ -28,11 +28,12 @@ services:
           cp -a /models/. /state/models/
           touch /state/models/.initialized
         fi
-        chown -R 10001:10001 /state/models /state/parameter-updates /state/telemetry /state/fuzzer-dumps
+        chown -R 10001:10001 /state/models /state/parameter-updates /state/telemetry /state/telemetry-client /state/fuzzer-dumps
     volumes:
       - model-data:/state/models
       - param-update-data:/state/parameter-updates
       - telemetry-data:/state/telemetry
+      - telemetry-client-state:/state/telemetry-client
       - fuzzer-dumps:/state/fuzzer-dumps
 
   model-streaming-service:
@@ -58,7 +59,7 @@ services:
       storage-permissions: {condition: service_completed_successfully}
     environment:
       TELEMETRY_PORT: 50055
-      TELEMETRY_DB_PATH: /data/telemetry.db
+      TELEMETRY_DB_PATH: /data/telemetry-ldp-v1.sqlite3
     volumes: [telemetry-data:/data]
     healthcheck:
       test: [CMD, python, /workspace/shared/python/grpc_healthcheck.py, telemetry-service, "127.0.0.1:50055", /workspace/services/telemetry-service/generated]
@@ -72,6 +73,7 @@ services:
     depends_on:
       model-streaming-service: {condition: service_healthy}
       telemetry-service: {condition: service_healthy}
+      storage-permissions: {condition: service_completed_successfully}
     environment:
       PRIVOKE_GRPC_HOST: "[::]"
       PRIVOKE_GRPC_PORT: 50054
@@ -83,8 +85,11 @@ services:
       MODEL_ID: latest
       TELEMETRY_ENABLED: "true"
       TELEMETRY_TARGET: telemetry-service:50055
-      TELEMETRY_SOURCE_ID: server-client-runtime
+      TELEMETRY_LDP_EPSILON: ${TELEMETRY_LDP_EPSILON:-1}
+      TELEMETRY_LDP_DAILY_EPSILON: ${TELEMETRY_LDP_DAILY_EPSILON:-8}
+      TELEMETRY_PRIVACY_LEDGER_PATH: /data/telemetry-client/telemetry-budget.sqlite3
       PYTHONPATH: /workspace/shared/python
+    volumes: [telemetry-client-state:/data/telemetry-client]
     healthcheck:
       test: [CMD, python, /workspace/shared/python/grpc_healthcheck.py, client-runtime, "127.0.0.1:50054", /workspace/extension/client-runtime/generated]
       interval: 5s
@@ -161,4 +166,5 @@ volumes:
   model-data:
   param-update-data:
   telemetry-data:
+  telemetry-client-state:
   fuzzer-dumps:

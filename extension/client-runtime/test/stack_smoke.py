@@ -10,7 +10,9 @@ runtime:
 from __future__ import annotations
 
 import argparse
+import math
 import os
+import random
 import sys
 import time
 import uuid
@@ -21,8 +23,10 @@ import grpc
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 GENERATED_DIR = PACKAGE_ROOT / "generated"
-if str(GENERATED_DIR) not in sys.path:
-    sys.path.insert(0, str(GENERATED_DIR))
+REPO_ROOT = PACKAGE_ROOT.parents[1]
+for import_path in (REPO_ROOT / "shared/python", PACKAGE_ROOT, GENERATED_DIR):
+    if str(import_path) not in sys.path:
+        sys.path.insert(0, str(import_path))
 
 from privoke.v1 import (  # noqa: E402
     parameters_pb2,
@@ -32,6 +36,7 @@ from privoke.v1 import (  # noqa: E402
     telemetry_pb2,
     telemetry_pb2_grpc,
 )
+from src.telemetry.privacy import DOMAINS, DIMENSIONS, MECHANISM, randomize_report  # noqa: E402
 
 
 RPC_TIMEOUT_SECONDS = float(os.getenv("CI_RPC_TIMEOUT_SECONDS", "15"))
@@ -58,8 +63,8 @@ def main() -> None:
 
     check_health_endpoints()
     check_model_snapshot()
-    request_id = check_runtime_analysis()
-    check_runtime_telemetry(request_id)
+    check_runtime_analysis()
+    check_runtime_telemetry()
     if not args.skip_training:
         check_fuzzer_training_cycle()
     check_health_endpoints(rounds=3)
@@ -148,7 +153,7 @@ def check_model_snapshot() -> None:
     print("Parameter streaming check passed.", flush=True)
 
 
-def check_runtime_analysis() -> str:
+def check_runtime_analysis() -> None:
     request_id = f"ci-runtime-{uuid.uuid4().hex}"
     with grpc.insecure_channel(TARGETS["runtime"]) as channel:
         response = runtime_pb2_grpc.PrivokeRuntimeServiceStub(channel).AnalyzePrompt(
@@ -174,31 +179,81 @@ def check_runtime_analysis() -> str:
         "runtime did not use the streamed model snapshot",
     )
     print(f"Simulated client-runtime request returned {response.action}.", flush=True)
-    return request_id
 
 
-def check_runtime_telemetry(request_id: str) -> None:
-    deadline = time.monotonic() + RPC_TIMEOUT_SECONDS
-    while time.monotonic() < deadline:
-        with grpc.insecure_channel(TARGETS["telemetry"]) as channel:
-            response = telemetry_pb2_grpc.TelemetryServiceStub(channel).ListTelemetry(
-                telemetry_pb2.ListTelemetryRequest(limit=100),
-                timeout=RPC_TIMEOUT_SECONDS,
+def check_runtime_telemetry() -> None:
+    """Exercise protected telemetry aggregation with one controlled synthetic report.
+
+    This deliberately does not correlate a telemetry record to the preceding
+    runtime request: reports carry no request IDs, and the client's persistent
+    privacy budget may suppress an analysis event.
+    """
+    true_values = {
+        "action": "WARN",
+        "risk_bucket": "0.5-0.8",
+        "primary_category": "HEALTH",
+        "model_version": "v0.3.0",
+        "time_bucket": "12-16_UTC",
+    }
+    epsilon = 1.0
+    protected = randomize_report(true_values, epsilon, rng=random.Random(2026))
+    packet = telemetry_pb2.TelemetryPacket(
+        **protected,
+        privacy_mechanism=MECHANISM,
+        privacy_epsilon=epsilon,
+    )
+    with grpc.insecure_channel(TARGETS["telemetry"]) as channel:
+        stub = telemetry_pb2_grpc.TelemetryServiceStub(channel)
+        before = stub.GetTelemetrySummary(
+            telemetry_pb2.GetTelemetrySummaryRequest(),
+            timeout=RPC_TIMEOUT_SECONDS,
+        )
+        result = stub.RecordTelemetry(packet, timeout=RPC_TIMEOUT_SECONDS)
+        require(result.accepted, f"protected synthetic report was rejected: {result.message}")
+        after = stub.GetTelemetrySummary(
+            telemetry_pb2.GetTelemetrySummaryRequest(),
+            timeout=RPC_TIMEOUT_SECONDS,
+        )
+
+    require(
+        after.sample_count >= before.sample_count + 1,
+        "aggregate sample count did not include the synthetic report",
+    )
+    before_counts = _observed_summary_counts(before)
+    after_counts = _observed_summary_counts(after)
+    require(set(after_counts) == set(DIMENSIONS), "summary dimensions do not match the protected report")
+    for dimension in DIMENSIONS:
+        require(
+            set(after_counts[dimension]) == set(DOMAINS[dimension]),
+            f"summary domain changed for {dimension}",
+        )
+        require(
+            after_counts[dimension][protected[dimension]]
+            >= before_counts[dimension].get(protected[dimension], 0) + 1,
+            f"summary did not count the synthetic noisy {dimension} value",
+        )
+    for dimension in after.dimensions:
+        for value in dimension.values:
+            require(
+                math.isfinite(value.estimated_count)
+                and 0 <= value.estimated_count <= after.sample_count,
+                f"summary estimate is outside its possible range for {dimension.dimension}",
             )
-        matching = [
-            stored.packet
-            for stored in response.packets
-            if stored.packet.request_id == request_id
-        ]
-        if matching:
-            packet = matching[0]
-            require(packet.source_id == "server-client-runtime", "wrong telemetry source")
-            require(packet.target_app == "simulated-client", "wrong telemetry target")
-            require(packet.text_length > 0, "telemetry text length was not recorded")
-            print("Runtime-to-telemetry check passed.", flush=True)
-            return
-        time.sleep(0.25)
-    raise AssertionError(f"telemetry event for {request_id} was not persisted")
+    print(
+        "Synthetic locally randomized report Record->Summary check passed; "
+        "the report was not correlated with the runtime analysis request.",
+        flush=True,
+    )
+
+
+def _observed_summary_counts(response) -> dict[str, dict[str, int]]:
+    return {
+        dimension.dimension: {
+            value.value: value.observed_noisy_count
+            for value in dimension.values
+        }
+        for dimension in response.dimensions
+    }
 
 
 def check_fuzzer_training_cycle() -> None:

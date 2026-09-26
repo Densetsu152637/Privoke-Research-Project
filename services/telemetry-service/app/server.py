@@ -1,4 +1,4 @@
-"""gRPC entry point for privacy-minimal telemetry collection."""
+"""gRPC entry point for strict locally private telemetry collection."""
 
 from __future__ import annotations
 
@@ -21,20 +21,17 @@ if str(GENERATED_DIR) not in sys.path:
 
 from config import TelemetryConfig
 from privoke.v1 import telemetry_pb2, telemetry_pb2_grpc
-from serialization import stored_packet_from_row
 from storage import TelemetryStore
 from validation import validate_telemetry_packet
 
 SERVICE_NAME = "telemetry-service"
 MAX_RESPONSE_BYTES = 4_194_304
-DEFAULT_QUERY_LIMIT = 100
 LOGGER = logging.getLogger(__name__)
 
 
 class TelemetryCollector(telemetry_pb2_grpc.TelemetryServiceServicer):
-    def __init__(self, store: TelemetryStore, max_query_limit: int = 1_000):
+    def __init__(self, store: TelemetryStore):
         self.store = store
-        self.max_query_limit = max(1, max_query_limit)
 
     def RecordTelemetry(self, request, context):
         try:
@@ -43,38 +40,36 @@ class TelemetryCollector(telemetry_pb2_grpc.TelemetryServiceServicer):
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(exc))
 
         try:
-            sequence = self.store.record(request)
-        except sqlite3.IntegrityError:
-            return _record_response(request.event_id, duplicate=True)
+            self.store.record(request)
         except sqlite3.Error:
             LOGGER.exception("telemetry persistence failed")
             context.abort(grpc.StatusCode.INTERNAL, "Telemetry persistence failed.")
 
-        LOGGER.info(
-            "recorded telemetry sequence=%s event=%r action=%r",
-            sequence,
-            request.event_id,
-            request.action,
-        )
-        return _record_response(request.event_id, sequence=sequence)
+        LOGGER.info("recorded locally-private telemetry report")
+        return _record_response()
 
-    def ListTelemetry(self, request, context):
-        if request.before_sequence < 0:
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT,
-                "before_sequence must not be negative.",
-            )
-        limit = min(
-            max(1, int(request.limit or DEFAULT_QUERY_LIMIT)),
-            self.max_query_limit,
-        )
+    def GetTelemetrySummary(self, request, context):
         try:
-            rows = self.store.list(limit, int(request.before_sequence))
+            sample_count, dimensions = self.store.summary()
         except sqlite3.Error:
-            LOGGER.exception("telemetry query failed")
-            context.abort(grpc.StatusCode.INTERNAL, "Telemetry query failed.")
-        return telemetry_pb2.ListTelemetryResponse(
-            packets=[stored_packet_from_row(row) for row in rows]
+            LOGGER.exception("telemetry aggregation failed")
+            context.abort(grpc.StatusCode.INTERNAL, "Telemetry aggregation failed.")
+        return telemetry_pb2.GetTelemetrySummaryResponse(
+            sample_count=sample_count,
+            dimensions=[
+                telemetry_pb2.TelemetryDimensionEstimate(
+                    dimension=dimension["dimension"],
+                    values=[
+                        telemetry_pb2.TelemetryCategoryEstimate(
+                            value=item["value"],
+                            estimated_count=item["estimated_count"],
+                            observed_noisy_count=item["observed_noisy_count"],
+                        )
+                        for item in dimension["values"]
+                    ],
+                )
+                for dimension in dimensions
+            ],
         )
 
     def Health(self, request, context):
@@ -90,22 +85,10 @@ class TelemetryCollector(telemetry_pb2_grpc.TelemetryServiceServicer):
         )
 
 
-def _record_response(
-    event_id: str,
-    *,
-    sequence: int = 0,
-    duplicate: bool = False,
-):
-    message = (
-        "Telemetry event was already recorded."
-        if duplicate
-        else "Telemetry event persisted."
-    )
+def _record_response():
     return telemetry_pb2.RecordTelemetryResponse(
         accepted=True,
-        event_id=event_id,
-        sequence=sequence,
-        message=message,
+        message="Protected report added to aggregates.",
     )
 
 
@@ -118,10 +101,7 @@ def create_server(config: TelemetryConfig):
         ),
     )
     telemetry_pb2_grpc.add_TelemetryServiceServicer_to_server(
-        TelemetryCollector(
-            TelemetryStore(config.database_path),
-            max_query_limit=config.max_query_limit,
-        ),
+        TelemetryCollector(TelemetryStore(config.database_path)),
         server,
     )
     server.add_insecure_port(f"[::]:{config.port}")

@@ -59,7 +59,12 @@ COPY --from=development /workspace /workspace
 COPY models /workspace/models
 
 RUN pip uninstall -y grpcio-tools wheel \
-    && /usr/local/bin/python -m pip uninstall -y pip setuptools wheel
+    && /usr/local/bin/python -m pip uninstall -y pip setuptools wheel \
+    && mkdir -p /var/lib/privoke \
+    && chown privoke:privoke /var/lib/privoke
+
+ENV TELEMETRY_PRIVACY_LEDGER_PATH=/var/lib/privoke/telemetry-budget.sqlite3
+VOLUME ["/var/lib/privoke"]
 
 WORKDIR /workspace/extension/client-runtime
 

@@ -29,10 +29,12 @@ services:
       - "10001:10001"
       - /state/parameter-updates
       - /state/telemetry
+      - /state/telemetry-client
       - /state/fuzzer-dumps
     volumes:
       - param-update-data:/state/parameter-updates
       - telemetry-data:/state/telemetry
+      - telemetry-client-state:/state/telemetry-client
       - fuzzer-dumps:/state/fuzzer-dumps
 
   model-streaming-service:
@@ -115,7 +117,7 @@ services:
       - "50055"
     environment:
       TELEMETRY_PORT: 50055
-      TELEMETRY_DB_PATH: /data/telemetry.db
+      TELEMETRY_DB_PATH: /data/telemetry-ldp-v1.sqlite3
     volumes:
       - telemetry-data:/data
     healthcheck:
@@ -145,6 +147,8 @@ services:
         condition: service_healthy
       telemetry-service:
         condition: service_healthy
+      storage-permissions:
+        condition: service_completed_successfully
     expose:
       - "50054"
     environment:
@@ -162,7 +166,11 @@ services:
       PYTHONPATH: /workspace/shared/python
       TELEMETRY_ENABLED: "true"
       TELEMETRY_TARGET: telemetry-service:50055
-      TELEMETRY_SOURCE_ID: server-client-runtime
+      TELEMETRY_LDP_EPSILON: ${TELEMETRY_LDP_EPSILON:-1}
+      TELEMETRY_LDP_DAILY_EPSILON: ${TELEMETRY_LDP_DAILY_EPSILON:-8}
+      TELEMETRY_PRIVACY_LEDGER_PATH: /data/telemetry-client/telemetry-budget.sqlite3
+    volumes:
+      - telemetry-client-state:/data/telemetry-client
     healthcheck:
       test:
         [
@@ -219,4 +227,5 @@ services:
 volumes:
   param-update-data:
   telemetry-data:
+  telemetry-client-state:
   fuzzer-dumps:

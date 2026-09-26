@@ -104,7 +104,7 @@ services:
       - "127.0.0.1:50055:50055"
     environment:
       TELEMETRY_PORT: 50055
-      TELEMETRY_DB_PATH: /data/telemetry.db
+      TELEMETRY_DB_PATH: /data/telemetry-ldp-v1.sqlite3
     volumes:
       - telemetry-data:/data
       - ./services/telemetry-service:/workspace/services/telemetry-service
@@ -158,10 +158,13 @@ services:
       PYTHONPATH: /workspace/shared/python
       TELEMETRY_ENABLED: "true"
       TELEMETRY_TARGET: telemetry-service:50055
-      TELEMETRY_SOURCE_ID: server-client-runtime
+      TELEMETRY_LDP_EPSILON: ${TELEMETRY_LDP_EPSILON:-1}
+      TELEMETRY_LDP_DAILY_EPSILON: ${TELEMETRY_LDP_DAILY_EPSILON:-8}
+      TELEMETRY_PRIVACY_LEDGER_PATH: /data/telemetry-client/telemetry-budget.sqlite3
     volumes:
       - ./extension/client-runtime:/workspace/extension/client-runtime
       - ./shared:/workspace/shared
+      - telemetry-client-state:/data/telemetry-client
     healthcheck:
       test:
         [
@@ -233,4 +236,5 @@ services:
 volumes:
   param-update-data:
   telemetry-data:
+  telemetry-client-state:
   fuzzer-dumps:
