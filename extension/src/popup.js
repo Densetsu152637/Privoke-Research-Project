@@ -55,6 +55,13 @@ async function initialise() {
           || "The client runtime is not running. Toggle PriVoke off and on to retry.",
       );
     }
+    if (settings.layers.llm) {
+      const health = await sendMessage({ type: "CHECK_STREAMING_HEALTH" });
+      if (!health?.ok) showSemanticWarning({
+        fallbackLayers: selectedFallbackLayers(settings.layers),
+        failClosedOnly: !settings.layers.regex && !settings.layers.ner,
+      });
+    }
   } else {
     const stopped = await sendMessage({ type: "SET_MASTER_ENABLED", enabled: false });
     if (stopped?.warning) showRuntimeWarning(stopped.warning);
@@ -84,20 +91,21 @@ async function toggleLayer(event) {
   const layer = button.dataset.layer;
   const enabled = !settings.layers[layer];
 
+  let streamingHealth;
   if (layer === "llm" && enabled) {
     button.disabled = true;
-    serverWarning.hidden = true;
-    const health = await sendMessage({ type: "CHECK_STREAMING_HEALTH" });
+    streamingHealth = await sendMessage({ type: "CHECK_STREAMING_HEALTH" });
     button.disabled = false;
-    if (!health?.ok) {
-      serverWarning.hidden = false;
-      await savePatch({ layers: { llm: false } });
-      return;
-    }
   }
 
-  serverWarning.hidden = true;
   await savePatch({ layers: { [layer]: enabled } });
+  if (layer === "llm") {
+    if (enabled && !streamingHealth?.ok) showSemanticWarning({
+      fallbackLayers: selectedFallbackLayers(settings.layers),
+      failClosedOnly: !settings.layers.regex && !settings.layers.ner,
+    });
+    else serverWarning.hidden = true;
+  }
 }
 
 async function savePatch(patch) {
@@ -159,6 +167,8 @@ async function inspectPrompt() {
   }
 
   const response = resultMessage.response;
+  if (response.semanticUnavailable) showSemanticWarning(response);
+  else if (response.semanticStateTransition === "available") serverWarning.hidden = true;
   const action = String(response.action || "ALLOW").toUpperCase();
   if (response.disabled) setFeedback("ERROR", "error");
   else if (action === "BLOCK") setFeedback("ERROR", "error");
@@ -242,6 +252,24 @@ function setStatus(message, isError = false) {
 function showRuntimeWarning(message) {
   runtimeWarning.querySelector("span").textContent = message;
   runtimeWarning.hidden = false;
+}
+
+function selectedFallbackLayers(layers = {}) {
+  return [
+    ...(layers.regex ? ["DETECTION_LAYER_REGEX"] : []),
+    ...(layers.ner ? ["DETECTION_LAYER_NER"] : []),
+  ];
+}
+
+function showSemanticWarning({ fallbackLayers = [], failClosedOnly = false } = {}) {
+  serverWarning.querySelector("strong").textContent = "Semantic analysis unavailable.";
+  const activeLayers = fallbackLayers.map((layer) => (
+    layer === "DETECTION_LAYER_REGEX" ? "regex" : "NER"
+  ));
+  serverWarning.querySelector("span").textContent = failClosedOnly
+    ? "No other protection layers are enabled; prompts remain blocked until the semantic service returns."
+    : `${activeLayers.join(" and ")} protection remains active. PriVoke will retry automatically.`;
+  serverWarning.hidden = false;
 }
 
 async function sendMessage(message) {

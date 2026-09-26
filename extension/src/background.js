@@ -11,8 +11,10 @@ import {
   addRuntimeLifecycleListeners,
   addRuntimeMessageListener,
 } from "./webextension-api.js";
+import { SemanticAvailability } from "./semantic-availability.js";
 
 const client = new RuntimeClient();
+const semanticAvailability = new SemanticAvailability(checkStreamingHealth);
 let runtimeControlTail = Promise.resolve();
 
 addRuntimeMessageListener(handleMessage);
@@ -158,10 +160,11 @@ async function analyzePrompt(message, sender) {
     }).catch(() => {});
     return { ok: true, response: disabledExtensionResponse() };
   }
-  const layers = detectionLayers(settings);
-  if (layers.length === 0) {
+  const configuredLayers = detectionLayers(settings);
+  if (configuredLayers.length === 0) {
     return { ok: true, response: disabledLayersResponse() };
   }
+  const semanticStatus = await semanticAvailability.selectLayers(configuredLayers);
 
   const targetApp = cleanText(message.targetApp, 80)
     || appFromUrl(sender?.url)
@@ -171,7 +174,7 @@ async function analyzePrompt(message, sender) {
     source: message.source === "manual" ? "extension_popup" : "browser_interceptor",
     targetApp,
     requestId: crypto.randomUUID(),
-    layers,
+    layers: semanticStatus.layers,
     regexExecutionOrder: settings.waitForRegex
       ? "REGEX_EXECUTION_ORDER_FIRST"
       : "REGEX_EXECUTION_ORDER_PARALLEL",
@@ -183,7 +186,16 @@ async function analyzePrompt(message, sender) {
     },
   }, { signal: AbortSignal.timeout(30_000) });
 
-  return { ok: true, response };
+  return {
+    ok: true,
+    response: {
+      ...response,
+      semanticUnavailable: semanticStatus.unavailable,
+      semanticStateTransition: semanticStatus.transition,
+      semanticFallbackLayers: semanticStatus.fallbackLayers,
+      semanticFailClosedOnly: semanticStatus.failClosedOnly,
+    },
+  };
 }
 
 function disabledExtensionResponse() {

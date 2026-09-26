@@ -16,16 +16,17 @@ function memoryStorage(initial = {}) {
   };
 }
 
-test("uses safe defaults with streamed LLM disabled", async () => {
+test("enables all protection layers by default", async () => {
   const settings = await loadSettings(memoryStorage());
   assert.equal(settings.enabled, true);
   assert.equal(settings.useLocalStack, false);
-  assert.deepEqual(settings.layers, { regex: true, ner: true, llm: false });
+  assert.deepEqual(settings.layers, { regex: true, ner: true, llm: true });
   assert.equal(settings.modelQuality, "latest");
   assert.equal(semanticModelId(settings), "");
   assert.deepEqual(detectionLayers(settings), [
     "DETECTION_LAYER_REGEX",
     "DETECTION_LAYER_NER",
+    "DETECTION_LAYER_SEMANTIC",
   ]);
 });
 

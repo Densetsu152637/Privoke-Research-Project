@@ -18,7 +18,7 @@ const MODEL_IDS = Object.freeze({
 export const DEFAULT_SETTINGS = Object.freeze({
   enabled: true,
   useLocalStack: false,
-  layers: Object.freeze({ regex: true, ner: true, llm: false }),
+  layers: Object.freeze({ regex: true, ner: true, llm: true }),
   waitForRegex: true,
   modelQuality: MODEL_QUALITY.LATEST,
 });
