@@ -45,7 +45,7 @@ Services:
 
 - `TelemetryService`
   - `RecordTelemetry(TelemetryPacket) -> RecordTelemetryResponse`
-  - `ListTelemetry(ListTelemetryRequest) -> ListTelemetryResponse`
+  - `GetTelemetrySummary(GetTelemetrySummaryRequest) -> GetTelemetrySummaryResponse`
   - `Health(TelemetryHealthRequest) -> TelemetryHealthResponse`
 
 ## Producers and Consumers

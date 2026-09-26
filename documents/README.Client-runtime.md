@@ -197,10 +197,11 @@ Environment variables:
 - `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_TEMPERATURE`, `OPENAI_MAX_TOKENS`
 - `TELEMETRY_ENABLED`, default `false` outside Compose
 - `PRIVOKE_CLOUD_TARGET` for workstations; hidden local mode selects `127.0.0.1:50055`. Internal Compose mode uses `TELEMETRY_TARGET=telemetry-service:50055`
-- `TELEMETRY_SOURCE_ID`, default `client-runtime`
+- `TELEMETRY_LDP_EPSILON`, default `1`, allowed range `0.5` to `2`
+- `TELEMETRY_LDP_DAILY_EPSILON`, default `8`, must be at least the event epsilon and no more than `8`
+- `TELEMETRY_PRIVACY_LEDGER_PATH`, optional persistent client-side daily budget ledger path
 - `TELEMETRY_TIMEOUT_SECONDS`, default `1.0`
 - `TELEMETRY_QUEUE_SIZE`, default `1024`
-- `PRIVOKE_DETECTOR_VERSION`, default `v2`
 
 `PRIVOKE_DEV_LOG_PROMPTS=true` logs raw prompt text only for requests whose `source` contains `fuzzer`. Keep it off outside local debugging.
 
@@ -217,9 +218,9 @@ therefore avoids carrying CUDA libraries when only CPU inference is needed.
 
 ## Telemetry
 
-The gRPC runtime uses `StructuredEventEmitter` and a bounded background `TelemetryReporter` when `TELEMETRY_ENABLED=true`. Prompt decisions never wait for telemetry delivery. Queue overflow or collector failure drops the packet and logs event metadata only.
+The gRPC runtime uses `StructuredEventEmitter` and a bounded background `TelemetryReporter` when `TELEMETRY_ENABLED=true`. Prompt decisions never wait for telemetry delivery. Queue overflow or collector failure drops the packet; telemetry errors are logged without event identifiers or field values.
 
-Packets deliberately exclude raw prompt text, matched spans, reasoning, arbitrary request metadata, and exception messages. They contain coarse classification/action data, text length, timing, risk bucket, and requested layer statuses. Compose enables reporting to `telemetry-service`, which stores events in SQLite.
+Before enqueueing, the emitter applies generalized randomized response to a fixed-domain action, risk bucket, primary category, model release and randomized four-hour time-of-day bucket. It reserves a per-installation daily epsilon budget in a durable local SQLite ledger first. Packets exclude prompts, identifiers, target-app names, exact timestamps/scores, text length and layer timings. Compose enables reporting to `telemetry-service`, which retains only epsilon-stratified marginal counts. See [README.Telemetry-service.md](README.Telemetry-service.md) for the event-level guarantee, accounting limits and aggregate API behavior.
 
 ## Local Setup
 

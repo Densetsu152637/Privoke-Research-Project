@@ -49,7 +49,7 @@ Cross-service APIs live in `shared/proto/privoke/v1/parameters.proto` and `runti
 - `PrivokeRuntimeService.Health(RuntimeHealthRequest) -> RuntimeHealthResponse`
 - `PrivokeRuntimeControlService.SetRuntimeEnabled(SetRuntimeEnabledRequest) -> RuntimeControlStatus`, `Status(RuntimeHealthRequest) -> RuntimeControlStatus`, and `ModelStreamingHealth(RuntimeHealthRequest) -> RuntimeHealthResponse` are implemented by `extension/runtime-supervisor` for workstation-local extension control and are not started by server Compose.
 - `TelemetryService.RecordTelemetry(TelemetryPacket) -> RecordTelemetryResponse`
-- `TelemetryService.ListTelemetry(ListTelemetryRequest) -> ListTelemetryResponse`
+- `TelemetryService.GetTelemetrySummary(GetTelemetrySummaryRequest) -> GetTelemetrySummaryResponse`
 - `TelemetryService.Health(TelemetryHealthRequest) -> TelemetryHealthResponse`
 
 Do not create ad hoc JSON contracts between services when a protobuf boundary exists.
