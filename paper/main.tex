@@ -162,33 +162,20 @@ const intercept = (details) => {
 \end{minted}
 \subsection{\privoke Runtime}
 
-\privoke runtime (Python/PyTorch) is used to locally host the PII detection pipeline, which involves locally running the \privoke LLM. This runtime will take in a string input, and reactively download the model when a request is made, if the model is not already loaded on the client's machine. The client will have methods to download a specific version of the \privoke model, but will default to the most recent if nothing is specified. 
+The Python client runtime hosts the prompt-analysis pipeline and reconstructs its semantic classifier from model parameters fetched on demand from the model-streaming service. The requested model ID may be a configured ID or the \texttt{latest} alias; the configured alias selects a model artifact, while the service returns that artifact's current version. The runtime caches loaded models briefly. Semantic analysis is enabled by default in the extension. If streaming health checks report the semantic model unavailable, enabled regex and NER layers continue; if semantic analysis is the only enabled layer, the prompt remains blocked while the service is unavailable.
 
 \subsection{"Fuzzer" Service}
 
-\privoke's Fuzzer service works by listening for a request made by the update service. When it receives the request to generate a new batch of randomly generated prompts, it downloads the latest \privoke model, processing the prompts. It then performs a training cycle on the model, ultimately distilling updated parameters. \privoke's Fuzzer then responds with the parameters so that the update service can perform server-side backpropagation, consolidating them into the global \privoke model whilst offloading training responsibility on the parameter update service.
+The Fuzzer exposes a gRPC training-cycle endpoint, which the parameter-update service can call on startup or at a configured interval. For each request, the Fuzzer samples labeled prompts from a small built-in template set or a configured JSON dataset, fills template fields from fixed vocabularies, and may apply simple redaction or substitution transformations. It sends these examples and their labels to the client runtime, which loads the requested streamed model and computes bounded analytic deltas for its trainable classification-head parameters. The Fuzzer submits those deltas, their base model version, and metadata to the parameter-update service; it does not download or backpropagate through the model itself.
 \begin{minted}{python}
-def generate_prompts(N: int):
-    return threadpool.map(
-        generate_prompt,
-        list(range(N)
-    )
-
-def train_n_batches(N: int):
-    batch_no = list(range(N)
-    prompts_f = threadpool.submit(
-        generate_prompts,args=(N,)
-    )
-    model_f = threadpool.submit(get_latest_model)
-    prompts = prompts_f.get()
-    model = model_f.get()
-    results = model.process(prompts)
-    parameters = model.backpropagate(
-        prompts, results
-    )
-    steam_to_update(parameters)
-
-listen_for_update_request(train_n_batches)
+request = wait_for_training_cycle()
+examples = sample_labeled_templates(request.prompt_count, request.seed)
+deltas = client_runtime.compute_semantic_gradients(
+    examples, model_id=request.model_id
+)
+parameter_update.submit(
+    deltas=deltas, base_version=deltas.base_version
+)
 \end{minted}
 
 \subsection{Telemetry Collector Service}
