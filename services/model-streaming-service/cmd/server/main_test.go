@@ -121,7 +121,7 @@ func testCatalog(path string) *modelCatalog {
 }
 
 func TestLoadRepositoryArtifact(t *testing.T) {
-	path := filepath.Join("..", "..", "models", "privoke-baseline.json")
+	path := filepath.Join("..", "..", "..", "..", "models", "privoke-baseline.json")
 	if _, err := os.Stat(path); err != nil {
 		path = "/models/privoke-baseline.json"
 	}
