@@ -56,7 +56,26 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             seed=cycle.seed,
             dataset_path=self.config.prompt_dataset_path,
         )
-        update = self._train(cycle.model_id, examples, cycle.seed, context)
+        heldout_examples = generate_training_prompts(
+            count=self.config.heldout_prompt_count,
+            seed=cycle.seed + 1,
+            dataset_path=self.config.prompt_dataset_path,
+        )
+        update = self._train(
+            cycle.model_id,
+            examples,
+            heldout_examples,
+            cycle.seed,
+            context,
+        )
+        try:
+            validate_training_update(
+                update,
+                minimum_exact_match_rate=self.config.minimum_exact_match_rate,
+            )
+        except ValueError as exc:
+            LOGGER.warning("rejecting training update: %s", exc)
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
         if not context.is_active():
             context.abort(
                 grpc.StatusCode.CANCELLED,
@@ -72,11 +91,12 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
         )
         return build_training_response(ack, update, len(examples))
 
-    def _train(self, model_id, examples, seed: int, context) -> BatchTrainingUpdate:
+    def _train(self, model_id, examples, heldout_examples, seed: int, context) -> BatchTrainingUpdate:
         try:
             return train_parameter_batch(
                 model_id=model_id,
                 new_examples=examples,
+                heldout_examples=heldout_examples,
                 config=self.config.batch_training_config(seed),
                 runtime_client=PrivokeRuntimeClient(
                     self.config.privoke_runtime_target,
@@ -142,6 +162,30 @@ def validate_training_request(request, expected_model_id: str) -> None:
     for key, value in request.metadata.items():
         validate_text(key, "metadata key", required=True, limit=128)
         validate_text(value, "metadata value", required=False, limit=2_048)
+
+
+def validate_training_update(
+    update: BatchTrainingUpdate,
+    *,
+    minimum_exact_match_rate: float,
+) -> None:
+    exact_match_rate = update.metrics.get("exact_match_rate")
+    if exact_match_rate is None:
+        raise ValueError("Training update did not report exact_match_rate.")
+    if exact_match_rate <= minimum_exact_match_rate:
+        raise ValueError(
+            "Training update exact_match_rate "
+            f"{exact_match_rate:.4f} must be greater than the minimum "
+            f"{minimum_exact_match_rate:.4f}."
+        )
+    before_recall = update.metrics.get("heldout_sensitive_recall")
+    candidate_recall = update.metrics.get("candidate_heldout_sensitive_recall")
+    before_specificity = update.metrics.get("heldout_clean_specificity")
+    candidate_specificity = update.metrics.get("candidate_heldout_clean_specificity")
+    if None in (before_recall, candidate_recall, before_specificity, candidate_specificity):
+        raise ValueError("Training update did not report held-out quality metrics.")
+    if candidate_recall < before_recall or candidate_specificity < before_specificity:
+        raise ValueError("Candidate model is worse on the held-out evaluation set.")
 
 
 def _resolve_cycle(request, config: FuzzerConfig) -> TrainingCycle:

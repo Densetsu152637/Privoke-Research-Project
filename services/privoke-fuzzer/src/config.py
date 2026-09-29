@@ -25,6 +25,8 @@ class FuzzerConfig:
     training_learning_rate: float
     training_max_gradient: float
     training_transformations_per_example: int
+    minimum_exact_match_rate: float
+    heldout_prompt_count: int
 
     @classmethod
     def from_env(cls) -> FuzzerConfig:
@@ -53,6 +55,11 @@ class FuzzerConfig:
                 "FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE",
                 1,
             ),
+            minimum_exact_match_rate=env_float(
+                "FUZZ_MIN_EXACT_MATCH_RATE",
+                0.0,
+            ),
+            heldout_prompt_count=env_int("FUZZ_HELDOUT_PROMPT_COUNT", 16),
         ).validated()
 
     def validated(self) -> FuzzerConfig:
@@ -69,6 +76,14 @@ class FuzzerConfig:
             FUZZ_TRAINING_LEARNING_RATE=self.training_learning_rate,
             FUZZ_TRAINING_MAX_GRADIENT=self.training_max_gradient,
         )
+        if not math.isfinite(self.minimum_exact_match_rate) or self.minimum_exact_match_rate < 0:
+            raise ValueError(
+                "FUZZ_MIN_EXACT_MATCH_RATE must be finite and non-negative."
+            )
+        if self.minimum_exact_match_rate > 1:
+            raise ValueError("FUZZ_MIN_EXACT_MATCH_RATE must not exceed 1.")
+        if self.heldout_prompt_count <= 0:
+            raise ValueError("FUZZ_HELDOUT_PROMPT_COUNT must be positive.")
         if not 1 <= self.port <= 65_535:
             raise ValueError("FUZZER_PORT must be between 1 and 65535.")
         for name, value in (

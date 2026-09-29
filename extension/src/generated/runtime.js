@@ -4098,6 +4098,7 @@ export const privoke = $root.privoke = (() => {
              * @property {Array.<privoke.v1.RuntimeTrainingExample.$Properties>|null} [examples] ComputeSemanticGradientsRequest examples
              * @property {number|null} [learningRate] ComputeSemanticGradientsRequest learningRate
              * @property {number|null} [maxGradient] ComputeSemanticGradientsRequest maxGradient
+             * @property {Array.<privoke.v1.RuntimeTrainingExample.$Properties>|null} [heldoutExamples] ComputeSemanticGradientsRequest heldoutExamples
              * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
              */
 
@@ -4124,6 +4125,7 @@ export const privoke = $root.privoke = (() => {
              */
             const ComputeSemanticGradientsRequest = function (properties) {
                 this.examples = [];
+                this.heldoutExamples = [];
                 if (properties)
                     for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
                         if (properties[keys[i]] != null && keys[i] !== "__proto__")
@@ -4171,6 +4173,14 @@ export const privoke = $root.privoke = (() => {
             ComputeSemanticGradientsRequest.prototype.maxGradient = 0;
 
             /**
+             * ComputeSemanticGradientsRequest heldoutExamples.
+             * @member {Array.<privoke.v1.RuntimeTrainingExample.$Properties>} heldoutExamples
+             * @memberof privoke.v1.ComputeSemanticGradientsRequest
+             * @instance
+             */
+            ComputeSemanticGradientsRequest.prototype.heldoutExamples = $util.emptyArray;
+
+            /**
              * Creates a new ComputeSemanticGradientsRequest instance using the specified properties.
              * @function create
              * @memberof privoke.v1.ComputeSemanticGradientsRequest
@@ -4213,6 +4223,9 @@ export const privoke = $root.privoke = (() => {
                     writer.uint32(/* id 4, wireType 1 =*/33).double(message.learningRate);
                 if (message.maxGradient != null && $Object.hasOwnProperty.call(message, "maxGradient") && !$Object.is(message.maxGradient, 0))
                     writer.uint32(/* id 5, wireType 1 =*/41).double(message.maxGradient);
+                if (message.heldoutExamples != null && message.heldoutExamples.length)
+                    for (let i = 0; i < message.heldoutExamples.length; ++i)
+                        $root.privoke.v1.RuntimeTrainingExample.encode(message.heldoutExamples[i], writer.uint32(/* id 6, wireType 2 =*/50).fork(), _depth + 1).ldelim();
                 if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
                     for (let i = 0; i < message.$unknowns.length; ++i)
                         writer.raw(message.$unknowns[i]);
@@ -4304,6 +4317,14 @@ export const privoke = $root.privoke = (() => {
                                 delete message.maxGradient;
                             continue;
                         }
+                    case 6: {
+                            if (wireType !== 2)
+                                break;
+                            if (!(message.heldoutExamples && message.heldoutExamples.length))
+                                message.heldoutExamples = [];
+                            message.heldoutExamples.push($root.privoke.v1.RuntimeTrainingExample.decode(reader, reader.uint32(), $undefined, _depth + 1));
+                            continue;
+                        }
                     }
                     reader.skipType(wireType, _depth, tag);
                     if (!reader.discardUnknown) {
@@ -4368,6 +4389,15 @@ export const privoke = $root.privoke = (() => {
                 if (message.maxGradient != null && $Object.hasOwnProperty.call(message, "maxGradient"))
                     if (typeof message.maxGradient !== "number")
                         return "maxGradient: number expected";
+                if (message.heldoutExamples != null && $Object.hasOwnProperty.call(message, "heldoutExamples")) {
+                    if (!$Array.isArray(message.heldoutExamples))
+                        return "heldoutExamples: array expected";
+                    for (let i = 0; i < message.heldoutExamples.length; ++i) {
+                        let error = $root.privoke.v1.RuntimeTrainingExample.verify(message.heldoutExamples[i], _depth + 1);
+                        if (error)
+                            return "heldoutExamples." + error;
+                    }
+                }
                 return null;
             };
 
@@ -4411,6 +4441,16 @@ export const privoke = $root.privoke = (() => {
                 if (object.maxGradient != null)
                     if (!$Object.is($Number(object.maxGradient), 0))
                         message.maxGradient = $Number(object.maxGradient);
+                if (object.heldoutExamples) {
+                    if (!$Array.isArray(object.heldoutExamples))
+                        throw $TypeError(".privoke.v1.ComputeSemanticGradientsRequest.heldoutExamples: array expected");
+                    message.heldoutExamples = $Array(object.heldoutExamples.length);
+                    for (let i = 0; i < object.heldoutExamples.length; ++i) {
+                        if (!$util.isObject(object.heldoutExamples[i]))
+                            throw $TypeError(".privoke.v1.ComputeSemanticGradientsRequest.heldoutExamples: object expected");
+                        message.heldoutExamples[i] = $root.privoke.v1.RuntimeTrainingExample.fromObject(object.heldoutExamples[i], _depth + 1);
+                    }
+                }
                 return message;
             };
 
@@ -4431,8 +4471,10 @@ export const privoke = $root.privoke = (() => {
                 if (_depth > $util.recursionLimit)
                     throw $Error("max depth exceeded");
                 let object = {};
-                if (options.arrays || options.defaults)
+                if (options.arrays || options.defaults) {
                     object.examples = [];
+                    object.heldoutExamples = [];
+                }
                 if (options.defaults) {
                     object.requestId = "";
                     object.modelId = "";
@@ -4452,6 +4494,11 @@ export const privoke = $root.privoke = (() => {
                     object.learningRate = options.json && !$isFinite(message.learningRate) ? $String(message.learningRate) : message.learningRate;
                 if (message.maxGradient != null && $Object.hasOwnProperty.call(message, "maxGradient"))
                     object.maxGradient = options.json && !$isFinite(message.maxGradient) ? $String(message.maxGradient) : message.maxGradient;
+                if (message.heldoutExamples && message.heldoutExamples.length) {
+                    object.heldoutExamples = $Array(message.heldoutExamples.length);
+                    for (let j = 0; j < message.heldoutExamples.length; ++j)
+                        object.heldoutExamples[j] = $root.privoke.v1.RuntimeTrainingExample.toObject(message.heldoutExamples[j], options, _depth + 1);
+                }
                 return object;
             };
 

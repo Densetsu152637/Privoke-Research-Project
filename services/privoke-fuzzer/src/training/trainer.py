@@ -38,6 +38,7 @@ def train_parameter_batch(
     model_id: str,
     new_examples: Sequence[BatchTrainingExample],
     golden_examples: Sequence[BatchTrainingExample] = (),
+    heldout_examples: Sequence[BatchTrainingExample] = (),
     config: BatchTrainingConfig | None = None,
     runtime_client: PrivokeRuntimeClient | None = None,
 ) -> BatchTrainingUpdate:
@@ -51,6 +52,7 @@ def train_parameter_batch(
     runtime_client = runtime_client or _default_runtime_client()
     batch = runtime_client.compute_semantic_gradients(
         trainer_examples,
+        heldout_examples=heldout_examples,
         model_id=model_id,
         learning_rate=config.learning_rate,
         max_gradient=config.max_gradient,

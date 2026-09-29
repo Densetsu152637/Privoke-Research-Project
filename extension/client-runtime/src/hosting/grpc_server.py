@@ -113,6 +113,18 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
                 model_id=request.model_id,
                 learning_rate=float(request.learning_rate),
                 max_gradient=float(request.max_gradient),
+                  heldout_examples=[
+                      SemanticTrainingExample(
+                          text=item.text,
+                          target=(
+                              Classification(int(item.target.packed))
+                              if item.has_target
+                              else None
+                          ),
+                          weight=float(item.weight),
+                      )
+                      for item in request.heldout_examples
+                  ],
             )
             return runtime_pb2.ComputeSemanticGradientsResponse(
                 request_id=request.request_id,
