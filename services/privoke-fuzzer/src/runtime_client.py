@@ -146,6 +146,7 @@ class PrivokeRuntimeClient:
         self,
         examples,
         *,
+        heldout_examples=(),
         model_id: str,
         learning_rate: float,
         max_gradient: float,
@@ -174,6 +175,17 @@ class PrivokeRuntimeClient:
                     weight=example.weight,
                 )
                 for example in examples
+            ],
+            heldout_examples=[
+                runtime_pb2.RuntimeTrainingExample(
+                    text=example.text,
+                    target=runtime_pb2.RuntimeClassification(
+                        packed=example.expected_classification.pack()
+                    ) if example.expected_classification is not None else None,
+                    has_target=example.expected_classification is not None,
+                    weight=example.weight,
+                )
+                for example in heldout_examples
             ],
             learning_rate=learning_rate,
             max_gradient=max_gradient,

@@ -102,6 +102,7 @@ message ComputeSemanticGradientsRequest {
   repeated RuntimeTrainingExample examples = 3;
   double learning_rate = 4;
   double max_gradient = 5;
+  repeated RuntimeTrainingExample heldout_examples = 6;
 }
 
 message RuntimeParameterDelta {

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from ...classification import Classification
+from ...model import ModelConfig, TinyTransformerModel
 from .parameter_stream import ModelParameterStreamer
 from .streamed_model import GLOBAL_STREAMED_MODEL_CACHE
 
@@ -33,6 +34,7 @@ def compute_semantic_gradients(
     model_id: str,
     learning_rate: float,
     max_gradient: float,
+    heldout_examples: Sequence[SemanticTrainingExample] = (),
 ) -> SemanticGradientBatch:
     """Execute one bounded classification-head update using the cached runtime model."""
     if not examples:
@@ -98,6 +100,30 @@ def compute_semantic_gradients(
         )
         for name, values in gradients.items()
     }
+    heldout_metrics = _heldout_metrics(
+        runtime_model,
+        snapshot.parameters,
+        heldout_examples,
+    )
+    candidate_parameters = {
+        name: tuple(
+            float(value) + float(scaled.get(name, ())[index])
+            if name in scaled
+            else float(value)
+            for index, value in enumerate(values)
+        )
+        for name, values in snapshot.parameters.items()
+    }
+    heldout_metrics.update(
+        {
+            f"candidate_{key}": value
+            for key, value in _heldout_metrics(
+                runtime_model,
+                candidate_parameters,
+                heldout_examples,
+            ).items()
+        }
+    )
     updated = {}
     for name, values in snapshot.parameters.items():
         delta = scaled.get(name)
@@ -119,6 +145,7 @@ def compute_semantic_gradients(
             "average_loss": total_loss / total_weight,
             "exact_match_rate": exact_matches / len(examples),
             "total_weight": total_weight,
+            **heldout_metrics,
         },
         metadata={
             "strategy": "transformer_classification_head_finetune",
@@ -143,6 +170,41 @@ def _classification_from_prediction(prediction) -> Classification:
             if name in Category.__members__
         ],
     )
+
+
+def _heldout_metrics(runtime_model, parameters, examples):
+    if not examples:
+        return {}
+    model = TinyTransformerModel(
+        ModelConfig.from_metadata(runtime_model.snapshot.metadata),
+        parameters,
+        runtime_model.snapshot.shapes,
+    )
+    predictions = model.predict_many(tuple(example.text for example in examples))
+    exact = 0
+    sensitive = 0
+    sensitive_correct = 0
+    clean = 0
+    clean_correct = 0
+    for example, prediction in zip(examples, predictions):
+        if example.target is None:
+            continue
+        target = example.target
+        predicted = _classification_from_prediction(prediction)
+        exact += target.pack() == predicted.pack()
+        if target.is_sensitive():
+            sensitive += 1
+            sensitive_correct += target.is_sensitive() == predicted.is_sensitive()
+        else:
+            clean += 1
+            clean_correct += target.is_sensitive() == predicted.is_sensitive()
+    total = sensitive + clean
+    return {
+        "heldout_examples": float(total),
+        "heldout_exact_match_rate": exact / total if total else 0.0,
+        "heldout_sensitive_recall": sensitive_correct / sensitive if sensitive else 1.0,
+        "heldout_clean_specificity": clean_correct / clean if clean else 1.0,
+    }
 
 
 def _classification_loss(target: Classification, predicted: Classification) -> float:
