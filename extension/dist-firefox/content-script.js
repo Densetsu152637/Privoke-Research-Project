@@ -31,16 +31,19 @@
   window.addEventListener("message", (event) => {
     const data = event.data;
     if (event.source !== window || data?.channel !== CHANNEL || data?.type !== "ANALYZE_PROMPT" || typeof data.text !== "string") return;
-    sendRuntimeMessage({
+    Promise.resolve().then(() => sendRuntimeMessage({
       type: "ANALYZE_PROMPT",
       source: "intercepted",
       text: data.text,
       targetApp: data.targetApp
-    }).then((result) => {
+    })).then((result) => {
       const response = result?.ok ? result.response : null;
       const action = response?.action?.toUpperCase();
-      if (action === "WARN" || action === "BLOCK") {
-        showNotice(action, data.text, response);
+      try {
+        if (action === "WARN" || action === "BLOCK") {
+          showNotice(action, data.text, response);
+        }
+      } catch {
       }
       postResult(data.requestId, action ?? "ALLOW");
     }).catch(() => postResult(data.requestId, "ALLOW"));

@@ -12,16 +12,20 @@ window.addEventListener("message", (event) => {
     || typeof data.text !== "string"
   ) return;
 
-  sendRuntimeMessage({
+  Promise.resolve().then(() => sendRuntimeMessage({
     type: "ANALYZE_PROMPT",
     source: "intercepted",
     text: data.text,
     targetApp: data.targetApp,
-  }).then((result) => {
+  })).then((result) => {
     const response = result?.ok ? result.response : null;
     const action = response?.action?.toUpperCase();
-    if (action === "WARN" || action === "BLOCK") {
-      showNotice(action, data.text, response);
+    try {
+      if (action === "WARN" || action === "BLOCK") {
+        showNotice(action, data.text, response);
+      }
+    } catch {
+      // A rendering failure must not turn a BLOCK decision into ALLOW.
     }
     postResult(data.requestId, action ?? "ALLOW");
   }).catch(() => postResult(data.requestId, "ALLOW"));
