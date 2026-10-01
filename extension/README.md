@@ -22,6 +22,8 @@ Docker is optional for the extension's regex and NER layers. It is used only whe
 - Manual analysis reports a compact `PASS`, `WARN`, or `ERROR` badge beside the **Analyse prompt** button. `BLOCK` maps to `ERROR` in this compact UI.
 - Website notifications are shown only for `WARN` and `BLOCK`. The detected evidence span is rendered in red; `ALLOW` stays silent.
 - A warning allows the original web request to continue. A block cancels it before it is sent.
+- Blocked `fetch` calls reject with a `TypeError` so the site's normal failure handler can report the unsent prompt. Blocked XHR calls expose `DONE` with status `0` and emit `readystatechange`, `error`, and `loadend`, allowing the site's loading state to finish. Cancellation and XHR timeouts during the privacy check also emit their usual terminal events, and late analysis results cannot send a cancelled request.
+- Synchronous XHR prompt calls fail immediately with `NetworkError`, because the extension's privacy check requires asynchronous messaging. Unmatched requests retain their native behavior.
 - Settings persist in the standard WebExtensions local-storage API. **Wait for regex** selects first/short-circuit versus parallel execution, and **PriVoke model** supplies the streamed model ID for each analysis.
 - Every analysis request names the concrete enabled layers; the extension never relies on the runtime's omitted-layer default.
 
