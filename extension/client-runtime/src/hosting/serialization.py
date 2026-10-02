@@ -33,8 +33,8 @@ def parse_prompt_request(
     if not isinstance(raw_text, str):
         raise RequestValidationError("Request body must include string field 'text'.")
 
-    text = raw_text.strip()
-    if not text:
+    text = raw_text
+    if not text.strip():
         raise RequestValidationError("Prompt text must not be empty.")
     if len(text) > max_text_chars:
         raise RequestValidationError(
@@ -200,7 +200,9 @@ def _masked_text(
         return None
 
     start, end = result.span
-    if not (0 <= start < end <= len(text)):
+    if type(start) is not int or type(end) is not int or not (0 <= start < end <= len(text)):
         return None
 
+    if text[start:end] != result.section_of_text:
+        return None
     return f"{text[:start]}[PRIVOKE_MASKED]{text[end:]}"

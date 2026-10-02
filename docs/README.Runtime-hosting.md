@@ -50,7 +50,7 @@ The HTTP server binds to loopback by default. Binding to `0.0.0.0` or another no
 Validation behavior:
 
 - request body must be a JSON object,
-- `text`/`prompt` must be a non-empty string after trimming,
+- `text`/`prompt` must be a non-empty string after trimming; the stored request preserves its original whitespace so returned spans and masks address the original text,
 - prompt length is capped by `max_text_chars` or `PRIVOKE_MAX_PROMPT_CHARS`,
 - `metadata` must be an object when provided,
 - optional string fields must be strings,
@@ -89,6 +89,8 @@ Validation behavior:
   }
 }
 ```
+
+Warning masks address the original request, including its whitespace and Unicode form. A mask is returned only for a valid primary `WARN` span whose text matches the evidence. Invalid or ambiguous spans produce no mask. Visibility hints apply to combined evidence, preserve existing decisions, and cannot turn a failed analysis into an allowed one.
 
 ## Live LLM Config
 

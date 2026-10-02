@@ -11,9 +11,9 @@ from ..classification import (
     ClassificationResult,
     Sensitivity,
     Visibility,
-    build_results,
 )
 from ..env import env_float, env_positive_int
+from ..classification.external_output import build_external_results
 
 
 MAX_LLM_RESPONSE_BYTES = 1_048_576
@@ -134,7 +134,7 @@ class LocalClassifier(AbstractClassifier):
         if parsed is None:
             raise RuntimeError("Semantic classifier returned invalid JSON.")
 
-        results = build_results(parsed)
+        results = build_external_results(parsed, text)
         if not results:
             raise RuntimeError("Semantic classifier returned no valid results.")
         for result in results:
@@ -387,19 +387,6 @@ def _parse_json_content(content: str) -> Dict[str, Any] | List[Dict[str, Any]] |
                 return parsed
         except json.JSONDecodeError:
             pass
-
-    decoder = json.JSONDecoder()
-    for index, char in enumerate(content):
-        if char not in "{[":
-            continue
-
-        try:
-            parsed, _ = decoder.raw_decode(content[index:])
-        except json.JSONDecodeError:
-            continue
-
-        if isinstance(parsed, (dict, list)):
-            return parsed
 
     return None
 
