@@ -26,7 +26,7 @@ gRPC request or local HTTP POST /analyze
   -> RuleDetector
   -> EntityNERDetector
   -> selected semantic classifier
-  -> strongest ClassificationResult action
+  -> combined classification and original-text primary evidence
   -> HTTP or gRPC response serialization
 ```
 
@@ -35,8 +35,8 @@ Current behavior is deliberately simple:
 - Callers can request the full runtime or any subset of regex, NER, and semantic detection.
 - Regex rules run first by default. If they produce a `BLOCK`, the runtime marks the remaining requested layers as skipped. Callers can instead request parallel regex execution.
 - Detector failures are returned as aggregate and per-layer errors without discarding successful layer results.
-- The runtime does not merge all detector evidence into one combined classification. It selects the first result that raises the strongest action above `ALLOW`.
-- Visibility hints are applied by the hosting layer after pipeline analysis.
+- The runtime preserves `ALLOW` evidence and combines strongest sensitivity/known visibility with the category union. Confidence moderation remains tied to the most sensitive contributors, and individual decisions are never weakened.
+- Visibility hints can promote retained identity/location evidence; they cannot lower an existing failure `BLOCK`. Layer and primary evidence spans address the original prompt, including Unicode and whitespace.
 
 ## Classification Contract
 
@@ -137,7 +137,7 @@ npm install
 npm run build
 ```
 
-Load `extension/dist` from Opera GX, Firefox, or another WebExtensions browser's development-extension page. The extension itself is never run by Compose. Register the browser-specific native messaging launcher described in `documents/README.Browser-extension.md`; the extension can then start the workstation supervisor on demand. The supervisor hosts the gRPC-Web bridge on `8080`, its control service on `50056`, and its extension-local detector on `50057`. The server-side development Compose detector remains on `50054`, so both paths can run simultaneously. Port `50051` is contacted by Python only when streamed LLM health or parameters are requested.
+Load `extension/dist` in Chromium-family browsers, or build the Firefox target and load `extension/dist-firefox`, using the browser's development-extension page. The extension itself is never run by Compose. Register the browser-specific native messaging launcher described in [Browser extension](README.Browser-extension.md); the extension can then start the workstation supervisor on demand. The supervisor hosts the gRPC-Web bridge on `8080`, its control service on `50056`, and its extension-local detector on `50057`. The server-side development Compose detector remains on `50054`, so both paths can run simultaneously. Port `50051` is contacted by Python only when streamed LLM health or parameters are requested.
 
 Run paper figure scripts:
 
@@ -188,8 +188,9 @@ In dev mode fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer
 ## Current Prototype Boundaries
 
 - `model-streaming-service` streams the configured, versioned transformer artifact from `models/` to `client-runtime`; the runtime can fine-tune its heads on a fuzzer-supplied batch and `param-update-service` atomically publishes the returned Git-storable update.
-- `param-update-service` persists gradients and reports a derived applied-version label, but it does not mutate the snapshot served by `model-streaming-service`.
-- The full Compose stack sets `FUZZER_PROMPT_COUNT=8`, so `param-update-service` requests one eight-prompt training cycle after startup. The resulting update is stored only in the `param-update-data` volume.
+- `param-update-service` validates and applies bounded trainable-head deltas to the persistent artifact. Durable receipts recover committed outcomes after lost acknowledgments and prevent the same identified payload from applying twice.
+- Training reserves distinct labeled clean/sensitive held-out examples before sampling training data. Runtime evaluation checks the exact clipped candidate; publication requires finite quality metrics and no held-out regression. This is an experiment guard, not a public accuracy guarantee.
+- Compose defaults `FUZZER_PROMPT_COUNT=0`; automatic training requires an explicit nonzero setting. Production/GCE weights persist in `model-data`, with the streaming service reading and the updater writing. Development overrides bind-mount `./models` instead.
 - Production containers run as an unprivileged user with a read-only root filesystem, all Linux capabilities dropped, and `no-new-privileges`. A network-disabled one-shot `storage-permissions` initializer seeds missing artifacts into the `model-data` volume and fixes ownership of persistent model, update, telemetry, client-state, and fuzzer data without deleting existing contents.
 - The unpacked extension requires the workstation supervisor, which owns both the local detector process and its loopback gRPC-Web bridge. The repository does not ship a separate extension Compose deployment.
 - The optional HTTP harness on `127.0.0.1:8765` exists for evaluation and local integration; server Compose and the browser extension use gRPC paths instead.
@@ -199,14 +200,14 @@ In dev mode fuzzer prompt-test dumps are bind-mounted to `./dumps/privoke-fuzzer
 
 `shared/proto/privoke/v1/parameters.proto` defines:
 
-- `ModelStreamingService.GetModelParameters`
-- `ParamUpdateService.SubmitParameterUpdate`
+- `ModelStreamingService.StreamModelParameters` and unary `GetModelParameters`
+- `ParamUpdateService.SubmitParameterUpdate` and `GetParameterUpdateStatus`
 - `FuzzerService.RunTrainingCycle`
 - `Health` RPCs for the parameter, update, and fuzzer services
 
 `shared/proto/privoke/v1/runtime.proto` defines `PrivokeRuntimeService`, including prompt analysis and bounded semantic-gradient calls, plus the workstation-local `PrivokeRuntimeControlService` and its on-demand model-streaming health proxy. Server Compose runs only the runtime service; `extension/runtime-supervisor` hosts the control service.
 
-`shared/proto/privoke/v1/telemetry.proto` defines privacy-minimal event recording and paginated retrieval. Compose persists these packets in the `telemetry-data` SQLite volume.
+`shared/proto/privoke/v1/telemetry.proto` defines bounded randomized event recording and aggregate summary retrieval. Compose persists epsilon-stratified marginal counts in the `telemetry-data` SQLite volume; the client privacy ledger persists separately.
 
 The dev Compose override regenerates Python and Go protobuf bindings into each service-local `generated` or `gen` directory before starting the service.
 
@@ -219,3 +220,5 @@ The dev Compose override regenerates Python and Go protobuf bindings into each s
 - Snapshot serving belongs in `services/model-streaming-service`.
 
 Avoid reintroducing string-only severity/category flow. Preserve `Classification`, `ClassificationResult`, `PriVokeAction`, and protobuf boundaries where they are already used.
+
+See the [feature completion matrix](feature-completion.md) for contract coverage and release validation still required.
