@@ -120,7 +120,7 @@ def check_health_endpoints(rounds: int = 1) -> None:
     print(f"Health RPCs passed for all services ({rounds} round(s)).", flush=True)
 
 
-def check_model_snapshot() -> None:
+def check_model_snapshot():
     with grpc.insecure_channel(TARGETS["model"]) as channel:
         chunks = list(parameters_pb2_grpc.ModelStreamingServiceStub(
             channel
@@ -151,6 +151,7 @@ def check_model_snapshot() -> None:
         "model snapshot provenance metadata is missing",
     )
     print("Parameter streaming check passed.", flush=True)
+    return chunks
 
 
 def check_runtime_analysis() -> None:
@@ -257,6 +258,7 @@ def _observed_summary_counts(response) -> dict[str, dict[str, int]]:
 
 
 def check_fuzzer_training_cycle() -> None:
+    before = check_model_snapshot()
     request = parameters_pb2.FuzzerTrainingRequest(
         request_id=f"ci-fuzzer-{uuid.uuid4().hex}",
         source_id="github-actions-smoke-test",
@@ -289,7 +291,27 @@ def check_fuzzer_training_cycle() -> None:
     require(response.prompts_generated == 2, "fuzzer generated an unexpected prompt count")
     require(bool(response.base_version), "fuzzer response has no base version")
     require(bool(response.applied_version), "parameter update was not applied")
-    print("Fuzzer cross-service training cycle passed.", flush=True)
+    after = check_model_snapshot()
+    require(response.base_version == before[0].version, "training did not use the current snapshot")
+    require(after[0].version == response.applied_version, "updated version was not streamed")
+    require(
+        [tuple(chunk.parameter.values) for chunk in before]
+        != [tuple(chunk.parameter.values) for chunk in after],
+        "training did not change any streamed weights",
+    )
+    with grpc.insecure_channel(TARGETS["fuzzer"]) as channel:
+        replay = parameters_pb2_grpc.FuzzerServiceStub(channel).RunTrainingCycle(
+            request, timeout=RPC_TIMEOUT_SECONDS,
+        )
+    require(replay.accepted and replay.metadata.get("replayed") == "true", "committed request was not replayed")
+    require(replay.applied_version == response.applied_version, "retry changed the committed outcome")
+    repeated = check_model_snapshot()
+    require(
+        [chunk.SerializeToString(deterministic=True) for chunk in after]
+        == [chunk.SerializeToString(deterministic=True) for chunk in repeated],
+        "retry mutated the streamed model",
+    )
+    print("Fuzzer training publication and idempotent replay passed.", flush=True)
 
 
 def require(condition: bool, message: str) -> None:

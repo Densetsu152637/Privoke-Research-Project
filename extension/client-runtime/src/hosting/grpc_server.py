@@ -78,26 +78,27 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
                 raise ValueError("model_id is required.")
             if not request.examples:
                 raise ValueError("At least one training example is required.")
-            if len(request.examples) > DEFAULT_MAX_TRAINING_EXAMPLES:
+            all_examples = tuple(request.examples) + tuple(request.heldout_examples)
+            if len(all_examples) > DEFAULT_MAX_TRAINING_EXAMPLES:
                 raise ValueError(
                     "Training batches may contain at most "
                     f"{DEFAULT_MAX_TRAINING_EXAMPLES} examples."
                 )
             if (
-                sum(len(item.text) for item in request.examples)
+                sum(len(item.text) for item in all_examples)
                 > DEFAULT_MAX_TRAINING_TEXT_CHARS
             ):
                 raise ValueError(
                     "Training batch text may contain at most "
                     f"{DEFAULT_MAX_TRAINING_TEXT_CHARS} characters."
                 )
-            examples = []
-            for item in request.examples:
+            converted = []
+            for item in all_examples:
                 if not item.text or len(item.text) > self.max_text_chars:
                     raise ValueError(
                         f"Training example text must contain 1 to {self.max_text_chars} characters."
                     )
-                examples.append(
+                converted.append(
                     SemanticTrainingExample(
                         text=item.text,
                         target=(
@@ -109,22 +110,11 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
                     )
                 )
             batch = compute_semantic_gradients(
-                examples,
+                converted[:len(request.examples)],
                 model_id=request.model_id,
                 learning_rate=float(request.learning_rate),
                 max_gradient=float(request.max_gradient),
-                  heldout_examples=[
-                      SemanticTrainingExample(
-                          text=item.text,
-                          target=(
-                              Classification(int(item.target.packed))
-                              if item.has_target
-                              else None
-                          ),
-                          weight=float(item.weight),
-                      )
-                      for item in request.heldout_examples
-                  ],
+                heldout_examples=converted[len(request.examples):],
             )
             return runtime_pb2.ComputeSemanticGradientsResponse(
                 request_id=request.request_id,

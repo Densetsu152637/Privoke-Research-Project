@@ -82,8 +82,13 @@ class FuzzerConfig:
             )
         if self.minimum_exact_match_rate > 1:
             raise ValueError("FUZZ_MIN_EXACT_MATCH_RATE must not exceed 1.")
-        if self.heldout_prompt_count <= 0:
-            raise ValueError("FUZZ_HELDOUT_PROMPT_COUNT must be positive.")
+        if not 2 <= self.heldout_prompt_count <= 256:
+            raise ValueError("FUZZ_HELDOUT_PROMPT_COUNT must be between 2 and 256.")
+        expanded_count = self.max_prompt_count * (
+            self.training_transformations_per_example + 1
+        ) + self.heldout_prompt_count
+        if expanded_count > 1024:
+            raise ValueError("Expanded training plus held-out examples must not exceed 1024.")
         if not 1 <= self.port <= 65_535:
             raise ValueError("FUZZER_PORT must be between 1 and 65535.")
         for name, value in (

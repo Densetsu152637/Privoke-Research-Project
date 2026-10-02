@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
@@ -51,6 +52,20 @@ class _GradientRuntime:
 
 
 class TransformerTrainingTests(unittest.TestCase):
+    def test_rejects_oversized_expansion_before_transforming_or_calling_runtime(self):
+        runtime = _GradientRuntime()
+        for transformations, count in ((1000000, 1), (3, 256)):
+            with self.subTest(transformations=transformations), patch("training.trainer.iter_training_examples") as expand:
+                with self.assertRaises(ValueError):
+                    train_parameter_batch(
+                        model_id="privoke-balanced",
+                        new_examples=[BatchTrainingExample("training")] * count,
+                        heldout_examples=[BatchTrainingExample("held-out")] * 16,
+                        config=BatchTrainingConfig(transformations_per_example=transformations),
+                        runtime_client=runtime,
+                    )
+                expand.assert_not_called()
+        self.assertFalse(runtime.calls)
     def test_training_delegates_model_execution_and_descent_to_runtime(self) -> None:
         target = initialise_unpacked(
             Sensitivity.S3,

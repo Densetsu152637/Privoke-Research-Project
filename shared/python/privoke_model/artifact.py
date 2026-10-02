@@ -5,6 +5,7 @@ import hmac
 import json
 import math
 import os
+import struct
 import tempfile
 import time
 from pathlib import Path
@@ -138,10 +139,7 @@ def apply_parameter_update(
         stored_values = parameters[name]["values"]
         if len(values) != len(stored_values):
             raise ModelArtifactError(f"Parameter shape mismatch for {name!r}.")
-        parameters[name]["values"] = [
-            round(float(value) + float(values[index]), 8)
-            for index, value in enumerate(stored_values)
-        ]
+        parameters[name]["values"] = updated_parameter_values(stored_values, values)
 
     metadata = updated.setdefault("metadata", {})
     try:
@@ -164,6 +162,27 @@ def apply_parameter_update(
     updated["checksum"] = artifact_checksum({key: value for key, value in updated.items() if key != "checksum"})
     validate_artifact(updated)
     return updated
+
+
+def float32(value: float) -> float:
+    """Use the same finite precision as the protobuf tensor transport."""
+    try:
+        result = struct.unpack("!f", struct.pack("!f", float(value)))[0]
+    except (OverflowError, struct.error) as exc:
+        raise ModelArtifactError("Parameter is outside finite float32 range.") from exc
+    if not math.isfinite(result):
+        raise ModelArtifactError("Parameter must be finite.")
+    return result
+
+
+def updated_parameter_values(values, deltas) -> list[float]:
+    """Apply transported deltas to transported weights before durable rounding.
+
+    The runtime evaluates this exact candidate before the update is published.
+    """
+    if len(values) != len(deltas):
+        raise ModelArtifactError("Parameter and delta lengths must match.")
+    return [round(float32(value) + float32(delta), 8) for value, delta in zip(values, deltas)]
 
 
 def write_artifact_atomic(path: str | Path, payload: Mapping[str, Any]) -> None:
@@ -190,6 +209,12 @@ def write_artifact_atomic(path: str | Path, payload: Mapping[str, Any]) -> None:
             os.fsync(handle.fileno())
         os.chmod(temporary_name, 0o644)
         os.replace(temporary_name, artifact_path)
+        if hasattr(os, "O_DIRECTORY"):
+            descriptor = os.open(artifact_path.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
     finally:
         if temporary_name and os.path.exists(temporary_name):
             os.unlink(temporary_name)

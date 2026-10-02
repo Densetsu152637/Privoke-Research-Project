@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import logging
+import hashlib
+import json
+import sqlite3
 import sys
 import threading
 from concurrent import futures
@@ -19,6 +22,7 @@ from privoke_model import (
     load_artifact,
     write_artifact_atomic,
 )
+from privoke_model.artifact import artifact_checksum
 from privoke_service import configure_logging
 
 GENERATED_DIR = Path(__file__).resolve().parents[1] / "generated"
@@ -27,6 +31,8 @@ if str(GENERATED_DIR) not in sys.path:
 
 from audit import artifact_is_usable, persist_update_audit, storage_is_writable
 from config import ParamUpdateConfig
+from receipts import RECEIPT_METADATA_KEY, UpdateReceipts, receipt_key, request_receipt
+from privoke_service import validate_text
 from fuzzer_requests import FuzzerRequestConfig, start_fuzzer_requester
 from privoke.v1 import parameters_pb2, parameters_pb2_grpc
 from validation import (
@@ -74,7 +80,7 @@ class ParamUpdateService(parameters_pb2_grpc.ParamUpdateServiceServicer):
             updated_artifact = self._apply_update(request)
         except ModelArtifactError as exc:
             context.abort(_artifact_error_status(exc), str(exc))
-        except OSError:
+        except (OSError, sqlite3.Error):
             LOGGER.exception("model artifact persistence failed")
             context.abort(
                 grpc.StatusCode.INTERNAL,
@@ -95,13 +101,25 @@ class ParamUpdateService(parameters_pb2_grpc.ParamUpdateServiceServicer):
         )
 
     def _apply_update(self, request):
-        with self._write_lock:
+        with self._write_lock, UpdateReceipts(self.storage_path) as receipts:
             artifact = load_artifact(self.model_artifact_path)
+            while receipts.recover(artifact):
+                receipts.checkpoint()
+                artifact = load_artifact(self.model_artifact_path)
             if artifact["model_id"] != request.model_id:
                 raise ModelArtifactError(
                     f"Artifact model_id is {artifact['model_id']!r}, "
                     f"not {request.model_id!r}."
                 )
+            request_id = request.metadata.get("request_id", "")
+            if request_id:
+                key = receipt_key(request.source_id, request_id, request.metadata.get("request_source_id", ""))
+                existing = receipts.get(key)
+                if existing:
+                    digest = hashlib.sha256(request.SerializeToString(deterministic=True)).hexdigest()
+                    if existing["payload_digest"] != digest:
+                        raise ModelArtifactError("request_id was already used for a different parameter update.")
+                    return {"version": existing["applied_version"]}
             validate_gradient_shapes_against_artifact(request, artifact)
             updated_artifact = apply_parameter_update(
                 artifact,
@@ -109,9 +127,47 @@ class ParamUpdateService(parameters_pb2_grpc.ParamUpdateServiceServicer):
                 deltas=_gradient_deltas(request),
                 source_id=request.source_id,
             )
+            receipt = request_receipt(request, updated_artifact["version"])
+            updated_artifact["metadata"].pop(RECEIPT_METADATA_KEY, None)
+            if receipt:
+                updated_artifact["metadata"][RECEIPT_METADATA_KEY] = json.dumps(receipt, sort_keys=True, separators=(",", ":"))
+            updated_artifact["checksum"] = artifact_checksum({key: value for key, value in updated_artifact.items() if key != "checksum"})
             write_artifact_atomic(self.model_artifact_path, updated_artifact)
+            if receipt:
+                receipts.put(receipt)
             self._persist_audit(request, updated_artifact)
             return updated_artifact
+
+    def GetParameterUpdateStatus(self, request, context):
+        try:
+            for name in ("source_id", "request_id", "model_id"):
+                validate_text(getattr(request, name), name, required=True)
+            validate_text(request.request_source_id, "request_source_id", required=False)
+            validate_text(request.request_fingerprint, "request_fingerprint", required=False)
+            if request.model_id != self.expected_model_id:
+                raise ValueError("Unexpected model_id.")
+        except ValueError as exc:
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(exc))
+        try:
+            with self._write_lock, UpdateReceipts(self.storage_path) as receipts:
+                artifact = load_artifact(self.model_artifact_path)
+                receipts.recover(artifact)
+                receipt = receipts.get(receipt_key(request.source_id, request.request_id, request.request_source_id))
+            if receipt is None:
+                return parameters_pb2.ParameterUpdateStatus(found=False)
+            if receipt["request_fingerprint"] != request.request_fingerprint:
+                context.abort(grpc.StatusCode.ALREADY_EXISTS, "request_id belongs to a different training request.")
+            return parameters_pb2.ParameterUpdateStatus(
+                found=True,
+                ack=parameters_pb2.ParameterUpdateAck(
+                    accepted=True, model_id=receipt["model_id"], applied_version=receipt["applied_version"],
+                    message="Previously committed parameter update.",
+                ),
+                base_version=receipt["base_version"], prompts_generated=receipt["prompts_generated"],
+            )
+        except (ModelArtifactError, OSError, sqlite3.Error):
+            LOGGER.exception("update receipt lookup failed")
+            context.abort(grpc.StatusCode.INTERNAL, "Update receipt lookup failed.")
 
     def _persist_audit(self, request, updated_artifact) -> None:
         try:

@@ -5,6 +5,8 @@ import math
 from dataclasses import dataclass
 from typing import Sequence
 
+from privoke_model.artifact import float32, updated_parameter_values
+from privoke_model.training_data import training_text_key
 from ...classification import Classification
 from ...model import ModelConfig, TinyTransformerModel
 from .parameter_stream import ModelParameterStreamer
@@ -45,6 +47,8 @@ def compute_semantic_gradients(
         raise ValueError("max_gradient must be finite and greater than zero.")
     if any(not math.isfinite(item.weight) or item.weight <= 0 for item in examples):
         raise ValueError("Training example weights must be finite and positive.")
+    if heldout_examples:
+        _validate_heldout_examples(examples, heldout_examples)
 
     streamer = ModelParameterStreamer(model_id=model_id)
     runtime_model = GLOBAL_STREAMED_MODEL_CACHE.model_for_training(streamer)
@@ -89,13 +93,15 @@ def compute_semantic_gradients(
         total_loss += _classification_loss(target, predicted) * example.weight
         total_weight += example.weight
 
+    if not math.isfinite(total_weight) or not math.isfinite(total_loss):
+        raise ValueError("Training totals must remain finite.")
     scaled = {
         name: tuple(
-            _clamp(
+            float32(_clamp(
                 (value / total_weight) * learning_rate,
                 -max_gradient,
                 max_gradient,
-            )
+            ))
             for value in values
         )
         for name, values in gradients.items()
@@ -106,12 +112,8 @@ def compute_semantic_gradients(
         heldout_examples,
     )
     candidate_parameters = {
-        name: tuple(
-            float(value) + float(scaled.get(name, ())[index])
-            if name in scaled
-            else float(value)
-            for index, value in enumerate(values)
-        )
+        name: tuple(float32(value) for value in updated_parameter_values(values, scaled[name]))
+        if name in scaled else tuple(float32(value) for value in values)
         for name, values in snapshot.parameters.items()
     }
     heldout_metrics.update(
@@ -121,20 +123,10 @@ def compute_semantic_gradients(
                 runtime_model,
                 candidate_parameters,
                 heldout_examples,
+                reference_parameters=snapshot.parameters,
             ).items()
         }
     )
-    updated = {}
-    for name, values in snapshot.parameters.items():
-        delta = scaled.get(name)
-        updated[name] = (
-            tuple(float(value) for value in values)
-            if delta is None
-            else tuple(
-                float(value) + float(delta[index])
-                for index, value in enumerate(values)
-            )
-        )
     return SemanticGradientBatch(
         model_id=snapshot.model_id,
         base_version=snapshot.version,
@@ -150,7 +142,7 @@ def compute_semantic_gradients(
         metadata={
             "strategy": "transformer_classification_head_finetune",
             "base_parameter_fingerprint": _parameter_fingerprint(snapshot.parameters),
-            "updated_parameter_fingerprint": _parameter_fingerprint(updated),
+            "updated_parameter_fingerprint": _parameter_fingerprint(candidate_parameters),
             "learning_rate": str(learning_rate),
             "max_gradient": str(max_gradient),
             "model_cache_key": snapshot.cache_key,
@@ -162,17 +154,16 @@ def _classification_from_prediction(prediction) -> Classification:
     from ...classification import Category, Sensitivity, Visibility, initialise_unpacked
 
     return initialise_unpacked(
-        Sensitivity.__members__.get(prediction.sensitivity, Sensitivity.S0),
-        Visibility.__members__.get(prediction.visibility, Visibility.PU),
+        Sensitivity[prediction.sensitivity],
+        Visibility[prediction.visibility],
         [
             Category.__members__[name]
             for name in prediction.categories
-            if name in Category.__members__
         ],
     )
 
 
-def _heldout_metrics(runtime_model, parameters, examples):
+def _heldout_metrics(runtime_model, parameters, examples, *, reference_parameters=None):
     if not examples:
         return {}
     model = TinyTransformerModel(
@@ -199,12 +190,64 @@ def _heldout_metrics(runtime_model, parameters, examples):
             clean += 1
             clean_correct += target.is_sensitive() == predicted.is_sensitive()
     total = sensitive + clean
-    return {
+    metrics = {
         "heldout_examples": float(total),
+        "heldout_sensitive_examples": float(sensitive),
+        "heldout_clean_examples": float(clean),
         "heldout_exact_match_rate": exact / total if total else 0.0,
         "heldout_sensitive_recall": sensitive_correct / sensitive if sensitive else 1.0,
         "heldout_clean_specificity": clean_correct / clean if clean else 1.0,
     }
+    if reference_parameters is not None:
+        reference = TinyTransformerModel(
+            ModelConfig.from_metadata(runtime_model.snapshot.metadata),
+            reference_parameters,
+            runtime_model.snapshot.shapes,
+        ).predict_many(tuple(example.text for example in examples))
+        metrics["heldout_safety_regression_rate"] = _safety_regression_rate(
+            [example.target for example in examples],
+            [_classification_from_prediction(item) for item in reference],
+            [_classification_from_prediction(item) for item in predictions],
+            before_confidence=[round(min(max(item.confidence, 0.0), 0.999), 3) for item in reference],
+            after_confidence=[round(min(max(item.confidence, 0.0), 0.999), 3) for item in predictions],
+        )
+    return metrics
+
+
+def _safety_regression_rate(targets, before, after, *, before_confidence=None, after_confidence=None):
+    """Reject individual severity or policy-action losses below the target floor."""
+    from ...classification import ClassificationResult
+
+    before_confidence = before_confidence or [None] * len(targets)
+    after_confidence = after_confidence or [None] * len(targets)
+    regressions = 0
+    for target, baseline, candidate, base_conf, candidate_conf in zip(
+        targets, before, after, before_confidence, after_confidence
+    ):
+        target_action = ClassificationResult(target, "", "").action().value
+        base_action = ClassificationResult(baseline, "", "", confidence=base_conf).action().value
+        candidate_action = ClassificationResult(candidate, "", "", confidence=candidate_conf).action().value
+        regressions += (
+            min(candidate.sensitivity().value, target.sensitivity().value)
+            < min(baseline.sensitivity().value, target.sensitivity().value)
+            or min(candidate_action, target_action) < min(base_action, target_action)
+        )
+    return regressions / len(targets) if targets else 0.0
+
+
+def _validate_heldout_examples(training, heldout):
+    training_keys = {training_text_key(item.text) for item in training}
+    keys = [training_text_key(item.text) for item in heldout]
+    if any(not key for key in keys) or len(keys) != len(set(keys)):
+        raise ValueError("Held-out examples must contain distinct non-empty texts.")
+    if training_keys.intersection(keys):
+        raise ValueError("Held-out examples must be separate from training texts.")
+    if any(item.target is None for item in heldout):
+        raise ValueError("Held-out examples require explicit target labels.")
+    if any(not math.isfinite(item.weight) or item.weight <= 0 for item in heldout):
+        raise ValueError("Held-out example weights must be finite and positive.")
+    if {item.target.is_sensitive() for item in heldout} != {False, True}:
+        raise ValueError("Held-out evaluation needs both clean and sensitive labels.")
 
 
 def _classification_loss(target: Classification, predicted: Classification) -> float:
