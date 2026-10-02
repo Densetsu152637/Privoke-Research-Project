@@ -52,7 +52,7 @@ ClassificationResult(
 )
 ```
 
-Spans refer to the normalized text passed into NER by the pipeline.
+Direct detector spans refer to the text passed into NER. The pipeline maps spans and evidence back to the original request before exposing per-layer or aggregate results and warning masks.
 
 ## Subagent Tasks
 

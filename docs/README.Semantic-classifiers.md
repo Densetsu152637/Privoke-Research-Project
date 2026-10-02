@@ -46,3 +46,6 @@ Environment:
 ## Other Backends
 
 `LocalClassifier` calls an OpenAI-compatible `/v1/chat/completions` endpoint such as LM Studio. `OpenClassifier` calls an OpenAI-compatible hosted endpoint through the OpenAI SDK. Both parse the JSON contract defined in `prompt.py`.
+
+
+Both external backends validate complete classification results before accepting them. Missing/unknown sensitivity, visibility or category values, malformed fields, non-finite/out-of-range confidence, invalid spans, and mixed valid/invalid result lists cause a layer error instead of a clean default. No-risk responses must contain an explicit valid `S0` result; empty arrays are errors. Local responses may use a complete Markdown JSON fence, but partial JSON surrounded by arbitrary text is rejected. Error messages exclude raw model content. The internal legacy `build_results` parser remains available for trusted callers.
