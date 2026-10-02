@@ -10,7 +10,7 @@ const url = "https://chatgpt.com/backend-api/conversation";
 const body = JSON.stringify({ prompt: "My private prompt" });
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
-function harness() {
+function harness(RequestClass = Request) {
   const messages = [];
   const listeners = new Set();
   const timers = new Map();
@@ -45,7 +45,7 @@ function harness() {
   };
   vm.runInNewContext(source, {
     runtimeFailureResponse: () => ({ action: "BLOCK" }), window, location: { href: url }, XMLHttpRequest: Xhr,
-    Request, Response, URL, URLSearchParams, FormData, Blob, ReadableStream,
+    Request: RequestClass, Response, URL, URLSearchParams, FormData, Blob, ReadableStream,
     Uint8Array, ArrayBuffer, TextEncoder, TextDecoder, DOMException, AbortController,
     Event, ProgressEvent: Event, TypeError, crypto, extractPrompt, promptTarget,
     setTimeout(callback, ms) { const id = Symbol(); timers.set(id, { callback, ms }); return id; },
@@ -405,3 +405,24 @@ for (const bodyType of ["FormData", "URLSearchParams", "multipart Request"]) {
     assert.equal(h.sent.length, 0);
   });
 }
+
+
+test("aborting streamed fetch during analysis cancels its unforwarded upload branch", async () => {
+  const prepared = [];
+  class TrackedRequest extends Request {
+    constructor(...args) { super(...args); prepared.push(this); }
+  }
+  const h = harness(TrackedRequest);
+  const controller = new AbortController();
+  const result = h.window.fetch(url, { method: "POST", body: uploadStream(body), duplex: "half", signal: controller.signal });
+  await flush();
+  assert.equal(prepared.length, 1);
+  assert.equal(prepared[0].bodyUsed, false);
+  controller.abort();
+  await assert.rejects(result, { name: "AbortError" });
+  assert.equal(prepared[0].bodyUsed, true);
+  h.decide("ALLOW");
+  assert.equal(h.sent.length, 0);
+  assert.equal(h.listeners.size, 0);
+  assert.equal(h.timers.size, 0);
+});
