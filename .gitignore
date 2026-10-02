@@ -33,3 +33,4 @@ extension/dist-firefox/
 .vscode/
 .idea/
 agents.md
+agents.*.md
