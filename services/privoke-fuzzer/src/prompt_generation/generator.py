@@ -23,15 +23,16 @@ def generate_training_prompts(
     # Deterministic experiment sampling; this value is not a security token.
     rng = random.Random(seed)  # nosec B311
     prompt_seeds = load_prompt_dataset(dataset_path)
+    if not prompt_seeds:
+        raise ValueError("Prompt dataset must contain at least one seed.")
     generated = []
 
     excluded = {training_text_key(text) for text in excluded_texts}
-    for _ in range(max(256, count * 64)):
+    for prompt_seed in _candidate_seeds(prompt_seeds, rng, max(256, count * 64)):
         if len(generated) == count:
             break
         index = len(generated)
-        prompt_seed = rng.choice(prompt_seeds)
-        text = render_template(prompt_seed.template, rng)
+        text = _render_prompt(prompt_seed.template, rng)
         if training_text_key(text) in excluded:
             continue
         metadata = dict(prompt_seed.metadata)
@@ -51,8 +52,19 @@ def generate_training_prompts(
             )
         )
 
-    if len(generated) != count:
+    if not generated:
         raise ValueError("Dataset cannot supply training texts separate from held-out data.")
+    # Training already samples with replacement. Reuse known valid candidates
+    # when a nearly exhausted fixed dataset makes stochastic retries unhelpful.
+    available = tuple(generated)
+    while len(generated) < count:
+        item = rng.choice(available)
+        metadata = dict(item.metadata)
+        metadata["generation_index"] = str(len(generated))
+        generated.append(BatchTrainingExample(
+            text=item.text, expected_classification=item.expected_classification,
+            weight=item.weight, metadata=metadata,
+        ))
     return generated
 
 
@@ -71,9 +83,8 @@ def generate_training_partition(count, heldout_count, seed, dataset_path=None):
     heldout = []
     seen = set()
     for index in range(heldout_count):
-        for _ in range(256):
-            item = rng.choice(groups[bool(index % 2)])
-            text = render_template(item.template, rng)
+        for item in _candidate_seeds(groups[bool(index % 2)], rng, 256):
+            text = _render_prompt(item.template, rng)
             key = training_text_key(text)
             if key not in seen:
                 seen.add(key)
@@ -85,3 +96,19 @@ def generate_training_partition(count, heldout_count, seed, dataset_path=None):
         count, seed, dataset_path, excluded_texts=tuple(item.text for item in heldout)
     )
     return training, heldout
+
+
+def _candidate_seeds(seeds, rng, attempts):
+    """Try every seed once before bounded stochastic template variants."""
+    candidates = list(seeds)
+    rng.shuffle(candidates)
+    yield from candidates
+    for _ in range(max(0, attempts - len(candidates))):
+        yield rng.choice(candidates)
+
+
+def _render_prompt(template, rng):
+    try:
+        return render_template(template, rng)
+    except (KeyError, ValueError, IndexError, AttributeError) as exc:
+        raise ValueError("Prompt dataset contains an invalid template.") from exc

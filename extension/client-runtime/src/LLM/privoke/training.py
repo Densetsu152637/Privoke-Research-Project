@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import hashlib
 import math
 from dataclasses import dataclass
 from typing import Sequence
 
 from privoke_model.artifact import float32, updated_parameter_values
 from privoke_model.training_data import training_text_key
+from privoke_model.fingerprint import parameter_fingerprint
 from ...classification import Classification
 from ...model import ModelConfig, TinyTransformerModel
 from .parameter_stream import ModelParameterStreamer
@@ -267,12 +267,7 @@ def _classification_loss(target: Classification, predicted: Classification) -> f
 
 
 def _parameter_fingerprint(parameters) -> str:
-    digest = hashlib.sha256()
-    for name in sorted(parameters):
-        digest.update(name.encode("utf-8"))
-        for value in parameters[name]:
-            digest.update(repr(float(value)).encode("utf-8"))
-    return digest.hexdigest()[:16]
+    return parameter_fingerprint(parameters)
 
 
 def _clamp(value: float, lower: float, upper: float) -> float:
