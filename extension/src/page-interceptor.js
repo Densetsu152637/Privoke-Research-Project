@@ -18,19 +18,25 @@ window.fetch = async function privokeFetch(input, init) {
   signal?.throwIfAborted();
 
   const { body, request } = await requestBody(input, init, signal);
-  const text = extractPrompt(body);
-  const forward = () => request
-    ? nativeFetch.call(this, request)
-    : nativeFetch.apply(this, arguments);
-  if (!text) return forward();
+  let forwarded = false;
+  try {
+    const text = extractPrompt(body);
+    const forward = () => {
+      forwarded = true;
+      return request ? nativeFetch.call(this, request) : nativeFetch.apply(this, arguments);
+    };
+    if (!text) return forward();
 
-  const decision = await analyze(text, targetApp, signal);
-  if (decision?.action === "BLOCK") {
-    // Sites often suppress AbortError as an intentional user cancellation.
-    if (request?.body) void request.body.cancel().catch(() => {});
-    throw new TypeError("Prompt blocked by PriVoke.");
+    const decision = await analyze(text, targetApp, signal);
+    if (decision?.action === "BLOCK") {
+      // Sites often suppress AbortError as an intentional user cancellation.
+      throw new TypeError("Prompt blocked by PriVoke.");
+    }
+    return forward();
+  } catch (error) {
+    if (!forwarded && request?.body) void request.body.cancel().catch(() => {});
+    throw error;
   }
-  return forward();
 };
 
 installXhrInterceptor();
