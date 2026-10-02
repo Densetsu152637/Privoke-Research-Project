@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import math
 import os
 import sys
@@ -10,6 +9,7 @@ from typing import Dict, Tuple
 
 import grpc
 from privoke_service.stack_connection import grpc_channel, stack_target
+from privoke_model.fingerprint import parameter_fingerprint
 
 from ...env import env_float
 
@@ -37,13 +37,7 @@ class ParameterSnapshot:
 
     @property
     def fingerprint(self) -> str:
-        digest = hashlib.sha256()
-        for name in sorted(self.parameters):
-            digest.update(name.encode("utf-8"))
-            digest.update(repr(self.shapes.get(name, ())).encode("utf-8"))
-            for value in self.parameters[name]:
-                digest.update(repr(float(value)).encode("utf-8"))
-        return digest.hexdigest()[:16]
+        return parameter_fingerprint(self.parameters, self.shapes)
 
     @property
     def cache_key(self) -> str:
