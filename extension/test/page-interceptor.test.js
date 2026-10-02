@@ -45,7 +45,7 @@ function harness() {
   };
   vm.runInNewContext(source, {
     runtimeFailureResponse: () => ({ action: "BLOCK" }), window, location: { href: url }, XMLHttpRequest: Xhr,
-    Request, URL, URLSearchParams, FormData, DOMException, AbortController,
+    Request, URL, URLSearchParams, FormData, Blob, DOMException, AbortController,
     Event, ProgressEvent: Event, TypeError, crypto, extractPrompt, promptTarget,
     setTimeout(callback, ms) { const id = Symbol(); timers.set(id, { callback, ms }); return id; },
     clearTimeout(id) { timers.delete(id); },
@@ -232,4 +232,79 @@ test("unmatched requests bypass analysis and synchronous prompt requests fail im
   assert.throws(() => xhr.send(body), { name: "NetworkError" });
   assert.equal(h.messages.length, 0);
   assert.equal(h.sent.length, 2);
+});
+
+
+for (const encodedBody of [new Blob([body]), new TextEncoder().encode(body)]) {
+  test(`encoded fetch body (${encodedBody.constructor.name}) is checked before network dispatch`, async () => {
+    const h = harness();
+    const result = h.window.fetch(url, { method: "POST", body: encodedBody });
+    await flush();
+    assert.equal(h.messages[0].text, "My private prompt");
+    h.decide("BLOCK");
+    await assert.rejects(result, { name: "TypeError" });
+    assert.equal(h.sent.length, 0);
+  });
+  test(`encoded XHR body (${encodedBody.constructor.name}) is checked and settles after a block`, async () => {
+    const h = harness();
+    const { xhr, events } = startXhr(h);
+    xhr.send(encodedBody);
+    await flush();
+    assert.equal(h.messages[0].text, "My private prompt");
+    h.decide("BLOCK");
+    await flush();
+    assert.equal(h.sent.length, 0);
+    assert.deepEqual(events.map(([type]) => type), ["readystatechange", "error", "loadend"]);
+  });
+}
+
+test("aborting XHR while its Blob is decoding prevents a late analysis or send", async () => {
+  const h = harness();
+  const { xhr } = startXhr(h);
+  let finishReading;
+  const pendingBody = new Blob([body]);
+  pendingBody.text = () => new Promise((resolve) => { finishReading = resolve; });
+  xhr.send(pendingBody);
+  xhr.abort();
+  finishReading(body);
+  await flush();
+  assert.equal(h.messages.length, 0);
+  assert.equal(h.sent.length, 0);
+  assert.equal(h.timers.size, 0);
+});
+
+
+test("fetch analysis timeout blocks without sending and releases listeners", async () => {
+  const h = harness();
+  const result = h.window.fetch(url, { method: "POST", body });
+  await flush();
+  h.expire(32_000);
+  await assert.rejects(result, { name: "TypeError" });
+  assert.equal(h.sent.length, 0);
+  assert.equal(h.listeners.size, 0);
+  assert.equal(h.timers.size, 0);
+});
+
+test("an unreadable XHR Blob emits its terminal failure events", async () => {
+  const h = harness();
+  const { xhr, events } = startXhr(h);
+  const unreadable = new Blob([body]);
+  unreadable.text = () => Promise.reject(new Error("body cannot be decoded"));
+  xhr.send(unreadable);
+  await flush();
+  assert.equal(h.sent.length, 0);
+  assert.deepEqual(events.map(([type]) => type), ["readystatechange", "error", "loadend"]);
+  assert.equal(h.timers.size, 0);
+});
+
+test("allowed encoded XHR forwards the original Blob exactly once", async () => {
+  const h = harness();
+  const { xhr } = startXhr(h);
+  const original = new Blob([body]);
+  xhr.send(original);
+  await flush();
+  h.decide("ALLOW");
+  await flush();
+  assert.equal(h.sent.length, 1);
+  assert.equal(h.sent[0].body, original);
 });

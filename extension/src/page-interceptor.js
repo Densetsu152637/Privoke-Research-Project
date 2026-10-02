@@ -30,7 +30,9 @@ window.fetch = async function privokeFetch(input, init) {
 installXhrInterceptor();
 
 async function requestBody(input, init) {
-  if (init && Object.hasOwn(init, "body")) return init.body;
+  if (init && Object.hasOwn(init, "body")) {
+    return init.body instanceof Blob ? init.body.text() : init.body;
+  }
   if (input instanceof Request) {
     try {
       return await input.clone().text();
@@ -135,8 +137,9 @@ function installXhrInterceptor() {
   XMLHttpRequest.prototype.send = function privokeSend(body) {
     const xhr = this;
     const request = requests.get(xhr);
+    const blob = body instanceof Blob;
     const text = request?.targetApp ? extractPrompt(body) : "";
-    if (!request?.targetApp || !text) return send.apply(xhr, arguments);
+    if (!request?.targetApp || (!text && !blob)) return send.apply(xhr, arguments);
     if (request.synchronous) {
       throw new DOMException("PriVoke cannot check a synchronous prompt request.", "NetworkError");
     }
@@ -149,7 +152,14 @@ function installXhrInterceptor() {
       request.timeout = setTimeout(() => finishPending(xhr, request, "timeout"), xhr.timeout);
     }
 
-    void analyze(text, request.targetApp, request.controller.signal).then((decision) => {
+    const decision = blob
+      ? body.text().then((raw) => {
+        if (request.cancelled || requests.get(xhr) !== request) return null;
+        const decodedText = extractPrompt(raw);
+        return decodedText ? analyze(decodedText, request.targetApp, request.controller.signal) : null;
+      })
+      : analyze(text, request.targetApp, request.controller.signal);
+    void decision.then((decision) => {
       if (request.cancelled || requests.get(xhr) !== request) return;
       if (decision?.action === "BLOCK") {
         finishPending(xhr, request, "error");
@@ -165,7 +175,9 @@ function installXhrInterceptor() {
         finishPending(xhr, request, "error");
       }
     }, () => {
-      // Cancellation already emitted its terminal events.
+      // Cancellation already emitted its terminal events; unreadable bodies
+      // must settle as a failure instead of bypassing prompt protection.
+      if (!request.cancelled && requests.get(xhr) === request) finishPending(xhr, request, "error");
     });
     return undefined;
   };

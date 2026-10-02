@@ -72,6 +72,12 @@ export function extractPrompt(body) {
 
 function parseBody(body) {
   if (body == null) return null;
+  if (body instanceof ArrayBuffer || ArrayBuffer.isView(body)) {
+    const bytes = body instanceof ArrayBuffer
+      ? new Uint8Array(body)
+      : new Uint8Array(body.buffer, body.byteOffset, body.byteLength);
+    body = new TextDecoder().decode(bytes);
+  }
   if (typeof FormData !== "undefined" && body instanceof FormData) {
     return Object.fromEntries(body.entries());
   }

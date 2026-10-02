@@ -50,3 +50,14 @@ test("extracts the latest user item from Responses API input", () => {
     ],
   }), "New private prompt");
 });
+
+
+test("decodes UTF-8 buffers and respects typed-view boundaries", () => {
+  const encoded = new TextEncoder().encode(JSON.stringify({ prompt: "My medical record — private" }));
+  assert.equal(extractPrompt(encoded.buffer), "My medical record — private");
+  assert.equal(extractPrompt(encoded), "My medical record — private");
+  const padded = new Uint8Array(encoded.length + 8);
+  padded.set(encoded, 4);
+  assert.equal(extractPrompt(new DataView(padded.buffer, 4, encoded.length)), "My medical record — private");
+  assert.equal(extractPrompt(new Uint8Array(0)), "");
+});
