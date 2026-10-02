@@ -1,111 +1,139 @@
 from __future__ import annotations
 
-import json
+import math
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
+from validation import ALLOWED_VALUES, MIN_EPSILON, MAX_EPSILON
 
+DIMENSIONS = ("action", "risk_bucket", "primary_category", "model_version", "time_bucket")
+DIMENSION_EPSILON = len(DIMENSIONS)
 SCHEMA = """
-CREATE TABLE IF NOT EXISTS telemetry_events (
-    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
-    event_id TEXT NOT NULL UNIQUE,
-    occurred_at_unix_ms INTEGER NOT NULL,
-    time_bucket TEXT NOT NULL,
-    source_id TEXT NOT NULL,
-    request_id TEXT NOT NULL,
-    target_app TEXT NOT NULL,
-    action TEXT NOT NULL,
-    sensitivity TEXT NOT NULL,
-    visibility TEXT NOT NULL,
-    categories_json TEXT NOT NULL,
-    text_length INTEGER NOT NULL,
-    elapsed_ms REAL NOT NULL,
-    risk_score REAL NOT NULL,
-    risk_bucket TEXT NOT NULL,
-    detector_version TEXT NOT NULL,
-    layers_json TEXT NOT NULL,
-    stored_at_unix INTEGER NOT NULL DEFAULT (unixepoch())
+CREATE TABLE IF NOT EXISTS telemetry_strata (
+    epsilon_micros INTEGER PRIMARY KEY,
+    sample_count INTEGER NOT NULL CHECK(sample_count >= 0)
 );
-CREATE INDEX IF NOT EXISTS telemetry_events_time_idx
-    ON telemetry_events(occurred_at_unix_ms DESC);
+CREATE TABLE IF NOT EXISTS telemetry_counts (
+    epsilon_micros INTEGER NOT NULL,
+    dimension TEXT NOT NULL,
+    value TEXT NOT NULL,
+    observed_count INTEGER NOT NULL CHECK(observed_count >= 0),
+    PRIMARY KEY (epsilon_micros, dimension, value),
+    FOREIGN KEY (epsilon_micros) REFERENCES telemetry_strata(epsilon_micros)
+);
 """
+STRATUM_COLUMNS = frozenset({"epsilon_micros", "sample_count"})
+COUNT_COLUMNS = frozenset({"epsilon_micros", "dimension", "value", "observed_count"})
 
 
 class TelemetryStore:
     def __init__(self, path: str | Path):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self._connect() as connection:
+        with closing(self._connect()) as connection:
+            legacy = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'telemetry_events'"
+            ).fetchone()
+            if legacy:
+                raise RuntimeError(
+                    "legacy unprotected telemetry database schema detected; "
+                    "use the new telemetry-ldp-v1.sqlite3 database path. "
+                    "Historical data was not imported or deleted."
+                )
+            for table, expected in (
+                ("telemetry_strata", STRATUM_COLUMNS),
+                ("telemetry_counts", COUNT_COLUMNS),
+            ):
+                existing = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+                    (table,),
+                ).fetchone()
+                if existing:
+                    columns = frozenset(
+                        row[1] for row in connection.execute(f"PRAGMA table_info({table})")
+                    )
+                    if columns != expected:
+                        raise RuntimeError(
+                            "incompatible telemetry aggregate schema; "
+                            "use a fresh telemetry-ldp-v1.sqlite3 database."
+                        )
             connection.executescript(SCHEMA)
 
-    def record(self, packet) -> int:
-        values = (
-            packet.event_id,
-            int(packet.occurred_at_unix_ms),
-            packet.time_bucket,
-            packet.source_id,
-            packet.request_id,
-            packet.target_app,
-            packet.action,
-            packet.sensitivity,
-            packet.visibility,
-            json.dumps(list(packet.categories), separators=(",", ":")),
-            int(packet.text_length),
-            float(packet.elapsed_ms),
-            float(packet.risk_score),
-            packet.risk_bucket,
-            packet.detector_version,
-            json.dumps(
-                [
-                    {
-                        "layer": layer.layer,
-                        "status": layer.status,
-                        "result_count": int(layer.result_count),
-                        "error": layer.error,
-                    }
-                    for layer in packet.layers
-                ],
-                separators=(",", ":"),
-            ),
-        )
-        with self._connect() as connection:
-            cursor = connection.execute(
-                """
-                INSERT INTO telemetry_events (
-                    event_id, occurred_at_unix_ms, time_bucket, source_id,
-                    request_id, target_app, action, sensitivity, visibility,
-                    categories_json, text_length, elapsed_ms, risk_score,
-                    risk_bucket, detector_version, layers_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                values,
+    def record(self, packet) -> None:
+        epsilon_micros = int(round(float(packet.privacy_epsilon) * 1_000_000))
+        with closing(self._connect()) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                "INSERT INTO telemetry_strata(epsilon_micros, sample_count) VALUES (?, 0) "
+                "ON CONFLICT(epsilon_micros) DO NOTHING",
+                (epsilon_micros,),
             )
-            return int(cursor.lastrowid)
-
-    def list(self, limit: int, before_sequence: int = 0) -> list[sqlite3.Row]:
-        with self._connect() as connection:
-            if before_sequence > 0:
-                return list(
-                    connection.execute(
-                        """
-                        SELECT * FROM telemetry_events
-                        WHERE sequence < ?
-                        ORDER BY sequence DESC
-                        LIMIT ?
-                        """,
-                        (before_sequence, limit),
-                    )
-                )
-            return list(
+            connection.execute(
+                "UPDATE telemetry_strata SET sample_count = sample_count + 1 "
+                "WHERE epsilon_micros = ?",
+                (epsilon_micros,),
+            )
+            for dimension in DIMENSIONS:
+                value = getattr(packet, dimension)
                 connection.execute(
-                    """
-                    SELECT * FROM telemetry_events
-                    ORDER BY sequence DESC
-                    LIMIT ?
-                    """,
-                    (limit,),
+                    "INSERT INTO telemetry_counts(epsilon_micros, dimension, value, observed_count) "
+                    "VALUES (?, ?, ?, 1) ON CONFLICT(epsilon_micros, dimension, value) "
+                    "DO UPDATE SET observed_count = observed_count + 1",
+                    (epsilon_micros, dimension, value),
+                )
+            connection.commit()
+
+    def summary(self) -> tuple[int, list[dict[str, object]]]:
+        with closing(self._connect()) as connection:
+            strata = list(
+                connection.execute(
+                    "SELECT epsilon_micros, sample_count FROM telemetry_strata ORDER BY epsilon_micros"
                 )
             )
+            counts = list(
+                connection.execute(
+                    "SELECT epsilon_micros, dimension, value, observed_count FROM telemetry_counts"
+                )
+            )
+        sample_count = sum(int(row["sample_count"]) for row in strata)
+        observed = {
+            (int(row["epsilon_micros"]), row["dimension"], row["value"]): int(row["observed_count"])
+            for row in counts
+        }
+        dimensions: list[dict[str, object]] = []
+        for dimension in DIMENSIONS:
+            values = []
+            for value in sorted(ALLOWED_VALUES[dimension]):
+                estimate = 0.0
+                observed_count = 0
+                domain_size = len(ALLOWED_VALUES[dimension])
+                for stratum in strata:
+                    epsilon_micros = int(stratum["epsilon_micros"])
+                    n = int(stratum["sample_count"])
+                    epsilon = epsilon_micros / 1_000_000
+                    if not math.isfinite(epsilon) or not MIN_EPSILON <= epsilon <= MAX_EPSILON:
+                        raise sqlite3.DatabaseError("stored privacy epsilon is invalid")
+                    epsilon_per_dimension = epsilon / DIMENSION_EPSILON
+                    exp_epsilon = math.exp(epsilon_per_dimension)
+                    denominator = exp_epsilon + domain_size - 1
+                    truthful_probability = exp_epsilon / denominator
+                    other_probability = 1.0 / denominator
+                    gap = truthful_probability - other_probability
+                    count = observed.get((epsilon_micros, dimension, value), 0)
+                    observed_count += count
+                    estimate += (count - n * other_probability) / gap
+                # Truncation is post-processing, though it introduces estimator bias.
+                estimate = min(float(sample_count), max(0.0, estimate))
+                values.append(
+                    {
+                        "value": value,
+                        "estimated_count": estimate,
+                        "observed_noisy_count": observed_count,
+                    }
+                )
+            dimensions.append({"dimension": dimension, "values": values})
+        return sample_count, dimensions
 
     def check_writable(self) -> None:
         connection = sqlite3.connect(self.path, timeout=0.5)
@@ -120,4 +148,5 @@ class TelemetryStore:
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA journal_mode=WAL")
         connection.execute("PRAGMA busy_timeout=5000")
+        connection.execute("PRAGMA foreign_keys=ON")
         return connection

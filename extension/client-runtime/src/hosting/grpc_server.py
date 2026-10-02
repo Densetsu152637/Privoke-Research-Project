@@ -7,6 +7,7 @@ from typing import Any, Mapping
 import grpc
 
 from ..classification import Classification, ClassificationResult
+from ..LLM.privoke.training import SemanticTrainingExample, compute_semantic_gradients
 from ..pipeline import DETECTION_LAYERS, LayerExecution
 from ..telemetry import TelemetryReporter
 from .analyzer import PromptAnalysis, analyse_prompt
@@ -27,6 +28,8 @@ PROTO_TO_LAYER = {
 LAYER_TO_PROTO = {value: key for key, value in PROTO_TO_LAYER.items()}
 DEFAULT_MAX_GRPC_MESSAGE_BYTES = 262_144
 DEFAULT_MAX_GRPC_RESPONSE_BYTES = 1_048_576
+DEFAULT_MAX_TRAINING_EXAMPLES = 1_024
+DEFAULT_MAX_TRAINING_TEXT_CHARS = 200_000
 
 
 class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
@@ -65,6 +68,69 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
             return response
         except Exception as exc:
             return runtime_pb2.AnalyzePromptResponse(
+                request_id=request.request_id,
+                error=_error_message(exc),
+            )
+
+    def ComputeSemanticGradients(self, request, context):
+        try:
+            if not request.model_id.strip():
+                raise ValueError("model_id is required.")
+            if not request.examples:
+                raise ValueError("At least one training example is required.")
+            if len(request.examples) > DEFAULT_MAX_TRAINING_EXAMPLES:
+                raise ValueError(
+                    "Training batches may contain at most "
+                    f"{DEFAULT_MAX_TRAINING_EXAMPLES} examples."
+                )
+            if (
+                sum(len(item.text) for item in request.examples)
+                > DEFAULT_MAX_TRAINING_TEXT_CHARS
+            ):
+                raise ValueError(
+                    "Training batch text may contain at most "
+                    f"{DEFAULT_MAX_TRAINING_TEXT_CHARS} characters."
+                )
+            examples = []
+            for item in request.examples:
+                if not item.text or len(item.text) > self.max_text_chars:
+                    raise ValueError(
+                        f"Training example text must contain 1 to {self.max_text_chars} characters."
+                    )
+                examples.append(
+                    SemanticTrainingExample(
+                        text=item.text,
+                        target=(
+                            Classification(int(item.target.packed))
+                            if item.has_target
+                            else None
+                        ),
+                        weight=float(item.weight),
+                    )
+                )
+            batch = compute_semantic_gradients(
+                examples,
+                model_id=request.model_id,
+                learning_rate=float(request.learning_rate),
+                max_gradient=float(request.max_gradient),
+            )
+            return runtime_pb2.ComputeSemanticGradientsResponse(
+                request_id=request.request_id,
+                model_id=batch.model_id,
+                base_version=batch.base_version,
+                gradients=[
+                    runtime_pb2.RuntimeParameterDelta(
+                        name=name,
+                        values=values,
+                        shape=batch.shapes[name],
+                    )
+                    for name, values in batch.gradients.items()
+                ],
+                metrics=batch.metrics,
+                metadata=batch.metadata,
+            )
+        except Exception as exc:
+            return runtime_pb2.ComputeSemanticGradientsResponse(
                 request_id=request.request_id,
                 error=_error_message(exc),
             )

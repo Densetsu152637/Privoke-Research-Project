@@ -1,4 +1,5 @@
 import { extractPrompt, promptTarget } from "./prompt-interception.js";
+import { runtimeFailureResponse } from "./interception-failure.js";
 
 const CHANNEL = "privoke-extension-v1";
 const RESPONSE_TIMEOUT_MS = 32_000;
@@ -47,7 +48,7 @@ function analyze(text, targetApp, signal) {
       reject(signal.reason);
       return;
     }
-    const timeout = setTimeout(() => finish(null), RESPONSE_TIMEOUT_MS);
+    const timeout = setTimeout(() => finish(runtimeFailureResponse()), RESPONSE_TIMEOUT_MS);
 
     function onMessage(event) {
       const data = event.data;
@@ -82,7 +83,7 @@ function analyze(text, targetApp, signal) {
         targetApp,
       }, "*");
     } catch {
-      finish(null);
+      finish(runtimeFailureResponse());
     }
   });
 }

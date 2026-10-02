@@ -4,7 +4,7 @@ import test from "node:test";
 import vm from "node:vm";
 
 const source = (await readFile(new URL("../src/content-script.js", import.meta.url), "utf8"))
-  .replace(/^import .*;\r?\n/, "");
+  .replace(/^import .*;\r?\n/gm, "");
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 function relay(sendRuntimeMessage) {
@@ -15,7 +15,7 @@ function relay(sendRuntimeMessage) {
     postMessage(data) { results.push(data); },
   };
   vm.runInNewContext(source, {
-    window, sendRuntimeMessage,
+    runtimeFailureResponse: () => ({ action: "BLOCK" }), window, sendRuntimeMessage,
     document: { getElementById() { throw new Error("notice rendering failed"); } },
   });
   listener({ source: window, data: {
@@ -36,7 +36,7 @@ for (const action of ["BLOCK", "WARN"]) {
 }
 
 for (const mode of ["sync", "async", "response"]) {
-  test(`${mode} runtime failure still returns the existing fail-open decision`, async () => {
+  test(`${mode} runtime failure still delivers a block decision when notice rendering fails`, async () => {
     const results = relay(() => {
       if (mode === "sync") throw new Error("extension context invalidated");
       if (mode === "async") return Promise.reject(new Error("runtime unavailable"));
@@ -44,6 +44,6 @@ for (const mode of ["sync", "async", "response"]) {
     });
     await flush();
     assert.equal(results.length, 1);
-    assert.equal(results[0].action, "ALLOW");
+    assert.equal(results[0].action, "BLOCK");
   });
 }

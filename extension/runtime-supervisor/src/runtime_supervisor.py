@@ -15,6 +15,11 @@ from typing import Callable, Mapping, Sequence
 CURRENT_DIR = Path(__file__).resolve().parent
 SUPERVISOR_ROOT = CURRENT_DIR.parent
 CLIENT_RUNTIME_ROOT = SUPERVISOR_ROOT.parent / "client-runtime"
+SHARED_PYTHON_ROOT = SUPERVISOR_ROOT.parents[1] / "shared" / "python"
+if str(SHARED_PYTHON_ROOT) not in sys.path:
+    sys.path.insert(0, str(SHARED_PYTHON_ROOT))
+
+from privoke_service.stack_connection import load_runtime_environment, use_local_stack
 
 
 @dataclass(frozen=True)
@@ -39,6 +44,8 @@ class RuntimeProcessSupervisor:
         process_factory: Callable[..., subprocess.Popen] = subprocess.Popen,
         dependency_check_factory: Callable[..., subprocess.CompletedProcess] = subprocess.run,
     ) -> None:
+        if environment is None:
+            load_runtime_environment(CLIENT_RUNTIME_ROOT)
         runtime_python = _runtime_python(environment)
         self.command = tuple(command or (
             runtime_python,
@@ -120,8 +127,12 @@ class RuntimeProcessSupervisor:
             self._last_message = "Client runtime stopped."
             return self._current_status()
 
-    def set_enabled(self, enabled: bool) -> RuntimeProcessStatus:
-        return self.start() if enabled else self.stop()
+    def set_enabled(self, enabled: bool, use_local: bool | None = None) -> RuntimeProcessStatus:
+        with self._lock:
+            if use_local is not None and use_local != use_local_stack(self.environment):
+                self.stop()
+                self.environment["PRIVOKE_USE_LOCAL_STACK"] = str(use_local).lower()
+            return self.start() if enabled else self.stop()
 
     def status(self) -> RuntimeProcessStatus:
         with self._lock:

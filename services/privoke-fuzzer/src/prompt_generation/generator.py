@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import random
 from pathlib import Path
-from typing import List
 
 from training import BatchTrainingExample
 
@@ -14,7 +13,7 @@ def generate_training_prompts(
     count: int,
     seed: int,
     dataset_path: str | Path | None = None,
-) -> List[BatchTrainingExample]:
+) -> list[BatchTrainingExample]:
     if count <= 0:
         return []
 

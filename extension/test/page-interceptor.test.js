@@ -5,7 +5,7 @@ import vm from "node:vm";
 import { extractPrompt, promptTarget } from "../src/prompt-interception.js";
 
 const source = (await readFile(new URL("../src/page-interceptor.js", import.meta.url), "utf8"))
-  .replace(/^import .*;\r?\n/, "");
+  .replace(/^import .*;\r?\n/gm, "");
 const url = "https://chatgpt.com/backend-api/conversation";
 const body = JSON.stringify({ prompt: "My private prompt" });
 const flush = () => new Promise((resolve) => setImmediate(resolve));
@@ -44,7 +44,7 @@ function harness() {
     postMessage(data) { messages.push(data); },
   };
   vm.runInNewContext(source, {
-    window, location: { href: url }, XMLHttpRequest: Xhr,
+    runtimeFailureResponse: () => ({ action: "BLOCK" }), window, location: { href: url }, XMLHttpRequest: Xhr,
     Request, URL, URLSearchParams, FormData, DOMException, AbortController,
     Event, ProgressEvent: Event, TypeError, crypto, extractPrompt, promptTarget,
     setTimeout(callback, ms) { const id = Symbol(); timers.set(id, { callback, ms }); return id; },
@@ -75,7 +75,7 @@ test("blocked fetch rejects as a visible failure without sending the prompt", as
   assert.equal(h.timers.size, 0);
 });
 
-for (const action of ["ALLOW", "WARN", null]) {
+for (const action of ["ALLOW", "WARN"]) {
   test(`fetch forwards the original request after ${action ?? "analysis timeout"}`, async () => {
     const h = harness();
     const init = { method: "POST", body };
@@ -199,26 +199,27 @@ test("XHR native send failures emit error once and are never retried", async () 
   assert.deepEqual(events.map(([type]) => type), ["readystatechange", "error", "loadend"]);
 });
 
-test("page messaging failures fail open immediately and clean up the check", async () => {
+test("page messaging failures block immediately and clean up the check", async () => {
   const h = harness();
   h.window.postMessage = () => { throw new Error("messaging unavailable"); };
-  assert.equal(await h.window.fetch(url, { method: "POST", body }), h.response);
+  await assert.rejects(h.window.fetch(url, { method: "POST", body }), { name: "TypeError" });
   const { xhr } = startXhr(h);
   xhr.send(body);
   await flush();
-  assert.equal(h.sent.length, 2);
+  assert.equal(h.sent.length, 0);
   assert.equal(h.listeners.size, 0);
   assert.equal(h.timers.size, 0);
 });
 
-test("XHR fail-open timeout forwards once and duplicate pending sends fail synchronously", async () => {
+test("XHR analysis timeout blocks and duplicate pending sends fail synchronously", async () => {
   const h = harness();
   const { xhr } = startXhr(h);
   xhr.send(body);
   assert.throws(() => xhr.send(body), { name: "InvalidStateError" });
   h.expire(32_000);
   await flush();
-  assert.equal(h.sent.length, 1);
+  assert.equal(h.sent.length, 0);
+  assert.equal(xhr.readyState, h.Xhr.DONE);
 });
 
 test("unmatched requests bypass analysis and synchronous prompt requests fail immediately", async () => {

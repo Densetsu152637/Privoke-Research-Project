@@ -26,6 +26,7 @@ from src.dependency_check import check_required_detector_dependencies
 from src.env import env_bool, env_positive_float, env_positive_int
 from src.hosting.grpc_server import create_grpc_server
 from src.telemetry import TelemetryReporter
+from privoke_service.stack_connection import stack_target
 
 
 _SHOULD_STOP = False
@@ -48,11 +49,12 @@ def main() -> None:
     port = env_positive_int("PRIVOKE_GRPC_PORT", 50054)
     telemetry_reporter = (
         TelemetryReporter(
-            target=os.getenv("TELEMETRY_TARGET", "127.0.0.1:50055"),
-            source_id=os.getenv("TELEMETRY_SOURCE_ID", "client-runtime"),
+            target=stack_target("TELEMETRY"),
+            event_epsilon=env_positive_float("TELEMETRY_LDP_EPSILON", 1.0),
+            daily_epsilon=env_positive_float("TELEMETRY_LDP_DAILY_EPSILON", 8.0),
+            ledger_path=os.getenv("TELEMETRY_PRIVACY_LEDGER_PATH") or None,
             timeout_seconds=env_positive_float("TELEMETRY_TIMEOUT_SECONDS", 1.0),
             queue_size=env_positive_int("TELEMETRY_QUEUE_SIZE", 1024),
-            detector_version=os.getenv("PRIVOKE_DETECTOR_VERSION", "v2"),
         )
         if env_bool("TELEMETRY_ENABLED", False)
         else None

@@ -25,12 +25,16 @@ class PromptAnalysis:
     elapsed_ms: float
 
     def response(self) -> Dict:
-        return serialize_analysis_response(
+        response = serialize_analysis_response(
             self.request,
             self.result,
             self.action,
             self.elapsed_ms,
         )
+        if self.execution.errors and self.result is None:
+            response["reason"] = "PriVoke could not complete analysis safely."
+            response["errors"] = list(self.execution.errors)
+        return response
 
 
 def analyse_prompt_request(request: PromptInspectionRequest) -> Dict:
