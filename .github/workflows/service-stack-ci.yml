@@ -39,7 +39,9 @@ jobs:
         run: npm test
       - name: Build unpacked extension
         working-directory: extension
-        run: npm run build
+        run: |
+          npm run build
+          npm run build:firefox
 
   model-tests:
     name: Model streaming Go tests

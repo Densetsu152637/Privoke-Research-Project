@@ -148,3 +148,5 @@ Subagents working here should:
 - keep gradient bounds explicit,
 - preserve metadata needed to trace updates back to request IDs and training config,
 - preserve the runtime RPC boundary for all detector execution.
+
+The default dataset mixes challenging compound templates with independently labeled calibration phrases also used by model bootstrap training. The held-out split is disjoint within each adaptive cycle; this calibration overlap cannot establish generalization to unseen data.

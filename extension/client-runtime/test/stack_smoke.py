@@ -265,8 +265,8 @@ def check_fuzzer_training_cycle(request_id=None, replay_only=False) -> None:
         request_id=request_id or f"ci-fuzzer-{uuid.uuid4().hex}",
         source_id="github-actions-smoke-test",
         model_id=MODEL_ID,
-        prompt_count=2,
-        seed=2026,
+        prompt_count=32,
+        seed=1,
         metadata={"purpose": "cross-service-integration"},
     )
     deadline = time.monotonic() + max(60.0, RPC_TIMEOUT_SECONDS * 4)
@@ -290,7 +290,7 @@ def check_fuzzer_training_cycle(request_id=None, replay_only=False) -> None:
             raise
     require(response.accepted, f"fuzzer cycle was rejected: {response.message}")
     require(response.model_id == MODEL_ID, "fuzzer used an unexpected model")
-    require(response.prompts_generated == 2, "fuzzer generated an unexpected prompt count")
+    require(response.prompts_generated == 32, "fuzzer generated an unexpected prompt count")
     require(bool(response.base_version), "fuzzer response has no base version")
     require(bool(response.applied_version), "parameter update was not applied")
     after = check_model_snapshot()
