@@ -59,6 +59,8 @@ def main() -> None:
         action="store_true",
         help="Skip the fuzzer cycle while retaining health/runtime/telemetry checks.",
     )
+    parser.add_argument("--training-request-id", default=None)
+    parser.add_argument("--replay-training", action="store_true")
     args = parser.parse_args()
 
     check_health_endpoints()
@@ -66,7 +68,7 @@ def main() -> None:
     check_runtime_analysis()
     check_runtime_telemetry()
     if not args.skip_training:
-        check_fuzzer_training_cycle()
+        check_fuzzer_training_cycle(args.training_request_id, args.replay_training)
     check_health_endpoints(rounds=3)
     print("Live stack smoke test passed.", flush=True)
 
@@ -257,10 +259,10 @@ def _observed_summary_counts(response) -> dict[str, dict[str, int]]:
     }
 
 
-def check_fuzzer_training_cycle() -> None:
+def check_fuzzer_training_cycle(request_id=None, replay_only=False) -> None:
     before = check_model_snapshot()
     request = parameters_pb2.FuzzerTrainingRequest(
-        request_id=f"ci-fuzzer-{uuid.uuid4().hex}",
+        request_id=request_id or f"ci-fuzzer-{uuid.uuid4().hex}",
         source_id="github-actions-smoke-test",
         model_id=MODEL_ID,
         prompt_count=2,
@@ -292,6 +294,16 @@ def check_fuzzer_training_cycle() -> None:
     require(bool(response.base_version), "fuzzer response has no base version")
     require(bool(response.applied_version), "parameter update was not applied")
     after = check_model_snapshot()
+    if replay_only:
+        require(response.metadata.get("replayed") == "true", "restart lost the committed request")
+        require(after[0].version == response.applied_version, "restart replay changed the version")
+        require(
+            [chunk.SerializeToString(deterministic=True) for chunk in before]
+            == [chunk.SerializeToString(deterministic=True) for chunk in after],
+            "restart replay mutated the streamed model",
+        )
+        print("Durable fuzzer replay after service restart passed.", flush=True)
+        return
     require(response.base_version == before[0].version, "training did not use the current snapshot")
     require(after[0].version == response.applied_version, "updated version was not streamed")
     require(

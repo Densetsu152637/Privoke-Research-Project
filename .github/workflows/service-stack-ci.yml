@@ -166,7 +166,14 @@ jobs:
           done
 
       - name: Exercise all live gRPC service paths
-        run: docker compose exec -T client-runtime python test/stack_smoke.py
+        run: docker compose exec -T client-runtime python test/stack_smoke.py --training-request-id ci-production-training
+
+      - name: Verify durable training replay after service restart
+        run: |
+          docker compose restart param-update-service privoke-fuzzer
+          docker compose up -d --wait --wait-timeout 120 param-update-service privoke-fuzzer
+          docker compose exec -T client-runtime python test/stack_smoke.py \
+            --training-request-id ci-production-training --replay-training
 
       - name: Verify recovery after a model-service restart
         run: |
