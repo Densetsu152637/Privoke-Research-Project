@@ -3,6 +3,7 @@ name: Service stack CI
 on:
   push:
     branches:
+      - main
       - feat/dev-testing
   pull_request:
     branches:
