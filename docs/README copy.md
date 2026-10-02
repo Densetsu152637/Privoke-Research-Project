@@ -6,4 +6,4 @@
 - [Environment configuration](environment-configuration.md): environment files, variables, and secrets.
 - [Validation](validation.md): reliable checks, readiness, and diagnostics.
 
-Read the relevant companion alongside the root [agent instructions](../AGENTS.md). These guides are reusable policy. Resolve placeholders and commands against the consuming project's actual files and scripts before using them.
+Read applicable agent instructions alongside the relevant companion. These guides are reusable policy. Resolve placeholders and commands against the consuming project's actual files and scripts before using them.

@@ -20,7 +20,11 @@ python models/generate_baseline.py
 
 Run one fuzzer training request through the Compose stack with `docker compose exec -T privoke-fuzzer python src/cli.py train --prompt-count 32`. A successful cycle atomically updates the balanced release-channel artifact from `v0.3.0` to `v0.3.0+train.1`, then onward.
 
-Review and commit trained weights like source:
+Production Compose and Compute Engine persist trained artifacts in `model-data`; they do not rewrite repository files. Development Compose bind-mounts `./models`, so training updates those Git-reviewable files directly. Export a production artifact deliberately before reviewing it in Git.
+
+The updater validates the exact base version and applies bounded deltas only to trainable tensors. A latest-update receipt is included atomically with trained weights; historical replay outcomes live in the updater SQLite database. Runtime candidate evaluation uses the same float32/clipping rules as publication, while the cached serving model remains unchanged during evaluation.
+
+Review and commit development or exported trained weights like source:
 
 ```bash
 git diff -- models/privoke-balanced.json

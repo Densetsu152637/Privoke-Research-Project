@@ -13,8 +13,10 @@ This directory contains interfaces shared by more than one PriVoke service. Acti
 - `Parameter`
 - `ModelParametersRequest`
 - `ModelParametersResponse`
+- `ParameterChunk` and `ModelParameterChunk`
 - `ParameterUpdateRequest`
 - `ParameterUpdateAck`
+- `ParameterUpdateStatusRequest` and `ParameterUpdateStatus`
 - `FuzzerTrainingRequest`
 - `FuzzerTrainingResponse`
 
@@ -22,9 +24,11 @@ Services:
 
 - `ModelStreamingService`
   - `GetModelParameters(ModelParametersRequest) -> ModelParametersResponse`
+  - `StreamModelParameters(ModelParametersRequest) -> stream ModelParameterChunk`
   - `Health(HealthRequest) -> HealthResponse`
 - `ParamUpdateService`
   - `SubmitParameterUpdate(ParameterUpdateRequest) -> ParameterUpdateAck`
+  - `GetParameterUpdateStatus(ParameterUpdateStatusRequest) -> ParameterUpdateStatus`
   - `Health(HealthRequest) -> HealthResponse`
 - `FuzzerService`
   - `RunTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
@@ -81,3 +85,5 @@ When changing the protobuf schema:
 4. Add compatibility notes for any field semantics that older services cannot handle.
 
 Avoid raw prompt text in shared telemetry or update contracts unless an experiment explicitly requires and approves it.
+
+`GetParameterUpdateStatus` is a private experiment-control RPC. It looks up a durable committed outcome by updater source, original request source, request ID, model ID, and training fingerprint. The fuzzer uses it to recover acknowledgments without repeating training or applying a payload twice. Regenerate bindings in all consumers when adopting this additive RPC. `ComputeSemanticGradients` carries separate training and held-out examples; their combined count/text limits apply before runtime model execution.
