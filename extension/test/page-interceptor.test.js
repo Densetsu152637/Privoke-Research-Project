@@ -45,7 +45,8 @@ function harness() {
   };
   vm.runInNewContext(source, {
     runtimeFailureResponse: () => ({ action: "BLOCK" }), window, location: { href: url }, XMLHttpRequest: Xhr,
-    Request, URL, URLSearchParams, FormData, Blob, DOMException, AbortController,
+    Request, Response, URL, URLSearchParams, FormData, Blob, ReadableStream,
+    Uint8Array, ArrayBuffer, TextEncoder, TextDecoder, DOMException, AbortController,
     Event, ProgressEvent: Event, TypeError, crypto, extractPrompt, promptTarget,
     setTimeout(callback, ms) { const id = Symbol(); timers.set(id, { callback, ms }); return id; },
     clearTimeout(id) { timers.delete(id); },
@@ -261,13 +262,13 @@ for (const encodedBody of [new Blob([body]), new TextEncoder().encode(body)]) {
 test("aborting XHR while its Blob is decoding prevents a late analysis or send", async () => {
   const h = harness();
   const { xhr } = startXhr(h);
-  let finishReading;
+  let cancelled = false;
   const pendingBody = new Blob([body]);
-  pendingBody.text = () => new Promise((resolve) => { finishReading = resolve; });
+  pendingBody.stream = () => new ReadableStream({ cancel() { cancelled = true; } });
   xhr.send(pendingBody);
   xhr.abort();
-  finishReading(body);
   await flush();
+  assert.equal(cancelled, true);
   assert.equal(h.messages.length, 0);
   assert.equal(h.sent.length, 0);
   assert.equal(h.timers.size, 0);
@@ -289,7 +290,7 @@ test("an unreadable XHR Blob emits its terminal failure events", async () => {
   const h = harness();
   const { xhr, events } = startXhr(h);
   const unreadable = new Blob([body]);
-  unreadable.text = () => Promise.reject(new Error("body cannot be decoded"));
+  unreadable.stream = () => new ReadableStream({ start(controller) { controller.error(new Error("body cannot be decoded")); } });
   xhr.send(unreadable);
   await flush();
   assert.equal(h.sent.length, 0);
@@ -308,3 +309,99 @@ test("allowed encoded XHR forwards the original Blob exactly once", async () => 
   assert.equal(h.sent.length, 1);
   assert.equal(h.sent[0].body, original);
 });
+
+
+function uploadStream(text) {
+  const encoded = new TextEncoder().encode(text);
+  return new ReadableStream({ start(controller) { controller.enqueue(encoded); controller.close(); } });
+}
+
+test("stream uploads are inspected and the intact branch is forwarded with native request options", async () => {
+  const h = harness();
+  const init = { method: "POST", body: uploadStream(body), duplex: "half", credentials: "include", headers: { "X-Test": "kept" } };
+  const result = h.window.fetch(url, init);
+  await flush();
+  assert.equal(h.messages[0].text, "My private prompt");
+  h.decide("ALLOW");
+  assert.equal(await result, h.response);
+  const forwarded = h.sent[0].args[0];
+  assert.equal(forwarded.url, url);
+  assert.equal(forwarded.method, "POST");
+  assert.equal(forwarded.credentials, "include");
+  assert.equal(forwarded.headers.get("X-Test"), "kept");
+  assert.equal(await forwarded.text(), body);
+});
+
+test("blocked stream uploads never reach native fetch", async () => {
+  const h = harness();
+  const result = h.window.fetch(url, { method: "POST", body: uploadStream(body), duplex: "half" });
+  await flush();
+  h.decide("BLOCK");
+  await assert.rejects(result, { name: "TypeError" });
+  assert.equal(h.sent.length, 0);
+});
+
+for (const mode of ["timeout", "abort", "oversize", "unreadable"]) {
+  test(`stream inspection ${mode} settles without sending`, async () => {
+    const h = harness();
+    const controller = new AbortController();
+    let cancelled = false;
+    const stream = new ReadableStream({
+      start(source) {
+        if (mode === "oversize") source.enqueue(new Uint8Array(1_048_577));
+        if (mode === "unreadable") source.error(new Error("upload unavailable"));
+      },
+      cancel() { cancelled = true; },
+    });
+    const result = h.window.fetch(url, { method: "POST", body: stream, duplex: "half", signal: controller.signal });
+    const rejected = assert.rejects(result, mode === "abort" ? { name: "AbortError" } : /inspection timed out|inspection limit|upload unavailable/);
+    await flush();
+    if (mode === "timeout") h.expire(5_000);
+    if (mode === "abort") controller.abort();
+    await rejected;
+    await flush();
+    assert.equal(h.sent.length, 0);
+    assert.equal(h.messages.length, 0);
+    assert.equal(h.timers.size, 0);
+    if (mode !== "unreadable") assert.equal(cancelled, true);
+  });
+}
+
+test("consumed Request bodies fail closed instead of bypassing inspection", async () => {
+  const h = harness();
+  const request = new Request(url, { method: "POST", body });
+  await request.text();
+  await assert.rejects(h.window.fetch(request), { name: "TypeError" });
+  assert.equal(h.sent.length, 0);
+});
+
+test("a null init body still checks the existing Request body", async () => {
+  const h = harness();
+  const request = new Request(url, { method: "POST", body });
+  const result = h.window.fetch(request, { body: null });
+  await flush();
+  assert.equal(h.messages[0].text, "My private prompt");
+  h.decide("BLOCK");
+  await assert.rejects(result, { name: "TypeError" });
+  assert.equal(h.sent.length, 0);
+});
+
+for (const bodyType of ["FormData", "URLSearchParams", "multipart Request"]) {
+  test(`${bodyType} preserves structured latest-user prompt extraction`, async () => {
+    const h = harness();
+    const messages = JSON.stringify([
+      { role: "user", content: "My private prompt" },
+      { role: "assistant", content: "A longer assistant answer that must never replace the user prompt" },
+    ]);
+    const fields = bodyType === "URLSearchParams" ? new URLSearchParams() : new FormData();
+    fields.set("messages", messages);
+    const result = bodyType === "multipart Request"
+      ? h.window.fetch(new Request(url, { method: "POST", body: fields }))
+      : h.window.fetch(url, { method: "POST", body: fields });
+    await flush();
+    assert.equal(h.messages[0].text, "My private prompt");
+    h.decide("BLOCK");
+    await assert.rejects(result, { name: "TypeError" });
+    assert.equal(h.sent.length, 0);
+  });
+}
