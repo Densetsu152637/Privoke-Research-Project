@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 import os
 import sys
@@ -41,7 +43,14 @@ class ParameterSnapshot:
 
     @property
     def cache_key(self) -> str:
-        return f"{self.model_id}:{self.version}:{self.fingerprint}"
+        contract = json.dumps(
+            {name: self.metadata.get(name) for name in (
+                "architecture", "model_config", "trainable_parameters",
+            )},
+            sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+        )
+        contract_hash = hashlib.sha256(contract.encode("utf-8")).hexdigest()
+        return f"{self.model_id}:{self.version}:{self.fingerprint}:{contract_hash}"
 
     def flat_values(self) -> Tuple[float, ...]:
         values = []
