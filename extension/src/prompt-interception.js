@@ -79,7 +79,7 @@ function parseBody(body) {
     body = new TextDecoder().decode(bytes);
   }
   if (typeof FormData !== "undefined" && body instanceof FormData) {
-    return Object.fromEntries(body.entries());
+    return parseFormFields(body);
   }
   if (typeof body === "object" && !(body instanceof URLSearchParams)) return body;
 
@@ -91,18 +91,23 @@ function parseBody(body) {
   } catch {
     const params = new URLSearchParams(trimmed);
     if ([...params.keys()].length > 0 && trimmed.includes("=")) {
-      const object = Object.fromEntries(params.entries());
-      for (const [key, value] of Object.entries(object)) {
-        try {
-          object[key] = JSON.parse(value);
-        } catch {
-          // Form fields may be ordinary strings.
-        }
-      }
-      return object;
+      return parseFormFields(params);
     }
     return trimmed;
   }
+}
+
+function parseFormFields(fields) {
+  const object = Object.fromEntries(fields.entries());
+  for (const [key, value] of Object.entries(object)) {
+    if (typeof value !== "string") continue;
+    try {
+      object[key] = JSON.parse(value);
+    } catch {
+      // Form fields may be ordinary strings.
+    }
+  }
+  return object;
 }
 
 function latestUserText(value) {
@@ -172,7 +177,7 @@ function collectCandidates(value, key, candidates) {
 function looksLikePrompt(value) {
   if (typeof value !== "string") return false;
   const trimmed = value.trim();
-  if (trimmed.length < 2) return false;
+  if (!trimmed) return false;
   if (/^[a-f\d-]{16,}$/i.test(trimmed)) return false;
-  return /[a-z\d]/i.test(trimmed);
+  return /[\p{L}\p{N}]/u.test(trimmed);
 }
