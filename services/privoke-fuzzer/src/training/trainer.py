@@ -1,29 +1,21 @@
 from __future__ import annotations
 
+import math
 import random
-import os
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Iterable, Sequence
 
-from .evaluation import (
-    accumulate_gradient,
-    classification_loss,
-)
+from privoke_service import env_float, env_string
+from privoke_model.training_data import training_text_key
+from runtime_client import PrivokeRuntimeClient
+
 from .io import load_training_examples
-from .parameters import (
-    add_parameter_delta,
-    clamp,
-    parameter_fingerprint,
-    snapshot_with_trainable_parameters,
-)
-from .protocols import StreamedParameterSnapshot
 from .transforms import random_pii_transform
 from .types import BatchTrainingConfig, BatchTrainingExample, BatchTrainingUpdate
-from runtime_client import PrivokeRuntimeClient
 
 
 def train_parameter_batch_from_files(
-    snapshot: StreamedParameterSnapshot,
+    model_id: str,
     batch_path: str | Path,
     golden_batch_path: str | Path | None = None,
     config: BatchTrainingConfig | None = None,
@@ -35,7 +27,7 @@ def train_parameter_batch_from_files(
         else []
     )
     return train_parameter_batch(
-        snapshot=snapshot,
+        model_id=model_id,
         new_examples=load_training_examples(batch_path),
         golden_examples=golden_examples,
         config=config,
@@ -44,99 +36,68 @@ def train_parameter_batch_from_files(
 
 
 def train_parameter_batch(
-    snapshot: StreamedParameterSnapshot,
+    model_id: str,
     new_examples: Sequence[BatchTrainingExample],
     golden_examples: Sequence[BatchTrainingExample] = (),
+    heldout_examples: Sequence[BatchTrainingExample] = (),
     config: BatchTrainingConfig | None = None,
     runtime_client: PrivokeRuntimeClient | None = None,
 ) -> BatchTrainingUpdate:
+    """Prepare examples and delegate model execution and descent to client-runtime."""
     config = config or BatchTrainingConfig()
     _validate_config(config)
-
-    client_snapshot = snapshot_with_trainable_parameters(snapshot)
-    parameters = dict(client_snapshot.parameters)
-    trainer_examples = list(iter_training_examples(new_examples, golden_examples, config))
-    if not trainer_examples:
-        raise ValueError("At least one training example is required.")
-
-    runtime_client = runtime_client or PrivokeRuntimeClient(
-        os.getenv("PRIVOKE_RUNTIME_TARGET", "client-runtime:50054"),
-        timeout_seconds=float(os.getenv("FUZZ_TIMEOUT_SECONDS", "10")),
+    expanded_count = len(new_examples) * (config.transformations_per_example + 1)
+    if expanded_count + len(golden_examples) + len(heldout_examples) > 1024:
+        raise ValueError("Expanded training plus held-out examples must not exceed 1024.")
+    trainer_examples = list(
+        iter_training_examples(new_examples, golden_examples, config)
     )
-    gradients = {name: [0.0 for _ in values] for name, values in parameters.items()}
-    total_weight = 0.0
-    total_loss = 0.0
-    exact_matches = 0
-
-    for example in trainer_examples:
-        predicted = runtime_client.classify(
-            example.text,
-            layer="semantic",
-            model_id=client_snapshot.model_id,
-        )
-        target = target_classification_for_example(example, predicted)
-        loss = classification_loss(target, predicted)
-
-        if target.pack() == predicted.pack():
-            exact_matches += 1
-
-        accumulate_gradient(
-            gradients=gradients,
-            parameters=parameters,
-            target=target,
-            predicted=predicted,
-            weight=example.weight,
-        )
-        total_loss += loss * example.weight
-        total_weight += example.weight
-
-    gradient_parameters = {
-        name: tuple(
-            clamp(
-                (value / total_weight) * config.learning_rate,
-                -config.max_gradient,
-                config.max_gradient,
-            )
-            for value in values
-        )
-        for name, values in gradients.items()
-    }
-    updated_parameters = add_parameter_delta(parameters, gradient_parameters)
-
-    return BatchTrainingUpdate(
-        model_id=client_snapshot.model_id,
-        base_version=client_snapshot.version,
-        gradients=gradient_parameters,
-        updated_parameters=updated_parameters,
-        metrics={
-            "examples": float(len(trainer_examples)),
+    _validate_examples(trainer_examples)
+    if {training_text_key(item.text) for item in trainer_examples}.intersection(
+        training_text_key(item.text) for item in heldout_examples
+    ):
+        raise ValueError("Held-out examples overlap transformed training texts.")
+    runtime_client = runtime_client or _default_runtime_client()
+    batch = runtime_client.compute_semantic_gradients(
+        trainer_examples,
+        heldout_examples=heldout_examples,
+        model_id=model_id,
+        learning_rate=config.learning_rate,
+        max_gradient=config.max_gradient,
+    )
+    metrics = dict(batch["metrics"])
+    metrics.update(
+        {
             "new_examples": float(len(new_examples)),
             "golden_examples": float(len(golden_examples)),
-            "average_loss": total_loss / total_weight,
-            "exact_match_rate": exact_matches / len(trainer_examples),
-            "total_weight": total_weight,
-        },
-        metadata={
-            "strategy": "grpc_runtime_semantic_batch_training",
-            "base_parameter_fingerprint": parameter_fingerprint(parameters),
-            "updated_parameter_fingerprint": parameter_fingerprint(updated_parameters),
-            "learning_rate": str(config.learning_rate),
-            "max_gradient": str(config.max_gradient),
-            "transformations_per_example": str(config.transformations_per_example),
-        },
+        }
+    )
+    metadata = dict(batch["metadata"])
+    metadata["transformations_per_example"] = str(config.transformations_per_example)
+    return BatchTrainingUpdate(
+        model_id=batch["model_id"],
+        base_version=batch["base_version"],
+        gradients=batch["gradients"],
+        parameter_shapes=batch["shapes"],
+        metrics=metrics,
+        metadata=metadata,
     )
 
 
-def target_classification_for_example(
-    example: BatchTrainingExample,
-    predicted,
-):
-    if example.has_explicit_target:
-        return example.expected_classification
-    # Unlabelled examples are useful as stability/golden samples: the runtime's
-    # current classification is their target, so they do not invent labels in
-    # the fuzzer process.
-    return predicted
+def _default_runtime_client() -> PrivokeRuntimeClient:
+    return PrivokeRuntimeClient(
+        env_string("PRIVOKE_RUNTIME_TARGET", "client-runtime:50054"),
+        timeout_seconds=env_float("FUZZ_TIMEOUT_SECONDS", 10.0),
+    )
+
+
+def _validate_examples(examples: Sequence[BatchTrainingExample]) -> None:
+    if not examples:
+        raise ValueError("At least one training example is required.")
+    if any(
+        not math.isfinite(example.weight) or example.weight <= 0 for example in examples
+    ):
+        raise ValueError("Training example weights must be finite and positive.")
 
 
 def iter_training_examples(
@@ -144,9 +105,7 @@ def iter_training_examples(
     golden_examples: Sequence[BatchTrainingExample],
     config: BatchTrainingConfig,
 ) -> Iterable[BatchTrainingExample]:
-    # Reproducible training transforms; this value is not security-sensitive.
     rng = random.Random(config.seed)  # nosec B311
-
     for example in new_examples:
         yield example.with_text_and_weight(
             example.text,
@@ -157,7 +116,6 @@ def iter_training_examples(
                 random_pii_transform(example.text, rng),
                 example.weight * config.new_example_weight,
             )
-
     for example in golden_examples:
         yield example.with_text_and_weight(
             example.text,
@@ -166,7 +124,9 @@ def iter_training_examples(
 
 
 def _validate_config(config: BatchTrainingConfig) -> None:
-    if config.learning_rate <= 0:
-        raise ValueError("learning_rate must be greater than zero.")
-    if config.max_gradient <= 0:
-        raise ValueError("max_gradient must be greater than zero.")
+    if type(config.transformations_per_example) is not int or not 0 <= config.transformations_per_example <= 1023:
+        raise ValueError("transformations_per_example must be an integer between 0 and 1023.")
+    if not math.isfinite(config.learning_rate) or config.learning_rate <= 0:
+        raise ValueError("learning_rate must be finite and greater than zero.")
+    if not math.isfinite(config.max_gradient) or config.max_gradient <= 0:
+        raise ValueError("max_gradient must be finite and greater than zero.")

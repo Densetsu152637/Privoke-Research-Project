@@ -1,4 +1,13 @@
 .git
+**/.env
+**/.env.*
+**/secrets
+**/*.key
+**/*.pem
+**/*.p12
+gha-creds-*.json
+documents
+.tmp
 .idea
 **/__pycache__
 **/.pytest_cache

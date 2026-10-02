@@ -14,6 +14,8 @@ message HealthResponse {
 message Parameter {
   string name = 1;
   repeated float values = 2;
+  // Row-major tensor dimensions. Older scalar/vector consumers may ignore it.
+  repeated uint32 shape = 3;
 }
 
 message ModelParametersRequest {
@@ -29,6 +31,23 @@ message ModelParametersResponse {
   map<string, string> metadata = 5;
 }
 
+message ParameterChunk {
+  string name = 1;
+  repeated uint32 shape = 2;
+  uint32 value_offset = 3;
+  repeated float values = 4;
+}
+
+message ModelParameterChunk {
+  string model_id = 1;
+  string version = 2;
+  int64 generated_at_unix = 3;
+  ParameterChunk parameter = 4;
+  map<string, string> metadata = 5;
+  uint32 chunk_index = 6;
+  uint32 total_chunks = 7;
+}
+
 message ParameterUpdateRequest {
   string source_id = 1;
   string model_id = 2;
@@ -42,6 +61,22 @@ message ParameterUpdateAck {
   string model_id = 2;
   string applied_version = 3;
   string message = 4;
+}
+
+// Private experiment-control lookup used to recover a lost training acknowledgment.
+message ParameterUpdateStatusRequest {
+  string source_id = 1;
+  string request_id = 2;
+  string request_source_id = 3;
+  string model_id = 4;
+  string request_fingerprint = 5;
+}
+
+message ParameterUpdateStatus {
+  bool found = 1;
+  ParameterUpdateAck ack = 2;
+  string base_version = 3;
+  uint32 prompts_generated = 4;
 }
 
 message FuzzerTrainingRequest {
@@ -65,11 +100,13 @@ message FuzzerTrainingResponse {
 
 service ModelStreamingService {
   rpc GetModelParameters(ModelParametersRequest) returns (ModelParametersResponse);
+  rpc StreamModelParameters(ModelParametersRequest) returns (stream ModelParameterChunk);
   rpc Health(HealthRequest) returns (HealthResponse);
 }
 
 service ParamUpdateService {
   rpc SubmitParameterUpdate(ParameterUpdateRequest) returns (ParameterUpdateAck);
+  rpc GetParameterUpdateStatus(ParameterUpdateStatusRequest) returns (ParameterUpdateStatus);
   rpc Health(HealthRequest) returns (HealthResponse);
 }
 

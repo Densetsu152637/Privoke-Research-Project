@@ -19,7 +19,12 @@ WORKDIR /workspace/extension/client-runtime
 
 ENV PRIVOKE_GRPC_HOST=0.0.0.0
 
+ARG PRIVOKE_INSTALL_GPU=false
+
 RUN pip install --no-cache-dir -r requirements.txt /workspace/shared/python \
+    && if [ "${PRIVOKE_INSTALL_GPU}" = "true" ]; then \
+      pip install --no-cache-dir -r requirements-gpu.txt; \
+    fi \
     && mkdir -p generated \
     && python -m grpc_tools.protoc \
       -I /workspace/shared/proto \
@@ -50,9 +55,16 @@ RUN apt-get update \
 
 COPY --from=development /opt/venv /opt/venv
 COPY --from=development /workspace /workspace
+# Runtime unit tests exercise the checked-in model artifacts in the release image.
+COPY models /workspace/models
 
 RUN pip uninstall -y grpcio-tools wheel \
-    && /usr/local/bin/python -m pip uninstall -y pip setuptools wheel
+    && /usr/local/bin/python -m pip uninstall -y pip setuptools wheel \
+    && mkdir -p /var/lib/privoke \
+    && chown privoke:privoke /var/lib/privoke
+
+ENV TELEMETRY_PRIVACY_LEDGER_PATH=/var/lib/privoke/telemetry-budget.sqlite3
+VOLUME ["/var/lib/privoke"]
 
 WORKDIR /workspace/extension/client-runtime
 

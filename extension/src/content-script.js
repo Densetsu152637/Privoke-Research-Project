@@ -1,7 +1,9 @@
 import { sendRuntimeMessage } from "./webextension-api.js";
+import { runtimeFailureResponse } from "./interception-failure.js";
 
 const CHANNEL = "privoke-extension-v1";
 const NOTICE_ID = "privoke-page-notice";
+const SEMANTIC_STATUS_ID = "privoke-semantic-status";
 
 window.addEventListener("message", (event) => {
   const data = event.data;
@@ -18,18 +20,50 @@ window.addEventListener("message", (event) => {
     text: data.text,
     targetApp: data.targetApp,
   })).then((result) => {
-    const response = result?.ok ? result.response : null;
+    const response = result?.ok ? result.response : runtimeFailureResponse();
     const action = response?.action?.toUpperCase();
     try {
+      updateSemanticAvailability(response);
       if (action === "WARN" || action === "BLOCK") {
         showNotice(action, data.text, response);
       }
     } catch {
       // A rendering failure must not turn a BLOCK decision into ALLOW.
     }
-    postResult(data.requestId, action ?? "ALLOW");
-  }).catch(() => postResult(data.requestId, "ALLOW"));
+    postResult(data.requestId, action ?? "BLOCK");
+  }).catch(() => {
+    const response = runtimeFailureResponse();
+    try {
+      showNotice("BLOCK", data.text, response);
+    } catch {
+      // Failure notices are optional; the request must still be blocked.
+    }
+    postResult(data.requestId, response.action);
+  });
 });
+
+function updateSemanticAvailability(response) {
+  const existing = document.getElementById(SEMANTIC_STATUS_ID);
+  if (response?.semanticStateTransition === "available") {
+    existing?.remove();
+    return;
+  }
+  if (!response?.semanticUnavailable) return;
+
+  const notice = existing ?? document.createElement("div");
+  if (!existing) {
+    notice.id = SEMANTIC_STATUS_ID;
+    notice.setAttribute("role", "status");
+  }
+  const activeLayers = (response.semanticFallbackLayers ?? []).map((layer) => (
+    layer === "DETECTION_LAYER_REGEX" ? "regex" : "NER"
+  ));
+  notice.textContent = response.semanticFailClosedOnly
+    ? "PriVoke semantic analysis is temporarily unavailable. No other protection layers are enabled, so prompts remain blocked until the service returns."
+    : `PriVoke semantic analysis is temporarily unavailable. ${activeLayers.join(" and ")} protection remains active; retrying automatically.`;
+  notice.style.cssText = "position:fixed;z-index:2147483647;left:16px;bottom:16px;max-width:420px;padding:12px 16px;border:1px solid #d7a42b;border-radius:8px;background:#fff8df;color:#352900;font:13px/1.4 system-ui,sans-serif;box-shadow:0 4px 16px #0002";
+  if (!existing) (document.documentElement || document).append(notice);
+}
 
 function postResult(requestId, action) {
   window.postMessage({
@@ -89,41 +123,51 @@ function showNotice(action, text, response) {
 }
 
 function appendHighlightedText(container, text, evidence) {
-  const match = evidence?.sectionOfText || spanText(text, evidence);
-  if (!match) {
-    const sensitive = document.createElement("span");
-    sensitive.className = "sensitive";
-    sensitive.textContent = text.slice(0, 240);
-    container.append(sensitive);
+  const range = evidenceRange(text, evidence);
+  if (!range) {
+    // Unlocated/ambiguous evidence may be displayed separately, but must not be
+    // presented as a match at an arbitrary occurrence in the original prompt.
+    if (typeof evidence?.sectionOfText === "string" && evidence.sectionOfText) {
+      const sensitive = document.createElement("span");
+      sensitive.className = "sensitive";
+      sensitive.textContent = evidence.sectionOfText;
+      container.append(sensitive);
+    } else {
+      container.append(Array.from(text).slice(0, 240).join(""));
+    }
     return;
   }
 
-  const index = text.toLocaleLowerCase().indexOf(match.toLocaleLowerCase());
-  if (index < 0) {
-    const sensitive = document.createElement("span");
-    sensitive.className = "sensitive";
-    sensitive.textContent = match;
-    container.append(sensitive);
-    return;
-  }
-
-  const contextStart = Math.max(0, index - 70);
-  const contextEnd = Math.min(text.length, index + match.length + 70);
-  if (contextStart > 0) container.append("…");
-  container.append(text.slice(contextStart, index));
+  const [start, end] = range;
+  const prefix = Array.from(text.slice(0, start)).slice(-70).join("");
+  const suffix = Array.from(text.slice(end)).slice(0, 70).join("");
+  if (prefix.length < start) container.append("…");
+  container.append(prefix);
   const sensitive = document.createElement("span");
   sensitive.className = "sensitive";
-  sensitive.textContent = text.slice(index, index + match.length);
-  container.append(sensitive, text.slice(index + match.length, contextEnd));
-  if (contextEnd < text.length) container.append("…");
+  sensitive.textContent = text.slice(start, end);
+  container.append(sensitive, suffix);
+  if (end + suffix.length < text.length) container.append("…");
 }
 
-function spanText(text, evidence) {
-  if (!evidence?.hasSpan) return "";
-  const start = Number(evidence.spanStart);
-  const end = Number(evidence.spanEnd);
-  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start) {
-    return "";
+function evidenceRange(text, evidence) {
+  if (evidence?.hasSpan) {
+    const start = evidence.spanStart;
+    const end = evidence.spanEnd;
+    // Runtime offsets count Unicode code points; JavaScript slice uses UTF-16.
+    const offsets = [0];
+    for (const character of text) offsets.push(offsets.at(-1) + character.length);
+    if (Number.isInteger(start) && Number.isInteger(end)
+      && start >= 0 && end > start && end < offsets.length) {
+      const range = [offsets[start], offsets[end]];
+      if (typeof evidence.sectionOfText !== "string" || !evidence.sectionOfText
+        || text.slice(...range) === evidence.sectionOfText) return range;
+    }
   }
-  return text.slice(start, end);
+
+  const section = evidence?.sectionOfText;
+  if (typeof section !== "string" || !section) return null;
+  const start = text.indexOf(section);
+  if (start < 0 || text.indexOf(section, start + 1) >= 0) return null;
+  return [start, start + section.length];
 }

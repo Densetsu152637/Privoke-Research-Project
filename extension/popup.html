@@ -51,8 +51,8 @@
       </section>
 
       <p id="server-warning" class="server-warning" role="alert" hidden>
-        <strong>PriVoke servers are offline.</strong>
-        The streamed LLM layer cannot be enabled right now.
+        <strong>Semantic analysis unavailable.</strong>
+        <span>Regex and NER protection remain active. PriVoke will retry automatically.</span>
       </p>
 
       <section class="manual" aria-labelledby="manual-heading">
@@ -82,13 +82,28 @@
             <span><strong>Wait for regex</strong><small>Run patterns before other layers</small></span>
             <input id="wait-regex" type="checkbox">
           </label>
-          <label class="model-setting" for="model-id">
-            <span>PriVoke model</span>
-            <input id="model-id" type="text" maxlength="128" value="privoke-baseline" autocomplete="off" spellcheck="false">
+          <label class="model-setting" for="model-quality">
+            <span><strong>Model quality</strong><small>Higher quality uses more memory and CPU</small></span>
+            <select id="model-quality">
+              <option value="latest" selected>Latest (recommended)</option>
+              <option value="efficient">Efficient</option>
+              <option value="balanced">Balanced</option>
+              <option value="quality">Quality</option>
+            </select>
           </label>
         </div>
       </details>
 
+      <section class="stack-mode" aria-labelledby="stack-mode-heading">
+        <div class="section-heading">
+          <h2 id="stack-mode-heading">Server</h2>
+          <span>Cloud is default</span>
+        </div>
+        <button id="stack-toggle" class="stack-toggle" type="button" aria-pressed="false" aria-label="Use development servers">
+          <span class="stack-copy"><strong>Cloud</strong><small>PriVoke server connection</small></span>
+          <span class="stack-switch" aria-hidden="true"><i></i></span>
+        </button>
+      </section>
       <p class="footnote">Supported AI prompts are checked before their web request is sent.</p>
     </main>
     <script src="popup.js"></script>

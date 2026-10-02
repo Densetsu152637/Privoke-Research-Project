@@ -3,7 +3,6 @@ import os
 from typing import Any, Dict, List
 from urllib import error, request
 from urllib.parse import urlsplit
-from dotenv import load_dotenv
 
 from .abs_classifier import AbstractClassifier
 from .prompt import system_prompt, user_prompt
@@ -12,11 +11,10 @@ from ..classification import (
     ClassificationResult,
     Sensitivity,
     Visibility,
-    build_results,
 )
 from ..env import env_float, env_positive_int
+from ..classification.external_output import build_external_results
 
-load_dotenv()
 
 MAX_LLM_RESPONSE_BYTES = 1_048_576
 
@@ -134,9 +132,11 @@ class LocalClassifier(AbstractClassifier):
         content = _response_content(response_payload)
         parsed = _parse_json_content(content)
         if parsed is None:
-            return []
+            raise RuntimeError("Semantic classifier returned invalid JSON.")
 
-        results = build_results(parsed)
+        results = build_external_results(parsed, text)
+        if not results:
+            raise RuntimeError("Semantic classifier returned no valid results.")
         for result in results:
             result.metadata.setdefault("classifier", "local_lm_studio")
             result.metadata.setdefault("model", model)
@@ -387,19 +387,6 @@ def _parse_json_content(content: str) -> Dict[str, Any] | List[Dict[str, Any]] |
                 return parsed
         except json.JSONDecodeError:
             pass
-
-    decoder = json.JSONDecoder()
-    for index, char in enumerate(content):
-        if char not in "{[":
-            continue
-
-        try:
-            parsed, _ = decoder.raw_decode(content[index:])
-        except json.JSONDecodeError:
-            continue
-
-        if isinstance(parsed, (dict, list)):
-            return parsed
 
     return None
 

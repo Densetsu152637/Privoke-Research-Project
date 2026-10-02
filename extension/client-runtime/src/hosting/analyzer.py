@@ -25,12 +25,17 @@ class PromptAnalysis:
     elapsed_ms: float
 
     def response(self) -> Dict:
-        return serialize_analysis_response(
+        response = serialize_analysis_response(
             self.request,
             self.result,
             self.action,
             self.elapsed_ms,
         )
+        if self.execution.errors:
+            if self.action == PriVokeAction.BLOCK:
+                response["reason"] = "PriVoke could not complete analysis safely."
+            response["errors"] = list(self.execution.errors)
+        return response
 
 
 def analyse_prompt_request(request: PromptInspectionRequest) -> Dict:
@@ -102,4 +107,4 @@ def _apply_visibility_hint(
             "visibility_hint": visibility_hint.name,
         },
     )
-    return hinted_result, hinted_result.action()
+    return hinted_result, max((action, hinted_result.action()), key=lambda value: value.value)

@@ -13,6 +13,7 @@ RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11 \
     && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
 
 COPY shared/proto /workspace/shared/proto
+COPY models /models
 COPY services/model-streaming-service /workspace/services/model-streaming-service
 
 WORKDIR /workspace/services/model-streaming-service
@@ -40,6 +41,7 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" \
 FROM gcr.io/distroless/static-debian12:nonroot AS runtime
 
 COPY --from=builder /out/model-streaming-service /model-streaming-service
+COPY --from=development --chown=nonroot:nonroot /models /models
 
 EXPOSE 50051
 

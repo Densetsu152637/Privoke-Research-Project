@@ -1,23 +1,31 @@
+"""gRPC orchestration for one bounded fuzzer training cycle."""
+
 from __future__ import annotations
 
 import logging
+import math
+import hashlib
 import threading
-import time
+from dataclasses import dataclass
 
 import grpc
-
 from config import FuzzerConfig
-from prompt_generation import generate_training_prompts
-from training import emit_training_update, train_parameter_batch
-from training.protocols import StreamedParameterSnapshot
-from training.types import BatchTrainingUpdate
-from runtime_client import PrivokeRuntimeClient
-
 from privoke.v1 import parameters_pb2, parameters_pb2_grpc
+from privoke_service import validate_text
+from prompt_generation import generate_training_partition
+from runtime_client import PrivokeRuntimeClient, RuntimeAnalysisError
+from training import emit_training_update, train_parameter_batch
+from training.types import BatchTrainingUpdate
+
+LOGGER = logging.getLogger(__name__)
 
 
-class ModelSnapshotUnavailable(RuntimeError):
-    pass
+@dataclass(frozen=True)
+class TrainingCycle:
+    requested_prompt_count: int
+    prompt_count: int
+    model_id: str
+    seed: int
 
 
 class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
@@ -43,79 +51,50 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             self._cycle_slots.release()
 
     def _run_training_cycle(self, request, context):
-        requested_prompt_count = int(request.prompt_count)
-        if requested_prompt_count <= 0:
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT,
-                "prompt_count must be greater than zero.",
+        cycle = _resolve_cycle(request, self.config)
+        previous = self._previous_update(request, cycle, context)
+        if previous.found:
+            return parameters_pb2.FuzzerTrainingResponse(
+                accepted=previous.ack.accepted,
+                model_id=previous.ack.model_id,
+                base_version=previous.base_version,
+                applied_version=previous.ack.applied_version,
+                prompts_generated=previous.prompts_generated,
+                message=previous.ack.message,
+                metadata={"replayed": "true"},
             )
-        prompt_count = min(requested_prompt_count, self.config.max_prompt_count)
-        if prompt_count < requested_prompt_count:
-            logging.info(
-                "capped training prompt count requested=%s max=%s",
-                requested_prompt_count,
-                self.config.max_prompt_count,
-            )
-
-        model_id = request.model_id or self.config.model_id
-        seed = int(request.seed) if request.seed else self.config.seed
-        logging.info(
-            "received training request id=%r source=%r model=%r prompts=%s",
-            request.request_id,
-            request.source_id,
-            model_id,
-            prompt_count,
-        )
-
+        _log_cycle_started(request, cycle)
         try:
-            snapshot = fetch_snapshot(self.config, model_id=model_id)
-        except ModelSnapshotUnavailable as exc:
-            context.abort(grpc.StatusCode.UNAVAILABLE, str(exc))
-        except grpc.RpcError as exc:
-            context.abort(
-                exc.code() or grpc.StatusCode.UNKNOWN,
-                exc.details() or "model snapshot request failed",
+            examples, heldout_examples = generate_training_partition(
+                count=cycle.prompt_count,
+                heldout_count=self.config.heldout_prompt_count,
+                seed=cycle.seed,
+                dataset_path=self.config.prompt_dataset_path,
             )
-
-        examples = generate_training_prompts(
-            count=prompt_count,
-            seed=seed,
-            dataset_path=self.config.prompt_dataset_path,
-        )
-        update = train_parameter_batch(
-            snapshot=snapshot,
-            new_examples=examples,
-            config=self.config.batch_training_config(seed),
-            runtime_client=PrivokeRuntimeClient(
-                self.config.privoke_runtime_target,
-                timeout_seconds=self.config.timeout_seconds,
-            ),
+        except ValueError as exc:
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
+        update = self._train(
+            cycle.model_id,
+            examples,
+            heldout_examples,
+            cycle.seed,
+            context,
         )
         try:
-            ack = emit_training_update(
-                target=self.config.param_update_target,
-                source_id=self.config.fuzzer_id,
-                update=update,
-                extra_metadata={
-                    "request_id": request.request_id,
-                    "request_source_id": request.source_id,
-                    "requested_prompt_count": str(requested_prompt_count),
-                    "generated_prompt_count": str(len(examples)),
-                    "training_pipeline": "streamed_llm_only",
-                },
-                timeout_seconds=self.config.timeout_seconds,
+            validate_training_update(
+                update,
+                minimum_exact_match_rate=self.config.minimum_exact_match_rate,
             )
-        except grpc.RpcError as exc:
-            logging.warning(
-                "parameter update submission failed code=%s",
-                exc.code(),
-            )
+        except ValueError as exc:
+            LOGGER.warning("rejecting training update: %s", exc)
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
+        if not context.is_active():
             context.abort(
-                grpc.StatusCode.UNAVAILABLE,
-                "Parameter update service is unavailable.",
+                grpc.StatusCode.CANCELLED,
+                "Training request was cancelled before update submission.",
             )
-
-        logging.info(
+        ack = self._submit_update(request, cycle, update, len(examples), context)
+        LOGGER.info(
             "completed training request id=%r accepted=%s version=%r prompts=%s",
             request.request_id,
             ack.accepted,
@@ -123,6 +102,78 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             len(examples),
         )
         return build_training_response(ack, update, len(examples))
+
+    def _previous_update(self, request, cycle, context):
+        try:
+            with grpc.insecure_channel(self.config.param_update_target) as channel:
+                return parameters_pb2_grpc.ParamUpdateServiceStub(channel).GetParameterUpdateStatus(
+                    parameters_pb2.ParameterUpdateStatusRequest(
+                        source_id=self.config.fuzzer_id,
+                        request_id=request.request_id,
+                        request_source_id=request.source_id,
+                        model_id=cycle.model_id,
+                        request_fingerprint=_training_request_fingerprint(request),
+                    ),
+                    timeout=self.config.timeout_seconds,
+                )
+        except grpc.RpcError as exc:
+            if exc.code() == grpc.StatusCode.ALREADY_EXISTS:
+                context.abort(grpc.StatusCode.ALREADY_EXISTS, "request_id belongs to a different training request.")
+            context.abort(grpc.StatusCode.UNAVAILABLE, "Parameter update receipts are unavailable.")
+
+    def _train(self, model_id, examples, heldout_examples, seed: int, context) -> BatchTrainingUpdate:
+        try:
+            return train_parameter_batch(
+                model_id=model_id,
+                new_examples=examples,
+                heldout_examples=heldout_examples,
+                config=self.config.batch_training_config(seed),
+                runtime_client=PrivokeRuntimeClient(
+                    self.config.privoke_runtime_target,
+                    timeout_seconds=self.config.timeout_seconds,
+                ),
+            )
+        except ValueError as exc:
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
+        except (RuntimeAnalysisError, grpc.RpcError) as exc:
+            LOGGER.warning("client runtime semantic training failed: %s", exc)
+            context.abort(
+                grpc.StatusCode.UNAVAILABLE,
+                "Client runtime training evaluation is unavailable.",
+            )
+
+    def _submit_update(
+        self,
+        request,
+        cycle: TrainingCycle,
+        update: BatchTrainingUpdate,
+        generated_count: int,
+        context,
+    ):
+        try:
+            return emit_training_update(
+                target=self.config.param_update_target,
+                source_id=self.config.fuzzer_id,
+                update=update,
+                extra_metadata={
+                    "request_id": request.request_id,
+                    "request_source_id": request.source_id,
+                    "requested_prompt_count": str(cycle.requested_prompt_count),
+                    "generated_prompt_count": str(generated_count),
+                    "training_pipeline": "client_runtime_semantic_gradients",
+                    "training_request_fingerprint": _training_request_fingerprint(request),
+                },
+                timeout_seconds=self.config.timeout_seconds,
+            )
+        except grpc.RpcError as exc:
+            LOGGER.warning(
+                "parameter update submission failed code=%s",
+                exc.code(),
+            )
+            context.abort(
+                grpc.StatusCode.UNAVAILABLE,
+                "Parameter update service is unavailable.",
+            )
 
     def Health(self, request, context):
         return parameters_pb2.HealthResponse(
@@ -132,9 +183,9 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
 
 
 def validate_training_request(request, expected_model_id: str) -> None:
-    _validate_request_text(request.request_id, "request_id", required=True)
-    _validate_request_text(request.source_id, "source_id", required=True)
-    _validate_request_text(request.model_id, "model_id", required=False)
+    validate_text(request.request_id, "request_id", required=True)
+    validate_text(request.source_id, "source_id", required=True)
+    validate_text(request.model_id, "model_id", required=False)
     if request.model_id and request.model_id != expected_model_id:
         raise ValueError(f"model_id must be {expected_model_id!r}.")
     if request.prompt_count <= 0:
@@ -142,124 +193,86 @@ def validate_training_request(request, expected_model_id: str) -> None:
     if len(request.metadata) > 64:
         raise ValueError("metadata may contain at most 64 entries.")
     for key, value in request.metadata.items():
-        _validate_request_text(key, "metadata key", required=True, limit=128)
-        _validate_request_text(value, "metadata value", required=False, limit=2048)
+        validate_text(key, "metadata key", required=True, limit=128)
+        validate_text(value, "metadata value", required=False, limit=2_048)
 
 
-def _validate_request_text(
-    value: str,
-    field_name: str,
+def _training_request_fingerprint(request) -> str:
+    return hashlib.sha256(request.SerializeToString(deterministic=True)).hexdigest()
+
+
+def validate_training_update(
+    update: BatchTrainingUpdate,
     *,
-    required: bool,
-    limit: int = 128,
+    minimum_exact_match_rate: float,
 ) -> None:
-    if required and not value:
-        raise ValueError(f"{field_name} is required.")
-    if len(value) > limit:
-        raise ValueError(f"{field_name} exceeds {limit} characters.")
-    if any(ord(character) < 32 or ord(character) == 127 for character in value):
-        raise ValueError(f"{field_name} must not contain control characters.")
-
-
-def fetch_snapshot(config: FuzzerConfig, model_id: str) -> StreamedParameterSnapshot:
-    attempts = max(1, int(config.model_streaming_fetch_max_attempts))
-    last_error_message = "unknown error"
-
-    for attempt in range(1, attempts + 1):
-        try:
-            return _fetch_snapshot_once(config, model_id)
-        except grpc.FutureTimeoutError as exc:
-            last_error_message = _snapshot_error_message(exc, config)
-        except grpc.RpcError as exc:
-            if not _is_retryable_rpc_error(exc):
-                raise
-            last_error_message = _snapshot_error_message(exc, config)
-
-        if attempt >= attempts:
-            break
-
-        delay_seconds = _retry_delay(config, attempt)
-        logging.warning(
-            "model snapshot fetch failed attempt=%s/%s target=%s: %s; "
-            "retrying in %.1fs",
-            attempt,
-            attempts,
-            config.model_streaming_target,
-            last_error_message,
-            delay_seconds,
+    if not math.isfinite(minimum_exact_match_rate) or not 0 <= minimum_exact_match_rate <= 1:
+        raise ValueError("Minimum exact match rate must be finite and within [0, 1].")
+    required_rates = (
+        "exact_match_rate", "heldout_exact_match_rate", "candidate_heldout_exact_match_rate",
+        "heldout_sensitive_recall", "candidate_heldout_sensitive_recall",
+        "heldout_clean_specificity", "candidate_heldout_clean_specificity",
+        "candidate_heldout_safety_regression_rate",
+    )
+    for name in required_rates:
+        value = update.metrics.get(name)
+        if value is None:
+            raise ValueError(f"Training update did not report {name}.")
+        if not math.isfinite(value) or not 0 <= value <= 1:
+            raise ValueError(f"Training update {name} must be finite and within [0, 1].")
+    for name in ("heldout_sensitive_examples", "heldout_clean_examples"):
+        value = update.metrics.get(name, 0)
+        if not math.isfinite(value) or value < 1 or value != int(value):
+            raise ValueError("Held-out evaluation needs both clean and sensitive examples.")
+    exact_match_rate = update.metrics.get("exact_match_rate")
+    if exact_match_rate is None:
+        raise ValueError("Training update did not report exact_match_rate.")
+    if exact_match_rate <= minimum_exact_match_rate:
+        raise ValueError(
+            "Training update exact_match_rate "
+            f"{exact_match_rate:.4f} must be greater than the minimum "
+            f"{minimum_exact_match_rate:.4f}."
         )
-        time.sleep(delay_seconds)
+    before_recall = update.metrics.get("heldout_sensitive_recall")
+    candidate_recall = update.metrics.get("candidate_heldout_sensitive_recall")
+    before_specificity = update.metrics.get("heldout_clean_specificity")
+    candidate_specificity = update.metrics.get("candidate_heldout_clean_specificity")
+    if None in (before_recall, candidate_recall, before_specificity, candidate_specificity):
+        raise ValueError("Training update did not report held-out quality metrics.")
+    if (
+        candidate_recall < before_recall
+        or candidate_specificity < before_specificity
+        or update.metrics["candidate_heldout_exact_match_rate"] < update.metrics["heldout_exact_match_rate"]
+        or update.metrics["candidate_heldout_safety_regression_rate"] > 0
+    ):
+        raise ValueError("Candidate model is worse on the held-out evaluation set.")
 
-    raise ModelSnapshotUnavailable(
-        "model-streaming-service was unavailable after "
-        f"{attempts} attempts at {config.model_streaming_target}: "
-        f"{last_error_message}"
+
+def _resolve_cycle(request, config: FuzzerConfig) -> TrainingCycle:
+    requested_count = int(request.prompt_count)
+    prompt_count = min(requested_count, config.max_prompt_count)
+    if prompt_count < requested_count:
+        LOGGER.info(
+            "capped training prompt count requested=%s max=%s",
+            requested_count,
+            config.max_prompt_count,
+        )
+    return TrainingCycle(
+        requested_prompt_count=requested_count,
+        prompt_count=prompt_count,
+        model_id=request.model_id or config.model_id,
+        seed=int(request.seed) if request.seed else config.seed,
     )
 
 
-def _fetch_snapshot_once(
-    config: FuzzerConfig,
-    model_id: str,
-) -> StreamedParameterSnapshot:
-    with grpc.insecure_channel(config.model_streaming_target) as channel:
-        grpc.channel_ready_future(channel).result(
-            timeout=max(0.1, config.model_streaming_connect_timeout_seconds)
-        )
-        client = parameters_pb2_grpc.ModelStreamingServiceStub(channel)
-        snapshot = client.GetModelParameters(
-            parameters_pb2.ModelParametersRequest(
-                consumer_id=config.fuzzer_id,
-                model_id=model_id,
-            ),
-            timeout=config.timeout_seconds,
-        )
-        if snapshot.model_id != model_id:
-            raise ModelSnapshotUnavailable(
-                "model-streaming-service returned model "
-                f"'{snapshot.model_id}' for requested model '{model_id}'."
-            )
-        return snapshot
-
-
-def _is_retryable_rpc_error(exc: grpc.RpcError) -> bool:
-    try:
-        code = exc.code()
-    except AttributeError:
-        return False
-
-    return code in {
-        grpc.StatusCode.UNAVAILABLE,
-        grpc.StatusCode.DEADLINE_EXCEEDED,
-    }
-
-
-def _snapshot_error_message(exc: Exception, config: FuzzerConfig) -> str:
-    if isinstance(exc, grpc.FutureTimeoutError):
-        return (
-            "channel was not ready within "
-            f"{config.model_streaming_connect_timeout_seconds:.1f}s"
-        )
-
-    if isinstance(exc, grpc.RpcError):
-        try:
-            code = exc.code()
-        except AttributeError:
-            code = None
-        try:
-            details = exc.details()
-        except AttributeError:
-            details = None
-        if details:
-            return f"{code}: {details}"
-        return str(code)
-
-    return str(exc) or exc.__class__.__name__
-
-
-def _retry_delay(config: FuzzerConfig, failed_attempt: int) -> float:
-    initial = max(0.1, config.model_streaming_retry_initial_seconds)
-    maximum = max(initial, config.model_streaming_retry_max_seconds)
-    return min(maximum, initial * (2 ** (failed_attempt - 1)))
+def _log_cycle_started(request, cycle: TrainingCycle) -> None:
+    LOGGER.info(
+        "received training request id=%r source=%r model=%r prompts=%s",
+        request.request_id,
+        request.source_id,
+        cycle.model_id,
+        cycle.prompt_count,
+    )
 
 
 def build_training_response(
