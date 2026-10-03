@@ -60,6 +60,7 @@ services:
       GOCACHE: /tmp/go-cache
     volumes:
       - ./evaluation:/workspace/evaluation:ro
+      - ./shared/python/tests/fixtures:/workspace/shared/python/tests/fixtures:ro
     command: [sh, /workspace/evaluation/run-go-tests.sh]
 
 volumes:

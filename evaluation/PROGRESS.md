@@ -2,6 +2,21 @@
 
 ## Current checkpoint — 4 October 2026
 
+The completed [sparse text control](../paper/research/text-control-results.md)
+selected C=1 using validation before development scoring. It scored
+TP248/TN186/FP52/FN16 on development (93.94% recall, 78.15% specificity),
+with no fit warnings or failures. Evaluator74 passed at source `6f777104`.
+The largest source family, Nemotron, has 83.15% specificity in this control.
+This is an offline annotation-presence result; the existing live contextual
+pipeline remains at 90.53% recall and 29.41% specificity. Final remains unscored.
+
+An additive sparse presence serving/training interface is being implemented
+under a separate prospective protocol. Shared inference and typed contracts
+are integrated at `39778b6`; integrated runtime, fuzzer and profile results
+are pending. The original contextual API and its policy decisions are preserved.
+Do not treat completed historical suites as validation of this new interface.
+The archived package below predates the text control and this refactor.
+
 Latest bounded training study: [public-negative results](../paper/research/public-negative-results.md).
 Nine independent attempts at0.03/0.1/0.3 produce six scored candidates and three
 held-out rejections. Three0.03 seeds tie on pipeline239/70/168/25; prospective
