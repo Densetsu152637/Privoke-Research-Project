@@ -24,3 +24,5 @@ Commands in these guides retain their original working-directory assumptions. St
 | [Model artifacts](README.Model-artifacts.md) | Model storage and formats |
 | [Evaluation](README.Evaluation.md) | Datasets, experiments and metrics |
 | [Regex evaluation results](README.Regex-evaluation-results.md) | Existing evaluation report |
+| [Research completion plan](Research-completion-plan.md) | Research questions, experiments, milestones and publication readiness |
+| [Research paper writing guide](Research-paper-writing-guide.md) | Methodology improvements, wording, evidence reporting and venue requirements |
