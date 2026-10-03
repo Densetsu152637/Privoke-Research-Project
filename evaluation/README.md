@@ -260,3 +260,34 @@ and final IDs/groups/text keys and does not score final examples. The probe is a
 annotation-presence diagnostic, not a contextual privacy policy or a fuzzer-
 trained replacement. Results are development-only and do not establish deployment
 readiness.
+
+## Sparse annotation-presence profiles
+
+Read the [prospective model-refactor protocol](../paper/research/model-refactor-protocol.md)
+before fitting or scoring. The fitter validates the pinned prepared partitions,
+exports the three fixed sparse profiles and validation-selected C/threshold
+artifacts, and freezes all profile selections before any development inference.
+It exports only the train partition as the separate fuzzer curriculum. It does
+not score development or read final examples; the locked final file is checked by
+SHA-256 only. The scorer makes typed `DetectAnnotationPresence` RPCs directly
+from the evaluation container and requires the returned model ID, version,
+checksum, parameter fingerprint, threshold, enum, and probability to match the
+frozen artifact and shared arithmetic.
+
+Use fresh result-directory names and the integrated evaluator/runtime images
+after root has completed the prospective validation gates. The runtime must be
+serving the exact profile artifact named by the selection record; model-volume
+installation/restoration is handled by the study owner.
+
+```powershell
+python evaluation/fit-presence-profiles.py --prepared evaluation/results/representation_20261004_v3/prepared --locked-root evaluation/results/locked-public --output evaluation/results/UNIQUE_PRESENCE_FIT --source-revision COMMITTED_SOURCE_SHA --protocol-sha256 PROTOCOL_SHA256
+python evaluation/evaluate-presence.py --artifact evaluation/results/UNIQUE_PRESENCE_FIT/profiles/balanced/artifact.json --selection evaluation/results/UNIQUE_PRESENCE_FIT/profiles/balanced/selection.json --dataset-file evaluation/results/locked-public/development.jsonl --output evaluation/results/UNIQUE_PRESENCE_SCORE --target client-runtime:50054 --source-revision COMMITTED_SOURCE_SHA --protocol-sha256 PROTOCOL_SHA256
+```
+
+The profile fitter writes each C candidate artifact and validation predictions,
+plus a train-only `curriculum/prompts.jsonl`. The scorer emits row IDs, labels,
+groups, binary probabilities/predictions, returned identities, elapsed times and
+errors without emitting prompt text. Runtime errors or any identity/parity mismatch
+make a profile score ineligible; failed evidence is retained in that fresh
+output directory. This is a binary annotation-presence signal and does not replace
+or suppress contextual classification, severity, categories, or policy actions.
