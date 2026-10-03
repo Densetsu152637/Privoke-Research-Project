@@ -30,7 +30,8 @@ for name,rows in payload['partitions'].items():
                 'expected_has_pii':row['expected_has_pii'],'pooled':list(pred.pooled),
                 'original_binary':pred.sensitivity!='S0' or bool(pred.categories)})
     result[name]=features
-fingerprint=parameter_fingerprint(model.parameters,{name:list(value.shape) for name,value in model.parameters.items()})
+fingerprint=parameter_fingerprint({name:value.ravel() for name,value in model.parameters.items()},
+                                 {name:list(value.shape) for name,value in model.parameters.items()})
 print(json.dumps({'config':payload['artifact']['config'],'partitions':result,'parameter_fingerprint':fingerprint}))
 '''
 

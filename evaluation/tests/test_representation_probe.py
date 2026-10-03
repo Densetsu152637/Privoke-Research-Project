@@ -1,6 +1,7 @@
 """Fail-closed checks for the offline frozen-representation diagnostic."""
 import importlib.util
 import hashlib
+import io
 import json
 from pathlib import Path
 import sys
@@ -8,6 +9,7 @@ import types
 import uuid
 from tempfile import TemporaryDirectory
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -154,6 +156,40 @@ class RepresentationProbeTests(unittest.TestCase):
         artifact = {"parameters": {"weight": {"shape": [2], "values": [0.1000000002, 2.0]}}}
         runtime = {"weight": np.asarray(artifact["parameters"]["weight"]["values"], dtype=np.float32)}
         self.assertEqual(parameter_fingerprint(runtime, {"weight": [2]}), harness.artifact_fingerprint(artifact))
+
+    def test_embedded_export_fingerprints_rank_two_runtime_parameters(self):
+        matrix = np.asarray([[0.1, 2.0], [-3.0, 4.5]], dtype=np.float32)
+
+        class FakeModel:
+            parameters = {"matrix": matrix}
+
+            @classmethod
+            def from_artifact(cls, artifact):
+                return cls()
+
+            def predict_many(self, texts):
+                return [SimpleNamespace(pooled=[0.0] * 32, sensitivity="S0", categories=[])
+                        for _ in texts]
+
+        src = types.ModuleType("src")
+        src.__path__ = []
+        src_model = types.ModuleType("src.model")
+        src_model.TinyTransformerModel = FakeModel
+        detection = types.ModuleType("src.detection")
+        detection.__path__ = []
+        preprocessing = types.ModuleType("src.detection.preprocessing")
+        preprocessing.normalize_text = lambda text: text
+        modules = {"src": src, "src.model": src_model, "src.detection": detection,
+                   "src.detection.preprocessing": preprocessing}
+        payload = {"artifact": {"config": {"hidden_size": 32}}, "partitions": {}}
+        stdout = io.StringIO()
+        with patch.dict("sys.modules", modules), patch("sys.stdin", io.StringIO(json.dumps(payload))), \
+                patch("sys.stdout", stdout):
+            exec(compile(harness.EXPORT_PROGRAM, "<embedded-export>", "exec"), {})
+
+        emitted = json.loads(stdout.getvalue())
+        expected = parameter_fingerprint({"matrix": matrix.ravel()}, {"matrix": [2, 2]})
+        self.assertEqual(expected, emitted["parameter_fingerprint"])
 
     def test_threshold_obeys_floor_and_tie_order(self):
         threshold, metrics = fit.select_threshold(np.array([1, 1, 1, 0, 0]),
