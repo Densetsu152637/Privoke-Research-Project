@@ -1,5 +1,6 @@
 """Prepare grouped, protected-source-disjoint rows for the frozen encoder probe."""
 import hashlib
+import argparse
 import json
 import random
 from collections import Counter
@@ -15,7 +16,18 @@ OUT = ROOT / "evaluation/results/frozen-representation-study"
 
 def read_locked(path):
     raw = path.read_bytes()
-    return raw, [json.loads(line) for line in raw.decode("utf-8").splitlines() if line.strip()]
+    rows = [json.loads(line) for line in raw.decode("utf-8").splitlines() if line.strip()]
+    identifiers = set()
+    for row in rows:
+        if (not isinstance(row.get("id"), str) or not row["id"]
+                or not isinstance(row.get("group_id"), str) or not row["group_id"]
+                or not isinstance(row.get("text"), str) or not row["text"]
+                or type(row.get("expected_has_pii")) is not bool):
+            raise ValueError("Locked partition contains missing provenance or malformed truth labels.")
+        if row["id"] in identifiers:
+            raise ValueError("Locked partition contains duplicate IDs.")
+        identifiers.add(row["id"])
+    return raw, rows
 
 
 def select_rows(examples, locked_rows, anchors, count=2400, seed=5102026):
@@ -74,14 +86,28 @@ def select_rows(examples, locked_rows, anchors, count=2400, seed=5102026):
 
 
 def serialize(row):
-    return {"id": row.metadata["example_id"], "group_id": row.metadata["group_id"],
-            "text": row.text, "text_key": training_text_key(row.text),
-            "expected_has_pii": bool(row.expected_has_pii)}
+    if isinstance(row, dict):
+        identifier, group, text, label = row.get("id"), row.get("group_id"), row.get("text"), row.get("expected_has_pii")
+    else:
+        identifier = row.metadata.get("example_id")
+        group = row.metadata.get("group_id")
+        text = row.text
+        label = row.expected_has_pii
+    if not isinstance(identifier, str) or not identifier or not isinstance(group, str) or not group:
+        raise ValueError("Study row has missing or invalid ID/group provenance.")
+    if not isinstance(text, str) or not text or type(label) is not bool:
+        raise ValueError("Study row has missing text or a non-boolean truth label.")
+    return {"id": identifier, "group_id": group, "text": text,
+            "text_key": training_text_key(text), "expected_has_pii": label}
 
 
 def main():
-    if OUT.exists():
-        raise SystemExit(f"Refusing to replace existing study output: {OUT}")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=OUT)
+    args = parser.parse_args()
+    output = args.output
+    if output.exists():
+        raise SystemExit(f"Refusing to replace existing study output: {output}")
     manifest = json.loads((LOCKED / "manifest.json").read_text(encoding="utf-8"))
     locked = []
     locked_hashes = {}
@@ -106,12 +132,14 @@ def main():
     anchors = ns["training_samples"]()
     selected, train, validation, details = select_rows(loaded.examples, protected, anchors)
     development = [json.loads(line) for line in (LOCKED / "development.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
-    partitions = {"train": train, "validation": validation, "development": development}
-    OUT.mkdir(parents=True)
+    partitions = {"train": train, "validation": validation,
+                  "development": [serialize(row) for row in development]}
+    output.mkdir(parents=True)
     hashes = {}
     for name, rows in partitions.items():
-        content = "".join(json.dumps(serialize(row), ensure_ascii=False) + "\n" for row in rows)
-        path = OUT / f"{name}.jsonl"
+        serialized = [serialize(row) for row in rows]
+        content = "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in serialized)
+        path = output / f"{name}.jsonl"
         path.write_text(content, encoding="utf-8")
         hashes[name] = hashlib.sha256(content.encode("utf-8")).hexdigest()
     partition_digests = {}
@@ -130,8 +158,8 @@ def main():
               "partition_digests": partition_digests,
               "locked_sha256": locked_hashes, "bootstrap_source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
               "partition_sha256": hashes, "population_scan": {k: v for k, v in vars(loaded).items() if k != "examples"}}
-    (OUT / "manifest.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
-    print(json.dumps({"output": OUT.as_posix(), "rows": record["rows"], "partition_sha256": hashes}))
+    (output / "manifest.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
+    print(json.dumps({"output": output.as_posix(), "rows": record["rows"], "partition_sha256": hashes}))
 
 
 if __name__ == "__main__":
