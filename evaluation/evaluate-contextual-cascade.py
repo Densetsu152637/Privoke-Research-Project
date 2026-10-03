@@ -18,7 +18,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "shared/python"))
 sys.path.insert(0, str(ROOT / "evaluation"))
-from privoke_model.artifact import load_artifact
+from privoke_model.artifact import float32, load_artifact
 from privoke_model.fingerprint import parameter_fingerprint
 from privoke_eval.presence_evidence import artifact_identity, load_frozen_fit
 from privoke_eval.presence_training import binary_metrics, source_family
@@ -58,10 +58,12 @@ def inside_results(path):
 
 
 def contextual_identity(artifact):
+    """Bind the tensors after the existing float32 protobuf transport conversion."""
     return {"model_id": artifact["model_id"], "model_version": artifact["version"],
             "artifact_checksum": artifact["checksum"],
             "parameter_fingerprint": parameter_fingerprint(
-                {k: v["values"] for k, v in artifact["parameters"].items()},
+                {k: tuple(float32(value) for value in v["values"])
+                 for k, v in artifact["parameters"].items()},
                 {k: v["shape"] for k, v in artifact["parameters"].items()})}
 
 

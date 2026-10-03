@@ -1,8 +1,10 @@
 """Independent projections, trace guards and frozen cascade phase tests."""
 import copy
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import struct
 import sys
 import tempfile
 from types import SimpleNamespace
@@ -70,6 +72,35 @@ def regex_shortcut(threshold=0):
 
 
 class CascadeTests(unittest.TestCase):
+    def test_contextual_identity_matches_float32_transport_with_framed_tensors(self):
+        artifact = {"model_id": "privoke-balanced", "version": "fixture", "checksum": "a" * 64,
+                    "parameters": {"z.weight": {"values": [.1, -.3], "shape": [1, 2]},
+                                   "a.bias": {"values": [1.00000001], "shape": [1]}}}
+        transported = [[name, tensor["shape"],
+                        [struct.unpack("!f", struct.pack("!f", value))[0] for value in tensor["values"]]]
+                       for name, tensor in sorted(artifact["parameters"].items())]
+        expected = hashlib.sha256(json.dumps(transported, separators=(",", ":"),
+                                            ensure_ascii=False, allow_nan=False).encode()).hexdigest()
+        raw = CASCADE.parameter_fingerprint(
+            {name: tensor["values"] for name, tensor in artifact["parameters"].items()},
+            {name: tensor["shape"] for name, tensor in artifact["parameters"].items()})
+        self.assertNotEqual(expected, raw)
+        self.assertEqual(CASCADE.contextual_identity(artifact), {
+            "model_id": "privoke-balanced", "model_version": "fixture", "artifact_checksum": "a" * 64,
+            "parameter_fingerprint": expected})
+        self.assertEqual(artifact["parameters"]["a.bias"]["values"], [1.00000001])
+
+    def test_contextual_identity_keeps_tensor_shape_and_name_binding(self):
+        artifact = {"model_id": "fixture", "version": "v1", "checksum": "a" * 64,
+                    "parameters": {"head": {"values": [.1, .2], "shape": [1, 2]}}}
+        expected = CASCADE.contextual_identity(artifact)["parameter_fingerprint"]
+        reshaped = copy.deepcopy(artifact)
+        reshaped["parameters"]["head"]["shape"] = [2, 1]
+        renamed = copy.deepcopy(artifact)
+        renamed["parameters"]["other"] = renamed["parameters"].pop("head")
+        for changed in (reshaped, renamed):
+            self.assertNotEqual(CASCADE.contextual_identity(changed)["parameter_fingerprint"], expected)
+
     def test_threshold_projection_preserves_rule_actions(self):
         value = row("a", True, .1, rule_positive=True)
         self.assertEqual(CASCADE.project(value, .9), value["nonsemantic"])
