@@ -124,7 +124,62 @@ message ComputeSemanticGradientsResponse {
 service PrivokeRuntimeService {
   rpc AnalyzePrompt(AnalyzePromptRequest) returns (AnalyzePromptResponse);
   rpc ComputeSemanticGradients(ComputeSemanticGradientsRequest) returns (ComputeSemanticGradientsResponse);
+  rpc DetectAnnotationPresence(DetectAnnotationPresenceRequest) returns (DetectAnnotationPresenceResponse);
+  rpc ComputePresenceGradients(ComputePresenceGradientsRequest) returns (ComputePresenceGradientsResponse);
   rpc Health(RuntimeHealthRequest) returns (RuntimeHealthResponse);
+}
+
+// Annotation presence is independent of contextual severity, visibility and policy.
+enum AnnotationPresenceLabel {
+  ANNOTATION_PRESENCE_UNSPECIFIED = 0;
+  ANNOTATION_PRESENCE_ABSENT = 1;
+  ANNOTATION_PRESENCE_PRESENT = 2;
+}
+
+message DetectAnnotationPresenceRequest {
+  string request_id = 1;
+  string text = 2;
+  string model_id = 3;
+}
+
+message DetectAnnotationPresenceResponse {
+  string request_id = 1;
+  string model_id = 2;
+  string model_version = 3;
+  double probability = 4;
+  double threshold = 5;
+  AnnotationPresenceLabel predicted_label = 6;
+  string artifact_checksum = 7;
+  string parameter_fingerprint = 8;
+  double elapsed_ms = 9;
+  // On error, predicted_label is UNSPECIFIED; numeric defaults are not predictions.
+  string error = 10;
+}
+
+message PresenceTrainingExample {
+  string text = 1;
+  AnnotationPresenceLabel target = 2;
+  double weight = 3;
+  string group_id = 4;
+}
+
+message ComputePresenceGradientsRequest {
+  string request_id = 1;
+  string model_id = 2;
+  repeated PresenceTrainingExample examples = 3;
+  double learning_rate = 4;
+  double max_gradient = 5;
+  repeated PresenceTrainingExample heldout_examples = 6;
+}
+
+message ComputePresenceGradientsResponse {
+  string request_id = 1;
+  string model_id = 2;
+  string base_version = 3;
+  repeated RuntimeParameterDelta gradients = 4;
+  map<string, double> metrics = 5;
+  map<string, string> metadata = 6;
+  string error = 7;
 }
 
 service PrivokeRuntimeControlService {
