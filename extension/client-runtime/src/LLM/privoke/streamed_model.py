@@ -133,6 +133,13 @@ class StreamedModelCache:
         """Return the cached, versioned model used for one atomic training batch."""
         return self._model_for_streamer(streamer, force_refresh=True)
 
+    def semantic_model_for_streamer(
+        self,
+        streamer: ModelParameterStreamer,
+    ) -> StreamedTransformerPrivacyModel:
+        """Return the current immutable semantic snapshot for trace metadata."""
+        return self._model_for_streamer(streamer)
+
     def presence_model_for_streamer(
         self,
         streamer: ModelParameterStreamer,

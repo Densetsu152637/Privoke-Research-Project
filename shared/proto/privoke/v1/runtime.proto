@@ -35,6 +35,12 @@ enum RegexExecutionOrder {
   REGEX_EXECUTION_ORDER_PARALLEL = 2;
 }
 
+message SemanticPresenceGate {
+  string model_id = 1;
+  // Omit to use the selected presence artifact's threshold.
+  optional double threshold = 2;
+}
+
 message AnalyzePromptRequest {
   string text = 1;
   string source = 2;
@@ -45,6 +51,7 @@ message AnalyzePromptRequest {
   repeated DetectionLayer layers = 7;
   RegexExecutionOrder regex_execution_order = 8;
   string semantic_model_id = 9;
+  SemanticPresenceGate semantic_presence_gate = 10;
 }
 
 message RuntimeLayerExecution {
@@ -52,6 +59,7 @@ message RuntimeLayerExecution {
   string status = 2;
   repeated RuntimeDetectionResult results = 3;
   string error = 4;
+  SemanticPresenceGateTrace semantic_presence_gate = 5;
 }
 
 message RuntimeClassification {
@@ -134,6 +142,31 @@ enum AnnotationPresenceLabel {
   ANNOTATION_PRESENCE_UNSPECIFIED = 0;
   ANNOTATION_PRESENCE_ABSENT = 1;
   ANNOTATION_PRESENCE_PRESENT = 2;
+}
+
+enum SemanticPresenceGateStatus {
+  SEMANTIC_PRESENCE_GATE_STATUS_UNSPECIFIED = 0;
+  SEMANTIC_PRESENCE_GATE_STATUS_NOT_RUN = 1;
+  SEMANTIC_PRESENCE_GATE_STATUS_APPLIED = 2;
+  SEMANTIC_PRESENCE_GATE_STATUS_ERROR = 3;
+}
+
+message SemanticPresenceGateTrace {
+  SemanticPresenceGateStatus status = 1;
+  string model_id = 2;
+  string model_version = 3;
+  string artifact_checksum = 4;
+  string parameter_fingerprint = 5;
+  optional double probability = 6;
+  optional double model_threshold = 7;
+  optional double decision_threshold = 8;
+  AnnotationPresenceLabel predicted_label = 9;
+  repeated RuntimeDetectionResult semantic_results = 10;
+  string error = 11;
+  string contextual_model_id = 12;
+  string contextual_model_version = 13;
+  string contextual_artifact_checksum = 14;
+  string contextual_parameter_fingerprint = 15;
 }
 
 message DetectAnnotationPresenceRequest {
