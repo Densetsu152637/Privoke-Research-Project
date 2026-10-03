@@ -146,6 +146,9 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
             )
 
     def DetectAnnotationPresence(self, request, context):
+        # Includes request validation, remote snapshot fetch/cache lookup, and local inference.
+        # The RPC duration excludes the caller's network/browser round trip.
+        started = time.perf_counter()
         try:
             _validate_presence_model_id(request.model_id)
             if not request.request_id.strip():
@@ -157,7 +160,6 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
             model = GLOBAL_STREAMED_MODEL_CACHE.presence_model_for_streamer(
                 ModelParameterStreamer(model_id=request.model_id)
             )
-            started = time.perf_counter()
             probability = model.predict_probability(request.text)
             predicted = (
                 runtime_pb2.ANNOTATION_PRESENCE_PRESENT
