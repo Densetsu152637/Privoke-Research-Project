@@ -1,0 +1,55 @@
+# Add after the three research Compose files. Original contextual updater stays intact.
+services:
+  presence-update-service:
+    extends:
+      file: docker-compose.yml
+      service: param-update-service
+    container_name: privoke-research-eval-20261004-presence-updater
+    environment:
+      MODEL_ID: ${PRIVOKE_RESEARCH_PRESENCE_MODEL_ID:-privoke-presence-balanced}
+      MODEL_ARTIFACT_PATH: /models/${PRIVOKE_RESEARCH_PRESENCE_MODEL_ID:-privoke-presence-balanced}.json
+      PARAM_UPDATE_STORAGE_PATH: /data/presence-updates.jsonl
+      FUZZER_TARGET: presence-fuzzer:50053
+      FUZZER_PROMPT_COUNT: 0
+    volumes:
+      - presence-update-data:/data
+    depends_on:
+      presence-storage-permissions:
+        condition: service_completed_successfully
+      presence-fuzzer:
+        condition: service_healthy
+  presence-fuzzer:
+    extends:
+      file: docker-compose.yml
+      service: privoke-fuzzer
+    container_name: privoke-research-eval-20261004-presence-fuzzer
+    environment:
+      MODEL_ID: ${PRIVOKE_RESEARCH_PRESENCE_MODEL_ID:-privoke-presence-balanced}
+      PRESENCE_MODEL_ID: ${PRIVOKE_RESEARCH_PRESENCE_MODEL_ID:-privoke-presence-balanced}
+      PARAM_UPDATE_TARGET: presence-update-service:50052
+      FUZZER_ID: presence-research-fuzzer
+      FUZZ_PRESENCE_DATASET_PATH: /workspace/presence-curriculum/prompts.jsonl
+      FUZZ_TRAINING_LEARNING_RATE: 0.03
+      FUZZ_TRAINING_MAX_GRADIENT: 0.05
+      FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE: 0
+      FUZZ_HELDOUT_PROMPT_COUNT: 32
+    volumes:
+      - ${PRIVOKE_RESEARCH_PRESENCE_CURRICULUM_DIR:-./evaluation/results/presence_profiles_20261004_v1/curriculum}:/workspace/presence-curriculum:ro
+  presence-storage-permissions:
+    build:
+      context: .
+      dockerfile: services/param-update-service/Dockerfile
+    restart: "no"
+    user: "0:0"
+    read_only: true
+    network_mode: none
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE]
+    security_opt: ["no-new-privileges:true"]
+    entrypoint: [chown, "10001:10001", /state/presence-updates]
+    volumes:
+      - presence-update-data:/state/presence-updates
+
+volumes:
+  presence-update-data:
+    name: privoke-research-eval-20261004-presence-update-data
