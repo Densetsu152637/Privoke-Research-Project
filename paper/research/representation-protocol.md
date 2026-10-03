@@ -64,6 +64,37 @@ integrity before fitting. Then score the frozen probe on development, alone and
 with the archived revised rules+NER union. Verify that union's locked keys and
 rule-source hashes; identify it as a reused-output diagnostic, not a live pipeline.
 
+## Execution amendment — 4 October 2026
+
+This amendment was recorded before any valid probe fit. Attempt v1, source
+`14ab578`, stopped during Windows text transport: the default cp1252 encoding
+could not encode U+202F. It stopped before feature export or fitting. Attempt v2,
+source `2608b89`, used UTF-8 transport and completed preparation and feature
+export, but the fitter rejected the training partition at its unique-ID gate.
+The prepared train split had 3,837 rows and 3,836 distinct source IDs; all 3,837
+normalized text keys were distinct. One upstream source ID therefore referred to
+two distinct normalized texts. The v2 fit record has no fit entries and no
+validation selection or development probe scores. Its failure is a provenance
+gate outcome, not accuracy evidence.
+
+For a fresh v3 preparation, after protected-source exclusion and normalized-text
+deduplication/conflict removal, count distinct normalized text keys per eligible
+source ID. Exclude every eligible row for any ID associated with more than one
+distinct normalized text key, and record ambiguous-ID and excluded-row counts in
+the preparation manifest. Then retain the original requirement to select 2,400
+positive and 2,400 clean rows with seed 5102026, split groups with seed 6102026,
+and preserve all locked ID/group/text-key and bootstrap exclusions. Require and
+record unique ID and normalized text keys in each resulting partition. This is a
+deterministic eligibility correction motivated by input-integrity validation,
+not by model performance. V3 must use fresh prepared, feature and fit output
+paths; do not reuse v2 features or fit inputs.
+
+The archived semantic reports use the integer `0`. The fitter accepts exact
+integer `0` or an empty list for compatibility; reject booleans (including
+`false`) and all nonempty error collections. No valid fit or
+development probe outcome is available yet; execute the amended protocol only
+after the corrected preparation/fitter is integrated and revalidated.
+
 ## Evidence and next decision
 
 Preserve raw probabilities/predictions, exact counts and class denominators,
