@@ -130,6 +130,85 @@ def _as_sha(value, name):
     return value
 
 
+def load_preparation_helpers():
+    """Load the reviewed preparation module's public audit/key contract."""
+    path = ROOT / "evaluation/prepare-external-pii-study.py"
+    if not path.is_file():
+        raise ValueError("Reviewed external PII preparation helper is missing from this checkout.")
+    spec = importlib.util.spec_from_file_location("prepare_external_pii_study", path)
+    if spec is None or spec.loader is None:
+        raise ValueError("Could not load the reviewed external PII preparation helpers.")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def validate_exclusion_index(index: dict, helper) -> dict[str, set[str]]:
+    """Validate the reproducible protected index and all merged exclusion keys."""
+    if not isinstance(index, dict) or index.get("schema_version") != 1:
+        raise ValueError("Exclusion index must use schema_version 1.")
+    if (index.get("dataset_revision") != helper.PIIMB_PIN
+            or index.get("loader_revision") != helper.LOADER_REVISION
+            or index.get("loader_canonical_lf_sha256") != helper.LOADER_SHA256
+            or index.get("seed") != 3102026
+            or index.get("algorithm") != "pinned PIIMB balanced full-scan reservoir and sampler order"
+            or index.get("reproduced_twice") is not True):
+        raise ValueError("Exclusion index loader/revision/seed/reproduction identity mismatch.")
+    aggregate = index.get("aggregate")
+    if (not isinstance(aggregate, dict) or aggregate.get("selected") != 1000
+            or aggregate.get("rows_seen") != 150022 or aggregate.get("eligible_rows") != 107488
+            or aggregate.get("selected_label_counts") != {"pii": 500, "clean": 500}
+            or aggregate.get("duplicate_rows") != 15354
+            or aggregate.get("population_label_counts") != {"pii": 60418, "clean": 47070}
+            or not isinstance(aggregate.get("exclusions"), dict)
+            or aggregate["exclusions"].get("conflicting_duplicate_label_rows") != 598
+            or aggregate["exclusions"].get("non_english_language_rows") != 27180):
+        raise ValueError("Exclusion index aggregate differs from the original balanced 1,000-row selection.")
+    records = index.get("records")
+    if not isinstance(records, list) or len(records) != 1000:
+        raise ValueError("Exclusion index must contain exactly 1,000 opaque selection records.")
+    if records != sorted(records, key=helper.canonical):
+        raise ValueError("Exclusion index records are not canonically sorted.")
+    if index.get("sorted_records_sha256") != helper.digest(helper.canonical(records)):
+        raise ValueError("Exclusion index sorted-record commitment mismatch.")
+    record_fields = {"id_sha256", "canonical_group_sha256", "normalized_text_sha256", "text_sha256"}
+    for row in records:
+        if not isinstance(row, dict) or set(row) != record_fields:
+            raise ValueError("Exclusion index record schema is invalid.")
+        for value in row.values():
+            _as_sha(value, "exclusion record digest")
+    key_sets = index.get("key_sets")
+    if not isinstance(key_sets, dict) or set(key_sets) != {"ids", "groups", "texts"}:
+        raise ValueError("Exclusion index protected key-set schema is invalid.")
+    checked_keys = {}
+    for kind, values in key_sets.items():
+        if (not isinstance(values, list) or values != sorted(set(values))
+                or any(not isinstance(value, str) or not HEX64.fullmatch(value) for value in values)):
+            raise ValueError(f"Protected {kind} keys must be sorted unique SHA-256 values.")
+        checked_keys[kind] = set(values)
+    if (len({row["id_sha256"] for row in records}) != 1000
+            or len({row["normalized_text_sha256"] for row in records}) != 1000
+            or len(checked_keys["groups"]) != 929 or len(checked_keys["texts"]) != 1000
+            or not {row["id_sha256"] for row in records}.issubset(checked_keys["ids"])
+            or {row["canonical_group_sha256"] for row in records} != checked_keys["groups"]
+            or {row["normalized_text_sha256"] for row in records} != checked_keys["texts"]):
+        raise ValueError("Exclusion records and protected key sets do not recompute consistently.")
+    all_sets = index.get("all_exclusion_key_sets")
+    if not isinstance(all_sets, dict) or set(all_sets) != {"ids", "groups", "texts"}:
+        raise ValueError("Merged exclusion key-set schema is invalid.")
+    checked_all = {}
+    for kind, values in all_sets.items():
+        if (not isinstance(values, list) or values != sorted(set(values))
+                or any(not isinstance(value, str) or not HEX64.fullmatch(value) for value in values)):
+            raise ValueError(f"Merged {kind} exclusions must be sorted unique SHA-256 values.")
+        if not checked_keys[kind].issubset(set(values)):
+            raise ValueError(f"Merged {kind} exclusions omit protected selection keys.")
+        checked_all[kind] = set(values)
+    if index.get("all_exclusion_key_sets_sha256") != helper.digest(helper.canonical(all_sets)):
+        raise ValueError("Merged exclusion key-set commitment mismatch.")
+    return checked_all
+
+
 def validate_rows(rows: list[dict], name: str, *, require_metadata: bool = False) -> dict:
     ids, groups, texts = set(), set(), set()
     labels = []
@@ -177,8 +256,35 @@ def validate_prepared(prepared: Path, protocol_sha256: str,
         raise ValueError("Prepared manifest must have status=prepared and schema_version=1.")
     if manifest.get("protocol_sha256") != protocol_sha256:
         raise ValueError("Prepared manifest protocol digest differs from the requested protocol.")
-    _as_sha(manifest.get("source_audit_sha256"), "source_audit_sha256")
-    _as_sha(manifest.get("exclusion_index_sha256"), "exclusion_index_sha256")
+    helper = load_preparation_helpers()
+    source_audit_path = prepared / "source-audit.json"
+    if source_audit_path.resolve().parent != prepared.resolve():
+        raise ValueError("Source audit sidecar must remain directly inside the prepared bundle.")
+    source_audit_sha256 = _as_sha(manifest.get("source_audit_sha256"), "source_audit_sha256")
+    if sha256_file(source_audit_path) != source_audit_sha256:
+        raise ValueError("Copied source-audit.json digest differs from the prepared manifest.")
+    source_audit = read_json(source_audit_path)
+    audited_sources = helper.validate_audit(source_audit)
+    if manifest.get("sources") != audited_sources:
+        raise ValueError("Prepared manifest source bindings differ from the validated audit sidecar.")
+    if manifest.get("preparation_script_sha256") != sha256_file(Path(helper.__file__).resolve()):
+        raise ValueError("Prepared manifest is not bound to the checked preparation helper bytes.")
+    training_key_source = ROOT / "shared/python/privoke_model/training_data.py"
+    if manifest.get("training_text_key_source_sha256") != sha256_file(training_key_source):
+        raise ValueError("Prepared manifest training-text normalization source digest mismatch.")
+    if manifest.get("exclusion_index_file") != "exclusion-index.json":
+        raise ValueError("Prepared manifest exclusion-index locator is not the required private sidecar.")
+    exclusion_index_path = prepared / "exclusion-index.json"
+    if exclusion_index_path.resolve().parent != prepared.resolve():
+        raise ValueError("Exclusion-index sidecar must remain directly inside the prepared bundle.")
+    exclusion_index_sha256 = sha256_file(exclusion_index_path)
+    if exclusion_index_sha256 != _as_sha(manifest.get("exclusion_index_sha256"), "exclusion_index_sha256"):
+        raise ValueError("Copied exclusion-index.json digest differs from the prepared manifest.")
+    exclusion_index = read_json(exclusion_index_path)
+    all_exclusion_keys = validate_exclusion_index(exclusion_index, helper)
+    if (manifest.get("protected_selection") != exclusion_index.get("aggregate")
+            or manifest.get("protected_selection_sha256") != exclusion_index.get("sorted_records_sha256")):
+        raise ValueError("Prepared manifest protected-selection identity differs from the exclusion index.")
     bootstrap_sha = _as_sha(manifest.get("bootstrap_source_sha256"), "bootstrap_source_sha256")
     if bootstrap_sha != FROZEN_BOOTSTRAP_SOURCE_SHA256:
         raise ValueError("Prepared manifest bootstrap source differs from the frozen exclusion source.")
@@ -230,8 +336,21 @@ def validate_prepared(prepared: Path, protocol_sha256: str,
         raise ValueError("Augmented train partition is shorter than its frozen original prefix.")
     if partitions["train"][:len(original_train_rows)] != original_train_rows:
         raise ValueError("Augmented train partition changed the original frozen training prefix.")
-    if any(row_counts[name] > 1000 for name in ("nemotron_heldout", "meddies_heldout")):
-        raise ValueError("An external diagnostic partition exceeds its 1,000-row target cap.")
+    for reference_rows in (original_train_rows, partitions["validation"]):
+        for row in reference_rows:
+            reference_keys = helper.row_keys(row["id"], row["group_id"], row["text"])
+            for kind in ("ids", "groups", "texts"):
+                if not reference_keys[kind].issubset(all_exclusion_keys[kind]):
+                    raise ValueError(f"Exclusion index omits an unchanged reference {kind} key.")
+    bootstrap_path = ROOT / "models/generate_baseline.py"
+    if sha256_file(bootstrap_path) != bootstrap_sha:
+        raise ValueError("Bootstrap exclusion source bytes differ from the prepared manifest.")
+    bootstrap_texts = helper.bootstrap_texts(bootstrap_path)
+    bootstrap_keys = {helper.opaque("text_key", training_text_key(text)) for text in bootstrap_texts}
+    if len(bootstrap_texts) != 43 or not bootstrap_keys.issubset(all_exclusion_keys["texts"]):
+        raise ValueError("Exclusion index omits one or more of the 43 bootstrap text keys.")
+    if any(not 1 <= row_counts[name] <= 1000 for name in ("nemotron_heldout", "meddies_heldout")):
+        raise ValueError("Each external diagnostic partition must have 1–1,000 rows after preparation.")
     if row_counts["train"] > 20000:
         raise ValueError("Expanded training data exceed the fixed 20,000-row training cap.")
     # Cross-split disjointness is conservative: no shared source groups or text.
@@ -252,9 +371,19 @@ def validate_prepared(prepared: Path, protocol_sha256: str,
     for name in ("nemotron_heldout", "meddies_heldout"):
         if any(row["expected_has_pii"] is not True for row in partitions[name]):
             raise ValueError(f"{name} must contain only verified positive rows; unlabelled rows cannot become negatives.")
+    for name, rows in (("added train", added_rows),
+                       ("nemotron_heldout", partitions["nemotron_heldout"]),
+                       ("meddies_heldout", partitions["meddies_heldout"])):
+        for index, row in enumerate(rows):
+            row_identity_keys = helper.row_keys(row["id"], row["group_id"], row["text"])
+            for kind in ("ids", "groups", "texts"):
+                if row_identity_keys[kind] & all_exclusion_keys[kind]:
+                    raise ValueError(f"{name} row {index} collides with a protected or excluded {kind} key.")
     prepared_sha = sha256_bytes(raw_manifest)
     return {"manifest": manifest, "manifest_sha256": prepared_sha,
             "original_train_reference_sha256": original_train_hash,
+            "source_audit_sha256": source_audit_sha256,
+            "exclusion_index_sha256": exclusion_index_sha256,
             "partition_sha256": partition_hashes, "partition_rows": row_counts,
             "partition_files": partition_files, "partitions": partitions,
             "identities": identities}
@@ -303,10 +432,12 @@ def _metric_groups(rows, probabilities, threshold):
     groups = defaultdict(lambda: ([], []))
     for row, probability in zip(rows, probabilities):
         label = row["expected_has_pii"]
+        def stratum_value(value):
+            return "__unavailable__" if value is None or value == "" else str(value)
         entries = [("source_family", source_family(row["group_id"])),
-                   ("domain", row.get("domain", "__unavailable__")),
-                   ("document_format", row.get("document_format", "__unavailable__"))]
-        categories = row.get("expected_categories", []) or ["__none__"]
+                   ("domain", stratum_value(row.get("domain"))),
+                   ("document_format", stratum_value(row.get("document_format")))]
+        categories = [stratum_value(value) for value in row.get("expected_categories", [])] or ["__none__"]
         entries.extend(("category", value) for value in categories)
         length = len(row["text"])
         length_bin = "lt256" if length < 256 else "256_1023" if length < 1024 else "ge1024"

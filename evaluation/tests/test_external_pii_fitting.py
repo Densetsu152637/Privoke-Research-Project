@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -41,8 +42,52 @@ def dump_jsonl(path: Path, rows):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def make_preparation_helpers(root: Path):
+    helper_path = root / "prepare-external-pii-study.py"
+    helper_path.write_text("# synthetic reviewed-helper identity for unit test\n", encoding="utf-8")
+
+    def canonical(value):
+        return json.dumps(value, sort_keys=True, ensure_ascii=False,
+                          separators=(",", ":"), allow_nan=False)
+
+    def digest(value):
+        return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+    def opaque(kind, value):
+        return digest("privoke-external-exclusion-v1\0" + kind + "\0" + value)
+
+    def canonical_group(value, source=None):
+        return value.strip()
+
+    def row_keys(identifier, group, text):
+        return {"ids": {opaque("id", identifier)},
+                "groups": {opaque("group", canonical_group(group))},
+                "texts": {opaque("text_key", FIT.training_text_key(text))}}
+
+    source_bindings = {"nemotron-pii": {"repo_id": "nvidia/Nemotron-PII",
+                                         "revision": "b70ffaf5ff39e079776134c5bf4381f00a9fd1ed"},
+                       "meddies-pii": {"repo_id": "Meddies/meddies-pii",
+                                        "revision": "6a5c8f5441e3b421d983c9741770262365acdd77"}}
+
+    def validate_audit(receipt):
+        if receipt.get("schema_version") != 1 or receipt.get("status") != "audited" \
+                or receipt.get("sources") != source_bindings:
+            raise ValueError("invalid source audit fixture")
+        return dict(receipt["sources"])
+
+    bootstrap = [f"bootstrap exclusion sentence {i}" for i in range(43)]
+    helpers = SimpleNamespace(__file__=str(helper_path), canonical=canonical, digest=digest,
+                              opaque=opaque, canonical_group=canonical_group, row_keys=row_keys,
+                              validate_audit=validate_audit, bootstrap_texts=lambda path: bootstrap,
+                              PIIMB_PIN="4a13e9ffe6fd0d275efbde8afd4d8d8f1ffc2133",
+                              LOADER_REVISION="9998e8986c7924223ea4598cb1ba683e32ade0ba",
+                              LOADER_SHA256="016a25a56b6fa3a9b8c16fcf9fde8a350c205101b26000cedd1095f097e15733")
+    return helpers, source_bindings, bootstrap
+
+
 class ExternalPiiFittingTests(unittest.TestCase):
     def _prepared(self, root: Path):
+        helpers, source_bindings, bootstrap = make_preparation_helpers(root)
         train = make_rows("train", 100)
         validation = make_rows("validation", 968, 1000)
         train = [{key: row[key] for key in ("id", "group_id", "text", "text_key", "expected_has_pii")}
@@ -66,27 +111,75 @@ class ExternalPiiFittingTests(unittest.TestCase):
         protocol_file = root / "protocol.md"
         protocol_file.write_text("synthetic prospective protocol\n", encoding="utf-8")
         protocol_sha = FIT.sha256_file(protocol_file)
+        audit = {"schema_version": 1, "status": "audited", "sources": source_bindings}
+        (root / "source-audit.json").write_text(json.dumps(audit), encoding="utf-8")
+        protected_records = []
+        protected_keys = {"ids": set(), "groups": set(), "texts": set()}
+        for i in range(1000):
+            identifier = f"protected-id-{i}"
+            group = f"protected-group-{i % 929}"
+            text = f"synthetic protected source document {i}"
+            keys = helpers.row_keys(identifier, group, text)
+            for kind in protected_keys:
+                protected_keys[kind].update(keys[kind])
+            protected_records.append({"id_sha256": helpers.opaque("id", identifier),
+                "canonical_group_sha256": helpers.opaque("group", group),
+                "normalized_text_sha256": helpers.opaque("text_key", FIT.training_text_key(text)),
+                "text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest()})
+        protected_records.sort(key=helpers.canonical)
+        all_keys = {kind: set(values) for kind, values in protected_keys.items()}
+        for reference_rows in (train, validation):
+            for row in reference_rows:
+                for kind, values in helpers.row_keys(row["id"], row["group_id"], row["text"]).items():
+                    all_keys[kind].update(values)
+        all_keys["texts"].update(helpers.opaque("text_key", FIT.training_text_key(text)) for text in bootstrap)
+        key_sets = {kind: sorted(values) for kind, values in protected_keys.items()}
+        all_sets = {kind: sorted(values) for kind, values in all_keys.items()}
+        aggregate = {"selected": 1000, "rows_seen": 150022, "eligible_rows": 107488,
+                     "selected_label_counts": {"pii": 500, "clean": 500},
+                     "duplicate_rows": 15354,
+                     "population_label_counts": {"pii": 60418, "clean": 47070},
+                     "exclusions": {"conflicting_duplicate_label_rows": 598,
+                                    "non_english_language_rows": 27180}}
+        index = {"schema_version": 1, "records": protected_records, "key_sets": key_sets,
+                 "algorithm": "pinned PIIMB balanced full-scan reservoir and sampler order",
+                 "loader_revision": helpers.LOADER_REVISION,
+                 "loader_canonical_lf_sha256": helpers.LOADER_SHA256,
+                 "dataset_revision": helpers.PIIMB_PIN, "seed": 3102026,
+                 "aggregate": aggregate, "sorted_records_sha256": helpers.digest(helpers.canonical(protected_records)),
+                 "reproduced_twice": True, "all_exclusion_key_sets": all_sets,
+                 "all_exclusion_key_sets_sha256": helpers.digest(helpers.canonical(all_sets))}
+        (root / "exclusion-index.json").write_text(helpers.canonical(index) + "\n", encoding="utf-8")
+        index_sha = FIT.sha256_file(root / "exclusion-index.json")
         manifest = {"status": "prepared", "schema_version": 1,
                     "source_revision": "1" * 40, "protocol_sha256": protocol_sha,
-                    "source_audit_sha256": "b" * 64, "exclusion_index_sha256": "c" * 64,
+                    "source_audit_sha256": FIT.sha256_file(root / "source-audit.json"),
+                    "exclusion_index_file": "exclusion-index.json", "exclusion_index_sha256": index_sha,
                     "bootstrap_source_sha256": FIT.FROZEN_BOOTSTRAP_SOURCE_SHA256,
                     "prepared_reference": {"train_sha256": original_sha,
                                            "train_bytes": (root / "original-train.jsonl").stat().st_size,
                                            "validation_sha256": hashes["validation"]},
+                    "protected_selection": aggregate,
+                    "protected_selection_sha256": index["sorted_records_sha256"],
+                    "preparation_script_sha256": FIT.sha256_file(Path(helpers.__file__)),
+                    "training_text_key_source_sha256": FIT.sha256_file(
+                        ROOT / "shared/python/privoke_model/training_data.py"),
+                    "sources": source_bindings,
                     "partition_files": locators, "partition_sha256": hashes,
                     "rows": {name: len(rows) for name, rows in partition_rows.items()}}
         (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-        return protocol_sha, original, protocol_file
+        return protocol_sha, original, protocol_file, helpers
 
     def test_validates_fixed_reference_and_rejects_malformed_target(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            protocol_sha, original, _ = self._prepared(root)
+            protocol_sha, original, _, helpers = self._prepared(root)
             validation_path = root / "validation.jsonl"
             actual_validation_hash = FIT.sha256_file(validation_path)
             with patch.object(FIT, "FROZEN_VALIDATION_SHA256", actual_validation_hash), \
                     patch.object(FIT, "ORIGINAL_TRAIN_ROW_COUNT", 100), \
-                    patch.object(FIT, "FROZEN_ORIGINAL_TRAIN_SHA256", FIT.sha256_file(original)):
+                    patch.object(FIT, "FROZEN_ORIGINAL_TRAIN_SHA256", FIT.sha256_file(original)), \
+                    patch.object(FIT, "load_preparation_helpers", return_value=helpers):
                 checked = FIT.validate_prepared(root, protocol_sha, original)
                 self.assertEqual(checked["partition_rows"]["validation"], 968)
                 rows = checked["partitions"]["train"]
@@ -97,7 +190,7 @@ class ExternalPiiFittingTests(unittest.TestCase):
     def test_rejects_cross_partition_source_group_collision(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            protocol_sha, original, _ = self._prepared(root)
+            protocol_sha, original, _, helpers = self._prepared(root)
             validation_path = root / "validation.jsonl"
             rows = FIT.read_jsonl(validation_path)
             rows[0]["group_id"] = FIT.read_jsonl(root / "train.jsonl")[0]["group_id"]
@@ -108,8 +201,111 @@ class ExternalPiiFittingTests(unittest.TestCase):
             (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
             with patch.object(FIT, "FROZEN_VALIDATION_SHA256", validation_hash), \
                     patch.object(FIT, "ORIGINAL_TRAIN_ROW_COUNT", 100), \
-                    patch.object(FIT, "FROZEN_ORIGINAL_TRAIN_SHA256", FIT.sha256_file(original)):
+                    patch.object(FIT, "FROZEN_ORIGINAL_TRAIN_SHA256", FIT.sha256_file(original)), \
+                    patch.object(FIT, "load_preparation_helpers", return_value=helpers):
                 with self.assertRaisesRegex(ValueError, "groups overlap"):
+                    FIT.validate_prepared(root, protocol_sha, original)
+
+    def test_sidecar_missing_or_modified_is_rejected(self):
+        for sidecar in ("source-audit.json", "exclusion-index.json"):
+            with self.subTest(sidecar=sidecar), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                protocol_sha, original, _, helpers = self._prepared(root)
+                (root / sidecar).unlink()
+                with patch.object(FIT, "FROZEN_VALIDATION_SHA256",
+                                  FIT.sha256_file(root / "validation.jsonl")), \
+                        patch.object(FIT, "ORIGINAL_TRAIN_ROW_COUNT", 100), \
+                        patch.object(FIT, "FROZEN_ORIGINAL_TRAIN_SHA256", FIT.sha256_file(original)), \
+                        patch.object(FIT, "load_preparation_helpers", return_value=helpers):
+                    with self.assertRaises(OSError):
+                        FIT.validate_prepared(root, protocol_sha, original)
+
+    def test_rehashed_invalid_audit_and_index_contracts_are_rejected(self):
+        for sidecar in ("source-audit.json", "exclusion-index.json"):
+            with self.subTest(sidecar=sidecar), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                protocol_sha, original, _, helpers = self._prepared(root)
+                manifest = FIT.read_json(root / "manifest.json")
+                if sidecar == "source-audit.json":
+                    audit = FIT.read_json(root / sidecar)
+                    audit["sources"]["nemotron-pii"]["revision"] = "0" * 40
+                    (root / sidecar).write_text(json.dumps(audit), encoding="utf-8")
+                    manifest["source_audit_sha256"] = FIT.sha256_file(root / sidecar)
+                else:
+                    index = FIT.read_json(root / sidecar)
+                    index["loader_revision"] = "0" * 40
+                    (root / sidecar).write_text(helpers.canonical(index) + "\n", encoding="utf-8")
+                    manifest["exclusion_index_sha256"] = FIT.sha256_file(root / sidecar)
+                (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+                with patch.object(FIT, "FROZEN_VALIDATION_SHA256",
+                                  FIT.sha256_file(root / "validation.jsonl")), \
+                        patch.object(FIT, "ORIGINAL_TRAIN_ROW_COUNT", 100), \
+                        patch.object(FIT, "FROZEN_ORIGINAL_TRAIN_SHA256", FIT.sha256_file(original)), \
+                        patch.object(FIT, "load_preparation_helpers", return_value=helpers):
+                    with self.assertRaises(ValueError):
+                        FIT.validate_prepared(root, protocol_sha, original)
+
+    def test_added_train_row_matching_protected_key_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            protocol_sha, original, _, helpers = self._prepared(root)
+            train_path = root / "train.jsonl"
+            train_rows = FIT.read_jsonl(train_path)
+            text = "synthetic protected source document 0"
+            train_rows.append({"id": "protected-id-0", "group_id": "protected-group-0",
+                               "text": text, "text_key": FIT.training_text_key(text),
+                               "expected_has_pii": True, "source": "nvidia/Nemotron-PII",
+                               "expected_categories": ["EMAIL"], "domain": "fixture",
+                               "document_format": "plain"})
+            train_hash = dump_jsonl(train_path, train_rows)
+            manifest = FIT.read_json(root / "manifest.json")
+            manifest["partition_sha256"]["train"] = train_hash
+            manifest["rows"]["train"] = len(train_rows)
+            (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            with patch.object(FIT, "FROZEN_VALIDATION_SHA256",
+                              FIT.sha256_file(root / "validation.jsonl")), \
+                    patch.object(FIT, "ORIGINAL_TRAIN_ROW_COUNT", 100), \
+                    patch.object(FIT, "FROZEN_ORIGINAL_TRAIN_SHA256", FIT.sha256_file(original)), \
+                    patch.object(FIT, "load_preparation_helpers", return_value=helpers):
+                with self.assertRaisesRegex(ValueError, "collides with a protected"):
+                    FIT.validate_prepared(root, protocol_sha, original)
+
+    def test_diagnostic_row_matching_protected_key_and_zero_source_coverage_are_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            protocol_sha, original, _, helpers = self._prepared(root)
+            heldout_path = root / "nemotron-heldout.jsonl"
+            heldout_rows = FIT.read_jsonl(heldout_path)
+            text = "synthetic protected source document 1"
+            heldout_rows[0].update({"id": "protected-id-1", "group_id": "protected-group-1",
+                                    "text": text, "text_key": FIT.training_text_key(text)})
+            heldout_sha = dump_jsonl(heldout_path, heldout_rows)
+            manifest = FIT.read_json(root / "manifest.json")
+            manifest["partition_sha256"]["nemotron_heldout"] = heldout_sha
+            (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            with patch.object(FIT, "FROZEN_VALIDATION_SHA256",
+                              FIT.sha256_file(root / "validation.jsonl")), \
+                    patch.object(FIT, "ORIGINAL_TRAIN_ROW_COUNT", 100), \
+                    patch.object(FIT, "FROZEN_ORIGINAL_TRAIN_SHA256", FIT.sha256_file(original)), \
+                    patch.object(FIT, "load_preparation_helpers", return_value=helpers):
+                with self.assertRaisesRegex(ValueError, "collides with a protected"):
+                    FIT.validate_prepared(root, protocol_sha, original)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            protocol_sha, original, _, helpers = self._prepared(root)
+            heldout_path = root / "nemotron-heldout.jsonl"
+            dump_jsonl(heldout_path, [])
+            manifest = FIT.read_json(root / "manifest.json")
+            manifest["partition_sha256"]["nemotron_heldout"] = FIT.sha256_file(heldout_path)
+            manifest["rows"]["nemotron_heldout"] = 0
+            (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            with patch.object(FIT, "FROZEN_VALIDATION_SHA256",
+                              FIT.sha256_file(root / "validation.jsonl")), \
+                    patch.object(FIT, "ORIGINAL_TRAIN_ROW_COUNT", 100), \
+                    patch.object(FIT, "FROZEN_ORIGINAL_TRAIN_SHA256", FIT.sha256_file(original)), \
+                    patch.object(FIT, "load_preparation_helpers", return_value=helpers):
+                with self.assertRaisesRegex(ValueError, "1–1,000 rows"):
                     FIT.validate_prepared(root, protocol_sha, original)
 
     def test_profiles_freeze_selection_before_any_diagnostic_callback(self):
@@ -118,7 +314,7 @@ class ExternalPiiFittingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "prepared").mkdir()
-            protocol_sha, original, protocol_file = self._prepared(root / "prepared")
+            protocol_sha, original, protocol_file, helpers = self._prepared(root / "prepared")
             train = FIT.read_jsonl(root / "prepared" / "train.jsonl")
             vectorizer = FIT.make_vectorizer("efficient")
             matrix = vectorizer.fit_transform([row["text"] for row in train])
@@ -153,6 +349,7 @@ class ExternalPiiFittingTests(unittest.TestCase):
                               FIT.sha256_file(root / "prepared" / "validation.jsonl")), \
                     patch.object(FIT, "ORIGINAL_TRAIN_ROW_COUNT", 100), \
                     patch.object(FIT, "FROZEN_ORIGINAL_TRAIN_SHA256", FIT.sha256_file(original)), \
+                    patch.object(FIT, "load_preparation_helpers", return_value=helpers), \
                     patch.object(FIT, "_load_baseline_models", return_value=baseline), \
                     patch.object(FIT, "score_diagnostics", side_effect=check_frozen):
                 result = FIT.fit_profiles(
@@ -164,7 +361,8 @@ class ExternalPiiFittingTests(unittest.TestCase):
             with patch.object(FIT, "FROZEN_VALIDATION_SHA256",
                               FIT.sha256_file(root / "prepared" / "validation.jsonl")), \
                     patch.object(FIT, "ORIGINAL_TRAIN_ROW_COUNT", 100), \
-                    patch.object(FIT, "FROZEN_ORIGINAL_TRAIN_SHA256", FIT.sha256_file(original)):
+                    patch.object(FIT, "FROZEN_ORIGINAL_TRAIN_SHA256", FIT.sha256_file(original)), \
+                    patch.object(FIT, "load_preparation_helpers", return_value=helpers):
                 loaded = FIT.load_completed_fit(
                     output, root / "prepared", source_revision="e" * 40,
                     protocol_sha256=protocol_sha, original_train_reference=original)
@@ -196,9 +394,11 @@ class ExternalPiiFittingTests(unittest.TestCase):
         rows = make_rows("positive", 4)
         for row in rows:
             row["expected_has_pii"] = True
+        rows[0]["domain"] = None
         metrics = FIT._metric_groups(rows, [0.9, 0.8, 0.7, 0.6], 0.5)
         self.assertIsNone(metrics["pooled"]["specificity"])
         self.assertIsNone(metrics["pooled"]["balanced_accuracy"])
+        self.assertIn("__unavailable__", metrics["domain"])
 
 
 if __name__ == "__main__":
