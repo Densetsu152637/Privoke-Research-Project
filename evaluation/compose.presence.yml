@@ -4,6 +4,7 @@ services:
     volumes:
       - ./paper/research/model-refactor-protocol.md:/workspace/paper/research/model-refactor-protocol.md:ro
   presence-update-service:
+    image: privoke-research-project-param-update-service:latest
     extends:
       file: docker-compose.yml
       service: param-update-service
@@ -22,6 +23,7 @@ services:
       presence-fuzzer:
         condition: service_healthy
   presence-fuzzer:
+    image: privoke-research-project-privoke-fuzzer:latest
     extends:
       file: docker-compose.yml
       service: privoke-fuzzer
@@ -39,6 +41,7 @@ services:
     volumes:
       - ${PRIVOKE_RESEARCH_PRESENCE_CURRICULUM_DIR:-./evaluation/results/presence_profiles_20261004_v1/curriculum}:/workspace/presence-curriculum:ro
   presence-storage-permissions:
+    image: privoke-research-project-param-update-service:latest
     build:
       context: .
       dockerfile: services/param-update-service/Dockerfile
