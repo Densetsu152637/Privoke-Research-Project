@@ -261,7 +261,7 @@ def load_caller():
 
 def validate_fixture_pair_output(*, output_dir: Path, pair: str, eligible: bool,
                                  expected_binding: dict, cases: list[dict],
-                                 presence_identity: dict) -> dict:
+                                 presence_identity: dict, decision_threshold: float) -> dict:
     """Validate the existing fixture scorer's binding and raw evidence without rescoring policy."""
     output_dir = Path(output_dir)
     binding_path = output_dir / "binding.json"
@@ -285,7 +285,8 @@ def validate_fixture_pair_output(*, output_dir: Path, pair: str, eligible: bool,
     if ({key: report.get(key) for key in expected_binding} != expected_binding
             or report.get("status") != "complete" or report.get("errors") != []
             or report.get("rows") != 48 or len(case_ids) != 48
-            or report.get("pair") != pair):
+            or report.get("pair") != pair
+            or report.get("decision_threshold") != decision_threshold):
         raise ValueError("Fixture score report is incomplete or not bound to the fixed pair.")
     predictions_path = output_dir / "predictions.json"
     predictions = json.loads(predictions_path.read_text(encoding="utf-8"))
@@ -305,6 +306,7 @@ def validate_fixture_pair_output(*, output_dir: Path, pair: str, eligible: bool,
     prediction_by_id = {row["case"]["case_id"]: row for row in predictions}
     if len([case for case in cases if case.get("visibility_hint") is not None]) != 4:
         raise ValueError("Fixture case list differs from the fixed four visibility-hint contract.")
+    verifier = load_caller()
     for case in cases:
         case_id = case["case_id"]
         row_hash = hashlib.sha256(case_id.encode()).hexdigest()
@@ -324,17 +326,24 @@ def validate_fixture_pair_output(*, output_dir: Path, pair: str, eligible: bool,
             if tag == "gated":
                 if (not isinstance(gate_request, dict)
                         or gate_request.get("model_id") != presence_identity["model_id"]
-                        or gate_request.get("threshold") != presence_identity["threshold"]):
+                        or gate_request.get("threshold") != decision_threshold):
                     raise ValueError("Fixture gated request differs from the selected profile/threshold.")
             elif gate_request is not None:
                 raise ValueError("Ordinary fixture request unexpectedly includes a presence gate.")
             if response.get("error") or not isinstance(response.get("layers"), list):
                 raise ValueError("Fixture raw response contains an error or lacks layers.")
-            if any((str(layer.get("status", "")).lower() == "error"
-                    or str(layer.get("status", "")).upper().endswith("_ERROR")
-                    or layer.get("error") and layer.get("status") != "skipped")
-                   for layer in response["layers"]):
-                raise ValueError("Fixture raw response contains a runtime layer error.")
+            for layer in response["layers"]:
+                status = str(layer.get("status", ""))
+                kind = str(layer.get("layer", "")).lower()
+                error = layer.get("error")
+                if status.lower() == "error" or status.upper().endswith("_ERROR"):
+                    raise ValueError("Fixture raw response contains a runtime layer error.")
+                if status == "skipped":
+                    if (not (kind.endswith("_ner") or kind.endswith("_semantic"))
+                            or error != "Skipped after regex returned BLOCK."):
+                        raise ValueError("Fixture raw response contains an undocumented skipped layer.")
+                elif error:
+                    raise ValueError("Fixture raw response contains a runtime layer error.")
 
             # The existing scorer only normalizes the layer enum and the two gate enums.
             normalized = json.loads(json.dumps(response, allow_nan=False))
@@ -371,16 +380,22 @@ def validate_fixture_pair_output(*, output_dir: Path, pair: str, eligible: bool,
                     or normalized["layers"] != prediction.get("layers")):
                 raise ValueError("Fixture prediction differs from its normalized raw RPC response.")
             if tag == "gated":
+                semantic_identity = expected_binding["study_binding"]["controls"][
+                    pair.split("-", 1)[0]]["identity"]
+                verified_trace = verifier.verify_live(
+                    prediction_by_id[case_id]["ordinary"], prediction_by_id[case_id]["gated"],
+                    {"semantic": semantic_identity, "presence": presence_identity}, decision_threshold)
+                if verified_trace != prediction_by_id[case_id].get("trace"):
+                    raise ValueError("Fixture prediction trace differs from the verified gated response.")
+            if tag == "gated":
                 semantic = next((layer for layer in response["layers"]
                                  if str(layer.get("layer", "")).upper().endswith("SEMANTIC")), None)
                 trace = semantic.get("semantic_presence_gate") if semantic else None
-                threshold = expected_binding["study_binding"]["presence"][
-                    pair.split("-", 1)[1]]["identity"]["threshold"]
                 status = str(trace.get("status", "")).lower() if isinstance(trace, dict) else ""
                 trace_applied = status == "applied" or status.endswith("_applied")
                 trace_not_run = status == "not_run" or status.endswith("_not_run")
                 if (not isinstance(trace, dict) or trace.get("model_id") != presence_identity["model_id"]
-                        or trace.get("decision_threshold") != threshold
+                        or trace.get("decision_threshold") != decision_threshold
                         or not (trace_applied or trace_not_run)):
                     raise ValueError("Fixture gate response differs from the frozen profile/threshold.")
                 if trace_applied:
@@ -687,7 +702,7 @@ class DockerBackend:
     def run_fixture_stage(self, *, primary_root: Path, validation_file: Path,
                           support: dict, pair: str, output_dir: Path,
                           expected_binding: dict, eligible: bool, cases: list[dict],
-                          presence_identity: dict,
+                          presence_identity: dict, decision_threshold: float | None,
                           source_revision: str, runtime_image_id: str,
                           evaluator_image_id: str, output: Path) -> dict:
         name = f"cascade-{output.name}-fixture-{pair}-{uuid.uuid4().hex[:8]}"
@@ -708,7 +723,7 @@ class DockerBackend:
             study_root=primary_root, output=output,
             result_reader=lambda: validate_fixture_pair_output(output_dir=output_dir, pair=pair,
                 eligible=eligible, expected_binding=expected_binding, cases=cases,
-                presence_identity=presence_identity))
+                presence_identity=presence_identity, decision_threshold=decision_threshold))
 
     def _job(self, args: list[str], *, name: str, stage: str, pair: str | None,
              study_root: Path, output: Path, result_reader=None) -> dict:
@@ -876,7 +891,13 @@ def _run_fixture_group(*, backend, output: Path, primary_root: Path, inputs: dic
             if choice.get("status") not in ("eligible", "ineligible"):
                 raise ValueError("Primary selection contains an unsupported fixture eligibility state.")
             eligible = choice["status"] == "eligible"
+            decision_threshold = None
             if eligible:
+                selected = choice.get("chosen")
+                decision_threshold = selected.get("threshold") if isinstance(selected, dict) else None
+                if (type(decision_threshold) not in (int, float) or not math.isfinite(decision_threshold)
+                        or not 0 <= decision_threshold <= 1):
+                    raise ValueError("Eligible fixture pair lacks its finite frozen decision threshold.")
                 presence = inputs["presence"][profile]
                 backend.write_artifact(presence["artifact"],
                     expected_checksum=presence["identity"]["artifact_checksum"])
@@ -889,6 +910,7 @@ def _run_fixture_group(*, backend, output: Path, primary_root: Path, inputs: dic
                 expected_binding=plan["pair_bindings"][pair], eligible=eligible,
                 cases=plan["case_rows"],
                 presence_identity=inputs["presence"][profile]["identity"],
+                decision_threshold=decision_threshold,
                 source_revision=plan["source_revision"],
                 runtime_image_id=plan["runtime_image_id"],
                 evaluator_image_id=plan["evaluator_image_id"], output=output)
