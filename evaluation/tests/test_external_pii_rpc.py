@@ -145,15 +145,28 @@ class ExternalPresenceRpcTests(unittest.TestCase):
                                 "train_sha256": "c" * 64,
                                 "validation_sha256": hashes["validation"]}}
                 (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-                loaded = scorer.validate_prepared(root, source_revision="a" * 40,
+                loaded = scorer.validate_prepared(root, prepared_source_revision="a" * 40,
                                                   protocol_sha256="b" * 64)
                 self.assertEqual(len(loaded["partition_rows"]["meddies_heldout"]), 0)
                 self.assertEqual(len(loaded["partition_rows"]["validation"]), 968)
                 manifest["partition_sha256"]["nemotron_heldout"] = "0" * 64
                 (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
                 with self.assertRaisesRegex(ValueError, "digest mismatch"):
-                    scorer.validate_prepared(root, source_revision="a" * 40,
+                    scorer.validate_prepared(root, prepared_source_revision="a" * 40,
                                              protocol_sha256="b" * 64)
+
+    def test_prepared_binding_requires_fit_recorded_source_and_exact_hashes(self):
+        prepared_revision = "a" * 40
+        prepared = {"manifest": {"source_revision": prepared_revision,
+                                 "partition_sha256": {"train": "1" * 64}},
+                    "manifest_sha256": "2" * 64}
+        fit = {"prepared_source_revision": prepared_revision,
+               "prepared_manifest_sha256": "2" * 64,
+               "partition_sha256": {"train": "1" * 64}}
+        self.assertEqual(scorer.bind_prepared_to_fit(prepared, fit), prepared_revision)
+        fit["prepared_source_revision"] = "b" * 40
+        with self.assertRaisesRegex(ValueError, "source revision or input digests"):
+            scorer.bind_prepared_to_fit(prepared, fit)
 
     def test_prepared_rejects_path_escape_and_non_boolean_or_clean_source_target(self):
         with self.assertRaisesRegex(ValueError, "escapes"):
@@ -197,7 +210,8 @@ class ExternalPresenceRpcTests(unittest.TestCase):
                 scorer.run(fit_root=Path("missing-fit"), prepared_root=Path("missing-prepared"),
                            baseline_fit_root=Path("missing-base"), profile="balanced",
                            control="expanded", partition="validation", output=output,
-                           source_revision="a" * 40, protocol_file=Path("missing-protocol"),
+                           source_revision="a" * 40, fit_source_revision="b" * 40,
+                           protocol_file=Path("missing-protocol"),
                            protocol_sha256="b" * 64, runtime_image_id="runtime@sha256:x",
                            evaluator_image_id="evaluator@sha256:y", target="runtime:50054")
 
