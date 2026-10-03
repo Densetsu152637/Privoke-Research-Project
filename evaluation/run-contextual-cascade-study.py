@@ -57,15 +57,27 @@ os.replace(t,p); fd=os.open(str(p.parent),os.O_RDONLY)
 try: os.fsync(fd)
 finally: os.close(fd)
 """
-IDENTITY_PROBE = """import json,sys,grpc
+IDENTITY_PROBE = """import json,sys,grpc,time
 sys.path.insert(0,'/workspace/extension/client-runtime/generated')
 from privoke.v1 import runtime_pb2 as pb,runtime_pb2_grpc as stubs
 e=json.load(sys.stdin); q=pb.AnalyzePromptRequest(request_id='cascade-identity-probe',text='A public example sentence.',source='contextual-cascade-probe',semantic_model_id=e['context']['model_id'],semantic_presence_gate=pb.SemanticPresenceGate(model_id=e['presence']['model_id'],threshold=0.0),regex_execution_order=pb.REGEX_EXECUTION_ORDER_FIRST)
-with grpc.insecure_channel('client-runtime:50054') as ch: r=stubs.PrivokeRuntimeServiceStub(ch).AnalyzePrompt(q,timeout=15)
-x=next((z for z in r.layers if z.layer==pb.DETECTION_LAYER_SEMANTIC),None)
-if x is None or not x.HasField('semantic_presence_gate'): raise RuntimeError('identity probe trace missing')
-t=x.semantic_presence_gate
-print(json.dumps({'context':{'model_id':t.contextual_model_id,'model_version':t.contextual_model_version,'artifact_checksum':t.contextual_artifact_checksum,'parameter_fingerprint':t.contextual_parameter_fingerprint},'presence':{'model_id':t.model_id,'model_version':t.model_version,'artifact_checksum':t.artifact_checksum,'parameter_fingerprint':t.parameter_fingerprint,'threshold':t.model_threshold}},sort_keys=True))
+deadline=time.monotonic()+e.pop('_probe_retry_seconds',10.0); last=None; success=False
+with grpc.insecure_channel('client-runtime:50054') as ch:
+ s=stubs.PrivokeRuntimeServiceStub(ch)
+ while time.monotonic()<deadline:
+  try:
+   r=s.AnalyzePrompt(q,timeout=3)
+   x=next((z for z in r.layers if z.layer==pb.DETECTION_LAYER_SEMANTIC),None)
+   if not r.error and x is not None and x.status!=pb.DETECTION_LAYER_STATUS_ERROR and not x.error and x.HasField('semantic_presence_gate'):
+    t=x.semantic_presence_gate
+    got={'context':{'model_id':t.contextual_model_id,'model_version':t.contextual_model_version,'artifact_checksum':t.contextual_artifact_checksum,'parameter_fingerprint':t.contextual_parameter_fingerprint},'presence':{'model_id':t.model_id,'model_version':t.model_version,'artifact_checksum':t.artifact_checksum,'parameter_fingerprint':t.parameter_fingerprint,'threshold':t.model_threshold},'status':int(t.status),'error':t.error,'decision_threshold':t.decision_threshold}
+    if got['context']==e['context'] and {k:got['presence'][k] for k in e['presence']}==e['presence'] and got['status']==pb.SEMANTIC_PRESENCE_GATE_STATUS_APPLIED and not got['error'] and got['decision_threshold']==0.0:
+     print(json.dumps({'context':got['context'],'presence':got['presence']},sort_keys=True)); success=True; break
+    last='identity_or_gate_mismatch'
+   else: last='runtime_error_or_missing_gate_trace'
+  except grpc.RpcError: last='runtime_rpc_error'
+  time.sleep(min(0.5,max(0.0,deadline-time.monotonic())))
+if not success: raise RuntimeError('typed runtime probe did not converge: '+str(last))
 """
 FIT_PREFLIGHT = """import argparse,importlib.util,json,sys
 sys.path.insert(0,'/workspace/shared/python'); sys.path.insert(0,'/workspace/evaluation')
@@ -219,6 +231,7 @@ class DockerBackend:
         self.jobs: list[dict] = []
         self.admin_mutation_outcome_unknown = False
         self.evaluator_job_outcome_unknown = False
+        self.runtime_cache_ttl_seconds = 1.0
 
     def call(self, args: list[str], *, data: bytes | None = None, direct: bool = False,
              timeout: int = 180, admin_mutation: bool = False) -> str:
@@ -238,12 +251,53 @@ class DockerBackend:
                            "stdout_sha256": sha_bytes(out), "stderr_sha256": sha_bytes(err),
                            "admin_mutation": admin_mutation})
         if result.returncode:
+            if admin_mutation:
+                self.admin_mutation_outcome_unknown = True
             raise RuntimeError(f"Command failed with exit {result.returncode}; stderr sha256={sha_bytes(err)}")
         return out.decode("utf-8").strip()
 
+    def _assert_mutations_safe(self) -> None:
+        if self.admin_mutation_outcome_unknown or self.evaluator_job_outcome_unknown:
+            raise RuntimeError("A prior remote operation is unresolved; model writes are stopped.")
+
+    def _quiesce_named_job(self, name: str) -> bool:
+        """Remove only this invocation's named one-off and verify it is absent."""
+        try:
+            ids = self.call(["docker", "ps", "--all", "--quiet", "--filter", f"name=^{name}$"], direct=True).splitlines()
+            if any(not re.fullmatch(r"[0-9a-f]{12,64}", item) for item in ids):
+                return False
+            for item in ids:
+                self.call(["docker", "rm", "-f", item], direct=True, timeout=30)
+            remaining = self.call(["docker", "ps", "--all", "--quiet", "--filter", f"name=^{name}$"], direct=True).splitlines()
+            return not remaining
+        except Exception:
+            return False
+
     def ensure_services(self) -> None:
-        self.call(["up", "-d", "--wait", "--wait-timeout", "180",
-                   "client-runtime", "model-streaming-service", "param-update-service"], timeout=240)
+        for service in ("client-runtime", "model-streaming-service", "param-update-service"):
+            ids = self.call(["ps", "--status", "running", "--quiet", service]).splitlines()
+            if len(ids) != 1 or not re.fullmatch(r"[0-9a-f]{12,64}", ids[0]):
+                raise ValueError("Required existing Compose service is not running exactly once.")
+            state = json.loads(self.call(["docker", "inspect", "--format", "{{json .State}}", ids[0]], direct=True))
+            if state.get("Running") is not True or state.get("Status") != "running":
+                raise ValueError("Required existing Compose service is not running.")
+            if state.get("Health") and state["Health"].get("Status") != "healthy":
+                raise ValueError("Required existing Compose service is not healthy.")
+        runtime_ids = self.call(["ps", "--all", "--quiet", "client-runtime"]).splitlines()
+        runtime_env = json.loads(self.call(["docker", "inspect", "--format", "{{json .Config.Env}}", runtime_ids[0]], direct=True))
+        ttl_text = next((item.split("=", 1)[1] for item in runtime_env
+                         if isinstance(item, str) and item.startswith("MODEL_STREAMING_CACHE_TTL_SECONDS=")), "1.0")
+        try:
+            ttl = float(ttl_text)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Runtime cache TTL is invalid.") from exc
+        if not math.isfinite(ttl) or ttl < 0 or ttl > 60:
+            raise ValueError("Runtime cache TTL is outside the bounded probe window.")
+        self.runtime_cache_ttl_seconds = ttl
+        updater = self.call(["ps", "--all", "--quiet", "param-update-service"]).splitlines()
+        env = json.loads(self.call(["docker", "inspect", "--format", "{{json .Config.Env}}", updater[0]], direct=True)) if len(updater) == 1 else []
+        if "FUZZER_PROMPT_COUNT=0" not in env:
+            raise ValueError("Existing parameter updater is not configured with startup training disabled.")
         for writer in ("presence-fuzzer", "presence-update-service"):
             if self.call(["ps", "--status", "running", "--quiet", writer]).splitlines():
                 raise ValueError("A presence training/update writer is running during the cascade study.")
@@ -261,12 +315,17 @@ class DockerBackend:
         return result
 
     def evaluator_image(self) -> str:
-        images = self.call(["images", "--quiet", "evaluation-tests"]).splitlines()
-        if len(images) != 1 or not re.fullmatch(r"[0-9a-f]{12,64}", images[0]):
-            raise ValueError("Expected one already-built evaluation image; this runner does not build images.")
-        image_id = self.call(["docker", "inspect", "--format", "{{.Id}}", images[0]], direct=True)
+        config = json.loads(self.call(["config", "--format", "json"]))
+        service = config.get("services", {}).get("evaluation-tests")
+        project = config.get("name")
+        if not isinstance(service, dict) or not isinstance(project, str) or not project:
+            raise ValueError("Compose did not resolve the fixed evaluation service image.")
+        image_ref = service.get("image") or f"{project}-evaluation-tests"
+        if not isinstance(image_ref, str) or not image_ref:
+            raise ValueError("Compose evaluation image reference is invalid.")
+        image_id = self.call(["docker", "image", "inspect", "--format", "{{.Id}}", image_ref], direct=True)
         if not re.fullmatch(r"sha256:[0-9a-f]{64}", image_id):
-            raise ValueError("Evaluation image did not expose an immutable ID.")
+            raise ValueError("Prebuilt evaluation image is unavailable or did not expose an immutable ID.")
         return image_id
 
     def read_raw(self, model_id: str) -> bytes:
@@ -278,6 +337,7 @@ class DockerBackend:
         return base64.b64decode(record["raw_b64"], validate=True)
 
     def write_artifact(self, artifact: dict, *, expected_checksum: str) -> None:
+        self._assert_mutations_safe()
         model_id = artifact.get("model_id")
         if model_id not in CATALOG_IDS or artifact.get("checksum") != expected_checksum:
             raise ValueError("Artifact is outside the fixed model/checksum allowlist.")
@@ -290,14 +350,15 @@ class DockerBackend:
             raise ValueError("Installed model differs from the selected frozen artifact.")
 
     def restore_exact(self, model_id: str, raw: bytes) -> None:
+        self._assert_mutations_safe()
         if model_id not in CATALOG_IDS:
             raise ValueError("Model ID is outside the fixed four-file catalog allowlist.")
         self.call(["exec", "-T", "param-update-service", "python", "-c", ADMIN_RESTORE, model_id],
                   data=raw, admin_mutation=True)
 
     def probe(self, expected: dict) -> None:
-        payload = json.dumps(expected, sort_keys=True).encode()
-        observed = json.loads(self.call(["exec", "-T", "client-runtime", "python", "-c", IDENTITY_PROBE], data=payload, timeout=30))
+        payload = json.dumps({**expected, "_probe_retry_seconds": max(10.0, self.runtime_cache_ttl_seconds + 2.0)}, sort_keys=True).encode()
+        observed = json.loads(self.call(["exec", "-T", "client-runtime", "python", "-c", IDENTITY_PROBE], data=payload, timeout=90))
         if observed != expected:
             raise ValueError("Runtime identity probe differs from the frozen model pair.")
 
@@ -359,14 +420,13 @@ class DockerBackend:
              study_root: Path, output: Path) -> dict:
         try:
             container = self.call(args, timeout=120)
-        except subprocess.TimeoutExpired:
-            try:
-                self.call(["docker", "rm", "-f", name], direct=True, timeout=30)
-            except Exception:
+        except Exception:
+            if not self._quiesce_named_job(name):
                 self.evaluator_job_outcome_unknown = True
             raise
         if not re.fullmatch(r"[0-9a-f]{12,64}", container):
-            self.evaluator_job_outcome_unknown = True
+            if not self._quiesce_named_job(name):
+                self.evaluator_job_outcome_unknown = True
             raise ValueError("Compose did not return the one-off evaluator container ID.")
         record = {"container_id": container, "stage": stage, "pair": pair,
                   "image_id": None, "exit_code": None, "logs_sha256": None}
@@ -387,17 +447,10 @@ class DockerBackend:
         except Exception as exc:
             active_error = exc
         finally:
-            if record["exit_code"] is None:
-                try:
-                    self.call(["docker", "stop", "--time", "5", container], direct=True, timeout=30)
-                except Exception:
-                    pass
-            try:
-                self.call(["docker", "rm", "-f", container], direct=True, timeout=30)
-            except Exception as exc:
+            if not self._quiesce_named_job(name):
                 self.evaluator_job_outcome_unknown = True
                 if active_error is None:
-                    active_error = exc
+                    active_error = RuntimeError("Named evaluator container could not be proven quiescent.")
             self.jobs.append(record)
         if active_error:
             raise active_error
@@ -503,12 +556,13 @@ def _run_group(*, backend, output: Path, study_root: Path, inputs: dict,
                     raise ValueError("A selected endpoint differs from frozen eligibility.")
             _record_job(output, state, stage, pair, result)
     finally:
-        if not backend.admin_mutation_outcome_unknown:
+        if not backend.admin_mutation_outcome_unknown and not getattr(backend, "evaluator_job_outcome_unknown", False):
             backend.restore_exact("privoke-balanced", prior_raw["privoke-balanced"])
-            if sha_bytes(backend.read_raw("privoke-balanced")) != state["prior_sha256"]["privoke-balanced"]:
-                raise ValueError("Contextual control bytes did not restore at checkpoint.")
-            backend.probe({"context": current_identity,
-                           "presence": inputs["presence"][PROFILES[-1]]["identity"]})
+            if not backend.admin_mutation_outcome_unknown:
+                if sha_bytes(backend.read_raw("privoke-balanced")) != state["prior_sha256"]["privoke-balanced"]:
+                    raise ValueError("Contextual control bytes did not restore at checkpoint.")
+                backend.probe({"context": current_identity,
+                               "presence": inputs["presence"][PROFILES[-1]]["identity"]})
 
 
 def run_sequence(*, backend, output: Path, study_root: Path,
@@ -594,8 +648,18 @@ def run_sequence(*, backend, output: Path, study_root: Path,
         if backups_written and not unknown:
             restoration_errors = []
             for model_id in CATALOG_IDS:
+                if backend.admin_mutation_outcome_unknown:
+                    restoration_errors.append({"model_id": model_id,
+                        "error_type": "RemoteOperationOutcomeUnknown",
+                        "reason": "A timed-out restore may still be active; subsequent writes were stopped."})
+                    break
                 try:
                     backend.restore_exact(model_id, prior_raw[model_id])
+                    if backend.admin_mutation_outcome_unknown:
+                        restoration_errors.append({"model_id": model_id,
+                            "error_type": "RemoteOperationOutcomeUnknown",
+                            "reason": "A timed-out restore may still be active; subsequent writes were stopped."})
+                        break
                     if sha_bytes(backend.read_raw(model_id)) != state["prior_sha256"][model_id]:
                         raise ValueError("Restored bytes differ from exact prior artifact.")
                 except Exception as exc:

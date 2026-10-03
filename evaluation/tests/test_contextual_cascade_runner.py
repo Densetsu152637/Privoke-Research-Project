@@ -17,13 +17,18 @@ SPEC.loader.exec_module(runner)
 
 
 class FakeBackend:
-    def __init__(self, *, timeout_write=False, changed_image=False, fail_context_restore=False):
+    def __init__(self, *, timeout_write=False, changed_image=False, fail_context_restore=False,
+                 timeout_stage=False, timeout_restore=False, fail_preflight=False, invalid_freeze=False):
         self.catalog = {key: f"prior-bytes-{key}".encode() for key in runner.CATALOG_IDS}
         self.admin_mutation_outcome_unknown = False
         self.evaluator_job_outcome_unknown = False
         self.timeout_write = timeout_write
         self.changed_image = changed_image
         self.fail_context_restore = fail_context_restore
+        self.timeout_stage = timeout_stage
+        self.timeout_restore = timeout_restore
+        self.fail_preflight = fail_preflight
+        self.invalid_freeze = invalid_freeze
         self.writes, self.restores, self.probes, self.stages = [], [], [], []
         self.image_calls = 0
         self.job_images = {"sha256:" + "e" * 64}
@@ -36,6 +41,8 @@ class FakeBackend:
         return "sha256:" + "e" * 64
 
     def preflight_fit(self, *, inputs, binding, output):
+        if self.fail_preflight:
+            raise ValueError("simulated fit binding failure")
         return {"sha256": "f" * 64}
 
     def images(self):
@@ -57,6 +64,9 @@ class FakeBackend:
 
     def restore_exact(self, model_id, raw):
         self.restores.append(model_id)
+        if self.timeout_restore:
+            self.admin_mutation_outcome_unknown = True
+            raise TimeoutError("simulated remote restore timeout")
         if self.fail_context_restore and model_id == "privoke-balanced":
             raise OSError("simulated restore failure")
         self.catalog[model_id] = raw
@@ -70,10 +80,15 @@ class FakeBackend:
             choices = {name: ({"status": "ineligible", "chosen": None} if name == "original-efficient"
                                else {"status": "eligible", "chosen": {"threshold": .8}})
                        for name in runner.PAIRS}
+            if self.invalid_freeze:
+                choices["original-balanced"]["chosen"]["threshold"] = float("nan")
             path = study_root / "calibration/selection.json"
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps({"status": "frozen", "choices": choices}), encoding="utf-8")
             return {"status": "frozen", "choices": choices, "image_id": "sha256:" + "e" * 64}
+        if self.timeout_stage:
+            self.evaluator_job_outcome_unknown = True
+            raise TimeoutError("simulated unresolved evaluator job")
         choice = None
         if stage in ("evaluate-validation", "evaluate-development") and pair == "original-efficient":
             choice = {"status": "skipped_ineligible"}
@@ -145,6 +160,38 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
         self.assertEqual(backend.restores, [])
         self.assertNotIn("prior_raw", state)
 
+    def test_unresolved_evaluator_job_prevents_context_and_final_restore(self):
+        backend = FakeBackend(timeout_stage=True)
+        state, _prior, _ = self.run_fake(backend)
+        self.assertEqual(state["status"], "failed")
+        self.assertTrue(state["evaluator_job_outcome_unknown"])
+        self.assertFalse(state["restoration_verified"])
+        self.assertEqual(backend.restores, [])
+
+    def test_restore_timeout_stops_all_subsequent_restore_writes(self):
+        backend = FakeBackend(timeout_restore=True)
+        state, _prior, _ = self.run_fake(backend)
+        self.assertEqual(state["status"], "failed")
+        self.assertTrue(state["admin_mutation_outcome_unknown"])
+        self.assertFalse(state["restoration_verified"])
+        self.assertEqual(backend.restores, ["privoke-balanced"])
+
+    def test_preflight_failure_prevents_any_model_writes_or_scoring(self):
+        backend = FakeBackend(fail_preflight=True)
+        state, _prior, _ = self.run_fake(backend)
+        self.assertEqual(state["status"], "failed")
+        self.assertFalse(state["restoration_verified"])
+        self.assertEqual(backend.writes, [])
+        self.assertEqual(backend.restores, [])
+        self.assertEqual(backend.stages, [])
+
+    def test_invalid_frozen_choice_prevents_endpoint_or_development_scoring(self):
+        backend = FakeBackend(invalid_freeze=True)
+        state, _prior, _ = self.run_fake(backend)
+        self.assertEqual(state["status"], "failed")
+        self.assertFalse(any(stage.startswith("evaluate-") for stage, _ in backend.stages))
+        self.assertFalse(any(stage == "evaluate-development" for stage, _ in backend.stages))
+
     def test_image_change_fails_study_but_exact_restore_still_succeeds(self):
         state, prior, backend = self.run_fake(FakeBackend(changed_image=True))
         self.assertEqual(state["status"], "failed")
@@ -163,6 +210,60 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
             outside = Path(temp) / "outside"
             with self.assertRaisesRegex(ValueError, "evaluation/results"):
                 runner.inside_results(outside)
+
+    def test_evaluator_image_uses_resolved_compose_service_image(self):
+        backend = runner.DockerBackend(Path("unused"))
+        image_id = "sha256:" + "a" * 64
+        calls = []
+        def fake_call(args, *, direct=False, **kwargs):
+            calls.append((args, direct))
+            if args[:2] == ["config", "--format"]:
+                return json.dumps({"name": "resolved-project", "services": {
+                    "evaluation-tests": {"build": {"context": "."}}}})
+            return image_id
+        with patch.object(backend, "call", side_effect=fake_call):
+            self.assertEqual(backend.evaluator_image(), image_id)
+        self.assertEqual(calls[1], (["docker", "image", "inspect", "--format", "{{.Id}}",
+                                    "resolved-project-evaluation-tests"], True))
+
+    def test_existing_service_preflight_is_read_only_and_requires_training_disabled(self):
+        backend = runner.DockerBackend(Path("unused"))
+        seen = []
+        def fake_call(args, *, direct=False, **kwargs):
+            seen.append(args)
+            if args[0:3] == ["ps", "--status", "running"]:
+                return "a" * 12 if args[-1] in ("client-runtime", "model-streaming-service", "param-update-service") else ""
+            if args[:3] == ["docker", "inspect", "--format"] and args[3] == "{{json .State}}":
+                return json.dumps({"Running": True, "Status": "running", "Health": {"Status": "healthy"}})
+            if args[:3] == ["ps", "--all", "--quiet"]:
+                return "a" * 12
+            if args[:3] == ["docker", "inspect", "--format"] and args[3] == "{{json .Config.Env}}":
+                return json.dumps(["MODEL_STREAMING_CACHE_TTL_SECONDS=2.5", "FUZZER_PROMPT_COUNT=0"])
+            raise AssertionError(args)
+        with patch.object(backend, "call", side_effect=fake_call):
+            backend.ensure_services()
+        self.assertFalse(any(args and args[0] == "up" for args in seen))
+        self.assertEqual(backend.runtime_cache_ttl_seconds, 2.5)
+        self.assertEqual(seen[-2:], [["ps", "--status", "running", "--quiet", "presence-fuzzer"],
+                                     ["ps", "--status", "running", "--quiet", "presence-update-service"]])
+
+    def test_failed_oneoff_launch_requires_positive_named_cleanup(self):
+        backend = runner.DockerBackend(Path("unused"))
+        with patch.object(backend, "call", side_effect=RuntimeError("compose launcher failed")), \
+             patch.object(backend, "_quiesce_named_job", return_value=False):
+            with self.assertRaises(RuntimeError):
+                backend._job(["compose", "run"], name="cascade-test-one", stage="collect-validation",
+                    pair="original-efficient", study_root=Path("unused"), output=Path("unused"))
+        self.assertTrue(backend.evaluator_job_outcome_unknown)
+
+    def test_failed_launch_is_safe_when_named_container_is_proven_absent(self):
+        backend = runner.DockerBackend(Path("unused"))
+        with patch.object(backend, "call", side_effect=RuntimeError("compose launcher failed")), \
+             patch.object(backend, "_quiesce_named_job", return_value=True):
+            with self.assertRaises(RuntimeError):
+                backend._job(["compose", "run"], name="cascade-test-absent", stage="collect-validation",
+                    pair="original-efficient", study_root=Path("unused"), output=Path("unused"))
+        self.assertFalse(backend.evaluator_job_outcome_unknown)
 
 
 if __name__ == "__main__":
