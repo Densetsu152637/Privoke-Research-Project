@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"sort"
 	"strings"
@@ -110,6 +111,16 @@ func responseMetadata(
 	metadata["artifact_checksum"] = artifact.Checksum
 	metadata["artifact_file_checksum"] = artifact.fileChecksum
 	metadata["trainable_parameters"] = strings.Join(trainableNames, ",")
+	if artifact.Architecture == presenceArchitecture {
+		var config presenceConfig
+		// The catalog validated this exact immutable configuration before serving.
+		if err := json.Unmarshal(artifact.Config, &config); err == nil {
+			metadata["task"] = config.Task
+			metadata["profile"] = config.Profile
+			metadata["text_normalization"] = config.Normalization
+			metadata["arithmetic"] = "float32_parameters_float64_features_fsum_v1"
+		}
+	}
 	return metadata
 }
 
