@@ -31,6 +31,11 @@ The [methodology draft](../docs/research-methodology-draft.md) records the curre
 design and pending evidence. Professor confirmation, installed-extension/client
 cost evidence, final testing and paper/figure completion remain outstanding.
 
+Source `c035bc7` and766 file records are preserved in the new18.0MB local package,
+`evaluation/artifacts/research-20261003-public-negative.zip`. Exact hashes and
+scope are in `paper/research/artifacts.md` and the new external manifest. The
+earlier14.6MB package is preserved unchanged. No upload occurred.
+
 ### Earlier checkpoint and preserved comparisons
 
 Test invocation is centralized by committed revision `712ed72`; component test
