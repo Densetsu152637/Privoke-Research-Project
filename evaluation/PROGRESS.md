@@ -11,8 +11,18 @@ binary task, not a contextual severity or policy result. The live selected
 contextual pipeline remains at 90.53% recall and 29.41% specificity; final
 remains unscored. See [sparse presence profile results](../docs/presence-model-improvements.md)
 and the [prospective protocol](../paper/research/model-refactor-protocol.md).
-The evaluator suite passed 84 tests; see `presence-evaluator-tests-v2.log`.
-The bounded fixed-seed update study is not yet reported in this checkpoint.
+The evaluator suite passed 96 tests at source `e519a77f`; see the
+[test log](presence-study-evaluator-tests-v2.log). The served-base audit passed 42 checks
+for IDs, labels, groups, counts, identities, and local/RPC parity.
+The fixed-seed update study and independent audit are complete. All nine
+updates were accepted, but none improved validation specificity; the three
+fitted bases were retained and restoration of the live contextual checkpoint
+was verified. The 59,214-check audit and per-seed results are in
+[the profile results record](../docs/presence-model-improvements.md). This
+does not improve the live contextual result or meet the specificity target.
+Further work should test representation or contextual hard-negative coverage
+under a new protocol; changing sampling temperature is not applicable to this
+deterministic update path.
 
 The completed [sparse text control](../paper/research/text-control-results.md)
 selected C=1 using validation before development scoring. It scored

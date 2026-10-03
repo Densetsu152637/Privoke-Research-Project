@@ -274,15 +274,30 @@ from the evaluation container and requires the returned model ID, version,
 checksum, parameter fingerprint, threshold, enum, and probability to match the
 frozen artifact and shared arithmetic.
 
-Use fresh result-directory names and the integrated evaluator/runtime images
-after root has completed the prospective validation gates. The runtime must be
-serving the exact profile artifact named by the selection record; model-volume
-installation/restoration is handled by the study owner.
+Use fresh result-directory names. Fit and standalone scoring commands run in
+the evaluation container, which can resolve the runtime service by Compose DNS;
+do not invoke these RPC commands from the host. The fourth Compose override
+mounts the exact prospective protocol read-only. Use these four files in order
+from the repository root:
 
 ```powershell
-python evaluation/fit-presence-profiles.py --prepared evaluation/results/representation_20261004_v3/prepared --locked-root evaluation/results/locked-public --output evaluation/results/UNIQUE_PRESENCE_FIT --source-revision COMMITTED_SOURCE_SHA --protocol-sha256 PROTOCOL_SHA256
-python evaluation/evaluate-presence.py --artifact evaluation/results/UNIQUE_PRESENCE_FIT/profiles/balanced/artifact.json --selection evaluation/results/UNIQUE_PRESENCE_FIT/profiles/balanced/selection.json --fit-manifest evaluation/results/UNIQUE_PRESENCE_FIT/run-manifest.json --dataset-file evaluation/results/locked-public/development.jsonl --output evaluation/results/UNIQUE_PRESENCE_SCORE --target client-runtime:50054 --source-revision COMMITTED_SOURCE_SHA --fit-source-revision FIT_SOURCE_SHA --protocol-sha256 PROTOCOL_SHA256
+$ComposeFiles = @('-f','docker-compose.yml','-f','evaluation/compose.tests.yml','-f','evaluation/compose.public-negatives.yml','-f','evaluation/compose.presence.yml')
+$FitSourceSha = (git rev-parse HEAD).Trim()
+$ProtocolSha = (Get-FileHash paper/research/model-refactor-protocol.md -Algorithm SHA256).Hash.ToLowerInvariant()
+docker compose @ComposeFiles run --rm --no-deps -T evaluation-tests python /workspace/evaluation/fit-presence-profiles.py --prepared /workspace/evaluation/results/representation_20261004_v3/prepared --locked-root /workspace/evaluation/results/locked-public --bootstrap-source /workspace/models/generate_baseline.py --output /workspace/evaluation/results/FRESHFIT --source-revision $FitSourceSha --protocol-sha256 $ProtocolSha
+$ExecutionSha = (git rev-parse HEAD).Trim()
+$FitSourceSha = (Get-Content evaluation/results/FRESHFIT/run-manifest.json -Raw | ConvertFrom-Json).source_revision
+docker compose @ComposeFiles run --rm --no-deps -T evaluation-tests python /workspace/evaluation/evaluate-presence.py --artifact /workspace/evaluation/results/FRESHFIT/profiles/balanced/artifact.json --selection /workspace/evaluation/results/FRESHFIT/profiles/balanced/selection.json --fit-manifest /workspace/evaluation/results/FRESHFIT/run-manifest.json --dataset-file /workspace/evaluation/results/locked-public/development.jsonl --output /workspace/evaluation/results/FRESH_BASE_SCORE --target client-runtime:50054 --source-revision $ExecutionSha --fit-source-revision $FitSourceSha --protocol-sha256 $ProtocolSha
 ```
+
+The study owner must first have the four-file Compose stack and images ready,
+with all three presence artifacts in the model catalog and the update-volume
+permissions initialized. Keep automatic startup training disabled (`FUZZER_PROMPT_COUNT=0`);
+the study runner checks this. Do not build or rebuild serving images as part of
+the matched study. The standalone scorer requires `client-runtime` already
+running with the exact selected profile artifact installed; it never installs
+or restores models itself. Use new names instead of reusing `FRESHFIT` or
+`FRESH_BASE_SCORE`, including after a failed attempt.
 
 The profile fitter writes each C candidate artifact and validation predictions,
 plus a train-only `curriculum/prompts.jsonl`. The scorer emits row IDs, labels,
@@ -297,5 +312,35 @@ selected artifacts before scoring. The additive `evaluate-presence-update.py`
 measures one fixed validation or development endpoint without recalibrating a
 threshold. Changed candidates require the committed update response and durable
 receipt evidence; development additionally requires a persisted validation
-retention decision. These callers do not run fuzzer updates or modify model
-volumes.
+retention decision. These scoring callers do not run fuzzer updates or modify
+model volumes.
+
+The host-side study runner invokes the real fuzzer and updater through the
+four-file Compose stack. After the prerequisites above are satisfied, run it
+from the committed repository checkout with a new output path and both source
+revisions bound to the fit manifest and executing checkout:
+
+```powershell
+$ExecutionSha = (git rev-parse HEAD).Trim()
+$FitSourceSha = (Get-Content evaluation/results/FRESHFIT/run-manifest.json -Raw | ConvertFrom-Json).source_revision
+$ProtocolSha = (Get-FileHash paper/research/model-refactor-protocol.md -Algorithm SHA256).Hash.ToLowerInvariant()
+python evaluation/run-presence-update-study.py --fit-root evaluation/results/FRESHFIT --output evaluation/results/FRESHSTUDY --source-revision $ExecutionSha --fit-source-revision $FitSourceSha --protocol-sha256 $ProtocolSha
+```
+
+This caller uses fixed seeds 42, 43, and 44 for each of the three fitted
+profiles. Validation retention requires recall at least 90% and strictly higher
+specificity than that profile's fitted base; eligible candidates rank by
+specificity, recall, then lower seed. If none qualifies, the fitted base is
+retained. It does not add C values or update cycles in response to these
+measurements. Preserve every complete or failed run under its original fresh
+path; the runner records restoration and protected-input checks. It does not
+read final examples or change the contextual policy task.
+
+In the completed v1 run, all nine update requests were accepted, but none met
+the frozen validation retention gate because no candidate improved specificity;
+all three fitted bases were retained. The independent 59,214-check evidence
+audit and per-seed counts are recorded in the
+[results report](../docs/presence-model-improvements.md). This observed result
+is not a reason to add C values, change thresholds, or repeat update cycles on
+the same development evidence; any next experiment needs a new prospective
+question and frozen protocol.
