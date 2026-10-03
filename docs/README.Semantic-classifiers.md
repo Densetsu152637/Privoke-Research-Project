@@ -41,8 +41,31 @@ The runtime also exposes an explicitly separate `annotation_presence` task throu
 the `privoke-presence-*` family and validates the `privoke_sparse_presence_v1`
 architecture before inference. This bounded word/character TF-IDF model predicts only
 whether an annotation is present. It does not predict sensitivity, visibility,
-categories, or policy actions, and it is not inserted into the semantic classifier or
-the prompt-decision pipeline. Presence results never suppress regex or NER findings.
+categories, or policy actions, and it is not inserted into the semantic classifier.
+The ordinary prompt-decision pipeline does not use its output. The additive
+`AnalyzePromptRequest.semantic_presence_gate` field enables an explicit research-only
+cascade: for a request that also names streamed `semantic_model_id="privoke-balanced"`
+and includes the semantic layer, the runtime runs both models and suppresses only the
+original semantic results when the presence decision is ABSENT. PRESENT retains the
+original semantic results. Regex and NER findings are never gated or suppressed.
+The model weights are streamed to the client and both inferences run locally; prompt
+text is not sent to the model-streaming service. ABSENT can remove a valid private
+semantic-only finding, so this experiment is not safety-validated and is not a
+deployment recommendation.
+
+The caller must explicitly name one of `privoke-presence-efficient`,
+`privoke-presence-balanced`, or `privoke-presence-quality`. An optional finite
+decision-threshold override in `[0, 1]` is request-scoped; it does not mutate the
+artifact's stored threshold or weights. Presence output still does not assign
+sensitivity, visibility, categories, or policy actions, and an ABSENT result does not
+make a prompt clean or safe. Check the typed per-layer gate trace for APPLIED status,
+both model identities, probabilities, thresholds, labels, and preserved raw semantic
+results. Errors remain visible, and the ordinary failure policy applies. Older servers
+may ignore the additive request field; a caller must verify the returned trace.
+
+This option is exploratory. It has no default enablement or validated safety claim;
+the [prospective cascade protocol](../paper/research/contextual-cascade-protocol.md)
+records the planned controls and limitations.
 
 `ComputePresenceGradients` updates only the sparse logistic head; its vocabulary and
 IDF tensors remain frozen. Optional held-out examples must contain both binary labels
