@@ -89,15 +89,16 @@ Presence is a separate `annotation_presence` task using an explicit
 ID and nonempty bounded text. It returns probability, stored threshold, typed
 ABSENT/PRESENT prediction, model/version, artifact checksum, parameter fingerprint,
 inference elapsed time and error. Check error first: UNSPECIFIED and default
-numeric fields on failure are not a clean prediction. `elapsed_ms` measures
-presence inference after model acquisition; it excludes fetch and browser overhead.
+numeric fields on failure are not a clean prediction. `elapsed_ms` includes
+validation, stream/cache access and inference; it excludes caller network and
+browser overhead.
 
 `PresenceTrainingExample` carries text, explicit ABSENT/PRESENT target, positive
-weight and optional source group. UNSPECIFIED/unknown labels are rejected.
+weight and a required source group. UNSPECIFIED/unknown labels are rejected.
 `ComputePresenceGradients` carries separate bounded training and held-out batches
 and returns head deltas tied to the exact base version, binary metrics and
 fingerprints. Runtime rejects normalized-text overlap and held-out group overlap;
-grouped batches must provide group IDs consistently. The new fuzzer RPC samples
+all rows must provide group IDs. The new fuzzer RPC samples
 its binary curriculum and invokes this runtime path; it does not load model weights.
 Its salted request fingerprint separates presence replay from contextual training.
 

@@ -1,5 +1,8 @@
 # Add after the three research Compose files. Original contextual updater stays intact.
 services:
+  evaluation-tests:
+    volumes:
+      - ./paper/research/model-refactor-protocol.md:/workspace/paper/research/model-refactor-protocol.md:ro
   presence-update-service:
     extends:
       file: docker-compose.yml
