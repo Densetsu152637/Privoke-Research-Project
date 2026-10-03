@@ -68,7 +68,8 @@ with grpc.insecure_channel('client-runtime:50054') as ch:
   try:
    r=s.AnalyzePrompt(q,timeout=3)
    x=next((z for z in r.layers if z.layer==pb.DETECTION_LAYER_SEMANTIC),None)
-   if r.request_id==q.request_id and not r.error and x is not None and x.status=='ok' and not x.error and x.HasField('semantic_presence_gate'):
+   layers_ok=(len(r.layers)==1 and all(z.status=='ok' and not z.error for z in r.layers))
+   if r.request_id==q.request_id and not r.error and layers_ok and x is not None and x.status=='ok' and not x.error and x.HasField('semantic_presence_gate'):
     t=x.semantic_presence_gate
     got={'context':{'model_id':t.contextual_model_id,'model_version':t.contextual_model_version,'artifact_checksum':t.contextual_artifact_checksum,'parameter_fingerprint':t.contextual_parameter_fingerprint},'presence':{'model_id':t.model_id,'model_version':t.model_version,'artifact_checksum':t.artifact_checksum,'parameter_fingerprint':t.parameter_fingerprint,'threshold':t.model_threshold},'status':int(t.status),'error':t.error,'decision_threshold':t.decision_threshold}
     fields=('probability','model_threshold','decision_threshold')
@@ -238,6 +239,7 @@ class DockerBackend:
         self.admin_mutation_outcome_unknown = False
         self.evaluator_job_outcome_unknown = False
         self.runtime_cache_ttl_seconds = 1.0
+        self._last_named_job_removed = False
 
     def call(self, args: list[str], *, data: bytes | None = None, direct: bool = False,
              timeout: int = 180, admin_mutation: bool = False) -> str:
@@ -268,6 +270,7 @@ class DockerBackend:
 
     def _quiesce_named_job(self, name: str) -> bool:
         """Remove only this invocation's named one-off and verify it is absent."""
+        self._last_named_job_removed = False
         try:
             ids = self.call(["docker", "ps", "--all", "--quiet", "--filter", f"name=^{name}$"], direct=True).splitlines()
             if any(not re.fullmatch(r"[0-9a-f]{12,64}", item) for item in ids):
@@ -275,6 +278,7 @@ class DockerBackend:
             for item in ids:
                 self.call(["docker", "rm", "-f", item], direct=True, timeout=30)
             remaining = self.call(["docker", "ps", "--all", "--quiet", "--filter", f"name=^{name}$"], direct=True).splitlines()
+            self._last_named_job_removed = bool(ids) and not remaining
             return not remaining
         except Exception:
             return False
@@ -426,12 +430,14 @@ class DockerBackend:
              study_root: Path, output: Path) -> dict:
         try:
             container = self.call(args, timeout=120)
-        except Exception:
-            if not self._quiesce_named_job(name):
+        except Exception as exc:
+            quiescent = self._quiesce_named_job(name)
+            if (not quiescent or isinstance(exc, subprocess.TimeoutExpired) and not self._last_named_job_removed):
                 self.evaluator_job_outcome_unknown = True
             raise
         if not re.fullmatch(r"[0-9a-f]{12,64}", container):
-            if not self._quiesce_named_job(name):
+            quiescent = self._quiesce_named_job(name)
+            if not quiescent or not self._last_named_job_removed:
                 self.evaluator_job_outcome_unknown = True
             raise ValueError("Compose did not return the one-off evaluator container ID.")
         record = {"container_id": container, "stage": stage, "pair": pair,

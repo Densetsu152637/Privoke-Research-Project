@@ -6,6 +6,7 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import types
@@ -269,6 +270,16 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
                     pair="original-efficient", study_root=Path("unused"), output=Path("unused"))
         self.assertFalse(backend.evaluator_job_outcome_unknown)
 
+    def test_timed_out_launch_stays_unknown_when_only_absence_is_observed(self):
+        backend = runner.DockerBackend(Path("unused"))
+        timeout = subprocess.TimeoutExpired(["docker", "compose", "run"], 120)
+        with patch.object(backend, "call", side_effect=timeout), \
+             patch.object(backend, "_quiesce_named_job", return_value=True):
+            with self.assertRaises(subprocess.TimeoutExpired):
+                backend._job(["compose", "run"], name="cascade-timeout", stage="collect-validation",
+                    pair="original-efficient", study_root=Path("unused"), output=Path("unused"))
+        self.assertTrue(backend.evaluator_job_outcome_unknown)
+
     def test_identity_probe_against_real_generated_protobuf_and_mocked_stub(self):
         generated = ROOT / "extension/client-runtime/generated"
         if not (generated / "privoke/v1/runtime_pb2.py").is_file():
@@ -300,11 +311,17 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
         response = pb.AnalyzePromptResponse(request_id="cascade-identity-probe", error="", layers=[
             pb.RuntimeLayerExecution(layer=pb.DETECTION_LAYER_SEMANTIC, status="ok", error="",
                                      semantic_presence_gate=trace)])
+        response_with_unrequested_error = pb.AnalyzePromptResponse(
+            request_id="cascade-identity-probe", error="", layers=[
+                *response.layers,
+                pb.RuntimeLayerExecution(layer=pb.DETECTION_LAYER_NER, status="error", error="injected")])
         class Stub:
+            calls = 0
             def AnalyzePrompt(self, request, timeout):
                 self.request = request
                 self.timeout = timeout
-                return response
+                self.calls += 1
+                return response_with_unrequested_error if self.calls == 1 else response
         stub = Stub()
         class Channel:
             def __enter__(self): return self
@@ -317,6 +334,7 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
              contextlib.redirect_stdout(out):
             exec(runner.IDENTITY_PROBE, {"__name__": "__main__"})
         self.assertEqual(stub.request.request_id, "cascade-identity-probe")
+        self.assertEqual(stub.calls, 2, "Probe must reject any errored returned layer before accepting identities.")
         self.assertEqual(stub.request.semantic_presence_gate.threshold, 0.0)
         self.assertEqual(list(stub.request.layers), [pb.DETECTION_LAYER_SEMANTIC])
         self.assertEqual(json.loads(out.getvalue()), {"context": expected["context"], "presence": expected["presence"]})
