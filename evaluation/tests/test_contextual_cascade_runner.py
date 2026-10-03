@@ -432,7 +432,8 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
         raw_dir = output / "raw"
         raw_dir.mkdir(parents=True)
         cases = [{"case_id": f"case-{i}", "text": f"private fixture {i}",
-                  "visibility_hint": "P2" if i < 4 else None} for i in range(48)]
+                  "visibility_hint": "P2" if i < 4 else None,
+                  "required_sensitive": False, "allowed_actions": ["ALLOW"]} for i in range(48)]
         identity = {"model_id": runner.PRESENCE_IDS["efficient"], "model_version": "v1",
             "artifact_checksum": "a" * 64, "parameter_fingerprint": "b" * 64, "threshold": .5}
         semantic_identity = {"model_id": "privoke-balanced", "model_version": "v0.3.0",
@@ -515,7 +516,8 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
 
     def test_fixture_pair_validator_rejects_raw_error_text_hint_threshold_and_prediction_tampering(self):
         for mutation in ("error", "text", "hint", "request_threshold", "decision_threshold",
-                         "model_threshold", "context_identity", "arbitrary_skip", "prediction"):
+                         "model_threshold", "context_identity", "arbitrary_skip", "prediction",
+                         "case_annotation"):
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
                 with patch.object(runner, "RESULTS", root):
@@ -545,6 +547,11 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
                     elif mutation == "arbitrary_skip":
                         record["response"]["layers"][-1]["status"] = "skipped"
                         record["response"]["layers"][-1]["error"] = "unapproved skip"
+                    elif mutation == "case_annotation":
+                        prediction_path = output / "predictions.json"
+                        predictions = json.loads(prediction_path.read_text(encoding="utf-8"))
+                        predictions[0]["case"]["required_sensitive"] = True
+                        prediction_path.write_text(json.dumps(predictions), encoding="utf-8")
                     else:
                         prediction_path = output / "predictions.json"
                         predictions = json.loads(prediction_path.read_text(encoding="utf-8"))

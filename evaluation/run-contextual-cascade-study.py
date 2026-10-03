@@ -304,6 +304,8 @@ def validate_fixture_pair_output(*, output_dir: Path, pair: str, eligible: bool,
         raise ValueError("Fixture raw RPC evidence is incomplete or differs from report hashes.")
     result_path = container_path(output_dir)
     prediction_by_id = {row["case"]["case_id"]: row for row in predictions}
+    if any(prediction_by_id[case["case_id"]].get("case") != case for case in cases):
+        raise ValueError("Fixture prediction annotations differ from the frozen reviewed cases.")
     if len([case for case in cases if case.get("visibility_hint") is not None]) != 4:
         raise ValueError("Fixture case list differs from the fixed four visibility-hint contract.")
     verifier = load_caller()
