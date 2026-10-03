@@ -24,6 +24,13 @@ def read_jsonl(path):
     return [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def require_sha256(path, expected, label):
+    actual = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    if actual != expected:
+        raise ValueError(f"{label} hash mismatch.")
+    return actual
+
+
 def validate_partition_rows(rows, name):
     seen_ids = set()
     seen_texts = set()
@@ -45,6 +52,19 @@ def validate_partition_rows(rows, name):
         seen_texts.add(key)
     return {"ids": seen_ids, "groups": {row["group_id"] for row in rows},
             "texts": {row["text_key"] for row in rows}}
+
+
+def validate_bundle_metadata(source_rows, bundle_rows, name):
+    """Compare text-free metadata to the canonical partition rows."""
+    keys = ("id", "group_id", "text_key", "expected_has_pii")
+    if not isinstance(bundle_rows, list) or len(bundle_rows) != len(source_rows):
+        raise ValueError(f"Bundle {name} rows differ from source partition JSONL.")
+    if any(not isinstance(row, dict) or set(row) != set(keys) for row in bundle_rows):
+        raise ValueError(f"Bundle {name} metadata is malformed.")
+    projected = [{key: row[key] for key in keys} for row in source_rows]
+    if projected != bundle_rows:
+        raise ValueError(f"Bundle {name} rows differ from source partition JSONL.")
+    return projected
 
 
 def validate_feature_rows(features, expected, dimension=EXPECTED_DIM):
@@ -74,6 +94,26 @@ def validate_feature_rows(features, expected, dimension=EXPECTED_DIM):
     return aligned
 
 
+def validate_development_source(prepared_rows, locked_rows):
+    """Require every prepared dev ID to retain its exact locked text and truth provenance."""
+    def by_id(rows, source):
+        mapping = {}
+        for row in rows:
+            if (not isinstance(row.get("id"), str) or type(row.get("expected_has_pii")) is not bool
+                    or not isinstance(row.get("group_id"), str) or not isinstance(row.get("text"), str)):
+                raise ValueError(f"{source} has malformed ID, group, text or truth metadata.")
+            if row["id"] in mapping:
+                raise ValueError(f"{source} has duplicate IDs.")
+            mapping[row["id"]] = (row["text"], training_text_key(row["text"]),
+                                   row["expected_has_pii"], row["group_id"])
+        return mapping
+    prepared = by_id(prepared_rows, "Prepared development partition")
+    locked = by_id(locked_rows, "Locked development partition")
+    if prepared != locked:
+        raise ValueError("Prepared development rows differ from locked text/truth/group metadata by ID.")
+    return prepared
+
+
 def scores(y, pred):
     positives = int(y.sum())
     negatives = len(y) - positives
@@ -98,10 +138,10 @@ def select_threshold(y, probability):
     return threshold, measured
 
 
-def verify_locked(features, reference_path, locked_rows, locked_manifest_path):
+def verify_locked(features, reference_path, locked_rows, locked_development_path, locked_manifest_path):
     ref = json.loads(Path(reference_path).read_text(encoding="utf-8"))
     errors = ref.get("errors")
-    if errors not in (0, []) or ref.get("metrics", {}).get("evaluated_samples") != len(locked_rows):
+    if type(errors) is not list or errors or ref.get("metrics", {}).get("evaluated_samples") != len(locked_rows):
         raise ValueError("Archived live semantic report is incomplete or contains errors.")
     reference_rows = ref["metadata"]["predictions"]
     ref_map = {row["example_id"]: row for row in reference_rows}
@@ -124,9 +164,13 @@ def verify_locked(features, reference_path, locked_rows, locked_manifest_path):
                 or feature["group_id"] != expected["group_id"]
                 or feature["original_binary"] != refrow["detected_sensitive"]):
             raise ValueError("Offline original binary prediction differs from archived live semantic result.")
-    raw = Path(locked_manifest_path).read_bytes()
-    manifest = json.loads(raw)
-    return hashlib.sha256(raw).hexdigest(), hashlib.sha256(Path(reference_path).read_bytes()).hexdigest()
+    manifest_raw = Path(locked_manifest_path).read_bytes()
+    manifest = json.loads(manifest_raw)
+    development_raw = Path(locked_development_path).read_bytes()
+    if hashlib.sha256(development_raw).hexdigest() != manifest["partitions"]["development"]["sha256"]:
+        raise ValueError("Locked development JSONL hash differs from its manifest.")
+    return (hashlib.sha256(development_raw).hexdigest(), hashlib.sha256(manifest_raw).hexdigest(),
+            hashlib.sha256(Path(reference_path).read_bytes()).hexdigest())
 
 
 def make_rows(ids, groups, labels, probabilities, predictions):
@@ -168,8 +212,8 @@ def main():
             if digest != bundle["partition_sha256"].get(name) or digest != study_manifest["partition_sha256"].get(name):
                 raise ValueError(f"{name} partition digest mismatch.")
             source_rows = read_jsonl(path)
-            if source_rows != bundle["partitions"][name]["rows"]:
-                raise ValueError(f"Bundle {name} rows differ from source partition JSONL.")
+            bundle_rows = bundle["partitions"][name]["rows"]
+            validate_bundle_metadata(source_rows, bundle_rows, name)
             partitions[name] = source_rows
             identities[name] = validate_partition_rows(source_rows, name)
             serialized_ids = "\n".join(sorted(identities[name]["ids"]))
@@ -230,6 +274,7 @@ def main():
             protected["ids"].update(idset)
             protected["groups"].update(groupset)
             protected["texts"].update(textset)
+        validate_development_source(partitions["development"], locked_rows["development"])
         if (identities["development"]["ids"] != {row["id"] for row in locked_rows["development"]}
                 or identities["development"]["groups"] != {row["group_id"] for row in locked_rows["development"]}
                 or identities["development"]["texts"] != {training_text_key(row["text"]) for row in locked_rows["development"]}):
@@ -239,8 +284,13 @@ def main():
                 or {training_text_key(row["text"]) for row in locked_rows["development"]}
                    & {training_text_key(row["text"]) for row in locked_rows["final"]}):
             raise ValueError("Locked development and final partitions overlap.")
-        lock_hash, reference_hash = verify_locked(features["development"], bundle["original_semantic_reference"],
-                                                  locked_rows["development"], locked_root / "manifest.json")
+        reference_path = Path(bundle["original_semantic_reference"])
+        rule_union_path = Path(bundle["rule_union"])
+        require_sha256(reference_path, bundle["original_semantic_reference_sha256"], "Archived original semantic report")
+        require_sha256(rule_union_path, bundle["rule_union_sha256"], "Reused rule report")
+        lock_hash, lock_manifest_hash, reference_hash = verify_locked(
+            features["development"], reference_path, locked_rows["development"],
+            locked_root / "development.jsonl", locked_root / "manifest.json")
         y_train = np.asarray([row["expected_has_pii"] for row in partitions["train"]], dtype=np.int8)
         y_val = np.asarray([row["expected_has_pii"] for row in partitions["validation"]], dtype=np.int8)
         x_train = np.asarray([row["pooled"] for row in features["train"]], dtype=np.float64)
@@ -279,7 +329,8 @@ def main():
             failed = {"status": "failed", "failure": "No predefined fit converged and met validation selection requirements.",
                       "input_sha256": input_digest, "fits": fit_records,
                       "provenance": {"study_manifest_sha256": bundle["study_manifest_sha256"],
-                                     "locked_development_sha256": study_manifest["locked_sha256"]["development"],
+                                     "locked_development_jsonl_sha256": study_manifest["locked_sha256"]["development"],
+                                     "locked_manifest_sha256": lock_manifest_hash,
                                      "locked_final_sha256": study_manifest["locked_sha256"]["final"]}}
             write_fresh(args.output, failed)
             return 1
@@ -294,7 +345,8 @@ def main():
                   "coefficient": selected["coefficient"], "intercept": selected["intercept"],
                   "input_sha256": input_digest,
                   "study_manifest_sha256": bundle["study_manifest_sha256"],
-                  "locked_development_sha256": study_manifest["locked_sha256"]["development"],
+                  "locked_development_jsonl_sha256": study_manifest["locked_sha256"]["development"],
+                  "locked_manifest_sha256": lock_manifest_hash,
                   "locked_final_sha256": study_manifest["locked_sha256"]["final"]}
         selection_path = Path(args.output).with_name(Path(args.output).stem + "-selection.json")
         write_fresh(selection_path, frozen)
@@ -338,7 +390,9 @@ def main():
                   "config": {"feature_dimensions": EXPECTED_DIM, "Cs": CS, "class_weight": "balanced", "solver": "lbfgs",
                              "max_iter": 1000, "random_state": 7102026, "recall_floor": 0.9},
                   "input_sha256": input_digest, "selection_artifact": selection_path.name,
-                  "locked_development_sha256": lock_hash, "original_semantic_reference_sha256": reference_hash,
+                  "locked_development_jsonl_sha256": lock_hash,
+                  "locked_manifest_sha256": lock_manifest_hash,
+                  "original_semantic_reference_sha256": reference_hash,
                   "fits": fit_records, "selected_C": selected_c, "selected_threshold": selected["threshold"],
                   "development_with_reused_regex_ner_scope": "reused-output diagnostic, not live pipeline",
                   "selected_development_with_reused_regex_ner": union_metrics,

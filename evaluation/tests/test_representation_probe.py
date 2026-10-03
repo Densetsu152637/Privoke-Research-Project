@@ -5,11 +5,13 @@ import json
 from pathlib import Path
 import sys
 import types
+import uuid
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
 import numpy as np
+from privoke_model.fingerprint import parameter_fingerprint
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -31,6 +33,7 @@ def load_script(name):
 
 prep = load_script("prepare-representation-study")
 fit = load_script("fit-representation-probe")
+harness = load_script("run-representation-diagnostic")
 
 
 class Example:
@@ -64,6 +67,15 @@ class RepresentationProbeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "text key"):
             fit.validate_partition_rows([{**source[0], "text_key": "forged"}], "train")
 
+    def test_text_free_bundle_rows_match_source_and_reject_tampering(self):
+        source = [{"id": "a", "group_id": "g", "text": "text a", "text_key": "text a",
+                   "expected_has_pii": True}]
+        bundle = [{key: row[key] for key in ("id", "group_id", "text_key", "expected_has_pii")}
+                  for row in source]
+        self.assertEqual(bundle, fit.validate_bundle_metadata(source, bundle, "train"))
+        with self.assertRaisesRegex(ValueError, "source partition"):
+            fit.validate_bundle_metadata(source, [{**bundle[0], "group_id": "tampered"}], "train")
+
     def test_selection_keeps_groups_disjoint_and_balanced(self):
         rows = [Example(f"i{label}{i}", f"g{i // 5}", f"text {label} {i}", bool(label))
                 for label in (0, 1) for i in range(250)]
@@ -96,7 +108,7 @@ class RepresentationProbeTests(unittest.TestCase):
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             locked_path = root / "development.jsonl"
-            locked = [{"id": f"id-{i}", "group_id": f"g-{i}", "text": f"text {i}",
+            locked = [{"id": f"id-{i}", "group_id": f"g-{i // 4}", "text": f"text {i}",
                        "expected_has_pii": i % 2 == 0} for i in range(502)]
             locked_path.write_text("".join(json.dumps(row) + "\n" for row in locked), encoding="utf-8")
             manifest_path = root / "manifest.json"
@@ -110,10 +122,38 @@ class RepresentationProbeTests(unittest.TestCase):
             features = [{"id": row["id"], "group_id": row["group_id"],
                          "expected_has_pii": row["expected_has_pii"], "original_binary": False}
                         for row in locked]
-            fit.verify_locked(features, reference_path, locked, manifest_path)
+            fit.verify_locked(features, reference_path, locked, locked_path, manifest_path)
             features[0]["group_id"] = "tampered"
             with self.assertRaisesRegex(ValueError, "Offline original binary"):
-                fit.verify_locked(features, reference_path, locked, manifest_path)
+                fit.verify_locked(features, reference_path, locked, locked_path, manifest_path)
+            features[0]["group_id"] = locked[0]["group_id"]
+            moved_text = [dict(row) for row in locked]
+            moved_text[0]["text"], moved_text[2]["text"] = moved_text[2]["text"], moved_text[0]["text"]
+            with self.assertRaisesRegex(ValueError, "locked text/truth/group"):
+                fit.validate_development_source(moved_text, locked)
+            reference = json.loads(reference_path.read_text(encoding="utf-8"))
+            reference["errors"] = False
+            reference_path.write_text(json.dumps(reference), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "incomplete or contains errors"):
+                fit.verify_locked(features, reference_path, locked, locked_path, manifest_path)
+            with self.assertRaisesRegex(ValueError, "hash mismatch"):
+                fit.require_sha256(reference_path, "0" * 64, "Archived original semantic report")
+
+    def test_prepare_target_is_fresh_and_downstream_paths_share_it(self):
+        output = harness.RESULTS / f"__representation_layout_test_{uuid.uuid4().hex}"
+        target, container_target, command = harness.preparation_invocation(output)
+        self.assertFalse(target.exists())
+        self.assertTrue(container_target.endswith(f"/{output.name}/prepared"))
+        self.assertEqual(container_target, command[-1])
+        self.assertEqual(f"{container_target}/train.jsonl",
+                         harness.prepared_partition_container_path(output, "train.jsonl"))
+        self.assertEqual(f"{container_target}/manifest.json",
+                         harness.prepared_partition_container_path(output, "manifest.json"))
+
+    def test_runtime_parameter_fingerprint_uses_float32_and_shapes(self):
+        artifact = {"parameters": {"weight": {"shape": [2], "values": [0.1000000002, 2.0]}}}
+        runtime = {"weight": np.asarray(artifact["parameters"]["weight"]["values"], dtype=np.float32)}
+        self.assertEqual(parameter_fingerprint(runtime, {"weight": [2]}), harness.artifact_fingerprint(artifact))
 
     def test_threshold_obeys_floor_and_tie_order(self):
         threshold, metrics = fit.select_threshold(np.array([1, 1, 1, 0, 0]),
