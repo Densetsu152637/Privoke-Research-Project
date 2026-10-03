@@ -49,6 +49,10 @@ Rules map directly to `Sensitivity`, `Visibility`, and `Category` values. They s
 
 ## Visibility Rules
 
+Workplace matching requires a personal employer/workplace declaration or a
+structured employment field. Generic discussion of work, companies, or managers
+does not by itself establish identity disclosure.
+
 Visibility-only rules use `Sensitivity.S0` and no categories. The hosted pipeline retains these `ALLOW` findings and combines their strongest known visibility with sensitive evidence. Request-level `visibility_hint` can further increase privacy restrictions without weakening an existing decision.
 
 ## Subagent Tasks

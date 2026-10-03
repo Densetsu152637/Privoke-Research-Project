@@ -18,6 +18,24 @@ class DetectorQualityTests(unittest.TestCase):
     def setUp(self) -> None:
         self.detector = RuleDetector()
 
+    def test_generic_workplace_topics_do_not_imply_identity_disclosure(self):
+        for text in (
+            "Help draft a message to a manager about an international flight.",
+            "Explain the remote work policy for next quarter.",
+            "How should a company describe volunteer work in an application?",
+        ):
+            with self.subTest(text=text):
+                self.assertFalse(any(result.metadata.get("rule_name") == "workplace_keyword"
+                                     for result in self.detector.analyze(text)))
+
+    def test_personal_employer_disclosures_still_trigger(self):
+        for text in ("I work at ExampleCorp.", "My employer is ExampleCorp.",
+                     "Employer: ExampleCorp", "We are employed by ExampleCorp."):
+            with self.subTest(text=text):
+                expected = "workplace_keyword"
+                found = any(result.metadata.get("rule_name") == expected for result in self.detector.analyze(text))
+                self.assertTrue(found)
+
     def test_clean_financial_definition_does_not_trigger_broad_rule(self) -> None:
         results = self.detector.analyze(
             "Can you explain what a bank account number is using placeholders only?"

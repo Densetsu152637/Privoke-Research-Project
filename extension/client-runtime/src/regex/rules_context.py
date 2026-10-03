@@ -15,7 +15,9 @@ def contextual_rules() -> List[RuleDefinition]:
         ),
         RuleDefinition(
             "workplace_keyword",
-            r"\b(work(?:s|ing)?|employ(?:ee|er|ment)|company|office|boss|colleague|manager|department)\b",
+            r"\b(?:(?:i|we)\s+(?:work|worked|am\s+employed|are\s+employed)\s+(?:at|for|by)"
+            r"|(?:my|our)\s+(?:employer|company|workplace|office|manager|boss)\s*(?:is|are|[:=])"
+            r"|(?:employer|company|department)\s*[:=])\s+[a-z][\w&.-]*",
             initialise_unpacked(Sensitivity.S1, Visibility.PU, [Category.IDENTITY]),
             "workplace_info",
         ),
