@@ -57,6 +57,9 @@ func loadModelArtifact(path string, expectedModelID string) (*loadedArtifact, er
 	if err := json.Unmarshal(raw, &artifact); err != nil {
 		return nil, fmt.Errorf("decode artifact: %w", err)
 	}
+	if artifact.Architecture == presenceArchitecture {
+		if err := validatePresenceRawTensorFlags(raw); err != nil { return nil, err }
+	}
 	checksum, err := calculateArtifactChecksum(raw)
 	if err != nil {
 		return nil, fmt.Errorf("calculate artifact checksum: %w", err)
@@ -131,9 +134,6 @@ func validateModelArtifact(artifact *modelArtifact, expectedModelID string) erro
 	}
 	if err := validateArtifactParameters(artifact.Parameters); err != nil {
 		return err
-	}
-	if artifact.Architecture == presenceArchitecture {
-		if err := validatePresenceRawTensorFlags(raw); err != nil { return nil, err }
 	}
 	if artifact.Architecture == presenceArchitecture {
 		return validatePresenceArtifact(artifact)

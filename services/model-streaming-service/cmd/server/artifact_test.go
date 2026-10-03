@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -95,5 +96,30 @@ func TestPresenceRawTrainableFlagsAndUnicode(t *testing.T) {
 	}
 	for _, raw := range []string{`"\ud83e\uddea"`, `"\\ud800"`, `"café"`} {
 		if !validJSONUnicode([]byte(raw)) { t.Fatalf("valid Unicode rejected: %s", raw) }
+	}
+}
+
+func TestLoadPresenceArtifactRejectsMissingAndNullTrainableFlags(t *testing.T) {
+	for _, test := range []string{"missing", "null"} {
+		t.Run(test, func(t *testing.T) {
+			artifact := presenceFixture(t)
+			raw, err := json.Marshal(artifact)
+			if err != nil { t.Fatal(err) }
+			var payload map[string]any
+			if err := json.Unmarshal(raw, &payload); err != nil { t.Fatal(err) }
+			tensor := payload["parameters"].(map[string]any)["features.word.idf"].(map[string]any)
+			if test == "missing" { delete(tensor, "trainable") } else { tensor["trainable"] = nil }
+			raw, err = json.Marshal(payload)
+			if err != nil { t.Fatal(err) }
+			checksum, err := calculateArtifactChecksum(raw)
+			if err != nil { t.Fatal(err) }
+			payload["checksum"] = checksum
+			raw, err = json.Marshal(payload)
+			if err != nil { t.Fatal(err) }
+			path := filepath.Join(t.TempDir(), "presence.json")
+			if err := os.WriteFile(path, raw, 0o600); err != nil { t.Fatal(err) }
+			_, err = loadModelArtifact(path, "privoke-presence-efficient")
+			if err == nil || !strings.Contains(err.Error(), "explicit boolean trainable") { t.Fatalf("expected raw flag rejection, got %v", err) }
+		})
 	}
 }
