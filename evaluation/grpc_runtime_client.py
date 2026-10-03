@@ -8,6 +8,7 @@ PriVoke detector implementation modules.
 from __future__ import annotations
 
 import json
+import os
 import sys
 
 import grpc
@@ -18,12 +19,14 @@ sys.path.insert(0, "/workspace/extension/client-runtime/generated")
 from privoke.v1 import runtime_pb2, runtime_pb2_grpc  # noqa: E402
 
 
-TARGET = "127.0.0.1:50054"
+TARGET = os.getenv("PRIVOKE_RUNTIME_TARGET", "127.0.0.1:50054")
 
 LAYER_NAMES = {
     "pipeline": runtime_pb2.DETECTION_LAYER_RUNTIME,
     "runtime": runtime_pb2.DETECTION_LAYER_RUNTIME,
     "regex": runtime_pb2.DETECTION_LAYER_REGEX,
+    "ner": runtime_pb2.DETECTION_LAYER_NER,
+    "semantic": runtime_pb2.DETECTION_LAYER_SEMANTIC,
 }
 
 
@@ -51,7 +54,11 @@ def handle(stub, request: dict) -> dict:
         runtime_pb2.AnalyzePromptRequest(
             text=request["text"],
             source="privoke-evaluation",
-            layers=[_layer_value(request.get("layer", "pipeline"))],
+            layers=(
+                [runtime_pb2.DETECTION_LAYER_REGEX, runtime_pb2.DETECTION_LAYER_NER]
+                if request.get("layer") == "regex-ner"
+                else [_layer_value(request.get("layer", "pipeline"))]
+            ),
             semantic_model_id=request.get("model_id", "privoke-baseline"),
         ),
         timeout=120,
@@ -74,6 +81,12 @@ def handle(stub, request: dict) -> dict:
                 "layer": runtime_pb2.DetectionLayer.Name(layer.layer),
                 "status": layer.status,
                 "error": layer.error or None,
+                "results": [{
+                    "sensitivity": result.classification.sensitivity,
+                    "categories": list(result.classification.categories),
+                    "action": result.action,
+                    "metadata": dict(result.metadata),
+                } for result in layer.results],
             }
             for layer in response.layers
         ],

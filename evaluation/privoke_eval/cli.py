@@ -98,6 +98,7 @@ def evaluate_run(
     sensitivity_counts: Counter[str] = Counter()
     returned_category_counts: Counter[str] = Counter()
     elapsed_ms_values: list[float] = []
+    prediction_records: list[dict] = []
 
     iterator = tqdm(examples, desc=f"Evaluating {dataset_name} / {layer}") if not quiet else examples
     for index, example in enumerate(iterator):
@@ -109,6 +110,11 @@ def evaluate_run(
             )
         except Exception as exc:  # noqa: BLE001
             errors += 1
+            prediction_records.append({
+                "example_id": str(example.metadata.get("example_id", index)),
+                "expected_has_pii": example.expected_has_pii,
+                "status": "error", "error": str(exc),
+            })
             error_truths.append(int(example.expected_has_pii))
             failures.append(
                 EvaluationFailure(
@@ -127,6 +133,16 @@ def evaluate_run(
             continue
 
         detected_sensitive = outcome.detected_sensitive
+        prediction_records.append({
+            "example_id": str(example.metadata.get("example_id", index)),
+            "group_id": str(example.metadata.get("group_id") or example.metadata.get("example_id", index)),
+            "expected_has_pii": example.expected_has_pii,
+            "detected_sensitive": detected_sensitive,
+            "sensitivity": outcome.sensitivity, "visibility": outcome.visibility,
+            "categories": list(outcome.categories), "action": outcome.action,
+            "confidence": outcome.confidence, "elapsed_ms": outcome.elapsed_ms,
+            "status": "ok", "layers": list(outcome.layer_records),
+        })
         elapsed_ms_values.append(outcome.elapsed_ms)
         action_counts[outcome.action] += 1
         sensitivity_counts[outcome.sensitivity] += 1
@@ -213,6 +229,7 @@ def evaluate_run(
             "dataset_revision": spec.revision,
             "language_filter": "english" if english_only else "all",
             "software_versions": _software_versions(),
+            "predictions": prediction_records,
             "prediction_diagnostics": {
                 "action_counts": dict(sorted(action_counts.items())),
                 "sensitivity_counts": dict(sorted(sensitivity_counts.items())),
@@ -293,7 +310,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--layer",
-        choices=("pipeline", "regex"),
+        choices=("pipeline", "regex", "ner", "semantic", "regex-ner"),
         default="pipeline",
         help="Detector layer to evaluate.",
     )

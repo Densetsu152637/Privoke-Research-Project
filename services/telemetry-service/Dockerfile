@@ -12,6 +12,7 @@ RUN apt-get update \
     && pip install --no-cache-dir --upgrade pip setuptools wheel
 
 COPY shared /workspace/shared
+COPY evaluation/run-component-tests.py /workspace/evaluation/run-component-tests.py
 COPY services/telemetry-service /workspace/services/telemetry-service
 
 WORKDIR /workspace/services/telemetry-service

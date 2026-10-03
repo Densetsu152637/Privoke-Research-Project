@@ -1,0 +1,5 @@
+FROM mcr.microsoft.com/playwright:v1.63.0-noble
+RUN npm install --prefix /opt/privoke-browser-test playwright@1.63.0
+ENV NODE_PATH=/opt/privoke-browser-test/node_modules
+WORKDIR /workspace
+CMD ["node", "evaluation/run-browser-capture.mjs"]

@@ -8,7 +8,7 @@
     "build:firefox": "node scripts/build.mjs --firefox",
     "dev": "node scripts/build.mjs --watch",
     "dev:firefox": "node scripts/build.mjs --firefox --watch",
-    "test": "node --test",
+    "test": "node ../evaluation/run-browser-tests.mjs",
     "verify:browser": "node scripts/verify-browser-native-host.mjs"
   },
   "dependencies": {

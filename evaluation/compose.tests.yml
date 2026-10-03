@@ -1,0 +1,75 @@
+# Use with: docker compose -f docker-compose.yml -f evaluation/compose.tests.yml
+services:
+  client-runtime:
+    container_name: privoke-research-eval-20261003-runtime
+    environment:
+      PRIVOKE_MODEL_DEVICE: cpu
+  model-streaming-service:
+    container_name: privoke-research-eval-20261003-model
+  param-update-service:
+    container_name: privoke-research-eval-20261003-updater
+    environment:
+      FUZZER_PROMPT_COUNT: 0
+  privoke-fuzzer:
+    container_name: privoke-research-eval-20261003-fuzzer
+  telemetry-service:
+    container_name: privoke-research-eval-20261003-telemetry
+  evaluation-tests:
+    build:
+      context: .
+      dockerfile: evaluation/Dockerfile
+    volumes:
+      - ./evaluation:/workspace/evaluation:ro
+      - ./evaluation/results:/workspace/evaluation/results
+  supervisor-tests:
+    build:
+      context: .
+      dockerfile: evaluation/Dockerfile
+    working_dir: /workspace/extension/runtime-supervisor
+    environment:
+      PYTHONPATH: /workspace/extension/client-runtime/generated:/workspace/shared/python
+    volumes:
+      - ./evaluation:/workspace/evaluation:ro
+      - ./extension/runtime-supervisor:/workspace/extension/runtime-supervisor:ro
+    command: [python, /workspace/evaluation/run-component-tests.py, supervisor]
+  browser-tests:
+    image: node:22-bookworm-slim
+    working_dir: /workspace
+    read_only: true
+    network_mode: none
+    volumes:
+      - .:/workspace:ro
+    command: [node, evaluation/run-browser-tests.mjs]
+  browser-capture:
+    build:
+      context: .
+      dockerfile: evaluation/Dockerfile.browser
+    init: true
+    network_mode: none
+    shm_size: 256mb
+    volumes:
+      - .:/workspace:ro
+      - ./evaluation/results:/workspace/evaluation/results
+  model-tests:
+    build:
+      context: .
+      dockerfile: services/model-streaming-service/Dockerfile
+      target: development
+    working_dir: /workspace/services/model-streaming-service
+    environment:
+      GOCACHE: /tmp/go-cache
+    volumes:
+      - ./evaluation:/workspace/evaluation:ro
+    command: [sh, /workspace/evaluation/run-go-tests.sh]
+
+volumes:
+  model-data:
+    name: privoke-research-eval-20261003-model-data
+  param-update-data:
+    name: privoke-research-eval-20261003-update-data
+  telemetry-data:
+    name: privoke-research-eval-20261003-telemetry-data
+  telemetry-client-state:
+    name: privoke-research-eval-20261003-client-state
+  fuzzer-dumps:
+    name: privoke-research-eval-20261003-fuzzer-dumps

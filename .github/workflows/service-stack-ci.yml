@@ -69,7 +69,7 @@ jobs:
             --go-grpc_out=paths=source_relative:gen \
             ../../shared/proto/privoke/v1/parameters.proto
       - name: Test model service with race detection
-        run: go test -race ./...
+        run: bash ../../evaluation/run-go-tests.sh
 
   supervisor-tests:
     name: Runtime supervisor tests
@@ -97,9 +97,9 @@ jobs:
             ../../shared/proto/privoke/v1/parameters.proto \
             ../../shared/proto/privoke/v1/runtime.proto
       - name: Test runtime supervisor
-        run: python -m unittest discover -s test -v
+        run: python ../../evaluation/run-component-tests.py supervisor
       - name: Test stack selection and credential loading
-        run: python -m unittest discover -s ../../shared/python/tests -v
+        run: python ../../evaluation/run-component-tests.py shared
 
   deployment-config:
     name: Deployment configuration
@@ -143,13 +143,13 @@ jobs:
       - name: Run Python unit tests in the built service images
         run: |
           docker compose run --rm --no-deps --entrypoint python client-runtime \
-            -m unittest discover -s test -v
+            /workspace/evaluation/run-component-tests.py client-runtime
           docker compose run --rm --no-deps --entrypoint python param-update-service \
-            -m unittest discover -s tests -v
+            /workspace/evaluation/run-component-tests.py param-update
           docker compose run --rm --no-deps --entrypoint python telemetry-service \
-            -m unittest discover -s tests -v
+            /workspace/evaluation/run-component-tests.py telemetry
           docker compose run --rm --no-deps --entrypoint python privoke-fuzzer \
-            -m unittest discover -s tests -v
+            /workspace/evaluation/run-component-tests.py fuzzer
 
       - name: Start the production stack and wait for health checks
         run: docker compose up -d --wait --wait-timeout 240
@@ -168,13 +168,13 @@ jobs:
           done
 
       - name: Exercise all live gRPC service paths
-        run: docker compose exec -T client-runtime python test/stack_smoke.py --training-request-id ci-production-training
+        run: docker compose exec -T client-runtime python /workspace/evaluation/run-component-tests.py stack-smoke --training-request-id ci-production-training
 
       - name: Verify durable training replay after service restart
         run: |
           docker compose restart param-update-service privoke-fuzzer
           docker compose up -d --wait --wait-timeout 120 param-update-service privoke-fuzzer
-          docker compose exec -T client-runtime python test/stack_smoke.py \
+          docker compose exec -T client-runtime python /workspace/evaluation/run-component-tests.py stack-smoke \
             --training-request-id ci-production-training --replay-training
 
       - name: Verify recovery after a model-service restart
@@ -182,7 +182,7 @@ jobs:
           docker compose restart model-streaming-service
           docker compose up -d --wait --wait-timeout 120 model-streaming-service
           docker compose exec -T client-runtime \
-            python test/stack_smoke.py --skip-training
+            python /workspace/evaluation/run-component-tests.py stack-smoke --skip-training
 
       - name: Stop the production stack before development integration
         run: docker compose down --remove-orphans --timeout 20
@@ -193,7 +193,7 @@ jobs:
       - name: Test cloud deployment and TLS ingress
         run: |
           pip install -r extension/runtime-supervisor/requirements.txt
-          python deploy/gce/tests/smoke.py
+          python evaluation/run-component-tests.py deployment-smoke
 
       - name: Start the development stack and wait for gRPC health checks
         run: |
@@ -203,7 +203,7 @@ jobs:
       - name: Exercise all development gRPC service paths
         run: |
           docker compose -f docker-compose.yml -f docker-compose.dev.yml \
-            exec -T client-runtime python test/stack_smoke.py
+            exec -T client-runtime python /workspace/evaluation/run-component-tests.py stack-smoke
 
       - name: Show stack state and logs after a failure
         if: failure()

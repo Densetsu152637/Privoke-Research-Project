@@ -4,7 +4,7 @@ Run this from the production client-runtime container so that the test uses
 the same Docker network and generated protobuf bindings as the deployed
 runtime:
 
-    docker compose exec -T client-runtime python test/stack_smoke.py
+    docker compose exec -T client-runtime python /workspace/evaluation/run-component-tests.py stack-smoke
 """
 
 from __future__ import annotations

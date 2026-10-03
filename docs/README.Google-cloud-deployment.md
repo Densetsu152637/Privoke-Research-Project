@@ -199,7 +199,7 @@ From a configured workstation, rebuild/reload the extension, leave the hidden lo
 ```bash
 sudo docker compose --project-name privoke \
   --env-file /opt/privoke/current/release.env -f /opt/privoke/current/compose.yml \
-  exec -T client-runtime python test/stack_smoke.py --skip-training
+  exec -T client-runtime python /workspace/evaluation/run-component-tests.py stack-smoke --skip-training
 ```
 
 This internal smoke test verifies service connectivity; the workstation check additionally verifies the public TLS path. Successful health checks alone do not prove external DNS or certificate provisioning.

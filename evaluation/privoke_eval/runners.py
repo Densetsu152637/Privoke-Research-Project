@@ -4,6 +4,7 @@ import atexit
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 from .types import DetectionOutcome
@@ -72,6 +73,7 @@ def run_pipeline(text: str, backend: str | None, layer: str = "pipeline") -> Det
         categories=tuple(categories),
         confidence=float(confidence) if isinstance(confidence, (int, float)) else None,
         elapsed_ms=float(elapsed_ms) if isinstance(elapsed_ms, (int, float)) else 0.0,
+        layer_records=tuple(payload.get("layers", [])),
         sensitivity=sensitivity,
         visibility=str(classification.get("visibility", "PU")),
         masked_text=str(payload["masked_text"]) if payload.get("masked_text") else None,
@@ -106,21 +108,17 @@ def _bridge_process() -> subprocess.Popen[str]:
     repository_root = Path(__file__).resolve().parents[2]
     bridge_source = (repository_root / "evaluation" / "grpc_runtime_client.py").read_text()
     compose_file = repository_root / "docker-compose.yml"
+    command = (
+        [sys.executable, "-u", str(repository_root / "evaluation" / "grpc_runtime_client.py")]
+        if os.getenv("PRIVOKE_EVAL_IN_CONTAINER") == "true"
+        else [
+            "docker", "compose", "-f", str(compose_file), "exec", "-T",
+            "client-runtime", "/opt/venv/bin/python", "-u", "-c", bridge_source,
+        ]
+    )
     try:
         _bridge = subprocess.Popen(
-            [
-                "docker",
-                "compose",
-                "-f",
-                str(compose_file),
-                "exec",
-                "-T",
-                "client-runtime",
-                "/opt/venv/bin/python",
-                "-u",
-                "-c",
-                bridge_source,
-            ],
+            command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

@@ -25,6 +25,8 @@ documents
 **/bin
 **/pkg
 dumps
+evaluation/*.log
+evaluation/results
 services/*/generated
 services/model-streaming-service/gen
 extension/client-runtime/generated

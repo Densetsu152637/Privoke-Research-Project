@@ -85,7 +85,7 @@ def main():
             prepare_ingress_secret_permissions(root_owned_secrets)
             run(*compose, "up", "-d", "--wait", "--wait-timeout", "240")
             # Run the existing internal end-to-end checks against the cloud topology.
-            run(*compose, "exec", "-T", "client-runtime", "python", "test/stack_smoke.py")
+            run(*compose, "exec", "-T", "client-runtime", "python", "/workspace/evaluation/run-component-tests.py", "stack-smoke")
             endpoint = run(*compose, "port", "ingress", "443", capture_output=True).stdout.strip()
             port = endpoint.rsplit(":", 1)[1]
             generated = temporary / "generated"
@@ -147,7 +147,7 @@ def main():
             run(*compose, "exec", "-T", "param-update-service", "python", "-c", "from pathlib import Path; assert Path('/models/.smoke-persisted').read_text() == 'retained'")
             summary_recreated = read_telemetry_summary(compose)
             assert summary_recreated["sample_count"] >= summary_after["sample_count"], "aggregate telemetry count decreased after recreation"
-            run(*compose, "exec", "-T", "client-runtime", "python", "test/stack_smoke.py", "--skip-training")
+            run(*compose, "exec", "-T", "client-runtime", "python", "/workspace/evaluation/run-component-tests.py", "stack-smoke", "--skip-training")
             print("Cloud smoke passed: services, TLS identity, download, aggregate telemetry API, private RPC denial, and recreation.", flush=True)
         except BaseException:
             subprocess.run([*compose, "logs", "--tail", "80", "--no-color"], check=False)

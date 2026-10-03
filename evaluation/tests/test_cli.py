@@ -19,6 +19,11 @@ from privoke_eval.types import (
 
 
 class CliTests(unittest.TestCase):
+    def test_parser_supports_matched_layer_ablations(self):
+        for layer in ("pipeline", "regex", "ner", "semantic", "regex-ner"):
+            args = build_parser().parse_args(["--dataset", "piimb", "--layer", layer])
+            self.assertEqual(args.layer, layer)
+
     def test_parser_accepts_english_only(self) -> None:
         args = build_parser().parse_args(
             ["--dataset", "piimb", "--english-only"]
@@ -105,6 +110,9 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["metrics"]["balanced_accuracy"], 0.5)
         self.assertEqual(payload["metadata"]["sampling"]["selected_label_counts"], {"pii": 2, "clean": 2})
         self.assertEqual(len(payload["metadata"]["sampling"]["selected_example_ids"]), 4)
+        predictions = payload["metadata"]["predictions"]
+        self.assertEqual([item["example_id"] for item in predictions], ["one", "two", "three", "four"])
+        self.assertEqual([item["detected_sensitive"] for item in predictions], [True, False, True, False])
         self.assertEqual(payload["metadata"]["language_filter"], "all")
         self.assertEqual(
             payload["metadata"]["prediction_diagnostics"]["sensitivity_counts"],

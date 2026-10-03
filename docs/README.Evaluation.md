@@ -4,7 +4,7 @@
 
 This folder evaluates whether PriVoke detects privacy-sensitive information. It sends every selected dataset prompt directly to the running Docker `client-runtime` gRPC service, so the tested system is the complete regex/rules + NER + selected LLM pipeline.
 
-The evaluator does not import runtime modules, train another classifier, use SMOTE, or use the fuzzer.
+The scoring evaluator does not import runtime modules, train another classifier or use SMOTE. Separate evaluation-owned orchestration can request the existing fuzzer training service and rerun matched measurements; the service retains its training-loop implementation. See [Docker runners and research orchestration](../evaluation/README.md).
 
 ```text
 dataset prompt

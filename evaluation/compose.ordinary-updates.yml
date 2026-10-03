@@ -1,0 +1,5 @@
+# Add after compose.tests.yml for the ordinary-example comparator.
+services:
+  privoke-fuzzer:
+    environment:
+      FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE: 0
