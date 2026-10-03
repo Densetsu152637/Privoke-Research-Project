@@ -358,8 +358,8 @@ def validate_presence_training_request(request, expected_model_id: str) -> None:
     validate_text(request.model_id, "model_id", required=True)
     if request.model_id != expected_model_id:
         raise ValueError(f"model_id must be {expected_model_id!r}.")
-    if request.prompt_count <= 0:
-        raise ValueError("prompt_count must be greater than zero.")
+    if request.prompt_count < 2:
+        raise ValueError("Presence prompt_count must be at least two to train both binary classes.")
     if len(request.metadata) > 64:
         raise ValueError("metadata may contain at most 64 entries.")
     for key, value in request.metadata.items():
