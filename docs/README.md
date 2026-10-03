@@ -22,6 +22,7 @@ Commands in these guides retain their original working-directory assumptions. St
 | [Telemetry](README.Telemetry-service.md) | Metadata ingestion and storage |
 | [Shared contracts](README.Shared-contracts.md) | Protobuf and shared Python packages |
 | [Model artifacts](README.Model-artifacts.md) | Model storage and formats |
+| [Sparse presence profile results](presence-model-improvements.md) | Validation-selected binary annotation-presence profiles and matched runtime measurements |
 | [Evaluation](README.Evaluation.md) | Datasets, experiments and metrics |
 | [Regex evaluation results](README.Regex-evaluation-results.md) | Existing evaluation report |
 | [Docker evaluation runners](../evaluation/README.md) | Central test invocation, controlled update experiments and raw run manifests |

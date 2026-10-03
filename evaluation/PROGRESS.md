@@ -2,6 +2,18 @@
 
 ## Current checkpoint — 4 October 2026
 
+The latest completed profile run fit three sparse binary annotation-presence
+models and measured each against the same 502 locked development rows. The
+validation-selected runtime bases scored 249/169/69/15 (efficient),
+247/181/57/17 (balanced), and 247/189/49/17 (quality), in TP/TN/FP/FN order;
+all three had zero errors and exact ID/label/group joins. This is a separate
+binary task, not a contextual severity or policy result. The live selected
+contextual pipeline remains at 90.53% recall and 29.41% specificity; final
+remains unscored. See [sparse presence profile results](../docs/presence-model-improvements.md)
+and the [prospective protocol](../paper/research/model-refactor-protocol.md).
+The evaluator suite passed 84 tests; see `presence-evaluator-tests-v2.log`.
+The bounded fixed-seed update study is not yet reported in this checkpoint.
+
 The completed [sparse text control](../paper/research/text-control-results.md)
 selected C=1 using validation before development scoring. It scored
 TP248/TN186/FP52/FN16 on development (93.94% recall, 78.15% specificity),
@@ -10,11 +22,10 @@ The largest source family, Nemotron, has 83.15% specificity in this control.
 This is an offline annotation-presence result; the existing live contextual
 pipeline remains at 90.53% recall and 29.41% specificity. Final remains unscored.
 
-An additive sparse presence serving/training interface is being implemented
+An additive sparse presence serving/training interface was integrated
 under a separate prospective protocol. Shared inference and typed contracts
-are integrated at `39778b6`; integrated runtime, fuzzer and profile results
-are pending. The original contextual API and its policy decisions are preserved.
-Do not treat completed historical suites as validation of this new interface.
+were integrated at `39778b6`; the profile fit and runtime-base results are
+recorded above. The original contextual API and its policy decisions are preserved.
 The archived package below predates the text control and this refactor.
 
 Latest bounded training study: [public-negative results](../paper/research/public-negative-results.md).
