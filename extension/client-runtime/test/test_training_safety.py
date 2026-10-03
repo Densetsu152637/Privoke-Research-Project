@@ -14,11 +14,31 @@ from src.LLM.privoke.training import SemanticTrainingExample, compute_semantic_g
 from src.classification import Category, Sensitivity, Visibility, initialise_unpacked
 from src.hosting.grpc_server import PrivokeRuntimeService
 from src.model import ModelConfig, ModelArtifactError
+from src.detection.preprocessing import normalize_text
 from privoke.v1 import runtime_pb2
 from test_streamed_transformer import _snapshot
 
 
 class TrainingSafetyTests(unittest.TestCase):
+    def test_training_and_heldout_use_the_serving_normalizer_without_mutating_inputs(self):
+        training = [SemanticTrainingExample(
+            "MY ＥＭＡＩＬ is person[at]example.invalid with account 12 34", self.sensitive, 1.0)]
+        heldout = [SemanticTrainingExample("My ＤＯＣＴＯＲ prescribed medication", self.sensitive, 1.0),
+                   SemanticTrainingExample("Write a public request 56 78", self.clean, 1.0)]
+        canonical_training = [SemanticTrainingExample(normalize_text(x.text), x.target, x.weight) for x in training]
+        canonical_heldout = [SemanticTrainingExample(normalize_text(x.text), x.target, x.weight) for x in heldout]
+        with patch.object(GLOBAL_STREAMED_MODEL_CACHE, "model_for_training", return_value=self.model):
+            raw_batch = compute_semantic_gradients(training, model_id=self.model.snapshot.model_id,
+                learning_rate=0.03, max_gradient=0.05, heldout_examples=heldout)
+            canonical_batch = compute_semantic_gradients(canonical_training, model_id=self.model.snapshot.model_id,
+                learning_rate=0.03, max_gradient=0.05, heldout_examples=canonical_heldout)
+        self.assertEqual(raw_batch.gradients, canonical_batch.gradients)
+        self.assertEqual(raw_batch.metrics, canonical_batch.metrics)
+        self.assertEqual(raw_batch.metadata["updated_parameter_fingerprint"],
+                         canonical_batch.metadata["updated_parameter_fingerprint"])
+        self.assertIn("person[at]", training[0].text)
+        self.assertNotEqual(training[0].text, canonical_training[0].text)
+
     def test_invalid_streamed_configuration_cannot_silently_map_to_clean(self):
         for name, value in (
             ("sensitivity_labels", ["BAD", "S1", "S2", "S3"]),

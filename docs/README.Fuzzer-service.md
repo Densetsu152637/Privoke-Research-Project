@@ -26,7 +26,7 @@ On `RunTrainingCycle`, the service:
 1. validates `prompt_count > 0`,
 2. caps prompt counts above `FUZZ_MAX_PROMPT_COUNT`,
 3. checks durable update status for the same source/request identity and returns an existing committed outcome on replay,
-4. reserves distinct labeled clean and sensitive held-out examples, then samples training prompts excluding their normalized texts,
+4. reserves distinct labeled clean and sensitive held-out examples, then samples training prompts excluding their normalized texts and any declared held-out source groups,
 5. sends bounded training and held-out batches through `ComputeSemanticGradients`,
 6. receives deltas and before/candidate metrics tied to the exact model version; rejects missing, non-finite, invalid or regressing quality evidence,
 7. submits accepted deltas through `SubmitParameterUpdate` with replay identity and request fingerprint,
@@ -37,6 +37,9 @@ The fuzzer does not connect to `model-streaming-service`. Fetching, validation, 
 ## Training Semantics
 
 The training cycle fine-tunes the sensitivity, visibility, and multi-label category heads of the streamed transformer. The encoder remains frozen in this first architecture revision, which keeps updates small and makes online experiments repeatable.
+Training and held-out execution use the same canonical text normalization as
+serving, so Unicode compatibility forms, obfuscated email separators and spaced
+digits have a consistent semantic representation in candidate quality checks.
 
 `train_parameter_batch`:
 
@@ -68,6 +71,10 @@ Example:
 ```
 
 Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
+For document-derived curricula, supply `metadata.group_id`. The held-out sampler
+reserves distinct declared groups and keeps their metadata; all siblings from
+those groups are excluded from training. Insufficient groups fail the cycle.
+Datasets without group metadata retain normalized-text disjointness.
 
 ## Environment Variables
 

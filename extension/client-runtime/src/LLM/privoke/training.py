@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Sequence
 
 from privoke_model.artifact import float32, updated_parameter_values
 from privoke_model.training_data import training_text_key
 from privoke_model.fingerprint import parameter_fingerprint
 from ...classification import Classification
+from ...detection.preprocessing import normalize_text
 from ...model import ModelConfig, TinyTransformerModel
 from .parameter_stream import ModelParameterStreamer
 from .streamed_model import GLOBAL_STREAMED_MODEL_CACHE
@@ -47,6 +48,11 @@ def compute_semantic_gradients(
         raise ValueError("max_gradient must be finite and greater than zero.")
     if any(not math.isfinite(item.weight) or item.weight <= 0 for item in examples):
         raise ValueError("Training example weights must be finite and positive.")
+    # Serving canonicalizes prompt text before the semantic layer. Candidate
+    # gradients and their held-out guard must evaluate that same representation.
+    examples = tuple(replace(item, text=normalize_text(item.text)) for item in examples)
+    heldout_examples = tuple(replace(item, text=normalize_text(item.text))
+                             for item in heldout_examples)
     if heldout_examples:
         _validate_heldout_examples(examples, heldout_examples)
 
@@ -146,6 +152,7 @@ def compute_semantic_gradients(
             "learning_rate": str(learning_rate),
             "max_gradient": str(max_gradient),
             "model_cache_key": snapshot.cache_key,
+            "text_preprocessing": "canonical_detector_normalize_text",
         },
     )
 

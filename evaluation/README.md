@@ -148,3 +148,31 @@ SHA-256 and checks ZIP integrity. Both output paths refuse overwrites. The exter
 manifest records archive hash and source commit; generated ZIP files are ignored
 under `evaluation/artifacts/`. This is local preservation. Raw benchmark source
 licenses must be audited before redistribution, and no upload is performed.
+
+## Prospective public-negative coverage study
+
+Read [the prospective protocol](../paper/research/public-negative-protocol.md)
+before execution. It defines a custom within-corpus training study, source/text
+exclusions, provisional negative-policy labels and a full-pipeline recall floor.
+It must not be presented as untouched official PIIMB benchmark-test evaluation.
+
+```powershell
+docker compose -f docker-compose.yml -f evaluation/compose.tests.yml -f evaluation/compose.public-negatives.yml run --rm --no-deps evaluation-tests python prepare-public-negatives.py
+docker compose -f docker-compose.yml -f evaluation/compose.tests.yml -f evaluation/compose.public-negatives.yml build client-runtime privoke-fuzzer
+python evaluation/run-public-negative-study.py
+```
+
+Preparation refuses existing output, checks locked dataset hashes, scans the
+pinned revision, excludes all protected groups/IDs/shared training keys and
+normalized conflicts, then records the selected curriculum hash and provenance.
+It preserves literal braces through the template renderer and adds the existing
+bootstrap samples without regenerating model weights. The grouped fuzzer excludes
+all held-out source siblings; runtime gradient/held-out execution uses canonical
+serving normalization.
+
+The study driver measures the original with revised rules, then calls the existing
+independent-update driver for three seeds at each predefined learning rate. It
+records rejected attempts, reports semantic and pipeline results, and restores the
+selected eligible artifact in `finally`. A partial study or failed restoration is
+marked explicitly. Additional cycles require the recorded prospective trigger.
+Do not reuse these fixed request/run IDs to restart an interrupted study.

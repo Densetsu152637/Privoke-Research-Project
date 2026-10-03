@@ -1,0 +1,5 @@
+# Prospective larger-step comparator; the existing max-gradient remains0.05.
+services:
+  privoke-fuzzer:
+    environment:
+      FUZZ_TRAINING_LEARNING_RATE: 0.1

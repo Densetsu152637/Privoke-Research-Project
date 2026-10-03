@@ -42,7 +42,7 @@ Both development targets are still not met. Selected artifact:
 `results/calibration0003_20261003/seed42-model.json`, internal checksum
 `494cdafa337b9c93325e8262704978e2e7b55b2011b9403716996399a85ed309`.
 The live stack uses revised rules, not the pinned old-rule training image.
-There are no pending training/test processes. Automatic updater training remains
+At that checkpoint there were no pending training/test processes. Automatic updater training remains
 disabled; isolated research volumes retain the selected model.
 
 The final25-row read-only update-receipt snapshot passes SQLite integrity_check;
@@ -73,6 +73,27 @@ Any new development study needs a bounded recorded protocol and separate trainin
 data. Do not score final or generate favorable paper claims while iterating.
 The goal remains active: final results, sufficient evidence, measured paper figures,
 paper integration and professor confirmation remain outstanding.
+
+### New development study prepared after the archived checkpoint
+
+`paper/research/public-negative-protocol.md` declares a custom within-corpus
+negative-coverage study before candidate scoring. The prepared curriculum contains
+2,400 public annotation-negative rows from1,814 groups plus43 original bootstrap
+samples. All929 locked groups and1,000 locked IDs/text keys were excluded;
+selection from38,000 eligible clean rows has zero protected overlaps. The pinned
+population scan retains conflict/language exclusions. Data SHA:
+`61b0d5c5f06fe0d948092f86044eb21c64a08c5f6d4f60ec6ecfb1466d42ecda`.
+Raw data remain ignored/local; they are not part of the earlier artifact ZIP.
+
+Fuzzer held-out generation now reserves declared source groups and excludes their
+siblings from training. Runtime training/held-out inputs now use serving's
+canonical normalizer, avoiding a Unicode/obfuscation/digit-spacing representation
+mismatch. Before launching this study, Docker checks passed: fuzzer26, runtime83,
+evaluator46; earlier unaffected component checks remain recorded above.
+The prior image/source comparisons remain historical and are not pooled with this
+training-path correction. Next action: run the nine prospective independent
+updates (rates0.03/0.1/0.3, seeds42/1337/2026), measure development only, and restore
+the selected checkpoint. No new candidate has yet been selected at this checkpoint.
 
 ## Historical notes (superseded by the checkpoint above)
 

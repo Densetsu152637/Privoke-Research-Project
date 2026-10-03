@@ -48,6 +48,40 @@ class TrainingPartitionTests(unittest.TestCase):
 
 
 class FixedDatasetPartitionTests(unittest.TestCase):
+    def test_source_group_siblings_are_excluded_and_provenance_is_retained(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "groups.json"
+            path.write_text(json.dumps([
+                {"text": f"{'Sensitive' if sensitive else 'Clean'} document {group} sentence {sentence}",
+                 "packed_classification": 63 if sensitive else 28,
+                 "metadata": {"group_id": f"doc-{sensitive}-{group}", "source": "fixture"}}
+                for sensitive in (False, True) for group in range(6) for sentence in range(3)
+            ]), encoding="utf-8")
+            for seed in (42, 1337):
+                training, heldout = generate_training_partition(256, 8, seed, path)
+                train_groups = {item.metadata["group_id"] for item in training}
+                heldout_groups = {item.metadata["group_id"] for item in heldout}
+                self.assertEqual(len(heldout_groups), 8)
+                self.assertFalse(train_groups & heldout_groups)
+                self.assertTrue(all(item.metadata["source"] == "fixture" for item in heldout))
+                repeated = generate_training_partition(256, 8, seed, path)
+                self.assertEqual([[item.text for item in part] for part in (training, heldout)],
+                                 [[item.text for item in part] for part in repeated])
+
+    def test_too_few_groups_cannot_pass_by_using_sibling_sentences(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "groups.json"
+            path.write_text(json.dumps([
+                {"text": f"{'Sensitive' if sensitive else 'Clean'} sentence {index}",
+                 "packed_classification": 63 if sensitive else 28,
+                 "metadata": {"group_id": f"single-document-{sensitive}"}}
+                for sensitive in (False, True) for index in range(12)
+            ]), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "source groups"):
+                generate_training_partition(8, 4, 42, path)
+            with self.assertRaisesRegex(ValueError, "training texts separate"):
+                generate_training_partition(8, 2, 42, path)
+
     def dataset(self, directory, each_count):
         path = Path(directory) / "fixed.json"
         path.write_text(json.dumps([

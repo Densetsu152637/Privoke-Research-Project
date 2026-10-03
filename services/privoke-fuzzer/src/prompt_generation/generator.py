@@ -16,6 +16,7 @@ def generate_training_prompts(
     dataset_path: str | Path | None = None,
     *,
     excluded_texts: tuple[str, ...] = (),
+    excluded_group_ids: tuple[str, ...] = (),
 ) -> list[BatchTrainingExample]:
     if count <= 0:
         return []
@@ -28,10 +29,13 @@ def generate_training_prompts(
     generated = []
 
     excluded = {training_text_key(text) for text in excluded_texts}
+    excluded_groups = set(excluded_group_ids)
     for prompt_seed in _candidate_seeds(prompt_seeds, rng, max(256, count * 64)):
         if len(generated) == count:
             break
         index = len(generated)
+        if _group_id(prompt_seed) in excluded_groups:
+            continue
         text = _render_prompt(prompt_seed.template, rng)
         if training_text_key(text) in excluded:
             continue
@@ -69,7 +73,7 @@ def generate_training_prompts(
 
 
 def generate_training_partition(count, heldout_count, seed, dataset_path=None):
-    """Reserve distinct labeled clean/sensitive examples before sampling training."""
+    """Reserve labeled examples; exclude their texts and any declared source groups."""
     if heldout_count < 2:
         raise ValueError("Held-out evaluation needs at least two examples.")
     rng = random.Random(seed + 1)  # nosec B311
@@ -82,20 +86,34 @@ def generate_training_partition(count, heldout_count, seed, dataset_path=None):
         raise ValueError("Held-out evaluation needs both clean and sensitive labels.")
     heldout = []
     seen = set()
+    reserved_groups = set()
     for index in range(heldout_count):
         for item in _candidate_seeds(groups[bool(index % 2)], rng, 256):
+            group = _group_id(item)
+            if group is not None and group in reserved_groups:
+                continue
             text = _render_prompt(item.template, rng)
             key = training_text_key(text)
             if key not in seen:
                 seen.add(key)
-                heldout.append(BatchTrainingExample(text, item.classification))
+                if group is not None:
+                    reserved_groups.add(group)
+                heldout.append(BatchTrainingExample(
+                    text, item.classification, metadata=dict(item.metadata)
+                ))
                 break
         else:
-            raise ValueError("Dataset cannot supply enough distinct held-out examples.")
+            raise ValueError("Dataset cannot supply enough distinct held-out examples or source groups.")
     training = generate_training_prompts(
-        count, seed, dataset_path, excluded_texts=tuple(item.text for item in heldout)
+        count, seed, dataset_path, excluded_texts=tuple(item.text for item in heldout),
+        excluded_group_ids=tuple(sorted(reserved_groups)),
     )
     return training, heldout
+
+
+def _group_id(seed):
+    value = seed.metadata.get("group_id")
+    return str(value) if value is not None and str(value).strip() else None
 
 
 def _candidate_seeds(seeds, rng, attempts):
