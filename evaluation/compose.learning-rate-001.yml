@@ -1,0 +1,5 @@
+# Add after compose.tests.yml. Change only the existing fuzzer learning-rate control.
+services:
+  privoke-fuzzer:
+    environment:
+      FUZZ_TRAINING_LEARNING_RATE: 0.01

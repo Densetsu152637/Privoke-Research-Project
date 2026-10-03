@@ -1,0 +1,158 @@
+# Current research integration record
+
+## Current checkpoint — 3 October 2026
+
+Test invocation is centralized by committed revision `712ed72`; component test
+sources and the fuzzer loop remain in their original locations. The corrected
+personal-workplace rule is committed as `c2bd6ad`; narrowed financial/location
+rules and their regression cases are committed as `cbaecf8`. All branch merges are complete
+and were verified against merge revision `5e71717`.
+
+Docker checks passed: browser94, revised-rule runtime82, evaluator41, fuzzer24, updater17,
+telemetry11, shared13, supervisor21 with one platform skip, and Go race checks.
+Deployment/TLS smoke also passed (`deployment-central-smoke.log`). Eight native
+Chromium page-hook fetch/XHR decision and silent-broker cases passed, using a real
+loopback receiver and controlled broker; this excludes the full installed extension.
+Remote CI remains unrun.
+
+Frozen original-model public development: pipeline TP247/TN47/FP191/FN17,
+recall93.56%, specificity19.75%, zero errors on502 rows. Presidio achieved78.79%
+recall and79.41% specificity. Three transformed-example updates and three ordinary
+controls start from exact v0.3.0; none improves pipeline recall or passes the
+no-class-regression selection criterion. The original was retained at that checkpoint.
+
+User steering: continue reducing false positives, try different learning rates,
+and restart from the original. Final498-row holdout remains unscored. The fuzzer
+has deterministic template sampling, not a generation-temperature setting.
+Learning-rate comparisons at0.01 and0.003 versus prior0.03 completed against
+an immutable source context from712ed72. An interrupted first LR batch is excluded
+because a separate build changed the mutable runtime image tag between seeds.
+Narrowed financial/coarse-location rules are evaluated separately to avoid mixing
+effects. The anchored fictional0.003 curriculum corrects one clean prediction
+across all three seeds, without losing semantic or pipeline recall. Seed42 cycle1
+is selected; cycle2 loses one semantic positive, so it is rejected for selection,
+cycle3 is not attempted, and cycle1 is restored. Original source/model and all
+failed candidate outcomes are retained. Do not change serving images or data
+during a matched batch.
+
+The live selected model with revised rules gives TP247/TN54/FP184/FN17:
+recall93.56%, specificity22.69%, zero errors on502 rows. Relative to the frozen
+original, seven clean false alarms are removed with unchanged positive predictions.
+Both development targets are still not met. Selected artifact:
+`results/calibration0003_20261003/seed42-model.json`, internal checksum
+`494cdafa337b9c93325e8262704978e2e7b55b2011b9403716996399a85ed309`.
+The live stack uses revised rules, not the pinned old-rule training image.
+There are no pending training/test processes. Automatic updater training remains
+disabled; isolated research volumes retain the selected model.
+
+The final25-row read-only update-receipt snapshot passes SQLite integrity_check;
+`results/update-receipts-final.sqlite3` SHA256:
+`223cf46e6f705b4133940727143614de898fa2780bba33386d247eb09a6f9ecb`.
+`results/update-audit-final.jsonl` SHA256:
+`45ffb567b44dd8ec869df43f0931d81bc368220ce6bbb3315a5d91a9aea3483a`.
+The earlier nine-row snapshot is retained. The training RPC does not create the
+separate prompt-testing dumps. A read-only Economy worker (`gpt-6-luna`, medium
+effort, balanced ceiling) verified35 report hashes, all candidate artifact hashes,
+matched IDs/labels/groups and the live selected result; no discrepancies found.
+This computational audit does not replace independent human labeling/review.
+Professor [git4san](https://github.com/git4san) confirmation remains pending; agent
+assessment is provisional. No GitHub notification or artifact upload has occurred.
+
+Full attempts and counterevidence: `paper/research/false-positive-experiments.md`;
+earlier comparisons: `paper/research/development-results.md`. Preserve source,
+models, predictions and logs in a local hash-verified package before paper figures.
+Current next research action: investigate representation and training-distribution
+coverage rather than repeat the stopped curve. The bootstrap encoder is randomly
+initialized and frozen; threshold/casing-only diagnoses do not meet both targets.
+Any new development study needs a bounded recorded protocol and separate training
+data. Do not score final or generate favorable paper claims while iterating.
+The goal remains active: final results, sufficient evidence, measured paper figures,
+paper integration and professor confirmation remain outstanding.
+
+## Historical notes (superseded by the checkpoint above)
+
+Objective: merge main and every other branch into `feat/dev-testing`, keep test
+invocation under evaluation, validate in Docker, iterate on development data,
+then generate measured Python figures and integrate supported findings into the paper.
+
+## Integration and ownership
+
+- Root is the sole writer in `D:/Git Repositories/Privoke-Research-Project`.
+- Remote refs were refreshed. Every local branch and fetched remote branch was
+  verified as an ancestor of merged revision `5e71717`; backup branches were included.
+- Conflicts were resolved individually, retaining newer fail-closed protection,
+  request cancellation, cache identity, precise candidate arithmetic, held-out
+  partitioning, and safety/replay checks. Generated Firefox bundles remain locally
+  available and are untracked. No push, branch deletion or external PR merge occurred.
+- User clarified that invocation belongs in evaluation, while component test
+  sources and the fuzzer loop stay in their original locations. Central runners
+  update Docker/CI invocation paths.
+  These changes require an integrated commit after affected checks pass.
+
+## Actual validation so far
+
+| Docker check | Result | Local evidence |
+| --- | --- | --- |
+| Browser suite | 94 passed | `browser-docker-rerun.log` |
+| Client runtime on CPU | 76 passed | `client-runtime-cpu-docker.log` |
+| Fuzzer | 24 passed | `fuzzer-docker.log` |
+| Parameter updater | 17 passed | `param-update-docker.log` |
+| Telemetry | 11 passed | `telemetry-docker.log` |
+| Shared contracts/configuration | 13 passed | `shared-docker.log` |
+| Supervisor | 21 run, one platform-specific skip, no failures | `supervisor-docker.log` |
+| Go service | Race tests passed | `model-docker.log` |
+| Evaluator before latest audit-record changes | 32 passed; affected tests require rerun | `evaluator-docker.log` |
+| Live stack | Healthy; gRPC, streaming, analysis and synthetic randomized telemetry smoke passed without training | `stack-start.log`, `stack-smoke.log` |
+
+Logs are ignored generated files, not publication results. The initial default
+runtime test failure was caused by the user's `gpu` device value; the research
+Compose override selects supported CPU mode without editing the user's settings.
+
+## Research protocol and next actions
+
+- User selected development targets: >=90% sensitive recall and >=90% clean
+  specificity, plus the completion plan's evidence requirements. These are not
+  acceptance thresholds. Final holdout outcomes must not drive further training.
+- CPU research services use isolated `privoke-research-eval-20261003-*` container
+  names and data volumes, preserving existing deployment artifacts.
+- Five matched 500-example synthetic development ablations (seed 2026) are being
+  measured. Initial regex result: 250/250 sensitive detected, 211/250 clean correctly
+  classified (84.4% specificity), zero runtime errors. This is development evidence,
+  not a final paper result or proof of real-world effectiveness.
+- Workplace keyword matching is a plausible source of false positives; confirm
+  per-layer evidence before changing it. Semantic training cannot undo a regex
+  classification under strongest/union aggregation, so train only where evidence
+  identifies a trainable semantic deficit.
+- Rerun evaluator audit-record/ablation tests; retain baseline reports and freeze
+  final source/family-disjoint data before tuning. Archive exact model snapshots,
+  raw predictions, manifests and all update outcomes.
+- Independent baselines, public holdout results, contextual annotation, browser
+  transmission captures, independent critique and final paper evidence remain pending.
+- Python figure scripts currently contain hypothetical curves and must be replaced
+  only with actual measured results. The referenced `AGENTS.vision.md` companion is
+  missing from this checkout. Disclose the missing companion and perform visual
+  checks under the available shared policy and tool instructions.
+
+Use `evaluation/README.md` for the current Docker test and measurement commands.
+Do not mark the goal complete based on green unit tests alone.
+
+## Invocation clarification validation
+
+- Central browser entry point: 94 passed.
+- Central evaluator entry point in Docker: 36 passed.
+- Component sources restored; all central suite checks passed (runtime 78,
+  evaluator 36, browser 94, fuzzer 24, updater 17, telemetry 11, shared 13,
+  supervisor 21 with one platform skip, Go race tests passed).
+- The fuzzer loop remains in its original service.
+
+- Artifact audit corrected a pilot provenance error: baseline-model.json is
+  v0.3.0+train.1 and the exploratory seed-42 output is v0.3.0+train.2.
+  Neither is the immutable checked-in v0.3.0 baseline. Preserve pilot artifacts
+  and rerun original-baseline comparisons with unique update IDs.
+- Independent Presidio public development: TP208/TN189/FP49/FN56,
+  recall78.79%, specificity79.41%, 502 rows, zero errors.
+
+- Public baseline batch was invalidated by the version guard: updater startup
+  inherited FUZZER_PROMPT_COUNT=128 and published +train.1 automatically.
+  Research override now disables startup training with FUZZER_PROMPT_COUNT=0.
+  Preserve failed batch, restore v0.3.0 after updater recreation and rerun.

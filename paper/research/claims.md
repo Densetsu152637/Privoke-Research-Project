@@ -1,0 +1,23 @@
+# Claim ledger
+
+Checkpoint: merged revision `5e71717`, tested central source `712ed72`,
+with separately tested development rule changes and learning-rate experiments.
+Observation is distinct from inference; tests establish their named scope only.
+
+| ID | Proposed wording | Evidence and locator | Status / limitation | Next check |
+| --- | --- | --- | --- | --- |
+| C1 | The merged implementation passes its component regression suites through evaluation-owned runners. | `evaluation/PROGRESS.md`, suite logs; 94 browser, 78 original runtime / 82 revised-rule runtime, 41 evaluator, 24 fuzzer, 17 updater, 11 telemetry, 13 shared, 21 supervisor (one skip), Go race checks; deployment/TLS smoke passed | Observed locally in Docker; remote CI remains unrun | Freeze final source; rerun affected checks only |
+| C2 | Layer contributions differ across datasets and can increase false alarms. | `development-results.md`; original public pipeline TP247/TN47/FP191/FN17 versus regex TP179/TN208/FP30/FN85; matched502 IDs | Development observation; high recall comes with many false alarms; pilot data are excluded from this comparison | Diagnose rule/training distribution; preserve final lock |
+| C3 | The independent configured Presidio baseline achieved 78.79% recall and 79.41% specificity on the public development partition. | `evaluation/results/presidio_public_development_metrics.json`, TP208/TN189/FP49/FN56, 502 rows, 2,000 source-cluster resamples | Development observation, not final result; small spaCy model differs from default large model | Run same fixed configuration on final only after freeze |
+| C4 | The default 0.03 first-cycle fuzzer updates did not improve pipeline recall and increased false alarms. | Three independent seeds from exact v0.3.0; transformed and ordinary controls, raw predictions and paired source-cluster intervals in `development-results.md` | Observed negative development result; accepted updates/internal guards do not establish public generalization | Preserve alongside lower-rate/curriculum extension; final unscored |
+| C10 | Narrowed rules plus a selected smaller-step update remove seven development false positives with unchanged pipeline recall. | `false-positive-experiments.md`; live TP247/TN54/FP184/FN17 versus original TP247/TN47/FP191/FN17, same502 IDs, zero errors, exact model checksum in run manifest | Development observation: recall93.56%, specificity22.69%; target still missed. One of seven corrections comes from training. No final generalization or significant adaptation benefit established | Investigate representation/training coverage; freeze before final |
+| C5 | BLOCK prevents transmission on the tested page-hook paths; WARN forwards the original request. | `evaluation/results/browser-capture.json`: eight native Chromium fetch/XHR cases with real HTTPS loopback captures; browser unit tests | Observed only with controlled broker; not installed extension, actual provider or native messaging | Full installed-extension path before broader enforcement wording |
+| C6 | A silent broker blocks the tested fetch/XHR requests after timeout. | Native page-hook capture: silent-broker cases forward no request; timeout about32 seconds; source/regression checks | Bounded observation; runtime/bridge outage coverage beyond this broker fixture remains unmeasured | Complete native messaging/outage matrix and availability analysis |
+| C7 | Telemetry uses event-level LDP under a fixed-domain budget and trusted-emitter assumptions. | Runtime privacy module, emitter/ledger tests, telemetry guide | Supporting mathematical mechanism; does not hide event presence, counts or transport metadata; utility not measured | Scope review and equations against actual defaults |
+| C8 | PriVoke improves usability or outperforms closest systems. | No matching user-study or Casper experiment | Unsupported | Remove unless appropriate evidence becomes available |
+| C9 | The paper is ready for IEEE submission. | Completion checklist, provisional agent review | Unestablished; development specificity target, novelty, final measurements, installed enforcement, professor review and final PDF pending | Professor `git4san` confirmation and chosen venue-specific checks |
+
+Retain null/negative update results. No hypothetical learning or speed curve may
+be described as measured. Dataset annotation presence is not contextual privacy
+ground truth. Every final numerical claim must map to frozen predictions, source
+revision, model checksum, input selection digest and figure/table script.

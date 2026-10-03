@@ -1,0 +1,9 @@
+# Retain known calibration anchors without weakening any update safety gate.
+services:
+  privoke-fuzzer:
+    environment:
+      FUZZ_PROMPT_DATASET_PATH: /workspace/evaluation/datasets/fuzzer-calibration-anchors.json
+      FUZZ_TRAINING_LEARNING_RATE: 0.03
+      FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE: 0
+    volumes:
+      - ./evaluation/datasets/fuzzer-calibration-anchors.json:/workspace/evaluation/datasets/fuzzer-calibration-anchors.json:ro

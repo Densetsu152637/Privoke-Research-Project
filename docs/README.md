@@ -27,3 +27,4 @@ Commands in these guides retain their original working-directory assumptions. St
 | [Docker evaluation runners](../evaluation/README.md) | Central test invocation, controlled update experiments and raw run manifests |
 | [Research completion plan](Research-completion-plan.md) | Research questions, experiments, milestones and publication readiness |
 | [Research paper writing guide](Research-paper-writing-guide.md) | Methodology improvements, wording, evidence reporting and venue requirements |
+| [Current research evidence](../paper/research/claims.md) | Provisional claims, measured development results, protocol and professor review requests |

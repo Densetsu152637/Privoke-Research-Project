@@ -2,6 +2,15 @@
 
 Prepared 3 October 2026. Repository review checkpoint: `f03aa1b58cf2052afd822edffc9aac6c28ef101d`, branch `feat/dev-testing`.
 
+Execution updates are in [the current integration record](../evaluation/PROGRESS.md)
+and [the evidence ledger](../paper/research/claims.md). The user clarified that test
+invocation belongs in evaluation while test cases and fuzzer training remain with
+their components. Development targets are >=90% sensitive recall and >=90% clean
+specificity; final testing must be reported honestly and must not drive tuning.
+Agent review is provisional pending professor [git4san](https://github.com/git4san)
+confirmation. The initial architecture table below records the original discovery
+checkpoint; current fail-closed page-hook behavior is documented in the evidence ledger.
+
 **Revised deadline: paper ready on 19 October 2026 (Australia/Sydney).** This replaces the original eight-week schedule. Starting on 3 October leaves 16 elapsed days, or 17 calendar dates inclusive: two full weeks and a short third week. Target a complete review draft on 14 October, freeze results on 13 October, and finish the checked paper/artifact on 18 October so 19 October is reserved for delivery and essential corrections. The cutoff time on 19 October is unspecified, so do not rely on that day for core work.
 
 ## Publication assessment
@@ -156,7 +165,7 @@ Writing lead, with section owners supplying evidence:
 | --- | --- |
 | Abstract/introduction | One clear question, specific contributions, actual measured findings and scope. Shorten incident narrative; audit factual anecdotes and use primary references. |
 | Related work | Explain closest overlap and substantive difference; avoid presenting integration alone as novelty. |
-| Threat model/design | Trust boundaries, WARN forwarding, fail-open behavior, local versus hosted semantic modes, actual model architecture and update limitations. |
+| Threat model/design | Trust boundaries, WARN forwarding, measured failure/timeout behavior, local versus hosted semantic modes, actual model architecture and update limitations. |
 | Methodology | Labels, splits, contamination controls, baselines, ablations, hardware, versions, statistical protocol and ethics. |
 | Results | Replace both hypothetical figures with scripts derived from archived observations. Include uncertainty, failure cases and negative findings. Keep hypotheses out of measured-result claims. |
 | Discussion/limitations | Explain why gains occur, where they fail, generalization limits, benchmark mismatch and telemetry limits. |
