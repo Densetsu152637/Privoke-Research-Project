@@ -201,3 +201,25 @@ record all nine independent attempts and the stopped second cycle. The restored
 first-cycle model has90.53% development recall and29.41% specificity; the final
 partition remains unscored. Test invocation remains centralized here, while the
 training loop remains in the fuzzer service.
+
+## Released model profiles
+
+Read [the model-profile protocol](../paper/research/model-profile-protocol.md)
+before comparing original efficient, balanced and quality artifacts:
+
+```powershell
+python evaluation/run-model-profile-study.py --run-prefix UNIQUE_PROFILE_RUN
+```
+
+The caller measures semantic and pipeline outputs on the locked development set,
+requests each artifact's explicit model ID, verifies matched rows/raw counts,
+records runtime-duration distributions and restores the prior trained balanced
+payload in `finally`. It refuses reused outputs and does not rebuild serving
+images. `run-ablations.py` sets the evaluator's MODEL_ID from the supplied artifact
+and checks returned IDs as well as versions/checksums. A shared version string
+does not establish that the requested profile was evaluated.
+
+Runtime elapsed_ms excludes browser/bridge overhead. These profiles also differ
+in vocabulary, random initialization and bootstrap epochs; a score difference
+does not isolate the causal effect of parameter count. Model-size inference
+comparisons do not establish that larger-model training/update gates were tested.
