@@ -2,7 +2,7 @@
 
 ## Current checkpoint — 3 October 2026
 
-Latest bounded study: [public-negative results](../paper/research/public-negative-results.md).
+Latest bounded training study: [public-negative results](../paper/research/public-negative-results.md).
 Nine independent attempts at0.03/0.1/0.3 produce six scored candidates and three
 held-out rejections. Three0.03 seeds tie on pipeline239/70/168/25; prospective
 selection chooses seed42. Compared with prior247/54/184/17, false positives fall
@@ -16,7 +16,9 @@ verified against the live volume. Selected checksum:
 All study/curve processes are complete at this checkpoint. Startup training
 remains disabled. Serving images are unchanged throughout the matched study.
 
-Current affected Docker checks: runtime83, fuzzer26, evaluator50. Source `4f224ba`
+At the prior checkpoint, Docker checks were runtime83, fuzzer26, evaluator50.
+After the released-profile identity tests, evaluator53 passed at source
+`b733960079babc9fc695fdc6ba836ac7ae87b86e`. Source `4f224ba`
 adds grouped internal-guard exclusions and training/serving normalization alignment;
 `2f1ec91` fixes cross-platform artifact paths. `2e8ca5c` adds strict matched-row/raw-
 count selection checks, tested failure restoration and the bounded curve caller.
@@ -30,6 +32,19 @@ its audit/model identity manifest is in `results/public_negative_curve_20261003/
 The [methodology draft](../docs/research-methodology-draft.md) records the current
 design and pending evidence. Professor confirmation, installed-extension/client
 cost evidence, final testing and paper/figure completion remain outstanding.
+
+Released-model inference profiles were measured on the same502 locked development
+rows under the prospective [profile protocol](../paper/research/model-profile-protocol.md).
+The [results record](../paper/research/model-profile-results.md) reports the
+original efficient, balanced and quality profiles, raw counts, runtime costs,
+paired descriptive intervals and provenance. Study source revision
+`b733960079babc9fc695fdc6ba836ac7ae87b86e` completed with zero errors, restored
+the previously selected balanced checkpoint, and left serving image IDs
+unchanged. This tests multi-size inference; fuzzer training so far remains on the
+balanced profile. No causal model-size or superiority conclusion follows, and
+final498 remains unscored. Review of the frozen-representation diagnostic found
+interface/integrity gaps; corrections are pending integration and Docker
+execution. The diagnostic has not been executed or scored.
 
 Source `c035bc7` and766 file records are preserved in the new18.0MB local package,
 `evaluation/artifacts/research-20261003-public-negative.zip`. Exact hashes and

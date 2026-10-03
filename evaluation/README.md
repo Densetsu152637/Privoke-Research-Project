@@ -223,3 +223,10 @@ Runtime elapsed_ms excludes browser/bridge overhead. These profiles also differ
 in vocabulary, random initialization and bootstrap epochs; a score difference
 does not isolate the causal effect of parameter count. Model-size inference
 comparisons do not establish that larger-model training/update gates were tested.
+
+The measured original-profile comparison is documented in
+[model-profile results](../paper/research/model-profile-results.md): quality has
+higher semantic recall, while the original balanced profile has better measured
+pipeline recall and specificity than quality. These results do not justify
+prioritizing quality-profile training. Fuzzer update experiments so far use the
+balanced profile; they do not test larger-profile training.
