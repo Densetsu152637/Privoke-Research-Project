@@ -31,12 +31,24 @@ def fixture_artifact(model_id: str) -> dict:
     return value
 
 
+def fixture_context_artifact() -> dict:
+    value = {"schema_version": 1, "architecture": "privoke_tiny_transformer_v1",
+             "model_id": "privoke-balanced", "version": "v0.3.0+test",
+             "config": {"profile": "balanced"},
+             "parameters": {"head.sensitivity.bias": {
+                 "shape": [4], "values": [0.0, 0.0, 0.0, 0.0], "trainable": True}}}
+    value["checksum"] = artifact_checksum(value)
+    return value
+
+
 class FakeBackend:
     def __init__(self, catalog: dict[str, bytes], *, install_error: bool = False,
-                 restore_error: bool = False):
+                 restore_error: bool = False, install_timeout: bool = False):
         self.catalog = dict(catalog)
         self.install_error = install_error
         self.restore_error = restore_error
+        self.install_timeout = install_timeout
+        self.admin_mutation_outcome_unknown = False
         self.restore_calls = []
 
     def read_raw(self, model_id):
@@ -50,7 +62,11 @@ class FakeBackend:
 
     def install(self, artifact):
         model_id = artifact["model_id"]
-        self.catalog[model_id] = json.dumps(artifact, sort_keys=True).encode("utf-8")
+        if not self.install_timeout:
+            self.catalog[model_id] = json.dumps(artifact, sort_keys=True).encode("utf-8")
+        else:
+            self.admin_mutation_outcome_unknown = True
+            raise runner.subprocess.TimeoutExpired(["docker", "compose", "exec"], 1)
         if self.install_error:
             raise RuntimeError("fake partial install failure")
 
@@ -65,8 +81,7 @@ class FakeBackend:
 class ExternalPresenceRunnerTests(unittest.TestCase):
     def setUp(self):
         self.artifacts = {model_id: fixture_artifact(model_id) for model_id in runner.MODEL_IDS.values()}
-        self.artifacts["privoke-balanced"] = json.loads(
-            (ROOT / "models/privoke-balanced.json").read_text(encoding="utf-8"))
+        self.artifacts["privoke-balanced"] = fixture_context_artifact()
         self.raw = {model_id: (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
                     for model_id, value in self.artifacts.items()}
         self.temp = tempfile.TemporaryDirectory()
@@ -118,6 +133,32 @@ class ExternalPresenceRunnerTests(unittest.TestCase):
                     pass
         self.assertFalse(manifest["restoration_verified"])
         self.assertEqual(manifest["restoration_failures"][0]["model_id"], "privoke-presence-balanced")
+
+    def test_timed_out_pending_remote_write_prevents_restoration_claim(self):
+        backend = FakeBackend(self.raw, install_timeout=True)
+        before = dict(self.raw)
+        with patch.object(runner, "BALANCED_CHECKSUM", self.artifacts["privoke-balanced"]["checksum"]):
+            self.output.mkdir(parents=True)
+            manifest = {}
+            with self.assertRaises(runner.subprocess.TimeoutExpired):
+                with runner.protected_catalog(backend, self.output, manifest):
+                    backend.install(fixture_artifact("privoke-presence-balanced"))
+        self.assertEqual(backend.catalog, before)
+        self.assertTrue(manifest["admin_mutation_outcome_unknown"])
+        self.assertFalse(manifest["restoration_verified"])
+        self.assertTrue(any(item["error_type"] == "AdminMutationOutcomeUnknown"
+                            for item in manifest["restoration_failures"]))
+
+    def test_admin_mutation_subprocess_timeout_is_marked_unknown(self):
+        backend = runner.DockerBackend(self.output, env={})
+        timeout = runner.subprocess.TimeoutExpired(["docker", "compose"], 1)
+        with patch.object(runner.subprocess, "run", side_effect=timeout):
+            with self.assertRaises(runner.subprocess.TimeoutExpired):
+                backend.call(["exec", "-T", "param-update-service", "python", "-c", "install"],
+                             data=b"private", admin_mutation=True)
+        self.assertTrue(backend.admin_mutation_outcome_unknown)
+        self.assertTrue(backend.calls[-1]["timed_out"])
+        self.assertNotIn("private", json.dumps(backend.calls))
 
     def test_fixed_plan_contains_only_whitelisted_presence_rows(self):
         plan = runner.fixed_plan()
