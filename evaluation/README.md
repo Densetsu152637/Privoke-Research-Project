@@ -45,6 +45,12 @@ failures to reach the targets. Synthetic training guard metrics do not establish
 public-benchmark generalization. Missing evidence, errors and null results must
 remain visible in the paper.
 
+## External annotated-PII training sources
+
+The current prospective expansion uses only pinned official training views: Nemotron-PII `default/train` and Meddies PII `english/train`. The metadata audit verified the pinned files' schemas and footer counts (100,000 and 47,744 rows respectively); the Nemotron README's stated 50k train size conflicts with its pinned train footer, so use the recorded manifest and preserve this discrepancy. Counts are raw source rows, not usable examples after protected-key, deduplication, grouping, and annotation checks.
+
+The target is annotated-PII presence. Added Meddies rows are positive-only, and an empty/missing annotation is not presumed clean. Neither source supplies contextual privacy-action labels. The planned cap and group/split/selection rules are documented in [the dataset expansion protocol](../paper/research/dataset-expansion-protocol.md); source scope and paper wording are in [the PII dataset analysis](../docs/PII-dataset-analysis.md) and [source audit](../paper/research/external-pii-source-audit.md). Meddies is CC-BY-NC-4.0; keep source attribution and non-commercial conditions attached to derived research artifacts. Preparation and fitting are pending; do not treat these row counts or targets as experimental results.
+
 ## Controlled research runs
 
 The override forces CPU execution and `FUZZER_PROMPT_COUNT=0`, disabling the
