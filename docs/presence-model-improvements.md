@@ -150,3 +150,10 @@ generative sampling-temperature setting; changing temperature would not address
 the measured unchanged false-positive counts. The fixed learning rate and nine
 attempts are already covered here, and no result guarantees meeting the 90%/90%
 development targets.
+
+The local [evidence archive](../evaluation/artifacts/research-20261004-presence-refactor.zip)
+preserves source `bba23579b4d4fe8f474f76b74ebed23c369ffd96` and 1,132 hashed records.
+Its [manifest](../paper/research/presence-refactor-artifact-manifest.json) records
+ZIP SHA-256 `9e9d354c2eec0f79751d18539e3520cb1cba8a4ce2d8f0ce93706fd7969e47a7`.
+Integrity and every recorded file hash passed. Results and archives are local
+evidence; raw dataset redistribution and clean-room reproduction remain unverified.

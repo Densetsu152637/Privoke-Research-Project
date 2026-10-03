@@ -24,6 +24,15 @@ Further work should test representation or contextual hard-negative coverage
 under a new protocol; changing sampling temperature is not applicable to this
 deterministic update path.
 
+The current local evidence package is
+[`research-20261004-presence-refactor.zip`](artifacts/research-20261004-presence-refactor.zip):
+46,340,661 bytes, 1,132 hashed records, source `bba23579b4d4fe8f474f76b74ebed23c369ffd96`.
+Archive SHA-256: `9e9d354c2eec0f79751d18539e3520cb1cba8a4ce2d8f0ce93706fd7969e47a7`.
+The [external manifest](../paper/research/presence-refactor-artifact-manifest.json)
+records every included file; ZIP integrity and all recorded hashes passed.
+This local package includes the fits, served reports, update receipts and audits;
+it does not establish a clean-room reproduction or permission to redistribute data.
+
 The completed [sparse text control](../paper/research/text-control-results.md)
 selected C=1 using validation before development scoring. It scored
 TP248/TN186/FP52/FN16 on development (93.94% recall, 78.15% specificity),
@@ -36,9 +45,9 @@ An additive sparse presence serving/training interface was integrated
 under a separate prospective protocol. Shared inference and typed contracts
 were integrated at `39778b6`; the profile fit and runtime-base results are
 recorded above. The original contextual API and its policy decisions are preserved.
-The archived package below predates the text control and this refactor.
+The historical archived package below predates the text control and this refactor.
 
-Latest bounded training study: [public-negative results](../paper/research/public-negative-results.md).
+Latest contextual training study: [public-negative results](../paper/research/public-negative-results.md).
 Nine independent attempts at0.03/0.1/0.3 produce six scored candidates and three
 held-out rejections. Three0.03 seeds tie on pipeline239/70/168/25; prospective
 selection chooses seed42. Compared with prior247/54/184/17, false positives fall
@@ -54,7 +63,7 @@ remains disabled. Serving images are unchanged throughout the matched study.
 
 Historical checkpoint suites were runtime83, fuzzer26 and evaluator50;
 evaluator53 passed at source `b733960079babc9fc695fdc6ba836ac7ae87b86e`
-after the released-profile identity tests. The latest affected suite is
+after the released-profile identity tests. That checkpoint's affected suite was
 evaluator68 (`representation-v3-tests.log`). Source `4f224ba`
 adds grouped internal-guard exclusions and training/serving normalization alignment;
 `2f1ec91` fixes cross-platform artifact paths. `2e8ca5c` adds strict matched-row/raw-
