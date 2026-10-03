@@ -17,8 +17,9 @@ failures. The independent [fit audit](../evaluation/results/presence_profiles_20
 recomputed all nine training and validation confusion sets and 8,712 validation
 probabilities; maximum absolute probability difference was 1.11e-16. It also
 checked 21 artifact checksums, float32 fingerprints and capacity bounds, plus
-partition ID, group, and normalized-text-key separation. The audit JSON SHA-256
-is `d3d2ff8eea76e6491a36e65693e781dd59a9eaf09d44fd81487e89c4a53e4fcd`.
+ID, group, and normalized-text-key separation among training, validation, and
+development. The audit JSON SHA-256 is
+`d3d2ff8eea76e6491a36e65693e781dd59a9eaf09d44fd81487e89c4a53e4fcd`.
 
 | Profile | Selected C | Validation threshold | Validation TP/TN/FP/FN | Recall | Specificity | Stored parameters | Artifact bytes |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -54,27 +55,98 @@ The timing is the service's internal per-request measurement, including the
 first request. It does not measure browser, bridge, or network latency. The
 profiles differ in feature capacity and validation-selected C; these
 within-corpus results do not isolate a causal effect of model size or establish
-profile superiority. Development informed the broader research process, so this
-is not an untouched external generalization test.
+profile superiority. Source families and label composition are imbalanced, and
+some source-by-class strata have no examples, so their rates are undefined
+(reported as null) rather than evidence of generalization. Development informed
+the broader research process, so this is not an untouched external
+generalization test.
 
 ## Provenance and limits
 
 The [run manifest](../evaluation/results/presence_profiles_20261004_v1/run-manifest.json)
 records source revision `d52bf84d83addb827cc21b96f0be8ecc995bfaaa`, protocol SHA-256
 `d4c1035c42ef49b0af7992f76bc5332645f2047b3dc313b2679c58a3f14a5f75`, partition
-hashes, selected-artifact hashes, and the final-set digest. Its SHA-256 is
+hashes, selected-artifact hashes, and the pinned final-set digest. Its SHA-256 is
 `5406a1b58d9bc49e8f36ad5da94d6f9f2f36a093ec640b67bd14922c899609b1`. Per-profile
 selection files, artifacts, runtime manifests, reports, and raw predictions are
 retained under
 [`evaluation/results/presence_profiles_20261004_v1/`](../evaluation/results/presence_profiles_20261004_v1/).
-The runtime study used source revision `4615019e5d00d28a48cb05c1ea8324e87b684829`;
-the three reports are in `runtime-base/{efficient,balanced,quality}/report.json`.
-The evaluator suite passed 84 tests, and the matched runtime manifests record
-502 rows and zero errors for each profile.
+The runtime reports were produced at scoring source revision
+`4615019e5d00d28a48cb05c1ea8324e87b684829` and independently audited from
+checkout `e519a77ff0d542d39d6a031bf862bbcd92ca758b`. The [served-base audit](../evaluation/results/presence_profiles_20261004_v1/runtime-base/audit/served-base-report-v3.json)
+passed 42 checks; its SHA-256 is
+`516704d6d7ffb03271ccf1b1f8f503e2aa8088a6c67a87d6b2aa30d335ee82a0`. The
+auditor script SHA-256 is
+`7496ca3faec340786d0f7c08b0c95c86e64c41daaf4592b66cf9e9dd167aa7f0`. It
+verified 502-row identity/label/group joins, raw counts, source-family counts,
+returned model identities, and local/RPC score parity to 1.11e-16; each profile
+had zero runtime errors. The evaluator suite passed 96 tests at source
+`e519a77ff0d542d39d6a031bf862bbcd92ca758b`; see the
+[test log](../evaluation/presence-study-evaluator-tests-v2.log).
+
+## Fixed update attempt results
+
+The completed [nine-attempt study](../evaluation/results/presence_updates_20261004_v1/)
+used the three frozen profile bases and seeds 42, 43, and 44. All nine update
+requests were accepted and produced archived candidate heads; each changed
+3,116–14,402 head parameters while the IDF, configuration, and fit provenance
+stayed fixed. None met the
+predeclared retention rule: validation recall had to be at least 90% and
+specificity had to strictly exceed the corresponding base. Counts below are
+validation TP/TN/FP/FN (475 positive and 493 clean rows); each row lists the
+base followed by its seed 42, 43, and 44 attempts.
+
+| Profile | Fitted base | Seed 42 | Seed 43 | Seed 44 | Retained result |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Efficient | 429/378/115/46 | 429/378/115/46 | 428/378/115/47 | 428/378/115/47 | Base (no specificity gain) |
+| Balanced | 428/392/101/47 | 428/392/101/47 | 427/392/101/48 | 427/392/101/48 | Base (no specificity gain) |
+| Quality | 428/394/99/47 | 428/394/99/47 | 427/394/99/48 | 427/394/99/48 | Base (no specificity gain) |
+
+Efficient seeds 43 and 44 stayed above the recall floor but had unchanged
+specificity. Balanced and quality seeds 43 and 44 fell below the recall floor
+(427/475 = 89.89%); their specificity also stayed unchanged. The seed-42 runs
+matched each base's validation counts, so they also failed the strict
+specificity-increase condition. Every profile therefore retained its fitted
+base, and no updated candidate was selected for development scoring. Verified
+502-row base development reports were reused without rescoring. This result
+does not show that the fuzzer updates improved detection; it shows these fixed
+updates failed the frozen selection gate. No additional C or update cycles were
+run in response to the unchanged validation specificity.
+
+The independent [study audit](../evaluation/results/presence_updates_20261004_v1/audit/audit-v2.json)
+passed 59,214 checks over 136 files and 11,616 validation probabilities, with
+maximum absolute local/RPC difference 1.11e-16. It verified request
+fingerprints, receipts, changed candidate heads, unchanged frozen configuration
+and IDF, exact data/report joins, stable service/evaluator image identities,
+and restoration of all three fitted bases and the previously selected
+contextual checkpoint. The study ran at source revision
+`e519a77ff0d542d39d6a031bf862bbcd92ca758b`; validation/development/final input
+hashes were unchanged before and after the run, with final used only as a
+digest. The [study manifest](../evaluation/results/presence_updates_20261004_v1/run-manifest.json)
+SHA-256 is
+`ae8c3c9dd4a9ccbadb111fdbcbcd0ed9fa0effddf01ba664dc161300fa591695`; audit JSON
+SHA-256 is `6829775f7f7620aa0c28caf0b59d6f7d948aa306a8a80f45e34ff4a947a0d35d`;
+the [audit script](../evaluation/results/presence_updates_20261004_v1/audit/audit-v2.py)
+SHA-256 is
+`abe87f3fbcf2a96232301a86acc6cbcf762240acd392d630017d843aa9f43b00`. A
+preliminary audit attempt applied the base-scorer source/path assumptions to
+update-scoring reports and was superseded by this passing audit. Its script was
+edited before v2, so the preliminary attempt is not independently reproducible.
 
 These are binary annotation-presence measurements, not contextual privacy
-judgments or an update of the fuzzer's live model. The original live contextual
+judgments or evidence that updates improve the fuzzer's live model. The original live contextual
 pipeline remains at 90.53% recall and 29.41% specificity, below the 90%
-specificity development target. No fuzzer update results are included in this
-checkpoint. Final data remain unscored; no final examples were read for this
+specificity development target. The fit and study audits recorded only the pinned final digest: their
+train/validation/development separation checks did not freshly compare final
+IDs, groups, or text keys. Final exclusion relies on the earlier pinned
+preparation. Final data remain unscored; no final examples were read for this
 report.
+
+The next substantive investigation should target representation or
+hard-negative/contextual training-data coverage under a new prospective
+protocol, then validate severity and action with separately labelled contextual
+cases. The logistic presence head and deterministic curriculum fuzzer have no
+generative sampling-temperature setting; changing temperature would not address
+the measured unchanged false-positive counts. The fixed learning rate and nine
+attempts are already covered here, and no result guarantees meeting the 90%/90%
+development targets.
