@@ -130,6 +130,8 @@ def compute_presence_gradients(
             "task": "annotation_presence",
             "architecture": "privoke_sparse_presence_v1",
             "artifact_checksum": snapshot.metadata.get("artifact_checksum", ""),
+            "profile": model.profile,
+            **_release_metadata(snapshot.version),
             "base_parameter_fingerprint": parameter_fingerprint(snapshot.parameters, snapshot.shapes),
             "updated_parameter_fingerprint": parameter_fingerprint(candidate_parameters, snapshot.shapes),
             "candidate_parameter_fingerprint": parameter_fingerprint(candidate_parameters, snapshot.shapes),
@@ -142,6 +144,17 @@ def compute_presence_gradients(
             "model_cache_key": snapshot.cache_key,
             "text_preprocessing": "training_text_key_v1",
             "publication_arithmetic": "float32_parameters_float64_features_fsum_v1",
+            **{
+                key: snapshot.metadata[key]
+                for key in (
+                    "source_revision",
+                    "protocol_sha256",
+                    "prepared_manifest_sha256",
+                    "train_sha256",
+                    "validation_sha256",
+                )
+                if key in snapshot.metadata
+            },
         },
     )
 
@@ -192,6 +205,8 @@ def _heldout_metrics(model, examples) -> dict[str, float]:
         total_weight = math.fsum(item.weight for item in examples)
     except (OverflowError, ValueError) as exc:
         raise ValueError("Held-out weights must have a finite positive total.") from exc
+    if not math.isfinite(total_weight) or total_weight <= 0:
+        raise ValueError("Held-out weights must have a finite positive total.")
     total_loss = 0.0
     correct = present = present_correct = absent = absent_correct = 0
     for item in examples:
@@ -215,4 +230,14 @@ def _heldout_metrics(model, examples) -> dict[str, float]:
         "heldout_exact_match_rate": correct / len(examples),
         "heldout_present_recall": present_correct / present,
         "heldout_absent_specificity": absent_correct / absent,
+    }
+
+
+def _release_metadata(version: str) -> dict[str, str]:
+    release, separator, revision_text = version.partition("+train.")
+    if not release or (separator and not revision_text.isdecimal()):
+        raise ValueError("Presence model version has an invalid training revision suffix.")
+    return {
+        "release_version": release,
+        "training_revision": str(int(revision_text)) if separator else "0",
     }

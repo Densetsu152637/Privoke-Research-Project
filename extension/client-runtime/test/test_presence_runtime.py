@@ -116,6 +116,11 @@ def _snapshot(artifact=None):
     )
 
 
+def _assert_started(test_case, timer, model):
+    test_case.assertEqual(timer.call_count, 1)
+    return model
+
+
 class PresenceRuntimeTests(unittest.TestCase):
     def test_stream_wrapper_rejects_contextual_artifact(self):
         snapshot = _snapshot()
@@ -162,7 +167,24 @@ class PresenceRuntimeTests(unittest.TestCase):
         self.assertEqual(len(cache._presence_models), 1)
 
     def test_binary_gradient_train_and_holdout_group_guards(self):
-        model = StreamedPresenceModel(_snapshot())
+        artifact = _artifact()
+        artifact["version"] = "release-v3+train.7"
+        artifact["checksum"] = artifact_checksum(
+            {key: value for key, value in artifact.items() if key != "checksum"}
+        )
+        snapshot = _snapshot(artifact)
+        snapshot = replace(
+            snapshot,
+            metadata={
+                **snapshot.metadata,
+                "source_revision": "source-sha",
+                "protocol_sha256": "protocol-sha",
+                "prepared_manifest_sha256": "prepared-sha",
+                "train_sha256": "train-sha",
+                "validation_sha256": "validation-sha",
+            },
+        )
+        model = StreamedPresenceModel(snapshot)
         training = (
             PresenceTrainingExample("mail meeting", False, 1.0, "train-a"),
             PresenceTrainingExample("diagnosis mail", True, 1.0, "train-b"),
@@ -185,6 +207,10 @@ class PresenceRuntimeTests(unittest.TestCase):
         self.assertEqual(set(batch.gradients), {"head.presence.weight.000", "head.presence.bias"})
         self.assertIn("candidate_heldout_present_recall", batch.metrics)
         self.assertIn("candidate_heldout_absent_specificity", batch.metrics)
+        self.assertEqual(batch.metadata["profile"], "efficient")
+        self.assertEqual(batch.metadata["release_version"], "release-v3")
+        self.assertEqual(batch.metadata["training_revision"], "7")
+        self.assertEqual(batch.metadata["prepared_manifest_sha256"], "prepared-sha")
         self.assertNotEqual(
             batch.metadata["base_parameter_fingerprint"],
             batch.metadata["updated_parameter_fingerprint"],
@@ -270,10 +296,11 @@ class PresenceRuntimeTests(unittest.TestCase):
         )
         with (
             patch("src.hosting.grpc_server.ModelParameterStreamer"),
+            patch("src.hosting.grpc_server.time.perf_counter", side_effect=[10.0, 10.75]) as timer,
             patch.object(
                 StreamedModelCache,
                 "presence_model_for_streamer",
-                return_value=model,
+                side_effect=lambda streamer: _assert_started(self, timer, model),
             ),
         ):
             response = PrivokeRuntimeService().DetectAnnotationPresence(request, None)
@@ -285,6 +312,7 @@ class PresenceRuntimeTests(unittest.TestCase):
             runtime_pb2.ANNOTATION_PRESENCE_ABSENT,
         ))
         self.assertAlmostEqual(response.probability, model.predict_probability(request.text))
+        self.assertAlmostEqual(response.elapsed_ms, 750.0)
         self.assertTrue(response.parameter_fingerprint)
         self.assertEqual(response.artifact_checksum, model.snapshot.metadata["artifact_checksum"])
 
