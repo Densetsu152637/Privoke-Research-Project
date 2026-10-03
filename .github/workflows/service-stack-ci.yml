@@ -3,6 +3,7 @@ name: Service stack CI
 on:
   push:
     branches:
+      - main
       - feat/dev-testing
   pull_request:
     branches:
@@ -38,7 +39,9 @@ jobs:
         run: npm test
       - name: Build unpacked extension
         working-directory: extension
-        run: npm run build
+        run: |
+          npm run build
+          npm run build:firefox
 
   model-tests:
     name: Model streaming Go tests
@@ -165,7 +168,14 @@ jobs:
           done
 
       - name: Exercise all live gRPC service paths
-        run: docker compose exec -T client-runtime python test/stack_smoke.py
+        run: docker compose exec -T client-runtime python test/stack_smoke.py --training-request-id ci-production-training
+
+      - name: Verify durable training replay after service restart
+        run: |
+          docker compose restart param-update-service privoke-fuzzer
+          docker compose up -d --wait --wait-timeout 120 param-update-service privoke-fuzzer
+          docker compose exec -T client-runtime python test/stack_smoke.py \
+            --training-request-id ci-production-training --replay-training
 
       - name: Verify recovery after a model-service restart
         run: |

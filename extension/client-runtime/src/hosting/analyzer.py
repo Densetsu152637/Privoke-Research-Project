@@ -31,8 +31,9 @@ class PromptAnalysis:
             self.action,
             self.elapsed_ms,
         )
-        if self.execution.errors and self.result is None:
-            response["reason"] = "PriVoke could not complete analysis safely."
+        if self.execution.errors:
+            if self.action == PriVokeAction.BLOCK:
+                response["reason"] = "PriVoke could not complete analysis safely."
             response["errors"] = list(self.execution.errors)
         return response
 
@@ -106,4 +107,4 @@ def _apply_visibility_hint(
             "visibility_hint": visibility_hint.name,
         },
     )
-    return hinted_result, hinted_result.action()
+    return hinted_result, max((action, hinted_result.action()), key=lambda value: value.value)

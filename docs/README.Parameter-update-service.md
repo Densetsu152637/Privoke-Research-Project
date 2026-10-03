@@ -11,6 +11,7 @@ It is experiment infrastructure, not part of the hosted prompt classification pa
 Defined in `shared/proto/privoke/v1/parameters.proto`:
 
 - `SubmitParameterUpdate(ParameterUpdateRequest) -> ParameterUpdateAck`
+- `GetParameterUpdateStatus(ParameterUpdateStatusRequest) -> ParameterUpdateStatus`
 - `Health(HealthRequest) -> HealthResponse`
 
 `SubmitParameterUpdate`:
@@ -20,7 +21,7 @@ Defined in `shared/proto/privoke/v1/parameters.proto`:
 - rejects stale `base_version` values and updates to frozen, unknown, or misshaped tensors,
 - applies deltas and atomically replaces the Git-storable JSON artifact,
 - increments the artifact version as `<release>+train.<revision>`,
-- appends one mode-`0600` audit line to `PARAM_UPDATE_STORAGE_PATH`,
+- attempts a mode-`0600` audit line at `PARAM_UPDATE_STORAGE_PATH`; audit failure is logged after committed publication and does not undo the weights,
 - logs source, model, and gradient count,
 - returns `accepted=true`,
 - returns the actually committed artifact version.
@@ -46,7 +47,11 @@ Stored JSONL shape:
 }
 ```
 
-The current implementation does not perform idempotency checks, retention enforcement, or privacy filtering beyond rejecting oversized metadata. It never accepts raw prompt text as a dedicated field.
+Identified updates support idempotency. The receipt key includes updater source, original training-request source, and request ID; its payload digest rejects conflicting reuse. An identical retry returns its original committed version without another weight update. `GetParameterUpdateStatus` retrieves that outcome using the training-request fingerprint, allowing a restarted fuzzer to recover a lost acknowledgment without training again.
+
+Receipts persist in `<PARAM_UPDATE_STORAGE_PATH>.receipts.sqlite3` with SQLite writer serialization and full synchronization. The artifact also stores its latest receipt in the same atomic replacement as the weights. Before a later publication replaces that marker, recovery checkpoints the older outcome into SQLite. This closes the publication/receipt crash window without accumulating history in streamed artifacts. Back up the model and receipt database together. Updates without a request ID retain ordinary base-version checks but have no replay identity.
+
+Retention enforcement and general metadata privacy filtering remain outside this contract; bounded metadata must exclude raw prompt text. There is no dedicated raw-prompt field.
 
 ## Runtime
 
@@ -61,7 +66,7 @@ Environment variables:
 - `PARAM_UPDATE_MAX_MESSAGE_BYTES`, default `1048576`
 - `MODEL_ID`, default `privoke-baseline`; updates for other model IDs are rejected
 
-Docker Compose persists audit data in `param-update-data` and bind-mounts `./models` read-write. The streaming service mounts the same repository directory read-only. After a successful training cycle, `git diff -- models/privoke-baseline.json` shows the new version and weights, and the artifact can be committed normally.
+Production Compose and Compute Engine persist audit/receipt data in `param-update-data` and weights in `model-data`. The updater mounts weights read-write and streaming mounts them read-only. The development override instead bind-mounts `./models`, so a successful balanced-model training cycle appears in `git diff -- models/privoke-balanced.json` and can be reviewed and committed. Standalone defaults above retain the legacy baseline ID; Compose explicitly selects `privoke-balanced`.
 
 The `Health` RPC returns `SERVING` only when the audit path is writable and the model artifact is valid and replaceable.
 
@@ -113,7 +118,7 @@ successful cycle and interval.
 Subagents working here should:
 
 - preserve and extend validation for required identifiers, metadata, and gradient bounds,
-- add idempotency keys before repeated training requests become common,
+- preserve replay identity, receipt recovery, and conflicting-payload rejection across repeated requests,
 - add a storage abstraction if JSONL is no longer enough,
 - document retention and privacy constraints,
 - keep raw prompt text out of update metadata unless an experiment explicitly approves it.

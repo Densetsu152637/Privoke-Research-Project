@@ -114,9 +114,10 @@ Important behavior:
 - The streamed client rejects a snapshot whose returned model ID differs from an explicitly requested model. The special `latest` alias accepts the server's resolved release-channel model ID.
 - Every requested layer returns `ok`, `error`, or `skipped`; one layer failure does not erase successful results from other layers.
 - When regex does not block, NER and semantic classification run through `GLOBAL_CONFIG.threadpool`.
-- `strongest_result` compares `ClassificationResult.action().value` and returns the first result that raises the action above `ALLOW`.
-- The local response does not currently merge all detector categories, visibility signals, or evidence into one final classification.
-- If all detector results are `ALLOW`, the response uses the default `S0`/`PU` classification unless a visibility hint was provided.
+- `strongest_result` retains `ALLOW` evidence and combines the strongest sensitivity and known visibility with the union of categories. One deterministic primary evidence span is retained; all findings remain available in layer results.
+- Aggregate confidence comes from the most sensitive contributors, preserving low-confidence moderation; aggregation never weakens individual enforcement decisions. Visibility hints can promote retained identity/location evidence to `WARN` and cannot lower an existing `BLOCK`.
+- Normalized detector spans are mapped to the original request for both layer and aggregate evidence. Warning masking replaces the mapped primary span only when its original text matches the evidence.
+- A failed requested layer blocks an otherwise `ALLOW` decision and remains visible in response errors. A valid clean result or no successful detector matches remains `ALLOW` when no layer failed.
 
 ## Classification Contract
 
@@ -283,4 +284,4 @@ Useful smoke checks:
 - email or credit card input should return `BLOCK`.
 - `username: alex` or other structured identity fields should usually return `WARN`.
 - pure safe text should return `ALLOW`.
-- visibility-only text may not appear in hosted classification unless passed as `visibility_hint`, because the current strongest-result selector drops all-`ALLOW` evidence.
+- visibility-only cues remain visible in hosted classification, and private visibility can combine with identifier evidence to produce `WARN`.

@@ -4,7 +4,7 @@
 
 This directory contains layer 1 of the PriVoke client-runtime detector pipeline: deterministic regex and heuristic detection.
 
-`RuleDetector.analyze(text)` returns `list[ClassificationResult]`. It does not merge its matches. The client runtime later selects the strongest action-producing result.
+`RuleDetector.analyze(text)` returns `list[ClassificationResult]`. It does not merge its matches. The client runtime combines classifications while retaining one primary evidence span and all per-layer findings.
 
 ## Files
 
@@ -49,7 +49,7 @@ Rules map directly to `Sensitivity`, `Visibility`, and `Category` values. They s
 
 ## Visibility Rules
 
-Visibility-only rules use `Sensitivity.S0` and no categories. In the current hosted pipeline, those `ALLOW`-level results are not merged with separate sensitive matches. They are still useful for direct layer probes and future fusion work, but request-level visibility should be passed through `visibility_hint` when the hosted API needs it applied to the selected result.
+Visibility-only rules use `Sensitivity.S0` and no categories. The hosted pipeline retains these `ALLOW` findings and combines their strongest known visibility with sensitive evidence. Request-level `visibility_hint` can further increase privacy restrictions without weakening an existing decision.
 
 ## Subagent Tasks
 

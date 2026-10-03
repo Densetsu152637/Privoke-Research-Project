@@ -20,13 +20,13 @@ This package currently contains the text normalizer used before all detector lay
 - collapses repeated newlines,
 - trims leading and trailing whitespace.
 
-Normalization should not delete sensitive content. It prepares a canonical string for matching, but span offsets in detector results refer to the normalized text, not necessarily the original request text.
+Normalization should not delete sensitive content. It prepares a canonical string for matching, and `normalize_with_offsets` records each canonical character's source interval. The pipeline maps detector spans and evidence back to the exact original request before returning per-layer or aggregate results. Unicode expansions share a source interval; replacements and collapsed spans cover their complete source interval.
 
 ## Where Pipeline Decisions Live
 
 - `src/pipeline.py` orchestrates regex, NER, semantic classification, regex short-circuiting, and strongest-result selection.
 - `src/classification/classification_policy.py` derives `PriVokeAction` from each `ClassificationResult`.
-- `src/hosting/analyzer.py` applies request-level `visibility_hint` after pipeline analysis.
+- `src/hosting/analyzer.py` applies request-level `visibility_hint` to the combined classification without lowering an existing enforcement decision.
 - `src/hosting/serialization.py` builds the HTTP response and performs warning-span masking.
 
 There is no active `fusion.py` or `enforcement_engine.py` in this package.

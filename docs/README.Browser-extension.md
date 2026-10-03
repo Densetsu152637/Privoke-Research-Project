@@ -20,9 +20,9 @@ Docker is optional for the extension's regex and NER layers. It is used only whe
 ## Behavior
 
 - The master toggle starts or stops the client-runtime detector process through `PrivokeRuntimeControlService`. The lightweight supervisor stays online so an off runtime can be started again.
-- **Regex**, **NER**, and **LLM (streamed)** can be enabled independently. Regex and NER start enabled; the streamed LLM starts disabled.
-- Enabling LLM asks the local Python supervisor to check `ModelStreamingService.Health`. If the service does not return `SERVING`, LLM remains off and the popup says that the PriVoke servers are offline.
-- Startup never contacts `model-streaming-service`. Regex and NER remain available when that service is absent; only explicitly enabling or using the streamed LLM layer needs it.
+- **Regex**, **NER**, and **LLM (streamed)** can be enabled independently; all three start enabled.
+- When semantic protection is configured, analysis checks streaming availability through the supervisor. Health results are cached for five seconds and concurrent checks are coalesced. An outage uses other enabled layers temporarily; semantic remains configured and resumes automatically after a successful later check.
+- If semantic is the only enabled layer, unavailable streaming keeps the request protected by a runtime error and blocks it. Disabling the master toggle or all layers explicitly bypasses analysis.
 - Manual analysis reports a compact `PASS`, `WARN`, or `ERROR` badge beside the **Analyse prompt** button. `BLOCK` maps to `ERROR` in this compact UI.
 - Website notifications are shown only for `WARN` and `BLOCK`. The detected evidence span is rendered in red; `ALLOW` stays silent.
 - A warning allows the original web request to continue. A block cancels it before it is sent.
@@ -39,7 +39,7 @@ The page-network hook currently recognises prompt POSTs for:
 - Microsoft Copilot,
 - OpenAI Chat Completions and Responses API requests made from a matching browser page.
 
-Both `fetch` and `XMLHttpRequest` are intercepted at `document_start`. If the extension bridge or runtime is unavailable, website requests fail open and no page notification is shown. This avoids presenting an infrastructure failure as a privacy classification.
+Both `fetch` and `XMLHttpRequest` are intercepted at `document_start`. If the extension bridge or runtime is unavailable, website requests are blocked and a notice reports that analysis could not complete safely. A streamed semantic outage falls back to other enabled detection layers; when no fallback layer is enabled, prompts remain blocked until semantic analysis recovers.
 
 ## Request path
 
@@ -145,7 +145,7 @@ For development without native messaging, start the supervisor manually from `ex
 ../client-runtime/.venv/bin/python src/main.py
 ```
 
-The repository does not include a separate extension Compose file. If neither the registered native launcher nor a manually started supervisor is available, intercepted website requests fail open and the popup reports that the native messaging host must be installed.
+The repository does not include a separate extension Compose file. If neither the registered native launcher nor a manually started supervisor is available, intercepted website requests are blocked and the popup reports that the native messaging host must be installed.
 
 5. Load `extension/dist` using the target browser's development-extension page:
 
@@ -175,7 +175,7 @@ For incremental builds, run `npm run dev` and reload the unpacked extension plus
 - Website access is limited in the manifest to the supported AI hosts listed above.
 - The supervisor-hosted bridge binds only to `127.0.0.1`, routes runtime analysis and lifecycle control, and limits browser CORS to local pages and extension origins. It has no route to `model-streaming-service`.
 - Loopback binding prevents remote-network access, but CORS is not local-process authentication. Another application on the workstation can construct requests to these local services.
-- Prompt text is sent to the local bridge and runtime. Runtime telemetry remains metadata-only and excludes prompt text.
+- Prompt text is sent to the local bridge and runtime. Runtime telemetry excludes prompt text and identifiers, randomizes bounded event fields, and enforces a persistent daily privacy budget.
 - The browser bridge is local extension infrastructure and is deliberately absent from the server Docker deployments.
 
 ## Layout
@@ -194,3 +194,5 @@ For incremental builds, run `npm run dev` and reload the unpacked extension plus
 - `runtime-supervisor`: separate Python lifecycle process that owns the loopback gRPC-Web bridge, detector child, and model-health control RPC.
 
 The two Python processes are documented in [Client runtime](README.Client-runtime.md) and [Runtime supervisor](README.Runtime-supervisor.md).
+
+The hook covers recognized POST endpoint/body shapes through page `fetch` and asynchronous XHR. It does not claim coverage for WebSocket, `sendBeacon`, workers, every attachment payload, or future website endpoint changes. WARN continues the original request; returned `masked_text` is evidence for consumers and is not automatically substituted into website traffic. Live website/native-host compatibility requires release validation beyond the JavaScript harness.

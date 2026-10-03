@@ -4,6 +4,7 @@ import importlib.util
 import json
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -94,6 +95,40 @@ class StreamedTransformerTests(unittest.TestCase):
         cache.classify("my diagnosis is cancer", streamer)
 
         self.assertEqual(fetch_count, 1)
+
+    def test_cached_snapshot_cannot_hide_invalid_configuration(self):
+        cache = StreamedModelCache()
+        snapshot = self.model.snapshot
+        cache._model_for_snapshot(snapshot)
+        config = json.loads(snapshot.metadata["model_config"])
+        config["vocab_size"] = 1
+        malformed = replace(snapshot, metadata={
+            **snapshot.metadata, "model_config": json.dumps(config),
+        })
+        with self.assertRaises(ValueError):
+            cache._model_for_snapshot(malformed)
+
+    def test_cache_reconstructs_on_contract_change_but_ignores_provenance(self):
+        cache = StreamedModelCache(refresh_interval_seconds=0)
+        snapshot = self.model.snapshot
+        original = cache._model_for_snapshot(snapshot)
+        provenance = replace(snapshot, metadata={**snapshot.metadata, "served_by": "new-server"})
+        self.assertIs(cache._model_for_snapshot(provenance), original)
+        config = json.loads(snapshot.metadata["model_config"])
+        config["category_threshold"] = 0.99
+        changed = replace(snapshot, metadata={
+            **snapshot.metadata, "model_config": json.dumps(config),
+        })
+        rebuilt = cache._model_for_snapshot(changed)
+        self.assertIsNot(rebuilt, original)
+        self.assertEqual(rebuilt.model.config.category_threshold, 0.99)
+        streamer = SimpleNamespace(target="streaming:50051", model_id=snapshot.model_id, fetch=lambda: snapshot)
+        initial = cache._model_for_streamer(streamer)
+        streamer.fetch = lambda: changed
+        self.assertIsNot(cache._model_for_streamer(streamer), initial)
+        for field in ("architecture", "trainable_parameters"):
+            altered = replace(snapshot, metadata={**snapshot.metadata, field: "changed"})
+            self.assertNotEqual(snapshot.cache_key, altered.cache_key)
 
     def test_latest_alias_accepts_the_resolved_model_id(self) -> None:
         streamer = SimpleNamespace(

@@ -31,18 +31,11 @@ class StreamedTransformerPrivacyModel:
 
     def classify(self, text: str) -> List[ClassificationResult]:
         prediction = self.model.predict(text)
-        sensitivity = Sensitivity.__members__.get(
-            prediction.sensitivity,
-            Sensitivity.S0,
-        )
-        visibility = Visibility.__members__.get(
-            prediction.visibility,
-            Visibility.PU,
-        )
+        sensitivity = Sensitivity[prediction.sensitivity]
+        visibility = Visibility[prediction.visibility]
         categories = [
             Category.__members__[name]
             for name in prediction.categories
-            if name in Category.__members__
         ]
 
         if sensitivity == Sensitivity.S0 and not categories and visibility == Visibility.PU:

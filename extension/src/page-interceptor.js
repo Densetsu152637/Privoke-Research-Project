@@ -3,6 +3,8 @@ import { runtimeFailureResponse } from "./interception-failure.js";
 
 const CHANNEL = "privoke-extension-v1";
 const RESPONSE_TIMEOUT_MS = 32_000;
+const BODY_READ_TIMEOUT_MS = 5_000;
+const MAX_BODY_BYTES = 1_048_576;
 const nativeFetch = window.fetch;
 
 window.fetch = async function privokeFetch(input, init) {
@@ -15,30 +17,118 @@ window.fetch = async function privokeFetch(input, init) {
     : (input instanceof Request ? input.signal : undefined);
   signal?.throwIfAborted();
 
-  const body = await requestBody(input, init);
-  const text = extractPrompt(body);
-  if (!text) return nativeFetch.apply(this, arguments);
+  const { body, request } = await requestBody(input, init, signal);
+  let forwarded = false;
+  try {
+    const text = extractPrompt(body);
+    const forward = () => {
+      forwarded = true;
+      return request ? nativeFetch.call(this, request) : nativeFetch.apply(this, arguments);
+    };
+    if (!text) return forward();
 
-  const decision = await analyze(text, targetApp, signal);
-  if (decision?.action === "BLOCK") {
-    // Sites often suppress AbortError as an intentional user cancellation.
-    throw new TypeError("Prompt blocked by PriVoke.");
+    const decision = await analyze(text, targetApp, signal);
+    if (decision?.action === "BLOCK") {
+      // Sites often suppress AbortError as an intentional user cancellation.
+      throw new TypeError("Prompt blocked by PriVoke.");
+    }
+    return forward();
+  } catch (error) {
+    if (!forwarded && request?.body) void request.body.cancel().catch(() => {});
+    throw error;
   }
-  return nativeFetch.apply(this, arguments);
 };
 
 installXhrInterceptor();
 
-async function requestBody(input, init) {
-  if (init && Object.hasOwn(init, "body")) return init.body;
-  if (input instanceof Request) {
-    try {
-      return await input.clone().text();
-    } catch {
-      return null;
+async function requestBody(input, init, signal) {
+  if (init?.body != null) {
+    if (init.body instanceof ReadableStream) {
+      // Cloning tees the upload. Forward the prepared Request's untouched
+      // branch so checking never drains the bytes native fetch will send.
+      const request = new Request(input, init);
+      try {
+        return { body: await readRequestBody(request, signal), request };
+      } catch (error) {
+        if (request.body) void request.body.cancel().catch(() => {});
+        throw error;
+      }
     }
+    return { body: await inspectBody(init.body, signal) };
   }
-  return null;
+  if (input instanceof Request) {
+    return { body: await readRequestBody(input, signal) };
+  }
+  return { body: null };
+}
+
+async function readRequestBody(request, signal) {
+  const clone = request.clone();
+  if (!clone.body) return null;
+  const bytes = await readBodyStream(clone.body, signal);
+  if (clone.headers.get("content-type")?.toLowerCase().startsWith("multipart/form-data")) {
+    return new Response(bytes, { headers: clone.headers }).formData();
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+async function inspectBody(body, signal) {
+  signal?.throwIfAborted();
+  if (body instanceof Blob) {
+    if (body.size > MAX_BODY_BYTES) throw new TypeError("PriVoke prompt body exceeds the inspection limit.");
+    return new TextDecoder().decode(await readBodyStream(body.stream(), signal));
+  }
+  const size = body instanceof ArrayBuffer || ArrayBuffer.isView(body)
+    ? body.byteLength
+    : typeof body === "string" || body instanceof URLSearchParams
+      ? new TextEncoder().encode(String(body)).byteLength
+      : 0;
+  if (size > MAX_BODY_BYTES) throw new TypeError("PriVoke prompt body exceeds the inspection limit.");
+  return body;
+}
+
+async function readBodyStream(stream, signal) {
+  signal?.throwIfAborted();
+  const reader = stream.getReader();
+  let rejectStopped;
+  const stopped = new Promise((resolve, reject) => { rejectStopped = reject; });
+  const stop = (error) => {
+    rejectStopped(error);
+    // Cancellation of a tee can wait for its other branch. Never await it.
+    void reader.cancel(error).catch(() => {});
+  };
+  const onAbort = () => stop(signal.reason);
+  const timeout = setTimeout(
+    () => stop(new TypeError("PriVoke prompt body inspection timed out.")),
+    BODY_READ_TIMEOUT_MS,
+  );
+  signal?.addEventListener("abort", onAbort, { once: true });
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await Promise.race([reader.read(), stopped]);
+      if (done) break;
+      if (!(value instanceof Uint8Array)) throw new TypeError("PriVoke cannot inspect this upload stream.");
+      size += value.byteLength;
+      if (size > MAX_BODY_BYTES) throw new TypeError("PriVoke prompt body exceeds the inspection limit.");
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return bytes;
+  } catch (error) {
+    void reader.cancel(error).catch(() => {});
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener("abort", onAbort);
+    reader.releaseLock();
+  }
 }
 
 function analyze(text, targetApp, signal) {
@@ -135,8 +225,9 @@ function installXhrInterceptor() {
   XMLHttpRequest.prototype.send = function privokeSend(body) {
     const xhr = this;
     const request = requests.get(xhr);
+    const blob = body instanceof Blob;
     const text = request?.targetApp ? extractPrompt(body) : "";
-    if (!request?.targetApp || !text) return send.apply(xhr, arguments);
+    if (!request?.targetApp || (!text && !blob)) return send.apply(xhr, arguments);
     if (request.synchronous) {
       throw new DOMException("PriVoke cannot check a synchronous prompt request.", "NetworkError");
     }
@@ -149,7 +240,14 @@ function installXhrInterceptor() {
       request.timeout = setTimeout(() => finishPending(xhr, request, "timeout"), xhr.timeout);
     }
 
-    void analyze(text, request.targetApp, request.controller.signal).then((decision) => {
+    const decision = blob
+      ? inspectBody(body, request.controller.signal).then((raw) => {
+        if (request.cancelled || requests.get(xhr) !== request) return null;
+        const decodedText = extractPrompt(raw);
+        return decodedText ? analyze(decodedText, request.targetApp, request.controller.signal) : null;
+      })
+      : analyze(text, request.targetApp, request.controller.signal);
+    void decision.then((decision) => {
       if (request.cancelled || requests.get(xhr) !== request) return;
       if (decision?.action === "BLOCK") {
         finishPending(xhr, request, "error");
@@ -165,7 +263,8 @@ function installXhrInterceptor() {
         finishPending(xhr, request, "error");
       }
     }, () => {
-      // Cancellation already emitted its terminal events.
+      // Cancellation already emitted its terminal events; unreadable bodies
+      // must settle as a failure instead of bypassing prompt protection.
       if (!request.cancelled && requests.get(xhr) === request) finishPending(xhr, request, "error");
     });
     return undefined;

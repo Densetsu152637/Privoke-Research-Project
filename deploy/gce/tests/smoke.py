@@ -122,7 +122,7 @@ def main():
                 assert response.accepted, response.message
                 summary_after = read_telemetry_summary(compose)
                 validate_aggregate_summary(summary_before, summary_after, protected_values)
-                for path in ("ParamUpdateService/SubmitParameterUpdate", "PrivokeRuntimeService/AnalyzePrompt", "FuzzerService/RunTrainingCycle"):
+                for path in ("ParamUpdateService/SubmitParameterUpdate", "ParamUpdateService/GetParameterUpdateStatus", "PrivokeRuntimeService/AnalyzePrompt", "FuzzerService/RunTrainingCycle"):
                     try:
                         channel.unary_unary(f"/privoke.v1.{path}")(b"", timeout=5)
                     except grpc.RpcError as error:

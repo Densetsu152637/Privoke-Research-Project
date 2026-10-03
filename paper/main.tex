@@ -1,14 +1,14 @@
 \documentclass[conference]{IEEEtran}
 % packages
 \usepackage{cite}
-\usepackage{url} 
+\usepackage{url}
 \usepackage{hyperref}
 \usepackage{comment}
 \usepackage{float}
 \usepackage{graphicx}
 \usepackage{comment}
 \usepackage{listings}
-\usepackage{minted} 
+\usepackage{minted}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{xspace}
@@ -19,7 +19,7 @@
 % default setting overrides
 \IEEEoverridecommandlockouts
 
-% 
+%
 \begin{document}
 
 \title{\privoke: A Client-Side Semantic Privacy Firewall for User Prompts in Web-Hosted LLMs}
@@ -40,13 +40,13 @@ nbis0006@student.monash.edu}
 
 \maketitle
 %----------------------------------------------------------------------%
-\begin{abstract}    
+\begin{abstract}
 
 Web-hosted Large Language Models (LLMs) have introduced a new privacy leakage surface: sensitive user information can be exposed directly through prompts before any organizational or provider-side control can intervene. This paper presents \privoke, a client-side semantic privacy firewall that intercepts outgoing LLM prompts and enforces privacy decisions before transmission. It combines rule-based detection, Named Entity Recognition (NER), and semantic risk analysis to identify Personally Identifiable Information (PII) and context-dependent sensitive disclosures. To support robustness testing, the system includes a prompt-fuzzing pipeline that samples labeled templates and applies simple transformations. \privoke uses event-level Local Differential Privacy (LDP) for telemetry reports and exposes aggregate estimates for deployment monitoring without collecting raw prompts or directly identifiable user data. By localizing prompt-level privacy enforcement, \privoke provides a practical foundation for reducing sensitive prompt leakage while preserving usability in web-hosted LLM workflows.
 
 \end{abstract}
 %----------------------------------------------------------------------%
-\begin{IEEEkeywords} 
+\begin{IEEEkeywords}
 Differential Privacy, Large Language Model, Named Entity Recognition, Personal Identifying Information.
 \end{IEEEkeywords}
 %----------------------------------------------------------------------%
@@ -73,7 +73,7 @@ The main contributions of this work are as follows:
 \end{itemize}
 
 %----------------------------------------------------------------------%
-\section{Background} 
+\section{Background}
 \label{sec:background}
 
 \subsection{Large Language Models and Prompt-Based Interaction}
@@ -103,7 +103,7 @@ $\Pr[M(D)=o] \leq e^{\varepsilon}\Pr[M(D')=o]+\delta$
 It is widely used for large-scale telemetry and usage statistics collection by organizations such as Google, Apple, and Microsoft~\cite{cormode2018privacy, cortes2016differential}. Local Differential Privacy (LDP) extends this idea by perturbing information on the user's device before transmission, reducing reliance on a trusted central collector. In the context of client-side LLM privacy tools, DP can reduce the exposure of individual event values while supporting aggregate deployment telemetry, such as action, risk-bucket, category, model-release, and coarse time-of-day counts. It does not by itself conceal whether an event was reported or its network metadata.
 
 %----------------------------------------------------------------------%
-\section{Literature Review} 
+\section{Literature Review}
 \label{sec:literature_review}
 
 \subsection{PII Detection}

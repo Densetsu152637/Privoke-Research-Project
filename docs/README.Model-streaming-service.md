@@ -36,4 +36,6 @@ Environment variables:
 - `MODEL_LATEST_ID`, default `privoke-balanced`
 - `MODEL_ARTIFACT_DIR`, default `/models`
 
-Compose bind-mounts the repository `models` directory read-only into this service. The update service mounts the same directory read-write and publishes balanced-model replacements atomically.
+Production Compose and Compute Engine use the persistent `model-data` volume: this service mounts it read-only, and the update service mounts it read-write. The initializer seeds artifacts while preserving existing trained contents. The development override replaces these model mounts with repository `./models` binds, read-only here and read-write in the updater. An atomically published revision is loaded on the next streaming request; the client cache refreshes after its configured interval rather than on every prompt.
+
+Runtime model configuration rejects tensor layouts above 65,536 values and context lengths above 512 before allocating or enumerating tensors.

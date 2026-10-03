@@ -37,6 +37,24 @@ class ModelConfig:
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, object]) -> "ModelConfig":
+        from privoke_contracts.classification import Category, Sensitivity, Visibility
+
+        for name in ("vocab_size", "hidden_size", "intermediate_size", "max_tokens", "num_layers", "num_attention_heads"):
+            if type(value.get(name, 1)) is not int:
+                raise ModelArtifactError(f"{name} must be an integer.")
+        for name, enum in (
+            ("sensitivity_labels", Sensitivity),
+            ("visibility_labels", Visibility),
+            ("category_labels", Category),
+        ):
+            labels = value.get(name)
+            if not isinstance(labels, (list, tuple)) or any(type(label) is not str for label in labels):
+                raise ModelArtifactError(f"{name} must contain classification label strings.")
+            if len(labels) != len(enum) or set(labels) != set(enum.__members__):
+                raise ModelArtifactError(f"{name} must contain every supported label exactly once.")
+        threshold = value.get("category_threshold", 0.5)
+        if isinstance(threshold, bool) or not isinstance(threshold, (int, float)):
+            raise ModelArtifactError("category_threshold must be numeric.")
         try:
             config = cls(
                 vocab_size=int(value["vocab_size"]),
@@ -61,13 +79,35 @@ class ModelConfig:
             config.num_attention_heads,
         ) <= 0:
             raise ModelArtifactError("Transformer dimensions must be positive.")
+        if config.vocab_size < 2:
+            raise ModelArtifactError("vocab_size must include padding and at least one token.")
         if config.hidden_size % config.num_attention_heads:
             raise ModelArtifactError(
                 "hidden_size must be divisible by num_attention_heads."
             )
         if not 0.0 < config.category_threshold < 1.0:
             raise ModelArtifactError("category_threshold must be between zero and one.")
+        config.validate_capacity()
         return config
+
+    def validate_capacity(self) -> None:
+        """Bound configuration-derived allocations before enumerating tensors."""
+        from privoke_model.artifact import MAX_PARAMETER_VALUES
+
+        hidden = self.hidden_size
+        labels = len(self.sensitivity_labels) + len(self.visibility_labels) + len(self.category_labels)
+        expected_values = (
+            hidden * (self.vocab_size + self.max_tokens)
+            + (hidden + 1) * labels
+            + self.num_layers * (
+                4 * hidden * hidden + 2 * hidden * self.intermediate_size
+                + 2 * hidden + self.intermediate_size
+            )
+        )
+        if expected_values > MAX_PARAMETER_VALUES:
+            raise ModelArtifactError("Transformer configuration exceeds the parameter budget.")
+        if self.max_tokens > 512:
+            raise ModelArtifactError("Transformer context must not exceed 512 tokens.")
 
     @classmethod
     def from_metadata(cls, metadata: Mapping[str, str]) -> "ModelConfig":
@@ -132,6 +172,7 @@ class TinyTransformerModel:
         shapes: Mapping[str, Sequence[int]],
         device: str | None = None,
     ):
+        config.validate_capacity()
         self.config = config
         self.parameters = {
             name: np.asarray(values, dtype=np.float32).reshape(tuple(shapes[name]))

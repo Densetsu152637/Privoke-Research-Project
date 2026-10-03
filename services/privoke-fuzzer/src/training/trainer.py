@@ -6,6 +6,7 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 from privoke_service import env_float, env_string
+from privoke_model.training_data import training_text_key
 from runtime_client import PrivokeRuntimeClient
 
 from .io import load_training_examples
@@ -38,19 +39,28 @@ def train_parameter_batch(
     model_id: str,
     new_examples: Sequence[BatchTrainingExample],
     golden_examples: Sequence[BatchTrainingExample] = (),
+    heldout_examples: Sequence[BatchTrainingExample] = (),
     config: BatchTrainingConfig | None = None,
     runtime_client: PrivokeRuntimeClient | None = None,
 ) -> BatchTrainingUpdate:
     """Prepare examples and delegate model execution and descent to client-runtime."""
     config = config or BatchTrainingConfig()
     _validate_config(config)
+    expanded_count = len(new_examples) * (config.transformations_per_example + 1)
+    if expanded_count + len(golden_examples) + len(heldout_examples) > 1024:
+        raise ValueError("Expanded training plus held-out examples must not exceed 1024.")
     trainer_examples = list(
         iter_training_examples(new_examples, golden_examples, config)
     )
     _validate_examples(trainer_examples)
+    if {training_text_key(item.text) for item in trainer_examples}.intersection(
+        training_text_key(item.text) for item in heldout_examples
+    ):
+        raise ValueError("Held-out examples overlap transformed training texts.")
     runtime_client = runtime_client or _default_runtime_client()
     batch = runtime_client.compute_semantic_gradients(
         trainer_examples,
+        heldout_examples=heldout_examples,
         model_id=model_id,
         learning_rate=config.learning_rate,
         max_gradient=config.max_gradient,
@@ -114,6 +124,8 @@ def iter_training_examples(
 
 
 def _validate_config(config: BatchTrainingConfig) -> None:
+    if type(config.transformations_per_example) is not int or not 0 <= config.transformations_per_example <= 1023:
+        raise ValueError("transformations_per_example must be an integer between 0 and 1023.")
     if not math.isfinite(config.learning_rate) or config.learning_rate <= 0:
         raise ValueError("learning_rate must be finite and greater than zero.")
     if not math.isfinite(config.max_gradient) or config.max_gradient <= 0:

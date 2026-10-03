@@ -25,11 +25,12 @@ On `RunTrainingCycle`, the service:
 
 1. validates `prompt_count > 0`,
 2. caps prompt counts above `FUZZ_MAX_PROMPT_COUNT`,
-3. generates labeled prompts through `src/prompt_generation`,
-4. sends one bounded `ComputeSemanticGradients` request to `PrivokeRuntimeService`,
-5. receives gradients tied to the exact model version used by the runtime,
-6. submits those deltas to `ParamUpdateService.SubmitParameterUpdate`,
-7. returns the update acknowledgment and training metadata to the requester.
+3. checks durable update status for the same source/request identity and returns an existing committed outcome on replay,
+4. reserves distinct labeled clean and sensitive held-out examples, then samples training prompts excluding their normalized texts,
+5. sends bounded training and held-out batches through `ComputeSemanticGradients`,
+6. receives deltas and before/candidate metrics tied to the exact model version; rejects missing, non-finite, invalid or regressing quality evidence,
+7. submits accepted deltas through `SubmitParameterUpdate` with replay identity and request fingerprint,
+8. returns the committed acknowledgment and training metadata to the requester.
 
 The fuzzer does not connect to `model-streaming-service`. Fetching, validation, caching, model execution, and gradient descent all occur inside `client-runtime`.
 
@@ -39,12 +40,14 @@ The training cycle fine-tunes the sensitivity, visibility, and multi-label categ
 
 `train_parameter_batch`:
 
-- generates optional transformed variants per new example,
+- generates optional transformed variants per new example and rejects overlap with held-out normalized texts,
 - delegates the complete model-dependent batch to `client-runtime`,
 - receives bounded tensor deltas, metrics, fingerprints, and the exact base version,
 - packages those values for `param-update-service` without receiving model weights.
 
-Only trainable-head deltas are sent to `param-update-service`; raw prompt text is not included. The update service checks the base version, atomically applies the deltas, increments `+train.N`, and the next runtime request receives that version.
+Only trainable-head deltas are sent to `param-update-service`; raw prompt text is not included. Runtime quality evaluation compares the base model and exact clipped/float32 candidate on distinct held-out labels without mutating its serving cache. Publication requires training exact-match rate strictly above `FUZZ_MIN_EXACT_MATCH_RATE`, both held-out strata present, and no decrease in held-out exact-match rate, sensitive recall, or clean specificity. `candidate_heldout_safety_regression_rate` must also be zero: each example preserves at least the lesser of its target and baseline severity and policy action, including confidence-based action thresholds. Missing/invalid metrics fail the cycle. This synthetic held-out guard does not establish generalization to public benchmarks.
+
+The update service checks the base version, atomically applies accepted deltas, increments `+train.N`, and streaming makes that artifact available on the next request. Runtime caches refresh after their configured interval. A retry after a lost acknowledgment queries durable status before generating or training new data; conflicting request reuse is rejected, and unavailable status storage prevents a new cycle.
 
 ## Prompt Generation
 
@@ -81,6 +84,8 @@ Templates use vocabulary slots from `src/prompt_generation/vocabulary.py`.
 - `FUZZ_TRAINING_LEARNING_RATE`, default `0.03`
 - `FUZZ_TRAINING_MAX_GRADIENT`, default `0.05`
 - `FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE`, default `1`
+- `FUZZ_MIN_EXACT_MATCH_RATE`, default `0.0`, finite in `[0,1]`; training rate must be strictly greater
+- `FUZZ_HELDOUT_PROMPT_COUNT`, default `16`, allowed range `2` to `256`; requires distinct clean and sensitive examples
 - `PRIVOKE_FUZZER_DUMP_DIR`, default `/workspace/dumps/privoke-fuzzer`
 
 ## Runtime Boundary
@@ -143,3 +148,5 @@ Subagents working here should:
 - keep gradient bounds explicit,
 - preserve metadata needed to trace updates back to request IDs and training config,
 - preserve the runtime RPC boundary for all detector execution.
+
+The default dataset mixes challenging compound templates with independently labeled calibration phrases also used by model bootstrap training. The held-out split is disjoint within each adaptive cycle; this calibration overlap cannot establish generalization to unseen data.

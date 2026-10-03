@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable, Iterable, List, Sequence, Tuple
 
 from .classification import ClassificationResult, PriVokeAction
+from .classification.classification_types import merge_classifications
 from .config import GLOBAL_CONFIG, LLMChoice
-from .detection import normalize_text
+from .detection.preprocessing import NormalizedText, normalize_with_offsets
 
 
 REGEX_LAYER = "regex"
@@ -111,7 +112,8 @@ def analyse_text(
     )
 
     try:
-        normalised_text = normalize_text(text)
+        normalised = normalize_with_offsets(text)
+        normalised_text = normalised.text
     except Exception as exc:
         return PipelineAnalysis(
             tuple(
@@ -122,7 +124,9 @@ def analyse_text(
 
     completed: dict[str, LayerExecution] = {}
     if REGEX_LAYER in requested_layers and run_regex_first:
-        regex_execution = _execute_layer(REGEX_LAYER, normalised_text)
+        regex_execution = _remap_execution(
+            _execute_layer(REGEX_LAYER, normalised_text), normalised
+        )
         completed[REGEX_LAYER] = regex_execution
         _, regex_action = strongest_result(regex_execution.results)
         if regex_action == PriVokeAction.BLOCK:
@@ -148,7 +152,8 @@ def analyse_text(
         ),
         pending_layers,
     )
-    completed.update({execution.layer: execution for execution in executions})
+    completed.update({execution.layer: _remap_execution(execution, normalised)
+                      for execution in executions})
     return PipelineAnalysis(tuple(completed[layer] for layer in requested_layers))
 
 
@@ -199,16 +204,50 @@ def _error_message(exc: Exception) -> str:
     return message or exc.__class__.__name__
 
 
+def _remap_execution(execution: LayerExecution, text: NormalizedText) -> LayerExecution:
+    results = []
+    for result in execution.results:
+        span = result.span
+        if span is None and result.section_of_text:
+            start = text.text.find(result.section_of_text)
+            if start >= 0 and text.text.find(result.section_of_text, start + 1) < 0:
+                span = (start, start + len(result.section_of_text))
+        original_span = None
+        if span is not None:
+            candidate = text.original_span(span)
+            if candidate is not None and text.text[slice(*span)] == result.section_of_text:
+                original_span = candidate
+        section = (text.original[slice(*original_span)]
+                   if original_span is not None else result.section_of_text)
+        results.append(replace(result, span=original_span, section_of_text=section))
+    return replace(execution, results=tuple(results))
+
+
 def strongest_result(
     results: Iterable[ClassificationResult],
 ) -> Tuple[ClassificationResult | None, PriVokeAction]:
-    strongest = None
-    strongest_action = PriVokeAction.ALLOW
+    """Combine evidence while retaining one deterministic primary evidence span.
 
-    for result in results:
-        action = result.action()
-        if action.value > strongest_action.value:
-            strongest = result
-            strongest_action = action
-
-    return strongest, strongest_action
+    Confidence comes from the most sensitive contributors; a weaker but certain
+    result must not turn a low-confidence S3 finding into a confident BLOCK.
+    Individual enforcement decisions are never weakened by aggregation.
+    """
+    results = tuple(results)
+    if not results:
+        return None, PriVokeAction.ALLOW
+    primary = max(results, key=lambda result: (
+        result.action().value, result.classification.sensitivity().value,
+        len(result.classification.categories()),
+    ))
+    classification = merge_classifications(result.classification for result in results)
+    contributors = [result for result in results
+                    if result.classification.sensitivity() == classification.sensitivity()]
+    confidence = (None if any(result.confidence is None for result in contributors)
+                  else max(result.confidence for result in contributors))
+    combined = replace(primary, classification=classification, confidence=confidence)
+    if len(results) > 1:
+        combined.reasoning = f'{primary.reasoning} Combined {len(results)} detector findings.'
+        combined.metadata = {**combined.metadata, 'combined_result_count': len(results)}
+    action = max((combined.action(), *(result.action() for result in results)),
+                 key=lambda value: value.value)
+    return combined, action

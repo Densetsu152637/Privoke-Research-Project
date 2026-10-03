@@ -90,6 +90,13 @@ def _validate_metadata(metadata) -> None:
     for key, value in metadata.items():
         validate_text(key, "metadata key", required=True, limit=128)
         validate_text(value, "metadata value", required=False, limit=2_048)
+    if "generated_prompt_count" in metadata:
+        try:
+            count = int(metadata["generated_prompt_count"])
+        except ValueError as exc:
+            raise ValueError("generated_prompt_count must be an integer.") from exc
+        if not 0 <= count <= 1_024:
+            raise ValueError("generated_prompt_count must be between 0 and 1024.")
 
 
 def validate_gradient_shapes_against_artifact(request, artifact) -> None:

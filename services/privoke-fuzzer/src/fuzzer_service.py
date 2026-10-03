@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import math
+import hashlib
 import threading
 from dataclasses import dataclass
 
@@ -10,7 +12,7 @@ import grpc
 from config import FuzzerConfig
 from privoke.v1 import parameters_pb2, parameters_pb2_grpc
 from privoke_service import validate_text
-from prompt_generation import generate_training_prompts
+from prompt_generation import generate_training_partition
 from runtime_client import PrivokeRuntimeClient, RuntimeAnalysisError
 from training import emit_training_update, train_parameter_batch
 from training.types import BatchTrainingUpdate
@@ -50,13 +52,42 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
 
     def _run_training_cycle(self, request, context):
         cycle = _resolve_cycle(request, self.config)
+        previous = self._previous_update(request, cycle, context)
+        if previous.found:
+            return parameters_pb2.FuzzerTrainingResponse(
+                accepted=previous.ack.accepted,
+                model_id=previous.ack.model_id,
+                base_version=previous.base_version,
+                applied_version=previous.ack.applied_version,
+                prompts_generated=previous.prompts_generated,
+                message=previous.ack.message,
+                metadata={"replayed": "true"},
+            )
         _log_cycle_started(request, cycle)
-        examples = generate_training_prompts(
-            count=cycle.prompt_count,
-            seed=cycle.seed,
-            dataset_path=self.config.prompt_dataset_path,
+        try:
+            examples, heldout_examples = generate_training_partition(
+                count=cycle.prompt_count,
+                heldout_count=self.config.heldout_prompt_count,
+                seed=cycle.seed,
+                dataset_path=self.config.prompt_dataset_path,
+            )
+        except ValueError as exc:
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
+        update = self._train(
+            cycle.model_id,
+            examples,
+            heldout_examples,
+            cycle.seed,
+            context,
         )
-        update = self._train(cycle.model_id, examples, cycle.seed, context)
+        try:
+            validate_training_update(
+                update,
+                minimum_exact_match_rate=self.config.minimum_exact_match_rate,
+            )
+        except ValueError as exc:
+            LOGGER.warning("rejecting training update: %s", exc)
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
         if not context.is_active():
             context.abort(
                 grpc.StatusCode.CANCELLED,
@@ -72,17 +103,38 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
         )
         return build_training_response(ack, update, len(examples))
 
-    def _train(self, model_id, examples, seed: int, context) -> BatchTrainingUpdate:
+    def _previous_update(self, request, cycle, context):
+        try:
+            with grpc.insecure_channel(self.config.param_update_target) as channel:
+                return parameters_pb2_grpc.ParamUpdateServiceStub(channel).GetParameterUpdateStatus(
+                    parameters_pb2.ParameterUpdateStatusRequest(
+                        source_id=self.config.fuzzer_id,
+                        request_id=request.request_id,
+                        request_source_id=request.source_id,
+                        model_id=cycle.model_id,
+                        request_fingerprint=_training_request_fingerprint(request),
+                    ),
+                    timeout=self.config.timeout_seconds,
+                )
+        except grpc.RpcError as exc:
+            if exc.code() == grpc.StatusCode.ALREADY_EXISTS:
+                context.abort(grpc.StatusCode.ALREADY_EXISTS, "request_id belongs to a different training request.")
+            context.abort(grpc.StatusCode.UNAVAILABLE, "Parameter update receipts are unavailable.")
+
+    def _train(self, model_id, examples, heldout_examples, seed: int, context) -> BatchTrainingUpdate:
         try:
             return train_parameter_batch(
                 model_id=model_id,
                 new_examples=examples,
+                heldout_examples=heldout_examples,
                 config=self.config.batch_training_config(seed),
                 runtime_client=PrivokeRuntimeClient(
                     self.config.privoke_runtime_target,
                     timeout_seconds=self.config.timeout_seconds,
                 ),
             )
+        except ValueError as exc:
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
         except (RuntimeAnalysisError, grpc.RpcError) as exc:
             LOGGER.warning("client runtime semantic training failed: %s", exc)
             context.abort(
@@ -109,6 +161,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                     "requested_prompt_count": str(cycle.requested_prompt_count),
                     "generated_prompt_count": str(generated_count),
                     "training_pipeline": "client_runtime_semantic_gradients",
+                    "training_request_fingerprint": _training_request_fingerprint(request),
                 },
                 timeout_seconds=self.config.timeout_seconds,
             )
@@ -142,6 +195,57 @@ def validate_training_request(request, expected_model_id: str) -> None:
     for key, value in request.metadata.items():
         validate_text(key, "metadata key", required=True, limit=128)
         validate_text(value, "metadata value", required=False, limit=2_048)
+
+
+def _training_request_fingerprint(request) -> str:
+    return hashlib.sha256(request.SerializeToString(deterministic=True)).hexdigest()
+
+
+def validate_training_update(
+    update: BatchTrainingUpdate,
+    *,
+    minimum_exact_match_rate: float,
+) -> None:
+    if not math.isfinite(minimum_exact_match_rate) or not 0 <= minimum_exact_match_rate <= 1:
+        raise ValueError("Minimum exact match rate must be finite and within [0, 1].")
+    required_rates = (
+        "exact_match_rate", "heldout_exact_match_rate", "candidate_heldout_exact_match_rate",
+        "heldout_sensitive_recall", "candidate_heldout_sensitive_recall",
+        "heldout_clean_specificity", "candidate_heldout_clean_specificity",
+        "candidate_heldout_safety_regression_rate",
+    )
+    for name in required_rates:
+        value = update.metrics.get(name)
+        if value is None:
+            raise ValueError(f"Training update did not report {name}.")
+        if not math.isfinite(value) or not 0 <= value <= 1:
+            raise ValueError(f"Training update {name} must be finite and within [0, 1].")
+    for name in ("heldout_sensitive_examples", "heldout_clean_examples"):
+        value = update.metrics.get(name, 0)
+        if not math.isfinite(value) or value < 1 or value != int(value):
+            raise ValueError("Held-out evaluation needs both clean and sensitive examples.")
+    exact_match_rate = update.metrics.get("exact_match_rate")
+    if exact_match_rate is None:
+        raise ValueError("Training update did not report exact_match_rate.")
+    if exact_match_rate <= minimum_exact_match_rate:
+        raise ValueError(
+            "Training update exact_match_rate "
+            f"{exact_match_rate:.4f} must be greater than the minimum "
+            f"{minimum_exact_match_rate:.4f}."
+        )
+    before_recall = update.metrics.get("heldout_sensitive_recall")
+    candidate_recall = update.metrics.get("candidate_heldout_sensitive_recall")
+    before_specificity = update.metrics.get("heldout_clean_specificity")
+    candidate_specificity = update.metrics.get("candidate_heldout_clean_specificity")
+    if None in (before_recall, candidate_recall, before_specificity, candidate_specificity):
+        raise ValueError("Training update did not report held-out quality metrics.")
+    if (
+        candidate_recall < before_recall
+        or candidate_specificity < before_specificity
+        or update.metrics["candidate_heldout_exact_match_rate"] < update.metrics["heldout_exact_match_rate"]
+        or update.metrics["candidate_heldout_safety_regression_rate"] > 0
+    ):
+        raise ValueError("Candidate model is worse on the held-out evaluation set.")
 
 
 def _resolve_cycle(request, config: FuzzerConfig) -> TrainingCycle:

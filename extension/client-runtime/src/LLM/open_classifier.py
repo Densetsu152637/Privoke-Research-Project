@@ -4,7 +4,8 @@ import json
 from typing import List
 from .prompt import system_prompt, user_prompt
 from .abs_classifier import AbstractClassifier
-from ..classification import ClassificationResult, build_results
+from ..classification import ClassificationResult
+from ..classification.external_output import build_external_results
 from ..env import env_float, env_positive_int
 
 
@@ -110,9 +111,17 @@ class OpenClassifier(AbstractClassifier):
             max_tokens=self.max_tokens,
         )
 
-        content = response.choices[0].message.content.strip()
+        if not response.choices:
+            raise RuntimeError("Semantic classifier returned no completion choices.")
+        content = response.choices[0].message.content
+        if not isinstance(content, str) or not content.strip():
+            raise RuntimeError("Semantic classifier returned invalid JSON.")
+        try:
+            parsed = json.loads(content)
+        except ValueError as exc:
+            raise RuntimeError("Semantic classifier returned invalid JSON.") from exc
 
-        results = build_results(json.loads(content))
+        results = build_external_results(parsed, text)
         if not results:
             raise RuntimeError("Semantic classifier returned no valid results.")
         return results
