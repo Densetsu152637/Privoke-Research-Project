@@ -152,12 +152,27 @@ class DockerBackend:
         self.calls: list[dict] = []
         self.evaluator_images: set[str] = set()
         self.score_containers: list[dict] = []
+        self.admin_mutation_outcome_unknown = False
 
     def call(self, args: list[str], *, data: bytes | None = None, direct: bool = False,
-             timeout: int = 180) -> str:
+             timeout: int = 180, admin_mutation: bool = False) -> str:
         argv = list(args) if direct else COMPOSE + list(args)
-        result = subprocess.run(argv, cwd=ROOT, env=self.env, input=data,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+        try:
+            result = subprocess.run(argv, cwd=ROOT, env=self.env, input=data,
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            if admin_mutation:
+                self.admin_mutation_outcome_unknown = True
+            stdout = exc.output or b""
+            stderr = exc.stderr or b""
+            if isinstance(stdout, str):
+                stdout = stdout.encode("utf-8", errors="replace")
+            if isinstance(stderr, str):
+                stderr = stderr.encode("utf-8", errors="replace")
+            self.calls.append({"argv": argv, "returncode": None, "timed_out": True,
+                               "stdout_sha256": sha_bytes(stdout), "stderr_sha256": sha_bytes(stderr),
+                               "admin_mutation": admin_mutation})
+            raise
         stdout = result.stdout or b""
         stderr = result.stderr or b""
         self.calls.append({"argv": argv, "returncode": result.returncode,
@@ -200,7 +215,8 @@ class DockerBackend:
             raise ValueError("Only the three fixed presence profile IDs can be installed.")
         payload = (json.dumps(artifact, ensure_ascii=False, sort_keys=True,
                               separators=(",", ":"), allow_nan=False) + "\n").encode("utf-8")
-        self.call(["exec", "-T", "param-update-service", "python", "-c", ADMIN_INSTALL, model_id], data=payload)
+        self.call(["exec", "-T", "param-update-service", "python", "-c", ADMIN_INSTALL, model_id],
+                  data=payload, admin_mutation=True)
         observed = validate_catalog_artifact(self.read_raw(model_id), model_id)
         if observed != artifact:
             raise ValueError("Installed catalog artifact differs from the selected frozen artifact.")
@@ -209,7 +225,8 @@ class DockerBackend:
         if model_id not in CATALOG_IDS:
             raise ValueError("Model ID is outside the fixed catalog whitelist.")
         validate_catalog_artifact(raw, model_id, balanced=model_id == "privoke-balanced")
-        self.call(["exec", "-T", "param-update-service", "python", "-c", ADMIN_RESTORE, model_id], data=raw)
+        self.call(["exec", "-T", "param-update-service", "python", "-c", ADMIN_RESTORE, model_id],
+                  data=raw, admin_mutation=True)
 
     def wait_identity(self, expected: dict, *, timeout: float = 30.0) -> None:
         deadline = time.monotonic() + timeout
@@ -354,8 +371,14 @@ def protected_catalog(backend, output: Path, manifest: dict):
                              "error_sha256": sha_bytes(str(exc).encode("utf-8"))})
             manifest["contextual_unchanged_or_restored"] = False
         manifest["restored_presence_sha256"] = restored
+        mutation_unknown = getattr(backend, "admin_mutation_outcome_unknown", False)
+        if mutation_unknown:
+            failures.append({"model_id": "presence-catalog", "error_type": "AdminMutationOutcomeUnknown",
+                             "reason": "A catalog write timed out before its remote terminal state was established."})
+        manifest["admin_mutation_outcome_unknown"] = mutation_unknown
         manifest["restoration_failures"] = failures
-        manifest["restoration_verified"] = not failures and len(restored) == len(PROFILES)
+        manifest["restoration_verified"] = (not failures and not mutation_unknown
+                                              and len(restored) == len(PROFILES))
         save_json(output / "run-manifest.json", manifest)
         if failures and active_error is None:
             raise RuntimeError("Exact catalog restoration failed; inspect restoration_failures.")
