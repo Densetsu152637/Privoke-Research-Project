@@ -14,7 +14,7 @@ spec.loader.exec_module(PREP)
 
 
 def nemotron(n=1, text="Alice record", spans=None):
-    return {"uid": f"{n:032x}", "text": text, "locale": "en-US",
+    return {"uid": f"{n:032x}", "text": text, "locale": "us",
             "spans": [{"start": 0, "end": 5, "label": "PERSON", "text": text[:5]}] if spans is None else spans,
             "domain": "test", "document_type": "note", "document_format": "text"}
 
@@ -103,6 +103,16 @@ class ExternalPreparationTests(unittest.TestCase):
         self.assertEqual(first, PREP.source_identity("meddies-pii", row, 1))
         with self.assertRaises(PREP.ExcludeRow):
             PREP.source_identity("meddies-pii", {k: v for k, v in row.items() if k != "edge_case"}, 1)
+
+    def test_nemotron_geographic_locale_preserved_not_used_as_language(self):
+        for locale in ("us", "intl", None, "unknown-region"):
+            row = nemotron()
+            row["locale"] = locale
+            identity = PREP.source_identity("nemotron-pii", row, 0)
+            candidate = PREP.serialize_candidate("nemotron-pii", row, 0, identity)
+            self.assertEqual(candidate["language"], "en")
+            self.assertEqual(candidate["language_provenance"], "pinned_source_card_english")
+            self.assertEqual(candidate["locale"], locale)
 
     def test_group_assignment_caps_and_global_crosssource_dedupe(self):
         with tempfile.TemporaryDirectory() as directory:
