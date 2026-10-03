@@ -140,7 +140,7 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
 
     def test_fixed_phases_complete_with_exact_restore_and_development_last(self):
         state, prior, backend = self.run_fake(FakeBackend())
-        self.assertEqual(state["status"], "complete")
+        self.assertEqual(state["status"], "complete", state["errors"])
         self.assertTrue(state["restoration_verified"])
         self.assertEqual(backend.catalog, prior)
         self.assertEqual(backend.stages[:6], [("collect-validation", p) for p in runner.PAIRS])
@@ -291,6 +291,9 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
                                      "relative_path": "support/fixture-review.json"},
         }
         case_ids = [f"case-{i}" for i in range(48)]
+        case_rows = [{"case_id": case_id, "text": case_id,
+                      "visibility_hint": "P2" if i < 4 else None}
+                     for i, case_id in enumerate(case_ids)]
         pair_bindings = {pair: {"pair": pair, "source_revision": "b" * 40} for pair in runner.PAIRS}
         primary = {"manifest_sha256": "1" * 64, "selection_sha256": "2" * 64,
                    "source_revision": "a" * 40}
@@ -299,6 +302,7 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
             "support": support, "selection": {"choices": choices},
             "choices_compact": {pair: choices[pair] for pair in runner.PAIRS},
             "case_counts": {"total": 48}, "case_ids": case_ids,
+            "case_rows": case_rows,
             "pair_bindings": pair_bindings, "validation_file": "unused",
             "source_revision": "b" * 40, "runtime_image_id": "sha256:" + "a" * 64,
             "evaluator_image_id": "sha256:" + "e" * 64,
@@ -315,6 +319,7 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
                    "evaluator_image_id": "sha256:" + "e" * 64,
                    "source_revision": "a" * 40}
         plan = self._fixture_plan()
+        plan["primary"]["scorer_binding"] = binding
         preflight_receipt = {"binding": binding, "selection_sha256": plan["primary"]["selection_sha256"],
             "fixture_sha256": runner.FIXTURE_SHA256, "rubric_sha256": runner.RUBRIC_SHA256,
             "review_sha256": runner.FIXTURE_REVIEW_SHA256, "case_counts": plan["case_counts"],
@@ -350,7 +355,10 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
             events.append(("probe", context_name[0], expected.get("presence", {}).get("model_id")))
             original_probe(expected)
         backend.write_artifact, backend.probe = write, probe
-        with patch.object(runner, "check_prior_catalog", return_value={}):
+        prior_catalog = {runner.PRESENCE_IDS[name]: {"checksum": inputs["presence"][name]["identity"]["artifact_checksum"]}
+                         for name in runner.PROFILES}
+        with patch.object(runner, "check_prior_catalog", return_value=prior_catalog), \
+             patch.object(runner, "safe_error", side_effect=lambda exc: {"error_type": type(exc).__name__, "message": str(exc)}):
             state = runner.run_sequence(backend=backend, output=output,
                 study_root=output / "primary", inputs=inputs, binding=binding, fixture_plan=plan)
         self.assertEqual(primary_receipt.read_bytes(), b"frozen-primary-receipt")
@@ -360,7 +368,7 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
     def test_fixture_mode_runs_fixed_six_pairs_and_restores_shared_catalog(self):
         backend = FakeBackend()
         state, prior, _ = self._run_fixture_sequence(backend)
-        self.assertEqual(state["status"], "complete")
+        self.assertEqual(state["status"], "complete", state["errors"])
         self.assertTrue(state["restoration_verified"])
         self.assertEqual(backend.catalog, prior)
         self.assertEqual(backend.fixture_calls, [(pair, pair != runner.PAIRS[0]) for pair in runner.PAIRS])
@@ -389,6 +397,8 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
             binding = {"runtime_image_id": "sha256:" + "a" * 64,
                        "evaluator_image_id": "sha256:" + "e" * 64,
                        "source_revision": "a" * 40}
+            plan = self._fixture_plan()
+            plan["primary"]["scorer_binding"] = binding
             if mismatch == "runtime":
                 binding["runtime_image_id"] = "sha256:" + "b" * 64
             else:
@@ -399,14 +409,127 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
                 with patch.object(runner, "check_prior_catalog", return_value={}):
                     state = runner.run_sequence(backend=backend, output=output,
                         study_root=output / "primary", inputs=fake_inputs(), binding=binding,
-                        fixture_plan=self._fixture_plan())
+                        fixture_plan=plan)
             self.assertEqual(state["status"], "failed", mismatch)
             self.assertEqual(backend.writes, [], mismatch)
             self.assertEqual(backend.restores, [], mismatch)
 
+    def test_fixture_support_hash_mismatch_fails_before_scoring(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "results"
+            support = root / "support"
+            support.mkdir(parents=True)
+            (support / "fixture.jsonl").write_text("unexpected fixture bytes", encoding="utf-8")
+            output = root / "secondary"
+            output.mkdir()
+            with patch.object(runner, "RESULTS", root):
+                with self.assertRaisesRegex(ValueError, "support copy"):
+                    runner.copy_fixture_support(support, output)
+            self.assertFalse((output / "support" / "rubric.md").exists())
+
+    def _fixture_pair_evidence(self, root):
+        output = root / "pair"
+        raw_dir = output / "raw"
+        raw_dir.mkdir(parents=True)
+        cases = [{"case_id": f"case-{i}", "text": f"private fixture {i}",
+                  "visibility_hint": "P2" if i < 4 else None} for i in range(48)]
+        identity = {"model_id": runner.PRESENCE_IDS["efficient"], "model_version": "v1",
+            "artifact_checksum": "a" * 64, "parameter_fingerprint": "b" * 64, "threshold": .5}
+        binding = {"source_revision": "c" * 40, "study_binding": {"presence": {
+            "efficient": {"identity": identity}}}, "selection_sha256": "d" * 64,
+            "pair": "original-efficient", "case_file_sha256": "e" * 64,
+            "rubric_sha256": "f" * 64, "fixture_review_sha256": "1" * 64,
+            "caller_sha256": "2" * 64, "cascade_helper_sha256": "3" * 64,
+            "runtime_image_id": "sha256:" + "4" * 64,
+            "evaluator_image_id": "sha256:" + "5" * 64,
+            "validation_file_sha256": "6" * 64}
+        normalized_predictions, raw_hashes = [], {}
+        scorer_path = runner.container_path(output)
+        for case in cases:
+            row = {"case": case}
+            digest = hashlib.sha256(case["case_id"].encode()).hexdigest()
+            for tag in ("ordinary", "gated"):
+                request_id = "cascade-" + hashlib.sha256(
+                    f"cascade-{scorer_path}-{tag}-{case['case_id']}".encode()).hexdigest()[:48]
+                request = {"request_id": request_id, "text": case["text"]}
+                if case["visibility_hint"] is not None:
+                    request["visibility_hint"] = case["visibility_hint"]
+                if tag == "gated":
+                    request["semantic_presence_gate"] = {"model_id": identity["model_id"], "threshold": .5}
+                layer = {"layer": "DETECTION_LAYER_SEMANTIC", "status": "ok", "results": []}
+                if tag == "gated":
+                    layer["semantic_presence_gate"] = {"status": "SEMANTIC_PRESENCE_GATE_STATUS_APPLIED",
+                        "predicted_label": "ANNOTATION_PRESENCE_ABSENT", "model_id": identity["model_id"],
+                        "model_version": identity["model_version"], "artifact_checksum": identity["artifact_checksum"],
+                        "parameter_fingerprint": identity["parameter_fingerprint"],
+                        "model_threshold": .5, "decision_threshold": .5, "probability": .1}
+                response = {"request_id": request_id, "action": "ALLOW", "layers": [layer]}
+                normalized = json.loads(json.dumps(response))
+                normalized["layers"][0]["layer"] = "semantic"
+                if tag == "gated":
+                    normalized["layers"][0]["semantic_presence_gate"]["status"] = "applied"
+                    normalized["layers"][0]["semantic_presence_gate"]["predicted_label"] = "absent"
+                row[tag] = normalized
+                path = raw_dir / f"{tag}-{digest}.json"
+                path.write_text(json.dumps({"request": request, "response": response,
+                    "request_binary_sha256": "7" * 64}), encoding="utf-8")
+                raw_hashes[path.name] = runner.sha_file(path)
+            normalized_predictions.append(row)
+        predictions = output / "predictions.json"
+        predictions.write_text(json.dumps(normalized_predictions), encoding="utf-8")
+        report = {**binding, "status": "complete", "errors": [], "rows": 48,
+            "pair": "original-efficient", "predictions_sha256": runner.sha_file(predictions),
+            "raw_rpc_sha256": raw_hashes}
+        (output / "report.json").write_text(json.dumps(report), encoding="utf-8")
+        (output / "binding.json").write_text(json.dumps(binding), encoding="utf-8")
+        return output, binding, cases, identity
+
+    def test_fixture_pair_validator_binds_raw_text_hints_gate_and_predictions(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            with patch.object(runner, "RESULTS", root):
+                output, binding, cases, identity = self._fixture_pair_evidence(root)
+                result = runner.validate_fixture_pair_output(output_dir=output, pair="original-efficient",
+                    eligible=True, expected_binding=binding, cases=cases, presence_identity=identity)
+                self.assertEqual(result["raw_rpc_count"], 96)
+
+    def test_fixture_pair_validator_rejects_raw_error_text_hint_threshold_and_prediction_tampering(self):
+        for mutation in ("error", "text", "hint", "threshold", "prediction"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                with patch.object(runner, "RESULTS", root):
+                    output, binding, cases, identity = self._fixture_pair_evidence(root)
+                    path = output / "raw" / f"gated-{hashlib.sha256(b'case-0').hexdigest()}.json"
+                    record = json.loads(path.read_text(encoding="utf-8"))
+                    if mutation == "error":
+                        record["response"]["error"] = "synthetic runtime failure"
+                    elif mutation == "text":
+                        record["request"]["text"] = "changed"
+                    elif mutation == "hint":
+                        record["request"]["visibility_hint"] = "P1"
+                    elif mutation == "threshold":
+                        record["response"]["layers"][0]["semantic_presence_gate"]["decision_threshold"] = .7
+                    else:
+                        prediction_path = output / "predictions.json"
+                        predictions = json.loads(prediction_path.read_text(encoding="utf-8"))
+                        predictions[0]["gated"]["action"] = "BLOCK"
+                        prediction_path.write_text(json.dumps(predictions), encoding="utf-8")
+                    path.write_text(json.dumps(record), encoding="utf-8")
+                    report_path = output / "report.json"
+                    report = json.loads(report_path.read_text(encoding="utf-8"))
+                    report["raw_rpc_sha256"][path.name] = runner.sha_file(path)
+                    report["predictions_sha256"] = runner.sha_file(output / "predictions.json")
+                    report_path.write_text(json.dumps(report), encoding="utf-8")
+                    with self.assertRaises(ValueError):
+                        runner.validate_fixture_pair_output(output_dir=output, pair="original-efficient",
+                            eligible=True, expected_binding=binding, cases=cases, presence_identity=identity)
+
     def test_completed_primary_requires_successful_restore_and_terminal_pair_outcomes(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "results"
+            results_patcher = patch.object(runner, "RESULTS", root)
+            results_patcher.start()
+            self.addCleanup(results_patcher.stop)
             primary_path = root / "primary"
             study = primary_path / "cascade-evidence"
             selection_path = study / "calibration/selection.json"
@@ -415,12 +538,21 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
                 "presence": {name: {} for name in runner.PROFILES},
                 "runtime_image_id": "sha256:" + "a" * 64,
                 "evaluator_image_id": "sha256:" + "e" * 64}
+            for index, name in enumerate(runner.CONTROLS):
+                binding["controls"][name] = {"path": str(root / f"{name}.json"),
+                    "file_sha256": str(index) * 64,
+                    "identity": {"model_id": "privoke-balanced", "artifact_checksum": str(index + 3) * 64,
+                                 "parameter_fingerprint": str(index + 5) * 64}}
+            scorer_binding = runner.linux_scorer_binding(binding)
+            self.assertEqual(binding["controls"]["original"]["path"], str(root / "original.json"))
+            self.assertEqual(scorer_binding["controls"]["original"]["path"],
+                "/workspace/evaluation/results/original.json")
             choices = {pair: {"status": "eligible", "chosen": {"threshold": .5}}
                        for pair in runner.PAIRS}
-            selection = {"status": "frozen", "binding": binding, "choices": choices,
+            selection = {"status": "frozen", "binding": scorer_binding, "choices": choices,
                          "frozen_before_development": True}
             selection_path.write_text(json.dumps(selection), encoding="utf-8")
-            (study / "study-manifest.json").write_text(json.dumps({"binding": binding}), encoding="utf-8")
+            (study / "study-manifest.json").write_text(json.dumps({"binding": scorer_binding}), encoding="utf-8")
             (primary_path / "input-binding.json").write_text(json.dumps(binding), encoding="utf-8")
             jobs = [{"image_id": binding["evaluator_image_id"]}]
             phases = [{"stage": stage, "pair": pair, "status": "complete"}
@@ -432,9 +564,15 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
                 "images_after": {"client-runtime": binding["runtime_image_id"]}, "jobs": jobs,
                 "calibration_sha256": runner.sha_file(selection_path), "phase_jobs": phases}
             (primary_path / "study-run-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            immutable_receipts = {path: path.read_bytes() for path in (
+                primary_path / "study-run-manifest.json", primary_path / "input-binding.json",
+                study / "study-manifest.json", selection_path)}
             with patch.object(runner, "RESULTS", root):
                 loaded = runner.load_completed_primary(primary_path)
                 self.assertEqual(loaded["selection_sha256"], runner.sha_file(selection_path))
+                self.assertEqual(loaded["binding"], binding)
+                self.assertEqual(loaded["scorer_binding"], scorer_binding)
+                self.assertEqual({path: path.read_bytes() for path in immutable_receipts}, immutable_receipts)
                 manifest["phase_jobs"] = manifest["phase_jobs"][:-1]
                 (primary_path / "study-run-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
                 with self.assertRaisesRegex(ValueError, "all-six terminal"):
@@ -446,8 +584,10 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
                     runner.load_completed_primary(primary_path)
                 manifest["restoration_verified"] = True
                 (primary_path / "study-run-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-                selection["binding"] = {"tampered": True}
+                selection["binding"]["controls"]["original"]["identity"]["parameter_fingerprint"] = "9" * 64
                 selection_path.write_text(json.dumps(selection), encoding="utf-8")
+                manifest["calibration_sha256"] = runner.sha_file(selection_path)
+                (primary_path / "study-run-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
                 with self.assertRaisesRegex(ValueError, "frozen selection"):
                     runner.load_completed_primary(primary_path)
 
