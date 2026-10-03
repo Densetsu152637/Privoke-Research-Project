@@ -230,3 +230,33 @@ higher semantic recall, while the original balanced profile has better measured
 pipeline recall and specificity than quality. These results do not justify
 prioritizing quality-profile training. Fuzzer update experiments so far use the
 balanced profile; they do not test larger-profile training.
+
+## Frozen-representation diagnostic
+
+Read the [prospective protocol](../paper/research/representation-protocol.md)
+before running the offline frozen-encoder probe. The completed custom
+development diagnostic is documented in
+[representation results](../paper/research/representation-results.md); its
+specificity remains below the selected90% development target, and final remains
+unscored.
+
+Use the existing `client-runtime` stack and the same Compose overrides as the
+research runner. The public-negative override supplies a read-only bind mount of
+`models/generate_baseline.py` to the evaluation container for bootstrap exclusion
+checks. The caller loads the checked-in original balanced artifact in memory to
+export features; it does not train through the fuzzer, change the serving model,
+or publish weights. It expects the runtime and evaluation images to be available
+and verifies their IDs before and after execution.
+
+```powershell
+docker compose -f docker-compose.yml -f evaluation/compose.tests.yml -f evaluation/compose.public-negatives.yml up -d --wait --wait-timeout 240 client-runtime
+python evaluation/run-representation-diagnostic.py --output FRESH_RESULTS_CHILD
+```
+
+`FRESH_RESULTS_CHILD` is a unique child name under `evaluation/results`; do not
+reuse failed or completed attempt paths. The caller owns preparation, UTF-8
+feature transport, fitting, output hashes and phase logs. It protects development
+and final IDs/groups/text keys and does not score final examples. The probe is an
+annotation-presence diagnostic, not a contextual privacy policy or a fuzzer-
+trained replacement. Results are development-only and do not establish deployment
+readiness.

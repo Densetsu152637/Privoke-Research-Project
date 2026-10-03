@@ -1,6 +1,6 @@
 # Current research integration record
 
-## Current checkpoint — 3 October 2026
+## Current checkpoint — 4 October 2026
 
 Latest bounded training study: [public-negative results](../paper/research/public-negative-results.md).
 Nine independent attempts at0.03/0.1/0.3 produce six scored candidates and three
@@ -16,9 +16,10 @@ verified against the live volume. Selected checksum:
 All study/curve processes are complete at this checkpoint. Startup training
 remains disabled. Serving images are unchanged throughout the matched study.
 
-At the prior checkpoint, Docker checks were runtime83, fuzzer26, evaluator50.
-After the released-profile identity tests, evaluator53 passed at source
-`b733960079babc9fc695fdc6ba836ac7ae87b86e`. Source `4f224ba`
+Historical checkpoint suites were runtime83, fuzzer26 and evaluator50;
+evaluator53 passed at source `b733960079babc9fc695fdc6ba836ac7ae87b86e`
+after the released-profile identity tests. The latest affected suite is
+evaluator68 (`representation-v3-tests.log`). Source `4f224ba`
 adds grouped internal-guard exclusions and training/serving normalization alignment;
 `2f1ec91` fixes cross-platform artifact paths. `2e8ca5c` adds strict matched-row/raw-
 count selection checks, tested failure restoration and the bounded curve caller.
@@ -42,9 +43,25 @@ paired descriptive intervals and provenance. Study source revision
 the previously selected balanced checkpoint, and left serving image IDs
 unchanged. This tests multi-size inference; fuzzer training so far remains on the
 balanced profile. No causal model-size or superiority conclusion follows, and
-final498 remains unscored. Review of the frozen-representation diagnostic found
-interface/integrity gaps; corrections are pending integration and Docker
-execution. The diagnostic has not been executed or scored.
+final498 remains unscored. An earlier review of the frozen-representation
+diagnostic found interface/integrity gaps; these were corrected and revalidated
+before the completed v3 execution below.
+
+The amended frozen-representation diagnostic is now complete. Evaluator68 passed
+before execution (`representation-v3-tests.log`). Attempts v1 and v2 remain
+preserved as pre-fit failures: v1 stopped on Windows text transport, and v2
+stopped at the unique-source-ID gate after preparation/export. V3 excluded all
+ambiguous source IDs before selection and fit all three predefined C values with
+no errors. Validation selected C=0.1 before development scoring. The standalone
+probe scored238/112/126/26; the offline probe plus reused regex/NER outputs scored
+250/108/130/14 (94.70% recall,45.38% specificity). This is not a live pipeline
+measurement and does not meet the90% specificity target. Current live selected
+balanced remains90.53%/29.41%, with serving model unchanged; final498 remains
+unscored. See the [protocol](../paper/research/representation-protocol.md) and
+[results](../paper/research/representation-results.md) for selection, paired
+descriptive intervals, hashes and scope limits. The next prospective branch is
+a bounded binary-head/update-interface investigation with contextual and policy
+validation, not direct deployment of the offline probe.
 
 Source `c035bc7` and766 file records are preserved in the new18.0MB local package,
 `evaluation/artifacts/research-20261003-public-negative.zip`. Exact hashes and
