@@ -314,7 +314,7 @@ def audit_source(source: dict[str, Any]) -> dict[str, Any]:
         "grouping": (
             {"field": "uid", "status": "schema exposes source UID; parser uses uid with row-index fallback"}
             if source["repo_id"] == "nvidia/Nemotron-PII"
-            else {"field": None, "status": "no stable id field; adapter falls back to row index. Grouping by document_type, document_label, text_format, edge_case, document_length is only a conservative metadata family proxy, not document identity; assign stable groups before partitioning."}
+            else {"field": None, "status": "no stable id field; adapter falls back to row index. A proposed family key using document_type, document_label, text_format, and edge_case is only a coarse metadata proxy, not document identity; assign and validate stable groups before partitioning."}
         ),
     }
 
