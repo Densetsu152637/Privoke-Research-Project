@@ -191,6 +191,18 @@ class ExternalPresenceRunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "whitelist"):
             runner.validate_catalog_artifact(self.raw["privoke-balanced"], "privoke-presence-unknown")
 
+    def test_receipt_file_is_accepted_only_at_bound_path_and_digest(self):
+        root = Path(self.temp.name) / "fit"
+        root.mkdir()
+        path = root / "selected.json"
+        path.write_bytes(b'{"ok":true}')
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        self.assertEqual(runner.receipt_bound_path(root, "selected.json", digest), path)
+        with self.assertRaisesRegex(ValueError, "escapes its root"):
+            runner.receipt_bound_path(root, "selected.json", "0" * 64)
+        with self.assertRaisesRegex(ValueError, "escapes its root"):
+            runner.receipt_bound_path(root, "../outside.json", digest)
+
 
 def base64_decode(value: bytes) -> bytes:
     import base64

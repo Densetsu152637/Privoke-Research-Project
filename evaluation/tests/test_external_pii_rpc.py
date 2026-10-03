@@ -65,6 +65,12 @@ class FakeStub:
 
 
 class ExternalPresenceRpcTests(unittest.TestCase):
+    def test_selection_profile_may_be_omitted_but_explicit_mismatch_is_rejected(self):
+        self.assertTrue(scorer.selection_matches_profile({"status": "selected"}, "balanced"))
+        self.assertTrue(scorer.selection_matches_profile({"profile": "balanced"}, "balanced"))
+        self.assertFalse(scorer.selection_matches_profile({"profile": "efficient"}, "balanced"))
+        self.assertFalse(scorer.selection_matches_profile({"profile": None}, "balanced"))
+
     def identity(self):
         return {"model_id": "privoke-presence-balanced",
                 "model_version": "v1.0.0",
