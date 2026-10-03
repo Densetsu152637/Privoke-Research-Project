@@ -333,8 +333,8 @@ def load_runtime_stubs():
     if generated_text not in sys.path:
         sys.path.insert(0, generated_text)
     importlib.invalidate_caches()
-    runtime_pb2 = importlib.import_module("prvoke.v1.runtime_pb2")
-    runtime_pb2_grpc = importlib.import_module("prvoke.v1.runtime_pb2_grpc")
+    runtime_pb2 = importlib.import_module("privoke.v1.runtime_pb2")
+    runtime_pb2_grpc = importlib.import_module("privoke.v1.runtime_pb2_grpc")
     return runtime_pb2, runtime_pb2_grpc
 
 
