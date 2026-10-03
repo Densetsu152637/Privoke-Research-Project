@@ -61,6 +61,11 @@ assessment is provisional. No GitHub notification or artifact upload has occurre
 Full attempts and counterevidence: `paper/research/false-positive-experiments.md`;
 earlier comparisons: `paper/research/development-results.md`. Preserve source,
 models, predictions and logs in a local hash-verified package before paper figures.
+Checkpoint source `a14b0b9` and 646 file records are now preserved in the local
+14.6 MB development ZIP. Exact archive/source/file hashes and limitations are in
+`paper/research/artifacts.md` and `paper/research/artifact-manifest.json`.
+The archive passes ZIP integrity and per-file SHA checks; clean-environment
+reproduction remains unperformed.
 Current next research action: investigate representation and training-distribution
 coverage rather than repeat the stopped curve. The bootstrap encoder is randomly
 initialized and frozen; threshold/casing-only diagnoses do not meet both targets.
