@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 import copy
+import contextlib
+import importlib.util
+import io
 import json
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "shared/python"))
@@ -191,6 +195,29 @@ class PresenceEvidenceTests(unittest.TestCase):
         record["attempts"] = record["attempts"][:2]
         with self.assertRaises(ValueError):
             validate_retention_selection(record, self.base, self.base_path, self.fit, "c" * 40, PROTOCOL)
+
+    def test_base_scorer_cli_validates_revision_and_dispatches_valid_arguments(self):
+        spec = importlib.util.spec_from_file_location(
+            "evaluate_presence_cli_smoke", ROOT / "evaluation/evaluate-presence.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        args = ["--artifact", "unused-artifact.json", "--selection", "unused-selection.json",
+            "--fit-manifest", "unused-run-manifest.json", "--dataset-file", "development.jsonl",
+            "--output", str(ROOT / "evaluation/results/cli-smoke"), "--source-revision", REVISION,
+            "--fit-source-revision", "c" * 40, "--protocol-sha256", PROTOCOL]
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as invalid:
+                module.main([*args[:args.index("--source-revision") + 1], "bad-revision",
+                             *args[args.index("--source-revision") + 2:]])
+        self.assertEqual(invalid.exception.code, 2)
+        with patch.object(module, "run", return_value={
+                "status": "complete", "rows": 502, "errors": []}) as run_mock:
+            with contextlib.redirect_stdout(io.StringIO()):
+                status = module.main(args)
+        self.assertEqual(status, 0)
+        self.assertEqual(run_mock.call_args.args[5], REVISION)
+        self.assertEqual(run_mock.call_args.args[6], "c" * 40)
+        self.assertEqual(run_mock.call_args.args[8], PROTOCOL)
 
 
 if __name__ == "__main__":
