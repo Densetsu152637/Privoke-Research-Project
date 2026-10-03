@@ -11,7 +11,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "shared/python/tests"))
 from test_presence import artifact_fixture
-from privoke_model.artifact import apply_parameter_update, artifact_checksum, load_artifact
+from privoke_model.artifact import apply_parameter_update, artifact_checksum, load_artifact, validate_artifact
 
 SPEC = importlib.util.spec_from_file_location("presence_study", ROOT / "evaluation/run-presence-update-study.py")
 STUDY = importlib.util.module_from_spec(SPEC)
@@ -291,7 +291,13 @@ class PresenceStudyTests(unittest.TestCase):
     def test_cleanup_restores_after_operation_error_and_exposes_restore_failure(self):
         for fail_restore in (False, True):
             with tempfile.TemporaryDirectory() as temporary:
-                balanced = load_artifact(ROOT / "models/privoke-balanced.json")
+                balanced = {"schema_version": 1, "architecture": "privoke_tiny_transformer_v1",
+                            "model_id": "privoke-balanced", "version": "v0.3.0+train.1",
+                            "config": {"profile": "balanced"},
+                            "parameters": {"head.sensitivity.bias": {
+                                "shape": [4], "values": [0.0, 0.0, 0.0, 0.0], "trainable": True}}}
+                balanced["checksum"] = artifact_checksum(balanced)
+                validate_artifact(balanced)
                 presence = artifact_fixture()
                 backend = FakeBackend({"privoke-balanced": balanced, presence["model_id"]: presence})
                 manifest = {"retained_artifacts": {}}
