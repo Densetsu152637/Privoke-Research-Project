@@ -435,8 +435,11 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
                   "visibility_hint": "P2" if i < 4 else None} for i in range(48)]
         identity = {"model_id": runner.PRESENCE_IDS["efficient"], "model_version": "v1",
             "artifact_checksum": "a" * 64, "parameter_fingerprint": "b" * 64, "threshold": .5}
-        binding = {"source_revision": "c" * 40, "study_binding": {"presence": {
-            "efficient": {"identity": identity}}}, "selection_sha256": "d" * 64,
+        semantic_identity = {"model_id": "privoke-balanced", "model_version": "v0.3.0",
+            "artifact_checksum": "8" * 64, "parameter_fingerprint": "9" * 64}
+        binding = {"source_revision": "c" * 40, "study_binding": {
+            "controls": {"original": {"identity": semantic_identity}},
+            "presence": {"efficient": {"identity": identity}}}, "selection_sha256": "d" * 64,
             "pair": "original-efficient", "case_file_sha256": "e" * 64,
             "rubric_sha256": "f" * 64, "fixture_review_sha256": "1" * 64,
             "caller_sha256": "2" * 64, "cascade_helper_sha256": "3" * 64,
@@ -455,20 +458,35 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
                 if case["visibility_hint"] is not None:
                     request["visibility_hint"] = case["visibility_hint"]
                 if tag == "gated":
-                    request["semantic_presence_gate"] = {"model_id": identity["model_id"], "threshold": .5}
-                layer = {"layer": "DETECTION_LAYER_SEMANTIC", "status": "ok", "results": []}
+                    request["semantic_presence_gate"] = {"model_id": identity["model_id"], "threshold": .3}
+                layers = [
+                    {"layer": "DETECTION_LAYER_REGEX", "status": "ok", "results": []},
+                    {"layer": "DETECTION_LAYER_NER", "status": "ok", "results": []},
+                    {"layer": "DETECTION_LAYER_SEMANTIC", "status": "ok", "results": []},
+                ]
+                layer = layers[-1]
                 if tag == "gated":
                     layer["semantic_presence_gate"] = {"status": "SEMANTIC_PRESENCE_GATE_STATUS_APPLIED",
                         "predicted_label": "ANNOTATION_PRESENCE_ABSENT", "model_id": identity["model_id"],
                         "model_version": identity["model_version"], "artifact_checksum": identity["artifact_checksum"],
                         "parameter_fingerprint": identity["parameter_fingerprint"],
-                        "model_threshold": .5, "decision_threshold": .5, "probability": .1}
-                response = {"request_id": request_id, "action": "ALLOW", "layers": [layer]}
+                        "model_threshold": .5, "decision_threshold": .3, "probability": .1,
+                        "error": "", "semantic_results": [],
+                        "contextual_model_id": semantic_identity["model_id"],
+                        "contextual_model_version": semantic_identity["model_version"],
+                        "contextual_artifact_checksum": semantic_identity["artifact_checksum"],
+                        "contextual_parameter_fingerprint": semantic_identity["parameter_fingerprint"]}
+                response = {"request_id": request_id,
+                    "classification": {"sensitivity": "S0", "categories": []},
+                    "action": "ALLOW", "allowed": True, "masked_text": case["text"],
+                    "evidence": [], "layers": layers}
                 normalized = json.loads(json.dumps(response))
-                normalized["layers"][0]["layer"] = "semantic"
+                for normalized_layer, layer_name in zip(normalized["layers"], ("regex", "ner", "semantic")):
+                    normalized_layer["layer"] = layer_name
                 if tag == "gated":
-                    normalized["layers"][0]["semantic_presence_gate"]["status"] = "applied"
-                    normalized["layers"][0]["semantic_presence_gate"]["predicted_label"] = "absent"
+                    normalized["layers"][-1]["semantic_presence_gate"]["status"] = "applied"
+                    normalized["layers"][-1]["semantic_presence_gate"]["predicted_label"] = "absent"
+                    row["trace"] = normalized["layers"][-1]["semantic_presence_gate"]
                 row[tag] = normalized
                 path = raw_dir / f"{tag}-{digest}.json"
                 path.write_text(json.dumps({"request": request, "response": response,
@@ -478,7 +496,8 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
         predictions = output / "predictions.json"
         predictions.write_text(json.dumps(normalized_predictions), encoding="utf-8")
         report = {**binding, "status": "complete", "errors": [], "rows": 48,
-            "pair": "original-efficient", "predictions_sha256": runner.sha_file(predictions),
+            "pair": "original-efficient", "decision_threshold": .3,
+            "predictions_sha256": runner.sha_file(predictions),
             "raw_rpc_sha256": raw_hashes}
         (output / "report.json").write_text(json.dumps(report), encoding="utf-8")
         (output / "binding.json").write_text(json.dumps(binding), encoding="utf-8")
@@ -490,11 +509,13 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
             with patch.object(runner, "RESULTS", root):
                 output, binding, cases, identity = self._fixture_pair_evidence(root)
                 result = runner.validate_fixture_pair_output(output_dir=output, pair="original-efficient",
-                    eligible=True, expected_binding=binding, cases=cases, presence_identity=identity)
+                    eligible=True, expected_binding=binding, cases=cases, presence_identity=identity,
+                    decision_threshold=.3)
                 self.assertEqual(result["raw_rpc_count"], 96)
 
     def test_fixture_pair_validator_rejects_raw_error_text_hint_threshold_and_prediction_tampering(self):
-        for mutation in ("error", "text", "hint", "threshold", "prediction"):
+        for mutation in ("error", "text", "hint", "request_threshold", "decision_threshold",
+                         "model_threshold", "context_identity", "arbitrary_skip", "prediction"):
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as temp:
                 root = Path(temp)
                 with patch.object(runner, "RESULTS", root):
@@ -507,8 +528,23 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
                         record["request"]["text"] = "changed"
                     elif mutation == "hint":
                         record["request"]["visibility_hint"] = "P1"
-                    elif mutation == "threshold":
-                        record["response"]["layers"][0]["semantic_presence_gate"]["decision_threshold"] = .7
+                    elif mutation == "request_threshold":
+                        record["request"]["semantic_presence_gate"]["threshold"] = .5
+                    elif mutation == "decision_threshold":
+                        record["response"]["layers"][-1]["semantic_presence_gate"]["decision_threshold"] = .5
+                    elif mutation == "model_threshold":
+                        record["response"]["layers"][-1]["semantic_presence_gate"]["model_threshold"] = .3
+                    elif mutation == "context_identity":
+                        record["response"]["layers"][-1]["semantic_presence_gate"]["contextual_model_id"] = "wrong-context"
+                        prediction_path = output / "predictions.json"
+                        predictions = json.loads(prediction_path.read_text(encoding="utf-8"))
+                        trace = predictions[0]["gated"]["layers"][-1]["semantic_presence_gate"]
+                        trace["contextual_model_id"] = "wrong-context"
+                        predictions[0]["trace"]["contextual_model_id"] = "wrong-context"
+                        prediction_path.write_text(json.dumps(predictions), encoding="utf-8")
+                    elif mutation == "arbitrary_skip":
+                        record["response"]["layers"][-1]["status"] = "skipped"
+                        record["response"]["layers"][-1]["error"] = "unapproved skip"
                     else:
                         prediction_path = output / "predictions.json"
                         predictions = json.loads(prediction_path.read_text(encoding="utf-8"))
@@ -522,7 +558,8 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
                     report_path.write_text(json.dumps(report), encoding="utf-8")
                     with self.assertRaises(ValueError):
                         runner.validate_fixture_pair_output(output_dir=output, pair="original-efficient",
-                            eligible=True, expected_binding=binding, cases=cases, presence_identity=identity)
+                            eligible=True, expected_binding=binding, cases=cases, presence_identity=identity,
+                            decision_threshold=.3)
 
     def test_completed_primary_requires_successful_restore_and_terminal_pair_outcomes(self):
         with tempfile.TemporaryDirectory() as temp:
