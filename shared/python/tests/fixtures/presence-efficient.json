@@ -1,0 +1,112 @@
+{
+  "architecture": "privoke_sparse_presence_v1",
+  "checksum": "ee896ae4d578cb4d95deba6ed9279724ac051a2c9ac8b23d4666117b0ff5d5b4",
+  "config": {
+    "branches": {
+      "char": {
+        "analyzer": "char",
+        "features": [
+          "caf",
+          "afé",
+          "123",
+          "@ex"
+        ],
+        "lowercase": false,
+        "max_features": 2000,
+        "ngram_range": [
+          3,
+          5
+        ],
+        "norm": "l2",
+        "smooth_idf": true,
+        "sublinear_tf": true,
+        "use_idf": true
+      },
+      "word": {
+        "analyzer": "word",
+        "features": [
+          "café",
+          "mail",
+          "café mail",
+          "1234"
+        ],
+        "lowercase": false,
+        "max_features": 2000,
+        "ngram_range": [
+          1,
+          2
+        ],
+        "norm": "l2",
+        "smooth_idf": true,
+        "sublinear_tf": true,
+        "token_pattern": "(?u)\\b\\w\\w+\\b",
+        "use_idf": true
+      }
+    },
+    "coefficient_block_size": 4096,
+    "column_order": [
+      "word",
+      "char"
+    ],
+    "normalization": "training_text_key_v1",
+    "profile": "efficient",
+    "task": "annotation_presence",
+    "threshold": 0.5
+  },
+  "generated_at_unix": 1,
+  "metadata": {},
+  "model_id": "privoke-presence-efficient",
+  "parameters": {
+    "features.char.idf": {
+      "shape": [
+        4
+      ],
+      "trainable": false,
+      "values": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "features.word.idf": {
+      "shape": [
+        4
+      ],
+      "trainable": false,
+      "values": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "head.presence.bias": {
+      "shape": [
+        1
+      ],
+      "trainable": true,
+      "values": [
+        0.0
+      ]
+    },
+    "head.presence.weight.000": {
+      "shape": [
+        8
+      ],
+      "trainable": true,
+      "values": [
+        1,
+        -1,
+        0.5,
+        2,
+        1,
+        0,
+        -2,
+        3
+      ]
+    }
+  },
+  "schema_version": 1,
+  "version": "v1"
+}

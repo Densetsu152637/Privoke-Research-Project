@@ -1,4 +1,4 @@
-import copy
+import json
 import math
 import sys
 import unittest
@@ -42,6 +42,12 @@ def artifact_fixture(profile="efficient"):
 class PresenceModelTests(unittest.TestCase):
     def model(self):
         return SparsePresenceModel.from_artifact(artifact_fixture())
+
+    def test_committed_cross_language_fixture(self):
+        path = Path(__file__).parent / "fixtures" / "presence-efficient.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(payload, artifact_fixture())
+        self.assertGreater(SparsePresenceModel.from_artifact(payload).predict_probability("café"), 0.5)
 
     def test_independent_branch_norms_and_global_column_order(self):
         values = self.model().features("café mail")
