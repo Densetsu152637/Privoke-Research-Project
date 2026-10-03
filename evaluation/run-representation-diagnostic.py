@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+import struct
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "evaluation/results"
@@ -15,6 +16,7 @@ EXPORT_PROGRAM = r'''
 import json,sys
 from src.model import TinyTransformerModel
 from src.detection.preprocessing import normalize_text
+from privoke_model.fingerprint import parameter_fingerprint
 payload=json.load(sys.stdin)
 model=TinyTransformerModel.from_artifact(payload['artifact'])
 result={}
@@ -28,7 +30,8 @@ for name,rows in payload['partitions'].items():
                 'expected_has_pii':row['expected_has_pii'],'pooled':list(pred.pooled),
                 'original_binary':pred.sensitivity!='S0' or bool(pred.categories)})
     result[name]=features
-print(json.dumps({'config':payload['artifact']['config'],'partitions':result}))
+fingerprint=parameter_fingerprint(model.parameters,{name:list(value.shape) for name,value in model.parameters.items()})
+print(json.dumps({'config':payload['artifact']['config'],'partitions':result,'parameter_fingerprint':fingerprint}))
 '''
 
 
@@ -38,8 +41,11 @@ def sha256_file(path):
 
 def artifact_fingerprint(artifact):
     parameters = artifact["parameters"]
+    def as_runtime_float32(value):
+        return struct.unpack("!f", struct.pack("!f", float(value)))[0]
     tensors = [[name, list(parameters[name]["shape"]),
-                [float(value) for value in parameters[name]["values"]]] for name in sorted(parameters)]
+                [as_runtime_float32(value) for value in parameters[name]["values"]]]
+               for name in sorted(parameters)]
     packed = json.dumps(tensors, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
     return hashlib.sha256(packed.encode("utf-8")).hexdigest()
 
@@ -53,6 +59,54 @@ def git_revision():
 def output_container_path(path):
     relative = path.resolve().relative_to(RESULTS.resolve()).as_posix()
     return f"/workspace/evaluation/results/{relative}"
+
+
+def preparation_target(output):
+    """Return the fresh prepared-data subdirectory and its container path."""
+    target = output / "prepared"
+    if target.exists():
+        raise FileExistsError(f"Refusing to replace prepared data: {target}")
+    return target, output_container_path(target)
+
+
+def prepared_partition_container_path(output, name):
+    return f"{output_container_path(output / 'prepared')}/{name}"
+
+
+def preparation_invocation(output):
+    target, container_target = preparation_target(output)
+    command = COMPOSE + ["run", "--pull", "never", "--rm", "--no-deps", "-T", "evaluation-tests", "python",
+                         "prepare-representation-study.py", "--output", container_target]
+    return target, container_target, command
+
+
+def original_artifact_identity(artifact):
+    checked_in = json.loads((ROOT / "models/privoke-balanced.json").read_text(encoding="utf-8"))
+    if artifact != checked_in:
+        raise ValueError("Original snapshot differs from checked-in balanced model artifact.")
+    if (artifact.get("model_id") != "privoke-balanced" or artifact.get("version") != "v0.3.0"
+            or artifact.get("config", {}).get("hidden_size") != 32):
+        raise ValueError("Frozen probe requires the original privoke-balanced v0.3.0 32D artifact.")
+
+
+def capture_image_identity(service, label, phase):
+    if service == "client-runtime":
+        result = phase(f"{label}-runtime-container", COMPOSE + ["ps", "-q", service])
+        container_ids = [line.strip() for line in result.splitlines() if line.strip()]
+        if len(container_ids) != 1:
+            raise RuntimeError("Expected exactly one running client-runtime container.")
+        image_id = phase(f"{label}-runtime-image", ["docker", "inspect", "--format", "{{.Image}}", container_ids[0]]).strip()
+        if not image_id:
+            raise RuntimeError("Could not resolve running client-runtime image ID.")
+        return {"container_id": container_ids[0], "image_id": image_id}
+    result = phase(f"{label}-evaluation-image-reference", COMPOSE + ["config", "--images", service])
+    references = [line.strip() for line in result.splitlines() if line.strip()]
+    if len(references) != 1:
+        raise RuntimeError("Expected one configured evaluation-tests image reference.")
+    image_id = phase(f"{label}-evaluation-image", ["docker", "image", "inspect", "--format", "{{.Id}}", references[0]]).strip()
+    if not image_id:
+        raise RuntimeError("Could not resolve configured evaluation-tests image ID.")
+    return {"reference": references[0], "image_id": image_id}
 
 
 def main():
@@ -93,26 +147,29 @@ def main():
 
     try:
         run_manifest["source_revision"] = git_revision()
+        run_manifest["images_before"] = {
+            service: capture_image_identity(service, "before", phase)
+            for service in ("client-runtime", "evaluation-tests")}
         persist()
         locked_manifest_path = LOCKED / "manifest.json"
         locked_manifest = json.loads(locked_manifest_path.read_text(encoding="utf-8"))
         for split in ("development", "final"):
             if sha256_file(LOCKED / f"{split}.jsonl") != locked_manifest["partitions"][split]["sha256"]:
                 raise ValueError(f"Locked {split} input digest mismatch.")
-        prep_command = COMPOSE + ["run", "--rm", "--no-deps", "-T", "evaluation-tests", "python",
-                                  "prepare-representation-study.py", "--output", container_output]
+        prepared, prepared_container, prep_command = preparation_invocation(output)
         phase("prepare", prep_command)
-        prep_manifest_path = output / "manifest.json"
+        prep_manifest_path = prepared / "manifest.json"
         prep_manifest = json.loads(prep_manifest_path.read_text(encoding="utf-8"))
         partitions = {}
         for name in ("train", "validation", "development"):
-            path = output / f"{name}.jsonl"
+            path = prepared / f"{name}.jsonl"
             if sha256_file(path) != prep_manifest["partition_sha256"][name]:
                 raise ValueError(f"Prepared {name} partition digest mismatch.")
             partitions[name] = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
         artifact_path = RESULTS / "original-v0.3.0-model.json"
         artifact_bytes = artifact_path.read_bytes()
         artifact = json.loads(artifact_bytes)
+        original_artifact_identity(artifact)
         run_manifest["model"] = {"model_id": artifact.get("model_id"), "version": artifact.get("version"),
             "checksum": artifact.get("checksum"), "artifact_sha256": hashlib.sha256(artifact_bytes).hexdigest(),
             "parameter_fingerprint": artifact_fingerprint(artifact), "config": artifact.get("config")}
@@ -152,15 +209,20 @@ def main():
         exported = json.loads(export_stdout)
         if set(exported["partitions"]) != set(partitions):
             raise ValueError("Runtime export did not return every partition.")
+        if exported.get("parameter_fingerprint") != run_manifest["model"]["parameter_fingerprint"]:
+            raise ValueError("Client-runtime parameter fingerprint differs from frozen artifact.")
         payload = {"partitions": {name: {"rows": rows, "features": exported["partitions"][name]}
                                   for name, rows in partitions.items()},
-                   "partition_paths": {name: f"{container_output}/{name}.jsonl" for name in partitions},
+                   "partition_paths": {name: prepared_partition_container_path(output, f"{name}.jsonl")
+                                       for name in partitions},
                    "partition_sha256": prep_manifest["partition_sha256"],
-                   "study_manifest_path": f"{container_output}/manifest.json",
+                   "study_manifest_path": prepared_partition_container_path(output, "manifest.json"),
                    "study_manifest_sha256": run_manifest["study_manifest_sha256"],
                    "locked_directory": "/workspace/evaluation/results/locked-public",
                    "original_semantic_reference": f"/workspace/evaluation/results/original_public_development_frozen/{original_report.name}",
+                   "original_semantic_reference_sha256": run_manifest["baseline_reference_sha256"],
                    "rule_union": "/workspace/evaluation/results/context-rules-v2-development.json",
+                   "rule_union_sha256": run_manifest["reused_rule_report_sha256"],
                    "rule_source_sha256": rule_hashes, "artifact_sha256": run_manifest["model"]["artifact_sha256"],
                    "runtime_config": exported["config"]}
         for part in payload["partitions"].values():
@@ -170,24 +232,15 @@ def main():
         features_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         run_manifest["features_sha256"] = sha256_file(features_path)
         persist()
-        phase("fit", COMPOSE + ["run", "--rm", "--no-deps", "-T", "evaluation-tests", "python",
+        phase("fit", COMPOSE + ["run", "--pull", "never", "--rm", "--no-deps", "-T", "evaluation-tests", "python",
               "fit-representation-probe.py", "--input", f"{container_output}/features.json",
               "--output", f"{container_output}/fit-report.json"])
-        run_manifest["image_identity"] = {}
+        run_manifest["images_after"] = {
+            service: capture_image_identity(service, "after", phase)
+            for service in ("client-runtime", "evaluation-tests")}
         for service in ("client-runtime", "evaluation-tests"):
-            names = subprocess.run(COMPOSE + ["config", "--images", service], cwd=ROOT,
-                                   capture_output=True, text=True)
-            references = [line.strip() for line in names.stdout.splitlines() if line.strip()]
-            identities = []
-            for reference in references:
-                inspected = subprocess.run(["docker", "image", "inspect", "--format", "{{.Id}}", reference],
-                                           cwd=ROOT, capture_output=True, text=True)
-                identities.append({"reference": reference, "image_id": inspected.stdout.strip(),
-                                   "returncode": inspected.returncode, "stderr": inspected.stderr})
-            run_manifest["image_identity"][service] = {"references": references,
-                "inspect_returncode": names.returncode, "inspect_stderr": names.stderr, "images": identities}
-            if names.returncode or not identities or any(item["returncode"] or not item["image_id"] for item in identities):
-                raise RuntimeError(f"Could not resolve immutable image identity for {service}.")
+            if run_manifest["images_before"][service] != run_manifest["images_after"][service]:
+                raise RuntimeError(f"Container image identity drifted for {service} during the study.")
         persist()
         fit_path = output / "fit-report.json"
         selection_path = output / "fit-report-selection.json"
@@ -197,6 +250,7 @@ def main():
         if not selection_path.is_file():
             raise RuntimeError("Fit phase completed without its frozen validation selection artifact.")
         run_manifest["selection_artifact_sha256"] = sha256_file(selection_path)
+        persist()
         fit_summary = json.loads(fit_path.read_text(encoding="utf-8"))
         run_manifest["fit_status"] = fit_summary.get("status")
         if fit_summary.get("status") != "complete":
