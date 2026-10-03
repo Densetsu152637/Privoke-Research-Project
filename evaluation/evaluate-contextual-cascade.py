@@ -249,11 +249,16 @@ def paired_report(rows, getter):
             "interval_limitation": "Group-bootstrap differences were not computed by this bounded caller."}
 
 
-def request_for(pb, text, request_id, semantic_id, *, presence_id=None, threshold=None, nonsemantic=False):
+def request_for(pb, text, request_id, semantic_id, *, presence_id=None, threshold=None, nonsemantic=False,
+                visibility_hint=None):
     kwargs = {"text": text, "request_id": request_id, "source": "contextual-cascade-evaluation",
               "semantic_model_id": semantic_id,
               "layers": [pb.DETECTION_LAYER_REGEX, pb.DETECTION_LAYER_NER] if nonsemantic else [],
               "regex_execution_order": pb.REGEX_EXECUTION_ORDER_FIRST}
+    if visibility_hint is not None:
+        if visibility_hint not in ("P0", "P1", "P2", "P3", "P4", "PU"):
+            raise ValueError("Explicit visibility hint must be a valid contract label.")
+        kwargs["visibility_hint"] = visibility_hint
     if presence_id is not None:
         if type(threshold) not in (int, float) or not math.isfinite(threshold) or not 0 <= threshold <= 1:
             raise ValueError("An explicit valid gate decision threshold is required.")

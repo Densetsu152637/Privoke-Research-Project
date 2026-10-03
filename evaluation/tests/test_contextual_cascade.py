@@ -121,6 +121,11 @@ class CascadeTests(unittest.TestCase):
         self.assertNotIn("semantic_presence_gate", ordinary)
         gated = CASCADE.request_for(pb, "test", "id", "privoke-balanced", presence_id=PRESENCE["model_id"], threshold=0)
         self.assertEqual(gated["semantic_presence_gate"]["threshold"], 0)
+        hinted = CASCADE.request_for(pb, "test", "id", "privoke-balanced", visibility_hint="P3")
+        self.assertEqual(hinted["visibility_hint"], "P3")
+        self.assertNotIn("visibility_hint", ordinary)
+        with self.assertRaises(ValueError):
+            CASCADE.request_for(pb, "test", "id", "privoke-balanced", visibility_hint="private")
         with self.assertRaises(ValueError):
             CASCADE.request_for(pb, "test", "id", "privoke-balanced", presence_id=PRESENCE["model_id"], threshold=float("nan"))
 
