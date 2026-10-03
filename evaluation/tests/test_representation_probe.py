@@ -92,6 +92,24 @@ class RepresentationProbeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "eligible positive"):
             prep.select_rows(rows, [], [], count=1)
 
+    def test_ambiguous_source_ids_exclude_every_candidate_row(self):
+        rows = [Example("ambiguous", "g1", "different positive text", True),
+                Example("ambiguous", "g2", "different clean text", False)]
+        for index in range(255):
+            group = f"g-{index // 5}"
+            rows.append(Example(f"valid-positive-{index}", group,
+                                f"valid positive text {index}", True))
+            rows.append(Example(f"valid-clean-{index}", group,
+                                f"valid clean text {index}", False))
+        selected, train, validation, details = prep.select_rows(rows, [], [], count=250)
+        self.assertEqual(500, len(selected))
+        self.assertNotIn("ambiguous", {row.metadata["example_id"] for row in selected})
+        self.assertEqual(1, details["ambiguous_source_ids"])
+        self.assertEqual(2, details["ambiguous_source_id_rows_excluded"])
+        self.assertEqual(2, details["exclusions"]["ambiguous_source_id"])
+        selected_ids = [row.metadata["example_id"] for row in train + validation]
+        self.assertEqual(len(selected_ids), len(set(selected_ids)))
+
     def test_feature_validation_rejects_alignment_dimension_and_nonfinite(self):
         source = [{"id": "a", "group_id": "g", "expected_has_pii": True}]
         good = [{"id": "a", "group_id": "g", "expected_has_pii": True,
