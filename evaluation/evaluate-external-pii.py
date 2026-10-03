@@ -9,6 +9,7 @@ import importlib.util
 import json
 import math
 from pathlib import Path
+import re
 import sys
 import uuid
 
@@ -101,7 +102,7 @@ def validate_row(row: dict, *, partition: str) -> None:
         raise ValueError(f"Prepared {partition} categories are invalid.")
 
 
-def validate_prepared(prepared_root: Path, *, source_revision: str,
+def validate_prepared(prepared_root: Path, *, prepared_source_revision: str,
                       protocol_sha256: str) -> dict:
     prepared_root = prepared_root.resolve()
     manifest_path = prepared_root / "manifest.json"
@@ -109,7 +110,7 @@ def validate_prepared(prepared_root: Path, *, source_revision: str,
     manifest = json.loads(raw_manifest.decode("utf-8"))
     if (not isinstance(manifest, dict) or manifest.get("status") != "prepared"
             or manifest.get("schema_version") != 1
-            or manifest.get("source_revision") != source_revision
+            or manifest.get("source_revision") != prepared_source_revision
             or manifest.get("protocol_sha256") != protocol_sha256):
         raise ValueError("Prepared manifest status, schema, or source/protocol binding is invalid.")
     files = manifest.get("partition_files")
@@ -183,6 +184,17 @@ def load_baseline_fit(fit_root: Path, profile: str) -> dict:
     return {"manifest": verified["manifest"], "manifest_sha256": verified["manifest_sha256"],
             "source_revision": source_revision, "protocol_sha256": protocol_sha256,
             "profiles": verified["profiles"], **profile_entry}
+
+
+def bind_prepared_to_fit(prepared: dict, fit_manifest: dict) -> str:
+    prepared_revision = fit_manifest.get("prepared_source_revision")
+    if (not isinstance(prepared_revision, str)
+            or not re.fullmatch(r"[0-9a-f]{40,64}", prepared_revision)
+            or prepared["manifest"].get("source_revision") != prepared_revision
+            or prepared["manifest_sha256"] != fit_manifest.get("prepared_manifest_sha256")
+            or prepared["manifest"].get("partition_sha256") != fit_manifest.get("partition_sha256")):
+        raise ValueError("Prepared source revision or input digests differ from the frozen fit manifest.")
+    return prepared_revision
 
 
 def identity_for_artifact(artifact: dict) -> dict:
@@ -409,7 +421,8 @@ def prediction_metrics(rows: list[dict], predictions: list[dict]) -> dict:
 
 def run(*, fit_root: Path, prepared_root: Path, baseline_fit_root: Path,
         profile: str, control: str, partition: str, output: Path,
-        source_revision: str, protocol_file: Path, protocol_sha256: str,
+        source_revision: str, fit_source_revision: str,
+        protocol_file: Path, protocol_sha256: str,
         runtime_image_id: str, evaluator_image_id: str, target: str) -> dict:
     if profile not in PROFILES or control not in ("baseline", "expanded") or partition not in PARTITIONS:
         raise ValueError("Profile, control, or partition is outside the fixed scorer allowlist.")
@@ -434,12 +447,15 @@ def run(*, fit_root: Path, prepared_root: Path, baseline_fit_root: Path,
             raise ValueError("Runtime/evaluator image IDs and RPC target must be recorded.")
         if sha256_file(protocol_file) != protocol_sha256:
             raise ValueError("Protocol file digest differs from the requested protocol binding.")
-        prepared = validate_prepared(prepared_root, source_revision=source_revision,
-                                     protocol_sha256=protocol_sha256)
-        candidate_bundle = load_external_fit(fit_root, prepared_root, source_revision=source_revision,
+        candidate_bundle = load_external_fit(fit_root, prepared_root, source_revision=fit_source_revision,
                                              protocol_sha256=protocol_sha256)
+        fit_manifest = candidate_bundle["manifest"]
+        prepared_source_revision = fit_manifest.get("prepared_source_revision")
+        prepared = validate_prepared(prepared_root, prepared_source_revision=prepared_source_revision,
+                                     protocol_sha256=protocol_sha256)
+        prepared_source_revision = bind_prepared_to_fit(prepared, fit_manifest)
         expanded = verify_profile_bundle(candidate_bundle, profile=profile,
-                                         fit_root=fit_root, source_revision=source_revision,
+                                         fit_root=fit_root, source_revision=fit_source_revision,
                                          protocol_sha256=protocol_sha256, prepared=prepared)
         baseline = load_baseline_fit(baseline_fit_root.resolve(), profile)
         bind_baseline_reference(baseline, prepared)
@@ -466,7 +482,9 @@ def run(*, fit_root: Path, prepared_root: Path, baseline_fit_root: Path,
             "baseline_artifact": {"path": baseline["artifact_path"].as_posix(),
                                   "sha256": baseline["artifact_sha256"]},
         }
-        state.update({"bindings_before": bindings,
+        state.update({"fit_source_revision": fit_source_revision,
+                      "prepared_source_revision": prepared_source_revision,
+                      "bindings_before": bindings,
                       "prepared_manifest_sha256": prepared["manifest_sha256"],
                       "partition_sha256": prepared["manifest"]["partition_sha256"][partition],
                       "partition_rows": len(rows), "artifact_identity": identity_for_artifact(artifact),
@@ -572,6 +590,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--partition", choices=PARTITIONS, required=True)
     result.add_argument("--output", type=Path, required=True)
     result.add_argument("--source-revision", required=True)
+    result.add_argument("--fit-source-revision", required=True)
     result.add_argument("--protocol-file", type=Path, required=True)
     result.add_argument("--protocol-sha256", required=True)
     result.add_argument("--runtime-image-id", required=True)
@@ -585,7 +604,8 @@ def main(argv=None) -> int:
     run_record = run(fit_root=args.fit_root, prepared_root=args.prepared,
                      baseline_fit_root=args.baseline_fit_root, profile=args.profile,
                      control=args.control, partition=args.partition, output=args.output,
-                     source_revision=args.source_revision, protocol_file=args.protocol_file,
+                     source_revision=args.source_revision, fit_source_revision=args.fit_source_revision,
+                     protocol_file=args.protocol_file,
                      protocol_sha256=args.protocol_sha256, runtime_image_id=args.runtime_image_id,
                      evaluator_image_id=args.evaluator_image_id, target=args.target)
     print(json.dumps({"status": run_record.get("status"),

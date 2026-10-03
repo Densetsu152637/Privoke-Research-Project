@@ -4,6 +4,7 @@ COPY evaluation/requirements.txt /tmp/evaluation-requirements.txt
 COPY extension/runtime-supervisor/requirements.txt /tmp/supervisor-requirements.txt
 RUN pip install --no-cache-dir -r /tmp/evaluation-requirements.txt -r /tmp/supervisor-requirements.txt
 COPY shared /workspace/shared
+COPY models/generate_baseline.py /workspace/models/generate_baseline.py
 COPY evaluation /workspace/evaluation
 RUN mkdir -p /workspace/extension/client-runtime/generated \
     && python -m grpc_tools.protoc -I /workspace/shared/proto \
