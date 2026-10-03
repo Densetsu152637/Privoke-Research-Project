@@ -11,6 +11,7 @@ It is not in the hosted prompt decision path. Training cycles deliberately targe
 Defined in `shared/proto/privoke/v1/parameters.proto`:
 
 - `RunTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
+- `RunPresenceTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
 - `Health(HealthRequest) -> HealthResponse`
 
 Default port: `50053`
@@ -33,6 +34,8 @@ On `RunTrainingCycle`, the service:
 8. returns the committed acknowledgment and training metadata to the requester.
 
 The fuzzer does not connect to `model-streaming-service`. Fetching, validation, caching, model execution, and gradient descent all occur inside `client-runtime`.
+
+`RunPresenceTrainingCycle` is a separate binary annotation-presence objective. It requires an explicit `model_id` matching `PRESENCE_MODEL_ID`, and loads a prepared JSONL curriculum from `FUZZ_PRESENCE_DATASET_PATH`. Each row has a unique string `id`, nonempty `text`, strict boolean `sensitive`, and nonempty `group_id`. Sampling is deterministic, holds out both labels, and excludes normalized text and source groups across the two partitions. It sends explicit absent/present enum labels to `ComputePresenceGradients`; no contextual classifications are synthesized and no text transforms are applied. Runtime returns gradients and before/candidate metrics for the frozen representation, and only presence-head gradients are submitted. The presence quality gate requires finite metrics, positive consistent held-out counts for both labels, and no decrease in held-out exact match, present recall, or absent specificity. Presence requests use a task-specific durable fingerprint namespace so request IDs cannot replay a contextual update.
 
 ## Training Semantics
 
@@ -88,6 +91,8 @@ Datasets without group metadata retain normalized-text disjointness.
 - `FUZZ_MAX_PROMPT_COUNT`, default `256`
 - `FUZZ_MAX_CONCURRENT_CYCLES`, default `1`; additional simultaneous requests receive `RESOURCE_EXHAUSTED`
 - `FUZZ_PROMPT_DATASET_PATH`
+- `PRESENCE_MODEL_ID`, default `privoke-presence-balanced`; presence-cycle requests must name this model explicitly
+- `FUZZ_PRESENCE_DATASET_PATH`; required dedicated presence JSONL curriculum
 - `FUZZ_TRAINING_LEARNING_RATE`, default `0.03`
 - `FUZZ_TRAINING_MAX_GRADIENT`, default `0.05`
 - `FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE`, default `1`
@@ -97,7 +102,7 @@ Datasets without group metadata retain normalized-text disjointness.
 
 ## Runtime Boundary
 
-The fuzzer has no source dependency on `extension/client-runtime`. Production and development Compose both deploy that code as the `client-runtime:50054` service, and the fuzzer waits for it to become healthy. It never calls `model-streaming-service`, the extension bridge on `8080`, its control plane on `50056`, or its workstation detector on `50057`. Prompt tests use `AnalyzePrompt`; training uses `ComputeSemanticGradients`. Model selection, fetching, validation, caching, execution, descent, and model-version selection remain inside the runtime.
+The fuzzer has no source dependency on `extension/client-runtime`. Production and development Compose both deploy that code as the `client-runtime:50054` service, and the fuzzer waits for it to become healthy. It never calls `model-streaming-service`, the extension bridge on `8080`, its control plane on `50056`, or its workstation detector on `50057`. Prompt tests use `AnalyzePrompt`; contextual training uses `ComputeSemanticGradients`; annotation-presence training uses `ComputePresenceGradients`. Model selection, fetching, validation, caching, execution, descent, and model-version selection remain inside the runtime.
 
 ## CLI
 

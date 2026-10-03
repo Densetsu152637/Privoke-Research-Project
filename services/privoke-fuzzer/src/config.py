@@ -15,6 +15,7 @@ class FuzzerConfig:
     param_update_target: str
     privoke_runtime_target: str
     model_id: str
+    presence_model_id: str
     fuzzer_id: str
     port: int
     timeout_seconds: float
@@ -22,6 +23,7 @@ class FuzzerConfig:
     max_prompt_count: int
     max_concurrent_cycles: int
     prompt_dataset_path: str | None
+    presence_dataset_path: str | None
     training_learning_rate: float
     training_max_gradient: float
     training_transformations_per_example: int
@@ -42,6 +44,7 @@ class FuzzerConfig:
                 strip=True,
             ),
             model_id=env_string("MODEL_ID", "privoke-baseline", strip=True),
+            presence_model_id=env_string("PRESENCE_MODEL_ID", "privoke-presence-balanced", strip=True),
             fuzzer_id=env_string("FUZZER_ID", "privoke-fuzzer", strip=True),
             port=env_int("FUZZER_PORT", 50053),
             timeout_seconds=env_float("FUZZ_TIMEOUT_SECONDS", 10.0),
@@ -49,6 +52,7 @@ class FuzzerConfig:
             max_prompt_count=env_int("FUZZ_MAX_PROMPT_COUNT", 256),
             max_concurrent_cycles=env_int("FUZZ_MAX_CONCURRENT_CYCLES", 1),
             prompt_dataset_path=os.getenv("FUZZ_PROMPT_DATASET_PATH"),
+            presence_dataset_path=os.getenv("FUZZ_PRESENCE_DATASET_PATH"),
             training_learning_rate=env_float("FUZZ_TRAINING_LEARNING_RATE", 0.03),
             training_max_gradient=env_float("FUZZ_TRAINING_MAX_GRADIENT", 0.05),
             training_transformations_per_example=env_int(
@@ -95,6 +99,7 @@ class FuzzerConfig:
             ("PARAM_UPDATE_TARGET", self.param_update_target),
             ("PRIVOKE_RUNTIME_TARGET", self.privoke_runtime_target),
             ("MODEL_ID", self.model_id),
+            ("PRESENCE_MODEL_ID", self.presence_model_id),
             ("FUZZER_ID", self.fuzzer_id),
         ):
             validate_text(value, name, required=True, limit=256)
@@ -105,6 +110,15 @@ class FuzzerConfig:
             learning_rate=self.training_learning_rate,
             max_gradient=self.training_max_gradient,
             transformations_per_example=self.training_transformations_per_example,
+            seed=seed,
+        )
+
+    def presence_training_config(self, seed: int) -> BatchTrainingConfig:
+        """Presence labels are already canonical rows and receive no augmentation."""
+        return BatchTrainingConfig(
+            learning_rate=self.training_learning_rate,
+            max_gradient=self.training_max_gradient,
+            transformations_per_example=0,
             seed=seed,
         )
 
