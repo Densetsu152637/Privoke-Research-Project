@@ -218,6 +218,65 @@ class PrivokeRuntimeClient:
             "metadata": dict(response.metadata),
         }
 
+    def compute_presence_gradients(
+        self, examples, *, heldout_examples=(), model_id: str,
+        learning_rate: float, max_gradient: float, request_id: str = "",
+    ) -> dict[str, Any]:
+        """Ask client-runtime to train only its frozen-representation presence head."""
+        for example in (*examples, *heldout_examples):
+            if type(example.sensitive) is not bool:
+                raise ValueError("Presence runtime targets must be strict booleans.")
+        labels = {
+            False: runtime_pb2.ANNOTATION_PRESENCE_ABSENT,
+            True: runtime_pb2.ANNOTATION_PRESENCE_PRESENT,
+        }
+        request = runtime_pb2.ComputePresenceGradientsRequest(
+            request_id=request_id,
+            model_id=model_id,
+            examples=[runtime_pb2.PresenceTrainingExample(
+                text=example.text,
+                target=labels[example.sensitive],
+                weight=example.weight,
+                group_id=example.group_id,
+            ) for example in examples],
+            heldout_examples=[runtime_pb2.PresenceTrainingExample(
+                text=example.text,
+                target=labels[example.sensitive],
+                weight=example.weight,
+                group_id=example.group_id,
+            ) for example in heldout_examples],
+            learning_rate=learning_rate,
+            max_gradient=max_gradient,
+        )
+        with grpc.insecure_channel(self.target) as channel:
+            response = runtime_pb2_grpc.PrivokeRuntimeServiceStub(
+                channel
+            ).ComputePresenceGradients(request, timeout=self.timeout_seconds)
+        if response.error:
+            raise RuntimeAnalysisError(response.error)
+        gradients, shapes = {}, {}
+        for parameter in response.gradients:
+            if parameter.name in gradients:
+                raise RuntimeAnalysisError(
+                    f"Client runtime returned duplicate gradient {parameter.name!r}."
+                )
+            gradients[parameter.name] = tuple(float(value) for value in parameter.values)
+            shapes[parameter.name] = tuple(int(size) for size in parameter.shape)
+        if response.model_id != model_id or not response.base_version or not gradients:
+            raise RuntimeAnalysisError(
+                "Client runtime returned an incomplete or mismatched presence gradient batch."
+            )
+        if any(not name.startswith("head.presence.") for name in gradients):
+            raise RuntimeAnalysisError("Client runtime returned a non-presence parameter gradient.")
+        return {
+            "model_id": response.model_id,
+            "base_version": response.base_version,
+            "gradients": gradients,
+            "shapes": shapes,
+            "metrics": dict(response.metrics),
+            "metadata": dict(response.metadata),
+        }
+
 
 def response_to_dict(response) -> dict[str, Any]:
     payload: dict[str, Any] = {

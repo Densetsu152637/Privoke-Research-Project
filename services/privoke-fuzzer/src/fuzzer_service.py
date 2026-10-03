@@ -12,9 +12,9 @@ import grpc
 from config import FuzzerConfig
 from privoke.v1 import parameters_pb2, parameters_pb2_grpc
 from privoke_service import validate_text
-from prompt_generation import generate_training_partition
+from prompt_generation import generate_presence_training_partition, generate_training_partition
 from runtime_client import PrivokeRuntimeClient, RuntimeAnalysisError
-from training import emit_training_update, train_parameter_batch
+from training import emit_training_update, train_parameter_batch, train_presence_batch
 from training.types import BatchTrainingUpdate
 
 LOGGER = logging.getLogger(__name__)
@@ -49,6 +49,100 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             return self._run_training_cycle(request, context)
         finally:
             self._cycle_slots.release()
+
+    def RunPresenceTrainingCycle(self, request, context):
+        try:
+            validate_presence_training_request(
+                request, getattr(self.config, "presence_model_id", self.config.model_id)
+            )
+        except ValueError as exc:
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(exc))
+        if not self._cycle_slots.acquire(blocking=False):
+            context.abort(grpc.StatusCode.RESOURCE_EXHAUSTED,
+                          "The maximum number of concurrent training cycles is already running.")
+        try:
+            return self._run_presence_training_cycle(request, context)
+        finally:
+            self._cycle_slots.release()
+
+    def _run_presence_training_cycle(self, request, context):
+        base_cycle = _resolve_cycle(request, self.config)
+        cycle = TrainingCycle(
+            requested_prompt_count=base_cycle.requested_prompt_count,
+            prompt_count=base_cycle.prompt_count,
+            model_id=request.model_id,
+            seed=base_cycle.seed,
+        )
+        fingerprint = _presence_training_request_fingerprint(request)
+        previous = self._previous_update_for_fingerprint(request, cycle, context, fingerprint)
+        if previous.found:
+            return parameters_pb2.FuzzerTrainingResponse(
+                accepted=previous.ack.accepted, model_id=previous.ack.model_id,
+                base_version=previous.base_version, applied_version=previous.ack.applied_version,
+                prompts_generated=previous.prompts_generated, message=previous.ack.message,
+                metadata={"replayed": "true"},
+            )
+        dataset_path = getattr(self.config, "presence_dataset_path", None)
+        try:
+            examples, heldout = generate_presence_training_partition(
+                cycle.prompt_count, self.config.heldout_prompt_count, cycle.seed, dataset_path
+            )
+        except (ValueError, FileNotFoundError) as exc:
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
+        update = self._train_presence(cycle.model_id, examples, heldout, request, context)
+        try:
+            validate_presence_training_update(
+                update,
+                minimum_exact_match_rate=self.config.minimum_exact_match_rate,
+                expected_examples=len(examples),
+                expected_heldout_examples=len(heldout),
+            )
+        except ValueError as exc:
+            LOGGER.warning("rejecting presence training update: %s", exc)
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
+        if not context.is_active():
+            context.abort(grpc.StatusCode.CANCELLED,
+                          "Training request was cancelled before update submission.")
+        ack = self._submit_presence_update(request, cycle, update, len(examples), fingerprint, context)
+        return build_training_response(ack, update, len(examples))
+
+    def _train_presence(self, model_id, examples, heldout, request, context):
+        try:
+            return train_presence_batch(
+                model_id=model_id, examples=examples, heldout_examples=heldout,
+                config=self.config.presence_training_config(_resolve_cycle(request, self.config).seed),
+                runtime_client=PrivokeRuntimeClient(
+                    self.config.privoke_runtime_target,
+                    timeout_seconds=self.config.timeout_seconds,
+                ),
+                request_id=request.request_id,
+            )
+        except ValueError as exc:
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
+        except (RuntimeAnalysisError, grpc.RpcError) as exc:
+            LOGGER.warning("client runtime presence training failed: %s", exc)
+            context.abort(grpc.StatusCode.UNAVAILABLE,
+                          "Client runtime presence training evaluation is unavailable.")
+
+    def _submit_presence_update(self, request, cycle, update, count, fingerprint, context):
+        try:
+            return emit_training_update(
+                target=self.config.param_update_target, source_id=self.config.fuzzer_id,
+                update=update,
+                extra_metadata={
+                    "request_id": request.request_id,
+                    "request_source_id": request.source_id,
+                    "requested_prompt_count": str(cycle.requested_prompt_count),
+                    "generated_prompt_count": str(count),
+                    "training_pipeline": "client_runtime_presence_gradients",
+                    "task": "annotation_presence",
+                    "training_request_fingerprint": fingerprint,
+                },
+                timeout_seconds=self.config.timeout_seconds,
+            )
+        except grpc.RpcError as exc:
+            LOGGER.warning("presence parameter update submission failed code=%s", exc.code())
+            context.abort(grpc.StatusCode.UNAVAILABLE, "Parameter update service is unavailable.")
 
     def _run_training_cycle(self, request, context):
         cycle = _resolve_cycle(request, self.config)
@@ -104,6 +198,11 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
         return build_training_response(ack, update, len(examples))
 
     def _previous_update(self, request, cycle, context):
+        return self._previous_update_for_fingerprint(
+            request, cycle, context, _training_request_fingerprint(request)
+        )
+
+    def _previous_update_for_fingerprint(self, request, cycle, context, fingerprint):
         try:
             with grpc.insecure_channel(self.config.param_update_target) as channel:
                 return parameters_pb2_grpc.ParamUpdateServiceStub(channel).GetParameterUpdateStatus(
@@ -112,7 +211,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                         request_id=request.request_id,
                         request_source_id=request.source_id,
                         model_id=cycle.model_id,
-                        request_fingerprint=_training_request_fingerprint(request),
+                        request_fingerprint=fingerprint,
                     ),
                     timeout=self.config.timeout_seconds,
                 )
@@ -246,6 +345,67 @@ def validate_training_update(
         or update.metrics["candidate_heldout_safety_regression_rate"] > 0
     ):
         raise ValueError("Candidate model is worse on the held-out evaluation set.")
+
+
+def validate_presence_training_request(request, expected_model_id: str) -> None:
+    validate_text(request.request_id, "request_id", required=True)
+    validate_text(request.source_id, "source_id", required=True)
+    validate_text(request.model_id, "model_id", required=True)
+    if request.model_id != expected_model_id:
+        raise ValueError(f"model_id must be {expected_model_id!r}.")
+    if request.prompt_count <= 0:
+        raise ValueError("prompt_count must be greater than zero.")
+    if len(request.metadata) > 64:
+        raise ValueError("metadata may contain at most 64 entries.")
+    for key, value in request.metadata.items():
+        validate_text(key, "metadata key", required=True, limit=128)
+        validate_text(value, "metadata value", required=False, limit=2_048)
+
+
+def _presence_training_request_fingerprint(request) -> str:
+    payload = (b"RunPresenceTrainingCycle:annotation_presence:v1\0"
+               + request.SerializeToString(deterministic=True))
+    return hashlib.sha256(payload).hexdigest()
+
+
+def validate_presence_training_update(
+    update, *, minimum_exact_match_rate: float,
+    expected_examples: int | None = None,
+    expected_heldout_examples: int | None = None,
+) -> None:
+    if not math.isfinite(minimum_exact_match_rate) or not 0 <= minimum_exact_match_rate <= 1:
+        raise ValueError("Minimum exact match rate must be finite and within [0, 1].")
+    metrics = update.metrics
+    required_counts = ("examples", "heldout_examples", "heldout_present_examples", "heldout_absent_examples")
+    for name in required_counts:
+        value = metrics.get(name)
+        if (type(value) not in (int, float) or not math.isfinite(value)
+                or value < 1 or value != int(value)):
+            raise ValueError("Presence held-out evaluation needs positive integral counts in both strata.")
+    if expected_examples is not None and metrics["examples"] != expected_examples:
+        raise ValueError("Presence training example count does not match the submitted batch.")
+    if expected_heldout_examples is not None and metrics["heldout_examples"] != expected_heldout_examples:
+        raise ValueError("Presence held-out count does not match the submitted batch.")
+    if metrics["heldout_examples"] != metrics["heldout_present_examples"] + metrics["heldout_absent_examples"]:
+        raise ValueError("Presence held-out example counts are inconsistent.")
+    average_loss = metrics.get("average_loss")
+    if type(average_loss) not in (int, float) or not math.isfinite(average_loss) or average_loss < 0:
+        raise ValueError("Presence training average_loss must be finite and non-negative.")
+    rates = ("exact_match_rate", "heldout_exact_match_rate", "candidate_heldout_exact_match_rate",
+             "heldout_present_recall", "candidate_heldout_present_recall",
+             "heldout_absent_specificity", "candidate_heldout_absent_specificity")
+    for name in rates:
+        value = metrics.get(name)
+        if type(value) not in (int, float):
+            raise ValueError(f"Presence training update did not report {name}.")
+        if not math.isfinite(value) or not 0 <= value <= 1:
+            raise ValueError(f"Presence training update {name} must be finite and within [0, 1].")
+    if metrics["exact_match_rate"] <= minimum_exact_match_rate:
+        raise ValueError("Presence training exact_match_rate must be greater than the configured minimum.")
+    if (metrics["candidate_heldout_exact_match_rate"] < metrics["heldout_exact_match_rate"]
+            or metrics["candidate_heldout_present_recall"] < metrics["heldout_present_recall"]
+            or metrics["candidate_heldout_absent_specificity"] < metrics["heldout_absent_specificity"]):
+        raise ValueError("Candidate presence model is worse on the held-out evaluation set.")
 
 
 def _resolve_cycle(request, config: FuzzerConfig) -> TrainingCycle:

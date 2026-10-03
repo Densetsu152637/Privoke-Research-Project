@@ -6,6 +6,7 @@ from .parameter_updates import (
     emit_training_update,
 )
 from .trainer import train_parameter_batch, train_parameter_batch_from_files
+from .presence import train_presence_batch
 from .transforms import random_pii_transform
 from .types import BatchTrainingConfig, BatchTrainingExample, BatchTrainingUpdate
 
@@ -22,4 +23,5 @@ __all__ = [
     "random_pii_transform",
     "train_parameter_batch",
     "train_parameter_batch_from_files",
+    "train_presence_batch",
 ]
