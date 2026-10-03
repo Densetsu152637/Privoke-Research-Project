@@ -24,6 +24,10 @@ COMPOSE = ["docker", "compose", "-f", "docker-compose.yml", "-f", "evaluation/co
 PROFILES = ("efficient", "balanced", "quality")
 CONTROLS = ("original", "current")
 PAIRS = tuple(f"{control}-{profile}" for control in CONTROLS for profile in PROFILES)
+FIXTURE_SHA256 = "d6c7d5d87235cd6b0f9d24eac43b30c3ace9f0bf4f421ef5d5d812de79827a17"
+RUBRIC_SHA256 = "30ce98dbac3de4943839123d9e8de41c6c5190124399c6e5821cfe5f391e6d56"
+FIXTURE_REVIEW_SHA256 = "ed2984781bf375bfc080a9d406f29a9bbd2b3aaa1b61f6afe347dd502521fb42"
+FIXTURE_COPY_PROVENANCE_SHA256 = "23123082d6a440c15e6588439e5a0efbd29697a2f9ad66bb8d19f8d7d3a7dbb6"
 CASCADE_PROTOCOL_SHA256 = "2030fd53264bd5000775c1ddfbfd1e7dccc7267f395f89e66410b76e057ce720"
 CONTEXT_CHECKSUMS = {"original": "8390b96871c6edd00916e3a6126da1b09c19f9fdbdda8214ebe667a893e5ee2c",
                      "current": "8c139431ba8605a3d6817d24d233cce78fc22a086fdeb3ee99702ada86c80015"}
@@ -92,6 +96,18 @@ p='/workspace/evaluation/evaluate-contextual-cascade.py'; s=importlib.util.spec_
 a=argparse.Namespace(fit_root=sys.argv[1],fit_source_revision=sys.argv[2],original_artifact=sys.argv[3],current_artifact=sys.argv[4],source_revision=sys.argv[5],protocol_sha256=sys.argv[6],runtime_image_id=sys.argv[7],evaluator_image_id=sys.argv[8],target='client-runtime:50054')
 v=m.bind_inputs(a); open(sys.argv[9],'x',encoding='utf-8').write(json.dumps(v,sort_keys=True,allow_nan=False))
 """
+FIXTURE_PREFLIGHT = """import importlib.util,json,sys
+sys.path.insert(0,'/workspace/shared/python'); sys.path.insert(0,'/workspace/evaluation')
+p='/workspace/evaluation/evaluate-contextual-regressions.py'; s=importlib.util.spec_from_file_location('fixture_integrity_preflight',p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m)
+study,validation,cases,rubric,review,receipt=sys.argv[1:]
+binding,selection,selection_sha=m.frozen_study(study,validation)
+review_obj=m.CASCADE.read(review)
+fixture_sha=m.CASCADE.sha(cases); rubric_sha=m.CASCADE.sha(rubric); review_sha=m.CASCADE.sha(review)
+if review_obj.get('status')!='reviewed' or review_obj.get('case_file_sha256')!=fixture_sha or review_obj.get('rubric_sha256')!=rubric_sha: raise ValueError('Fixture review binding mismatch')
+rows=m.load_cases(cases,review_obj.get('case_counts') or review_obj.get('expected_counts') or review_obj.get('reviewed_counts'))
+value={'binding':binding,'selection_sha256':selection_sha,'choices':{k:{'status':v['status'],'chosen':v.get('chosen')} for k,v in selection['choices'].items()},'fixture_sha256':fixture_sha,'rubric_sha256':rubric_sha,'review_sha256':review_sha,'case_counts':{'total':len(rows),'families':len({r['family_id'] for r in rows}),'controls':sum(not r['ambiguous'] and r['required_sensitive'] is False for r in rows),'disclosure_candidates':sum(not r['ambiguous'] and r['required_sensitive'] is True for r in rows),'ambiguous_excluded':sum(r['ambiguous'] for r in rows),'context_truth_eligible':sum(r.get('context_truth_eligible',not r['ambiguous']) for r in rows),'action_accuracy_eligible':sum(r.get('action_accuracy_eligible',not r['ambiguous']) for r in rows),'visibility_hints':sum(r.get('visibility_hint') is not None for r in rows)},'professor_confirmation':review_obj.get('professor_confirmation')}
+open(receipt,'x',encoding='utf-8').write(json.dumps(value,sort_keys=True,allow_nan=False))
+"""
 
 
 def sha_bytes(raw: bytes) -> str:
@@ -107,6 +123,88 @@ def read_json(path: Path) -> dict:
     if not isinstance(value, dict):
         raise ValueError("Expected JSON object.")
     return value
+
+
+def load_completed_primary(path: Path) -> dict:
+    """Require a terminal, restored primary study before fixture orchestration."""
+    path = inside_results(path)
+    manifest_path = path / "study-run-manifest.json"
+    manifest = read_json(manifest_path)
+    if (manifest.get("status") != "complete" or manifest.get("restoration_verified") is not True
+            or manifest.get("admin_mutation_outcome_unknown") is not False
+            or manifest.get("evaluator_job_outcome_unknown") is not False):
+        raise ValueError("Fixture mode requires a complete, restored primary controller run.")
+    binding = manifest.get("binding")
+    if not isinstance(binding, dict) or set(binding.get("controls", {})) != set(CONTROLS) or set(binding.get("presence", {})) != set(PROFILES):
+        raise ValueError("Primary controller binding does not contain the fixed controls and profiles.")
+    if manifest.get("images_before") != manifest.get("images_after"):
+        raise ValueError("Primary runtime/evaluator image identity changed during the run.")
+    if manifest["images_after"].get("client-runtime") != binding.get("runtime_image_id"):
+        raise ValueError("Primary runtime image differs from its binding.")
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", binding.get("evaluator_image_id", "")):
+        raise ValueError("Primary evaluator image binding is not an immutable digest.")
+    manifest_jobs = manifest.get("jobs", [])
+    if not manifest_jobs or any(x.get("image_id") != binding["evaluator_image_id"] for x in manifest_jobs):
+        raise ValueError("Primary evaluator jobs do not all use the frozen evaluator image.")
+
+    study_root = path / "cascade-evidence"
+    selection_path = study_root / "calibration/selection.json"
+    selection = read_json(selection_path)
+    if (selection.get("status") != "frozen" or selection.get("binding") != binding
+            or set(selection.get("choices", {})) != set(PAIRS)
+            or selection.get("frozen_before_development") is not True
+            or sha_file(selection_path) != manifest.get("calibration_sha256")):
+        raise ValueError("Primary frozen selection is missing or differs from its controller receipt.")
+    nested = read_json(study_root / "study-manifest.json")
+    if nested.get("binding") != binding:
+        raise ValueError("Primary nested cascade evidence has a different input binding.")
+    if read_json(path / "input-binding.json") != binding:
+        raise ValueError("Primary input-binding receipt differs from the completed controller binding.")
+
+    choices = selection["choices"]
+    expected = {"collect-validation": "complete"}
+    actual = {}
+    for record in manifest.get("phase_jobs", []):
+        stage, pair = record.get("stage"), record.get("pair")
+        if stage in ("collect-validation", "evaluate-validation", "evaluate-development"):
+            key = (stage, pair)
+            if key in actual or pair not in PAIRS:
+                raise ValueError("Primary controller has duplicate or unexpected endpoint jobs.")
+            actual[key] = record.get("status")
+    for stage in ("collect-validation", "evaluate-validation", "evaluate-development"):
+        for pair in PAIRS:
+            status = actual.get((stage, pair))
+            if stage == "collect-validation":
+                wanted = "complete"
+            else:
+                wanted = "skipped_ineligible" if choices[pair].get("status") == "ineligible" else "complete"
+            if status != wanted:
+                raise ValueError("Primary controller lacks all-six terminal validation/development outcomes.")
+    return {"path": path, "manifest": manifest, "manifest_sha256": sha_file(manifest_path),
+        "study_root": study_root, "binding": binding, "selection": selection,
+        "selection_sha256": sha_file(selection_path)}
+
+
+def copy_fixture_support(support_root: Path, output: Path) -> dict:
+    support_root = inside_results(support_root)
+    expected = {"fixture.jsonl": FIXTURE_SHA256, "rubric.md": RUBRIC_SHA256,
+                "fixture-review.json": FIXTURE_REVIEW_SHA256,
+                "execution-copy-provenance.json": FIXTURE_COPY_PROVENANCE_SHA256}
+    copied = output / "support"
+    copied.mkdir(parents=True, exist_ok=False)
+    receipt = {}
+    for name, wanted in expected.items():
+        source = inside_results(support_root / name)
+        raw = source.read_bytes()
+        digest = sha_bytes(raw)
+        if digest != wanted:
+            raise ValueError("Reviewed fixture support copy differs from its frozen SHA-256.")
+        destination = copied / name
+        with destination.open("xb") as stream:
+            stream.write(raw); stream.flush(); os.fsync(stream.fileno())
+        receipt[name] = {"sha256": digest, "bytes": len(raw),
+                         "relative_path": destination.relative_to(output).as_posix()}
+    return receipt
 
 
 def save_json(path: Path, value: dict, *, exclusive: bool = False) -> None:
@@ -149,6 +247,61 @@ def load_caller():
     return module
 
 
+def validate_fixture_pair_output(*, output_dir: Path, pair: str, eligible: bool,
+                                 expected_binding: dict, case_ids: list[str]) -> dict:
+    """Validate the existing fixture scorer's binding and raw evidence without rescoring policy."""
+    output_dir = Path(output_dir)
+    binding_path = output_dir / "binding.json"
+    binding = read_json(binding_path)
+    for key, expected in expected_binding.items():
+        if binding.get(key) != expected:
+            raise ValueError("Fixture pair binding differs from the frozen primary/support receipt.")
+    if not eligible:
+        skipped_path = output_dir / "skipped.json"
+        skipped = read_json(skipped_path)
+        if skipped != {**binding, "status": "skipped_ineligible"}:
+            raise ValueError("Ineligible fixture pair lacks its exact frozen skip receipt.")
+        raw_dir = output_dir / "raw"
+        if raw_dir.exists() and list(raw_dir.glob("*.json")):
+            raise ValueError("An ineligible fixture pair unexpectedly performed runtime inference.")
+        return {"status": "skipped_ineligible", "report_sha256": sha_file(skipped_path)}
+
+    report_path = output_dir / "report.json"
+    report = read_json(report_path)
+    if ({key: report.get(key) for key in expected_binding} != expected_binding
+            or report.get("status") != "complete" or report.get("errors") != []
+            or report.get("rows") != 48 or len(case_ids) != 48
+            or report.get("pair") != pair):
+        raise ValueError("Fixture score report is incomplete or not bound to the fixed pair.")
+    predictions_path = output_dir / "predictions.json"
+    predictions = json.loads(predictions_path.read_text(encoding="utf-8"))
+    if not isinstance(predictions, list) or len(predictions) != 48:
+        raise ValueError("Fixture predictions are missing or have the wrong row count.")
+    ids = [row.get("case", {}).get("case_id") for row in predictions]
+    if len(set(ids)) != 48 or set(ids) != set(case_ids) or report.get("predictions_sha256") != sha_file(predictions_path):
+        raise ValueError("Fixture prediction identities/hash differ from reviewed cases.")
+    raw_dir = output_dir / "raw"
+    expected_names = {f"{tag}-{hashlib.sha256(case_id.encode()).hexdigest()}.json"
+                      for tag in ("ordinary", "gated") for case_id in case_ids}
+    raw_paths = sorted(raw_dir.glob("*.json"))
+    actual_raw_hashes = {path.name: sha_file(path) for path in raw_paths}
+    if set(actual_raw_hashes) != expected_names or report.get("raw_rpc_sha256") != actual_raw_hashes:
+        raise ValueError("Fixture raw RPC evidence is incomplete or differs from report hashes.")
+    result_path = container_path(output_dir)
+    for case_id in case_ids:
+        row_hash = hashlib.sha256(case_id.encode()).hexdigest()
+        for tag in ("ordinary", "gated"):
+            record = read_json(raw_dir / f"{tag}-{row_hash}.json")
+            request_id = "cascade-" + hashlib.sha256(
+                f"cascade-{result_path}-{tag}-{case_id}".encode()).hexdigest()[:48]
+            if (record.get("request", {}).get("request_id") != request_id
+                    or record.get("response", {}).get("request_id") != request_id
+                    or not re.fullmatch(r"[0-9a-f]{64}", record.get("request_binary_sha256", ""))):
+                raise ValueError("Fixture raw request/response identity evidence is invalid.")
+    return {"status": "complete", "report_sha256": sha_file(report_path),
+            "predictions_sha256": sha_file(predictions_path), "raw_rpc_count": len(raw_paths)}
+
+
 def container_path(path: Path) -> str:
     return "/workspace/evaluation/results/" + Path(path).resolve().relative_to(RESULTS).as_posix()
 
@@ -161,9 +314,9 @@ def validate_frozen_inputs(*, fit_root: Path, fit_source_revision: str,
                            original_artifact: Path, current_artifact: Path,
                            validation_file: Path, development_file: Path,
                            protocol_file: Path, protocol_sha256: str,
-                           source_revision: str) -> dict:
+                           source_revision: str, verify_current_revision: bool = True) -> dict:
     caller = load_caller()
-    if current_revision() != source_revision:
+    if verify_current_revision and current_revision() != source_revision:
         raise ValueError("Current source revision differs from the requested execution revision.")
     if protocol_sha256 != CASCADE_PROTOCOL_SHA256 or sha_file(protocol_file) != protocol_sha256:
         raise ValueError("Cascade protocol differs from its frozen SHA-256.")
@@ -426,8 +579,47 @@ class DockerBackend:
             args += ["--control", control, "--profile", profile]
         return self._job(args, name=name, stage=stage, pair=pair, study_root=study_root, output=output)
 
+    def run_fixture_preflight(self, *, primary_root: Path, validation_file: Path,
+                              support: dict, receipt: Path, output: Path) -> dict:
+        name = f"cascade-{output.name}-fixture-preflight-{uuid.uuid4().hex[:8]}"
+        args = ["run", "-d", "--no-deps", "-T", "--name", name,
+            "evaluation-tests", "python", "-c", FIXTURE_PREFLIGHT,
+            container_path(primary_root), container_path(validation_file),
+            container_path(output / support["fixture.jsonl"]["relative_path"]),
+            container_path(output / support["rubric.md"]["relative_path"]),
+            container_path(output / support["fixture-review.json"]["relative_path"]),
+            container_path(receipt)]
+        return self._job(args, name=name, stage="fixture-preflight", pair=None,
+            study_root=primary_root, output=output,
+            result_reader=lambda: {"status": "frozen_study_verified", "receipt": read_json(receipt),
+                                   "report_sha256": sha_file(receipt)})
+
+    def run_fixture_stage(self, *, primary_root: Path, validation_file: Path,
+                          support: dict, pair: str, output_dir: Path,
+                          expected_binding: dict, eligible: bool, case_ids: list[str],
+                          source_revision: str, runtime_image_id: str,
+                          evaluator_image_id: str, output: Path) -> dict:
+        name = f"cascade-{output.name}-fixture-{pair}-{uuid.uuid4().hex[:8]}"
+        if Path(output_dir).exists():
+            raise FileExistsError("Refusing reused fixture pair output.")
+        args = ["run", "-d", "--no-deps", "-T", "--name", name,
+            "evaluation-tests", "python", "/workspace/evaluation/evaluate-contextual-regressions.py",
+            "--study-root", container_path(primary_root),
+            "--validation-file", container_path(validation_file),
+            "--case-file", container_path(output / support["fixture.jsonl"]["relative_path"]),
+            "--rubric-file", container_path(output / support["rubric.md"]["relative_path"]),
+            "--fixture-review-file", container_path(output / support["fixture-review.json"]["relative_path"]),
+            "--output-dir", container_path(output_dir), "--control", pair.split("-", 1)[0],
+            "--profile", pair.split("-", 1)[1], "--source-revision", source_revision,
+            "--runtime-image-id", runtime_image_id, "--evaluator-image-id", evaluator_image_id,
+            "--target", "client-runtime:50054"]
+        return self._job(args, name=name, stage="fixture-score", pair=pair,
+            study_root=primary_root, output=output,
+            result_reader=lambda: validate_fixture_pair_output(output_dir=output_dir, pair=pair,
+                eligible=eligible, expected_binding=expected_binding, case_ids=case_ids))
+
     def _job(self, args: list[str], *, name: str, stage: str, pair: str | None,
-             study_root: Path, output: Path) -> dict:
+             study_root: Path, output: Path, result_reader=None) -> dict:
         try:
             container = self.call(args, timeout=120)
         except Exception as exc:
@@ -466,6 +658,8 @@ class DockerBackend:
             self.jobs.append(record)
         if active_error:
             raise active_error
+        if result_reader is not None:
+            return {**result_reader(), **record}
         if stage == "calibrate":
             selection = read_json(study_root / "calibration/selection.json")
             return {"status": selection.get("status"), "choices": selection.get("choices"), **record}
@@ -577,12 +771,57 @@ def _run_group(*, backend, output: Path, study_root: Path, inputs: dict,
                                "presence": inputs["presence"][PROFILES[-1]]["identity"]})
 
 
+def _run_fixture_group(*, backend, output: Path, primary_root: Path, inputs: dict,
+                       state: dict, plan: dict, control: str,
+                       prior_raw: dict[str, bytes]) -> None:
+    context = inputs["controls"][control]
+    current_identity = inputs["controls"]["current"]["identity"]
+    backend.write_artifact(context["artifact"], expected_checksum=context["artifact"]["checksum"])
+    try:
+        for profile in PROFILES:
+            pair = f"{control}-{profile}"
+            choice = plan["selection"]["choices"][pair]
+            if choice.get("status") not in ("eligible", "ineligible"):
+                raise ValueError("Primary selection contains an unsupported fixture eligibility state.")
+            eligible = choice["status"] == "eligible"
+            if eligible:
+                presence = inputs["presence"][profile]
+                backend.write_artifact(presence["artifact"],
+                    expected_checksum=presence["identity"]["artifact_checksum"])
+                backend.probe({"context": context["identity"], "presence": presence["identity"]})
+            state["phase"] = f"fixtures:{pair}"; _persist(output, state)
+            result = backend.run_fixture_stage(primary_root=primary_root,
+                validation_file=Path(plan["validation_file"]), support=plan["support"], pair=pair,
+                output_dir=output / "pairs" / pair,
+                expected_binding=plan["pair_bindings"][pair], eligible=eligible,
+                case_ids=plan["case_ids"], source_revision=plan["source_revision"],
+                runtime_image_id=plan["runtime_image_id"],
+                evaluator_image_id=plan["evaluator_image_id"], output=output)
+            expected_status = "complete" if eligible else "skipped_ineligible"
+            if result.get("status") != expected_status:
+                raise ValueError("Fixture score result differs from the frozen primary eligibility.")
+            _record_job(output, state, "fixture-score", pair, result)
+    finally:
+        if not backend.admin_mutation_outcome_unknown and not getattr(backend, "evaluator_job_outcome_unknown", False):
+            backend.restore_exact("privoke-balanced", prior_raw["privoke-balanced"])
+            if not backend.admin_mutation_outcome_unknown:
+                if sha_bytes(backend.read_raw("privoke-balanced")) != state["prior_sha256"]["privoke-balanced"]:
+                    raise ValueError("Contextual control bytes did not restore at fixture checkpoint.")
+                # An ineligible quality pair deliberately skips installation; probe a known frozen identity.
+                quality = inputs["presence"][PROFILES[-1]]
+                backend.write_artifact(quality["artifact"], expected_checksum=quality["identity"]["artifact_checksum"])
+                backend.probe({"context": current_identity, "presence": quality["identity"]})
+
+
 def run_sequence(*, backend, output: Path, study_root: Path,
-                 inputs: dict, binding: dict) -> dict:
+                 inputs: dict, binding: dict, fixture_plan: dict | None = None) -> dict:
     """Run staged requests and always restore byte-exact prior catalog state."""
     state = {"schema_version": 1, "status": "running", "phase": "preflight",
         "binding": binding, "phase_jobs": [], "errors": [], "restoration_verified": False,
         "admin_mutation_outcome_unknown": False, "images_before": None, "images_after": None}
+    if fixture_plan is not None:
+        state["mode"] = "secondary_contextual_fixtures"
+        state["secondary_binding"] = fixture_plan["secondary_binding"]
     _persist(output, state)
     backups_written = False
     try:
@@ -595,6 +834,23 @@ def run_sequence(*, backend, output: Path, study_root: Path,
             raise ValueError("Runtime image differs from the frozen preflight identity.")
         state["linux_fit_preflight"] = backend.preflight_fit(inputs=inputs, binding=binding, output=output)
         _persist(output, state)
+        if fixture_plan is not None:
+            state["phase"] = "fixture-frozen-study-preflight"; _persist(output, state)
+            result = backend.run_fixture_preflight(primary_root=study_root,
+                validation_file=Path(fixture_plan["validation_file"]), support=fixture_plan["support"],
+                receipt=output / "fixture-frozen-preflight.json", output=output)
+            receipt = result.get("receipt", {})
+            if (result.get("status") != "frozen_study_verified"
+                    or receipt.get("binding") != binding
+                    or receipt.get("selection_sha256") != fixture_plan["primary"]["selection_sha256"]
+                    or receipt.get("fixture_sha256") != fixture_plan["support"]["fixture.jsonl"]["sha256"]
+                    or receipt.get("rubric_sha256") != fixture_plan["support"]["rubric.md"]["sha256"]
+                    or receipt.get("review_sha256") != fixture_plan["support"]["fixture-review.json"]["sha256"]
+                    or receipt.get("case_counts") != fixture_plan["case_counts"]
+                    or receipt.get("choices") != fixture_plan["choices_compact"]):
+                raise ValueError("Linux fixture/frozen-selection preflight differs from host-bound receipts.")
+            state["fixture_preflight_sha256"] = result.get("report_sha256")
+            _record_job(output, state, "fixture-frozen-preflight", None, result)
         state["images_before"] = images
         prior_raw = {model_id: backend.read_raw(model_id) for model_id in CATALOG_IDS}
         check_prior_catalog(prior_raw, inputs)
@@ -602,50 +858,61 @@ def run_sequence(*, backend, output: Path, study_root: Path,
         state["private_backups"] = write_backups(output, prior_raw)
         backups_written = True
         _persist(output, state)
-        for control in CONTROLS:
-            state["phase"] = f"collect-validation:{control}"; _persist(output, state)
-            _run_group(backend=backend, output=output, study_root=study_root, inputs=inputs,
-                       binding=binding, state=state, stage="collect-validation", control=control,
-                       prior_raw=prior_raw)
-        state["phase"] = "calibrate"; _persist(output, state)
-        calibration = backend.run_stage(stage="calibrate", pair=None, study_root=study_root,
-                                        inputs=inputs, binding=binding, output=output)
-        if calibration.get("status") != "frozen" or set(calibration.get("choices", {})) != set(PAIRS):
-            raise ValueError("Calibration did not freeze exactly six choices.")
-        choices = calibration["choices"]
-        for pair in PAIRS:
-            choice = choices[pair]
-            status = choice.get("status")
-            if status not in ("eligible", "ineligible"):
-                raise ValueError("Frozen choice has an unsupported eligibility state.")
-            if status == "eligible":
-                selected = choice.get("chosen")
-                threshold = selected.get("threshold") if isinstance(selected, dict) else None
-                if type(threshold) not in (int, float) or not math.isfinite(threshold) or not 0 <= threshold <= 1:
-                    raise ValueError("Eligible frozen choice lacks a finite calibrated threshold.")
-            elif choice.get("chosen") is not None:
-                raise ValueError("Ineligible frozen choice must not contain a selected threshold.")
-        state["calibration_sha256"] = sha_file(study_root / "calibration/selection.json")
-        state["eligibility"] = {pair: choices[pair].get("status") for pair in PAIRS}
-        _record_job(output, state, "calibrate", None, calibration)
-        for control in CONTROLS:
-            state["phase"] = f"evaluate-validation:{control}"; _persist(output, state)
-            _run_group(backend=backend, output=output, study_root=study_root, inputs=inputs,
-                       binding=binding, state=state, stage="evaluate-validation", control=control,
-                       prior_raw=prior_raw, choices=choices)
-        validation_status = {f"{job['stage']}:{job['pair']}": job["status"] for job in state["phase_jobs"]
-                             if job["stage"] == "evaluate-validation"}
-        if set(validation_status) != {f"evaluate-validation:{pair}" for pair in PAIRS}:
-            raise ValueError("Development cannot begin until all six validation outcomes are recorded.")
-        for pair in PAIRS:
-            expected = "skipped_ineligible" if choices[pair].get("status") == "ineligible" else "complete"
-            if validation_status[f"evaluate-validation:{pair}"] != expected:
-                raise ValueError("Validation endpoint status does not match frozen eligibility.")
-        for control in CONTROLS:
-            state["phase"] = f"evaluate-development:{control}"; _persist(output, state)
-            _run_group(backend=backend, output=output, study_root=study_root, inputs=inputs,
-                       binding=binding, state=state, stage="evaluate-development", control=control,
-                       prior_raw=prior_raw, choices=choices)
+        if fixture_plan is None:
+            for control in CONTROLS:
+                state["phase"] = f"collect-validation:{control}"; _persist(output, state)
+                _run_group(backend=backend, output=output, study_root=study_root, inputs=inputs,
+                           binding=binding, state=state, stage="collect-validation", control=control,
+                           prior_raw=prior_raw)
+            state["phase"] = "calibrate"; _persist(output, state)
+            calibration = backend.run_stage(stage="calibrate", pair=None, study_root=study_root,
+                                            inputs=inputs, binding=binding, output=output)
+            if calibration.get("status") != "frozen" or set(calibration.get("choices", {})) != set(PAIRS):
+                raise ValueError("Calibration did not freeze exactly six choices.")
+            choices = calibration["choices"]
+            for pair in PAIRS:
+                choice = choices[pair]
+                status = choice.get("status")
+                if status not in ("eligible", "ineligible"):
+                    raise ValueError("Frozen choice has an unsupported eligibility state.")
+                if status == "eligible":
+                    selected = choice.get("chosen")
+                    threshold = selected.get("threshold") if isinstance(selected, dict) else None
+                    if type(threshold) not in (int, float) or not math.isfinite(threshold) or not 0 <= threshold <= 1:
+                        raise ValueError("Eligible frozen choice lacks a finite calibrated threshold.")
+                elif choice.get("chosen") is not None:
+                    raise ValueError("Ineligible frozen choice must not contain a selected threshold.")
+            state["calibration_sha256"] = sha_file(study_root / "calibration/selection.json")
+            state["eligibility"] = {pair: choices[pair].get("status") for pair in PAIRS}
+            _record_job(output, state, "calibrate", None, calibration)
+            for control in CONTROLS:
+                state["phase"] = f"evaluate-validation:{control}"; _persist(output, state)
+                _run_group(backend=backend, output=output, study_root=study_root, inputs=inputs,
+                           binding=binding, state=state, stage="evaluate-validation", control=control,
+                           prior_raw=prior_raw, choices=choices)
+            validation_status = {f"{job['stage']}:{job['pair']}": job["status"] for job in state["phase_jobs"]
+                                 if job["stage"] == "evaluate-validation"}
+            if set(validation_status) != {f"evaluate-validation:{pair}" for pair in PAIRS}:
+                raise ValueError("Development cannot begin until all six validation outcomes are recorded.")
+            for pair in PAIRS:
+                expected = "skipped_ineligible" if choices[pair].get("status") == "ineligible" else "complete"
+                if validation_status[f"evaluate-validation:{pair}"] != expected:
+                    raise ValueError("Validation endpoint status does not match frozen eligibility.")
+            for control in CONTROLS:
+                state["phase"] = f"evaluate-development:{control}"; _persist(output, state)
+                _run_group(backend=backend, output=output, study_root=study_root, inputs=inputs,
+                           binding=binding, state=state, stage="evaluate-development", control=control,
+                           prior_raw=prior_raw, choices=choices)
+        else:
+            state["primary_manifest_sha256"] = fixture_plan["primary"]["manifest_sha256"]
+            state["primary_selection_sha256"] = fixture_plan["primary"]["selection_sha256"]
+            state["fixture_eligibility"] = {pair: fixture_plan["selection"]["choices"][pair]["status"]
+                                            for pair in PAIRS}
+            for control in CONTROLS:
+                state["phase"] = f"fixtures:{control}"; _persist(output, state)
+                _run_fixture_group(backend=backend, output=output, primary_root=study_root,
+                    inputs=inputs, state=state, plan=fixture_plan, control=control, prior_raw=prior_raw)
+            fixture_plan["integrity_check"]()
         state["images_after"] = backend.images()
         if state["images_after"] != state["images_before"] or backend.job_images != {binding["evaluator_image_id"]}:
             raise ValueError("Runtime/evaluator image identity changed during fixed study.")
@@ -729,16 +996,123 @@ def run_study(*, fit_root: Path, fit_source_revision: str,
                         inputs=inputs, binding=binding)
 
 
+def run_fixture_study(*, completed_controller_output: Path, fit_root: Path,
+                      validation_file: Path, development_file: Path,
+                      support_root: Path, source_revision: str,
+                      output: Path, backend=None) -> dict:
+    """Run the fixed secondary 48-case scorer only after a verified primary completion."""
+    output = inside_results(output, fresh=True)
+    if current_revision() != source_revision:
+        raise ValueError("Secondary execution revision differs from the current checkout.")
+    primary = load_completed_primary(completed_controller_output)
+    binding = primary["binding"]
+    if binding.get("protocol_sha256") != CASCADE_PROTOCOL_SHA256:
+        raise ValueError("Completed primary run is bound to another contextual-cascade protocol.")
+    validation_file, development_file = inside_results(validation_file), inside_results(development_file)
+    protocol_copy = primary["path"] / "contextual-cascade-protocol.md"
+    inputs = validate_frozen_inputs(fit_root=fit_root,
+        fit_source_revision=binding["fit_source_revision"],
+        original_artifact=Path(binding["controls"]["original"]["path"]),
+        current_artifact=Path(binding["controls"]["current"]["path"]),
+        validation_file=validation_file, development_file=development_file,
+        protocol_file=protocol_copy, protocol_sha256=binding["protocol_sha256"],
+        source_revision=binding["source_revision"], verify_current_revision=False)
+    if make_binding(inputs, binding["runtime_image_id"], binding["evaluator_image_id"]) != binding:
+        raise ValueError("Reconstructed primary artifact binding differs from the completed run.")
+    # A fresh destination is created only after all static primary/model bindings pass.
+    output.mkdir(parents=True, exist_ok=False)
+    support_receipt = copy_fixture_support(support_root, output)
+    primary_receipts = output / "primary-receipts"
+    primary_receipts.mkdir(parents=True, exist_ok=False)
+    copy_receipts = {"controller_manifest.json": primary["path"] / "study-run-manifest.json",
+                     "input-binding.json": primary["path"] / "input-binding.json",
+                     "study-manifest.json": primary["study_root"] / "study-manifest.json",
+                     "selection.json": primary["study_root"] / "calibration/selection.json"}
+    for name, source in copy_receipts.items():
+        raw = source.read_bytes()
+        with (primary_receipts / name).open("xb") as stream:
+            stream.write(raw); stream.flush(); os.fsync(stream.fileno())
+
+    case_path = output / support_receipt["fixture.jsonl"]["relative_path"]
+    case_rows = [json.loads(line) for line in case_path.read_text(encoding="utf-8").splitlines() if line]
+    case_ids = [row.get("case_id") for row in case_rows]
+    if len(case_ids) != 48 or len(set(case_ids)) != 48 or any(not isinstance(x, str) or not x for x in case_ids):
+        raise ValueError("Copied reviewed fixtures do not have 48 unique case IDs.")
+    review = read_json(output / support_receipt["fixture-review.json"]["relative_path"])
+    case_counts = review.get("case_counts")
+    if case_counts != {"total": 48, "families": 12, "controls": 24,
+            "disclosure_candidates": 17, "ambiguous_excluded": 7,
+            "context_truth_eligible": 41, "action_accuracy_eligible": 41, "visibility_hints": 4}:
+        raise ValueError("Reviewed fixture composition does not match the fixed 48-case contract.")
+
+    backend = backend or DockerBackend(output)
+    if isinstance(backend, DockerBackend):
+        backend.env["CASCADE_EXPECTED_EVALUATOR_IMAGE_ID"] = binding["evaluator_image_id"]
+    pair_bindings = {}
+    for pair in PAIRS:
+        control, profile = pair.split("-", 1)
+        pair_bindings[pair] = {"source_revision": source_revision,
+            "study_binding": binding, "selection_sha256": primary["selection_sha256"], "pair": pair,
+            "case_file_sha256": support_receipt["fixture.jsonl"]["sha256"],
+            "rubric_sha256": support_receipt["rubric.md"]["sha256"],
+            "fixture_review_sha256": support_receipt["fixture-review.json"]["sha256"],
+            "caller_sha256": sha_file(ROOT / "evaluation/evaluate-contextual-regressions.py"),
+            "cascade_helper_sha256": sha_file(ROOT / "evaluation/evaluate-contextual-cascade.py"),
+            "runtime_image_id": binding["runtime_image_id"],
+            "evaluator_image_id": binding["evaluator_image_id"],
+            "validation_file_sha256": sha_file(validation_file)}
+    secondary_binding = {"schema_version": 1, "mode": "secondary_contextual_fixtures",
+        "primary_controller_manifest_sha256": primary["manifest_sha256"],
+        "primary_selection_sha256": primary["selection_sha256"],
+        "primary_input_binding_sha256": sha_file(primary["path"] / "input-binding.json"),
+        "primary_study_manifest_sha256": sha_file(primary["study_root"] / "study-manifest.json"),
+        "primary_source_revision": binding["source_revision"], "execution_source_revision": source_revision,
+        "execution_controller_sha256": sha_file(Path(__file__)),
+        "fixture_scorer_sha256": pair_bindings[PAIRS[0]]["caller_sha256"],
+        "cascade_helper_sha256": pair_bindings[PAIRS[0]]["cascade_helper_sha256"],
+        "runtime_image_id": binding["runtime_image_id"], "evaluator_image_id": binding["evaluator_image_id"],
+        "support": support_receipt, "professor_confirmation": review.get("professor_confirmation")}
+    choices_compact = {pair: {"status": primary["selection"]["choices"][pair]["status"],
+        "chosen": primary["selection"]["choices"][pair].get("chosen")} for pair in PAIRS}
+    case_ids_sha256 = sha_bytes("\n".join(case_ids).encode())
+
+    def integrity_check() -> None:
+        if current_revision() != source_revision:
+            raise ValueError("Execution checkout changed during fixture scoring.")
+        if sha_file(primary["path"] / "study-run-manifest.json") != primary["manifest_sha256"]:
+            raise ValueError("Completed primary controller manifest changed during fixture scoring.")
+        if sha_file(primary["study_root"] / "calibration/selection.json") != primary["selection_sha256"]:
+            raise ValueError("Primary frozen choices changed during fixture scoring.")
+        if sha_file(validation_file) != dict(binding["datasets"])["validation"][1]:
+            raise ValueError("Pinned validation data changed during fixture scoring.")
+        for item in support_receipt.values():
+            if sha_file(output / item["relative_path"]) != item["sha256"]:
+                raise ValueError("Copied fixture support changed during scoring.")
+        if sha_bytes("\n".join(case_ids).encode()) != case_ids_sha256:
+            raise ValueError("Fixture case identity set changed during scoring.")
+
+    plan = {"primary": primary, "secondary_binding": secondary_binding,
+        "validation_file": str(validation_file), "support": support_receipt,
+        "selection": primary["selection"], "choices_compact": choices_compact,
+        "case_counts": case_counts, "case_ids": case_ids, "pair_bindings": pair_bindings,
+        "source_revision": source_revision, "runtime_image_id": binding["runtime_image_id"],
+        "evaluator_image_id": binding["evaluator_image_id"], "integrity_check": integrity_check}
+    return run_sequence(backend=backend, output=output, study_root=primary["study_root"],
+        inputs=inputs, binding=binding, fixture_plan=plan)
+
+
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument("--fit-root", type=Path, required=True)
-    result.add_argument("--fit-source-revision", required=True)
-    result.add_argument("--original-artifact", type=Path, required=True)
-    result.add_argument("--current-artifact", type=Path, required=True)
+    result.add_argument("--fit-source-revision")
+    result.add_argument("--original-artifact", type=Path)
+    result.add_argument("--current-artifact", type=Path)
     result.add_argument("--validation-file", type=Path, required=True)
     result.add_argument("--development-file", type=Path, required=True)
-    result.add_argument("--protocol-file", type=Path, required=True)
-    result.add_argument("--protocol-sha256", required=True)
+    result.add_argument("--protocol-file", type=Path)
+    result.add_argument("--protocol-sha256")
+    result.add_argument("--completed-controller-output", type=Path)
+    result.add_argument("--support-root", type=Path)
     result.add_argument("--source-revision", required=True)
     result.add_argument("--output", type=Path, required=True)
     return result
@@ -746,13 +1120,29 @@ def parser() -> argparse.ArgumentParser:
 
 def main(argv=None) -> int:
     args = parser().parse_args(argv)
-    if not re.fullmatch(r"[0-9a-f]{64}", args.protocol_sha256):
-        raise SystemExit("--protocol-sha256 must be lowercase SHA-256.")
-    state = run_study(fit_root=args.fit_root, fit_source_revision=args.fit_source_revision,
-        original_artifact=args.original_artifact, current_artifact=args.current_artifact,
-        validation_file=args.validation_file, development_file=args.development_file,
-        protocol_file=args.protocol_file, protocol_sha256=args.protocol_sha256,
-        source_revision=args.source_revision, output=args.output)
+    if args.completed_controller_output is not None:
+        if args.support_root is None:
+            raise SystemExit("Fixture mode requires --support-root.")
+        if any(value is not None for value in (args.fit_source_revision, args.original_artifact,
+                args.current_artifact, args.protocol_file, args.protocol_sha256)):
+            raise SystemExit("Fixture mode derives frozen inputs from the completed primary run.")
+        state = run_fixture_study(completed_controller_output=args.completed_controller_output,
+            fit_root=args.fit_root, validation_file=args.validation_file,
+            development_file=args.development_file, support_root=args.support_root,
+            source_revision=args.source_revision, output=args.output)
+    else:
+        if args.support_root is not None:
+            raise SystemExit("--support-root is only valid with --completed-controller-output.")
+        if (args.fit_source_revision is None or args.original_artifact is None or args.current_artifact is None
+                or args.protocol_file is None or args.protocol_sha256 is None):
+            raise SystemExit("Primary mode requires fit-source, both artifacts, and protocol arguments.")
+        if not re.fullmatch(r"[0-9a-f]{64}", args.protocol_sha256):
+            raise SystemExit("--protocol-sha256 must be lowercase SHA-256.")
+        state = run_study(fit_root=args.fit_root, fit_source_revision=args.fit_source_revision,
+            original_artifact=args.original_artifact, current_artifact=args.current_artifact,
+            validation_file=args.validation_file, development_file=args.development_file,
+            protocol_file=args.protocol_file, protocol_sha256=args.protocol_sha256,
+            source_revision=args.source_revision, output=args.output)
     print(json.dumps({"status": state["status"], "restoration_verified": state["restoration_verified"],
                       "admin_mutation_outcome_unknown": state["admin_mutation_outcome_unknown"],
                       "phase_jobs": len(state["phase_jobs"]),
