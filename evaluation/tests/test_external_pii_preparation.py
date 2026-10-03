@@ -229,6 +229,24 @@ class ExternalPreparationTests(unittest.TestCase):
             finally:
                 pool.close()
 
+    def test_archive_closed_database_exact_bytes_and_exclusive_destination(self):
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            source, target = directory / "local.sqlite3", directory / "archive.sqlite3"
+            pool = PREP.CandidatePool(source)
+            pool.scan("meddies-pii", [meddies()], PREP.empty_keys(), expected_count=1)
+            pool.close()
+            PREP.archive_closed_database(source, target)
+            self.assertEqual(source.read_bytes(), target.read_bytes())
+            self.assertFalse(target.with_name(target.name + ".partial").exists())
+            with self.assertRaisesRegex(ValueError, "replace"):
+                PREP.archive_closed_database(source, target)
+            database = PREP.sqlite3.connect("file:" + target.as_posix() + "?mode=ro", uri=True)
+            try:
+                self.assertEqual(database.execute("SELECT COUNT(*) FROM rows").fetchone()[0], 1)
+            finally:
+                database.close()
+
     def test_audit_exact_pins_split_paths_schema_and_license(self):
         self.assertEqual(set(PREP.validate_audit(audit())), set(PREP.PINS))
         for field, wrong in (("revision", "c" * 40), ("config", "mixed"), ("split", "test"), ("license", "unknown")):
@@ -342,12 +360,45 @@ class ExternalPreparationTests(unittest.TestCase):
                 for entry in receipt["sources"]:
                     entry["file"]["schema_fields"] = ["schema", *supplied[entry["repo_id"]][0].keys()]
                 source_audit.write_text(json.dumps(receipt, indent=2) + "\n")
+                staged_paths, archived_digests, pools = [], [], []
+                original_pool, original_archive = PREP.CandidatePool, PREP.archive_closed_database
+                def create_pool(path):
+                    staged_paths.append(Path(path))
+                    pool = original_pool(path)
+                    pools.append(pool)
+                    return pool
+                def archive(source, target):
+                    self.assertFalse(Path(source).is_relative_to(output))
+                    with self.assertRaises(PREP.sqlite3.ProgrammingError):
+                        pools[-1].db.execute("SELECT 1")
+                    archived_digests.append(PREP.sha(source))
+                    original_archive(source, target)
+                    self.assertEqual(PREP.sha(target), archived_digests[-1])
                 with patch.object(PREP, "ROOT", directory), patch.object(PREP, "REFERENCE", expected), \
                      patch.object(PREP, "HELDOUT_CAP", 2), patch.object(PREP, "CAPS", {"nemotron-pii": 4, "meddies-pii": 2}), \
                      patch.object(PREP, "reproduce_protection", return_value=({"aggregate": {"selected": 1000}, "sorted_records_sha256": "a" * 64}, PREP.empty_keys())), \
                      patch.object(PREP, "source_rows", side_effect=lambda entry: iter(supplied[entry["repo_id"]])), \
+                     patch.object(PREP, "CandidatePool", side_effect=create_pool), \
+                     patch.object(PREP, "archive_closed_database", side_effect=archive), \
                      patch.object(PREP, "sha", side_effect=lambda path: "a" * 64 if str(path).endswith("training_data.py") else PREP.hashlib.sha256(Path(path).read_bytes()).hexdigest()):
                     manifest = PREP.prepare(args)
+                    self.assertFalse(staged_paths[-1].parent.exists())
+                    args.output = directory / "evaluation/results/failed"
+                    def failed_source(entry):
+                        yield supplied[entry["repo_id"]][0]
+                        raise RuntimeError("synthetic scan interruption")
+                    with patch.object(PREP, "source_rows", side_effect=failed_source):
+                        with self.assertRaisesRegex(RuntimeError, "scan interruption"):
+                            PREP.prepare(args)
+                    failure = json.loads((args.output / "manifest.json").read_bytes())
+                    self.assertEqual(failure["status"], "failed")
+                    self.assertEqual(failure["counts"]["nemotron-pii"]["rows_seen"], 1)
+                    self.assertFalse(staged_paths[-1].parent.exists())
+                    failed_db = PREP.sqlite3.connect("file:" + (args.output / "private-candidates.sqlite3").as_posix() + "?mode=ro", uri=True)
+                    try:
+                        self.assertEqual(failed_db.execute("SELECT COUNT(*) FROM rows").fetchone()[0], 1)
+                    finally:
+                        failed_db.close()
                 self.assertEqual(manifest["status"], "prepared")
                 self.assertEqual(manifest["rows"], {"train": 6, "validation": 1, "nemotron_heldout": 2, "meddies_heldout": 2})
                 self.assertEqual((output / "validation.jsonl").read_bytes(), original["validation"])

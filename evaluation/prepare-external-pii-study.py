@@ -10,8 +10,10 @@ import os
 from pathlib import Path
 import random
 import re
+import shutil
 import sqlite3
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "shared/python"))
@@ -507,6 +509,21 @@ def validate_inputs(args):
     return receipt, validate_audit(receipt)
 
 
+def archive_closed_database(source, target):
+    """Publish one byte copy of closed private staging with an atomic rename."""
+    source, target = Path(source), Path(target)
+    partial = target.with_name(target.name + ".partial")
+    if target.exists():
+        raise ValueError("Refusing to replace a private staging database archive.")
+    with source.open("rb") as incoming, partial.open("xb") as outgoing:
+        shutil.copyfileobj(incoming, outgoing, length=1024 * 1024)
+        outgoing.flush()
+        os.fsync(outgoing.fileno())
+    if target.exists():
+        raise ValueError("Private staging database archive unexpectedly appeared.")
+    os.replace(partial, target)
+
+
 def prepare(args):
     receipt, audited = validate_inputs(args)
     references, reference_bytes = read_references(args.prepared_reference)
@@ -526,7 +543,13 @@ def prepare(args):
           "protocol_sha256": args.protocol_sha256, "source_audit_sha256": sha(args.source_audit),
           "pins": audited, "row_semantics": "strict positive full documents only; empty labels unknown",
           "seeds": {"sample": 8102026, "heldout_groups": 9102026}, "caps": CAPS, "heldout_target_per_source": HELDOUT_CAP})
-    pool = CandidatePool(args.output / "private-candidates.sqlite3")
+    staging = tempfile.TemporaryDirectory(prefix="privoke-external-pii-")
+    database = Path(staging.name) / "private-candidates.sqlite3"
+    try:
+        pool = CandidatePool(database)
+    except Exception:
+        staging.cleanup()
+        raise
     try:
         for source, entry in audited.items():
             pool.scan(source, source_rows(entry), excluded, expected_count=PINS[source][3],
@@ -580,8 +603,6 @@ def prepare(args):
                                     "Meddies metadata family grouping is not verified document/template independence.",
                                     "Existing train/validation are exploratory within-corpus controls, not an independent PIIMB benchmark."]}
         manifest["prepared_reference"]["train_bytes"] = len(reference_bytes["train"])
-        write(args.output / "manifest.json", manifest)
-        return manifest
     except Exception as exc:
         if not (args.output / "manifest.json").exists():
             write(args.output / "manifest.json", {"schema_version": 1, "status": "failed",
@@ -589,7 +610,25 @@ def prepare(args):
                   "protocol_sha256": args.protocol_sha256, "counts": {k: dict(v) for k, v in pool.counts.items()}})
         raise
     finally:
-        pool.close()
+        try:
+            # A failed scan still retains its observed private staging rows for
+            # aggregate diagnosis; its failed manifest cannot authorize fitting.
+            try:
+                pool.db.commit()
+            finally:
+                pool.close()
+            archive_closed_database(database, args.output / "private-candidates.sqlite3")
+        except Exception as exc:
+            if not (args.output / "manifest.json").exists():
+                write(args.output / "manifest.json", {"schema_version": 1, "status": "failed",
+                      "error_type": type(exc).__name__, "failure_stage": "private_database_archive",
+                      "source_revision": args.source_revision, "protocol_sha256": args.protocol_sha256,
+                      "counts": {k: dict(v) for k, v in pool.counts.items()}})
+            raise
+        finally:
+            staging.cleanup()
+    write(args.output / "manifest.json", manifest)
+    return manifest
 
 
 def main():
