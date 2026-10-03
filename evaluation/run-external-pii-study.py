@@ -185,6 +185,36 @@ class DockerBackend:
         self.call(["up", "-d", "--wait", "--wait-timeout", "180",
                    "client-runtime", "model-streaming-service", "param-update-service"], timeout=240)
 
+    def preflight_fit(self, *, fit_root: Path, prepared: Path, baseline_fit_root: Path,
+                      protocol_file: Path, protocol_sha256: str, fit_source_revision: str,
+                      receipt_path: Path) -> str:
+        """Run platform-sensitive full fit verification in the evaluator image before installs."""
+        receipt_path.parent.mkdir(parents=True, exist_ok=True)
+        name = f"external-pii-preflight-{uuid.uuid4().hex[:12]}"
+        args = ["run", "-d", "--no-deps", "-T", "--name", name, "evaluation-tests", "python",
+                "/workspace/evaluation/evaluate-external-pii.py", "--fit-preflight-receipt",
+                "--fit-root", container_results_path(fit_root),
+                "--prepared", container_results_path(prepared),
+                "--baseline-fit-root", container_results_path(baseline_fit_root),
+                "--protocol-file", container_results_path(protocol_file),
+                "--protocol-sha256", protocol_sha256,
+                "--fit-source-revision", fit_source_revision,
+                "--output", container_results_path(receipt_path)]
+        container_id = self.call(args, timeout=600)
+        if not re.fullmatch(r"[0-9a-f]{12,64}", container_id):
+            raise ValueError("Fit verifier did not return its exact evaluator container ID.")
+        try:
+            image_id = self.call(["docker", "inspect", "--format", "{{.Image}}", container_id], direct=True)
+            if not re.fullmatch(r"sha256:[0-9a-f]{64}", image_id):
+                raise ValueError("Fit verifier did not expose its immutable evaluator image ID.")
+            self.evaluator_images.add(image_id)
+            exit_code = self.call(["docker", "wait", container_id], direct=True, timeout=660)
+            if exit_code != "0":
+                raise RuntimeError("Linux fit verifier exited unsuccessfully.")
+            return self.call(["docker", "logs", container_id], direct=True, timeout=30)
+        finally:
+            self.call(["docker", "rm", "-f", container_id], direct=True, timeout=30)
+
     def images(self) -> dict:
         observed = {}
         for service in ("client-runtime", "model-streaming-service", "param-update-service"):
@@ -389,6 +419,95 @@ def fixed_plan() -> list[tuple[str, str, str]]:
             for control in CONTROLS for partition in PARTITIONS]
 
 
+def receipt_bound_path(root: Path, relative: str, expected_sha256: str) -> Path:
+    if not isinstance(relative, str) or not re.fullmatch(r"[0-9a-f]{64}", str(expected_sha256)):
+        raise ValueError("Fit receipt path or digest is malformed.")
+    resolved_root = root.resolve()
+    path = (resolved_root / relative).resolve()
+    if resolved_root not in path.parents or not path.is_file() or sha_file(path) != expected_sha256:
+        raise ValueError("Fit receipt file escapes its root or differs from its SHA-256 binding.")
+    return path
+
+
+def load_verified_fit_receipt(receipt_path: Path, *, fit_root: Path, prepared_root: Path,
+                              baseline_fit_root: Path, scorer, source_revision: str,
+                              protocol_sha256: str) -> tuple[dict, dict, dict]:
+    """Recheck Linux receipt bindings and local bytes without rerunning fitter float math."""
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    if (not isinstance(receipt, dict) or receipt.get("schema_version") != 1
+            or receipt.get("status") != "verified"
+            or receipt.get("fit_source_revision") != source_revision
+            or receipt.get("protocol_sha256") != protocol_sha256
+            or set(receipt.get("profiles", {})) != set(PROFILES)):
+        raise ValueError("Linux fit-verification receipt has an invalid frozen identity or profile set.")
+    for key in ("prepared_manifest_sha256", "fit_manifest_sha256", "freeze_sha256",
+                "diagnostics_sha256", "baseline_manifest_sha256"):
+        if not re.fullmatch(r"[0-9a-f]{64}", str(receipt.get(key, ""))):
+            raise ValueError(f"Linux fit receipt lacks valid {key}.")
+    fit_manifest_path = fit_root / "run-manifest.json"
+    if sha_file(fit_manifest_path) != receipt["fit_manifest_sha256"]:
+        raise ValueError("Fit manifest bytes differ from the Linux verification receipt.")
+    fit_manifest = json.loads(fit_manifest_path.read_text(encoding="utf-8"))
+    if (fit_manifest.get("source_revision") != source_revision
+            or fit_manifest.get("protocol_sha256") != protocol_sha256
+            or fit_manifest.get("fit_freeze_sha256") != receipt["freeze_sha256"]
+            or sha_file(fit_root / "fit-freeze.json") != receipt["freeze_sha256"]
+            or sha_file(fit_root / "diagnostics.json") != receipt["diagnostics_sha256"]):
+        raise ValueError("Fit freeze, diagnostics or source binding changed after Linux verification.")
+    prepared = scorer.validate_prepared(prepared_root,
+        prepared_source_revision=receipt.get("prepared_source_revision"), protocol_sha256=protocol_sha256)
+    if (prepared["manifest_sha256"] != receipt["prepared_manifest_sha256"]
+            or prepared["manifest"].get("partition_sha256") != receipt.get("partition_sha256")
+            or prepared["manifest"].get("rows") != receipt.get("partition_rows")):
+        raise ValueError("Prepared partitions differ from the Linux verification receipt.")
+    scorer.bind_prepared_to_fit(prepared, fit_manifest)
+    profiles = {}
+    from privoke_model.artifact import load_artifact, validate_artifact
+    for profile in PROFILES:
+        record = receipt["profiles"][profile]
+        selection_path = receipt_bound_path(fit_root, record.get("selection_path"), record.get("selection_sha256"))
+        artifact_path = receipt_bound_path(fit_root, record.get("artifact_path"), record.get("artifact_sha256"))
+        baseline_selection_path = receipt_bound_path(baseline_fit_root, record.get("baseline_selection_path"), record.get("baseline_selection_sha256"))
+        baseline_artifact_path = receipt_bound_path(baseline_fit_root, record.get("baseline_artifact_path"), record.get("baseline_artifact_sha256"))
+        if fit_root.resolve() not in selection_path.parents or fit_root.resolve() not in artifact_path.parents:
+            raise ValueError("Receipt profile path escapes completed fit directory.")
+        if (baseline_fit_root.resolve() not in baseline_selection_path.parents
+                or baseline_fit_root.resolve() not in baseline_artifact_path.parents
+                or baseline_selection_path.relative_to(baseline_fit_root.resolve()).as_posix()
+                   != f"profiles/{profile}/selection.json"):
+            raise ValueError("Receipt baseline profile path escapes its frozen fit directory.")
+        selection = json.loads(selection_path.read_text(encoding="utf-8"))
+        artifact = load_artifact(artifact_path)
+        validate_artifact(artifact)
+        if (selection.get("selected_artifact_file") != record["artifact_path"]
+                or selection.get("selected_artifact_sha256") != record["artifact_sha256"]
+                or scorer.identity_for_artifact(artifact) != record.get("artifact_identity")):
+            raise ValueError("Receipt selection does not bind its exact selected artifact identity.")
+        profiles[profile] = {"selection": selection, "artifact": artifact,
+                             "artifact_path": artifact_path}
+    bundle = {"manifest": fit_manifest, "manifest_sha256": receipt["fit_manifest_sha256"],
+              "freeze_sha256": receipt["freeze_sha256"], "profiles": profiles}
+    baseline = scorer.load_baseline_fit(baseline_fit_root, "balanced")
+    if (baseline["manifest_sha256"] != receipt.get("baseline_manifest_sha256")
+            or baseline["source_revision"] != receipt.get("baseline_source_revision")
+            or baseline["protocol_sha256"] != receipt.get("baseline_protocol_sha256")):
+        raise ValueError("Baseline fit bytes differ from the Linux verification receipt.")
+    scorer.bind_baseline_reference(baseline, prepared)
+    for profile in PROFILES:
+        candidate = scorer.verify_profile_bundle(bundle, profile=profile, fit_root=fit_root,
+            source_revision=source_revision, protocol_sha256=protocol_sha256, prepared=prepared)
+        record = receipt["profiles"][profile]
+        base = baseline["profiles"][profile]
+        baseline_selection_path = baseline_fit_root / "profiles" / profile / "selection.json"
+        if (candidate["artifact_sha256"] != record["artifact_sha256"]
+                or sha_file(baseline_selection_path) != record["baseline_selection_sha256"]
+                or sha_file(base["artifact_path"]) != record["baseline_artifact_sha256"]
+                or base["artifact_path"].resolve() != (baseline_fit_root / record["baseline_artifact_path"]).resolve()
+                or scorer.identity_for_artifact(base["artifact"]) != record["baseline_artifact_identity"]):
+            raise ValueError("Baseline or candidate profile failed host hash and identity checks.")
+    return receipt, prepared, baseline, bundle
+
+
 def run_study(*, fit_root: Path, prepared: Path, baseline_fit_root: Path,
               protocol_file: Path, protocol_sha256: str,
               execution_revision: str, fit_source_revision: str,
@@ -404,14 +523,36 @@ def run_study(*, fit_root: Path, prepared: Path, baseline_fit_root: Path,
     if current_revision() != execution_revision:
         raise ValueError("Executing Git HEAD differs from --source-revision.")
     scorer = load_scorer()
-    candidate_bundle = scorer.load_external_fit(fit_root, prepared, source_revision=fit_source_revision,
-                                                protocol_sha256=protocol_sha256)
-    prepared = scorer.validate_prepared(prepared,
-                    prepared_source_revision=candidate_bundle["manifest"].get("prepared_source_revision"),
-                    protocol_sha256=protocol_sha256)
-    prepared_revision = scorer.bind_prepared_to_fit(prepared, candidate_bundle["manifest"])
-    baseline_bundle = scorer.load_baseline_fit(baseline_fit_root, "balanced")
-    scorer.bind_baseline_reference(baseline_bundle, prepared)
+    output.mkdir(parents=True, exist_ok=False)
+    protocol_copy = output / "dataset-expansion-protocol.md"
+    with protocol_copy.open("xb") as stream:
+        stream.write(protocol_file.read_bytes()); stream.flush(); os.fsync(stream.fileno())
+    if sha_file(protocol_copy) != protocol_sha256:
+        raise ValueError("Copied protocol bytes differ from the frozen protocol digest.")
+    backend = backend or DockerBackend(output, env=dict(os.environ,
+        PRIVOKE_RESEARCH_PRESENCE_MODEL_ID="privoke-presence-balanced",
+        PRIVOKE_RESEARCH_PRESENCE_CURRICULUM_DIR=str(fit_root / "curriculum")))
+    receipt_path = output / "fit-verification-receipt.json"
+    try:
+        preflight_log = backend.preflight_fit(fit_root=fit_root, prepared=prepared,
+            baseline_fit_root=baseline_fit_root, protocol_file=protocol_copy,
+            protocol_sha256=protocol_sha256, fit_source_revision=fit_source_revision,
+            receipt_path=receipt_path)
+        receipt, prepared_record, baseline_bundle, candidate_bundle = load_verified_fit_receipt(receipt_path,
+            fit_root=fit_root, prepared_root=prepared, baseline_fit_root=baseline_fit_root,
+            scorer=scorer, source_revision=fit_source_revision, protocol_sha256=protocol_sha256)
+    except Exception as exc:
+        failed = {"schema_version": 1, "status": "failed", "phase": "linux_fit_verification",
+            "execution_source_revision": execution_revision, "fit_source_revision": fit_source_revision,
+            "protocol_sha256": protocol_sha256, "scores": [],
+            "errors": [{"error_type": type(exc).__name__,
+                        "error_sha256": sha_bytes(str(exc).encode("utf-8"))}],
+            "docker_calls": getattr(backend, "calls", []),
+            "evaluator_image_ids": sorted(getattr(backend, "evaluator_images", set()))}
+        save_json(output / "run-manifest.json", failed, exclusive=True)
+        return failed
+    prepared = prepared_record
+    prepared_revision = receipt["prepared_source_revision"]
     profiles = {}
     for profile in PROFILES:
         baseline = baseline_bundle["profiles"][profile]
@@ -424,12 +565,6 @@ def run_study(*, fit_root: Path, prepared: Path, baseline_fit_root: Path,
                 raise ValueError("Frozen artifacts do not match the exact profile/model-ID allowlist.")
         profiles[profile] = {"baseline": baseline, "expanded": candidate}
 
-    output.mkdir(parents=True, exist_ok=False)
-    protocol_copy = output / "dataset-expansion-protocol.md"
-    with protocol_copy.open("xb") as stream:
-        stream.write(protocol_file.read_bytes()); stream.flush(); os.fsync(stream.fileno())
-    if sha_file(protocol_copy) != protocol_sha256:
-        raise ValueError("Copied protocol bytes differ from the frozen protocol digest.")
     manifest = {"schema_version": 1, "status": "running", "phase": "preflight",
                 "execution_source_revision": execution_revision,
                 "fit_source_revision": fit_source_revision,
@@ -442,11 +577,15 @@ def run_study(*, fit_root: Path, prepared: Path, baseline_fit_root: Path,
                 "plan": [dict(zip(("profile", "control", "partition"), item)) for item in fixed_plan()],
                 "images_before": None, "images_after": None, "scores": [], "errors": []}
     save_json(output / "run-manifest.json", manifest, exclusive=True)
-    backend = backend or DockerBackend(output, env=dict(os.environ,
-        PRIVOKE_RESEARCH_PRESENCE_MODEL_ID="privoke-presence-balanced",
-        PRIVOKE_RESEARCH_PRESENCE_CURRICULUM_DIR=str(fit_root / "curriculum")))
     stage = "service_readiness"
     try:
+        save_json(output / "fit-preflight-summary.json", {
+            "status": "verified", "fit_manifest_sha256": receipt["fit_manifest_sha256"],
+            "prepared_manifest_sha256": receipt["prepared_manifest_sha256"],
+            "profiles": {name: {"artifact_sha256": value["artifact_sha256"],
+                                 "selection_sha256": value["selection_sha256"]}
+                         for name, value in receipt["profiles"].items()},
+            "preflight_output_sha256": sha_bytes(preflight_log.encode("utf-8"))})
         backend.ensure_services()
         images_before = backend.images()
         manifest.update({"phase": "catalog_snapshot", "images_before": images_before})

@@ -201,6 +201,10 @@ def identity_for_artifact(artifact: dict) -> dict:
     return artifact_identity(artifact)
 
 
+def selection_matches_profile(selection: dict, profile: str) -> bool:
+    return selection.get("profile", profile) == profile
+
+
 def verify_profile_bundle(bundle: dict, *, profile: str, fit_root: Path,
                           source_revision: str, protocol_sha256: str,
                           prepared: dict) -> dict:
@@ -221,13 +225,14 @@ def verify_profile_bundle(bundle: dict, *, profile: str, fit_root: Path,
         raise ValueError("Expanded artifact path escapes its fit directory.")
     if not isinstance(artifact, dict) or not artifact_path.is_file():
         raise ValueError("Expanded fit lacks its selected artifact.")
-    if (selection.get("profile") != profile or selection.get("status") != "selected"
+    if (not selection_matches_profile(selection, profile) or selection.get("status") != "selected"
             or selection.get("source_revision") != source_revision
             or selection.get("protocol_sha256") != protocol_sha256
             or sha256_file(artifact_path) != selection.get("selected_artifact_sha256")):
         raise ValueError("Expanded selection or artifact bytes differ from the completed fit.")
     if (artifact.get("architecture") != PRESENCE_ARCHITECTURE
             or artifact.get("model_id") != f"privoke-presence-{profile}"
+            or artifact.get("config", {}).get("profile") != profile
             or artifact.get("metadata", {}).get("profile") != profile
             or artifact.get("metadata", {}).get("task") != "annotation_presence"
             or artifact.get("metadata", {}).get("source_revision") != source_revision
@@ -263,6 +268,54 @@ def profile_file_bindings(root: Path, bundle: dict) -> dict:
         paths[f"{name}_artifact"] = Path(entry["artifact_path"])
     return {name: {"path": path.resolve().as_posix(), "sha256": sha256_file(path)}
             for name, path in sorted(paths.items())}
+
+
+def write_fit_preflight_receipt(*, fit_root: Path, prepared_root: Path,
+                                baseline_fit_root: Path, source_revision: str,
+                                protocol_file: Path, protocol_sha256: str,
+                                output: Path) -> dict:
+    """Run the strict completed-fit verifier on Linux and emit hash-only evidence."""
+    if sha256_file(protocol_file) != protocol_sha256:
+        raise ValueError("Protocol file differs from its frozen digest.")
+    bundle = load_external_fit(fit_root, prepared_root, source_revision=source_revision,
+                               protocol_sha256=protocol_sha256)
+    prepared = validate_prepared(prepared_root,
+        prepared_source_revision=bundle["manifest"].get("prepared_source_revision"),
+        protocol_sha256=protocol_sha256)
+    prepared_revision = bind_prepared_to_fit(prepared, bundle["manifest"])
+    baselines = load_baseline_fit(baseline_fit_root, "balanced")
+    bind_baseline_reference(baselines, prepared)
+    profiles = {}
+    for profile in PROFILES:
+        candidate = verify_profile_bundle(bundle, profile=profile, fit_root=fit_root,
+            source_revision=source_revision, protocol_sha256=protocol_sha256, prepared=prepared)
+        baseline = baselines["profiles"][profile]
+        selection_path = Path(fit_root) / "profiles" / profile / "selection.json"
+        profiles[profile] = {
+            "selection_path": selection_path.relative_to(Path(fit_root).resolve()).as_posix(),
+            "selection_sha256": sha256_file(selection_path),
+            "artifact_path": candidate["artifact_path"].relative_to(Path(fit_root).resolve()).as_posix(),
+            "artifact_sha256": candidate["artifact_sha256"],
+            "artifact_identity": identity_for_artifact(candidate["artifact"]),
+            "baseline_selection_path": Path("profiles").joinpath(profile, "selection.json").as_posix(),
+            "baseline_selection_sha256": sha256_file(Path(baseline_fit_root) / "profiles" / profile / "selection.json"),
+            "baseline_artifact_path": baseline["artifact_path"].relative_to(Path(baseline_fit_root).resolve()).as_posix(),
+            "baseline_artifact_sha256": baseline["artifact_sha256"],
+            "baseline_artifact_identity": identity_for_artifact(baseline["artifact"])}
+    receipt = {"schema_version": 1, "status": "verified",
+        "fit_source_revision": source_revision, "prepared_source_revision": prepared_revision,
+        "protocol_sha256": protocol_sha256,
+        "prepared_manifest_sha256": prepared["manifest_sha256"],
+        "partition_sha256": prepared["manifest"]["partition_sha256"],
+        "partition_rows": prepared["manifest"]["rows"],
+        "fit_manifest_sha256": bundle["manifest_sha256"],
+        "freeze_sha256": bundle["freeze_sha256"],
+        "diagnostics_sha256": sha256_file(Path(fit_root) / "diagnostics.json"),
+        "baseline_manifest_sha256": baselines["manifest_sha256"],
+        "baseline_source_revision": baselines["source_revision"],
+        "baseline_protocol_sha256": baselines["protocol_sha256"], "profiles": profiles}
+    write_json(output, receipt, exclusive=True)
+    return receipt
 
 
 def bind_baseline_reference(baseline: dict, prepared: dict) -> None:
@@ -582,25 +635,44 @@ def run(*, fit_root: Path, prepared_root: Path, baseline_fit_root: Path,
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
-    result.add_argument("--fit-root", type=Path, required=True)
-    result.add_argument("--prepared", type=Path, required=True)
-    result.add_argument("--baseline-fit-root", type=Path, required=True)
-    result.add_argument("--profile", choices=PROFILES, required=True)
-    result.add_argument("--control", choices=("baseline", "expanded"), required=True)
-    result.add_argument("--partition", choices=PARTITIONS, required=True)
-    result.add_argument("--output", type=Path, required=True)
-    result.add_argument("--source-revision", required=True)
-    result.add_argument("--fit-source-revision", required=True)
-    result.add_argument("--protocol-file", type=Path, required=True)
-    result.add_argument("--protocol-sha256", required=True)
-    result.add_argument("--runtime-image-id", required=True)
-    result.add_argument("--evaluator-image-id", required=True)
-    result.add_argument("--target", required=True)
+    result.add_argument("--fit-preflight-receipt", action="store_true")
+    result.add_argument("--fit-root", type=Path)
+    result.add_argument("--prepared", type=Path)
+    result.add_argument("--baseline-fit-root", type=Path)
+    result.add_argument("--profile", choices=PROFILES)
+    result.add_argument("--control", choices=("baseline", "expanded"))
+    result.add_argument("--partition", choices=PARTITIONS)
+    result.add_argument("--output", type=Path)
+    result.add_argument("--source-revision")
+    result.add_argument("--fit-source-revision")
+    result.add_argument("--protocol-file", type=Path)
+    result.add_argument("--protocol-sha256")
+    result.add_argument("--runtime-image-id")
+    result.add_argument("--evaluator-image-id")
+    result.add_argument("--target")
     return result
 
 
 def main(argv=None) -> int:
     args = parser().parse_args(argv)
+    if args.fit_preflight_receipt:
+        required = (args.fit_root, args.prepared, args.baseline_fit_root, args.output,
+                    args.fit_source_revision, args.protocol_file, args.protocol_sha256)
+        if any(value is None for value in required):
+            raise SystemExit("fit preflight requires fit/prepared/baseline roots, output, fit source revision and protocol binding")
+        receipt = write_fit_preflight_receipt(fit_root=args.fit_root, prepared_root=args.prepared,
+            baseline_fit_root=args.baseline_fit_root, source_revision=args.fit_source_revision,
+            protocol_file=args.protocol_file, protocol_sha256=args.protocol_sha256, output=args.output)
+        print(json.dumps({"status": receipt["status"], "profiles": len(receipt["profiles"]),
+                          "fit_manifest_sha256": receipt["fit_manifest_sha256"],
+                          "prepared_manifest_sha256": receipt["prepared_manifest_sha256"]}, sort_keys=True))
+        return 0
+    required = (args.fit_root, args.prepared, args.baseline_fit_root, args.profile, args.control,
+                args.partition, args.output, args.source_revision, args.fit_source_revision,
+                args.protocol_file, args.protocol_sha256, args.runtime_image_id,
+                args.evaluator_image_id, args.target)
+    if any(value is None for value in required):
+        raise SystemExit("scoring requires all standard scorer arguments")
     run_record = run(fit_root=args.fit_root, prepared_root=args.prepared,
                      baseline_fit_root=args.baseline_fit_root, profile=args.profile,
                      control=args.control, partition=args.partition, output=args.output,
