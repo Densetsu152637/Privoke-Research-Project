@@ -143,6 +143,13 @@ class RepresentationProbeTests(unittest.TestCase):
                          "expected_has_pii": row["expected_has_pii"], "original_binary": False}
                         for row in locked]
             fit.verify_locked(features, reference_path, locked, locked_path, manifest_path)
+            reference = json.loads(reference_path.read_text(encoding="utf-8"))
+            reference["errors"] = 0
+            reference_path.write_text(json.dumps(reference), encoding="utf-8")
+            fit.verify_locked(features, reference_path, locked, locked_path, manifest_path)
+            reference["errors"] = []
+            reference_path.write_text(json.dumps(reference), encoding="utf-8")
+            fit.verify_locked(features, reference_path, locked, locked_path, manifest_path)
             features[0]["group_id"] = "tampered"
             with self.assertRaisesRegex(ValueError, "Offline original binary"):
                 fit.verify_locked(features, reference_path, locked, locked_path, manifest_path)
@@ -151,11 +158,15 @@ class RepresentationProbeTests(unittest.TestCase):
             moved_text[0]["text"], moved_text[2]["text"] = moved_text[2]["text"], moved_text[0]["text"]
             with self.assertRaisesRegex(ValueError, "locked text/truth/group"):
                 fit.validate_development_source(moved_text, locked)
-            reference = json.loads(reference_path.read_text(encoding="utf-8"))
             reference["errors"] = False
             reference_path.write_text(json.dumps(reference), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "incomplete or contains errors"):
                 fit.verify_locked(features, reference_path, locked, locked_path, manifest_path)
+            for malformed in (1, ["failure"], None):
+                reference["errors"] = malformed
+                reference_path.write_text(json.dumps(reference), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "incomplete or contains errors"):
+                    fit.verify_locked(features, reference_path, locked, locked_path, manifest_path)
             with self.assertRaisesRegex(ValueError, "hash mismatch"):
                 fit.require_sha256(reference_path, "0" * 64, "Archived original semantic report")
 
