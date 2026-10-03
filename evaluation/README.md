@@ -281,7 +281,7 @@ installation/restoration is handled by the study owner.
 
 ```powershell
 python evaluation/fit-presence-profiles.py --prepared evaluation/results/representation_20261004_v3/prepared --locked-root evaluation/results/locked-public --output evaluation/results/UNIQUE_PRESENCE_FIT --source-revision COMMITTED_SOURCE_SHA --protocol-sha256 PROTOCOL_SHA256
-python evaluation/evaluate-presence.py --artifact evaluation/results/UNIQUE_PRESENCE_FIT/profiles/balanced/artifact.json --selection evaluation/results/UNIQUE_PRESENCE_FIT/profiles/balanced/selection.json --dataset-file evaluation/results/locked-public/development.jsonl --output evaluation/results/UNIQUE_PRESENCE_SCORE --target client-runtime:50054 --source-revision COMMITTED_SOURCE_SHA --protocol-sha256 PROTOCOL_SHA256
+python evaluation/evaluate-presence.py --artifact evaluation/results/UNIQUE_PRESENCE_FIT/profiles/balanced/artifact.json --selection evaluation/results/UNIQUE_PRESENCE_FIT/profiles/balanced/selection.json --fit-manifest evaluation/results/UNIQUE_PRESENCE_FIT/run-manifest.json --dataset-file evaluation/results/locked-public/development.jsonl --output evaluation/results/UNIQUE_PRESENCE_SCORE --target client-runtime:50054 --source-revision COMMITTED_SOURCE_SHA --fit-source-revision FIT_SOURCE_SHA --protocol-sha256 PROTOCOL_SHA256
 ```
 
 The profile fitter writes each C candidate artifact and validation predictions,
@@ -291,3 +291,11 @@ errors without emitting prompt text. Runtime errors or any identity/parity misma
 make a profile score ineligible; failed evidence is retained in that fresh
 output directory. This is a binary annotation-presence signal and does not replace
 or suppress contextual classification, severity, categories, or policy actions.
+
+The fit manifest guard checks all three frozen profile selections and their
+selected artifacts before scoring. The additive `evaluate-presence-update.py`
+measures one fixed validation or development endpoint without recalibrating a
+threshold. Changed candidates require the committed update response and durable
+receipt evidence; development additionally requires a persisted validation
+retention decision. These callers do not run fuzzer updates or modify model
+volumes.
