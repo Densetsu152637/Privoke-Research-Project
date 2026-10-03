@@ -67,16 +67,20 @@ class FakeStub:
 class ExternalPresenceRpcTests(unittest.TestCase):
     def test_generated_runtime_stubs_import_from_runtime_generated_directory(self):
         generated = scorer.ROOT / "extension/client-runtime/generated"
-        if not (generated / "prvoke/v1/runtime_pb2.py").is_file():
+        if not (generated / "privoke/v1/runtime_pb2.py").is_file():
+            if __import__("os").environ.get("PRIVOKE_EVAL_IN_CONTAINER") == "true":
+                self.fail("Docker evaluator is missing generated privoke.v1 runtime protocol modules")
             self.skipTest("Docker image generates protocol modules; host checkout has no generated files")
         pb, grpc_pb = scorer.load_runtime_stubs()
         self.assertTrue(hasattr(pb, "DetectAnnotationPresenceRequest"))
-        self.assertTrue(hasattr(grpc_pb, "PrvokeRuntimeServiceStub"))
+        service = pb.DESCRIPTOR.services_by_name["PrivokeRuntimeService"]
+        self.assertIn("DetectAnnotationPresence", {method.name for method in service.methods})
+        self.assertTrue(hasattr(grpc_pb, "PrivokeRuntimeServiceStub"))
         self.assertIn(generated.as_posix(), __import__("sys").path)
 
     def test_setup_failure_reason_is_safe_and_specific_for_missing_module(self):
-        exc = ModuleNotFoundError("No module named 'prvoke'", name="prvoke")
-        self.assertEqual(scorer.safe_error_reason(exc), "missing_module:prvoke")
+        exc = ModuleNotFoundError("No module named 'privoke'", name="privoke")
+        self.assertEqual(scorer.safe_error_reason(exc), "missing_module:privoke")
         self.assertEqual(scorer.safe_error_reason(ImportError("private prompt must not be serialized")),
                          "import_error")
 
