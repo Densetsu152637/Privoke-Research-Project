@@ -136,6 +136,14 @@
     return /[a-z\d]/i.test(trimmed);
   }
 
+  // src/interception-failure.js
+  function runtimeFailureResponse() {
+    return {
+      action: "BLOCK",
+      reason: "PriVoke could not analyze this prompt safely."
+    };
+  }
+
   // src/page-interceptor.js
   var CHANNEL = "privoke-extension-v1";
   var RESPONSE_TIMEOUT_MS = 32e3;
@@ -145,12 +153,14 @@
     const rawUrl = input instanceof Request ? input.url : String(input);
     const targetApp = promptTarget(rawUrl, method, location.href);
     if (!targetApp) return nativeFetch.apply(this, arguments);
+    const signal = init?.signal !== void 0 ? init.signal : input instanceof Request ? input.signal : void 0;
+    signal?.throwIfAborted();
     const body = await requestBody(input, init);
     const text = extractPrompt(body);
     if (!text) return nativeFetch.apply(this, arguments);
-    const decision = await analyze(text, targetApp);
+    const decision = await analyze(text, targetApp, signal);
     if (decision?.action === "BLOCK") {
-      throw new DOMException("Prompt blocked by PriVoke.", "AbortError");
+      throw new TypeError("Prompt blocked by PriVoke.");
     }
     return nativeFetch.apply(this, arguments);
   };
@@ -166,27 +176,41 @@
     }
     return null;
   }
-  function analyze(text, targetApp) {
+  function analyze(text, targetApp, signal) {
     const requestId = crypto.randomUUID();
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => finish(null), RESPONSE_TIMEOUT_MS);
+    return new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(signal.reason);
+        return;
+      }
+      const timeout = setTimeout(() => finish(runtimeFailureResponse()), RESPONSE_TIMEOUT_MS);
       function onMessage(event) {
         const data = event.data;
         if (event.source === window && data?.channel === CHANNEL && data?.type === "ANALYZE_RESULT" && data.requestId === requestId) finish(data);
       }
-      function finish(value) {
+      function onAbort() {
+        finish(null, signal.reason);
+      }
+      function finish(value, error) {
         clearTimeout(timeout);
         window.removeEventListener("message", onMessage);
-        resolve(value);
+        signal?.removeEventListener("abort", onAbort);
+        if (error !== void 0) reject(error);
+        else resolve(value);
       }
       window.addEventListener("message", onMessage);
-      window.postMessage({
-        channel: CHANNEL,
-        type: "ANALYZE_PROMPT",
-        requestId,
-        text,
-        targetApp
-      }, "*");
+      signal?.addEventListener("abort", onAbort, { once: true });
+      try {
+        window.postMessage({
+          channel: CHANNEL,
+          type: "ANALYZE_PROMPT",
+          requestId,
+          text,
+          targetApp
+        }, "*");
+      } catch {
+        finish(runtimeFailureResponse());
+      }
     });
   }
   function installXhrInterceptor() {
@@ -195,17 +219,39 @@
     const abort = XMLHttpRequest.prototype.abort;
     const requests = /* @__PURE__ */ new WeakMap();
     XMLHttpRequest.prototype.open = function privokeOpen(method, url) {
+      const previous = requests.get(this);
+      if (previous) {
+        clearTimeout(previous.timeout);
+        previous.controller?.abort();
+        if (previous.failed) delete this.readyState;
+      }
       requests.set(this, {
         method,
         url: String(url),
         targetApp: promptTarget(String(url), method, location.href),
-        cancelled: false
+        cancelled: false,
+        synchronous: arguments[2] === false
       });
       return open.apply(this, arguments);
     };
     XMLHttpRequest.prototype.abort = function privokeAbort() {
       const request = requests.get(this);
-      if (request) request.cancelled = true;
+      if (request?.pending) {
+        finishPending(this, request, "abort");
+        if (requests.get(this) === request) {
+          abort.apply(this, arguments);
+          Object.defineProperty(this, "readyState", { configurable: true, value: XMLHttpRequest.UNSENT });
+        }
+        return;
+      }
+      if (request) {
+        request.cancelled = true;
+        if (request.failed) {
+          abort.apply(this, arguments);
+          Object.defineProperty(this, "readyState", { configurable: true, value: XMLHttpRequest.UNSENT });
+          return;
+        }
+      }
       return abort.apply(this, arguments);
     };
     XMLHttpRequest.prototype.send = function privokeSend(body) {
@@ -213,18 +259,48 @@
       const request = requests.get(xhr);
       const text = request?.targetApp ? extractPrompt(body) : "";
       if (!request?.targetApp || !text) return send.apply(xhr, arguments);
-      void analyze(text, request.targetApp).then((decision) => {
+      if (request.synchronous) {
+        throw new DOMException("PriVoke cannot check a synchronous prompt request.", "NetworkError");
+      }
+      if (request.pending || xhr.readyState !== XMLHttpRequest.OPENED) {
+        throw new DOMException("The request is already sent or is not open.", "InvalidStateError");
+      }
+      request.pending = true;
+      request.controller = new AbortController();
+      if (xhr.timeout > 0) {
+        request.timeout = setTimeout(() => finishPending(xhr, request, "timeout"), xhr.timeout);
+      }
+      void analyze(text, request.targetApp, request.controller.signal).then((decision) => {
         if (request.cancelled || requests.get(xhr) !== request) return;
         if (decision?.action === "BLOCK") {
-          abort.call(xhr);
+          finishPending(xhr, request, "error");
           return;
         }
-        send.call(xhr, body);
-      }).catch(() => {
-        if (!request.cancelled && requests.get(xhr) === request) send.call(xhr, body);
+        request.pending = false;
+        clearTimeout(request.timeout);
+        try {
+          send.call(xhr, body);
+        } catch {
+          request.pending = true;
+          finishPending(xhr, request, "error");
+        }
+      }, () => {
+        if (!request.cancelled && requests.get(xhr) === request) finishPending(xhr, request, "error");
       });
       return void 0;
     };
+    function finishPending(xhr, request, type) {
+      if (!request.pending || requests.get(xhr) !== request) return;
+      request.pending = false;
+      request.cancelled = true;
+      clearTimeout(request.timeout);
+      request.controller.abort();
+      request.failed = true;
+      Object.defineProperty(xhr, "readyState", { configurable: true, value: XMLHttpRequest.DONE });
+      xhr.dispatchEvent(new Event("readystatechange"));
+      xhr.dispatchEvent(new ProgressEvent(type));
+      xhr.dispatchEvent(new ProgressEvent("loadend"));
+    }
   }
 })();
 //# sourceMappingURL=page-interceptor.js.map

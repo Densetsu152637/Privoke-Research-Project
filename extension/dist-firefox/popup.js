@@ -39,8 +39,7 @@
   var waitRegex = document.querySelector("#wait-regex");
   var modelQuality = document.querySelector("#model-quality");
   var masterToggle = document.querySelector("#master-toggle");
-  var localStack = document.querySelector("#local-stack");
-  var developerSettings = document.querySelector("#developer-settings");
+  var stackToggle = document.querySelector("#stack-toggle");
   var layerButtons = [...document.querySelectorAll(".layer-toggle")];
   var settings;
   analyze.addEventListener("click", inspectPrompt);
@@ -52,18 +51,12 @@
   for (const button of layerButtons) button.addEventListener("click", toggleLayer);
   waitRegex.addEventListener("change", () => savePatch({ waitForRegex: waitRegex.checked }));
   modelQuality.addEventListener("change", () => savePatch({ modelQuality: modelQuality.value }));
-  document.addEventListener("keydown", (event) => {
-    if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === "d") {
-      event.preventDefault();
-      developerSettings.hidden = !developerSettings.hidden;
-    }
-  });
-  localStack.addEventListener("change", async () => {
+  stackToggle.addEventListener("click", async () => {
     if (!settings) return;
-    localStack.disabled = true;
+    stackToggle.disabled = true;
     setStatus("Changing server connection\u2026");
-    await savePatch({ useLocalStack: localStack.checked });
-    localStack.disabled = false;
+    await savePatch({ useLocalStack: !settings.useLocalStack });
+    stackToggle.disabled = false;
     serverWarning.hidden = true;
   });
   void initialise();
@@ -81,6 +74,13 @@
         showRuntimeWarning(
           runtimeStatus?.runtime?.message || "The client runtime is not running. Toggle PriVoke off and on to retry."
         );
+      }
+      if (settings.layers.llm) {
+        const health = await sendMessage({ type: "CHECK_STREAMING_HEALTH" });
+        if (!health?.ok) showSemanticWarning({
+          fallbackLayers: selectedFallbackLayers(settings.layers),
+          failClosedOnly: !settings.layers.regex && !settings.layers.ner
+        });
       }
     } else {
       const stopped = await sendMessage({ type: "SET_MASTER_ENABLED", enabled: false });
@@ -107,19 +107,20 @@
     const button = event.currentTarget;
     const layer = button.dataset.layer;
     const enabled = !settings.layers[layer];
+    let streamingHealth;
     if (layer === "llm" && enabled) {
       button.disabled = true;
-      serverWarning.hidden = true;
-      const health = await sendMessage({ type: "CHECK_STREAMING_HEALTH" });
+      streamingHealth = await sendMessage({ type: "CHECK_STREAMING_HEALTH" });
       button.disabled = false;
-      if (!health?.ok) {
-        serverWarning.hidden = false;
-        await savePatch({ layers: { llm: false } });
-        return;
-      }
     }
-    serverWarning.hidden = true;
     await savePatch({ layers: { [layer]: enabled } });
+    if (layer === "llm") {
+      if (enabled && !streamingHealth?.ok) showSemanticWarning({
+        fallbackLayers: selectedFallbackLayers(settings.layers),
+        failClosedOnly: !settings.layers.regex && !settings.layers.ner
+      });
+      else serverWarning.hidden = true;
+    }
   }
   async function savePatch(patch) {
     const response = await sendMessage({ type: "UPDATE_SETTINGS", patch });
@@ -138,7 +139,9 @@
       button.disabled = !settings.enabled;
     }
     waitRegex.checked = settings.waitForRegex;
-    localStack.checked = settings.useLocalStack;
+    stackToggle.setAttribute("aria-pressed", String(settings.useLocalStack));
+    stackToggle.setAttribute("aria-label", settings.useLocalStack ? "Use cloud servers" : "Use development servers");
+    stackToggle.querySelector("strong").textContent = settings.useLocalStack ? "Dev" : "Cloud";
     modelQuality.value = settings.modelQuality;
     masterToggle.setAttribute("aria-pressed", String(settings.enabled));
     masterToggle.setAttribute("aria-label", settings.enabled ? "Turn PriVoke off" : "Turn PriVoke on");
@@ -172,6 +175,8 @@
       return;
     }
     const response = resultMessage.response;
+    if (response.semanticUnavailable) showSemanticWarning(response);
+    else if (response.semanticStateTransition === "available") serverWarning.hidden = true;
     const action = String(response.action || "ALLOW").toUpperCase();
     if (response.disabled) setFeedback("ERROR", "error");
     else if (action === "BLOCK") setFeedback("ERROR", "error");
@@ -239,6 +244,18 @@
   function showRuntimeWarning(message) {
     runtimeWarning.querySelector("span").textContent = message;
     runtimeWarning.hidden = false;
+  }
+  function selectedFallbackLayers(layers = {}) {
+    return [
+      ...layers.regex ? ["DETECTION_LAYER_REGEX"] : [],
+      ...layers.ner ? ["DETECTION_LAYER_NER"] : []
+    ];
+  }
+  function showSemanticWarning({ fallbackLayers = [], failClosedOnly = false } = {}) {
+    serverWarning.querySelector("strong").textContent = "Semantic analysis unavailable.";
+    const activeLayers = fallbackLayers.map((layer) => layer === "DETECTION_LAYER_REGEX" ? "regex" : "NER");
+    serverWarning.querySelector("span").textContent = failClosedOnly ? "No other protection layers are enabled; prompts remain blocked until the semantic service returns." : `${activeLayers.join(" and ")} protection remains active. PriVoke will retry automatically.`;
+    serverWarning.hidden = false;
   }
   async function sendMessage(message) {
     try {

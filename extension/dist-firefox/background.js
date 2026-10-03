@@ -6797,7 +6797,7 @@
   var DEFAULT_SETTINGS = Object.freeze({
     enabled: true,
     useLocalStack: false,
-    layers: Object.freeze({ regex: true, ner: true, llm: false }),
+    layers: Object.freeze({ regex: true, ner: true, llm: true }),
     waitForRegex: true,
     modelQuality: MODEL_QUALITY.LATEST
   });
@@ -6858,8 +6858,62 @@
     return migrated?.[0] ?? DEFAULT_SETTINGS.modelQuality;
   }
 
+  // src/semantic-availability.js
+  var SEMANTIC_LAYER = "DETECTION_LAYER_SEMANTIC";
+  var HEALTH_CACHE_MS = 5e3;
+  var SemanticAvailability = class {
+    constructor(checkHealth, now = () => Date.now()) {
+      this.checkHealth = checkHealth;
+      this.now = now;
+      this.checkedAt = Number.NEGATIVE_INFINITY;
+      this.available = null;
+      this.pendingTransition = null;
+      this.checkInFlight = null;
+    }
+    async selectLayers(configuredLayers) {
+      if (!configuredLayers.includes(SEMANTIC_LAYER)) {
+        return {
+          layers: configuredLayers,
+          unavailable: false,
+          transition: null,
+          fallbackLayers: [],
+          failClosedOnly: false
+        };
+      }
+      await this.#refreshIfNeeded();
+      const transition = this.pendingTransition;
+      this.pendingTransition = null;
+      const unavailable = this.available === false;
+      const fallbackLayers = configuredLayers.filter((layer) => layer !== SEMANTIC_LAYER);
+      const layers = unavailable && fallbackLayers.length > 0 ? fallbackLayers : configuredLayers;
+      return {
+        layers,
+        unavailable,
+        transition,
+        fallbackLayers: unavailable ? fallbackLayers : [],
+        failClosedOnly: unavailable && fallbackLayers.length === 0
+      };
+    }
+    async #refreshIfNeeded() {
+      if (this.now() - this.checkedAt < HEALTH_CACHE_MS) return;
+      if (!this.checkInFlight) {
+        this.checkInFlight = Promise.resolve().then(() => this.checkHealth()).then((health) => Boolean(health?.ok)).catch(() => false).then((available) => {
+          if (this.available !== available) {
+            this.pendingTransition = available ? "available" : "unavailable";
+          }
+          this.available = available;
+          this.checkedAt = this.now();
+        }).finally(() => {
+          this.checkInFlight = null;
+        });
+      }
+      await this.checkInFlight;
+    }
+  };
+
   // src/background.js
   var client = new RuntimeClient();
+  var semanticAvailability = new SemanticAvailability(checkStreamingHealth);
   var runtimeControlTail = Promise.resolve();
   addRuntimeMessageListener(handleMessage);
   addRuntimeLifecycleListeners(() => {
@@ -6994,17 +7048,18 @@
       });
       return { ok: true, response: disabledExtensionResponse() };
     }
-    const layers = detectionLayers(settings);
-    if (layers.length === 0) {
+    const configuredLayers = detectionLayers(settings);
+    if (configuredLayers.length === 0) {
       return { ok: true, response: disabledLayersResponse() };
     }
+    const semanticStatus = await semanticAvailability.selectLayers(configuredLayers);
     const targetApp = cleanText(message.targetApp, 80) || appFromUrl(sender?.url) || "unknown_web_app";
     const response = await client.analyzePrompt({
       text,
       source: message.source === "manual" ? "extension_popup" : "browser_interceptor",
       targetApp,
       requestId: crypto.randomUUID(),
-      layers,
+      layers: semanticStatus.layers,
       regexExecutionOrder: settings.waitForRegex ? "REGEX_EXECUTION_ORDER_FIRST" : "REGEX_EXECUTION_ORDER_PARALLEL",
       semanticModelId: semanticModelId(settings),
       metadata: {
@@ -7013,7 +7068,16 @@
         intercepted: message.source === "manual" ? "false" : "true"
       }
     }, { signal: AbortSignal.timeout(3e4) });
-    return { ok: true, response };
+    return {
+      ok: true,
+      response: {
+        ...response,
+        semanticUnavailable: semanticStatus.unavailable,
+        semanticStateTransition: semanticStatus.transition,
+        semanticFallbackLayers: semanticStatus.fallbackLayers,
+        semanticFailClosedOnly: semanticStatus.failClosedOnly
+      }
+    };
   }
   function disabledExtensionResponse() {
     return {

@@ -25,26 +25,63 @@
     });
   }
 
+  // src/interception-failure.js
+  function runtimeFailureResponse() {
+    return {
+      action: "BLOCK",
+      reason: "PriVoke could not analyze this prompt safely."
+    };
+  }
+
   // src/content-script.js
   var CHANNEL = "privoke-extension-v1";
   var NOTICE_ID = "privoke-page-notice";
+  var SEMANTIC_STATUS_ID = "privoke-semantic-status";
   window.addEventListener("message", (event) => {
     const data = event.data;
     if (event.source !== window || data?.channel !== CHANNEL || data?.type !== "ANALYZE_PROMPT" || typeof data.text !== "string") return;
-    sendRuntimeMessage({
+    Promise.resolve().then(() => sendRuntimeMessage({
       type: "ANALYZE_PROMPT",
       source: "intercepted",
       text: data.text,
       targetApp: data.targetApp
-    }).then((result) => {
-      const response = result?.ok ? result.response : null;
+    })).then((result) => {
+      const response = result?.ok ? result.response : runtimeFailureResponse();
       const action = response?.action?.toUpperCase();
-      if (action === "WARN" || action === "BLOCK") {
-        showNotice(action, data.text, response);
+      try {
+        updateSemanticAvailability(response);
+        if (action === "WARN" || action === "BLOCK") {
+          showNotice(action, data.text, response);
+        }
+      } catch {
       }
-      postResult(data.requestId, action ?? "ALLOW");
-    }).catch(() => postResult(data.requestId, "ALLOW"));
+      postResult(data.requestId, action ?? "BLOCK");
+    }).catch(() => {
+      const response = runtimeFailureResponse();
+      try {
+        showNotice("BLOCK", data.text, response);
+      } catch {
+      }
+      postResult(data.requestId, response.action);
+    });
   });
+  function updateSemanticAvailability(response) {
+    const existing = document.getElementById(SEMANTIC_STATUS_ID);
+    if (response?.semanticStateTransition === "available") {
+      existing?.remove();
+      return;
+    }
+    if (!response?.semanticUnavailable) return;
+    const notice = existing ?? document.createElement("div");
+    if (!existing) {
+      notice.id = SEMANTIC_STATUS_ID;
+      notice.setAttribute("role", "status");
+    }
+    const activeLayers = (response.semanticFallbackLayers ?? []).map((layer) => layer === "DETECTION_LAYER_REGEX" ? "regex" : "NER");
+    notice.textContent = response.semanticFailClosedOnly ? "PriVoke semantic analysis is temporarily unavailable. No other protection layers are enabled, so prompts remain blocked until the service returns." : `PriVoke semantic analysis is temporarily unavailable. ${activeLayers.join(" and ")} protection remains active; retrying automatically.`;
+    notice.style.cssText = "position:fixed;z-index:2147483647;left:16px;bottom:16px;max-width:420px;padding:12px 16px;border:1px solid #d7a42b;border-radius:8px;background:#fff8df;color:#352900;font:13px/1.4 system-ui,sans-serif;box-shadow:0 4px 16px #0002";
+    if (!existing) (document.documentElement || document).append(notice);
+  }
   function postResult(requestId, action) {
     window.postMessage({
       channel: CHANNEL,
