@@ -81,6 +81,18 @@ runtime/fuzzer/evaluator and workstation consumers' bindings before calling them
 older servers do not implement these methods. Existing contextual RPCs retain
 their field numbers and semantics.
 
+`AnalyzePromptRequest` also has an additive `semantic_presence_gate` message for
+explicit cascade experiments. It carries a presence `model_id` and an optional
+finite decision-threshold override; the field is distinct from the artifact's
+stored threshold. The gate trace is returned on the semantic
+`RuntimeLayerExecution` and distinguishes NOT_RUN, APPLIED and ERROR. It includes
+presence and contextual model identities, probability, thresholds, predicted binary
+label, and raw contextual `RuntimeDetectionResult` entries, including when those
+results are not retained for fusion. Callers must require APPLIED in the response
+before assuming an older server executed the gate; unknown fields can be ignored by
+older bindings or servers. Regenerate the affected runtime bindings and rebuild the
+runtime image before using this additive field.
+
 ## Annotation-presence contract
 
 Presence is a separate `annotation_presence` task using an explicit
@@ -103,10 +115,14 @@ its binary curriculum and invokes this runtime path; it does not load model weig
 Its salted request fingerprint separates presence replay from contextual training.
 
 Binary labels supply no contextual sensitivity, visibility, categories or action.
-Presence output never maps a positive label to S3 or suppresses another detector's
-private finding. `AnalyzePrompt`, contextual training and policy remain separate.
-Read the [prospective model-refactor protocol](../paper/research/model-refactor-protocol.md)
-for data exclusions, calibration, bounded update study and evidence limitations.
+The separate presence RPC never maps a positive label to S3 or suppresses another
+detector's finding. Only the explicit semantic-presence gate request may suppress
+the original semantic layer's results on ABSENT; it leaves regex/NER results intact
+and makes no clean/safe or policy claim. `AnalyzePrompt`, contextual training and
+policy otherwise remain separate. Read the [prospective model-refactor
+protocol](../paper/research/model-refactor-protocol.md) and [prospective cascade
+protocol](../paper/research/contextual-cascade-protocol.md) for their distinct
+data exclusions, calibration procedures, and evidence limitations.
 
 ## Contract Guidance
 
