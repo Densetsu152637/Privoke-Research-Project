@@ -13,14 +13,13 @@ import sys
 import traceback
 import uuid
 
-import grpc
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "shared/python"))
 from privoke_model.artifact import load_artifact  # noqa: E402
 from privoke_model.fingerprint import parameter_fingerprint  # noqa: E402
 from privoke_model.presence import PRESENCE_ARCHITECTURE, SparsePresenceModel  # noqa: E402
 from privoke_eval.presence_rpc import response_record, validate_response  # noqa: E402
+from privoke_eval.presence_evidence import load_frozen_fit  # noqa: E402
 from privoke_eval.presence_training import binary_metrics, metrics_by_family, source_family  # noqa: E402
 
 LOCKED_DEV_SHA256 = "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
@@ -91,10 +90,12 @@ def score_one(stub, pb, row: dict, model_id: str, identity: dict,
 
 
 def run(artifact_path: Path, selection_path: Path, dataset_path: Path,
-        output: Path, target: str, source_revision: str, protocol_sha256: str) -> dict:
+        output: Path, target: str, source_revision: str, fit_source_revision: str,
+        fit_manifest_path: Path, protocol_sha256: str) -> dict:
     output.mkdir(parents=True, exist_ok=False)
     run_record = {"status": "running", "started_at_utc": datetime.now(timezone.utc).isoformat(),
-                  "source_revision": source_revision, "protocol_sha256": protocol_sha256,
+                  "source_revision": source_revision, "fit_source_revision": fit_source_revision,
+                  "protocol_sha256": protocol_sha256,
                   "artifact_file": artifact_path.as_posix(),
                   "artifact_sha256": sha256_file(artifact_path), "dataset_sha256": sha256_file(dataset_path),
                   "target": target, "script_sha256": sha256_file(Path(__file__)),
@@ -102,9 +103,12 @@ def run(artifact_path: Path, selection_path: Path, dataset_path: Path,
     manifest_path = output / "run-manifest.json"
     write_exclusive(manifest_path, run_record)
     try:
-        selection = json.loads(selection_path.read_text(encoding="utf-8"))
-        if selection.get("status") != "selected":
-            raise ValueError("Presence profile lacks a frozen successful selection.")
+        fit_record = load_frozen_fit(selection_path, fit_manifest_path,
+                                     fit_source_revision=fit_source_revision,
+                                     protocol_sha256=protocol_sha256)
+        selection = fit_record["selection"]
+        if artifact_path.resolve() != fit_record["artifact_path"]:
+            raise ValueError("Scoring must use the exact selected profile artifact path.")
         if sha256_file(artifact_path) != selection.get("selected_artifact_sha256"):
             raise ValueError("Artifact file bytes differ from frozen selection hash.")
         artifact = load_artifact(artifact_path)
@@ -115,9 +119,9 @@ def run(artifact_path: Path, selection_path: Path, dataset_path: Path,
         if artifact["model_id"] != selection["artifact_identity"]["model_id"]:
             raise ValueError("Artifact model ID differs from frozen profile selection.")
         metadata = artifact["metadata"]
-        if (metadata.get("source_revision") != source_revision
+        if (metadata.get("source_revision") != fit_source_revision
                 or metadata.get("protocol_sha256") != protocol_sha256
-                or selection.get("source_revision") != source_revision
+                or selection.get("source_revision") != fit_source_revision
                 or selection.get("protocol_sha256") != protocol_sha256):
             raise ValueError("Source/protocol identity differs from the frozen profile fit.")
         if metadata.get("release_version") != artifact["version"]:
@@ -148,6 +152,7 @@ def run(artifact_path: Path, selection_path: Path, dataset_path: Path,
                or not isinstance(row.get("text"), str) for row in rows):
             raise ValueError("Development row is missing a strict label, group or text.")
         local_model = SparsePresenceModel.from_artifact(artifact)
+        import grpc
         pb, grpc_pb = load_stubs()
         request_prefix = f"presence-score-{uuid.uuid4().hex}"
         report_rows, predictions, labels, durations = [], [], [], []
@@ -194,7 +199,9 @@ def run(artifact_path: Path, selection_path: Path, dataset_path: Path,
         return run_record
     except Exception as exc:
         failure = {"status": "failed", "type": type(exc).__name__, "error": str(exc),
-                   "traceback": traceback.format_exc(), "source_revision": source_revision}
+                   "traceback": traceback.format_exc(), "source_revision": source_revision,
+                   "fit_source_revision": fit_source_revision,
+                   "fit_manifest": fit_manifest_path.as_posix()}
         write_exclusive(output / "failure.json", failure)
         run_record.update({"status": "failed", "stage": "pre_or_during_scoring",
                            "failure": failure, "finished_at_utc": datetime.now(timezone.utc).isoformat()})
@@ -211,12 +218,17 @@ def main(argv=None):
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--target", default=os.getenv("PRIVOKE_RUNTIME_TARGET", "client-runtime:50054"))
     parser.add_argument("--source-revision", required=True)
+    parser.add_argument("--fit-source-revision")
+    parser.add_argument("--fit-manifest", type=Path, required=True)
     parser.add_argument("--protocol-sha256", required=True)
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[0-9a-f]{40,64}", args.source_revision):
         parser.error("--source-revision must be a full lowercase Git object ID.")
     if not re.fullmatch(r"[0-9a-f]{64}", args.protocol_sha256):
         parser.error("--protocol-sha256 must be a lowercase SHA-256 digest.")
+    fit_source_revision = args.fit_source_revision or args.source_revision
+    if not re.fullmatch(r"[0-9a-f]{40,64}", fit_source_revision):
+        parser.error("--fit-source-revision must be a full lowercase Git object ID.")
     output = args.output.resolve()
     results = (ROOT / "evaluation/results").resolve()
     if results not in output.parents:
@@ -224,7 +236,7 @@ def main(argv=None):
     if "final" in args.dataset_file.name.lower():
         parser.error("Final partition cannot be scored.")
     result = run(args.artifact, args.selection, args.dataset_file, output, args.target,
-                 args.source_revision, args.protocol_sha256)
+                 args.source_revision, fit_source_revision, args.fit_manifest, args.protocol_sha256)
     print(json.dumps({"status": result["status"], "rows": result["rows"],
                       "errors": len(result["errors"]), "output": output.as_posix()}, sort_keys=True))
     return 0 if result["status"] == "complete" else 1
