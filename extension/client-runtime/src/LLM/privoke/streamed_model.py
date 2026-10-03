@@ -16,6 +16,7 @@ from ...classification import (
 )
 from ...model import ModelConfig, TinyTransformerModel
 from .parameter_stream import ModelParameterStreamer, ParameterSnapshot
+from .presence_model import StreamedPresenceModel
 
 
 class StreamedTransformerPrivacyModel:
@@ -85,6 +86,13 @@ class _CachedModel:
     refreshed_at: float
 
 
+@dataclass(frozen=True)
+class _CachedPresenceModel:
+    cache_key: str
+    model: StreamedPresenceModel
+    refreshed_at: float
+
+
 class StreamedModelCache:
     """Thread-safe cache that retains only the latest version of each model."""
 
@@ -94,6 +102,9 @@ class StreamedModelCache:
             tuple[str, str],
             _CachedModel,
         ] = {}
+        # Presence models have a distinct type/task namespace and can never be
+        # returned by the semantic transformer cache.
+        self._presence_models: Dict[tuple[str, str], _CachedPresenceModel] = {}
         self.refresh_interval_seconds = (
             refresh_interval_seconds
             if refresh_interval_seconds is not None
@@ -121,6 +132,47 @@ class StreamedModelCache:
     ) -> StreamedTransformerPrivacyModel:
         """Return the cached, versioned model used for one atomic training batch."""
         return self._model_for_streamer(streamer, force_refresh=True)
+
+    def presence_model_for_streamer(
+        self,
+        streamer: ModelParameterStreamer,
+        *,
+        force_refresh: bool = False,
+    ) -> StreamedPresenceModel:
+        """Fetch/cache only the explicitly requested sparse presence model."""
+        identity = (streamer.target, streamer.model_id)
+        with self._lock:
+            now = time.monotonic()
+            cached = self._presence_models.get(identity)
+            if (
+                not force_refresh
+                and cached is not None
+                and now - cached.refreshed_at < self.refresh_interval_seconds
+            ):
+                return cached.model
+
+            snapshot = streamer.fetch()
+            if snapshot.model_id != streamer.model_id:
+                raise RuntimeError(
+                    "Model parameter stream returned a different presence model ID."
+                )
+            if cached is not None and cached.cache_key == snapshot.cache_key:
+                model = cached.model
+            else:
+                model = StreamedPresenceModel(snapshot)
+            self._presence_models[identity] = _CachedPresenceModel(
+                cache_key=snapshot.cache_key,
+                model=model,
+                refreshed_at=time.monotonic(),
+            )
+            return model
+
+    def presence_model_for_training(
+        self,
+        streamer: ModelParameterStreamer,
+    ) -> StreamedPresenceModel:
+        """Use a freshly fetched presence snapshot for one bounded update."""
+        return self.presence_model_for_streamer(streamer, force_refresh=True)
 
     def _model_for_streamer(
         self,
@@ -177,6 +229,7 @@ class StreamedModelCache:
     def clear(self) -> None:
         with self._lock:
             self._models.clear()
+            self._presence_models.clear()
 
 
 GLOBAL_STREAMED_MODEL_CACHE = StreamedModelCache()

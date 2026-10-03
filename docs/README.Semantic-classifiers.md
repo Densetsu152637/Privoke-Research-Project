@@ -34,6 +34,22 @@ Only the newest version of each model ID is retained in memory. Prompts never go
 
 This is now a real trainable neural artifact rather than the previous regex-feature calibration placeholder. It is intentionally a compact research transformer, not a general-purpose conversational LLM. Its small size lets the repository demonstrate persistence, transport, local execution, and fuzzer fine-tuning without an external model download.
 
+## Separate Annotation-Presence Model
+
+The runtime also exposes an explicitly separate `annotation_presence` task through
+`DetectAnnotationPresence` and `ComputePresenceGradients`. It loads only model IDs in
+the `privoke-presence-*` family and validates the `privoke_sparse_presence_v1`
+architecture before inference. This bounded word/character TF-IDF model predicts only
+whether an annotation is present. It does not predict sensitivity, visibility,
+categories, or policy actions, and it is not inserted into the semantic classifier or
+the prompt-decision pipeline. Presence results never suppress regex or NER findings.
+
+`ComputePresenceGradients` updates only the sparse logistic head; its vocabulary and
+IDF tensors remain frozen. Optional held-out examples must contain both binary labels
+and must not share normalized text or declared groups with training. The response
+reports the exact candidate evaluated with the same float32 publication arithmetic.
+This RPC returns deltas and does not itself publish or mutate a serving artifact.
+
 Environment:
 
 - `PRIVOKE_CLOUD_TARGET` for cloud; `PRIVOKE_USE_LOCAL_STACK=true` selects `127.0.0.1:50051`
