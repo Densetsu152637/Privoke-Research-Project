@@ -243,8 +243,10 @@ def source_identity(source, row, ordinal):
         uid = row.get("uid")
         if not isinstance(uid, str) or not re.fullmatch(r"[0-9a-fA-F]{32}", uid):
             raise ExcludeRow("missing_or_invalid_native_uid")
-        identifier = canonical_group(uid, source)
-        group = identifier
+        group = canonical_group(uid, source)
+        # UID identifies a parent with reviewed us/intl document variants.
+        # Variant IDs remain deterministic; parent aliases/groups protect both.
+        identifier = group + ":variant:" + digest(canonical([row.get("locale"), training_text_key(text)]))
         # The exact-pin Nemotron card declares English. `locale` is geographic
         # (for example us/intl), and does not encode a language code.
         language = "en"
@@ -274,7 +276,7 @@ def serialize_candidate(source, row, ordinal, identity):
     return {"id": identifier, "group_id": group, "text": text, "text_key": training_text_key(text),
             "expected_has_pii": True, "expected_categories": categories, "source": PINS[source][0],
             "source_family": source, "source_revision": PINS[source][1], "original_split": "train",
-            "source_absolute_ordinal": ordinal, "id_provenance": "native_uid" if source == "nemotron-pii" else "native_id" if row.get("id") not in (None, "") else "pinned_fullscan_ordinal_and_text_hash",
+            "source_absolute_ordinal": ordinal, "id_provenance": "native_parent_uid_locale_and_text_hash" if source == "nemotron-pii" else "native_id" if row.get("id") not in (None, "") else "pinned_fullscan_ordinal_and_text_hash",
             "group_provenance": "native_parent_uid" if source == "nemotron-pii" else "conservative_template_tuple_not_verified_document_lineage",
             "annotations": annotations, "domain": row.get("domain"), "document_type": row.get("document_type", row.get("type")),
             "document_label": row.get("document_label"), "document_format": row.get("document_format", row.get("text_format")),
@@ -387,6 +389,26 @@ class CandidatePool:
 
     def eliminate_conflicts(self):
         # Inspect all rows, including invalid/unknown/protected variants, before caps.
+        # The audited Nemotron train file has exactly two geographic variants per
+        # UID. Text differences alone do not make this recognized parent ambiguous.
+        parents = [x[0] for x in self.db.execute("SELECT DISTINCT grouping FROM rows WHERE source='nemotron-pii' ORDER BY grouping")]
+        fields = ("domain", "document_type", "document_format", "document_description")
+        for parent in parents:
+            variants = list(self.db.execute("SELECT state,payload FROM rows WHERE source='nemotron-pii' AND grouping=? ORDER BY n", (parent,)))
+            verified = len(variants) == 2 and all(state == "positive" and payload is not None for state, payload in variants)
+            if verified:
+                first, second = (json.loads(payload) for _, payload in variants)
+                verified = (first.get("locale") in ("us", "intl") and second.get("locale") in ("us", "intl")
+                            and first["locale"] != second["locale"]
+                            and all(first.get(field) == second.get(field) for field in fields)
+                            and all(isinstance(first.get(field), str) and first[field].strip() for field in fields))
+            if verified:
+                self.counts["nemotron-pii"]["verified_variant_parents"] += 1
+            else:
+                self.counts["nemotron-pii"]["excluded_variant_parents"] += 1
+                count = self.db.execute("SELECT COUNT(*) FROM rows WHERE source='nemotron-pii' AND grouping=? AND eligible=1", (parent,)).fetchone()[0]
+                self.counts["nemotron-pii"]["unverified_native_variant_parent_rows"] += count
+                self.db.execute("UPDATE rows SET eligible=0 WHERE source='nemotron-pii' AND grouping=?", (parent,))
         ambiguous = {x[0] for x in self.db.execute("SELECT identifier FROM rows GROUP BY identifier HAVING COUNT(DISTINCT textkey)>1")}
         conflicting = {x[0] for x in self.db.execute("SELECT textkey FROM rows GROUP BY textkey HAVING COUNT(DISTINCT state)>1")}
         conflicting.update(x[0] for x in self.db.execute("SELECT textkey FROM rows WHERE state='positive' GROUP BY source,textkey HAVING COUNT(DISTINCT labels)>1"))
