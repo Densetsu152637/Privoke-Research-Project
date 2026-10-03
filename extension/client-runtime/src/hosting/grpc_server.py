@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import json
+import time
 from concurrent import futures
 from typing import Any, Mapping
 
 import grpc
 
 from ..classification import Classification, ClassificationResult
+from ..LLM.privoke.parameter_stream import ModelParameterStreamer
+from ..LLM.privoke.presence_training import (
+    PresenceTrainingExample,
+    compute_presence_gradients,
+)
+from ..LLM.privoke.streamed_model import GLOBAL_STREAMED_MODEL_CACHE
 from ..LLM.privoke.training import SemanticTrainingExample, compute_semantic_gradients
 from ..pipeline import DETECTION_LAYERS, LayerExecution
 from ..telemetry import TelemetryReporter
@@ -30,6 +37,7 @@ DEFAULT_MAX_GRPC_MESSAGE_BYTES = 262_144
 DEFAULT_MAX_GRPC_RESPONSE_BYTES = 1_048_576
 DEFAULT_MAX_TRAINING_EXAMPLES = 1_024
 DEFAULT_MAX_TRAINING_TEXT_CHARS = 200_000
+PRESENCE_MODEL_ID_PREFIX = "privoke-presence-"
 
 
 class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
@@ -133,6 +141,108 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
             )
         except Exception as exc:
             return runtime_pb2.ComputeSemanticGradientsResponse(
+                request_id=request.request_id,
+                error=_error_message(exc),
+            )
+
+    def DetectAnnotationPresence(self, request, context):
+        try:
+            _validate_presence_model_id(request.model_id)
+            if not request.request_id.strip():
+                raise ValueError("request_id is required.")
+            if not isinstance(request.text, str) or not request.text.strip():
+                raise ValueError("text is required.")
+            if len(request.text) > self.max_text_chars:
+                raise ValueError(f"text may contain at most {self.max_text_chars} characters.")
+            model = GLOBAL_STREAMED_MODEL_CACHE.presence_model_for_streamer(
+                ModelParameterStreamer(model_id=request.model_id)
+            )
+            started = time.perf_counter()
+            probability = model.predict_probability(request.text)
+            predicted = (
+                runtime_pb2.ANNOTATION_PRESENCE_PRESENT
+                if probability >= model.threshold
+                else runtime_pb2.ANNOTATION_PRESENCE_ABSENT
+            )
+            return runtime_pb2.DetectAnnotationPresenceResponse(
+                request_id=request.request_id,
+                model_id=model.model_id,
+                model_version=model.version,
+                probability=probability,
+                threshold=model.threshold,
+                predicted_label=predicted,
+                artifact_checksum=model.snapshot.metadata.get("artifact_checksum", ""),
+                parameter_fingerprint=model.snapshot.fingerprint,
+                elapsed_ms=(time.perf_counter() - started) * 1000.0,
+            )
+        except Exception as exc:
+            return runtime_pb2.DetectAnnotationPresenceResponse(
+                request_id=request.request_id,
+                error=_error_message(exc),
+            )
+
+    def ComputePresenceGradients(self, request, context):
+        try:
+            _validate_presence_model_id(request.model_id)
+            if not request.request_id.strip():
+                raise ValueError("request_id is required.")
+            if not request.examples:
+                raise ValueError("At least one training example is required.")
+            all_examples = tuple(request.examples) + tuple(request.heldout_examples)
+            if len(all_examples) > DEFAULT_MAX_TRAINING_EXAMPLES:
+                raise ValueError(
+                    "Training batches may contain at most "
+                    f"{DEFAULT_MAX_TRAINING_EXAMPLES} examples."
+                )
+            if sum(len(item.text) for item in all_examples) > DEFAULT_MAX_TRAINING_TEXT_CHARS:
+                raise ValueError(
+                    "Training batch text may contain at most "
+                    f"{DEFAULT_MAX_TRAINING_TEXT_CHARS} characters."
+                )
+            converted = []
+            for item in all_examples:
+                if not item.text or len(item.text) > self.max_text_chars:
+                    raise ValueError(
+                        f"Training example text must contain 1 to {self.max_text_chars} characters."
+                    )
+                if item.target == runtime_pb2.ANNOTATION_PRESENCE_PRESENT:
+                    target = True
+                elif item.target == runtime_pb2.ANNOTATION_PRESENCE_ABSENT:
+                    target = False
+                else:
+                    raise ValueError("Presence targets must be explicitly PRESENT or ABSENT.")
+                converted.append(
+                    PresenceTrainingExample(
+                        text=item.text,
+                        target=target,
+                        weight=float(item.weight),
+                        group_id=item.group_id,
+                    )
+                )
+            batch = compute_presence_gradients(
+                converted[:len(request.examples)],
+                model_id=request.model_id,
+                learning_rate=float(request.learning_rate),
+                max_gradient=float(request.max_gradient),
+                heldout_examples=converted[len(request.examples):],
+            )
+            return runtime_pb2.ComputePresenceGradientsResponse(
+                request_id=request.request_id,
+                model_id=batch.model_id,
+                base_version=batch.base_version,
+                gradients=[
+                    runtime_pb2.RuntimeParameterDelta(
+                        name=name,
+                        values=values,
+                        shape=batch.shapes[name],
+                    )
+                    for name, values in batch.gradients.items()
+                ],
+                metrics=batch.metrics,
+                metadata=batch.metadata,
+            )
+        except Exception as exc:
+            return runtime_pb2.ComputePresenceGradientsResponse(
                 request_id=request.request_id,
                 error=_error_message(exc),
             )
@@ -271,3 +381,14 @@ def _string_map(values: Mapping[str, Any]) -> dict[str, str]:
 def _error_message(exc: Exception) -> str:
     message = str(exc).strip()
     return message or exc.__class__.__name__
+
+
+def _validate_presence_model_id(model_id: str) -> None:
+    if (
+        not isinstance(model_id, str)
+        or not model_id.startswith(PRESENCE_MODEL_ID_PREFIX)
+        or model_id != model_id.strip()
+        or len(model_id) > 128
+        or any(ord(character) < 32 or ord(character) == 127 for character in model_id)
+    ):
+        raise ValueError("model_id must explicitly name a privoke-presence model.")
