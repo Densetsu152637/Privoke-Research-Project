@@ -124,7 +124,10 @@ def ordinary_layer(record):
 
 
 def summary(payload):
-    return {k: payload[k] for k in ("classification", "action", "allowed", "masked_text", "evidence")}
+    value = {k: payload[k] for k in ("classification", "action", "allowed", "masked_text")}
+    # Protobuf omits an unset message even when scalar defaults are printed.
+    value["evidence"] = payload.get("evidence")
+    return value
 
 
 def detection(payload):
