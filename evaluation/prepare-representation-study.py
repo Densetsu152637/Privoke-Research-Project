@@ -56,6 +56,14 @@ def select_rows(examples, locked_rows, anchors, count=2400, seed=5102026):
             continue
         by_key[key] = row
     unique = [row for row in by_key.values() if row is not None]
+    texts_by_identifier = {}
+    for row in unique:
+        identifier = str(row.metadata["example_id"])
+        texts_by_identifier.setdefault(identifier, set()).add(training_text_key(row.text))
+    ambiguous_ids = {identifier for identifier, keys in texts_by_identifier.items() if len(keys) > 1}
+    ambiguous_rows = [row for row in unique if str(row.metadata["example_id"]) in ambiguous_ids]
+    unique = [row for row in unique if str(row.metadata["example_id"]) not in ambiguous_ids]
+    exclusions["ambiguous_source_id"] += len(ambiguous_rows)
     selected = []
     sampler = random.Random(seed)
     for label in (True, False):
@@ -65,6 +73,9 @@ def select_rows(examples, locked_rows, anchors, count=2400, seed=5102026):
             raise ValueError(f"Only {len(pool)} eligible {'positive' if label else 'clean'} rows; {count} required.")
         selected.extend(sampler.sample(pool, count))
     selected.sort(key=lambda row: row.metadata["example_id"])
+    selected_ids = [str(row.metadata["example_id"]) for row in selected]
+    if len(selected_ids) != len(set(selected_ids)):
+        raise ValueError("Selected source IDs are not unique after ambiguous-ID exclusion.")
     groups = sorted({str(row.metadata["group_id"]) for row in selected})
     shuffled = groups[:]
     random.Random(6102026).shuffle(shuffled)
@@ -79,7 +90,9 @@ def select_rows(examples, locked_rows, anchors, count=2400, seed=5102026):
         raise ValueError("Source group overlaps across partitions.")
     if {training_text_key(row.text) for row in train} & {training_text_key(row.text) for row in validation}:
         raise ValueError("Normalized text overlaps across partitions.")
-    return selected, train, validation, {"exclusions": dict(exclusions), "protected_groups": len(protected_groups),
+    return selected, train, validation, {"exclusions": dict(exclusions),
+        "ambiguous_source_ids": len(ambiguous_ids), "ambiguous_source_id_rows_excluded": len(ambiguous_rows),
+        "protected_groups": len(protected_groups),
         "protected_ids": len(protected_ids), "protected_text_keys": len(protected_keys),
         "source_counts": dict(Counter(row.metadata["source_dataset"] for row in selected)),
         "selected_groups": len(groups), "validation_groups": sorted(validation_groups)}
