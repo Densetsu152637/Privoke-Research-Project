@@ -280,6 +280,177 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
                     pair="original-efficient", study_root=Path("unused"), output=Path("unused"))
         self.assertTrue(backend.evaluator_job_outcome_unknown)
 
+    def _fixture_plan(self):
+        choices = {pair: {"status": "eligible", "chosen": {"threshold": .5}}
+                   for pair in runner.PAIRS}
+        choices[runner.PAIRS[0]] = {"status": "ineligible", "chosen": None}
+        support = {
+            "fixture.jsonl": {"sha256": runner.FIXTURE_SHA256, "relative_path": "support/fixture.jsonl"},
+            "rubric.md": {"sha256": runner.RUBRIC_SHA256, "relative_path": "support/rubric.md"},
+            "fixture-review.json": {"sha256": runner.FIXTURE_REVIEW_SHA256,
+                                     "relative_path": "support/fixture-review.json"},
+        }
+        case_ids = [f"case-{i}" for i in range(48)]
+        pair_bindings = {pair: {"pair": pair, "source_revision": "b" * 40} for pair in runner.PAIRS}
+        primary = {"manifest_sha256": "1" * 64, "selection_sha256": "2" * 64,
+                   "source_revision": "a" * 40}
+        return {"primary": primary, "secondary_binding": {"mode": "secondary_contextual_fixtures",
+                "execution_source_revision": "b" * 40},
+            "support": support, "selection": {"choices": choices},
+            "choices_compact": {pair: choices[pair] for pair in runner.PAIRS},
+            "case_counts": {"total": 48}, "case_ids": case_ids,
+            "pair_bindings": pair_bindings, "validation_file": "unused",
+            "source_revision": "b" * 40, "runtime_image_id": "sha256:" + "a" * 64,
+            "evaluator_image_id": "sha256:" + "e" * 64,
+            "integrity_check": lambda: None}
+
+    def _run_fixture_sequence(self, backend):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        output = Path(temporary.name) / "study"
+        output.mkdir()
+        inputs = fake_inputs()
+        prior = dict(backend.catalog)
+        binding = {"runtime_image_id": "sha256:" + "a" * 64,
+                   "evaluator_image_id": "sha256:" + "e" * 64,
+                   "source_revision": "a" * 40}
+        plan = self._fixture_plan()
+        preflight_receipt = {"binding": binding, "selection_sha256": plan["primary"]["selection_sha256"],
+            "fixture_sha256": runner.FIXTURE_SHA256, "rubric_sha256": runner.RUBRIC_SHA256,
+            "review_sha256": runner.FIXTURE_REVIEW_SHA256, "case_counts": plan["case_counts"],
+            "choices": plan["choices_compact"]}
+        def fixture_preflight(**kwargs):
+            if getattr(backend, "fixture_preflight_error", False):
+                raise ValueError("frozen primary selection mismatch")
+            return {"status": "frozen_study_verified", "receipt": preflight_receipt,
+                    "report_sha256": "f" * 64}
+        backend.run_fixture_preflight = fixture_preflight
+        backend.run_fixture_stage = lambda **kwargs: backend.fixture_stage(**kwargs)
+        def fixture_stage(**kwargs):
+            pair = kwargs["pair"]
+            backend.fixture_calls.append((pair, kwargs["eligible"]))
+            return {"status": "complete" if kwargs["eligible"] else "skipped_ineligible",
+                    "report_sha256": "f" * 64, "image_id": "sha256:" + "e" * 64,
+                    "container_id": "a" * 12, "exit_code": 0, "logs_sha256": "1" * 64}
+        backend.fixture_stage = fixture_stage
+        backend.fixture_calls = []
+        primary_receipt = output / "primary-controller-manifest.json"
+        primary_receipt.write_bytes(b"frozen-primary-receipt")
+        events = []
+        original_write, original_probe = backend.write_artifact, backend.probe
+        context_name = [None]
+        checksum_to_context = {runner.CONTEXT_CHECKSUMS[name]: name for name in runner.CONTROLS}
+        def write(artifact, *, expected_checksum):
+            if artifact["model_id"] == "privoke-balanced":
+                context_name[0] = checksum_to_context.get(artifact["checksum"])
+            else:
+                events.append(("write", context_name[0], artifact["model_id"]))
+            original_write(artifact, expected_checksum=expected_checksum)
+        def probe(expected):
+            events.append(("probe", context_name[0], expected.get("presence", {}).get("model_id")))
+            original_probe(expected)
+        backend.write_artifact, backend.probe = write, probe
+        with patch.object(runner, "check_prior_catalog", return_value={}):
+            state = runner.run_sequence(backend=backend, output=output,
+                study_root=output / "primary", inputs=inputs, binding=binding, fixture_plan=plan)
+        self.assertEqual(primary_receipt.read_bytes(), b"frozen-primary-receipt")
+        backend.fixture_events = events
+        return state, prior, backend
+
+    def test_fixture_mode_runs_fixed_six_pairs_and_restores_shared_catalog(self):
+        backend = FakeBackend()
+        state, prior, _ = self._run_fixture_sequence(backend)
+        self.assertEqual(state["status"], "complete")
+        self.assertTrue(state["restoration_verified"])
+        self.assertEqual(backend.catalog, prior)
+        self.assertEqual(backend.fixture_calls, [(pair, pair != runner.PAIRS[0]) for pair in runner.PAIRS])
+        jobs = [job for job in state["phase_jobs"] if job["stage"] == "fixture-score"]
+        self.assertEqual([job["pair"] for job in jobs], list(runner.PAIRS))
+        self.assertEqual(jobs[0]["status"], "skipped_ineligible")
+        self.assertEqual(state["primary_manifest_sha256"], "1" * 64)
+        self.assertIn("secondary_binding", state)
+        self.assertEqual(state["binding"]["source_revision"], "a" * 40)
+        self.assertEqual(state["secondary_binding"]["execution_source_revision"], "b" * 40)
+        self.assertFalse(any(context == "original" and model_id == runner.PRESENCE_IDS["efficient"]
+                             for _kind, context, model_id in backend.fixture_events))
+
+    def test_fixture_mode_preflight_rejection_occurs_before_backup_or_model_write(self):
+        backend = FakeBackend()
+        backend.fixture_preflight_error = True
+        state, _prior, _ = self._run_fixture_sequence(backend)
+        self.assertEqual(state["status"], "failed")
+        self.assertEqual(backend.writes, [])
+        self.assertEqual(backend.restores, [])
+        self.assertFalse(any(call[0] == "fixture-score" for call in backend.stages))
+
+    def test_fixture_mode_runtime_or_evaluator_image_mismatch_prevents_writes(self):
+        for mismatch in ("runtime", "evaluator"):
+            backend = FakeBackend()
+            binding = {"runtime_image_id": "sha256:" + "a" * 64,
+                       "evaluator_image_id": "sha256:" + "e" * 64,
+                       "source_revision": "a" * 40}
+            if mismatch == "runtime":
+                binding["runtime_image_id"] = "sha256:" + "b" * 64
+            else:
+                backend.evaluator_image = lambda: "sha256:" + "f" * 64
+            with tempfile.TemporaryDirectory() as temp:
+                output = Path(temp) / "study"
+                output.mkdir()
+                with patch.object(runner, "check_prior_catalog", return_value={}):
+                    state = runner.run_sequence(backend=backend, output=output,
+                        study_root=output / "primary", inputs=fake_inputs(), binding=binding,
+                        fixture_plan=self._fixture_plan())
+            self.assertEqual(state["status"], "failed", mismatch)
+            self.assertEqual(backend.writes, [], mismatch)
+            self.assertEqual(backend.restores, [], mismatch)
+
+    def test_completed_primary_requires_successful_restore_and_terminal_pair_outcomes(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "results"
+            primary_path = root / "primary"
+            study = primary_path / "cascade-evidence"
+            selection_path = study / "calibration/selection.json"
+            selection_path.parent.mkdir(parents=True)
+            binding = {"controls": {name: {} for name in runner.CONTROLS},
+                "presence": {name: {} for name in runner.PROFILES},
+                "runtime_image_id": "sha256:" + "a" * 64,
+                "evaluator_image_id": "sha256:" + "e" * 64}
+            choices = {pair: {"status": "eligible", "chosen": {"threshold": .5}}
+                       for pair in runner.PAIRS}
+            selection = {"status": "frozen", "binding": binding, "choices": choices,
+                         "frozen_before_development": True}
+            selection_path.write_text(json.dumps(selection), encoding="utf-8")
+            (study / "study-manifest.json").write_text(json.dumps({"binding": binding}), encoding="utf-8")
+            (primary_path / "input-binding.json").write_text(json.dumps(binding), encoding="utf-8")
+            jobs = [{"image_id": binding["evaluator_image_id"]}]
+            phases = [{"stage": stage, "pair": pair, "status": "complete"}
+                      for stage in ("collect-validation", "evaluate-validation", "evaluate-development")
+                      for pair in runner.PAIRS]
+            manifest = {"status": "complete", "restoration_verified": True,
+                "admin_mutation_outcome_unknown": False, "evaluator_job_outcome_unknown": False,
+                "binding": binding, "images_before": {"client-runtime": binding["runtime_image_id"]},
+                "images_after": {"client-runtime": binding["runtime_image_id"]}, "jobs": jobs,
+                "calibration_sha256": runner.sha_file(selection_path), "phase_jobs": phases}
+            (primary_path / "study-run-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            with patch.object(runner, "RESULTS", root):
+                loaded = runner.load_completed_primary(primary_path)
+                self.assertEqual(loaded["selection_sha256"], runner.sha_file(selection_path))
+                manifest["phase_jobs"] = manifest["phase_jobs"][:-1]
+                (primary_path / "study-run-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "all-six terminal"):
+                    runner.load_completed_primary(primary_path)
+                manifest["phase_jobs"] = phases
+                manifest["restoration_verified"] = False
+                (primary_path / "study-run-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "complete, restored primary"):
+                    runner.load_completed_primary(primary_path)
+                manifest["restoration_verified"] = True
+                (primary_path / "study-run-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+                selection["binding"] = {"tampered": True}
+                selection_path.write_text(json.dumps(selection), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "frozen selection"):
+                    runner.load_completed_primary(primary_path)
+
     def test_identity_probe_against_real_generated_protobuf_and_mocked_stub(self):
         generated = ROOT / "extension/client-runtime/generated"
         if not (generated / "privoke/v1/runtime_pb2.py").is_file():
