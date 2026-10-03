@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -50,8 +51,12 @@ def candidate_key(metrics, cycle, rate, seed):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", type=Path, default=ROOT / "evaluation/results/public_negative_study_20261003")
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--experiment-prefix", default="public_negative_20261003")
     args = parser.parse_args()
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}", args.experiment_prefix):
+        parser.error("Use a 1-40 character prefix starting with a letter or digit.")
+    args.output = args.output or ROOT / "evaluation/results" / args.experiment_prefix
     if args.output.exists():
         raise SystemExit("Refusing to overwrite study evidence or reuse request IDs.")
     dataset_path = ROOT / "evaluation/results/public-negative-curriculum/prompts.jsonl"
@@ -62,6 +67,8 @@ def main():
     selected = PRIOR
     best = (54, 247, -1, -.003, -42)
     records = []
+    source_revision = subprocess.check_output(
+        ["git", "-c", f"safe.directory={ROOT.as_posix()}", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     completed = False
     extend = False
     active_compose = COMPOSE
@@ -77,13 +84,13 @@ def main():
             baseline_artifact = args.output / "original-model.json"
             baseline_artifact.write_text(original_snapshot, encoding="utf-8")
             call(["run", "--rm", "--no-deps", "evaluation-tests", "python", "run-ablations.py",
-                  "--dataset-file", "results/locked-public/development.jsonl", "--run-name", "public_negative_baseline_20261003",
-                  "--layers", *LAYERS, "--model-artifact", str(baseline_artifact.relative_to(ROOT / "evaluation"))], log=log)
+                  "--dataset-file", "results/locked-public/development.jsonl", "--run-name", args.experiment_prefix + "_baseline",
+                  "--layers", *LAYERS, "--model-artifact", baseline_artifact.relative_to(ROOT / "evaluation").as_posix()], log=log)
             for slug, rate, overlay in (("003", .03, None), ("01", .1, "evaluation/compose.learning-rate-01.yml"),
                                         ("03", .3, "evaluation/compose.learning-rate-03.yml")):
                 compose = COMPOSE + (["-f", overlay] if overlay else [])
                 active_compose = compose
-                experiment_id = f"public_negative_lr{slug}_20261003"
+                experiment_id = f"{args.experiment_prefix}_lr{slug}"
                 call(["up", "-d", "--no-deps", "--force-recreate", "--wait", "privoke-fuzzer"], log=log, compose=compose)
                 command = [sys.executable, "evaluation/run-independent-updates.py", "--experiment-id", experiment_id,
                            "--compose-override", "evaluation/compose.public-negatives.yml"]
@@ -100,7 +107,7 @@ def main():
                     artifact = ROOT / "evaluation/results" / experiment_id / f"seed{seed}-model.json"
                     records.append({"rate": rate, "seed": seed, "cycle": 1, "scored": True,
                                     "eligible": key is not None, "metrics": metrics,
-                                    "artifact": str(artifact.relative_to(ROOT))})
+                                    "artifact": artifact.relative_to(ROOT).as_posix()})
                     if key is not None and key > best:
                         best, selected = key, artifact
                     print(json.dumps({"rate": rate, "seed": seed, "eligible": key is not None,
@@ -117,10 +124,10 @@ def main():
                 restore(selected_content, log, compose=active_compose)
                 restored = True
             finally:
-                manifest = {"completed": completed, "selected_restored": restored,
+                manifest = {"completed": completed, "selected_restored": restored, "source_revision": source_revision,
                 "curriculum_sha256": data_manifest["curriculum_sha256"],
                 "selection": "Maximize specificity subject to pipeline recall>=0.9 and specificity>=54/238; ties prefer recall, fewer cycles, lower rate and seed",
-                "records": records, "selected_artifact": str(selected.relative_to(ROOT)),
+                "records": records, "selected_artifact": selected.relative_to(ROOT).as_posix(),
                 "selected_file_sha256": hashlib.sha256(selected.read_bytes()).hexdigest(),
                 "additional_cycle_trigger_met": extend,
                 "selected_exact_counts": {"true_negatives": best[0], "true_positives": best[1]}}

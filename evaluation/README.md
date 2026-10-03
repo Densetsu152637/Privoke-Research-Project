@@ -176,3 +176,6 @@ records rejected attempts, reports semantic and pipeline results, and restores t
 selected eligible artifact in `finally`. A partial study or failed restoration is
 marked explicitly. Additional cycles require the recorded prospective trigger.
 Do not reuse these fixed request/run IDs to restart an interrupted study.
+For a corrected launch, pass a fresh `--experiment-prefix` (up to40 characters);
+the original launch and its model-restoration record remain preserved. Container
+artifact paths use forward slashes regardless of the host operating system.

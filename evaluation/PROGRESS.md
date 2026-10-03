@@ -94,6 +94,12 @@ The prior image/source comparisons remain historical and are not pooled with thi
 training-path correction. Next action: run the nine prospective independent
 updates (rates0.03/0.1/0.3, seeds42/1337/2026), measure development only, and restore
 the selected checkpoint. No new candidate has yet been selected at this checkpoint.
+The initial launch stopped before any training because a Windows-style artifact
+path was passed to the Linux evaluator. Its terminal exit1, traceback and
+`public_negative_study_20261003/selection.json` are preserved; the manifest confirms
+the prior selected model was restored. The corrected retry uses fresh prefix
+`public_negative_v2_20261003`, forward-slash container paths and recorded source
+revision. This infrastructure failure is not a rejected training candidate.
 
 ## Historical notes (superseded by the checkpoint above)
 
