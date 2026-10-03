@@ -335,8 +335,11 @@ class DockerBackend:
         if not run_path.is_file():
             raise ValueError("Scorer container completed without writing its run manifest.")
         run_record = json.loads(run_path.read_text(encoding="utf-8"))
+        record["scorer_failure_reason"] = run_record.get("error_reason", run_record.get("failure_reason"))
+        record["scorer_error_type"] = run_record.get("error_type")
+        record["scorer_failure_stage"] = run_record.get("failure_stage")
         if run_record.get("status") not in ("complete", "not_scored"):
-            raise ValueError("Scorer did not produce a complete or explicitly zero-row result.")
+            raise ValueError("Scorer failed: " + str(record["scorer_failure_reason"] or record["scorer_error_type"] or "unknown"))
         return {"status": run_record["status"], "rows": run_record.get("rows"),
                 "successful_rows": run_record.get("successful_rows"),
                 "metrics": run_record.get("metrics"), "failure_reason": run_record.get("failure_reason"),

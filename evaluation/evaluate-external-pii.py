@@ -5,6 +5,7 @@ import argparse
 from collections import defaultdict
 from datetime import datetime, timezone
 import hashlib
+import importlib
 import importlib.util
 import json
 import math
@@ -327,8 +328,25 @@ def bind_baseline_reference(baseline: dict, prepared: dict) -> None:
 
 
 def load_runtime_stubs():
-    from privoke.v1 import runtime_pb2, runtime_pb2_grpc
+    generated = ROOT / "extension/client-runtime/generated"
+    generated_text = generated.as_posix()
+    if generated_text not in sys.path:
+        sys.path.insert(0, generated_text)
+    importlib.invalidate_caches()
+    runtime_pb2 = importlib.import_module("prvoke.v1.runtime_pb2")
+    runtime_pb2_grpc = importlib.import_module("prvoke.v1.runtime_pb2_grpc")
     return runtime_pb2, runtime_pb2_grpc
+
+
+def safe_error_reason(exc: Exception) -> str:
+    if isinstance(exc, ModuleNotFoundError):
+        missing = getattr(exc, "name", None)
+        return f"missing_module:{missing}" if isinstance(missing, str) else "missing_module"
+    if isinstance(exc, ImportError):
+        return "import_error"
+    if isinstance(exc, TimeoutError):
+        return "timeout"
+    return "runtime_error"
 
 
 def opaque_id(value: str, *, namespace: str) -> str:
@@ -620,6 +638,7 @@ def run(*, fit_root: Path, prepared_root: Path, baseline_fit_root: Path,
     except Exception as exc:
         state.update({"status": "failed", "failure_stage": "validation_or_setup",
                       "error_type": type(exc).__name__,
+                      "error_reason": safe_error_reason(exc),
                       "error_sha256": sha256_bytes(str(exc).encode("utf-8")),
                       "rows": len(predictions), "successful_rows": 0,
                       "finished_at_utc": datetime.now(timezone.utc).isoformat()})
