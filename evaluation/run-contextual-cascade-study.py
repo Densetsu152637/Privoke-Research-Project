@@ -125,6 +125,17 @@ def read_json(path: Path) -> dict:
     return value
 
 
+def linux_scorer_binding(host_binding: dict) -> dict:
+    """Map only bound control artifact locators; preserve every identity and digest."""
+    mapped = json.loads(json.dumps(host_binding, allow_nan=False))
+    if set(mapped.get("controls", {})) != set(CONTROLS):
+        raise ValueError("Primary host binding lacks the fixed contextual controls.")
+    for name in CONTROLS:
+        path = inside_results(Path(host_binding["controls"][name]["path"]))
+        mapped["controls"][name]["path"] = container_path(path)
+    return mapped
+
+
 def load_completed_primary(path: Path) -> dict:
     """Require a terminal, restored primary study before fixture orchestration."""
     path = inside_results(path)
@@ -137,6 +148,7 @@ def load_completed_primary(path: Path) -> dict:
     binding = manifest.get("binding")
     if not isinstance(binding, dict) or set(binding.get("controls", {})) != set(CONTROLS) or set(binding.get("presence", {})) != set(PROFILES):
         raise ValueError("Primary controller binding does not contain the fixed controls and profiles.")
+    scorer_binding = linux_scorer_binding(binding)
     if manifest.get("images_before") != manifest.get("images_after"):
         raise ValueError("Primary runtime/evaluator image identity changed during the run.")
     if manifest["images_after"].get("client-runtime") != binding.get("runtime_image_id"):
@@ -150,13 +162,13 @@ def load_completed_primary(path: Path) -> dict:
     study_root = path / "cascade-evidence"
     selection_path = study_root / "calibration/selection.json"
     selection = read_json(selection_path)
-    if (selection.get("status") != "frozen" or selection.get("binding") != binding
+    if (selection.get("status") != "frozen" or selection.get("binding") != scorer_binding
             or set(selection.get("choices", {})) != set(PAIRS)
             or selection.get("frozen_before_development") is not True
             or sha_file(selection_path) != manifest.get("calibration_sha256")):
         raise ValueError("Primary frozen selection is missing or differs from its controller receipt.")
     nested = read_json(study_root / "study-manifest.json")
-    if nested.get("binding") != binding:
+    if nested.get("binding") != scorer_binding:
         raise ValueError("Primary nested cascade evidence has a different input binding.")
     if read_json(path / "input-binding.json") != binding:
         raise ValueError("Primary input-binding receipt differs from the completed controller binding.")
@@ -182,7 +194,7 @@ def load_completed_primary(path: Path) -> dict:
                 raise ValueError("Primary controller lacks all-six terminal validation/development outcomes.")
     return {"path": path, "manifest": manifest, "manifest_sha256": sha_file(manifest_path),
         "study_root": study_root, "binding": binding, "selection": selection,
-        "selection_sha256": sha_file(selection_path)}
+        "scorer_binding": scorer_binding, "selection_sha256": sha_file(selection_path)}
 
 
 def copy_fixture_support(support_root: Path, output: Path) -> dict:
@@ -248,7 +260,8 @@ def load_caller():
 
 
 def validate_fixture_pair_output(*, output_dir: Path, pair: str, eligible: bool,
-                                 expected_binding: dict, case_ids: list[str]) -> dict:
+                                 expected_binding: dict, cases: list[dict],
+                                 presence_identity: dict) -> dict:
     """Validate the existing fixture scorer's binding and raw evidence without rescoring policy."""
     output_dir = Path(output_dir)
     binding_path = output_dir / "binding.json"
@@ -268,6 +281,7 @@ def validate_fixture_pair_output(*, output_dir: Path, pair: str, eligible: bool,
 
     report_path = output_dir / "report.json"
     report = read_json(report_path)
+    case_ids = [case.get("case_id") for case in cases]
     if ({key: report.get(key) for key in expected_binding} != expected_binding
             or report.get("status") != "complete" or report.get("errors") != []
             or report.get("rows") != 48 or len(case_ids) != 48
@@ -288,16 +302,92 @@ def validate_fixture_pair_output(*, output_dir: Path, pair: str, eligible: bool,
     if set(actual_raw_hashes) != expected_names or report.get("raw_rpc_sha256") != actual_raw_hashes:
         raise ValueError("Fixture raw RPC evidence is incomplete or differs from report hashes.")
     result_path = container_path(output_dir)
-    for case_id in case_ids:
+    prediction_by_id = {row["case"]["case_id"]: row for row in predictions}
+    if len([case for case in cases if case.get("visibility_hint") is not None]) != 4:
+        raise ValueError("Fixture case list differs from the fixed four visibility-hint contract.")
+    for case in cases:
+        case_id = case["case_id"]
         row_hash = hashlib.sha256(case_id.encode()).hexdigest()
         for tag in ("ordinary", "gated"):
             record = read_json(raw_dir / f"{tag}-{row_hash}.json")
             request_id = "cascade-" + hashlib.sha256(
                 f"cascade-{result_path}-{tag}-{case_id}".encode()).hexdigest()[:48]
-            if (record.get("request", {}).get("request_id") != request_id
-                    or record.get("response", {}).get("request_id") != request_id
+            request = record.get("request", {})
+            response = record.get("response", {})
+            if (request.get("request_id") != request_id
+                    or response.get("request_id") != request_id
+                    or request.get("text") != case.get("text")
+                    or request.get("visibility_hint") != case.get("visibility_hint")
                     or not re.fullmatch(r"[0-9a-f]{64}", record.get("request_binary_sha256", ""))):
-                raise ValueError("Fixture raw request/response identity evidence is invalid.")
+                raise ValueError("Fixture raw request/response is not bound to the reviewed case.")
+            gate_request = request.get("semantic_presence_gate")
+            if tag == "gated":
+                if (not isinstance(gate_request, dict)
+                        or gate_request.get("model_id") != presence_identity["model_id"]
+                        or gate_request.get("threshold") != presence_identity["threshold"]):
+                    raise ValueError("Fixture gated request differs from the selected profile/threshold.")
+            elif gate_request is not None:
+                raise ValueError("Ordinary fixture request unexpectedly includes a presence gate.")
+            if response.get("error") or not isinstance(response.get("layers"), list):
+                raise ValueError("Fixture raw response contains an error or lacks layers.")
+            if any((str(layer.get("status", "")).lower() == "error"
+                    or str(layer.get("status", "")).upper().endswith("_ERROR")
+                    or layer.get("error") and layer.get("status") != "skipped")
+                   for layer in response["layers"]):
+                raise ValueError("Fixture raw response contains a runtime layer error.")
+
+            # The existing scorer only normalizes the layer enum and the two gate enums.
+            normalized = json.loads(json.dumps(response, allow_nan=False))
+            for layer in normalized["layers"]:
+                kind = layer.get("layer")
+                if isinstance(kind, str):
+                    upper = kind.upper()
+                    layer["layer"] = next((value for suffix, value in
+                        (("_REGEX", "regex"), ("_NER", "ner"), ("_SEMANTIC", "semantic"))
+                        if upper.endswith(suffix)), kind)
+                trace = layer.get("semantic_presence_gate")
+                if isinstance(trace, dict):
+                    status = trace.get("status")
+                    if isinstance(status, str):
+                        upper = status.upper()
+                        if upper.endswith("_APPLIED"):
+                            trace["status"] = "applied"
+                        elif upper.endswith("_NOT_RUN"):
+                            trace["status"] = "not_run"
+                        elif upper.endswith("_ERROR"):
+                            trace["status"] = "error"
+                    label = trace.get("predicted_label")
+                    if isinstance(label, str):
+                        upper = label.upper()
+                        if upper.endswith("_PRESENT"):
+                            trace["predicted_label"] = "present"
+                        elif upper.endswith("_ABSENT"):
+                            trace["predicted_label"] = "absent"
+                        elif upper.endswith("_UNSPECIFIED"):
+                            trace["predicted_label"] = "unspecified"
+            prediction = prediction_by_id[case_id][tag]
+            if ({k: v for k, v in normalized.items() if k != "layers"}
+                    != {k: v for k, v in prediction.items() if k != "layers"}
+                    or normalized["layers"] != prediction.get("layers")):
+                raise ValueError("Fixture prediction differs from its normalized raw RPC response.")
+            if tag == "gated":
+                semantic = next((layer for layer in response["layers"]
+                                 if str(layer.get("layer", "")).upper().endswith("SEMANTIC")), None)
+                trace = semantic.get("semantic_presence_gate") if semantic else None
+                threshold = expected_binding["study_binding"]["presence"][
+                    pair.split("-", 1)[1]]["identity"]["threshold"]
+                status = str(trace.get("status", "")).lower() if isinstance(trace, dict) else ""
+                trace_applied = status == "applied" or status.endswith("_applied")
+                trace_not_run = status == "not_run" or status.endswith("_not_run")
+                if (not isinstance(trace, dict) or trace.get("model_id") != presence_identity["model_id"]
+                        or trace.get("decision_threshold") != threshold
+                        or not (trace_applied or trace_not_run)):
+                    raise ValueError("Fixture gate response differs from the frozen profile/threshold.")
+                if trace_applied:
+                    if (trace.get("model_threshold") != presence_identity["threshold"]
+                            or any(trace.get(key) != value for key, value in presence_identity.items()
+                                   if key != "threshold")):
+                        raise ValueError("Fixture gate response presence identity is not the selected artifact.")
     return {"status": "complete", "report_sha256": sha_file(report_path),
             "predictions_sha256": sha_file(predictions_path), "raw_rpc_count": len(raw_paths)}
 
@@ -596,7 +686,8 @@ class DockerBackend:
 
     def run_fixture_stage(self, *, primary_root: Path, validation_file: Path,
                           support: dict, pair: str, output_dir: Path,
-                          expected_binding: dict, eligible: bool, case_ids: list[str],
+                          expected_binding: dict, eligible: bool, cases: list[dict],
+                          presence_identity: dict,
                           source_revision: str, runtime_image_id: str,
                           evaluator_image_id: str, output: Path) -> dict:
         name = f"cascade-{output.name}-fixture-{pair}-{uuid.uuid4().hex[:8]}"
@@ -616,7 +707,8 @@ class DockerBackend:
         return self._job(args, name=name, stage="fixture-score", pair=pair,
             study_root=primary_root, output=output,
             result_reader=lambda: validate_fixture_pair_output(output_dir=output_dir, pair=pair,
-                eligible=eligible, expected_binding=expected_binding, case_ids=case_ids))
+                eligible=eligible, expected_binding=expected_binding, cases=cases,
+                presence_identity=presence_identity))
 
     def _job(self, args: list[str], *, name: str, stage: str, pair: str | None,
              study_root: Path, output: Path, result_reader=None) -> dict:
@@ -788,13 +880,16 @@ def _run_fixture_group(*, backend, output: Path, primary_root: Path, inputs: dic
                 presence = inputs["presence"][profile]
                 backend.write_artifact(presence["artifact"],
                     expected_checksum=presence["identity"]["artifact_checksum"])
+                state["installed_presence_profile"] = profile
                 backend.probe({"context": context["identity"], "presence": presence["identity"]})
             state["phase"] = f"fixtures:{pair}"; _persist(output, state)
             result = backend.run_fixture_stage(primary_root=primary_root,
                 validation_file=Path(plan["validation_file"]), support=plan["support"], pair=pair,
                 output_dir=output / "pairs" / pair,
                 expected_binding=plan["pair_bindings"][pair], eligible=eligible,
-                case_ids=plan["case_ids"], source_revision=plan["source_revision"],
+                cases=plan["case_rows"],
+                presence_identity=inputs["presence"][profile]["identity"],
+                source_revision=plan["source_revision"],
                 runtime_image_id=plan["runtime_image_id"],
                 evaluator_image_id=plan["evaluator_image_id"], output=output)
             expected_status = "complete" if eligible else "skipped_ineligible"
@@ -807,10 +902,13 @@ def _run_fixture_group(*, backend, output: Path, primary_root: Path, inputs: dic
             if not backend.admin_mutation_outcome_unknown:
                 if sha_bytes(backend.read_raw("privoke-balanced")) != state["prior_sha256"]["privoke-balanced"]:
                     raise ValueError("Contextual control bytes did not restore at fixture checkpoint.")
-                # An ineligible quality pair deliberately skips installation; probe a known frozen identity.
-                quality = inputs["presence"][PROFILES[-1]]
-                backend.write_artifact(quality["artifact"], expected_checksum=quality["identity"]["artifact_checksum"])
-                backend.probe({"context": current_identity, "presence": quality["identity"]})
+                profile = state["installed_presence_profile"]
+                backend.probe({"context": current_identity,
+                               "presence": inputs["presence"][profile]["identity"]})
+                state.setdefault("fixture_readiness_checks", []).append({
+                    "control": control, "context_checksum": current_identity["artifact_checksum"],
+                    "presence_profile": profile, "status": "verified"})
+                _persist(output, state)
 
 
 def run_sequence(*, backend, output: Path, study_root: Path,
@@ -840,8 +938,9 @@ def run_sequence(*, backend, output: Path, study_root: Path,
                 validation_file=Path(fixture_plan["validation_file"]), support=fixture_plan["support"],
                 receipt=output / "fixture-frozen-preflight.json", output=output)
             receipt = result.get("receipt", {})
+            scorer_binding = fixture_plan["primary"]["scorer_binding"]
             if (result.get("status") != "frozen_study_verified"
-                    or receipt.get("binding") != binding
+                    or receipt.get("binding") != scorer_binding
                     or receipt.get("selection_sha256") != fixture_plan["primary"]["selection_sha256"]
                     or receipt.get("fixture_sha256") != fixture_plan["support"]["fixture.jsonl"]["sha256"]
                     or receipt.get("rubric_sha256") != fixture_plan["support"]["rubric.md"]["sha256"]
@@ -853,7 +952,12 @@ def run_sequence(*, backend, output: Path, study_root: Path,
             _record_job(output, state, "fixture-frozen-preflight", None, result)
         state["images_before"] = images
         prior_raw = {model_id: backend.read_raw(model_id) for model_id in CATALOG_IDS}
-        check_prior_catalog(prior_raw, inputs)
+        prior_catalog = check_prior_catalog(prior_raw, inputs)
+        if fixture_plan is not None:
+            state["installed_presence_profile"] = next(profile for profile in PROFILES
+                if prior_catalog[PRESENCE_IDS[profile]]["checksum"]
+                == inputs["presence"][profile]["identity"]["artifact_checksum"])
+            state["fixture_readiness_checks"] = []
         state["prior_sha256"] = {key: sha_bytes(value) for key, value in prior_raw.items()}
         state["private_backups"] = write_backups(output, prior_raw)
         backups_written = True
@@ -1006,6 +1110,7 @@ def run_fixture_study(*, completed_controller_output: Path, fit_root: Path,
         raise ValueError("Secondary execution revision differs from the current checkout.")
     primary = load_completed_primary(completed_controller_output)
     binding = primary["binding"]
+    scorer_binding = primary["scorer_binding"]
     if binding.get("protocol_sha256") != CASCADE_PROTOCOL_SHA256:
         raise ValueError("Completed primary run is bound to another contextual-cascade protocol.")
     validation_file, development_file = inside_results(validation_file), inside_results(development_file)
@@ -1052,7 +1157,7 @@ def run_fixture_study(*, completed_controller_output: Path, fit_root: Path,
     for pair in PAIRS:
         control, profile = pair.split("-", 1)
         pair_bindings[pair] = {"source_revision": source_revision,
-            "study_binding": binding, "selection_sha256": primary["selection_sha256"], "pair": pair,
+            "study_binding": scorer_binding, "selection_sha256": primary["selection_sha256"], "pair": pair,
             "case_file_sha256": support_receipt["fixture.jsonl"]["sha256"],
             "rubric_sha256": support_receipt["rubric.md"]["sha256"],
             "fixture_review_sha256": support_receipt["fixture-review.json"]["sha256"],
@@ -1067,6 +1172,8 @@ def run_fixture_study(*, completed_controller_output: Path, fit_root: Path,
         "primary_input_binding_sha256": sha_file(primary["path"] / "input-binding.json"),
         "primary_study_manifest_sha256": sha_file(primary["study_root"] / "study-manifest.json"),
         "primary_source_revision": binding["source_revision"], "execution_source_revision": source_revision,
+        "scorer_binding_sha256": sha_bytes(json.dumps(scorer_binding, sort_keys=True,
+            separators=(",", ":"), allow_nan=False).encode()),
         "execution_controller_sha256": sha_file(Path(__file__)),
         "fixture_scorer_sha256": pair_bindings[PAIRS[0]]["caller_sha256"],
         "cascade_helper_sha256": pair_bindings[PAIRS[0]]["cascade_helper_sha256"],
@@ -1083,6 +1190,10 @@ def run_fixture_study(*, completed_controller_output: Path, fit_root: Path,
             raise ValueError("Completed primary controller manifest changed during fixture scoring.")
         if sha_file(primary["study_root"] / "calibration/selection.json") != primary["selection_sha256"]:
             raise ValueError("Primary frozen choices changed during fixture scoring.")
+        if (sha_file(primary["path"] / "input-binding.json") != secondary_binding["primary_input_binding_sha256"]
+                or sha_file(primary["study_root"] / "study-manifest.json")
+                    != secondary_binding["primary_study_manifest_sha256"]):
+            raise ValueError("Primary immutable input/study receipts changed during fixture scoring.")
         if sha_file(validation_file) != dict(binding["datasets"])["validation"][1]:
             raise ValueError("Pinned validation data changed during fixture scoring.")
         for item in support_receipt.values():
@@ -1094,7 +1205,8 @@ def run_fixture_study(*, completed_controller_output: Path, fit_root: Path,
     plan = {"primary": primary, "secondary_binding": secondary_binding,
         "validation_file": str(validation_file), "support": support_receipt,
         "selection": primary["selection"], "choices_compact": choices_compact,
-        "case_counts": case_counts, "case_ids": case_ids, "pair_bindings": pair_bindings,
+        "case_counts": case_counts, "case_ids": case_ids, "case_rows": case_rows,
+        "scorer_binding": scorer_binding, "pair_bindings": pair_bindings,
         "source_revision": source_revision, "runtime_image_id": binding["runtime_image_id"],
         "evaluator_image_id": binding["evaluator_image_id"], "integrity_check": integrity_check}
     return run_sequence(backend=backend, output=output, study_root=primary["study_root"],
