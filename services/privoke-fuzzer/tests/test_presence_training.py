@@ -41,6 +41,9 @@ def _metrics():
         "heldout_examples": 4.0,
         "heldout_present_examples": 2.0,
         "heldout_absent_examples": 2.0,
+        "candidate_heldout_examples": 4.0,
+        "candidate_heldout_present_examples": 2.0,
+        "candidate_heldout_absent_examples": 2.0,
         "heldout_exact_match_rate": 0.75,
         "heldout_present_recall": 0.5,
         "heldout_absent_specificity": 1.0,
@@ -119,6 +122,9 @@ class PresenceGuardAndReplayTests(unittest.TestCase):
         cases = []
         missing = _metrics(); missing.pop("heldout_present_examples"); cases.append(missing)
         inconsistent = _metrics(); inconsistent["heldout_examples"] = 5; cases.append(inconsistent)
+        candidate_counts = _metrics(); candidate_counts["candidate_heldout_present_examples"] = 1; cases.append(candidate_counts)
+        impossible_fraction = _metrics(); impossible_fraction["heldout_present_recall"] = 0.6; cases.append(impossible_fraction)
+        inconsistent_exact = _metrics(); inconsistent_exact["heldout_exact_match_rate"] = 0.5; cases.append(inconsistent_exact)
         inconsistent_train = _metrics(); inconsistent_train["examples"] = 3
         nonfinite = _metrics(); nonfinite["candidate_heldout_absent_specificity"] = math.nan; cases.append(nonfinite)
         missing_loss = _metrics(); missing_loss.pop("average_loss"); cases.append(missing_loss)
@@ -136,7 +142,15 @@ class PresenceGuardAndReplayTests(unittest.TestCase):
         for name in ("candidate_heldout_exact_match_rate", "candidate_heldout_present_recall",
                      "candidate_heldout_absent_specificity"):
             metrics = _metrics()
-            metrics[name] -= 0.01
+            if name == "candidate_heldout_exact_match_rate":
+                metrics[name] = 0.5
+                metrics["candidate_heldout_present_recall"] = 0.0
+            elif name == "candidate_heldout_present_recall":
+                metrics[name] = 0.0
+                metrics["candidate_heldout_exact_match_rate"] = 0.5
+            else:
+                metrics[name] = 0.5
+                metrics["candidate_heldout_exact_match_rate"] = 0.5
             with self.subTest(name=name), self.assertRaisesRegex(ValueError, "worse"):
                 validate_presence_training_update(_update(metrics), minimum_exact_match_rate=0.0)
 
@@ -162,6 +176,7 @@ class PresenceGuardAndReplayTests(unittest.TestCase):
             max_concurrent_cycles=1, max_prompt_count=256, seed=42,
             heldout_prompt_count=4, presence_dataset_path="unused", prompt_dataset_path=None,
             minimum_exact_match_rate=0.0,
+            param_update_target="updates:50052", timeout_seconds=1.0, fuzzer_id="fuzzer",
         )
         service = FuzzerTrainingService(config)
         request = parameters_pb2.FuzzerTrainingRequest(
@@ -177,7 +192,11 @@ class PresenceGuardAndReplayTests(unittest.TestCase):
                 raise Aborted(message)
 
         context = Context()
-        with patch("fuzzer_service.grpc.insecure_channel", side_effect=grpc.RpcError("offline")), \
+        class Offline(grpc.RpcError):
+            def code(self):
+                return grpc.StatusCode.UNAVAILABLE
+
+        with patch("fuzzer_service.grpc.insecure_channel", side_effect=Offline("offline")), \
              patch.object(service, "_train_presence") as train:
             # Exercise the public mapping path where status errors are translated to UNAVAILABLE.
             with self.assertRaises(Aborted):
@@ -280,10 +299,10 @@ class PresenceGuardAndReplayTests(unittest.TestCase):
             request_id="bounded", source_id="evaluation",
             model_id="privoke-presence-balanced", prompt_count=12,
         )
-        training_rows = [PresenceExample("secret prompt", True, "id", "group"),
-                         PresenceExample("ordinary prompt", False, "id-2", "group-2")]
-        heldout_rows = [PresenceExample("heldout present", True, "hid", "heldout-group"),
-                        PresenceExample("heldout absent", False, "hid-2", "heldout-group-2")]
+        training_rows = [PresenceExample(f"training prompt {index}", bool(index % 2), f"id-{index}", f"group-{index}")
+                         for index in range(4)]
+        heldout_rows = [PresenceExample(f"heldout prompt {index}", bool(index % 2), f"hid-{index}", f"heldout-group-{index}")
+                        for index in range(4)]
         ack = parameters_pb2.ParameterUpdateAck(
             accepted=True, model_id="privoke-presence-balanced", applied_version="v1+train.1", message="ok"
         )
@@ -296,8 +315,6 @@ class PresenceGuardAndReplayTests(unittest.TestCase):
                 raise AssertionError((code, message))
 
         update = _update()
-        update.metrics.update({"examples": 2.0, "heldout_examples": 2.0,
-                               "heldout_present_examples": 1.0, "heldout_absent_examples": 1.0})
         with patch.object(service, "_previous_update_for_fingerprint",
                           return_value=parameters_pb2.ParameterUpdateStatus(found=False)) as status, \
              patch("fuzzer_service.generate_presence_training_partition",
@@ -305,12 +322,48 @@ class PresenceGuardAndReplayTests(unittest.TestCase):
              patch.object(service, "_train_presence", return_value=update), \
              patch.object(service, "_submit_presence_update", return_value=ack) as submit:
             response = service._run_presence_training_cycle(request, Context())
-        self.assertEqual(response.prompts_generated, 2)
+        self.assertEqual(response.prompts_generated, 4)
         partition.assert_called_once_with(4, 4, 42, "curriculum.jsonl")
         fingerprint = _presence_training_request_fingerprint(request)
         self.assertEqual(status.call_args.args[3], fingerprint)
         self.assertEqual(submit.call_args.args[4], fingerprint)
         self.assertNotIn("secret prompt", str(submit.call_args.args[2].metadata))
+
+    def test_cycle_rejects_sampler_count_mismatch_before_runtime_call(self):
+        config = SimpleNamespace(
+            model_id="privoke-balanced", presence_model_id="privoke-presence-balanced",
+            max_concurrent_cycles=1, max_prompt_count=4, seed=42,
+            heldout_prompt_count=4, presence_dataset_path="curriculum.jsonl",
+            minimum_exact_match_rate=0.0,
+        )
+        service = FuzzerTrainingService(config)
+        request = parameters_pb2.FuzzerTrainingRequest(
+            request_id="bad-partition", source_id="evaluation",
+            model_id="privoke-presence-balanced", prompt_count=4,
+        )
+
+        class Aborted(Exception):
+            pass
+
+        class Context:
+            code = None
+
+            def abort(self, code, message):
+                self.code = code
+                raise Aborted(message)
+
+        context = Context()
+        with patch.object(service, "_previous_update_for_fingerprint",
+                          return_value=parameters_pb2.ParameterUpdateStatus(found=False)), \
+             patch("fuzzer_service.generate_presence_training_partition",
+                   return_value=([PresenceExample("one", True, "id", "group")],
+                                 [PresenceExample("heldout", False, "hid", "heldout-group")])) as partition, \
+             patch.object(service, "_train_presence") as train:
+            with self.assertRaisesRegex(Aborted, "counts that do not match"):
+                service._run_presence_training_cycle(request, context)
+        self.assertEqual(context.code, grpc.StatusCode.FAILED_PRECONDITION)
+        partition.assert_called_once()
+        train.assert_not_called()
 
 
 class PresenceRuntimeClientTests(unittest.TestCase):
