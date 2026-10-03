@@ -156,7 +156,15 @@ class StreamedModelCache:
                 raise RuntimeError(
                     "Model parameter stream returned a different presence model ID."
                 )
-            if cached is not None and cached.cache_key == snapshot.cache_key:
+            # Presence responses publish the artifact checksum, so provenance-only
+            # artifact changes must replace the wrapper even when model math matches.
+            same_artifact_identity = (
+                cached is not None
+                and cached.cache_key == snapshot.cache_key
+                and cached.model.snapshot.metadata.get("artifact_checksum")
+                == snapshot.metadata.get("artifact_checksum")
+            )
+            if same_artifact_identity:
                 model = cached.model
             else:
                 model = StreamedPresenceModel(snapshot)

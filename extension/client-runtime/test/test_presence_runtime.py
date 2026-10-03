@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import sys
 import unittest
 from dataclasses import replace
@@ -22,6 +23,7 @@ from privoke_model.presence import (
     PRESENCE_ARCHITECTURE,
     PRESENCE_TASK,
     PROFILE_MAX_FEATURES,
+    SparsePresenceModel,
     TOKEN_PATTERN,
     presence_tensor_shapes,
 )
@@ -165,6 +167,42 @@ class PresenceRuntimeTests(unittest.TestCase):
         self.assertEqual(calls, 1)
         self.assertEqual(cache._models, {})
         self.assertEqual(len(cache._presence_models), 1)
+        original_probability = first.predict_probability("diagnosis mail")
+
+        updated = _artifact()
+        updated["version"] = "v2"
+        updated["config"]["threshold"] = 0.8
+        updated["parameters"]["head.presence.bias"]["values"] = [1.0]
+        updated["checksum"] = artifact_checksum(
+            {key: value for key, value in updated.items() if key != "checksum"}
+        )
+        snapshot = _snapshot(updated)
+        refreshed = cache.presence_model_for_streamer(streamer, force_refresh=True)
+        self.assertIsNot(refreshed, first)
+        self.assertEqual(refreshed.version, "v2")
+        self.assertEqual(refreshed.threshold, 0.8)
+        self.assertNotEqual(refreshed.predict_probability("diagnosis mail"), original_probability)
+        self.assertEqual(first.predict_probability("diagnosis mail"), original_probability)
+        self.assertEqual(calls, 2)
+
+        checksum_changed = _artifact()
+        checksum_changed["version"] = "v2"
+        checksum_changed["metadata"]["source_revision"] = "new-provenance"
+        checksum_changed["config"]["threshold"] = 0.8
+        checksum_changed["parameters"]["head.presence.bias"]["values"] = [1.0]
+        checksum_changed["checksum"] = artifact_checksum(
+            {key: value for key, value in checksum_changed.items() if key != "checksum"}
+        )
+        old_checksum = refreshed.snapshot.metadata["artifact_checksum"]
+        old_refreshed_probability = refreshed.predict_probability("diagnosis mail")
+        snapshot = _snapshot(checksum_changed)
+        provenance_refreshed = cache.presence_model_for_streamer(streamer, force_refresh=True)
+        self.assertIsNot(provenance_refreshed, refreshed)
+        self.assertEqual(provenance_refreshed.snapshot.metadata["artifact_checksum"], checksum_changed["checksum"])
+        self.assertNotEqual(provenance_refreshed.snapshot.metadata["artifact_checksum"], old_checksum)
+        self.assertEqual(provenance_refreshed.predict_probability("diagnosis mail"), old_refreshed_probability)
+        self.assertEqual(refreshed.predict_probability("diagnosis mail"), old_refreshed_probability)
+        self.assertEqual(calls, 3)
 
     def test_binary_gradient_train_and_holdout_group_guards(self):
         artifact = _artifact()
@@ -256,6 +294,10 @@ class PresenceRuntimeTests(unittest.TestCase):
             PresenceTrainingExample("mail meeting", False, 1.0, "train-a"),
             PresenceTrainingExample("diagnosis mail", True, 1.0, "train-b"),
         )
+        heldout = (
+            PresenceTrainingExample("safe meeting", False, 1.0, "test-a"),
+            PresenceTrainingExample("diagnosis safe", True, 1.0, "test-b"),
+        )
         with patch(
             "src.LLM.privoke.presence_training.GLOBAL_STREAMED_MODEL_CACHE.presence_model_for_training",
             return_value=model,
@@ -265,6 +307,7 @@ class PresenceRuntimeTests(unittest.TestCase):
                 model_id=model.model_id,
                 learning_rate=0.1,
                 max_gradient=0.2,
+                heldout_examples=heldout,
             )
         updated = apply_parameter_update(
             artifact,
@@ -274,17 +317,42 @@ class PresenceRuntimeTests(unittest.TestCase):
         )
         self.assertEqual(updated["parameters"]["head.presence.bias"]["shape"], [1])
         self.assertTrue(all(name.startswith("head.presence.") for name in batch.gradients))
-        published_parameters = {
-            name: tuple(tensor["values"])
-            for name, tensor in updated["parameters"].items()
-        }
-        published_shapes = {
-            name: tuple(tensor["shape"])
-            for name, tensor in updated["parameters"].items()
-        }
+        reloaded_model = SparsePresenceModel.from_artifact(updated)
         self.assertEqual(
-            parameter_fingerprint(published_parameters, published_shapes),
+            parameter_fingerprint(reloaded_model.parameters, reloaded_model.shapes),
             batch.metadata["candidate_parameter_fingerprint"],
+        )
+        predictions = [
+            reloaded_model.predict_probability(item.text) >= reloaded_model.threshold
+            for item in heldout
+        ]
+        probabilities = [reloaded_model.predict_probability(item.text) for item in heldout]
+        expected_heldout_loss = math.fsum(
+            -math.log(
+                min(1.0 - 1e-15, max(1e-15, probability))
+                if item.target
+                else 1.0 - min(1.0 - 1e-15, max(1e-15, probability))
+            ) * item.weight
+            for probability, item in zip(probabilities, heldout)
+        ) / math.fsum(item.weight for item in heldout)
+        self.assertAlmostEqual(
+            batch.metrics["candidate_heldout_average_loss"],
+            expected_heldout_loss,
+            places=12,
+        )
+        self.assertEqual(
+            batch.metrics["candidate_heldout_exact_match_rate"],
+            sum(predicted == item.target for predicted, item in zip(predictions, heldout)) / len(heldout),
+        )
+        self.assertEqual(
+            batch.metrics["candidate_heldout_present_recall"],
+            sum(predicted for predicted, item in zip(predictions, heldout) if item.target)
+            / sum(item.target for item in heldout),
+        )
+        self.assertEqual(
+            batch.metrics["candidate_heldout_absent_specificity"],
+            sum(not predicted for predicted, item in zip(predictions, heldout) if not item.target)
+            / sum(not item.target for item in heldout),
         )
 
     def test_detection_rpc_returns_only_presence_and_rejects_contextual_model(self):
