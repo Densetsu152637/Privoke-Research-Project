@@ -53,8 +53,41 @@ def artifact_fingerprint(artifact):
 
 def git_revision():
     result = subprocess.run(["git", "-c", f"safe.directory={ROOT.as_posix()}", "rev-parse", "HEAD"],
-                            cwd=ROOT, capture_output=True, text=True, check=True)
+                            cwd=ROOT, capture_output=True, text=True, encoding="utf-8", check=True)
     return result.stdout.strip()
+
+
+def run_text_process(command, *, cwd, input_text=None):
+    """Run a text process with deterministic UTF-8 stdin/stdout/stderr transport."""
+    return subprocess.run(command, cwd=cwd, input=input_text, capture_output=True,
+                          text=True, encoding="utf-8")
+
+
+def run_phase(name, command, *, output, run_manifest, persist, input_text=None):
+    """Run and persist one phase, including failures raised before a process result exists."""
+    try:
+        result = run_text_process(command, cwd=ROOT, input_text=input_text)
+    except Exception as exc:
+        failure = f"{type(exc).__name__}: {exc}"
+        stderr = failure + "\n"
+        (output / f"{name}.stdout.log").write_text("", encoding="utf-8")
+        (output / f"{name}.stderr.log").write_text(stderr, encoding="utf-8")
+        run_manifest["phases"][name] = {"returncode": None, "command": command,
+            "transport_exception": failure,
+            "stdout_sha256": hashlib.sha256(b"").hexdigest(),
+            "stderr_sha256": hashlib.sha256(stderr.encode("utf-8")).hexdigest()}
+        persist()
+        raise RuntimeError(f"Phase {name} transport failed; see its stdout/stderr logs: {failure}") from exc
+    (output / f"{name}.stdout.log").write_text(result.stdout, encoding="utf-8")
+    (output / f"{name}.stderr.log").write_text(result.stderr, encoding="utf-8")
+    run_manifest["phases"][name] = {"returncode": result.returncode,
+        "command": command,
+        "stdout_sha256": hashlib.sha256(result.stdout.encode("utf-8")).hexdigest(),
+        "stderr_sha256": hashlib.sha256(result.stderr.encode("utf-8")).hexdigest()}
+    persist()
+    if result.returncode:
+        raise RuntimeError(f"Phase {name} failed with exit code {result.returncode}; see its stdout/stderr logs.")
+    return result.stdout
 
 
 def output_container_path(path):
@@ -134,17 +167,8 @@ def main():
     persist()
 
     def phase(name, command, *, input_text=None):
-        result = subprocess.run(command, cwd=ROOT, input=input_text, capture_output=True, text=True)
-        (output / f"{name}.stdout.log").write_text(result.stdout, encoding="utf-8")
-        (output / f"{name}.stderr.log").write_text(result.stderr, encoding="utf-8")
-        run_manifest["phases"][name] = {"returncode": result.returncode,
-            "command": command,
-            "stdout_sha256": hashlib.sha256(result.stdout.encode()).hexdigest(),
-            "stderr_sha256": hashlib.sha256(result.stderr.encode()).hexdigest()}
-        persist()
-        if result.returncode:
-            raise RuntimeError(f"Phase {name} failed with exit code {result.returncode}; see its stdout/stderr logs.")
-        return result.stdout
+        return run_phase(name, command, output=output, run_manifest=run_manifest,
+                         persist=persist, input_text=input_text)
 
     try:
         run_manifest["source_revision"] = git_revision()
