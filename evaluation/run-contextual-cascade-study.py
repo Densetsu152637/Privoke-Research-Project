@@ -57,10 +57,10 @@ os.replace(t,p); fd=os.open(str(p.parent),os.O_RDONLY)
 try: os.fsync(fd)
 finally: os.close(fd)
 """
-IDENTITY_PROBE = """import json,sys,grpc,time
+IDENTITY_PROBE = """import json,sys,grpc,time,math
 sys.path.insert(0,'/workspace/extension/client-runtime/generated')
 from privoke.v1 import runtime_pb2 as pb,runtime_pb2_grpc as stubs
-e=json.load(sys.stdin); q=pb.AnalyzePromptRequest(request_id='cascade-identity-probe',text='A public example sentence.',source='contextual-cascade-probe',semantic_model_id=e['context']['model_id'],semantic_presence_gate=pb.SemanticPresenceGate(model_id=e['presence']['model_id'],threshold=0.0),regex_execution_order=pb.REGEX_EXECUTION_ORDER_FIRST)
+e=json.load(sys.stdin); q=pb.AnalyzePromptRequest(request_id='cascade-identity-probe',text='A public example sentence.',source='contextual-cascade-probe',semantic_model_id=e['context']['model_id'],semantic_presence_gate=pb.SemanticPresenceGate(model_id=e['presence']['model_id'],threshold=0.0),regex_execution_order=pb.REGEX_EXECUTION_ORDER_FIRST,layers=[pb.DETECTION_LAYER_SEMANTIC])
 deadline=time.monotonic()+e.pop('_probe_retry_seconds',10.0); last=None; success=False
 with grpc.insecure_channel('client-runtime:50054') as ch:
  s=stubs.PrivokeRuntimeServiceStub(ch)
@@ -68,10 +68,16 @@ with grpc.insecure_channel('client-runtime:50054') as ch:
   try:
    r=s.AnalyzePrompt(q,timeout=3)
    x=next((z for z in r.layers if z.layer==pb.DETECTION_LAYER_SEMANTIC),None)
-   if not r.error and x is not None and x.status!=pb.DETECTION_LAYER_STATUS_ERROR and not x.error and x.HasField('semantic_presence_gate'):
+   if r.request_id==q.request_id and not r.error and x is not None and x.status=='ok' and not x.error and x.HasField('semantic_presence_gate'):
     t=x.semantic_presence_gate
     got={'context':{'model_id':t.contextual_model_id,'model_version':t.contextual_model_version,'artifact_checksum':t.contextual_artifact_checksum,'parameter_fingerprint':t.contextual_parameter_fingerprint},'presence':{'model_id':t.model_id,'model_version':t.model_version,'artifact_checksum':t.artifact_checksum,'parameter_fingerprint':t.parameter_fingerprint,'threshold':t.model_threshold},'status':int(t.status),'error':t.error,'decision_threshold':t.decision_threshold}
-    if got['context']==e['context'] and {k:got['presence'][k] for k in e['presence']}==e['presence'] and got['status']==pb.SEMANTIC_PRESENCE_GATE_STATUS_APPLIED and not got['error'] and got['decision_threshold']==0.0:
+    fields=('probability','model_threshold','decision_threshold')
+    optional=all(t.HasField(k) for k in fields)
+    finite=optional and all(math.isfinite(getattr(t,k)) and 0.0<=getattr(t,k)<=1.0 for k in fields)
+    if (got['context']==e['context'] and {k:got['presence'][k] for k in e['presence']}==e['presence']
+        and got['status']==pb.SEMANTIC_PRESENCE_GATE_STATUS_APPLIED and not got['error']
+        and finite and t.predicted_label==pb.ANNOTATION_PRESENCE_PRESENT
+        and t.decision_threshold==0.0):
      print(json.dumps({'context':got['context'],'presence':got['presence']},sort_keys=True)); success=True; break
     last='identity_or_gate_mismatch'
    else: last='runtime_error_or_missing_gate_trace'

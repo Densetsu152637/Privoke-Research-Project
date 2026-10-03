@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import contextlib
 import importlib.util
+import io
 import json
 from pathlib import Path
+import sys
 import tempfile
+import types
 import unittest
 from unittest.mock import patch
 
@@ -264,6 +268,58 @@ class ContextualCascadeRunnerTests(unittest.TestCase):
                 backend._job(["compose", "run"], name="cascade-test-absent", stage="collect-validation",
                     pair="original-efficient", study_root=Path("unused"), output=Path("unused"))
         self.assertFalse(backend.evaluator_job_outcome_unknown)
+
+    def test_identity_probe_against_real_generated_protobuf_and_mocked_stub(self):
+        generated = ROOT / "extension/client-runtime/generated"
+        if not (generated / "privoke/v1/runtime_pb2.py").is_file():
+            self.skipTest("Generated runtime protobuf package is supplied in the evaluator image.")
+        sys.path.insert(0, str(generated))
+        import grpc
+        from privoke.v1 import runtime_pb2 as pb, runtime_pb2_grpc as stubs
+
+        expected = {
+            "context": {"model_id": "privoke-balanced", "model_version": "v0.3.0",
+                        "artifact_checksum": "c" * 64, "parameter_fingerprint": "f" * 64},
+            "presence": {"model_id": "privoke-presence-efficient", "model_version": "v1",
+                         "artifact_checksum": "a" * 64, "parameter_fingerprint": "b" * 64,
+                         "threshold": .5},
+            "_probe_retry_seconds": 1.0,
+        }
+        trace = pb.SemanticPresenceGateTrace(
+            status=pb.SEMANTIC_PRESENCE_GATE_STATUS_APPLIED,
+            model_id=expected["presence"]["model_id"], model_version=expected["presence"]["model_version"],
+            artifact_checksum=expected["presence"]["artifact_checksum"],
+            parameter_fingerprint=expected["presence"]["parameter_fingerprint"],
+            probability=.75, model_threshold=.5, decision_threshold=0.0,
+            predicted_label=pb.ANNOTATION_PRESENCE_PRESENT,
+            contextual_model_id=expected["context"]["model_id"],
+            contextual_model_version=expected["context"]["model_version"],
+            contextual_artifact_checksum=expected["context"]["artifact_checksum"],
+            contextual_parameter_fingerprint=expected["context"]["parameter_fingerprint"],
+        )
+        response = pb.AnalyzePromptResponse(request_id="cascade-identity-probe", error="", layers=[
+            pb.RuntimeLayerExecution(layer=pb.DETECTION_LAYER_SEMANTIC, status="ok", error="",
+                                     semantic_presence_gate=trace)])
+        class Stub:
+            def AnalyzePrompt(self, request, timeout):
+                self.request = request
+                self.timeout = timeout
+                return response
+        stub = Stub()
+        class Channel:
+            def __enter__(self): return self
+            def __exit__(self, *_args): return False
+        out = io.StringIO()
+        # The script imports from the generated package itself; only the channel and stub are replaced.
+        with patch.object(grpc, "insecure_channel", return_value=Channel()), \
+             patch.object(stubs, "PrivokeRuntimeServiceStub", return_value=stub), \
+             patch.object(sys, "stdin", io.StringIO(json.dumps(expected))), \
+             contextlib.redirect_stdout(out):
+            exec(runner.IDENTITY_PROBE, {"__name__": "__main__"})
+        self.assertEqual(stub.request.request_id, "cascade-identity-probe")
+        self.assertEqual(stub.request.semantic_presence_gate.threshold, 0.0)
+        self.assertEqual(list(stub.request.layers), [pb.DETECTION_LAYER_SEMANTIC])
+        self.assertEqual(json.loads(out.getvalue()), {"context": expected["context"], "presence": expected["presence"]})
 
 
 if __name__ == "__main__":
