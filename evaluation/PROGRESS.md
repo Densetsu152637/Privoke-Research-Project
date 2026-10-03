@@ -63,6 +63,19 @@ descriptive intervals, hashes and scope limits. The next prospective branch is
 a bounded binary-head/update-interface investigation with contextual and policy
 validation, not direct deployment of the offline probe.
 
+The newest local evidence package is
+`evaluation/artifacts/research-20261004-profiles-representation.zip`
+(32,120,849 bytes, 886 records; SHA-256
+`333e3fd6fb7891a64953b98dc954fabbff1e7edc95f6696aeefa42358b1bc207`), with
+scope and provenance in [the artifact locator](../paper/research/artifacts.md)
+and [external manifest](../paper/research/profiles-representation-artifact-manifest.json).
+It preserves profile inference plus the offline v3 diagnostic and pre-fit
+failures; it does not contain final-scoring reports. The research goal remains
+unfinished: live selected recall/specificity are 90.53%/29.41%, offline
+probe-plus-rule diagnostic values are 94.70%/45.38%, and final data remain
+unscored. The next bounded step is a prospective interface/evidence
+investigation with contextual and policy validation, not deployment.
+
 Source `c035bc7` and766 file records are preserved in the new18.0MB local package,
 `evaluation/artifacts/research-20261003-public-negative.zip`. Exact hashes and
 scope are in `paper/research/artifacts.md` and the new external manifest. The

@@ -1,5 +1,22 @@
 # Local development evidence package
 
+## Profiles and frozen-representation diagnostic — 4 October 2026
+
+The newest local package is
+`evaluation/artifacts/research-20261004-profiles-representation.zip`
+(32,120,849 bytes; SHA-256
+`333e3fd6fb7891a64953b98dc954fabbff1e7edc95f6696aeefa42358b1bc207`).
+[Its external manifest](profiles-representation-artifact-manifest.json) lists
+886 file records and source revision
+`4e675228cfb416c0f2f3ad6d74bd0a2a27342b9e`. ZIP integrity and every recorded
+file hash were verified. The archive preserves the original-profile inference
+study, offline frozen-representation v3 diagnostic and its pre-fit v1/v2
+failures, predictions and scaler/selection artifacts, protected inputs, and
+test logs. No final-scoring report is included. This is local evidence
+preservation; it does not authorize external upload or redistribution of raw
+benchmark examples, and it is not a clean-environment reproduction claim.
+The earlier packages below remain unchanged.
+
 ## Public-negative study checkpoint
 
 The subsequent local package is
