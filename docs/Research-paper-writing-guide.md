@@ -2,6 +2,11 @@
 
 Reviewed 3 October 2026. Use alongside the [research completion plan](Research-completion-plan.md), [evaluation guide](README.Evaluation.md) and current [`paper/main.tex`](../paper/main.tex). This guide recommends how to make the paper credible and easy to review; it cannot guarantee acceptance. It does not report new experimental results.
 
+A [methodology draft](research-methodology-draft.md) records the implemented
+evaluation design, development amendments and pending evidence. Review its
+statuses against the final frozen experiment before incorporating it into the
+manuscript.
+
 ## Does the methodology need to change?
 
 **Yes: strengthen the empirical evaluation and align claims with what is measured. The layered architecture does not need to be replaced merely to publish with IEEE.** Retain the implementation if it answers a worthwhile question. Change the experimental design wherever it cannot establish the proposed contribution.

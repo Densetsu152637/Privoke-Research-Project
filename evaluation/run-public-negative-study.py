@@ -29,15 +29,42 @@ def restore(content, log, compose=COMPOSE):
          log=log, compose=compose)
 
 
-def measurements(directory):
+def locked_prediction_keys():
+    path = ROOT / "evaluation/results/locked-public/development.jsonl"
+    content = path.read_bytes()
+    manifest = json.loads(path.with_name("manifest.json").read_text(encoding="utf-8"))
+    if hashlib.sha256(content).hexdigest() != manifest["partitions"]["development"]["sha256"]:
+        raise ValueError("Development input differs from its locked digest.")
+    rows = [json.loads(line) for line in content.decode("utf-8").splitlines() if line.strip()]
+    keys = {row["id"]: (row["expected_has_pii"], row["group_id"]) for row in rows}
+    if len(keys) != 502 or len(rows) != len(keys):
+        raise ValueError("Locked development IDs must be distinct and complete.")
+    return keys
+
+
+def measurements(directory, expected=None):
+    expected = locked_prediction_keys() if expected is None else expected
     result = {}
     for layer in LAYERS:
         reports = list(directory.glob(f"local-jsonl_{layer}_*_results.json"))
         if len(reports) != 1:
             raise ValueError(f"Expected one {layer} report in {directory}.")
         report = json.loads(reports[0].read_text(encoding="utf-8"))
-        if report["errors"] or report["metrics"]["evaluated_samples"] != 502:
+        rows = report["metadata"]["predictions"]
+        keys = {row["example_id"]: (row["expected_has_pii"], row["group_id"]) for row in rows}
+        if len(rows) != len(keys) or keys != expected:
+            raise ValueError("Candidate IDs, labels or source groups differ from locked development.")
+        if (report["errors"] or report["metrics"]["evaluated_samples"] != len(expected)
+                or any(row["status"] != "ok" for row in rows)):
             raise ValueError("Only complete zero-error matched development runs are eligible.")
+        counts = {
+            "true_positives": sum(row["expected_has_pii"] and row["detected_sensitive"] for row in rows),
+            "true_negatives": sum(not row["expected_has_pii"] and not row["detected_sensitive"] for row in rows),
+            "false_positives": sum(not row["expected_has_pii"] and row["detected_sensitive"] for row in rows),
+            "false_negatives": sum(row["expected_has_pii"] and not row["detected_sensitive"] for row in rows),
+        }
+        if any(report["metrics"][key] != value for key, value in counts.items()):
+            raise ValueError("Candidate confusion counts differ from raw predictions.")
         result[layer] = report["metrics"]
     return result
 

@@ -130,8 +130,9 @@ NER predictions without deploying a normalizer change.
 
 Completed attempts and current selected artifact are recorded in
 [false-positive experiments](../paper/research/false-positive-experiments.md).
-The integrated live result is 93.56% recall and 22.69% specificity; final remains
-unscored and the 90% specificity development target is not met.
+The preceding extension's integrated live result is 93.56% recall and 22.69%
+specificity. The subsequent public-negative coverage study is described below;
+final remains unscored and the specificity development target remains unmet.
 
 ## Local evidence preservation
 
@@ -179,3 +180,18 @@ Do not reuse these fixed request/run IDs to restart an interrupted study.
 For a corrected launch, pass a fresh `--experiment-prefix` (up to40 characters);
 the original launch and its model-restoration record remain preserved. Container
 artifact paths use forward slashes regardless of the host operating system.
+
+When the completed study meets its extension trigger, call the selected profile
+for at most two additional cycles without rebuilding serving images:
+
+```powershell
+python evaluation/run-public-negative-curve.py --study-manifest evaluation/results/STUDY_PREFIX/selection.json --experiment-id UNIQUE_CURVE_ID
+```
+
+This caller independently validates the scored reports against locked ID/label/
+group keys and recomputed confusion counts before replaying the prospective
+ranking. It rejects a changed selected artifact or an unmet trigger, preserves
+accepted-but-unscored failures, and restores the best eligible checkpoint after
+errors. It stops at rejection, pipeline recall below90%, or no strict specificity
+improvement. These criteria belong to this study; the older `run-training-curve.py`
+retains its earlier, stricter no-regression criteria.
