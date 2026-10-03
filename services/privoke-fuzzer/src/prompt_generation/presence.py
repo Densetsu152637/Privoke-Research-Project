@@ -63,8 +63,8 @@ def load_presence_dataset(dataset_path: str | Path) -> list[PresenceExample]:
 def generate_presence_training_partition(count: int, heldout_count: int, seed: int,
                                          dataset_path: str | Path):
     """Select disjoint normalized texts and source groups, retaining both strata."""
-    if count <= 0 or heldout_count < 2:
-        raise ValueError("Presence training requires positive training and at least two held-out examples.")
+    if count < 2 or heldout_count < 2:
+        raise ValueError("Presence training requires at least two training and two held-out examples.")
     if not dataset_path:
         raise ValueError("A prepared presence curriculum dataset path is required.")
     rows = load_presence_dataset(dataset_path)

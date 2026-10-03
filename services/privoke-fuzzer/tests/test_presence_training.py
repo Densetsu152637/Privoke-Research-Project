@@ -115,6 +115,18 @@ class PresencePartitionTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Presence dataset cannot supply"):
                 generate_presence_training_partition(2, 4, 7, path)
 
+    def test_presence_requires_two_training_examples_and_rejects_empty_curriculum(self):
+        request = parameters_pb2.FuzzerTrainingRequest(
+            request_id="small", source_id="evaluation", model_id="privoke-presence-balanced", prompt_count=1
+        )
+        with self.assertRaisesRegex(ValueError, "at least two"):
+            validate_presence_training_request(request, "privoke-presence-balanced")
+        with tempfile.TemporaryDirectory() as directory:
+            empty = Path(directory) / "empty.jsonl"
+            empty.write_text("", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "two examples in each binary stratum"):
+                generate_presence_training_partition(2, 2, 0, empty)
+
 
 class PresenceGuardAndReplayTests(unittest.TestCase):
     def test_presence_guard_requires_finite_consistent_counts_and_strata(self):
