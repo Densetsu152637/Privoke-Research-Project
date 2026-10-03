@@ -16,12 +16,19 @@ spec.loader.exec_module(PREP)
 def nemotron(n=1, text="Alice record", spans=None):
     return {"uid": f"{n:032x}", "text": text, "locale": "us",
             "spans": [{"start": 0, "end": 5, "label": "PERSON", "text": text[:5]}] if spans is None else spans,
-            "domain": "test", "document_type": "note", "document_format": "text"}
+            "domain": "test", "document_type": "note", "document_format": "text", "document_description": "test note"}
 
 
 def meddies(n=1, text="Alice clinic", label=None):
     return {"raw": text, "language": "english", "label": {"PERSON": [text[:5]]} if label is None else label,
             "document_type": "note", "document_label": str(n), "text_format": "text", "edge_case": False}
+
+
+def nemotron_pair(n=1, text="Alice record"):
+    us = nemotron(n, text)
+    intl = nemotron(n, text + " international")
+    intl["locale"] = "intl"
+    return [us, intl]
 
 
 def audit():
@@ -45,8 +52,9 @@ class ExternalPreparationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             pool = PREP.CandidatePool(Path(directory) / "pool.sqlite")
             try:
-                pool.scan("nemotron-pii", [nemotron(17)], protected, expected_count=1)
-                self.assertEqual(pool.counts["nemotron-pii"]["protected_overlap"], 1)
+                pool.scan("nemotron-pii", nemotron_pair(17), protected, expected_count=2)
+                pool.eliminate_conflicts()
+                self.assertEqual(pool.counts["nemotron-pii"]["protected_overlap"], 2)
                 self.assertEqual(pool.db.execute("SELECT SUM(eligible) FROM rows").fetchone()[0], 0)
             finally:
                 pool.close()
@@ -80,17 +88,17 @@ class ExternalPreparationTests(unittest.TestCase):
                 pool.close()
 
     def test_late_ambiguous_uid_and_conflicting_duplicate_exclude_all(self):
-        rows = [nemotron(1, "Alice first"), nemotron(2, "Alice clean"), nemotron(3, "Alice late")]
-        rows += [nemotron(1, "Alice other"), nemotron(4, "Alice clean", spans=[])]
+        rows = [nemotron(1, "Alice first"), nemotron(2, "Alice clean"), *nemotron_pair(3, "Alice late")]
+        rows += [nemotron(1, "Alice other"), nemotron(2, "Alice clean", spans=[])]
         with tempfile.TemporaryDirectory() as directory:
             pool = PREP.CandidatePool(Path(directory) / "pool.sqlite")
             try:
-                pool.scan("nemotron-pii", iter(rows), PREP.empty_keys(), expected_count=5)
+                pool.scan("nemotron-pii", iter(rows), PREP.empty_keys(), expected_count=6)
                 pool.eliminate_conflicts()
-                selected = pool.db.execute("SELECT identifier FROM rows WHERE eligible=1").fetchall()
-                self.assertEqual(selected, [(f"nemotron-pii:{3:032x}",)])
-                self.assertEqual(pool.counts["nemotron-pii"]["ambiguous_native_identity"], 2)
-                self.assertEqual(pool.counts["nemotron-pii"]["conflicting_annotation_variants"], 1)
+                self.assertEqual(pool.db.execute("SELECT COUNT(*) FROM rows WHERE eligible=1").fetchone()[0], 2)
+                self.assertEqual(pool.counts["nemotron-pii"]["verified_variant_parents"], 1)
+                self.assertEqual(pool.counts["nemotron-pii"]["excluded_variant_parents"], 2)
+                self.assertEqual(pool.counts["nemotron-pii"]["unverified_native_variant_parent_rows"], 3)
             finally:
                 pool.close()
 
@@ -114,15 +122,79 @@ class ExternalPreparationTests(unittest.TestCase):
             self.assertEqual(candidate["language_provenance"], "pinned_source_card_english")
             self.assertEqual(candidate["locale"], locale)
 
+    def test_verified_locale_variants_unique_ids_same_parent_and_no_split(self):
+        rows = nemotron_pair(12)
+        identities = [PREP.source_identity("nemotron-pii", row, ordinal) for ordinal, row in enumerate(rows)]
+        self.assertNotEqual(identities[0][0], identities[1][0])
+        self.assertEqual(identities[0][1], f"nemotron-pii:{12:032x}")
+        self.assertEqual(identities[0][1], identities[1][1])
+        self.assertEqual(identities[0], PREP.source_identity("nemotron-pii", rows[0], 999))
+        with tempfile.TemporaryDirectory() as directory:
+            pool = PREP.CandidatePool(Path(directory) / "pool.sqlite")
+            try:
+                pool.scan("nemotron-pii", rows, PREP.empty_keys(), expected_count=2)
+                pool.eliminate_conflicts()
+                self.assertEqual(pool.counts["nemotron-pii"]["verified_variant_parents"], 1)
+                pool.assign_groups(heldout_cap=2)
+                parts = pool.dedupe_and_sample(caps={"nemotron-pii": 2, "meddies-pii": 1}, heldout_cap=2)
+                self.assertEqual(len(parts["nemotron-pii_heldout"]), 2)
+                self.assertEqual(parts["train"], [])
+                PREP.recheck_partitions(parts, PREP.empty_keys())
+            finally:
+                pool.close()
+
+    def test_unverified_parent_shapes_or_annotations_exclude_all_variants(self):
+        cases = {}
+        cases["single"] = nemotron_pair()[:1]
+        cases["third_variant"] = nemotron_pair() + [nemotron(1, "Alice third")]
+        cases["duplicate_locale"] = nemotron_pair()
+        cases["duplicate_locale"][1]["locale"] = "us"
+        cases["unknown_locale"] = nemotron_pair()
+        cases["unknown_locale"][1]["locale"] = "other"
+        cases["unknown_annotation"] = nemotron_pair()
+        cases["unknown_annotation"][1]["spans"] = []
+        cases["invalid_annotation"] = nemotron_pair()
+        cases["invalid_annotation"][1]["spans"][0]["text"] = "Mismatch"
+        for field in ("domain", "document_type", "document_format", "document_description"):
+            cases[field + "_mismatch"] = nemotron_pair()
+            cases[field + "_mismatch"][1][field] = "Other"
+            cases[field + "_missing"] = nemotron_pair()
+            for row in cases[field + "_missing"]:
+                row.pop(field)
+        for name, rows in cases.items():
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                pool = PREP.CandidatePool(Path(directory) / "pool.sqlite")
+                try:
+                    pool.scan("nemotron-pii", rows, PREP.empty_keys(), expected_count=len(rows))
+                    pool.eliminate_conflicts()
+                    self.assertEqual(pool.counts["nemotron-pii"]["excluded_variant_parents"], 1)
+                    self.assertEqual(pool.db.execute("SELECT SUM(eligible) FROM rows").fetchone()[0], 0)
+                finally:
+                    pool.close()
+
+    def test_same_normalized_text_conflicting_category_annotations_still_excluded(self):
+        rows = nemotron_pair()
+        rows[1]["text"] = rows[0]["text"]
+        rows[1]["spans"][0]["label"] = "OTHER"
+        with tempfile.TemporaryDirectory() as directory:
+            pool = PREP.CandidatePool(Path(directory) / "pool.sqlite")
+            try:
+                pool.scan("nemotron-pii", rows, PREP.empty_keys(), expected_count=2)
+                pool.eliminate_conflicts()
+                self.assertEqual(pool.db.execute("SELECT SUM(eligible) FROM rows").fetchone()[0], 0)
+                self.assertEqual(pool.counts["nemotron-pii"]["conflicting_annotation_variants"], 2)
+            finally:
+                pool.close()
+
     def test_group_assignment_caps_and_global_crosssource_dedupe(self):
         with tempfile.TemporaryDirectory() as directory:
             pool = PREP.CandidatePool(Path(directory) / "pool.sqlite")
             try:
-                pool.scan("nemotron-pii", [nemotron(1, "Alice duplicate"), nemotron(2, "Alice two"), nemotron(3, "Alice three")], PREP.empty_keys(), expected_count=3)
+                pool.scan("nemotron-pii", nemotron_pair(1, "Alice duplicate") + nemotron_pair(2, "Alice two") + nemotron_pair(3, "Alice three"), PREP.empty_keys(), expected_count=6)
                 pool.scan("meddies-pii", [meddies(1, "Alice duplicate"), meddies(2, "Alice med two"), meddies(3, "Alice med three")], PREP.empty_keys(), expected_count=3)
                 pool.eliminate_conflicts()
-                pool.assign_groups(heldout_cap=1)
-                partitions = pool.dedupe_and_sample(caps={"nemotron-pii": 2, "meddies-pii": 2}, heldout_cap=1)
+                pool.assign_groups(heldout_cap=2)
+                partitions = pool.dedupe_and_sample(caps={"nemotron-pii": 2, "meddies-pii": 2}, heldout_cap=2)
                 PREP.recheck_partitions(partitions, PREP.empty_keys())
                 selected = [r for rows in partitions.values() for r in rows]
                 self.assertEqual(len({r["text_key"] for r in selected}), len(selected))
@@ -255,7 +327,7 @@ class ExternalPreparationTests(unittest.TestCase):
             protocol.write_bytes(b"fixed prospective protocol\n")
             bootstrap = directory / "bootstrap.py"
             bootstrap.write_text("def training_samples():\n    return [(f'anchor {i}', None) for i in range(43)]\n")
-            pins = {source: (repo, revision, config, 3) for source, (repo, revision, config, _) in PREP.PINS.items()}
+            pins = {source: (repo, revision, config, 6 if source == "nemotron-pii" else 3) for source, (repo, revision, config, _) in PREP.PINS.items()}
             with patch.object(PREP, "PINS", pins):
                 receipt = audit()
                 source_audit = directory / "audit.json"
@@ -264,20 +336,20 @@ class ExternalPreparationTests(unittest.TestCase):
                 args = SimpleNamespace(output=output, source_revision="c" * 40, protocol_file=protocol,
                                        protocol_sha256=PREP.sha(protocol), source_audit=source_audit,
                                        prepared_reference=references, bootstrap_source=bootstrap)
-                supplied = {"nvidia/Nemotron-PII": [nemotron(n, f"Alice nem {n}") for n in (1, 2, 3)],
+                supplied = {"nvidia/Nemotron-PII": [row for n in (1, 2, 3) for row in nemotron_pair(n, f"Alice nem {n}")],
                             "Meddies/meddies-pii": [meddies(n, f"Alice med {n}") for n in (1, 2, 3)]}
                 # The immutable audit schema is checked against these synthetic complete schemas.
                 for entry in receipt["sources"]:
                     entry["file"]["schema_fields"] = ["schema", *supplied[entry["repo_id"]][0].keys()]
                 source_audit.write_text(json.dumps(receipt, indent=2) + "\n")
                 with patch.object(PREP, "ROOT", directory), patch.object(PREP, "REFERENCE", expected), \
-                     patch.object(PREP, "HELDOUT_CAP", 1), patch.object(PREP, "CAPS", {source: 2 for source in pins}), \
+                     patch.object(PREP, "HELDOUT_CAP", 2), patch.object(PREP, "CAPS", {"nemotron-pii": 4, "meddies-pii": 2}), \
                      patch.object(PREP, "reproduce_protection", return_value=({"aggregate": {"selected": 1000}, "sorted_records_sha256": "a" * 64}, PREP.empty_keys())), \
                      patch.object(PREP, "source_rows", side_effect=lambda entry: iter(supplied[entry["repo_id"]])), \
                      patch.object(PREP, "sha", side_effect=lambda path: "a" * 64 if str(path).endswith("training_data.py") else PREP.hashlib.sha256(Path(path).read_bytes()).hexdigest()):
                     manifest = PREP.prepare(args)
                 self.assertEqual(manifest["status"], "prepared")
-                self.assertEqual(manifest["rows"], {"train": 5, "validation": 1, "nemotron_heldout": 1, "meddies_heldout": 1})
+                self.assertEqual(manifest["rows"], {"train": 6, "validation": 1, "nemotron_heldout": 2, "meddies_heldout": 2})
                 self.assertEqual((output / "validation.jsonl").read_bytes(), original["validation"])
                 self.assertTrue((output / "train.jsonl").read_bytes().startswith(original["train"]))
                 self.assertEqual(manifest["prepared_reference"]["train_bytes"], len(original["train"]))
