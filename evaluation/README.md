@@ -51,7 +51,31 @@ The current prospective expansion uses only pinned official training views: Nemo
 
 The target is annotated-PII presence. Added Meddies rows are positive-only, and an empty/missing annotation is not presumed clean. Neither source supplies contextual privacy-action labels. The planned cap and group/split/selection rules are documented in [the dataset expansion protocol](../paper/research/dataset-expansion-protocol.md); source scope and paper wording are in [the PII dataset analysis](../docs/PII-dataset-analysis.md) and [source audit](../paper/research/external-pii-source-audit.md). Meddies is CC-BY-NC-4.0; keep source attribution and non-commercial conditions attached to derived research artifacts.
 
-The initial v1 preparation retained 2,993 Meddies training rows and 999 held-out rows, but no Nemotron training rows and one held-out row after a blanket UID ambiguity rule; it produced 6,825 total training rows with the 3,832-row reference. No model fit or score was produced. Aggregate pre-fit source checks identified a narrowly structured two-locale Nemotron UID pair, and the prospective protocol was amended to accept only exact positive `{us, intl}` pairs with matching metadata while keeping the parent UID as the protected group. Preserve v1 as a historical preparation receipt and rerun to a fresh output under the amended protocol before fitting. These preparation counts are not performance results.
+The amended v3 preparation completed at `evaluation/results/external_pii_20261004_prepared_v3/` (manifest SHA-256 `2b8a63b168d72510ce4e61e03748bf5f7858bdc33b41d15f0095780164658e1c`): 19,993 training rows (3,832 original, 13,168 Nemotron, 2,993 Meddies), unchanged 968-row validation, and source-heldout diagnostics of 1,000 Nemotron and 999 Meddies positive rows. Protected IDs/groups/text and source partitions passed manifest integrity checks. The offline fit completed all three profiles with no convergence warnings, selected C=10 per profile, and froze profile selections before development scoring. See [the dataset analysis](../docs/PII-dataset-analysis.md) and [the evidence ledger](../paper/research/data-expansion-ledger.md) for the aggregate validation/source diagnostics and limitations. Runtime attempt v1 failed before producing scores because of a missing protobuf import; its zero-score run is retained. Runtime attempt v2 completed all 18 matched runs (17,802 RPC requests) with zero errors. Its run manifest records exact restoration, no unknown admin outcome, and unchanged runtime image identities. The scorer/RPC suite for the fix passed 11 tests with no skips; the runner suite passed 9 tests. See the [verified evidence ledger](../paper/research/data-expansion-ledger.md) for the summary hashes, measured counts, paired intervals, and limits. These results do not promote or replace the current model. The earlier v1 shortfall and interrupted v2 preparation remain preserved as historical preparation attempts, not model evidence.
+To reproduce a new runtime batch, check out the committed runtime-caller revision shown in its manifest, keep the prepared data, frozen fit, matched baseline fit, and frozen protocol unchanged, and use a fresh output directory. For example, from the repository root at the v2 caller revision:
+
+```powershell
+python evaluation/run-external-pii-study.py `
+  --fit-root evaluation/results/external_pii_profiles_20261004_v1 `
+  --prepared evaluation/results/external_pii_20261004_prepared_v3 `
+  --baseline-fit-root evaluation/results/presence_profiles_20261004_v1 `
+  --protocol-file evaluation/results/external_pii_20261004_support_v3/protocol.md `
+  --protocol-sha256 962198b384aaed7fd5fb98e10c778b295ac6403c0dd1ba5ea376c28ec786eafe `
+  --source-revision 083ee0c5fb38efdfb63ade634b185eba0c67432d `
+  --fit-source-revision 85c7f475fb8ebd1529254e4135b774d98505ddb1 `
+  --output evaluation/results/external_pii_rpc_FRESH_RUN
+```
+
+The runner writes a `run-manifest.json`; after it completes, summarize an existing study into a new JSON file with:
+
+```powershell
+python evaluation/summarize-external-pii-study.py `
+  --study evaluation/results/external_pii_rpc_20261004_v2 `
+  --output evaluation/results/external_pii_summary_FRESH_RUN.json
+```
+
+Both output locations must be fresh. Do not overwrite failed attempts or reuse the same output name for a rerun.
+The completed v2 summary is `evaluation/results/external_pii_summary_20261004_v1.json` (SHA-256 `e5e138d42f0930390702fb56a745ae0b8e7f7772791d8ed473ab56d51b250c2d`); its study manifest is at `evaluation/results/external_pii_rpc_20261004_v2/run-manifest.json` (SHA-256 `62b28e0f6c2e8006915e9bdc8498462d636e44d5bb397f8704a95d96d2ab8671`). The summary records the paired source-group bootstrap method (2,000 replicates, seed 10102026) and validation-specificity changes of −9.74 pp (efficient), +0.81 pp (balanced), and −2.03 pp (quality). The balanced 95% interval is [−1.46, +3.08] pp and includes zero; see the ledger for all intervals and raw counts. These are conditional development comparisons after validation selection.
 
 ## Controlled research runs
 
