@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import time
 from concurrent import futures
 from typing import Any, Mapping
@@ -15,7 +16,13 @@ from ..LLM.privoke.presence_training import (
 )
 from ..LLM.privoke.streamed_model import GLOBAL_STREAMED_MODEL_CACHE
 from ..LLM.privoke.training import SemanticTrainingExample, compute_semantic_gradients
-from ..pipeline import DETECTION_LAYERS, LayerExecution
+from ..config import GLOBAL_CONFIG, LLMChoice
+from ..pipeline import (
+    DETECTION_LAYERS,
+    LayerExecution,
+    SEMANTIC_PRESENCE_MODEL_IDS,
+    SemanticPresenceGateRequest,
+)
 from ..telemetry import TelemetryReporter
 from .analyzer import PromptAnalysis, analyse_prompt
 from .serialization import (
@@ -38,6 +45,7 @@ DEFAULT_MAX_GRPC_RESPONSE_BYTES = 1_048_576
 DEFAULT_MAX_TRAINING_EXAMPLES = 1_024
 DEFAULT_MAX_TRAINING_TEXT_CHARS = 200_000
 PRESENCE_MODEL_ID_PREFIX = "privoke-presence-"
+ORIGINAL_SEMANTIC_MODEL_ID = "privoke-balanced"
 
 
 class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
@@ -64,11 +72,13 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
             )
             layers = _requested_layers(request.layers)
             regex_first = _regex_first(request.regex_execution_order)
+            semantic_presence_gate = _semantic_presence_gate(request, layers)
             analysis = analyse_prompt(
                 prompt_request,
                 layers=layers,
                 regex_first=regex_first,
                 semantic_model_id=request.semantic_model_id or None,
+                semantic_presence_gate=semantic_presence_gate,
             )
             response = _analysis_response(analysis)
             if self.telemetry_reporter is not None:
@@ -339,12 +349,42 @@ def _analysis_response(analysis: PromptAnalysis):
 
 
 def _layer_execution(execution: LayerExecution):
-    return runtime_pb2.RuntimeLayerExecution(
+    kwargs = dict(
         layer=LAYER_TO_PROTO[execution.layer],
         status=execution.status,
         results=[_detection_result(result) for result in execution.results],
         error=execution.error or "",
     )
+    if execution.semantic_presence_gate is not None:
+        trace = execution.semantic_presence_gate
+        trace_kwargs = {
+            "status": {
+                "NOT_RUN": runtime_pb2.SEMANTIC_PRESENCE_GATE_STATUS_NOT_RUN,
+                "APPLIED": runtime_pb2.SEMANTIC_PRESENCE_GATE_STATUS_APPLIED,
+                "ERROR": runtime_pb2.SEMANTIC_PRESENCE_GATE_STATUS_ERROR,
+            }[trace.status],
+            "model_id": trace.model_id,
+            "model_version": trace.model_version,
+            "artifact_checksum": trace.artifact_checksum,
+            "parameter_fingerprint": trace.parameter_fingerprint,
+            "predicted_label": {
+                "": runtime_pb2.ANNOTATION_PRESENCE_UNSPECIFIED,
+                "ABSENT": runtime_pb2.ANNOTATION_PRESENCE_ABSENT,
+                "PRESENT": runtime_pb2.ANNOTATION_PRESENCE_PRESENT,
+            }[trace.predicted_label],
+            "semantic_results": [_detection_result(result) for result in trace.semantic_results],
+            "error": trace.error or "",
+            "contextual_model_id": trace.contextual_model_id,
+            "contextual_model_version": trace.contextual_model_version,
+            "contextual_artifact_checksum": trace.contextual_artifact_checksum,
+            "contextual_parameter_fingerprint": trace.contextual_parameter_fingerprint,
+        }
+        for name in ("probability", "model_threshold", "decision_threshold"):
+            value = getattr(trace, name)
+            if value is not None:
+                trace_kwargs[name] = float(value)
+        kwargs["semantic_presence_gate"] = runtime_pb2.SemanticPresenceGateTrace(**trace_kwargs)
+    return runtime_pb2.RuntimeLayerExecution(**kwargs)
 
 
 def _classification(classification: Classification):
@@ -394,3 +434,25 @@ def _validate_presence_model_id(model_id: str) -> None:
         or any(ord(character) < 32 or ord(character) == 127 for character in model_id)
     ):
         raise ValueError("model_id must explicitly name a privoke-presence model.")
+
+
+def _semantic_presence_gate(request, layers) -> SemanticPresenceGateRequest | None:
+    if not request.HasField("semantic_presence_gate"):
+        return None
+    gate = request.semantic_presence_gate
+    if gate.model_id not in SEMANTIC_PRESENCE_MODEL_IDS:
+        raise ValueError("Gate model_id must name one of the three supported presence models.")
+    if "semantic" not in layers:
+        raise ValueError("Semantic presence gate requires the semantic layer.")
+    if GLOBAL_CONFIG.get_llm_config().choice != LLMChoice.Streamed:
+        raise ValueError("Semantic presence gate is available only with the streamed backend.")
+    if request.semantic_model_id != ORIGINAL_SEMANTIC_MODEL_ID:
+        raise ValueError(
+            "Semantic presence gate requires explicit semantic_model_id='privoke-balanced'."
+        )
+    threshold = gate.threshold if gate.HasField("threshold") else None
+    if threshold is not None and (
+        not math.isfinite(threshold) or not 0 <= threshold <= 1
+    ):
+        raise ValueError("Gate threshold must be finite and in [0, 1].")
+    return SemanticPresenceGateRequest(model_id=gate.model_id, threshold=threshold)

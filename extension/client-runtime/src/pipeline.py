@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+import math
 from typing import Callable, Iterable, List, Sequence, Tuple
 
 from .classification import ClassificationResult, PriVokeAction
@@ -13,6 +14,47 @@ REGEX_LAYER = "regex"
 NER_LAYER = "ner"
 SEMANTIC_LAYER = "semantic"
 DETECTION_LAYERS = (REGEX_LAYER, NER_LAYER, SEMANTIC_LAYER)
+SEMANTIC_PRESENCE_MODEL_IDS = frozenset({
+    "privoke-presence-efficient",
+    "privoke-presence-balanced",
+    "privoke-presence-quality",
+})
+
+
+@dataclass(frozen=True)
+class SemanticPresenceGateRequest:
+    model_id: str
+    threshold: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.model_id not in SEMANTIC_PRESENCE_MODEL_IDS:
+            raise ValueError("Gate model_id must name one of the three supported presence models.")
+        if self.threshold is not None and (
+            isinstance(self.threshold, bool)
+            or not isinstance(self.threshold, (int, float))
+            or not math.isfinite(self.threshold)
+            or not 0 <= self.threshold <= 1
+        ):
+            raise ValueError("Gate threshold must be finite and in [0, 1].")
+
+
+@dataclass(frozen=True)
+class SemanticPresenceGateTrace:
+    status: str
+    model_id: str
+    decision_threshold: float | None = None
+    model_version: str = ""
+    artifact_checksum: str = ""
+    parameter_fingerprint: str = ""
+    probability: float | None = None
+    model_threshold: float | None = None
+    predicted_label: str = ""
+    semantic_results: tuple[ClassificationResult, ...] = ()
+    error: str | None = None
+    contextual_model_id: str = ""
+    contextual_model_version: str = ""
+    contextual_artifact_checksum: str = ""
+    contextual_parameter_fingerprint: str = ""
 
 
 @dataclass(frozen=True)
@@ -21,6 +63,7 @@ class LayerExecution:
     status: str
     results: tuple[ClassificationResult, ...] = ()
     error: str | None = None
+    semantic_presence_gate: SemanticPresenceGateTrace | None = None
 
 
 @dataclass(frozen=True)
@@ -105,8 +148,14 @@ def analyse_text(
     layers: Sequence[str] | None = None,
     regex_first: bool | None = None,
     semantic_model_id: str | None = None,
+    semantic_presence_gate: SemanticPresenceGateRequest | None = None,
 ) -> PipelineAnalysis:
     requested_layers = _normalise_layers(layers)
+    if semantic_presence_gate is not None:
+        if SEMANTIC_LAYER not in requested_layers:
+            raise ValueError("Semantic presence gate requires the semantic layer.")
+        if semantic_model_id != "privoke-balanced":
+            raise ValueError("Semantic presence gate requires explicit semantic_model_id='privoke-balanced'.")
     run_regex_first = (
         GLOBAL_CONFIG.wait_for_regex if regex_first is None else regex_first
     )
@@ -117,7 +166,21 @@ def analyse_text(
     except Exception as exc:
         return PipelineAnalysis(
             tuple(
-                LayerExecution(layer, "error", error=_error_message(exc))
+                LayerExecution(
+                    layer,
+                    "error",
+                    error=_error_message(exc),
+                    semantic_presence_gate=(
+                        SemanticPresenceGateTrace(
+                            status="NOT_RUN",
+                            model_id=semantic_presence_gate.model_id,
+                            decision_threshold=semantic_presence_gate.threshold,
+                            error=_error_message(exc),
+                        )
+                        if layer == SEMANTIC_LAYER and semantic_presence_gate is not None
+                        else None
+                    ),
+                )
                 for layer in requested_layers
             )
         )
@@ -136,6 +199,16 @@ def analyse_text(
                         layer,
                         "skipped",
                         error="Skipped after regex returned BLOCK.",
+                        semantic_presence_gate=(
+                            SemanticPresenceGateTrace(
+                                status="NOT_RUN",
+                                model_id=semantic_presence_gate.model_id,
+                                decision_threshold=semantic_presence_gate.threshold,
+                                error="Skipped after regex returned BLOCK.",
+                            )
+                            if layer == SEMANTIC_LAYER and semantic_presence_gate is not None
+                            else None
+                        ),
                     )
             return PipelineAnalysis(
                 tuple(completed[layer] for layer in requested_layers)
@@ -149,6 +222,9 @@ def analyse_text(
             layer,
             normalised_text,
             semantic_model_id=semantic_model_id,
+            semantic_presence_gate=(
+                semantic_presence_gate if layer == SEMANTIC_LAYER else None
+            ),
         ),
         pending_layers,
     )
@@ -161,12 +237,145 @@ def _execute_layer(
     layer: str,
     text: str,
     semantic_model_id: str | None = None,
+    semantic_presence_gate: SemanticPresenceGateRequest | None = None,
 ) -> LayerExecution:
+    if layer == SEMANTIC_LAYER and semantic_presence_gate is not None:
+        return _execute_semantic_with_presence_gate(
+            text, semantic_model_id, semantic_presence_gate
+        )
     try:
         results = _detector_for(layer, semantic_model_id=semantic_model_id)(text)
         return LayerExecution(layer, "ok", tuple(results))
     except Exception as exc:
         return LayerExecution(layer, "error", error=_error_message(exc))
+
+
+def _execute_semantic_with_presence_gate(
+    text: str,
+    semantic_model_id: str | None,
+    gate: SemanticPresenceGateRequest,
+) -> LayerExecution:
+    trace = SemanticPresenceGateTrace(
+        status="NOT_RUN",
+        model_id=gate.model_id,
+        decision_threshold=gate.threshold,
+    )
+    try:
+        semantic_detector = get_llm_choice(model_id=semantic_model_id)
+        semantic_model = _streamed_model_for_semantic_detector(semantic_detector)
+        semantic_results = tuple(semantic_model.classify(text))
+    except Exception as exc:
+        message = _error_message(exc)
+        if "semantic_model" in locals():
+            trace = replace(
+                trace,
+                contextual_model_id=semantic_model.snapshot.model_id,
+                contextual_model_version=semantic_model.snapshot.version,
+                contextual_artifact_checksum=semantic_model.snapshot.metadata.get("artifact_checksum", ""),
+                contextual_parameter_fingerprint=semantic_model.snapshot.fingerprint,
+            )
+        return LayerExecution(
+            SEMANTIC_LAYER,
+            "error",
+            error=message,
+            semantic_presence_gate=replace(trace, error=message),
+        )
+
+    try:
+        # Reuse the semantic classifier's configured streamed endpoint and identity;
+        # only the explicit gate model ID differs. Prompt text stays local.
+        presence_model = _presence_model_for_semantic_detector(
+            semantic_detector, gate
+        )
+        probability = presence_model.predict_probability(text)
+        model_threshold = presence_model.threshold
+        decision_threshold = (
+            model_threshold if gate.threshold is None else float(gate.threshold)
+        )
+        for name, value in (
+            ("presence probability", probability),
+            ("presence model threshold", model_threshold),
+            ("presence decision threshold", decision_threshold),
+        ):
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or not 0 <= value <= 1
+            ):
+                raise ValueError(f"{name} must be finite and in [0, 1].")
+        present = probability >= decision_threshold
+        gate_trace = SemanticPresenceGateTrace(
+            status="APPLIED",
+            model_id=presence_model.model_id,
+            model_version=presence_model.version,
+            artifact_checksum=presence_model.snapshot.metadata["artifact_checksum"],
+            parameter_fingerprint=presence_model.snapshot.fingerprint,
+            probability=probability,
+            model_threshold=model_threshold,
+            decision_threshold=decision_threshold,
+            predicted_label="PRESENT" if present else "ABSENT",
+            semantic_results=semantic_results,
+            contextual_model_id=semantic_model.snapshot.model_id,
+            contextual_model_version=semantic_model.snapshot.version,
+            contextual_artifact_checksum=semantic_model.snapshot.metadata.get("artifact_checksum", ""),
+            contextual_parameter_fingerprint=semantic_model.snapshot.fingerprint,
+        )
+        return LayerExecution(
+            SEMANTIC_LAYER,
+            "ok",
+            semantic_results if present else (),
+            semantic_presence_gate=gate_trace,
+        )
+    except Exception as exc:
+        message = _error_message(exc)
+        return LayerExecution(
+            SEMANTIC_LAYER,
+            "error",
+            semantic_results,
+            message,
+            replace(
+                trace,
+                status="ERROR",
+                semantic_results=semantic_results,
+                error=message,
+                contextual_model_id=(semantic_model.snapshot.model_id if "semantic_model" in locals() else ""),
+                contextual_model_version=(semantic_model.snapshot.version if "semantic_model" in locals() else ""),
+                contextual_artifact_checksum=(semantic_model.snapshot.metadata.get("artifact_checksum", "") if "semantic_model" in locals() else ""),
+                contextual_parameter_fingerprint=(semantic_model.snapshot.fingerprint if "semantic_model" in locals() else ""),
+            ),
+        )
+
+
+def _streamed_model_for_semantic_detector(semantic_detector):
+    from .LLM.privoke.streamed_model import GLOBAL_STREAMED_MODEL_CACHE
+
+    return GLOBAL_STREAMED_MODEL_CACHE.semantic_model_for_streamer(semantic_detector.streamer)
+
+
+def _presence_model_for_semantic_detector(
+    semantic_detector,
+    gate: SemanticPresenceGateRequest,
+    *,
+    streamer_factory=None,
+    model_cache=None,
+):
+    if streamer_factory is None:
+        from .LLM.privoke.parameter_stream import ModelParameterStreamer
+
+        streamer_factory = ModelParameterStreamer
+    if model_cache is None:
+        from .LLM.privoke.streamed_model import GLOBAL_STREAMED_MODEL_CACHE
+
+        model_cache = GLOBAL_STREAMED_MODEL_CACHE
+    semantic_streamer = semantic_detector.streamer
+    presence_streamer = streamer_factory(
+        target=semantic_streamer.target,
+        model_id=gate.model_id,
+        consumer_id=semantic_streamer.consumer_id,
+        timeout_seconds=semantic_streamer.timeout_seconds,
+    )
+    return model_cache.presence_model_for_streamer(presence_streamer)
 
 
 def _detector_for(
@@ -205,22 +414,28 @@ def _error_message(exc: Exception) -> str:
 
 
 def _remap_execution(execution: LayerExecution, text: NormalizedText) -> LayerExecution:
-    results = []
-    for result in execution.results:
-        span = result.span
-        if span is None and result.section_of_text:
-            start = text.text.find(result.section_of_text)
-            if start >= 0 and text.text.find(result.section_of_text, start + 1) < 0:
-                span = (start, start + len(result.section_of_text))
-        original_span = None
-        if span is not None:
-            candidate = text.original_span(span)
-            if candidate is not None and text.text[slice(*span)] == result.section_of_text:
-                original_span = candidate
-        section = (text.original[slice(*original_span)]
-                   if original_span is not None else result.section_of_text)
-        results.append(replace(result, span=original_span, section_of_text=section))
-    return replace(execution, results=tuple(results))
+    def remap(results):
+        remapped = []
+        for result in results:
+            span = result.span
+            if span is None and result.section_of_text:
+                start = text.text.find(result.section_of_text)
+                if start >= 0 and text.text.find(result.section_of_text, start + 1) < 0:
+                    span = (start, start + len(result.section_of_text))
+            original_span = None
+            if span is not None:
+                candidate = text.original_span(span)
+                if candidate is not None and text.text[slice(*span)] == result.section_of_text:
+                    original_span = candidate
+            section = (text.original[slice(*original_span)]
+                       if original_span is not None else result.section_of_text)
+            remapped.append(replace(result, span=original_span, section_of_text=section))
+        return tuple(remapped)
+
+    gate_trace = execution.semantic_presence_gate
+    if gate_trace is not None:
+        gate_trace = replace(gate_trace, semantic_results=remap(gate_trace.semantic_results))
+    return replace(execution, results=remap(execution.results), semantic_presence_gate=gate_trace)
 
 
 def strongest_result(
