@@ -141,7 +141,8 @@ def select_threshold(y, probability):
 def verify_locked(features, reference_path, locked_rows, locked_development_path, locked_manifest_path):
     ref = json.loads(Path(reference_path).read_text(encoding="utf-8"))
     errors = ref.get("errors")
-    if type(errors) is not list or errors or ref.get("metrics", {}).get("evaluated_samples") != len(locked_rows):
+    no_errors = (type(errors) is int and errors == 0) or (type(errors) is list and not errors)
+    if not no_errors or ref.get("metrics", {}).get("evaluated_samples") != len(locked_rows):
         raise ValueError("Archived live semantic report is incomplete or contains errors.")
     reference_rows = ref["metadata"]["predictions"]
     ref_map = {row["example_id"]: row for row in reference_rows}
