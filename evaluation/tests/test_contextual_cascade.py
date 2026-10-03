@@ -72,6 +72,32 @@ def regex_shortcut(threshold=0):
 
 
 class CascadeTests(unittest.TestCase):
+    def test_optional_aggregate_evidence_can_be_absent_on_both_outputs(self):
+        ordinary, gated, nonsemantic = triplet()
+        del ordinary["evidence"]
+        del gated["evidence"]
+        self.assertIsNone(CASCADE.summary(ordinary)["evidence"])
+        self.assertEqual(CASCADE.summary(ordinary), CASCADE.summary(gated))
+        CASCADE.verify_triplet(ordinary, gated, nonsemantic, {"semantic": SEMANTIC, "presence": PRESENCE})
+
+    def test_present_aggregate_evidence_remains_part_of_parity(self):
+        ordinary, gated, nonsemantic = triplet()
+        del ordinary["evidence"]
+        self.assertNotEqual(CASCADE.summary(ordinary), CASCADE.summary(gated))
+        with self.assertRaises(ValueError):
+            CASCADE.verify_triplet(ordinary, gated, nonsemantic, {"semantic": SEMANTIC, "presence": PRESENCE})
+        ordinary["evidence"] = {"action": "WARN"}
+        gated["evidence"] = {"action": "BLOCK"}
+        self.assertNotEqual(CASCADE.summary(ordinary), CASCADE.summary(gated))
+
+    def test_optional_evidence_does_not_default_required_aggregate_fields(self):
+        for key in ("classification", "action", "allowed", "masked_text"):
+            with self.subTest(key=key):
+                payload = outcome(False)
+                del payload[key]
+                with self.assertRaises(KeyError):
+                    CASCADE.summary(payload)
+
     def test_contextual_identity_matches_float32_transport_with_framed_tensors(self):
         artifact = {"model_id": "privoke-balanced", "version": "fixture", "checksum": "a" * 64,
                     "parameters": {"z.weight": {"values": [.1, -.3], "shape": [1, 2]},
