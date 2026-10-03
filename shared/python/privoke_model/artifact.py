@@ -15,6 +15,7 @@ from typing import Any, Mapping, Sequence
 ARCHITECTURE_NAME = "privoke_tiny_transformer_v1"
 SCHEMA_VERSION = 1
 MAX_PARAMETER_VALUES = 65_536
+MAX_ARTIFACT_BYTES = 8 * 1024 * 1024
 
 
 class ModelArtifactError(ValueError):
@@ -38,7 +39,9 @@ def validate_artifact(payload: object) -> None:
         raise ModelArtifactError("Model artifact must be a JSON object.")
     if payload.get("schema_version") != SCHEMA_VERSION:
         raise ModelArtifactError(f"Unsupported model schema: {payload.get('schema_version')!r}.")
-    if payload.get("architecture") != ARCHITECTURE_NAME:
+    from .presence import PRESENCE_ARCHITECTURE, validate_presence_parameters
+
+    if payload.get("architecture") not in (ARCHITECTURE_NAME, PRESENCE_ARCHITECTURE):
         raise ModelArtifactError(f"Unsupported model architecture: {payload.get('architecture')!r}.")
     for field in ("model_id", "version"):
         value = payload.get(field)
@@ -86,6 +89,17 @@ def validate_artifact(payload: object) -> None:
         raise ModelArtifactError(
             f"Model artifact exceeds {MAX_PARAMETER_VALUES} parameter values."
         )
+    if payload["architecture"] == PRESENCE_ARCHITECTURE:
+        validate_presence_parameters(
+            config,
+            {name: tensor["values"] for name, tensor in parameters.items()},
+            {name: tensor["shape"] for name, tensor in parameters.items()},
+            {name: tensor.get("trainable") for name, tensor in parameters.items()},
+        )
+        if payload["model_id"] != f"privoke-presence-{config['profile']}":
+            raise ModelArtifactError("Presence model ID does not match its profile.")
+        if len(json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")) > MAX_ARTIFACT_BYTES:
+            raise ModelArtifactError("Presence artifact exceeds the 8 MiB budget.")
     checksum = payload.get("checksum")
     if not isinstance(checksum, str) or len(checksum) != 64:
         raise ModelArtifactError("Model artifact has no valid checksum.")
