@@ -53,6 +53,11 @@ Workplace matching requires a personal employer/workplace declaration or a
 structured employment field. Generic discussion of work, companies, or managers
 does not by itself establish identity disclosure.
 
+Amount and coarse-location rules likewise require a personal declaration or a
+relevant labeled field. Public prices, generic origins and venue descriptions
+do not alone establish a person's financial or residential disclosure. Direct
+account, card, street-address and coordinate patterns remain separate rules.
+
 Visibility-only rules use `Sensitivity.S0` and no categories. The hosted pipeline retains these `ALLOW` findings and combines their strongest known visibility with sensitive evidence. Request-level `visibility_hint` can further increase privacy restrictions without weakening an existing decision.
 
 ## Subagent Tasks

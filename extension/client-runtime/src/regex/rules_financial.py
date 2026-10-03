@@ -55,6 +55,9 @@ def financial_rules() -> List[RuleDefinition]:
         ),
         RuleDefinition(
             "money_amount",
+            r"\b(?:(?:my|our|his|her|their)\b[^.!?;\n]{0,64}"
+            r"|(?:i|we)\s+(?:earn|earned|spent|spend|paid|pay|owe|owed|saved)\b[^.!?;\n]{0,48}"
+            r"|(?:salary|income|debt|balance|mortgage|paycheck)\s*[:=]\s*)"
             r"(?:\$\s?\d[\d,]*(?:\.\d{2})?|\b\d[\d,]*\s?(?:usd|aud|eur|gbp)\b)",
             initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.FINANCIAL]),
             "money_amount",
