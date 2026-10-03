@@ -1,5 +1,10 @@
 # False-positive development: 3 October 2026
 
+This record preserves the earlier template/rule extension and its selected
+checkpoint. The subsequent custom within-corpus coverage experiment and current
+selection are in [public-negative results](public-negative-results.md). Its
+prospectively revised selection rule does not retroactively change this record.
+
 The user requested continued development, restarted from the original model,
 before final testing. These experiments use the locked **development** partition:
 502 rows, 264 positive and 238 clean. The 498-row final partition remains unscored.

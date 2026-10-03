@@ -195,3 +195,9 @@ accepted-but-unscored failures, and restores the best eligible checkpoint after
 errors. It stops at rejection, pipeline recall below90%, or no strict specificity
 improvement. These criteria belong to this study; the older `run-training-curve.py`
 retains its earlier, stricter no-regression criteria.
+
+Completed [public-negative results](../paper/research/public-negative-results.md)
+record all nine independent attempts and the stopped second cycle. The restored
+first-cycle model has90.53% development recall and29.41% specificity; the final
+partition remains unscored. Test invocation remains centralized here, while the
+training loop remains in the fuzzer service.

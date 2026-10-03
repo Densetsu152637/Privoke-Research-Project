@@ -2,6 +2,37 @@
 
 ## Current checkpoint — 3 October 2026
 
+Latest bounded study: [public-negative results](../paper/research/public-negative-results.md).
+Nine independent attempts at0.03/0.1/0.3 produce six scored candidates and three
+held-out rejections. Three0.03 seeds tie on pipeline239/70/168/25; prospective
+selection chooses seed42. Compared with prior247/54/184/17, false positives fall
+by16 while false negatives rise by eight. Current recall90.53%, specificity29.41%:
+the90% specificity target remains unmet. Final498 remains unscored.
+
+The triggered cycle2 gives236/78/160/28 (recall89.39%), so it fails selection.
+Cycle3 is not attempted; cycle1 is restored and its parsed payload/checksum is
+verified against the live volume. Selected checksum:
+`8c139431ba8605a3d6817d24d233cce78fc22a086fdeb3ee99702ada86c80015`.
+All study/curve processes are complete at this checkpoint. Startup training
+remains disabled. Serving images are unchanged throughout the matched study.
+
+Current affected Docker checks: runtime83, fuzzer26, evaluator50. Source `4f224ba`
+adds grouped internal-guard exclusions and training/serving normalization alignment;
+`2f1ec91` fixes cross-platform artifact paths. `2e8ca5c` adds strict matched-row/raw-
+count selection checks, tested failure restoration and the bounded curve caller.
+The independent audit verified all six scored candidates' report/artifact hashes,
+model fingerprints and eligibility, plus the three unscored rejection records.
+The stricter validator was applied after the live study completed and before the
+curve began; no process/request ID was restarted to apply it.
+
+The new read-only receipt snapshot has32 rows and passes SQLite integrity_check;
+its audit/model identity manifest is in `results/public_negative_curve_20261003/`.
+The [methodology draft](../docs/research-methodology-draft.md) records the current
+design and pending evidence. Professor confirmation, installed-extension/client
+cost evidence, final testing and paper/figure completion remain outstanding.
+
+### Earlier checkpoint and preserved comparisons
+
 Test invocation is centralized by committed revision `712ed72`; component test
 sources and the fuzzer loop remain in their original locations. The corrected
 personal-workplace rule is committed as `c2bd6ad`; narrowed financial/location
