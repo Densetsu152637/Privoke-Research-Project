@@ -54,6 +54,21 @@ def triplet(probability=.4, threshold=0):
     return ordinary, gated, nonsemantic
 
 
+def regex_shortcut(threshold=0):
+    """Wire shape emitted by the producer's regex-first BLOCK shortcut."""
+    reason = "Skipped after regex returned BLOCK."
+    ordinary = outcome(True, "BLOCK")
+    ordinary["classification"]["sensitivity"] = "S3"
+    ordinary["layers"] = [{"layer": "regex", "status": "ok", "error": "",
+                           "results": [{"action": "BLOCK", "classification": ordinary["classification"], "metadata": {}}]},
+                          {"layer": "ner", "status": "skipped", "error": reason, "results": []},
+                          {"layer": "semantic", "status": "skipped", "error": reason, "results": []}]
+    gated = copy.deepcopy(ordinary)
+    gated["layers"][-1]["semantic_presence_gate"] = {"status": "not_run", "model_id": PRESENCE["model_id"],
+        "decision_threshold": threshold, "error": reason, "semantic_results": [], "predicted_label": "unspecified"}
+    return ordinary, gated
+
+
 class CascadeTests(unittest.TestCase):
     def test_threshold_projection_preserves_rule_actions(self):
         value = row("a", True, .1, rule_positive=True)
@@ -90,6 +105,68 @@ class CascadeTests(unittest.TestCase):
         report = CASCADE.paired_report(values, lambda r: CASCADE.project(r, .5))
         self.assertEqual(report["lost_detection_ids"], ["private", "public"])
         self.assertEqual(report["action_transitions"], {"WARN->ALLOW": 2})
+
+    def test_projection_suppression_uses_projection_threshold_not_gate_zero_label(self):
+        value = row("private", True, .1)
+        value["trace"]["predicted_label"] = "present"
+        report = CASCADE.paired_report([value], lambda r: CASCADE.project(r, .5), projection_threshold=.5)
+        self.assertEqual(report["lost_detection_ids"], ["private"])
+        self.assertEqual(report["suppressed_semantic_ids"], ["private"])
+        self.assertEqual(report["actual_trace_absent_ids"], [])
+        zero = CASCADE.paired_report([value], lambda r: CASCADE.project(r, 0), projection_threshold=0)
+        one = CASCADE.paired_report([value], lambda r: CASCADE.project(r, 1), projection_threshold=1)
+        self.assertEqual(zero["suppressed_semantic_ids"], [])
+        self.assertEqual(one["suppressed_semantic_ids"], ["private"])
+        value["trace"]["probability"] = 1
+        boundary = CASCADE.paired_report([value], lambda r: CASCADE.project(r, 1), projection_threshold=1)
+        self.assertEqual(boundary["suppressed_semantic_ids"], [])
+
+    def test_legitimate_regex_block_not_run_preserves_documented_reason(self):
+        ordinary, gated = regex_shortcut(.7)
+        self.assertIsNone(CASCADE.verify_live(ordinary, gated, {"semantic": SEMANTIC, "presence": PRESENCE}, .7))
+        gated["layers"][-1]["semantic_presence_gate"]["error"] = ""
+        with self.assertRaisesRegex(ValueError, "NOT_RUN"):
+            CASCADE.verify_live(ordinary, gated, {"semantic": SEMANTIC, "presence": PRESENCE}, .7)
+
+    def test_skip_cannot_hide_semantic_execution_or_tampered_gate_request(self):
+        ordinary, gated, _ = triplet()
+        gated["layers"][-1].update({"status": "skipped", "results": []})
+        gated["layers"][-1]["semantic_presence_gate"] = {"status": "not_run", "model_id": "wrong",
+            "decision_threshold": .9, "error": "hidden failure", "semantic_results": [], "predicted_label": "unspecified"}
+        with self.assertRaisesRegex(ValueError, "execution statuses"):
+            CASCADE.verify_live(ordinary, gated, {"semantic": SEMANTIC, "presence": PRESENCE}, 0)
+        for field, value in (("model_id", "wrong"), ("decision_threshold", .8), ("error", "different reason"),
+                             ("predicted_label", "present"), ("probability", 0), ("model_threshold", .3),
+                             ("model_version", "invented")):
+            ordinary, gated = regex_shortcut(.7)
+            gated["layers"][-1]["semantic_presence_gate"][field] = value
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, "NOT_RUN"):
+                CASCADE.verify_live(ordinary, gated, {"semantic": SEMANTIC, "presence": PRESENCE}, .7)
+        ordinary, gated = regex_shortcut(.7)
+        ordinary["action"] = gated["action"] = "ALLOW"
+        with self.assertRaisesRegex(ValueError, "NOT_RUN"):
+            CASCADE.verify_live(ordinary, gated, {"semantic": SEMANTIC, "presence": PRESENCE}, .7)
+
+    def test_selected_validation_rejects_trace_presence_change_even_with_same_decision(self):
+        previous = row("private", True, .4)
+        current = copy.deepcopy(previous)
+        CASCADE.verify_selected_validation(current, previous, 0)
+        current["trace"] = None
+        with self.assertRaisesRegex(ValueError, "trace execution"):
+            CASCADE.verify_selected_validation(current, previous, 0)
+        previous["trace"] = None
+        current["trace"] = {"probability": .4}
+        with self.assertRaisesRegex(ValueError, "trace execution"):
+            CASCADE.verify_selected_validation(current, previous, 0)
+        current["trace"] = None
+        CASCADE.verify_selected_validation(current, previous, 0)
+
+    def test_selected_validation_rejects_changed_probability_under_same_decision(self):
+        previous = row("private", True, .4)
+        current = copy.deepcopy(previous)
+        current["trace"]["probability"] = .41
+        with self.assertRaisesRegex(ValueError, "probability changed"):
+            CASCADE.verify_selected_validation(current, previous, 0)
 
     def test_zero_gate_and_raw_semantic_parity(self):
         ordinary, gated, rules = triplet()

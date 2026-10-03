@@ -152,10 +152,24 @@ def checked_trace(payload, presence_identity, threshold):
     if not trace:
         raise ValueError("Gate response omitted its typed trace.")
     if semantic["status"] == "skipped":
-        if trace["status"] != "not_run" or trace["semantic_results"]:
-            raise ValueError("Regex short circuit returned an executed gate.")
+        reason = "Skipped after regex returned BLOCK."
+        regex, ner = layer(payload, "regex"), layer(payload, "ner")
+        if (regex["status"] != "ok" or regex.get("error") or payload["action"] != "BLOCK"
+                or payload["allowed"] is not False
+                or not any(result.get("action") == "BLOCK" for result in regex["results"])
+                or ner["status"] != "skipped" or ner["results"] or ner.get("error") != reason
+                or semantic["results"] or semantic.get("error") != reason
+                or trace.get("status") != "not_run" or trace.get("semantic_results") != []
+                or trace.get("predicted_label") != "unspecified" or trace.get("error") != reason
+                or trace.get("model_id") != presence_identity["model_id"]
+                or trace.get("decision_threshold") != threshold
+                or "probability" in trace or "model_threshold" in trace
+                or any(trace.get(key) for key in ("model_version", "artifact_checksum", "parameter_fingerprint",
+                                                   "contextual_model_id", "contextual_model_version",
+                                                   "contextual_artifact_checksum", "contextual_parameter_fingerprint"))):
+            raise ValueError("NOT_RUN gate does not match the requested regex BLOCK shortcut.")
         return None
-    if trace["status"] != "applied" or trace["error"]:
+    if semantic["status"] != "ok" or semantic.get("error") or trace["status"] != "applied" or trace["error"]:
         raise ValueError("Gate did not complete successfully.")
     if any(trace.get(k) != v for k, v in presence_identity.items() if k != "threshold"):
         raise ValueError("Returned presence model identity mismatch.")
@@ -171,10 +185,14 @@ def checked_trace(payload, presence_identity, threshold):
 def verify_live(ordinary, gated, identities, threshold):
     validate_payload(ordinary, identities["semantic"])
     validate_payload(gated, identities["semantic"])
+    if layer(ordinary, "semantic")["status"] != layer(gated, "semantic")["status"]:
+        raise ValueError("Ordinary and gated semantic execution statuses differ.")
     trace = checked_trace(gated, identities["presence"], threshold)
     for name in ("regex", "ner"):
         if ordinary_layer(layer(ordinary, name)) != ordinary_layer(layer(gated, name)):
             raise ValueError("Gate changed a regex/NER finding.")
+    if trace is None and ordinary_layer(layer(ordinary, "semantic")) != ordinary_layer(layer(gated, "semantic")):
+        raise ValueError("Ordinary and gated semantic shortcuts differ.")
     if trace:
         for key, expected in identities["semantic"].items():
             if trace.get("contextual_" + key) != expected:
@@ -209,6 +227,18 @@ def project(row, threshold):
     return row["ordinary"] if trace is None or trace["probability"] >= threshold else row["nonsemantic"]
 
 
+def verify_selected_validation(current, previous, threshold):
+    """A live selected row must preserve the collected execution and projection."""
+    trace, collected_trace = current["trace"], previous["trace"]
+    if (trace is None) != (collected_trace is None):
+        raise ValueError("Presence trace execution changed after calibration.")
+    if (summary(current["ordinary"]) != summary(previous["ordinary"])
+            or summary(current["gated"]) != summary(project(previous, threshold))):
+        raise ValueError("Live selected validation differs from its projected API outcome.")
+    if trace and trace["probability"] != collected_trace["probability"]:
+        raise ValueError("Presence probability changed after calibration.")
+
+
 def metrics(rows, getter):
     return binary_metrics([r["expected_has_pii"] for r in rows], [float(detection(getter(r))) for r in rows], .5)
 
@@ -230,7 +260,7 @@ def calibrate(rows):
     return {"status": "eligible", "chosen": chosen, "candidates": candidates}
 
 
-def paired_report(rows, getter):
+def paired_report(rows, getter, *, projection_threshold=None):
     families = defaultdict(list)
     transitions, lost, gained = Counter(), [], []
     for row in rows:
@@ -244,7 +274,10 @@ def paired_report(rows, getter):
     return {"metrics": metrics(rows, getter), "ordinary_metrics": metrics(rows, lambda r: r["ordinary"]),
             "lost_detection_ids": lost, "gained_detection_ids": gained, "action_transitions": dict(transitions),
             "source_family_metrics": {family: metrics(group, getter) for family, group in sorted(families.items())},
-            "suppressed_semantic_ids": [r["id"] for r in rows if r.get("trace") and r["trace"].get("predicted_label") == "absent"],
+            "suppressed_semantic_ids": [r["id"] for r in rows if r.get("trace") and
+                                        (r["trace"]["probability"] < projection_threshold if projection_threshold is not None
+                                         else r["trace"].get("predicted_label") == "absent")],
+            "actual_trace_absent_ids": [r["id"] for r in rows if r.get("trace") and r["trace"].get("predicted_label") == "absent"],
             "paired_group_bootstrap_intervals": None,
             "interval_limitation": "Group-bootstrap differences were not computed by this bounded caller."}
 
@@ -362,7 +395,9 @@ def run_stage(args, client_factory=RuntimeClient):
             rows = verified_rows(root / "collect-validation" / pair, validation, binding, pair)
             result = calibrate(rows)
             profile = pair.split("-", 1)[1]
-            result["artifact_threshold_projection"] = paired_report(rows, lambda r: project(r, binding["presence"][profile]["identity"]["threshold"]))
+            artifact_threshold = binding["presence"][profile]["identity"]["threshold"]
+            result["artifact_threshold_projection"] = paired_report(rows, lambda r: project(r, artifact_threshold),
+                                                                    projection_threshold=artifact_threshold)
             result["collection_report_sha256"] = sha(root / "collect-validation" / pair / "report.json")
             choices[pair] = result
         write(directory / "selection.json", {"status": "frozen", "binding": binding, "choices": choices,
@@ -428,10 +463,7 @@ def run_stage(args, client_factory=RuntimeClient):
                 verify_triplet(ordinary, gated, nonsemantic, identities)
                 result["nonsemantic"] = nonsemantic
             elif previous is not None:
-                if summary(ordinary) != summary(previous[index]["ordinary"]) or summary(gated) != summary(project(previous[index], threshold)):
-                    raise ValueError("Live selected validation differs from its projected API outcome.")
-                if trace and trace["probability"] != previous[index]["trace"]["probability"]:
-                    raise ValueError("Presence probability changed after calibration.")
+                verify_selected_validation(result, previous[index], threshold)
             rows.append(result)
         dataset(args.validation_file, "validation")
         if args.phase == "evaluate-development":
