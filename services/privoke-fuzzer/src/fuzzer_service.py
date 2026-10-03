@@ -89,6 +89,11 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             )
         except (ValueError, FileNotFoundError) as exc:
             context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
+        if len(examples) != cycle.prompt_count or len(heldout) != self.config.heldout_prompt_count:
+            context.abort(
+                grpc.StatusCode.FAILED_PRECONDITION,
+                "Presence sampler returned counts that do not match the requested partition.",
+            )
         update = self._train_presence(cycle.model_id, examples, heldout, request, context)
         try:
             validate_presence_training_update(
@@ -376,7 +381,11 @@ def validate_presence_training_update(
     if not math.isfinite(minimum_exact_match_rate) or not 0 <= minimum_exact_match_rate <= 1:
         raise ValueError("Minimum exact match rate must be finite and within [0, 1].")
     metrics = update.metrics
-    required_counts = ("examples", "heldout_examples", "heldout_present_examples", "heldout_absent_examples")
+    required_counts = (
+        "examples", "heldout_examples", "heldout_present_examples", "heldout_absent_examples",
+        "candidate_heldout_examples", "candidate_heldout_present_examples",
+        "candidate_heldout_absent_examples",
+    )
     for name in required_counts:
         value = metrics.get(name)
         if (type(value) not in (int, float) or not math.isfinite(value)
@@ -386,6 +395,9 @@ def validate_presence_training_update(
         raise ValueError("Presence training example count does not match the submitted batch.")
     if expected_heldout_examples is not None and metrics["heldout_examples"] != expected_heldout_examples:
         raise ValueError("Presence held-out count does not match the submitted batch.")
+    for suffix in ("examples", "present_examples", "absent_examples"):
+        if metrics[f"candidate_heldout_{suffix}"] != metrics[f"heldout_{suffix}"]:
+            raise ValueError("Presence candidate held-out counts do not match the baseline counts.")
     if metrics["heldout_examples"] != metrics["heldout_present_examples"] + metrics["heldout_absent_examples"]:
         raise ValueError("Presence held-out example counts are inconsistent.")
     average_loss = metrics.get("average_loss")
@@ -400,12 +412,39 @@ def validate_presence_training_update(
             raise ValueError(f"Presence training update did not report {name}.")
         if not math.isfinite(value) or not 0 <= value <= 1:
             raise ValueError(f"Presence training update {name} must be finite and within [0, 1].")
+    _require_integral_correct_count(metrics["exact_match_rate"], metrics["examples"], "training exact match")
+    _validate_presence_rates(metrics, "heldout", "heldout_examples",
+                             "heldout_present_examples", "heldout_absent_examples")
+    _validate_presence_rates(metrics, "candidate_heldout", "candidate_heldout_examples",
+                             "candidate_heldout_present_examples", "candidate_heldout_absent_examples")
     if metrics["exact_match_rate"] <= minimum_exact_match_rate:
         raise ValueError("Presence training exact_match_rate must be greater than the configured minimum.")
     if (metrics["candidate_heldout_exact_match_rate"] < metrics["heldout_exact_match_rate"]
             or metrics["candidate_heldout_present_recall"] < metrics["heldout_present_recall"]
             or metrics["candidate_heldout_absent_specificity"] < metrics["heldout_absent_specificity"]):
         raise ValueError("Candidate presence model is worse on the held-out evaluation set.")
+
+
+def _require_integral_correct_count(rate: float, count: float, label: str) -> float:
+    correct = rate * count
+    nearest = round(correct)
+    if abs(correct - nearest) > 1e-8:
+        raise ValueError(f"Presence {label} rate is inconsistent with its example count.")
+    return nearest
+
+
+def _validate_presence_rates(metrics, prefix, total_key, present_key, absent_key) -> None:
+    total = metrics[total_key]
+    present = metrics[present_key]
+    absent = metrics[absent_key]
+    recall_key = f"{prefix}_present_recall"
+    specificity_key = f"{prefix}_absent_specificity"
+    exact_key = f"{prefix}_exact_match_rate"
+    present_correct = _require_integral_correct_count(metrics[recall_key], present, recall_key)
+    absent_correct = _require_integral_correct_count(metrics[specificity_key], absent, specificity_key)
+    exact_correct = _require_integral_correct_count(metrics[exact_key], total, exact_key)
+    if abs((present_correct + absent_correct) - exact_correct) > 1e-8:
+        raise ValueError(f"Presence {exact_key} does not agree with its stratum rates.")
 
 
 def _resolve_cycle(request, config: FuzzerConfig) -> TrainingCycle:

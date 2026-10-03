@@ -95,7 +95,18 @@ def generate_presence_training_partition(count: int, heldout_count: int, seed: i
     rng.shuffle(remaining)
     selected = []
     seen_texts = set(heldout_texts)
+    required_labels = (False, True) if count >= 2 else (remaining[0].sensitive,)
+    for label in required_labels:
+        first_in_stratum = next((row for row in remaining if row.sensitive is label), None)
+        if first_in_stratum is None:
+            raise ValueError("Presence dataset cannot supply training examples across both strata.")
+        selected.append(first_in_stratum)
+        seen_texts.add(training_text_key(first_in_stratum.text))
     for row in remaining:
+        if len(selected) == count:
+            break
+        if row in selected:
+            continue
         key = training_text_key(row.text)
         if key in seen_texts:
             continue
