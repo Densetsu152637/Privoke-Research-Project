@@ -245,7 +245,9 @@ def source_identity(source, row, ordinal):
             raise ExcludeRow("missing_or_invalid_native_uid")
         identifier = canonical_group(uid, source)
         group = identifier
-        language = row.get("locale")
+        # The exact-pin Nemotron card declares English. `locale` is geographic
+        # (for example us/intl), and does not encode a language code.
+        language = "en"
     else:
         names = ("document_type", "document_label", "text_format", "edge_case")
         values = []
@@ -276,7 +278,9 @@ def serialize_candidate(source, row, ordinal, identity):
             "group_provenance": "native_parent_uid" if source == "nemotron-pii" else "conservative_template_tuple_not_verified_document_lineage",
             "annotations": annotations, "domain": row.get("domain"), "document_type": row.get("document_type", row.get("type")),
             "document_label": row.get("document_label"), "document_format": row.get("document_format", row.get("text_format")),
-            "language": language, "edge_case": row.get("edge_case"),
+            "language": language, "locale": row.get("locale") if source == "nemotron-pii" else None,
+            "language_provenance": "pinned_source_card_english" if source == "nemotron-pii" else "source_language_field",
+            "edge_case": row.get("edge_case"),
             "document_description": row.get("document_description"), "document_length": row.get("document_length"),
             "text_tags": row.get("text_tags", row.get("text_tagged"))}
 
