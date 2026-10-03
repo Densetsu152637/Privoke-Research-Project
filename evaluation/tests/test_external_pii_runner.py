@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location(
@@ -128,9 +128,21 @@ class ExternalPresenceRunnerTests(unittest.TestCase):
         self.assertNotIn("development", runner.PARTITIONS)
         self.assertNotIn("final", runner.PARTITIONS)
 
-    def test_current_revision_reads_this_checkout_with_scoped_safe_directory(self):
-        observed = runner.current_revision()
-        self.assertRegex(observed, r"^[0-9a-f]{40,64}$")
+    def test_current_revision_uses_scoped_git_call_and_validates_result(self):
+        revision = "a" * 40
+        with patch.object(runner.subprocess, "run", return_value=Mock(stdout=revision + "\n")) as run:
+            observed = runner.current_revision()
+        self.assertEqual(observed, revision)
+        argv, kwargs = run.call_args
+        self.assertEqual(argv[0], ["git", "-c", f"safe.directory={runner.ROOT.as_posix()}",
+                                   "rev-parse", "HEAD"])
+        self.assertEqual(kwargs["cwd"], runner.ROOT)
+        self.assertTrue(kwargs["capture_output"])
+        self.assertTrue(kwargs["text"])
+        self.assertTrue(kwargs["check"])
+        with patch.object(runner.subprocess, "run", return_value=Mock(stdout="not-a-revision\n")):
+            with self.assertRaisesRegex(ValueError, "lowercase object ID"):
+                runner.current_revision()
 
     def test_paths_outside_results_and_nonwhitelist_ids_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "evaluation/results"):
