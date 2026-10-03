@@ -152,6 +152,30 @@ class RepresentationProbeTests(unittest.TestCase):
         self.assertEqual(f"{container_target}/manifest.json",
                          harness.prepared_partition_container_path(output, "manifest.json"))
 
+    def test_text_process_roundtrips_unicode_independent_of_windows_codepage(self):
+        message = "before\u202fafter 🧪"
+        result = harness.run_text_process(
+            [sys.executable, "-c", "import sys; sys.stdout.write(sys.stdin.read())"],
+            cwd=ROOT, input_text=message)
+        self.assertEqual(0, result.returncode)
+        self.assertEqual(message, result.stdout)
+
+    def test_phase_records_transport_exceptions_and_failure_logs(self):
+        with TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            manifest = {"phases": {}}
+            persisted = []
+            transport_error = UnicodeEncodeError("charmap", "\u202f", 0, 1, "not encodable")
+            with patch.object(harness, "run_text_process", side_effect=transport_error):
+                with self.assertRaisesRegex(RuntimeError, "transport failed"):
+                    harness.run_phase("unicode", ["fake-command"], output=output,
+                                      run_manifest=manifest, persist=lambda: persisted.append(True),
+                                      input_text="\u202f")
+            self.assertIn("UnicodeEncodeError", manifest["phases"]["unicode"]["transport_exception"])
+            self.assertEqual("", (output / "unicode.stdout.log").read_text(encoding="utf-8"))
+            self.assertIn("UnicodeEncodeError", (output / "unicode.stderr.log").read_text(encoding="utf-8"))
+            self.assertEqual([True], persisted)
+
     def test_runtime_parameter_fingerprint_uses_float32_and_shapes(self):
         artifact = {"parameters": {"weight": {"shape": [2], "values": [0.1000000002, 2.0]}}}
         runtime = {"weight": np.asarray(artifact["parameters"]["weight"]["values"], dtype=np.float32)}
