@@ -9,7 +9,7 @@ import ast
 from collections.abc import Mapping
 from contextlib import contextmanager
 import contextlib
-from dataclasses import dataclass
+from dataclasses import dataclass, fields as dataclass_fields, is_dataclass
 import hashlib
 import importlib.util
 import inspect
@@ -454,6 +454,163 @@ def _source_bindings(text: str) -> tuple[set[str], list[tuple[str | None, str, i
     return classes, functions
 
 
+def _assigned_names(target: ast.expr) -> set[str]:
+    if isinstance(target, ast.Name):
+        return {target.id}
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return set().union(*(_assigned_names(item) for item in target.elts)) if target.elts else set()
+    return set()
+
+
+def _module_binding_names(tree: ast.Module) -> set[str]:
+    names: set[str] = set()
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(node.name)
+        elif isinstance(node, ast.Import):
+            names.update(alias.asname or alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.module == "__future__":
+                continue
+            names.update(alias.asname or alias.name for alias in node.names if alias.name != "*")
+        elif isinstance(node, ast.Assign):
+            for target in node.targets:
+                names.update(_assigned_names(target))
+        elif isinstance(node, ast.AnnAssign):
+            names.update(_assigned_names(node.target))
+    return names
+
+
+def _semantic_value_equal(actual: Any, expected: Any, *, actual_module: object | None = None,
+                          scratch_module: object | None = None) -> bool:
+    """Compare source-derived module values without trusting repr or coercions."""
+    if actual is actual_module and expected is scratch_module:
+        return True
+    if (is_dataclass(actual) and not isinstance(actual, type)
+            and is_dataclass(expected) and not isinstance(expected, type)):
+        class_matches = (type(actual) is type(expected)
+                         or (actual_module is not None and scratch_module is not None
+                             and type(actual).__module__ == getattr(actual_module, "__name__", None)
+                             and type(expected).__module__ == getattr(scratch_module, "__name__", None)))
+        return (class_matches and type(actual).__qualname__ == type(expected).__qualname__
+                and tuple(item.name for item in dataclass_fields(actual))
+                == tuple(item.name for item in dataclass_fields(expected))
+                and all(_semantic_value_equal(getattr(actual, item.name), getattr(expected, item.name),
+                                              actual_module=actual_module, scratch_module=scratch_module)
+                        for item in dataclass_fields(actual)))
+    if type(actual) is not type(expected):
+        return False
+    if inspect.ismodule(actual) or inspect.isclass(actual) or inspect.isfunction(actual):
+        return actual is expected
+    if isinstance(actual, re.Pattern):
+        return actual.pattern == expected.pattern and actual.flags == expected.flags
+    if type(actual) in (tuple, list):
+        return len(actual) == len(expected) and all(
+            _semantic_value_equal(left, right, actual_module=actual_module, scratch_module=scratch_module)
+            for left, right in zip(actual, expected, strict=True))
+    if type(actual) in (dict, MappingProxyType):
+        return (set(actual) == set(expected)
+                and all(_semantic_value_equal(actual[key], expected[key], actual_module=actual_module,
+                                              scratch_module=scratch_module) for key in actual))
+    if type(actual) in (set, frozenset):
+        return actual == expected
+    if actual is None or type(actual) in (str, int, float, bool, bytes):
+        return actual == expected
+    try:
+        value = actual == expected
+        return type(value) is bool and value
+    except Exception:
+        return actual is expected
+
+
+def _class_assignment_names(node: ast.ClassDef) -> set[str]:
+    names: set[str] = set()
+    for item in node.body:
+        if isinstance(item, ast.Assign):
+            for target in item.targets:
+                names.update(_assigned_names(target))
+        elif isinstance(item, ast.AnnAssign):
+            names.update(_assigned_names(item.target))
+    return names
+
+
+def _attest_module_globals(module: object, scratch: object, tree: ast.Module,
+                           functions: list[tuple[str | None, str, int]]) -> None:
+    function_names = {(owner, name) for owner, name, _line in functions}
+    class_nodes: dict[str, ast.ClassDef] = {}
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef):
+            class_nodes[node.name] = node
+    module_globals = vars(module)
+    scratch_globals = vars(scratch)
+    for name in _module_binding_names(tree):
+        actual, expected = module_globals.get(name), scratch_globals.get(name)
+        if (None if name not in module_globals else 1) != (None if name not in scratch_globals else 1):
+            _fail("attest_code", "source_global_binding_mismatch")
+        if name in class_nodes:
+            node = class_nodes[name]
+            actual_class = _class_at(module, name)
+            expected_class = _class_at(scratch, name)
+            expected_attrs = vars(expected_class)
+            if not _semantic_value_equal(vars(actual_class).get("__annotations__"),
+                                         expected_attrs.get("__annotations__"),
+                                         actual_module=module, scratch_module=scratch):
+                _fail("attest_code", "source_class_annotation_mismatch")
+            for attr in _class_assignment_names(node):
+                if not _semantic_value_equal(vars(actual_class).get(attr), expected_attrs.get(attr),
+                                             actual_module=module, scratch_module=scratch):
+                    _fail("attest_code", "source_class_global_mismatch")
+            if is_dataclass(actual_class) and is_dataclass(expected_class):
+                actual_fields = dataclass_fields(actual_class)
+                expected_fields = dataclass_fields(expected_class)
+                if tuple(field.name for field in actual_fields) != tuple(field.name for field in expected_fields):
+                    _fail("attest_code", "source_dataclass_fields_mismatch")
+                for attr in ("__init__", "__repr__", "__eq__", "__hash__"):
+                    left, right = vars(actual_class).get(attr), expected_attrs.get(attr)
+                    if left is None and right is None:
+                        continue
+                    if (not inspect.isfunction(left) or not inspect.isfunction(right)
+                            or left.__code__ != right.__code__
+                            or not _semantic_value_equal(left.__defaults__, right.__defaults__,
+                                                         actual_module=module, scratch_module=scratch)
+                            or not _semantic_value_equal(left.__kwdefaults__, right.__kwdefaults__,
+                                                         actual_module=module, scratch_module=scratch)):
+                        _fail("attest_code", "source_dataclass_method_mismatch")
+            continue
+        if (None, name) in function_names:
+            actual_fn = module_globals.get(name)
+            expected_fn = scratch_globals.get(name)
+            if (not inspect.isfunction(actual_fn) or not inspect.isfunction(expected_fn)
+                    or not _semantic_value_equal(actual_fn.__defaults__, expected_fn.__defaults__,
+                                                 actual_module=module, scratch_module=scratch)
+                    or not _semantic_value_equal(actual_fn.__kwdefaults__, expected_fn.__kwdefaults__,
+                                                 actual_module=module, scratch_module=scratch)
+                    or not _semantic_value_equal(actual_fn.__annotations__, expected_fn.__annotations__,
+                                                 actual_module=module, scratch_module=scratch)):
+                _fail("attest_code", "source_function_defaults_mismatch")
+            continue
+        if not _semantic_value_equal(actual, expected, actual_module=module, scratch_module=scratch):
+            _fail("attest_code", "source_global_value_mismatch")
+
+
+def _fresh_source_module(role: str, module: object, compiled: types.CodeType, path: Path) -> object:
+    """Execute only the already hash-pinned source in an isolated import namespace."""
+    name = f"_privoke_attest_{role}_{secrets.token_hex(8)}"
+    scratch = types.ModuleType(name)
+    scratch.__file__ = str(path)
+    scratch.__package__ = getattr(module, "__package__", "")
+    original_path = list(sys.path)
+    sys.modules[name] = scratch
+    try:
+        exec(compiled, vars(scratch), vars(scratch))
+    except Exception:
+        _fail("attest_code", "trusted_source_replay_failed")
+    finally:
+        sys.path[:] = original_path
+        sys.modules.pop(name, None)
+    return scratch
+
+
 def _class_at(module: object, qualname: str) -> type:
     value: Any = module
     for name in qualname.split("."):
@@ -521,9 +678,14 @@ def _attest_module(role: str, raw: bytes, path: Path, module_override: object | 
     elif role != "cli":
         _fail("attest_code", "module_loader_missing")
     code_index = _compiled_objects(compiled)
+    try:
+        tree = ast.parse(text)
+    except Exception:
+        _fail("attest_code", "module_ast_mismatch")
     classes, functions = _source_bindings(text)
     if not classes and not functions:
         _fail("attest_code", "empty_source_bindings")
+    scratch = _fresh_source_module(role, module, compiled, path)
     for qualname in classes:
         cls = _class_at(module, qualname)
         if cls.__module__ != module.__name__ or cls.__qualname__ != qualname:
@@ -532,11 +694,22 @@ def _attest_module(role: str, raw: bytes, path: Path, module_override: object | 
         qualname = f"{owner}.{name}" if owner else name
         expected = code_index.get((qualname, line))
         holder: Any = _class_at(module, owner) if owner else module
+        expected_holder: Any = _class_at(scratch, owner) if owner else scratch
         value = vars(holder).get(name)
+        expected_value = vars(expected_holder).get(name)
         candidates = [fn for fn in _function_candidates(value) if fn.__code__.co_firstlineno == line]
+        expected_candidates = [fn for fn in _function_candidates(expected_value)
+                               if fn.__code__.co_firstlineno == line]
         if (expected is None or len(candidates) != 1 or candidates[0].__module__ != module.__name__
-                or candidates[0].__code__ != expected):
+                or candidates[0].__code__ != expected or len(expected_candidates) != 1
+                or not _semantic_value_equal(candidates[0].__defaults__, expected_candidates[0].__defaults__,
+                                             actual_module=module, scratch_module=scratch)
+                or not _semantic_value_equal(candidates[0].__kwdefaults__, expected_candidates[0].__kwdefaults__,
+                                             actual_module=module, scratch_module=scratch)
+                or not _semantic_value_equal(candidates[0].__annotations__, expected_candidates[0].__annotations__,
+                                             actual_module=module, scratch_module=scratch)):
             _fail("attest_code", "live_binding_mismatch")
+    _attest_module_globals(module, scratch, tree, functions)
     if role == "cli":
         expected_globals = {
             "EXECUTION_CODE_ROLES": EXECUTION_CODE_ROLES,
@@ -562,6 +735,50 @@ def _attest_module(role: str, raw: bytes, path: Path, module_override: object | 
             raise
         except Exception:
             _fail("attest_code", "cli_alias_mismatch")
+
+
+_PARSER_CONSTANTS = {
+    "_INT32_MIN": -(2 ** 31), "_INT32_MAX": 2 ** 31 - 1,
+    "_CATEGORIES": frozenset({"positive", "negative", "hard_negative"}),
+    "_SPAN_TYPES": frozenset({"credit_card_number", "phone_number", "iban", "email", "ssn"}),
+    "_PII_OPERATIONS": frozenset({"homoglyph", "chunking", "emojify", "char_to_word",
+                                   "invisible_chars", "separators"}),
+    "_CONTEXT_OPERATIONS": frozenset({"supportive_context", "affix_redacted", "affix_ignore_pii",
+                                       "affix_category_prime", "pi_ceo_instruct", "pi_few_shot_safe",
+                                       "pi_hypothetical", "pi_educational_framing", "pi_category_prime"}),
+    "_TOP_FIELDS": ("uid", "input_id", "category", "attack_target", "llm_input", "pii_spans"),
+    "_SPAN_FIELDS": ("type", "start", "end", "value", "value_fuzzy"),
+    "_ATTACK_FIELDS": ("pii", "context"),
+}
+_REVIEW_CONSTANTS = {
+    "SOURCE_SHA256": "e97f6a32132e7fa058919798c030fca54aaad3318c47954d281717a435bfeb69",
+    "PROTOCOL_SHA256": "3991777aedadc8d50b7395a9ce8ef2aebfec946603229b823f1b6c118a16cbdf",
+    "RUBRIC_SHA256": "203f37b4c77789a0f9c0838905954b9e1b76acf4f7906ab7717849e94616fcd7",
+    "REFERENCE_TRAIN_SHA256": "da9a1b095587264714c5ae99c8a0f92329a04f6fc237a8ace7d71e837ede429d",
+    "POOL_SEED": 13102026, "SPLIT_SEED": 11102026, "ROW_FILL_SEED": 13102026,
+    "MAX_REVIEW_POOL": 12096, "MAX_ORDINARY_POOL": 6200,
+    "MAX_HARD_NEGATIVE_POOL": 1232, "MAX_POSITIVE_POOL": 4664,
+    "MAX_POSITIVE_PER_COMPONENT": 4, "_EVALUATION_COMPONENT_FLOOR": 200,
+    "_STRATA": ("positive", "ordinary", "hard"),
+    "_CATEGORIES": frozenset({"HEALTH", "POLITICS", "RELIGION", "CRIMINAL", "FINANCIAL",
+                               "SEXUAL", "CHILD", "LOCATION", "IDENTITY", "THIRD_PARTY"}),
+    "_QUOTAS": {
+        "test": {"positive": 1000, "ordinary": 750, "hard": 250},
+        "validation": {"positive": 1000, "ordinary": 750, "hard": 250},
+        "train": {"positive": 2000, "ordinary": 1600, "hard": 400},
+    },
+}
+
+
+def _check_semantic_contracts() -> None:
+    if (native.GroupingRow is not grouping.GroupingRow
+            or native.NativeIdentifier is not grouping.NativeIdentifier
+            or native.ParsedNativeRow.__module__ != native.__name__
+            or any(not _semantic_value_equal(vars(native).get(name), value)
+                   for name, value in _PARSER_CONSTANTS.items())
+            or any(not _semantic_value_equal(vars(review).get(name), value)
+                   for name, value in _REVIEW_CONSTANTS.items())):
+        _fail("attest_code", "semantic_contract_mismatch")
 
 
 def _attest_code(source_root: Path, trust: InHousePreparationTrust) -> dict[str, str]:
@@ -690,6 +907,7 @@ def _attest_code(source_root: Path, trust: InHousePreparationTrust) -> dict[str,
             or in_house.build_in_house_review_pool is not build_in_house_review_pool
             or training_data.training_text_key is not grouping.training_text_key):
         _fail("attest_code", "import_alias_mismatch")
+    _check_semantic_contracts()
     return actual
 
 
@@ -698,6 +916,46 @@ def _recheck_code(source_root: Path, expected: Mapping[str, str]) -> None:
         raw, _ = _code_capture(source_root, role)
         if _sha(raw) != expected[role]:
             _fail("recheck_code", "source_changed")
+
+
+def _verify_execution_edge(source_root: Path, trust: InHousePreparationTrust,
+                           expected: Mapping[str, str], captures: Mapping[str, _Capture] | None = None) -> None:
+    if captures is not None:
+        _recheck_inputs(captures)
+    if _attest_code(source_root, trust) != dict(expected):
+        _fail("attest_code", "execution_binding_changed")
+    _recheck_code(source_root, expected)
+
+
+def _parser_contract_snapshot() -> tuple[Any, ...]:
+    functions = (native.parse_native_row, native.validate_arrow_schema)
+    return (
+        parse_native_row, validate_arrow_schema, grouping.GroupingRow, grouping.NativeIdentifier,
+        tuple((fn, fn.__code__, fn.__defaults__, fn.__kwdefaults__, fn.__annotations__) for fn in functions),
+        tuple((name, vars(native).get(name)) for name in _PARSER_CONSTANTS),
+    )
+
+
+def _verify_parser_edge(snapshot: tuple[Any, ...]) -> None:
+    try:
+        parser_alias, schema_alias, row_type, identifier_type, functions, constants = snapshot
+        if (parse_native_row is not parser_alias or parse_native_row is not native.parse_native_row
+                or validate_arrow_schema is not schema_alias or validate_arrow_schema is not native.validate_arrow_schema
+                or grouping.GroupingRow is not row_type or grouping.NativeIdentifier is not identifier_type
+                or native.GroupingRow is not row_type or native.NativeIdentifier is not identifier_type):
+            _fail("parse_source", "parser_binding_changed")
+        for fn, code, defaults, kwdefaults, annotations in functions:
+            if (fn.__code__ is not code or fn.__defaults__ != defaults or fn.__kwdefaults__ != kwdefaults
+                    or fn.__annotations__ != annotations):
+                _fail("parse_source", "parser_function_changed")
+        for name, expected in constants:
+            if not _semantic_value_equal(vars(native).get(name), expected):
+                _fail("parse_source", "parser_constant_changed")
+        _check_semantic_contracts()
+    except InHousePreparationError:
+        raise
+    except Exception:
+        _fail("parse_source", "parser_binding_changed")
 
 
 def _decode_pin_manifest(raw: bytes, trust: InHousePreparationTrust, code_hashes: Mapping[str, str],
@@ -731,13 +989,18 @@ def _protection_preflight(paths: InHouseReviewIOPaths, captures: Mapping[str, _C
                           trust: InHousePreparationTrust, code_hashes: Mapping[str, str],
                           source_root: Path) -> tuple[InHouseProtectionBindings, dict[str, int], ProtectedKeys]:
     snapshots = _paths_for_captured(paths, captures)
+    _verify_execution_edge(source_root, trust, code_hashes, captures)
     _decode_pin_manifest(captures["pin_manifest"].data, trust, code_hashes, source_root)
+    _verify_execution_edge(source_root, trust, code_hashes, captures)
     source_meta = validate_source_audit(snapshots.source_audit)
     if source_meta.get("source_audit_sha256") != captures["source_audit"].sha256:
         _fail("validate_source_audit", "captured_hash_mismatch")
+    _verify_execution_edge(source_root, trust, code_hashes, captures)
     if verify_parquet_bytes(snapshots.parquet) != captures["parquet"].sha256:
         _fail("verify_parquet", "captured_hash_mismatch")
+    _verify_execution_edge(source_root, trust, code_hashes, captures)
     text_meta = require_frozen_text_inputs(snapshots.protocol, snapshots.rubric)
+    _verify_execution_edge(source_root, trust, code_hashes, captures)
     historical, historical_meta = validate_protected_union(
         snapshots.protected_union, snapshots.protection_receipt, trust.historical_receipt_raw_sha256)
     if (historical_meta.get("artifact_sha256") != captures["protected_union"].sha256
@@ -752,8 +1015,10 @@ def _protection_preflight(paths: InHouseReviewIOPaths, captures: Mapping[str, _C
     }
     if historical_helpers != expected_historical:
         _fail("validate_historical_protection", "helper_pin_mismatch")
+    _verify_execution_edge(source_root, trust, code_hashes, captures)
     if validate_training_data_source(source_root / _CODE_PATHS["normalizer"]) != code_hashes["normalizer"]:
         _fail("validate_normalizer", "helper_pin_mismatch")
+    _verify_execution_edge(source_root, trust, code_hashes, captures)
     addon = validate_fixture_addon(
         _canonical_lf(captures["fixture"].data), _canonical_lf(captures["fixture_rubric"].data),
         captures["fixture_review"].data, captures["addon_artifact"].data, captures["addon_receipt"].data,
@@ -763,10 +1028,12 @@ def _protection_preflight(paths: InHouseReviewIOPaths, captures: Mapping[str, _C
     )
     if type(addon) is not ProtectedKeys:
         _fail("validate_addon", "invalid_keys")
+    _verify_execution_edge(source_root, trust, code_hashes, captures)
     addon_artifact = _strict_json(captures["addon_artifact"].data, "validate_addon")
     addon_content = addon_artifact.get("addon_content_sha256") if isinstance(addon_artifact, dict) else None
     if not _valid_sha(addon_content):
         _fail("validate_addon", "invalid_content_digest")
+    _verify_execution_edge(source_root, trust, code_hashes, captures)
     combined = fixture.combine_protected_keys(historical, addon)
     protection_bindings = InHouseProtectionBindings(
         historical_artifact_raw_sha256=captures["protected_union"].sha256,
@@ -816,6 +1083,7 @@ def prepare_in_house_protection_bindings(paths: InHouseReviewIOPaths, *, trust: 
             _fail("validate_trust", "unexpected_binding_in_preflight")
         code_hashes = _attest_code(source_root, trust)
         with _capture_all(paths, trust) as (_originals, captures, _snapshot_root):
+            _verify_execution_edge(source_root, trust, code_hashes, captures)
             binding, counts, _combined = _protection_preflight(paths, captures, trust, code_hashes, source_root)
             _recheck_inputs(captures)
             _recheck_code(source_root, code_hashes)
@@ -838,6 +1106,7 @@ class _PrivateOutput:
         self.output_fd = -1
         self.results_identity = None
         self.output_identity = None
+        self.files: dict[str, tuple[tuple[int, int, int, int], int, str]] = {}
 
     def __enter__(self):
         try:
@@ -913,13 +1182,60 @@ class _PrivateOutput:
                 or _identity(os.fstat(self.output_fd)) != self.output_identity):
             _fail("output", "output_identity_changed")
         self._check_dir(self.output)
+        if set(os.listdir(self.output_fd)) != set(self.files):
+            _fail("output", "unexpected_output_entry")
+        for name, expected in self.files.items():
+            self._verify_named_file(name, expected)
+
+    def _verify_named_file(self, filename: str,
+                           expected: tuple[tuple[int, int, int], int, str]) -> None:
+        expected_identity, expected_size, expected_sha = expected
+        try:
+            named = os.stat(filename, dir_fd=self.output_fd, follow_symlinks=False)
+            if (not stat.S_ISREG(named.st_mode) or _is_reparse(named)
+                    or _identity(named) != expected_identity
+                    or stat.S_IMODE(named.st_mode) != 0o600
+                    or named.st_uid != os.geteuid() or named.st_nlink != 1
+                    or named.st_size != expected_size):
+                _fail("output", "published_file_identity_changed")
+            fd = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+                         dir_fd=self.output_fd)
+            try:
+                before = os.fstat(fd)
+                if (_identity(before) != expected_identity or not stat.S_ISREG(before.st_mode)
+                        or stat.S_IMODE(before.st_mode) != 0o600 or before.st_uid != os.geteuid()
+                        or before.st_nlink != 1 or before.st_size != expected_size):
+                    _fail("output", "published_file_identity_changed")
+                digest = hashlib.sha256()
+                total = 0
+                while True:
+                    chunk = os.read(fd, 1024 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    digest.update(chunk)
+                after = os.fstat(fd)
+                if (_identity(after) != expected_identity or total != expected_size
+                        or digest.hexdigest() != expected_sha):
+                    _fail("output", "published_file_content_changed")
+            finally:
+                os.close(fd)
+        except InHousePreparationError:
+            raise
+        except OSError:
+            _fail("output", "published_file_unavailable")
 
     def write(self, filename: str, payload: bytes) -> str:
         if filename not in _PRIVATE_OUTPUTS:
             _fail("output", "filename_not_allowed")
-        self.verify()
-        fd = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-                     0o600, dir_fd=self.output_fd)
+        try:
+            self.verify()
+            fd = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                         0o600, dir_fd=self.output_fd)
+        except InHousePreparationError:
+            raise
+        except OSError:
+            _fail("output", "exclusive_file_create_failed")
         try:
             os.fchmod(fd, 0o600)
             view = memoryview(payload)
@@ -931,12 +1247,23 @@ class _PrivateOutput:
                 position += written
             os.fsync(fd)
             info = os.fstat(fd)
-            if not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o600:
+            if (not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o600
+                    or info.st_uid != os.geteuid() or info.st_nlink != 1 or info.st_size != len(payload)):
                 _fail("output", "file_mode_unavailable")
+            expected = (_identity(info), len(payload), _sha(payload))
+            self._verify_named_file(filename, expected)
+            self.files[filename] = expected
             os.fsync(self.output_fd)
             self.verify()
+        except InHousePreparationError:
+            raise
+        except OSError:
+            _fail("output", "private_file_write_failed")
         finally:
-            os.close(fd)
+            try:
+                os.close(fd)
+            except OSError:
+                _fail("output", "private_file_close_failed")
         return _sha(payload)
 
     def __exit__(self, exc_type, exc, tb):
@@ -966,11 +1293,20 @@ def _span_inputs(raw: Mapping[str, object], parsed: Any) -> tuple[ValidatedNativ
     return tuple(values)
 
 
-def _iter_rows(parquet: Any):
+def _iter_rows(parquet: Any, *, edge_guard=None, parser_snapshot: tuple[Any, ...] | None = None):
     seen: set[int] = set()
+    if edge_guard is not None:
+        edge_guard()
     for batch in parquet.iter_batches(batch_size=256):
+        if edge_guard is not None:
+            edge_guard()
         validate_arrow_schema(batch.schema)
-        for raw in batch.to_pylist():
+        if edge_guard is not None:
+            edge_guard()
+        rows = batch.to_pylist()
+        for raw in rows:
+            if parser_snapshot is not None:
+                _verify_parser_edge(parser_snapshot)
             if not isinstance(raw, Mapping):
                 _fail("parse_source", "row_shape")
             parsed = parse_native_row(raw)
@@ -1010,33 +1346,43 @@ def _source_rows_and_pool(paths: InHouseReviewIOPaths, captures: Mapping[str, _C
                           code_hashes: Mapping[str, str], protection_binding: InHouseProtectionBindings,
                           combined: ProtectedKeys, output: _PrivateOutput) -> InHousePreparationResult:
     snapshots = _paths_for_captured(paths, captures)
+    def edge():
+        _verify_execution_edge(paths.output.parents[2], trust, code_hashes, captures)
+
     stage = "validate_source_audit"
     try:
+        edge()
         source_audit = validate_source_audit(snapshots.source_audit)
+        edge()
         text_bindings = require_frozen_text_inputs(snapshots.protocol, snapshots.rubric)
         if source_audit["source_audit_sha256"] != captures["source_audit"].sha256:
             _fail(stage, "captured_source_audit_mismatch")
+        edge()
         if verify_parquet_bytes(snapshots.parquet) != captures["parquet"].sha256:
             _fail("verify_parquet", "captured_hash_mismatch")
-        _recheck_inputs(captures)
+        edge()
         stage = "open_parquet"
         parquet = open_verified_parquet(snapshots.parquet)
+        edge()
         validate_arrow_schema(parquet.schema_arrow)
+        edge()
         if parquet.metadata.num_rows != PARQUET_ROWS:
             _fail("validate_parquet", "row_count_mismatch")
-        _recheck_inputs(captures)
+        edge()
         parsed_rows = []
         spans_by_uid = {}
         stage = "scan_source"
-        for raw, parsed in _iter_rows(parquet):
+        parser_snapshot = _parser_contract_snapshot()
+        for raw, parsed in _iter_rows(parquet, edge_guard=edge, parser_snapshot=parser_snapshot):
             parsed_rows.append(parsed)
             if parsed.grouping_row.eligible:
                 spans_by_uid[parsed.grouping_row.uid] = _span_inputs(raw, parsed)
         if len(parsed_rows) != PARQUET_ROWS:
             _fail("scan_source", "row_count_mismatch")
-        _recheck_inputs(captures)
+        edge()
         stage = "close_graph"
         _counts, graph = aggregate_scan(parsed_rows, combined, expected_rows=PARQUET_ROWS)
+        edge()
         if (review.protected_keys_digest(combined) != protection_binding.internal_protected_keys_sha256
                 or fixture.combined_protection_digest(combined) != protection_binding.combined_protection_sha256):
             _fail("compare_protection_bindings", "key_digest_mismatch")
@@ -1055,9 +1401,9 @@ def _source_rows_and_pool(paths: InHouseReviewIOPaths, captures: Mapping[str, _C
         )
         stage = "build_pool"
         pool = in_house.build_in_house_review_pool(tuple(parsed_rows), graph, bindings, combined, spans_by_uid)
+        edge()
         in_house.validate_in_house_review_pool(pool, trusted_bindings=bindings)
-        _recheck_inputs(captures)
-        _recheck_code(paths.output.parents[2], code_hashes)
+        edge()
         packages_payload = b"".join(canonical_json_bytes({
             "review_id": package.review_id, "text": package.text, "text_sha256": package.text_sha256,
             "rubric_sha256": package.rubric_sha256,
@@ -1070,7 +1416,9 @@ def _source_rows_and_pool(paths: InHouseReviewIOPaths, captures: Mapping[str, _C
             "structural_eligible": member.structural_eligible,
             "native_span_types": [span.entity_type for span in member.native_spans],
         }) + b"\n" for member in pool.core._members)
+        edge()
         package_sha = output.write("review-packages.jsonl", packages_payload)
+        edge()
         map_sha = output.write("private-review-map.jsonl", map_payload)
         counts = {"source_rows": len(parsed_rows), "pool_size": pool.core.pool_size,
                   "graph_components": graph.component_count, "assignable_rows": graph.assignable_row_count}
@@ -1079,6 +1427,12 @@ def _source_rows_and_pool(paths: InHouseReviewIOPaths, captures: Mapping[str, _C
             "status": "complete", "scope": "review_preparation_only", "source_revision": trust.source_revision,
             "preparation_identity": pool.preparation_identity, "review_pool_sha256": pool.review_pool_sha256,
             "bindings": bindings.to_dict(), "input_raw_sha256": {k: captures[k].sha256 for k in _INPUT_ROLES},
+            "input_consumed_sha256": {
+                role: _sha(_canonical_lf(captures[role].data)
+                           if role in {"protocol", "rubric", "fixture", "fixture_rubric"}
+                           else captures[role].data)
+                for role in _INPUT_ROLES
+            },
             "execution_code_raw_sha256": dict(code_hashes), "source_audit_sha256": source_audit["source_audit_sha256"],
             "parquet_sha256": captures["parquet"].sha256, "protocol_sha256": text_bindings["protocol_sha256"],
             "rubric_sha256": text_bindings["rubric_sha256"], "counts": counts,
@@ -1086,10 +1440,12 @@ def _source_rows_and_pool(paths: InHouseReviewIOPaths, captures: Mapping[str, _C
             "no_model_scoring": True, "not_authorized_for_fitting": True,
             "review_packages_file": "review-packages.jsonl", "review_packages_sha256": package_sha,
             "private_review_map_file": "private-review-map.jsonl", "private_review_map_sha256": map_sha,
+            "legacy_pool_sha256": pool.core.pool_sha256,
+            "graph_membership_sha256": pool.core.graph_membership_sha256,
+            "private_members_sha256": pool.core.private_members_sha256,
             "private_directory_mode": "0700", "private_file_mode": "0600", "platform": "posix",
         }
-        _recheck_inputs(captures)
-        _recheck_code(paths.output.parents[2], code_hashes)
+        edge()
         manifest_sha = output.write("manifest.json", canonical_json_bytes(manifest) + b"\n")
         return InHousePreparationResult("complete", paths.output, pool.preparation_identity,
                                         pool.review_pool_sha256,
@@ -1132,6 +1488,7 @@ def prepare_in_house_review_pool(paths: InHouseReviewIOPaths, *, trust: InHouseP
         stage = "attest_code"
         code_hashes = _attest_code(source_root, trust)
         with _capture_all(paths, trust) as (_originals, captures, _snapshot_root):
+            _verify_execution_edge(source_root, trust, code_hashes, captures)
             expected = _expected_bindings(trust.expected_protection_bindings)
             stage = "validate_protection_bindings"
             actual, _counts, combined = _protection_preflight(paths, captures, trust, code_hashes, source_root)

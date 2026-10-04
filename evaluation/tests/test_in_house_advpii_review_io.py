@@ -42,11 +42,9 @@ def make_inputs(root: Path):
         paths[role] = path
     record = io.InHouseReviewIOPaths(**paths, output=root / "unused-output")
     hashes = {role: sha(path.read_bytes()) for role, path in paths.items()}
-    hashes["pin_manifest"] = D
-    hashes["protection_receipt"] = "b" * 64
-    hashes["addon_receipt"] = "c" * 64
     trust = InHousePreparationTrust(
-        "4" * 40, hashes, D, "b" * 64, "c" * 64, "5" * 40,
+        "4" * 40, hashes, hashes["pin_manifest"], hashes["protection_receipt"],
+        hashes["addon_receipt"], "5" * 40,
         {key: D for key in ("grouping", "normalizer", "fixture_validator")},
         {key: D for key in EXECUTION_CODE_ROLES}, io.in_house.PLAN_SHA256,
         io.in_house.PREPARATION_DESIGN_SHA256, io.in_house.ALLOCATOR_DESIGN_SHA256,
@@ -173,8 +171,9 @@ class PreparationIOTests(unittest.TestCase):
                  patch.object(io, "_strict_json", side_effect=strict), \
                  patch.object(io, "validate_source_audit", side_effect=source_audit), \
                  patch.object(io, "verify_parquet_bytes", side_effect=lambda path: sha(path.read_bytes())), \
-                 patch.object(io, "require_frozen_text_inputs", return_value={"protocol_sha256": D,
-                                                                                "rubric_sha256": "e" * 64}), \
+                 patch.object(io, "require_frozen_text_inputs", return_value={
+                     "protocol_sha256": io.review.PROTOCOL_SHA256,
+                     "rubric_sha256": io.review.RUBRIC_SHA256}), \
                  patch.object(io, "validate_protected_union", side_effect=protected_union), \
                  patch.object(io, "validate_training_data_source", return_value=code_hashes["normalizer"]), \
                  patch.object(io, "validate_fixture_addon", return_value=addon), \
@@ -213,37 +212,47 @@ class PreparationIOTests(unittest.TestCase):
                 schema_arrow = "schema"
                 metadata = SimpleNamespace(num_rows=2)
                 def iter_batches(self, batch_size):
-                    return [FakeBatch([{"uid": 1, "pii_spans": []}, {"uid": 2, "pii_spans": []}])]
-            graph = SimpleNamespace(component_count=1, assignable_row_count=2)
-            fake_pool = SimpleNamespace(
-                core=SimpleNamespace(packages=(), _members=(), pool_size=0),
-                preparation_identity="6" * 64, review_pool_sha256="7" * 64,
-            )
+                    return [FakeBatch([
+                        {"uid": 1, "input_id": 12, "category": "negative",
+                         "attack_target": {"pii": [], "context": []},
+                         "llm_input": "synthetic ordinary request one", "pii_spans": []},
+                        {"uid": 2, "input_id": 12, "category": "negative",
+                         "attack_target": {"pii": [], "context": []},
+                         "llm_input": "synthetic ordinary request two", "pii_spans": []},
+                    ])]
             with patch.object(io, "_attest_code", side_effect=lambda *_: code_hashes), \
                  patch.object(io, "validate_source_audit", side_effect=source_audit), \
                  patch.object(io, "verify_parquet_bytes", side_effect=lambda path: sha(path.read_bytes())), \
-                 patch.object(io, "require_frozen_text_inputs", return_value={"protocol_sha256": D,
-                                                                                "rubric_sha256": "e" * 64}), \
+                 patch.object(io, "require_frozen_text_inputs", return_value={
+                     "protocol_sha256": io.review.PROTOCOL_SHA256,
+                     "rubric_sha256": io.review.RUBRIC_SHA256}), \
                  patch.object(io, "validate_protected_union", side_effect=protected_union), \
                  patch.object(io, "validate_training_data_source", return_value=code_hashes["normalizer"]), \
                  patch.object(io, "validate_fixture_addon", return_value=addon), \
                  patch.object(io, "PARQUET_ROWS", 2), \
                  patch.object(io, "open_verified_parquet", return_value=FakeParquet()) as open_parquet, \
                  patch.object(io, "validate_arrow_schema", return_value=None), \
-                 patch.object(io, "parse_native_row", side_effect=lambda row: FakeParsed(row["uid"])), \
-                 patch.object(io, "aggregate_scan", return_value=({}, graph)) as aggregate, \
-                 patch.object(io.in_house, "build_in_house_review_pool", return_value=fake_pool), \
-                 patch.object(io.in_house, "validate_in_house_review_pool", return_value=None):
+                 patch.object(io.review, "SOURCE_SHA256", sha(b"synthetic parquet")), \
+                 patch.object(io, "build_in_house_review_pool", wraps=io.build_in_house_review_pool) as pool_builder:
                 preflight = io.prepare_in_house_protection_bindings(paths, trust=trust, source_root=source_root)
                 prepared_trust = replace(trust, expected_protection_bindings=preflight.bindings)
                 result = io.prepare_in_house_review_pool(paths, trust=prepared_trust,
                                                         source_root=source_root, results_root=results)
                 self.assertEqual(result.status, "complete")
                 self.assertEqual(open_parquet.call_count, 1)
-                self.assertEqual(aggregate.call_count, 1)
+                self.assertEqual(pool_builder.call_count, 1)
                 manifest = json.loads((paths.output / "manifest.json").read_text(encoding="utf-8"))
                 self.assertEqual(manifest["review_status"], "assistant_provisional_professor_pending")
                 self.assertTrue(manifest["no_model_scoring"])
+                self.assertEqual(set(manifest["input_consumed_sha256"]), set(io._INPUT_ROLES))
+                self.assertEqual(manifest["input_consumed_sha256"]["fixture"],
+                                 sha(io._canonical_lf(paths.fixture.read_bytes())))
+                self.assertEqual(manifest["input_consumed_sha256"]["addon_artifact"],
+                                 sha(paths.addon_artifact.read_bytes()))
+                for name in ("legacy_pool_sha256", "graph_membership_sha256", "private_members_sha256"):
+                    self.assertRegex(manifest[name], r"^[0-9a-f]{64}$")
+                self.assertEqual(manifest["counts"]["source_rows"], 2)
+                self.assertEqual(manifest["counts"]["graph_components"], 1)
                 self.assertEqual((paths.output / "review-packages.jsonl").stat().st_mode & 0o777, 0o600)
 
                 bad_output = results / "mismatched-freeze"
@@ -254,7 +263,7 @@ class PreparationIOTests(unittest.TestCase):
                     io.prepare_in_house_review_pool(bad_paths, trust=bad_trust,
                                                     source_root=source_root, results_root=results)
                 self.assertEqual(open_parquet.call_count, 1)
-                self.assertEqual(aggregate.call_count, 1)
+                self.assertEqual(pool_builder.call_count, 1)
                 self.assertTrue((bad_output / "failure.json").exists())
 
     def test_line_ending_canonicalization_is_crlf_only(self):
@@ -327,6 +336,44 @@ class PreparationIOTests(unittest.TestCase):
             with self.assertRaisesRegex(io.InHousePreparationError, "duplicate_uid"):
                 list(io._iter_rows(reader))
 
+    def test_parser_alias_mutation_during_schema_callback_stops_before_batch_conversion(self):
+        parser_snapshot = io._parser_contract_snapshot()
+        order = []
+        class Batch:
+            schema = "schema"
+            def to_pylist(self):
+                order.append("converted")
+                return [{}]
+        batch = Batch()
+        checks = 0
+        def guard():
+            nonlocal checks
+            checks += 1
+            if checks == 2:
+                order.append("post-schema")
+                io.parse_native_row = lambda _row: order.append("foreign-parser")
+                io._verify_parser_edge(parser_snapshot)
+        with patch.object(io, "validate_arrow_schema", return_value=None):
+            with self.assertRaisesRegex(io.InHousePreparationError, "parser_binding_changed"):
+                list(io._iter_rows(type("Reader", (), {"iter_batches": lambda self, batch_size: [batch]})(),
+                                   edge_guard=guard, parser_snapshot=parser_snapshot))
+        self.assertEqual(order, ["post-schema"])
+
+    def test_parser_alias_mutation_during_conversion_stops_before_parser(self):
+        parser_snapshot = io._parser_contract_snapshot()
+        order = []
+        class Batch:
+            schema = "schema"
+            def to_pylist(self):
+                order.append("converted")
+                io.parse_native_row = lambda _row: order.append("foreign-parser")
+                return [{}]
+        with patch.object(io, "validate_arrow_schema", return_value=None):
+            with self.assertRaisesRegex(io.InHousePreparationError, "parser_binding_changed"):
+                list(io._iter_rows(type("Reader", (), {"iter_batches": lambda self, batch_size: [Batch()]})(),
+                                   parser_snapshot=parser_snapshot))
+        self.assertEqual(order, ["converted"])
+
     def test_span_adapter_uses_fuzzy_literal_and_preserves_base_identifier(self):
         parsed = FakeParsed(1, spans=1)
         value = io._span_inputs({"pii_spans": [{"type": "email", "start": 2, "end": 8,
@@ -367,7 +414,7 @@ class PreparationIOTests(unittest.TestCase):
         spec.loader.exec_module(cli)
         io._attest_module("cli", path.read_bytes(), path, cli)
         with patch.object(cli, "EXECUTION_CODE_ROLES", frozenset()):
-            with self.assertRaisesRegex(io.InHousePreparationError, "cli_alias_mismatch"):
+            with self.assertRaisesRegex(io.InHousePreparationError, "source_global|cli_alias_mismatch"):
                 io._attest_module("cli", path.read_bytes(), path, cli)
         own_path = ROOT / io._CODE_PATHS["in_house_review_io"]
         original = io._capture_all
@@ -395,6 +442,30 @@ class PreparationIOTests(unittest.TestCase):
                 io._attest_code(ROOT, trust)
             capture.assert_not_called()
 
+    def test_attestation_rejects_parser_alias_and_semantic_constant_changes(self):
+        path = ROOT / io._CODE_PATHS["parser"]
+        raw = path.read_bytes()
+        with patch.object(io.native, "_PII_OPERATIONS", io.native._PII_OPERATIONS | {"unreviewed-op"}):
+            with self.assertRaises(io.InHousePreparationError):
+                io._attest_module("parser", raw, path)
+        with patch.object(io.native, "GroupingRow", lambda **kwargs: kwargs):
+            with self.assertRaises(io.InHousePreparationError):
+                io._attest_module("parser", raw, path)
+        with patch.object(io.native.ParsedNativeRow, "__init__", lambda *_args, **_kwargs: None):
+            with self.assertRaises(io.InHousePreparationError):
+                io._attest_module("parser", raw, path)
+
+    def test_attestation_rejects_function_default_mutation(self):
+        path = ROOT / io._CODE_PATHS["structure"]
+        original = dict(io.structure.aggregate_scan.__kwdefaults__ or {})
+        self.assertIsNotNone(original)
+        io.structure.aggregate_scan.__kwdefaults__ = {**original, "expected_rows": 0}
+        try:
+            with self.assertRaises(io.InHousePreparationError):
+                io._attest_module("structure", path.read_bytes(), path)
+        finally:
+            io.structure.aggregate_scan.__kwdefaults__ = original
+
     @unittest.skipUnless(io._platform_supported(), "POSIX descriptor protections are required")
     def test_private_output_is_exclusive_and_uses_private_modes(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -410,6 +481,31 @@ class PreparationIOTests(unittest.TestCase):
                     output.write("review-packages.jsonl", b"replacement")
             with self.assertRaises(io.InHousePreparationError):
                 io._PrivateOutput(root, target).__enter__()
+
+    @unittest.skipUnless(io._platform_supported(), "POSIX descriptor protections are required")
+    def test_named_file_replacement_at_fsync_is_detected_and_sanitized(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "evaluation" / "results").mkdir(parents=True)
+            target = root / "evaluation" / "results" / "run-replace-file"
+            with io._PrivateOutput(root, target) as output:
+                real_fsync = os.fsync
+                changed = False
+
+                def replace_after_sync(fd):
+                    nonlocal changed
+                    result = real_fsync(fd)
+                    if not changed:
+                        changed = True
+                        named = target / "review-packages.jsonl"
+                        named.unlink()
+                        named.write_bytes(b"different bytes")
+                    return result
+
+                with patch.object(io.os, "fsync", side_effect=replace_after_sync):
+                    with self.assertRaisesRegex(io.InHousePreparationError, "published_file_identity_changed"):
+                        output.write("review-packages.jsonl", b"original bytes")
+                self.assertTrue(changed)
 
     @unittest.skipUnless(io._platform_supported(), "POSIX descriptor protections are required")
     def test_output_directory_substitution_stops_publication_outside_held_descriptor(self):
