@@ -1922,14 +1922,19 @@ async function resourceSummary(files) {
   const cpuSummary = summarizeResourceCpuWindows(windows);
   const processes = [...byRole.values()].map((record) => {
     const cpu = cpuSummary.processes.get(`${record.role}/${record.pid}/${record.startTicks}`);
+    const cpuIntervalWindows = cpuSummary.windows.filter((window) => window.roleCpuIntervals[record.role] > 0).length;
+    const requiredRoleWindowMissing = ["xvfb", "chromium", "supervisor_bridge", "detector"].includes(record.role)
+      && cpuIntervalWindows < cpuSummary.windows.length;
     return {
       ...record,
       cpuDeltaSeconds: cpu?.cpuDeltaSeconds ?? null,
       cpuSampleCount: cpu?.cpuSampleCount ?? 0,
       cpuIntervalCount: cpu?.cpuIntervalCount ?? 0,
       cpuSampledSpanNs: cpu?.cpuSampledSpanNs ?? 0,
-      cpuUnmeasuredReason: !cpu || cpu.cpuDeltaSeconds === null
-        ? "fewer_than_two_samples_in_any_window" : null,
+      cpuIntervalWindows,
+      cpuWindowCount: cpuSummary.windows.length,
+      cpuUnmeasuredReason: requiredRoleWindowMissing ? "required_role_missing_window_interval"
+        : !cpu || cpu.cpuDeltaSeconds === null ? "fewer_than_two_samples_in_any_window" : null,
     };
   });
   return {

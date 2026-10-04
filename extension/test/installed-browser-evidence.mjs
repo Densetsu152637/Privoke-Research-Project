@@ -391,6 +391,11 @@ export function assertCompleteResourceEvidence(summary) {
     assert.ok(Number.isSafeInteger(window.maximumObservedSampleGapNs)
         && window.maximumObservedSampleGapNs <= 500_000_000,
     "resource window cadence exceeds 500 ms");
+    for (const role of ["xvfb", "chromium", "supervisor_bridge", "detector"]) {
+      assert.ok(Number.isSafeInteger(window.roleCpuIntervals?.[role])
+          && window.roleCpuIntervals[role] >= 1,
+      `${role} lacks a multi-observation CPU interval in every resource window`);
+    }
   }
   assert.ok(Number.isSafeInteger(summary.maximumObservedSampleGapNs)
       && summary.maximumObservedSampleGapNs <= 500_000_000,
@@ -588,6 +593,7 @@ export function summarizeResourceCpuWindows(windows) {
           ? cgroupMemory : Math.max(cgroupMemorySampledPeakBytes, cgroupMemory);
       } else cgroupMemoryMissingSamples += 1;
       if (!Array.isArray(sample.roles)) throw new TypeError("resource window process rows are missing");
+      const sampleProcessIdentities = new Set();
       for (const row of sample.roles) {
         if (typeof row?.role !== "string" || !row.role
             || !Number.isSafeInteger(row.pid) || row.pid <= 0
@@ -599,6 +605,11 @@ export function summarizeResourceCpuWindows(windows) {
           throw new TypeError("resource window process CPU counter is missing or invalid");
         }
         const key = `${row.role}/${row.pid}/${row.start_ticks}`;
+        const processIdentity = `${row.pid}/${row.start_ticks}`;
+        if (sampleProcessIdentities.has(processIdentity)) {
+          throw new TypeError("duplicate process identity in one resource sample");
+        }
+        sampleProcessIdentities.add(processIdentity);
         const counter = processCounters.get(key) || { first: cpuSeconds, last: cpuSeconds,
           count: 0, firstMonotonicNs: sample.sample_monotonic_ns,
           lastMonotonicNs: sample.sample_monotonic_ns };
@@ -626,15 +637,21 @@ export function summarizeResourceCpuWindows(windows) {
     }
     const cgroupDelta = previousCgroupCpuUsec - firstCgroupCpuUsec;
     cgroupCpuSampledDeltaUsec += cgroupDelta;
+    const roleCpuIntervals = Object.create(null);
     for (const [key, counter] of processCounters) {
       const aggregate = processes.get(key);
       if (counter.count >= 2) {
+        const span = counter.lastMonotonicNs - counter.firstMonotonicNs;
+        if (!Number.isSafeInteger(span) || span <= 0) {
+          throw new TypeError("resource process CPU interval lacks distinct observation times");
+        }
         const delta = counter.last - counter.first;
         const total = (aggregate.cpuDeltaSeconds ?? 0) + delta;
         if (!Number.isFinite(total) || total < 0) throw new TypeError("resource process CPU delta is not finite");
         aggregate.cpuDeltaSeconds = total;
         aggregate.cpuIntervalCount += 1;
-        aggregate.cpuSampledSpanNs += counter.lastMonotonicNs - counter.firstMonotonicNs;
+        aggregate.cpuSampledSpanNs += span;
+        roleCpuIntervals[aggregate.role] = (roleCpuIntervals[aggregate.role] || 0) + 1;
       }
     }
     windowSummaries.push({
@@ -651,6 +668,7 @@ export function summarizeResourceCpuWindows(windows) {
       observedSampleSpanNs: previousSampleMonotonicNs - window.samples[0].sample_monotonic_ns,
       maximumObservedSampleGapNs: window.samples.slice(1).reduce((maximum, sample, index) =>
         Math.max(maximum, sample.sample_monotonic_ns - window.samples[index].sample_monotonic_ns), 0),
+      roleCpuIntervals,
       cgroupCpuSampledDeltaUsec: cgroupDelta,
     });
   }

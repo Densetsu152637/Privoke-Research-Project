@@ -244,22 +244,26 @@ test("resource windows reject singleton, empty, unsafe, equal, reversed, and ove
   assert.equal(boundary.maximumObservedSampleGapNs, 500_000_000);
 });
 
-async function productionResourceSummary(samples) {
+async function productionResourceSummary(inputWindows) {
+  const windows = inputWindows.length && inputWindows[0].sample_monotonic_ns !== undefined
+    ? [inputWindows] : inputWindows;
   const source = await readFile(new URL("../../evaluation/run-installed-browser-capture.mjs", import.meta.url), "utf8");
   const start = source.indexOf("async function resourceSummary(files) {");
   const end = source.indexOf("async function nativeHostEvidence(files, registration) {", start);
   assert.ok(start >= 0 && end > start, "production resource summary must remain extractable");
-  const jsonl = `${samples.map((sample) => JSON.stringify(sample)).join("\n")}\n`;
+  const jsonlByPath = new Map(windows.map((samples, index) => [`window-${index}.jsonl`,
+    `${samples.map((sample) => JSON.stringify(sample)).join("\n")}\n`]));
   const summarize = vm.runInNewContext(`(${source.slice(start, end)})`, {
     OUTPUT: "/synthetic",
     join: (_root, file) => file,
-    readFile: async () => jsonl,
+    readFile: async (_path) => jsonlByPath.get(_path),
     parseJsonl: (text) => text.split("\n").filter(Boolean).map((line) => JSON.parse(line)),
     summarizeResourceCpuWindows,
   });
-  return summarize([{ file: "window.jsonl", sha256: "synthetic-sha", sessionId: "synthetic-session",
+  return summarize(windows.map((samples, index) => ({ file: `window-${index}.jsonl`,
+    sha256: `synthetic-sha-${index}`, sessionId: `synthetic-session-${index}`,
     requestedStartMonotonicNs: "0", requestedEndMonotonicNs: "600000000",
-    phaseRequestCounts: { firstDecision: 1, warmup: 5, measured: 30 } }]);
+    phaseRequestCounts: { firstDecision: 1, warmup: 5, measured: 30 } })));
 }
 
 function resourceSample(timestamp, cgroupCpu, coreCpu, { detectorSecond = true, nativeSingleton = true, chromiumChild = true } = {}) {
@@ -277,26 +281,47 @@ function resourceSample(timestamp, cgroupCpu, coreCpu, { detectorSecond = true, 
 }
 
 test("production resource summary accepts measured required intervals and leaves singleton native CPU null", async () => {
-  const summary = await productionResourceSummary([
+  const first = [
     resourceSample(0, 100, 1), resourceSample(500_000_000, 110, 1.5),
-  ]);
+  ];
+  const second = [
+    resourceSample(600_000_000, 200, 2), resourceSample(1_100_000_000, 210, 2.5),
+  ];
+  second[0].roles.push({ role: "native_host", pid: 40, start_ticks: 400,
+    cpu_seconds: 0.2, rss_bytes: 110, pss_bytes: null });
+  const summary = await productionResourceSummary([first, second]);
   assertCompleteResourceEvidence(summary);
-  assert.equal(summary.cgroupCpuSampledDeltaUsec, 10);
+  assert.equal(summary.cgroupCpuSampledDeltaUsec, 20);
+  assert.deepEqual(summary.windows.map((window) => window.cgroupCpuSampledDeltaUsec), [10, 10]);
   const native = summary.processes.find((process) => process.role === "native_host");
-  assert.equal(native.cpuSampleCount, 1);
+  assert.equal(native.cpuSampleCount, 2, "one singleton observation is retained from each resource window");
   assert.equal(native.cpuDeltaSeconds, null);
   assert.equal(native.cpuSampledSpanNs, 0);
   assert.equal(native.cpuUnmeasuredReason, "fewer_than_two_samples_in_any_window");
   const shortChromiumChild = summary.processes.find((process) => process.pid === 41);
   assert.equal(shortChromiumChild.cpuDeltaSeconds, null);
   assert.equal(summary.windows[0].maximumObservedSampleGapNs, 500_000_000);
+  assert.equal(summary.windows[1].roleCpuIntervals.detector, 1);
 });
 
-test("production completeness guard rejects a required role with only a singleton CPU observation", async () => {
-  const summary = await productionResourceSummary([
-    resourceSample(0, 100, 1), resourceSample(500_000_000, 110, 1.5, { detectorSecond: false }),
-  ]);
-  assert.throws(() => assertCompleteResourceEvidence(summary), /detector lacks a valid multi-observation CPU interval/);
+test("production completeness guard requires every required role in every resource window", async () => {
+  const validWindow = [resourceSample(0, 100, 1), resourceSample(500_000_000, 110, 1.5)];
+  for (const role of ["xvfb", "detector"]) {
+    const partialWindow = [resourceSample(600_000_000, 200, 2), resourceSample(1_100_000_000, 210, 2.5)];
+    partialWindow[1].roles = partialWindow[1].roles.filter((item) => item.role !== role);
+    const summary = await productionResourceSummary([validWindow, partialWindow]);
+    assert.equal(summary.processes.some((item) => item.role === role && item.cpuIntervalCount >= 1), true,
+      "a prior-window aggregate interval must not mask the partial later window");
+    assert.equal(summary.processes.find((item) => item.role === role).cpuUnmeasuredReason,
+      "required_role_missing_window_interval");
+    assert.throws(() => assertCompleteResourceEvidence(summary), new RegExp(`${role} lacks a multi-observation CPU interval in every resource window`));
+  }
+});
+
+test("production resource summary rejects duplicate process identity rows in one sample", async () => {
+  const samples = [resourceSample(0, 100, 1), resourceSample(500_000_000, 110, 1.5)];
+  samples[0].roles.push({ ...samples[0].roles[0], role: "native_host" });
+  await assert.rejects(productionResourceSummary(samples), /duplicate process identity in one resource sample/);
 });
 
 test("sampler sidecar reader bounds bytes before parsing and rejects unsafe JSON privately", async () => {
@@ -499,7 +524,8 @@ test("required resource evidence rejects partial RSS, CPU, and start-tick sample
     cgroupCpuMissingSamples: 0,
     maximumObservedSampleGapNs: 100_000_000,
     windows: [{ sampleCount: 2, observedSampleSpanNs: 100_000_000,
-      maximumObservedSampleGapNs: 100_000_000 }],
+      maximumObservedSampleGapNs: 100_000_000,
+      roleCpuIntervals: { xvfb: 1, chromium: 1, supervisor_bridge: 1, detector: 1 } }],
     processes: ["xvfb", "chromium", "supervisor_bridge", "detector"].map((role) => ({
       role, startTicks: 100, sampledPeakRssBytes: 4096, sampledPeakPssBytes: null, cpuDeltaSeconds: 0.1,
       cpuSampleCount: 2, cpuIntervalCount: 1, cpuSampledSpanNs: 100_000_000,
