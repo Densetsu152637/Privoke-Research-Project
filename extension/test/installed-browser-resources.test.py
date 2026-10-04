@@ -3,6 +3,7 @@
 
 import importlib.util
 import hashlib
+import io
 import json
 from pathlib import Path
 import sys
@@ -117,9 +118,10 @@ class SamplerDiagnosticTests(unittest.TestCase):
             output = Path(directory) / "samples.jsonl"
             diagnostic = Path(str(output) + ".terminal.json")
             argv = ["sampler", "--output", str(output), "--interval-ms", "100",
-                    "--terminal-diagnostic", str(diagnostic)]
+                    "--terminal-diagnostic", str(diagnostic),
+                    "--source-revision", "a" * 40, "--protocol-sha256", "b" * 64]
 
-            def fail(_output, _interval, progress):
+            def fail(_output, _interval, progress, *_bindings):
                 progress["samples_written"] = 7
                 raise RuntimeError(secret)
 
@@ -140,9 +142,10 @@ class SamplerDiagnosticTests(unittest.TestCase):
             output = Path(directory) / "samples.jsonl"
             diagnostic = Path(str(output) + ".terminal.json")
             argv = ["sampler", "--output", str(output), "--interval-ms", "100",
-                    "--terminal-diagnostic", str(diagnostic)]
+                    "--terminal-diagnostic", str(diagnostic),
+                    "--source-revision", "a" * 40, "--protocol-sha256", "b" * 64]
 
-            def stop(_output, _interval, progress):
+            def stop(_output, _interval, progress, *_bindings):
                 progress["samples_written"] = 4
 
             with patch.object(sys, "argv", argv), patch.object(RESOURCES, "sample", side_effect=stop):
@@ -431,6 +434,131 @@ class ProcessSamplingTests(unittest.TestCase):
              patch.object(RESOURCES, "_process_stat_identity", return_value=("S", 100)):
             with self.assertRaisesRegex(RuntimeError, "PID was reused"):
                 RESOURCES._processes()
+
+
+class StartupTransitionTests(unittest.TestCase):
+    def identities(self):
+        supervisor = {"pid": 123, "start_ticks": 200, "command_sha256": "a" * 64}
+        predecessor = {"pid": 321, "start_ticks": 300, "command_sha256": "b" * 64,
+                       "parent_pid": 123, "parent_start_ticks": 200}
+        return supervisor, predecessor
+
+    def record(self, kind, supervisor, predecessor, **extra):
+        return {"schema_version": 1, "type": kind, "transition_id": "c" * 32,
+                "session_id": "01-fetch-allow-r1", "expires_at_ns": RESOURCES.time.monotonic_ns() + 60_000_000_000,
+                "predecessor": predecessor, "supervisor": supervisor,
+                "source_revision": "d" * 40, "protocol_sha256": "e" * 64, **extra}
+
+    def test_three_control_records_are_bound_and_one_shot(self):
+        supervisor, predecessor = self.identities()
+        successor = {"pid": 322, "start_ticks": 400, "command_sha256": "b" * 64,
+                     "parent_pid": 123, "parent_start_ticks": 200}
+        transition = RESOURCES.StartupTransition()
+        transition.last_rows = [
+            {"role": "supervisor_bridge", **supervisor},
+            {"role": "detector", "pid": predecessor["pid"], "start_ticks": predecessor["start_ticks"],
+             "command_sha256": predecessor["command_sha256"], "ppid": predecessor["parent_pid"],
+             "parent_start_ticks": predecessor["parent_start_ticks"]},
+        ]
+        transition._validate_live_predecessor = lambda: None
+        transition._validate_live_successor = lambda _identity: None
+        prepare = self.record("prepare", supervisor, predecessor)
+        dispatch = {**prepare, "type": "dispatch", "operation": "cloud_to_local_startup"}
+        commit = {**prepare, "type": "commit", "successor": successor}
+        output = io.StringIO()
+        with patch.object(RESOURCES.sys, "stdout", output):
+            transition._accept(prepare)
+            transition._accept(dispatch)
+            transition.retired = True
+            transition.successor = successor
+            transition._accept(commit)
+        acknowledgements = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertEqual([item["sequence"] for item in acknowledgements], ["prepare", "dispatch", "commit"])
+        self.assertEqual(acknowledgements[-1]["successor"], {"pid": 322, "start_ticks": 400})
+        with patch.object(RESOURCES.sys, "stdout", io.StringIO()):
+            with self.assertRaisesRegex(RuntimeError, "sequence is invalid|fields are invalid"):
+                transition._accept(self.record("dispatch", supervisor, predecessor,
+                                               operation="cloud_to_local_startup"))
+
+    def test_control_records_must_match_sampler_source_and_protocol(self):
+        supervisor, predecessor = self.identities()
+        transition = RESOURCES.StartupTransition("d" * 40, "e" * 64)
+        transition._validate_live_predecessor = lambda: None
+        record = self.record("prepare", supervisor, predecessor)
+        record["source_revision"] = "f" * 40
+        with patch.object(RESOURCES.sys, "stdout", io.StringIO()):
+            with self.assertRaisesRegex(RuntimeError, "source binding"):
+                transition._accept(record)
+
+    def test_actual_process_walk_allows_only_authorized_exact_predecessor_exit(self):
+        supervisor, predecessor = self.identities()
+        transition = RESOURCES.StartupTransition()
+        transition.phase = "dispatched"
+        transition.record = {"predecessor": predecessor, "supervisor": supervisor,
+                            "transition_id": "c" * 32, "expires_at_ns": RESOURCES.time.monotonic_ns() + 60_000_000_000}
+        process = SimpleNamespace(info={"pid": 321, "ppid": 123,
+            "cmdline": ["python", "extension/client-runtime/src/grpc_main.py"],
+            "create_time": 1.0, "memory_info": None, "cpu_times": None})
+        with patch.object(RESOURCES.psutil, "process_iter", return_value=[process]), \
+             patch.object(RESOURCES, "_browser_process_ids", return_value=(set(), set())), \
+             patch.object(RESOURCES, "_process_stat_identity", return_value=None):
+            rows, races = RESOURCES._processes(transition)
+        self.assertEqual(rows, [])
+        self.assertEqual(races, {})
+        self.assertTrue(transition.retired)
+        self.assertEqual(transition.events[0]["type"], "predecessor_retired")
+
+        transition = RESOURCES.StartupTransition()
+        transition.phase = "dispatched"
+        transition.record = {"predecessor": {**predecessor, "pid": 322},
+                            "supervisor": supervisor, "transition_id": "c" * 32,
+                            "expires_at_ns": RESOURCES.time.monotonic_ns() + 60_000_000_000}
+        with patch.object(RESOURCES.psutil, "process_iter", return_value=[process]), \
+             patch.object(RESOURCES, "_browser_process_ids", return_value=(set(), set())), \
+             patch.object(RESOURCES, "_process_stat_identity", return_value=None):
+            with self.assertRaisesRegex(RuntimeError, "identity changed during resource sampling"):
+                RESOURCES._processes(transition)
+
+    def test_predecessor_reuse_or_live_state_is_not_authorized(self):
+        supervisor, predecessor = self.identities()
+        transition = RESOURCES.StartupTransition()
+        transition.phase = "dispatched"
+        transition.record = {"predecessor": predecessor, "supervisor": supervisor,
+            "transition_id": "c" * 32, "expires_at_ns": RESOURCES.time.monotonic_ns() + 60_000_000_000}
+        self.assertFalse(transition.allow_predecessor_retirement("detector", 321, ("S", 300), "live"))
+        self.assertFalse(transition.allow_predecessor_retirement("detector", 321, ("Z", 301), "reused"))
+        self.assertFalse(transition.allow_predecessor_retirement("detector", 322, None, "other PID"))
+        self.assertFalse(transition.retired)
+        self.assertTrue(transition.allow_predecessor_retirement("detector", 321, ("Z", 300), "terminal"))
+
+    def test_observe_rejects_multiple_successors_even_under_transition(self):
+        supervisor, predecessor = self.identities()
+        transition = RESOURCES.StartupTransition()
+        transition.phase = "dispatched"
+        transition.retired = True
+        transition.record = {"predecessor": predecessor, "supervisor": supervisor,
+            "transition_id": "c" * 32, "expires_at_ns": RESOURCES.time.monotonic_ns() + 60_000_000_000}
+        def row(pid, ticks):
+            return {"role": "detector", "pid": pid, "start_ticks": ticks,
+                    "command_sha256": "b" * 64, "ppid": 123, "parent_start_ticks": 200}
+        rows = [{"role": "supervisor_bridge", **supervisor}, row(322, 400), row(323, 500)]
+        with patch.object(RESOURCES, "_process_stat_identity", return_value=None):
+            with self.assertRaisesRegex(RuntimeError, "unexpected detector successor"):
+                transition.observe(rows)
+
+    def test_observed_successor_may_not_disappear_before_commit(self):
+        supervisor, predecessor = self.identities()
+        transition = RESOURCES.StartupTransition()
+        transition.phase = "dispatched"
+        transition.retired = True
+        transition.record = {"predecessor": predecessor, "supervisor": supervisor,
+            "transition_id": "c" * 32, "expires_at_ns": RESOURCES.time.monotonic_ns() + 60_000_000_000}
+        final = {"role": "detector", "pid": 322, "start_ticks": 400,
+                 "command_sha256": predecessor["command_sha256"], "ppid": 123, "parent_start_ticks": 200}
+        with patch.object(RESOURCES, "_process_stat_identity", return_value=None):
+            transition.observe([{"role": "supervisor_bridge", **supervisor}, final])
+            with self.assertRaisesRegex(RuntimeError, "successor disappeared"):
+                transition.observe([{"role": "supervisor_bridge", **supervisor}])
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 import vm from "node:vm";
 import {
@@ -34,7 +35,149 @@ import {
   runAfterResourceWindow,
   finalizeResourceWindowBeforeCleanup,
   summarizeResourceCpuWindows,
+  createSamplerStartupTransitionClient,
+  startupControlDigest,
+  validateStartupTransitionWindow,
+  runBoundedStartupTransition,
 } from "./installed-browser-evidence.mjs";
+
+test("runner startup transition waits for PREPARE and dispatch acknowledgements before settings", async () => {
+  const order = [];
+  const supervisor = { pid: 20, startTicks: 200, commandSha256: "a".repeat(64) };
+  const detector = (pid, ticks) => ({ pid, startTicks: ticks, commandSha256: "b".repeat(64),
+    parentPid: supervisor.pid, parentStartTicks: supervisor.startTicks });
+  const statuses = [{ processId: "21" }, { processId: "22" }];
+  const result = await runBoundedStartupTransition({
+    sessionId: "01-fetch-allow-r1", sourceRevision: "c".repeat(40), protocolSha256: "d".repeat(64),
+    getSettings: async () => ({ ok: true, settings: { enabled: true, useLocalStack: false } }),
+    waitReady: async () => { order.push("status"); return statuses.shift(); },
+    captureRuntime: async (status) => ({ status,
+      detector: detector(Number(status.processId), Number(status.processId) * 10), supervisor, listeners: { 50057: [Number(status.processId)] } }),
+    waitSampled: async (ids) => { order.push(`sample:${ids.at(-1).pid}`); return new Map(); },
+    waitPredecessorReaped: async () => { order.push("reaped"); },
+    exchange: async (record) => {
+      assert.equal(record.type, ["prepare", "dispatch", "commit"][order.filter((item) => item.startsWith("ack:")).length]);
+      order.push(`ack:${record.type}`);
+      return { schema_version: 1, type: "ack", sequence: record.type, status: "accepted",
+        transition_id: record.transition_id,
+        observed_at_ns: "123456", predecessor: { pid: record.predecessor.pid, start_ticks: record.predecessor.start_ticks },
+        supervisor: { pid: record.supervisor.pid, start_ticks: record.supervisor.start_ticks },
+        successor: record.type === "commit" ? { pid: record.successor.pid, start_ticks: record.successor.start_ticks } : null,
+        request_sha256: startupControlDigest(record) };
+    },
+    updateSettings: async () => {
+      assert.deepEqual(order.slice(-2), ["ack:prepare", "ack:dispatch"]);
+      order.push("settings");
+      return { ok: true, settings: { enabled: true, useLocalStack: true,
+        layers: { regex: true, ner: true, llm: false }, waitForRegex: true } };
+    },
+    nowNs: (() => { let value = 1000n; return () => (value += 100n).toString(); })(),
+  });
+  assert.deepEqual(order, ["status", "sample:21", "ack:prepare", "ack:dispatch", "settings",
+    "status", "reaped", "sample:22", "ack:commit"]);
+  assert.equal(result.current.detector.pid, 22);
+  assert.equal(result.successor.start_ticks, 220);
+  assert.ok(result.totalElapsedMs >= 0);
+});
+
+test("sampler transition pipe validates bounded acknowledged records", async () => {
+  const child = { stdin: new PassThrough(), stdout: new PassThrough(), once() {} };
+  child.stdin.on("data", (bytes) => {
+    const request = JSON.parse(bytes.toString("utf8"));
+    child.stdout.write(`${JSON.stringify({ schema_version: 1, type: "ack", sequence: request.type,
+      transition_id: request.transition_id, request_sha256: startupControlDigest(request),
+      status: "accepted", observed_at_ns: "123", predecessor: { pid: 20, start_ticks: 200 },
+      supervisor: { pid: 10, start_ticks: 100 }, successor: null })}\n`);
+  });
+  const client = createSamplerStartupTransitionClient(child);
+  const request = { schema_version: 1, type: "prepare", transition_id: "f".repeat(32),
+    expires_at_ns: 1000,
+    predecessor: { pid: 20, start_ticks: 200 }, supervisor: { pid: 10, start_ticks: 100 } };
+  const ack = await client.exchange(request);
+  assert.equal(ack.status, "accepted");
+  client.close();
+
+  const mismatched = { stdin: new PassThrough(), stdout: new PassThrough(), once() {} };
+  mismatched.stdin.on("data", () => mismatched.stdout.write(`${JSON.stringify({ schema_version: 1,
+    type: "ack", sequence: "prepare", transition_id: request.transition_id,
+    request_sha256: "0".repeat(64), status: "accepted", observed_at_ns: "123",
+    predecessor: { pid: 20, start_ticks: 200 }, supervisor: { pid: 10, start_ticks: 100 },
+    successor: null })}\n`));
+  const mismatchedClient = createSamplerStartupTransitionClient(mismatched);
+  await assert.rejects(mismatchedClient.exchange(request), /acknowledgement is invalid/);
+  mismatchedClient.close();
+
+  const oversized = { stdin: new PassThrough(), stdout: new PassThrough(), once() {} };
+  oversized.stdin.on("data", () => oversized.stdout.write(`${"x".repeat(4097)}\n`));
+  const rejectingClient = createSamplerStartupTransitionClient(oversized);
+  await assert.rejects(rejectingClient.exchange(request), /exceeded its byte bound/);
+  rejectingClient.close();
+});
+
+test("startup settings are never dispatched if preparation acknowledgement fails", async () => {
+  let dispatched = false;
+  const supervisor = { pid: 20, startTicks: 200, commandSha256: "a".repeat(64) };
+  await assert.rejects(runBoundedStartupTransition({
+    sessionId: "01-fetch-allow-r1", sourceRevision: "c".repeat(40), protocolSha256: "d".repeat(64),
+    getSettings: async () => ({ ok: true, settings: { enabled: true, useLocalStack: false } }),
+    waitReady: async () => ({ processId: "21" }),
+    captureRuntime: async () => ({ detector: { pid: 21, startTicks: 210, commandSha256: "b".repeat(64),
+      parentPid: 20, parentStartTicks: 200 }, supervisor, listeners: {} }),
+    waitSampled: async () => new Map(), waitPredecessorReaped: async () => {},
+    exchange: async () => { throw new Error("unacknowledged"); },
+    updateSettings: async () => { dispatched = true; },
+  }), /unacknowledged/);
+  assert.equal(dispatched, false);
+});
+
+test("final startup detector requires its own interval, not the predecessor's earlier interval", () => {
+  const predecessor = { pid: 12, start_ticks: 120, command_sha256: "a".repeat(64),
+    parent_pid: 11, parent_start_ticks: 110 };
+  const successor = { pid: 13, start_ticks: 130, command_sha256: "a".repeat(64),
+    parent_pid: 11, parent_start_ticks: 110 };
+  const supervisor = { pid: 11, start_ticks: 110, command_sha256: "b".repeat(64) };
+  const transition = { status: "committed", transitionId: "f".repeat(32), predecessor, successor, supervisor,
+    controlAcknowledgements: [
+      { sequence: "prepare", requestSha256: "a".repeat(64), observedAtNs: "100" },
+      { sequence: "dispatch", requestSha256: "b".repeat(64), observedAtNs: "200" },
+      { sequence: "commit", requestSha256: "c".repeat(64), observedAtNs: "300" },
+    ] };
+  const events = [
+    { type: "prepare", transition_id: transition.transitionId,
+      predecessor: { pid: predecessor.pid, start_ticks: predecessor.start_ticks },
+      supervisor: { pid: supervisor.pid, start_ticks: supervisor.start_ticks }, successor: null,
+      request_sha256: "a".repeat(64), observed_at_ns: "100" },
+    { type: "dispatch", transition_id: transition.transitionId,
+      predecessor: { pid: predecessor.pid, start_ticks: predecessor.start_ticks },
+      supervisor: { pid: supervisor.pid, start_ticks: supervisor.start_ticks }, successor: null,
+      request_sha256: "b".repeat(64), observed_at_ns: "200" },
+    { type: "predecessor_retired", transition_id: transition.transitionId,
+      role: "detector", reason: "authorized_startup_transition", pid: predecessor.pid,
+      start_ticks: predecessor.start_ticks, command_sha256: predecessor.command_sha256, parent_pid: supervisor.pid,
+      parent_start_ticks: supervisor.start_ticks, state: "absent" },
+    { type: "commit", transition_id: transition.transitionId,
+      predecessor: { pid: predecessor.pid, start_ticks: predecessor.start_ticks },
+      supervisor: { pid: supervisor.pid, start_ticks: supervisor.start_ticks },
+      successor: { pid: successor.pid, start_ticks: successor.start_ticks },
+      request_sha256: "c".repeat(64), observed_at_ns: "300" },
+  ];
+  const row = (role, pid, start_ticks, cpu_seconds) => ({ role, pid, start_ticks, cpu_seconds, rss_bytes: 10, pss_bytes: null });
+  const sample = (time, cpuUsec, roles, startupEvents = []) => ({ sample_monotonic_ns: time,
+    cgroup: { cpu_usage_usec: cpuUsec, memory_current_bytes: 100 },
+    roles: [row("xvfb", 10, 100, time / 1e9), row("chromium", 14, 140, time / 1e9),
+      row("supervisor_bridge", 11, 110, time / 1e9), ...roles], startup_transition_events: startupEvents });
+  const samples = [
+    sample(1_000_000_000, 100, [row("detector", 12, 120, 0.1)], [events[0]]),
+    sample(1_500_000_000, 150, [row("detector", 13, 130, 0.2)], events.slice(1, 3)),
+    sample(2_000_000_000, 200, [row("detector", 13, 130, 0.3)], [events[3]]),
+  ];
+  samples[2].roles.splice(3, 1);
+  assert.throws(() => validateStartupTransitionWindow(samples, transition), /final detector lacks its own/);
+  samples[2].roles.splice(3, 0, row("detector", 13, 130, 0.3));
+  const evidence = validateStartupTransitionWindow(samples, transition);
+  assert.equal(evidence.status, "verified");
+  assert.equal(evidence.finalDetectorCpuSampleCount, 2);
+});
 
 test("resource windows finalize and validate before matrix work, exactly once", async () => {
   const events = [];
@@ -263,7 +406,9 @@ async function productionResourceSummary(inputWindows) {
   return summarize(windows.map((samples, index) => ({ file: `window-${index}.jsonl`,
     sha256: `synthetic-sha-${index}`, sessionId: `synthetic-session-${index}`,
     requestedStartMonotonicNs: "0", requestedEndMonotonicNs: "600000000",
-    phaseRequestCounts: { firstDecision: 1, warmup: 5, measured: 30 } })));
+    phaseRequestCounts: { firstDecision: 1, warmup: 5, measured: 30 },
+    startupTransition: { status: "committed", samplerEvidence: { status: "verified",
+      finalDetectorCpuSampleCount: 2 } } })));
 }
 
 function resourceSample(timestamp, cgroupCpu, coreCpu, { detectorSecond = true, nativeSingleton = true, chromiumChild = true } = {}) {
@@ -525,7 +670,9 @@ test("required resource evidence rejects partial RSS, CPU, and start-tick sample
     maximumObservedSampleGapNs: 100_000_000,
     windows: [{ sampleCount: 2, observedSampleSpanNs: 100_000_000,
       maximumObservedSampleGapNs: 100_000_000,
-      roleCpuIntervals: { xvfb: 1, chromium: 1, supervisor_bridge: 1, detector: 1 } }],
+      roleCpuIntervals: { xvfb: 1, chromium: 1, supervisor_bridge: 1, detector: 1 },
+      startupTransition: { status: "committed", samplerEvidence: { status: "verified",
+        finalDetectorCpuSampleCount: 2 } } }],
     processes: ["xvfb", "chromium", "supervisor_bridge", "detector"].map((role) => ({
       role, startTicks: 100, sampledPeakRssBytes: 4096, sampledPeakPssBytes: null, cpuDeltaSeconds: 0.1,
       cpuSampleCount: 2, cpuIntervalCount: 1, cpuSampledSpanNs: 100_000_000,

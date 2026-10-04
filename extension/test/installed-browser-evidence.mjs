@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
 import { lstat, open } from "node:fs/promises";
 import { TextDecoder } from "node:util";
@@ -396,6 +396,13 @@ export function assertCompleteResourceEvidence(summary) {
           && window.roleCpuIntervals[role] >= 1,
       `${role} lacks a multi-observation CPU interval in every resource window`);
     }
+    assert.equal(window.startupTransition?.status, "committed",
+      "resource window lacks a committed detector startup transition");
+    assert.equal(window.startupTransition?.samplerEvidence?.status, "verified",
+      "resource window startup-transition evidence was not verified");
+    assert.ok(Number.isSafeInteger(window.startupTransition?.samplerEvidence?.finalDetectorCpuSampleCount)
+        && window.startupTransition.samplerEvidence.finalDetectorCpuSampleCount >= 2,
+    "final detector identity lacks its own measured startup-window interval");
   }
   assert.ok(Number.isSafeInteger(summary.maximumObservedSampleGapNs)
       && summary.maximumObservedSampleGapNs <= 500_000_000,
@@ -532,6 +539,287 @@ export function createResourceWindowFinalizer(finalize) {
   };
 }
 
+const MAX_STARTUP_CONTROL_BYTES = 4096;
+
+function stableControlJson(value) {
+  if (Array.isArray(value)) return `[${value.map(stableControlJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableControlJson(value[key])}`).join(",")}}`;
+  }
+  if (value === null || typeof value === "string" || typeof value === "boolean"
+      || (typeof value === "number" && Number.isFinite(value))) return JSON.stringify(value);
+  throw new TypeError("startup control record contains an unsupported value");
+}
+
+export function startupControlDigest(record) {
+  return createHash("sha256").update(stableControlJson(record)).digest("hex");
+}
+
+export function validateStartupTransitionAck(value, request) {
+  const keys = ["schema_version", "type", "sequence", "transition_id", "request_sha256", "status",
+    "observed_at_ns", "predecessor", "supervisor", "successor"];
+  if (!value || typeof value !== "object" || Array.isArray(value)
+      || Object.keys(value).sort().join("\0") !== [...keys].sort().join("\0")
+      || value.schema_version !== 1 || value.type !== "ack" || value.sequence !== request.type
+      || value.transition_id !== request.transition_id || value.request_sha256 !== startupControlDigest(request)
+      || value.status !== "accepted" || !/^\d{1,20}$/.test(value.observed_at_ns)) {
+    throw new TypeError("sampler startup-transition acknowledgement is invalid");
+  }
+  if (!Number.isSafeInteger(request.expires_at_ns)
+      || BigInt(value.observed_at_ns) >= BigInt(request.expires_at_ns)) {
+    throw new TypeError("sampler startup-transition acknowledgement arrived after expiry");
+  }
+  for (const name of ["predecessor", "supervisor"]) {
+    const identity = value[name];
+    if (!identity || Object.keys(identity).sort().join("\0") !== ["pid", "start_ticks"].sort().join("\0")
+        || !Number.isSafeInteger(identity.pid) || identity.pid <= 0
+        || !Number.isSafeInteger(identity.start_ticks) || identity.start_ticks < 0) {
+      throw new TypeError("sampler startup-transition acknowledgement identity is invalid");
+    }
+  }
+  if (value.predecessor.pid !== request.predecessor.pid
+      || value.predecessor.start_ticks !== request.predecessor.start_ticks
+      || value.supervisor.pid !== request.supervisor.pid
+      || value.supervisor.start_ticks !== request.supervisor.start_ticks) {
+    throw new TypeError("sampler startup-transition acknowledgement identity differs");
+  }
+  if (request.type === "commit") {
+    if (!value.successor || value.successor.pid !== request.successor.pid
+        || value.successor.start_ticks !== request.successor.start_ticks) {
+      throw new TypeError("sampler startup-transition commit acknowledgement differs");
+    }
+  } else if (value.successor !== null) {
+    throw new TypeError("sampler startup-transition acknowledgement has an unexpected successor");
+  }
+  return value;
+}
+
+export function createSamplerStartupTransitionClient(child, { timeoutMs = 5_000 } = {}) {
+  assert.ok(child?.stdin && child?.stdout, "sampler transition requires bounded child pipes");
+  let lineBuffer = Buffer.alloc(0);
+  let pending;
+  let failed = null;
+  const onData = (chunk) => {
+    lineBuffer = Buffer.concat([lineBuffer, chunk]);
+    if (lineBuffer.length > MAX_STARTUP_CONTROL_BYTES) {
+      failed = new Error("sampler transition acknowledgement exceeded its byte bound");
+      pending?.reject(failed);
+      pending = null;
+      return;
+    }
+    const newline = lineBuffer.indexOf(10);
+    if (newline < 0) return;
+    const rest = lineBuffer.subarray(newline + 1);
+    if (rest.length) {
+      failed = new Error("sampler emitted more than one transition acknowledgement");
+      pending?.reject(failed);
+      pending = null;
+      return;
+    }
+    const line = lineBuffer.subarray(0, newline);
+    lineBuffer = Buffer.alloc(0);
+    try {
+      const text = new TextDecoder("utf-8", { fatal: true }).decode(line);
+      const value = JSON.parse(text);
+      if (!pending) throw new Error("sampler emitted an unsolicited transition acknowledgement");
+      pending.resolve(value);
+      pending = null;
+    } catch (error) {
+      failed = new Error("sampler transition acknowledgement could not be decoded");
+      pending?.reject(failed);
+      pending = null;
+    }
+  };
+  child.stdout.on("data", onData);
+  child.once("close", () => {
+    if (pending) pending.reject(new Error("sampler closed during startup transition"));
+    pending = null;
+  });
+  let sequence = 0;
+  return {
+    async exchange(record) {
+      if (failed) throw failed;
+      if (sequence >= 3 || record?.type !== ["prepare", "dispatch", "commit"][sequence]) {
+        throw new Error("sampler startup transition control sequence is invalid");
+      }
+      sequence += 1;
+      const bytes = Buffer.from(`${stableControlJson(record)}\n`, "utf8");
+      if (bytes.length > MAX_STARTUP_CONTROL_BYTES) throw new Error("sampler startup control record exceeded its byte bound");
+      if (pending) throw new Error("sampler startup transition already has a pending acknowledgement");
+      const response = new Promise((resolvePromise, reject) => { pending = { resolve: resolvePromise, reject }; });
+      child.stdin.write(bytes);
+      let timer;
+      try {
+        const value = await Promise.race([response, new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error("sampler startup-transition acknowledgement timed out")), timeoutMs);
+        })]);
+        return validateStartupTransitionAck(value, record);
+      } finally {
+        clearTimeout(timer);
+        if (pending) pending = null;
+      }
+    },
+    close() {
+      child.stdout.off("data", onData);
+      child.stdin.end();
+    },
+  };
+}
+
+export async function runBoundedStartupTransition({
+  sessionId, sourceRevision, protocolSha256, exchange, getSettings, waitReady,
+  captureRuntime, waitSampled, waitPredecessorReaped, updateSettings,
+  nowNs = () => process.hrtime.bigint().toString(),
+}) {
+  const started = BigInt(nowNs());
+  const elapsedMs = (from) => Number(BigInt(nowNs()) - from) / 1_000_000;
+  let mark = BigInt(nowNs());
+  const settings = await getSettings();
+  const settingsReadElapsedMs = elapsedMs(mark);
+  assert.equal(settings?.ok, true, "fresh profile settings could not be read");
+  assert.equal(settings.settings?.enabled, true, "fresh profile runtime must begin enabled");
+  assert.equal(settings.settings?.useLocalStack, false, "fresh profile must begin on the declared cloud runtime");
+  mark = BigInt(nowNs());
+  const priorStatus = await waitReady();
+  const priorStatusElapsedMs = elapsedMs(mark);
+  mark = BigInt(nowNs());
+  const prior = await captureRuntime(priorStatus);
+  const predecessorCaptureElapsedMs = elapsedMs(mark);
+  assert.equal(prior.detector.parentPid, prior.supervisor.pid, "predecessor is not a child of the live supervisor");
+  assert.equal(prior.detector.parentStartTicks, prior.supervisor.startTicks,
+    "predecessor supervisor identity is not bound");
+  assert.notDeepEqual(prior.listeners, null, "predecessor listeners were not verified");
+  mark = BigInt(nowNs());
+  const priorSamples = await waitSampled([prior.supervisor, prior.detector]);
+  const predecessorSamplingWaitElapsedMs = elapsedMs(mark);
+
+  const transitionId = randomUUID().replaceAll("-", "");
+  const expiry = (BigInt(nowNs()) + 90_000_000_000n).toString();
+  assert.ok(Number.isSafeInteger(Number(expiry)), "startup transition expiry is not exactly representable");
+  const predecessor = {
+    pid: prior.detector.pid, start_ticks: prior.detector.startTicks,
+    command_sha256: prior.detector.commandSha256, parent_pid: prior.detector.parentPid,
+    parent_start_ticks: prior.detector.parentStartTicks,
+  };
+  const supervisor = { pid: prior.supervisor.pid, start_ticks: prior.supervisor.startTicks,
+    command_sha256: prior.supervisor.commandSha256 };
+  const common = { schema_version: 1, transition_id: transitionId, session_id: sessionId,
+    expires_at_ns: Number(expiry), predecessor, supervisor, source_revision: sourceRevision,
+    protocol_sha256: protocolSha256 };
+  const prepare = { ...common, type: "prepare" };
+  mark = BigInt(nowNs());
+  const prepareAck = await exchange(prepare);
+  const prepareAckElapsedMs = elapsedMs(mark);
+  const dispatch = { ...common, type: "dispatch", operation: "cloud_to_local_startup" };
+  mark = BigInt(nowNs());
+  const dispatchAck = await exchange(dispatch);
+  const dispatchAckElapsedMs = elapsedMs(mark);
+  const dispatchStartedAtNs = nowNs();
+  mark = BigInt(nowNs());
+  const configured = await updateSettings();
+  const settingsUpdateElapsedMs = elapsedMs(mark);
+  assert.equal(configured?.ok, true, "local browser settings update failed");
+  assert.equal(configured.settings?.useLocalStack, true);
+  assert.equal(configured.settings?.enabled, true);
+  assert.deepEqual(configured.settings?.layers, { regex: true, ner: true, llm: false });
+  assert.equal(configured.settings?.waitForRegex, true);
+  mark = BigInt(nowNs());
+  const status = await waitReady();
+  const finalStatusElapsedMs = elapsedMs(mark);
+  mark = BigInt(nowNs());
+  const current = await captureRuntime(status);
+  const finalIdentityAndListenersElapsedMs = elapsedMs(mark);
+  assert.equal(current.supervisor.pid, prior.supervisor.pid, "startup transition changed supervisor PID");
+  assert.equal(current.supervisor.startTicks, prior.supervisor.startTicks, "startup transition changed supervisor identity");
+  assert.notEqual(current.detector.pid, prior.detector.pid, "startup transition did not create a distinct detector");
+  assert.notEqual(current.detector.startTicks, prior.detector.startTicks, "startup transition detector identity did not change");
+  assert.equal(current.detector.parentPid, current.supervisor.pid);
+  assert.equal(current.detector.parentStartTicks, current.supervisor.startTicks);
+  mark = BigInt(nowNs());
+  await waitPredecessorReaped(prior.detector);
+  const predecessorReapElapsedMs = elapsedMs(mark);
+  mark = BigInt(nowNs());
+  const currentSamples = await waitSampled([current.supervisor, current.detector]);
+  const successorSamplingWaitElapsedMs = elapsedMs(mark);
+  const successor = {
+    pid: current.detector.pid, start_ticks: current.detector.startTicks,
+    command_sha256: current.detector.commandSha256, parent_pid: current.detector.parentPid,
+    parent_start_ticks: current.detector.parentStartTicks,
+  };
+  const commit = { ...common, type: "commit", successor };
+  mark = BigInt(nowNs());
+  const commitAck = await exchange(commit);
+  const commitAckElapsedMs = elapsedMs(mark);
+  return {
+    transitionId, predecessor, successor, supervisor,
+    prepareAck, dispatchAck, commitAck,
+    prior, current, status, priorSamples, currentSamples,
+    dispatchStartedAtNs,
+    totalElapsedMs: elapsedMs(started), settingsReadElapsedMs, priorStatusElapsedMs,
+    predecessorCaptureElapsedMs, predecessorSamplingWaitElapsedMs, prepareAckElapsedMs,
+    dispatchAckElapsedMs, settingsUpdateElapsedMs, finalStatusElapsedMs,
+    finalIdentityAndListenersElapsedMs, predecessorReapElapsedMs,
+    successorSamplingWaitElapsedMs, commitAckElapsedMs,
+    listeners: current.listeners,
+    settings: configured.settings,
+  };
+}
+
+export function validateStartupTransitionWindow(samples, transition) {
+  if (!Array.isArray(samples) || !transition || transition.status !== "committed"
+      || !/^[0-9a-f]{32}$/.test(transition.transitionId || "")) {
+    throw new TypeError("startup transition receipt is not committed");
+  }
+  const events = samples.flatMap((sample) => sample.startup_transition_events || []);
+  const selected = events.filter((event) => event.transition_id === transition.transitionId);
+  assert.deepEqual(selected.map((event) => event.type),
+    ["prepare", "dispatch", "predecessor_retired", "commit"],
+    "sampler did not record the exact bounded startup-transition lifecycle");
+  assert.equal(selected[2].pid, transition.predecessor.pid);
+  assert.equal(selected[2].start_ticks, transition.predecessor.start_ticks);
+  assert.equal(selected[2].role, "detector");
+  assert.equal(selected[2].reason, "authorized_startup_transition");
+  assert.equal(selected[2].command_sha256, transition.predecessor.command_sha256);
+  assert.equal(selected[2].parent_pid, transition.predecessor.parent_pid);
+  assert.equal(selected[2].parent_start_ticks, transition.predecessor.parent_start_ticks);
+  assert.ok(["absent", "Z", "X", "x"].includes(selected[2].state));
+  const retirementSampleIndex = samples.findIndex((sample) =>
+    (sample.startup_transition_events || []).includes(selected[2]));
+  assert.ok(retirementSampleIndex >= 0, "predecessor retirement event is not bound to a sample");
+  for (const sample of samples.slice(retirementSampleIndex)) {
+    assert.ok(!sample.roles.some((row) => row.role === "detector"
+      && row.pid === transition.predecessor.pid && row.start_ticks === transition.predecessor.start_ticks),
+    "predecessor was still reported after its retirement event");
+  }
+  for (const event of [selected[0], selected[1], selected[3]]) {
+    assert.match(event.request_sha256 || "", /^[0-9a-f]{64}$/);
+    assert.match(event.observed_at_ns || "", /^\d{1,20}$/);
+    assert.deepEqual(event.predecessor, { pid: transition.predecessor.pid,
+      start_ticks: transition.predecessor.start_ticks });
+    assert.deepEqual(event.supervisor, { pid: transition.supervisor.pid,
+      start_ticks: transition.supervisor.start_ticks });
+  }
+  assert.deepEqual(selected[3].successor, { pid: transition.successor.pid,
+    start_ticks: transition.successor.start_ticks });
+  assert.ok(Array.isArray(transition.controlAcknowledgements)
+      && transition.controlAcknowledgements.length === 3,
+  "startup transition receipt is missing its bounded control acknowledgements");
+  assert.deepEqual(transition.controlAcknowledgements.map((ack) => ({
+    sequence: ack.sequence, requestSha256: ack.requestSha256, observedAtNs: ack.observedAtNs,
+  })), [selected[0], selected[1], selected[3]].map((event) => ({
+    sequence: event.type, requestSha256: event.request_sha256, observedAtNs: event.observed_at_ns,
+  })), "sampler lifecycle records do not match the runner acknowledgements");
+  assert.notDeepEqual(transition.predecessor, transition.successor,
+    "startup predecessor and final detector must be distinct identities");
+  const cpu = summarizeResourceCpuWindows([{ file: "startup-transition.jsonl", samples }]);
+  const final = cpu.processes.get(`detector/${transition.successor.pid}/${transition.successor.start_ticks}`);
+  assert.ok(final && final.cpuIntervalCount >= 1 && final.cpuSampledSpanNs > 0,
+    "committed final detector lacks its own multi-observation CPU interval");
+  return { status: "verified", eventCount: selected.length,
+    finalDetectorCpuSampleCount: final.cpuSampleCount,
+    finalDetectorCpuSampledSpanNs: final.cpuSampledSpanNs };
+}
+
 export async function runAfterResourceWindow(finalize, nextPhase) {
   assert.equal(typeof finalize, "function", "resource-window finalizer must be callable");
   assert.equal(typeof nextPhase, "function", "next phase must be callable");
@@ -662,6 +950,7 @@ export function summarizeResourceCpuWindows(windows) {
       ...(typeof window.requestedEndMonotonicNs === "string"
         ? { requestedEndMonotonicNs: window.requestedEndMonotonicNs } : {}),
       ...(window.phaseRequestCounts ? { phaseRequestCounts: { ...window.phaseRequestCounts } } : {}),
+      ...(window.startupTransition ? { startupTransition: window.startupTransition } : {}),
       sampleCount: window.samples.length,
       firstSampleMonotonicNs: window.samples[0].sample_monotonic_ns,
       lastSampleMonotonicNs: previousSampleMonotonicNs,
