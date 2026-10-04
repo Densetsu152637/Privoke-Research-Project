@@ -9,6 +9,7 @@ import {
   assertReceiverCapture,
   frameGrpcWebMessage,
   parseGrpcWebFrames,
+  preserveResourceEvidenceFailure,
   validateAnalyzeRequest,
   validateAnalyzeResponse,
   validateDecodedOutcome,
@@ -111,6 +112,29 @@ test("required resource evidence rejects partial RSS, CPU, and start-tick sample
   const missingCgroupCpu = structuredClone(valid);
   missingCgroupCpu.cgroupCpuMissingSamples = 1;
   assert.throws(() => assertCompleteResourceEvidence(missingCgroupCpu), /cgroup CPU samples are incomplete/);
+});
+
+test("resource validation failure preserves partial aggregates, counters, and construction fallback", () => {
+  const partial = {
+    cgroupMemorySampledPeakBytes: 1024,
+    cgroupCpuSampledDeltaUsec: 50,
+    cgroupMemoryMissingSamples: 0,
+    cgroupCpuMissingSamples: 0,
+    processes: [{ role: "chromium", pid: 33, sampledPeakRssBytes: 4096, sampledPeakPssBytes: null,
+      missingRssSamples: 2, missingCpuSamples: 1, missingStartTicksSamples: 0 }],
+  };
+  const failure = { type: "AssertionError", message: "chromium has missing RSS samples" };
+  const receiptEvidence = preserveResourceEvidenceFailure(partial, failure);
+  assert.deepEqual(receiptEvidence.cgroupMemorySampledPeakBytes, 1024);
+  assert.deepEqual(receiptEvidence.cgroupCpuSampledDeltaUsec, 50);
+  assert.deepEqual(receiptEvidence.processes, partial.processes);
+  assert.equal(receiptEvidence.processes[0].sampledPeakPssBytes, null);
+  assert.equal(receiptEvidence.processes[0].missingRssSamples, 2);
+  assert.equal(receiptEvidence.processes[0].missingCpuSamples, 1);
+  assert.deepEqual(receiptEvidence.validationError, failure);
+
+  const constructionFailure = preserveResourceEvidenceFailure(undefined, failure);
+  assert.deepEqual(constructionFailure, { error: failure });
 });
 
 test("page result and receiver body must bind to the frozen case", () => {

@@ -192,3 +192,10 @@ export function assertCompleteResourceEvidence(summary) {
   }
   return summary;
 }
+
+export function preserveResourceEvidenceFailure(summary, error) {
+  if (summary && typeof summary === "object" && !Array.isArray(summary)) {
+    return { ...summary, validationError: error };
+  }
+  return { error };
+}
