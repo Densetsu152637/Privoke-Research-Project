@@ -9,13 +9,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import inspect
 import json
 import os
 from pathlib import Path
 import re
 import stat
+import sys
+import types
 from typing import Mapping
 
+import privoke_eval.clean_augmentation_grouping as grouping_module
+import privoke_eval.contextual_fixture_protection as fixture_module
+import privoke_model.training_data as training_data_module
 from privoke_eval.contextual_fixture_protection import (
     ADDON_FILENAME,
     DEFAULT_POLICY,
@@ -37,6 +43,12 @@ _HELPER_PATHS = {
     "normalizer": Path("shared/python/privoke_model/training_data.py"),
     "fixture_validator": Path("evaluation/privoke_eval/contextual_fixture_protection.py"),
     "adapter": Path("evaluation/privoke_eval/contextual_fixture_protection_io.py"),
+}
+_SOURCE_MODULES = {
+    "grouping": grouping_module,
+    "normalizer": training_data_module,
+    "fixture_validator": fixture_module,
+    "adapter": sys.modules[__name__],
 }
 _INPUT_LIMITS = {
     "fixture": 1_048_576,
@@ -69,6 +81,19 @@ class _Captured:
     signature: tuple[int, int, int, int, int]
 
 
+@dataclass
+class _OutputContext:
+    project_root: Path
+    results_path: Path
+    output_path: Path
+    output_name: str
+    chain_identity: tuple[tuple[int, int, int], ...]
+    results_fd: int
+    results_identity: tuple[int, int, int]
+    output_fd: int | None = None
+    output_identity: tuple[int, int, int] | None = None
+
+
 def _fail() -> None:
     raise FixtureProtectionIOError("Fixture add-on I/O validation failed.")
 
@@ -93,6 +118,10 @@ def _is_reparse(info: os.stat_result) -> bool:
 def _signature(info: os.stat_result) -> tuple[int, int, int, int, int]:
     return (int(info.st_dev), int(info.st_ino), int(info.st_size),
             int(info.st_mtime_ns), int(info.st_ctime_ns))
+
+
+def _identity(info: os.stat_result) -> tuple[int, int, int]:
+    return (int(info.st_dev), int(info.st_ino), stat.S_IFMT(info.st_mode))
 
 
 def _check_chain(root: Path, target: Path, *, directory: bool = False) -> None:
@@ -215,13 +244,11 @@ def _capture_set(root: Path, expected_raw: Mapping[str, str]) -> dict[str, _Capt
     return captured
 
 
-def _code_hashes(root: Path) -> tuple[dict[str, str], str]:
-    hashes: dict[str, str] = {}
+def _code_captures(root: Path) -> dict[str, _Captured]:
+    captures: dict[str, _Captured] = {}
     for name, relative in _HELPER_PATHS.items():
-        item = _bounded_capture(root, relative, _CODE_LIMIT)
-        hashes[name] = item.sha256
-    adapter_hash = hashes.pop("adapter")
-    return hashes, adapter_hash
+        captures[name] = _bounded_capture(root, relative, _CODE_LIMIT)
+    return captures
 
 
 def _verify_snapshot(root: Path, captured: Mapping[str, _Captured]) -> None:
@@ -231,9 +258,102 @@ def _verify_snapshot(root: Path, captured: Mapping[str, _Captured]) -> None:
             _fail()
 
 
+def _compiled_code_index(code: types.CodeType) -> dict[str, types.CodeType]:
+    found: dict[str, types.CodeType] = {}
+    pending = [code]
+    while pending:
+        item = pending.pop()
+        found[item.co_qualname] = item
+        pending.extend(value for value in item.co_consts if isinstance(value, types.CodeType))
+    return found
+
+
+def _module_code_objects(module: object) -> dict[str, types.CodeType]:
+    found: dict[str, types.CodeType] = {}
+    module_name = getattr(module, "__name__", None)
+    for value in vars(module).values():
+        if inspect.isfunction(value) and value.__module__ == module_name:
+            found[value.__qualname__] = value.__code__
+        elif inspect.isclass(value) and value.__module__ == module_name:
+            for member in vars(value).values():
+                if isinstance(member, (staticmethod, classmethod)):
+                    member = member.__func__
+                if inspect.isfunction(member) and member.__module__ == module_name:
+                    found[member.__qualname__] = member.__code__
+    return found
+
+
+def _verify_loaded_module(root: Path, name: str, source: _Captured) -> None:
+    module = _SOURCE_MODULES[name]
+    expected_path = Path(os.path.abspath(root / _HELPER_PATHS[name]))
+    module_path = getattr(module, "__file__", None)
+    spec = getattr(module, "__spec__", None)
+    origin = getattr(spec, "origin", None)
+    if not isinstance(module_path, str) or not isinstance(origin, str):
+        _fail()
+    if Path(os.path.abspath(module_path)) != expected_path or Path(os.path.abspath(origin)) != expected_path:
+        _fail()
+    try:
+        source_text = source.data.decode("utf-8", errors="strict")
+        compiled = compile(source_text, str(expected_path), "exec", dont_inherit=True)
+    except (UnicodeError, SyntaxError, ValueError, TypeError):
+        _fail()
+    loader = getattr(module, "__loader__", None)
+    get_code = getattr(loader, "get_code", None)
+    if not callable(get_code):
+        _fail()
+    try:
+        loaded_module_code = get_code(module.__name__)
+    except (ImportError, OSError, ValueError):
+        _fail()
+    if not isinstance(loaded_module_code, types.CodeType) or loaded_module_code != compiled:
+        _fail()
+    compiled_objects = _compiled_code_index(compiled)
+    loaded_objects = _module_code_objects(module)
+    if not loaded_objects:
+        _fail()
+    for qualname, loaded in loaded_objects.items():
+        expected = compiled_objects.get(qualname)
+        if expected is None and qualname.rsplit(".", 1)[-1] in {
+            "__init__", "__repr__", "__eq__", "__hash__", "__setattr__", "__delattr__",
+        }:
+            continue  # Methods synthesized by @dataclass have no source code object.
+        if expected is None or loaded != expected:
+            _fail()
+
+
 def _verify_code(root: Path, expected_helpers: Mapping[str, str], expected_adapter: str) -> None:
-    helpers, adapter = _code_hashes(root)
+    captures = _code_captures(root)
+    hashes = {name: item.sha256 for name, item in captures.items()}
+    adapter = hashes.pop("adapter")
+    helpers = hashes
     if helpers != dict(expected_helpers) or adapter != expected_adapter:
+        _fail()
+    for name, capture in captures.items():
+        _verify_loaded_module(root, name, capture)
+    if (build_fixture_addon is not fixture_module.build_fixture_addon or
+            DEFAULT_POLICY is not fixture_module.DEFAULT_POLICY or
+            FixtureProtectionPolicy is not fixture_module.FixtureProtectionPolicy or
+            FixtureProtectionError is not fixture_module.FixtureProtectionError or
+            ADDON_FILENAME != fixture_module.ADDON_FILENAME or
+            fixture_module.opaque_exclusion_key is not grouping_module.opaque_exclusion_key or
+            fixture_module.ProtectedKeys is not grouping_module.ProtectedKeys or
+            fixture_module.training_text_key is not training_data_module.training_text_key or
+            _INPUT_PATHS != {
+                "fixture": Path("evaluation/datasets/contextual-cascade-regressions.jsonl"),
+                "rubric": Path("paper/research/contextual-cascade-rubric.md"),
+                "review": Path("paper/research/contextual-cascade-fixture-review.json"),
+            } or
+            _HELPER_PATHS != {
+                "grouping": Path("evaluation/privoke_eval/clean_augmentation_grouping.py"),
+                "normalizer": Path("shared/python/privoke_model/training_data.py"),
+                "fixture_validator": Path("evaluation/privoke_eval/contextual_fixture_protection.py"),
+                "adapter": Path("evaluation/privoke_eval/contextual_fixture_protection_io.py"),
+            } or
+            _SOURCE_MODULES.get("grouping") is not grouping_module or
+            _SOURCE_MODULES.get("normalizer") is not training_data_module or
+            _SOURCE_MODULES.get("fixture_validator") is not fixture_module or
+            _SOURCE_MODULES.get("adapter") is not sys.modules.get(__name__)):
         _fail()
 
 
@@ -263,16 +383,42 @@ def _safe_output_directory(project_root: Path, output: Path) -> Path:
         _fail()
 
 
-def _create_private_output(output: Path) -> None:
+def _directory_chain_identity(project_root: Path, results_path: Path) -> tuple[tuple[int, int, int], ...]:
+    _check_absolute_directory_chain(project_root)
+    _check_absolute_directory_chain(results_path)
+    identities = []
+    for path in (project_root, project_root / "evaluation", results_path):
+        info = os.lstat(path)
+        if not stat.S_ISDIR(info.st_mode) or _is_reparse(info):
+            _fail()
+        identities.append(_identity(info))
+    return tuple(identities)
+
+
+def _open_output_context(project_root: Path, output: Path) -> _OutputContext:
+    results_path = _safe_output_directory(project_root, output)
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    directory = getattr(os, "O_DIRECTORY", None)
+    if nofollow is None or directory is None:
+        _fail()
     descriptor = -1
     try:
-        os.mkdir(output, 0o700)
-        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
-        descriptor = os.open(output, flags)
-        os.fchmod(descriptor, 0o700)
+        identities = _directory_chain_identity(project_root, results_path)
+        flags = os.O_RDONLY | directory | nofollow
+        descriptor = os.open(results_path, flags)
         info = os.fstat(descriptor)
-        if not stat.S_ISDIR(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o700 or _is_reparse(info):
+        if not stat.S_ISDIR(info.st_mode) or _identity(info) != identities[-1] or _is_reparse(info):
             _fail()
+        try:
+            os.stat(output.name, dir_fd=descriptor, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            _fail()
+        context = _OutputContext(project_root, results_path, output, output.name, identities,
+                                 descriptor, _identity(info))
+        descriptor = -1
+        return context
     except FixtureProtectionIOError:
         raise
     except OSError:
@@ -282,10 +428,74 @@ def _create_private_output(output: Path) -> None:
             os.close(descriptor)
 
 
-def _exclusive_write(path: Path, payload: bytes) -> str:
+def _verify_output_context(context: _OutputContext, *, require_output: bool = True) -> None:
+    try:
+        if _directory_chain_identity(context.project_root, context.results_path) != context.chain_identity:
+            _fail()
+        parent_info = os.fstat(context.results_fd)
+        if (not stat.S_ISDIR(parent_info.st_mode) or _is_reparse(parent_info) or
+                _identity(parent_info) != context.results_identity or
+                _identity(os.lstat(context.results_path)) != context.results_identity):
+            _fail()
+        if context.output_fd is None:
+            if require_output:
+                _fail()
+            return
+        output_info = os.fstat(context.output_fd)
+        entry_info = os.stat(context.output_name, dir_fd=context.results_fd, follow_symlinks=False)
+        if (not stat.S_ISDIR(output_info.st_mode) or not stat.S_ISDIR(entry_info.st_mode) or
+                _is_reparse(output_info) or _is_reparse(entry_info) or
+                _identity(output_info) != context.output_identity or
+                _identity(entry_info) != context.output_identity):
+            _fail()
+        _check_absolute_directory_chain(context.output_path)
+        if _identity(os.lstat(context.output_path)) != context.output_identity:
+            _fail()
+    except FixtureProtectionIOError:
+        raise
+    except (OSError, ValueError, RuntimeError):
+        _fail()
+
+
+def _create_output_directory(context: _OutputContext) -> None:
+    _verify_output_context(context, require_output=False)
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    directory = getattr(os, "O_DIRECTORY", None)
+    if nofollow is None or directory is None:
+        _fail()
     descriptor = -1
     try:
-        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        os.mkdir(context.output_name, 0o700, dir_fd=context.results_fd)
+        flags = os.O_RDONLY | directory | nofollow
+        descriptor = os.open(context.output_name, flags, dir_fd=context.results_fd)
+        os.fchmod(descriptor, 0o700)
+        info = os.fstat(descriptor)
+        if not stat.S_ISDIR(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o700 or _is_reparse(info):
+            _fail()
+        context.output_fd = descriptor
+        context.output_identity = _identity(info)
+        descriptor = -1
+        _verify_output_context(context)
+    except FixtureProtectionIOError:
+        raise
+    except OSError:
+        _fail()
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
+def _write_output_file(context: _OutputContext, filename: str, payload: bytes) -> str:
+    if filename not in {_OUTPUT_ARTIFACT, _OUTPUT_PURE_RECEIPT, _OUTPUT_MANIFEST}:
+        _fail()
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    if nofollow is None:
+        _fail()
+    _verify_output_context(context)
+    descriptor = -1
+    try:
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | nofollow
+        descriptor = os.open(filename, flags, 0o600, dir_fd=context.output_fd)
         os.fchmod(descriptor, 0o600)
         offset = 0
         while offset < len(payload):
@@ -297,6 +507,7 @@ def _exclusive_write(path: Path, payload: bytes) -> str:
         info = os.fstat(descriptor)
         if not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o600 or _is_reparse(info):
             _fail()
+        _verify_output_context(context)
         return _sha(payload)
     except FixtureProtectionIOError:
         raise
@@ -305,6 +516,18 @@ def _exclusive_write(path: Path, payload: bytes) -> str:
     finally:
         if descriptor >= 0:
             os.close(descriptor)
+
+
+def _close_output_context(context: _OutputContext) -> None:
+    failed = False
+    for descriptor in (context.output_fd, context.results_fd):
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                failed = True
+    if failed:
+        _fail()
 
 
 def _io_receipt(source_revision: str, captured: Mapping[str, _Captured], canonical: Mapping[str, bytes],
@@ -340,10 +563,12 @@ def _build_fixture_protection_addon_io(project_root: Path, output_directory: Pat
                                        expected_input_raw_sha256: Mapping[str, str],
                                        expected_helper_source_sha256: Mapping[str, str],
                                        expected_adapter_source_sha256: str,
-                                       policy: FixtureProtectionPolicy) -> FixtureProtectionIOResult:
+                                       policy: FixtureProtectionPolicy,
+                                       source_root: Path | None = None) -> FixtureProtectionIOResult:
     """Internal policy-injectable boundary for synthetic tests; no CLI exposes it."""
     if os.name == "nt":
         _fail()  # Windows ACL verification is an operator/root gate, not chmod evidence.
+    context: _OutputContext | None = None
     try:
         root = Path(project_root)
         output = Path(output_directory)
@@ -351,11 +576,16 @@ def _build_fixture_protection_addon_io(project_root: Path, output_directory: Pat
             _fail()
         _check_absolute_directory_chain(root)
         root = Path(os.path.abspath(root))
+        trusted_source_root = root if source_root is None else Path(source_root)
+        if not trusted_source_root.is_absolute():
+            _fail()
+        _check_absolute_directory_chain(trusted_source_root)
+        trusted_source_root = Path(os.path.abspath(trusted_source_root))
         raw_hashes, helper_hashes = _validate_bindings(
             source_revision, expected_input_raw_sha256, expected_helper_source_sha256,
             expected_adapter_source_sha256)
-        _safe_output_directory(root, output)
-        _verify_code(root, helper_hashes, expected_adapter_source_sha256)
+        context = _open_output_context(root, output)
+        _verify_code(trusted_source_root, helper_hashes, expected_adapter_source_sha256)
 
         # Capture all three original files before the pure validator/builder runs.
         captured = _capture_set(root, raw_hashes)
@@ -368,7 +598,7 @@ def _build_fixture_protection_addon_io(project_root: Path, output_directory: Pat
             _fail()
 
         _verify_snapshot(root, captured)
-        _verify_code(root, helper_hashes, expected_adapter_source_sha256)
+        _verify_code(trusted_source_root, helper_hashes, expected_adapter_source_sha256)
         artifact_bytes, pure_receipt_bytes = build_fixture_addon(
             canonical["fixture"], canonical["rubric"], captured["review"].data,
             source_revision=source_revision, helper_source_hashes=helper_hashes, policy=policy,
@@ -381,25 +611,29 @@ def _build_fixture_protection_addon_io(project_root: Path, output_directory: Pat
             _fail()
 
         _verify_snapshot(root, captured)
-        _verify_code(root, helper_hashes, expected_adapter_source_sha256)
-        _safe_output_directory(root, output)
-        _create_private_output(output)
-        artifact_sha = _exclusive_write(output / _OUTPUT_ARTIFACT, artifact_bytes)
-        pure_sha = _exclusive_write(output / _OUTPUT_PURE_RECEIPT, pure_receipt_bytes)
+        _verify_code(trusted_source_root, helper_hashes, expected_adapter_source_sha256)
+        _verify_output_context(context, require_output=False)
+        _create_output_directory(context)
+        artifact_sha = _write_output_file(context, _OUTPUT_ARTIFACT, artifact_bytes)
+        pure_sha = _write_output_file(context, _OUTPUT_PURE_RECEIPT, pure_receipt_bytes)
         _verify_snapshot(root, captured)
-        _verify_code(root, helper_hashes, expected_adapter_source_sha256)
+        _verify_code(trusted_source_root, helper_hashes, expected_adapter_source_sha256)
         io_receipt = _io_receipt(source_revision, captured, {
             "fixture": canonical["fixture"], "rubric": canonical["rubric"],
             "review": _canonical_lf(captured["review"].data),
         }, helper_hashes, expected_adapter_source_sha256, artifact_bytes, pure_receipt_bytes, coverage)
-        io_sha = _exclusive_write(output / _OUTPUT_MANIFEST, io_receipt)
+        io_sha = _write_output_file(context, _OUTPUT_MANIFEST, io_receipt)
         _verify_snapshot(root, captured)
-        _verify_code(root, helper_hashes, expected_adapter_source_sha256)
+        _verify_code(trusted_source_root, helper_hashes, expected_adapter_source_sha256)
+        _verify_output_context(context)
         return FixtureProtectionIOResult(output, artifact_sha, pure_sha, io_sha, dict(coverage))
     except FixtureProtectionIOError:
         raise
     except (FixtureProtectionError, OSError, ValueError, TypeError, UnicodeError, json.JSONDecodeError):
         _fail()
+    finally:
+        if context is not None:
+            _close_output_context(context)
 
 
 def build_fixture_protection_addon_io(project_root: Path, output_directory: Path, *,

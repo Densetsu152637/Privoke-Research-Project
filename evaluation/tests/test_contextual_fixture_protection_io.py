@@ -17,7 +17,6 @@ sys.path.insert(0, str(ROOT / "evaluation/tests"))
 sys.path.insert(0, str(ROOT / "shared/python"))
 
 from privoke_eval import contextual_fixture_protection_io as io_layer
-from privoke_eval.contextual_fixture_protection import FixtureProtectionError
 from test_contextual_fixture_protection import synthetic_inputs
 
 
@@ -45,6 +44,33 @@ class ContextualFixtureProtectionIOPortableTests(unittest.TestCase):
                     policy=synthetic_inputs()[3],
                 )
 
+    def test_live_modules_match_trusted_sources_and_reject_shadow_checkout(self):
+        helper_hashes = {
+            name: sha((ROOT / relative).read_bytes())
+            for name, relative in io_layer._HELPER_PATHS.items() if name != "adapter"
+        }
+        adapter_hash = sha((ROOT / io_layer._HELPER_PATHS["adapter"]).read_bytes())
+        for name, relative in io_layer._HELPER_PATHS.items():
+            source = (ROOT / relative).read_bytes()
+            io_layer._verify_loaded_module(
+                ROOT, name, io_layer._Captured(source, sha(source), (0, 0, len(source), 0, 0)),
+            )
+        with patch.object(io_layer, "build_fixture_addon", lambda *args, **kwargs: (b"", b"")):
+            with self.assertRaises(io_layer.FixtureProtectionIOError):
+                io_layer._verify_code(ROOT, helper_hashes, adapter_hash)
+        with tempfile.TemporaryDirectory() as shadow_temp:
+            shadow = Path(shadow_temp).absolute()
+            for relative in io_layer._HELPER_PATHS.values():
+                target = shadow / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((ROOT / relative).read_bytes())
+            for name, relative in io_layer._HELPER_PATHS.items():
+                source = (shadow / relative).read_bytes()
+                with self.assertRaises(io_layer.FixtureProtectionIOError):
+                    io_layer._verify_loaded_module(
+                        shadow, name, io_layer._Captured(source, sha(source), (0, 0, len(source), 0, 0)),
+                    )
+
 
 @unittest.skipIf(os.name == "nt", "Windows ACL verification is an execution gate; no chmod substitute")
 class ContextualFixtureProtectionIOTests(unittest.TestCase):
@@ -66,41 +92,20 @@ class ContextualFixtureProtectionIOTests(unittest.TestCase):
         self.rubric_path.write_bytes(self.rubric)
         self.review_path.write_bytes(self.review)
 
-        helper_dir = self.root / "test-helpers"
-        helper_dir.mkdir()
-        self.helper_map = {}
-        for name in ("grouping", "normalizer", "fixture_validator"):
-            path = helper_dir / f"{name}.py"
-            content = f"# synthetic {name}\n".encode()
-            path.write_bytes(content)
-            self.helper_map[name] = path
-        adapter = helper_dir / "adapter.py"
-        adapter.write_bytes(b"# synthetic adapter source\n")
-        self.adapter_path = adapter
-
-        self.input_paths = dict(io_layer._INPUT_PATHS)
-        self.helper_paths = {name: path.relative_to(self.root) for name, path in self.helper_map.items()}
-        self.helper_paths["adapter"] = self.adapter_path.relative_to(self.root)
         self.expected_raw = {
             "fixture": sha(self.fixture), "rubric": sha(self.rubric), "review": sha(self.review),
         }
         self.expected_helpers = {
-            name: sha(path.read_bytes()) for name, path in self.helper_map.items()
+            name: sha((ROOT / relative).read_bytes())
+            for name, relative in io_layer._HELPER_PATHS.items() if name != "adapter"
         }
-        self.expected_adapter = sha(self.adapter_path.read_bytes())
-        self.patches = [
-            patch.dict(io_layer._INPUT_PATHS, self.input_paths, clear=True),
-            patch.dict(io_layer._HELPER_PATHS, self.helper_paths, clear=True),
-        ]
-        for item in self.patches:
-            item.start()
+        self.expected_adapter = sha((ROOT / io_layer._HELPER_PATHS["adapter"]).read_bytes())
 
     def tearDown(self):
-        for item in reversed(self.patches):
-            item.stop()
         self.temp.cleanup()
 
     def build(self, name="result", **overrides):
+        source_root = overrides.pop("source_root", ROOT)
         args = {
             "source_revision": "d" * 40,
             "expected_input_raw_sha256": self.expected_raw,
@@ -110,7 +115,7 @@ class ContextualFixtureProtectionIOTests(unittest.TestCase):
         }
         args.update(overrides)
         return io_layer._build_fixture_protection_addon_io(
-            self.root, self.root / "evaluation/results" / name, **args,
+            self.root, self.root / "evaluation/results" / name, source_root=source_root, **args,
         )
 
     def test_capture_canonicalization_and_private_outputs(self):
@@ -161,10 +166,10 @@ class ContextualFixtureProtectionIOTests(unittest.TestCase):
         self.assertFalse((self.root / "evaluation/results/result").exists())
 
     def test_changed_helper_and_existing_output_fail_closed(self):
-        self.helper_map["normalizer"].write_bytes(b"changed helper")
-        with self.assertRaises(io_layer.FixtureProtectionIOError):
-            self.build()
-        self.helper_map["normalizer"].write_bytes(b"# synthetic normalizer\n")
+        stale = dict(self.expected_helpers, normalizer="f" * 64)
+        with patch.object(io_layer, "_capture_set", side_effect=AssertionError("fixture decoded")):
+            with self.assertRaises(io_layer.FixtureProtectionIOError):
+                self.build(expected_helper_source_sha256=stale)
         existing = self.root / "evaluation/results/existing"
         existing.mkdir()
         marker = existing / "keep.bin"
@@ -172,6 +177,72 @@ class ContextualFixtureProtectionIOTests(unittest.TestCase):
         with self.assertRaises(io_layer.FixtureProtectionIOError):
             self.build("existing")
         self.assertEqual(marker.read_bytes(), b"preserve")
+
+    def test_actual_module_sources_are_bound_before_fixture_capture(self):
+        io_layer._verify_code(ROOT, self.expected_helpers, self.expected_adapter)
+        with tempfile.TemporaryDirectory() as shadow_temp:
+            shadow = Path(shadow_temp).absolute()
+            for relative in io_layer._HELPER_PATHS.values():
+                target = shadow / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((ROOT / relative).read_bytes())
+            with patch.object(io_layer, "_capture_set", side_effect=AssertionError("fixture decoded")):
+                with self.assertRaises(io_layer.FixtureProtectionIOError):
+                    self.build(source_root=shadow)
+
+    def test_output_directory_substitution_never_redirects_write(self):
+        real_create = io_layer._create_output_directory
+        outside = self.root / "synthetic-outside"
+        outside.mkdir(mode=0o700)
+        saved = self.root / "evaluation/results/saved-output"
+
+        def substitute(context):
+            real_create(context)
+            context.output_path.rename(saved)
+            context.output_path.symlink_to(outside, target_is_directory=True)
+
+        with patch.object(io_layer, "_create_output_directory", side_effect=substitute):
+            with self.assertRaises(io_layer.FixtureProtectionIOError):
+                self.build()
+        self.assertEqual(list(outside.iterdir()), [])
+        self.assertEqual(list(saved.iterdir()), [])
+
+    def test_substitution_after_first_file_stops_later_publication(self):
+        real_write = io_layer._write_output_file
+        outside = self.root / "synthetic-outside"
+        outside.mkdir(mode=0o700)
+        saved = self.root / "evaluation/results/saved-output"
+
+        def write_then_substitute(context, filename, payload):
+            digest = real_write(context, filename, payload)
+            if filename == io_layer._OUTPUT_ARTIFACT:
+                context.output_path.rename(saved)
+                context.output_path.symlink_to(outside, target_is_directory=True)
+            return digest
+
+        with patch.object(io_layer, "_write_output_file", side_effect=write_then_substitute):
+            with self.assertRaises(io_layer.FixtureProtectionIOError):
+                self.build()
+        self.assertEqual(list(outside.iterdir()), [])
+        self.assertEqual([path.name for path in saved.iterdir()], [io_layer._OUTPUT_ARTIFACT])
+
+    def test_approved_parent_substitution_never_redirects_write(self):
+        real_create = io_layer._create_output_directory
+        results = self.root / "evaluation/results"
+        saved = self.root / "evaluation/saved-results"
+        outside = self.root / "synthetic-outside"
+        outside.mkdir(mode=0o700)
+
+        def substitute(context):
+            real_create(context)
+            results.rename(saved)
+            results.symlink_to(outside, target_is_directory=True)
+
+        with patch.object(io_layer, "_create_output_directory", side_effect=substitute):
+            with self.assertRaises(io_layer.FixtureProtectionIOError):
+                self.build()
+        self.assertEqual(list(outside.iterdir()), [])
+        self.assertEqual(list((saved / "result").iterdir()), [])
 
     def test_symlinked_input_is_rejected(self):
         original = self.fixture_path.with_suffix(".bak")
