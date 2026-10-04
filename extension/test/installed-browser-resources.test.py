@@ -25,8 +25,14 @@ except ImportError:
     stub.pid_exists = lambda _pid: False
     stub.process_iter = lambda *_args, **_kwargs: []
     stub.Process = lambda _pid: None
-    stub.Error = Exception
-    stub.NoSuchProcess = type("NoSuchProcess", (Exception,), {})
+    class Error(Exception):
+        pass
+
+    class NoSuchProcess(Error):
+        pass
+
+    stub.Error = Error
+    stub.NoSuchProcess = NoSuchProcess
     sys.modules["psutil"] = stub
 RESOURCES = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RESOURCES)
@@ -216,14 +222,21 @@ class ProcessSamplingTests(unittest.TestCase):
         root_argv = ["/usr/bin/chromium", "--user-data-dir", str(profile)]
         renderer_argv = ["/usr/bin/chromium", "--type=renderer", f"--user-data-dir={profile}"]
         utility_argv = ["/usr/bin/chromium", "--type=utility", f"--user-data-dir={profile}"]
-        renderer = SimpleNamespace(pid=22, cmdline=lambda: renderer_argv, children=lambda recursive: [])
-        utility = SimpleNamespace(pid=23, cmdline=lambda: utility_argv, children=lambda recursive: [])
+        renderer = SimpleNamespace(pid=22, info={"pid": 22, "cmdline": renderer_argv},
+                                   cmdline=lambda: renderer_argv, children=lambda recursive: [])
+        utility = SimpleNamespace(pid=23, info={"pid": 23, "cmdline": utility_argv},
+                                  cmdline=lambda: utility_argv, children=lambda recursive: [])
         root = SimpleNamespace(pid=21, info={"cmdline": root_argv}, cmdline=lambda: root_argv,
                                children=lambda recursive: [renderer, utility])
         with patch.object(RESOURCES, "_browser_profiles", return_value=[profile]):
             roots, included = RESOURCES._browser_process_ids([root, renderer, utility])
         self.assertEqual(roots, {21})
         self.assertEqual(included, {21, 22, 23})
+
+    def test_discovery_does_not_swallow_unrelated_fixture_attribute_errors(self):
+        process = SimpleNamespace(pid=21, cmdline=lambda: ["/usr/bin/chromium"])
+        with self.assertRaises(AttributeError):
+            RESOURCES._browser_process_ids([process])
 
     def test_cached_root_argv_survives_fresh_cmdline_disappearance_in_discovery(self):
         profile = Path("/tmp/browser profiles/profile-1")
