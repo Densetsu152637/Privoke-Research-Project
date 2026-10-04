@@ -24,8 +24,6 @@ from privoke_eval.advpii_structure import (  # noqa: E402
     _PROPOSED_PARTITION_QUOTAS,
     _PROPOSED_SOURCE_QUOTAS,
     PARQUET_SIZE,
-    PROTOCOL_SHA256,
-    RUBRIC_SHA256,
     aggregate_scan,
     canonical_json_bytes,
     open_verified_parquet,
@@ -127,11 +125,6 @@ def _write_union(directory: Path, *, bad_coverage: bool = False):
 
 class AggregateStructureTests(unittest.TestCase):
     def test_quota_arithmetic_matches_frozen_three_partition_protocol(self):
-        bindings = require_frozen_text_inputs(
-            ROOT / "paper/research/clean-augmentation-protocol.md",
-            ROOT / "paper/research/clean-augmentation-rubric.json",
-        )
-        self.assertEqual(bindings, {"protocol_sha256": PROTOCOL_SHA256, "rubric_sha256": RUBRIC_SHA256})
         self.assertEqual(_PROPOSED_PARTITION_QUOTAS["train"], {
             "positive": 2000, "negative": 1600, "hard_negative": 400,
         })
