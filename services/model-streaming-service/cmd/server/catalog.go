@@ -57,9 +57,17 @@ func loadModelCatalog(directory, latestModelID string) (*modelCatalog, error) {
 	if !directoryInfo.IsDir() {
 		return nil, fmt.Errorf("model artifact path is not a directory")
 	}
-	entries, err := directoryRoot.ReadDir(".")
+	entriesFile, err := directoryRoot.Open(".")
 	if err != nil {
-		return nil, fmt.Errorf("read model artifact directory: %w", err)
+		return nil, fmt.Errorf("open model artifact directory for reading: %w", err)
+	}
+	entries, readErr := entriesFile.ReadDir(-1)
+	closeErr := entriesFile.Close()
+	if readErr != nil {
+		return nil, fmt.Errorf("read model artifact directory: %w", readErr)
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("close model artifact directory reader: %w", closeErr)
 	}
 	catalog := &modelCatalog{
 		latestModelID: latestModelID,
