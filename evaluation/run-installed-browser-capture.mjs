@@ -33,6 +33,7 @@ import {
   preserveResourceEvidenceFailure,
   waitForProcessesToDisappear,
   mountEvidenceForPath,
+  isBeforeFirstFixtureRequest,
   parseGrpcWebFrames,
   validateDecodedOutcome,
   validatePageAnalysis,
@@ -123,6 +124,7 @@ let hostRegistration;
 let popup;
 let testPage;
 let profilePath;
+let fixtureRequestAttempted = false;
 
 async function runStudy() {
 try {
@@ -188,7 +190,7 @@ try {
 } catch (error) {
   runFailure = safeError(error);
   if (!receipt) receipt = await createInitialReceipt().catch(() => ({ protocolVersion: PROTOCOL_VERSION }));
-  if (!coldRecords.length && !caseRecords.length && !rpcEvents.length && !providerCaptures.length) {
+  if (isBeforeFirstFixtureRequest(fixtureRequestAttempted)) {
     try { receipt.nativeLaunchDiagnostics = await captureNativeLaunchDiagnostics(); }
     catch (diagnosticError) {
       receipt.nativeLaunchDiagnostics = { captureErrorType: safeError(diagnosticError).type };
@@ -837,6 +839,7 @@ async function performAndValidate({ transport, caseId, prompt, expectedAction, e
 }
 
 async function executePageRequest({ testPage: page, transport, caseId, prompt, expectedAction, fixtureUrl }) {
+  fixtureRequestAttempted = true;
   const url = `${fixtureUrl}/backend-api/conversation?case_id=${encodeURIComponent(caseId)}`;
   const outcome = await page.evaluate(async ({ transport, url, caseId, prompt, expectedAction }) => {
     window.__privokeCaptureCase = caseId;

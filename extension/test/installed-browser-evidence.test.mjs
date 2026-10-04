@@ -14,6 +14,7 @@ import {
   preserveResourceEvidenceFailure,
   summarizeSupervisorStartupLog,
   mountEvidenceForPath,
+  isBeforeFirstFixtureRequest,
   validateAnalyzeRequest,
   validateAnalyzeResponse,
   validateDecodedOutcome,
@@ -62,6 +63,14 @@ test("native launcher mount evidence identifies noexec without exposing mount so
     mount: { mountPoint: "/tmp", fsType: "tmpfs", noExec: false, readOnly: false } }), {
     executable: true, mount: { mountPoint: "/tmp", fsType: "tmpfs", noExec: false, readOnly: false },
   });
+});
+
+test("startup diagnostics are disabled as soon as fixture dispatch begins, even before outcomes exist", () => {
+  const outcomeArrays = { coldRecords: [], caseRecords: [], rpcEvents: [], providerCaptures: [] };
+  assert.equal(isBeforeFirstFixtureRequest(false), true);
+  const fixtureRequestAttempted = true;
+  assert.equal(Object.values(outcomeArrays).every((records) => records.length === 0), true);
+  assert.equal(isBeforeFirstFixtureRequest(fixtureRequestAttempted), false);
 });
 
 test("strict gRPC-Web framing accepts one request and one response plus final trailers", () => {

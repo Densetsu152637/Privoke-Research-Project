@@ -129,6 +129,11 @@ export function assertNativeLauncherExecutableMount({ executable, mount }) {
   return { executable, mount };
 }
 
+export function isBeforeFirstFixtureRequest(fixtureRequestAttempted) {
+  assert.equal(typeof fixtureRequestAttempted, "boolean", "fixture request attempt state must be explicit");
+  return !fixtureRequestAttempted;
+}
+
 export function validateAnalyzeRequest(request, expected) {
   assert.ok(request && typeof request === "object", "AnalyzePrompt request did not decode");
   assert.equal(request.requestId, expected.requestId ?? request.requestId);
