@@ -1,0 +1,29 @@
+services:
+  installed-browser-evidence:
+    build:
+      context: .
+      dockerfile: evaluation/Dockerfile.browser-installed
+    image: privoke-installed-browser-evidence:local
+    init: true
+    network_mode: none
+    read_only: true
+    shm_size: 1gb
+    environment:
+      XDG_CONFIG_HOME: /tmp/privoke-xdg
+      XDG_DATA_HOME: /tmp/privoke-data
+      PRIVOKE_ENV_FILE: /tmp/privoke-client-config/.env
+      PRIVOKE_MODEL_DEVICE: cpu
+      TELEMETRY_ENABLED: "false"
+      PRIVOKE_RUNTIME_START_ENABLED: "false"
+      PRIVOKE_DEV_LOG_PROMPTS: "false"
+      PRIVOKE_INSTALLED_EVIDENCE_OUTPUT: /workspace/evaluation/results/installed-browser-results
+      PRIVOKE_INSTALLED_EVIDENCE_REPS: "30"
+      PRIVOKE_INSTALLED_EVIDENCE_SESSIONS: "12"
+      PRIVOKE_INSTALLED_EVIDENCE_WARMUPS: "5"
+      PRIVOKE_SOURCE_REVISION: ${PRIVOKE_SOURCE_REVISION:-}
+      PRIVOKE_INSTALLED_IMAGE_ID: ${PRIVOKE_INSTALLED_IMAGE_ID:-}
+    tmpfs:
+      - /tmp:size=4g,mode=1777
+      - /run:size=64m,mode=755
+    volumes:
+      - ./evaluation/results/installed-browser-results:/workspace/evaluation/results/installed-browser-results

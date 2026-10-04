@@ -1,0 +1,53 @@
+FROM mcr.microsoft.com/playwright:v1.63.0-noble
+
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 python3-venv python3-pip openssl procps \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+COPY shared /workspace/shared
+COPY extension /workspace/extension
+COPY evaluation/Dockerfile.browser-installed /workspace/evaluation/Dockerfile.browser-installed
+COPY evaluation/compose.browser-installed.yml /workspace/evaluation/compose.browser-installed.yml
+COPY evaluation/run-installed-browser-capture.mjs /workspace/evaluation/run-installed-browser-capture.mjs
+COPY extension/test/installed-browser-capture.mjs /workspace/extension/test/installed-browser-capture.mjs
+COPY extension/test/installed-browser-resources.py /workspace/extension/test/installed-browser-resources.py
+COPY paper/research/installed-browser-protocol.md /workspace/paper/research/installed-browser-protocol.md
+
+RUN python3 -m venv /workspace/extension/client-runtime/.venv \
+    && /workspace/extension/client-runtime/.venv/bin/pip install --no-cache-dir \
+      -r /workspace/extension/client-runtime/requirements.txt \
+      -r /workspace/extension/runtime-supervisor/requirements.txt \
+      /workspace/shared/python psutil \
+    && mkdir -p /workspace/extension/client-runtime/generated /workspace/extension/runtime-supervisor/generated \
+    && /workspace/extension/client-runtime/.venv/bin/python -m grpc_tools.protoc \
+      -I /workspace/shared/proto \
+      --python_out=/workspace/extension/client-runtime/generated \
+      --grpc_python_out=/workspace/extension/client-runtime/generated \
+      /workspace/shared/proto/privoke/v1/runtime.proto \
+      /workspace/shared/proto/privoke/v1/parameters.proto \
+      /workspace/shared/proto/privoke/v1/telemetry.proto \
+    && /workspace/extension/client-runtime/.venv/bin/python -m grpc_tools.protoc \
+      -I /workspace/shared/proto \
+      --python_out=/workspace/extension/runtime-supervisor/generated \
+      --grpc_python_out=/workspace/extension/runtime-supervisor/generated \
+      /workspace/shared/proto/privoke/v1/runtime.proto \
+      /workspace/shared/proto/privoke/v1/parameters.proto \
+    && cd /workspace/extension \
+    && npm ci \
+    && npm run build \
+    && mkdir -p /opt/privoke-browser-test \
+    && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install --prefix /opt/privoke-browser-test --no-save --no-package-lock playwright@1.63.0 \
+    && /workspace/extension/client-runtime/.venv/bin/python /workspace/extension/client-runtime/src/dependency_check.py
+
+ENV XDG_CONFIG_HOME=/tmp/privoke-xdg
+ENV XDG_DATA_HOME=/tmp/privoke-data
+ENV PRIVOKE_ENV_FILE=/tmp/privoke-client-config/.env
+ENV PRIVOKE_MODEL_DEVICE=cpu
+ENV TELEMETRY_ENABLED=false
+ENV PRIVOKE_RUNTIME_START_ENABLED=false
+ENV PRIVOKE_DEV_LOG_PROMPTS=false
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+WORKDIR /workspace
+CMD ["node", "/workspace/evaluation/run-installed-browser-capture.mjs"]
