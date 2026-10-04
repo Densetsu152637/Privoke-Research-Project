@@ -34,6 +34,19 @@ The fixed original-control development results were:
 
 The ordinary original-control development pipeline was TP/TN/FP/FN `247/53/185/17` (93.5606% recall, 22.2689% specificity). The cascade trades five additional missed positive-labelled rows for fewer clean-row detections. It clears the 90% recall floor but not the 90% specificity target. The profiles are descriptive alternatives; differences do not establish a causal capacity effect. Paired confidence intervals were explicitly uncomputed, so no significance claim is made.
 
+## Residual nonsemantic false-positive bound
+
+An aggregate-only audit recomputed the returned regex/NER union from the frozen original-control reports, with exact validation and development identity/label/group joins:
+
+| Scope | TP/TN/FP/FN | Positive / clean rows | Specificity ceiling | Maximum FP at 90% specificity |
+| --- | ---: | ---: | ---: | ---: |
+| Validation | 365/466/27/110 | 475 / 493 | 94.52% | 49 |
+| Development | 193/225/13/71 | 264 / 238 | 94.54% | 23 |
+
+With unchanged regex/NER behavior, these observed false-positive floors are below their respective 90% specificity budgets; the nonsemantic floor alone does not rule out the target. It does not show that semantic gating can attain that ceiling, preserve recall, or satisfy the joint full-pipeline target.
+
+In the efficient development gate, a returned semantic-layer detection co-occurred on 54 of 63 false-positive rows; regex/NER and semantic findings can overlap. This descriptive co-occurrence is not a causal attribution of errors that semantic gating can necessarily remove. The [aggregate audit](../evaluation/results/goal_audit_20261004/cascade-residual-analysis-v1/analysis-v2.md) records the fixed-sample counts and limitations; its [machine-readable results](../evaluation/results/goal_audit_20261004/cascade-residual-analysis-v1/aggregate-v2.json) are bound to the original-control reports and pinned partitions. The final set was not read or scored. The audit runner protects existing outputs and will refuse an overwrite; any recomputation requires a fresh evidence workspace with the identical pinned inputs, preserving the prior output rather than deleting it.
+
 Action changes are separate from the binary score. On the same 502 development rows, observed original-action transitions to ALLOW were:
 
 | Profile | BLOCK → ALLOW | WARN → ALLOW | BLOCK → BLOCK | WARN → WARN | ALLOW → ALLOW |
