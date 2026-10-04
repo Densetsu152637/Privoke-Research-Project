@@ -1,0 +1,35 @@
+# Synthetic trainer-to-real-runtime codec gate. No datasets or model artifacts.
+FROM python:3.11-slim-bookworm
+WORKDIR /workspace
+COPY evaluation/requirements-training.txt /tmp/requirements-training.txt
+COPY evaluation/requirements-training-parity.txt /tmp/requirements-training-parity.txt
+RUN python -m pip install --no-cache-dir --only-binary=:all: -r /tmp/requirements-training-parity.txt
+
+COPY shared/python/privoke_model /workspace/shared/python/privoke_model
+COPY shared/python/privoke_contracts /workspace/shared/python/privoke_contracts
+COPY shared/python/privoke_service /workspace/shared/python/privoke_service
+COPY shared/proto/privoke/v1/parameters.proto /workspace/shared/proto/privoke/v1/parameters.proto
+COPY models/generate_baseline.py /workspace/models/generate_baseline.py
+COPY extension/client-runtime/src/__init__.py /workspace/extension/client-runtime/src/__init__.py
+COPY extension/client-runtime/src/env.py /workspace/extension/client-runtime/src/env.py
+COPY extension/client-runtime/src/model.py /workspace/extension/client-runtime/src/model.py
+COPY extension/client-runtime/src/transformer_encoder.py /workspace/extension/client-runtime/src/transformer_encoder.py
+COPY extension/client-runtime/src/detection/__init__.py /workspace/extension/client-runtime/src/detection/__init__.py
+COPY extension/client-runtime/src/detection/preprocessing.py /workspace/extension/client-runtime/src/detection/preprocessing.py
+COPY extension/client-runtime/src/LLM/privoke/parameter_stream.py /workspace/extension/client-runtime/src/LLM/privoke/parameter_stream.py
+COPY extension/client-runtime/src/LLM/privoke/scratch_presence_model.py /workspace/extension/client-runtime/src/LLM/privoke/scratch_presence_model.py
+COPY evaluation/privoke_eval/__init__.py /workspace/evaluation/privoke_eval/__init__.py
+COPY evaluation/privoke_eval/in_house_presence_training.py /workspace/evaluation/privoke_eval/in_house_presence_training.py
+COPY evaluation/tests/test_in_house_presence_export_parity.py /workspace/evaluation/tests/test_in_house_presence_export_parity.py
+RUN mkdir -p /workspace/extension/client-runtime/generated/privoke/v1 && \
+    python -m grpc_tools.protoc \
+      -I/workspace/shared/proto \
+      --python_out=/workspace/extension/client-runtime/generated \
+      --grpc_python_out=/workspace/extension/client-runtime/generated \
+      /workspace/shared/proto/privoke/v1/parameters.proto
+
+ENV PYTHONPATH=/workspace/evaluation:/workspace/shared/python:/workspace/extension/client-runtime:/workspace/models
+ENV PYTHONDONTWRITEBYTECODE=1 PRIVOKE_EVAL_IN_CONTAINER=true OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+USER 65534:65534
+WORKDIR /workspace/evaluation
+CMD ["python", "-B", "-m", "unittest", "discover", "-s", "tests", "-p", "test_in_house_presence_export_parity.py", "-v"]
