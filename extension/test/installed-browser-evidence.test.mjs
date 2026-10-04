@@ -29,7 +29,83 @@ import {
   waitForProcessesToDisappear,
   validateSamplerTerminalDiagnostic,
   readSamplerTerminalSidecar,
+  createResourceWindowFinalizer,
+  runAfterResourceWindow,
+  finalizeResourceWindowBeforeCleanup,
+  summarizeResourceCpuWindows,
 } from "./installed-browser-evidence.mjs";
+
+test("resource windows finalize and validate before matrix work, exactly once", async () => {
+  const events = [];
+  const finalize = createResourceWindowFinalizer(async () => { events.push("close-reap-hash-validate"); });
+  await runAfterResourceWindow(finalize, async () => { events.push("matrix"); });
+  await finalize();
+  assert.deepEqual(events, ["close-reap-hash-validate", "matrix"]);
+});
+
+test("resource finalization failures block matrix and still permit cleanup without retry", async () => {
+  const events = [];
+  const failure = new Error("synthetic unreaped sampler");
+  const finalize = createResourceWindowFinalizer(async () => { events.push("finalize"); throw failure; });
+  await assert.rejects(runAfterResourceWindow(finalize, async () => { events.push("matrix"); }), failure);
+  const cleanup = await finalizeResourceWindowBeforeCleanup(finalize, async () => { events.push("cleanup"); });
+  assert.equal(cleanup.finalizationError, failure);
+  assert.equal(cleanup.cleanupError, null);
+  assert.deepEqual(events, ["finalize", "cleanup"]);
+});
+
+test("a startup/request failure can close its resource window before session cleanup", async () => {
+  const events = [];
+  const finalizer = createResourceWindowFinalizer(async () => { events.push("close-reap-hash-validate"); });
+  const requestFailure = new Error("synthetic first decision failure");
+  try {
+    await Promise.reject(requestFailure);
+  } catch (error) {
+    assert.equal(error, requestFailure);
+    const cleanup = await finalizeResourceWindowBeforeCleanup(finalizer, async () => { events.push("cleanup"); });
+    assert.equal(cleanup.finalizationError, null);
+  }
+  assert.deepEqual(events, ["close-reap-hash-validate", "cleanup"]);
+});
+
+test("resource CPU uses per-window deltas and memory uses sampled maxima", () => {
+  const row = (cpu, rss, pss = null) => ({ role: "detector", pid: 20, start_ticks: 500,
+    cpu_seconds: cpu, rss_bytes: rss, pss_bytes: pss });
+  const sample = (time, cpu, memory, process) => ({ sample_monotonic_ns: time,
+    cgroup: { cpu_usage_usec: cpu, memory_current_bytes: memory }, roles: [process] });
+  const result = summarizeResourceCpuWindows([
+    { file: "window-a.jsonl", sessionId: "synthetic-a", requestedStartMonotonicNs: "0",
+      requestedEndMonotonicNs: "2", phaseRequestCounts: { firstDecision: 1, warmup: 5, measured: 30 },
+      samples: [sample(1, 100, 700, row(1, 600, 250)), sample(2, 110, 800, row(1.1, 650, null))] },
+    { file: "window-b.jsonl", sessionId: "synthetic-b", requestedStartMonotonicNs: "2",
+      requestedEndMonotonicNs: "4", phaseRequestCounts: { firstDecision: 1, warmup: 5, measured: 30 },
+      samples: [sample(3, 300, 850, row(3, 640, 275)), sample(4, 310, 900, row(3.1, 700, null))] },
+  ]);
+  assert.equal(result.cgroupCpuSampledDeltaUsec, 20);
+  assert.equal(result.cgroupMemorySampledPeakBytes, 900);
+  const process = result.processes.get("detector/20/500");
+  assert.ok(Math.abs(process.cpuDeltaSeconds - 0.2) < 1e-9);
+  assert.equal(process.sampledPeakRssBytes, 700);
+  assert.equal(process.sampledPeakPssBytes, 275);
+  assert.deepEqual(result.windows.map((window) => window.cgroupCpuSampledDeltaUsec), [10, 10]);
+  assert.deepEqual(result.windows.map((window) => window.sessionId), ["synthetic-a", "synthetic-b"]);
+  assert.equal(result.windows[0].requestedEndMonotonicNs, "2");
+  assert.equal(result.windows[0].firstSampleMonotonicNs, 1);
+});
+
+test("resource CPU deltas reject missing, negative, and decreasing counters", () => {
+  const process = { role: "detector", pid: 20, start_ticks: 500, cpu_seconds: 1, rss_bytes: 10, pss_bytes: null };
+  const row = (cpu) => ({ ...process, cpu_seconds: cpu });
+  const sample = (time, cpu, processRows = [row(1)]) => ({ sample_monotonic_ns: time,
+    cgroup: { cpu_usage_usec: cpu, memory_current_bytes: null }, roles: processRows });
+  const one = (samples) => summarizeResourceCpuWindows([{ file: "synthetic.jsonl", samples }]);
+  assert.throws(() => one([sample(1, 1), sample(2, undefined)]), /cgroup CPU counters/);
+  assert.throws(() => one([sample(1, -1)]), /cgroup CPU counters/);
+  assert.throws(() => one([sample(1, 1), sample(2, 2, [row(0.5)])]), /process CPU counter decreased/);
+  assert.throws(() => one([sample(1, 1, [{ ...process, cpu_seconds: undefined }])]), /process CPU counter/);
+  const optionalPss = one([sample(1, 1, [process])]);
+  assert.equal(optionalPss.processes.get("detector/20/500").sampledPeakPssBytes, null);
+});
 
 test("sampler sidecar reader bounds bytes before parsing and rejects unsafe JSON privately", async () => {
   const directory = await mkdtemp(join(tmpdir(), "sampler-terminal-"));

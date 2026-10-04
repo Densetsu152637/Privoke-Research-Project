@@ -488,6 +488,122 @@ export function preserveResourceEvidenceFailure(summary, error) {
   return { error };
 }
 
+export function createResourceWindowFinalizer(finalize) {
+  assert.equal(typeof finalize, "function", "resource-window finalizer must be callable");
+  let finalization;
+  return () => {
+    if (!finalization) finalization = Promise.resolve().then(finalize);
+    return finalization;
+  };
+}
+
+export async function runAfterResourceWindow(finalize, nextPhase) {
+  assert.equal(typeof finalize, "function", "resource-window finalizer must be callable");
+  assert.equal(typeof nextPhase, "function", "next phase must be callable");
+  await finalize();
+  return nextPhase();
+}
+
+export async function finalizeResourceWindowBeforeCleanup(finalize, cleanup) {
+  assert.equal(typeof finalize, "function", "resource-window finalizer must be callable");
+  assert.equal(typeof cleanup, "function", "cleanup phase must be callable");
+  let finalizationError = null;
+  let cleanupError = null;
+  try { await finalize(); } catch (error) { finalizationError = error; }
+  try { await cleanup(); } catch (error) { cleanupError = error; }
+  return { finalizationError, cleanupError };
+}
+
+export function summarizeResourceCpuWindows(windows) {
+  if (!Array.isArray(windows)) throw new TypeError("resource CPU windows must be an array");
+  const processes = new Map();
+  const windowSummaries = [];
+  let cgroupCpuSampledDeltaUsec = 0;
+  let cgroupMemorySampledPeakBytes = null;
+  let cgroupMemoryMissingSamples = 0;
+
+  for (const window of windows) {
+    if (!window || typeof window.file !== "string" || !Array.isArray(window.samples) || !window.samples.length) {
+      throw new TypeError("resource CPU window must have a file and at least one sample");
+    }
+    let previousSampleMonotonicNs = null;
+    let firstCgroupCpuUsec = null;
+    let previousCgroupCpuUsec = null;
+    const processCounters = new Map();
+    for (const sample of window.samples) {
+      if (!Number.isSafeInteger(sample?.sample_monotonic_ns) || sample.sample_monotonic_ns < 0
+          || (previousSampleMonotonicNs !== null && sample.sample_monotonic_ns <= previousSampleMonotonicNs)) {
+        throw new TypeError("resource window sample timestamps must increase and remain exactly representable");
+      }
+      previousSampleMonotonicNs = sample.sample_monotonic_ns;
+      const cgroupCpuUsec = sample.cgroup?.cpu_usage_usec;
+      if (!Number.isSafeInteger(cgroupCpuUsec) || cgroupCpuUsec < 0
+          || (previousCgroupCpuUsec !== null && cgroupCpuUsec < previousCgroupCpuUsec)) {
+        throw new TypeError("resource window cgroup CPU counters are missing, negative or decreasing");
+      }
+      firstCgroupCpuUsec ??= cgroupCpuUsec;
+      previousCgroupCpuUsec = cgroupCpuUsec;
+      const cgroupMemory = sample.cgroup?.memory_current_bytes;
+      if (Number.isSafeInteger(cgroupMemory) && cgroupMemory >= 0) {
+        cgroupMemorySampledPeakBytes = cgroupMemorySampledPeakBytes === null
+          ? cgroupMemory : Math.max(cgroupMemorySampledPeakBytes, cgroupMemory);
+      } else cgroupMemoryMissingSamples += 1;
+      if (!Array.isArray(sample.roles)) throw new TypeError("resource window process rows are missing");
+      for (const row of sample.roles) {
+        if (typeof row?.role !== "string" || !row.role
+            || !Number.isSafeInteger(row.pid) || row.pid <= 0
+            || !Number.isSafeInteger(row.start_ticks) || row.start_ticks < 0) {
+          throw new TypeError("resource window process identity is invalid");
+        }
+        const cpuSeconds = row.cpu_seconds;
+        if (typeof cpuSeconds !== "number" || !Number.isFinite(cpuSeconds) || cpuSeconds < 0) {
+          throw new TypeError("resource window process CPU counter is missing or invalid");
+        }
+        const key = `${row.role}/${row.pid}/${row.start_ticks}`;
+        const counter = processCounters.get(key) || { first: cpuSeconds, last: cpuSeconds };
+        if (cpuSeconds < counter.last) throw new TypeError("resource window process CPU counter decreased");
+        counter.last = cpuSeconds;
+        processCounters.set(key, counter);
+        const aggregate = processes.get(key) || {
+          role: row.role, pid: row.pid, startTicks: row.start_ticks,
+          cpuDeltaSeconds: 0, sampledPeakRssBytes: null, sampledPeakPssBytes: null,
+        };
+        if (Number.isSafeInteger(row.rss_bytes) && row.rss_bytes >= 0) {
+          aggregate.sampledPeakRssBytes = aggregate.sampledPeakRssBytes === null
+            ? row.rss_bytes : Math.max(aggregate.sampledPeakRssBytes, row.rss_bytes);
+        }
+        if (Number.isSafeInteger(row.pss_bytes) && row.pss_bytes >= 0) {
+          aggregate.sampledPeakPssBytes = aggregate.sampledPeakPssBytes === null
+            ? row.pss_bytes : Math.max(aggregate.sampledPeakPssBytes, row.pss_bytes);
+        }
+        processes.set(key, aggregate);
+      }
+    }
+    const cgroupDelta = previousCgroupCpuUsec - firstCgroupCpuUsec;
+    cgroupCpuSampledDeltaUsec += cgroupDelta;
+    for (const [key, counter] of processCounters) {
+      const aggregate = processes.get(key);
+      aggregate.cpuDeltaSeconds += counter.last - counter.first;
+    }
+    windowSummaries.push({
+      file: window.file,
+      ...(typeof window.sessionId === "string" ? { sessionId: window.sessionId } : {}),
+      ...(typeof window.requestedStartMonotonicNs === "string"
+        ? { requestedStartMonotonicNs: window.requestedStartMonotonicNs } : {}),
+      ...(typeof window.requestedEndMonotonicNs === "string"
+        ? { requestedEndMonotonicNs: window.requestedEndMonotonicNs } : {}),
+      ...(window.phaseRequestCounts ? { phaseRequestCounts: { ...window.phaseRequestCounts } } : {}),
+      sampleCount: window.samples.length,
+      firstSampleMonotonicNs: window.samples[0].sample_monotonic_ns,
+      lastSampleMonotonicNs: previousSampleMonotonicNs,
+      cgroupCpuSampledDeltaUsec: cgroupDelta,
+    });
+  }
+
+  return { cgroupCpuSampledDeltaUsec, cgroupMemorySampledPeakBytes,
+    cgroupMemoryMissingSamples, processes, windows: windowSummaries };
+}
+
 export async function waitForProcessesToDisappear(scanMatches, {
   timeoutMs,
   intervalMs = 50,
