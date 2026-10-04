@@ -5,6 +5,7 @@ import { execFile, execFileSync, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import {
   mkdir,
+  open,
   readFile,
   readlink,
   readdir,
@@ -30,9 +31,11 @@ import {
   assertCompleteResourceEvidence,
   preserveResourceEvidenceFailure,
   waitForProcessesToDisappear,
+  mountEvidenceForPath,
   parseGrpcWebFrames,
   validateDecodedOutcome,
   validatePageAnalysis,
+  summarizeSupervisorStartupLog,
 } from "../extension/test/installed-browser-evidence.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -184,6 +187,12 @@ try {
 } catch (error) {
   runFailure = safeError(error);
   if (!receipt) receipt = await createInitialReceipt().catch(() => ({ protocolVersion: PROTOCOL_VERSION }));
+  if (!coldRecords.length && !caseRecords.length && !rpcEvents.length && !providerCaptures.length) {
+    try { receipt.nativeLaunchDiagnostics = await captureNativeLaunchDiagnostics(); }
+    catch (diagnosticError) {
+      receipt.nativeLaunchDiagnostics = { captureErrorType: safeError(diagnosticError).type };
+    }
+  }
   receipt.status = "failed";
   receipt.failure = runFailure;
   receipt.completedAt = new Date().toISOString();
@@ -347,6 +356,68 @@ async function installNativeHost() {
     launcherSha256: await hashFile(launcherPath),
     hostSha256: await hashFile(join(XDG_DATA_HOME, "privoke/native-host/native_messaging_host.py")),
     manifest,
+  };
+}
+
+async function captureNativeLaunchDiagnostics() {
+  const registration = hostRegistration;
+  const fileEvidence = async (path) => {
+    if (!path) return { present: false };
+    const info = await stat(path).catch(() => null);
+    if (!info?.isFile()) return { present: false };
+    return {
+      present: true,
+      sizeBytes: info.size,
+      executable: (info.mode & 0o111) !== 0,
+      sha256: await hashFile(path),
+    };
+  };
+  let launcher = null;
+  let host = null;
+  let python = null;
+  if (registration) {
+    launcher = await readFile(registration.launcherPath, "utf8").catch(() => "");
+    const execLine = /^exec '([^'\r\n]+)' '([^'\r\n]+)'\s*$/m.exec(launcher);
+    if (execLine) {
+      python = execLine[1];
+      host = execLine[2];
+    }
+  }
+  const logPath = process.env.PRIVOKE_SUPERVISOR_LOG || "/tmp/PriVoke/runtime-supervisor.log";
+  const logHandle = await open(logPath, "r").catch(() => null);
+  let supervisorLog;
+  if (!logHandle) supervisorLog = { present: false };
+  else {
+    try {
+      const info = await logHandle.stat();
+      const length = Math.min(info.size, 128 * 1024);
+      const bytes = Buffer.alloc(length);
+      if (length) await logHandle.read(bytes, 0, length, info.size - length);
+      supervisorLog = { present: true, ...summarizeSupervisorStartupLog(bytes), truncated: info.size > length };
+    } finally { await logHandle.close(); }
+  }
+  return {
+    stage: "before_first_fixture_request",
+    browserRegistry: {
+      xdgConfigHomeSet: Boolean(process.env.XDG_CONFIG_HOME),
+      manifestPath: registration?.manifestPath ?? null,
+      registeredManifestSha256: registration?.manifestSha256 ?? null,
+      manifestFile: await fileEvidence(registration?.manifestPath),
+      activeProfileManifestPath: profilePath
+        ? join(profilePath, "NativeMessagingHosts", `${NATIVE_HOST_NAME}.json`) : null,
+    },
+    launcher: {
+      expectedHostName: NATIVE_HOST_NAME,
+      launcherFile: await fileEvidence(registration?.launcherPath),
+      pythonExecutable: await fileEvidence(python),
+      nativeHostScript: await fileEvidence(host),
+      mount: registration
+        ? mountEvidenceForPath(registration.launcherPath,
+          await readFile("/proc/self/mountinfo", "utf8").catch(() => ""))
+        : null,
+    },
+    supervisorLog,
+    capturePolicy: "bounded hash, traceback frame basename/line/function and exception class only; no exception text or prompt content",
   };
 }
 

@@ -11,12 +11,48 @@ import {
   frameGrpcWebMessage,
   parseGrpcWebFrames,
   preserveResourceEvidenceFailure,
+  summarizeSupervisorStartupLog,
+  mountEvidenceForPath,
   validateAnalyzeRequest,
   validateAnalyzeResponse,
   validateDecodedOutcome,
   validatePageAnalysis,
   waitForProcessesToDisappear,
 } from "./installed-browser-evidence.mjs";
+
+test("supervisor startup diagnostics retain bounded traceback identity without exception text", () => {
+  const log = Buffer.from([
+    "Traceback (most recent call last):",
+    '  File "/workspace/extension/runtime-supervisor/src/main.py", line 17, in <module>',
+    "    import private_fake_prompt_value",
+    "ModuleNotFoundError: No module named 'fake_dependency'",
+    "private_fake_prompt_value",
+  ].join("\n"));
+  const summary = summarizeSupervisorStartupLog(log);
+  assert.equal(summary.containsTraceback, true);
+  assert.equal(summary.exceptionType, "ModuleNotFoundError");
+  assert.equal(summary.missingModule, "fake_dependency");
+  assert.deepEqual(summary.tracebackFrames, [{ file: "main.py", line: 17, function: "<module>" }]);
+  assert.equal(summary.sha256.length, 64);
+  assert.equal(JSON.stringify(summary).includes("private_fake_prompt_value"), false);
+  assert.equal(JSON.stringify(summary).includes("No module named"), false);
+
+  const bounded = summarizeSupervisorStartupLog(Buffer.alloc(40, 65), 16);
+  assert.equal(bounded.capturedBytes, 16);
+  assert.equal(bounded.truncated, true);
+  assert.equal(bounded.exceptionType, null);
+});
+
+test("native launcher mount evidence identifies noexec without exposing mount sources", () => {
+  const mounts = "42 1 0:1 / / rw,relatime - overlay overlay rw\n"
+    + "43 42 0:2 / /tmp rw,nosuid,nodev,noexec,relatime - tmpfs tmpfs rw";
+  assert.deepEqual(mountEvidenceForPath("/tmp/privoke/native/launcher", mounts), {
+    mountPoint: "/tmp", fsType: "tmpfs", noExec: true, readOnly: false,
+  });
+  assert.deepEqual(mountEvidenceForPath("/workspace/host", mounts), {
+    mountPoint: "/", fsType: "overlay", noExec: false, readOnly: false,
+  });
+});
 
 test("strict gRPC-Web framing accepts one request and one response plus final trailers", () => {
   const request = Buffer.from("request");

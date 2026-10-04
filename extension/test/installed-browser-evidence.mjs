@@ -69,6 +69,59 @@ export function frameGrpcWebMessage(bytes) {
   return Buffer.concat([header, payload]);
 }
 
+export function summarizeSupervisorStartupLog(input, maxBytes = 128 * 1024) {
+  const raw = Buffer.isBuffer(input) ? input : Buffer.from(input ?? "");
+  assert.ok(Number.isSafeInteger(maxBytes) && maxBytes > 0, "startup-log bound must be positive");
+  const bytes = raw.subarray(Math.max(0, raw.length - maxBytes));
+  const text = bytes.toString("utf8");
+  const tracebackFrames = [];
+  for (const line of text.split(/\r?\n/)) {
+    const frame = /^\s*File "([^"\r\n]+)", line ([0-9]+), in ([A-Za-z0-9_<>.-]+)\s*$/.exec(line);
+    if (frame) {
+      tracebackFrames.push({ file: frame[1].split(/[\\/]/).at(-1), line: Number(frame[2]), function: frame[3] });
+    }
+  }
+  const exceptionLine = text.split(/\r?\n/).reverse().find((line) => /^[A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception):/.test(line));
+  const exceptionType = exceptionLine?.split(":", 1)[0] ?? null;
+  const missingModule = exceptionLine
+    ? /No module named ['"]([A-Za-z_][A-Za-z0-9_.]*)['"]/.exec(exceptionLine)?.[1] ?? null
+    : null;
+  return {
+    capturedBytes: bytes.length,
+    truncated: bytes.length < raw.length,
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+    containsTraceback: text.includes("Traceback (most recent call last):"),
+    exceptionType,
+    missingModule,
+    tracebackFrames,
+    controlListening: text.includes("PriVoke runtime supervisor listening on 127.0.0.1:50056"),
+    bridgeListening: text.includes("PriVoke gRPC-Web bridge listening on 127.0.0.1:8080"),
+    detectorDependencyUnavailable: text.includes("Client runtime dependencies are unavailable:"),
+  };
+}
+
+export function mountEvidenceForPath(path, mountInfoText) {
+  const target = String(path ?? "").replace(/\\/g, "/").replace(/\/$/, "");
+  const matches = [];
+  for (const line of String(mountInfoText ?? "").split(/\r?\n/)) {
+    const [left, right] = line.split(" - ", 2);
+    if (!right) continue;
+    const fields = left.split(" ");
+    const mountPoint = fields[4]?.replace(/\\([0-7]{3})/g, (_, octal) => String.fromCharCode(Number.parseInt(octal, 8)));
+    if (!mountPoint) continue;
+    const convertedMount = mountPoint.replace(/\\/g, "/");
+    const normalizedMount = convertedMount === "/" ? "/" : convertedMount.replace(/\/$/, "");
+    if (target !== normalizedMount && !(normalizedMount === "/" ? target.startsWith("/") : target.startsWith(`${normalizedMount}/`))) continue;
+    const options = fields[5]?.split(",") ?? [];
+    const fsType = right.split(" ", 1)[0] ?? null;
+    matches.push({ mountPoint, fsType, noExec: options.includes("noexec"), readOnly: options.includes("ro"), depth: normalizedMount.length });
+  }
+  matches.sort((a, b) => b.depth - a.depth);
+  if (!matches.length) return null;
+  const { depth, ...evidence } = matches[0];
+  return evidence;
+}
+
 export function validateAnalyzeRequest(request, expected) {
   assert.ok(request && typeof request === "object", "AnalyzePrompt request did not decode");
   assert.equal(request.requestId, expected.requestId ?? request.requestId);
