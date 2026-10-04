@@ -376,3 +376,7 @@ audit and per-seed counts are recorded in the
 is not a reason to add C values, change thresholds, or repeat update cycles on
 the same development evidence; any next experiment needs a new prospective
 question and frozen protocol.
+
+## AdvPIIBench clean-data preflight
+
+The pinned AdvPIIBench Parquet was downloaded and its complete 4,258,476 bytes verified against the recorded LFS SHA-256. A count-only structural scan covered 104,728 rows, found unique UIDs throughout, and recorded 24,958 components and 14,496 few-shot exclusions. The local protected-key union was also built from the opaque prior selection, reference/bootstrap rows, and existing Nemotron/Meddies partitions. These checks establish source integrity and structural exclusion coverage only: native labels have not received the required blinded whole-prompt review, and no new train/validation/test partitions, model fit, or score have been produced. See the [dataset analysis](../docs/PII-dataset-analysis.md) and [evidence ledger](../paper/research/data-expansion-ledger.md); the frozen protocol and rubric remain the authority for any later access or fitting.
