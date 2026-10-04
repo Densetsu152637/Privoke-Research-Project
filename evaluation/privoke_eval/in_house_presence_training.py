@@ -183,9 +183,12 @@ class ScratchPresenceTrainer:
         self.model_id = scratch_model_id(self.config)
         self._arrays = {name: value.copy() for name, value in parameters.items()}
         computed_initialization = _fingerprint(self._arrays)
-        if initialization_sha256 is not None and initialization_sha256 != computed_initialization:
-            raise ValueError("Initialization commitment does not match the supplied tensors.")
-        self.initialization_sha256 = computed_initialization
+        canonical_initialization = _fingerprint(_encoder_initialization(self.config["profile"]))
+        if computed_initialization != canonical_initialization:
+            raise ValueError("Training tensors do not match the fixed random initialization.")
+        if initialization_sha256 is not None and initialization_sha256 != canonical_initialization:
+            raise ValueError("Initialization commitment does not match the fixed random initialization.")
+        self.initialization_sha256 = canonical_initialization
         trainable = set(scratch_presence_trainable_names(self.config))
         self._parameters = {
             name: torch.nn.Parameter(torch.tensor(value.copy(), dtype=torch.float32, device="cpu"),

@@ -52,6 +52,8 @@ from src.transformer_encoder import EncoderConfig, NumpyTransformerEncoder, toke
 from privoke_eval.in_house_presence_training import (
     MAX_GRAD_NORM,
     ScratchPresenceTrainer,
+    _encoder_initialization,
+    _fingerprint,
     create_paired_trainers,
     presence_config,
 )
@@ -179,6 +181,33 @@ class ScratchPresenceTrainingTests(unittest.TestCase):
                 )
                 self.assertEqual(head.optimizer_state()["state"], {})
                 self.assertEqual(full.optimizer_state()["state"], {})
+
+    def test_constructor_rejects_caller_attested_noncanonical_initialization(self):
+        for profile in SCRATCH_PROFILES:
+            config = presence_config(profile, "end_to_end")
+            canonical = _encoder_initialization(profile)
+            for tensor_name in ("token_embedding", "head.presence.weight"):
+                with self.subTest(profile=profile, tensor=tensor_name):
+                    altered = {name: value.copy() for name, value in canonical.items()}
+                    altered[tensor_name].flat[0] += np.float32(0.125)
+                    for commitment in (None, _fingerprint(altered), _fingerprint(canonical)):
+                        with self.assertRaisesRegex(ValueError, "fixed random initialization"):
+                            ScratchPresenceTrainer(config, altered, commitment)
+
+            foreign_rng = np.random.default_rng(12102027)
+            foreign_generated = initial_parameters(_legacy_config(config), foreign_rng)
+            foreign = {
+                name: np.asarray(value, dtype=np.float32).copy()
+                for name, value in foreign_generated.items()
+                if not name.startswith("head.")
+            }
+            foreign["head.presence.weight"] = foreign_rng.normal(
+                0.0, 0.08, (config["hidden_size"], 1)
+            ).astype(np.float32)
+            foreign["head.presence.bias"] = np.zeros((1,), dtype=np.float32)
+            with self.subTest(profile=profile, tensor="foreign-seed"):
+                with self.assertRaisesRegex(ValueError, "fixed random initialization"):
+                    ScratchPresenceTrainer(config, foreign, _fingerprint(foreign))
 
     def test_numpy_runtime_encoder_and_torch_logits_parity_all_profiles(self):
         for profile in SCRATCH_PROFILES:
