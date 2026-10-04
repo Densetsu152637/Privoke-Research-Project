@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / "evaluation"), str(ROOT / "shared/python")]
@@ -16,7 +17,7 @@ from privoke_eval.advpii_review import (
 from privoke_eval.clean_augmentation_grouping import ProtectedKeys, build_components
 from privoke_eval.contextual_fixture_protection import combined_protection_digest
 from privoke_eval.in_house_advpii_review import (
-    EXECUTION_CODE_ROLES, InHouseProtectionBindings, InHouseReviewBindings,
+    EXECUTION_CODE_ROLES, InHouseProtectionBindings, InHouseReviewBindings, InHouseReviewPool,
     build_in_house_review_pool, validate_in_house_review_pool,
     validate_in_house_review_responses,
 )
@@ -266,6 +267,43 @@ class InHouseReviewTests(unittest.TestCase):
         graph = build_components([labeled.grouping_row])
         with self.assertRaises(ValueError):
             build_in_house_review_pool((labeled,), graph, bindings(), ProtectedKeys(), spans)
+
+    def test_dataclass_replacement_rejects_true_and_false_retained_truth(self):
+        pool = make_pool()
+        for truth in (True, False):
+            with self.subTest(truth=truth):
+                row = replace(pool._source_rows[0], grouping_row=replace(
+                    pool._source_rows[0].grouping_row, reviewed_has_pii=truth))
+                graph = build_components([row.grouping_row], pool._combined_keys)
+                self.assertNotEqual(graph.assignable_row_count, pool._graph.assignable_row_count)
+                with self.assertRaises(ValueError):
+                    replace(pool, _source_rows=(row,), _graph=graph)
+
+    def test_public_validators_repeat_truth_guard_before_any_rebuild_or_responses(self):
+        pool = make_pool()
+        for truth in (True, False):
+            with self.subTest(truth=truth):
+                row = replace(pool._source_rows[0], grouping_row=replace(
+                    pool._source_rows[0].grouping_row, reviewed_has_pii=truth))
+                graph = build_components([row.grouping_row], pool._combined_keys)
+                # Simulate a retained object reconstructed without constructor
+                # checks; validation must independently defend the boundary.
+                with patch.object(InHouseReviewPool, "__post_init__", return_value=None):
+                    forged = replace(pool, _source_rows=(row,), _graph=graph)
+                self.assertEqual(forged.preparation_identity, pool.preparation_identity)
+                self.assertEqual(forged.bindings, pool.bindings)
+                with patch("privoke_eval.in_house_advpii_review.build_review_pool") as rebuild:
+                    with self.assertRaises(ValueError):
+                        validate_in_house_review_pool(forged, trusted_bindings=pool.bindings)
+                    rebuild.assert_not_called()
+                    with patch("privoke_eval.in_house_advpii_review.validate_review_responses") as decisions:
+                        with self.assertRaises(ValueError):
+                            validate_in_house_review_responses(forged,
+                                envelope(pool, [response(pool, "uncertain")]),
+                                trusted_bindings=pool.bindings,
+                                expected_preparation_identity=pool.preparation_identity)
+                        decisions.assert_not_called()
+                    rebuild.assert_not_called()
 
     def test_self_consistent_foreign_pool_requires_external_trust_and_identity(self):
         pool = make_pool()

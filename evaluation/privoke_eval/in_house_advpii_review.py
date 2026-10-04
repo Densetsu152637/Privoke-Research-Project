@@ -89,6 +89,12 @@ def _require_immutable(value):
     _fail()
 
 
+def _require_pre_review_rows(rows):
+    if any(type(row) is not ParsedNativeRow or row.grouping_row.reviewed_has_pii is not None
+           for row in rows):
+        _fail()
+
+
 @dataclass(frozen=True)
 class InHouseProtectionBindings:
     historical_artifact_raw_sha256: str
@@ -192,6 +198,7 @@ class InHouseReviewPool:
                 or type(self._graph.components) is not tuple
                 or not isinstance(self._native_span_inputs, Mapping)):
             _fail()
+        _require_pre_review_rows(self._source_rows)
         from privoke_eval.advpii_review import ValidatedNativeSpanInput
         copied = {}
         for uid, spans in self._native_span_inputs.items():
@@ -234,8 +241,7 @@ def build_in_house_review_pool(parsed_rows, full_graph, bindings, combined_keys,
     if (protected_keys_digest(combined_keys) != bindings.protection.internal_protected_keys_sha256
             or combined_protection_digest(combined_keys) != bindings.protection.combined_protection_sha256):
         _fail()
-    if any(row.grouping_row.reviewed_has_pii is not None for row in parsed_rows):
-        _fail()
+    _require_pre_review_rows(parsed_rows)
     core = build_review_pool(parsed_rows, full_graph, bindings.legacy, combined_keys,
                              validated_native_spans_by_uid)
     preparation, pool_hash = _identities(core, bindings)
@@ -313,6 +319,7 @@ def validate_in_house_review_pool(pool: InHouseReviewPool, *,
     if (type(pool) is not InHouseReviewPool or type(trusted_bindings) is not InHouseReviewBindings
             or pool.bindings != trusted_bindings or pool.core.bindings != trusted_bindings.legacy):
         _fail()
+    _require_pre_review_rows(pool._source_rows)
     if (protected_keys_digest(pool._combined_keys) != trusted_bindings.protection.internal_protected_keys_sha256
             or combined_protection_digest(pool._combined_keys) != trusted_bindings.protection.combined_protection_sha256):
         _fail()
