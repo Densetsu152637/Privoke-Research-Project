@@ -8,13 +8,15 @@ review labels, allocates partitions, fits, predicts, or scores a model.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from contextlib import contextmanager
+from dataclasses import dataclass, replace
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import secrets
+import tempfile
 from typing import Any, Callable
 
 from privoke_eval.advpii_native import parse_native_row, validate_arrow_schema
@@ -55,6 +57,12 @@ _PIN_FILES = {
     "review_io": "evaluation/privoke_eval/advpii_review_io.py",
     "cli": "evaluation/prepare-advpii-review.py",
 }
+_CAPTURE_FIELDS = (
+    "parquet", "source_audit", "protocol", "rubric", "protected_union",
+    "protection_receipt", "pin_manifest",
+)
+_MAX_CAPTURE_FILE_BYTES = 64 * 1024 * 1024
+_MAX_CAPTURE_TOTAL_BYTES = 128 * 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -191,6 +199,55 @@ def _safe_output_directory(output: Path, results_root: Path) -> None:
     output.mkdir(mode=0o700, parents=False, exist_ok=False)
 
 
+@contextmanager
+def _capture_inputs(paths: ReviewIOPaths):
+    """Capture every caller-controlled input once for validators and scanning."""
+    total = 0
+    with tempfile.TemporaryDirectory(prefix="privoke-advpii-review-") as temporary:
+        root = Path(temporary)
+        try:
+            os.chmod(root, 0o700)
+        except OSError:
+            pass  # Windows ACLs are operator-provisioned; POSIX gets private mode.
+        captured_paths: dict[str, Path] = {}
+        captured_hashes: dict[str, str] = {}
+        for name in _CAPTURE_FIELDS:
+            source = getattr(paths, name)
+            _no_symlink_file(source)
+            if source.stat().st_size > _MAX_CAPTURE_FILE_BYTES:
+                raise ValueError("A verified input exceeds the bounded snapshot size.")
+            with source.open("rb") as handle:
+                raw = handle.read(_MAX_CAPTURE_FILE_BYTES + 1)
+            if len(raw) > _MAX_CAPTURE_FILE_BYTES:
+                raise ValueError("A verified input exceeds the bounded snapshot size.")
+            total += len(raw)
+            if total > _MAX_CAPTURE_TOTAL_BYTES:
+                raise ValueError("Verified inputs exceed the bounded total snapshot size.")
+            directory = root / name
+            directory.mkdir(mode=0o700)
+            destination = directory / source.name
+            with destination.open("xb") as handle:
+                handle.write(raw)
+                handle.flush()
+                os.fsync(handle.fileno())
+            try:
+                os.chmod(destination, 0o600)
+            except OSError:
+                pass  # Windows ACLs are operator-provisioned; do not claim mode proof.
+            captured_paths[name] = destination
+            captured_hashes[name] = hashlib.sha256(raw).hexdigest()
+        yield replace(paths, **captured_paths), captured_hashes
+
+
+def _verify_original_inputs(paths: ReviewIOPaths, captured_hashes: Mapping[str, str]) -> None:
+    """Reject any pathname replacement relative to the original byte snapshot."""
+    for name in _CAPTURE_FIELDS:
+        path = getattr(paths, name)
+        _no_symlink_file(path)
+        if sha256_file(path) != captured_hashes[name]:
+            raise ValueError("An original input pathname no longer matches its captured bytes.")
+
+
 def _validated_span_inputs(raw: Mapping[str, object], parsed: Any) -> tuple[ValidatedNativeSpanInput, ...]:
     """Adapt one parser-eligible row's exact native spans for helper revalidation."""
     spans = raw.get("pii_spans")
@@ -235,6 +292,7 @@ def _spans_for_eligible_rows(raw_rows: Iterable[Mapping[str, object]], parsed_ro
 def _iter_rows(parquet: Any, batch_size: int = 256) -> Iterable[tuple[Mapping[str, object], Any]]:
     seen: set[int] = set()
     for batch in parquet.iter_batches(batch_size=batch_size):
+        validate_arrow_schema(batch.schema)
         for row in batch.to_pylist():
             if not isinstance(row, Mapping):
                 raise ValueError("Parquet batch contains a malformed row.")
@@ -258,25 +316,133 @@ def prepare_review_pool(
 ) -> int:
     """Verify all inputs, close the full graph, and write a private review pool."""
     output = paths.output
-    _safe_output_directory(output, results_root)
-    stage = "validate_bindings"
+    stage_ref = ["validate_output_path"]
+    output_created = False
+    try:
+        _safe_output_directory(output, results_root)
+        output_created = True
+        stage_ref[0] = "capture_verified_inputs"
+        with _capture_inputs(paths) as (captured, captured_hashes):
+            return _prepare_captured_review_pool(
+                original_paths=paths,
+                captured_paths=captured,
+                captured_hashes=captured_hashes,
+                source_revision=source_revision,
+                pin_manifest_sha256=pin_manifest_sha256,
+                protection_receipt_sha256=protection_receipt_sha256,
+                repository_root=repository_root,
+                stage_ref=stage_ref,
+                parquet_opener=parquet_opener,
+            )
+    except Exception:
+        if output_created:
+            try:
+                _exclusive_json(output / "failure.json", _safe_error(stage_ref[0], f"{stage_ref[0]}_failed"))
+            except OSError:
+                pass
+        # Output-path failures return a fixed status without printing a traceback
+        # or attempting to write outside an approved, newly created directory.
+        return 1
+
+
+def _artifact_protected_keys(path: Path) -> tuple[ProtectedKeys, dict[str, object]]:
+    try:
+        artifact = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        raise ValueError("Captured protection artifact is malformed.") from None
+    if (
+        not isinstance(artifact, dict)
+        or set(artifact) != {"schema_version", "kind", "union_sha256", "coverage_counts", "verified_commitments", "keys"}
+        or type(artifact.get("schema_version")) is not int
+        or artifact.get("schema_version") != 1
+        or artifact.get("kind") != "privoke-clean-protected-union"
+        or not isinstance(artifact.get("union_sha256"), str)
+        or _HEX64.fullmatch(artifact["union_sha256"]) is None
+        or not isinstance(artifact.get("coverage_counts"), dict)
+        or not isinstance(artifact.get("verified_commitments"), dict)
+        or not isinstance(artifact.get("keys"), dict)
+    ):
+        raise ValueError("Captured protection artifact is malformed.")
+    raw_keys = artifact["keys"]
+    if set(raw_keys) != {"ids", "groups", "exact_text_sha256", "normalized_texts"}:
+        raise ValueError("Captured protection artifact key schema is invalid.")
+    for values in raw_keys.values():
+        if (
+            not isinstance(values, list)
+            or not values
+            or any(not isinstance(value, str) or _HEX64.fullmatch(value) is None for value in values)
+            or values != sorted(set(values))
+        ):
+            raise ValueError("Captured protection artifact key list is invalid.")
+    payload = {
+        "schema_version": artifact["schema_version"],
+        "verified_commitments": artifact["verified_commitments"],
+        "keys": raw_keys,
+    }
+    if hashlib.sha256(canonical_json_bytes(payload)).hexdigest() != artifact["union_sha256"]:
+        raise ValueError("Captured protection artifact content digest is invalid.")
+    protected = ProtectedKeys(
+        ids=frozenset(raw_keys["ids"]),
+        groups=frozenset(raw_keys["groups"]),
+        exact_text_sha256=frozenset(raw_keys["exact_text_sha256"]),
+        normalized_texts=frozenset(raw_keys["normalized_texts"]),
+    )
+    return protected, artifact
+
+
+def _prepare_captured_review_pool(
+    *,
+    original_paths: ReviewIOPaths,
+    captured_paths: ReviewIOPaths,
+    captured_hashes: Mapping[str, str],
+    source_revision: str,
+    pin_manifest_sha256: str,
+    protection_receipt_sha256: str,
+    repository_root: Path,
+    stage_ref: list[str],
+    parquet_opener: Callable[[Path], Any],
+) -> int:
+    output = original_paths.output
     try:
         if not isinstance(source_revision, str) or _HEX40.fullmatch(source_revision) is None:
             raise ValueError("Source revision must be a full lowercase Git commit SHA.")
+        stage_ref[0] = "verify_code_pins"
+        if captured_hashes["pin_manifest"] != pin_manifest_sha256:
+            raise ValueError("Code pin manifest differs from its host commitment.")
+        if captured_hashes["protection_receipt"] != protection_receipt_sha256:
+            raise ValueError("Protection receipt differs from its host commitment.")
+
         code_digests, pin_digest = validate_pin_manifest(
-            paths.pin_manifest, pin_manifest_sha256, source_revision, repository_root
+            captured_paths.pin_manifest, pin_manifest_sha256, source_revision, repository_root
         )
-        for input_path in (
-            paths.parquet, paths.source_audit, paths.protocol, paths.rubric,
-            paths.protected_union, paths.protection_receipt,
+        stage_ref[0] = "verify_source_audit"
+        source_audit = validate_source_audit(captured_paths.source_audit)
+        if source_audit.get("source_audit_sha256") != captured_hashes["source_audit"]:
+            raise ValueError("Source-audit validator digest differs from the captured bytes.")
+        stage_ref[0] = "verify_frozen_text_inputs"
+        text_bindings = require_frozen_text_inputs(captured_paths.protocol, captured_paths.rubric)
+        if (
+            canonical_lf_sha256(captured_paths.protocol) != text_bindings["protocol_sha256"]
+            or canonical_lf_sha256(captured_paths.rubric) != text_bindings["rubric_sha256"]
         ):
-            _no_symlink_file(input_path)
-        source_audit = validate_source_audit(paths.source_audit)
-        text_bindings = require_frozen_text_inputs(paths.protocol, paths.rubric)
+            raise ValueError("Frozen text validator digests differ from captured bytes.")
+        stage_ref[0] = "verify_normalizer"
         normalizer_digest = validate_training_data_source(repository_root / "shared/python/privoke_model/training_data.py")
+        stage_ref[0] = "verify_protection_artifact"
         protected, protection_metadata = validate_protected_union(
-            paths.protected_union, paths.protection_receipt, protection_receipt_sha256
+            captured_paths.protected_union, captured_paths.protection_receipt, protection_receipt_sha256
         )
+        stage_ref[0] = "bind_captured_protection_bytes"
+        artifact_keys, artifact = _artifact_protected_keys(captured_paths.protected_union)
+        if (
+            protected != artifact_keys
+            or protection_metadata.get("artifact_sha256") != captured_hashes["protected_union"]
+            or protection_metadata.get("receipt_sha256") != captured_hashes["protection_receipt"]
+            or protection_metadata.get("union_sha256") != artifact.get("union_sha256")
+            or protection_metadata.get("verified_commitments") != artifact.get("verified_commitments")
+        ):
+            raise ValueError("Protection validator result differs from the captured artifact and receipt bytes.")
+        stage_ref[0] = "verify_receipt_helpers"
         receipt_helpers = protection_metadata["helper_source_hashes"]
         expected_receipt_helpers = {
             "protection_io_sha256": code_digests["protection_io"]["raw_sha256"],
@@ -287,23 +453,25 @@ def prepare_review_pool(
         if receipt_helpers != expected_receipt_helpers:
             raise ValueError("Protection receipt helper-source hashes differ from the pinned execution code.")
         protected_digest = protected_keys_digest(protected)
-        pre_file_hashes = {
-            "source_audit": sha256_file(paths.source_audit),
-            "protocol_raw": sha256_file(paths.protocol),
-            "rubric_raw": sha256_file(paths.rubric),
-            "protected_union": sha256_file(paths.protected_union),
-            "protection_receipt": sha256_file(paths.protection_receipt),
-        }
+        if protected_keys_digest(artifact_keys) != protected_digest:
+            raise ValueError("Captured artifact keys differ from the validated protected-key identity.")
 
-        stage = "verify_source_bytes"
-        parquet_digest = verify_parquet_bytes(paths.parquet)
-        stage = "validate_parquet_schema"
-        parquet = parquet_opener(paths.parquet)
+        # Validators consumed immutable snapshots. Confirm original paths still
+        # name those exact bytes before a Parquet reader or row parser is opened.
+        stage_ref[0] = "verify_original_inputs_before_reader"
+        _verify_original_inputs(original_paths, captured_hashes)
+        stage_ref[0] = "verify_source_bytes"
+        parquet_digest = verify_parquet_bytes(captured_paths.parquet)
+        if parquet_digest != captured_hashes["parquet"]:
+            raise ValueError("Parquet validator digest differs from the captured bytes.")
+        stage_ref[0] = "validate_parquet_schema"
+        parquet = parquet_opener(captured_paths.parquet)
         validate_arrow_schema(parquet.schema_arrow)
         if parquet.metadata.num_rows != PARQUET_ROWS:
             raise ValueError("Parquet row count differs from the frozen source audit.")
 
-        stage = "scan_full_source"
+        _verify_original_inputs(original_paths, captured_hashes)
+        stage_ref[0] = "scan_full_source"
         parsed_rows: list[Any] = []
         span_map: dict[int, tuple[ValidatedNativeSpanInput, ...]] = {}
         for raw, parsed in _iter_rows(parquet):
@@ -313,7 +481,8 @@ def prepare_review_pool(
         if len(parsed_rows) != PARQUET_ROWS:
             raise ValueError("Full source scan row count differs from frozen metadata.")
 
-        stage = "close_full_graph"
+        _verify_original_inputs(original_paths, captured_hashes)
+        stage_ref[0] = "close_full_graph"
         _, graph = aggregate_scan(parsed_rows, protected, expected_rows=PARQUET_ROWS)
         bindings = ReviewBindings(
             source_revision=source_revision,
@@ -326,28 +495,18 @@ def prepare_review_pool(
             protected_union_sha256=protection_metadata["union_sha256"],
             protected_keys_sha256=protected_digest,
         )
-        stage = "build_blind_pool"
+        stage_ref[0] = "build_blind_pool"
         pool = build_review_pool(tuple(parsed_rows), graph, bindings, protected, span_map)
 
-        stage = "recheck_pins"
-        if sha256_file(paths.parquet) != parquet_digest:
-            raise ValueError("Parquet bytes changed during the scan.")
+        stage_ref[0] = "recheck_pins"
         after_code, after_pin_digest = validate_pin_manifest(
-            paths.pin_manifest, pin_manifest_sha256, source_revision, repository_root
+            captured_paths.pin_manifest, pin_manifest_sha256, source_revision, repository_root
         )
         if after_code != code_digests or after_pin_digest != pin_digest:
             raise ValueError("Pinned source files changed during the scan.")
-        after_file_hashes = {
-            "source_audit": sha256_file(paths.source_audit),
-            "protocol_raw": sha256_file(paths.protocol),
-            "rubric_raw": sha256_file(paths.rubric),
-            "protected_union": sha256_file(paths.protected_union),
-            "protection_receipt": sha256_file(paths.protection_receipt),
-        }
-        if after_file_hashes != pre_file_hashes:
-            raise ValueError("A verified input changed during the scan.")
+        _verify_original_inputs(original_paths, captured_hashes)
 
-        stage = "write_private_artifacts"
+        stage_ref[0] = "write_private_artifacts"
         package_payloads = []
         map_payloads = []
         for package, member in zip(pool.packages, pool._members, strict=True):
@@ -403,13 +562,9 @@ def prepare_review_pool(
         }
         _exclusive_json(output / "manifest.json", manifest)
         return 0
-    except Exception as exc:
-        try:
-            _exclusive_json(output / "failure.json", _safe_error(stage, f"{stage}_failed"))
-        except OSError:
-            pass
-        # Never print, wrap, or persist exception details from source material.
-        return 1
+    except Exception:
+        stage_ref[0] = stage_ref[0] or "prepare_review_pool"
+        raise
 
 
 def build_pin_manifest(repository_root: Path, source_revision: str) -> dict[str, object]:

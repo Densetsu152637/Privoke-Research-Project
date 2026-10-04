@@ -32,7 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: Sequence[str] | None = None, *, _results_root: Path | None = None) -> int:
     args = build_parser().parse_args(argv)
     paths = ReviewIOPaths(
         parquet=args.parquet,
@@ -50,7 +50,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         pin_manifest_sha256=args.pin_manifest_sha256,
         protection_receipt_sha256=args.protection_receipt_sha256,
         repository_root=REPOSITORY_ROOT,
-        results_root=EVALUATION_ROOT / "results",
+        results_root=EVALUATION_ROOT / "results" if _results_root is None else _results_root,
     )
 
 
