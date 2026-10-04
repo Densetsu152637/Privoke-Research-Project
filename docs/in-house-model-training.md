@@ -1,11 +1,12 @@
 # In-house model training status
 
-This page distinguishes the models and training paths present in source revision
-`16095e62d2b2f286977e87126a1c17ff468dc8e1` from an accepted in-house training
-design that is still being implemented. PriVoke's transformer work uses randomly
-initialized repository-owned weights. It does not download or use external
-pretrained weights, hosted model weights, or external language-model APIs as a
-training source.
+This page records the historical model/training baseline at source revision
+`16095e62d2b2f286977e87126a1c17ff468dc8e1` and the current mechanics status
+verified at source revision `63e405ec10ac05df5fa27b09c79c553c362691c0` on
+4 October 2026. The prospective in-house training plan remains a draft. PriVoke's
+transformer work uses randomly initialized repository-owned weights; it does not
+use external pretrained weights, hosted model weights, or external language-model
+APIs as a training source.
 
 ## Current transformer artifacts
 
@@ -50,9 +51,34 @@ that sparse presence study, not scratch transformer training.
 separate from the repository-owned streamed transformer and are not part of the
 in-house training path described here.
 
-## Accepted end-to-end training direction
+## Current implementation and verification
 
-The accepted in-house mechanics direction is a separate offline CPU training
+The offline CPU mechanics are implemented in
+[`in_house_transformer_training.py`](../evaluation/privoke_eval/in_house_transformer_training.py),
+with a separate training dependency list and container configuration. At the
+verified source revision, the Linux CPU-container mechanics suite passed 11 tests
+with zero failures or skips using PyTorch `2.10.0+cpu` and NumPy `1.26.4`. The
+checks cover synthetic contextual mechanics, including forward/backward behavior,
+finite gradients, profile handling, export, and rollback. They did not fit research
+data or measure accuracy.
+
+The AdvPIIBench review-I/O checks passed 17 Linux-container tests with zero
+failures or skips using PyArrow `25.0.1`. They exercise synthetic I/O boundaries,
+Arrow schema, and symlink checks; they did not process actual source packages,
+labels, or study partitions. Neither test result establishes clean-data eligibility
+or model performance.
+
+These mechanics do not change the served transformer updater. The online update
+path still updates the six classifier-head tensors and enforces the existing
+per-gradient-tensor limit. The offline full-encoder path is separate from the
+binary `annotation_presence` classifier and does not make that classifier a
+contextual model. See the still-draft
+[prospective study plan](in-house-transformer-study-plan.md) and the
+[training module](../evaluation/privoke_eval/in_house_transformer_training.py).
+
+## Prospective end-to-end training direction
+
+The proposed in-house mechanics direction is a separate offline CPU training
 path for the repository's randomly initialized transformer. In this context,
 *end-to-end* means optimizing the encoder and task head together on an explicitly
 labeled supervised objective. It does not mean that PriVoke has a generative
@@ -61,11 +87,12 @@ that it uses externally pretrained weights. The existing sparse-presence
 protocol does not authorize this transformer fit; a real training experiment
 requires its own prospectively reviewed protocol.
 
-At the source revision identified above, the differentiable trainer, its
-training-only dependency/image, end-to-end mechanics tests, and a resulting fit
-are not present. Work on that implementation is separate from the existing
-head-only fuzzer updates and sparse-presence study. The design requires, before
-any fit is treated as evidence:
+At the historical source revision identified above, the differentiable trainer,
+training-only dependency/image, and mechanics tests were not present. They have
+since been added and mechanically tested, but no research-data fit or resulting
+accuracy measurement exists. Work remains separate from the existing head-only
+fuzzer updates and sparse-presence study. Before any fit is treated as evidence,
+the design requires:
 
 - independent train/validation/test groups and explicitly reviewed labels for
   the chosen task; no reuse of development or locked final rows for fitting;
@@ -78,11 +105,11 @@ any fit is treated as evidence:
   selection rule, and artifact format, with complete provenance and failed-run
   records.
 
-The proposed first experiment compares a head-only random-encoder arm with an
+The current draft proposes comparing a head-only random-encoder arm with an
 end-to-end random-encoder arm under the same tokenizer, initialization, and
-approved grouped data. It is a proposal, not a result or permission to score a
-dataset before the separate data and protocol gates pass. Training feasibility,
-resource use, and performance remain unmeasured for this path.
+prospectively reviewed grouped data. It is not an accepted protocol, a result, or
+permission to score data before the separate data and protocol gates pass.
+Research-data fit, resource use, and performance remain unmeasured for this path.
 
 ## Labels, publication limits, and claims
 
