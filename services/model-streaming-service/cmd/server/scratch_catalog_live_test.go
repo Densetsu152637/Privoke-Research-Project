@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -210,6 +211,147 @@ func TestScratchCatalogRejectsUnknownAndTraversalIDs(t *testing.T) {
 	}
 }
 
+func TestScratchCatalogPropagatesStatErrors(t *testing.T) {
+	server, directory := newLiveScratchServer(t)
+	installLiveScratch(t, directory, scratchLiveArtifactBytes(t, 1))
+	injected := errors.New("injected scratch stat failure")
+	server.catalog.scratchLstat = func(root *os.Root, name string) (os.FileInfo, error) {
+		if name == liveScratchID+".json" {
+			return nil, injected
+		}
+		return root.Lstat(name)
+	}
+
+	_, err := server.GetModelParameters(context.Background(), liveScratchRequest())
+	if status.Code(err) != codes.Unavailable {
+		t.Fatalf("stat failure request status = %v, want UNAVAILABLE", err)
+	}
+	assertLiveScratchHealth(t, server, "NOT_SERVING")
+}
+
+func TestScratchCatalogRejectsInspectedFileABAReplacement(t *testing.T) {
+	server, directory := newLiveScratchServer(t)
+	installLiveScratch(t, directory, scratchLiveArtifactBytes(t, 1))
+	path := liveScratchPath(directory)
+	backup := path + ".captured"
+	replacement := scratchLiveArtifactBytes(t, 2)
+	injected := false
+	server.catalog.scratchOpen = func(root *os.Root, name string) (*os.File, error) {
+		if injected {
+			return root.Open(name)
+		}
+		injected = true
+		if err := os.Rename(path, backup); err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(path, replacement, 0o600); err != nil {
+			_ = os.Rename(backup, path)
+			return nil, err
+		}
+		file, openErr := root.Open(name)
+		if err := os.Remove(path); err != nil {
+			if file != nil {
+				_ = file.Close()
+			}
+			return nil, err
+		}
+		if err := os.Rename(backup, path); err != nil {
+			if file != nil {
+				_ = file.Close()
+			}
+			return nil, err
+		}
+		return file, openErr
+	}
+
+	if _, err := server.GetModelParameters(context.Background(), liveScratchRequest()); status.Code(err) != codes.Unavailable {
+		t.Fatalf("restored-path ABA substitution status = %v, want UNAVAILABLE", err)
+	}
+	server.catalog.scratchOpen = nil
+	if got := getLiveScratch(t, server).GetVersion(); got != "v1.0.0+epoch.1" {
+		t.Fatalf("restored original file version = %q", got)
+	}
+}
+
+func TestScratchCatalogRejectsOutsideSymlinkSubstitutionDuringOpen(t *testing.T) {
+	server, directory := newLiveScratchServer(t)
+	installLiveScratch(t, directory, scratchLiveArtifactBytes(t, 1))
+	outside := filepath.Join(t.TempDir(), "outside.json")
+	if err := os.WriteFile(outside, scratchLiveArtifactBytes(t, 2), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	path := liveScratchPath(directory)
+	backup := path + ".captured"
+	injected := false
+	server.catalog.scratchOpen = func(root *os.Root, name string) (*os.File, error) {
+		if injected {
+			return root.Open(name)
+		}
+		injected = true
+		if err := os.Rename(path, backup); err != nil {
+			return nil, err
+		}
+		if err := os.Symlink(outside, path); err != nil {
+			_ = os.Rename(backup, path)
+			return nil, err
+		}
+		file, openErr := root.Open(name)
+		if err := os.Remove(path); err != nil {
+			if file != nil {
+				_ = file.Close()
+			}
+			return nil, err
+		}
+		if err := os.Rename(backup, path); err != nil {
+			if file != nil {
+				_ = file.Close()
+			}
+			return nil, err
+		}
+		return file, openErr
+	}
+	if _, err := server.GetModelParameters(context.Background(), liveScratchRequest()); status.Code(err) != codes.Unavailable {
+		t.Fatalf("outside symlink substitution status = %v, want UNAVAILABLE", err)
+	}
+	server.catalog.scratchOpen = nil
+	if got := getLiveScratch(t, server).GetVersion(); got != "v1.0.0+epoch.1" {
+		t.Fatalf("outside symlink changed the catalog response to %q", got)
+	}
+}
+
+func TestScratchCatalogRejectsDirectoryPathSubstitution(t *testing.T) {
+	server, directory := newLiveScratchServer(t)
+	installLiveScratch(t, directory, scratchLiveArtifactBytes(t, 1))
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, liveScratchID+".json"), scratchLiveArtifactBytes(t, 2), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	baseline, err := os.ReadFile(filepath.Join(directory, "privoke-baseline.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(outside, "privoke-baseline.json"), baseline, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	capturedDirectory := directory + ".captured"
+	if err := os.Rename(directory, capturedDirectory); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, directory); err != nil {
+		_ = os.Rename(capturedDirectory, directory)
+		t.Skipf("directory symlinks are unavailable on this platform: %v", err)
+	}
+	defer func() {
+		_ = os.Remove(directory)
+		_ = os.Rename(capturedDirectory, directory)
+	}()
+
+	if _, err := server.GetModelParameters(context.Background(), liveScratchRequest()); status.Code(err) != codes.Unavailable {
+		t.Fatalf("directory substitution status = %v, want UNAVAILABLE", err)
+	}
+	assertLiveScratchHealth(t, server, "NOT_SERVING")
+}
+
 func TestScratchCatalogConcurrentReadsInstallAndRemove(t *testing.T) {
 	server, directory := newLiveScratchServer(t)
 	initial := scratchLiveArtifactBytes(t, 1)
@@ -270,6 +412,11 @@ func newLiveScratchServer(t *testing.T) (*streamingServer, string) {
 	if err != nil {
 		t.Fatalf("construct baseline catalog: %v", err)
 	}
+	t.Cleanup(func() {
+		if err := catalog.directoryRoot.Close(); err != nil {
+			t.Errorf("close pinned catalog directory: %v", err)
+		}
+	})
 	return &streamingServer{catalog: catalog}, directory
 }
 
