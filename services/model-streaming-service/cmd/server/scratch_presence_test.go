@@ -195,7 +195,7 @@ func TestScratchRequestConsumerContract(t *testing.T) {
 		valid    bool
 	}{
 		{"empty", "", false},
-		{"unicode", "consumer-é", false},
+		{"unicode", "consumer-\u00e9", false},
 		{"control", "consumer\n", false},
 		{"delete", "consumer\x7f", false},
 		{"ASCII128", strings.Repeat("a", 128), true},
@@ -225,7 +225,7 @@ func TestScratchRequestConsumerContract(t *testing.T) {
 			}
 		}
 	}
-	for _, consumer := range []string{"", "consumer-é", strings.Repeat("a", 129)} {
+	for _, consumer := range []string{"", "consumer-\u00e9", strings.Repeat("a", 129)} {
 		if err := server.validateRequest(&pb.ModelParametersRequest{ModelId: "privoke-balanced", ConsumerId: consumer}); err != nil {
 			t.Fatal("legacy consumer contract changed", err)
 		}
