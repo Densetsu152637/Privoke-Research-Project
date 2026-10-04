@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   assertNativeParentBinding,
@@ -14,6 +15,7 @@ import {
   validateAnalyzeResponse,
   validateDecodedOutcome,
   validatePageAnalysis,
+  waitForProcessesToDisappear,
 } from "./installed-browser-evidence.mjs";
 
 test("strict gRPC-Web framing accepts one request and one response plus final trailers", () => {
@@ -135,6 +137,32 @@ test("resource validation failure preserves partial aggregates, counters, and co
 
   const constructionFailure = preserveResourceEvidenceFailure(undefined, failure);
   assert.deepEqual(constructionFailure, { error: failure });
+});
+
+test("profile cleanup waiter observes disappearance and fails closed on timeout", async () => {
+  let now = 0;
+  let scans = 0;
+  const didDisappear = await waitForProcessesToDisappear(async () => {
+    scans += 1;
+    return scans === 1 ? [{ pid: 23, startTicks: 55, commandSha256: "known-profile" }] : [];
+  }, { timeoutMs: 100, intervalMs: 50, now: () => now, sleep: async (ms) => { now += ms; } });
+  assert.equal(didDisappear, true);
+  assert.equal(scans, 2);
+
+  now = 0;
+  await assert.rejects(waitForProcessesToDisappear(async () => [{ pid: 23, startTicks: 55 }], {
+    timeoutMs: 100, intervalMs: 50, now: () => now, sleep: async (ms) => { now += ms; },
+  }), /identities remained/);
+});
+
+test("study starts only after the CDP observer class has initialized", async () => {
+  const runnerUrl = new URL("../../evaluation/run-installed-browser-capture.mjs", import.meta.url);
+  const source = await readFile(runnerUrl, "utf8");
+  const observerPosition = source.indexOf("class CdpObserver");
+  const startupPosition = source.lastIndexOf("await runStudy();");
+  assert.ok(observerPosition >= 0);
+  assert.ok(startupPosition > observerPosition, "study invocation must follow lexical class initialization");
+  assert.equal((source.match(/await runStudy\(\);/g) || []).length, 1, "study must start exactly once");
 });
 
 test("page result and receiver body must bind to the frozen case", () => {
