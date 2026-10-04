@@ -118,7 +118,7 @@ class CleanAugmentationProtectionIOTests(unittest.TestCase):
                                 "nemotron_heldout": "nemotron-heldout.jsonl", "meddies_heldout": "meddies-heldout.jsonl"},
             "partition_sha256": dict(self.contract.partition_sha256),
             "rows": dict(self.contract.rows),
-            "source_revision": "a" * 40,
+            "source_revision": "85c7f475fb8ebd1529254e4135b774d98505ddb1",
             "prepared_reference": {"train_sha256": self.contract.reference_train_sha256,
                                     "validation_sha256": self.contract.reference_validation_sha256,
                                     "train_bytes": self.contract.reference_train_bytes},
@@ -171,6 +171,8 @@ class CleanAugmentationProtectionIOTests(unittest.TestCase):
                                         "verified_commitments", "keys"})
         self.assertEqual(artifact["kind"], "privoke-clean-protected-union")
         self.assertEqual(receipt["status"], "protected_union_built")
+        self.assertEqual(receipt["source_revision"], "a" * 40)
+        self.assertEqual(receipt["prepared_source_revision"], "85c7f475fb8ebd1529254e4135b774d98505ddb1")
         manifest = json.loads((self.output / "manifest.json").read_text(encoding="utf-8"))
         self.assertNotIn("keys", manifest)
         self.assertNotIn("phrase", json.dumps(manifest).lower())
