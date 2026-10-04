@@ -31,6 +31,7 @@ _BOOTSTRAP_SHA256 = "75422c421d1a80d0cc3321979fb049f1045f02f334586d6fe62d8832f8a
 _TRAINING_DATA_SHA256 = "1bdeeff73310808a3468eb54f6d94a16a008b02e027ba3f9d749602636024f0b"
 _PROTOCOL_LF_SHA256 = "3991777aedadc8d50b7395a9ce8ef2aebfec946603229b823f1b6c118a16cbdf"
 _RUBRIC_LF_SHA256 = "203f37b4c77789a0f9c0838905954b9e1b76acf4f7906ab7717849e94616fcd7"
+_PREPARATION_SOURCE_REVISION = "85c7f475fb8ebd1529254e4135b774d98505ddb1"
 _PARTITION_SHA256 = {
     "train": "d762747b88e1c55e0877c64e7f0760efac49670a1c3fb33712dba00e29374c8b",
     "validation": _REFERENCE_VALIDATION_SHA256,
@@ -139,7 +140,7 @@ def _json_bytes(raw: bytes, *, jsonl: bool = False) -> object:
         raise ProtectionInputError("A hash-verified input has invalid JSON/UTF-8 encoding.") from None
 
 
-def _check_manifest(manifest: object, contract: _Contract, source_revision: str) -> None:
+def _check_manifest(manifest: object, contract: _Contract) -> None:
     if not isinstance(manifest, dict):
         raise ProtectionInputError("Prepared manifest schema is invalid.")
     expected_rows = dict(contract.rows)
@@ -154,7 +155,7 @@ def _check_manifest(manifest: object, contract: _Contract, source_revision: str)
         or manifest.get("partition_files") != expected_files
         or manifest.get("partition_sha256") != dict(contract.partition_sha256)
         or manifest.get("rows") != expected_rows
-        or manifest.get("source_revision") != source_revision
+        or manifest.get("source_revision") != _PREPARATION_SOURCE_REVISION
         or manifest.get("prepared_reference") != {
             "train_sha256": contract.reference_train_sha256,
             "validation_sha256": contract.reference_validation_sha256,
@@ -338,7 +339,7 @@ def build_from_files(
             raise ProtectionInputError("Shared training normalizer source differs from the frozen contract.")
 
         manifest = _json_bytes(manifest_raw)
-        _check_manifest(manifest, _contract, source_revision)
+        _check_manifest(manifest, _contract)
         index = _json_bytes(index_raw)
         if (not isinstance(index, dict)
                 or manifest.get("protected_selection_sha256") != index.get("sorted_records_sha256")):
@@ -406,6 +407,7 @@ def build_from_files(
             "schema_version": 1,
             "status": "protected_union_built",
             "source_revision": source_revision,
+            "prepared_source_revision": _PREPARATION_SOURCE_REVISION,
             "artifact_file": "protected-union.json",
             "artifact_sha256": _sha256(artifact_raw),
             "union_sha256": union.union_sha256,
