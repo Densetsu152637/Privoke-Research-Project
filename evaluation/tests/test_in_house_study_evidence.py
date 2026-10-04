@@ -15,6 +15,7 @@ import tempfile
 from types import FunctionType
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'evaluation'))
@@ -166,6 +167,27 @@ class EvidenceBoundaryTests(unittest.TestCase):
             bad['layers'][-1]['semantic_presence_gate'][key] = value
             with self.assertRaises(e.StudyEvidenceError):
                 e.trace_claim(bad, b)
+
+    def test_gate_retention_relationship_and_exact_not_run_shortcut(self):
+        b, _ = binding()
+        present = response(True)
+        e.verify_gate_retention(e.outcome_claim(present), e.trace_claim(present, b))
+        present['layers'][-1]['results'] = [{'reasoning': 'synthetic mismatch'}]
+        with self.assertRaises(e.StudyEvidenceError):
+            e.verify_gate_retention(e.outcome_claim(present), e.trace_claim(present, b))
+        absent_binding = replace(b, phase='rerun-validation', decision_threshold=1.0, selection_sha256='e' * 64)
+        absent = response(True)
+        absent['layers'][-1]['semantic_presence_gate'].update(decision_threshold=1.0, predicted_label='ANNOTATION_PRESENCE_ABSENT')
+        e.verify_gate_retention(e.outcome_claim(absent), e.trace_claim(absent, absent_binding))
+        absent['layers'][-1]['results'] = [{'reasoning': 'synthetic contradiction'}]
+        with self.assertRaises(e.StudyEvidenceError):
+            e.verify_gate_retention(e.outcome_claim(absent), e.trace_claim(absent, absent_binding))
+        shortcut = response(True, True)
+        e.verify_gate_retention(e.outcome_claim(shortcut), e.trace_claim(shortcut, b))
+        shortcut['action'] = 'ALLOW'
+        shortcut['allowed'] = True
+        with self.assertRaises(e.StudyEvidenceError):
+            e.verify_gate_retention(e.outcome_claim(shortcut), e.trace_claim(shortcut, b))
 
     def test_authenticated_claims_cannot_be_mutated_or_replaced(self):
         b, _ = binding()
@@ -329,10 +351,66 @@ class EvidenceBoundaryTests(unittest.TestCase):
         self.assertEqual(len(receipt['authenticated_collections']), 48)
         self.assertFalse(receipt['test_authorized'])
         self.assertNotEqual(refs['S0/checkpoint/0'], checkpoints[0].inventory_sha256)
+        self._assert_test_pretest_join_before_reads(records, refs, receipt, selection_raw, live[0].binding)
         with self.assertRaises(c.StudyContractError):
             bad = copy.deepcopy(records)
             bad[1]['fixtures'][24]['action'] = 'ALLOW'
             c.validate_pretest_barrier(programme, bad, refs)
+
+    def _assert_test_pretest_join_before_reads(self, records, refs, receipt, selection_raw, pretest_binding):
+        """Exercise actual CLI branches against the actual reconstructed public barrier."""
+        receipt_raw = e.canonical(receipt)
+        b = replace(pretest_binding, phase='collect-test', barrier_sha256=e.sha(receipt_raw),
+                    dataset_sha256='1' * 64, dataset_keys_sha256='2' * 64)
+        e.require_test_binding(b, pretest_receipt=receipt, selection_raw_sha256=e.sha(selection_raw))
+        variants = [replace(b, programme_sha256='3' * 64), replace(b, control_binding_sha256='4' * 64),
+                    replace(b, source_revision='b' * 40),
+                    replace(b, source_hashes={**b.source_hashes, 'evidence': '5' * 64}),
+                    replace(b, contextual_identity={**b.contextual_identity, 'parameter_fingerprint': '6' * 64}),
+                    replace(b, selection_sha256='7' * 64)]
+        for name in ('runtime_image', 'evaluator_image', 'effective_configuration', 'fixture_rubric', 'fixture_review'):
+            variants.append(replace(b, operational_hashes={**b.operational_hashes, name: '8' * 64}))
+        spec = importlib.util.spec_from_file_location('study_evidence_r1_cli', ROOT / 'evaluation/evaluate-in-house-study.py')
+        cli = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cli)
+        prior = sys.modules.get(spec.name)
+        sys.modules[spec.name] = cli
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / 'trust.json'
+                real_read = e.read_committed
+                def input_bytes(reference, *args):
+                    return selection_raw if reference['file'] == 'selection' else receipt_raw
+                def sentinel(path_value, *args):
+                    if Path(path_value) == path:
+                        return real_read(path_value, *args)
+                    raise AssertionError('test read reached')
+                for phase in ('collect-test', 'analyze-test'):
+                    for altered in variants:
+                        with self.subTest(phase=phase, altered=e._phase_scope(altered)):
+                            selection_ref = {'file': 'selection', 'sha256': altered.selection_sha256}
+                            receipt_ref = {'file': 'receipt', 'sha256': e.sha(receipt_raw)}
+                            if phase == 'collect-test':
+                                inputs = {'binding': altered.as_dict(), 'dataset_file': 'test-read-sentinel',
+                                          'contextual_artifact': 'context', 'presence_artifact': 'presence',
+                                          'selection': selection_ref, 'barrier_receipt': receipt_ref, 'barrier_inputs': {}}
+                            else:
+                                inputs = {'barrier_inputs': {}, 'barrier_receipt': receipt_ref, 'selection': selection_ref,
+                                          'test': [{'binding': altered.as_dict()}]}
+                            raw = e.canonical({'schema_version': 1, 'phase': phase, 'inputs': inputs})
+                            path.write_bytes(raw)
+                            args = SimpleNamespace(phase=phase, trust_bundle=path, trust_bundle_sha256=e.sha(raw),
+                                                   output=ROOT / 'evaluation/results/never-created-r1-output', target='unused')
+                            with patch.object(cli, 'barrier_inputs', return_value=(records, refs, receipt)), patch.object(cli, '_input', side_effect=input_bytes), \
+                                 patch.object(e, '_attest_module'), patch.object(e, 'attest_sources'), patch.object(e, 'read_committed', side_effect=sentinel), \
+                                 patch.object(cli, '_load_set', side_effect=AssertionError('test collection read reached')):
+                                with self.assertRaises(e.StudyEvidenceError):
+                                    cli.run(args)
+        finally:
+            if prior is None:
+                sys.modules.pop(spec.name, None)
+            else:
+                sys.modules[spec.name] = prior
 
 
 try:
@@ -345,6 +423,55 @@ except ImportError:
 
 @unittest.skipUnless(HAS_WIRE, 'Actual generated protobuf unavailable; Linux generated-wire gate mandatory.')
 class GeneratedWireTests(unittest.TestCase):
+    def test_raw_rerun_and_test_semantic_retention_matches_actual_generated_trace(self):
+        codec = e.WireCodec()
+        finding = {'classification': {'sensitivity': 'S2', 'visibility': 'PU', 'categories': ['IDENTITY']},
+                   'action': 'WARN', 'section_of_text': 'synthetic', 'reasoning': 'first finding'}
+        for phase in ('rerun-validation', 'collect-test'):
+            for threshold, label in ((0.0, 'PRESENT'), (1.0, 'ABSENT')):
+                b, dataset = binding(phase=phase, decision_threshold=threshold)
+                rows = e.dataset_rows(dataset, b)
+                files, entries = {}, []
+                for index, row in enumerate(rows):
+                    request = codec.request(b, row, 'gated')
+                    payload = response(True)
+                    payload['request_id'] = request.request_id
+                    gate = payload['layers'][-1]['semantic_presence_gate']
+                    gate.update(decision_threshold=threshold, probability=.5,
+                                predicted_label='ANNOTATION_PRESENCE_' + label, semantic_results=[finding])
+                    payload['layers'][-1]['results'] = [finding] if label == 'PRESENT' else []
+                    response_raw = ParseDict(payload, runtime_pb2.AnalyzePromptResponse()).SerializeToString(deterministic=True)
+                    request_raw = request.SerializeToString(deterministic=True)
+                    frame = {'schema_version': 1, 'binding_sha256': b.sha256, 'row_index': index, 'purpose': 'gated',
+                             'request_b64': base64.b64encode(request_raw).decode(), 'response_b64': base64.b64encode(response_raw).decode(),
+                             'request_sha256': e.sha(request_raw), 'response_sha256': e.sha(response_raw), 'elapsed_ns': 1}
+                    name = f'rpc-{index:04d}-gated.json'
+                    files[name] = e.canonical(frame)
+                    entries.append({'file': name, 'sha256': e.sha(files[name])})
+                inventory = {'schema_version': 1, 'status': 'complete', 'binding_sha256': b.sha256, 'files': entries}
+                inventory_raw = e.canonical(inventory)
+                kwargs = dict(inventory_sha256=e.sha(inventory_raw), trusted_phase_binding=b, captured_dataset=dataset,
+                              captured_artifacts={'contextual': b'public-synthetic', 'presence': b'public-synthetic'}, raw_files=files, codec=codec)
+                with patch.object(e, 'attest_sources'), patch.object(e, 'artifact_identity', return_value={'config': {'threshold': .5}}):
+                    verified = e.verify_raw_collection(inventory_raw, **kwargs)
+                    self.assertEqual(len(verified.rows), 2000)
+                    first_name = entries[0]['file']
+                    frame = json.loads(files[first_name])
+                    message = runtime_pb2.AnalyzePromptResponse.FromString(base64.b64decode(frame['response_b64']))
+                    semantic = message.layers[-1]
+                    if label == 'ABSENT':
+                        semantic.results.add().CopyFrom(semantic.semantic_presence_gate.semantic_results[0])
+                    else:
+                        semantic.results[0].reasoning = 'mismatched retained finding'
+                    wrong_raw = message.SerializeToString(deterministic=True)
+                    frame.update(response_b64=base64.b64encode(wrong_raw).decode(), response_sha256=e.sha(wrong_raw))
+                    wrong_files = {**files, first_name: e.canonical(frame)}
+                    wrong_inventory = copy.deepcopy(inventory)
+                    wrong_inventory['files'][0]['sha256'] = e.sha(wrong_files[first_name])
+                    wrong_inventory_raw = e.canonical(wrong_inventory)
+                    with self.assertRaises(e.StudyEvidenceError):
+                        e.verify_raw_collection(wrong_inventory_raw, **{**kwargs, 'inventory_sha256': e.sha(wrong_inventory_raw), 'raw_files': wrong_files})
+
     def test_collector_retains_malformed_response_before_failure_marker(self):
         class Writer:
             def __init__(self):

@@ -459,6 +459,27 @@ def trace_claim(response, binding):
             'semantic_results_sha256': digest(gate.get('semantic_results', []))}
 
 
+def verify_gate_retention(outcome, trace):
+    """Check the producer's decision/result relationship before sealing a row."""
+    layers = outcome['layers']
+    if trace['status'] == 'APPLIED':
+        if trace['predicted_label'] not in ('PRESENT', 'ABSENT'):
+            fail()
+        expected = trace['semantic_results_sha256'] if trace['predicted_label'] == 'PRESENT' else digest([])
+        if (layers['semantic']['status'] != 'ok'
+                or layers['semantic']['results_sha256'] != expected
+                or any(layers[name]['status'] != 'ok' for name in ('regex', 'ner'))):
+            fail()
+    elif trace['status'] == 'NOT_RUN':
+        if (outcome['action'] != 'BLOCK' or layers['regex']['status'] != 'ok'
+                or any(layers[name]['status'] != 'skipped'
+                       or layers[name]['skip_reason'] != analysis.REGEX_BLOCK_REASON
+                       or layers[name]['results_sha256'] is not None for name in ('ner', 'semantic'))):
+            fail()
+    else:
+        fail()
+
+
 class PrivateWriter:
     """Fresh POSIX directory held by FD; relative exclusive writes, no cleanup."""
     def __init__(self, output):
@@ -565,7 +586,7 @@ def collect_rows(client, binding, rows, writer, codec=None):
                     fail()
                 outcome_claim(parsed)
                 if purpose == 'gated':
-                    trace_claim(parsed, binding)
+                    verify_gate_retention(outcome_claim(parsed), trace_claim(parsed, binding))
         inventory = {'schema_version': 1, 'status': 'complete', 'binding_sha256': binding.sha256, 'files': entries}
         writer.write('inventory.json', canonical(inventory))
         return inventory
@@ -629,6 +650,7 @@ def verify_raw_collection(raw_inventory, *, inventory_sha256, trusted_phase_bind
             joins.append({'file': name, 'raw_sha256': entry['sha256'], 'request_sha256': sha(request_raw), 'response_sha256': sha(response_raw)})
         key = {'row_id_sha256': opaque('row', row['id']), 'group_id_sha256': opaque('group', row['group_id']), 'truth': row['expected_has_pii']}
         gated, trace = outcome_claim(responses['gated']), trace_claim(responses['gated'], binding)
+        verify_gate_retention(gated, trace)
         if binding.phase == 'collect-validation':
             claim = {**key, 'ordinary': outcome_claim(responses['ordinary']), 'gate_zero': gated,
                      'nonsemantic': outcome_claim(responses['nonsemantic']), 'gate': trace}
@@ -722,6 +744,58 @@ def require_selected(binding, selection_raw):
     return selection
 
 
+def _phase_scope(binding):
+    """Scientific execution scope shared across validation, fixtures and test."""
+    return {key: binding.as_dict()[key] for key in (
+        'programme_sha256', 'control_binding_sha256', 'contextual_identity',
+        'source_revision', 'source_hashes', 'operational_hashes')}
+
+
+def require_test_binding(binding, *, pretest_receipt, selection_raw_sha256):
+    """Join test to a REBUILT authenticated pretest receipt before dataset reads.
+
+    The caller must reconstruct this receipt from raw collections, not load an
+    unchecked summary. Dataset/order/class/group commitments remain phase-specific.
+    """
+    if type(binding) is not CollectionBinding or binding.phase != 'collect-test':
+        fail()
+    checked_hash(selection_raw_sha256)
+    closed(pretest_receipt, ('schema_version', 'programme_sha256', 'record_sha256', 'claim_references',
+                            'raw_to_claim_joins', 'authenticated_collections', 'pretest_binding',
+                            'selection_raw_sha256', 'test_authorized'))
+    expected_scope = pretest_receipt['pretest_binding']
+    if (type(pretest_receipt['schema_version']) is not int or pretest_receipt['schema_version'] != 1
+            or _phase_scope(binding) != expected_scope
+            or binding.programme_sha256 != pretest_receipt['programme_sha256']
+            or binding.selection_sha256 != selection_raw_sha256
+            or binding.selection_sha256 != pretest_receipt['selection_raw_sha256']
+            or pretest_receipt['test_authorized'] is not False):
+        fail()
+    expected = {('collect-validation', arm, epoch) for arm in contract.ARM_KEYS
+                for epoch in ((0,) if arm.startswith('S') else range(1, 6))}
+    # Selected phases have one checkpoint per arm, whose epoch may be any frozen choice.
+    seen_checkpoints, seen_selected = set(), set()
+    for record in pretest_receipt['authenticated_collections']:
+        captured = CollectionBinding(**record['binding'])
+        if record['binding_sha256'] != captured.sha256 or _phase_scope(captured) != expected_scope:
+            fail()
+        if captured.phase == 'collect-validation':
+            key = captured.phase, captured.arm, captured.epoch
+            if key in seen_checkpoints:
+                fail()
+            seen_checkpoints.add(key)
+        elif captured.phase in ('rerun-validation', 'collect-fixtures'):
+            key = captured.phase, captured.arm
+            if key in seen_selected or captured.selection_sha256 != selection_raw_sha256:
+                fail()
+            seen_selected.add(key)
+        else:
+            fail()
+    if (seen_checkpoints != expected
+            or seen_selected != {(phase, arm) for phase in ('rerun-validation', 'collect-fixtures') for arm in contract.ARM_KEYS}):
+        fail()
+
+
 def derive_barrier_records(programme, checkpoint_collections, selection_raw, live_collections, fixture_collections,
                            verified_fit_inventory, *, trusted_fit_inventory_sha256, trusted_selection_sha256):
     """Join externally RAW-pinned fitter evidence to actual artifact identities.
@@ -747,8 +821,11 @@ def derive_barrier_records(programme, checkpoint_collections, selection_raw, liv
     if selection['status'] != 'eligible' or any(value.binding.programme_sha256 != programme.sha256 for value in (*checkpoints.values(), *live.values(), *fixtures.values())):
         fail()
     external = dict(programme.external_hashes)
+    pretest_scope = _phase_scope(next(iter(checkpoints.values())).binding)
     for value in (*checkpoints.values(), *live.values(), *fixtures.values()):
         binding = value.binding
+        if _phase_scope(binding) != pretest_scope:
+            fail()
         if dict(binding.contextual_identity) != vars(programme.original_contextual):
             fail()
         for key in ('runtime_image', 'evaluator_image', 'effective_configuration', 'fixture_rubric', 'fixture_review'):
@@ -826,4 +903,5 @@ def derive_barrier_records(programme, checkpoint_collections, selection_raw, liv
                      for value in (*checkpoints.values(), *live.values(), *fixtures.values())]
     return records, references, {'schema_version': 1, 'programme_sha256': programme.sha256, 'record_sha256': digest(records),
                                 'claim_references': references, 'raw_to_claim_joins': joins,
-                                'authenticated_collections': authenticated, 'test_authorized': False}
+                                'authenticated_collections': authenticated, 'pretest_binding': pretest_scope,
+                                'selection_raw_sha256': trusted_selection_sha256, 'test_authorized': False}

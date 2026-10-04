@@ -117,6 +117,8 @@ def run(args):
                     or evidence.checked_json(receipt_raw, binding.barrier_sha256) != recomputed
                     or recomputed['programme_sha256'] != binding.programme_sha256):
                 evidence.fail()
+            evidence.require_test_binding(binding, pretest_receipt=recomputed,
+                                          selection_raw_sha256=value['selection']['sha256'])
         # Test data is opened only AFTER the full authenticated barrier above.
         dataset = evidence.read_committed(value['dataset_file'], binding.dataset_sha256)
         rows = evidence.dataset_rows(dataset, binding)
@@ -147,6 +149,17 @@ def run(args):
         _, _, receipt = barrier_inputs(value['barrier_inputs'])
         if evidence.checked_json(_input(value['barrier_receipt']), value['barrier_receipt']['sha256']) != receipt:
             evidence.fail()
+        if type(value['test']) is not list:
+            evidence.fail()
+        selection_raw = _input(value['selection'])
+        # Check every declared test binding before any test raw collection/data is opened.
+        for reference in value['test']:
+            binding = evidence.CollectionBinding(**reference['binding'])
+            if binding.barrier_sha256 != value['barrier_receipt']['sha256']:
+                evidence.fail()
+            evidence.require_test_binding(binding, pretest_receipt=receipt,
+                                          selection_raw_sha256=value['selection']['sha256'])
+            evidence.require_selected(binding, selection_raw)
         collections = _load_set(value['test'], 'collect-test')
         for collection in collections:
             if collection.binding.barrier_sha256 != value['barrier_receipt']['sha256']:
