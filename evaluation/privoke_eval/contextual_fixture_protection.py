@@ -42,7 +42,7 @@ _REVIEW_FIELDS = {
 }
 _CASE_REQUIRED = {
     "case_id", "family_id", "text", "required_sensitive", "expected_sensitivity",
-    "expected_visibility", "expected_categories", "expected_action", "minimum_action",
+    "text_visibility", "expected_visibility", "expected_categories", "expected_action", "minimum_action",
     "ambiguous", "label_status", "provisional_annotation_rationale",
 }
 _CASE_ALLOWED = _CASE_REQUIRED | {
@@ -213,6 +213,8 @@ def _parse_cases(data: bytes, policy: FixtureProtectionPolicy) -> tuple[list[dic
             _fail()
         if row.get("expected_visibility") is not None and (
                 not isinstance(row["expected_visibility"], str) or row["expected_visibility"] not in _VISIBILITY):
+            _fail()
+        if not isinstance(row.get("text_visibility"), str) or row["text_visibility"] not in _VISIBILITY:
             _fail()
         categories = row.get("expected_categories")
         if categories is not None and (not isinstance(categories, list) or

@@ -59,6 +59,7 @@ def synthetic_inputs():
             "text": text,
             "required_sensitive": truth,
             "expected_sensitivity": None if ambiguous else "S2",
+            "text_visibility": "PU",
             "expected_visibility": None if ambiguous else "PU",
             "expected_categories": None if ambiguous else ([] if truth is False else ["HEALTH"]),
             "expected_action": None if ambiguous else ("ALLOW" if truth is False else "WARN"),
@@ -217,6 +218,17 @@ class ContextualFixtureProtectionTests(unittest.TestCase):
         with self.assertRaises(FixtureProtectionError) as caught:
             _parse_cases(unknown_field, self.policy)
         self.assertNotIn("secret-marker", str(caught.exception))
+
+    def test_text_visibility_is_required_and_uses_shared_enum(self):
+        rows = [json.loads(line) for line in self.fixture.decode("utf-8").split("\n") if line]
+        rows[0]["text_visibility"] = "P9"
+        malformed_value = b"".join(json.dumps(row, ensure_ascii=False).encode("utf-8") + b"\n" for row in rows)
+        with self.assertRaises(FixtureProtectionError):
+            _parse_cases(malformed_value, self.policy)
+        rows[0]["text_visibility"] = None
+        missing_value = b"".join(json.dumps(row, ensure_ascii=False).encode("utf-8") + b"\n" for row in rows)
+        with self.assertRaises(FixtureProtectionError):
+            _parse_cases(missing_value, self.policy)
 
     def test_union_and_combined_digest_are_fieldwise_and_domain_separated(self):
         addon = self.validate()
