@@ -42,7 +42,9 @@ not train the transformer encoder. Their strict boolean labels say only whether
 the source example is annotated as containing PII; they do not supply contextual
 sensitivity, visibility, category, or ALLOW/WARN/BLOCK truth.
 Their measured fit and fixed update-attempt outcomes are reported separately in
-[sparse presence profile results](presence-model-improvements.md).
+[sparse presence profile results](presence-model-improvements.md); the related
+[model-refactor protocol](../paper/research/model-refactor-protocol.md) covers
+that sparse presence study, not scratch transformer training.
 
 `LocalClassifier` and `OpenClassifier` are optional inference backends. They are
 separate from the repository-owned streamed transformer and are not part of the
@@ -50,13 +52,14 @@ in-house training path described here.
 
 ## Accepted end-to-end training direction
 
-The accepted [model-refactor protocol](../paper/research/model-refactor-protocol.md)
-proposes a separate offline CPU training path for the repository's randomly
-initialized transformer. In this context, *end-to-end* means optimizing the
-encoder and task head together on an explicitly labeled supervised objective. It
-does not mean that PriVoke has a generative language model, that it performs
-self-supervised language-model pretraining, or that it uses externally pretrained
-weights.
+The accepted in-house mechanics direction is a separate offline CPU training
+path for the repository's randomly initialized transformer. In this context,
+*end-to-end* means optimizing the encoder and task head together on an explicitly
+labeled supervised objective. It does not mean that PriVoke has a generative
+language model, that it performs self-supervised language-model pretraining, or
+that it uses externally pretrained weights. The existing sparse-presence
+protocol does not authorize this transformer fit; a real training experiment
+requires its own prospectively reviewed protocol.
 
 At the source revision identified above, the differentiable trainer, its
 training-only dependency/image, end-to-end mechanics tests, and a resulting fit
