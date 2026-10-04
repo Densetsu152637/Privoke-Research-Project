@@ -413,13 +413,13 @@ class ReviewIOTests(unittest.TestCase):
         ])
         good = pa.schema([
             pa.field("uid", pa.int32()), pa.field("input_id", pa.int32()), pa.field("category", pa.string()),
-            pa.field("attack_target", attack, nullable=False), pa.field("llm_input", pa.string()),
+            pa.field("attack_target", attack, nullable=True), pa.field("llm_input", pa.string()),
             pa.field("pii_spans", pa.list_(span)),
         ])
         io.validate_arrow_schema(good)
         bad = pa.schema([
             pa.field("uid", pa.int64()), pa.field("input_id", pa.int32()), pa.field("category", pa.string()),
-            pa.field("attack_target", attack, nullable=False), pa.field("llm_input", pa.string()),
+            pa.field("attack_target", attack, nullable=True), pa.field("llm_input", pa.string()),
             pa.field("pii_spans", pa.list_(span)),
         ])
         with self.assertRaisesRegex(ValueError, "uid"):
