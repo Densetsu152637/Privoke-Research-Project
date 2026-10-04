@@ -1,7 +1,7 @@
 # In-house model training status
 
 This page preserves the historical model/training baseline at source revision
-`16095e62d2b2f286977e87126a1c17ff468dc8e1` and records the latest synthetic
+`16095e62d2b2f286977e87126a1c17ff468dc8e1` and records an earlier synthetic
 mechanics verification at source revision
 `b48159cdbab5e5966b4efdd2aacf1cfcf8f6525e` (4 October 2026). The prospective
 in-house training plan remains a draft. PriVoke's transformer work uses randomly
@@ -73,9 +73,12 @@ bindings are implemented and synthetically tested. The integrated Linux
 evaluator ran 464 cases at source revision `7029a937b2e10c9c1315762610224e0e24a08a58`:
 462 passed and two intentional platform-branch cases were skipped in 148.475
 seconds. Earlier 393-case counts are historical. A dedicated train-only image
-was separately verified to use source revision `7029a937b2e10c9c1315762610224e0e24a08a58`,
-run as UID/GID `65534:65534`, and mount no host data, model weights, or source
-tree. Its fitter suite ran 20 synthetic cases: 19 passed and one unsupported
+built from source revision `6289fba704ec2d93570dc6987f0c584928ac7e0b` was
+separately verified to import code whose recorded source hashes match the
+integrated checkout at `7029a937b2e10c9c1315762610224e0e24a08a58`; the image was
+not rebuilt from that revision. It ran as UID/GID `65534:65534` and mounted no
+host data, model weights, or source tree. Its fitter suite ran 20 synthetic
+cases: 19 passed and one unsupported
 platform branch was skipped. Preparation and raw-evidence collector suites
 passed 26 and 25 synthetic cases, respectively. These counts validate bounded
 implementation mechanics, not labels, model quality, or a research fit.
@@ -83,10 +86,11 @@ implementation mechanics, not labels, model quality, or a research fit.
 The corrected AdvPIIBench preparation I/O source passed its focused independent
 review and Linux synthetic checks. This supersedes the earlier blocked I/O
 revision; it does not mean actual review packages or labels exist. A private
-fixture protection artifact was built and its protection metadata verified, but
-the full source scan, twelve-input/protection freeze, actual review packages,
-provisional labels, allocation, and training partitions remain pending. Passing
-synthetic tests do not establish clean-data eligibility or model performance.
+fixture protection artifact was built and its protection metadata verified.
+The 104,728-row structural scan is complete; the subsequent full review-package
+preparation, twelve-input/protection freeze, actual review packages, provisional
+labels, allocation, and training partitions remain pending. Passing synthetic
+tests do not establish clean-data eligibility or model performance.
 
 These mechanics do not change the served transformer updater. The online update
 path still updates the six classifier-head tensors and enforces the existing
