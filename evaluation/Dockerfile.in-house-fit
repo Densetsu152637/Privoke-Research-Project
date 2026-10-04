@@ -12,6 +12,8 @@ COPY shared/python/privoke_model/presence.py /workspace/shared/python/privoke_mo
 COPY shared/python/privoke_model/artifact.py /workspace/shared/python/privoke_model/artifact.py
 COPY shared/python/privoke_model/fingerprint.py /workspace/shared/python/privoke_model/fingerprint.py
 COPY shared/python/privoke_model/training_data.py /workspace/shared/python/privoke_model/training_data.py
+COPY shared/python/privoke_contracts/__init__.py /workspace/shared/python/privoke_contracts/__init__.py
+COPY shared/python/privoke_contracts/classification.py /workspace/shared/python/privoke_contracts/classification.py
 COPY extension/client-runtime/src/__init__.py /workspace/extension/client-runtime/src/__init__.py
 COPY extension/client-runtime/src/model.py /workspace/extension/client-runtime/src/model.py
 COPY extension/client-runtime/src/transformer_encoder.py /workspace/extension/client-runtime/src/transformer_encoder.py

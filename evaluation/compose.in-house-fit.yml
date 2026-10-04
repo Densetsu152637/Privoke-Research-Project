@@ -28,7 +28,7 @@ services:
   in-house-fit-tests:
     <<: *in-house-fit-security
     build:
-      context: ..
+      context: .
       dockerfile: evaluation/Dockerfile.in-house-fit
       target: fit-tests
 
@@ -36,6 +36,6 @@ services:
     <<: *in-house-fit-security
     profiles: ["in-house-fit"]
     build:
-      context: ..
+      context: .
       dockerfile: evaluation/Dockerfile.in-house-fit
       target: fit-runtime
