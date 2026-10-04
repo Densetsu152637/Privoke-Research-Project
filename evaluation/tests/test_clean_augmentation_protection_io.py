@@ -20,7 +20,7 @@ from privoke_eval.clean_augmentation_protection import ProtectedKeyUnion  # noqa
 from privoke_eval.clean_augmentation_protection_io import (  # noqa: E402
     ProtectionInputError,
     _Contract,
-    _FROZEN,
+    _PREPARATION_PROTOCOL_SHA256,
     _canonical_lf_sha256,
     _safe_training_samples,
     build_from_files,
@@ -126,7 +126,7 @@ class CleanAugmentationProtectionIOTests(unittest.TestCase):
             "exclusion_index_sha256": self.contract.exclusion_index_sha256,
             "bootstrap_source_sha256": self.contract.bootstrap_sha256,
             "training_text_key_source_sha256": self.contract.training_data_sha256,
-            "protocol_sha256": self.contract.protocol_lf_sha256,
+            "protocol_sha256": _PREPARATION_PROTOCOL_SHA256,
             "protected_selection_sha256": "b" * 64,
             "sources": sources,
         }
@@ -204,6 +204,14 @@ class CleanAugmentationProtectionIOTests(unittest.TestCase):
         (self.expansion / "manifest.json").write_bytes(raw)
         self.contract = replace(self.contract, prepared_manifest_sha256=_sha(raw))
         with self.assertRaises(ProtectionInputError):
+            self._run()
+
+    def test_manifest_binds_historical_preparation_protocol_separately(self):
+        self.manifest["protocol_sha256"] = self.contract.protocol_lf_sha256
+        raw = json.dumps(self.manifest, sort_keys=True).encode()
+        (self.expansion / "manifest.json").write_bytes(raw)
+        self.contract = replace(self.contract, prepared_manifest_sha256=_sha(raw))
+        with self.assertRaisesRegex(ProtectionInputError, "frozen input contract"):
             self._run()
 
     def test_refuses_existing_output_directory_and_symlinked_partition(self):

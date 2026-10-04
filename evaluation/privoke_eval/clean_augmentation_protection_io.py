@@ -29,6 +29,7 @@ _REFERENCE_TRAIN_BYTES = 1_257_228
 _REFERENCE_VALIDATION_SHA256 = "d2d0c538e49f5bbc7a8f85887b9b8cfddb188a5ab9aae55c69ce26ae932be6d1"
 _BOOTSTRAP_SHA256 = "75422c421d1a80d0cc3321979fb049f1045f02f334586d6fe62d8832f8a5a7dd"
 _TRAINING_DATA_SHA256 = "1bdeeff73310808a3468eb54f6d94a16a008b02e027ba3f9d749602636024f0b"
+_PREPARATION_PROTOCOL_SHA256 = "962198b384aaed7fd5fb98e10c778b295ac6403c0dd1ba5ea376c28ec786eafe"
 _PROTOCOL_LF_SHA256 = "3991777aedadc8d50b7395a9ce8ef2aebfec946603229b823f1b6c118a16cbdf"
 _RUBRIC_LF_SHA256 = "203f37b4c77789a0f9c0838905954b9e1b76acf4f7906ab7717849e94616fcd7"
 _PREPARATION_SOURCE_REVISION = "85c7f475fb8ebd1529254e4135b774d98505ddb1"
@@ -165,7 +166,7 @@ def _check_manifest(manifest: object, contract: _Contract) -> None:
         or manifest.get("exclusion_index_sha256") != contract.exclusion_index_sha256
         or manifest.get("bootstrap_source_sha256") != contract.bootstrap_sha256
         or manifest.get("training_text_key_source_sha256") != contract.training_data_sha256
-        or manifest.get("protocol_sha256") != contract.protocol_lf_sha256
+        or manifest.get("protocol_sha256") != _PREPARATION_PROTOCOL_SHA256
         or not isinstance(manifest.get("protected_selection_sha256"), str)
         or _SHA256.fullmatch(manifest.get("protected_selection_sha256", "")) is None
     ):
