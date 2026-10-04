@@ -277,13 +277,29 @@ class SemanticPresenceGateRPCTests(unittest.TestCase):
                 request.semantic_presence_gate.threshold = threshold
         return request
 
+    def test_sparse_dispatch_preserves_default_and_explicit_refresh_calls(self):
+        from src.LLM.privoke.streamed_model import StreamedModelCache
+
+        cache = StreamedModelCache()
+        streamer = SimpleNamespace(model_id="privoke-presence-balanced")
+        sentinel = object()
+        with patch.object(cache, "presence_model_for_streamer",
+                          side_effect=lambda current: sentinel) as delegate:
+            self.assertIs(cache.annotation_presence_model_for_streamer(streamer), sentinel)
+            delegate.assert_called_once_with(streamer)
+        with patch.object(cache, "presence_model_for_streamer",
+                          return_value=sentinel) as delegate:
+            self.assertIs(cache.annotation_presence_model_for_streamer(
+                streamer, force_refresh=True), sentinel)
+            delegate.assert_called_once_with(streamer, force_refresh=True)
+
     def test_rpc_validation_requires_explicit_original_streamed_semantic_layer(self):
         with patch("src.hosting.grpc_server.GLOBAL_CONFIG.get_llm_config",
                    return_value=SimpleNamespace(choice=LLMChoice.Streamed)):
             self.assertEqual(_semantic_presence_gate(self._request(), ("semantic",)).model_id,
                              "privoke-presence-balanced")
             for request, layers, message in (
-                (self._request(model_id="privoke-presence-other"), ("semantic",), "three supported"),
+                (self._request(model_id="privoke-presence-other"), ("semantic",), "supported presence model"),
                 (self._request(layers=[runtime_pb2.DETECTION_LAYER_REGEX]), ("regex",), "semantic layer"),
                 (self._request(semantic_model_id="latest"), ("semantic",), "explicit semantic_model_id"),
             ):

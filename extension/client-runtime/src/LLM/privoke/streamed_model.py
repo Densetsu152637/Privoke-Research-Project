@@ -200,7 +200,9 @@ class StreamedModelCache:
     ) -> StreamedPresenceModel | StreamedScratchPresenceModel:
         """Dispatch inference only; sparse training keeps its separate entry point."""
         if streamer.model_id not in SCRATCH_PRESENCE_MODEL_IDS:
-            return self.presence_model_for_streamer(streamer, force_refresh=force_refresh)
+            if force_refresh:
+                return self.presence_model_for_streamer(streamer, force_refresh=True)
+            return self.presence_model_for_streamer(streamer)
         identity = (streamer.target, streamer.model_id)
         with self._lock:
             cached = self._scratch_presence_models.get(identity)
