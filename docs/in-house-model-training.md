@@ -58,31 +58,35 @@ The offline CPU trainers are implemented in
 [`in_house_transformer_training.py`](../evaluation/privoke_eval/in_house_transformer_training.py)
 and
 [`in_house_presence_training.py`](../evaluation/privoke_eval/in_house_presence_training.py).
-Their combined contextual and binary CPU mechanics suite historically passed 22
-tests with PyTorch `2.10.0+cpu` and NumPy `1.26.4`, covering forward/backward
+The combined contextual and binary CPU mechanics suite passed 22 synthetic tests
+with PyTorch `2.10.0+cpu` and NumPy `1.26.4`, covering forward/backward
 behavior, finite gradients, profile handling, export, and rollback. A separate
-export test covers the six profile/mode combinations (three profiles by
-head-only/full-encoder mode) and exercises artifact and parameter-stream codecs
-against the runtime wrapper using synthetic inputs. This is not a live Go RPC or
-full-pipeline parity test. Neither suite fits research data or measures accuracy.
+export test covers six profile/mode combinations (three profiles by head-only
+or full-encoder mode) and exercises artifact and parameter-stream codecs against
+the runtime wrapper using synthetic inputs. This is not a live Go RPC or
+full-pipeline parity test. These mechanics checks do not fit research data or
+measure accuracy.
 
 The pure eight-arm analysis and selection contract, live-validation structural
 verifier, paired component-bootstrap analysis, and protected-data blind-review
-bindings are also implemented and synthetically tested. The current integrated
-Linux evaluator ran 393 cases at source revision
-`b48159cdbab5e5966b4efdd2aacf1cfcf8f6525e`: 392 passed and one Windows-only
-fail-closed boundary test was skipped; runtime was 32.119 seconds in the pinned
-image. That run read no research data and did not score the locked final set.
-These are implementation checks, not model-performance results.
+bindings are implemented and synthetically tested. The integrated Linux
+evaluator ran 464 cases at source revision `7029a937b2e10c9c1315762610224e0e24a08a58`:
+462 passed and two intentional platform-branch cases were skipped in 148.475
+seconds. Earlier 393-case counts are historical. A dedicated train-only image
+was separately verified to use source revision `7029a937b2e10c9c1315762610224e0e24a08a58`,
+run as UID/GID `65534:65534`, and mount no host data, model weights, or source
+tree. Its fitter suite ran 20 synthetic cases: 19 passed and one unsupported
+platform branch was skipped. Preparation and raw-evidence collector suites
+passed 26 and 25 synthetic cases, respectively. These counts validate bounded
+implementation mechanics, not labels, model quality, or a research fit.
 
-An earlier AdvPIIBench review-I/O run passed 17 Linux-container synthetic tests
-with PyArrow `25.0.1`. A later independent follow-up review blocked using that
-path to prepare review packages because source-attestation and output-confinement
-gaps remained. The 17-test result is historical and does not establish that the
-current review-package path is safe or ready. A separate private fixture artifact
-was built and its protection metadata verified, but no actual AdvPIIBench review
-packages, labels, allocations, or training partitions have been completed. These
-checks establish neither clean-data eligibility nor model performance.
+The corrected AdvPIIBench preparation I/O source passed its focused independent
+review and Linux synthetic checks. This supersedes the earlier blocked I/O
+revision; it does not mean actual review packages or labels exist. A private
+fixture protection artifact was built and its protection metadata verified, but
+the full source scan, twelve-input/protection freeze, actual review packages,
+provisional labels, allocation, and training partitions remain pending. Passing
+synthetic tests do not establish clean-data eligibility or model performance.
 
 These mechanics do not change the served transformer updater. The online update
 path still updates the six classifier-head tensors and enforces the existing
@@ -103,8 +107,7 @@ that it uses externally pretrained weights. The existing sparse-presence
 protocol does not authorize this transformer fit; a real training experiment
 requires its own prospectively reviewed protocol.
 
-At the historical source revision identified above, the differentiable trainer,
-training-only dependency/image, and mechanics tests were not present. They have
+The differentiable trainer, isolated training image, and mechanics tests have
 since been added and mechanically tested, but no research-data fit or resulting
 accuracy measurement exists. Work remains separate from the existing head-only
 fuzzer updates and sparse-presence study. Before any fit is treated as evidence,
