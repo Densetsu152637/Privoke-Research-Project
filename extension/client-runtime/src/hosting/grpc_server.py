@@ -32,6 +32,7 @@ from .serialization import (
 )
 
 from privoke.v1 import runtime_pb2, runtime_pb2_grpc
+from privoke_model.scratch_presence import SCRATCH_PRESENCE_MODEL_IDS
 
 
 PROTO_TO_LAYER = {
@@ -160,14 +161,14 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
         # The RPC duration excludes the caller's network/browser round trip.
         started = time.perf_counter()
         try:
-            _validate_presence_model_id(request.model_id)
+            _validate_presence_inference_model_id(request.model_id)
             if not request.request_id.strip():
                 raise ValueError("request_id is required.")
             if not isinstance(request.text, str) or not request.text.strip():
                 raise ValueError("text is required.")
             if len(request.text) > self.max_text_chars:
                 raise ValueError(f"text may contain at most {self.max_text_chars} characters.")
-            model = GLOBAL_STREAMED_MODEL_CACHE.presence_model_for_streamer(
+            model = GLOBAL_STREAMED_MODEL_CACHE.annotation_presence_model_for_streamer(
                 ModelParameterStreamer(model_id=request.model_id)
             )
             probability = model.predict_probability(request.text)
@@ -425,6 +426,12 @@ def _error_message(exc: Exception) -> str:
     return message or exc.__class__.__name__
 
 
+def _validate_presence_inference_model_id(model_id: str) -> None:
+    if model_id in SCRATCH_PRESENCE_MODEL_IDS:
+        return
+    _validate_presence_model_id(model_id)
+
+
 def _validate_presence_model_id(model_id: str) -> None:
     if (
         not isinstance(model_id, str)
@@ -441,7 +448,7 @@ def _semantic_presence_gate(request, layers) -> SemanticPresenceGateRequest | No
         return None
     gate = request.semantic_presence_gate
     if gate.model_id not in SEMANTIC_PRESENCE_MODEL_IDS:
-        raise ValueError("Gate model_id must name one of the three supported presence models.")
+        raise ValueError("Gate model_id must explicitly name a supported presence model.")
     if "semantic" not in layers:
         raise ValueError("Semantic presence gate requires the semantic layer.")
     if GLOBAL_CONFIG.get_llm_config().choice != LLMChoice.Streamed:
