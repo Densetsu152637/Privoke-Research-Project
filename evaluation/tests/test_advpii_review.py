@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "evaluation"))
 sys.path.insert(0, str(ROOT / "shared/python"))
 
 from privoke_eval.advpii_native import parse_native_row  # noqa: E402
+import privoke_eval.advpii_review as review_module  # noqa: E402
 from privoke_eval.advpii_review import (  # noqa: E402
     NativeSpanForReview,
     ReviewBindings,
@@ -108,6 +109,29 @@ class AdvPiiReviewTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "malformed"):
             build_review_pool((parsed,), graph, _bindings(), ProtectedKeys(), {1: (bad,)})
 
+    def test_excluded_malformed_rows_keep_bridges_without_span_packages(self):
+        invalid_positive = parse_native_row({
+            "uid": 10, "input_id": 101, "category": "positive",
+            "attack_target": {"pii": [], "context": []}, "llm_input": "A contact is alice@example.test",
+            "pii_spans": [{"type": "email", "start": 0, "end": 5,
+                           "value": "alice@example.test", "value_fuzzy": None}],
+        })
+        missing_text = parse_native_row({
+            "uid": 11, "input_id": 101, "category": "negative",
+            "attack_target": {"pii": [], "context": []}, "llm_input": None, "pii_spans": [],
+        })
+        eligible_negative = parse_native_row({
+            "uid": 12, "input_id": 101, "category": "negative",
+            "attack_target": {"pii": [], "context": []}, "llm_input": "What is the weather?", "pii_spans": [],
+        })
+        rows = (invalid_positive, missing_text, eligible_negative)
+        graph = build_components([row.grouping_row for row in rows])
+        self.assertEqual(graph.component_count, 1)
+        pool = build_review_pool(rows, graph, _bindings(), ProtectedKeys(), {12: ()})
+        self.assertEqual(len(pool.packages), 1)
+        self.assertEqual(pool._members[0].uid, 12)
+        self.assertEqual(pool._members[0].component_id, graph.components[0].component_id)
+
     def test_response_coverage_binding_and_absent_native_positive_rejected(self):
         _, _, pool = self._one_row_pool()
         response = _response(pool, pool.packages[0], "absent")
@@ -143,6 +167,61 @@ class AdvPiiReviewTests(unittest.TestCase):
         malformed["evidence"] = [{"category": "IDENTITY", "start": -1, "end": 2}]
         with self.assertRaisesRegex(ValueError, "evidence"):
             validate_review_responses(pool, [malformed])
+        unrelated = _response(pool, pool.packages[0])
+        unrelated["categories"] = ["HEALTH"]
+        unrelated["evidence"] = [{
+            "category": "HEALTH", "start": pool.packages[0].native_spans[0].start,
+            "end": pool.packages[0].native_spans[0].end,
+        }]
+        with self.assertRaisesRegex(ValueError, "native span category"):
+            validate_review_responses(pool, [unrelated])
+
+    def test_timestamp_error_does_not_echo_untrusted_input_in_traceback(self):
+        import traceback
+
+        _, _, pool = self._one_row_pool()
+        response = _response(pool, pool.packages[0])
+        marker = "TIMESTAMP-PRIVATE-MARKER"
+        response["reviewed_at"] = marker
+        try:
+            validate_review_responses(pool, [response])
+        except ValueError:
+            rendered = traceback.format_exc()
+        else:
+            self.fail("malformed timestamp was accepted")
+        self.assertNotIn(marker, rendered)
+
+    def test_each_native_type_needs_its_mapped_category_and_span_evidence(self):
+        text = "Call +1-212-555-0100; card 4111 1111 1111 1111"
+        phone, card = "+1-212-555-0100", "4111 1111 1111 1111"
+        phone_start, card_start = text.index(phone), text.index(card)
+        parsed = parse_native_row({
+            "uid": 21, "input_id": 21, "category": "positive",
+            "attack_target": {"pii": [], "context": []}, "llm_input": text,
+            "pii_spans": [
+                {"type": "phone_number", "start": phone_start, "end": phone_start + len(phone),
+                 "value": phone, "value_fuzzy": None},
+                {"type": "credit_card_number", "start": card_start, "end": card_start + len(card),
+                 "value": card, "value_fuzzy": None},
+            ],
+        })
+        spans = (
+            ValidatedNativeSpanInput("phone_number", phone_start, phone_start + len(phone), phone, phone),
+            ValidatedNativeSpanInput("credit_card_number", card_start, card_start + len(card), card, card),
+        )
+        graph = build_components([parsed.grouping_row])
+        pool = build_review_pool((parsed,), graph, _bindings(), ProtectedKeys(), {21: spans})
+        package = pool.packages[0]
+        valid = _response(pool, package)
+        valid["categories"] = ["IDENTITY", "FINANCIAL"]
+        valid["evidence"] = [
+            {"category": "IDENTITY", "start": phone_start, "end": phone_start + len(phone)},
+            {"category": "FINANCIAL", "start": card_start, "end": card_start + len(card)},
+        ]
+        validate_review_responses(pool, [valid])
+        omitted = dict(valid, categories=["IDENTITY"], evidence=[valid["evidence"][0]])
+        with self.assertRaisesRegex(ValueError, "every valid native span category"):
+            validate_review_responses(pool, [omitted])
 
     def test_reviewed_present_native_negative_does_not_supply_absent_capacity(self):
         parsed = parse_native_row({
@@ -163,14 +242,93 @@ class AdvPiiReviewTests(unittest.TestCase):
         self.assertEqual(result.capacities["test"]["ordinary"], 0)
         self.assertEqual(result.capacities["test"]["positive"], 0)
 
+    def test_selected_component_counts_exclude_unselected_class_overshoot(self):
+        parsed_rows = []
+        span_map = {}
+        uid = 1
+        for component in range(404):
+            positive_text = f"Synthetic {component} contact p{component}@example.test"
+            start = positive_text.index(f"p{component}@example.test")
+            positive_raw = {
+                "uid": uid, "input_id": component + 1, "category": "positive",
+                "attack_target": {"pii": [], "context": []}, "llm_input": positive_text,
+                "pii_spans": [{"type": "email", "start": start,
+                               "end": start + len(f"p{component}@example.test"),
+                               "value": f"p{component}@example.test", "value_fuzzy": None}],
+            }
+            positive = parse_native_row(positive_raw)
+            parsed_rows.append(positive)
+            span_map[uid] = (ValidatedNativeSpanInput(
+                "email", start, start + len(f"p{component}@example.test"),
+                f"p{component}@example.test", f"p{component}@example.test",
+            ),)
+            uid += 1
+            negative = parse_native_row({
+                "uid": uid, "input_id": component + 1, "category": "negative",
+                "attack_target": {"pii": [], "context": []},
+                "llm_input": f"Synthetic benign prompt {component}.", "pii_spans": [],
+            })
+            parsed_rows.append(negative)
+            span_map[uid] = ()
+            uid += 1
+            unknown = parse_native_row({
+                "uid": uid, "input_id": component + 1, "category": "unknown",
+                "attack_target": {"pii": [], "context": []},
+                "llm_input": f"Synthetic bridge prompt {component}.", "pii_spans": [],
+            })
+            parsed_rows.append(unknown)
+            span_map[uid] = ()
+            uid += 1
+
+        preliminary = build_components([row.grouping_row for row in parsed_rows])
+        order = sorted(preliminary.components, key=lambda item: item.component_id)
+        import random
+        random.Random(review_module.SPLIT_SEED).shuffle(order)
+        special_uids = {order[index].member_uids[-1] for index in (200, 401, 402)}
+        parsed_rows = [
+            (parse_native_row({
+                "uid": row.grouping_row.uid,
+                "input_id": row.grouping_row.input_id,
+                "category": "hard_negative",
+                "attack_target": {"pii": [], "context": []},
+                "llm_input": row.grouping_row.text, "pii_spans": [],
+            }) if row.grouping_row.uid in special_uids else row)
+            for row in parsed_rows
+        ]
+        graph = build_components([row.grouping_row for row in parsed_rows])
+        special_components = {component.component_id for component in graph.components
+                              if any(uid in special_uids for uid in component.member_uids)}
+        self.assertEqual(len(special_components), 3)
+        pool = build_review_pool(tuple(parsed_rows), graph, _bindings(), ProtectedKeys(), span_map)
+        responses = []
+        package_member = {member.review_id: member for member in pool._members}
+        for package in pool.packages:
+            category = package_member[package.review_id].native_category
+            responses.append(_response(pool, package, "present" if category == "positive" else "absent"))
+
+        previous_quotas = review_module._QUOTAS
+        review_module._QUOTAS = {
+            "test": {"positive": 200, "ordinary": 200, "hard": 1},
+            "validation": {"positive": 200, "ordinary": 200, "hard": 1},
+            "train": {"positive": 1, "ordinary": 1, "hard": 1},
+        }
+        try:
+            result = allocate_reviewed_components(pool, responses, tuple(parsed_rows), graph, ProtectedKeys())
+        finally:
+            review_module._QUOTAS = previous_quotas
+        self.assertEqual(result.status, "complete")
+        self.assertEqual(result.assigned_components_by_class["test"]["positive"], 201)
+        self.assertEqual(result.represented_components["test"]["positive"], 200)
+
     def test_single_pass_allocator_fails_without_retries_when_capacity_short(self):
         parsed, graph, pool = self._one_row_pool()
         responses = [_response(pool, pool.packages[0])]
         result = allocate_reviewed_components(pool, responses, (parsed,), graph, ProtectedKeys())
         self.assertEqual(result.status, "failed")
-        self.assertEqual(result.reason, "single_pass_shortage_test")
+        self.assertEqual(result.reason, "single_pass_shortage_test:rows_positive,rows_ordinary,rows_hard,floor_positive,floor_absent")
         self.assertEqual(result.partitions, {})
         self.assertEqual(result.shortages["test"]["positive"], 999)
+        self.assertEqual(result.floor_shortages["test"], {"positive": 199, "absent": 200})
 
     def test_greedy_allocator_meets_quotas_and_component_floors_once(self):
         parsed_rows = []

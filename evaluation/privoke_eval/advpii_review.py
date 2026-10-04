@@ -60,6 +60,13 @@ _RESPONSE_FIELDS = {
     "uncertainty_reason",
 }
 _BLIND_FIELDS = {"no_detector_outputs", "no_model_scores_or_vocabularies", "no_partition_roles"}
+_NATIVE_REVIEW_CATEGORY = {
+    "credit_card_number": "FINANCIAL",
+    "iban": "FINANCIAL",
+    "phone_number": "IDENTITY",
+    "email": "IDENTITY",
+    "ssn": "IDENTITY",
+}
 
 
 def _canonical_json(value: object) -> bytes:
@@ -210,7 +217,9 @@ class AllocationResult:
     assigned_component_ids: Mapping[str, tuple[str, ...]] = field(repr=False)
     capacities: Mapping[str, Mapping[str, int]]
     represented_components: Mapping[str, Mapping[str, int]]
+    assigned_components_by_class: Mapping[str, Mapping[str, int]]
     shortages: Mapping[str, Mapping[str, int]]
+    floor_shortages: Mapping[str, Mapping[str, int]]
     streams: tuple[str, ...]
     graph: GroupingResult = field(repr=False)
 
@@ -247,12 +256,12 @@ def build_review_pool(
     for component in full_graph.components:
         for uid in component.member_uids:
             component_by_uid[uid] = component
-    if not isinstance(validated_native_spans_by_uid, Mapping) or set(validated_native_spans_by_uid) != set(by_uid):
-        raise ValueError("Validated native-span input must cover every source UID exactly.")
-    spans_by_uid = {
-        uid: _validate_native_spans(parsed, validated_native_spans_by_uid[uid])
-        for uid, parsed in by_uid.items()
-    }
+    if (
+        not isinstance(validated_native_spans_by_uid, Mapping)
+        or any(type(uid) is not int for uid in validated_native_spans_by_uid)
+        or not set(validated_native_spans_by_uid) <= set(by_uid)
+    ):
+        raise ValueError("Validated native-span input contains an unknown source UID.")
 
     # Deduplicate before any decisions: one lowest signed UID represents each
     # eligible normalized prompt, while the original graph retains all aliases.
@@ -304,9 +313,11 @@ def build_review_pool(
         text = row.text
         if not isinstance(text, str):
             raise ValueError("A selected review prompt is missing its complete text.")
+        if row.uid not in validated_native_spans_by_uid:
+            raise ValueError("A selected representative is missing validated native-span data.")
         text_sha = _sha256(text.encode("utf-8"))
         review_id = _sha256(_canonical_json(["privoke-advpii-review-id-v1", bindings.source_sha256, row.uid]))
-        spans = spans_by_uid[row.uid]
+        spans = _validate_native_spans(parsed, validated_native_spans_by_uid[row.uid])
         package = ReviewPackageItem(review_id, text, text_sha, bindings.rubric_sha256, spans)
         member = _PoolMember(
             review_id=review_id,
@@ -368,7 +379,8 @@ def _validate_native_spans(
         if not isinstance(span, ValidatedNativeSpanInput):
             raise ValueError("Validated native spans are malformed.")
         if (
-            span.entity_type not in allowed_types
+            not isinstance(span.entity_type, str)
+            or span.entity_type not in allowed_types
             or type(span.start) is not int
             or type(span.end) is not int
             or not (0 <= span.start < span.end <= len(row.text))
@@ -465,8 +477,8 @@ def validate_review_responses(pool: ReviewPool, responses: Sequence[Mapping[str,
             raise ValueError("Review response timestamp is invalid.")
         try:
             parsed_time = datetime.fromisoformat(reviewed_at.replace("Z", "+00:00"))
-        except ValueError as exc:
-            raise ValueError("Review response timestamp is invalid.") from exc
+        except ValueError:
+            raise ValueError("Review response timestamp is invalid.") from None
         if parsed_time.tzinfo is None:
             raise ValueError("Review response timestamp must include a timezone.")
         decision = response.get("decision")
@@ -497,6 +509,15 @@ def validate_review_responses(pool: ReviewPool, responses: Sequence[Mapping[str,
         if decision == "present":
             if not categories or not evidence or set(categories) != {item[0] for item in normalized_evidence} or reason not in (None, ""):
                 raise ValueError("Present review requires category-supported evidence.")
+            for native_span in package.native_spans:
+                required_category = _NATIVE_REVIEW_CATEGORY.get(native_span.entity_type)
+                if required_category is None or required_category not in categories or not any(
+                    category == required_category
+                    and start < native_span.end
+                    and end > native_span.start
+                    for category, start, end in normalized_evidence
+                ):
+                    raise ValueError("Present review must explicitly support every valid native span category.")
             has_pii: bool | None = True
             reason = None
         elif decision == "absent":
@@ -668,12 +689,27 @@ def allocate_reviewed_components(
             part: {s: max(0, _QUOTAS[part][s] - capacities[part][s]) for s in _STRATA}
             for part in ("test", "validation", "train")
         }
+        floor_shortages = {
+            part: {
+                class_name: max(0, _EVALUATION_COMPONENT_FLOOR - len(class_components[part][class_name]))
+                if part in {"test", "validation"} else 0
+                for class_name in ("positive", "absent")
+            }
+            for part in ("test", "validation", "train")
+        }
+        failed_dimensions = [
+            f"rows_{stratum}" for stratum, shortage in shortages[failed_part].items() if shortage
+        ] + [
+            f"floor_{class_name}" for class_name, shortage in floor_shortages[failed_part].items() if shortage
+        ]
         return AllocationResult(
-            "failed", f"single_pass_shortage_{failed_part}", {},
+            "failed", f"single_pass_shortage_{failed_part}:{','.join(failed_dimensions)}", {},
             MappingProxyType({part: tuple(c.component_id for c in chosen[part]) for part in chosen}),
             _freeze_nested({part: {s: capacities[part][s] for s in _STRATA} for part in capacities}),
+            _freeze_nested({part: {"positive": 0, "absent": 0} for part in chosen}),
             _freeze_nested({part: {k: len(v) for k, v in class_components[part].items()} for part in class_components}),
-            _freeze_nested(shortages), ("component_order:random.Random(11102026)",), graph,
+            _freeze_nested(shortages), _freeze_nested(floor_shortages),
+            ("component_order:random.Random(11102026)",), graph,
         )
 
     selections: dict[str, tuple[int, ...]] = {}
@@ -739,11 +775,22 @@ def allocate_reviewed_components(
         or selected_component_sets["validation"] & selected_component_sets["train"]
     ):
         raise ValueError("Final partitions share a full-source component.")
+    selected_class_components = {
+        part: {
+            "positive": len({member_by_uid[uid].component_id for uid in selections[part]
+                             if member_by_uid[uid].native_category == "positive"}),
+            "absent": len({member_by_uid[uid].component_id for uid in selections[part]
+                           if member_by_uid[uid].native_category in {"negative", "hard_negative"}}),
+        }
+        for part in selections
+    }
     return AllocationResult(
         "complete", None, MappingProxyType(selections),
         MappingProxyType({part: tuple(c.component_id for c in chosen[part]) for part in chosen}),
         _freeze_nested({part: {s: capacities[part][s] for s in _STRATA} for part in capacities}),
+        _freeze_nested(selected_class_components),
         _freeze_nested({part: {k: len(v) for k, v in class_components[part].items()} for part in class_components}),
         _freeze_nested({part: {s: 0 for s in _STRATA} for part in chosen}),
+        _freeze_nested({part: {class_name: 0 for class_name in ("positive", "absent")} for part in chosen}),
         ("component_order:random.Random(11102026)", "row_fill:domain-separated-sha256/13102026"), graph,
     )
