@@ -7,13 +7,16 @@ COPY shared/python/privoke_contracts /workspace/shared/python/privoke_contracts
 COPY shared/python/privoke_model /workspace/shared/python/privoke_model
 COPY extension/client-runtime/src/__init__.py /workspace/extension/client-runtime/src/__init__.py
 COPY extension/client-runtime/src/model.py /workspace/extension/client-runtime/src/model.py
+COPY extension/client-runtime/src/transformer_encoder.py /workspace/extension/client-runtime/src/transformer_encoder.py
 COPY extension/client-runtime/src/detection/preprocessing.py /workspace/extension/client-runtime/src/detection/preprocessing.py
 COPY models/generate_baseline.py /workspace/models/generate_baseline.py
 COPY evaluation/privoke_eval/__init__.py /workspace/evaluation/privoke_eval/__init__.py
 COPY evaluation/privoke_eval/in_house_transformer_training.py /workspace/evaluation/privoke_eval/in_house_transformer_training.py
+COPY evaluation/privoke_eval/in_house_presence_training.py /workspace/evaluation/privoke_eval/in_house_presence_training.py
 COPY evaluation/tests/test_in_house_transformer_training.py /workspace/evaluation/tests/test_in_house_transformer_training.py
+COPY evaluation/tests/test_in_house_presence_training.py /workspace/evaluation/tests/test_in_house_presence_training.py
 ENV PYTHONPATH=/workspace/evaluation:/workspace/shared/python:/workspace/extension/client-runtime:/workspace/models
 ENV PYTHONDONTWRITEBYTECODE=1 PRIVOKE_EVAL_IN_CONTAINER=true OMP_NUM_THREADS=4 MKL_NUM_THREADS=4
 USER 65534:65534
 WORKDIR /workspace/evaluation
-CMD ["python", "-B", "-m", "unittest", "discover", "-s", "tests", "-p", "test_in_house_transformer_training.py", "-v"]
+CMD ["python", "-B", "-m", "unittest", "discover", "-s", "tests", "-p", "test_in_house_*_training.py", "-v"]
