@@ -46,6 +46,7 @@ import {
   createSamplerStartupTransitionClient,
   runBoundedStartupTransition,
   validateStartupTransitionWindow,
+  assertStartupLifecycleKnown,
   readSamplerTerminalSidecar,
   createResourceWindowFinalizer,
   runAfterResourceWindow,
@@ -61,7 +62,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const EXTENSION_ID = "hmlhjfklebbbhpjdjodegbjnbamlkonp";
 const NATIVE_HOST_NAME = "org.privoke.runtime_launcher";
 const PORTS = [8080, 50056, 50057];
-const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v3";
+const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v4";
 const RATE_REPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_REPS, 30);
 const WARMUPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_WARMUPS, 5);
 const COLD_SESSIONS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_SESSIONS, 12);
@@ -124,6 +125,7 @@ let samplerStopPromise;
 let samplerStartupTransitionClient;
 let samplerCloseState = "not_started";
 let samplerClosureUnknown = false;
+let startupLifecycleUnknown = false;
 let startedProcesses = new Map();
 let receipt;
 let sampleEndFailure;
@@ -237,14 +239,16 @@ try {
   const cleanupFailures = [];
   let certificateDirectoryRemoved = !certificateDirectory;
   try { await finishSession(); } catch (error) { cleanupFailures.push(safeError(error)); }
-  if (samplerClosureUnknown) {
-    cleanupFailures.push({ type: "sampler_quiescence_unconfirmed", phase: "provider_fixture_cleanup_skipped" });
+  if (samplerClosureUnknown || startupLifecycleUnknown) {
+    cleanupFailures.push({ type: samplerClosureUnknown ? "sampler_quiescence_unconfirmed" : "startup_lifecycle_quiescence_unknown",
+      phase: "provider_fixture_cleanup_skipped" });
   } else {
     try { await stopProviderFixture(); } catch (error) { cleanupFailures.push(safeError(error)); }
   }
   if (certificateDirectory) {
-    if (samplerClosureUnknown) {
-      cleanupFailures.push({ type: "sampler_quiescence_unconfirmed", phase: "certificate_cleanup_skipped" });
+    if (samplerClosureUnknown || startupLifecycleUnknown) {
+      cleanupFailures.push({ type: samplerClosureUnknown ? "sampler_quiescence_unconfirmed" : "startup_lifecycle_quiescence_unknown",
+        phase: "certificate_cleanup_skipped" });
     } else {
       try {
         await rm(certificateDirectory, { recursive: true, force: false });
@@ -267,6 +271,8 @@ try {
     receipt.resourceSampleFiles = resourceFiles;
     receipt.samplerTerminalDiagnostics = samplerTerminalDiagnostics;
     receipt.samplerClosure = { state: samplerCloseState, quiescenceUnknown: samplerClosureUnknown };
+    receipt.startupLifecycle = { state: startupLifecycleUnknown ? "unknown" : "verified_or_not_started",
+      monitoredCleanupBlocked: startupLifecycleUnknown };
     try {
       receipt.resourceSampling = await resourceSummary(resourceFiles);
       assert.equal(resourceFiles.length, COLD_SESSIONS, "one resource sample file is required per cold session");
@@ -534,6 +540,7 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   currentResourceWindow = resourceFile;
   samplerCloseState = "running";
   samplerClosureUnknown = false;
+  startupLifecycleUnknown = false;
   samplerSpawnError = null;
   samplerStopPromise = null;
   sampler = spawnSampler(samplerPath, { sourceRevision: SOURCE_REVISION, protocolSha256 });
@@ -545,6 +552,7 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
     try { currentResourceWindow.sampledBrowserIdentities = await sampledBrowserIdentities(samplerPath); }
     catch (error) { identityError = error; }
     await stopSampler();
+    assertStartupLifecycleKnown(startupLifecycleUnknown);
     if (identityError) throw identityError;
     if (sampleEndFailure) throw new Error("resource capture window did not finalize cleanly");
     const expected = { firstDecision: 1, warmup: WARMUPS, measured: RATE_REPS };
@@ -590,13 +598,14 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   popup = await browserContext.newPage();
   await popup.goto(`chrome-extension://${EXTENSION_ID}/popup.html`);
   const transitionStart = performance.now();
-  const transition = await runBoundedStartupTransition({
+  let transition;
+  try { transition = await runBoundedStartupTransition({
     sessionId,
     sourceRevision: SOURCE_REVISION,
     protocolSha256,
     exchange: (record) => samplerStartupTransitionClient.exchange(record),
-    getSettings: () => sendExtensionMessage(popup, { type: "GET_SETTINGS" }),
-    waitReady: () => waitRuntimeReady(popup),
+    getSettings: (timeoutMs) => sendExtensionMessage(popup, { type: "GET_SETTINGS" }, { timeoutMs }),
+    waitReady: (timeoutMs) => waitRuntimeReady(popup, { timeoutMs }),
     captureRuntime: async (status) => {
       const detectorPid = Number(status.processId);
       assert.ok(detectorPid > 1, "supervisor status must expose the detector child PID");
@@ -616,11 +625,15 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
     },
     waitSampled: (identities) => sampledProcessTimes(samplerPath, identities),
     waitPredecessorReaped: (identity) => waitStartupPredecessorReaped(identity, 5_000),
-    updateSettings: () => sendExtensionMessage(popup, {
+    updateSettings: (timeoutMs) => sendExtensionMessage(popup, {
       type: "UPDATE_SETTINGS",
       patch: { useLocalStack: true, enabled: true, layers: { regex: true, ner: true, llm: false }, waitForRegex: true },
-    }),
-  });
+    }, { timeoutMs }),
+    samplerClosed,
+  }); } catch (error) {
+    if (error?.startupLifecycleUnknown === true) startupLifecycleUnknown = true;
+    throw error;
+  }
   times.startupTransitionElapsedMs = transition.totalElapsedMs;
   times.settingsUpdateElapsedMs = transition.settingsUpdateElapsedMs;
   times.runtimeStatusProbeElapsedBeforeTransitionMs = transition.priorStatusElapsedMs;
@@ -1517,18 +1530,18 @@ async function waitForSamplerClose(timeoutMs) {
   });
 }
 
-async function runtimeStatus(page) {
-  const result = await sendExtensionMessage(page, { type: "GET_RUNTIME_STATUS" });
+async function runtimeStatus(page, { timeoutMs = 90_000 } = {}) {
+  const result = await sendExtensionMessage(page, { type: "GET_RUNTIME_STATUS" }, { timeoutMs });
   assert.equal(result.ok, true, `runtime status failed: ${result.error || "unknown"}`);
   return result.runtime;
 }
 
-async function waitRuntimeReady(page) {
+async function waitRuntimeReady(page, { timeoutMs = 90_000 } = {}) {
   let last;
-  const deadline = Date.now() + 90_000;
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      last = await runtimeStatus(page);
+      last = await runtimeStatus(page, { timeoutMs: Math.max(1, deadline - Date.now()) });
       if (last.enabled && last.status === "RUNNING" && Number(last.processId) > 0) return last;
     } catch (error) { last = error; }
     await delay(250);
@@ -1567,13 +1580,17 @@ async function waitOwnedProcessesGone(identities, timeoutMs) {
   throw new Error("extension lifecycle did not stop the previously owned runtime identities");
 }
 
-async function sendExtensionMessage(page, message) {
-  return page.evaluate((payload) => new Promise((resolvePromise) => {
-    chrome.runtime.sendMessage(payload, (response) => resolvePromise({
-      response,
-      error: chrome.runtime.lastError?.message || null,
-    }));
-  }).then((result) => result.error ? { ok: false, error: result.error } : result.response), message);
+async function sendExtensionMessage(page, message, { timeoutMs = 90_000 } = {}) {
+  assert.ok(Number.isSafeInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 90_000,
+    "extension message deadline is invalid");
+  return page.evaluate(({ payload, timeout }) => new Promise((resolvePromise, rejectPromise) => {
+    const timer = setTimeout(() => rejectPromise(new Error("extension response callback timed out")), timeout);
+    chrome.runtime.sendMessage(payload, (response) => {
+      clearTimeout(timer);
+      resolvePromise({ response, error: chrome.runtime.lastError?.message || null });
+    });
+  }).then((result) => result.error ? { ok: false, error: result.error } : result.response),
+  { payload: message, timeout: timeoutMs });
 }
 
 async function processIdentity(pid) {

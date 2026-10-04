@@ -494,8 +494,9 @@ export function buildStartupIdentityDiagnostic(identities, samples) {
 
 export function validateSamplerTerminalDiagnostic(value) {
   const keys = ["schema_version", "status", "samples_written", "exception_type", "frames"];
+  const failureKeys = [...keys, "process_failure"];
   if (!value || typeof value !== "object" || Array.isArray(value)
-      || Object.keys(value).sort().join("\0") !== [...keys].sort().join("\0")
+      || ![keys, failureKeys].some((expected) => Object.keys(value).sort().join("\0") === [...expected].sort().join("\0"))
       || value.schema_version !== 1
       || !["stopped", "error"].includes(value.status)
       || !Number.isSafeInteger(value.samples_written) || value.samples_written < 0
@@ -518,6 +519,40 @@ export function validateSamplerTerminalDiagnostic(value) {
         || typeof frame.function !== "string" || !/^[A-Za-z0-9_<>.-]{1,128}$/.test(frame.function)
         || !Number.isSafeInteger(frame.line) || frame.line <= 0) {
       throw new TypeError("sampler traceback frame is invalid");
+    }
+  }
+  if (Object.hasOwn(value, "process_failure")) validateProcessFailureDiagnostic(value.process_failure);
+  return value;
+}
+
+function validateProcessFailureDiagnostic(value) {
+  const keys = ["schema_version", "role", "reason", "requested_identity", "observed_identity",
+    "transition_state", "observed_at_ns"];
+  const roles = ["xvfb", "native_host", "supervisor_bridge", "detector", "chromium"];
+  const reasons = ["pid_exited_before_stat_snapshot", "pid_reused_after_enumeration",
+    "process_exited_before_fresh_metrics", "pid_changed_during_metrics", "process_vanished_during_fresh_reads",
+    "predecessor_absent_before_dispatch", "predecessor_terminal_before_dispatch",
+    "predecessor_identity_changed_before_dispatch", "predecessor_identity_unreadable_before_dispatch",
+    "predecessor_identity_changed_during_transition", "supervisor_identity_changed_during_transition"];
+  if (!value || typeof value !== "object" || Array.isArray(value)
+      || Object.keys(value).sort().join("\0") !== [...keys].sort().join("\0")
+      || value.schema_version !== 1 || !roles.includes(value.role) || !reasons.includes(value.reason)
+      || !["idle", "prepared", "dispatched", "committed"].includes(value.transition_state)
+      || typeof value.observed_at_ns !== "string" || !/^\d{1,20}$/.test(value.observed_at_ns)) {
+    throw new TypeError("sampler process failure diagnostic is invalid");
+  }
+  const identityKeys = ["pid", "state", "start_ticks", "command_sha256", "parent_pid", "parent_start_ticks"];
+  for (const field of ["requested_identity", "observed_identity"]) {
+    const identity = value[field];
+    if (field === "requested_identity" && identity === null) continue;
+    if (!identity || typeof identity !== "object" || Array.isArray(identity)
+        || Object.keys(identity).sort().join("\0") !== [...identityKeys].sort().join("\0")
+        || !Number.isSafeInteger(identity.pid) || identity.pid <= 1
+        || (identity.state !== null && !/^[RSDZTtXxKWPI]$/.test(identity.state))
+        || !["start_ticks", "parent_pid", "parent_start_ticks"].every((key) => identity[key] === null
+          || (Number.isSafeInteger(identity[key]) && identity[key] >= 0))
+        || (identity.command_sha256 !== null && !/^[0-9a-f]{64}$/.test(identity.command_sha256))) {
+      throw new TypeError("sampler process failure identity is invalid");
     }
   }
   return value;
@@ -668,34 +703,80 @@ export function createSamplerStartupTransitionClient(child, { timeoutMs = 5_000 
 
 export async function runBoundedStartupTransition({
   sessionId, sourceRevision, protocolSha256, exchange, getSettings, waitReady,
-  captureRuntime, waitSampled, waitPredecessorReaped, updateSettings,
+  captureRuntime, waitSampled, waitPredecessorReaped, updateSettings, samplerClosed,
+  scheduleTimeout = setTimeout, cancelTimeout = clearTimeout,
   nowNs = () => process.hrtime.bigint().toString(),
 }) {
   const started = BigInt(nowNs());
+  const deadlineNs = started + 90_000_000_000n;
+  const expiry = deadlineNs.toString();
+  assert.ok(Number.isSafeInteger(Number(expiry)), "startup transition expiry is not exactly representable");
   const elapsedMs = (from) => Number(BigInt(nowNs()) - from) / 1_000_000;
+  let settingsDispatched = false;
+  let transitionCommitted = false;
+  const decorateUnknown = (error) => {
+    if (settingsDispatched && !transitionCommitted && error && typeof error === "object") {
+      error.startupLifecycleUnknown = true;
+      error.preventMonitoredTeardown = true;
+    }
+    return error;
+  };
+  const timeoutError = (phase) => {
+    const error = new Error(`startup transition exceeded its absolute deadline during ${phase}`);
+    error.name = "StartupTransitionDeadlineExceeded";
+    return decorateUnknown(error);
+  };
+  const samplerExit = samplerClosed ? Promise.resolve(samplerClosed).then((closed) => {
+    const error = new Error("resource sampler exited during startup transition");
+    error.name = "StartupTransitionSamplerExited";
+    error.samplerExitCode = Number.isInteger(closed?.code) ? closed.code : null;
+    error.samplerExitSignal = typeof closed?.signal === "string" ? closed.signal : null;
+    throw decorateUnknown(error);
+  }) : new Promise(() => {});
+  async function bounded(phase, operation) {
+    const remainingNs = deadlineNs - BigInt(nowNs());
+    if (remainingNs <= 0n) throw timeoutError(phase);
+    const remainingMs = Math.max(1, Math.ceil(Number(remainingNs) / 1_000_000));
+    let timer;
+    const expired = new Promise((_, reject) => {
+      timer = scheduleTimeout(() => reject(timeoutError(phase)), remainingMs, phase);
+    });
+    try {
+      const value = await Promise.race([
+        Promise.resolve().then(() => operation(remainingMs)),
+        expired,
+        samplerExit,
+      ]);
+      if (BigInt(nowNs()) >= deadlineNs) throw timeoutError(phase);
+      return value;
+    } catch (error) {
+      throw decorateUnknown(error);
+    } finally {
+      cancelTimeout(timer);
+    }
+  }
+  try {
   let mark = BigInt(nowNs());
-  const settings = await getSettings();
+  const settings = await bounded("initial settings read", (remainingMs) => getSettings(remainingMs));
   const settingsReadElapsedMs = elapsedMs(mark);
   assert.equal(settings?.ok, true, "fresh profile settings could not be read");
   assert.equal(settings.settings?.enabled, true, "fresh profile runtime must begin enabled");
   assert.equal(settings.settings?.useLocalStack, false, "fresh profile must begin on the declared cloud runtime");
   mark = BigInt(nowNs());
-  const priorStatus = await waitReady();
+  const priorStatus = await bounded("initial runtime status", (remainingMs) => waitReady(remainingMs));
   const priorStatusElapsedMs = elapsedMs(mark);
   mark = BigInt(nowNs());
-  const prior = await captureRuntime(priorStatus);
+  const prior = await bounded("predecessor identity capture", () => captureRuntime(priorStatus));
   const predecessorCaptureElapsedMs = elapsedMs(mark);
   assert.equal(prior.detector.parentPid, prior.supervisor.pid, "predecessor is not a child of the live supervisor");
   assert.equal(prior.detector.parentStartTicks, prior.supervisor.startTicks,
     "predecessor supervisor identity is not bound");
   assert.notDeepEqual(prior.listeners, null, "predecessor listeners were not verified");
   mark = BigInt(nowNs());
-  const priorSamples = await waitSampled([prior.supervisor, prior.detector]);
+  const priorSamples = await bounded("predecessor sample wait", () => waitSampled([prior.supervisor, prior.detector]));
   const predecessorSamplingWaitElapsedMs = elapsedMs(mark);
 
   const transitionId = randomUUID().replaceAll("-", "");
-  const expiry = (BigInt(nowNs()) + 90_000_000_000n).toString();
-  assert.ok(Number.isSafeInteger(Number(expiry)), "startup transition expiry is not exactly representable");
   const predecessor = {
     pid: prior.detector.pid, start_ticks: prior.detector.startTicks,
     command_sha256: prior.detector.commandSha256, parent_pid: prior.detector.parentPid,
@@ -708,15 +789,16 @@ export async function runBoundedStartupTransition({
     protocol_sha256: protocolSha256 };
   const prepare = { ...common, type: "prepare" };
   mark = BigInt(nowNs());
-  const prepareAck = await exchange(prepare);
+  const prepareAck = await bounded("PREPARE acknowledgement", () => exchange(prepare));
   const prepareAckElapsedMs = elapsedMs(mark);
   const dispatch = { ...common, type: "dispatch", operation: "cloud_to_local_startup" };
   mark = BigInt(nowNs());
-  const dispatchAck = await exchange(dispatch);
+  const dispatchAck = await bounded("DISPATCH acknowledgement", () => exchange(dispatch));
   const dispatchAckElapsedMs = elapsedMs(mark);
   const dispatchStartedAtNs = nowNs();
   mark = BigInt(nowNs());
-  const configured = await updateSettings();
+  settingsDispatched = true;
+  const configured = await bounded("settings update", (remainingMs) => updateSettings(remainingMs));
   const settingsUpdateElapsedMs = elapsedMs(mark);
   assert.equal(configured?.ok, true, "local browser settings update failed");
   assert.equal(configured.settings?.useLocalStack, true);
@@ -724,10 +806,10 @@ export async function runBoundedStartupTransition({
   assert.deepEqual(configured.settings?.layers, { regex: true, ner: true, llm: false });
   assert.equal(configured.settings?.waitForRegex, true);
   mark = BigInt(nowNs());
-  const status = await waitReady();
+  const status = await bounded("replacement runtime status", (remainingMs) => waitReady(remainingMs));
   const finalStatusElapsedMs = elapsedMs(mark);
   mark = BigInt(nowNs());
-  const current = await captureRuntime(status);
+  const current = await bounded("replacement identity capture", () => captureRuntime(status));
   const finalIdentityAndListenersElapsedMs = elapsedMs(mark);
   assert.equal(current.supervisor.pid, prior.supervisor.pid, "startup transition changed supervisor PID");
   assert.equal(current.supervisor.startTicks, prior.supervisor.startTicks, "startup transition changed supervisor identity");
@@ -736,10 +818,10 @@ export async function runBoundedStartupTransition({
   assert.equal(current.detector.parentPid, current.supervisor.pid);
   assert.equal(current.detector.parentStartTicks, current.supervisor.startTicks);
   mark = BigInt(nowNs());
-  await waitPredecessorReaped(prior.detector);
+  await bounded("predecessor reaping", () => waitPredecessorReaped(prior.detector));
   const predecessorReapElapsedMs = elapsedMs(mark);
   mark = BigInt(nowNs());
-  const currentSamples = await waitSampled([current.supervisor, current.detector]);
+  const currentSamples = await bounded("replacement sample wait", () => waitSampled([current.supervisor, current.detector]));
   const successorSamplingWaitElapsedMs = elapsedMs(mark);
   const successor = {
     pid: current.detector.pid, start_ticks: current.detector.startTicks,
@@ -748,8 +830,9 @@ export async function runBoundedStartupTransition({
   };
   const commit = { ...common, type: "commit", successor };
   mark = BigInt(nowNs());
-  const commitAck = await exchange(commit);
+  const commitAck = await bounded("COMMIT acknowledgement", () => exchange(commit));
   const commitAckElapsedMs = elapsedMs(mark);
+  transitionCommitted = true;
   return {
     transitionId, predecessor, successor, supervisor,
     prepareAck, dispatchAck, commitAck,
@@ -763,6 +846,9 @@ export async function runBoundedStartupTransition({
     listeners: current.listeners,
     settings: configured.settings,
   };
+  } catch (error) {
+    throw decorateUnknown(error);
+  }
 }
 
 export function validateStartupTransitionWindow(samples, transition) {
@@ -838,6 +924,14 @@ export async function finalizeResourceWindowBeforeCleanup(finalize, cleanup) {
     try { await cleanup(); } catch (error) { cleanupError = error; }
   }
   return { finalizationError, cleanupError, cleanupSkipped };
+}
+
+export function assertStartupLifecycleKnown(unknown) {
+  if (unknown !== true) return;
+  const error = new Error("startup transition lifecycle is uncommitted; monitored cleanup is blocked");
+  error.name = "StartupLifecycleQuiescenceUnknown";
+  error.preventMonitoredTeardown = true;
+  throw error;
 }
 
 export function summarizeResourceCpuWindows(windows) {

@@ -96,6 +96,21 @@ class SamplerTerminalDiagnosticTests(unittest.TestCase):
             "file": "<unavailable>", "function": "<unavailable>", "line": 2,
         })
 
+    def test_process_failure_sidecar_is_typed_and_contains_no_exception_message(self):
+        supervisor = {"pid": 123, "start_ticks": 200, "command_sha256": "a" * 64}
+        predecessor = {"pid": 321, "start_ticks": 300, "command_sha256": "b" * 64,
+                       "parent_pid": 123, "parent_start_ticks": 200}
+        error = RESOURCES.ProcessIdentityFailure("detector", "predecessor_absent_before_dispatch",
+                                                 predecessor, 321, "prepared")
+        payload = RESOURCES._terminal_diagnostic_payload("error", 2, error)
+        encoded = json.dumps(payload, ensure_ascii=True)
+        self.assertEqual(payload["process_failure"]["role"], "detector")
+        self.assertEqual(payload["process_failure"]["requested_identity"]["parent_pid"], 123)
+        self.assertEqual(payload["process_failure"]["transition_state"], "prepared")
+        self.assertNotIn(str(predecessor), encoded)
+        self.assertNotIn("process identity validation failed", encoded)
+        self.assertEqual(RESOURCES._validate_process_failure(payload["process_failure"]), payload["process_failure"])
+
     def test_terminal_sidecar_is_exclusive_and_does_not_serialize_exception_message(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "terminal.json"
@@ -466,7 +481,8 @@ class StartupTransitionTests(unittest.TestCase):
         dispatch = {**prepare, "type": "dispatch", "operation": "cloud_to_local_startup"}
         commit = {**prepare, "type": "commit", "successor": successor}
         output = io.StringIO()
-        with patch.object(RESOURCES.sys, "stdout", output):
+        with patch.object(RESOURCES.sys, "stdout", output), \
+             patch.object(RESOURCES, "_process_stat_identity", return_value=("S", 300)):
             transition._accept(prepare)
             transition._accept(dispatch)
             transition.retired = True
@@ -489,6 +505,85 @@ class StartupTransitionTests(unittest.TestCase):
         with patch.object(RESOURCES.sys, "stdout", io.StringIO()):
             with self.assertRaisesRegex(RuntimeError, "source binding"):
                 transition._accept(record)
+
+    def test_absent_predecessor_in_prepared_phase_fails_with_typed_evidence(self):
+        supervisor, predecessor = self.identities()
+        transition = RESOURCES.StartupTransition("d" * 40, "e" * 64)
+        prepare = self.record("prepare", supervisor, predecessor)
+        transition.record = prepare
+        transition.phase = "prepared"
+        transition.messages = 1
+        with patch.object(RESOURCES, "_process_stat_identity", return_value=None):
+            with self.assertRaises(RESOURCES.ProcessIdentityFailure) as raised:
+                transition.observe([{"role": "supervisor_bridge", **supervisor}])
+        failure = raised.exception.process_failure
+        self.assertEqual(failure["reason"], "predecessor_absent_before_dispatch")
+        self.assertEqual(failure["requested_identity"]["pid"], predecessor["pid"])
+        self.assertEqual(failure["transition_state"], "prepared")
+
+    def test_changed_supervisor_identity_is_typed_and_fails_before_dispatch(self):
+        supervisor, predecessor = self.identities()
+        transition = RESOURCES.StartupTransition("d" * 40, "e" * 64)
+        transition.record = self.record("prepare", supervisor, predecessor)
+        transition.phase = "prepared"
+        rows = [{"role": "supervisor_bridge", "pid": supervisor["pid"],
+                 "start_ticks": supervisor["start_ticks"] + 1,
+                 "command_sha256": supervisor["command_sha256"]}]
+        with self.assertRaises(RESOURCES.ProcessIdentityFailure) as raised:
+            transition.observe(rows)
+        failure = raised.exception.process_failure
+        self.assertEqual(failure["role"], "supervisor_bridge")
+        self.assertEqual(failure["reason"], "supervisor_identity_changed_during_transition")
+        self.assertEqual(failure["requested_identity"]["start_ticks"], supervisor["start_ticks"])
+
+    def test_dispatch_rechecks_old_child_after_last_prepared_sample(self):
+        supervisor, predecessor = self.identities()
+        transition = RESOURCES.StartupTransition("d" * 40, "e" * 64)
+        prepare = self.record("prepare", supervisor, predecessor)
+        transition.record = prepare
+        transition.phase = "prepared"
+        transition.messages = 1
+        transition.last_rows = [
+            {"role": "supervisor_bridge", **supervisor},
+            {"role": "detector", "pid": predecessor["pid"], "start_ticks": predecessor["start_ticks"],
+             "command_sha256": predecessor["command_sha256"], "ppid": predecessor["parent_pid"],
+             "parent_start_ticks": predecessor["parent_start_ticks"]},
+        ]
+        dispatch = {**prepare, "type": "dispatch", "operation": "cloud_to_local_startup"}
+        with patch.object(RESOURCES, "_process_stat_identity", return_value=None), \
+             patch.object(RESOURCES.sys, "stdout", io.StringIO()):
+            with self.assertRaises(RESOURCES.ProcessIdentityFailure) as raised:
+                transition._accept(dispatch)
+        self.assertEqual(raised.exception.process_failure["reason"], "predecessor_absent_before_dispatch")
+        self.assertEqual(transition.phase, "prepared")
+
+    def test_dispatch_runs_full_sampled_identity_revalidation_before_ack(self):
+        supervisor, predecessor = self.identities()
+        transition = RESOURCES.StartupTransition("d" * 40, "e" * 64)
+        prepare = self.record("prepare", supervisor, predecessor)
+        transition.record = prepare
+        transition.phase = "prepared"
+        transition.messages = 1
+        transition.last_rows = [
+            {"role": "supervisor_bridge", **supervisor},
+            {"role": "detector", "pid": predecessor["pid"], "start_ticks": predecessor["start_ticks"],
+             "command_sha256": predecessor["command_sha256"], "ppid": predecessor["parent_pid"],
+             "parent_start_ticks": predecessor["parent_start_ticks"]},
+        ]
+        dispatch = {**prepare, "type": "dispatch", "operation": "cloud_to_local_startup"}
+        output = io.StringIO()
+        revalidation = RESOURCES.ProcessIdentityFailure(
+            "supervisor_bridge", "supervisor_identity_changed_during_transition",
+            supervisor, supervisor["pid"], "prepared", observed_state=("S", supervisor["start_ticks"]),
+        )
+        with patch.object(RESOURCES, "_process_stat_identity", return_value=("S", predecessor["start_ticks"])), \
+             patch.object(transition, "_validate_live_predecessor", side_effect=revalidation) as checked, \
+             patch.object(RESOURCES.sys, "stdout", output):
+            with self.assertRaises(RESOURCES.ProcessIdentityFailure):
+                transition._accept(dispatch)
+        checked.assert_called_once_with()
+        self.assertEqual(output.getvalue(), "")
+        self.assertEqual(transition.phase, "prepared")
 
     def test_actual_process_walk_allows_only_authorized_exact_predecessor_exit(self):
         supervisor, predecessor = self.identities()
