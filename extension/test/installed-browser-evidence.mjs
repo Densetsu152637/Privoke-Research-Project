@@ -299,6 +299,88 @@ export function assertCompleteResourceEvidence(summary) {
   return summary;
 }
 
+export function buildStartupIdentityDiagnostic(identities, samples) {
+  if (!Array.isArray(identities) || !Array.isArray(samples)) {
+    throw new TypeError("startup identity evidence must be arrays");
+  }
+  const expectedIdentities = identities.map((item) => {
+    if (!item || typeof item.role !== "string" || !item.role
+        || !Number.isSafeInteger(item.pid) || item.pid <= 0
+        || !Number.isSafeInteger(item.startTicks) || item.startTicks < 0) {
+      throw new TypeError("expected startup identity is invalid");
+    }
+    const observed = new Map();
+    let exactPairSampleCount = 0;
+    let exactPairFiniteStartTimeSampleCount = 0;
+    for (const sample of samples) {
+      for (const row of Array.isArray(sample?.roles) ? sample.roles : []) {
+        if (row?.role !== item.role || !Number.isSafeInteger(row.pid)
+            || !Number.isSafeInteger(row.start_ticks) || row.pid <= 0 || row.start_ticks < 0) continue;
+        const key = `${row.pid}/${row.start_ticks}`;
+        const record = observed.get(key) || {
+          pid: row.pid,
+          startTicks: row.start_ticks,
+          sampleCount: 0,
+          finiteStartTimeSampleCount: 0,
+        };
+        record.sampleCount += 1;
+        if (Number.isFinite(row.start_time_epoch_seconds)) record.finiteStartTimeSampleCount += 1;
+        observed.set(key, record);
+        if (row.pid === item.pid && row.start_ticks === item.startTicks) {
+          exactPairSampleCount += 1;
+          if (Number.isFinite(row.start_time_epoch_seconds)) exactPairFiniteStartTimeSampleCount += 1;
+        }
+      }
+    }
+    const observedRoleIdentities = [...observed.values()].sort((a, b) => a.pid - b.pid || a.startTicks - b.startTicks);
+    return {
+      role: item.role,
+      pid: item.pid,
+      startTicks: item.startTicks,
+      exactPairSampleCount,
+      exactPairFiniteStartTimeSampleCount,
+      observedRoleIdentityCount: observedRoleIdentities.length,
+      observedRoleIdentities: observedRoleIdentities.slice(0, 64),
+      observedRoleIdentitiesTruncated: observedRoleIdentities.length > 64,
+    };
+  });
+  return {
+    sampleRowCount: samples.length,
+    expectedIdentities,
+  };
+}
+
+export function validateSamplerTerminalDiagnostic(value) {
+  const keys = ["schema_version", "status", "samples_written", "exception_type", "frames"];
+  if (!value || typeof value !== "object" || Array.isArray(value)
+      || Object.keys(value).sort().join("\0") !== [...keys].sort().join("\0")
+      || value.schema_version !== 1
+      || !["stopped", "error"].includes(value.status)
+      || !Number.isSafeInteger(value.samples_written) || value.samples_written < 0
+      || !Array.isArray(value.frames) || value.frames.length > 12) {
+    throw new TypeError("sampler terminal diagnostic has an invalid schema");
+  }
+  if (value.status === "stopped") {
+    if (value.exception_type !== null || value.frames.length !== 0) {
+      throw new TypeError("successful sampler diagnostic must not contain an exception");
+    }
+  } else if (typeof value.exception_type !== "string"
+      || !/^[A-Za-z_][A-Za-z0-9_]{0,79}$/.test(value.exception_type)) {
+    throw new TypeError("sampler exception type is invalid");
+  }
+  for (const frame of value.frames) {
+    const frameKeys = ["file", "function", "line"];
+    if (!frame || typeof frame !== "object" || Array.isArray(frame)
+        || Object.keys(frame).sort().join("\0") !== [...frameKeys].sort().join("\0")
+        || typeof frame.file !== "string" || !/^[^/\\]{1,128}$/.test(frame.file)
+        || typeof frame.function !== "string" || !/^[A-Za-z_][A-Za-z0-9_<>]{0,127}$/.test(frame.function)
+        || !Number.isSafeInteger(frame.line) || frame.line <= 0) {
+      throw new TypeError("sampler traceback frame is invalid");
+    }
+  }
+  return value;
+}
+
 export function preserveResourceEvidenceFailure(summary, error) {
   if (summary && typeof summary === "object" && !Array.isArray(summary)) {
     return { ...summary, validationError: error };

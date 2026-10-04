@@ -11,6 +11,7 @@ from pathlib import Path
 import signal
 import sys
 import time
+import traceback
 
 import psutil
 
@@ -228,7 +229,37 @@ def _processes() -> tuple[list[dict[str, object]], dict[str, int]]:
     return rows, identity_races
 
 
-def sample(output: Path, interval_ms: int) -> None:
+def _terminal_diagnostic_payload(status: str, samples_written: int, error: Exception | None = None) -> dict:
+    if status not in {"stopped", "error"} or type(samples_written) is not int or samples_written < 0:
+        raise ValueError("invalid sampler terminal state")
+    frames = []
+    exception_type = None
+    if error is not None:
+        status = "error"
+        candidate = type(error).__name__
+        exception_type = candidate if candidate.isidentifier() and len(candidate) <= 80 else "Exception"
+        frames = [
+            {"file": Path(frame.filename).name[:128], "function": frame.name[:128], "line": int(frame.lineno)}
+            for frame in traceback.extract_tb(error.__traceback__)[-12:]
+        ]
+    elif status == "error":
+        raise ValueError("error terminal state requires an exception")
+    return {
+        "schema_version": 1,
+        "status": status,
+        "samples_written": samples_written,
+        "exception_type": exception_type,
+        "frames": frames,
+    }
+
+
+def _write_terminal_diagnostic(path: Path, payload: dict) -> None:
+    with path.open("x", encoding="utf-8") as stream:
+        json.dump(payload, stream, ensure_ascii=True, allow_nan=False, separators=(",", ":"))
+        stream.write("\n")
+
+
+def sample(output: Path, interval_ms: int, progress: dict | None = None) -> None:
     stop = False
 
     def stop_sampling(_signum, _frame):
@@ -239,6 +270,7 @@ def sample(output: Path, interval_ms: int) -> None:
     signal.signal(signal.SIGINT, stop_sampling)
     interval = interval_ms / 1000
     next_sample = time.monotonic()
+    samples_written = 0
     with output.open("x", encoding="utf-8", buffering=1) as stream:
         while not stop:
             now = time.monotonic()
@@ -249,6 +281,9 @@ def sample(output: Path, interval_ms: int) -> None:
                 "process_identity_races": identity_races,
                 "cgroup": _cgroup_sample(),
             }, separators=(",", ":")) + "\n")
+            samples_written += 1
+            if progress is not None:
+                progress["samples_written"] = samples_written
             next_sample += interval
             time.sleep(max(0.0, next_sample - time.monotonic()))
 
@@ -257,14 +292,30 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--interval-ms", type=int, default=100)
+    parser.add_argument("--terminal-diagnostic", required=True, type=Path)
     args = parser.parse_args()
     if args.interval_ms != 100:
         parser.error("The installed-browser protocol fixes sampling at 100 ms.")
+    progress = {"samples_written": 0}
     try:
-        sample(args.output, args.interval_ms)
+        sample(args.output, args.interval_ms, progress)
     except FileExistsError:
         print("Refusing to overwrite resource samples.", file=sys.stderr)
         return 2
+    except Exception as error:
+        try:
+            _write_terminal_diagnostic(args.terminal_diagnostic, _terminal_diagnostic_payload(
+                "error", progress["samples_written"], error,
+            ))
+        except OSError:
+            pass
+        return 1
+    try:
+        _write_terminal_diagnostic(args.terminal_diagnostic, _terminal_diagnostic_payload(
+            "stopped", progress["samples_written"],
+        ))
+    except OSError:
+        return 1
     return 0
 
 

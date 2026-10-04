@@ -42,6 +42,8 @@ import {
   validateDecodedOutcome,
   validatePageAnalysis,
   summarizeSupervisorStartupLog,
+  buildStartupIdentityDiagnostic,
+  validateSamplerTerminalDiagnostic,
 } from "../extension/test/installed-browser-evidence.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -108,6 +110,7 @@ let browserContext;
 let cdp;
 let sampler;
 let samplerPath;
+let samplerTerminalPath;
 let samplerClosed;
 let startedProcesses = new Map();
 let receipt;
@@ -121,6 +124,7 @@ const caseRecords = [];
 const rpcEvents = [];
 const coldRecords = [];
 const resourceFiles = [];
+const samplerTerminalDiagnostics = [];
 const processTerminationEvidence = [];
 const pageRequestIds = new Set();
 const runtimeRequestIds = new Set();
@@ -237,6 +241,7 @@ try {
     receipt.processTerminationEvidence = processTerminationEvidence;
     receipt.externalRequests = externalRequests.map((item) => ({ url: item.url, method: item.method }));
     receipt.resourceSampleFiles = resourceFiles;
+    receipt.samplerTerminalDiagnostics = samplerTerminalDiagnostics;
     try {
       receipt.resourceSampling = await resourceSummary(resourceFiles);
       assert.equal(resourceFiles.length, COLD_SESSIONS, "one resource sample file is required per cold session");
@@ -601,7 +606,27 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
     readyAtWall: new Date(readyWall).toISOString(),
   };
 
-  const processSamples = await sampledProcessTimes(samplerPath, [supervisorIdentity, detectorIdentity]);
+  const startupIdentities = [
+    { role: "supervisor_bridge", ...supervisorIdentity },
+    { role: "detector", ...detectorIdentity },
+  ];
+  receipt.resourceStartupIdentityWait = {
+    status: "waiting",
+    sessionId,
+    expectedIdentities: startupIdentities.map(({ role, pid, startTicks }) => ({ role, pid, startTicks })),
+  };
+  let processSamples;
+  try {
+    processSamples = await sampledProcessTimes(samplerPath, startupIdentities);
+  } catch (error) {
+    const rows = parseJsonl(await readFile(samplerPath, "utf8").catch(() => ""));
+    receipt.resourceStartupIdentityWait.status = "failed";
+    receipt.resourceStartupIdentityWait.diagnostic = buildStartupIdentityDiagnostic(startupIdentities, rows);
+    receipt.resourceStartupIdentityWait.samplerClose = null;
+    receipt.resourceStartupIdentityWait.terminalDiagnostic = null;
+    throw error;
+  }
+  delete receipt.resourceStartupIdentityWait;
   cold.supervisorProcessBirthOffsetFromWorkerReadyMs = processSamples.get(supervisorPid).startedAtEpochMs - workerWall;
   cold.detectorProcessBirthOffsetFromSupervisorBirthMs =
     processSamples.get(detectorPid).startedAtEpochMs - processSamples.get(supervisorPid).startedAtEpochMs;
@@ -1295,13 +1320,44 @@ async function stopSampler() {
     sampleEndFailure = new Error("resource sampler exited unsuccessfully");
   }
   const finishedPath = samplerPath;
+  const finishedDiagnosticPath = samplerTerminalPath;
   const fileRecord = resourceFiles.find((entry) => entry.file === relative(OUTPUT, finishedPath));
   if (fileRecord) fileRecord.sha256 = await hashFile(finishedPath).catch(() => null);
   if (fileRecord && !fileRecord.sha256 && !sampleEndFailure) {
     sampleEndFailure = new Error("resource sample file could not be finalized");
   }
+  let terminalDiagnostic = null;
+  let terminalSha256 = null;
+  try {
+    const bytes = await readFile(finishedDiagnosticPath);
+    terminalSha256 = sha256(bytes);
+    terminalDiagnostic = validateSamplerTerminalDiagnostic(JSON.parse(bytes.toString("utf8")));
+  } catch {
+    if (!sampleEndFailure) sampleEndFailure = new Error("resource sampler terminal diagnostic is missing or invalid");
+  }
+  if (finishedDiagnosticPath) {
+    samplerTerminalDiagnostics.push({
+      file: relative(OUTPUT, finishedDiagnosticPath),
+      sha256: terminalSha256,
+      diagnostic: terminalDiagnostic,
+      processClose: {
+        code: closed.code,
+        signal: closed.signal,
+        spawnErrorType: closed.error?.type ?? null,
+      },
+    });
+  }
+  if (receipt?.resourceStartupIdentityWait?.status === "failed") {
+    receipt.resourceStartupIdentityWait.samplerClose = {
+      code: closed.code,
+      signal: closed.signal,
+      spawnErrorType: closed.error?.type ?? null,
+    };
+    receipt.resourceStartupIdentityWait.terminalDiagnostic = terminalDiagnostic;
+  }
   sampler = null;
   samplerPath = null;
+  samplerTerminalPath = null;
   samplerClosed = null;
 }
 
@@ -1829,8 +1885,11 @@ async function verifyNoExternalRequests() {
 async function assertPortsClosedAfterRecovery() { await assertPortsClosed("post-recovery"); }
 
 function spawnSampler(outputPath) {
+  const terminalPath = `${outputPath}.terminal.json`;
+  samplerTerminalPath = terminalPath;
   const child = spawn("/workspace/extension/client-runtime/.venv/bin/python", [
     RESOURCE_SAMPLER, "--output", outputPath, "--interval-ms", "100",
+    "--terminal-diagnostic", terminalPath,
   ], { cwd: ROOT, env: process.env, stdio: "ignore" });
   samplerClosed = new Promise((resolvePromise) => {
     child.once("error", (error) => resolvePromise({ code: null, signal: null, error: safeError(error) }));

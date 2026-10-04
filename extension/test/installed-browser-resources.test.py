@@ -5,6 +5,7 @@ import importlib.util
 import hashlib
 from pathlib import Path
 import sys
+import tempfile
 import types
 import unittest
 from types import SimpleNamespace
@@ -66,6 +67,52 @@ class StartTicksTests(unittest.TestCase):
             RESOURCES._process_stat_identity(123, read_stat=lambda _pid: negative)
         with self.assertRaisesRegex(RuntimeError, "PID is invalid"):
             RESOURCES._process_stat_identity(0, read_stat=lambda _pid: stat_line(1))
+
+
+class SamplerDiagnosticTests(unittest.TestCase):
+    def test_error_sidecar_keeps_only_class_and_bounded_traceback_identity(self):
+        secret = "synthetic prompt payload must never appear"
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "samples.jsonl"
+            diagnostic = Path(str(output) + ".terminal.json")
+            argv = ["sampler", "--output", str(output), "--interval-ms", "100",
+                    "--terminal-diagnostic", str(diagnostic)]
+
+            def fail(_output, _interval, progress):
+                progress["samples_written"] = 7
+                raise RuntimeError(secret)
+
+            with patch.object(sys, "argv", argv), patch.object(RESOURCES, "sample", side_effect=fail):
+                self.assertEqual(RESOURCES.main(), 1)
+            raw = diagnostic.read_text(encoding="utf-8")
+            payload = __import__("json").loads(raw)
+            self.assertNotIn(secret, raw)
+            self.assertEqual(payload["status"], "error")
+            self.assertEqual(payload["samples_written"], 7)
+            self.assertEqual(payload["exception_type"], "RuntimeError")
+            self.assertLessEqual(len(payload["frames"]), 12)
+            self.assertTrue(all(set(frame) == {"file", "function", "line"} for frame in payload["frames"]))
+            self.assertTrue(all("/" not in frame["file"] and "\\" not in frame["file"] for frame in payload["frames"]))
+
+    def test_stopped_sidecar_is_exclusive_and_records_count(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "samples.jsonl"
+            diagnostic = Path(str(output) + ".terminal.json")
+            argv = ["sampler", "--output", str(output), "--interval-ms", "100",
+                    "--terminal-diagnostic", str(diagnostic)]
+
+            def stop(_output, _interval, progress):
+                progress["samples_written"] = 4
+
+            with patch.object(sys, "argv", argv), patch.object(RESOURCES, "sample", side_effect=stop):
+                self.assertEqual(RESOURCES.main(), 0)
+            payload = __import__("json").loads(diagnostic.read_text(encoding="utf-8"))
+            self.assertEqual(payload, {
+                "schema_version": 1, "status": "stopped", "samples_written": 4,
+                "exception_type": None, "frames": [],
+            })
+            with self.assertRaises(FileExistsError):
+                RESOURCES._write_terminal_diagnostic(diagnostic, payload)
 
 
 class ProcessSamplingTests(unittest.TestCase):

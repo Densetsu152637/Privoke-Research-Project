@@ -7,6 +7,7 @@ import {
   assertNativeParentBinding,
   assertNativeLauncherExecutableMount,
   assertCompleteResourceEvidence,
+  buildStartupIdentityDiagnostic,
   assertPreservedControlSupervisor,
   assertReceiverCapture,
   frameGrpcWebMessage,
@@ -24,6 +25,7 @@ import {
   validateDecodedOutcome,
   validatePageAnalysis,
   waitForProcessesToDisappear,
+  validateSamplerTerminalDiagnostic,
 } from "./installed-browser-evidence.mjs";
 
 test("supervisor startup diagnostics retain bounded traceback identity without exception text", () => {
@@ -212,6 +214,47 @@ test("required resource evidence rejects partial RSS, CPU, and start-tick sample
   const missingCgroupCpu = structuredClone(valid);
   missingCgroupCpu.cgroupCpuMissingSamples = 1;
   assert.throws(() => assertCompleteResourceEvidence(missingCgroupCpu), /cgroup CPU samples are incomplete/);
+});
+
+test("startup identity timeout evidence counts exact role PID/tick matches without process text", () => {
+  const rows = [
+    { roles: [
+      { role: "supervisor_bridge", pid: 10, start_ticks: 100, start_time_epoch_seconds: 12.5, command_sha256: "ignored" },
+      { role: "detector", pid: 20, start_ticks: 202, start_time_epoch_seconds: 13.5 },
+    ] },
+    { roles: [
+      { role: "supervisor_bridge", pid: 10, start_ticks: 100, start_time_epoch_seconds: null },
+      { role: "detector", pid: 20, start_ticks: 203, start_time_epoch_seconds: 13.6 },
+    ] },
+  ];
+  const result = buildStartupIdentityDiagnostic([
+    { role: "supervisor_bridge", pid: 10, startTicks: 100 },
+    { role: "detector", pid: 20, startTicks: 201 },
+  ], rows);
+  assert.equal(result.sampleRowCount, 2);
+  assert.deepEqual(result.expectedIdentities.map(({ exactPairSampleCount, exactPairFiniteStartTimeSampleCount }) =>
+    ({ exactPairSampleCount, exactPairFiniteStartTimeSampleCount })), [
+    { exactPairSampleCount: 2, exactPairFiniteStartTimeSampleCount: 1 },
+    { exactPairSampleCount: 0, exactPairFiniteStartTimeSampleCount: 0 },
+  ]);
+  assert.deepEqual(result.expectedIdentities[1].observedRoleIdentities.map(({ pid, startTicks, sampleCount }) =>
+    ({ pid, startTicks, sampleCount })), [
+    { pid: 20, startTicks: 202, sampleCount: 1 },
+    { pid: 20, startTicks: 203, sampleCount: 1 },
+  ]);
+  assert.equal(JSON.stringify(result).includes("command_sha256"), false);
+  assert.throws(() => buildStartupIdentityDiagnostic([{ role: "detector", pid: 0, startTicks: 1 }], rows), /invalid/);
+});
+
+test("sampler terminal diagnostics accept bounded frames and reject messages or paths", () => {
+  const stopped = { schema_version: 1, status: "stopped", samples_written: 12, exception_type: null, frames: [] };
+  assert.equal(validateSamplerTerminalDiagnostic(stopped), stopped);
+  const failed = { schema_version: 1, status: "error", samples_written: 3, exception_type: "RuntimeError",
+    frames: [{ file: "installed-browser-resources.py", function: "_processes", line: 177 }] };
+  assert.equal(validateSamplerTerminalDiagnostic(failed), failed);
+  assert.throws(() => validateSamplerTerminalDiagnostic({ ...failed, message: "synthetic prompt secret" }), /schema/);
+  assert.throws(() => validateSamplerTerminalDiagnostic({ ...failed,
+    frames: [{ ...failed.frames[0], file: "/private/path.py" }] }), /frame/);
 });
 
 test("resource validation failure preserves partial aggregates, counters, and construction fallback", () => {
