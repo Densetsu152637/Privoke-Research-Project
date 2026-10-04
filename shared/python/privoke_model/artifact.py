@@ -27,7 +27,11 @@ def load_artifact(path: str | Path) -> dict[str, Any]:
     if artifact_path.is_symlink():
         raise ModelArtifactError("Model artifact must not be a symbolic link.")
     try:
-        raw = artifact_path.read_text(encoding="utf-8")
+        with artifact_path.open("rb") as handle:
+            raw_bytes = handle.read(MAX_ARTIFACT_BYTES + 1)
+        if len(raw_bytes) > MAX_ARTIFACT_BYTES:
+            raise ModelArtifactError("Model artifact exceeds 8 MiB.")
+        raw = raw_bytes.decode("utf-8", errors="strict")
         payload = json.loads(raw)
         from .scratch_presence import SCRATCH_PRESENCE_MODEL_IDS, SCRATCH_PRESENCE_ARCHITECTURE
         root_pairs = json.loads(raw, object_pairs_hook=lambda pairs: pairs) if isinstance(payload, dict) else []

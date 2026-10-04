@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"log"
@@ -121,6 +122,20 @@ func responseMetadata(
 			metadata["arithmetic"] = "float32_parameters_float64_features_fsum_v1"
 		}
 	}
+	if artifact.Architecture == scratchPresenceArchitecture {
+        var config scratchConfig
+        if err := json.Unmarshal(artifact.Config, &config); err == nil {
+            var compact bytes.Buffer
+            if json.Compact(&compact, artifact.Config) == nil { metadata["model_config"] = compact.String() }
+            metadata["task"] = config.Task
+            metadata["profile"] = config.Profile
+            metadata["training_mode"] = config.TrainingMode
+            metadata["text_normalization"] = config.Normalization
+            metadata["tokenizer"] = config.Tokenizer
+            metadata["pooling"] = config.Pooling
+            metadata["arithmetic"] = config.Arithmetic
+        }
+    }
 	return metadata
 }
 

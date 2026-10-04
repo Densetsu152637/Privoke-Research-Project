@@ -205,7 +205,7 @@ def validate_scratch_presence_stream_metadata(model_id: str, version: str, metad
     validate_scratch_unicode(metadata)
     if any(type(v) is not str or not v.isascii() for v in metadata.values()):
         _fail("Scratch stream metadata must be ASCII strings.")
-    if model_id not in SCRATCH_PRESENCE_MODEL_IDS or metadata["architecture"] != SCRATCH_PRESENCE_ARCHITECTURE:
+    if not isinstance(model_id, str) or model_id not in SCRATCH_PRESENCE_MODEL_IDS or metadata["architecture"] != SCRATCH_PRESENCE_ARCHITECTURE:
         _fail("Scratch stream architecture and explicit ID must match.")
     if len(metadata["model_config"].encode("utf-8")) > SCRATCH_CONFIG_MAX_BYTES:
         _fail("Scratch config exceeds 8 KiB.")

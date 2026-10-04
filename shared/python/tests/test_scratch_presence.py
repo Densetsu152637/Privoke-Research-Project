@@ -4,6 +4,7 @@ import json
 import math
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from privoke_model.artifact import (ModelArtifactError, artifact_checksum, validate_artifact,
@@ -61,7 +62,7 @@ class ScratchSchemaTests(unittest.TestCase):
             lambda a:a["config"].update(hidden_size=64),lambda a:a["config"].update(threshold=True),
             lambda a:a["config"].update(extra=1),lambda a:a["metadata"].update(extra="x"),
             lambda a:a["metadata"].update(training_steps="0490"),lambda a:a["metadata"].update(checkpoint_epoch="2"),
-            lambda a:a["metadata"].update(source_revision="Ã©"*40),lambda a:a.update(architecture="privoke_tiny_transformer_v1"),
+            lambda a:a["metadata"].update(source_revision="ÃƒÂ©"*40),lambda a:a.update(architecture="privoke_tiny_transformer_v1"),
             lambda a:a.update(model_id="privoke-balanced"),lambda a:a["parameters"]["token_embedding"].update(trainable=True),
             lambda a:a["parameters"]["token_embedding"].pop("trainable"),lambda a:a["parameters"]["head.presence.bias"].update(shape=[True]),
             lambda a:a["parameters"]["head.presence.bias"].update(extra=1)]
@@ -112,6 +113,15 @@ class ScratchSchemaTests(unittest.TestCase):
         fp=lambda x:parameter_fingerprint({k:t["values"] for k,t in x["parameters"].items()},{k:t["shape"] for k,t in x["parameters"].items()})
         self.assertEqual(fp(a),fp(b));self.assertNotEqual(a["checksum"],b["checksum"])
         self.assertEqual(math.copysign(1,a["parameters"]["head.presence.weight"]["values"][0]),-1)
+
+    def test_oversize_raw_rejected_before_json_parser(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"oversize.json"
+            path.write_bytes(b" "*(8*1024*1024+1))
+            with patch("privoke_model.artifact.json.loads", side_effect=AssertionError("parser must not run")) as parser:
+                with self.assertRaisesRegex(ModelArtifactError,"8 MiB"):
+                    load_artifact(path)
+                parser.assert_not_called()
 
     def test_shared_cross_language_fixture(self):
         a=load_artifact(Path(__file__).parent/"fixtures"/"scratch-presence-efficient.json")
