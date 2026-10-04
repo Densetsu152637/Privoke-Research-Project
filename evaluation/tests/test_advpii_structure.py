@@ -18,8 +18,14 @@ sys.path.insert(0, str(ROOT / "shared/python"))
 from privoke_eval.advpii_native import parse_native_row  # noqa: E402
 from privoke_eval.advpii_structure import (  # noqa: E402
     _EXPECTED_COMMITMENTS,
+    _EXPECTED_INPUT_SOURCE_HASHES,
     _FIXED_COVERAGE,
+    _PROTECTION_HELPER_FIELDS,
+    _PROPOSED_PARTITION_QUOTAS,
+    _PROPOSED_SOURCE_QUOTAS,
     PARQUET_SIZE,
+    PROTOCOL_SHA256,
+    RUBRIC_SHA256,
     aggregate_scan,
     canonical_json_bytes,
     open_verified_parquet,
@@ -27,6 +33,7 @@ from privoke_eval.advpii_structure import (  # noqa: E402
     require_frozen_text_inputs,
     validate_protected_union,
     validate_source_audit,
+    validate_training_data_source,
 )
 from privoke_eval.clean_augmentation_grouping import ProtectedKeys, opaque_exclusion_key  # noqa: E402
 
@@ -95,12 +102,22 @@ def _write_union(directory: Path, *, bad_coverage: bool = False):
     union_bytes = canonical_json_bytes(union) + b"\n"
     union_path.write_bytes(union_bytes)
     receipt = {
+        "schema_version": 1,
         "status": "protected_union_built",
+        "source_revision": "a" * 40,
+        "prepared_source_revision": "85c7f475fb8ebd1529254e4135b774d98505ddb1",
         "artifact_file": "protected-union.json",
         "artifact_sha256": hashlib.sha256(union_bytes).hexdigest(),
         "union_sha256": union_sha,
         "coverage_counts": coverage,
-        "verified_commitments": _EXPECTED_COMMITMENTS,
+        "input_source_hashes": _EXPECTED_INPUT_SOURCE_HASHES,
+        "helper_source_hashes": {
+            name: _EXPECTED_INPUT_SOURCE_HASHES["training_data_source"]
+            if name == "training_data_sha256" else _sha(name)
+            for name in sorted(_PROTECTION_HELPER_FIELDS)
+        },
+        "packages": {"python": "3.13.0"},
+        "limitations": ["Synthetic fixture; source labels remain unreviewed."],
     }
     receipt_path = directory / "receipt.json"
     receipt_bytes = canonical_json_bytes(receipt) + b"\n"
@@ -109,6 +126,26 @@ def _write_union(directory: Path, *, bad_coverage: bool = False):
 
 
 class AggregateStructureTests(unittest.TestCase):
+    def test_quota_arithmetic_matches_frozen_three_partition_protocol(self):
+        bindings = require_frozen_text_inputs(
+            ROOT / "paper/research/clean-augmentation-protocol.md",
+            ROOT / "paper/research/clean-augmentation-rubric.json",
+        )
+        self.assertEqual(bindings, {"protocol_sha256": PROTOCOL_SHA256, "rubric_sha256": RUBRIC_SHA256})
+        self.assertEqual(_PROPOSED_PARTITION_QUOTAS["train"], {
+            "positive": 2000, "negative": 1600, "hard_negative": 400,
+        })
+        self.assertEqual(_PROPOSED_PARTITION_QUOTAS["validation"], {
+            "positive": 1000, "negative": 750, "hard_negative": 250,
+        })
+        self.assertEqual(_PROPOSED_PARTITION_QUOTAS["test"], {
+            "positive": 1000, "negative": 750, "hard_negative": 250,
+        })
+        self.assertEqual(_PROPOSED_SOURCE_QUOTAS, {
+            "positive": 4000, "negative": 3100, "hard_negative": 900,
+        })
+        self.assertEqual(sum(_PROPOSED_SOURCE_QUOTAS.values()), 8000)
+
     def test_full_component_closure_precedes_protected_category_ceilings(self):
         rows = [
             parse_native_row(_row(1, 101, "positive", "Prompt Alice@example.test", value="Alice@example.test")),
@@ -231,6 +268,19 @@ class AggregateStructureTests(unittest.TestCase):
                 require_frozen_text_inputs(path, path)
             with self.assertRaisesRegex(ValueError, "Source audit bytes"):
                 validate_source_audit(path)
+            with self.assertRaisesRegex(ValueError, "normalizer source"):
+                validate_training_data_source(path)
+
+    def test_receipt_input_source_hashes_are_checked_even_when_receipt_hash_is_recomputed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            union_path, receipt_path, _ = _write_union(directory)
+            receipt = json.loads(receipt_path.read_text())
+            receipt["input_source_hashes"]["reference_train"] = "0" * 64
+            raw = canonical_json_bytes(receipt) + b"\n"
+            receipt_path.write_bytes(raw)
+            with self.assertRaisesRegex(ValueError, "input-source commitments"):
+                validate_protected_union(union_path, receipt_path, hashlib.sha256(raw).hexdigest())
 
 
 class ScannerOutputTests(unittest.TestCase):
