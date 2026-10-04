@@ -181,6 +181,7 @@ def _processes() -> tuple[list[dict[str, object]], dict[str, int]]:
             if profile_root and not _browser_match(command):
                 raise RuntimeError("Chromium profile root no longer matches the sampled process command")
             parent_pid = fresh.ppid()
+            parent_before = _process_stat_identity(parent_pid) if parent_pid > 0 else None
             memory = fresh.memory_info()
             cpu = fresh.cpu_times()
             pss_bytes = _pss_bytes(pid)
@@ -189,6 +190,14 @@ def _processes() -> tuple[list[dict[str, object]], dict[str, int]]:
                 _termination_disposition(role, profile_root, "PID exited or changed start ticks during metrics")
                 identity_races[role] = identity_races.get(role, 0) + 1
                 continue
+            parent_pid_after = fresh.ppid()
+            parent_after = _process_stat_identity(parent_pid_after) if parent_pid_after > 0 else None
+            parent_identity_stable = (
+                parent_pid_after == parent_pid
+                and parent_before is not None
+                and parent_after is not None
+                and parent_before[1] == parent_after[1]
+            )
             if not fresh.is_running():
                 # A same-identity process can exit after its metrics were read; these
                 # metrics remain bound by matching stat ticks around the reads.
@@ -198,7 +207,7 @@ def _processes() -> tuple[list[dict[str, object]], dict[str, int]]:
                 "browser_profile_root": profile_root,
                 "pid": pid,
                 "ppid": parent_pid,
-                "parent_start_ticks": _start_ticks(int(parent_pid)) if parent_pid else None,
+                "parent_start_ticks": parent_before[1] if parent_identity_stable else None,
                 "start_time_epoch_seconds": fresh_create_time,
                 "start_ticks": before[1],
                 "rss_bytes": memory.rss if memory else None,

@@ -70,7 +70,7 @@ class StartTicksTests(unittest.TestCase):
 
 class ProcessSamplingTests(unittest.TestCase):
     @staticmethod
-    def processes(pid, *, root=False, chromium_child=False, fresh_create_time=1.0):
+    def processes(pid, *, root=False, chromium_child=False, fresh_create_time=1.0, parent_pids=None):
         command = ("chromium --user-data-dir=/tmp/profile-1" if root else
                    "chromium --type=renderer" if chromium_child else
                    "python /runtime/extension/client-runtime/src/grpc_main.py")
@@ -85,12 +85,13 @@ class ProcessSamplingTests(unittest.TestCase):
             cmdline=lambda: command.split(),
         )
         fresh_command = command
+        ppid_calls = iter(parent_pids or [1, 1])
         fresh = SimpleNamespace(
             pid=pid,
             create_time=lambda: fresh_create_time,
             is_running=lambda: True,
             cmdline=lambda: fresh_command.split(),
-            ppid=lambda: 1,
+            ppid=lambda: next(ppid_calls),
             memory_info=lambda: SimpleNamespace(rss=1234),
             cpu_times=lambda: SimpleNamespace(user=0.3, system=0.2),
         )
@@ -101,8 +102,9 @@ class ProcessSamplingTests(unittest.TestCase):
         with patch.object(RESOURCES.psutil, "process_iter", return_value=[old]), \
              patch.object(RESOURCES.psutil, "Process", return_value=fresh), \
              patch.object(RESOURCES, "_browser_process_ids", return_value=(set(), set())), \
-             patch.object(RESOURCES, "_process_stat_identity", side_effect=[("S", 75), ("S", 75)]), \
-             patch.object(RESOURCES, "_start_ticks", return_value=4), \
+             patch.object(RESOURCES, "_process_stat_identity", side_effect=[
+                 ("S", 75), ("S", 4), ("S", 75), ("S", 4),
+             ]), \
              patch.object(RESOURCES, "_pss_bytes", return_value=None):
             rows, races = RESOURCES._processes()
         self.assertEqual(races, {})
@@ -110,6 +112,7 @@ class ProcessSamplingTests(unittest.TestCase):
         self.assertEqual(rows[0]["start_ticks"], 75)
         self.assertEqual(rows[0]["rss_bytes"], 1234)
         self.assertEqual(rows[0]["cpu_seconds"], 0.5)
+        self.assertEqual(rows[0]["parent_start_ticks"], 4)
         self.assertEqual(rows[0]["command_sha256"], hashlib.sha256(
             b"python /runtime/extension/client-runtime/src/grpc_main.py").hexdigest())
 
@@ -118,9 +121,37 @@ class ProcessSamplingTests(unittest.TestCase):
         with patch.object(RESOURCES.psutil, "process_iter", return_value=[old]), \
              patch.object(RESOURCES.psutil, "Process", return_value=fresh), \
              patch.object(RESOURCES, "_browser_process_ids", return_value=(set(), set())), \
-             patch.object(RESOURCES, "_process_stat_identity", side_effect=[("S", 75), ("R", 76)]):
+             patch.object(RESOURCES, "_process_stat_identity", side_effect=[
+                 ("S", 75), ("S", 4), ("R", 76),
+             ]):
             with self.assertRaisesRegex(RuntimeError, "exited or changed start ticks"):
                 RESOURCES._processes()
+
+    def test_parent_identity_is_null_when_child_reparents_during_metric_read(self):
+        old, fresh = self.processes(654, parent_pids=[11, 12])
+        with patch.object(RESOURCES.psutil, "process_iter", return_value=[old]), \
+             patch.object(RESOURCES.psutil, "Process", return_value=fresh), \
+             patch.object(RESOURCES, "_browser_process_ids", return_value=(set(), set())), \
+             patch.object(RESOURCES, "_process_stat_identity", side_effect=[
+                 ("S", 75), ("S", 4), ("S", 75), ("S", 6),
+             ]), \
+             patch.object(RESOURCES, "_pss_bytes", return_value=None):
+            rows, _ = RESOURCES._processes()
+        self.assertEqual(rows[0]["ppid"], 11)
+        self.assertIsNone(rows[0]["parent_start_ticks"])
+
+    def test_parent_identity_is_null_when_parent_pid_is_reused(self):
+        old, fresh = self.processes(654, parent_pids=[11, 11])
+        with patch.object(RESOURCES.psutil, "process_iter", return_value=[old]), \
+             patch.object(RESOURCES.psutil, "Process", return_value=fresh), \
+             patch.object(RESOURCES, "_browser_process_ids", return_value=(set(), set())), \
+             patch.object(RESOURCES, "_process_stat_identity", side_effect=[
+                 ("S", 75), ("S", 4), ("S", 75), ("S", 5),
+             ]), \
+             patch.object(RESOURCES, "_pss_bytes", return_value=None):
+            rows, _ = RESOURCES._processes()
+        self.assertEqual(rows[0]["ppid"], 11)
+        self.assertIsNone(rows[0]["parent_start_ticks"])
 
     def test_pid_reuse_during_enumeration_drops_only_a_confirmed_child(self):
         old, fresh = self.processes(321, chromium_child=True, fresh_create_time=2.0)
