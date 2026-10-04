@@ -1,0 +1,52 @@
+# Root-operated detached jobs; no inherited whole-repository/results/data mount.
+# Supply immutable image IDs after independent image/source verification.
+x-study-job: &study-job
+  image: ${IN_HOUSE_EVALUATOR_IMAGE:?immutable evaluator image required}
+  profiles: [in-house-study]
+  init: true
+  restart: "no"
+  read_only: true
+  cpus: 4.0
+  mem_limit: 4g
+  pids_limit: 128
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: [/tmp:size=128m,mode=1777,noexec,nosuid,nodev]
+  environment:
+    PYTHONPATH: /workspace/evaluation:/workspace/shared/python:/workspace/extension/client-runtime/generated
+    PYTHONDONTWRITEBYTECODE: "1"
+    PRIVOKE_EVAL_IN_CONTAINER: "true"
+  entrypoint: []
+
+services:
+  in-house-evidence-job:
+    <<: *study-job
+    user: "0:0"
+    # Explicit per-job input/evidence subtree bind mounts are added by controller.
+    # Existing project default network reaches only local runtime/model services.
+  in-house-catalog-admin:
+    <<: *study-job
+    user: "10001:10001"
+    network_mode: none
+    volumes: [model-data:/models]
+  in-house-data-permissions:
+    <<: *study-job
+    user: "0:0"
+    network_mode: none
+    cap_add: [CHOWN, DAC_OVERRIDE]
+  in-house-fit-job:
+    <<: *study-job
+    image: ${IN_HOUSE_TRAINING_IMAGE:?immutable train-only image required}
+    user: "65534:65534"
+    network_mode: none
+    shm_size: 64mb
+    environment:
+      PYTHONPATH: /workspace/evaluation:/workspace/shared/python:/workspace/extension/client-runtime:/workspace/models
+      PYTHONDONTWRITEBYTECODE: "1"
+      PRIVOKE_EVAL_IN_CONTAINER: "true"
+      OMP_NUM_THREADS: "4"
+      MKL_NUM_THREADS: "4"
+      OPENBLAS_NUM_THREADS: "4"
+      NUMEXPR_NUM_THREADS: "4"
+      TMPDIR: /tmp
+    entrypoint: []
