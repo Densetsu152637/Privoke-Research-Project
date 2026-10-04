@@ -534,6 +534,65 @@ def _class_assignment_names(node: ast.ClassDef) -> set[str]:
     return names
 
 
+def _closure_value_matches(actual: Any, expected: Any, *, actual_module: object,
+                           scratch_module: object, actual_class: type,
+                           expected_class: type, depth: int = 0) -> bool:
+    if depth > 8:
+        return False
+    if actual is actual_class and expected is expected_class:
+        return True
+    if inspect.isfunction(actual) and inspect.isfunction(expected):
+        if (actual.__code__ != expected.__code__
+                or actual.__globals__ is not vars(actual_module)
+                or expected.__globals__ is not vars(scratch_module)
+                or actual.__qualname__ != expected.__qualname__
+                or not _semantic_value_equal(actual.__defaults__, expected.__defaults__,
+                                             actual_module=actual_module, scratch_module=scratch_module)
+                or not _semantic_value_equal(actual.__kwdefaults__, expected.__kwdefaults__,
+                                             actual_module=actual_module, scratch_module=scratch_module)
+                or not _semantic_value_equal(actual.__annotations__, expected.__annotations__,
+                                             actual_module=actual_module, scratch_module=scratch_module)):
+            return False
+        return _closure_matches(actual, expected, actual_module=actual_module,
+                                scratch_module=scratch_module, actual_class=actual_class,
+                                expected_class=expected_class, depth=depth + 1)
+    return _semantic_value_equal(actual, expected, actual_module=actual_module,
+                                 scratch_module=scratch_module)
+
+
+def _closure_matches(actual_fn: types.FunctionType, expected_fn: types.FunctionType, *,
+                     actual_module: object, scratch_module: object, actual_class: type,
+                     expected_class: type, depth: int = 0) -> bool:
+    actual_cells, expected_cells = actual_fn.__closure__ or (), expected_fn.__closure__ or ()
+    if (actual_fn.__code__.co_freevars != expected_fn.__code__.co_freevars
+            or len(actual_cells) != len(expected_cells)):
+        return False
+    for actual_cell, expected_cell in zip(actual_cells, expected_cells, strict=True):
+        try:
+            actual_value, expected_value = actual_cell.cell_contents, expected_cell.cell_contents
+        except ValueError:
+            actual_empty = _cell_is_empty(actual_cell)
+            expected_empty = _cell_is_empty(expected_cell)
+            if actual_empty != expected_empty:
+                return False
+            if actual_empty:
+                continue
+            actual_value, expected_value = actual_cell.cell_contents, expected_cell.cell_contents
+        if not _closure_value_matches(actual_value, expected_value, actual_module=actual_module,
+                                      scratch_module=scratch_module, actual_class=actual_class,
+                                      expected_class=expected_class, depth=depth):
+            return False
+    return True
+
+
+def _cell_is_empty(cell: Any) -> bool:
+    try:
+        cell.cell_contents
+    except ValueError:
+        return True
+    return False
+
+
 def _attest_module_globals(module: object, scratch: object, tree: ast.Module,
                            functions: list[tuple[str | None, str, int]]) -> None:
     function_names = {(owner, name) for owner, name, _line in functions}
@@ -576,6 +635,11 @@ def _attest_module_globals(module: object, scratch: object, tree: ast.Module,
                             or not _semantic_value_equal(left.__kwdefaults__, right.__kwdefaults__,
                                                          actual_module=module, scratch_module=scratch)):
                         _fail("attest_code", "source_dataclass_method_mismatch")
+                    if (attr == "__init__"
+                            and not _closure_matches(left, right, actual_module=module,
+                                                     scratch_module=scratch, actual_class=actual_class,
+                                                     expected_class=expected_class)):
+                        _fail("attest_code", "source_dataclass_constructor_closure_mismatch")
             continue
         if (None, name) in function_names:
             actual_fn = module_globals.get(name)
@@ -928,6 +992,23 @@ def _verify_execution_edge(source_root: Path, trust: InHousePreparationTrust,
     _recheck_code(source_root, expected)
 
 
+def _generated_constructor_snapshot() -> tuple[Any, ...]:
+    entries = []
+    for module, class_name in ((grouping, "GroupingRow"), (grouping, "NativeIdentifier"),
+                               (native, "ParsedNativeRow")):
+        cls = _class_at(module, class_name)
+        constructor = vars(cls).get("__init__")
+        if not inspect.isfunction(constructor):
+            _fail("parse_source", "constructor_binding_changed")
+        closure = tuple((cell, not _cell_is_empty(cell),
+                         None if _cell_is_empty(cell) else cell.cell_contents)
+                        for cell in (constructor.__closure__ or ()))
+        entries.append((module, class_name, cls, constructor, constructor.__code__,
+                        constructor.__globals__, constructor.__defaults__, constructor.__kwdefaults__,
+                        constructor.__annotations__, closure))
+    return tuple(entries)
+
+
 def _parser_contract_snapshot() -> tuple[Any, ...]:
     functions = (native.parse_native_row, native.validate_arrow_schema)
     return (
@@ -935,12 +1016,13 @@ def _parser_contract_snapshot() -> tuple[Any, ...]:
         tuple((fn, fn.__code__, fn.__defaults__, fn.__kwdefaults__, fn.__annotations__, fn.__globals__)
               for fn in functions),
         tuple((name, vars(native).get(name)) for name in _PARSER_CONSTANTS),
+        _generated_constructor_snapshot(),
     )
 
 
 def _verify_parser_edge(snapshot: tuple[Any, ...]) -> None:
     try:
-        parser_alias, schema_alias, row_type, identifier_type, functions, constants = snapshot
+        parser_alias, schema_alias, row_type, identifier_type, functions, constants, constructors = snapshot
         if (parse_native_row is not parser_alias or parse_native_row is not native.parse_native_row
                 or parse_native_row.__globals__ is not vars(native)
                 or validate_arrow_schema is not schema_alias or validate_arrow_schema is not native.validate_arrow_schema
@@ -955,6 +1037,27 @@ def _verify_parser_edge(snapshot: tuple[Any, ...]) -> None:
         for name, expected in constants:
             if not _semantic_value_equal(vars(native).get(name), expected):
                 _fail("parse_source", "parser_constant_changed")
+        for (module, class_name, cls, constructor, code, globals_dict, defaults, kwdefaults,
+             annotations, closure) in constructors:
+            current_cls = _class_at(module, class_name)
+            current = vars(current_cls).get("__init__")
+            if (current_cls is not cls or current is not constructor or current.__code__ is not code
+                    or current.__globals__ is not globals_dict or globals_dict is not vars(module)
+                    or current.__defaults__ is not defaults or current.__kwdefaults__ is not kwdefaults
+                    or current.__annotations__ is not annotations
+                    or len(current.__closure__ or ()) != len(closure)):
+                _fail("parse_source", "parser_constructor_changed")
+            for cell, has_value, value in closure:
+                if not any(current_cell is cell for current_cell in (current.__closure__ or ())):
+                    _fail("parse_source", "parser_constructor_changed")
+                try:
+                    actual_value = cell.cell_contents
+                except ValueError:
+                    if has_value:
+                        _fail("parse_source", "parser_constructor_changed")
+                    continue
+                if not has_value or actual_value is not value:
+                    _fail("parse_source", "parser_constructor_changed")
         _check_semantic_contracts()
     except InHousePreparationError:
         raise

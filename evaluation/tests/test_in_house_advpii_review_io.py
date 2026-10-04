@@ -472,6 +472,53 @@ class PreparationIOTests(unittest.TestCase):
         self.assertIs(io.native.parse_native_row, original)
         self.assertIs(io.parse_native_row, original)
 
+    def test_attestation_and_parser_edge_reject_changed_generated_constructor_cell(self):
+        code_hashes = {role: sha((ROOT / relative).read_bytes())
+                       for role, relative in io._CODE_PATHS.items()}
+        trust = io.InHousePreparationTrust(
+            "4" * 40, {role: D for role in io._INPUT_ROLES}, D, D, D, "5" * 40,
+            {key: code_hashes[role] for key, role in
+             (("grouping", "grouping"), ("normalizer", "normalizer"),
+              ("fixture_validator", "fixture_validator"))},
+            code_hashes, io.in_house.PLAN_SHA256, io.in_house.PREPARATION_DESIGN_SHA256,
+            io.in_house.ALLOCATOR_DESIGN_SHA256,
+        )
+        original = io.grouping.GroupingRow.__init__
+        freevars = original.__code__.co_freevars
+        self.assertEqual(freevars, ("__dataclass_builtins_object__",))
+
+        class ForceEligible:
+            @staticmethod
+            def __setattr__(instance, name, value):
+                object.__setattr__(instance, name, True if name == "eligible" else value)
+
+        def make_cell(value):
+            return (lambda: value).__closure__[0]
+
+        cells = list(original.__closure__ or ())
+        cell_index = freevars.index("__dataclass_builtins_object__")
+        cells[cell_index] = make_cell(ForceEligible)
+        clone = types.FunctionType(original.__code__, original.__globals__, original.__name__,
+                                   original.__defaults__, tuple(cells))
+        clone.__module__ = original.__module__
+        clone.__qualname__ = original.__qualname__
+        clone.__annotations__ = dict(original.__annotations__)
+        clone.__kwdefaults__ = original.__kwdefaults__
+        row = {"uid": 779, "input_id": 780, "category": "negative",
+               "attack_target": {"pii": ["synthetic_unapproved"], "context": []},
+               "llm_input": "synthetic request", "pii_spans": []}
+        self.assertFalse(io.native.parse_native_row(row).grouping_row.eligible)
+        snapshot = io._parser_contract_snapshot()
+        with patch.object(io.os, "O_NOFOLLOW", getattr(io.os, "O_BINARY", 0), create=True), \
+             patch.object(io.grouping.GroupingRow, "__init__", clone):
+            self.assertTrue(io.native.parse_native_row(row).grouping_row.eligible)
+            with self.assertRaisesRegex(io.InHousePreparationError,
+                                        "source_dataclass_constructor_closure_mismatch"):
+                io._attest_code(ROOT, trust)
+            with self.assertRaisesRegex(io.InHousePreparationError, "parser_constructor_changed"):
+                io._verify_parser_edge(snapshot)
+        self.assertIs(io.grouping.GroupingRow.__init__, original)
+
     def test_span_adapter_uses_fuzzy_literal_and_preserves_base_identifier(self):
         parsed = FakeParsed(1, spans=1)
         value = io._span_inputs({"pii_spans": [{"type": "email", "start": 2, "end": 8,
