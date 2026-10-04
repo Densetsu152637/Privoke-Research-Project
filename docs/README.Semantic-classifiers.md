@@ -32,7 +32,14 @@ Only the newest version of each model ID is retained in memory. Prompts never go
 
 `PrivokeRuntimeService.ComputeSemanticGradients` also executes inside this boundary. It accepts a bounded labeled batch, reuses the cached streamed model, computes and bounds classification-head deltas, and returns the exact base version plus fingerprints and metrics. Model tensors are never sent to the fuzzer.
 
-This is now a real trainable neural artifact rather than the previous regex-feature calibration placeholder. It is intentionally a compact research transformer, not a general-purpose conversational LLM. Its small size lets the repository demonstrate persistence, transport, local execution, and fuzzer fine-tuning without an external model download.
+The generated transformer is a compact research classifier, not a general-purpose
+conversational LLM. Its encoder starts from seeded NumPy random initialization;
+the baseline generator bootstraps only the six sensitivity, visibility, and
+category head tensors on a small synthetic phrase curriculum. The current
+semantic update path is head-only and does not use external pretrained weights.
+See [in-house model training status](in-house-model-training.md) for this
+implemented path and the separately accepted, not-yet-validated end-to-end
+training direction.
 
 ## Separate Annotation-Presence Model
 

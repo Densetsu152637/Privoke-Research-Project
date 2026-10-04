@@ -22,9 +22,10 @@ Commands in these guides retain their original working-directory assumptions. St
 | [Telemetry](README.Telemetry-service.md) | Metadata ingestion and storage |
 | [Shared contracts](README.Shared-contracts.md) | Protobuf and shared Python packages |
 | [Model artifacts](README.Model-artifacts.md) | Model storage and formats |
+| [In-house model training status](in-house-model-training.md) | Current randomly initialized/head-only training and the separately accepted end-to-end training direction |
 | [Sparse presence profile results](presence-model-improvements.md) | Validation-selected binary annotation-presence profiles and matched runtime measurements |
 | [PII dataset analysis](PII-dataset-analysis.md) | Pinned source preparation, offline fit and verified RPC comparison; final remains unscored |
-| [Prospective clean-data augmentation](../paper/research/clean-augmentation-protocol.md) | Metadata/design preflight, grouped source review, whole-prompt rubric and fixed study gates; no AdvPIIBench candidate rows or new scores |
+| [Prospective clean-data augmentation](../paper/research/clean-augmentation-protocol.md) | AdvPIIBench structural scan of 104,728 rows and protected-key scan complete; blinded whole-prompt review, quota-feasible partitions, fitting, and scoring remain pending |
 | [Contextual cascade results](contextual-cascade-results.md) | Development cascade and provisional contextual-fixture comparison; final remains unscored |
 | [Evaluation](README.Evaluation.md) | Datasets, experiments and metrics |
 | [Regex evaluation results](README.Regex-evaluation-results.md) | Existing evaluation report |
