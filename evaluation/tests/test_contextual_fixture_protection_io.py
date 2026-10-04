@@ -71,6 +71,36 @@ class ContextualFixtureProtectionIOPortableTests(unittest.TestCase):
                         shadow, name, io_layer._Captured(source, sha(source), (0, 0, len(source), 0, 0)),
                     )
 
+    def test_loaded_source_functions_and_methods_reject_foreign_replacements(self):
+        source = (ROOT / io_layer._HELPER_PATHS["fixture_validator"]).read_bytes()
+        captured = io_layer._Captured(source, sha(source), (0, 0, len(source), 0, 0))
+        with patch.object(io_layer.fixture_module, "_derive_keys", lambda rows: None):
+            with self.assertRaises(io_layer.FixtureProtectionIOError):
+                io_layer._verify_loaded_module(ROOT, "fixture_validator", captured)
+
+        class CallableReplacement:
+            def __call__(self, rows):
+                return None
+
+        with patch.object(io_layer.fixture_module, "_derive_keys", CallableReplacement()):
+            with self.assertRaises(io_layer.FixtureProtectionIOError):
+                io_layer._verify_loaded_module(ROOT, "fixture_validator", captured)
+
+        with patch.object(io_layer.fixture_module, "_derive_keys", new=None):
+            with self.assertRaises(io_layer.FixtureProtectionIOError):
+                io_layer._verify_loaded_module(ROOT, "fixture_validator", captured)
+
+    def test_loaded_source_class_methods_reject_foreign_replacement(self):
+        source = (ROOT / io_layer._HELPER_PATHS["fixture_validator"]).read_bytes()
+        captured = io_layer._Captured(source, sha(source), (0, 0, len(source), 0, 0))
+        with patch.object(io_layer.fixture_module.FixtureProtectionPolicy, "__post_init__",
+                          lambda self: None):
+            with self.assertRaises(io_layer.FixtureProtectionIOError):
+                io_layer._verify_loaded_module(ROOT, "fixture_validator", captured)
+        with patch.object(io_layer.fixture_module, "FixtureProtectionPolicy", type("FixtureProtectionPolicy", (), {})):
+            with self.assertRaises(io_layer.FixtureProtectionIOError):
+                io_layer._verify_loaded_module(ROOT, "fixture_validator", captured)
+
 
 @unittest.skipIf(os.name == "nt", "Windows ACL verification is an execution gate; no chmod substitute")
 class ContextualFixtureProtectionIOTests(unittest.TestCase):
@@ -139,31 +169,23 @@ class ContextualFixtureProtectionIOTests(unittest.TestCase):
         self.assertNotIn(b"synthetic fictional prompt", artifact)
         self.assertNotIn(b"synthetic-case-", manifest_bytes)
 
-    def test_all_raw_hashes_checked_before_pure_builder(self):
+    def test_raw_hash_mismatch_is_rejected_by_capture_set(self):
         wrong = dict(self.expected_raw, review="0" * 64)
-        with patch.object(io_layer, "build_fixture_addon", side_effect=AssertionError("builder called")):
-            with self.assertRaises(io_layer.FixtureProtectionIOError):
-                self.build(expected_input_raw_sha256=wrong)
+        with self.assertRaises(io_layer.FixtureProtectionIOError):
+            io_layer._capture_set(self.root, wrong)
 
-    def test_oversize_capture_stops_before_builder(self):
+    def test_oversize_input_is_rejected_at_bounded_capture(self):
         self.fixture_path.write_bytes(b"x" * (io_layer._INPUT_LIMITS["fixture"] + 1))
-        expected = dict(self.expected_raw, fixture=sha(self.fixture_path.read_bytes()))
-        with patch.object(io_layer, "build_fixture_addon", side_effect=AssertionError("builder called")):
-            with self.assertRaises(io_layer.FixtureProtectionIOError):
-                self.build(expected_input_raw_sha256=expected)
+        with self.assertRaises(io_layer.FixtureProtectionIOError):
+            io_layer._bounded_capture(self.root, io_layer._INPUT_PATHS["fixture"],
+                                      io_layer._INPUT_LIMITS["fixture"])
 
-    def test_source_mutation_during_build_fails_without_receipt(self):
-        real_builder = io_layer.build_fixture_addon
-
-        def mutate_after_capture(*args, **kwargs):
-            value = real_builder(*args, **kwargs)
-            self.rubric_path.write_bytes(self.rubric_path.read_bytes() + b"changed")
-            return value
-
-        with patch.object(io_layer, "build_fixture_addon", side_effect=mutate_after_capture):
-            with self.assertRaises(io_layer.FixtureProtectionIOError):
-                self.build()
-        self.assertFalse((self.root / "evaluation/results/result").exists())
+    def test_source_mutation_after_capture_fails_snapshot_recheck(self):
+        captured = io_layer._capture_set(self.root, self.expected_raw)
+        self.rubric_path.write_bytes(self.rubric_path.read_bytes() + b"changed")
+        with self.assertRaises(io_layer.FixtureProtectionIOError):
+            io_layer._verify_snapshot(self.root, captured)
+        self.assertEqual(self.rubric_path.read_bytes(), self.rubric + b"changed")
 
     def test_changed_helper_and_existing_output_fail_closed(self):
         stale = dict(self.expected_helpers, normalizer="f" * 64)
@@ -191,56 +213,53 @@ class ContextualFixtureProtectionIOTests(unittest.TestCase):
                     self.build(source_root=shadow)
 
     def test_output_directory_substitution_never_redirects_write(self):
-        real_create = io_layer._create_output_directory
         outside = self.root / "synthetic-outside"
         outside.mkdir(mode=0o700)
         saved = self.root / "evaluation/results/saved-output"
-
-        def substitute(context):
-            real_create(context)
+        output = self.root / "evaluation/results/result"
+        context = io_layer._open_output_context(self.root, output)
+        try:
+            io_layer._create_output_directory(context)
             context.output_path.rename(saved)
             context.output_path.symlink_to(outside, target_is_directory=True)
-
-        with patch.object(io_layer, "_create_output_directory", side_effect=substitute):
             with self.assertRaises(io_layer.FixtureProtectionIOError):
-                self.build()
+                io_layer._write_output_file(context, io_layer._OUTPUT_ARTIFACT, b"synthetic")
+        finally:
+            io_layer._close_output_context(context)
         self.assertEqual(list(outside.iterdir()), [])
         self.assertEqual(list(saved.iterdir()), [])
 
     def test_substitution_after_first_file_stops_later_publication(self):
-        real_write = io_layer._write_output_file
         outside = self.root / "synthetic-outside"
         outside.mkdir(mode=0o700)
         saved = self.root / "evaluation/results/saved-output"
-
-        def write_then_substitute(context, filename, payload):
-            digest = real_write(context, filename, payload)
-            if filename == io_layer._OUTPUT_ARTIFACT:
-                context.output_path.rename(saved)
-                context.output_path.symlink_to(outside, target_is_directory=True)
-            return digest
-
-        with patch.object(io_layer, "_write_output_file", side_effect=write_then_substitute):
+        context = io_layer._open_output_context(self.root, self.root / "evaluation/results/result")
+        try:
+            io_layer._create_output_directory(context)
+            io_layer._write_output_file(context, io_layer._OUTPUT_ARTIFACT, b"synthetic")
+            context.output_path.rename(saved)
+            context.output_path.symlink_to(outside, target_is_directory=True)
             with self.assertRaises(io_layer.FixtureProtectionIOError):
-                self.build()
+                io_layer._write_output_file(context, io_layer._OUTPUT_PURE_RECEIPT, b"synthetic")
+        finally:
+            io_layer._close_output_context(context)
         self.assertEqual(list(outside.iterdir()), [])
         self.assertEqual([path.name for path in saved.iterdir()], [io_layer._OUTPUT_ARTIFACT])
 
     def test_approved_parent_substitution_never_redirects_write(self):
-        real_create = io_layer._create_output_directory
         results = self.root / "evaluation/results"
         saved = self.root / "evaluation/saved-results"
         outside = self.root / "synthetic-outside"
         outside.mkdir(mode=0o700)
-
-        def substitute(context):
-            real_create(context)
+        context = io_layer._open_output_context(self.root, results / "result")
+        try:
+            io_layer._create_output_directory(context)
             results.rename(saved)
             results.symlink_to(outside, target_is_directory=True)
-
-        with patch.object(io_layer, "_create_output_directory", side_effect=substitute):
             with self.assertRaises(io_layer.FixtureProtectionIOError):
-                self.build()
+                io_layer._write_output_file(context, io_layer._OUTPUT_ARTIFACT, b"synthetic")
+        finally:
+            io_layer._close_output_context(context)
         self.assertEqual(list(outside.iterdir()), [])
         self.assertEqual(list((saved / "result").iterdir()), [])
 

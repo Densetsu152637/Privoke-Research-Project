@@ -7,6 +7,7 @@ into logs, scans source corpora, or performs graph closure.
 
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass
 import hashlib
 import inspect
@@ -258,29 +259,79 @@ def _verify_snapshot(root: Path, captured: Mapping[str, _Captured]) -> None:
             _fail()
 
 
-def _compiled_code_index(code: types.CodeType) -> dict[str, types.CodeType]:
-    found: dict[str, types.CodeType] = {}
+def _compiled_code_index(code: types.CodeType) -> dict[tuple[str, int], types.CodeType]:
+    found: dict[tuple[str, int], types.CodeType] = {}
     pending = [code]
     while pending:
         item = pending.pop()
-        found[item.co_qualname] = item
+        found[(item.co_qualname, item.co_firstlineno)] = item
         pending.extend(value for value in item.co_consts if isinstance(value, types.CodeType))
     return found
 
 
-def _module_code_objects(module: object) -> dict[str, types.CodeType]:
-    found: dict[str, types.CodeType] = {}
-    module_name = getattr(module, "__name__", None)
-    for value in vars(module).values():
-        if inspect.isfunction(value) and value.__module__ == module_name:
-            found[value.__qualname__] = value.__code__
-        elif inspect.isclass(value) and value.__module__ == module_name:
-            for member in vars(value).values():
-                if isinstance(member, (staticmethod, classmethod)):
-                    member = member.__func__
-                if inspect.isfunction(member) and member.__module__ == module_name:
-                    found[member.__qualname__] = member.__code__
-    return found
+def _source_bindings(
+    source_text: str,
+) -> tuple[tuple[str, ...], tuple[tuple[str | None, str, int], ...]]:
+    try:
+        tree = ast.parse(source_text)
+    except SyntaxError:
+        _fail()
+    classes: list[str] = []
+    bindings: list[tuple[str | None, str, int]] = []
+
+    def visit(body: list[ast.stmt], class_name: str | None = None) -> None:
+        for node in body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                bindings.append((class_name, node.name, node.lineno))
+            elif isinstance(node, ast.ClassDef):
+                qualified = f"{class_name}.{node.name}" if class_name else node.name
+                classes.append(qualified)
+                visit(node.body, qualified)
+            else:
+                for field_name in ("body", "orelse", "finalbody"):
+                    nested = getattr(node, field_name, None)
+                    if isinstance(nested, list) and all(isinstance(item, ast.stmt) for item in nested):
+                        visit(nested, class_name)
+                handlers = getattr(node, "handlers", None)
+                if isinstance(handlers, list):
+                    for handler in handlers:
+                        visit(handler.body, class_name)
+                cases = getattr(node, "cases", None)
+                if isinstance(cases, list):
+                    for case in cases:
+                        visit(case.body, class_name)
+
+    visit(tree.body)
+    return tuple(classes), tuple(bindings)
+
+
+def _resolve_class(module: object, qualified_name: str) -> type:
+    value: object = module
+    for part in qualified_name.split("."):
+        if inspect.ismodule(value):
+            value = vars(value).get(part)
+        elif inspect.isclass(value):
+            value = vars(value).get(part)
+        else:
+            _fail()
+    if not inspect.isclass(value):
+        _fail()
+    return value
+
+
+def _bound_source_function(module: object, class_name: str | None, name: str) -> object:
+    if class_name is None:
+        return vars(module).get(name)
+    owner = _resolve_class(module, class_name)
+    return vars(owner).get(name)
+
+
+def _live_callable_candidates(value: object) -> tuple[types.FunctionType, ...]:
+    if isinstance(value, property):
+        return tuple(item for item in (value.fget, value.fset, value.fdel) if inspect.isfunction(item))
+    if isinstance(value, (staticmethod, classmethod)):
+        value = value.__func__
+    return (value,) if inspect.isfunction(value) else ()
 
 
 def _verify_loaded_module(root: Path, name: str, source: _Captured) -> None:
@@ -309,17 +360,31 @@ def _verify_loaded_module(root: Path, name: str, source: _Captured) -> None:
     if not isinstance(loaded_module_code, types.CodeType) or loaded_module_code != compiled:
         _fail()
     compiled_objects = _compiled_code_index(compiled)
-    loaded_objects = _module_code_objects(module)
-    if not loaded_objects:
+    module_name = module.__name__
+    class_names, definitions = _source_bindings(source_text)
+    if not definitions and not class_names:
         _fail()
-    for qualname, loaded in loaded_objects.items():
-        expected = compiled_objects.get(qualname)
-        if expected is None and qualname.rsplit(".", 1)[-1] in {
-            "__init__", "__repr__", "__eq__", "__hash__", "__setattr__", "__delattr__",
-        }:
-            continue  # Methods synthesized by @dataclass have no source code object.
-        if expected is None or loaded != expected:
+    for qualified_name in class_names:
+        live_class = _resolve_class(module, qualified_name)
+        if (live_class.__module__ != module_name or
+                live_class.__qualname__ != qualified_name):
             _fail()
+    for class_name, name, line in definitions:
+        qualified_name = f"{class_name}.{name}" if class_name else name
+        key = (qualified_name, line)
+        expected = compiled_objects.get(key)
+        value = _bound_source_function(module, class_name, name)
+        candidates = _live_callable_candidates(value)
+        if expected is None or not candidates:
+            _fail()
+        matching = [candidate for candidate in candidates if candidate.__code__.co_firstlineno == line]
+        if len(matching) != 1:
+            _fail()
+        live = matching[0]
+        if live.__module__ != module_name or live.__code__ != expected:
+            _fail()
+    # Dataclass-generated methods have no AST binding and are deliberately not
+    # treated as source-defined live bindings.
 
 
 def _verify_code(root: Path, expected_helpers: Mapping[str, str], expected_adapter: str) -> None:
