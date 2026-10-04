@@ -156,6 +156,13 @@ export function isLinuxProcessIdentityReaped(statLine, expectedIdentity) {
   return classifyLinuxProcessStat(statLine, expectedIdentity) === "different_process";
 }
 
+export function sessionCleanupProcessDisposition(statLine, expectedIdentity) {
+  const state = classifyLinuxProcessStat(statLine, expectedIdentity);
+  if (state === "different_process") return "identity_gone_or_reused";
+  if (state === "exited") return "zombie_must_be_reaped";
+  return "refuse_still_running";
+}
+
 export function assertOwnedDetectorIdentity(identity, expected) {
   assert.ok(expected, "detector PID is not owned by this experiment");
   assert.equal(identity.pid, expected.pid);

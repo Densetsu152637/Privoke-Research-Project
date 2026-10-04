@@ -18,6 +18,7 @@ import {
   classifyLinuxProcessStat,
   isLinuxProcessIdentityReaped,
   assertOwnedDetectorIdentity,
+  sessionCleanupProcessDisposition,
   validateAnalyzeRequest,
   validateAnalyzeResponse,
   validateDecodedOutcome,
@@ -88,6 +89,9 @@ test("owned process termination accepts only the expected identity's zombie/dead
   assert.equal(isLinuxProcessIdentityReaped(stat(452, "S", 100), expected), false);
   assert.equal(isLinuxProcessIdentityReaped(stat(452, "S", 101), expected), true);
   assert.throws(() => classifyLinuxProcessStat("malformed", expected), /PID is missing/);
+  assert.equal(sessionCleanupProcessDisposition(stat(452, "Z", 100), expected), "zombie_must_be_reaped");
+  assert.equal(sessionCleanupProcessDisposition(stat(453, "Z", 100), expected), "identity_gone_or_reused");
+  assert.equal(sessionCleanupProcessDisposition(stat(452, "S", 100), expected), "refuse_still_running");
 });
 
 test("detector stop identity retains exact child PID, start ticks and supervisor parent", () => {
@@ -96,6 +100,14 @@ test("detector stop identity retains exact child PID, start ticks and supervisor
   assert.throws(() => assertOwnedDetectorIdentity({ ...expected, parentPid: 325 }, expected), /strictly equal/);
   assert.throws(() => assertOwnedDetectorIdentity({ ...expected, startTicks: 101 }, expected), /reused/);
   assert.throws(() => assertOwnedDetectorIdentity({ ...expected, command: "python worker.py" }, expected));
+});
+
+test("session cleanup requires reaping a same-identity zombie but accepts PID reuse and refuses live state", () => {
+  const expected = { pid: 452, startTicks: 100 };
+  const stat = (pid, state, ticks) => `${pid} (python3) ${state} ${Array(18).fill("0").join(" ")} ${ticks}`;
+  assert.equal(sessionCleanupProcessDisposition(stat(452, "Z", 100), expected), "zombie_must_be_reaped");
+  assert.equal(sessionCleanupProcessDisposition(stat(453, "Z", 100), expected), "identity_gone_or_reused");
+  assert.equal(sessionCleanupProcessDisposition(stat(452, "S", 100), expected), "refuse_still_running");
 });
 
 test("strict gRPC-Web framing accepts one request and one response plus final trailers", () => {

@@ -37,6 +37,7 @@ import {
   classifyLinuxProcessStat,
   isLinuxProcessIdentityReaped,
   assertOwnedDetectorIdentity,
+  sessionCleanupProcessDisposition,
   parseGrpcWebFrames,
   validateDecodedOutcome,
   validatePageAnalysis,
@@ -1252,8 +1253,15 @@ async function finishSession() {
   }
   const current = [...startedProcesses.entries()];
   for (const [pid, identity] of current) {
-    await stopOwnedProcess(identity).catch(() => {});
+    try { await stopOwnedProcess(identity); }
+    catch {
+      if (!cleanupError) cleanupError = new Error("owned process cleanup could not be verified");
+    }
     startedProcesses.delete(pid);
+  }
+  for (const termination of processTerminationEvidence.filter((item) =>
+    item.operation === "session_cleanup" && ["Z", "X"].includes(item.state))) {
+    await waitOwnedProcessReaped(termination, 10_000, "session cleanup");
   }
   cdp?.close();
   cdp = null;
@@ -1390,9 +1398,31 @@ async function signalVerified(identity, signalName, operation = "controlled_sign
 }
 
 async function stopOwnedProcess(identity) {
-  const current = await processIdentity(identity.pid).catch(() => null);
+  let current;
+  try { current = await processIdentity(identity.pid); }
+  catch (error) {
+    let statLine;
+    try { statLine = await readFile(join("/proc", String(identity.pid), "stat"), "utf8"); }
+    catch (statError) {
+      if (statError?.code === "ENOENT") return;
+      throw statError;
+    }
+    const disposition = sessionCleanupProcessDisposition(statLine, identity);
+    if (disposition === "identity_gone_or_reused") return;
+    if (disposition === "refuse_still_running") throw error;
+    const state = statLine.slice(statLine.lastIndexOf(")") + 2).split(/\s+/)[0];
+    const termination = { pid: identity.pid, startTicks: identity.startTicks,
+      operation: "session_cleanup", state, result: "exited" };
+    processTerminationEvidence.push(termination);
+    await waitOwnedProcessReaped(termination, 10_000, "session cleanup");
+    return;
+  }
   if (!current) return;
-  assert.equal(current.startTicks, identity.startTicks, "cleanup PID reuse mismatch");
+  if (current.startTicks !== identity.startTicks) {
+    processTerminationEvidence.push({ pid: identity.pid, startTicks: identity.startTicks,
+      operation: "session_cleanup", state: null, result: "different_process" });
+    return;
+  }
   assert.equal(current.commandSha256, identity.commandSha256, "cleanup command mismatch");
   if (current.command.includes("extension/runtime-supervisor/src/main.py")) {
     assert.ok(current.command.includes("/workspace/extension/runtime-supervisor/src/main.py"));
@@ -1556,7 +1586,7 @@ async function waitOwnedProcessTerminated(identity, timeoutMs, operation) {
   throw new Error(`owned process ${identity.pid} remained live after SIGTERM`);
 }
 
-async function waitOwnedProcessReaped(termination, timeoutMs) {
+async function waitOwnedProcessReaped(termination, timeoutMs, phase = "recovery") {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     let statLine;
@@ -1572,7 +1602,7 @@ async function waitOwnedProcessReaped(termination, timeoutMs) {
     }
     await delay(50);
   }
-  throw new Error(`owned process ${termination.pid} zombie remained after recovery parent status poll`);
+  throw new Error(`owned process ${termination.pid} zombie remained after ${phase} parent reaping`);
 }
 
 async function waitNoProcessContains(profileFragment, timeoutMs) {
