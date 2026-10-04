@@ -16,6 +16,8 @@ import {
   mountEvidenceForPath,
   isBeforeFirstFixtureRequest,
   classifyLinuxProcessStat,
+  isLinuxProcessIdentityReaped,
+  assertOwnedDetectorIdentity,
   validateAnalyzeRequest,
   validateAnalyzeResponse,
   validateDecodedOutcome,
@@ -75,12 +77,25 @@ test("startup diagnostics are disabled as soon as fixture dispatch begins, even 
 });
 
 test("owned process termination accepts only the expected identity's zombie/dead proc state", () => {
-  const stat = (state, ticks) => `452 (python3) ${state} ${Array(18).fill("0").join(" ")} ${ticks}`;
-  assert.equal(classifyLinuxProcessStat(stat("S", 100), 100), "running");
-  assert.equal(classifyLinuxProcessStat(stat("Z", 100), 100), "exited");
-  assert.equal(classifyLinuxProcessStat(stat("X", 100), 100), "exited");
-  assert.equal(classifyLinuxProcessStat(stat("Z", 101), 100), "different_process");
-  assert.throws(() => classifyLinuxProcessStat("malformed", 100), /state is missing/);
+  const expected = { pid: 452, startTicks: 100 };
+  const stat = (pid, state, ticks) => `${pid} (python3) ${state} ${Array(18).fill("0").join(" ")} ${ticks}`;
+  assert.equal(classifyLinuxProcessStat(stat(452, "S", 100), expected), "running");
+  assert.equal(classifyLinuxProcessStat(stat(452, "Z", 100), expected), "exited");
+  assert.equal(classifyLinuxProcessStat(stat(452, "X", 100), expected), "exited");
+  assert.equal(classifyLinuxProcessStat(stat(453, "Z", 100), expected), "different_process");
+  assert.equal(classifyLinuxProcessStat(stat(452, "Z", 101), expected), "different_process");
+  assert.equal(isLinuxProcessIdentityReaped(stat(452, "Z", 100), expected), false);
+  assert.equal(isLinuxProcessIdentityReaped(stat(452, "S", 100), expected), false);
+  assert.equal(isLinuxProcessIdentityReaped(stat(452, "S", 101), expected), true);
+  assert.throws(() => classifyLinuxProcessStat("malformed", expected), /PID is missing/);
+});
+
+test("detector stop identity retains exact child PID, start ticks and supervisor parent", () => {
+  const expected = { pid: 452, parentPid: 324, startTicks: 100, command: "/workspace/extension/client-runtime/src/grpc_main.py" };
+  assert.doesNotThrow(() => assertOwnedDetectorIdentity({ ...expected }, expected));
+  assert.throws(() => assertOwnedDetectorIdentity({ ...expected, parentPid: 325 }, expected), /strictly equal/);
+  assert.throws(() => assertOwnedDetectorIdentity({ ...expected, startTicks: 101 }, expected), /reused/);
+  assert.throws(() => assertOwnedDetectorIdentity({ ...expected, command: "python worker.py" }, expected));
 });
 
 test("strict gRPC-Web framing accepts one request and one response plus final trailers", () => {

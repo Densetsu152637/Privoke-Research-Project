@@ -134,18 +134,34 @@ export function isBeforeFirstFixtureRequest(fixtureRequestAttempted) {
   return !fixtureRequestAttempted;
 }
 
-export function classifyLinuxProcessStat(statLine, expectedStartTicks) {
+export function classifyLinuxProcessStat(statLine, expectedIdentity) {
   assert.equal(typeof statLine, "string", "Linux process stat must be text");
-  assert.ok(Number.isSafeInteger(expectedStartTicks) && expectedStartTicks >= 0,
+  assert.ok(Number.isSafeInteger(expectedIdentity?.pid) && expectedIdentity.pid > 1,
+    "expected process PID must be valid");
+  assert.ok(Number.isSafeInteger(expectedIdentity?.startTicks) && expectedIdentity.startTicks >= 0,
     "expected process start ticks must be a nonnegative integer");
+  const pid = Number(/^(\d+) \(/.exec(statLine)?.[1]);
+  assert.ok(Number.isSafeInteger(pid) && pid > 1, "Linux process PID is missing");
   const rest = statLine.slice(statLine.lastIndexOf(")") + 2).split(/\s+/);
   const state = rest[0];
   const startTicks = Number(rest[19]);
   assert.match(state ?? "", /^[A-Z]$/, "Linux process state is missing");
   assert.ok(Number.isSafeInteger(startTicks) && startTicks >= 0, "Linux process start ticks are invalid");
-  if (startTicks !== expectedStartTicks) return "different_process";
+  if (pid !== expectedIdentity.pid || startTicks !== expectedIdentity.startTicks) return "different_process";
   if (state === "Z" || state === "X") return "exited";
   return "running";
+}
+
+export function isLinuxProcessIdentityReaped(statLine, expectedIdentity) {
+  return classifyLinuxProcessStat(statLine, expectedIdentity) === "different_process";
+}
+
+export function assertOwnedDetectorIdentity(identity, expected) {
+  assert.ok(expected, "detector PID is not owned by this experiment");
+  assert.equal(identity.pid, expected.pid);
+  assert.equal(identity.startTicks, expected.startTicks, "detector PID was reused");
+  assert.equal(identity.parentPid, expected.parentPid);
+  assert.ok(identity.command.includes("extension/client-runtime/src/grpc_main.py"));
 }
 
 export function validateAnalyzeRequest(request, expected) {
