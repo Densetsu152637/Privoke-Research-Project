@@ -9,7 +9,7 @@ restarting this service or the client runtime.
 
 ## Artifact
 
-The service catalogs every valid JSON model artifact in `models`. Requests may select `privoke-efficient`, `privoke-balanced`, or `privoke-quality`; an empty ID or `latest` resolves to the configured release channel. Each artifact contains:
+At startup, the service catalogs valid JSON artifacts in `models`. Requests may select `privoke-efficient`, `privoke-balanced`, or `privoke-quality`; an empty ID or `latest` resolves to the configured release channel. Each artifact contains:
 
 - schema, model, architecture, and version identifiers,
 - transformer/tokenizer dimensions and output labels,
@@ -29,6 +29,8 @@ against the exact profile manifest. The profiles allow at most 2,000/8,000/16,00
 features per branch and 8,001/32,001/64,001 IDF-plus-head values respectively.
 Coefficient blocks contain at most 4,096 values. Config is bounded to 2 MiB and
 the existing 65,536 numeric-value and 8 MiB artifact limits remain in force.
+
+The six allowlisted `privoke-scratch-presence-{efficient,balanced,quality}-{head-only,full-encoder}` IDs use their exact `<model-id>.json` filenames. The service checks those files on each explicit request, so an atomically installed artifact is available without restarting the service. Removing a file returns `NOT_FOUND`; a present but invalid file returns `UNAVAILABLE`. Missing optional scratch files leave baseline health unchanged, while an invalid present file makes health `NOT_SERVING`. Unknown scratch IDs are never turned into filenames or discovered by a rescan, and scratch IDs cannot become `latest`.
 
 The default `latest` alias still resolves to `privoke-balanced`; installing a
 presence artifact does not change that release channel. Presence is a separate
