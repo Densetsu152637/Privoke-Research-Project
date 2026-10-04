@@ -2,7 +2,7 @@ FROM mcr.microsoft.com/playwright:v1.63.0-noble
 
 USER root
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 python3-venv python3-pip openssl procps \
+    && apt-get install -y --no-install-recommends python3 python3-venv python3-pip openssl procps xvfb xauth \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
@@ -11,7 +11,10 @@ COPY extension /workspace/extension
 COPY evaluation/Dockerfile.browser-installed /workspace/evaluation/Dockerfile.browser-installed
 COPY evaluation/compose.browser-installed.yml /workspace/evaluation/compose.browser-installed.yml
 COPY evaluation/run-installed-browser-capture.mjs /workspace/evaluation/run-installed-browser-capture.mjs
+COPY evaluation/run-installed-browser-unit-tests.mjs /workspace/evaluation/run-installed-browser-unit-tests.mjs
 COPY extension/test/installed-browser-capture.mjs /workspace/extension/test/installed-browser-capture.mjs
+COPY extension/test/installed-browser-evidence.mjs /workspace/extension/test/installed-browser-evidence.mjs
+COPY extension/test/installed-browser-evidence.test.mjs /workspace/extension/test/installed-browser-evidence.test.mjs
 COPY extension/test/installed-browser-resources.py /workspace/extension/test/installed-browser-resources.py
 COPY paper/research/installed-browser-protocol.md /workspace/paper/research/installed-browser-protocol.md
 
@@ -37,9 +40,11 @@ RUN python3 -m venv /workspace/extension/client-runtime/.venv \
     && cd /workspace/extension \
     && npm ci \
     && npm run build \
+    && command -v xvfb-run \
     && mkdir -p /opt/privoke-browser-test \
     && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install --prefix /opt/privoke-browser-test --no-save --no-package-lock playwright@1.63.0 \
-    && /workspace/extension/client-runtime/.venv/bin/python /workspace/extension/client-runtime/src/dependency_check.py
+    && /workspace/extension/client-runtime/.venv/bin/python /workspace/extension/client-runtime/src/dependency_check.py \
+    && node /workspace/evaluation/run-installed-browser-unit-tests.mjs
 
 ENV XDG_CONFIG_HOME=/tmp/privoke-xdg
 ENV XDG_DATA_HOME=/tmp/privoke-data
@@ -48,6 +53,7 @@ ENV PRIVOKE_MODEL_DEVICE=cpu
 ENV TELEMETRY_ENABLED=false
 ENV PRIVOKE_RUNTIME_START_ENABLED=false
 ENV PRIVOKE_DEV_LOG_PROMPTS=false
+ENV PRIVOKE_INSTALLED_EVIDENCE_IN_CONTAINER=true
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 WORKDIR /workspace
-CMD ["node", "/workspace/evaluation/run-installed-browser-capture.mjs"]
+CMD ["xvfb-run", "-a", "node", "/workspace/evaluation/run-installed-browser-capture.mjs"]
