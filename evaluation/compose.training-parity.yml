@@ -1,0 +1,18 @@
+# Standalone synthetic export/runtime parity gate; no services or data mounts.
+services:
+  in-house-presence-export-parity:
+    build:
+      context: ..
+      dockerfile: evaluation/Dockerfile.training-parity
+    platform: linux/amd64
+    network_mode: none
+    read_only: true
+    cpus: 4.0
+    mem_limit: 4g
+    pids_limit: 128
+    shm_size: 64mb
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
