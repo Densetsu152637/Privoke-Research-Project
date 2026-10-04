@@ -27,8 +27,31 @@ def load_artifact(path: str | Path) -> dict[str, Any]:
     if artifact_path.is_symlink():
         raise ModelArtifactError("Model artifact must not be a symbolic link.")
     try:
-        payload = json.loads(artifact_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        with artifact_path.open("rb") as handle:
+            raw_bytes = handle.read(MAX_ARTIFACT_BYTES + 1)
+        if len(raw_bytes) > MAX_ARTIFACT_BYTES:
+            raise ModelArtifactError("Model artifact exceeds 8 MiB.")
+        raw = raw_bytes.decode("utf-8", errors="strict")
+        payload = json.loads(raw)
+        from .scratch_presence import SCRATCH_PRESENCE_MODEL_IDS, SCRATCH_PRESENCE_ARCHITECTURE
+        root_pairs = json.loads(raw, object_pairs_hook=lambda pairs: pairs) if isinstance(payload, dict) else []
+        scratch_declared = any(
+            (key == "architecture" and value == SCRATCH_PRESENCE_ARCHITECTURE)
+            or (key == "model_id" and isinstance(value, str) and value in SCRATCH_PRESENCE_MODEL_IDS)
+            for key, value in root_pairs
+        )
+        if scratch_declared:
+            if len(raw.encode("utf-8")) > MAX_ARTIFACT_BYTES:
+                raise ModelArtifactError("Scratch artifact exceeds 8 MiB.")
+            def unique_object(pairs):
+                result = {}
+                for key, value in pairs:
+                    if key in result:
+                        raise ModelArtifactError("Scratch JSON contains duplicate keys.")
+                    result[key] = value
+                return result
+            payload = json.loads(raw, object_pairs_hook=unique_object)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ModelArtifactError(f"Could not load model artifact: {exc}") from exc
     validate_artifact(payload)
     return payload
@@ -40,8 +63,12 @@ def validate_artifact(payload: object) -> None:
     if payload.get("schema_version") != SCHEMA_VERSION:
         raise ModelArtifactError(f"Unsupported model schema: {payload.get('schema_version')!r}.")
     from .presence import PRESENCE_ARCHITECTURE, validate_presence_parameters
+    from .scratch_presence import SCRATCH_PRESENCE_MODEL_IDS, SCRATCH_PRESENCE_ARCHITECTURE, validate_scratch_artifact
 
-    if payload.get("architecture") not in (ARCHITECTURE_NAME, PRESENCE_ARCHITECTURE):
+    if payload.get("architecture") == SCRATCH_PRESENCE_ARCHITECTURE or (isinstance(payload.get("model_id"), str) and payload.get("model_id") in SCRATCH_PRESENCE_MODEL_IDS):
+        validate_scratch_artifact(payload)
+
+    if payload.get("architecture") not in (ARCHITECTURE_NAME, PRESENCE_ARCHITECTURE, SCRATCH_PRESENCE_ARCHITECTURE):
         raise ModelArtifactError(f"Unsupported model architecture: {payload.get('architecture')!r}.")
     for field in ("model_id", "version"):
         value = payload.get(field)
@@ -130,6 +157,9 @@ def apply_parameter_update(
     source_id: str,
 ) -> dict[str, Any]:
     validate_artifact(payload)
+    from .scratch_presence import SCRATCH_PRESENCE_ARCHITECTURE
+    if payload["architecture"] == SCRATCH_PRESENCE_ARCHITECTURE:
+        raise ModelArtifactError("Scratch artifacts only allow offline release fitting.")
     if payload["version"] != base_version:
         raise ModelArtifactError(
             f"Stale base_version {base_version!r}; current version is {payload['version']!r}."

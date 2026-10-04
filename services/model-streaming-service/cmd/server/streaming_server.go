@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"log"
@@ -50,6 +51,17 @@ func (s *streamingServer) validateRequest(req *pb.ModelParametersRequest) error 
 	}
 	if err := validateIdentifier("model_id", req.GetModelId(), false); err != nil {
 		return err
+	}
+	if isScratchModelID(req.GetModelId()) {
+		consumerID := req.GetConsumerId()
+		if consumerID == "" || len(consumerID) > 128 {
+			return status.Error(codes.InvalidArgument, "scratch consumer_id must contain 1 to 128 ASCII bytes")
+		}
+		for _, character := range consumerID {
+			if character > 127 {
+				return status.Error(codes.InvalidArgument, "scratch consumer_id must be ASCII")
+			}
+		}
 	}
 	return nil
 }
@@ -119,6 +131,22 @@ func responseMetadata(
 			metadata["profile"] = config.Profile
 			metadata["text_normalization"] = config.Normalization
 			metadata["arithmetic"] = "float32_parameters_float64_features_fsum_v1"
+		}
+	}
+	if artifact.Architecture == scratchPresenceArchitecture {
+		var config scratchConfig
+		if err := json.Unmarshal(artifact.Config, &config); err == nil {
+			var compact bytes.Buffer
+			if json.Compact(&compact, artifact.Config) == nil {
+				metadata["model_config"] = compact.String()
+			}
+			metadata["task"] = config.Task
+			metadata["profile"] = config.Profile
+			metadata["training_mode"] = config.TrainingMode
+			metadata["text_normalization"] = config.Normalization
+			metadata["tokenizer"] = config.Tokenizer
+			metadata["pooling"] = config.Pooling
+			metadata["arithmetic"] = config.Arithmetic
 		}
 	}
 	return metadata

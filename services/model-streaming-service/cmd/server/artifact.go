@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"strconv"
@@ -53,6 +54,16 @@ func loadModelArtifact(path string, expectedModelID string) (*loadedArtifact, er
 		return nil, err
 	}
 
+	// Inspect root declarations before typed tensor decoding; preserve duplicate evidence.
+	scratchDeclared, err := scratchDeclaredInRaw(raw)
+	if err != nil {
+		return nil, fmt.Errorf("decode artifact identity: %w", err)
+	}
+	if scratchDeclared {
+		if err := validateScratchJSON(raw); err != nil {
+			return nil, err
+		}
+	}
 	var artifact modelArtifact
 	if err := json.Unmarshal(raw, &artifact); err != nil {
 		return nil, fmt.Errorf("decode artifact: %w", err)
@@ -91,9 +102,17 @@ func readArtifactFile(path string) ([]byte, error) {
 	if info.Size() <= 0 || info.Size() > maxArtifactBytes {
 		return nil, fmt.Errorf("artifact size %d is outside the supported range", info.Size())
 	}
-	raw, err := os.ReadFile(path)
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open artifact: %w", err)
+	}
+	defer file.Close()
+	raw, err := io.ReadAll(io.LimitReader(file, maxArtifactBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("read artifact: %w", err)
+	}
+	if len(raw) == 0 || len(raw) > maxArtifactBytes {
+		return nil, fmt.Errorf("artifact bytes exceed supported range")
 	}
 	return raw, nil
 }
@@ -121,7 +140,7 @@ func validateModelArtifact(artifact *modelArtifact, expectedModelID string) erro
 	if artifact.SchemaVersion != expectedSchema {
 		return fmt.Errorf("unsupported artifact schema %d", artifact.SchemaVersion)
 	}
-	if artifact.Architecture != expectedArchitecture && artifact.Architecture != presenceArchitecture {
+	if artifact.Architecture != expectedArchitecture && artifact.Architecture != presenceArchitecture && artifact.Architecture != scratchPresenceArchitecture {
 		return fmt.Errorf("unsupported artifact architecture %q", artifact.Architecture)
 	}
 	if expectedModelID != "" && artifact.ModelID != expectedModelID {
@@ -136,6 +155,9 @@ func validateModelArtifact(artifact *modelArtifact, expectedModelID string) erro
 	}
 	if err := validateArtifactParameters(artifact.Parameters); err != nil {
 		return err
+	}
+	if artifact.Architecture == scratchPresenceArchitecture || isScratchModelID(artifact.ModelID) {
+		return validateScratchArtifact(artifact)
 	}
 	if artifact.Architecture == presenceArchitecture {
 		return validatePresenceArtifact(artifact)
