@@ -1,12 +1,17 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"math"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	pb "github.com/privoke/research-project/services/model-streaming-service/gen/privoke/v1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func scratchFixturePath() string {
@@ -179,5 +184,50 @@ func TestScratchCatalogCannotBecomeLatestOnConstructionOrReload(t *testing.T) {
 	catalog.latestModelID = "privoke-balanced"
 	if _, err := catalog.load(artifact.ModelID); err != nil {
 		t.Fatal("explicit offline scratch inference rejected", err)
+	}
+}
+
+func TestScratchRequestConsumerContract(t *testing.T) {
+	server := &streamingServer{}
+	cases := []struct {
+		name     string
+		consumer string
+		valid    bool
+	}{
+		{"empty", "", false},
+		{"unicode", "consumer-é", false},
+		{"control", "consumer\n", false},
+		{"delete", "consumer\x7f", false},
+		{"ASCII128", strings.Repeat("a", 128), true},
+		{"ASCII129", strings.Repeat("a", 129), false},
+	}
+	for profile := range scratchProfiles {
+		for _, suffix := range []string{"head-only", "full-encoder"} {
+			modelID := "privoke-scratch-presence-" + profile + "-" + suffix
+			for _, test := range cases {
+				t.Run(modelID+"/"+test.name, func(t *testing.T) {
+					request := &pb.ModelParametersRequest{ModelId: modelID, ConsumerId: test.consumer}
+					err := server.validateRequest(request)
+					if test.valid {
+						if err != nil {
+							t.Fatal("valid scratch consumer rejected", err)
+						}
+						return
+					}
+					if status.Code(err) != codes.InvalidArgument {
+						t.Fatal("invalid scratch consumer did not reject", err)
+					}
+					// A nil catalog proves rejection precedes catalog access.
+					if _, err := server.GetModelParameters(context.Background(), request); status.Code(err) != codes.InvalidArgument {
+						t.Fatal("unary request did not reject before catalog access", err)
+					}
+				})
+			}
+		}
+	}
+	for _, consumer := range []string{"", "consumer-é", strings.Repeat("a", 129)} {
+		if err := server.validateRequest(&pb.ModelParametersRequest{ModelId: "privoke-balanced", ConsumerId: consumer}); err != nil {
+			t.Fatal("legacy consumer contract changed", err)
+		}
 	}
 }

@@ -52,6 +52,17 @@ func (s *streamingServer) validateRequest(req *pb.ModelParametersRequest) error 
 	if err := validateIdentifier("model_id", req.GetModelId(), false); err != nil {
 		return err
 	}
+	if isScratchModelID(req.GetModelId()) {
+		consumerID := req.GetConsumerId()
+		if consumerID == "" || len(consumerID) > 128 {
+			return status.Error(codes.InvalidArgument, "scratch consumer_id must contain 1 to 128 ASCII bytes")
+		}
+		for _, character := range consumerID {
+			if character > 127 {
+				return status.Error(codes.InvalidArgument, "scratch consumer_id must be ASCII")
+			}
+		}
+	}
 	return nil
 }
 
