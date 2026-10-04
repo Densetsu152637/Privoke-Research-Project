@@ -34,61 +34,61 @@
     {
       "enum": "HEALTH",
       "definition": "Specific health-related information about a person, including medical conditions, medication or treatment, provider visits, mental health, health records, or a medical/insurance identifier.",
-      "present_when": "The prompt states, quotes, requests, or includes a concrete health fact, record, or health identifier.",
+      "present_when": "The complete prompt itself states, quotes, or includes a concrete health fact, record, or health identifier. A request for an unspecified diagnosis or other unknown health fact does not supply that fact.",
       "not_present_by_itself": "Generic medical advice, a general discussion of medicine, or the bare words 'health information' without a specific health fact."
     },
     {
       "enum": "POLITICS",
       "definition": "A person's political views, affiliation, campaign participation, or voting preference or behavior.",
-      "present_when": "The prompt contains or requests a specific person's political view, affiliation, campaign participation, or vote.",
+      "present_when": "The complete prompt itself states, quotes, or includes a specific person's political view, affiliation, campaign participation, or vote. A request for an unknown view or vote does not supply it.",
       "not_present_by_itself": "General discussion of politics, an election, or a political institution without a person's view, affiliation, participation, or vote."
     },
     {
       "enum": "RELIGION",
       "definition": "A person's religious belief, affiliation, practice, or worship.",
-      "present_when": "The prompt contains or requests a specific person's belief, affiliation, religious practice, or worship information.",
+      "present_when": "The complete prompt itself states, quotes, or includes a specific person's belief, affiliation, religious practice, or worship information. A request for an unknown belief or practice does not supply it.",
       "not_present_by_itself": "General discussion of religion, religious history, or a place of worship without information about a person's belief or practice."
     },
     {
       "enum": "CRIMINAL",
       "definition": "A person's criminal history, charge, arrest, conviction, or legal order or case fact within the source contract's criminal/legal scope.",
-      "present_when": "The prompt states or requests a concrete person's criminal or covered legal-history/case information.",
+      "present_when": "The complete prompt itself states, quotes, or includes a concrete person's criminal or covered legal-history/case information. A request for unknown history or case information does not supply it.",
       "not_present_by_itself": "General legal advice, fictional crime discussion without a concrete covered fact, or a bare legal-topic term."
     },
     {
       "enum": "FINANCIAL",
       "definition": "Specific financial information such as bank or payment accounts, credit cards, transactions, salary, investments, or other personal financial records.",
-      "present_when": "The prompt contains or requests a concrete financial identifier, transaction, amount, salary, investment, or financial record.",
+      "present_when": "The complete prompt itself states, quotes, or includes a concrete financial identifier, transaction, amount, salary, investment, or financial record. A request for an unspecified amount or record does not supply it.",
       "not_present_by_itself": "General financial education or an uninstantiated discussion of banking or markets."
     },
     {
       "enum": "SEXUAL",
       "definition": "A person's sexual orientation, sexual history, or intimate sexual disclosure.",
-      "present_when": "The prompt contains or requests a specific person's orientation, history, or intimate sexual information.",
+      "present_when": "The complete prompt itself states, quotes, or includes a specific person's orientation, history, or intimate sexual information. A request for unknown information does not supply it.",
       "not_present_by_itself": "General sex education or abstract discussion without a person's information."
     },
     {
       "enum": "CHILD",
       "definition": "Specific information about a child or minor, including identity, health, education, whereabouts, or other personal circumstances.",
-      "present_when": "The prompt contains or requests a concrete fact or identifier about a child or minor.",
+      "present_when": "The complete prompt itself states, quotes, or includes a concrete fact or identifier about a child or minor. A request for an unknown fact does not supply it.",
       "not_present_by_itself": "General parenting advice or discussion of children without information about a particular child or minor."
     },
     {
       "enum": "LOCATION",
       "definition": "A person's address, precise location, route, or whereabouts, including private or time-specific location information.",
-      "present_when": "The prompt contains or requests a concrete address, precise geolocation, route, or person-linked whereabouts.",
+      "present_when": "The complete prompt itself states, quotes, or includes a concrete address, precise geolocation, route, or person-linked whereabouts. A request for an unknown location does not supply it.",
       "not_present_by_itself": "A generic region, public place, or travel topic without a person's specific location or route information."
     },
     {
       "enum": "IDENTITY",
       "definition": "A concrete person name or identifier, including email, phone, account or government ID, username, credential, password, token, or secret.",
-      "present_when": "The prompt includes or requests a specific identity datum or credential. A valid synthetic or fictional identifier and a public person's concrete name count as content presence, regardless of privacy or author linkage.",
+      "present_when": "The complete prompt itself includes a specific identity datum or credential. A valid synthetic or fictional identifier and a public person's concrete name count as content presence, regardless of privacy or author linkage. A request for an unspecified identity datum or credential does not supply one.",
       "not_present_by_itself": "A generic concept such as 'name', 'email', or 'password', a placeholder with no value, or a string that only resembles an identifier and is explicitly an unrelated/malformed lookalike."
     },
     {
       "enum": "THIRD_PARTY",
       "definition": "Sensitive information in the other categories that is explicitly about someone other than the speaker.",
-      "present_when": "A concrete covered fact is attributed to a person other than the speaker. Record THIRD_PARTY alongside the applicable substantive category or categories.",
+      "present_when": "The complete prompt itself states, quotes, or includes a concrete covered fact attributed to a person other than the speaker. Record THIRD_PARTY alongside the applicable substantive category or categories; a request for an unknown fact does not supply it.",
       "not_present_by_itself": "A generic mention of another person without covered information about them."
     }
   ],
@@ -170,10 +170,10 @@
   },
   "review_process": {
     "blinding": [
-      "Review the complete source prompt and native source annotations only.",
+      "Review the complete source prompt and native source annotations only. An independent provisional annotator may be an assistant, but must not see outputs from the detector being evaluated or trained.",
       "Do not view detector outputs, prediction traces, model/fitting scores, thresholds, or model vocabularies.",
       "Do not view prospective train/validation/test assignment or partition role.",
-      "Do not use model-generated labels or a detector's own assessment as annotation evidence."
+      "Do not use evaluated or trained detector outputs, pseudo-labels, or the detector's own assessment as ground truth or annotation evidence."
     ],
     "provisionality": "Initial agent labels are provisional. A separate conceptual reviewer and Professor confirmation are pending; no human agreement, certification, or publication standard is implied.",
     "audit_record_fields": [
