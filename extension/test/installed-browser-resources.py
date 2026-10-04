@@ -69,13 +69,28 @@ def _pss_bytes(pid: int) -> int | None:
     return None
 
 
-def _start_ticks(pid: int) -> int | None:
+def _start_ticks(
+    pid: int,
+    *,
+    read_stat=None,
+    pid_exists=None,
+) -> int | None:
+    """Read a process identity, distinguishing an exited PID from unreadable evidence."""
+    read_stat = read_stat or (lambda value: (Path("/proc") / str(value) / "stat").read_text())
+    pid_exists = pid_exists or psutil.pid_exists
     try:
-        stat = (Path("/proc") / str(pid) / "stat").read_text()
+        stat = read_stat(pid)
+    except FileNotFoundError:
+        if not pid_exists(pid):
+            return None
+        raise RuntimeError("process identity disappeared while PID remained live") from None
+    except OSError as error:
+        raise RuntimeError("could not read process start-tick identity") from error
+    try:
         fields = stat[stat.rfind(")") + 2 :].split()
         return int(fields[19])
-    except (OSError, ValueError, IndexError):
-        return None
+    except (ValueError, IndexError) as error:
+        raise RuntimeError("process stat did not contain a valid start-tick identity") from error
 
 
 def _cgroup_sample() -> dict[str, int | None]:
@@ -94,8 +109,9 @@ def _cgroup_sample() -> dict[str, int | None]:
     return result
 
 
-def _processes() -> list[dict[str, object]]:
+def _processes() -> tuple[list[dict[str, object]], dict[str, int]]:
     rows: list[dict[str, object]] = []
+    identity_races: dict[str, int] = {}
     processes = list(psutil.process_iter(("pid", "ppid", "cmdline", "create_time", "memory_info", "cpu_times")))
     chromium_root_ids, chromium_ids = _browser_process_ids(processes)
     for process in processes:
@@ -109,6 +125,15 @@ def _processes() -> list[dict[str, object]]:
                 continue
             memory = info.get("memory_info")
             cpu = info.get("cpu_times")
+            start_ticks = _start_ticks(int(info["pid"]))
+            if start_ticks is None:
+                # psutil enumerated this Chromium child, but it exited before /proc
+                # identity could be read. Record the race instead of emitting an
+                # unidentifiable process row; unreadable live PIDs fail closed above.
+                if role != "chromium":
+                    raise RuntimeError(f"required {role} process exited during resource sampling")
+                identity_races[role] = identity_races.get(role, 0) + 1
+                continue
             rows.append({
                 "role": role,
                 "browser_profile_root": info["pid"] in chromium_root_ids,
@@ -116,7 +141,7 @@ def _processes() -> list[dict[str, object]]:
                 "ppid": info["ppid"],
                 "parent_start_ticks": _start_ticks(int(info["ppid"])) if info.get("ppid") else None,
                 "start_time_epoch_seconds": info.get("create_time"),
-                "start_ticks": _start_ticks(int(info["pid"])),
+                "start_ticks": start_ticks,
                 "rss_bytes": memory.rss if memory else None,
                 "pss_bytes": _pss_bytes(int(info["pid"])),
                 "cpu_seconds": (cpu.user + cpu.system) if cpu else None,
@@ -124,7 +149,7 @@ def _processes() -> list[dict[str, object]]:
             })
         except (psutil.Error, OSError, ValueError):
             continue
-    return rows
+    return rows, identity_races
 
 
 def sample(output: Path, interval_ms: int) -> None:
@@ -141,9 +166,11 @@ def sample(output: Path, interval_ms: int) -> None:
     with output.open("x", encoding="utf-8", buffering=1) as stream:
         while not stop:
             now = time.monotonic()
+            roles, identity_races = _processes()
             stream.write(json.dumps({
                 "sample_monotonic_ns": time.monotonic_ns(),
-                "roles": _processes(),
+                "roles": roles,
+                "process_identity_races": identity_races,
                 "cgroup": _cgroup_sample(),
             }, separators=(",", ":")) + "\n")
             next_sample += interval

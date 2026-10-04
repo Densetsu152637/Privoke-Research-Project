@@ -78,6 +78,7 @@ const SOURCE_FILES = [
   "extension/test/installed-browser-evidence.test.mjs",
   "evaluation/run-installed-browser-unit-tests.mjs",
   "extension/test/installed-browser-resources.py",
+  "extension/test/installed-browser-resources.test.py",
   "extension/package.json",
   "extension/package-lock.json",
   "extension/manifest.json",
@@ -1704,10 +1705,17 @@ async function resourceSummary(files) {
   let cgroupMemoryMissing = 0;
   let cgroupCpuMissing = 0;
   let nativeObserved = false;
+  let processIdentityRaceDrops = 0;
+  const processIdentityRaceDropsByRole = {};
   for (const file of files) {
     if (!file.sha256) continue;
     const samples = parseJsonl(await readFile(join(OUTPUT, file.file), "utf8"));
     for (const sample of samples) {
+      for (const [role, count] of Object.entries(sample.process_identity_races || {})) {
+        if (!Number.isSafeInteger(count) || count < 0) throw new Error("invalid process identity race count");
+        processIdentityRaceDrops += count;
+        processIdentityRaceDropsByRole[role] = (processIdentityRaceDropsByRole[role] || 0) + count;
+      }
       if (Number.isSafeInteger(sample.cgroup.memory_current_bytes) && sample.cgroup.memory_current_bytes >= 0) {
         cgroupPeak = cgroupPeak === null ? sample.cgroup.memory_current_bytes
           : Math.max(cgroupPeak, sample.cgroup.memory_current_bytes);
@@ -1755,8 +1763,10 @@ async function resourceSummary(files) {
     cgroupMemoryMissingSamples: cgroupMemoryMissing,
     cgroupCpuMissingSamples: cgroupCpuMissing,
     processes,
+    processIdentityRaceDrops,
+    processIdentityRaceDropsByRole,
     nativeHostObserved: nativeObserved,
-    qualification: "Sampled peaks may miss shorter spikes; bridge and supervisor share one process and are counted once; role peaks are not summed across timestamps.",
+    qualification: "Sampled peaks may miss shorter spikes. Chromium children that exited before /proc identity lookup are counted as process identity race drops and omitted; unreadable live identities fail the sampler. Bridge and supervisor share one process and are counted once; role peaks are not summed across timestamps.",
   };
 }
 

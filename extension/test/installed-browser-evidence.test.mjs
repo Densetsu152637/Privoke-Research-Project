@@ -198,6 +198,12 @@ test("required resource evidence rejects partial RSS, CPU, and start-tick sample
     })),
   };
   assert.equal(assertCompleteResourceEvidence(valid), valid);
+  const chromiumChurn = structuredClone(valid);
+  chromiumChurn.processIdentityRaceDropsByRole = { chromium: 11 };
+  assert.equal(assertCompleteResourceEvidence(chromiumChurn), chromiumChurn);
+  const requiredRoleChurn = structuredClone(valid);
+  requiredRoleChurn.processIdentityRaceDropsByRole = { detector: 1 };
+  assert.throws(() => assertCompleteResourceEvidence(requiredRoleChurn), /cannot be silently omitted/);
   for (const field of ["missingRssSamples", "missingCpuSamples", "missingStartTicksSamples"]) {
     const partial = structuredClone(valid);
     partial.processes[0][field] = 1;
