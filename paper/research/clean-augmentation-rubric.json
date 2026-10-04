@@ -1,0 +1,203 @@
+{
+  "rubric_id": "privoke_broad_whole_prompt_presence",
+  "version": "1.0.0-draft",
+  "created_date": "2026-10-04",
+  "status": "proposed_before_candidate_row_access",
+  "approval": {
+    "annotation_status": "provisional_agent_labels_only",
+    "independent_conceptual_review": "pending",
+    "professor_confirmation": "pending",
+    "standard_or_certification": false
+  },
+  "purpose": "Prospective content-presence rubric for evaluating candidate prompts against PriVoke's ten-category annotation ontology. It does not label private-to-author relevance, privacy harm, sensitivity level, visibility, or enforcement action.",
+  "protocol_binding": {
+    "path": "paper/research/clean-augmentation-protocol.md",
+    "canonical_lf_sha256": "3991777aedadc8d50b7395a9ce8ef2aebfec946603229b823f1b6c118a16cbdf",
+    "canonicalization": "Read as UTF-8 text and normalize CRLF line endings to LF before hashing; no other content transformation.",
+    "main_checkout_raw_sha256": "881a227543eada8d88b7db007c52657a1b5589092e31959916785b6a883ff07b",
+    "candidate_access_at_draft": false,
+    "fit_or_scoring_at_draft": false
+  },
+  "annotation_unit": {
+    "unit": "complete prompt text exactly as stored by the source",
+    "scope": "Mark present if the complete prompt contains at least one concrete piece of content within any enumerated category, whether that content is real, synthetic, fictional, public, self-related, or about another person.",
+    "presence_is_not": [
+      "proof that the content is private, secret, harmful, identifying in context, or linked to the author",
+      "a sensitivity-level label such as S1, S2, or S3",
+      "a visibility label such as P0, P1, P2, P3, P4, or PU",
+      "an action label such as ALLOW, WARN, or BLOCK",
+      "an exact-span quality score or detector prediction"
+    ],
+    "multi_label_rule": "The binary target is present when one or more categories are supported. Record every supported category separately; do not infer missing categories from a binary positive."
+  },
+  "categories": [
+    {
+      "enum": "HEALTH",
+      "definition": "Specific health-related information about a person, including medical conditions, medication or treatment, provider visits, mental health, health records, or a medical/insurance identifier.",
+      "present_when": "The prompt states, quotes, requests, or includes a concrete health fact, record, or health identifier.",
+      "not_present_by_itself": "Generic medical advice, a general discussion of medicine, or the bare words 'health information' without a specific health fact."
+    },
+    {
+      "enum": "POLITICS",
+      "definition": "A person's political views, affiliation, campaign participation, or voting preference or behavior.",
+      "present_when": "The prompt contains or requests a specific person's political view, affiliation, campaign participation, or vote.",
+      "not_present_by_itself": "General discussion of politics, an election, or a political institution without a person's view, affiliation, participation, or vote."
+    },
+    {
+      "enum": "RELIGION",
+      "definition": "A person's religious belief, affiliation, practice, or worship.",
+      "present_when": "The prompt contains or requests a specific person's belief, affiliation, religious practice, or worship information.",
+      "not_present_by_itself": "General discussion of religion, religious history, or a place of worship without information about a person's belief or practice."
+    },
+    {
+      "enum": "CRIMINAL",
+      "definition": "A person's criminal history, charge, arrest, conviction, or legal order or case fact within the source contract's criminal/legal scope.",
+      "present_when": "The prompt states or requests a concrete person's criminal or covered legal-history/case information.",
+      "not_present_by_itself": "General legal advice, fictional crime discussion without a concrete covered fact, or a bare legal-topic term."
+    },
+    {
+      "enum": "FINANCIAL",
+      "definition": "Specific financial information such as bank or payment accounts, credit cards, transactions, salary, investments, or other personal financial records.",
+      "present_when": "The prompt contains or requests a concrete financial identifier, transaction, amount, salary, investment, or financial record.",
+      "not_present_by_itself": "General financial education or an uninstantiated discussion of banking or markets."
+    },
+    {
+      "enum": "SEXUAL",
+      "definition": "A person's sexual orientation, sexual history, or intimate sexual disclosure.",
+      "present_when": "The prompt contains or requests a specific person's orientation, history, or intimate sexual information.",
+      "not_present_by_itself": "General sex education or abstract discussion without a person's information."
+    },
+    {
+      "enum": "CHILD",
+      "definition": "Specific information about a child or minor, including identity, health, education, whereabouts, or other personal circumstances.",
+      "present_when": "The prompt contains or requests a concrete fact or identifier about a child or minor.",
+      "not_present_by_itself": "General parenting advice or discussion of children without information about a particular child or minor."
+    },
+    {
+      "enum": "LOCATION",
+      "definition": "A person's address, precise location, route, or whereabouts, including private or time-specific location information.",
+      "present_when": "The prompt contains or requests a concrete address, precise geolocation, route, or person-linked whereabouts.",
+      "not_present_by_itself": "A generic region, public place, or travel topic without a person's specific location or route information."
+    },
+    {
+      "enum": "IDENTITY",
+      "definition": "A concrete person name or identifier, including email, phone, account or government ID, username, credential, password, token, or secret.",
+      "present_when": "The prompt includes or requests a specific identity datum or credential. A valid synthetic or fictional identifier and a public person's concrete name count as content presence, regardless of privacy or author linkage.",
+      "not_present_by_itself": "A generic concept such as 'name', 'email', or 'password', a placeholder with no value, or a string that only resembles an identifier and is explicitly an unrelated/malformed lookalike."
+    },
+    {
+      "enum": "THIRD_PARTY",
+      "definition": "Sensitive information in the other categories that is explicitly about someone other than the speaker.",
+      "present_when": "A concrete covered fact is attributed to a person other than the speaker. Record THIRD_PARTY alongside the applicable substantive category or categories.",
+      "not_present_by_itself": "A generic mention of another person without covered information about them."
+    }
+  ],
+  "native_advpiibench_mapping": [
+    {
+      "native_type": "credit_card_number",
+      "contract_category": "FINANCIAL",
+      "interpretation": "A validated concrete synthetic or real-looking card identifier is content presence; validity does not establish real ownership or privacy."
+    },
+    {
+      "native_type": "phone_number",
+      "contract_category": "IDENTITY",
+      "interpretation": "A validated concrete number is content presence; do not infer that it belongs to the author."
+    },
+    {
+      "native_type": "iban",
+      "contract_category": "FINANCIAL",
+      "interpretation": "A validated concrete IBAN is content presence; a malformed or unrelated IBAN-shaped string is not positive from shape alone."
+    },
+    {
+      "native_type": "email",
+      "contract_category": "IDENTITY",
+      "interpretation": "A validated concrete email address is content presence; do not infer ownership or private status."
+    },
+    {
+      "native_type": "ssn",
+      "contract_category": "IDENTITY",
+      "interpretation": "A validated concrete SSN-form identifier is content presence; do not infer it is real or belongs to the author."
+    }
+  ],
+  "decision_labels": {
+    "present": {
+      "definition": "At least one concrete content item meets an enumerated category definition in the complete prompt.",
+      "binary_target": true,
+      "category_requirement": "At least one supported category enum must be recorded."
+    },
+    "absent": {
+      "definition": "After reviewing the complete prompt, no concrete content item meets any enumerated category definition.",
+      "binary_target": false,
+      "eligibility_requirement": "A negative requires affirmative whole-prompt review. Native negative or hard-negative labels, an empty span list, generic topic words, publicness, or lack of author linkage alone are insufficient."
+    },
+    "uncertain": {
+      "definition": "The complete prompt or source annotation is insufficient, contradictory on the same content, or genuinely ambiguous under the category definitions.",
+      "binary_target": null,
+      "eligibility_requirement": "Exclude from primary binary fitting and scoring; preserve the reason. Never coerce uncertain to absent."
+    }
+  },
+  "eligibility_rules": {
+    "positive_eligible": [
+      "The complete original prompt supports at least one category under this rubric.",
+      "For a source row labeled native-positive, native spans are structurally valid against the exact unnormalized source text and map to a listed contract category; a separate broader-category fact may also support presence.",
+      "Any valid concrete identifier counts regardless of whether it is fictional, synthetic, publicly available, or linked to the speaker."
+    ],
+    "negative_eligible": [
+      "The complete original prompt was reviewed and supports none of the ten categories.",
+      "No unresolved native-positive annotation, unmatched positive span, truncated content, or other source contradiction remains.",
+      "The native row label, if negative or hard-negative, is retained as source metadata only and is not substituted for the reviewed broad target."
+    ],
+    "uncertain_exclude": [
+      "Prompt text is missing, truncated, or cannot be reviewed as the complete source prompt.",
+      "A purported identifier cannot be distinguished from an unrelated or malformed lookalike using prompt context and the rubric.",
+      "A positive native annotation is malformed, unmatched to original text, unmappable, or unresolved; do not reverse it to absent.",
+      "Reviewers disagree about the broad target or a concrete item cannot be classified under the definitions.",
+      "The content's existence/type itself is unclear. Unknown author linkage or unknown privacy status alone is not a reason to call a known content item absent or uncertain."
+    ]
+  },
+  "source_handling": {
+    "original_text": "Keep exact source text immutable while validating native offsets and recording any evidence offsets. Count offsets as zero-based half-open Unicode code-point positions in the original prompt, as defined by the source card.",
+    "normalization": "Use normalized text keys only for duplicate detection, grouping, and protected-set exclusion. Never normalize the text used to validate native span offsets.",
+    "native_annotations": "Preserve native row category and spans separately from this broad reviewed target. A native negative/hard-negative is not automatically a broad negative; a valid native positive is not downgraded merely because other prompt content is unrelated.",
+    "lookalikes": "A PII-shaped string, hash, ETag, tracking number, malformed IBAN, or other lookalike is not positive solely because of its surface form. Review its stated function and all other prompt content. If the function is ambiguous, label uncertain.",
+    "generic_concepts": "A general concept, advice request, topic word, or placeholder without a concrete category fact is absent only after complete-prompt review. Genericity never overrides a separate concrete identifier or fact elsewhere in the prompt."
+  },
+  "separation_from_privacy_and_policy": {
+    "speaker_relationship": "Record speaker/subject linkage separately if the later protocol requires it. Missing linkage does not make a concrete category item absent.",
+    "public_or_fictional_content": "Public or fictional status may be recorded separately but does not erase content presence under this rubric.",
+    "sensitivity_visibility_action": "This rubric assigns none of sensitivity level, visibility, privacy harm, appropriateness of disclosure, or ALLOW/WARN/BLOCK. Do not derive those labels from presence or category alone.",
+    "third_party": "THIRD_PARTY is a content-subject relation, not a privacy-risk score. Use it only when the prompt explicitly attributes covered information to someone other than the speaker."
+  },
+  "review_process": {
+    "blinding": [
+      "Review the complete source prompt and native source annotations only.",
+      "Do not view detector outputs, prediction traces, model/fitting scores, thresholds, or model vocabularies.",
+      "Do not view prospective train/validation/test assignment or partition role.",
+      "Do not use model-generated labels or a detector's own assessment as annotation evidence."
+    ],
+    "provisionality": "Initial agent labels are provisional. A separate conceptual reviewer and Professor confirmation are pending; no human agreement, certification, or publication standard is implied.",
+    "audit_record_fields": [
+      "restricted_source_row_id",
+      "restricted_parent_or_family_group_id",
+      "exact_prompt_sha256",
+      "rubric_id_and_version",
+      "rubric_sha256",
+      "reviewer_id_and_role",
+      "review_timestamp",
+      "blinding_attestation",
+      "native_label_and_span_validation_status",
+      "broad_decision_label",
+      "supported_category_enums",
+      "evidence_offsets_in_original_text",
+      "uncertainty_or_exclusion_reason",
+      "independent_review_and_adjudication_status"
+    ],
+    "record_storage": "Per-row decisions, identifiers, evidence offsets, source text, and review notes belong in restricted ignored evidence storage. Do not place candidate rows or evidence snippets in this rubric, logs, public documentation, or released artifacts."
+  },
+  "limits": [
+    "This is a proposed annotation scope, not a statement of verified truth, consensus, or author privacy.",
+    "It is not an IEEE or other external standard and is not Professor-certified.",
+    "The five native identifier types do not cover all ten contract categories.",
+    "No candidate rows have been accessed, labeled, downloaded, or fit under this rubric."
+  ]
+}
