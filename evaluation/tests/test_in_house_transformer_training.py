@@ -10,7 +10,7 @@ for path in (ROOT / "evaluation", ROOT / "shared/python", ROOT / "extension/clie
 
 import numpy as np
 import torch
-from generate_baseline import initial_parameters, SENSITIVITIES, VISIBILITIES, CATEGORIES
+from generate_baseline import MODEL_PROFILES, initial_parameters, SENSITIVITIES, VISIBILITIES, CATEGORIES
 from src.model import ModelConfig, TinyTransformerModel
 from src.detection.preprocessing import normalize_text
 from privoke_eval.in_house_transformer_training import (
@@ -60,6 +60,90 @@ class InHouseTransformerTests(unittest.TestCase):
             self.assertTrue(mask[:, 0].all())
             self.assertEqual(ids[0].tolist(), [0] * ids.shape[1])
             self.assertEqual(int(mask[0].sum()), 1)
+
+    def test_actual_profile_dimensions_train_encoder_and_export_reload(self):
+        # This is a mechanics check across the shipped profile shapes, not a
+        # fit or an accuracy measurement. Keep inputs synthetic and tiny.
+        texts = ("Synthetic alpha has fictional contact tokens.",
+                 "Synthetic weather is clear over the sample region.")
+        targets = (ContextualTarget("S2", "P3", ("FINANCIAL",)),
+                   ContextualTarget("S0", "PU", ()))
+        for profile in MODEL_PROFILES:
+            if profile.name not in {"Efficient", "Balanced", "Quality"}:
+                continue
+            with self.subTest(profile=profile.name):
+                config = ModelConfig(
+                    vocab_size=profile.vocab_size,
+                    hidden_size=profile.hidden_size,
+                    intermediate_size=profile.intermediate_size,
+                    max_tokens=profile.max_tokens,
+                    sensitivity_labels=SENSITIVITIES,
+                    visibility_labels=VISIBILITIES,
+                    category_labels=CATEGORIES,
+                    category_threshold=0.38,
+                    num_layers=profile.num_layers,
+                    num_attention_heads=profile.num_attention_heads,
+                )
+                arrays = initial_parameters(config, np.random.default_rng(profile.seed))
+                original = {name: value.copy() for name, value in arrays.items()}
+                trainer = InHouseTransformerTrainer(config, arrays)
+
+                # The generated head weights start at zero. One warm-up step
+                # gives the encoder a nonzero upstream signal; this is only a
+                # gradient-path check, not a training result.
+                trainer.step(texts, targets)
+                loss, gradients = trainer.gradients(texts, targets)
+                self.assertTrue(np.isfinite(loss))
+                required = ["token_embedding", "position_embedding"]
+                for layer in range(profile.num_layers):
+                    prefix = "" if profile.num_layers == 1 else f"layers.{layer}."
+                    required.extend(
+                        prefix + suffix for suffix in (
+                            "attention.query.weight", "attention.key.weight",
+                            "attention.value.weight", "ffn.input.weight",
+                            "ffn.output.weight",
+                        )
+                    )
+                for name in required:
+                    self.assertIn(name, gradients)
+                    self.assertTrue(torch.isfinite(gradients[name]).all(), name)
+                    self.assertGreater(float(gradients[name].abs().max()), 0.0, name)
+
+                ids, mask = trainer.tensor_batch(texts)
+                actual = trainer.logits(ids, mask)
+                exported = trainer.export_parameters()
+                reference = runtime(config, exported)
+                for index, text in enumerate(texts):
+                    pooled = reference.encode(normalize_text(text))
+                    for head in ("sensitivity", "visibility", "category"):
+                        expected = pooled @ exported[f"head.{head}.weight"] + exported[f"head.{head}.bias"]
+                        np.testing.assert_allclose(
+                            actual[head][index].detach().numpy(), expected,
+                            atol=2e-6, rtol=2e-5,
+                        )
+
+                payload = {"config": __import__("dataclasses").asdict(config), "parameters": {
+                    name: {"shape": list(value.shape), "values": value.ravel().tolist()}
+                    for name, value in exported.items()
+                }}
+                import json
+                loaded = TinyTransformerModel.from_artifact(json.loads(json.dumps(payload)))
+                for index, text in enumerate(texts):
+                    prediction = loaded.predict(normalize_text(text))
+                    np.testing.assert_allclose(
+                        torch.softmax(actual["sensitivity"], -1)[index].detach().numpy(),
+                        prediction.sensitivity_probabilities, atol=2e-6,
+                    )
+                    np.testing.assert_allclose(
+                        torch.softmax(actual["visibility"], -1)[index].detach().numpy(),
+                        prediction.visibility_probabilities, atol=2e-6,
+                    )
+                    np.testing.assert_allclose(
+                        torch.sigmoid(actual["category"])[index].detach().numpy(),
+                        prediction.category_probabilities, atol=2e-6,
+                    )
+                for name, value in arrays.items():
+                    np.testing.assert_array_equal(value, original[name])
 
     def test_nonhead_gradients_and_changes_after_zero_head_warmup(self):
         config, arrays = fixture()
