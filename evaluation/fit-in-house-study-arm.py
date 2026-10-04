@@ -11,7 +11,7 @@ import sys
 for _name in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS"):
     os.environ[_name] = "4"
 
-EVALUATION = Path(__file__).resolve().parents[1]
+EVALUATION = Path(__file__).resolve().parent
 ROOT = EVALUATION.parent
 for _path in (EVALUATION, ROOT / "shared/python", ROOT / "extension/client-runtime", ROOT / "models"):
     if str(_path) not in sys.path:

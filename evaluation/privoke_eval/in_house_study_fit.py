@@ -579,19 +579,32 @@ def _check_scratch_export(trainer, artifact: Mapping[str, object]) -> dict[str, 
     weight = arrays["head.presence.weight"]
     bias = arrays["head.presence.bias"]
     parity_max_abs = 0.0
+    probability_max_abs = 0.0
     for index, text in enumerate(texts):
         pooled = encoder.encode(normalize_text(text))
         logit = (pooled @ weight + bias).reshape(-1)
-        expected_logit = float(np.clip(logit[0], -30.0, 30.0))
+        expected_logit = float(logit[0])
         actual_logit = float(trainer_logits[index])
         if not math.isclose(actual_logit, expected_logit, rel_tol=2e-5, abs_tol=2e-6):
-            _fail("Scratch encoder export failed the frozen synthetic parity panel.")
+            _fail("Scratch encoder export failed raw-logit parity on the synthetic panel.")
         parity_max_abs = max(parity_max_abs, abs(actual_logit - expected_logit))
+        runtime_clip = np.asarray(np.clip(np.float32(actual_logit), -30.0, 30.0), dtype=np.float32)
+        numpy_clip = np.asarray(np.clip(np.float32(expected_logit), -30.0, 30.0), dtype=np.float32)
+        torch_side_probability = float((1.0 / (1.0 + np.exp(-runtime_clip))).item())
+        numpy_side_probability = float((1.0 / (1.0 + np.exp(-numpy_clip))).item())
+        if not math.isclose(torch_side_probability, numpy_side_probability,
+                            rel_tol=2e-5, abs_tol=2e-6):
+            _fail("Scratch encoder export failed clipped-probability parity on the synthetic panel.")
+        probability_max_abs = max(
+            probability_max_abs, abs(torch_side_probability - numpy_side_probability),
+        )
     return {
         "artifact_checksum": decoded["checksum"],
         "parameter_fingerprint": fp,
         "parity_probe_rows": len(texts),
         "parity_max_abs_logit_error": parity_max_abs,
+        "raw_logit_max_abs_error": parity_max_abs,
+        "runtime_probability_max_abs_error": probability_max_abs,
         "parity_atol": 2e-6,
         "parity_rtol": 2e-5,
         "profile": cfg["profile"],
@@ -824,123 +837,278 @@ def _read_nofollow(path: Path, limit: int) -> bytes:
         _fail("Input file could not be opened safely.")
 
 
+def _private_output_supported() -> bool:
+    return bool(
+        os.name == "posix" and hasattr(os, "O_DIRECTORY") and hasattr(os, "O_NOFOLLOW")
+        and os.open in os.supports_dir_fd and os.mkdir in os.supports_dir_fd
+        and os.stat in os.supports_dir_fd and os.unlink in os.supports_dir_fd
+        and os.rename in os.supports_dir_fd
+    )
+
+
 class _FreshOutput:
-    """Exclusive private directory and safe fixed-name artifact writer."""
+    """Exclusive private output, bound to held POSIX directory descriptors."""
+    _DIR_FLAGS = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+
     def __init__(self, path: Path):
-        _reject_reparse_path(path, include_final=False)
+        self._fds: list[int] = []
+        self.fd: int | None = None
+        self._manifest_identity: tuple[int, int] | None = None
+        self._manifest_sha256: str | None = None
+        self._files: dict[str, tuple[tuple[int, int], str]] = {}
+        self._ancestor_links: list[tuple[int, str, tuple[int, int]]] = []
+        self._manifest_sequence = 0
+        if not _private_output_supported():
+            _fail("Private output requires POSIX held-directory descriptor operations.")
+        absolute = Path(os.path.abspath(path))
+        if absolute.name in ("", ".", ".."):
+            _fail("Output path must name a new child directory.")
         try:
-            path.lstat()
-        except FileNotFoundError:
-            pass
-        else:
-            _fail("Output must be a fresh nonexistent directory.")
-        parent = path.parent
-        _reject_reparse_path(parent)
-        if not parent.is_dir():
-            _fail("Output parent must be an existing nonsymlink directory.")
+            root_fd = os.open(os.sep, self._DIR_FLAGS)
+        except OSError:
+            _fail("Output filesystem root cannot be safely opened.")
+        self._fds.append(root_fd)
+        current_fd = root_fd
         try:
-            path.mkdir(mode=0o700, parents=False, exist_ok=False)
-            if os.name != "nt":
-                os.chmod(path, 0o700)
-            self.path = path
-            self.fd = (None if os.name == "nt" else os.open(
-                path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-                | getattr(os, "O_NOFOLLOW", 0)
-            ))
-            info = path.lstat() if self.fd is None else os.fstat(self.fd)
-            if not stat.S_ISDIR(info.st_mode):
-                _fail("Fresh output is not a directory.")
+            for part in absolute.parent.parts[1:]:
+                child_fd = os.open(part, self._DIR_FLAGS, dir_fd=current_fd)
+                child_info = os.fstat(child_fd)
+                link_info = os.stat(part, dir_fd=current_fd, follow_symlinks=False)
+                if (not stat.S_ISDIR(child_info.st_mode)
+                        or (child_info.st_dev, child_info.st_ino) != (link_info.st_dev, link_info.st_ino)):
+                    os.close(child_fd)
+                    _fail("Output ancestor changed while it was opened.")
+                self._ancestor_links.append((current_fd, part, (child_info.st_dev, child_info.st_ino)))
+                self._fds.append(child_fd)
+                current_fd = child_fd
+        except StudyFitError:
+            self.close()
+            raise
+        except OSError:
+            self.close()
+            _fail("Output ancestors cannot be safely bound to directory descriptors.")
+
+        self.path = absolute
+        self.name = absolute.name
+        self.parent_fd = current_fd
+        try:
+            try:
+                os.stat(self.name, dir_fd=self.parent_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                _fail("Output must be a fresh nonexistent directory.")
+            os.mkdir(self.name, mode=0o700, dir_fd=self.parent_fd)
+            created = os.stat(self.name, dir_fd=self.parent_fd, follow_symlinks=False)
+            if not stat.S_ISDIR(created.st_mode) or stat.S_IMODE(created.st_mode) & 0o077:
+                _fail("New output directory is not private or is not a directory.")
+            self.fd = os.open(self.name, self._DIR_FLAGS, dir_fd=self.parent_fd)
+            self._fds.append(self.fd)
+            info = os.fstat(self.fd)
+            link = os.stat(self.name, dir_fd=self.parent_fd, follow_symlinks=False)
+            if (not stat.S_ISDIR(info.st_mode) or stat.S_IMODE(info.st_mode) & 0o077
+                    or (info.st_dev, info.st_ino) != (created.st_dev, created.st_ino)
+                    or (info.st_dev, info.st_ino) != (link.st_dev, link.st_ino)):
+                _fail("Fresh output directory is not private or its identity changed.")
             self._dir_identity = (info.st_dev, info.st_ino)
-            self._manifest_identity = None
-            self._dir_fd_supported = (self.fd is not None and os.open in os.supports_dir_fd
-                                      and os.replace in os.supports_dir_fd)
+            self._ancestor_links.append((self.parent_fd, self.name, self._dir_identity))
+            self._verify_dir()
+        except StudyFitError:
+            self.close()
+            raise
+        except OSError:
+            self.close()
+            _fail("Fresh output directory could not be created safely.")
+
+    def _verify_dir(self) -> None:
+        if self.fd is None:
+            _fail("Output directory descriptor is closed.")
+        try:
+            for parent_fd, name, identity in self._ancestor_links:
+                parent_info = os.fstat(parent_fd)
+                link = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+                if (not stat.S_ISDIR(parent_info.st_mode) or not stat.S_ISDIR(link.st_mode)
+                        or (link.st_dev, link.st_ino) != identity):
+                    _fail("Output ancestor or directory path changed during the run.")
+            info = os.fstat(self.fd)
+            if ((info.st_dev, info.st_ino) != self._dir_identity
+                    or stat.S_IMODE(info.st_mode) & 0o077):
+                _fail("Output directory identity or private mode changed during the run.")
         except StudyFitError:
             raise
         except OSError:
-            _fail("Fresh output directory could not be created safely.")
+            _fail("Output directory path changed during the run.")
 
-    def _verify_dir(self):
+    def _verify_file(self, name: str, identity: tuple[int, int], expected_hash: str) -> None:
+        self._verify_dir()
         try:
-            path_info = self.path.lstat()
+            info = os.stat(name, dir_fd=self.fd, follow_symlinks=False)
+            if (not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) & 0o077
+                    or (info.st_dev, info.st_ino) != identity or info.st_size > 64 * 1024 * 1024):
+                _fail("Output file identity or private mode changed during the run.")
+            fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=self.fd)
+            try:
+                opened = os.fstat(fd)
+                digest = hashlib.sha256()
+                bytes_read = 0
+                while True:
+                    chunk = os.read(fd, 1024 * 1024)
+                    if not chunk:
+                        break
+                    bytes_read += len(chunk)
+                    if bytes_read > 64 * 1024 * 1024:
+                        _fail("Output file exceeds the bounded verification size.")
+                    digest.update(chunk)
+                after = os.fstat(fd)
+            finally:
+                os.close(fd)
+            path_after = os.stat(name, dir_fd=self.fd, follow_symlinks=False)
+            if ((info.st_dev, info.st_ino) != identity or (opened.st_dev, opened.st_ino) != identity
+                    or (after.st_dev, after.st_ino) != identity or (path_after.st_dev, path_after.st_ino) != identity
+                    or info.st_size != opened.st_size or opened.st_size != after.st_size
+                    or after.st_size != path_after.st_size
+                    or info.st_mtime_ns != opened.st_mtime_ns or opened.st_mtime_ns != after.st_mtime_ns
+                    or after.st_mtime_ns != path_after.st_mtime_ns
+                    or stat.S_IMODE(info.st_mode) != stat.S_IMODE(opened.st_mode)
+                    or stat.S_IMODE(opened.st_mode) != stat.S_IMODE(after.st_mode)
+                    or stat.S_IMODE(after.st_mode) != stat.S_IMODE(path_after.st_mode)
+                    or stat.S_IMODE(after.st_mode) & 0o077):
+                _fail("Output file descriptor identity changed during verification.")
+            if ((path_after.st_dev, path_after.st_ino) != identity
+                    or stat.S_IMODE(path_after.st_mode) & 0o077
+                    or digest.hexdigest() != expected_hash):
+                _fail("Output file content or directory entry changed during verification.")
+            self._verify_dir()
+        except StudyFitError:
+            raise
         except OSError:
-            _fail("Output directory path changed during the run.")
-        info = path_info if self.fd is None else os.fstat(self.fd)
-        if (not stat.S_ISDIR(info.st_mode) or stat.S_ISLNK(path_info.st_mode)
-                or (info.st_dev, info.st_ino) != self._dir_identity
-                or (path_info.st_dev, path_info.st_ino) != self._dir_identity):
-            _fail("Output directory path changed during the run.")
+            _fail("Output file could not be safely re-read.")
+
+    def verify_written_files(self) -> None:
+        for name, (identity, digest) in tuple(self._files.items()):
+            self._verify_file(name, identity, digest)
+        if self._manifest_identity is not None and self._manifest_sha256 is not None:
+            self._verify_file("run-manifest.json", self._manifest_identity, self._manifest_sha256)
 
     def write_exclusive(self, name: str, raw: bytes) -> str:
         if name != Path(name).name or not re.fullmatch(r"[A-Za-z0-9._-]{1,100}", name):
             _fail("Output filename is outside the fixed artifact namespace.")
         self._verify_dir()
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+        fd = None
         try:
-            if self._dir_fd_supported:
-                fd = os.open(name, flags, 0o600, dir_fd=self.fd)
-            else:
-                fd = os.open(self.path / name, flags, 0o600)
-            with os.fdopen(fd, "wb") as handle:
-                handle.write(raw)
-                handle.flush()
-                os.fsync(handle.fileno())
+            fd = os.open(name, flags, 0o600, dir_fd=self.fd)
+            before = os.fstat(fd)
+            if not stat.S_ISREG(before.st_mode) or stat.S_IMODE(before.st_mode) & 0o077:
+                _fail("Output artifact is not a private regular file.")
+            offset = 0
+            while offset < len(raw):
+                written = os.write(fd, raw[offset:])
+                if written <= 0:
+                    _fail("Output artifact write made no progress.")
+                offset += written
+            os.fsync(fd)
+            os.lseek(fd, 0, os.SEEK_SET)
+            digest = hashlib.sha256()
+            readback = 0
+            while True:
+                chunk = os.read(fd, 1024 * 1024)
+                if not chunk:
+                    break
+                readback += len(chunk)
+                digest.update(chunk)
+            after = os.fstat(fd)
+            link = os.stat(name, dir_fd=self.fd, follow_symlinks=False)
+            identity = (before.st_dev, before.st_ino)
+            if ((after.st_dev, after.st_ino) != identity or (link.st_dev, link.st_ino) != identity
+                    or after.st_size != len(raw) or link.st_size != len(raw)
+                    or stat.S_IMODE(before.st_mode) != stat.S_IMODE(after.st_mode)
+                    or stat.S_IMODE(after.st_mode) != stat.S_IMODE(link.st_mode)
+                    or stat.S_IMODE(after.st_mode) & 0o077
+                    or readback != len(raw) or digest.hexdigest() != _sha256(raw)):
+                _fail("Output artifact identity or content changed during its write.")
+            self._verify_dir()
+            self._files[name] = (identity, digest.hexdigest())
+            self._verify_file(name, identity, digest.hexdigest())
+            return digest.hexdigest()
+        except StudyFitError:
+            raise
         except OSError:
             _fail("Exclusive output artifact write failed.")
-        return _sha256(raw)
+        finally:
+            if fd is not None:
+                os.close(fd)
 
     def write_manifest(self, value: Mapping[str, object]) -> str:
         raw = json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2,
                          allow_nan=False).encode("utf-8") + b"\n"
         self._verify_dir()
-        temp = f".run-manifest.{time.time_ns()}.tmp"
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        self._manifest_sequence += 1
+        temp = f".run-manifest-{self._manifest_sequence:04d}.tmp"
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+        fd = None
+        temp_identity = None
         try:
-            if self._dir_fd_supported:
-                fd = os.open(temp, flags, 0o600, dir_fd=self.fd)
-                temp_source, target = temp, "run-manifest.json"
-            else:
-                fd = os.open(self.path / temp, flags, 0o600)
-                temp_source, target = self.path / temp, self.path / "run-manifest.json"
-            with os.fdopen(fd, "wb") as handle:
-                handle.write(raw)
+            fd = os.open(temp, flags, 0o600, dir_fd=self.fd)
+            before = os.fstat(fd)
+            if not stat.S_ISREG(before.st_mode) or stat.S_IMODE(before.st_mode) & 0o077:
+                _fail("Temporary run manifest is not a private regular file.")
+            with os.fdopen(fd, "wb", closefd=False) as handle:
+                if handle.write(raw) != len(raw):
+                    _fail("Run manifest write was incomplete.")
                 handle.flush()
                 os.fsync(handle.fileno())
-            if self._manifest_identity is None:
-                if self._dir_fd_supported:
-                    os.replace(temp_source, target, src_dir_fd=self.fd, dst_dir_fd=self.fd)
-                else:
-                    os.replace(temp_source, target)
-            else:
-                existing = (os.stat("run-manifest.json", dir_fd=self.fd, follow_symlinks=False)
-                            if self._dir_fd_supported else (self.path / "run-manifest.json").lstat())
+            temp_identity = (before.st_dev, before.st_ino)
+            temp_link = os.stat(temp, dir_fd=self.fd, follow_symlinks=False)
+            if (temp_link.st_dev, temp_link.st_ino) != temp_identity:
+                _fail("Temporary run manifest identity changed during the write.")
+            self._verify_dir()
+            if self._manifest_identity is not None:
+                existing = os.stat("run-manifest.json", dir_fd=self.fd, follow_symlinks=False)
                 if (existing.st_dev, existing.st_ino) != self._manifest_identity:
                     _fail("Run manifest identity changed during the fit.")
-                if self._dir_fd_supported:
-                    os.replace(temp_source, target, src_dir_fd=self.fd, dst_dir_fd=self.fd)
-                else:
-                    os.replace(temp_source, target)
-            current = (os.stat("run-manifest.json", dir_fd=self.fd, follow_symlinks=False)
-                       if self._dir_fd_supported else (self.path / "run-manifest.json").lstat())
-            if not stat.S_ISREG(current.st_mode):
-                _fail("Run manifest is not a regular file.")
-            self._manifest_identity = (current.st_dev, current.st_ino)
-            if os.name != "nt":
-                os.fsync(self.fd)
+            os.replace(temp, "run-manifest.json", src_dir_fd=self.fd, dst_dir_fd=self.fd)
+            current = os.stat("run-manifest.json", dir_fd=self.fd, follow_symlinks=False)
+            if (current.st_dev, current.st_ino) != temp_identity or not stat.S_ISREG(current.st_mode):
+                _fail("Committed run manifest identity changed during replacement.")
+            self._manifest_identity = temp_identity
+            self._manifest_sha256 = _sha256(raw)
+            os.fsync(self.fd)
+            self._verify_file("run-manifest.json", temp_identity, self._manifest_sha256)
+            return self._manifest_sha256
         except StudyFitError:
             raise
         except OSError:
             _fail("Run manifest could not be atomically committed.")
-        return _sha256(raw)
+        finally:
+            if fd is not None:
+                os.close(fd)
+            if temp_identity is not None:
+                try:
+                    temp_link = os.stat(temp, dir_fd=self.fd, follow_symlinks=False)
+                    if (temp_link.st_dev, temp_link.st_ino) == temp_identity:
+                        os.unlink(temp, dir_fd=self.fd)
+                except (OSError, StudyFitError):
+                    pass
 
     def close(self):
-        if getattr(self, "fd", None) is not None:
-            os.close(self.fd)
-            self.fd = None
+        for fd in reversed(getattr(self, "_fds", [])):
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+        self._fds = []
+        self.fd = None
 
 
 def _artifact_bytes(artifact: Mapping[str, object]) -> bytes:
     return json.dumps(artifact, sort_keys=True, separators=(",", ":"),
                       ensure_ascii=False, allow_nan=False).encode("utf-8") + b"\n"
+
+
+def _require_before_deadline(deadline_monotonic: float) -> None:
+    if time.monotonic() >= deadline_monotonic:
+        _fail("Fixed two-hour training job budget was exhausted before completion.")
 
 
 def run_fit(*, arm_key: str, train_file: Path, training_manifest: Path,
@@ -1003,6 +1171,7 @@ def run_fit(*, arm_key: str, train_file: Path, training_manifest: Path,
         train_bytes = _read_nofollow(train_file, MAX_TRAIN_BYTES)
         manifest_bytes = _read_nofollow(training_manifest, MAX_MANIFEST_BYTES)
         verified = load_verified_training(train_bytes, manifest_bytes, expected)
+        _require_before_deadline(deadline_monotonic)
         rows = verified.rows
         manifest.update({
             "phase": "fitting", "research_data_rows_read": len(rows),
@@ -1015,10 +1184,11 @@ def run_fit(*, arm_key: str, train_file: Path, training_manifest: Path,
 
         if arm_key == "S1":
             phase = "s1_train_only_fit"
+            _require_before_deadline(deadline_monotonic)
             artifact, diagnostics = _fit_s1(rows, expected)
-            if time.monotonic() >= deadline_monotonic:
-                _fail("Fixed two-hour training job budget was exhausted before checkpoint export.")
+            _require_before_deadline(deadline_monotonic)
             artifact_raw = _artifact_bytes(artifact)
+            _require_before_deadline(deadline_monotonic)
             artifact_hash = output_store.write_exclusive("checkpoint-epoch-00.json", artifact_raw)
             manifest["artifact_files_written"].append({
                 "artifact_file": "checkpoint-epoch-00.json",
@@ -1026,8 +1196,11 @@ def run_fit(*, arm_key: str, train_file: Path, training_manifest: Path,
                 "validation_status": "pending",
             })
             output_store.write_manifest(manifest)
+            _require_before_deadline(deadline_monotonic)
             loaded = _json_object(artifact_raw[:-1])
+            _require_before_deadline(deadline_monotonic)
             validate_artifact(loaded)
+            _require_before_deadline(deadline_monotonic)
             if loaded != artifact:
                 _fail("S1 artifact changed during canonical serialization.")
             manifest["artifact_files_written"][0]["validation_status"] = "validated"
@@ -1065,6 +1238,7 @@ def run_fit(*, arm_key: str, train_file: Path, training_manifest: Path,
             def save_checkpoint(epoch: int, trainer, stats: Mapping[str, object]) -> Mapping[str, object]:
                 artifact = stats["artifact"]
                 artifact_raw = _artifact_bytes(artifact)
+                _require_before_deadline(deadline_monotonic)
                 name = f"checkpoint-epoch-{epoch:02d}.json"
                 raw_hash = output_store.write_exclusive(name, artifact_raw)
                 artifact_ledger = manifest["artifact_files_written"]
@@ -1073,8 +1247,11 @@ def run_fit(*, arm_key: str, train_file: Path, training_manifest: Path,
                     "validation_status": "pending",
                 })
                 output_store.write_manifest(manifest)
+                _require_before_deadline(deadline_monotonic)
                 decoded = _json_object(artifact_raw[:-1])
+                _require_before_deadline(deadline_monotonic)
                 verify = _check_scratch_export(trainer, decoded)
+                _require_before_deadline(deadline_monotonic)
                 artifact_ledger[-1]["validation_status"] = "validated"
                 identity = {
                     "model_id": decoded["model_id"], "version": decoded["version"],
@@ -1100,6 +1277,9 @@ def run_fit(*, arm_key: str, train_file: Path, training_manifest: Path,
                 manifest["checkpoint_records"] = list(checkpoints)
                 manifest["phase"] = f"checkpoint_{epoch}"
                 output_store.write_manifest(manifest)
+                _require_before_deadline(deadline_monotonic)
+                output_store.verify_written_files()
+                _require_before_deadline(deadline_monotonic)
                 return record
 
             checkpoints = []
@@ -1114,6 +1294,8 @@ def run_fit(*, arm_key: str, train_file: Path, training_manifest: Path,
             selection = {"selected_epoch": None, "stored_threshold": 0.5,
                          "validation_used": False,
                          "note": "Checkpoint selection is reserved for the separate frozen full-pipeline validation consumer."}
+        output_store.verify_written_files()
+        _require_before_deadline(deadline_monotonic)
         manifest.update({
             "status": "complete", "phase": "complete",
             "checkpoint_records": checkpoints, "checkpoint_count": len(checkpoints),
@@ -1122,6 +1304,9 @@ def run_fit(*, arm_key: str, train_file: Path, training_manifest: Path,
             "study_result": False,
         })
         output_store.write_manifest(manifest)
+        _require_before_deadline(deadline_monotonic)
+        output_store.verify_written_files()
+        _require_before_deadline(deadline_monotonic)
         return manifest
     except Exception as exc:
         manifest.update({
