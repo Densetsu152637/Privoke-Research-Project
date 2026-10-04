@@ -28,6 +28,7 @@ import {
   assertNativeParentBinding,
   assertPreservedControlSupervisor,
   assertCompleteResourceEvidence,
+  preserveResourceEvidenceFailure,
   parseGrpcWebFrames,
   validateDecodedOutcome,
   validatePageAnalysis,
@@ -221,8 +222,9 @@ try {
       assert.ok(receipt.resourceSampling.processes.length > 0, "resource samples contain no tracked processes");
       assertCompleteResourceEvidence(receipt.resourceSampling);
     } catch (error) {
-      evidenceFailures.push(safeError(error));
-      receipt.resourceSampling = { error: safeError(error) };
+      const detail = safeError(error);
+      evidenceFailures.push(detail);
+      receipt.resourceSampling = preserveResourceEvidenceFailure(receipt.resourceSampling, detail);
     }
     if (hostRegistration) {
       try { receipt.nativeHostCapture = await nativeHostEvidence(resourceFiles, hostRegistration); }
