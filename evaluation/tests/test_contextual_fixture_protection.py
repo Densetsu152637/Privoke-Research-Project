@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import hashlib
 import json
-import sys
 from pathlib import Path
+import sys
 import unittest
 from unittest.mock import patch
 
@@ -90,6 +91,7 @@ def synthetic_inputs():
         "source_draft_cases_sha256": "3" * 64,
         "source_draft_rubric_sha256": "4" * 64,
         "source_draft_builder_sha256": "5" * 64,
+        "source_revision": "d291f3c544f0cc1d8d2b9ecdcf2e05deedb8819d",
         "professor_confirmation": "pending",
         "case_counts": counts,
         "normalized_text_collision_check": {"fixture_unique_keys": 46, "collisions": {"final": "not opened"}},
@@ -176,6 +178,24 @@ class ContextualFixtureProtectionTests(unittest.TestCase):
         stale = dict(self.helpers, grouping="e" * 64)
         with self.assertRaises(FixtureProtectionError):
             self.validate(expected_helper_source_hashes=stale)
+
+    def test_review_source_revision_is_required_and_canonical(self):
+        review = json.loads(self.review)
+        del review["source_revision"]
+        missing_bytes = json.dumps(review, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        missing_policy = replace(self.policy, review_sha256=sha(missing_bytes))
+        with self.assertRaises(FixtureProtectionError):
+            build_fixture_addon(self.fixture, self.rubric, missing_bytes,
+                                source_revision="d" * 40, helper_source_hashes=self.helpers,
+                                policy=missing_policy)
+
+        review["source_revision"] = "not-a-commit"
+        malformed_bytes = json.dumps(review, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        malformed_policy = replace(self.policy, review_sha256=sha(malformed_bytes))
+        with self.assertRaises(FixtureProtectionError):
+            build_fixture_addon(self.fixture, self.rubric, malformed_bytes,
+                                source_revision="d" * 40, helper_source_hashes=self.helpers,
+                                policy=malformed_policy)
 
     def test_duplicate_json_properties_and_nonfinite_values_fail_closed(self):
         duplicate = b'{"case_id":"a","case_id":"b"}'

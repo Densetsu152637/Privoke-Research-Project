@@ -37,7 +37,7 @@ _REVIEW_FIELDS = {
     "status", "case_file", "case_file_sha256", "rubric_file", "rubric_sha256",
     "reviewer", "label_review_sha256", "label_review_note_sha256",
     "source_draft_cases_sha256", "source_draft_rubric_sha256",
-    "source_draft_builder_sha256", "professor_confirmation", "case_counts",
+    "source_draft_builder_sha256", "source_revision", "professor_confirmation", "case_counts",
     "normalized_text_collision_check",
 }
 _CASE_REQUIRED = {
@@ -271,6 +271,8 @@ def _validate_review(data: bytes, fixture_sha: str, rubric_sha: str,
             review.get("rubric_sha256") != rubric_sha or review.get("professor_confirmation") != "pending" or
             review.get("reviewer") != "assistant independent review" or
             review.get("case_counts") != dict(counts)):
+        _fail()
+    if not isinstance(review.get("source_revision"), str) or not _REVISION.fullmatch(review["source_revision"]):
         _fail()
     if not isinstance(review.get("case_file"), str) or not isinstance(review.get("rubric_file"), str):
         _fail()
