@@ -54,17 +54,20 @@ in-house training path described here.
 
 ## Current implementation and verification
 
-The offline CPU trainer is implemented in
-[`in_house_transformer_training.py`](../evaluation/privoke_eval/in_house_transformer_training.py).
-Its synthetic mechanics suite historically passed 22 tests with PyTorch
-`2.10.0+cpu` and NumPy `1.26.4`, covering forward/backward behavior, finite
-gradients, profile handling, export, and rollback. A separate six-profile/mode
-export test exercises artifact and parameter-stream codecs against the runtime
-wrapper using synthetic inputs. This is not a live Go RPC or full-pipeline parity
-test. Neither suite fits research data or measures accuracy.
+The offline CPU trainers are implemented in
+[`in_house_transformer_training.py`](../evaluation/privoke_eval/in_house_transformer_training.py)
+and
+[`in_house_presence_training.py`](../evaluation/privoke_eval/in_house_presence_training.py).
+Their combined contextual and binary CPU mechanics suite historically passed 22
+tests with PyTorch `2.10.0+cpu` and NumPy `1.26.4`, covering forward/backward
+behavior, finite gradients, profile handling, export, and rollback. A separate
+export test covers the six profile/mode combinations (three profiles by
+head-only/full-encoder mode) and exercises artifact and parameter-stream codecs
+against the runtime wrapper using synthetic inputs. This is not a live Go RPC or
+full-pipeline parity test. Neither suite fits research data or measures accuracy.
 
 The pure eight-arm analysis and selection contract, live-validation structural
-verifier, paired component-bootstrap analysis, and versioned fixture-review
+verifier, paired component-bootstrap analysis, and protected-data blind-review
 bindings are also implemented and synthetically tested. The current integrated
 Linux evaluator ran 393 cases at source revision
 `b48159cdbab5e5966b4efdd2aacf1cfcf8f6525e`: 392 passed and one Windows-only
