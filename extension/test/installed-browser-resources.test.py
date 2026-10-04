@@ -3,10 +3,12 @@
 
 import importlib.util
 import hashlib
+import json
 from pathlib import Path
 import sys
 import tempfile
 import types
+import traceback
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -67,6 +69,38 @@ class StartTicksTests(unittest.TestCase):
             RESOURCES._process_stat_identity(123, read_stat=lambda _pid: negative)
         with self.assertRaisesRegex(RuntimeError, "PID is invalid"):
             RESOURCES._process_stat_identity(0, read_stat=lambda _pid: stat_line(1))
+
+
+class SamplerTerminalDiagnosticTests(unittest.TestCase):
+    def test_private_sidecar_contains_only_safe_exception_identity_and_bounded_frames(self):
+        try:
+            raise RuntimeError("synthetic private exception text")
+        except RuntimeError as error:
+            payload = RESOURCES._terminal_diagnostic_payload("error", 7, error)
+        encoded = json.dumps(payload, ensure_ascii=True)
+        self.assertEqual(payload["exception_type"], "RuntimeError")
+        self.assertEqual(payload["samples_written"], 7)
+        self.assertNotIn("synthetic private exception text", encoded)
+        self.assertLessEqual(len(payload["frames"]), 12)
+
+        frame = traceback.FrameSummary("private\nsecret.py", 2, "bad\nfunction")
+        self.assertEqual(RESOURCES._safe_terminal_frame(frame), {
+            "file": "<unavailable>", "function": "<unavailable>", "line": 2,
+        })
+
+    def test_terminal_sidecar_is_exclusive_and_does_not_serialize_exception_message(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "terminal.json"
+            try:
+                raise RuntimeError("secret-sentinel-text")
+            except RuntimeError as error:
+                payload = RESOURCES._terminal_diagnostic_payload("error", 0, error)
+            RESOURCES._write_terminal_diagnostic(path, payload)
+            raw = path.read_text(encoding="utf-8")
+            self.assertNotIn("secret-sentinel-text", raw)
+            self.assertEqual(json.loads(raw), payload)
+            with self.assertRaises(FileExistsError):
+                RESOURCES._write_terminal_diagnostic(path, payload)
 
 
 class SamplerDiagnosticTests(unittest.TestCase):

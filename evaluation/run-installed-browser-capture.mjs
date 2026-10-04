@@ -43,7 +43,7 @@ import {
   validatePageAnalysis,
   summarizeSupervisorStartupLog,
   buildStartupIdentityDiagnostic,
-  validateSamplerTerminalDiagnostic,
+  readSamplerTerminalSidecar,
 } from "../extension/test/installed-browser-evidence.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -1329,9 +1329,10 @@ async function stopSampler() {
   let terminalDiagnostic = null;
   let terminalSha256 = null;
   try {
-    const bytes = await readFile(finishedDiagnosticPath);
-    terminalSha256 = sha256(bytes);
-    terminalDiagnostic = validateSamplerTerminalDiagnostic(JSON.parse(bytes.toString("utf8")));
+    const sidecar = await readSamplerTerminalSidecar(finishedDiagnosticPath);
+    if (!sidecar) throw new Error("sampler terminal sidecar is missing");
+    terminalSha256 = sidecar.sha256;
+    terminalDiagnostic = sidecar.diagnostic;
   } catch {
     if (!sampleEndFailure) sampleEndFailure = new Error("resource sampler terminal diagnostic is missing or invalid");
   }

@@ -1,7 +1,107 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { constants as fsConstants } from "node:fs";
+import { lstat, open } from "node:fs/promises";
+import { TextDecoder } from "node:util";
 
 const REGEX_BLOCK_SKIP_REASON = "Skipped after regex returned BLOCK.";
+const SAMPLER_TERMINAL_MAX_BYTES = 8 * 1024;
+
+function assertUniqueJsonObjectKeys(text) {
+  let offset = 0;
+  const whitespace = () => { while (/\s/.test(text[offset] ?? "")) offset += 1; };
+  function stringToken() {
+    assert.equal(text[offset], '"', "sampler sidecar JSON string is invalid");
+    const start = offset++;
+    while (offset < text.length) {
+      const character = text[offset++];
+      if (character === '"') return JSON.parse(text.slice(start, offset));
+      if (character === "\\") offset += 1;
+    }
+    throw new Error("sampler sidecar JSON string is truncated");
+  }
+  function value() {
+    whitespace();
+    if (text[offset] === "{") {
+      offset += 1;
+      whitespace();
+      const keys = new Set();
+      if (text[offset] === "}") { offset += 1; return; }
+      while (offset < text.length) {
+        whitespace();
+        const key = stringToken();
+        assert.ok(!keys.has(key), "sampler sidecar contains duplicate fields");
+        keys.add(key);
+        whitespace();
+        assert.equal(text[offset++], ":", "sampler sidecar JSON object is invalid");
+        value();
+        whitespace();
+        const delimiter = text[offset++];
+        if (delimiter === "}") return;
+        assert.equal(delimiter, ",", "sampler sidecar JSON object is invalid");
+      }
+      throw new Error("sampler sidecar JSON object is truncated");
+    }
+    if (text[offset] === "[") {
+      offset += 1;
+      whitespace();
+      if (text[offset] === "]") { offset += 1; return; }
+      while (offset < text.length) {
+        value();
+        whitespace();
+        const delimiter = text[offset++];
+        if (delimiter === "]") return;
+        assert.equal(delimiter, ",", "sampler sidecar JSON array is invalid");
+      }
+      throw new Error("sampler sidecar JSON array is truncated");
+    }
+    if (text[offset] === '"') { stringToken(); return; }
+    const start = offset;
+    while (offset < text.length && !/[\s,\]}]/.test(text[offset])) offset += 1;
+    assert.ok(offset > start, "sampler sidecar JSON value is missing");
+    JSON.parse(text.slice(start, offset));
+  }
+  value();
+  whitespace();
+  assert.equal(offset, text.length, "sampler sidecar has trailing JSON data");
+}
+
+export async function readSamplerTerminalSidecar(path) {
+  let handle;
+  try {
+    const pathInfo = await lstat(path);
+    assert.ok(!pathInfo.isSymbolicLink(), "sampler terminal sidecar must not be a symbolic link");
+    const noFollow = fsConstants.O_NOFOLLOW ?? 0;
+    handle = await open(path, fsConstants.O_RDONLY | noFollow);
+    const info = await handle.stat();
+    assert.ok(info.isFile(), "sampler terminal sidecar is not a regular file");
+    assert.ok(info.size <= SAMPLER_TERMINAL_MAX_BYTES, "sampler terminal sidecar exceeds 8 KiB");
+    const buffer = Buffer.alloc(SAMPLER_TERMINAL_MAX_BYTES + 1);
+    let bytesRead = 0;
+    while (bytesRead < buffer.length) {
+      const result = await handle.read(buffer, bytesRead, buffer.length - bytesRead, bytesRead);
+      if (result.bytesRead === 0) break;
+      bytesRead += result.bytesRead;
+    }
+    assert.ok(bytesRead <= SAMPLER_TERMINAL_MAX_BYTES, "sampler terminal sidecar exceeds 8 KiB");
+    const raw = buffer.subarray(0, bytesRead);
+    let text;
+    try { text = new TextDecoder("utf-8", { fatal: true }).decode(raw); }
+    catch { throw new Error("sampler terminal sidecar is not valid UTF-8"); }
+    assertUniqueJsonObjectKeys(text);
+    let value;
+    try { value = JSON.parse(text); }
+    catch { throw new Error("sampler terminal sidecar is invalid JSON"); }
+    const diagnostic = validateSamplerTerminalDiagnostic(value);
+    return { diagnostic, byteLength: raw.length, sha256: createHash("sha256").update(raw).digest("hex") };
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    if (error?.message?.startsWith("sampler ")) throw error;
+    throw new Error("sampler terminal sidecar could not be read safely");
+  } finally {
+    await handle?.close().catch(() => {});
+  }
+}
 
 export function parseGrpcWebFrames(body, kind) {
   assert.ok(Buffer.isBuffer(body), `${kind} body must be bytes`);
@@ -372,8 +472,8 @@ export function validateSamplerTerminalDiagnostic(value) {
     const frameKeys = ["file", "function", "line"];
     if (!frame || typeof frame !== "object" || Array.isArray(frame)
         || Object.keys(frame).sort().join("\0") !== [...frameKeys].sort().join("\0")
-        || typeof frame.file !== "string" || !/^[^/\\]{1,128}$/.test(frame.file)
-        || typeof frame.function !== "string" || !/^[A-Za-z_][A-Za-z0-9_<>]{0,127}$/.test(frame.function)
+        || typeof frame.file !== "string" || !/^(?:[A-Za-z0-9_.-]{1,128}|<unavailable>)$/.test(frame.file)
+        || typeof frame.function !== "string" || !/^[A-Za-z0-9_<>.-]{1,128}$/.test(frame.function)
         || !Number.isSafeInteger(frame.line) || frame.line <= 0) {
       throw new TypeError("sampler traceback frame is invalid");
     }

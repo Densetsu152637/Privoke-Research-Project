@@ -237,11 +237,8 @@ def _terminal_diagnostic_payload(status: str, samples_written: int, error: Excep
     if error is not None:
         status = "error"
         candidate = type(error).__name__
-        exception_type = candidate if candidate.isidentifier() and len(candidate) <= 80 else "Exception"
-        frames = [
-            {"file": Path(frame.filename).name[:128], "function": frame.name[:128], "line": int(frame.lineno)}
-            for frame in traceback.extract_tb(error.__traceback__)[-12:]
-        ]
+        exception_type = candidate if candidate.isascii() and candidate.isidentifier() and len(candidate) <= 80 else "Exception"
+        frames = [_safe_terminal_frame(frame) for frame in traceback.extract_tb(error.__traceback__)[-12:]]
     elif status == "error":
         raise ValueError("error terminal state requires an exception")
     return {
@@ -251,6 +248,17 @@ def _terminal_diagnostic_payload(status: str, samples_written: int, error: Excep
         "exception_type": exception_type,
         "frames": frames,
     }
+
+
+def _safe_terminal_frame(frame: traceback.FrameSummary) -> dict[str, object]:
+    basename = Path(frame.filename).name
+    function = frame.name
+    if not basename or not basename.isascii() or len(basename) > 128 or not all(char.isalnum() or char in "._-" for char in basename):
+        basename = "<unavailable>"
+    if not function or not function.isascii() or len(function) > 128 or not all(char.isalnum() or char in "_<>.-" for char in function):
+        function = "<unavailable>"
+    line = frame.lineno if isinstance(frame.lineno, int) and frame.lineno > 0 else 1
+    return {"file": basename, "function": function, "line": line}
 
 
 def _write_terminal_diagnostic(path: Path, payload: dict) -> None:

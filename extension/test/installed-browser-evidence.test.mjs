@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import {
   assertNativeParentBinding,
@@ -26,7 +28,40 @@ import {
   validatePageAnalysis,
   waitForProcessesToDisappear,
   validateSamplerTerminalDiagnostic,
+  readSamplerTerminalSidecar,
 } from "./installed-browser-evidence.mjs";
+
+test("sampler sidecar reader bounds bytes before parsing and rejects unsafe JSON privately", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "sampler-terminal-"));
+  const path = join(directory, "terminal.json");
+  const valid = JSON.stringify({ schema_version: 1, status: "stopped", samples_written: 3,
+    exception_type: null, frames: [] });
+  try {
+    await writeFile(path, valid, { flag: "wx" });
+    const summary = await readSamplerTerminalSidecar(path);
+    assert.equal(summary.diagnostic.samples_written, 3);
+    assert.equal(summary.byteLength, Buffer.byteLength(valid));
+
+    const invalidBodies = [
+      [Buffer.alloc(8193, 0x78), /exceeds 8 KiB/],
+      [Buffer.from([0xff, 0xfe]), /valid UTF-8/],
+      [Buffer.from('{"schema_version":1,"schema_version":1,"status":"stopped","samples_written":0,"exception_type":null,"frames":[]}'), /duplicate/],
+      [Buffer.from('{"schema_version":1,"status":"error","samples_written":0,"exception_type":"RuntimeError","frames":[{"file":"a.py","file":"b.py","function":"main","line":1}]}'), /duplicate/],
+      [Buffer.from('{"schema_version":1,"status":"stopped","samples_written":0,"exception_type":null,"frames":[],"private":"synthetic-secret"}'), /invalid schema/],
+    ];
+    for (const [body, expectedError] of invalidBodies) {
+      await rm(path);
+      await writeFile(path, body, { flag: "wx" });
+      await assert.rejects(readSamplerTerminalSidecar(path), (error) => {
+        assert.match(error.message, expectedError);
+        assert.equal(error.message.includes("synthetic-secret"), false);
+        return true;
+      });
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 
 test("supervisor startup diagnostics retain bounded traceback identity without exception text", () => {
   const log = Buffer.from([
