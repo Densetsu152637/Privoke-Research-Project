@@ -34,10 +34,29 @@ def _matches(role: str, command: str) -> bool:
     return any(pattern in command for pattern in PATTERNS.get(role, ()))
 
 
-def _browser_match(command: str) -> bool:
-    if "chromium" not in command.lower() and "/chrome" not in command.lower():
+def _browser_match(argv: list[str]) -> bool:
+    """Match only a browser root using its exact user-data-dir argument."""
+    if not argv or Path(argv[0]).name.lower() not in {"chrome", "chromium"}:
         return False
-    return any(str(profile) in command for profile in _browser_profiles())
+    if any(argument == "--type" or argument.startswith("--type=") for argument in argv[1:]):
+        return False
+
+    user_data_dirs: list[str] = []
+    index = 1
+    while index < len(argv):
+        argument = argv[index]
+        if argument == "--user-data-dir":
+            if index + 1 >= len(argv):
+                return False
+            user_data_dirs.append(argv[index + 1])
+            index += 2
+            continue
+        if argument.startswith("--user-data-dir="):
+            user_data_dirs.append(argument.split("=", 1)[1])
+        index += 1
+    if len(user_data_dirs) != 1:
+        return False
+    return any(user_data_dirs[0] == str(profile) for profile in _browser_profiles())
 
 
 def _browser_process_ids(processes: list[psutil.Process]) -> tuple[set[int], set[int]]:
@@ -45,8 +64,11 @@ def _browser_process_ids(processes: list[psutil.Process]) -> tuple[set[int], set
     root_processes: list[psutil.Process] = []
     for process in processes:
         try:
-            command = " ".join(process.cmdline())
-            if _browser_match(command):
+            # Classify roots from process_iter's cached command line. A fresh
+            # cmdline read here can race process exit and erase a required root
+            # before _processes applies its strict identity checks.
+            argv = process.info.get("cmdline") or []
+            if _browser_match(argv):
                 root_processes.append(process)
         except (psutil.Error, OSError):
             continue
@@ -179,7 +201,7 @@ def _processes() -> tuple[list[dict[str, object]], dict[str, int]]:
             role = _role_for_command(command, included_chromium)
             if role is None or role != role_hint:
                 raise RuntimeError(f"{role_hint} process role changed between enumeration and sampling")
-            if profile_root and not _browser_match(command):
+            if profile_root and not _browser_match(fresh.cmdline()):
                 raise RuntimeError("Chromium profile root no longer matches the sampled process command")
             parent_pid = fresh.ppid()
             parent_before = _process_stat_identity(parent_pid) if parent_pid > 0 else None
