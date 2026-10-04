@@ -1,10 +1,12 @@
 # Synthetic trainer-to-real-runtime codec gate. No datasets or model artifacts.
 FROM python:3.11-slim-bookworm
 WORKDIR /workspace
-COPY evaluation/requirements-training-parity.txt /tmp/requirements.txt
-RUN python -m pip install --no-cache-dir --only-binary=:all: -r /tmp/requirements.txt
+COPY evaluation/requirements-training.txt /tmp/requirements-training.txt
+COPY evaluation/requirements-training-parity.txt /tmp/requirements-training-parity.txt
+RUN python -m pip install --no-cache-dir --only-binary=:all: -r /tmp/requirements-training-parity.txt
 
 COPY shared/python/privoke_model /workspace/shared/python/privoke_model
+COPY shared/python/privoke_contracts /workspace/shared/python/privoke_contracts
 COPY shared/python/privoke_service /workspace/shared/python/privoke_service
 COPY shared/proto/privoke/v1/parameters.proto /workspace/shared/proto/privoke/v1/parameters.proto
 COPY models/generate_baseline.py /workspace/models/generate_baseline.py

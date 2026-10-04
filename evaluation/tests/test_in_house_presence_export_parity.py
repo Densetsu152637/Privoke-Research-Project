@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import math
 import sys
@@ -20,20 +21,6 @@ for path in (ROOT / "evaluation", ROOT / "shared" / "python", RUNTIME,
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-# The real package initializer eagerly imports unrelated contextual training.
-# Use a namespace package to load the actual two runtime modules under test.
-for name, directory in (
-    ("src.LLM", RUNTIME / "src" / "LLM"),
-    ("src.LLM.privoke", RUNTIME / "src" / "LLM" / "privoke"),
-):
-    if name not in sys.modules:
-        package = types.ModuleType(name)
-        package.__path__ = [str(directory)]
-        sys.modules[name] = package
-import src
-src.LLM = sys.modules["src.LLM"]
-src.LLM.privoke = sys.modules["src.LLM.privoke"]
-
 from privoke_model.artifact import validate_artifact
 from privoke_model.fingerprint import parameter_fingerprint
 from privoke_model.scratch_presence import (
@@ -43,13 +30,30 @@ from privoke_model.scratch_presence import (
     scratch_presence_trainable_names,
 )
 from privoke.v1 import parameters_pb2
-from src.LLM.privoke.parameter_stream import ModelParameterStreamer
-from src.LLM.privoke.scratch_presence_model import StreamedScratchPresenceModel
 from src.detection.preprocessing import normalize_text
 from privoke_eval.in_house_presence_training import (
     ScratchPresenceTrainer,
     create_paired_trainers,
 )
+
+# Import only the actual runtime source modules under a private namespace. This
+# avoids the production package initializer's unrelated contextual imports and
+# keeps the test from modifying the evaluator's `src.LLM` module state.
+_RUNTIME_ALIAS = "_presence_parity_runtime"
+_namespace = types.ModuleType(_RUNTIME_ALIAS)
+_namespace.__path__ = [str(RUNTIME / "src")]
+sys.modules[_RUNTIME_ALIAS] = _namespace
+try:
+    _stream_module = importlib.import_module(f"{_RUNTIME_ALIAS}.LLM.privoke.parameter_stream")
+    _wrapper_module = importlib.import_module(f"{_RUNTIME_ALIAS}.LLM.privoke.scratch_presence_model")
+    _runtime_preprocessing = importlib.import_module(f"{_RUNTIME_ALIAS}.detection.preprocessing")
+    ModelParameterStreamer = _stream_module.ModelParameterStreamer
+    StreamedScratchPresenceModel = _wrapper_module.StreamedScratchPresenceModel
+    runtime_normalize_text = _runtime_preprocessing.normalize_text
+finally:
+    for _module_name in tuple(sys.modules):
+        if _module_name == _RUNTIME_ALIAS or _module_name.startswith(_RUNTIME_ALIAS + "."):
+            sys.modules.pop(_module_name, None)
 
 
 class _TransportChannel:
@@ -65,6 +69,15 @@ class _TransportChannel:
             return iter(response_deserializer(chunk.SerializeToString()) for chunk in self.chunks)
 
         return invoke
+
+    def unary_unary(self, method, *, request_serializer, response_deserializer, **kwargs):
+        self.unary_methods = getattr(self, "unary_methods", []) + [method]
+
+        def unexpected_call(*args, **call_kwargs):
+            self.unexpected_invoked = True
+            raise AssertionError("Parity gate invoked an unexpected unary RPC.")
+
+        return unexpected_call
 
 
 def _stream_messages(payload: dict[str, object], artifact_file_sha256: str):
@@ -145,7 +158,10 @@ class ScratchPresenceExportParityTests(unittest.TestCase):
                     # replacing only the network transport with an in-memory stream.
                     channel = _TransportChannel()
                     channel.chunks = _stream_messages(decoded, file_sha256)
-                    with patch("src.LLM.privoke.parameter_stream.grpc_channel", return_value=nullcontext(channel)):
+                    channel.expected_request = parameters_pb2.ModelParametersRequest(
+                        consumer_id="synthetic-export-parity-test", model_id=decoded["model_id"]
+                    )
+                    with patch.object(_stream_module, "grpc_channel", return_value=nullcontext(channel)):
                         snapshot = ModelParameterStreamer(
                             target="127.0.0.1:50051", model_id=decoded["model_id"],
                             consumer_id="synthetic-export-parity-test",
@@ -153,7 +169,13 @@ class ScratchPresenceExportParityTests(unittest.TestCase):
 
                     self.assertEqual(channel.request.model_id, decoded["model_id"])
                     self.assertEqual(channel.request.consumer_id, "synthetic-export-parity-test")
-                    self.assertTrue(channel.request_bytes)
+                    self.assertEqual(channel.request_bytes, channel.expected_request.SerializeToString())
+                    self.assertEqual(channel.method, "/privoke.v1.ModelStreamingService/StreamModelParameters")
+                    self.assertEqual(set(channel.unary_methods), {
+                        "/privoke.v1.ModelStreamingService/GetModelParameters",
+                        "/privoke.v1.ModelStreamingService/Health",
+                    })
+                    self.assertFalse(getattr(channel, "unexpected_invoked", False))
                     self.assertEqual(channel.timeout, 10.0)
                     self.assertEqual(snapshot.model_id, decoded["model_id"])
                     self.assertEqual(snapshot.version, decoded["version"])
@@ -180,7 +202,7 @@ class ScratchPresenceExportParityTests(unittest.TestCase):
                     batched_logits = trainer.logits(batch_ids, batch_mask).detach().tolist()
                     for index, raw in enumerate(texts):
                         runtime_raw = runtime_model.predict_probability(raw)
-                        normalized = normalize_text(raw)
+                        normalized = runtime_normalize_text(raw)
                         runtime_normalized = runtime_model.predict_normalized_probability(normalized)
                         self.assertEqual(runtime_raw, runtime_normalized)
                         reference_logit = np.float32(batched_logits[index])
