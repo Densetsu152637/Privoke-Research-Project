@@ -38,6 +38,32 @@ _EXPECTED_COMMITMENTS = {
         "meddies_heldout": "cfff4d0ddd694b82c3e3399ccebe800f05c785331d3ec1380cef133cc430073a",
     },
 }
+_EXPECTED_INPUT_SOURCE_HASHES = {
+    "prepared_manifest": _EXPECTED_COMMITMENTS["prepared_manifest_sha256"],
+    "exclusion_index": _EXPECTED_COMMITMENTS["exclusion_index_sha256"],
+    "reference_train": _EXPECTED_COMMITMENTS["reference_train_sha256"],
+    "reference_validation": _EXPECTED_COMMITMENTS["reference_validation_sha256"],
+    "bootstrap_source": _EXPECTED_COMMITMENTS["bootstrap_source_sha256"],
+    "protocol_canonical_lf": PROTOCOL_SHA256,
+    "rubric_canonical_lf": RUBRIC_SHA256,
+    "training_data_source": "1bdeeff73310808a3468eb54f6d94a16a008b02e027ba3f9d749602636024f0b",
+    "partition_train": _EXPECTED_COMMITMENTS["partition_sha256"]["train"],
+    "partition_validation": _EXPECTED_COMMITMENTS["partition_sha256"]["validation"],
+    "partition_nemotron_heldout": _EXPECTED_COMMITMENTS["partition_sha256"]["nemotron_heldout"],
+    "partition_meddies_heldout": _EXPECTED_COMMITMENTS["partition_sha256"]["meddies_heldout"],
+}
+_PROTECTION_HELPER_FIELDS = {
+    "protection_io_sha256", "protection_core_sha256", "grouping_core_sha256", "training_data_sha256",
+}
+_PROPOSED_PARTITION_QUOTAS = {
+    "train": {"positive": 2000, "negative": 1600, "hard_negative": 400},
+    "validation": {"positive": 1000, "negative": 750, "hard_negative": 250},
+    "test": {"positive": 1000, "negative": 750, "hard_negative": 250},
+}
+_PROPOSED_SOURCE_QUOTAS = {
+    category: sum(partition[category] for partition in _PROPOSED_PARTITION_QUOTAS.values())
+    for category in ("positive", "negative", "hard_negative")
+}
 _FIXED_COVERAGE = {
     "saved_selection_records": 1000,
     "saved_selection_groups": 929,
@@ -87,6 +113,13 @@ def require_frozen_text_inputs(protocol_path: str | Path, rubric_path: str | Pat
     if protocol_sha != PROTOCOL_SHA256 or rubric_sha != RUBRIC_SHA256:
         raise ValueError("Protocol or rubric differs from the frozen scanner contract.")
     return {"protocol_sha256": protocol_sha, "rubric_sha256": rubric_sha}
+
+
+def validate_training_data_source(path: str | Path) -> str:
+    digest = sha256_file(path)
+    if digest != _EXPECTED_INPUT_SOURCE_HASHES["training_data_source"]:
+        raise ValueError("Shared training text normalizer source differs from the frozen commitment.")
+    return digest
 
 
 def validate_source_audit(path: str | Path) -> dict[str, Any]:
@@ -197,12 +230,48 @@ def validate_protected_union(
         raise ValueError("Protected-union content digest is invalid.")
     if not isinstance(receipt, dict) or receipt.get("status") != "protected_union_built":
         raise ValueError("Protection receipt does not attest a completed union build.")
+    receipt_fields = {
+        "schema_version", "status", "source_revision", "prepared_source_revision", "artifact_file",
+        "artifact_sha256", "union_sha256", "coverage_counts", "input_source_hashes", "helper_source_hashes",
+        "packages", "limitations",
+    }
+    if (
+        set(receipt) != receipt_fields
+        or type(receipt.get("schema_version")) is not int
+        or receipt["schema_version"] != 1
+    ):
+        raise ValueError("Protection receipt schema is invalid.")
+    if (
+        not isinstance(receipt.get("source_revision"), str)
+        or _HEX40.fullmatch(receipt["source_revision"]) is None
+        or receipt.get("prepared_source_revision") != "85c7f475fb8ebd1529254e4135b774d98505ddb1"
+    ):
+        raise ValueError("Protection receipt source revisions are invalid.")
+    source_hashes = receipt.get("input_source_hashes")
+    if not isinstance(source_hashes, dict) or source_hashes != _EXPECTED_INPUT_SOURCE_HASHES:
+        raise ValueError("Protection receipt input-source commitments differ from the frozen files.")
+    helper_hashes = receipt.get("helper_source_hashes")
+    if (
+        not isinstance(helper_hashes, dict)
+        or set(helper_hashes) != _PROTECTION_HELPER_FIELDS
+        or any(not _require_sha(value) for value in helper_hashes.values())
+        or helper_hashes.get("training_data_sha256") != _EXPECTED_INPUT_SOURCE_HASHES["training_data_source"]
+    ):
+        raise ValueError("Protection receipt helper-source commitments are malformed.")
+    packages = receipt.get("packages")
+    limitations = receipt.get("limitations")
+    if (
+        not isinstance(packages, dict)
+        or not isinstance(packages.get("python"), str)
+        or not isinstance(limitations, list)
+        or any(not isinstance(item, str) for item in limitations)
+    ):
+        raise ValueError("Protection receipt runtime metadata is malformed.")
     if (
         receipt.get("artifact_file") != union_file.name
         or receipt.get("artifact_sha256") != sha256_file(union_file)
         or receipt.get("union_sha256") != calculated_union_sha
         or receipt.get("coverage_counts") != coverage
-        or receipt.get("verified_commitments") != commitments
     ):
         raise ValueError("Protection receipt and union artifact disagree.")
     protected = ProtectedKeys(
@@ -217,6 +286,9 @@ def validate_protected_union(
         "artifact_sha256": sha256_file(union_file),
         "coverage_counts": {name: coverage[name] for name in sorted(coverage)},
         "verified_commitments": commitments,
+        "protection_source_revision": receipt["source_revision"],
+        "prepared_source_revision": receipt["prepared_source_revision"],
+        "helper_source_hashes": {name: helper_hashes[name] for name in sorted(helper_hashes)},
     }
     return protected, metadata
 
@@ -316,12 +388,11 @@ def aggregate_scan(
         category: len(available_component_ids[category])
         for category in sorted(available_component_ids)
     }
-    proposed_native_quotas = {"positive": 4000, "negative": 3200, "hard_negative": 900}
     quota_ceiling_check = {
         category: {
-            "proposed_source_category_rows": proposed_native_quotas[category],
+            "proposed_source_category_rows": _PROPOSED_SOURCE_QUOTAS[category],
             "structural_ceiling": ceilings[category],
-            "below_target_can_reject": ceilings[category] < proposed_native_quotas[category],
+            "below_target_can_reject": ceilings[category] < _PROPOSED_SOURCE_QUOTAS[category],
             "above_target_means_feasible": False,
         }
         for category in ("positive", "negative", "hard_negative")

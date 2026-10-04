@@ -26,6 +26,7 @@ from privoke_eval.advpii_structure import (  # noqa: E402
     sha256_file,
     validate_protected_union,
     validate_source_audit,
+    validate_training_data_source,
     verify_parquet_bytes,
 )
 
@@ -62,6 +63,9 @@ def scan(args: argparse.Namespace) -> int:
             raise ValueError("Source revision must be a full lowercase Git commit SHA.")
         source_audit = validate_source_audit(args.source_audit)
         text_bindings = require_frozen_text_inputs(args.protocol, args.rubric)
+        normalizer_sha = validate_training_data_source(
+            REPOSITORY_ROOT / "shared/python/privoke_model/training_data.py"
+        )
         protected, protection_metadata = validate_protected_union(
             args.protected_union,
             args.protection_receipt,
@@ -103,6 +107,7 @@ def scan(args: argparse.Namespace) -> int:
             "parquet_sha256": parquet_digest,
             "protocol_sha256": text_bindings["protocol_sha256"],
             "rubric_sha256": text_bindings["rubric_sha256"],
+            "training_data_source_sha256": normalizer_sha,
             "protection": protection_metadata,
             "code_sha256": code_files,
             "aggregate_report_sha256": report_sha,
