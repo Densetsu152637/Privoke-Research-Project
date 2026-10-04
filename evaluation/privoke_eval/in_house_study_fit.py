@@ -576,6 +576,8 @@ def _check_scratch_export(trainer, artifact: Mapping[str, object]) -> dict[str, 
     texts = _PARITY_TEXTS
     ids, mask = trainer.tensor_batch(texts)
     trainer_logits = trainer.logits(ids, mask).detach().cpu().numpy()
+    if trainer_logits.shape != (len(texts),) or not np.isfinite(trainer_logits).all():
+        _fail("Scratch encoder export produced malformed or non-finite raw Torch logits.")
     weight = arrays["head.presence.weight"]
     bias = arrays["head.presence.bias"]
     parity_max_abs = 0.0
@@ -583,8 +585,12 @@ def _check_scratch_export(trainer, artifact: Mapping[str, object]) -> dict[str, 
     for index, text in enumerate(texts):
         pooled = encoder.encode(normalize_text(text))
         logit = (pooled @ weight + bias).reshape(-1)
+        if logit.shape != (1,) or not np.isfinite(logit).all():
+            _fail("Scratch encoder export produced malformed or non-finite raw NumPy logits.")
         expected_logit = float(logit[0])
         actual_logit = float(trainer_logits[index])
+        if not math.isfinite(expected_logit) or not math.isfinite(actual_logit):
+            _fail("Scratch encoder export produced non-finite raw logits.")
         if not math.isclose(actual_logit, expected_logit, rel_tol=2e-5, abs_tol=2e-6):
             _fail("Scratch encoder export failed raw-logit parity on the synthetic panel.")
         parity_max_abs = max(parity_max_abs, abs(actual_logit - expected_logit))

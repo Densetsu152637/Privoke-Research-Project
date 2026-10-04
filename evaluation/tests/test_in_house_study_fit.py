@@ -349,6 +349,7 @@ class InHouseStudyFitTests(unittest.TestCase):
             view.write_bytes(view_bytes)
             expected_path.write_bytes(expected_bytes)
             output = base / "run"
+            artifact_evidence = ()
             with (mock.patch.object(fit.scratch_mechanics, "create_paired_trainers", create),
                   mock.patch.object(fit, "_check_scratch_export", check_export)):
                 try:
@@ -360,7 +361,12 @@ class InHouseStudyFitTests(unittest.TestCase):
                     )
                 except fit.StudyFitError:
                     result = json.loads((output / "run-manifest.json").read_text("utf-8"))
-            return result, trainers, output
+            artifact_evidence = tuple(
+                (output / item["artifact_file"]).is_file()
+                and _sha((output / item["artifact_file"]).read_bytes()) == item["artifact_sha256"]
+                for item in result.get("artifact_files_written", [])
+            )
+            return result, trainers, artifact_evidence
 
     @unittest.skipUnless(fit._private_output_supported(), "requires POSIX dirfd output support")
     def test_run_fit_executes_all_fixed_scratch_steps_batches_and_checkpoints(self):
@@ -394,12 +400,12 @@ class InHouseStudyFitTests(unittest.TestCase):
         self.assertEqual(midstep["status"], "failed")
         self.assertEqual(midstep["checkpoint_records"], [])
         self.assertEqual(midstep["artifact_files_written"], [])
-        exported, _trainers, output = self._run_schedule_only_arm(fail_export=True)
+        exported, _trainers, artifact_evidence = self._run_schedule_only_arm(fail_export=True)
         self.assertEqual(exported["status"], "failed")
         self.assertEqual(exported["checkpoint_records"], [])
         self.assertEqual(len(exported["artifact_files_written"]), 1)
         self.assertEqual(exported["artifact_files_written"][0]["validation_status"], "pending")
-        self.assertTrue((output / exported["artifact_files_written"][0]["artifact_file"]).is_file())
+        self.assertEqual(artifact_evidence, (True,))
 
     @unittest.skipUnless(fit._private_output_supported(), "requires POSIX dirfd output support")
     def test_held_output_writer_detects_directory_replacement_without_escape(self):
@@ -518,6 +524,31 @@ class InHouseStudyFitTests(unittest.TestCase):
             self.assertEqual(diagnostics["runtime_probability_max_abs_error"], 0.0)
             self.assertEqual(diagnostics["parity_probe_rows"], len(fit._PARITY_TEXTS))
 
+    def test_finite_head_parameters_with_overflowing_raw_logits_are_rejected(self):
+        from privoke_eval.in_house_presence_training import create_paired_trainers
+        from privoke_eval.in_house_study_contract import PIN_ITEMS
+        _, _, expected, _ = _bundle(arm="E-H")
+        trainer = create_paired_trainers("efficient")[0]
+        empty_pool = trainer.numpy_encoder().encode(fit.normalize_text(""))
+        weight = fit.np.sign(empty_pool).astype(fit.np.float32) * fit.np.float32(1e38)
+        with fit.torch.no_grad():
+            trainer._parameters["head.presence.weight"].copy_(
+                fit.torch.from_numpy(weight.reshape(-1, 1))
+            )
+            trainer._parameters["head.presence.bias"].zero_()
+        self.assertTrue(all(fit.torch.isfinite(value).all()
+                            for value in trainer._parameters.values()))
+        trainer._step_count = 490  # synthetic export metadata only; no optimization is run
+        artifact = trainer.build_artifact(
+            source_revision=expected.source_revision,
+            study_plan_sha256=dict(PIN_ITEMS)["plan"],
+            prepared_manifest_sha256=expected.prepared_manifest_raw_sha256,
+            trainer_contract_sha256=expected.trainer_contract_sha256,
+            checkpoint_epoch=1, generated_at_unix=1,
+        )
+        with self.assertRaises(fit.StudyFitError):
+            fit._check_scratch_export(trainer, artifact)
+
     @unittest.skipUnless(fit._private_output_supported(), "requires POSIX dirfd output support")
     def test_deadline_crossed_by_final_complete_manifest_is_recorded_failed(self):
         train_bytes, view_bytes, _, expected_bytes = _bundle(arm="S1")
@@ -556,7 +587,10 @@ class InHouseStudyFitTests(unittest.TestCase):
             with (mock.patch.object(fit, "_fit_s1", return_value=(artifact, diagnostics)),
                   mock.patch.object(fit.time, "monotonic", side_effect=lambda: clock[0]),
                   mock.patch.object(fit._FreshOutput, "write_manifest", cross_deadline_on_complete)):
-                with self.assertRaisesRegex(fit.StudyFitError, "Fixed two-hour"):
+                with self.assertRaisesRegex(
+                    fit.StudyFitError,
+                    r"Study fit failed in phase s1_train_only_fit \(StudyFitError\)\.",
+                ):
                     fit.run_fit(
                         arm_key="S1", train_file=train, training_manifest=view,
                         expected_inputs_file=expected_path,
