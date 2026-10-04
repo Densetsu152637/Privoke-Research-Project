@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+import types
 import unittest
 from unittest.mock import patch
 
@@ -89,6 +90,50 @@ class FakeBatch:
     def to_pylist(self):
         self.converted = True
         return self.rows
+
+
+def fake_arrow_fixture(*, names_callback=None):
+    from types import SimpleNamespace
+
+    class Primitive:
+        def __init__(self, name): self.name = name
+        def __eq__(self, other): return type(other) is Primitive and self.name == other.name
+
+    class Field:
+        def __init__(self, name, field_type, nullable=True):
+            self.name, self.type, self.nullable = name, field_type, nullable
+
+    class ListType:
+        def __init__(self, value_field): self.value_field = value_field
+
+    class StructType:
+        def __init__(self, fields):
+            self._fields = {field.name: field for field in fields}
+            self.names = tuple(self._fields)
+        def field(self, name): return self._fields[name]
+
+    class Schema:
+        def __init__(self, fields): self._fields = {field.name: field for field in fields}
+        @property
+        def names(self):
+            if names_callback is not None:
+                names_callback()
+            return tuple(self._fields)
+        def field(self, name): return self._fields[name]
+
+    string, int32 = Primitive("string"), Primitive("int32")
+    list_field = lambda child: ListType(Field("item", child))
+    attack = StructType([Field("pii", list_field(string)), Field("context", list_field(string))])
+    span = StructType([Field("type", string), Field("start", int32), Field("end", int32),
+                       Field("value", string), Field("value_fuzzy", string)])
+    schema = Schema([Field("uid", int32), Field("input_id", int32), Field("category", string),
+                     Field("attack_target", attack), Field("llm_input", string),
+                     Field("pii_spans", list_field(span))])
+    module = SimpleNamespace(
+        Schema=Schema, int32=lambda: int32, string=lambda: string,
+        types=SimpleNamespace(is_struct=lambda value: type(value) is StructType,
+                              is_list=lambda value: type(value) is ListType))
+    return module, schema
 
 
 class FakeParsed:
@@ -208,8 +253,9 @@ class PreparationIOTests(unittest.TestCase):
                                     "receipt_sha256": sha(receipt_path.read_bytes()),
                                     "union_sha256": "c" * 64,
                                     "helper_source_hashes": expected_helpers}
+            arrow_module, arrow_schema = fake_arrow_fixture()
             class FakeParquet:
-                schema_arrow = "schema"
+                schema_arrow = arrow_schema
                 metadata = SimpleNamespace(num_rows=2)
                 def iter_batches(self, batch_size):
                     return [FakeBatch([
@@ -219,7 +265,14 @@ class PreparationIOTests(unittest.TestCase):
                         {"uid": 2, "input_id": 12, "category": "negative",
                          "attack_target": {"pii": [], "context": []},
                          "llm_input": "synthetic ordinary request two", "pii_spans": []},
-                    ])]
+                    ], schema=arrow_schema)]
+            built_pools = []
+            real_pool_builder = io.in_house.build_in_house_review_pool
+            def build_pool(*args, **kwargs):
+                pool = real_pool_builder(*args, **kwargs)
+                built_pools.append(pool)
+                return pool
+            synthetic_source_sha = sha(b"synthetic parquet")
             with patch.object(io, "_attest_code", side_effect=lambda *_: code_hashes), \
                  patch.object(io, "validate_source_audit", side_effect=source_audit), \
                  patch.object(io, "verify_parquet_bytes", side_effect=lambda path: sha(path.read_bytes())), \
@@ -229,11 +282,12 @@ class PreparationIOTests(unittest.TestCase):
                  patch.object(io, "validate_protected_union", side_effect=protected_union), \
                  patch.object(io, "validate_training_data_source", return_value=code_hashes["normalizer"]), \
                  patch.object(io, "validate_fixture_addon", return_value=addon), \
+                 patch.dict(sys.modules, {"pyarrow": arrow_module}), \
                  patch.object(io, "PARQUET_ROWS", 2), \
                  patch.object(io, "open_verified_parquet", return_value=FakeParquet()) as open_parquet, \
-                 patch.object(io, "validate_arrow_schema", return_value=None), \
-                 patch.object(io.review, "SOURCE_SHA256", sha(b"synthetic parquet")), \
-                 patch.object(io, "build_in_house_review_pool", wraps=io.build_in_house_review_pool) as pool_builder:
+                 patch.object(io.in_house, "build_in_house_review_pool", side_effect=build_pool) as pool_builder, \
+                 patch.object(io.review, "SOURCE_SHA256", synthetic_source_sha), \
+                 patch.dict(io._REVIEW_CONSTANTS, {"SOURCE_SHA256": synthetic_source_sha}):
                 preflight = io.prepare_in_house_protection_bindings(paths, trust=trust, source_root=source_root)
                 prepared_trust = replace(trust, expected_protection_bindings=preflight.bindings)
                 result = io.prepare_in_house_review_pool(paths, trust=prepared_trust,
@@ -245,12 +299,18 @@ class PreparationIOTests(unittest.TestCase):
                 self.assertEqual(manifest["review_status"], "assistant_provisional_professor_pending")
                 self.assertTrue(manifest["no_model_scoring"])
                 self.assertEqual(set(manifest["input_consumed_sha256"]), set(io._INPUT_ROLES))
-                self.assertEqual(manifest["input_consumed_sha256"]["fixture"],
-                                 sha(io._canonical_lf(paths.fixture.read_bytes())))
-                self.assertEqual(manifest["input_consumed_sha256"]["addon_artifact"],
-                                 sha(paths.addon_artifact.read_bytes()))
-                for name in ("legacy_pool_sha256", "graph_membership_sha256", "private_members_sha256"):
-                    self.assertRegex(manifest[name], r"^[0-9a-f]{64}$")
+                canonical_roles = {"protocol", "rubric", "fixture", "fixture_rubric"}
+                expected_consumed = {
+                    role: sha(io._canonical_lf(getattr(paths, role).read_bytes())
+                              if role in canonical_roles else getattr(paths, role).read_bytes())
+                    for role in io._INPUT_ROLES
+                }
+                self.assertEqual(manifest["input_consumed_sha256"], expected_consumed)
+                self.assertEqual(manifest["legacy_pool_sha256"], built_pools[0].core.pool_sha256)
+                self.assertEqual(manifest["graph_membership_sha256"],
+                                 built_pools[0].core.graph_membership_sha256)
+                self.assertEqual(manifest["private_members_sha256"],
+                                 built_pools[0].core.private_members_sha256)
                 self.assertEqual(manifest["counts"]["source_rows"], 2)
                 self.assertEqual(manifest["counts"]["graph_components"], 1)
                 self.assertEqual((paths.output / "review-packages.jsonl").stat().st_mode & 0o777, 0o600)
@@ -340,24 +400,23 @@ class PreparationIOTests(unittest.TestCase):
         parser_snapshot = io._parser_contract_snapshot()
         order = []
         class Batch:
-            schema = "schema"
+            def __init__(self, schema): self.schema = schema
             def to_pylist(self):
                 order.append("converted")
                 return [{}]
-        batch = Batch()
-        checks = 0
-        def guard():
-            nonlocal checks
-            checks += 1
-            if checks == 2:
-                order.append("post-schema")
-                io.parse_native_row = lambda _row: order.append("foreign-parser")
-                io._verify_parser_edge(parser_snapshot)
-        with patch.object(io, "validate_arrow_schema", return_value=None):
+        def mutate_in_schema():
+            order.append("schema-callback")
+            io.parse_native_row = lambda _row: order.append("foreign-parser")
+        fake_pyarrow, schema = fake_arrow_fixture(names_callback=mutate_in_schema)
+        batch = Batch(schema)
+        with patch.object(io, "parse_native_row", io.parse_native_row), \
+             patch.dict(sys.modules, {"pyarrow": fake_pyarrow}):
             with self.assertRaisesRegex(io.InHousePreparationError, "parser_binding_changed"):
                 list(io._iter_rows(type("Reader", (), {"iter_batches": lambda self, batch_size: [batch]})(),
-                                   edge_guard=guard, parser_snapshot=parser_snapshot))
-        self.assertEqual(order, ["post-schema"])
+                                   edge_guard=lambda: io._verify_parser_edge(parser_snapshot),
+                                   parser_snapshot=parser_snapshot))
+        self.assertEqual(order, ["schema-callback"])
+        self.assertIs(io.parse_native_row, io.native.parse_native_row)
 
     def test_parser_alias_mutation_during_conversion_stops_before_parser(self):
         parser_snapshot = io._parser_contract_snapshot()
@@ -368,11 +427,50 @@ class PreparationIOTests(unittest.TestCase):
                 order.append("converted")
                 io.parse_native_row = lambda _row: order.append("foreign-parser")
                 return [{}]
-        with patch.object(io, "validate_arrow_schema", return_value=None):
+        with patch.object(io, "parse_native_row", io.parse_native_row), \
+             patch.object(io, "validate_arrow_schema", return_value=None):
             with self.assertRaisesRegex(io.InHousePreparationError, "parser_binding_changed"):
                 list(io._iter_rows(type("Reader", (), {"iter_batches": lambda self, batch_size: [Batch()]})(),
                                    parser_snapshot=parser_snapshot))
         self.assertEqual(order, ["converted"])
+        self.assertIs(io.parse_native_row, io.native.parse_native_row)
+
+    def test_attestation_rejects_same_code_function_with_foreign_globals(self):
+        code_hashes = {role: sha((ROOT / relative).read_bytes())
+                       for role, relative in io._CODE_PATHS.items()}
+        trust = io.InHousePreparationTrust(
+            "4" * 40, {role: D for role in io._INPUT_ROLES}, D, D, D, "5" * 40,
+            {key: code_hashes[role] for key, role in
+             (("grouping", "grouping"), ("normalizer", "normalizer"),
+              ("fixture_validator", "fixture_validator"))},
+            code_hashes, io.in_house.PLAN_SHA256, io.in_house.PREPARATION_DESIGN_SHA256,
+            io.in_house.ALLOCATOR_DESIGN_SHA256,
+        )
+        original = io.native.parse_native_row
+        changed_globals = dict(original.__globals__)
+        changed_globals["_PII_OPERATIONS"] = original.__globals__["_PII_OPERATIONS"] | {"synthetic_unapproved"}
+        clone = types.FunctionType(original.__code__, changed_globals, original.__name__,
+                                   original.__defaults__, original.__closure__)
+        clone.__module__ = original.__module__
+        clone.__qualname__ = original.__qualname__
+        clone.__annotations__ = dict(original.__annotations__)
+        clone.__kwdefaults__ = original.__kwdefaults__
+        row = {"uid": 777, "input_id": 778, "category": "negative",
+               "attack_target": {"pii": ["synthetic_unapproved"], "context": []},
+               "llm_input": "synthetic request", "pii_spans": []}
+        self.assertFalse(original(row).grouping_row.eligible)
+        self.assertTrue(clone(row).grouping_row.eligible)
+        snapshot = io._parser_contract_snapshot()
+        with patch.object(io.os, "O_NOFOLLOW", getattr(io.os, "O_BINARY", 0), create=True), \
+             patch.object(io.native, "parse_native_row", clone), \
+             patch.object(io, "parse_native_row", clone), \
+             patch.object(io.structure, "parse_native_row", clone):
+            with self.assertRaisesRegex(io.InHousePreparationError, "live_binding_mismatch"):
+                io._attest_code(ROOT, trust)
+            with self.assertRaisesRegex(io.InHousePreparationError, "parser_binding_changed"):
+                io._verify_parser_edge(snapshot)
+        self.assertIs(io.native.parse_native_row, original)
+        self.assertIs(io.parse_native_row, original)
 
     def test_span_adapter_uses_fuzzy_literal_and_preserves_base_identifier(self):
         parsed = FakeParsed(1, spans=1)
@@ -498,8 +596,13 @@ class PreparationIOTests(unittest.TestCase):
                     if not changed:
                         changed = True
                         named = target / "review-packages.jsonl"
-                        named.unlink()
-                        named.write_bytes(b"different bytes")
+                        named.rename(target / "displaced-original")
+                        replacement_fd = os.open(named, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                        with os.fdopen(replacement_fd, "wb") as replacement:
+                            replacement.write(b"different bytes")
+                            replacement.flush()
+                            os.fsync(replacement.fileno())
+                        os.chmod(named, 0o600)
                     return result
 
                 with patch.object(io.os, "fsync", side_effect=replace_after_sync):

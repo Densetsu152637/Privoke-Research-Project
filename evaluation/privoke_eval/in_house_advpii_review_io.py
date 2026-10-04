@@ -701,6 +701,7 @@ def _attest_module(role: str, raw: bytes, path: Path, module_override: object | 
         expected_candidates = [fn for fn in _function_candidates(expected_value)
                                if fn.__code__.co_firstlineno == line]
         if (expected is None or len(candidates) != 1 or candidates[0].__module__ != module.__name__
+                or candidates[0].__globals__ is not vars(module)
                 or candidates[0].__code__ != expected or len(expected_candidates) != 1
                 or not _semantic_value_equal(candidates[0].__defaults__, expected_candidates[0].__defaults__,
                                              actual_module=module, scratch_module=scratch)
@@ -931,7 +932,8 @@ def _parser_contract_snapshot() -> tuple[Any, ...]:
     functions = (native.parse_native_row, native.validate_arrow_schema)
     return (
         parse_native_row, validate_arrow_schema, grouping.GroupingRow, grouping.NativeIdentifier,
-        tuple((fn, fn.__code__, fn.__defaults__, fn.__kwdefaults__, fn.__annotations__) for fn in functions),
+        tuple((fn, fn.__code__, fn.__defaults__, fn.__kwdefaults__, fn.__annotations__, fn.__globals__)
+              for fn in functions),
         tuple((name, vars(native).get(name)) for name in _PARSER_CONSTANTS),
     )
 
@@ -940,13 +942,15 @@ def _verify_parser_edge(snapshot: tuple[Any, ...]) -> None:
     try:
         parser_alias, schema_alias, row_type, identifier_type, functions, constants = snapshot
         if (parse_native_row is not parser_alias or parse_native_row is not native.parse_native_row
+                or parse_native_row.__globals__ is not vars(native)
                 or validate_arrow_schema is not schema_alias or validate_arrow_schema is not native.validate_arrow_schema
                 or grouping.GroupingRow is not row_type or grouping.NativeIdentifier is not identifier_type
                 or native.GroupingRow is not row_type or native.NativeIdentifier is not identifier_type):
             _fail("parse_source", "parser_binding_changed")
-        for fn, code, defaults, kwdefaults, annotations in functions:
+        for fn, code, defaults, kwdefaults, annotations, globals_dict in functions:
             if (fn.__code__ is not code or fn.__defaults__ != defaults or fn.__kwdefaults__ != kwdefaults
-                    or fn.__annotations__ != annotations):
+                    or fn.__annotations__ != annotations or globals_dict is not vars(native)
+                    or fn.__globals__ is not vars(native)):
                 _fail("parse_source", "parser_function_changed")
         for name, expected in constants:
             if not _semantic_value_equal(vars(native).get(name), expected):
