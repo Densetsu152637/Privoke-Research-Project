@@ -86,18 +86,22 @@ def row(row_index: int, truth: bool, *, ordinary_detect=True,
         "skip_reason": analysis.NOT_REQUESTED_REASON,
     }
     if block:
-        gate = {"status": "not_run", "identity": None, "probability": None,
-                "predicted_present": None, "semantic_results_sha256": None}
+        gate = {
+            "status": "NOT_RUN", "model_id": arm_identity["model_id"], "identity": None,
+            "probability": None, "model_threshold": None, "decision_threshold": 0.0,
+            "predicted_label": None, "semantic_results_sha256": None,
+        }
     else:
         gate = {
-            "status": "applied",
+            "status": "APPLIED", "model_id": arm_identity["model_id"],
             "identity": {
                 "model_id": arm_identity["model_id"],
                 "model_version": arm_identity["version"],
                 "artifact_checksum": arm_identity["artifact_checksum"],
                 "parameter_fingerprint": arm_identity["parameter_fingerprint"],
             },
-            "probability": float(probability), "predicted_present": probability >= 0.5,
+            "probability": float(probability), "model_threshold": 0.5,
+            "decision_threshold": 0.0, "predicted_label": "PRESENT",
             "semantic_results_sha256": ordinary["layers"]["semantic"]["results_sha256"],
         }
     return {
@@ -110,7 +114,8 @@ def row(row_index: int, truth: bool, *, ordinary_detect=True,
 
 def validation_input(rows=4, positives=2, *, baseline_positive_predictions=None,
                      nonsemantic_positive_predictions=None,
-                     one_arm_threshold_effect=False):
+                     one_arm_threshold_effect=False, mixed_component=False,
+                     regex_block_first=False):
     if baseline_positive_predictions is None:
         baseline_positive_predictions = [True] * positives
     if nonsemantic_positive_predictions is None:
@@ -137,7 +142,10 @@ def validation_input(rows=4, positives=2, *, baseline_positive_predictions=None,
                     index, truth, ordinary_detect=ordinary_detect,
                     nonsemantic_detect=nonsemantic_detect, probability=probability,
                     arm_identity=identity_value,
+                    block=regex_block_first and index == 0,
                 ))
+            if mixed_component and rows > positives:
+                rows_data[positives]["group_id_sha256"] = rows_data[0]["group_id_sha256"]
             checkpoints.append({"epoch": epoch, "identity": identity_value, "rows": rows_data})
         records.append({"arm": arm, "control_binding_sha256": control_hash,
                         "checkpoints": checkpoints})
@@ -149,6 +157,8 @@ def endpoint_input():
     for index in range(2000):
         truth = index < 1000
         group = index // 5
+        if 1000 <= index < 1005:
+            group = 0
         rows.append({"row_id_sha256": sha(f"test:{index}"),
                      "group_id_sha256": sha(f"test-group:{group}"), "truth": truth})
     records = []
@@ -170,6 +180,42 @@ def endpoint_input():
     return {"schema_version": 1, "arms": records}
 
 
+def live_input(original, selection):
+    live_arms = []
+    for arm in ARM_KEYS:
+        choice = selection["selections"][arm]
+        source_record = original["arms"][ARM_KEYS.index(arm)]
+        checkpoint = next(item for item in source_record["checkpoints"]
+                          if item["epoch"] == choice["epoch"])
+        live_rows = []
+        for raw in checkpoint["rows"]:
+            validated = analysis._validate_row(raw, checkpoint["identity"])
+            gate = copy.deepcopy(raw["gate"])
+            gate["decision_threshold"] = choice["threshold"]
+            if gate["status"] == "APPLIED":
+                gate["predicted_label"] = (
+                    "PRESENT" if gate["probability"] >= choice["threshold"] else "ABSENT"
+                )
+            observed = copy.deepcopy(analysis._project(validated, choice["threshold"]))
+            if gate["status"] == "APPLIED" and gate["predicted_label"] == "ABSENT":
+                observed["layers"]["semantic"] = layer(label="live-empty-semantic")
+            live_rows.append({
+                "row_id_sha256": raw["row_id_sha256"],
+                "group_id_sha256": raw["group_id_sha256"],
+                "truth": raw["truth"], "gate": gate, "outcome": observed,
+            })
+        live_arms.append({
+            "arm": arm, "status": "complete", "error_count": 0,
+            "epoch": choice["epoch"], "threshold": choice["threshold"],
+            "identity": choice["identity"], "rows": live_rows,
+        })
+    return {
+        "schema_version": 1,
+        "control_binding_sha256": original["control_binding_sha256"],
+        "arms": live_arms,
+    }
+
+
 class JointSelectionTests(unittest.TestCase):
     def _internal(self, payload, *, recall_floor=0.9):
         return analysis._select_joint_validation(
@@ -178,10 +224,12 @@ class JointSelectionTests(unittest.TestCase):
         )
 
     def test_full_fixed_validation_contract_selects_all_arms_and_keeps_candidate_table(self):
-        result = analysis.select_joint_validation(validation_input(rows=2000, positives=1000))
+        source = validation_input(rows=2000, positives=1000)
+        result = analysis.select_joint_validation(source)
         self.assertEqual(result["status"], "eligible")
         self.assertEqual(set(result["selections"]), set(ARM_KEYS))
         self.assertEqual(result["validation_rows"], 2000)
+        self.assertEqual(result["validation_components"], 2000)
         self.assertFalse(result["test_authorized"])
         for arm, choice in result["selections"].items():
             self.assertEqual(choice["epoch"], 0 if arm in ("S0", "S1") else 1)
@@ -190,6 +238,20 @@ class JointSelectionTests(unittest.TestCase):
             self.assertIn(0.0, thresholds)
             self.assertIn(1.0, thresholds)
             self.assertTrue(any(candidate["reason"] for candidate in result["candidate_tables"][arm]))
+        live_check = analysis.verify_selected_live_validation(
+            source, result, live_input(source, result),
+        )
+        self.assertTrue(live_check["projection_live_parity"])
+
+    def test_full_fixed_validation_accepts_mixed_label_components(self):
+        result = analysis.select_joint_validation(
+            validation_input(rows=2000, positives=1000, mixed_component=True),
+        )
+        self.assertEqual(result["status"], "eligible")
+        self.assertEqual(result["validation_components"], 1999)
+        self.assertEqual(result["validation_positive_components"], 1000)
+        self.assertEqual(result["validation_negative_components"], 1000)
+        self.assertEqual(result["validation_mixed_label_components"], 1)
 
     def test_joint_failure_withholds_every_selection_even_when_one_arm_can_pass(self):
         value = validation_input(
@@ -225,13 +287,103 @@ class JointSelectionTests(unittest.TestCase):
         arm_identity = identity("S0", 0)
         item = row(0, True, arm_identity=arm_identity, block=True)
         validated = analysis._validate_row(item, arm_identity)
-        self.assertEqual(validated["trace"], {"status": "not_run", "probability": None})
+        self.assertEqual(validated["trace"]["status"], "NOT_RUN")
+        self.assertEqual(validated["trace"]["decision_threshold"], 0.0)
         self.assertTrue(analysis._detected(validated["ordinary"]))
+
+    def test_gate_zero_uses_effective_zero_threshold_including_probability_zero(self):
+        arm_identity = identity("S0", 0)
+        item = row(0, True, probability=0.0, arm_identity=arm_identity)
+        validated = analysis._validate_row(item, arm_identity)
+        self.assertEqual(validated["trace"]["predicted_label"], "PRESENT")
+        item["gate"]["predicted_label"] = "ABSENT"
+        with self.assertRaises(analysis.StudyAnalysisError):
+            analysis._validate_row(item, arm_identity)
 
     def test_detection_uses_classification_even_when_action_is_allow(self):
         value = outcome(False, sensitivity="S0", categories=["IDENTITY"])
         self.assertEqual(value["action"], "ALLOW")
         self.assertTrue(analysis._detected(analysis._validate_outcome(value)))
+
+    def test_structural_layer_and_action_invariants_fail_closed(self):
+        valid_warn = outcome(False)
+        valid_warn["action"] = "WARN"
+        self.assertTrue(analysis._validate_outcome(valid_warn)["allowed"])
+        for action, allowed in (("ALLOW", False), ("WARN", False), ("BLOCK", True)):
+            malformed = outcome(False)
+            malformed["action"], malformed["allowed"] = action, allowed
+            with self.assertRaises(analysis.StudyAnalysisError):
+                analysis._validate_outcome(malformed)
+        identity_value = identity("S0", 0)
+        malformed_nonsemantic = row(0, True, arm_identity=identity_value)
+        malformed_nonsemantic["nonsemantic"]["layers"]["semantic"] = layer()
+        with self.assertRaises(analysis.StudyAnalysisError):
+            analysis._validate_row(malformed_nonsemantic, identity_value)
+        malformed_ner = row(0, True, arm_identity=identity_value)
+        malformed_ner["ordinary"]["layers"]["ner"] = layer(
+            "skipped", reason="missing detector",
+        )
+        malformed_ner["gate_zero"] = copy.deepcopy(malformed_ner["ordinary"])
+        with self.assertRaises(analysis.StudyAnalysisError):
+            analysis._validate_row(malformed_ner, identity_value)
+
+    def test_selected_live_validation_recomputes_and_checks_all_arm_projection(self):
+        original = validation_input()
+        selection = self._internal(original)
+        live = live_input(original, selection)
+        checked = analysis._verify_selected_live_validation(
+            original, selection, live, expected_rows=4, positive_rows=2,
+            recall_floor=0.9, min_components_per_class=0,
+        )
+        self.assertTrue(checked["projection_live_parity"])
+        self.assertFalse(checked["test_authorized"])
+        regex_block_source = validation_input(regex_block_first=True)
+        regex_block_selection = self._internal(regex_block_source)
+        regex_block_live = live_input(regex_block_source, regex_block_selection)
+        self.assertTrue(analysis._verify_selected_live_validation(
+            regex_block_source, regex_block_selection, regex_block_live,
+            expected_rows=4, positive_rows=2, recall_floor=0.9,
+            min_components_per_class=0,
+        )["projection_live_parity"])
+        mutations = []
+        bad_threshold = copy.deepcopy(live)
+        bad_threshold["arms"][0]["threshold"] = 0.123
+        mutations.append(bad_threshold)
+        bad_identity = copy.deepcopy(live)
+        bad_identity["arms"][0]["identity"]["artifact_checksum"] = sha("wrong artifact")
+        mutations.append(bad_identity)
+        bad_probability = copy.deepcopy(live)
+        bad_probability["arms"][0]["rows"][0]["gate"]["probability"] = 0.25
+        mutations.append(bad_probability)
+        bad_outcome = copy.deepcopy(live)
+        bad_outcome["arms"][0]["rows"][0]["outcome"]["action"] = "BLOCK"
+        bad_outcome["arms"][0]["rows"][0]["outcome"]["allowed"] = False
+        mutations.append(bad_outcome)
+        bad_error_count = copy.deepcopy(live)
+        bad_error_count["arms"][0]["error_count"] = 1
+        mutations.append(bad_error_count)
+        bad_row_join = copy.deepcopy(live)
+        bad_row_join["arms"][0]["rows"][0]["group_id_sha256"] = sha("wrong group")
+        mutations.append(bad_row_join)
+        bad_gate_label = copy.deepcopy(live)
+        old_label = bad_gate_label["arms"][0]["rows"][0]["gate"]["predicted_label"]
+        bad_gate_label["arms"][0]["rows"][0]["gate"]["predicted_label"] = (
+            "ABSENT" if old_label == "PRESENT" else "PRESENT"
+        )
+        mutations.append(bad_gate_label)
+        bad_frozen_selection = copy.deepcopy(selection)
+        bad_frozen_selection["selections"]["S0"]["threshold"] = 0.125
+        with self.assertRaises(analysis.StudyAnalysisError):
+            analysis._verify_selected_live_validation(
+                original, bad_frozen_selection, live, expected_rows=4,
+                positive_rows=2, recall_floor=0.9, min_components_per_class=0,
+            )
+        for malformed in mutations:
+            with self.assertRaises(analysis.StudyAnalysisError):
+                analysis._verify_selected_live_validation(
+                    original, selection, malformed, expected_rows=4,
+                    positive_rows=2, recall_floor=0.9, min_components_per_class=0,
+                )
 
     def test_controls_identity_rows_threshold_and_checkpoint_inventory_fail_closed(self):
         mutations = []
@@ -265,6 +417,10 @@ class PairedEndpointTests(unittest.TestCase):
         self.assertEqual(result["status"], "complete")
         self.assertEqual(result["rows"], 2000)
         self.assertEqual(set(result["arm_metrics"]), set(ARM_KEYS))
+        self.assertEqual(result["component_count"], 399)
+        self.assertEqual(result["positive_components"], 200)
+        self.assertEqual(result["negative_components"], 200)
+        self.assertEqual(result["mixed_label_components"], 1)
         self.assertEqual(result["arm_metrics"]["S0"]["tp"], 1000)
         contrasts = result["paired_component_bootstrap"]["contrasts"]
         self.assertAlmostEqual(contrasts["S1-S0"]["point_delta"]["specificity"], -0.01)
@@ -292,6 +448,13 @@ class PairedEndpointTests(unittest.TestCase):
         result = analysis.analyze_paired_endpoint(value)
         self.assertEqual(result["arm_metrics"]["S0"]["fp"], 1)
 
+    def test_endpoint_accepts_mixed_label_components_when_each_class_floor_holds(self):
+        result = analysis.analyze_paired_endpoint(endpoint_input())
+        self.assertEqual(result["component_count"], 399)
+        self.assertEqual(result["positive_components"], 200)
+        self.assertEqual(result["negative_components"], 200)
+        self.assertEqual(result["mixed_label_components"], 1)
+
     def test_row_weighting_preserves_component_multiplicity_and_undefined_replicates(self):
         truth = np.asarray([True, True, False, False], dtype=np.bool_)
         predictions = np.tile(np.asarray([True, True, False, False], dtype=np.bool_), (8, 1))
@@ -317,8 +480,12 @@ class PairedEndpointTests(unittest.TestCase):
         malformed_classification = endpoint_input()
         malformed_classification["arms"][2]["rows"][0]["outcome"]["classification"]["sensitivity"] = 1
         mutations.append(malformed_classification)
+        malformed_action = endpoint_input()
+        malformed_action["arms"][2]["rows"][0]["outcome"]["action"] = "ALLOW"
+        malformed_action["arms"][2]["rows"][0]["outcome"]["allowed"] = False
+        mutations.append(malformed_action)
         mixed_group = endpoint_input()
-        mixed_group["arms"][0]["rows"][0]["group_id_sha256"] = mixed_group["arms"][0]["rows"][1000]["group_id_sha256"]
+        mixed_group["arms"][0]["rows"][0]["group_id_sha256"] = sha("mutated-group")
         for value in (row_mismatch, bad_error_count, malformed_classification, mixed_group):
             with self.assertRaises(analysis.StudyAnalysisError):
                 analysis.analyze_paired_endpoint(value)

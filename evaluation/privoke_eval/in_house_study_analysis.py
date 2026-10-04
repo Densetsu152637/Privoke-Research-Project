@@ -84,8 +84,11 @@ def _count(value: object, expected: int | None = None) -> int:
 
 
 def _digest(value: object) -> str:
-    raw = json.dumps(value, sort_keys=True, separators=(",", ":"),
-                      ensure_ascii=False, allow_nan=False).encode("utf-8")
+    try:
+        raw = json.dumps(value, sort_keys=True, separators=(",", ":"),
+                          ensure_ascii=False, allow_nan=False).encode("utf-8")
+    except (TypeError, ValueError, OverflowError):
+        _fail()
     return hashlib.sha256(raw).hexdigest()
 
 
@@ -115,7 +118,7 @@ def _trace_identity(value: object, identity: Mapping[str, str]) -> None:
         _fail()
 
 
-def _validate_outcome(value: object) -> dict:
+def _validate_outcome(value: object, *, purpose: str = "requested") -> dict:
     value = _closed(value, _OUTCOME_KEYS)
     if type(value["status"]) is not str or value["status"] != "complete" or _count(value["error_count"]) != 0:
         _fail()
@@ -131,6 +134,8 @@ def _validate_outcome(value: object) -> dict:
             or len(set(categories)) != len(categories)):
         _fail()
     if type(value["action"]) is not str or value["action"] not in _ACTIONS or type(value["allowed"]) is not bool:
+        _fail()
+    if value["allowed"] is not (value["action"] != "BLOCK"):
         _fail()
     _sha(value["masked_text_sha256"])
     if value["evidence_sha256"] is not None:
@@ -155,6 +160,32 @@ def _validate_outcome(value: object) -> dict:
         else:
             _fail()
     if layers["regex"]["status"] != "ok":
+        _fail()
+    regex_shortcut = (
+        value["action"] == "BLOCK"
+        and layers["ner"]["status"] == "skipped"
+        and layers["ner"]["skip_reason"] == REGEX_BLOCK_REASON
+        and layers["semantic"]["status"] == "skipped"
+        and layers["semantic"]["skip_reason"] == REGEX_BLOCK_REASON
+    )
+    if purpose == "requested":
+        if not regex_shortcut and any(layers[name]["status"] != "ok" for name in _LAYER_NAMES):
+            _fail()
+        if layers["ner"]["status"] == "skipped" and not regex_shortcut:
+            _fail()
+    elif purpose == "nonsemantic":
+        if (layers["ner"]["status"] == "skipped"
+                and not (value["action"] == "BLOCK"
+                         and layers["ner"]["skip_reason"] == REGEX_BLOCK_REASON)):
+            _fail()
+        if layers["ner"]["status"] not in ("ok", "skipped"):
+            _fail()
+        semantic = layers["semantic"]
+        if (semantic["status"] != "not_requested"
+                or semantic["skip_reason"] != NOT_REQUESTED_REASON
+                or semantic["results_sha256"] is not None):
+            _fail()
+    else:
         _fail()
     return {
         "status": "complete", "error_count": 0,
@@ -193,29 +224,47 @@ def _is_regex_block_shortcut(ordinary: Mapping) -> bool:
 
 
 def _validate_trace(value: object, expected_identity: Mapping[str, str], ordinary: Mapping,
-                    gate_zero: Mapping) -> dict:
+                    gate_zero: Mapping, *, expected_decision_threshold: float = 0.0) -> dict:
     value = _closed(value, frozenset((
-        "status", "identity", "probability", "predicted_present", "semantic_results_sha256",
+        "status", "model_id", "identity", "probability", "model_threshold",
+        "decision_threshold", "predicted_label", "semantic_results_sha256",
     )))
     status = value["status"]
     if type(status) is not str:
         _fail()
-    if status == "not_run":
-        if (value["identity"] is not None or value["probability"] is not None
-                or value["predicted_present"] is not None
+    if (type(value["model_id"]) is not str or not value["model_id"]
+            or type(value["decision_threshold"]) is not float
+            or not math.isfinite(value["decision_threshold"])
+            or not 0.0 <= value["decision_threshold"] <= 1.0
+            or value["decision_threshold"] != expected_decision_threshold):
+        _fail()
+    if status == "NOT_RUN":
+        if (value["model_id"] != expected_identity["model_id"]
+                or value["identity"] is not None or value["probability"] is not None
+                or value["model_threshold"] is not None
+                or value["predicted_label"] is not None
                 or value["semantic_results_sha256"] is not None
                 or not _is_regex_block_shortcut(ordinary)
                 or _summary(ordinary) != _summary(gate_zero)):
             _fail()
-        return {"status": status, "probability": None}
-    if status != "applied" or _is_regex_block_shortcut(ordinary):
+        return {"status": status, "model_id": value["model_id"], "identity": None,
+                "decision_threshold": value["decision_threshold"], "model_threshold": None,
+                "probability": None, "predicted_label": None,
+                "semantic_results_sha256": None}
+    if status != "APPLIED" or _is_regex_block_shortcut(ordinary):
+        _fail()
+    if value["model_id"] != expected_identity["model_id"]:
         _fail()
     _trace_identity(value["identity"], expected_identity)
     probability = value["probability"]
+    model_threshold = value["model_threshold"]
     if (type(probability) is not float or not math.isfinite(probability)
             or not 0.0 <= probability <= 1.0
-            or type(value["predicted_present"]) is not bool
-            or value["predicted_present"] is not (probability >= 0.5)):
+            or type(model_threshold) is not float or not math.isfinite(model_threshold)
+            or not 0.0 <= model_threshold <= 1.0
+            or type(value["predicted_label"]) is not str
+            or value["predicted_label"] not in ("PRESENT", "ABSENT")
+            or value["predicted_label"] != ("PRESENT" if probability >= expected_decision_threshold else "ABSENT")):
         _fail()
     raw_semantic = _sha(value["semantic_results_sha256"])
     ordinary_semantic = ordinary["layers"]["semantic"]
@@ -224,7 +273,12 @@ def _validate_trace(value: object, expected_identity: Mapping[str, str], ordinar
             or raw_semantic != ordinary_semantic["results_sha256"]
             or raw_semantic != gate_semantic["results_sha256"]):
         _fail()
-    return {"status": status, "probability": probability}
+    return {"status": status, "model_id": value["model_id"],
+            "identity": dict(value["identity"]),
+            "decision_threshold": value["decision_threshold"],
+            "model_threshold": model_threshold, "probability": probability,
+            "predicted_label": value["predicted_label"],
+            "semantic_results_sha256": raw_semantic}
 
 
 def _validate_row(value: object, identity: Mapping[str, str]) -> dict:
@@ -238,7 +292,7 @@ def _validate_row(value: object, identity: Mapping[str, str]) -> dict:
         _fail()
     ordinary = _validate_outcome(value["ordinary"])
     gate_zero = _validate_outcome(value["gate_zero"])
-    nonsemantic = _validate_outcome(value["nonsemantic"])
+    nonsemantic = _validate_outcome(value["nonsemantic"], purpose="nonsemantic")
     if (_summary(ordinary) != _summary(gate_zero)
             or ordinary["layers"] != gate_zero["layers"]):
         _fail()
@@ -282,7 +336,7 @@ def _thresholds(rows: Sequence[Mapping]) -> tuple[float, ...]:
     candidates = {0.0, 1.0}
     for row in rows:
         trace = row["trace"]
-        if trace["status"] == "applied":
+        if trace["status"] == "APPLIED":
             probability = trace["probability"]
             candidates.add(probability)
             above = math.nextafter(probability, math.inf)
@@ -293,8 +347,145 @@ def _thresholds(rows: Sequence[Mapping]) -> tuple[float, ...]:
 
 def _project(row: Mapping, threshold: float) -> Mapping:
     trace = row["trace"]
-    if trace["status"] == "not_run" or trace["probability"] >= threshold:
+    if trace["status"] == "NOT_RUN" or trace["probability"] >= threshold:
         return row["ordinary"]
+    return row["nonsemantic"]
+
+
+def _validate_live_trace(value: object, expected_identity: Mapping[str, str],
+                         expected_threshold: float, source_row: Mapping) -> dict:
+    value = _closed(value, frozenset((
+        "status", "model_id", "identity", "probability", "model_threshold",
+        "decision_threshold", "predicted_label", "semantic_results_sha256",
+    )))
+    if (type(value["model_id"]) is not str
+            or value["model_id"] != expected_identity["model_id"]
+            or type(value["decision_threshold"]) is not float
+            or not math.isfinite(value["decision_threshold"])
+            or value["decision_threshold"] != expected_threshold):
+        _fail()
+    ordinary = source_row["ordinary"]
+    gate_zero = source_row["gate_zero"]
+    if value["status"] == "NOT_RUN":
+        if (not _is_regex_block_shortcut(ordinary)
+                or value["identity"] is not None
+                or value["probability"] is not None
+                or value["model_threshold"] is not None
+                or value["predicted_label"] is not None
+                or value["semantic_results_sha256"] is not None):
+            _fail()
+        return {"status": "NOT_RUN", "model_id": value["model_id"],
+                "identity": None, "decision_threshold": expected_threshold,
+                "model_threshold": None, "probability": None,
+                "predicted_label": None, "semantic_results_sha256": None}
+    if value["status"] != "APPLIED" or _is_regex_block_shortcut(ordinary):
+        _fail()
+    _trace_identity(value["identity"], expected_identity)
+    probability, model_threshold = value["probability"], value["model_threshold"]
+    label = value["predicted_label"]
+    if (type(probability) is not float or not math.isfinite(probability)
+            or not 0.0 <= probability <= 1.0
+            or type(model_threshold) is not float or not math.isfinite(model_threshold)
+            or not 0.0 <= model_threshold <= 1.0
+            or type(label) is not str or label not in ("PRESENT", "ABSENT")
+            or label != ("PRESENT" if probability >= expected_threshold else "ABSENT")):
+        _fail()
+    semantic_hash = _sha(value["semantic_results_sha256"])
+    if (source_row["trace"]["status"] != "APPLIED"
+            or probability != source_row["trace"]["probability"]
+            or model_threshold != source_row["trace"]["model_threshold"]
+            or semantic_hash != source_row["trace"]["semantic_results_sha256"]):
+        _fail()
+    return {"status": "APPLIED", "model_id": value["model_id"],
+            "identity": dict(value["identity"]), "decision_threshold": expected_threshold,
+            "model_threshold": model_threshold, "probability": probability,
+            "predicted_label": label, "semantic_results_sha256": semantic_hash}
+
+
+def _verify_selected_live_validation(original_collection: object, frozen_selection: object,
+                                     live_collection: object, *, expected_rows: int,
+                                     positive_rows: int, recall_floor: float,
+                                     min_components_per_class: int) -> dict:
+    recomputed = _select_joint_validation(
+        original_collection, expected_rows=expected_rows, positive_rows=positive_rows,
+        recall_floor=recall_floor, min_components_per_class=min_components_per_class,
+    )
+    if (recomputed["status"] != "eligible" or not isinstance(frozen_selection, Mapping)
+            or _digest(frozen_selection) != _digest(recomputed)):
+        _fail()
+    live = _closed(live_collection, frozenset(("schema_version", "control_binding_sha256", "arms")))
+    if (type(live["schema_version"]) is not int or live["schema_version"] != SCHEMA_VERSION
+            or _sha(live["control_binding_sha256"]) != recomputed["control_binding_sha256"]
+            or type(live["arms"]) not in (list, tuple)
+            or len(live["arms"]) != len(ARM_KEYS)):
+        _fail()
+    original_arms = original_collection["arms"]
+    for expected_arm, original_record, live_record in zip(ARM_KEYS, original_arms, live["arms"]):
+        selection = recomputed["selections"][expected_arm]
+        live_record = _closed(live_record, frozenset((
+            "arm", "status", "error_count", "epoch", "threshold", "identity", "rows",
+        )))
+        if (live_record["arm"] != expected_arm
+                or live_record["status"] != "complete"
+                or _count(live_record["error_count"]) != 0
+                or type(live_record["epoch"]) is not int
+                or live_record["epoch"] != selection["epoch"]
+                or type(live_record["threshold"]) is not float
+                or live_record["threshold"] != selection["threshold"]):
+            _fail()
+        identity = _identity(live_record["identity"], expected_arm, selection["epoch"])
+        if identity != selection["identity"]:
+            _fail()
+        source_checkpoint = next(
+            checkpoint for checkpoint in original_record["checkpoints"]
+            if checkpoint["epoch"] == selection["epoch"]
+        )
+        source_identity = _identity(source_checkpoint["identity"], expected_arm, selection["epoch"])
+        source_rows = [
+            _validate_row(row, source_identity) for row in source_checkpoint["rows"]
+        ]
+        rows = live_record["rows"]
+        if type(rows) not in (list, tuple) or len(rows) != expected_rows:
+            _fail()
+        for live_row_value, source_row in zip(rows, source_rows):
+            live_row = _closed(live_row_value, frozenset((
+                "row_id_sha256", "group_id_sha256", "truth", "gate", "outcome",
+            )))
+            row_id = _sha(live_row["row_id_sha256"])
+            group_id = _sha(live_row["group_id_sha256"])
+            if (row_id != source_row["row_id_sha256"]
+                    or group_id != source_row["group_id_sha256"]
+                    or type(live_row["truth"]) is not bool
+                    or live_row["truth"] is not source_row["truth"]):
+                _fail()
+            trace = _validate_live_trace(
+                live_row["gate"], identity, selection["threshold"], source_row,
+            )
+            observed = _validate_outcome(live_row["outcome"])
+            projected = _project(source_row, selection["threshold"])
+            if _summary(observed) != _summary(projected):
+                _fail()
+            if observed["layers"]["regex"] != source_row["ordinary"]["layers"]["regex"]:
+                _fail()
+            if observed["layers"]["ner"] != source_row["ordinary"]["layers"]["ner"]:
+                _fail()
+            if trace["status"] == "APPLIED":
+                if observed["layers"]["semantic"]["status"] != "ok":
+                    _fail()
+                if trace["predicted_label"] == "PRESENT":
+                    if observed["layers"]["semantic"]["results_sha256"] != trace["semantic_results_sha256"]:
+                        _fail()
+            elif observed["layers"] != source_row["ordinary"]["layers"]:
+                _fail()
+    return {
+        "schema_version": SCHEMA_VERSION, "status": "complete",
+        "selection_sha256": recomputed["selection_sha256"],
+        "control_binding_sha256": recomputed["control_binding_sha256"],
+        "validation_rows": expected_rows, "verified_arms": list(ARM_KEYS),
+        "live_validation_sha256": _digest(live_collection),
+        "projection_live_parity": True, "test_authorized": False,
+        "retention_decision": None,
+    }
     return row["nonsemantic"]
 
 
@@ -379,12 +570,17 @@ def _select_joint_validation(value: object, *, expected_rows: int,
             validated_rows = []
             seen_ids = set()
             positives = 0
+            model_thresholds = set()
             for raw_row in rows:
                 row = _validate_row(raw_row, identity)
                 if row["row_id_sha256"] in seen_ids:
                     _fail()
                 seen_ids.add(row["row_id_sha256"])
                 positives += int(row["truth"])
+                if row["trace"]["status"] == "APPLIED":
+                    model_thresholds.add(row["trace"]["model_threshold"])
+                    if len(model_thresholds) > 1:
+                        _fail()
                 key = (row["row_id_sha256"], row["group_id_sha256"], row["truth"])
                 if reference_keys is None:
                     reference_keys = []
@@ -417,12 +613,8 @@ def _select_joint_validation(value: object, *, expected_rows: int,
 
     if seen_arms != set(ARM_KEYS) or set(candidate_tables) != set(ARM_KEYS):
         _fail()
-    group_labels: dict[str, bool] = {}
     positive_groups, negative_groups = set(), set()
     for _, group_id, truth_value in reference_keys:
-        if group_id in group_labels and group_labels[group_id] is not truth_value:
-            _fail()
-        group_labels[group_id] = truth_value
         (positive_groups if truth_value else negative_groups).add(group_id)
     if (len(positive_groups) < min_components_per_class
             or len(negative_groups) < min_components_per_class):
@@ -435,6 +627,10 @@ def _select_joint_validation(value: object, *, expected_rows: int,
         "validation_rows": expected_rows,
         "validation_positive_examples": positive_rows,
         "validation_absent_examples": expected_rows - positive_rows,
+        "validation_components": len({group_id for _, group_id, _ in reference_keys}),
+        "validation_positive_components": len(positive_groups),
+        "validation_negative_components": len(negative_groups),
+        "validation_mixed_label_components": len(positive_groups & negative_groups),
         "recall_floor": recall_floor,
         "candidate_tables": candidate_tables,
         # No surviving-arm selection is exposed unless the entire fixed program
@@ -621,12 +817,8 @@ def _analyze_paired_endpoint(value: object, *, expected_rows: int,
         arm_metrics[arm] = _binary_metrics(truth, predictions)
     if seen_arms != set(ARM_KEYS) or key_reference is None or truth_reference is None:
         _fail()
-    group_truth: dict[str, bool] = {}
     positive_groups, negative_groups = set(), set()
     for (_, group_id, truth_value) in key_reference:
-        if group_id in group_truth and group_truth[group_id] is not truth_value:
-            _fail()
-        group_truth[group_id] = truth_value
         (positive_groups if truth_value else negative_groups).add(group_id)
     if len(positive_groups) < 200 or len(negative_groups) < 200:
         _fail()
@@ -639,9 +831,10 @@ def _analyze_paired_endpoint(value: object, *, expected_rows: int,
         "rows": expected_rows,
         "positive_examples": positive_rows,
         "absent_examples": expected_rows - positive_rows,
-        "component_count": len(group_truth),
+        "component_count": len(set(groups)),
         "positive_components": len(positive_groups),
         "negative_components": len(negative_groups),
+        "mixed_label_components": len(positive_groups & negative_groups),
         "arm_metrics": arm_metrics,
         "paired_component_bootstrap": paired,
         "test_authorized": False,
@@ -662,7 +855,26 @@ def analyze_paired_endpoint(value: object) -> dict:
     )
 
 
+def verify_selected_live_validation(original_collection: object,
+                                    frozen_selection: object,
+                                    live_collection: object) -> dict:
+    """Check all-arm selected rerun parity using preauthenticated claims.
+
+    This recomputes selection from the original validation collection, rejects
+    any difference in the frozen selection, then verifies every selected live
+    identity, threshold, ordered row join, gate trace, and projected outcome.
+    It is a structural parity barrier, not raw-evidence authentication or test
+    authorization.
+    """
+    return _verify_selected_live_validation(
+        original_collection, frozen_selection, live_collection,
+        expected_rows=VALIDATION_ROWS, positive_rows=VALIDATION_POSITIVES,
+        recall_floor=RECALL_FLOOR, min_components_per_class=200,
+    )
+
+
 __all__ = [
     "BOOTSTRAP_ITERATIONS", "BOOTSTRAP_SEED", "StudyAnalysisError",
     "analyze_paired_endpoint", "select_joint_validation",
+    "verify_selected_live_validation",
 ]
