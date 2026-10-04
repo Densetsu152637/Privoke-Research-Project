@@ -13,6 +13,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { performance } from "node:perf_hooks";
 import { dirname, join, resolve, relative } from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
@@ -21,9 +22,14 @@ import {
   assertForwarding,
   CASES,
   DECISION_CELLS,
-  requestBody,
   TRANSPORTS,
 } from "../extension/test/installed-browser-capture.mjs";
+import {
+  assertNativeParentBinding,
+  parseGrpcWebFrames,
+  validateDecodedOutcome,
+  validatePageAnalysis,
+} from "../extension/test/installed-browser-evidence.mjs";
 
 const execFileAsync = promisify(execFile);
 const require = createRequire("/opt/privoke-browser-test/package.json");
@@ -55,6 +61,9 @@ const SOURCE_FILES = [
   "evaluation/compose.browser-installed.yml",
   "evaluation/run-installed-browser-capture.mjs",
   "extension/test/installed-browser-capture.mjs",
+  "extension/test/installed-browser-evidence.mjs",
+  "extension/test/installed-browser-evidence.test.mjs",
+  "evaluation/run-installed-browser-unit-tests.mjs",
   "extension/test/installed-browser-resources.py",
   "extension/package.json",
   "extension/package-lock.json",
@@ -85,6 +94,7 @@ let browserContext;
 let cdp;
 let sampler;
 let samplerPath;
+let samplerClosed;
 let startedProcesses = new Map();
 let receipt;
 let sampleEndFailure;
@@ -97,6 +107,9 @@ const caseRecords = [];
 const rpcEvents = [];
 const coldRecords = [];
 const resourceFiles = [];
+const pageRequestIds = new Set();
+const runtimeRequestIds = new Set();
+const phaseCounts = { firstDecision: 0, warmup: 0, measured: 0, matrix: 0 };
 const timestamps = { started: new Date().toISOString() };
 let hostRegistration;
 let popup;
@@ -126,14 +139,22 @@ try {
   const fixtureTargets = await import("../extension/src/generated/runtime.js");
   const protobuf = fixtureTargets.privoke.v1;
   const extensionTree = await hashTree(EXTENSION_ROOT);
+  const sourceManifestBytes = await readFile(join(ROOT, "extension/manifest.json"));
+  const builtManifestBytes = await readFile(join(EXTENSION_ROOT, "manifest.json"));
+  const sourceManifest = JSON.parse(sourceManifestBytes.toString("utf8"));
+  const builtManifest = JSON.parse(builtManifestBytes.toString("utf8"));
+  const identities = JSON.parse(await readFile(join(ROOT, "extension/extension-identities.json"), "utf8"));
+  assert.deepStrictEqual(builtManifest, sourceManifest, "built Chromium manifest semantics differ from source");
+  assert.equal(sourceManifest.key, identities.chromium_public_key, "extension manifest key differs from pinned identity");
   receipt.extension = {
     id: EXTENSION_ID,
     loadedFrom: "/workspace/extension/dist",
-    manifestSha256: extensionTree.files["manifest.json"],
+    sourceManifestSha256: sha256(sourceManifestBytes),
+    builtManifestSha256: sha256(builtManifestBytes),
+    manifestSemanticsMatch: true,
     treeSha256: extensionTree.sha256,
     files: extensionTree.files,
   };
-  assert.equal(receipt.extension.manifestSha256, receipt.sourceHashes["extension/manifest.json"]);
 
   for (let index = 0; index < COLD_SESSIONS; index += 1) {
     const cell = DECISION_CELLS[index % DECISION_CELLS.length];
@@ -148,10 +169,12 @@ try {
   }
 
   await assertPortsClosed("after-last-session");
-  await assertNoOwnedProcesses("after-last-session");
+    await assertNoOwnedProcesses("after-last-session");
   await stopProviderFixture();
   await verifyNoExternalRequests();
   receipt.status = "complete";
+  assert.deepEqual(phaseCounts, { firstDecision: 12, warmup: 60, measured: 360, matrix: 14 },
+    "fixed request phase counts changed");
   receipt.completedAt = new Date().toISOString();
 } catch (error) {
   runFailure = safeError(error);
@@ -194,8 +217,20 @@ try {
       assert.equal(resourceFiles.length, COLD_SESSIONS, "one resource sample file is required per cold session");
       assert.ok(resourceFiles.every((item) => item.sha256), "every resource sample must have a finalized digest");
       assert.ok(receipt.resourceSampling.processes.length > 0, "resource samples contain no tracked processes");
-      assert.notEqual(receipt.resourceSampling.cgroupMemorySampledPeakBytes, 0,
-        "cgroup memory sampling was unavailable");
+      assert.ok(Number.isSafeInteger(receipt.resourceSampling.cgroupMemorySampledPeakBytes)
+        && receipt.resourceSampling.cgroupMemorySampledPeakBytes > 0, "cgroup memory sampling was unavailable");
+      assert.ok(Number.isFinite(receipt.resourceSampling.cgroupCpuSampledDeltaUsec)
+        && receipt.resourceSampling.cgroupCpuSampledDeltaUsec >= 0, "cgroup CPU sampling was unavailable");
+      const sampledRoles = new Set(receipt.resourceSampling.processes.map((item) => item.role));
+      for (const role of ["xvfb", "chromium", "supervisor_bridge", "detector"]) {
+        assert.ok(sampledRoles.has(role), `resource samples omitted required ${role} process role`);
+      }
+      for (const processRecord of receipt.resourceSampling.processes) {
+        assert.ok(Number.isSafeInteger(processRecord.startTicks), `${processRecord.role} lacks start-tick identity`);
+        assert.ok(Number.isSafeInteger(processRecord.sampledPeakRssBytes), `${processRecord.role} lacks RSS samples`);
+        assert.ok(Number.isFinite(processRecord.cpuDeltaSeconds) && processRecord.cpuDeltaSeconds >= 0,
+          `${processRecord.role} lacks valid CPU samples`);
+      }
     } catch (error) {
       evidenceFailures.push(safeError(error));
       receipt.resourceSampling = { error: safeError(error) };
@@ -365,16 +400,18 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   const sessionId = `${String(index + 1).padStart(2, "0")}-${cell.transport}-${cell.example.id}-r${replicate}`;
   profilePath = join(BROWSER_CONFIG_ROOT, `profile-${sessionId}`);
   await mkdir(profilePath, { recursive: false });
+  const activeNativeRegistration = await registerNativeHostForProfile(profilePath);
   samplerPath = join(OUTPUT, `resources-${sessionId}.jsonl`);
   sampler = spawnSampler(samplerPath);
   resourceFiles.push({ file: relative(OUTPUT, samplerPath), sha256: null });
 
   const times = {};
   const launchWall = Date.now();
+  const launchMonotonic = performance.now();
   browserContext = await chromium.launchPersistentContext(profilePath, {
     channel: "chromium",
     headless: false,
-    acceptInsecureCerts: true,
+    ignoreHTTPSErrors: true,
     args: [
       `--disable-extensions-except=${EXTENSION_ROOT}`,
       `--load-extension=${EXTENSION_ROOT}`,
@@ -386,7 +423,8 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
       "--disable-sync",
     ],
   });
-  times.browserLaunchToContextMs = Date.now() - launchWall;
+  times.browserLaunchToContextMs = performance.now() - launchMonotonic;
+  observeContextRequests(browserContext, sessionId, new URL(fixtureUrl).origin);
   const workers = browserContext.serviceWorkers();
   const worker = workers.find((item) => item.url() === `chrome-extension://${EXTENSION_ID}/background.js`)
     || await browserContext.waitForEvent("serviceworker", {
@@ -394,13 +432,13 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
       timeout: 30_000,
     });
   const workerWall = Date.now();
-  wall.extensionWorkerReady = workerWall;
+  const workerMonotonic = performance.now();
   assert.ok(worker.url().startsWith(`chrome-extension://${EXTENSION_ID}/`), "loaded extension ID mismatch");
   cdp = await CdpObserver.connect();
   await cdp.attach(protobuf);
   popup = await browserContext.newPage();
   await popup.goto(`chrome-extension://${EXTENSION_ID}/popup.html`);
-  const configStart = Date.now();
+  const configStart = performance.now();
   const configured = await sendExtensionMessage(popup, {
     type: "UPDATE_SETTINGS",
     patch: { useLocalStack: true, enabled: true, layers: { regex: true, ner: true, llm: false }, waitForRegex: true },
@@ -409,12 +447,13 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   assert.deepEqual(configured.settings.layers, { regex: true, ner: true, llm: false });
   assert.equal(configured.settings.useLocalStack, true);
   assert.equal(configured.settings.enabled, true);
+  times.settingsUpdateElapsedMs = performance.now() - configStart;
 
+  const readinessProbeStart = performance.now();
   const status = await waitRuntimeReady(popup);
   const readyWall = Date.now();
-  times.extensionWorkerToRuntimeReadyMs = readyWall - workerWall;
-  times.settingsAndReadinessMs = readyWall - configStart;
-  const detectorPid = Number(status.process_id);
+  const statusProbeElapsedMs = performance.now() - readinessProbeStart;
+  const detectorPid = Number(status.processId);
   assert.ok(detectorPid > 1, "supervisor status must expose the detector child PID");
   const detectorIdentity = await processIdentity(detectorPid);
   assert.equal(detectorIdentity.command.includes("extension/client-runtime/src/grpc_main.py"), true,
@@ -425,18 +464,12 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
     "detector parent is not the expected supervisor entry point");
   startedProcesses = new Map([[supervisorPid, supervisorIdentity], [detectorPid, detectorIdentity]]);
   const listenerOwnership = await assertOwnedListeners(supervisorPid, detectorPid);
+  times.statusProbeUntilOwnedListenersMs = performance.now() - readinessProbeStart;
   const nativeEvidence = await waitForNativeHostSample(samplerPath, 2_000);
   const extensionManifest = JSON.parse(await readFile(join(EXTENSION_ROOT, "manifest.json"), "utf8"));
   assert.equal(extensionManifest.background.service_worker, "background.js");
 
   testPage = await browserContext.newPage();
-  testPage.on("request", (request) => {
-    const url = request.url();
-    const host = safeHost(url);
-    if (host && !["chatgpt.com", "127.0.0.1", "localhost"].includes(host)) {
-      externalRequests.push({ url, method: request.method(), sessionId });
-    }
-  });
   await installPageObserver(testPage);
   await testPage.goto(`${fixtureUrl}/?session=${encodeURIComponent(sessionId)}`, { waitUntil: "domcontentloaded" });
   const browserVersion = browserContext.browser()?.version?.() || "unknown";
@@ -448,30 +481,39 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
     action: cell.example.expectedAction,
     profileFresh: true,
     profilePath: profilePath,
+    activeNativeManifest: activeNativeRegistration,
     browserVersion,
     browserLaunchToContextMs: times.browserLaunchToContextMs,
-    extensionWorkerReadyFromContextMs: workerWall - launchWall,
-    nativeSupervisorBridgeReadyFromWorkerMs: null,
-    supervisorDetectorStartupMs: null,
-    detectorReadyFromContextMs: null,
-    setupAndStatusExcludedFromDecision: true,
+    extensionWorkerReadyFromContextMs: workerMonotonic - launchMonotonic,
+    settingsUpdateElapsedMs: times.settingsUpdateElapsedMs,
+    runtimeStatusProbeElapsedAfterSettingsMs: statusProbeElapsedMs,
+    statusProbeUntilOwnedListenersMs: times.statusProbeUntilOwnedListenersMs,
+    supervisorProcessBirthOffsetFromWorkerReadyMs: null,
+    detectorProcessBirthOffsetFromSupervisorBirthMs: null,
+    detectorProcessBirthOffsetFromContextMs: null,
+    processBirthOffsetBasis: "psutil create_time wall clock minus Date.now event timestamps; signed; not readiness",
+    processBirthOffsetsAreNotReadinessIntervals: true,
     detectorPid: detectorIdentity.pid,
     detectorStartTicks: detectorIdentity.startTicks,
     supervisorPid: supervisorIdentity.pid,
     supervisorStartTicks: supervisorIdentity.startTicks,
-    nativeHostObservedBy100msSampler: nativeEvidence.observed,
-    nativeHostSamples: nativeEvidence.count,
+    nativeHostLaunchAttestation: nativeLaunchAttestation({
+      nativeEvidence,
+      activeNativeRegistration,
+      supervisorIdentity,
+      detectorIdentity,
+      sessionId,
+    }),
     listenerOwnership,
     startedAtWall: new Date(launchWall).toISOString(),
     readyAtWall: new Date(readyWall).toISOString(),
   };
 
-  const processSamples = await sampledProcessTimes(samplerPath, [supervisorPid, detectorPid]);
-  cold.nativeSupervisorBridgeReadyFromWorkerMs = Math.max(0,
-    processSamples.get(supervisorPid).startedAtEpochMs - workerWall);
-  cold.supervisorDetectorStartupMs = Math.max(0,
-    processSamples.get(detectorPid).startedAtEpochMs - processSamples.get(supervisorPid).startedAtEpochMs);
-  cold.detectorReadyFromContextMs = Math.max(0, processSamples.get(detectorPid).startedAtEpochMs - launchWall);
+  const processSamples = await sampledProcessTimes(samplerPath, [supervisorIdentity, detectorIdentity]);
+  cold.supervisorProcessBirthOffsetFromWorkerReadyMs = processSamples.get(supervisorPid).startedAtEpochMs - workerWall;
+  cold.detectorProcessBirthOffsetFromSupervisorBirthMs =
+    processSamples.get(detectorPid).startedAtEpochMs - processSamples.get(supervisorPid).startedAtEpochMs;
+  cold.detectorProcessBirthOffsetFromContextMs = processSamples.get(detectorPid).startedAtEpochMs - launchWall;
 
   const coldDecision = await performAndValidate({
     transport: cell.transport,
@@ -485,6 +527,7 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   cold.firstRequestDecisionMs = coldDecision.decisionMs;
   cold.firstRequestPageId = coldDecision.pageRequestId;
   cold.firstRequestRuntimeId = coldDecision.runtimeRequestId;
+  phaseCounts.firstDecision += 1;
 
   await runWarmCell({ sessionId, cell, fixtureUrl, replicates: WARMUPS, phase: "warmup" });
   const measured = await runWarmCell({ sessionId, cell, fixtureUrl, replicates: RATE_REPS, phase: "measured" });
@@ -504,24 +547,26 @@ async function runWarmCell({ sessionId, cell, fixtureUrl, replicates, phase }) {
       transport: cell.transport,
       caseId: uniqueId,
       prompt: cell.example.prompt,
+      expectedAction: cell.example.expectedAction,
       fixtureUrl,
     });
     const rpc = await waitForAnalyzeEvent(rpcStart);
     const captures = providerCaptures.slice(beforeCapture);
-    assert.equal(captures.length, Number(cell.example.expectedForwarded),
-      `${uniqueId} forwarded count`);
     assertForwarding({
       example: { id: uniqueId, prompt: cell.example.prompt,
         expectedAction: cell.example.expectedAction, expectedForwarded: cell.example.expectedForwarded },
       outcome: outcome.transportOutcome,
       captures,
       transport: cell.transport,
+      expectedUrl: outcome.requestUrl,
     });
     assertAnalysisMessage({ expectedAction: cell.example.expectedAction, outcome, prompt: cell.example.prompt });
     const newRpc = rpcEvents.slice(rpcStart).filter((entry) => entry.method === "AnalyzePrompt");
     assert.equal(newRpc.length, 1, `${uniqueId} must have one actual runtime AnalyzePrompt RPC`);
-    assertDecodedRequest(rpc, cell.example.prompt);
-    if (rpc.response?.decoded) assertDecodedResponse(rpc, cell.example.expectedAction);
+    validateDecodedOutcome(rpc, { prompt: cell.example.prompt, action: cell.example.expectedAction });
+    assert.ok(!runtimeRequestIds.has(rpc.request.requestId), "runtime request IDs must be unique");
+    runtimeRequestIds.add(rpc.request.requestId);
+    phaseCounts[phase] += 1;
     const item = {
       sessionId,
       phase,
@@ -531,10 +576,10 @@ async function runWarmCell({ sessionId, cell, fixtureUrl, replicates, phase }) {
       fixedPrompt: cell.example.prompt,
       expectedForwarded: cell.example.expectedForwarded,
       pageRequestId: outcome.analysis.requestId,
-      runtimeRequestId: rpc.request.request_id,
+      runtimeRequestId: rpc.request.requestId,
       decisionMs: outcome.analysis.decisionMs,
       browserObservedTotalMs: outcome.totalMs,
-      runtimeElapsedMs: rpc.response?.decoded?.elapsed_ms ?? null,
+      runtimeElapsedMs: rpc.response?.decoded?.elapsedMs ?? null,
       rpc: minimalRpc(rpc),
       forwardedCount: captures.length,
       forwardedBodySha256: captures[0]?.bodySha256 ?? null,
@@ -572,6 +617,7 @@ async function runMatrixCase({ transport, example, fixtureUrl }) {
     fixtureUrl,
     expectRuntimeRpc: true,
   });
+  phaseCounts.matrix += 1;
   return record;
 }
 
@@ -579,12 +625,13 @@ async function runOutageCase({ transport, type, fixtureUrl }) {
   const prompt = CASES.allow.prompt;
   if (type === "detector-outage") {
     const current = await runtimeStatus(popup);
-    const detector = await processIdentity(Number(current.process_id));
+    const detector = await processIdentity(Number(current.processId));
     verifyOwnedDetector(detector, startedProcesses.get(detector.pid));
     await signalVerified(detector, "SIGTERM");
+    startedProcesses.delete(detector.pid);
   } else {
     const current = await runtimeStatus(popup);
-    const detector = await processIdentity(Number(current.process_id));
+    const detector = await processIdentity(Number(current.processId));
     const supervisor = await processIdentity(detector.parentPid);
     verifyOwnedSupervisor(supervisor, startedProcesses.get(supervisor.pid));
     verifyOwnedDetector(detector, startedProcesses.get(detector.pid));
@@ -605,6 +652,7 @@ async function runOutageCase({ transport, type, fixtureUrl }) {
   });
   const recovery = await restoreRuntimeAndObserve();
   record.recovery = recovery;
+  phaseCounts.matrix += 1;
   return record;
 }
 
@@ -614,6 +662,8 @@ async function runBypassCase({ transport, type, fixtureUrl }) {
     const response = await sendExtensionMessage(popup, { type: "SET_MASTER_ENABLED", enabled: false });
     assert.equal(response.ok, true);
     assert.equal(response.runtime.enabled, false);
+    await waitOwnedProcessesGone([...startedProcesses.values()], 10_000);
+    startedProcesses.clear();
   } else {
     const response = await sendExtensionMessage(popup, {
       type: "UPDATE_SETTINGS",
@@ -640,7 +690,8 @@ async function runBypassCase({ transport, type, fixtureUrl }) {
     });
     assert.equal(restored.ok, true);
   }
-  record.recovery = await waitRuntimeReady(popup);
+  record.recovery = await restoreRuntimeAndObserve();
+  phaseCounts.matrix += 1;
   return record;
 }
 
@@ -648,7 +699,7 @@ async function performAndValidate({ transport, caseId, prompt, expectedAction, e
   fixtureUrl, expectRuntimeRpc, expectedRpcOutcome = "success" }) {
   const beforeCapture = providerCaptures.length;
   const beforeRpc = rpcEvents.length;
-  const outcome = await executePageRequest({ testPage, transport, caseId, prompt, fixtureUrl });
+  const outcome = await executePageRequest({ testPage, transport, caseId, prompt, expectedAction, fixtureUrl });
   if (expectRuntimeRpc) await waitForAnalyzeEvent(beforeRpc);
   const captures = providerCaptures.slice(beforeCapture);
   assertForwarding({
@@ -656,6 +707,7 @@ async function performAndValidate({ transport, caseId, prompt, expectedAction, e
     outcome: outcome.transportOutcome,
     captures,
     transport,
+    expectedUrl: outcome.requestUrl,
   });
   assertAnalysisMessage({ expectedAction, outcome, prompt });
   const newRpc = rpcEvents.slice(beforeRpc).filter((entry) => entry.method === "AnalyzePrompt");
@@ -663,12 +715,14 @@ async function performAndValidate({ transport, caseId, prompt, expectedAction, e
   let rpc;
   if (expectRuntimeRpc) {
     rpc = newRpc[0];
-    assertDecodedRequest(rpc, prompt);
-    if (expectedRpcOutcome === "success") assertDecodedResponse(rpc, expectedAction);
-    if (expectedRpcOutcome === "grpc-error") {
-      assert.ok(rpc.grpcStatus > 0, `${caseId} must preserve gRPC failure status`);
-    }
-    if (expectedRpcOutcome === "network-failure") assert.ok(rpc.loadingFailure, `${caseId} missing failed bridge request`);
+    validateDecodedOutcome(rpc, {
+      prompt,
+      action: expectedAction,
+      allowGrpcError: expectedRpcOutcome === "grpc-error",
+      allowNetworkFailure: expectedRpcOutcome === "network-failure",
+    });
+    assert.ok(!runtimeRequestIds.has(rpc.request.requestId), "runtime request IDs must be unique");
+    runtimeRequestIds.add(rpc.request.requestId);
   }
   const item = {
     caseId,
@@ -676,10 +730,10 @@ async function performAndValidate({ transport, caseId, prompt, expectedAction, e
     expectedAction,
     expectedForwarded,
     pageRequestId: outcome.analysis.requestId,
-    runtimeRequestId: rpc?.request?.request_id ?? null,
+    runtimeRequestId: rpc?.request?.requestId ?? null,
     decisionMs: outcome.analysis.decisionMs,
     browserObservedTotalMs: outcome.totalMs,
-    runtimeElapsedMs: rpc?.response?.decoded?.elapsed_ms ?? null,
+    runtimeElapsedMs: rpc?.response?.decoded?.elapsedMs ?? null,
     forwardedCount: captures.length,
     forwardedBodySha256: captures[0]?.bodySha256 ?? null,
     outcome: outcome.transportOutcome,
@@ -689,10 +743,11 @@ async function performAndValidate({ transport, caseId, prompt, expectedAction, e
   return item;
 }
 
-async function executePageRequest({ testPage: page, transport, caseId, prompt, fixtureUrl }) {
+async function executePageRequest({ testPage: page, transport, caseId, prompt, expectedAction, fixtureUrl }) {
   const url = `${fixtureUrl}/backend-api/conversation?case_id=${encodeURIComponent(caseId)}`;
-  const outcome = await page.evaluate(async ({ transport, url, caseId, prompt }) => {
+  const outcome = await page.evaluate(async ({ transport, url, caseId, prompt, expectedAction }) => {
     window.__privokeCaptureCase = caseId;
+    window.__privokeExpectedAction = expectedAction;
     const body = JSON.stringify({ messages: [{ role: "user", content: prompt }] });
     const start = performance.now();
     let transportOutcome;
@@ -726,13 +781,21 @@ async function executePageRequest({ testPage: page, transport, caseId, prompt, f
     const deadline = performance.now() + 35_000;
     let analysis;
     while (performance.now() < deadline) {
-      analysis = window.__privokeAnalyses?.find((entry) => entry.caseId === caseId);
+      analysis = window.__privokeAnalyses?.find((entry) => entry.phase === "result" && entry.caseId === caseId);
       if (analysis) break;
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
-    return { caseId, transportOutcome, totalMs, analysis };
-  }, { transport, url, caseId, prompt });
-  assert.ok(outcome.analysis, `${caseId} missing actual page ANALYZE_RESULT observation`);
+    return {
+      caseId,
+      transportOutcome,
+      totalMs,
+      analysisEvents: window.__privokeAnalyses?.filter((entry) => entry.caseId === caseId) || [],
+      requestUrl: url,
+    };
+  }, { transport, url, caseId, prompt, expectedAction });
+  outcome.analysis = validatePageAnalysis(outcome.analysisEvents, {
+    caseId, prompt, expectedAction, seenIds: pageRequestIds,
+  });
   return outcome;
 }
 
@@ -744,20 +807,44 @@ async function installPageObserver(page) {
       if (event.source !== window || event.data?.channel !== "privoke-extension-v1") return;
       const data = event.data;
       if (data.type === "ANALYZE_PROMPT") {
-        window.__privokeAnalysisStarted.set(data.requestId, { at: performance.now(), prompt: data.text });
+        const started = {
+          at: performance.now(),
+          prompt: data.text,
+          caseId: window.__privokeCaptureCase,
+          expectedAction: window.__privokeExpectedAction,
+        };
+        window.__privokeAnalysisStarted.set(data.requestId, started);
+        window.__privokeAnalyses.push({ phase: "start", requestId: data.requestId,
+          caseId: started.caseId, prompt: started.prompt, expectedAction: started.expectedAction });
       } else if (data.type === "ANALYZE_RESULT") {
         const started = window.__privokeAnalysisStarted.get(data.requestId);
         if (!started) return;
         window.__privokeAnalyses.push({
+          phase: "result",
           requestId: data.requestId,
-          caseId: window.__privokeCaptureCase,
+          caseId: started.caseId,
           prompt: started.prompt,
+          expectedAction: started.expectedAction,
           action: data.action,
           decisionMs: performance.now() - started.at,
         });
       }
     });
   });
+}
+
+function observeContextRequests(context, sessionId, fixtureOrigin) {
+  const record = (url, method, channel) => {
+    let parsed;
+    try { parsed = new URL(url); } catch { return; }
+    if (!["http:", "https:", "ws:", "wss:"].includes(parsed.protocol)) return;
+    if (parsed.origin === fixtureOrigin) return;
+    if (["127.0.0.1", "localhost"].includes(parsed.hostname)
+      && [8080, 50056, 50057].includes(Number(parsed.port))) return;
+    externalRequests.push({ url, method, channel, sessionId });
+  };
+  context.on("request", (request) => record(request.url(), request.method(), "browser-context-request"));
+  context.on("websocket", (socket) => record(socket.url(), "WEBSOCKET", "browser-context-websocket"));
 }
 
 class CdpObserver {
@@ -862,8 +949,7 @@ class CdpObserver {
     try {
       const requestData = await this.command("Network.getRequestPostData", { requestId: id }).catch(() => null);
       record.requestBytes = decodeCdpPostData(record.request, requestData);
-      const requestFrames = readFrames(record.requestBytes, "request", false);
-      assert.equal(requestFrames.data.length, 1);
+      const requestFrames = parseGrpcWebFrames(record.requestBytes, "request");
       const request = this.protobuf.AnalyzePromptRequest.decode(requestFrames.data[0]);
       record.requestDecoded = this.protobuf.AnalyzePromptRequest.toObject(request, {
         enums: String, defaults: true, arrays: true, objects: true,
@@ -875,14 +961,13 @@ class CdpObserver {
   }
 
   #decode(record) {
-    const requestFrames = readFrames(record.requestBytes, "request", false);
-    assert.equal(requestFrames.data.length, 1, "AnalyzePrompt request must have one gRPC-Web data frame");
+    const requestFrames = parseGrpcWebFrames(record.requestBytes, "request");
     const requestMessage = this.protobuf.AnalyzePromptRequest.decode(requestFrames.data[0]);
     record.requestDecoded = this.protobuf.AnalyzePromptRequest.toObject(requestMessage, {
       enums: String, defaults: true, arrays: true, objects: true,
     });
     if (record.responseBytes) {
-      const responseFrames = readFrames(record.responseBytes, "response");
+      const responseFrames = parseGrpcWebFrames(record.responseBytes, "response");
       record.grpcStatus = responseFrames.grpcStatus;
       record.grpcMessage = responseFrames.grpcMessage;
       if (responseFrames.data.length === 1 && responseFrames.grpcStatus === 0) {
@@ -908,37 +993,12 @@ class CdpObserver {
       decodeError: record.decodeError ?? null,
       requestBodyBase64: record.requestBytes?.toString("base64") ?? null,
       responseBodyBase64: record.responseBytes?.toString("base64") ?? null,
+      responseBytesPresent: Buffer.isBuffer(record.responseBytes),
       requestWallTime: record.requestWallTime,
     };
     this.events.push(out);
     rpcEvents.push(out);
   }
-}
-
-function readFrames(body, kind, requireResponseTrailer = true) {
-  assert.ok(Buffer.isBuffer(body), `${kind} gRPC-Web body not captured`);
-  const data = [];
-  let grpcStatus = null;
-  let grpcMessage = null;
-  for (let offset = 0; offset < body.length;) {
-    assert.ok(offset + 5 <= body.length, `${kind} frame header truncated`);
-    const flag = body[offset];
-    const length = body.readUInt32BE(offset + 1);
-    offset += 5;
-    assert.ok(offset + length <= body.length, `${kind} frame payload truncated`);
-    const payload = body.subarray(offset, offset + length);
-    offset += length;
-    if (flag === 0) data.push(payload);
-    else if (flag === 0x80) {
-      const trailers = payload.toString("ascii");
-      const status = /^grpc-status:\s*(\d+)\s*$/im.exec(trailers);
-      grpcStatus = status ? Number(status[1]) : null;
-      const message = /^grpc-message:\s*(.*?)\s*$/im.exec(trailers);
-      grpcMessage = message?.[1] ? decodeURIComponent(message[1]) : null;
-    } else throw new Error(`${kind} has unsupported gRPC-Web frame flag ${flag}`);
-  }
-  if (requireResponseTrailer) assert.notEqual(grpcStatus, null, `${kind} response omitted its gRPC status trailer`);
-  return { data, grpcStatus, grpcMessage };
 }
 
 function decodeCdpPostData(request, result) {
@@ -958,44 +1018,16 @@ function decodeCdpPostData(request, result) {
   throw new Error("CDP omitted lossless AnalyzePrompt request bytes");
 }
 
-function assertDecodedRequest(rpc, expectedPrompt) {
-  const request = rpc.request;
-  assert.ok(request, "AnalyzePrompt request was not decoded");
-  assert.equal(request.source, "browser_interceptor");
-  assert.equal(request.text, expectedPrompt, "decoded runtime prompt differs from frozen fixture");
-  assert.equal(request.target_app, "chatgpt");
-  assert.equal(request.request_id.length > 0, true);
-  assert.deepEqual(request.layers, ["DETECTION_LAYER_REGEX", "DETECTION_LAYER_NER"]);
-}
-
-function assertDecodedResponse(rpc, expectedAction) {
-  const response = rpc.response?.decoded;
-  assert.ok(response, "AnalyzePrompt response frame was not decoded");
-  assert.equal(response.request_id, rpc.request.request_id, "runtime request/response IDs do not match");
-  assert.equal(response.action, expectedAction);
-  assert.equal(response.error, "", "runtime returned an error");
-  const layers = response.layers.map((item) => item.layer);
-  assert.deepEqual(layers, ["DETECTION_LAYER_REGEX", "DETECTION_LAYER_NER"]);
-  for (const layer of response.layers) {
-    assert.ok(["ok", "skipped"].includes(layer.status), `unexpected ${layer.layer} status ${layer.status}`);
-    if (layer.status === "skipped") {
-      assert.equal(expectedAction, "BLOCK", "only frozen regex BLOCK may short-circuit NER");
-      assert.equal(layer.layer, "DETECTION_LAYER_NER");
-    }
-    if (layer.status === "ok") assert.equal(layer.error, "", `${layer.layer} reported an error`);
-  }
-}
-
 function minimalRpc(rpc) {
   return {
-    requestId: rpc.request?.request_id ?? null,
+    requestId: rpc.request?.requestId ?? null,
     source: rpc.request?.source ?? null,
-    targetApp: rpc.request?.target_app ?? null,
+    targetApp: rpc.request?.targetApp ?? null,
     text: rpc.request?.text ?? null,
     requestedLayers: rpc.request?.layers ?? null,
-    responseRequestId: rpc.response?.decoded?.request_id ?? null,
+    responseRequestId: rpc.response?.decoded?.requestId ?? null,
     action: rpc.response?.decoded?.action ?? null,
-    elapsedMs: rpc.response?.decoded?.elapsed_ms ?? null,
+    elapsedMs: rpc.response?.decoded?.elapsedMs ?? null,
     error: rpc.response?.decoded?.error ?? rpc.grpcMessage ?? rpc.loadingFailure?.errorText ?? null,
     grpcStatus: rpc.grpcStatus,
     layerStatuses: rpc.response?.decoded?.layers?.map((item) => ({ layer: item.layer, status: item.status, error: item.error })) ?? [],
@@ -1009,26 +1041,98 @@ async function waitForNativeHostSample(path, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const rows = parseJsonl(await readFile(path, "utf8").catch(() => ""));
-    const nativeRows = rows.flatMap((row) => row.roles).filter((item) => item.role === "native_host");
-    if (nativeRows.length) return { observed: true, count: nativeRows.length };
+    const evidence = collectNativeSamples(rows);
+    if (evidence.nativeSamples.length) return evidence;
     await delay(100);
   }
   const rows = parseJsonl(await readFile(path, "utf8").catch(() => ""));
-  return { observed: false, count: rows.flatMap((row) => row.roles).filter((item) => item.role === "native_host").length };
+  return collectNativeSamples(rows);
 }
 
-async function sampledProcessTimes(path, pids) {
+function collectNativeSamples(rows) {
+  const nativeSamples = [];
+  const browserSamples = [];
+  for (const sample of rows) {
+    const browser = (sample.roles || []).filter((item) => item.role === "chromium");
+    const native = (sample.roles || []).filter((item) => item.role === "native_host");
+    browserSamples.push(...browser);
+    nativeSamples.push(...native);
+  }
+  return {
+    observed: nativeSamples.length > 0,
+    count: nativeSamples.length,
+    nativeSamples,
+    browserSamples,
+    browserParentBound: assertNativeParentBinding(nativeSamples, browserSamples),
+  };
+}
+
+function nativeLaunchAttestation({ nativeEvidence, activeNativeRegistration, supervisorIdentity,
+  detectorIdentity, sessionId }) {
+  const direct = nativeEvidence.observed && nativeEvidence.browserParentBound;
+  return {
+    mode: direct ? "direct_native_process_parent_observed" : "native_launch_inferred_from_fresh_extension_lifecycle",
+    directNativeProcessObserved: nativeEvidence.observed,
+    nativeProcessParentWasSampledChromium: nativeEvidence.browserParentBound,
+    nativeProcessSamples: nativeEvidence.nativeSamples,
+    browserProcessSamples: nativeEvidence.browserSamples.map((item) => ({
+      pid: item.pid, start_ticks: item.start_ticks, browser_profile_root: item.browser_profile_root,
+    })),
+    browserSessionId: sessionId,
+    nativeRegistration: activeNativeRegistration,
+    supervisorIdentity: { pid: supervisorIdentity.pid, startTicks: supervisorIdentity.startTicks,
+      commandSha256: supervisorIdentity.commandSha256 },
+    detectorIdentity: { pid: detectorIdentity.pid, startTicks: detectorIdentity.startTicks,
+      commandSha256: detectorIdentity.commandSha256 },
+    lifecycleInferenceBasis: direct ? null : [
+      "run-specific Chromium user-data directory was fresh and serving ports/processes were verified absent before launch",
+      "the installer-generated native host manifest was bound into that active user-data directory before launch",
+      "the built extension worker was loaded and its real lifecycle/settings message caused a new supervisor and detector identity",
+      "no harness path starts the supervisor directly",
+    ],
+    sampledNativeHostPeakClaim: nativeEvidence.observed ? "sampled evidence only; 100ms may miss shorter use" : "unavailable; no native-host resource peak claim",
+  };
+}
+
+async function registerNativeHostForProfile(activeUserDataPath) {
+  assert.ok(hostRegistration, "standard native host registration has not been installed");
+  const directory = join(activeUserDataPath, "NativeMessagingHosts");
+  await mkdir(directory, { recursive: true });
+  const path = join(directory, `${NATIVE_HOST_NAME}.json`);
+  await writeFile(path, await readFile(hostRegistration.manifestPath), { flag: "wx" });
+  const bytes = await readFile(path);
+  const manifest = JSON.parse(bytes.toString("utf8"));
+  assert.deepStrictEqual(manifest, hostRegistration.manifest, "active profile native manifest differs from installer output");
+  assert.equal(manifest.allowed_origins[0], `chrome-extension://${EXTENSION_ID}/`);
+  assert.equal(manifest.path, hostRegistration.manifest.path);
+  assert.equal(await hashFile(path), hostRegistration.manifestSha256,
+    "active profile native manifest bytes differ from installer output");
+  return {
+    activeUserDataPath,
+    activeManifestPath: path,
+    activeManifestSha256: sha256(bytes),
+    installedManifestPath: hostRegistration.manifestPath,
+    installedManifestSha256: hostRegistration.manifestSha256,
+    launcherPath: hostRegistration.launcherPath,
+    launcherSha256: hostRegistration.launcherSha256,
+    nativeHostSha256: hostRegistration.hostSha256,
+  };
+}
+
+async function sampledProcessTimes(path, identities) {
   const deadline = Date.now() + 5_000;
   while (Date.now() < deadline) {
     const rows = parseJsonl(await readFile(path, "utf8").catch(() => ""));
     const found = new Map();
     for (const row of rows) for (const process of row.roles || []) {
-      if (pids.includes(process.pid) && Number.isFinite(process.start_time_epoch_seconds)) {
+      const expected = identities.find((item) => item.pid === process.pid
+        && item.startTicks === process.start_ticks);
+      if (expected && Number.isFinite(process.start_time_epoch_seconds)) {
         found.set(process.pid, { startedAtEpochMs: process.start_time_epoch_seconds * 1000,
           startTicks: process.start_ticks });
       }
     }
-    if (pids.every((pid) => found.has(pid))) return found;
+    if (identities.every((identity) => found.has(identity.pid))) return found;
     await delay(50);
   }
   throw new Error("resource sampler did not capture owned runtime process startup identities");
@@ -1067,12 +1171,13 @@ async function finishSession() {
 
 async function stopSampler() {
   if (!sampler) return;
-  sampler.kill("SIGTERM");
-  await Promise.race([
-    new Promise((resolvePromise) => sampler.once("exit", resolvePromise)),
-    delay(2_000),
+  const child = sampler;
+  if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
+  const closed = await Promise.race([
+    samplerClosed,
+    delay(10_000).then(() => { throw new Error("resource sampler did not close and reap within 10 seconds"); }),
   ]);
-  if (sampler.exitCode !== null && sampler.exitCode !== 0) {
+  if (closed.code !== 0 || (closed.signal && closed.signal !== "SIGTERM")) {
     sampleEndFailure = new Error("resource sampler exited unsuccessfully");
   }
   const finishedPath = samplerPath;
@@ -1083,6 +1188,7 @@ async function stopSampler() {
   }
   sampler = null;
   samplerPath = null;
+  samplerClosed = null;
 }
 
 async function runtimeStatus(page) {
@@ -1097,7 +1203,7 @@ async function waitRuntimeReady(page) {
   while (Date.now() < deadline) {
     try {
       last = await runtimeStatus(page);
-      if (last.enabled && last.status === "RUNNING" && Number(last.process_id) > 0) return last;
+      if (last.enabled && last.status === "RUNNING" && Number(last.processId) > 0) return last;
     } catch (error) { last = error; }
     await delay(250);
   }
@@ -1106,15 +1212,28 @@ async function waitRuntimeReady(page) {
 
 async function restoreRuntimeAndObserve() {
   const runtime = await waitRuntimeReady(popup);
-  const identity = await processIdentity(Number(runtime.process_id));
+  const identity = await processIdentity(Number(runtime.processId));
   const supervisor = await processIdentity(identity.parentPid);
   assert.ok(identity.command.includes("extension/client-runtime/src/grpc_main.py"));
   assert.ok(supervisor.command.includes("extension/runtime-supervisor/src/main.py"));
-  startedProcesses.set(supervisor.pid, supervisor);
-  startedProcesses.set(identity.pid, identity);
+  startedProcesses = new Map([[supervisor.pid, supervisor], [identity.pid, identity]]);
   const sockets = await assertOwnedListeners(supervisor.pid, identity.pid);
   return { runtime, detectorPid: identity.pid, detectorStartTicks: identity.startTicks,
     supervisorPid: supervisor.pid, supervisorStartTicks: supervisor.startTicks, sockets };
+}
+
+async function waitOwnedProcessesGone(identities, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    let stillOwned = false;
+    for (const identity of identities) {
+      const current = await processIdentity(identity.pid).catch(() => null);
+      if (current?.startTicks === identity.startTicks) stillOwned = true;
+    }
+    if (!stillOwned) return;
+    await delay(50);
+  }
+  throw new Error("extension lifecycle did not stop the previously owned runtime identities");
 }
 
 async function sendExtensionMessage(page, message) {
@@ -1362,38 +1481,63 @@ function summarize(values) {
 
 async function resourceSummary(files) {
   const byRole = new Map();
-  let cgroupPeak = 0;
+  let cgroupPeak = null;
   let cgroupCpuStart = null;
   let cgroupCpuEnd = null;
+  let cgroupMemoryMissing = 0;
+  let cgroupCpuMissing = 0;
   let nativeObserved = false;
   for (const file of files) {
     if (!file.sha256) continue;
     const samples = parseJsonl(await readFile(join(OUTPUT, file.file), "utf8"));
     for (const sample of samples) {
-      cgroupPeak = Math.max(cgroupPeak, sample.cgroup.memory_current_bytes || 0);
-      if (sample.cgroup.cpu_usage_usec !== null) {
+      if (Number.isSafeInteger(sample.cgroup.memory_current_bytes) && sample.cgroup.memory_current_bytes >= 0) {
+        cgroupPeak = cgroupPeak === null ? sample.cgroup.memory_current_bytes
+          : Math.max(cgroupPeak, sample.cgroup.memory_current_bytes);
+      } else cgroupMemoryMissing += 1;
+      if (Number.isSafeInteger(sample.cgroup.cpu_usage_usec) && sample.cgroup.cpu_usage_usec >= 0) {
         cgroupCpuStart ??= sample.cgroup.cpu_usage_usec;
         cgroupCpuEnd = sample.cgroup.cpu_usage_usec;
-      }
+      } else cgroupCpuMissing += 1;
       for (const row of sample.roles) {
         if (row.role === "native_host") nativeObserved = true;
         const key = `${row.role}/${row.pid}/${row.start_ticks}`;
         const record = byRole.get(key) || { role: row.role, pid: row.pid, startTicks: row.start_ticks,
           startTimeEpochSeconds: row.start_time_epoch_seconds,
-          sampledPeakRssBytes: 0, sampledPeakPssBytes: 0, lastCpuSeconds: 0, samples: 0 };
-        record.sampledPeakRssBytes = Math.max(record.sampledPeakRssBytes, row.rss_bytes || 0);
-        if (row.pss_bytes !== null) record.sampledPeakPssBytes = Math.max(record.sampledPeakPssBytes, row.pss_bytes);
-        record.lastCpuSeconds = row.cpu_seconds ?? record.lastCpuSeconds;
+          sampledPeakRssBytes: null, sampledPeakPssBytes: null, firstCpuSeconds: null, lastCpuSeconds: null,
+          missingRssSamples: 0, missingPssSamples: 0, missingCpuSamples: 0, missingStartTicksSamples: 0,
+          samples: 0 };
+        if (Number.isSafeInteger(row.start_ticks) && row.start_ticks >= 0) record.startTicks = row.start_ticks;
+        else record.missingStartTicksSamples += 1;
+        if (Number.isSafeInteger(row.rss_bytes) && row.rss_bytes >= 0) {
+          record.sampledPeakRssBytes = record.sampledPeakRssBytes === null ? row.rss_bytes
+            : Math.max(record.sampledPeakRssBytes, row.rss_bytes);
+        } else record.missingRssSamples += 1;
+        if (Number.isSafeInteger(row.pss_bytes) && row.pss_bytes >= 0) {
+          record.sampledPeakPssBytes = record.sampledPeakPssBytes === null ? row.pss_bytes
+            : Math.max(record.sampledPeakPssBytes, row.pss_bytes);
+        } else record.missingPssSamples += 1;
+        if (Number.isFinite(row.cpu_seconds) && row.cpu_seconds >= 0) {
+          record.firstCpuSeconds ??= row.cpu_seconds;
+          record.lastCpuSeconds = row.cpu_seconds;
+        } else record.missingCpuSamples += 1;
         record.samples += 1;
         byRole.set(key, record);
       }
     }
   }
+  const processes = [...byRole.values()].map((record) => ({
+    ...record,
+    cpuDeltaSeconds: record.firstCpuSeconds === null || record.lastCpuSeconds === null
+      ? null : record.lastCpuSeconds - record.firstCpuSeconds,
+  }));
   return {
     intervalMs: 100,
     cgroupMemorySampledPeakBytes: cgroupPeak,
     cgroupCpuSampledDeltaUsec: cgroupCpuStart === null ? null : cgroupCpuEnd - cgroupCpuStart,
-    processes: [...byRole.values()],
+    cgroupMemoryMissingSamples: cgroupMemoryMissing,
+    cgroupCpuMissingSamples: cgroupCpuMissing,
+    processes,
     nativeHostObserved: nativeObserved,
     qualification: "Sampled peaks may miss shorter spikes; bridge and supervisor share one process and are counted once; role peaks are not summed across timestamps.",
   };
@@ -1432,6 +1576,7 @@ async function finalize() {
   if (changed.length) {
     receipt.status = "failed";
     receipt.failure = { type: "source_changed_during_run", changedFiles: changed };
+    process.exitCode = 1;
   }
   const temp = join(OUTPUT, `.receipt-${randomUUID()}.tmp`);
   await writeFile(temp, JSON.stringify(receipt, null, 2), { flag: "wx" });
@@ -1460,7 +1605,10 @@ function spawnSampler(outputPath) {
   const child = spawn("/workspace/extension/client-runtime/.venv/bin/python", [
     RESOURCE_SAMPLER, "--output", outputPath, "--interval-ms", "100",
   ], { cwd: ROOT, env: process.env, stdio: "ignore" });
-  child.unref();
+  samplerClosed = new Promise((resolvePromise) => {
+    child.once("error", (error) => resolvePromise({ code: null, signal: null, error: safeError(error) }));
+    child.once("close", (code, signal) => resolvePromise({ code, signal }));
+  });
   return child;
 }
 
@@ -1482,7 +1630,11 @@ function positiveInteger(value, fallback) {
 }
 
 function safeError(error) {
-  return { type: error?.name || "Error", message: String(error?.message || error).slice(0, 500) };
+  let message = String(error?.message || error);
+  for (const example of Object.values(CASES)) {
+    message = message.replaceAll(example.prompt, `<synthetic-prompt:${example.id}>`);
+  }
+  return { type: error?.name || "Error", message: message.slice(0, 500) };
 }
 
 function safeFilename(value) { return value.replace(/[^a-z0-9_-]+/gi, "_").slice(0, 100); }

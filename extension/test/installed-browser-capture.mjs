@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { assertReceiverCapture } from "./installed-browser-evidence.mjs";
 
 export const CASES = Object.freeze({
   allow: Object.freeze({
@@ -33,13 +34,11 @@ export function requestBody(prompt) {
   return JSON.stringify({ messages: [{ role: "user", content: prompt }] });
 }
 
-export function assertForwarding({ example, outcome, captures, transport }) {
+export function assertForwarding({ example, outcome, captures, transport, expectedUrl }) {
   assert.equal(captures.length, Number(example.expectedForwarded),
     `${transport}/${example.id} provider request count`);
   if (example.expectedForwarded) {
-    assert.equal(captures[0].body, requestBody(example.prompt),
-      `${transport}/${example.id} request body changed`);
-    assert.equal(captures[0].method, "POST");
+    assertReceiverCapture(captures[0], { expectedUrl, prompt: example.prompt });
     return;
   }
   if (transport === "fetch") {

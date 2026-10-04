@@ -16,6 +16,7 @@ import psutil
 
 ROOT = Path("/workspace")
 PATTERNS = {
+    "xvfb": ("/usr/bin/Xvfb", "Xvfb :"),
     "native_host": ("native_messaging_host.py", "privoke-native-host"),
     "supervisor_bridge": ("extension/runtime-supervisor/src/main.py",),
     "detector": ("extension/client-runtime/src/grpc_main.py",),
@@ -37,24 +38,25 @@ def _browser_match(command: str) -> bool:
     return any(str(profile) in command for profile in _browser_profiles())
 
 
-def _browser_process_ids(processes: list[psutil.Process]) -> set[int]:
+def _browser_process_ids(processes: list[psutil.Process]) -> tuple[set[int], set[int]]:
     """Include the complete Chromium process tree rooted at each run profile."""
-    roots: list[psutil.Process] = []
+    root_processes: list[psutil.Process] = []
     for process in processes:
         try:
             command = " ".join(process.cmdline())
             if _browser_match(command):
-                roots.append(process)
+                root_processes.append(process)
         except (psutil.Error, OSError):
             continue
+    root_ids = {root.pid for root in root_processes}
     included: set[int] = set()
-    for root in roots:
+    for root in root_processes:
         try:
             included.add(root.pid)
             included.update(child.pid for child in root.children(recursive=True))
         except (psutil.Error, OSError):
             continue
-    return included
+    return root_ids, included
 
 
 def _pss_bytes(pid: int) -> int | None:
@@ -95,7 +97,7 @@ def _cgroup_sample() -> dict[str, int | None]:
 def _processes() -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     processes = list(psutil.process_iter(("pid", "ppid", "cmdline", "create_time", "memory_info", "cpu_times")))
-    chromium_ids = _browser_process_ids(processes)
+    chromium_root_ids, chromium_ids = _browser_process_ids(processes)
     for process in processes:
         try:
             info = process.info
@@ -109,8 +111,10 @@ def _processes() -> list[dict[str, object]]:
             cpu = info.get("cpu_times")
             rows.append({
                 "role": role,
+                "browser_profile_root": info["pid"] in chromium_root_ids,
                 "pid": info["pid"],
                 "ppid": info["ppid"],
+                "parent_start_ticks": _start_ticks(int(info["ppid"])) if info.get("ppid") else None,
                 "start_time_epoch_seconds": info.get("create_time"),
                 "start_ticks": _start_ticks(int(info["pid"])),
                 "rss_bytes": memory.rss if memory else None,
