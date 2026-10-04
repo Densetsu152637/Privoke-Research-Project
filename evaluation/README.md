@@ -5,6 +5,16 @@ components; evaluator tests remain in `tests/`. The fuzzer training loop remains
 in `services/privoke-fuzzer`; evaluation calls its existing CLI or endpoint.
 Each Python suite runs in a separate process to isolate component imports.
 
+The default evaluator image installs the pinned CPU training-mechanics dependencies
+from `requirements-training.txt`, including Torch 2.10.0+cpu and NumPy 1.26.4.
+These dependencies let the discovered in-house contextual and binary-presence
+mechanics tests run in the same image; they use only synthetic fixtures and do not
+fit a study dataset, publish weights, or require pretrained models. The image copies
+only the runtime modules used by those tests and the scratch inference parity path,
+plus the generated parameter protobufs, rather than mounting or copying a full
+runtime installation. Do not skip or exclude these tests when running the evaluator
+suite.
+
 Use the same Compose files throughout:
 
 ```powershell
