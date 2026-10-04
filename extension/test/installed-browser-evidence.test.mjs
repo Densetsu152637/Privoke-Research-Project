@@ -15,6 +15,7 @@ import {
   summarizeSupervisorStartupLog,
   mountEvidenceForPath,
   isBeforeFirstFixtureRequest,
+  classifyLinuxProcessStat,
   validateAnalyzeRequest,
   validateAnalyzeResponse,
   validateDecodedOutcome,
@@ -71,6 +72,15 @@ test("startup diagnostics are disabled as soon as fixture dispatch begins, even 
   const fixtureRequestAttempted = true;
   assert.equal(Object.values(outcomeArrays).every((records) => records.length === 0), true);
   assert.equal(isBeforeFirstFixtureRequest(fixtureRequestAttempted), false);
+});
+
+test("owned process termination accepts only the expected identity's zombie/dead proc state", () => {
+  const stat = (state, ticks) => `452 (python3) ${state} ${Array(18).fill("0").join(" ")} ${ticks}`;
+  assert.equal(classifyLinuxProcessStat(stat("S", 100), 100), "running");
+  assert.equal(classifyLinuxProcessStat(stat("Z", 100), 100), "exited");
+  assert.equal(classifyLinuxProcessStat(stat("X", 100), 100), "exited");
+  assert.equal(classifyLinuxProcessStat(stat("Z", 101), 100), "different_process");
+  assert.throws(() => classifyLinuxProcessStat("malformed", 100), /state is missing/);
 });
 
 test("strict gRPC-Web framing accepts one request and one response plus final trailers", () => {

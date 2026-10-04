@@ -134,6 +134,20 @@ export function isBeforeFirstFixtureRequest(fixtureRequestAttempted) {
   return !fixtureRequestAttempted;
 }
 
+export function classifyLinuxProcessStat(statLine, expectedStartTicks) {
+  assert.equal(typeof statLine, "string", "Linux process stat must be text");
+  assert.ok(Number.isSafeInteger(expectedStartTicks) && expectedStartTicks >= 0,
+    "expected process start ticks must be a nonnegative integer");
+  const rest = statLine.slice(statLine.lastIndexOf(")") + 2).split(/\s+/);
+  const state = rest[0];
+  const startTicks = Number(rest[19]);
+  assert.match(state ?? "", /^[A-Z]$/, "Linux process state is missing");
+  assert.ok(Number.isSafeInteger(startTicks) && startTicks >= 0, "Linux process start ticks are invalid");
+  if (startTicks !== expectedStartTicks) return "different_process";
+  if (state === "Z" || state === "X") return "exited";
+  return "running";
+}
+
 export function validateAnalyzeRequest(request, expected) {
   assert.ok(request && typeof request === "object", "AnalyzePrompt request did not decode");
   assert.equal(request.requestId, expected.requestId ?? request.requestId);
