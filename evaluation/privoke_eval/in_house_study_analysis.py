@@ -41,6 +41,7 @@ _CATEGORIES = frozenset((
     "HEALTH", "POLITICS", "RELIGION", "CRIMINAL", "FINANCIAL",
     "SEXUAL", "CHILD", "LOCATION", "IDENTITY", "THIRD_PARTY",
 ))
+_EMPTY_RESULTS_SHA256 = hashlib.sha256(b"[]").hexdigest()
 _OUTCOME_KEYS = frozenset((
     "status", "error_count", "classification", "action", "allowed",
     "masked_text_sha256", "evidence_sha256", "layers",
@@ -475,6 +476,8 @@ def _verify_selected_live_validation(original_collection: object, frozen_selecti
                 if trace["predicted_label"] == "PRESENT":
                     if observed["layers"]["semantic"]["results_sha256"] != trace["semantic_results_sha256"]:
                         _fail()
+                elif observed["layers"]["semantic"]["results_sha256"] != _EMPTY_RESULTS_SHA256:
+                    _fail()
             elif observed["layers"] != source_row["ordinary"]["layers"]:
                 _fail()
     return {
@@ -486,9 +489,6 @@ def _verify_selected_live_validation(original_collection: object, frozen_selecti
         "projection_live_parity": True, "test_authorized": False,
         "retention_decision": None,
     }
-    return row["nonsemantic"]
-
-
 def _select_one_arm(checkpoints: Sequence[Mapping], *, recall_floor: float) -> tuple[list[dict], dict | None]:
     candidates = []
     for checkpoint in checkpoints:

@@ -198,7 +198,10 @@ def live_input(original, selection):
                 )
             observed = copy.deepcopy(analysis._project(validated, choice["threshold"]))
             if gate["status"] == "APPLIED" and gate["predicted_label"] == "ABSENT":
-                observed["layers"]["semantic"] = layer(label="live-empty-semantic")
+                observed["layers"]["semantic"] = {
+                    "status": "ok", "results_sha256": analysis._EMPTY_RESULTS_SHA256,
+                    "skip_reason": None,
+                }
             live_rows.append({
                 "row_id_sha256": raw["row_id_sha256"],
                 "group_id_sha256": raw["group_id_sha256"],
@@ -328,6 +331,10 @@ class JointSelectionTests(unittest.TestCase):
             analysis._validate_row(malformed_ner, identity_value)
 
     def test_selected_live_validation_recomputes_and_checks_all_arm_projection(self):
+        self.assertEqual(
+            analysis._EMPTY_RESULTS_SHA256,
+            "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        )
         original = validation_input()
         selection = self._internal(original)
         live = live_input(original, selection)
@@ -371,6 +378,18 @@ class JointSelectionTests(unittest.TestCase):
             "ABSENT" if old_label == "PRESENT" else "PRESENT"
         )
         mutations.append(bad_gate_label)
+        absent_row_index = next(
+            index for index, item in enumerate(live["arms"][0]["rows"])
+            if item["gate"]["status"] == "APPLIED"
+            and item["gate"]["predicted_label"] == "ABSENT"
+        )
+        bad_absent_raw_hash = copy.deepcopy(live)
+        source_semantic_hash = original["arms"][0]["checkpoints"][0]["rows"][absent_row_index]["gate"]["semantic_results_sha256"]
+        bad_absent_raw_hash["arms"][0]["rows"][absent_row_index]["outcome"]["layers"]["semantic"]["results_sha256"] = source_semantic_hash
+        mutations.append(bad_absent_raw_hash)
+        bad_absent_other_hash = copy.deepcopy(live)
+        bad_absent_other_hash["arms"][0]["rows"][absent_row_index]["outcome"]["layers"]["semantic"]["results_sha256"] = sha("not empty results")
+        mutations.append(bad_absent_other_hash)
         bad_frozen_selection = copy.deepcopy(selection)
         bad_frozen_selection["selections"]["S0"]["threshold"] = 0.125
         with self.assertRaises(analysis.StudyAnalysisError):
