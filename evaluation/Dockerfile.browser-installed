@@ -17,6 +17,7 @@ COPY extension/test/installed-browser-capture.mjs /workspace/extension/test/inst
 COPY extension/test/installed-browser-evidence.mjs /workspace/extension/test/installed-browser-evidence.mjs
 COPY extension/test/installed-browser-evidence.test.mjs /workspace/extension/test/installed-browser-evidence.test.mjs
 COPY extension/test/installed-browser-resources.py /workspace/extension/test/installed-browser-resources.py
+COPY extension/test/installed-browser-resources.test.py /workspace/extension/test/installed-browser-resources.test.py
 COPY paper/research/installed-browser-protocol.md /workspace/paper/research/installed-browser-protocol.md
 
 RUN python3 -m venv /workspace/extension/client-runtime/.venv \

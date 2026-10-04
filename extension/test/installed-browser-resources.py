@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 import signal
@@ -69,13 +70,47 @@ def _pss_bytes(pid: int) -> int | None:
     return None
 
 
-def _start_ticks(pid: int) -> int | None:
+_PROC_STATES = set("RSDZTtXxKWPI")
+
+
+def _process_stat_identity(
+    pid: int,
+    *,
+    read_stat=None,
+    pid_exists=None,
+) -> tuple[str, int] | None:
+    """Read strict Linux stat identity, distinguishing exit from unreadable evidence."""
+    if not isinstance(pid, int) or pid <= 0:
+        raise RuntimeError("requested process PID is invalid")
+    read_stat = read_stat or (lambda value: (Path("/proc") / str(value) / "stat").read_text())
+    pid_exists = pid_exists or psutil.pid_exists
     try:
-        stat = (Path("/proc") / str(pid) / "stat").read_text()
-        fields = stat[stat.rfind(")") + 2 :].split()
-        return int(fields[19])
-    except (OSError, ValueError, IndexError):
-        return None
+        stat = read_stat(pid)
+    except FileNotFoundError:
+        if not pid_exists(pid):
+            return None
+        raise RuntimeError("process identity disappeared while PID remained live") from None
+    except OSError as error:
+        raise RuntimeError("could not read process start-tick identity") from error
+    try:
+        closing_paren = stat.rfind(")")
+        opening_paren = stat.find("(")
+        if opening_paren < 0 or closing_paren < opening_paren or int(stat[:opening_paren].strip()) != pid:
+            raise ValueError("stat PID does not match requested PID")
+        fields = stat[closing_paren + 1 :].split()
+        if len(fields) < 20 or fields[0] not in _PROC_STATES:
+            raise ValueError("stat framing or process state is invalid")
+        ticks = int(fields[19])
+        if ticks < 0:
+            raise ValueError("start ticks are negative")
+        return fields[0], ticks
+    except (ValueError, IndexError) as error:
+        raise RuntimeError("process stat did not contain a valid start-tick identity") from error
+
+
+def _start_ticks(pid: int, *, read_stat=None, pid_exists=None) -> int | None:
+    identity = _process_stat_identity(pid, read_stat=read_stat, pid_exists=pid_exists)
+    return None if identity is None else identity[1]
 
 
 def _cgroup_sample() -> dict[str, int | None]:
@@ -94,37 +129,103 @@ def _cgroup_sample() -> dict[str, int | None]:
     return result
 
 
-def _processes() -> list[dict[str, object]]:
+def _role_for_command(command: str, included_chromium: bool) -> str | None:
+    return next((name for name in PATTERNS if _matches(name, command)), "chromium" if included_chromium else None)
+
+
+def _termination_disposition(role: str, profile_root: bool, detail: str) -> None:
+    if role == "chromium" and not profile_root:
+        return
+    raise RuntimeError(f"{role} process identity changed during resource sampling: {detail}")
+
+
+def _processes() -> tuple[list[dict[str, object]], dict[str, int]]:
     rows: list[dict[str, object]] = []
+    identity_races: dict[str, int] = {}
     processes = list(psutil.process_iter(("pid", "ppid", "cmdline", "create_time", "memory_info", "cpu_times")))
     chromium_root_ids, chromium_ids = _browser_process_ids(processes)
     for process in processes:
         try:
             info = process.info
-            command = " ".join(info.get("cmdline") or [])
-            role = next((name for name in PATTERNS if _matches(name, command)), None)
-            if role is None and info["pid"] in chromium_ids:
-                role = "chromium"
-            if role is None:
+            pid = int(info["pid"])
+            profile_root = pid in chromium_root_ids
+            included_chromium = pid in chromium_ids
+            expected_command = " ".join(info.get("cmdline") or [])
+            role_hint = _role_for_command(expected_command, included_chromium)
+            if role_hint is None:
                 continue
-            memory = info.get("memory_info")
-            cpu = info.get("cpu_times")
+            expected_create_time = info.get("create_time")
+            if not isinstance(expected_create_time, (int, float)) or not math.isfinite(expected_create_time):
+                raise RuntimeError(f"{role_hint} process lacks enumeration-time creation identity")
+            before = _process_stat_identity(pid)
+            if before is None:
+                _termination_disposition(role_hint, profile_root, "PID exited before stat snapshot")
+                identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
+                continue
+            fresh = psutil.Process(pid)
+            fresh_create_time = fresh.create_time()
+            if not math.isfinite(fresh_create_time):
+                raise RuntimeError(f"{role_hint} process creation identity is invalid")
+            if fresh_create_time != expected_create_time:
+                _termination_disposition(role_hint, profile_root, "PID was reused after process enumeration")
+                identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
+                continue
+            if not fresh.is_running():
+                _termination_disposition(role_hint, profile_root, "process exited before fresh metrics")
+                identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
+                continue
+            command = " ".join(fresh.cmdline())
+            role = _role_for_command(command, included_chromium)
+            if role is None or role != role_hint:
+                raise RuntimeError(f"{role_hint} process role changed between enumeration and sampling")
+            if profile_root and not _browser_match(command):
+                raise RuntimeError("Chromium profile root no longer matches the sampled process command")
+            parent_pid = fresh.ppid()
+            parent_before = _process_stat_identity(parent_pid) if parent_pid > 0 else None
+            memory = fresh.memory_info()
+            cpu = fresh.cpu_times()
+            pss_bytes = _pss_bytes(pid)
+            after = _process_stat_identity(pid)
+            if after is None or after[1] != before[1]:
+                _termination_disposition(role, profile_root, "PID exited or changed start ticks during metrics")
+                identity_races[role] = identity_races.get(role, 0) + 1
+                continue
+            parent_pid_after = fresh.ppid()
+            parent_after = _process_stat_identity(parent_pid_after) if parent_pid_after > 0 else None
+            parent_identity_stable = (
+                parent_pid_after == parent_pid
+                and parent_before is not None
+                and parent_after is not None
+                and parent_before[1] == parent_after[1]
+            )
+            if not fresh.is_running():
+                # A same-identity process can exit after its metrics were read; these
+                # metrics remain bound by matching stat ticks around the reads.
+                pass
             rows.append({
                 "role": role,
-                "browser_profile_root": info["pid"] in chromium_root_ids,
-                "pid": info["pid"],
-                "ppid": info["ppid"],
-                "parent_start_ticks": _start_ticks(int(info["ppid"])) if info.get("ppid") else None,
-                "start_time_epoch_seconds": info.get("create_time"),
-                "start_ticks": _start_ticks(int(info["pid"])),
+                "browser_profile_root": profile_root,
+                "pid": pid,
+                "ppid": parent_pid,
+                "parent_start_ticks": parent_before[1] if parent_identity_stable else None,
+                "start_time_epoch_seconds": fresh_create_time,
+                "start_ticks": before[1],
                 "rss_bytes": memory.rss if memory else None,
-                "pss_bytes": _pss_bytes(int(info["pid"])),
+                "pss_bytes": pss_bytes,
                 "cpu_seconds": (cpu.user + cpu.system) if cpu else None,
                 "command_sha256": __import__("hashlib").sha256(command.encode()).hexdigest(),
             })
-        except (psutil.Error, OSError, ValueError):
-            continue
-    return rows
+        except psutil.NoSuchProcess:
+            info = process.info
+            pid = int(info["pid"])
+            expected_command = " ".join(info.get("cmdline") or [])
+            included_chromium = pid in chromium_ids
+            role_hint = _role_for_command(expected_command, included_chromium)
+            if role_hint is None:
+                continue
+            _termination_disposition(role_hint, pid in chromium_root_ids, "process vanished during fresh reads")
+            identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
+    return rows, identity_races
 
 
 def sample(output: Path, interval_ms: int) -> None:
@@ -141,9 +242,11 @@ def sample(output: Path, interval_ms: int) -> None:
     with output.open("x", encoding="utf-8", buffering=1) as stream:
         while not stop:
             now = time.monotonic()
+            roles, identity_races = _processes()
             stream.write(json.dumps({
                 "sample_monotonic_ns": time.monotonic_ns(),
-                "roles": _processes(),
+                "roles": roles,
+                "process_identity_races": identity_races,
                 "cgroup": _cgroup_sample(),
             }, separators=(",", ":")) + "\n")
             next_sample += interval

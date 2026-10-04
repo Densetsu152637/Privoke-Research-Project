@@ -282,6 +282,10 @@ export function assertCompleteResourceEvidence(summary) {
   assert.equal(summary.cgroupMemoryMissingSamples, 0, "cgroup memory samples are incomplete");
   assert.equal(summary.cgroupCpuMissingSamples, 0, "cgroup CPU samples are incomplete");
   const requiredRoles = new Set(["xvfb", "chromium", "supervisor_bridge", "detector"]);
+  for (const [role, count] of Object.entries(summary.processIdentityRaceDropsByRole || {})) {
+    assert.ok(Number.isSafeInteger(count) && count >= 0, "process identity race counts are invalid");
+    assert.equal(role, "chromium", `${role} process identity races cannot be silently omitted`);
+  }
   const roles = new Set(summary.processes.map((item) => item.role));
   for (const role of requiredRoles) assert.ok(roles.has(role), `resource samples omitted required ${role} process role`);
   for (const item of summary.processes.filter((record) => requiredRoles.has(record.role))) {
