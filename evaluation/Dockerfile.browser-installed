@@ -6,6 +6,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
+ENV PRIVOKE_INSTALLED_EVIDENCE_IN_CONTAINER=true
 COPY shared /workspace/shared
 COPY extension /workspace/extension
 COPY evaluation/Dockerfile.browser-installed /workspace/evaluation/Dockerfile.browser-installed
@@ -53,7 +54,6 @@ ENV PRIVOKE_MODEL_DEVICE=cpu
 ENV TELEMETRY_ENABLED=false
 ENV PRIVOKE_RUNTIME_START_ENABLED=false
 ENV PRIVOKE_DEV_LOG_PROMPTS=false
-ENV PRIVOKE_INSTALLED_EVIDENCE_IN_CONTAINER=true
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 WORKDIR /workspace
 CMD ["xvfb-run", "-a", "node", "/workspace/evaluation/run-installed-browser-capture.mjs"]
