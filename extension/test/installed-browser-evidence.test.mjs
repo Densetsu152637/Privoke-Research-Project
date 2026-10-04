@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   assertNativeParentBinding,
+  assertNativeLauncherExecutableMount,
   assertCompleteResourceEvidence,
   assertPreservedControlSupervisor,
   assertReceiverCapture,
@@ -51,6 +52,15 @@ test("native launcher mount evidence identifies noexec without exposing mount so
   });
   assert.deepEqual(mountEvidenceForPath("/workspace/host", mounts), {
     mountPoint: "/", fsType: "overlay", noExec: false, readOnly: false,
+  });
+  const executableMount = mountEvidenceForPath("/tmp/launcher", mounts);
+  assert.throws(() => assertNativeLauncherExecutableMount({ executable: true, mount: executableMount }), /noexec/);
+  assert.throws(() => assertNativeLauncherExecutableMount({ executable: false,
+    mount: { mountPoint: "/tmp", fsType: "tmpfs", noExec: false, readOnly: false } }), /not executable/);
+  assert.throws(() => assertNativeLauncherExecutableMount({ executable: true, mount: null }), /unavailable/);
+  assert.deepEqual(assertNativeLauncherExecutableMount({ executable: true,
+    mount: { mountPoint: "/tmp", fsType: "tmpfs", noExec: false, readOnly: false } }), {
+    executable: true, mount: { mountPoint: "/tmp", fsType: "tmpfs", noExec: false, readOnly: false },
   });
 });
 

@@ -122,6 +122,13 @@ export function mountEvidenceForPath(path, mountInfoText) {
   return evidence;
 }
 
+export function assertNativeLauncherExecutableMount({ executable, mount }) {
+  assert.equal(executable, true, "installer-generated native launcher is not executable");
+  assert.ok(mount, "native launcher mount options are unavailable");
+  assert.equal(mount.noExec, false, "native launcher is on a noexec mount");
+  return { executable, mount };
+}
+
 export function validateAnalyzeRequest(request, expected) {
   assert.ok(request && typeof request === "object", "AnalyzePrompt request did not decode");
   assert.equal(request.requestId, expected.requestId ?? request.requestId);

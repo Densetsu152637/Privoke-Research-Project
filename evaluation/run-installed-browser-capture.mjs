@@ -29,6 +29,7 @@ import {
   assertNativeParentBinding,
   assertPreservedControlSupervisor,
   assertCompleteResourceEvidence,
+  assertNativeLauncherExecutableMount,
   preserveResourceEvidenceFailure,
   waitForProcessesToDisappear,
   mountEvidenceForPath,
@@ -357,6 +358,15 @@ async function installNativeHost() {
     hostSha256: await hashFile(join(XDG_DATA_HOME, "privoke/native-host/native_messaging_host.py")),
     manifest,
   };
+  receipt.nativeLauncherExecution = await verifyNativeLauncherExecution(launcherPath);
+}
+
+async function verifyNativeLauncherExecution(launcherPath) {
+  const launcherStat = await stat(launcherPath);
+  const mount = mountEvidenceForPath(launcherPath,
+    await readFile("/proc/self/mountinfo", "utf8").catch(() => ""));
+  const executable = (launcherStat.mode & 0o111) !== 0;
+  return assertNativeLauncherExecutableMount({ executable, mount });
 }
 
 async function captureNativeLaunchDiagnostics() {
