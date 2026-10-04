@@ -5,6 +5,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import vm from "node:vm";
 import {
   assertNativeParentBinding,
   assertNativeLauncherExecutableMount,
@@ -54,6 +55,125 @@ test("resource finalization failures block matrix and still permit cleanup witho
   assert.deepEqual(events, ["finalize", "cleanup"]);
 });
 
+test("unknown sampler quiescence blocks actual runner cleanup until an inert close arrives", async () => {
+  const runner = await readFile(new URL("../../evaluation/run-installed-browser-capture.mjs", import.meta.url), "utf8");
+  const from = runner.indexOf("async function finishSession() {");
+  const stop = runner.indexOf("function stopSampler() {", from);
+  const runtime = runner.indexOf("async function runtimeStatus(page) {", stop);
+  assert.ok(from >= 0 && stop > from && runtime > stop, "runner lifecycle functions must remain extractable");
+  const lifecycleSource = `${runner.slice(from, stop)}\n${runner.slice(stop, runtime)}\nglobalThis.__test = { finishSession, stopSampler };`;
+  const events = [];
+  let resolveClose;
+  const samplerClosed = new Promise((resolvePromise) => { resolveClose = resolvePromise; });
+  const child = { exitCode: null, signalCode: null, kill(signal) { events.push(`signal:${signal}`); } };
+  const context = vm.createContext({
+    sampler: child,
+    samplerClosed,
+    samplerStopPromise: null,
+    samplerPath: "resources/session.jsonl",
+    samplerTerminalPath: "resources/session.jsonl.terminal.json",
+    samplerSpawnError: null,
+    samplerCloseState: "running",
+    samplerClosureUnknown: false,
+    samplerTerminalDiagnostics: [],
+    sampleEndFailure: null,
+    resourceFiles: [],
+    receipt: null,
+    OUTPUT: "/synthetic",
+    currentResourceWindow: { sampledBrowserIdentities: [{ pid: 41, startTicks: 8 }] },
+    startedProcesses: new Map([[41, { pid: 41, startTicks: 8 }]]),
+    processTerminationEvidence: [],
+    popup: {}, browserContext: {}, cdp: {}, testPage: {}, profilePath: "/synthetic/profile",
+    finalizeCurrentResourceWindow: null,
+    finalizeResourceWindowBeforeCleanup,
+    createResourceWindowFinalizer,
+    relative: (_root, file) => file,
+    waitForSamplerClose: undefined,
+    hashFile: async () => "synthetic-hash",
+    readSamplerTerminalSidecar: async () => { throw new Error("synthetic sidecar unavailable"); },
+    readFile: async () => "",
+    parseJsonl: () => [],
+    sendExtensionMessage: async () => { events.push("disable-detector"); return { ok: true }; },
+    stopOwnedProcess: async () => { events.push("stop-runtime"); },
+    waitOwnedProcessReaped: async () => {},
+    waitSampledBrowserProcessesAbsent: async (ids) => { events.push(`wait-browser:${ids.length}`); },
+    waitNoProcessContains: async () => {},
+    rm: async () => {},
+    assertPortsClosed: async () => {},
+    assertNoOwnedProcesses: async () => {},
+    setTimeout: (callback, milliseconds) => {
+      events.push(`timeout:${milliseconds}`);
+      queueMicrotask(callback);
+      return milliseconds;
+    },
+    clearTimeout: () => {},
+  });
+  vm.runInContext(lifecycleSource, context);
+  vm.runInContext(`finalizeCurrentResourceWindow = createResourceWindowFinalizer(async () => { await stopSampler(); });`, context);
+  await assert.rejects(vm.runInContext(`finishSession()`, context), /quiescence remains unconfirmed/);
+  assert.equal(context.samplerClosureUnknown, true);
+  assert.equal(context.sampler, child, "unknown sampler identity must remain retained");
+  assert.equal(context.samplerPath, "resources/session.jsonl", "unknown sampler path must remain retained");
+  assert.deepEqual(events, ["signal:SIGTERM", "timeout:10000", "signal:SIGKILL", "timeout:2000"]);
+  assert.equal(context.samplerTerminalDiagnostics.at(-1).closeState, "unknown");
+  await assert.rejects(vm.runInContext(`finishSession()`, context), /quiescence remains unconfirmed/);
+  assert.deepEqual(events, ["signal:SIGTERM", "timeout:10000", "signal:SIGKILL", "timeout:2000"],
+    "a repeated cleanup must neither retry sampler termination nor run monitored teardown");
+  assert.equal(resolveClose instanceof Function, true);
+});
+
+test("late sampler close is reaped before monitored cleanup and preserves timeout failure", async () => {
+  const runner = await readFile(new URL("../../evaluation/run-installed-browser-capture.mjs", import.meta.url), "utf8");
+  const from = runner.indexOf("async function finishSession() {");
+  const stop = runner.indexOf("function stopSampler() {", from);
+  const runtime = runner.indexOf("async function runtimeStatus(page) {", stop);
+  const lifecycleSource = `${runner.slice(from, stop)}\n${runner.slice(stop, runtime)}\nglobalThis.__test = { finishSession };`;
+  const events = [];
+  let closeResolve;
+  const closed = new Promise((resolvePromise) => { closeResolve = resolvePromise; });
+  const child = { exitCode: null, signalCode: null, kill(signal) {
+    events.push(`signal:${signal}`);
+    if (signal === "SIGKILL") queueMicrotask(() => closeResolve({ code: null, signal: "SIGKILL" }));
+  } };
+  const context = vm.createContext({
+    sampler: child, samplerClosed: closed, samplerStopPromise: null,
+    samplerPath: "resources/session.jsonl", samplerTerminalPath: "resources/session.jsonl.terminal.json",
+    samplerSpawnError: null, samplerCloseState: "running", samplerClosureUnknown: false,
+    samplerTerminalDiagnostics: [], sampleEndFailure: null, resourceFiles: [{ file: "resources/session.jsonl" }],
+    receipt: null, OUTPUT: "/synthetic", currentResourceWindow: { sampledBrowserIdentities: [{ pid: 41, startTicks: 8 }] },
+    startedProcesses: new Map([[41, { pid: 41, startTicks: 8 }]]), processTerminationEvidence: [],
+    popup: {}, browserContext: {}, cdp: {}, testPage: {}, profilePath: "/synthetic/profile",
+    finalizeCurrentResourceWindow: null, finalizeResourceWindowBeforeCleanup, createResourceWindowFinalizer,
+    relative: (_root, file) => file, hashFile: async () => "synthetic-hash",
+    readSamplerTerminalSidecar: async () => { throw new Error("synthetic sidecar unavailable"); },
+    readFile: async () => "", parseJsonl: () => [],
+    sendExtensionMessage: async () => { events.push("disable-detector"); return { ok: true }; },
+    stopOwnedProcess: async () => { events.push("stop-runtime"); }, waitOwnedProcessReaped: async () => {},
+    waitSampledBrowserProcessesAbsent: async () => {}, waitNoProcessContains: async () => {},
+    rm: async () => {}, assertPortsClosed: async () => {}, assertNoOwnedProcesses: async () => {},
+    setTimeout: (callback, milliseconds) => {
+      events.push(`timeout:${milliseconds}`);
+      if (milliseconds === 10_000) queueMicrotask(callback);
+      else setTimeout(callback, 50);
+      return milliseconds;
+    },
+    clearTimeout: () => {},
+  });
+  vm.runInContext(lifecycleSource, context);
+  vm.runInContext(`finalizeCurrentResourceWindow = createResourceWindowFinalizer(async () => {
+    await stopSampler();
+    if (sampleEndFailure) throw new Error("resource capture window did not finalize cleanly");
+  });`, context);
+  await assert.rejects(vm.runInContext(`finishSession()`, context), /resource capture window did not finalize cleanly/);
+  assert.match(context.sampleEndFailure.message, /did not close and reap/);
+  assert.equal(context.samplerCloseState, "emergency_reaped");
+  assert.equal(context.samplerClosureUnknown, false);
+  assert.ok(events.indexOf("signal:SIGKILL") < events.indexOf("disable-detector"),
+    "runtime teardown must follow the sampler close event");
+  assert.ok(events.includes("stop-runtime"), "known quiescence permits normal cleanup despite failed measurement");
+  assert.equal(context.samplerTerminalDiagnostics.at(-1).closeState, "emergency_reaped");
+});
+
 test("a startup/request failure can close its resource window before session cleanup", async () => {
   const events = [];
   const finalizer = createResourceWindowFinalizer(async () => { events.push("close-reap-hash-validate"); });
@@ -100,11 +220,83 @@ test("resource CPU deltas reject missing, negative, and decreasing counters", ()
     cgroup: { cpu_usage_usec: cpu, memory_current_bytes: null }, roles: processRows });
   const one = (samples) => summarizeResourceCpuWindows([{ file: "synthetic.jsonl", samples }]);
   assert.throws(() => one([sample(1, 1), sample(2, undefined)]), /cgroup CPU counters/);
-  assert.throws(() => one([sample(1, -1)]), /cgroup CPU counters/);
+  assert.throws(() => one([sample(1, -1), sample(2, 1)]), /cgroup CPU counters/);
   assert.throws(() => one([sample(1, 1), sample(2, 2, [row(0.5)])]), /process CPU counter decreased/);
-  assert.throws(() => one([sample(1, 1, [{ ...process, cpu_seconds: undefined }])]), /process CPU counter/);
-  const optionalPss = one([sample(1, 1, [process])]);
+  assert.throws(() => one([sample(1, 1, [{ ...process, cpu_seconds: undefined }]), sample(2, 2, [])]), /process CPU counter/);
+  const optionalPss = one([sample(1, 1, [process]), sample(2, 2, [])]);
   assert.equal(optionalPss.processes.get("detector/20/500").sampledPeakPssBytes, null);
+  assert.equal(optionalPss.processes.get("detector/20/500").cpuDeltaSeconds, null,
+    "a process observed once has no measured CPU interval");
+});
+
+test("resource windows reject singleton, empty, unsafe, equal, reversed, and over-cadence observations", () => {
+  const row = { role: "detector", pid: 20, start_ticks: 500, cpu_seconds: 1, rss_bytes: 10, pss_bytes: null };
+  const sample = (time, cpu) => ({ sample_monotonic_ns: time,
+    cgroup: { cpu_usage_usec: cpu, memory_current_bytes: 100 }, roles: [row] });
+  const one = (samples) => summarizeResourceCpuWindows([{ file: "synthetic.jsonl", samples }]);
+  assert.throws(() => one([]), /at least two distinct observations/);
+  assert.throws(() => one([sample(1, 1)]), /at least two distinct observations/);
+  assert.throws(() => one([sample(1, 1), sample(1, 2)]), /timestamps must increase/);
+  assert.throws(() => one([sample(2, 1), sample(1, 2)]), /timestamps must increase/);
+  assert.throws(() => one([sample(Number.MAX_SAFE_INTEGER + 1, 1), sample(Number.MAX_SAFE_INTEGER + 2, 2)]), /exactly representable/);
+  assert.throws(() => one([sample(0, 1), sample(500_000_001, 2)]), /gap exceeds 500 ms/);
+  const boundary = one([sample(0, 1), sample(500_000_000, 2)]);
+  assert.equal(boundary.maximumObservedSampleGapNs, 500_000_000);
+});
+
+async function productionResourceSummary(samples) {
+  const source = await readFile(new URL("../../evaluation/run-installed-browser-capture.mjs", import.meta.url), "utf8");
+  const start = source.indexOf("async function resourceSummary(files) {");
+  const end = source.indexOf("async function nativeHostEvidence(files, registration) {", start);
+  assert.ok(start >= 0 && end > start, "production resource summary must remain extractable");
+  const jsonl = `${samples.map((sample) => JSON.stringify(sample)).join("\n")}\n`;
+  const summarize = vm.runInNewContext(`(${source.slice(start, end)})`, {
+    OUTPUT: "/synthetic",
+    join: (_root, file) => file,
+    readFile: async () => jsonl,
+    parseJsonl: (text) => text.split("\n").filter(Boolean).map((line) => JSON.parse(line)),
+    summarizeResourceCpuWindows,
+  });
+  return summarize([{ file: "window.jsonl", sha256: "synthetic-sha", sessionId: "synthetic-session",
+    requestedStartMonotonicNs: "0", requestedEndMonotonicNs: "600000000",
+    phaseRequestCounts: { firstDecision: 1, warmup: 5, measured: 30 } }]);
+}
+
+function resourceSample(timestamp, cgroupCpu, coreCpu, { detectorSecond = true, nativeSingleton = true, chromiumChild = true } = {}) {
+  const roles = ["xvfb", "chromium", "supervisor_bridge", "detector"].map((role, index) => ({
+    role, pid: index + 10, start_ticks: index + 100, start_time_epoch_seconds: 1,
+    cpu_seconds: coreCpu + index, rss_bytes: 4096 + index, pss_bytes: null,
+  }));
+  if (!detectorSecond && timestamp > 0) roles.splice(3, 1);
+  if (nativeSingleton && timestamp === 0) roles.push({ role: "native_host", pid: 40,
+    start_ticks: 400, start_time_epoch_seconds: 1, cpu_seconds: 0.1, rss_bytes: 100, pss_bytes: null });
+  if (chromiumChild && timestamp === 0) roles.push({ role: "chromium", pid: 41,
+    start_ticks: 410, start_time_epoch_seconds: 1, cpu_seconds: 0.2, rss_bytes: 200, pss_bytes: null });
+  return { sample_monotonic_ns: timestamp, roles, process_identity_races: {},
+    cgroup: { cpu_usage_usec: cgroupCpu, memory_current_bytes: 8192 } };
+}
+
+test("production resource summary accepts measured required intervals and leaves singleton native CPU null", async () => {
+  const summary = await productionResourceSummary([
+    resourceSample(0, 100, 1), resourceSample(500_000_000, 110, 1.5),
+  ]);
+  assertCompleteResourceEvidence(summary);
+  assert.equal(summary.cgroupCpuSampledDeltaUsec, 10);
+  const native = summary.processes.find((process) => process.role === "native_host");
+  assert.equal(native.cpuSampleCount, 1);
+  assert.equal(native.cpuDeltaSeconds, null);
+  assert.equal(native.cpuSampledSpanNs, 0);
+  assert.equal(native.cpuUnmeasuredReason, "fewer_than_two_samples_in_any_window");
+  const shortChromiumChild = summary.processes.find((process) => process.pid === 41);
+  assert.equal(shortChromiumChild.cpuDeltaSeconds, null);
+  assert.equal(summary.windows[0].maximumObservedSampleGapNs, 500_000_000);
+});
+
+test("production completeness guard rejects a required role with only a singleton CPU observation", async () => {
+  const summary = await productionResourceSummary([
+    resourceSample(0, 100, 1), resourceSample(500_000_000, 110, 1.5, { detectorSecond: false }),
+  ]);
+  assert.throws(() => assertCompleteResourceEvidence(summary), /detector lacks a valid multi-observation CPU interval/);
 });
 
 test("sampler sidecar reader bounds bytes before parsing and rejects unsafe JSON privately", async () => {
@@ -305,8 +497,12 @@ test("required resource evidence rejects partial RSS, CPU, and start-tick sample
     cgroupCpuSampledDeltaUsec: 50,
     cgroupMemoryMissingSamples: 0,
     cgroupCpuMissingSamples: 0,
+    maximumObservedSampleGapNs: 100_000_000,
+    windows: [{ sampleCount: 2, observedSampleSpanNs: 100_000_000,
+      maximumObservedSampleGapNs: 100_000_000 }],
     processes: ["xvfb", "chromium", "supervisor_bridge", "detector"].map((role) => ({
       role, startTicks: 100, sampledPeakRssBytes: 4096, sampledPeakPssBytes: null, cpuDeltaSeconds: 0.1,
+      cpuSampleCount: 2, cpuIntervalCount: 1, cpuSampledSpanNs: 100_000_000,
       missingRssSamples: 0, missingCpuSamples: 0, missingStartTicksSamples: 0,
     })),
   };
@@ -325,6 +521,14 @@ test("required resource evidence rejects partial RSS, CPU, and start-tick sample
   const missingCgroupCpu = structuredClone(valid);
   missingCgroupCpu.cgroupCpuMissingSamples = 1;
   assert.throws(() => assertCompleteResourceEvidence(missingCgroupCpu), /cgroup CPU samples are incomplete/);
+  const overCadence = structuredClone(valid);
+  overCadence.windows[0].maximumObservedSampleGapNs = 500_000_001;
+  assert.throws(() => assertCompleteResourceEvidence(overCadence), /cadence exceeds 500 ms/);
+  const singletonRole = structuredClone(valid);
+  singletonRole.processes.find((item) => item.role === "detector").cpuDeltaSeconds = null;
+  singletonRole.processes.find((item) => item.role === "detector").cpuIntervalCount = 0;
+  singletonRole.processes.find((item) => item.role === "detector").cpuSampledSpanNs = 0;
+  assert.throws(() => assertCompleteResourceEvidence(singletonRole), /detector lacks a valid multi-observation CPU interval/);
 });
 
 test("startup identity timeout evidence counts exact role PID/tick matches without process text", () => {

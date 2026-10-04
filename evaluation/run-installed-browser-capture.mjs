@@ -116,6 +116,10 @@ let sampler;
 let samplerPath;
 let samplerTerminalPath;
 let samplerClosed;
+let samplerSpawnError;
+let samplerStopPromise;
+let samplerCloseState = "not_started";
+let samplerClosureUnknown = false;
 let startedProcesses = new Map();
 let receipt;
 let sampleEndFailure;
@@ -229,14 +233,22 @@ try {
   const cleanupFailures = [];
   let certificateDirectoryRemoved = !certificateDirectory;
   try { await finishSession(); } catch (error) { cleanupFailures.push(safeError(error)); }
-  try { await stopProviderFixture(); } catch (error) { cleanupFailures.push(safeError(error)); }
+  if (samplerClosureUnknown) {
+    cleanupFailures.push({ type: "sampler_quiescence_unconfirmed", phase: "provider_fixture_cleanup_skipped" });
+  } else {
+    try { await stopProviderFixture(); } catch (error) { cleanupFailures.push(safeError(error)); }
+  }
   if (certificateDirectory) {
-    try {
-      await rm(certificateDirectory, { recursive: true, force: false });
-      certificateDirectoryRemoved = true;
+    if (samplerClosureUnknown) {
+      cleanupFailures.push({ type: "sampler_quiescence_unconfirmed", phase: "certificate_cleanup_skipped" });
+    } else {
+      try {
+        await rm(certificateDirectory, { recursive: true, force: false });
+        certificateDirectoryRemoved = true;
+      }
+      catch (error) { cleanupFailures.push(safeError(error)); }
+      certificateDirectory = null;
     }
-    catch (error) { cleanupFailures.push(safeError(error)); }
-    certificateDirectory = null;
   }
   if (receipt) {
     const sessionCleanupVerified = cleanupFailures.length === 0;
@@ -250,6 +262,7 @@ try {
     receipt.externalRequests = externalRequests.map((item) => ({ url: item.url, method: item.method }));
     receipt.resourceSampleFiles = resourceFiles;
     receipt.samplerTerminalDiagnostics = samplerTerminalDiagnostics;
+    receipt.samplerClosure = { state: samplerCloseState, quiescenceUnknown: samplerClosureUnknown };
     try {
       receipt.resourceSampling = await resourceSummary(resourceFiles);
       assert.equal(resourceFiles.length, COLD_SESSIONS, "one resource sample file is required per cold session");
@@ -514,6 +527,10 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
     sampledBrowserIdentities: [] };
   resourceFiles.push(resourceFile);
   currentResourceWindow = resourceFile;
+  samplerCloseState = "running";
+  samplerClosureUnknown = false;
+  samplerSpawnError = null;
+  samplerStopPromise = null;
   sampler = spawnSampler(samplerPath);
   finalizeCurrentResourceWindow = createResourceWindowFinalizer(async () => {
     if (!currentResourceWindow) return;
@@ -1344,24 +1361,66 @@ async function finishSession() {
       finalizeCurrentResourceWindow = null;
     },
   );
+  if (result.cleanupSkipped) {
+    throw result.finalizationError || new Error("monitored cleanup skipped because sampler quiescence is unknown");
+  }
   if (result.finalizationError) throw result.finalizationError;
   if (result.cleanupError) throw result.cleanupError;
 }
 
-async function stopSampler() {
+function stopSampler() {
+  if (!samplerStopPromise) samplerStopPromise = stopSamplerOnce();
+  return samplerStopPromise;
+}
+
+async function stopSamplerOnce() {
   if (!sampler) return;
   const child = sampler;
-  if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
-  const closed = await Promise.race([
-    samplerClosed,
-    delay(10_000).then(() => { throw new Error("resource sampler did not close and reap within 10 seconds"); }),
-  ]);
+  try {
+    if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
+  } catch {
+    if (!sampleEndFailure) sampleEndFailure = new Error("resource sampler graceful termination request failed");
+  }
+  let closeResult = await waitForSamplerClose(10_000);
+  let closeState = "reaped";
+  if (!closeResult) {
+    const gracefulTimeout = new Error("resource sampler did not close and reap within 10 seconds");
+    gracefulTimeout.name = "ResourceSamplerGracefulCloseTimeout";
+    if (!sampleEndFailure) sampleEndFailure = gracefulTimeout;
+    closeState = "emergency_termination_requested";
+    try {
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+    } catch { /* closure is decided only by the close event below */ }
+    closeResult = await waitForSamplerClose(2_000);
+    if (!closeResult) {
+      samplerCloseState = "unknown";
+      samplerClosureUnknown = true;
+      samplerTerminalDiagnostics.push({
+        file: samplerPath ? relative(OUTPUT, samplerPath) : null,
+        sha256: null,
+        diagnostic: null,
+        closeState: "unknown",
+        failureType: gracefulTimeout.name,
+        processClose: null,
+      });
+      const unknown = new Error(`${gracefulTimeout.message}; emergency termination quiescence remains unconfirmed`);
+      unknown.name = "ResourceSamplerQuiescenceUnknown";
+      unknown.cause = gracefulTimeout;
+      unknown.preventMonitoredTeardown = true;
+      throw unknown;
+    }
+    closeState = "emergency_reaped";
+  }
+  const closed = closeResult;
+  samplerCloseState = closeState;
+  if (closed.error && !sampleEndFailure) sampleEndFailure = new Error("resource sampler could not be started cleanly");
   if (closed.code !== 0 || (closed.signal && closed.signal !== "SIGTERM")) {
-    sampleEndFailure = new Error("resource sampler exited unsuccessfully");
+    if (!sampleEndFailure) sampleEndFailure = new Error("resource sampler exited unsuccessfully");
   }
   const finishedPath = samplerPath;
   const finishedDiagnosticPath = samplerTerminalPath;
   const fileRecord = resourceFiles.find((entry) => entry.file === relative(OUTPUT, finishedPath));
+  if (fileRecord) fileRecord.closeState = closeState;
   if (fileRecord) fileRecord.sha256 = await hashFile(finishedPath).catch(() => null);
   if (fileRecord && !fileRecord.sha256 && !sampleEndFailure) {
     sampleEndFailure = new Error("resource sample file could not be finalized");
@@ -1378,7 +1437,10 @@ async function stopSampler() {
     if (terminalDiagnostic.samples_written !== rows.length || rows.length === 0) {
       throw new Error("resource sample rows do not match the terminal sample count");
     }
-    if (fileRecord) fileRecord.sampleCount = rows.length;
+    if (fileRecord) {
+      fileRecord.sampleCount = rows.length;
+      fileRecord.terminalValidated = true;
+    }
   } catch {
     if (!sampleEndFailure) sampleEndFailure = new Error("resource sampler terminal diagnostic is missing or invalid");
   }
@@ -1387,10 +1449,12 @@ async function stopSampler() {
       file: relative(OUTPUT, finishedDiagnosticPath),
       sha256: terminalSha256,
       diagnostic: terminalDiagnostic,
+      closeState,
+      gracefulCloseFailureType: sampleEndFailure?.name ?? null,
       processClose: {
         code: closed.code,
         signal: closed.signal,
-        spawnErrorType: closed.error?.type ?? null,
+        spawnErrorType: closed.error?.type ?? samplerSpawnError?.name ?? null,
       },
     });
   }
@@ -1406,6 +1470,18 @@ async function stopSampler() {
   samplerPath = null;
   samplerTerminalPath = null;
   samplerClosed = null;
+  samplerSpawnError = null;
+}
+
+async function waitForSamplerClose(timeoutMs) {
+  if (!samplerClosed) return null;
+  return new Promise((resolvePromise) => {
+    const timer = setTimeout(() => resolvePromise(null), timeoutMs);
+    samplerClosed.then((closed) => {
+      clearTimeout(timer);
+      resolvePromise(closed);
+    });
+  });
 }
 
 async function runtimeStatus(page) {
@@ -1844,16 +1920,25 @@ async function resourceSummary(files) {
     }
   }
   const cpuSummary = summarizeResourceCpuWindows(windows);
-  const processes = [...byRole.values()].map((record) => ({
-    ...record,
-    cpuDeltaSeconds: cpuSummary.processes.get(`${record.role}/${record.pid}/${record.startTicks}`)?.cpuDeltaSeconds ?? null,
-  }));
+  const processes = [...byRole.values()].map((record) => {
+    const cpu = cpuSummary.processes.get(`${record.role}/${record.pid}/${record.startTicks}`);
+    return {
+      ...record,
+      cpuDeltaSeconds: cpu?.cpuDeltaSeconds ?? null,
+      cpuSampleCount: cpu?.cpuSampleCount ?? 0,
+      cpuIntervalCount: cpu?.cpuIntervalCount ?? 0,
+      cpuSampledSpanNs: cpu?.cpuSampledSpanNs ?? 0,
+      cpuUnmeasuredReason: !cpu || cpu.cpuDeltaSeconds === null
+        ? "fewer_than_two_samples_in_any_window" : null,
+    };
+  });
   return {
     intervalMs: 100,
     cgroupMemorySampledPeakBytes: cpuSummary.cgroupMemorySampledPeakBytes,
     cgroupCpuSampledDeltaUsec: cpuSummary.cgroupCpuSampledDeltaUsec,
     cgroupMemoryMissingSamples: cpuSummary.cgroupMemoryMissingSamples,
     cgroupCpuMissingSamples: 0,
+    maximumObservedSampleGapNs: cpuSummary.maximumObservedSampleGapNs,
     processes,
     windows: cpuSummary.windows,
     processIdentityRaceDrops,
@@ -1929,8 +2014,8 @@ function spawnSampler(outputPath) {
     "--terminal-diagnostic", terminalPath,
   ], { cwd: ROOT, env: process.env, stdio: "ignore" });
   samplerClosed = new Promise((resolvePromise) => {
-    child.once("error", (error) => resolvePromise({ code: null, signal: null, error: safeError(error) }));
-    child.once("close", (code, signal) => resolvePromise({ code, signal }));
+    child.once("error", (error) => { samplerSpawnError = error; });
+    child.once("close", (code, signal) => resolvePromise({ code, signal, error: samplerSpawnError }));
   });
   return child;
 }
