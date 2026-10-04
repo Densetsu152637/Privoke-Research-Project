@@ -35,6 +35,8 @@ import {
   mountEvidenceForPath,
   isBeforeFirstFixtureRequest,
   classifyLinuxProcessStat,
+  isLinuxProcessIdentityReaped,
+  assertOwnedDetectorIdentity,
   parseGrpcWebFrames,
   validateDecodedOutcome,
   validatePageAnalysis,
@@ -117,6 +119,7 @@ const caseRecords = [];
 const rpcEvents = [];
 const coldRecords = [];
 const resourceFiles = [];
+const processTerminationEvidence = [];
 const pageRequestIds = new Set();
 const runtimeRequestIds = new Set();
 const phaseCounts = { firstDecision: 0, warmup: 0, measured: 0, matrix: 0 };
@@ -204,6 +207,7 @@ try {
   receipt.caseRecords = caseRecords;
   receipt.rpcEvents = rpcEvents;
   receipt.providerCaptures = providerCaptures;
+  receipt.processTerminationEvidence = processTerminationEvidence;
   receipt.externalRequests = externalRequests.map((item) => ({ url: item.url, method: item.method }));
   console.error(`Installed-browser evidence failed (${runFailure.type}).`);
   process.exitCode = 1;
@@ -228,6 +232,7 @@ try {
     receipt.caseRecords = caseRecords;
     receipt.rpcEvents = rpcEvents;
     receipt.providerCaptures = providerCaptures;
+    receipt.processTerminationEvidence = processTerminationEvidence;
     receipt.externalRequests = externalRequests.map((item) => ({ url: item.url, method: item.method }));
     receipt.resourceSampleFiles = resourceFiles;
     try {
@@ -712,7 +717,7 @@ async function runOutageCase({ transport, type, fixtureUrl }) {
     const current = await runtimeStatus(popup);
     const detector = await processIdentity(Number(current.processId));
     verifyOwnedDetector(detector, startedProcesses.get(detector.pid));
-    await signalVerified(detector, "SIGTERM");
+    await signalVerified(detector, "SIGTERM", type);
     startedProcesses.delete(detector.pid);
   } else {
     const current = await runtimeStatus(popup);
@@ -720,7 +725,7 @@ async function runOutageCase({ transport, type, fixtureUrl }) {
     const supervisor = await processIdentity(detector.parentPid);
     verifyOwnedSupervisor(supervisor, startedProcesses.get(supervisor.pid));
     verifyOwnedDetector(detector, startedProcesses.get(detector.pid));
-    await signalVerified(supervisor, "SIGTERM");
+    await signalVerified(supervisor, "SIGTERM", type);
     startedProcesses.delete(detector.pid);
     startedProcesses.delete(supervisor.pid);
   }
@@ -1312,6 +1317,10 @@ async function waitRuntimeReady(page) {
 
 async function restoreRuntimeAndObserve(expectedSupervisor = null) {
   const runtime = await waitRuntimeReady(popup);
+  for (const termination of processTerminationEvidence.filter((item) =>
+    item.operation.endsWith("-outage") && ["Z", "X"].includes(item.state))) {
+    await waitOwnedProcessReaped(termination, 10_000);
+  }
   const identity = await processIdentity(Number(runtime.processId));
   const supervisor = await processIdentity(identity.parentPid);
   assert.ok(identity.command.includes("extension/client-runtime/src/grpc_main.py"));
@@ -1359,11 +1368,7 @@ async function processIdentity(pid) {
 }
 
 function verifyOwnedDetector(identity, expected) {
-  assert.ok(expected, "detector PID is not owned by this experiment");
-  assert.equal(identity.pid, expected.pid);
-  assert.equal(identity.startTicks, expected.startTicks, "detector PID was reused");
-  assert.equal(identity.parentPid, expected.parentPid);
-  assert.ok(identity.command.includes("extension/client-runtime/src/grpc_main.py"));
+  assertOwnedDetectorIdentity(identity, expected);
 }
 
 function verifyOwnedSupervisor(identity, expected) {
@@ -1373,7 +1378,7 @@ function verifyOwnedSupervisor(identity, expected) {
   assert.ok(identity.command.includes("extension/runtime-supervisor/src/main.py"));
 }
 
-async function signalVerified(identity, signalName) {
+async function signalVerified(identity, signalName, operation = "controlled_signal") {
   const current = await processIdentity(identity.pid);
   assert.equal(current.startTicks, identity.startTicks, "refusing process signal after PID reuse");
   assert.equal(current.commandSha256, identity.commandSha256, "refusing process signal after command change");
@@ -1381,7 +1386,7 @@ async function signalVerified(identity, signalName) {
   else if (signalName === "SIGSTOP") process.kill(identity.pid, "SIGSTOP");
   else if (signalName === "SIGCONT") process.kill(identity.pid, "SIGCONT");
   else throw new Error("unsupported controlled process signal");
-  if (signalName === "SIGTERM") await waitOwnedProcessTerminated(identity, 15_000);
+  if (signalName === "SIGTERM") await waitOwnedProcessTerminated(identity, 15_000, operation);
 }
 
 async function stopOwnedProcess(identity) {
@@ -1395,7 +1400,7 @@ async function stopOwnedProcess(identity) {
     assert.ok(current.command.includes("/workspace/extension/client-runtime/src/grpc_main.py"));
   } else throw new Error("cleanup refused an unrecognized PID");
   process.kill(current.pid, "SIGTERM");
-  await waitOwnedProcessTerminated(current, 15_000);
+  await waitOwnedProcessTerminated(current, 15_000, "session_cleanup");
 }
 
 async function assertOwnedListeners(supervisorPid, detectorPid) {
@@ -1524,19 +1529,50 @@ async function waitSampledBrowserProcessesAbsent(identities, timeoutMs) {
   throw new Error("sampled Chromium process identities remain after browser cleanup");
 }
 
-async function waitOwnedProcessTerminated(identity, timeoutMs) {
+async function waitOwnedProcessTerminated(identity, timeoutMs, operation) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     let statLine;
     try { statLine = await readFile(join("/proc", String(identity.pid), "stat"), "utf8"); }
     catch (error) {
+      if (error?.code === "ENOENT") {
+        processTerminationEvidence.push({ pid: identity.pid, startTicks: identity.startTicks,
+          operation, state: null, result: "absent" });
+        return;
+      }
+      throw error;
+    }
+    const classified = classifyLinuxProcessStat(statLine, identity);
+    const state = statLine.slice(statLine.lastIndexOf(")") + 2).split(/\s+/)[0];
+    if (classified !== "running") {
+      processTerminationEvidence.push({ pid: identity.pid, startTicks: identity.startTicks,
+        operation, state, result: classified });
+      return;
+    }
+    await delay(50);
+  }
+  processTerminationEvidence.push({ pid: identity.pid, startTicks: identity.startTicks,
+    operation, state: "running", result: "timeout" });
+  throw new Error(`owned process ${identity.pid} remained live after SIGTERM`);
+}
+
+async function waitOwnedProcessReaped(termination, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    let statLine;
+    try { statLine = await readFile(join("/proc", String(termination.pid), "stat"), "utf8"); }
+    catch (error) {
       if (error?.code === "ENOENT") return;
       throw error;
     }
-    if (classifyLinuxProcessStat(statLine, identity.startTicks) !== "running") return;
+    const classified = classifyLinuxProcessStat(statLine, termination);
+    if (isLinuxProcessIdentityReaped(statLine, termination)) return;
+    if (classified === "running") {
+      throw new Error(`owned process ${termination.pid} became live again before parent reaping`);
+    }
     await delay(50);
   }
-  throw new Error(`owned process ${identity.pid} remained live after SIGTERM`);
+  throw new Error(`owned process ${termination.pid} zombie remained after recovery parent status poll`);
 }
 
 async function waitNoProcessContains(profileFragment, timeoutMs) {
