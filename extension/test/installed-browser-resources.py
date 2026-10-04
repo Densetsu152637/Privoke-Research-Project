@@ -64,7 +64,10 @@ def _browser_process_ids(processes: list[psutil.Process]) -> tuple[set[int], set
     root_processes: list[psutil.Process] = []
     for process in processes:
         try:
-            argv = process.cmdline()
+            # Classify roots from process_iter's cached command line. A fresh
+            # cmdline read here can race process exit and erase a required root
+            # before _processes applies its strict identity checks.
+            argv = process.info.get("cmdline") or []
             if _browser_match(argv):
                 root_processes.append(process)
         except (psutil.Error, OSError):

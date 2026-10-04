@@ -25,6 +25,7 @@ except ImportError:
     stub.pid_exists = lambda _pid: False
     stub.process_iter = lambda *_args, **_kwargs: []
     stub.Process = lambda _pid: None
+    stub.Error = Exception
     stub.NoSuchProcess = type("NoSuchProcess", (Exception,), {})
     sys.modules["psutil"] = stub
 RESOURCES = importlib.util.module_from_spec(SPEC)
@@ -217,12 +218,30 @@ class ProcessSamplingTests(unittest.TestCase):
         utility_argv = ["/usr/bin/chromium", "--type=utility", f"--user-data-dir={profile}"]
         renderer = SimpleNamespace(pid=22, cmdline=lambda: renderer_argv, children=lambda recursive: [])
         utility = SimpleNamespace(pid=23, cmdline=lambda: utility_argv, children=lambda recursive: [])
-        root = SimpleNamespace(pid=21, cmdline=lambda: root_argv,
+        root = SimpleNamespace(pid=21, info={"cmdline": root_argv}, cmdline=lambda: root_argv,
                                children=lambda recursive: [renderer, utility])
         with patch.object(RESOURCES, "_browser_profiles", return_value=[profile]):
             roots, included = RESOURCES._browser_process_ids([root, renderer, utility])
         self.assertEqual(roots, {21})
         self.assertEqual(included, {21, 22, 23})
+
+    def test_cached_root_argv_survives_fresh_cmdline_disappearance_in_discovery(self):
+        profile = Path("/tmp/browser profiles/profile-1")
+        root_argv = ["/usr/bin/chromium", "--user-data-dir", str(profile)]
+
+        def vanished_cmdline():
+            raise RESOURCES.psutil.NoSuchProcess(21)
+
+        root = SimpleNamespace(
+            pid=21,
+            info={"pid": 21, "ppid": 1, "cmdline": root_argv},
+            cmdline=vanished_cmdline,
+            children=lambda recursive: [],
+        )
+        with patch.object(RESOURCES, "_browser_profiles", return_value=[profile]):
+            roots, included = RESOURCES._browser_process_ids([root])
+        self.assertEqual(roots, {21})
+        self.assertEqual(included, {21})
 
     def test_exiting_included_chromium_child_is_dropped_but_root_is_sampled(self):
         profile = Path("/tmp/browser profiles/profile-1")
@@ -271,6 +290,52 @@ class ProcessSamplingTests(unittest.TestCase):
              patch.object(RESOURCES.psutil, "process_iter", return_value=[old_root]), \
              patch.object(RESOURCES, "_process_stat_identity", return_value=None):
             with self.assertRaisesRegex(RuntimeError, "PID exited before stat snapshot"):
+                RESOURCES._processes()
+
+    def test_fresh_root_cmdline_disappearance_remains_fatal_from_cached_identity(self):
+        profile = Path("/tmp/profile-1")
+        root_argv = ["/usr/bin/chromium", f"--user-data-dir={profile}"]
+        old_root = SimpleNamespace(
+            pid=21,
+            info={"pid": 21, "ppid": 1, "cmdline": root_argv, "create_time": 21.0},
+            cmdline=lambda: root_argv,
+            children=lambda recursive: [],
+        )
+
+        def vanished_cmdline():
+            raise RESOURCES.psutil.NoSuchProcess(21)
+
+        fresh_root = SimpleNamespace(
+            create_time=lambda: 21.0, is_running=lambda: True, cmdline=vanished_cmdline,
+        )
+        with patch.object(RESOURCES, "_browser_profiles", return_value=[profile]), \
+             patch.object(RESOURCES.psutil, "process_iter", return_value=[old_root]), \
+             patch.object(RESOURCES.psutil, "Process", return_value=fresh_root), \
+             patch.object(RESOURCES, "_process_stat_identity", return_value=("S", 210)):
+            with self.assertRaisesRegex(RuntimeError, "process vanished during fresh reads"):
+                RESOURCES._processes()
+
+    def test_fresh_root_cmdline_access_denial_is_not_dropped(self):
+        profile = Path("/tmp/profile-1")
+        root_argv = ["/usr/bin/chromium", f"--user-data-dir={profile}"]
+        old_root = SimpleNamespace(
+            pid=21,
+            info={"pid": 21, "ppid": 1, "cmdline": root_argv, "create_time": 21.0},
+            cmdline=lambda: root_argv,
+            children=lambda recursive: [],
+        )
+
+        def denied_cmdline():
+            raise PermissionError("synthetic unreadable process command")
+
+        fresh_root = SimpleNamespace(
+            create_time=lambda: 21.0, is_running=lambda: True, cmdline=denied_cmdline,
+        )
+        with patch.object(RESOURCES, "_browser_profiles", return_value=[profile]), \
+             patch.object(RESOURCES.psutil, "process_iter", return_value=[old_root]), \
+             patch.object(RESOURCES.psutil, "Process", return_value=fresh_root), \
+             patch.object(RESOURCES, "_process_stat_identity", return_value=("S", 210)):
+            with self.assertRaisesRegex(PermissionError, "synthetic unreadable process command"):
                 RESOURCES._processes()
 
     def test_metrics_are_discarded_if_identity_changes_during_sampling(self):
