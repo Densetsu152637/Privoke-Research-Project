@@ -2,10 +2,13 @@
 """Focused tests for race-safe process identity sampling."""
 
 import importlib.util
+import hashlib
 from pathlib import Path
 import sys
 import types
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 
 SOURCE = Path(__file__).with_name("installed-browser-resources.py")
@@ -17,6 +20,9 @@ except ImportError:
     # Identity parsing itself is stdlib-only; the sampler's process walk needs psutil.
     stub = types.ModuleType("psutil")
     stub.pid_exists = lambda _pid: False
+    stub.process_iter = lambda *_args, **_kwargs: []
+    stub.Process = lambda _pid: None
+    stub.NoSuchProcess = type("NoSuchProcess", (Exception,), {})
     sys.modules["psutil"] = stub
 RESOURCES = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RESOURCES)
@@ -51,6 +57,114 @@ class StartTicksTests(unittest.TestCase):
     def test_malformed_process_stat_fails_closed(self):
         with self.assertRaisesRegex(RuntimeError, "valid start-tick identity"):
             RESOURCES._start_ticks(123, read_stat=lambda _pid: "123 (broken) S", pid_exists=lambda _pid: True)
+
+    def test_stat_rejects_mismatched_pid_and_negative_ticks(self):
+        with self.assertRaisesRegex(RuntimeError, "valid start-tick identity"):
+            RESOURCES._process_stat_identity(123, read_stat=lambda _pid: stat_line(9876).replace("123 ", "124 ", 1))
+        negative = stat_line(-1)
+        with self.assertRaisesRegex(RuntimeError, "valid start-tick identity"):
+            RESOURCES._process_stat_identity(123, read_stat=lambda _pid: negative)
+        with self.assertRaisesRegex(RuntimeError, "PID is invalid"):
+            RESOURCES._process_stat_identity(0, read_stat=lambda _pid: stat_line(1))
+
+
+class ProcessSamplingTests(unittest.TestCase):
+    @staticmethod
+    def processes(pid, *, root=False, chromium_child=False, fresh_create_time=1.0):
+        command = ("chromium --user-data-dir=/tmp/profile-1" if root else
+                   "chromium --type=renderer" if chromium_child else
+                   "python /runtime/extension/client-runtime/src/grpc_main.py")
+        old = SimpleNamespace(
+            pid=pid,
+            info={"pid": pid, "ppid": 1,
+                  "cmdline": ["python", "/old/extension/client-runtime/src/grpc_main.py"]
+                  if not root and not chromium_child else command.split(),
+                  "create_time": 1.0,
+                  "memory_info": SimpleNamespace(rss=999999),
+                  "cpu_times": SimpleNamespace(user=99, system=99)},
+            cmdline=lambda: command.split(),
+        )
+        fresh_command = command
+        fresh = SimpleNamespace(
+            pid=pid,
+            create_time=lambda: fresh_create_time,
+            is_running=lambda: True,
+            cmdline=lambda: fresh_command.split(),
+            ppid=lambda: 1,
+            memory_info=lambda: SimpleNamespace(rss=1234),
+            cpu_times=lambda: SimpleNamespace(user=0.3, system=0.2),
+        )
+        return old, fresh
+
+    def test_rows_use_fresh_metrics_between_matching_stat_identities(self):
+        old, fresh = self.processes(321)
+        with patch.object(RESOURCES.psutil, "process_iter", return_value=[old]), \
+             patch.object(RESOURCES.psutil, "Process", return_value=fresh), \
+             patch.object(RESOURCES, "_browser_process_ids", return_value=(set(), set())), \
+             patch.object(RESOURCES, "_process_stat_identity", side_effect=[("S", 75), ("S", 75)]), \
+             patch.object(RESOURCES, "_start_ticks", return_value=4), \
+             patch.object(RESOURCES, "_pss_bytes", return_value=None):
+            rows, races = RESOURCES._processes()
+        self.assertEqual(races, {})
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["start_ticks"], 75)
+        self.assertEqual(rows[0]["rss_bytes"], 1234)
+        self.assertEqual(rows[0]["cpu_seconds"], 0.5)
+        self.assertEqual(rows[0]["command_sha256"], hashlib.sha256(
+            b"python /runtime/extension/client-runtime/src/grpc_main.py").hexdigest())
+
+    def test_metrics_are_discarded_if_identity_changes_during_sampling(self):
+        old, fresh = self.processes(654)
+        with patch.object(RESOURCES.psutil, "process_iter", return_value=[old]), \
+             patch.object(RESOURCES.psutil, "Process", return_value=fresh), \
+             patch.object(RESOURCES, "_browser_process_ids", return_value=(set(), set())), \
+             patch.object(RESOURCES, "_process_stat_identity", side_effect=[("S", 75), ("R", 76)]):
+            with self.assertRaisesRegex(RuntimeError, "exited or changed start ticks"):
+                RESOURCES._processes()
+
+    def test_pid_reuse_during_enumeration_drops_only_a_confirmed_child(self):
+        old, fresh = self.processes(321, chromium_child=True, fresh_create_time=2.0)
+        with patch.object(RESOURCES.psutil, "process_iter", return_value=[old]), \
+             patch.object(RESOURCES.psutil, "Process", return_value=fresh), \
+             patch.object(RESOURCES, "_browser_process_ids", return_value=(set(), {321})), \
+             patch.object(RESOURCES, "_process_stat_identity", return_value=("S", 100)):
+            rows, races = RESOURCES._processes()
+        self.assertEqual(rows, [])
+        self.assertEqual(races, {"chromium": 1})
+
+    def test_confirmed_exit_before_stat_drops_only_a_chromium_child(self):
+        old, fresh = self.processes(321, chromium_child=True)
+        with patch.object(RESOURCES.psutil, "process_iter", return_value=[old]), \
+             patch.object(RESOURCES.psutil, "Process", return_value=fresh), \
+             patch.object(RESOURCES, "_browser_process_ids", return_value=(set(), {321})), \
+             patch.object(RESOURCES, "_process_stat_identity", return_value=None):
+            rows, races = RESOURCES._processes()
+        self.assertEqual(rows, [])
+        self.assertEqual(races, {"chromium": 1})
+
+    def test_pid_reuse_never_drops_the_profile_root_or_required_service(self):
+        old_root, fresh_root = self.processes(321, root=True, fresh_create_time=2.0)
+        with patch.object(RESOURCES.psutil, "process_iter", return_value=[old_root]), \
+             patch.object(RESOURCES.psutil, "Process", return_value=fresh_root), \
+             patch.object(RESOURCES, "_browser_process_ids", return_value=({321}, {321})), \
+             patch.object(RESOURCES, "_process_stat_identity", return_value=("S", 100)), \
+             patch.object(RESOURCES, "_browser_match", return_value=True):
+            with self.assertRaisesRegex(RuntimeError, "PID was reused"):
+                RESOURCES._processes()
+
+        with patch.object(RESOURCES.psutil, "process_iter", return_value=[old_root]), \
+             patch.object(RESOURCES, "_browser_process_ids", return_value=({321}, {321})), \
+             patch.object(RESOURCES, "_process_stat_identity", return_value=None):
+            with self.assertRaisesRegex(RuntimeError, "PID exited before stat snapshot"):
+                RESOURCES._processes()
+
+        old_service, fresh_service = self.processes(654, fresh_create_time=2.0)
+        with patch.object(RESOURCES.psutil, "process_iter", return_value=[old_service]), \
+             patch.object(RESOURCES.psutil, "Process", return_value=fresh_service), \
+             patch.object(RESOURCES, "_browser_process_ids", return_value=(set(), set())), \
+             patch.object(RESOURCES, "_process_stat_identity", return_value=("S", 100)):
+            with self.assertRaisesRegex(RuntimeError, "PID was reused"):
+                RESOURCES._processes()
 
 
 if __name__ == "__main__":

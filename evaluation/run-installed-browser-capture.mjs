@@ -1766,7 +1766,7 @@ async function resourceSummary(files) {
     processIdentityRaceDrops,
     processIdentityRaceDropsByRole,
     nativeHostObserved: nativeObserved,
-    qualification: "Sampled peaks may miss shorter spikes. Chromium children that exited before /proc identity lookup are counted as process identity race drops and omitted; unreadable live identities fail the sampler. Bridge and supervisor share one process and are counted once; role peaks are not summed across timestamps.",
+    qualification: "Sampled peaks may miss shorter spikes. Chromium child identities confirmed terminated or reused during the bounded snapshot are counted as race drops and omitted; metrics are never attached to a replacement PID. Unreadable live identities fail the sampler. Bridge and supervisor share one process and are counted once; role peaks are not summed across timestamps.",
   };
 }
 
