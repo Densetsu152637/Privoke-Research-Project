@@ -1,0 +1,8 @@
+# Dedicated CPU environment for the train-only eight-arm fitter.
+# Existing training requirements pin Torch and its CPU wheel hash; these four
+# exact pins capture the verified sklearn/S1 runtime closure used by the fitter.
+-r requirements-training.txt
+scikit-learn==1.9.1
+scipy==1.17.1
+joblib==1.6.0
+threadpoolctl==3.7.0
