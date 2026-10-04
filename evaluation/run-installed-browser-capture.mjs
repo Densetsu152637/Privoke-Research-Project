@@ -44,6 +44,10 @@ import {
   summarizeSupervisorStartupLog,
   buildStartupIdentityDiagnostic,
   readSamplerTerminalSidecar,
+  createResourceWindowFinalizer,
+  runAfterResourceWindow,
+  finalizeResourceWindowBeforeCleanup,
+  summarizeResourceCpuWindows,
 } from "../extension/test/installed-browser-evidence.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -54,7 +58,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const EXTENSION_ID = "hmlhjfklebbbhpjdjodegbjnbamlkonp";
 const NATIVE_HOST_NAME = "org.privoke.runtime_launcher";
 const PORTS = [8080, 50056, 50057];
-const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v1";
+const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v2";
 const RATE_REPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_REPS, 30);
 const WARMUPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_WARMUPS, 5);
 const COLD_SESSIONS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_SESSIONS, 12);
@@ -112,6 +116,10 @@ let sampler;
 let samplerPath;
 let samplerTerminalPath;
 let samplerClosed;
+let samplerSpawnError;
+let samplerStopPromise;
+let samplerCloseState = "not_started";
+let samplerClosureUnknown = false;
 let startedProcesses = new Map();
 let receipt;
 let sampleEndFailure;
@@ -135,6 +143,8 @@ let popup;
 let testPage;
 let profilePath;
 let fixtureRequestAttempted = false;
+let currentResourceWindow;
+let finalizeCurrentResourceWindow;
 
 async function runStudy() {
 try {
@@ -182,10 +192,12 @@ try {
     const replicate = Math.floor(index / DECISION_CELLS.length) + 1;
     const cold = await runColdSession({ index, cell, replicate, fixtureUrl, protobuf });
     coldRecords.push(cold.cold);
-    if (index === 0) {
-      const matrix = await runEnforcementMatrix({ fixtureUrl, protobuf });
-      receipt.enforcementMatrix = matrix;
-    }
+    await runAfterResourceWindow(finalizeCurrentResourceWindow, async () => {
+      if (index === 0) {
+        const matrix = await runEnforcementMatrix({ fixtureUrl, protobuf });
+        receipt.enforcementMatrix = matrix;
+      }
+    });
     await finishSession();
   }
 
@@ -221,14 +233,22 @@ try {
   const cleanupFailures = [];
   let certificateDirectoryRemoved = !certificateDirectory;
   try { await finishSession(); } catch (error) { cleanupFailures.push(safeError(error)); }
-  try { await stopProviderFixture(); } catch (error) { cleanupFailures.push(safeError(error)); }
+  if (samplerClosureUnknown) {
+    cleanupFailures.push({ type: "sampler_quiescence_unconfirmed", phase: "provider_fixture_cleanup_skipped" });
+  } else {
+    try { await stopProviderFixture(); } catch (error) { cleanupFailures.push(safeError(error)); }
+  }
   if (certificateDirectory) {
-    try {
-      await rm(certificateDirectory, { recursive: true, force: false });
-      certificateDirectoryRemoved = true;
+    if (samplerClosureUnknown) {
+      cleanupFailures.push({ type: "sampler_quiescence_unconfirmed", phase: "certificate_cleanup_skipped" });
+    } else {
+      try {
+        await rm(certificateDirectory, { recursive: true, force: false });
+        certificateDirectoryRemoved = true;
+      }
+      catch (error) { cleanupFailures.push(safeError(error)); }
+      certificateDirectory = null;
     }
-    catch (error) { cleanupFailures.push(safeError(error)); }
-    certificateDirectory = null;
   }
   if (receipt) {
     const sessionCleanupVerified = cleanupFailures.length === 0;
@@ -242,10 +262,13 @@ try {
     receipt.externalRequests = externalRequests.map((item) => ({ url: item.url, method: item.method }));
     receipt.resourceSampleFiles = resourceFiles;
     receipt.samplerTerminalDiagnostics = samplerTerminalDiagnostics;
+    receipt.samplerClosure = { state: samplerCloseState, quiescenceUnknown: samplerClosureUnknown };
     try {
       receipt.resourceSampling = await resourceSummary(resourceFiles);
       assert.equal(resourceFiles.length, COLD_SESSIONS, "one resource sample file is required per cold session");
       assert.ok(resourceFiles.every((item) => item.sha256), "every resource sample must have a finalized digest");
+      assert.ok(resourceFiles.every((item) => item.finalized && item.sampleCount > 0),
+        "every resource window must be stopped, reaped, hashed, and terminal-validated before teardown");
       assert.ok(receipt.resourceSampling.processes.length > 0, "resource samples contain no tracked processes");
       assertCompleteResourceEvidence(receipt.resourceSampling);
     } catch (error) {
@@ -498,8 +521,31 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   await mkdir(profilePath, { recursive: false });
   const activeNativeRegistration = await registerNativeHostForProfile(profilePath);
   samplerPath = join(OUTPUT, `resources-${sessionId}.jsonl`);
+  const resourceFile = { file: relative(OUTPUT, samplerPath), sha256: null,
+    sessionId, requestedStartMonotonicNs: process.hrtime.bigint().toString(),
+    requestedEndMonotonicNs: null, phaseRequestCounts: { firstDecision: 0, warmup: 0, measured: 0 },
+    sampledBrowserIdentities: [] };
+  resourceFiles.push(resourceFile);
+  currentResourceWindow = resourceFile;
+  samplerCloseState = "running";
+  samplerClosureUnknown = false;
+  samplerSpawnError = null;
+  samplerStopPromise = null;
   sampler = spawnSampler(samplerPath);
-  resourceFiles.push({ file: relative(OUTPUT, samplerPath), sha256: null });
+  finalizeCurrentResourceWindow = createResourceWindowFinalizer(async () => {
+    if (!currentResourceWindow) return;
+    currentResourceWindow.requestedEndMonotonicNs = process.hrtime.bigint().toString();
+    let identityError;
+    try { currentResourceWindow.sampledBrowserIdentities = await sampledBrowserIdentities(samplerPath); }
+    catch (error) { identityError = error; }
+    await stopSampler();
+    if (identityError) throw identityError;
+    if (sampleEndFailure) throw new Error("resource capture window did not finalize cleanly");
+    const expected = { firstDecision: 1, warmup: WARMUPS, measured: RATE_REPS };
+    assert.deepEqual(currentResourceWindow.phaseRequestCounts, expected,
+      "resource window did not contain the requested startup, first decision, warmups, and measured requests");
+    currentResourceWindow.finalized = true;
+  });
 
   const times = {};
   const launchWall = Date.now();
@@ -645,6 +691,7 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   cold.firstRequestPageId = coldDecision.pageRequestId;
   cold.firstRequestRuntimeId = coldDecision.runtimeRequestId;
   phaseCounts.firstDecision += 1;
+  currentResourceWindow.phaseRequestCounts.firstDecision += 1;
 
   await runWarmCell({ sessionId, cell, fixtureUrl, replicates: WARMUPS, phase: "warmup" });
   const measured = await runWarmCell({ sessionId, cell, fixtureUrl, replicates: RATE_REPS, phase: "measured" });
@@ -684,6 +731,7 @@ async function runWarmCell({ sessionId, cell, fixtureUrl, replicates, phase }) {
     assert.ok(!runtimeRequestIds.has(rpc.request.requestId), "runtime request IDs must be unique");
     runtimeRequestIds.add(rpc.request.requestId);
     phaseCounts[phase] += 1;
+    currentResourceWindow.phaseRequestCounts[phase] += 1;
     const item = {
       sessionId,
       phase,
@@ -1271,57 +1319,108 @@ async function sampledProcessTimes(path, identities) {
 }
 
 async function finishSession() {
-  let cleanupError;
-  const browserIdentities = samplerPath ? await sampledBrowserIdentities(samplerPath) : [];
-  if (popup && browserContext) {
-    const response = await sendExtensionMessage(popup, { type: "SET_MASTER_ENABLED", enabled: false }).catch((error) => ({ ok: false, error: error.message }));
-    if (!response.ok) cleanupError = new Error("could not disable detector through extension lifecycle");
+  const result = await finalizeResourceWindowBeforeCleanup(
+    finalizeCurrentResourceWindow || (async () => {}),
+    async () => {
+      let cleanupError;
+      const browserIdentities = currentResourceWindow?.sampledBrowserIdentities || [];
+      if (popup && browserContext) {
+        const response = await sendExtensionMessage(popup, { type: "SET_MASTER_ENABLED", enabled: false })
+          .catch((error) => ({ ok: false, error: error.message }));
+        if (!response.ok) cleanupError = new Error("could not disable detector through extension lifecycle");
+      }
+      const current = [...startedProcesses.entries()];
+      for (const [pid, identity] of current) {
+        try { await stopOwnedProcess(identity); }
+        catch {
+          if (!cleanupError) cleanupError = new Error("owned process cleanup could not be verified");
+        }
+        startedProcesses.delete(pid);
+      }
+      for (const termination of processTerminationEvidence.filter((item) =>
+        item.operation === "session_cleanup" && ["Z", "X"].includes(item.state))) {
+        await waitOwnedProcessReaped(termination, 10_000, "session cleanup");
+      }
+      cdp?.close();
+      cdp = null;
+      if (browserContext) await browserContext.close().catch(() => {});
+      browserContext = null;
+      popup = null;
+      testPage = null;
+      await waitSampledBrowserProcessesAbsent(browserIdentities, 10_000);
+      if (sampleEndFailure && !cleanupError) cleanupError = new Error("resource capture did not finish cleanly");
+      if (profilePath) {
+        await waitNoProcessContains(profilePath, 10_000);
+        await rm(profilePath, { recursive: true, force: false });
+        profilePath = null;
+      }
+      await assertPortsClosed("session-cleanup");
+      await assertNoOwnedProcesses("session-cleanup");
+      if (cleanupError) throw cleanupError;
+      currentResourceWindow = null;
+      finalizeCurrentResourceWindow = null;
+    },
+  );
+  if (result.cleanupSkipped) {
+    throw result.finalizationError || new Error("monitored cleanup skipped because sampler quiescence is unknown");
   }
-  const current = [...startedProcesses.entries()];
-  for (const [pid, identity] of current) {
-    try { await stopOwnedProcess(identity); }
-    catch {
-      if (!cleanupError) cleanupError = new Error("owned process cleanup could not be verified");
-    }
-    startedProcesses.delete(pid);
-  }
-  for (const termination of processTerminationEvidence.filter((item) =>
-    item.operation === "session_cleanup" && ["Z", "X"].includes(item.state))) {
-    await waitOwnedProcessReaped(termination, 10_000, "session cleanup");
-  }
-  cdp?.close();
-  cdp = null;
-  if (browserContext) await browserContext.close().catch(() => {});
-  browserContext = null;
-  popup = null;
-  testPage = null;
-  await waitSampledBrowserProcessesAbsent(browserIdentities, 10_000);
-  await stopSampler();
-  if (sampleEndFailure && !cleanupError) cleanupError = new Error("resource capture did not finish cleanly");
-  if (profilePath) {
-    await waitNoProcessContains(profilePath, 10_000);
-    await rm(profilePath, { recursive: true, force: false });
-    profilePath = null;
-  }
-  await assertPortsClosed("session-cleanup");
-  await assertNoOwnedProcesses("session-cleanup");
-  if (cleanupError) throw cleanupError;
+  if (result.finalizationError) throw result.finalizationError;
+  if (result.cleanupError) throw result.cleanupError;
 }
 
-async function stopSampler() {
+function stopSampler() {
+  if (!samplerStopPromise) samplerStopPromise = stopSamplerOnce();
+  return samplerStopPromise;
+}
+
+async function stopSamplerOnce() {
   if (!sampler) return;
   const child = sampler;
-  if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
-  const closed = await Promise.race([
-    samplerClosed,
-    delay(10_000).then(() => { throw new Error("resource sampler did not close and reap within 10 seconds"); }),
-  ]);
+  try {
+    if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
+  } catch {
+    if (!sampleEndFailure) sampleEndFailure = new Error("resource sampler graceful termination request failed");
+  }
+  let closeResult = await waitForSamplerClose(10_000);
+  let closeState = "reaped";
+  if (!closeResult) {
+    const gracefulTimeout = new Error("resource sampler did not close and reap within 10 seconds");
+    gracefulTimeout.name = "ResourceSamplerGracefulCloseTimeout";
+    if (!sampleEndFailure) sampleEndFailure = gracefulTimeout;
+    closeState = "emergency_termination_requested";
+    try {
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+    } catch { /* closure is decided only by the close event below */ }
+    closeResult = await waitForSamplerClose(2_000);
+    if (!closeResult) {
+      samplerCloseState = "unknown";
+      samplerClosureUnknown = true;
+      samplerTerminalDiagnostics.push({
+        file: samplerPath ? relative(OUTPUT, samplerPath) : null,
+        sha256: null,
+        diagnostic: null,
+        closeState: "unknown",
+        failureType: gracefulTimeout.name,
+        processClose: null,
+      });
+      const unknown = new Error(`${gracefulTimeout.message}; emergency termination quiescence remains unconfirmed`);
+      unknown.name = "ResourceSamplerQuiescenceUnknown";
+      unknown.cause = gracefulTimeout;
+      unknown.preventMonitoredTeardown = true;
+      throw unknown;
+    }
+    closeState = "emergency_reaped";
+  }
+  const closed = closeResult;
+  samplerCloseState = closeState;
+  if (closed.error && !sampleEndFailure) sampleEndFailure = new Error("resource sampler could not be started cleanly");
   if (closed.code !== 0 || (closed.signal && closed.signal !== "SIGTERM")) {
-    sampleEndFailure = new Error("resource sampler exited unsuccessfully");
+    if (!sampleEndFailure) sampleEndFailure = new Error("resource sampler exited unsuccessfully");
   }
   const finishedPath = samplerPath;
   const finishedDiagnosticPath = samplerTerminalPath;
   const fileRecord = resourceFiles.find((entry) => entry.file === relative(OUTPUT, finishedPath));
+  if (fileRecord) fileRecord.closeState = closeState;
   if (fileRecord) fileRecord.sha256 = await hashFile(finishedPath).catch(() => null);
   if (fileRecord && !fileRecord.sha256 && !sampleEndFailure) {
     sampleEndFailure = new Error("resource sample file could not be finalized");
@@ -1333,6 +1432,15 @@ async function stopSampler() {
     if (!sidecar) throw new Error("sampler terminal sidecar is missing");
     terminalSha256 = sidecar.sha256;
     terminalDiagnostic = sidecar.diagnostic;
+    if (terminalDiagnostic.status !== "stopped") throw new Error("resource sampler did not report a stopped terminal state");
+    const rows = parseJsonl(await readFile(finishedPath, "utf8"));
+    if (terminalDiagnostic.samples_written !== rows.length || rows.length === 0) {
+      throw new Error("resource sample rows do not match the terminal sample count");
+    }
+    if (fileRecord) {
+      fileRecord.sampleCount = rows.length;
+      fileRecord.terminalValidated = true;
+    }
   } catch {
     if (!sampleEndFailure) sampleEndFailure = new Error("resource sampler terminal diagnostic is missing or invalid");
   }
@@ -1341,10 +1449,12 @@ async function stopSampler() {
       file: relative(OUTPUT, finishedDiagnosticPath),
       sha256: terminalSha256,
       diagnostic: terminalDiagnostic,
+      closeState,
+      gracefulCloseFailureType: sampleEndFailure?.name ?? null,
       processClose: {
         code: closed.code,
         signal: closed.signal,
-        spawnErrorType: closed.error?.type ?? null,
+        spawnErrorType: closed.error?.type ?? samplerSpawnError?.name ?? null,
       },
     });
   }
@@ -1360,6 +1470,18 @@ async function stopSampler() {
   samplerPath = null;
   samplerTerminalPath = null;
   samplerClosed = null;
+  samplerSpawnError = null;
+}
+
+async function waitForSamplerClose(timeoutMs) {
+  if (!samplerClosed) return null;
+  return new Promise((resolvePromise) => {
+    const timer = setTimeout(() => resolvePromise(null), timeoutMs);
+    samplerClosed.then((closed) => {
+      clearTimeout(timer);
+      resolvePromise(closed);
+    });
+  });
 }
 
 async function runtimeStatus(page) {
@@ -1756,37 +1878,29 @@ function summarize(values) {
 
 async function resourceSummary(files) {
   const byRole = new Map();
-  let cgroupPeak = null;
-  let cgroupCpuStart = null;
-  let cgroupCpuEnd = null;
-  let cgroupMemoryMissing = 0;
-  let cgroupCpuMissing = 0;
+  const windows = [];
   let nativeObserved = false;
   let processIdentityRaceDrops = 0;
   const processIdentityRaceDropsByRole = {};
   for (const file of files) {
     if (!file.sha256) continue;
     const samples = parseJsonl(await readFile(join(OUTPUT, file.file), "utf8"));
+    windows.push({ file: file.file, sessionId: file.sessionId,
+      requestedStartMonotonicNs: file.requestedStartMonotonicNs,
+      requestedEndMonotonicNs: file.requestedEndMonotonicNs,
+      phaseRequestCounts: file.phaseRequestCounts, samples });
     for (const sample of samples) {
       for (const [role, count] of Object.entries(sample.process_identity_races || {})) {
         if (!Number.isSafeInteger(count) || count < 0) throw new Error("invalid process identity race count");
         processIdentityRaceDrops += count;
         processIdentityRaceDropsByRole[role] = (processIdentityRaceDropsByRole[role] || 0) + count;
       }
-      if (Number.isSafeInteger(sample.cgroup.memory_current_bytes) && sample.cgroup.memory_current_bytes >= 0) {
-        cgroupPeak = cgroupPeak === null ? sample.cgroup.memory_current_bytes
-          : Math.max(cgroupPeak, sample.cgroup.memory_current_bytes);
-      } else cgroupMemoryMissing += 1;
-      if (Number.isSafeInteger(sample.cgroup.cpu_usage_usec) && sample.cgroup.cpu_usage_usec >= 0) {
-        cgroupCpuStart ??= sample.cgroup.cpu_usage_usec;
-        cgroupCpuEnd = sample.cgroup.cpu_usage_usec;
-      } else cgroupCpuMissing += 1;
       for (const row of sample.roles) {
         if (row.role === "native_host") nativeObserved = true;
         const key = `${row.role}/${row.pid}/${row.start_ticks}`;
         const record = byRole.get(key) || { role: row.role, pid: row.pid, startTicks: row.start_ticks,
           startTimeEpochSeconds: row.start_time_epoch_seconds,
-          sampledPeakRssBytes: null, sampledPeakPssBytes: null, firstCpuSeconds: null, lastCpuSeconds: null,
+          sampledPeakRssBytes: null, sampledPeakPssBytes: null,
           missingRssSamples: 0, missingPssSamples: 0, missingCpuSamples: 0, missingStartTicksSamples: 0,
           samples: 0 };
         if (Number.isSafeInteger(row.start_ticks) && row.start_ticks >= 0) record.startTicks = row.start_ticks;
@@ -1799,27 +1913,39 @@ async function resourceSummary(files) {
           record.sampledPeakPssBytes = record.sampledPeakPssBytes === null ? row.pss_bytes
             : Math.max(record.sampledPeakPssBytes, row.pss_bytes);
         } else record.missingPssSamples += 1;
-        if (Number.isFinite(row.cpu_seconds) && row.cpu_seconds >= 0) {
-          record.firstCpuSeconds ??= row.cpu_seconds;
-          record.lastCpuSeconds = row.cpu_seconds;
-        } else record.missingCpuSamples += 1;
+        if (!(Number.isFinite(row.cpu_seconds) && row.cpu_seconds >= 0)) record.missingCpuSamples += 1;
         record.samples += 1;
         byRole.set(key, record);
       }
     }
   }
-  const processes = [...byRole.values()].map((record) => ({
-    ...record,
-    cpuDeltaSeconds: record.firstCpuSeconds === null || record.lastCpuSeconds === null
-      ? null : record.lastCpuSeconds - record.firstCpuSeconds,
-  }));
+  const cpuSummary = summarizeResourceCpuWindows(windows);
+  const processes = [...byRole.values()].map((record) => {
+    const cpu = cpuSummary.processes.get(`${record.role}/${record.pid}/${record.startTicks}`);
+    const cpuIntervalWindows = cpuSummary.windows.filter((window) => window.roleCpuIntervals[record.role] > 0).length;
+    const requiredRoleWindowMissing = ["xvfb", "chromium", "supervisor_bridge", "detector"].includes(record.role)
+      && cpuIntervalWindows < cpuSummary.windows.length;
+    return {
+      ...record,
+      cpuDeltaSeconds: cpu?.cpuDeltaSeconds ?? null,
+      cpuSampleCount: cpu?.cpuSampleCount ?? 0,
+      cpuIntervalCount: cpu?.cpuIntervalCount ?? 0,
+      cpuSampledSpanNs: cpu?.cpuSampledSpanNs ?? 0,
+      cpuIntervalWindows,
+      cpuWindowCount: cpuSummary.windows.length,
+      cpuUnmeasuredReason: requiredRoleWindowMissing ? "required_role_missing_window_interval"
+        : !cpu || cpu.cpuDeltaSeconds === null ? "fewer_than_two_samples_in_any_window" : null,
+    };
+  });
   return {
     intervalMs: 100,
-    cgroupMemorySampledPeakBytes: cgroupPeak,
-    cgroupCpuSampledDeltaUsec: cgroupCpuStart === null ? null : cgroupCpuEnd - cgroupCpuStart,
-    cgroupMemoryMissingSamples: cgroupMemoryMissing,
-    cgroupCpuMissingSamples: cgroupCpuMissing,
+    cgroupMemorySampledPeakBytes: cpuSummary.cgroupMemorySampledPeakBytes,
+    cgroupCpuSampledDeltaUsec: cpuSummary.cgroupCpuSampledDeltaUsec,
+    cgroupMemoryMissingSamples: cpuSummary.cgroupMemoryMissingSamples,
+    cgroupCpuMissingSamples: 0,
+    maximumObservedSampleGapNs: cpuSummary.maximumObservedSampleGapNs,
     processes,
+    windows: cpuSummary.windows,
     processIdentityRaceDrops,
     processIdentityRaceDropsByRole,
     nativeHostObserved: nativeObserved,
@@ -1893,8 +2019,8 @@ function spawnSampler(outputPath) {
     "--terminal-diagnostic", terminalPath,
   ], { cwd: ROOT, env: process.env, stdio: "ignore" });
   samplerClosed = new Promise((resolvePromise) => {
-    child.once("error", (error) => resolvePromise({ code: null, signal: null, error: safeError(error) }));
-    child.once("close", (code, signal) => resolvePromise({ code, signal }));
+    child.once("error", (error) => { samplerSpawnError = error; });
+    child.once("close", (code, signal) => resolvePromise({ code, signal, error: samplerSpawnError }));
   });
   return child;
 }

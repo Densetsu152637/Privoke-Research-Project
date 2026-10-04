@@ -381,6 +381,25 @@ export function assertCompleteResourceEvidence(summary) {
     "cgroup CPU sampling was unavailable");
   assert.equal(summary.cgroupMemoryMissingSamples, 0, "cgroup memory samples are incomplete");
   assert.equal(summary.cgroupCpuMissingSamples, 0, "cgroup CPU samples are incomplete");
+  assert.ok(Array.isArray(summary.windows) && summary.windows.length > 0,
+    "resource windows are missing");
+  for (const window of summary.windows) {
+    assert.ok(Number.isSafeInteger(window.sampleCount) && window.sampleCount >= 2,
+      "resource window lacks two cgroup observations");
+    assert.ok(Number.isSafeInteger(window.observedSampleSpanNs) && window.observedSampleSpanNs > 0,
+      "resource window lacks an observed time span");
+    assert.ok(Number.isSafeInteger(window.maximumObservedSampleGapNs)
+        && window.maximumObservedSampleGapNs <= 500_000_000,
+    "resource window cadence exceeds 500 ms");
+    for (const role of ["xvfb", "chromium", "supervisor_bridge", "detector"]) {
+      assert.ok(Number.isSafeInteger(window.roleCpuIntervals?.[role])
+          && window.roleCpuIntervals[role] >= 1,
+      `${role} lacks a multi-observation CPU interval in every resource window`);
+    }
+  }
+  assert.ok(Number.isSafeInteger(summary.maximumObservedSampleGapNs)
+      && summary.maximumObservedSampleGapNs <= 500_000_000,
+  "resource sampling cadence exceeds 500 ms");
   const requiredRoles = new Set(["xvfb", "chromium", "supervisor_bridge", "detector"]);
   for (const [role, count] of Object.entries(summary.processIdentityRaceDropsByRole || {})) {
     assert.ok(Number.isSafeInteger(count) && count >= 0, "process identity race counts are invalid");
@@ -388,10 +407,26 @@ export function assertCompleteResourceEvidence(summary) {
   }
   const roles = new Set(summary.processes.map((item) => item.role));
   for (const role of requiredRoles) assert.ok(roles.has(role), `resource samples omitted required ${role} process role`);
+  for (const role of requiredRoles) {
+    assert.ok(summary.processes.some((item) => item.role === role && item.cpuIntervalCount >= 1
+        && Number.isFinite(item.cpuDeltaSeconds) && item.cpuDeltaSeconds >= 0),
+    `${role} lacks a valid multi-observation CPU interval`);
+  }
   for (const item of summary.processes.filter((record) => requiredRoles.has(record.role))) {
     assert.ok(Number.isSafeInteger(item.startTicks), `${item.role} lacks start-tick identity`);
     assert.ok(Number.isSafeInteger(item.sampledPeakRssBytes), `${item.role} lacks RSS samples`);
-    assert.ok(Number.isFinite(item.cpuDeltaSeconds) && item.cpuDeltaSeconds >= 0, `${item.role} lacks valid CPU samples`);
+    assert.ok(Number.isSafeInteger(item.cpuSampleCount) && item.cpuSampleCount > 0,
+      `${item.role} lacks CPU observation counts`);
+    assert.ok(Number.isSafeInteger(item.cpuIntervalCount) && item.cpuIntervalCount >= 0,
+      `${item.role} has invalid CPU interval counts`);
+    if (item.cpuIntervalCount === 0) assert.equal(item.cpuDeltaSeconds, null,
+      `${item.role} singleton CPU must be unmeasured, not zero`);
+    else {
+      assert.ok(Number.isFinite(item.cpuDeltaSeconds) && item.cpuDeltaSeconds >= 0,
+        `${item.role} lacks valid CPU samples`);
+      assert.ok(Number.isSafeInteger(item.cpuSampledSpanNs) && item.cpuSampledSpanNs > 0,
+        `${item.role} CPU interval lacks an observed span`);
+    }
     assert.equal(item.missingRssSamples, 0, `${item.role} has missing RSS samples`);
     assert.equal(item.missingCpuSamples, 0, `${item.role} has missing CPU samples`);
     assert.equal(item.missingStartTicksSamples, 0, `${item.role} has missing start-tick samples`);
@@ -486,6 +521,160 @@ export function preserveResourceEvidenceFailure(summary, error) {
     return { ...summary, validationError: error };
   }
   return { error };
+}
+
+export function createResourceWindowFinalizer(finalize) {
+  assert.equal(typeof finalize, "function", "resource-window finalizer must be callable");
+  let finalization;
+  return () => {
+    if (!finalization) finalization = Promise.resolve().then(finalize);
+    return finalization;
+  };
+}
+
+export async function runAfterResourceWindow(finalize, nextPhase) {
+  assert.equal(typeof finalize, "function", "resource-window finalizer must be callable");
+  assert.equal(typeof nextPhase, "function", "next phase must be callable");
+  await finalize();
+  return nextPhase();
+}
+
+export async function finalizeResourceWindowBeforeCleanup(finalize, cleanup) {
+  assert.equal(typeof finalize, "function", "resource-window finalizer must be callable");
+  assert.equal(typeof cleanup, "function", "cleanup phase must be callable");
+  let finalizationError = null;
+  let cleanupError = null;
+  try { await finalize(); } catch (error) { finalizationError = error; }
+  const cleanupSkipped = finalizationError?.preventMonitoredTeardown === true;
+  if (!cleanupSkipped) {
+    try { await cleanup(); } catch (error) { cleanupError = error; }
+  }
+  return { finalizationError, cleanupError, cleanupSkipped };
+}
+
+export function summarizeResourceCpuWindows(windows) {
+  if (!Array.isArray(windows)) throw new TypeError("resource CPU windows must be an array");
+  const processes = new Map();
+  const windowSummaries = [];
+  let cgroupCpuSampledDeltaUsec = 0;
+  let cgroupMemorySampledPeakBytes = null;
+  let cgroupMemoryMissingSamples = 0;
+  let maximumObservedSampleGapNs = 0;
+
+  for (const window of windows) {
+    if (!window || typeof window.file !== "string" || !Array.isArray(window.samples) || window.samples.length < 2) {
+      throw new TypeError("resource CPU window needs at least two distinct observations");
+    }
+    let previousSampleMonotonicNs = null;
+    let firstCgroupCpuUsec = null;
+    let previousCgroupCpuUsec = null;
+    const processCounters = new Map();
+    for (const sample of window.samples) {
+      if (!Number.isSafeInteger(sample?.sample_monotonic_ns) || sample.sample_monotonic_ns < 0
+          || (previousSampleMonotonicNs !== null && sample.sample_monotonic_ns <= previousSampleMonotonicNs)) {
+        throw new TypeError("resource window sample timestamps must increase and remain exactly representable");
+      }
+      if (previousSampleMonotonicNs !== null) {
+        const gap = sample.sample_monotonic_ns - previousSampleMonotonicNs;
+        if (gap > 500_000_000) throw new TypeError("resource window sample gap exceeds 500 ms");
+        maximumObservedSampleGapNs = Math.max(maximumObservedSampleGapNs, gap);
+      }
+      previousSampleMonotonicNs = sample.sample_monotonic_ns;
+      const cgroupCpuUsec = sample.cgroup?.cpu_usage_usec;
+      if (!Number.isSafeInteger(cgroupCpuUsec) || cgroupCpuUsec < 0
+          || (previousCgroupCpuUsec !== null && cgroupCpuUsec < previousCgroupCpuUsec)) {
+        throw new TypeError("resource window cgroup CPU counters are missing, negative or decreasing");
+      }
+      firstCgroupCpuUsec ??= cgroupCpuUsec;
+      previousCgroupCpuUsec = cgroupCpuUsec;
+      const cgroupMemory = sample.cgroup?.memory_current_bytes;
+      if (Number.isSafeInteger(cgroupMemory) && cgroupMemory >= 0) {
+        cgroupMemorySampledPeakBytes = cgroupMemorySampledPeakBytes === null
+          ? cgroupMemory : Math.max(cgroupMemorySampledPeakBytes, cgroupMemory);
+      } else cgroupMemoryMissingSamples += 1;
+      if (!Array.isArray(sample.roles)) throw new TypeError("resource window process rows are missing");
+      const sampleProcessIdentities = new Set();
+      for (const row of sample.roles) {
+        if (typeof row?.role !== "string" || !row.role
+            || !Number.isSafeInteger(row.pid) || row.pid <= 0
+            || !Number.isSafeInteger(row.start_ticks) || row.start_ticks < 0) {
+          throw new TypeError("resource window process identity is invalid");
+        }
+        const cpuSeconds = row.cpu_seconds;
+        if (typeof cpuSeconds !== "number" || !Number.isFinite(cpuSeconds) || cpuSeconds < 0) {
+          throw new TypeError("resource window process CPU counter is missing or invalid");
+        }
+        const key = `${row.role}/${row.pid}/${row.start_ticks}`;
+        const processIdentity = `${row.pid}/${row.start_ticks}`;
+        if (sampleProcessIdentities.has(processIdentity)) {
+          throw new TypeError("duplicate process identity in one resource sample");
+        }
+        sampleProcessIdentities.add(processIdentity);
+        const counter = processCounters.get(key) || { first: cpuSeconds, last: cpuSeconds,
+          count: 0, firstMonotonicNs: sample.sample_monotonic_ns,
+          lastMonotonicNs: sample.sample_monotonic_ns };
+        if (cpuSeconds < counter.last) throw new TypeError("resource window process CPU counter decreased");
+        counter.last = cpuSeconds;
+        counter.lastMonotonicNs = sample.sample_monotonic_ns;
+        counter.count += 1;
+        processCounters.set(key, counter);
+        const aggregate = processes.get(key) || {
+          role: row.role, pid: row.pid, startTicks: row.start_ticks,
+          cpuDeltaSeconds: null, cpuSampleCount: 0, cpuIntervalCount: 0,
+          cpuSampledSpanNs: 0, sampledPeakRssBytes: null, sampledPeakPssBytes: null,
+        };
+        aggregate.cpuSampleCount += 1;
+        if (Number.isSafeInteger(row.rss_bytes) && row.rss_bytes >= 0) {
+          aggregate.sampledPeakRssBytes = aggregate.sampledPeakRssBytes === null
+            ? row.rss_bytes : Math.max(aggregate.sampledPeakRssBytes, row.rss_bytes);
+        }
+        if (Number.isSafeInteger(row.pss_bytes) && row.pss_bytes >= 0) {
+          aggregate.sampledPeakPssBytes = aggregate.sampledPeakPssBytes === null
+            ? row.pss_bytes : Math.max(aggregate.sampledPeakPssBytes, row.pss_bytes);
+        }
+        processes.set(key, aggregate);
+      }
+    }
+    const cgroupDelta = previousCgroupCpuUsec - firstCgroupCpuUsec;
+    cgroupCpuSampledDeltaUsec += cgroupDelta;
+    const roleCpuIntervals = Object.create(null);
+    for (const [key, counter] of processCounters) {
+      const aggregate = processes.get(key);
+      if (counter.count >= 2) {
+        const span = counter.lastMonotonicNs - counter.firstMonotonicNs;
+        if (!Number.isSafeInteger(span) || span <= 0) {
+          throw new TypeError("resource process CPU interval lacks distinct observation times");
+        }
+        const delta = counter.last - counter.first;
+        const total = (aggregate.cpuDeltaSeconds ?? 0) + delta;
+        if (!Number.isFinite(total) || total < 0) throw new TypeError("resource process CPU delta is not finite");
+        aggregate.cpuDeltaSeconds = total;
+        aggregate.cpuIntervalCount += 1;
+        aggregate.cpuSampledSpanNs += span;
+        roleCpuIntervals[aggregate.role] = (roleCpuIntervals[aggregate.role] || 0) + 1;
+      }
+    }
+    windowSummaries.push({
+      file: window.file,
+      ...(typeof window.sessionId === "string" ? { sessionId: window.sessionId } : {}),
+      ...(typeof window.requestedStartMonotonicNs === "string"
+        ? { requestedStartMonotonicNs: window.requestedStartMonotonicNs } : {}),
+      ...(typeof window.requestedEndMonotonicNs === "string"
+        ? { requestedEndMonotonicNs: window.requestedEndMonotonicNs } : {}),
+      ...(window.phaseRequestCounts ? { phaseRequestCounts: { ...window.phaseRequestCounts } } : {}),
+      sampleCount: window.samples.length,
+      firstSampleMonotonicNs: window.samples[0].sample_monotonic_ns,
+      lastSampleMonotonicNs: previousSampleMonotonicNs,
+      observedSampleSpanNs: previousSampleMonotonicNs - window.samples[0].sample_monotonic_ns,
+      maximumObservedSampleGapNs: window.samples.slice(1).reduce((maximum, sample, index) =>
+        Math.max(maximum, sample.sample_monotonic_ns - window.samples[index].sample_monotonic_ns), 0),
+      roleCpuIntervals,
+      cgroupCpuSampledDeltaUsec: cgroupDelta,
+    });
+  }
+
+  return { cgroupCpuSampledDeltaUsec, cgroupMemorySampledPeakBytes,
+    cgroupMemoryMissingSamples, maximumObservedSampleGapNs, processes, windows: windowSummaries };
 }
 
 export async function waitForProcessesToDisappear(scanMatches, {
