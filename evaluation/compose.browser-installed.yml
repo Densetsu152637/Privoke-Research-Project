@@ -23,7 +23,7 @@ services:
       PRIVOKE_SOURCE_REVISION: ${PRIVOKE_SOURCE_REVISION:-}
       PRIVOKE_INSTALLED_IMAGE_ID: ${PRIVOKE_INSTALLED_IMAGE_ID:-}
     tmpfs:
-      - /tmp:size=4g,mode=1777
+      - /tmp:size=4g,mode=1777,exec,nosuid,nodev
       - /run:size=64m,mode=755
     volumes:
       - ./evaluation/results/installed-browser-results:/workspace/evaluation/results/installed-browser-results
