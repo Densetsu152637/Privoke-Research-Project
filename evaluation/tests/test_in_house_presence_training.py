@@ -240,6 +240,60 @@ class ScratchPresenceTrainingTests(unittest.TestCase):
                             batch_pooled[row], encoder.encode(normalize_text(text)), atol=2e-6, rtol=2e-5
                         )
 
+    def test_stressed_attention_padding_mask_preserves_single_batch_and_numpy_parity(self):
+        for profile in SCRATCH_PROFILES:
+            for mode in ("head_only", "end_to_end"):
+                with self.subTest(profile=profile, mode=mode):
+                    trainer = create_paired_trainers(profile)[0 if mode == "head_only" else 1]
+                    with torch.no_grad():
+                        for parameter in trainer.parameters.values():
+                            parameter.zero_()
+                        parameters = trainer.parameters
+                        parameters["token_embedding"][0, 0] = 1.0
+                        parameters["position_embedding"][1, 0] = -2.0
+                        prefix = "" if trainer.config["num_layers"] == 1 else "layers.0."
+                        parameters[prefix + "attention.query.weight"][0, 0] = 200.0
+                        parameters[prefix + "attention.key.weight"][0, 0] = -200.0
+                        parameters[prefix + "attention.value.weight"][0, 0] = 1.0
+                        parameters[prefix + "attention.output.weight"][0, 0] = 1.0
+                        parameters["head.presence.weight"][0, 0] = 1.0
+
+                    single_ids, single_mask = trainer.tensor_batch([""])
+                    batch_ids, batch_mask = trainer.tensor_batch(["", "x"])
+                    single_logit = trainer.logits(single_ids, single_mask)[0]
+                    batch_logits = trainer.logits(batch_ids, batch_mask)
+                    self.assertTrue(bool(torch.isfinite(single_logit)))
+                    self.assertTrue(bool(torch.isfinite(batch_logits).all()))
+                    np.testing.assert_allclose(
+                        batch_logits[0].detach().cpu().numpy(),
+                        single_logit.detach().cpu().numpy(), atol=2e-6, rtol=2e-5,
+                    )
+
+                    parameters = trainer.export_parameters()
+                    encoder_config = EncoderConfig.from_mapping(trainer.config)
+                    encoder = NumpyTransformerEncoder(
+                        encoder_config,
+                        {name: value for name, value in parameters.items() if not name.startswith("head.")},
+                    )
+                    expected = (encoder.encode("") @ parameters["head.presence.weight"]
+                                + parameters["head.presence.bias"])[0]
+                    np.testing.assert_allclose(
+                        single_logit.detach().cpu().numpy(), expected, atol=2e-6, rtol=2e-5,
+                    )
+
+                    trainable_items = tuple(
+                        (name, parameter) for name, parameter in trainer.parameters.items()
+                        if parameter.requires_grad
+                    )
+                    trainable = tuple(parameter for _, parameter in trainable_items)
+                    single_gradients = torch.autograd.grad(single_logit, trainable, retain_graph=True)
+                    batch_gradients = torch.autograd.grad(batch_logits[0], trainable)
+                    for (name, _), single_gradient, batch_gradient in zip(
+                            trainable_items, single_gradients, batch_gradients, strict=True):
+                        self.assertTrue(bool(torch.isfinite(single_gradient).all()), name)
+                        self.assertTrue(bool(torch.isfinite(batch_gradient).all()), name)
+                        torch.testing.assert_close(batch_gradient, single_gradient, rtol=2e-5, atol=2e-6)
+
     def test_full_encoder_gradients_reach_every_tensor_and_match_finite_differences(self):
         for profile in SCRATCH_PROFILES:
             with self.subTest(profile=profile):

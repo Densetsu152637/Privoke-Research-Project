@@ -262,7 +262,7 @@ class ScratchPresenceTrainer:
             key = split(hidden @ p[prefix + "attention.key.weight"])
             value = split(hidden @ p[prefix + "attention.value.weight"])
             scores = (query @ key.transpose(2, 3)) / math.sqrt(head_size)
-            scores = scores.masked_fill(~mask[:, None, None, :], -10000.0)
+            scores = scores.masked_fill(~mask[:, None, None, :], float("-inf"))
             attended = (torch.softmax(scores, dim=-1) @ value).transpose(1, 2).reshape(hidden.shape)
             attended = attended @ p[prefix + "attention.output.weight"] + p[prefix + "attention.output.bias"]
             hidden = F.layer_norm(hidden + attended, (hidden_size,), eps=1e-5)
