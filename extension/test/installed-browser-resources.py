@@ -280,7 +280,12 @@ def _termination_disposition(role: str, profile_root: bool, detail: str, *, tran
     expected = None
     state = transition.phase if transition is not None else "idle"
     if transition is not None and transition.record:
-        expected = transition.record.get("predecessor") if role == "detector" else transition.record.get("supervisor")
+        predecessor = transition.record.get("predecessor")
+        supervisor = transition.record.get("supervisor")
+        if role == "detector" and predecessor and pid == predecessor.get("pid"):
+            expected = predecessor
+        elif role == "supervisor_bridge" and supervisor and pid == supervisor.get("pid"):
+            expected = supervisor
     raise ProcessIdentityFailure(role, reason, expected, pid, state, detail=detail, observed_state=identity)
 
 

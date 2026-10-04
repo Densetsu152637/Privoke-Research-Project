@@ -464,6 +464,46 @@ class StartupTransitionTests(unittest.TestCase):
                 "predecessor": predecessor, "supervisor": supervisor,
                 "source_revision": "d" * 40, "protocol_sha256": "e" * 64, **extra}
 
+    def test_typed_termination_diagnostic_joins_only_matching_role_and_pid(self):
+        supervisor, predecessor = self.identities()
+        transition = RESOURCES.StartupTransition()
+        transition.record = {"predecessor": predecessor, "supervisor": supervisor}
+        transition.phase = "dispatched"
+
+        unrelated = [
+            ("xvfb", 999, True),
+            ("native_host", 998, False),
+            ("chromium", 997, True),
+            ("detector", 996, False),
+            ("supervisor_bridge", 995, False),
+        ]
+        for role, pid, profile_root in unrelated:
+            with self.subTest(role=role, pid=pid):
+                with self.assertRaises(RESOURCES.ProcessIdentityFailure) as raised:
+                    RESOURCES._termination_disposition(
+                        role, profile_root, "PID exited before stat snapshot",
+                        transition=transition, pid=pid, identity=None,
+                    )
+                failure = raised.exception.process_failure
+                self.assertEqual(failure["role"], role)
+                self.assertEqual(failure["observed_identity"]["pid"], pid)
+                self.assertIsNone(failure["requested_identity"])
+
+        for role, pid, expected in (
+            ("detector", predecessor["pid"], predecessor),
+            ("supervisor_bridge", supervisor["pid"], supervisor),
+        ):
+            with self.subTest(role=role, pid=pid, matched=True):
+                transition.phase = "prepared" if role == "detector" else "dispatched"
+                with self.assertRaises(RESOURCES.ProcessIdentityFailure) as raised:
+                    RESOURCES._termination_disposition(
+                        role, False, "PID exited before stat snapshot",
+                        transition=transition, pid=pid, identity=None,
+                    )
+                requested = raised.exception.process_failure["requested_identity"]
+                self.assertEqual(requested["pid"], pid)
+                self.assertEqual(requested["start_ticks"], expected["start_ticks"])
+
     def test_three_control_records_are_bound_and_one_shot(self):
         supervisor, predecessor = self.identities()
         successor = {"pid": 322, "start_ticks": 400, "command_sha256": "b" * 64,
