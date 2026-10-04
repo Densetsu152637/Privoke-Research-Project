@@ -1,12 +1,13 @@
 # In-house model training status
 
-This page records the historical model/training baseline at source revision
-`16095e62d2b2f286977e87126a1c17ff468dc8e1` and the current mechanics status
-verified at source revision `63e405ec10ac05df5fa27b09c79c553c362691c0` on
-4 October 2026. The prospective in-house training plan remains a draft. PriVoke's
-transformer work uses randomly initialized repository-owned weights; it does not
-use external pretrained weights, hosted model weights, or external language-model
-APIs as a training source.
+This page preserves the historical model/training baseline at source revision
+`16095e62d2b2f286977e87126a1c17ff468dc8e1` and records the latest synthetic
+mechanics verification at source revision
+`b48159cdbab5e5966b4efdd2aacf1cfcf8f6525e` (4 October 2026). The prospective
+in-house training plan remains a draft. PriVoke's transformer work uses randomly
+initialized repository-owned weights; it does not use external pretrained
+weights, hosted model weights, or external language-model APIs as a training
+source.
 
 ## Current transformer artifacts
 
@@ -53,20 +54,32 @@ in-house training path described here.
 
 ## Current implementation and verification
 
-The offline CPU mechanics are implemented in
-[`in_house_transformer_training.py`](../evaluation/privoke_eval/in_house_transformer_training.py),
-with a separate training dependency list and container configuration. At the
-verified source revision, the Linux CPU-container mechanics suite passed 11 tests
-with zero failures or skips using PyTorch `2.10.0+cpu` and NumPy `1.26.4`. The
-checks cover synthetic contextual mechanics, including forward/backward behavior,
-finite gradients, profile handling, export, and rollback. They did not fit research
-data or measure accuracy.
+The offline CPU trainer is implemented in
+[`in_house_transformer_training.py`](../evaluation/privoke_eval/in_house_transformer_training.py).
+Its synthetic mechanics suite historically passed 22 tests with PyTorch
+`2.10.0+cpu` and NumPy `1.26.4`, covering forward/backward behavior, finite
+gradients, profile handling, export, and rollback. A separate six-profile/mode
+export test exercises artifact and parameter-stream codecs against the runtime
+wrapper using synthetic inputs. This is not a live Go RPC or full-pipeline parity
+test. Neither suite fits research data or measures accuracy.
 
-The AdvPIIBench review-I/O checks passed 17 Linux-container tests with zero
-failures or skips using PyArrow `25.0.1`. They exercise synthetic I/O boundaries,
-Arrow schema, and symlink checks; they did not process actual source packages,
-labels, or study partitions. Neither test result establishes clean-data eligibility
-or model performance.
+The pure eight-arm analysis and selection contract, live-validation structural
+verifier, paired component-bootstrap analysis, and versioned fixture-review
+bindings are also implemented and synthetically tested. The current integrated
+Linux evaluator ran 393 cases at source revision
+`b48159cdbab5e5966b4efdd2aacf1cfcf8f6525e`: 392 passed and one Windows-only
+fail-closed boundary test was skipped; runtime was 32.119 seconds in the pinned
+image. That run read no research data and did not score the locked final set.
+These are implementation checks, not model-performance results.
+
+An earlier AdvPIIBench review-I/O run passed 17 Linux-container synthetic tests
+with PyArrow `25.0.1`. A later independent follow-up review blocked using that
+path to prepare review packages because source-attestation and output-confinement
+gaps remained. The 17-test result is historical and does not establish that the
+current review-package path is safe or ready. A separate private fixture artifact
+was built and its protection metadata verified, but no actual AdvPIIBench review
+packages, labels, allocations, or training partitions have been completed. These
+checks establish neither clean-data eligibility nor model performance.
 
 These mechanics do not change the served transformer updater. The online update
 path still updates the six classifier-head tensors and enforces the existing
