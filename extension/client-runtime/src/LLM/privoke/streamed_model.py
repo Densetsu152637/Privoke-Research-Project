@@ -17,6 +17,8 @@ from ...classification import (
 from ...model import ModelConfig, TinyTransformerModel
 from .parameter_stream import ModelParameterStreamer, ParameterSnapshot
 from .presence_model import StreamedPresenceModel
+from .scratch_presence_model import StreamedScratchPresenceModel
+from privoke_model.scratch_presence import SCRATCH_PRESENCE_MODEL_IDS
 
 
 class StreamedTransformerPrivacyModel:
@@ -93,6 +95,13 @@ class _CachedPresenceModel:
     refreshed_at: float
 
 
+@dataclass(frozen=True)
+class _CachedScratchPresenceModel:
+    cache_key: str
+    model: StreamedScratchPresenceModel
+    refreshed_at: float
+
+
 class StreamedModelCache:
     """Thread-safe cache that retains only the latest version of each model."""
 
@@ -105,6 +114,7 @@ class StreamedModelCache:
         # Presence models have a distinct type/task namespace and can never be
         # returned by the semantic transformer cache.
         self._presence_models: Dict[tuple[str, str], _CachedPresenceModel] = {}
+        self._scratch_presence_models: Dict[tuple[str, str], _CachedScratchPresenceModel] = {}
         self.refresh_interval_seconds = (
             refresh_interval_seconds
             if refresh_interval_seconds is not None
@@ -182,6 +192,34 @@ class StreamedModelCache:
             )
             return model
 
+    def annotation_presence_model_for_streamer(
+        self,
+        streamer: ModelParameterStreamer,
+        *,
+        force_refresh: bool = False,
+    ) -> StreamedPresenceModel | StreamedScratchPresenceModel:
+        """Dispatch inference only; sparse training keeps its separate entry point."""
+        if streamer.model_id not in SCRATCH_PRESENCE_MODEL_IDS:
+            return self.presence_model_for_streamer(streamer, force_refresh=force_refresh)
+        identity = (streamer.target, streamer.model_id)
+        with self._lock:
+            cached = self._scratch_presence_models.get(identity)
+            if (not force_refresh and cached is not None
+                    and time.monotonic() - cached.refreshed_at < self.refresh_interval_seconds):
+                return cached.model
+            snapshot = streamer.fetch()
+            if snapshot.model_id != streamer.model_id:
+                raise RuntimeError("Scratch stream returned a different explicitly requested model ID.")
+            # Validate even an unchanged fingerprint: invalid/provenance-only
+            # declarations must not reuse an old wrapper before validation.
+            candidate = StreamedScratchPresenceModel(snapshot)
+            key = candidate.snapshot.cache_key + ":" + candidate.snapshot.metadata["artifact_checksum"]
+            model = cached.model if cached is not None and cached.cache_key == key else candidate
+            self._scratch_presence_models[identity] = _CachedScratchPresenceModel(
+                cache_key=key, model=model, refreshed_at=time.monotonic(),
+            )
+            return model
+
     def presence_model_for_training(
         self,
         streamer: ModelParameterStreamer,
@@ -245,6 +283,7 @@ class StreamedModelCache:
         with self._lock:
             self._models.clear()
             self._presence_models.clear()
+            self._scratch_presence_models.clear()
 
 
 GLOBAL_STREAMED_MODEL_CACHE = StreamedModelCache()

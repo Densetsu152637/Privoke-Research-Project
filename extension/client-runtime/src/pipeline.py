@@ -8,13 +8,14 @@ from .classification import ClassificationResult, PriVokeAction
 from .classification.classification_types import merge_classifications
 from .config import GLOBAL_CONFIG, LLMChoice
 from .detection.preprocessing import NormalizedText, normalize_with_offsets
+from privoke_model.scratch_presence import SCRATCH_PRESENCE_MODEL_IDS
 
 
 REGEX_LAYER = "regex"
 NER_LAYER = "ner"
 SEMANTIC_LAYER = "semantic"
 DETECTION_LAYERS = (REGEX_LAYER, NER_LAYER, SEMANTIC_LAYER)
-SEMANTIC_PRESENCE_MODEL_IDS = frozenset({
+SEMANTIC_PRESENCE_MODEL_IDS = SCRATCH_PRESENCE_MODEL_IDS | frozenset({
     "privoke-presence-efficient",
     "privoke-presence-balanced",
     "privoke-presence-quality",
@@ -28,7 +29,7 @@ class SemanticPresenceGateRequest:
 
     def __post_init__(self) -> None:
         if self.model_id not in SEMANTIC_PRESENCE_MODEL_IDS:
-            raise ValueError("Gate model_id must name one of the three supported presence models.")
+            raise ValueError("Gate model_id must explicitly name a supported presence model.")
         if self.threshold is not None and (
             isinstance(self.threshold, bool)
             or not isinstance(self.threshold, (int, float))
@@ -287,7 +288,11 @@ def _execute_semantic_with_presence_gate(
         presence_model = _presence_model_for_semantic_detector(
             semantic_detector, gate
         )
-        probability = presence_model.predict_probability(text)
+        probability = (
+            presence_model.predict_normalized_probability(text)
+            if gate.model_id in SCRATCH_PRESENCE_MODEL_IDS
+            else presence_model.predict_probability(text)
+        )
         model_threshold = presence_model.threshold
         decision_threshold = (
             model_threshold if gate.threshold is None else float(gate.threshold)
@@ -375,7 +380,7 @@ def _presence_model_for_semantic_detector(
         consumer_id=semantic_streamer.consumer_id,
         timeout_seconds=semantic_streamer.timeout_seconds,
     )
-    return model_cache.presence_model_for_streamer(presence_streamer)
+    return model_cache.annotation_presence_model_for_streamer(presence_streamer)
 
 
 def _detector_for(

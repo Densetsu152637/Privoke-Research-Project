@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 import os
-import re
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 import numpy as np
+
+from .transformer_encoder import (
+    TOKEN_PATTERN, numpy_encoder_block, token_ids as encoder_token_ids,
+)
 
 ARCHITECTURE_NAME = "privoke_tiny_transformer_v1"
 
@@ -18,8 +20,6 @@ ARCHITECTURE_NAME = "privoke_tiny_transformer_v1"
 class ModelArtifactError(ValueError):
     """Raised when streamed transformer configuration or tensors are invalid."""
 
-
-TOKEN_PATTERN = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?|\d+|[^\w\s]", re.UNICODE)
 
 
 @dataclass(frozen=True)
@@ -413,30 +413,7 @@ class TinyTransformerModel:
         return (hidden[0] * 0.5 + hidden.mean(axis=0) * 0.5).astype(np.float32)
 
     def _numpy_encoder_block(self, hidden: np.ndarray, prefix: str) -> np.ndarray:
-        query = hidden @ self.parameters[f"{prefix}attention.query.weight"]
-        key = hidden @ self.parameters[f"{prefix}attention.key.weight"]
-        value = hidden @ self.parameters[f"{prefix}attention.value.weight"]
-        heads = self.config.num_attention_heads
-        head_size = self.config.hidden_size // heads
-        query = query.reshape(len(hidden), heads, head_size).transpose(1, 0, 2)
-        key = key.reshape(len(hidden), heads, head_size).transpose(1, 0, 2)
-        value = value.reshape(len(hidden), heads, head_size).transpose(1, 0, 2)
-        attention = _softmax(query @ key.transpose(0, 2, 1) / math.sqrt(head_size))
-        attended = (attention @ value).transpose(1, 0, 2).reshape(hidden.shape)
-        attended = (
-            attended @ self.parameters[f"{prefix}attention.output.weight"]
-            + self.parameters[f"{prefix}attention.output.bias"]
-        )
-        hidden = _layer_norm(hidden + attended)
-        intermediate = _gelu(
-            hidden @ self.parameters[f"{prefix}ffn.input.weight"]
-            + self.parameters[f"{prefix}ffn.input.bias"]
-        )
-        return _layer_norm(
-            hidden
-            + intermediate @ self.parameters[f"{prefix}ffn.output.weight"]
-            + self.parameters[f"{prefix}ffn.output.bias"]
-        )
+        return numpy_encoder_block(self.config, self.parameters, hidden, prefix)
 
     def _torch_encoder_block(
         self,
@@ -489,12 +466,7 @@ class TinyTransformerModel:
         )
 
     def token_ids(self, text: str) -> np.ndarray:
-        tokens = TOKEN_PATTERN.findall(text.lower())[: self.config.max_tokens - 1]
-        ids = [0]
-        for token in tokens:
-            digest = hashlib.sha256(token.encode("utf-8")).digest()
-            ids.append(1 + int.from_bytes(digest[:4], "big") % (self.config.vocab_size - 1))
-        return np.asarray(ids, dtype=np.int64)
+        return encoder_token_ids(text, self.config)
 
     def _validate_shapes(self) -> None:
         hidden = self.config.hidden_size

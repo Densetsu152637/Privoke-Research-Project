@@ -247,7 +247,7 @@ class SemanticPresenceGateTests(unittest.TestCase):
         def factory(**kwargs):
             calls.update(kwargs)
             return "presence-streamer"
-        cache = SimpleNamespace(presence_model_for_streamer=lambda streamer: (streamer, "model"))
+        cache = SimpleNamespace(annotation_presence_model_for_streamer=lambda streamer: (streamer, "model"))
         self.assertEqual(
             _presence_model_for_semantic_detector(
                 detector, SemanticPresenceGateRequest("privoke-presence-quality"),
