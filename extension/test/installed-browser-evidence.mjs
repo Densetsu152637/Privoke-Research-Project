@@ -199,3 +199,25 @@ export function preserveResourceEvidenceFailure(summary, error) {
   }
   return { error };
 }
+
+export async function waitForProcessesToDisappear(scanMatches, {
+  timeoutMs,
+  intervalMs = 50,
+  now = Date.now,
+  sleep,
+}) {
+  assert.equal(typeof scanMatches, "function", "process scanner must be callable");
+  assert.ok(Number.isFinite(timeoutMs) && timeoutMs >= 0, "process wait timeout must be nonnegative");
+  assert.ok(Number.isFinite(intervalMs) && intervalMs > 0, "process wait interval must be positive");
+  assert.equal(typeof now, "function", "clock must be callable");
+  assert.equal(typeof sleep, "function", "sleep function must be callable");
+  const deadline = now() + timeoutMs;
+  while (true) {
+    const matches = await scanMatches();
+    assert.ok(Array.isArray(matches), "process scanner must return an array of identities");
+    if (matches.length === 0) return true;
+    const remaining = deadline - now();
+    if (remaining <= 0) throw new Error("Known profile process identities remained after the cleanup deadline");
+    await sleep(Math.min(intervalMs, remaining));
+  }
+}

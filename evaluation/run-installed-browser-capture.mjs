@@ -29,6 +29,7 @@ import {
   assertPreservedControlSupervisor,
   assertCompleteResourceEvidence,
   preserveResourceEvidenceFailure,
+  waitForProcessesToDisappear,
   parseGrpcWebFrames,
   validateDecodedOutcome,
   validatePageAnalysis,
@@ -119,6 +120,7 @@ let popup;
 let testPage;
 let profilePath;
 
+async function runStudy() {
 try {
   assert.ok(/^[0-9a-f]{40}$/i.test(SOURCE_REVISION), "a full declared source revision is required");
   assert.ok(IMAGE_ID && IMAGE_ID !== "unreported", "the root-verified image ID is required");
@@ -252,6 +254,7 @@ try {
       process.exitCode = 1;
     });
   }
+}
 }
 
 async function createInitialReceipt() {
@@ -1445,6 +1448,38 @@ async function waitPidAbsent(pid, timeoutMs) {
   throw new Error(`owned process ${pid} did not exit in time`);
 }
 
+async function waitNoProcessContains(profileFragment, timeoutMs) {
+  return waitForProcessesToDisappear(() => scanProfileProcesses(profileFragment), {
+    timeoutMs,
+    intervalMs: 50,
+    sleep: delay,
+  });
+}
+
+async function scanProfileProcesses(profileFragment) {
+  const matches = [];
+  for (const entry of await readdir("/proc")) {
+    if (!/^\d+$/.test(entry)) continue;
+    let commandLine;
+    try { commandLine = (await readFile(join("/proc", entry, "cmdline"), "utf8")).replaceAll("\0", " ").trim(); }
+    catch (error) {
+      if (error?.code === "ENOENT") continue;
+      throw error;
+    }
+    if (!commandLine.includes(profileFragment)) continue;
+    let identity;
+    try { identity = await processIdentity(Number(entry)); }
+    catch (error) {
+      if (error?.code === "ENOENT") continue;
+      throw error;
+    }
+    if (identity.command.includes(profileFragment)) {
+      matches.push({ pid: identity.pid, startTicks: identity.startTicks, commandSha256: identity.commandSha256 });
+    }
+  }
+  return matches;
+}
+
 async function waitForAnalyzeEvent(startIndex, timeoutMs = 35_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -1703,3 +1738,5 @@ function isWithin(root, path) {
 async function childStartDeltaMs(supervisor, detector) {
   return Math.max(0, detector.startTicks - supervisor.startTicks) * 10;
 }
+
+await runStudy();
