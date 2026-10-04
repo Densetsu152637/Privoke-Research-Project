@@ -4,6 +4,8 @@ import { existsSync } from "node:fs";
 import test from "node:test";
 import {
   assertNativeParentBinding,
+  assertCompleteResourceEvidence,
+  assertPreservedControlSupervisor,
   assertReceiverCapture,
   frameGrpcWebMessage,
   parseGrpcWebFrames,
@@ -22,6 +24,9 @@ test("strict gRPC-Web framing accepts one request and one response plus final tr
   const parsed = parseGrpcWebFrames(Buffer.concat([frameGrpcWebMessage(response), trailerFrame]), "response");
   assert.deepEqual(parsed.data, [response]);
   assert.equal(parsed.grpcStatus, 0);
+  const status16 = Buffer.from("grpc-status: 16\r\n");
+  const status16Frame = Buffer.concat([Buffer.from([0x80, 0, 0, 0, status16.length]), status16]);
+  assert.equal(parseGrpcWebFrames(status16Frame, "response").grpcStatus, 16);
 });
 
 test("strict gRPC-Web framing rejects truncation, duplicate/extra frames, and malformed trailers", () => {
@@ -37,6 +42,8 @@ test("strict gRPC-Web framing rejects truncation, duplicate/extra frames, and ma
   assert.throws(() => parseGrpcWebFrames(Buffer.concat([Buffer.from([0x80, 0, 0, 0, duplicate.length]), duplicate]), "response"), /duplicate/);
   const missing = Buffer.from("content-type: application/grpc-web+proto\r\n");
   assert.throws(() => parseGrpcWebFrames(Buffer.concat([Buffer.from([0x80, 0, 0, 0, missing.length]), missing]), "response"), /omitted grpc-status/);
+  const outOfRange = Buffer.from("grpc-status: 17\r\n");
+  assert.throws(() => parseGrpcWebFrames(Buffer.concat([Buffer.from([0x80, 0, 0, 0, outOfRange.length]), outOfRange]), "response"), /canonical gRPC status range/);
 });
 
 test("decoded response validation requires concrete request, response, layer and timing evidence", () => {
@@ -59,6 +66,51 @@ test("decoded response validation requires concrete request, response, layer and
   delete missingElapsed.elapsedMs;
   assert.throws(() => validateAnalyzeResponse(missingElapsed, request, "ALLOW"), /finite/);
   assert.throws(() => validateAnalyzeResponse({ ...response, error: "failure" }, request, "ALLOW"), /application error/);
+});
+
+test("only the runtime's documented regex BLOCK skip can omit NER", () => {
+  const request = { requestId: "rpc-block", text: "fake prompt", source: "browser_interceptor", targetApp: "chatgpt",
+    layers: ["DETECTION_LAYER_REGEX", "DETECTION_LAYER_NER"] };
+  const valid = { requestId: request.requestId, action: "BLOCK", error: "", elapsedMs: 0, layers: [
+    { layer: "DETECTION_LAYER_REGEX", status: "ok", error: "", results: [{ action: "BLOCK" }] },
+    { layer: "DETECTION_LAYER_NER", status: "skipped", error: "Skipped after regex returned BLOCK.", results: [] },
+  ] };
+  validateAnalyzeResponse(valid, request, "BLOCK");
+  assert.throws(() => validateAnalyzeResponse({ ...valid, layers: [valid.layers[0],
+    { ...valid.layers[1], error: "some other skip" }] }, request, "BLOCK"), /documented regex/);
+  assert.throws(() => validateAnalyzeResponse({ ...valid, layers: [
+    { ...valid.layers[0], results: [{ action: "WARN" }] }, valid.layers[1]] }, request, "BLOCK"), /concrete BLOCK/);
+  assert.throws(() => validateAnalyzeResponse({ ...valid, action: "ALLOW" }, request, "BLOCK"), /strictly equal/);
+});
+
+test("master-off preserves the known control supervisor and exactly its control listeners", () => {
+  const expected = { pid: 20, startTicks: 200, commandSha256: "supervisor" };
+  assertPreservedControlSupervisor(expected, { ...expected }, [50056, 8080]);
+  assert.throws(() => assertPreservedControlSupervisor(expected, { ...expected, pid: 21 }, [8080, 50056]), /PID changed/);
+  assert.throws(() => assertPreservedControlSupervisor(expected, { ...expected, startTicks: 201 }, [8080, 50056]), /reused/);
+  assert.throws(() => assertPreservedControlSupervisor(expected, { ...expected }, [8080, 50056, 50057]), /listeners/);
+});
+
+test("required resource evidence rejects partial RSS, CPU, and start-tick samples but keeps PSS optional", () => {
+  const valid = {
+    cgroupMemorySampledPeakBytes: 1024,
+    cgroupCpuSampledDeltaUsec: 50,
+    cgroupMemoryMissingSamples: 0,
+    cgroupCpuMissingSamples: 0,
+    processes: ["xvfb", "chromium", "supervisor_bridge", "detector"].map((role) => ({
+      role, startTicks: 100, sampledPeakRssBytes: 4096, sampledPeakPssBytes: null, cpuDeltaSeconds: 0.1,
+      missingRssSamples: 0, missingCpuSamples: 0, missingStartTicksSamples: 0,
+    })),
+  };
+  assert.equal(assertCompleteResourceEvidence(valid), valid);
+  for (const field of ["missingRssSamples", "missingCpuSamples", "missingStartTicksSamples"]) {
+    const partial = structuredClone(valid);
+    partial.processes[0][field] = 1;
+    assert.throws(() => assertCompleteResourceEvidence(partial), /missing/);
+  }
+  const missingCgroupCpu = structuredClone(valid);
+  missingCgroupCpu.cgroupCpuMissingSamples = 1;
+  assert.throws(() => assertCompleteResourceEvidence(missingCgroupCpu), /cgroup CPU samples are incomplete/);
 });
 
 test("page result and receiver body must bind to the frozen case", () => {

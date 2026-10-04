@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 
+const REGEX_BLOCK_SKIP_REASON = "Skipped after regex returned BLOCK.";
+
 export function parseGrpcWebFrames(body, kind) {
   assert.ok(Buffer.isBuffer(body), `${kind} body must be bytes`);
   const data = [];
@@ -50,6 +52,7 @@ function parseTrailerBlock(payload) {
   assert.ok(fields.has("grpc-status"), "response omitted grpc-status");
   assert.match(fields.get("grpc-status"), /^(0|[1-9][0-9]*)$/, "grpc-status must be a canonical integer");
   assert.ok(Number.isSafeInteger(Number(fields.get("grpc-status"))), "grpc-status is outside the safe integer range");
+  assert.ok(Number(fields.get("grpc-status")) <= 16, "grpc-status is outside the canonical gRPC status range");
   let message = fields.get("grpc-message") ?? null;
   if (message !== null) {
     try { message = decodeURIComponent(message); }
@@ -78,7 +81,7 @@ export function validateAnalyzeRequest(request, expected) {
   return request;
 }
 
-export function validateAnalyzeResponse(response, request, expectedAction, { allowErrorStatus = false } = {}) {
+export function validateAnalyzeResponse(response, request, expectedAction) {
   assert.ok(response && typeof response === "object", "AnalyzePrompt response did not decode");
   assert.equal(response.requestId, request.requestId, "runtime request/response IDs do not match");
   assert.equal(response.action, expectedAction);
@@ -90,7 +93,12 @@ export function validateAnalyzeResponse(response, request, expectedAction, { all
     if (layer.status === "skipped") {
       assert.equal(expectedAction, "BLOCK", "only regex BLOCK may short-circuit a detector request");
       assert.equal(layer.layer, "DETECTION_LAYER_NER");
-      assert.equal(layer.error, "", "skipped NER must not carry an error");
+      assert.equal(layer.error, REGEX_BLOCK_SKIP_REASON, "skipped NER reason differs from the documented regex short-circuit");
+      const regex = response.layers.find((item) => item.layer === "DETECTION_LAYER_REGEX");
+      assert.equal(regex.status, "ok", "regex layer must have completed before NER is skipped");
+      assert.equal(regex.error, "", "regex layer reported an error before NER skip");
+      assert.ok(regex.results.some((item) => item.action === "BLOCK"),
+        "skipped NER requires a concrete BLOCK result from the regex layer");
     } else assert.equal(layer.error, "", `${layer.layer} reported an error`);
   }
   assert.ok(Number.isFinite(response.elapsedMs) && response.elapsedMs >= 0,
@@ -154,4 +162,33 @@ export function assertReceiverCapture(capture, { expectedUrl, prompt }) {
 export function assertNativeParentBinding(nativeSamples, browserSamples) {
   const browser = new Map(browserSamples.map((item) => [`${item.pid}/${item.start_ticks}`, item]));
   return nativeSamples.some((native) => browser.has(`${native.ppid}/${native.parent_start_ticks}`));
+}
+
+export function assertPreservedControlSupervisor(expected, actual, openPorts) {
+  assert.equal(actual.pid, expected.pid, "control supervisor PID changed during master-off");
+  assert.equal(actual.startTicks, expected.startTicks, "control supervisor PID was reused during master-off");
+  assert.equal(actual.commandSha256, expected.commandSha256, "control supervisor command changed during master-off");
+  assert.deepEqual([...openPorts].sort((a, b) => a - b), [8080, 50056],
+    "master-off must retain only the expected control-plane listeners");
+}
+
+export function assertCompleteResourceEvidence(summary) {
+  assert.ok(Number.isSafeInteger(summary.cgroupMemorySampledPeakBytes) && summary.cgroupMemorySampledPeakBytes > 0,
+    "cgroup memory sampling was unavailable");
+  assert.ok(Number.isFinite(summary.cgroupCpuSampledDeltaUsec) && summary.cgroupCpuSampledDeltaUsec >= 0,
+    "cgroup CPU sampling was unavailable");
+  assert.equal(summary.cgroupMemoryMissingSamples, 0, "cgroup memory samples are incomplete");
+  assert.equal(summary.cgroupCpuMissingSamples, 0, "cgroup CPU samples are incomplete");
+  const requiredRoles = new Set(["xvfb", "chromium", "supervisor_bridge", "detector"]);
+  const roles = new Set(summary.processes.map((item) => item.role));
+  for (const role of requiredRoles) assert.ok(roles.has(role), `resource samples omitted required ${role} process role`);
+  for (const item of summary.processes.filter((record) => requiredRoles.has(record.role))) {
+    assert.ok(Number.isSafeInteger(item.startTicks), `${item.role} lacks start-tick identity`);
+    assert.ok(Number.isSafeInteger(item.sampledPeakRssBytes), `${item.role} lacks RSS samples`);
+    assert.ok(Number.isFinite(item.cpuDeltaSeconds) && item.cpuDeltaSeconds >= 0, `${item.role} lacks valid CPU samples`);
+    assert.equal(item.missingRssSamples, 0, `${item.role} has missing RSS samples`);
+    assert.equal(item.missingCpuSamples, 0, `${item.role} has missing CPU samples`);
+    assert.equal(item.missingStartTicksSamples, 0, `${item.role} has missing start-tick samples`);
+  }
+  return summary;
 }

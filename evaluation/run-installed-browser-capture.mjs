@@ -26,6 +26,8 @@ import {
 } from "../extension/test/installed-browser-capture.mjs";
 import {
   assertNativeParentBinding,
+  assertPreservedControlSupervisor,
+  assertCompleteResourceEvidence,
   parseGrpcWebFrames,
   validateDecodedOutcome,
   validatePageAnalysis,
@@ -217,20 +219,7 @@ try {
       assert.equal(resourceFiles.length, COLD_SESSIONS, "one resource sample file is required per cold session");
       assert.ok(resourceFiles.every((item) => item.sha256), "every resource sample must have a finalized digest");
       assert.ok(receipt.resourceSampling.processes.length > 0, "resource samples contain no tracked processes");
-      assert.ok(Number.isSafeInteger(receipt.resourceSampling.cgroupMemorySampledPeakBytes)
-        && receipt.resourceSampling.cgroupMemorySampledPeakBytes > 0, "cgroup memory sampling was unavailable");
-      assert.ok(Number.isFinite(receipt.resourceSampling.cgroupCpuSampledDeltaUsec)
-        && receipt.resourceSampling.cgroupCpuSampledDeltaUsec >= 0, "cgroup CPU sampling was unavailable");
-      const sampledRoles = new Set(receipt.resourceSampling.processes.map((item) => item.role));
-      for (const role of ["xvfb", "chromium", "supervisor_bridge", "detector"]) {
-        assert.ok(sampledRoles.has(role), `resource samples omitted required ${role} process role`);
-      }
-      for (const processRecord of receipt.resourceSampling.processes) {
-        assert.ok(Number.isSafeInteger(processRecord.startTicks), `${processRecord.role} lacks start-tick identity`);
-        assert.ok(Number.isSafeInteger(processRecord.sampledPeakRssBytes), `${processRecord.role} lacks RSS samples`);
-        assert.ok(Number.isFinite(processRecord.cpuDeltaSeconds) && processRecord.cpuDeltaSeconds >= 0,
-          `${processRecord.role} lacks valid CPU samples`);
-      }
+      assertCompleteResourceEvidence(receipt.resourceSampling);
     } catch (error) {
       evidenceFailures.push(safeError(error));
       receipt.resourceSampling = { error: safeError(error) };
@@ -290,6 +279,12 @@ async function createInitialReceipt() {
       telemetryEnabled: false,
     },
     configuredLayers: ["DETECTION_LAYER_REGEX", "DETECTION_LAYER_NER"],
+    externalRequestObservation: {
+      http: "BrowserContext request events after context creation",
+      websocket: "Page websocket events for existing and later pages",
+      gaps: ["service-worker websocket attempts", "attempts before the context hook"],
+      egressControl: "Compose network_mode none",
+    },
     sourceHashes,
     settings: { enabled: true, useLocalStack: true, layers: { regex: true, ner: true, llm: false }, waitForRegex: true },
     expectedColdSessions: COLD_SESSIONS,
@@ -451,6 +446,7 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
 
   const readinessProbeStart = performance.now();
   const status = await waitRuntimeReady(popup);
+  const runtimeReadyMonotonic = performance.now();
   const readyWall = Date.now();
   const statusProbeElapsedMs = performance.now() - readinessProbeStart;
   const detectorPid = Number(status.processId);
@@ -464,7 +460,7 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
     "detector parent is not the expected supervisor entry point");
   startedProcesses = new Map([[supervisorPid, supervisorIdentity], [detectorPid, detectorIdentity]]);
   const listenerOwnership = await assertOwnedListeners(supervisorPid, detectorPid);
-  times.statusProbeUntilOwnedListenersMs = performance.now() - readinessProbeStart;
+  times.ownedListenerVerificationElapsedAfterStatusMs = performance.now() - runtimeReadyMonotonic;
   const nativeEvidence = await waitForNativeHostSample(samplerPath, 2_000);
   const extensionManifest = JSON.parse(await readFile(join(EXTENSION_ROOT, "manifest.json"), "utf8"));
   assert.equal(extensionManifest.background.service_worker, "background.js");
@@ -484,10 +480,10 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
     activeNativeManifest: activeNativeRegistration,
     browserVersion,
     browserLaunchToContextMs: times.browserLaunchToContextMs,
-    extensionWorkerReadyFromContextMs: workerMonotonic - launchMonotonic,
+    browserLaunchToExtensionWorkerObservationMs: workerMonotonic - launchMonotonic,
     settingsUpdateElapsedMs: times.settingsUpdateElapsedMs,
     runtimeStatusProbeElapsedAfterSettingsMs: statusProbeElapsedMs,
-    statusProbeUntilOwnedListenersMs: times.statusProbeUntilOwnedListenersMs,
+    ownedListenerVerificationElapsedAfterStatusMs: times.ownedListenerVerificationElapsedAfterStatusMs,
     supervisorProcessBirthOffsetFromWorkerReadyMs: null,
     detectorProcessBirthOffsetFromSupervisorBirthMs: null,
     detectorProcessBirthOffsetFromContextMs: null,
@@ -658,12 +654,23 @@ async function runOutageCase({ transport, type, fixtureUrl }) {
 
 async function runBypassCase({ transport, type, fixtureUrl }) {
   const prompt = CASES.allow.prompt;
+  let retainedSupervisor = null;
   if (type === "master-off") {
+    const expectedDetector = [...startedProcesses.values()].find((identity) =>
+      identity.command.includes("extension/client-runtime/src/grpc_main.py"));
+    retainedSupervisor = [...startedProcesses.values()].find((identity) =>
+      identity.command.includes("extension/runtime-supervisor/src/main.py"));
+    assert.ok(expectedDetector && retainedSupervisor, "master-off requires known detector and supervisor identities");
     const response = await sendExtensionMessage(popup, { type: "SET_MASTER_ENABLED", enabled: false });
     assert.equal(response.ok, true);
     assert.equal(response.runtime.enabled, false);
-    await waitOwnedProcessesGone([...startedProcesses.values()], 10_000);
-    startedProcesses.clear();
+    await waitOwnedProcessesGone([expectedDetector], 10_000);
+    await waitPortsState([8080, 50056], [50057], 10_000);
+    const currentSupervisor = await processIdentity(retainedSupervisor.pid);
+    verifyOwnedSupervisor(currentSupervisor, retainedSupervisor);
+    const controlListeners = await assertOwnedControlListeners(currentSupervisor.pid);
+    assertPreservedControlSupervisor(retainedSupervisor, currentSupervisor, Object.keys(controlListeners).map(Number));
+    startedProcesses = new Map([[currentSupervisor.pid, currentSupervisor]]);
   } else {
     const response = await sendExtensionMessage(popup, {
       type: "UPDATE_SETTINGS",
@@ -690,7 +697,7 @@ async function runBypassCase({ transport, type, fixtureUrl }) {
     });
     assert.equal(restored.ok, true);
   }
-  record.recovery = await restoreRuntimeAndObserve();
+  record.recovery = await restoreRuntimeAndObserve(retainedSupervisor);
   phaseCounts.matrix += 1;
   return record;
 }
@@ -844,7 +851,10 @@ function observeContextRequests(context, sessionId, fixtureOrigin) {
     externalRequests.push({ url, method, channel, sessionId });
   };
   context.on("request", (request) => record(request.url(), request.method(), "browser-context-request"));
-  context.on("websocket", (socket) => record(socket.url(), "WEBSOCKET", "browser-context-websocket"));
+  const observePage = (page) => page.on("websocket", (socket) =>
+    record(socket.url(), "WEBSOCKET", "page-websocket"));
+  for (const page of context.pages()) observePage(page);
+  context.on("page", observePage);
 }
 
 class CdpObserver {
@@ -1210,12 +1220,13 @@ async function waitRuntimeReady(page) {
   throw new Error(`Browser-launched detector did not become ready (${safeError(last).type}).`);
 }
 
-async function restoreRuntimeAndObserve() {
+async function restoreRuntimeAndObserve(expectedSupervisor = null) {
   const runtime = await waitRuntimeReady(popup);
   const identity = await processIdentity(Number(runtime.processId));
   const supervisor = await processIdentity(identity.parentPid);
   assert.ok(identity.command.includes("extension/client-runtime/src/grpc_main.py"));
   assert.ok(supervisor.command.includes("extension/runtime-supervisor/src/main.py"));
+  if (expectedSupervisor) verifyOwnedSupervisor(supervisor, expectedSupervisor);
   startedProcesses = new Map([[supervisor.pid, supervisor], [identity.pid, identity]]);
   const sockets = await assertOwnedListeners(supervisor.pid, identity.pid);
   return { runtime, detectorPid: identity.pid, detectorStartTicks: identity.startTicks,
@@ -1305,6 +1316,18 @@ async function assertOwnedListeners(supervisorPid, detectorPid) {
     const expected = port === 50057 ? detectorPid : supervisorPid;
     assert.ok(owners.some((owner) => owner.pid === expected), `port ${port} is not owned by expected process ${expected}`);
     assert.equal(owners.length, 1, `port ${port} has unexpected listener ownership`);
+  }
+  return ownership;
+}
+
+async function assertOwnedControlListeners(supervisorPid) {
+  const ownership = {};
+  for (const port of [8080, 50056]) {
+    const owners = await listenerOwners(port);
+    ownership[port] = owners;
+    assert.ok(owners.some((owner) => owner.pid === supervisorPid),
+      `control port ${port} is not owned by expected supervisor ${supervisorPid}`);
+    assert.equal(owners.length, 1, `control port ${port} has unexpected listener ownership`);
   }
   return ownership;
 }
