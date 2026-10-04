@@ -17,7 +17,9 @@ type modelCatalog struct {
 }
 
 func loadModelCatalog(directory, latestModelID string) (*modelCatalog, error) {
-	if isScratchModelID(latestModelID) { return nil, fmt.Errorf("scratch presence cannot be the latest model") }
+	if isScratchModelID(latestModelID) {
+		return nil, fmt.Errorf("scratch presence cannot be the latest model")
+	}
 	entries, err := os.ReadDir(directory)
 	if err != nil {
 		return nil, fmt.Errorf("read model artifact directory: %w", err)
@@ -62,7 +64,9 @@ func (c *modelCatalog) load(requestedModelID string) (*loadedArtifact, error) {
 		return nil, fmt.Errorf("model %q is unavailable", requestedModelID)
 	}
 	artifact, err := loadModelArtifact(path, modelID)
-	if err == nil && modelID == c.latestModelID && artifact.Architecture == scratchPresenceArchitecture { return nil, fmt.Errorf("scratch presence cannot be the latest model") }
+	if err == nil && modelID == c.latestModelID && artifact.Architecture == scratchPresenceArchitecture {
+		return nil, fmt.Errorf("scratch presence cannot be the latest model")
+	}
 	return artifact, err
 }
 

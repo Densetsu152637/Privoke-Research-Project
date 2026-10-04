@@ -54,16 +54,20 @@ func loadModelArtifact(path string, expectedModelID string) (*loadedArtifact, er
 		return nil, err
 	}
 
-    // Inspect root declarations before typed tensor decoding; preserve duplicate evidence.
-    scratchDeclared, err := scratchDeclaredInRaw(raw)
-    if err != nil { return nil, fmt.Errorf("decode artifact identity: %w", err) }
-    if scratchDeclared {
-        if err := validateScratchJSON(raw); err != nil { return nil, err }
-    }
-    var artifact modelArtifact
-    if err := json.Unmarshal(raw, &artifact); err != nil {
-        return nil, fmt.Errorf("decode artifact: %w", err)
-    }
+	// Inspect root declarations before typed tensor decoding; preserve duplicate evidence.
+	scratchDeclared, err := scratchDeclaredInRaw(raw)
+	if err != nil {
+		return nil, fmt.Errorf("decode artifact identity: %w", err)
+	}
+	if scratchDeclared {
+		if err := validateScratchJSON(raw); err != nil {
+			return nil, err
+		}
+	}
+	var artifact modelArtifact
+	if err := json.Unmarshal(raw, &artifact); err != nil {
+		return nil, fmt.Errorf("decode artifact: %w", err)
+	}
 	if artifact.Architecture == presenceArchitecture {
 		if err := validatePresenceRawTensorFlags(raw); err != nil {
 			return nil, err
@@ -98,12 +102,18 @@ func readArtifactFile(path string) ([]byte, error) {
 	if info.Size() <= 0 || info.Size() > maxArtifactBytes {
 		return nil, fmt.Errorf("artifact size %d is outside the supported range", info.Size())
 	}
-    file, err := os.Open(path)
-    if err != nil { return nil, fmt.Errorf("open artifact: %w", err) }
-    defer file.Close()
-    raw, err := io.ReadAll(io.LimitReader(file, maxArtifactBytes+1))
-    if err != nil { return nil, fmt.Errorf("read artifact: %w", err) }
-	if len(raw) == 0 || len(raw) > maxArtifactBytes { return nil, fmt.Errorf("artifact bytes exceed supported range") }
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open artifact: %w", err)
+	}
+	defer file.Close()
+	raw, err := io.ReadAll(io.LimitReader(file, maxArtifactBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("read artifact: %w", err)
+	}
+	if len(raw) == 0 || len(raw) > maxArtifactBytes {
+		return nil, fmt.Errorf("artifact bytes exceed supported range")
+	}
 	return raw, nil
 }
 
