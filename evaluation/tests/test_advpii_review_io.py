@@ -130,8 +130,11 @@ class ReviewIOTests(unittest.TestCase):
         )}
         for name, path in paths.items():
             path.write_bytes((name + " placeholder").encode())
-        paths["protocol.md"].write_bytes((ROOT / "paper/research/clean-augmentation-protocol.md").read_bytes())
-        paths["rubric.json"].write_bytes((ROOT / "paper/research/clean-augmentation-rubric.json").read_bytes())
+        # Keep these tests runnable in the evaluator image, which intentionally
+        # does not copy paper/. Production hashes remain untouched; fixtures
+        # bind to these synthetic bytes within _patch_inputs only.
+        paths["protocol.md"].write_bytes(b"synthetic protocol fixture\n")
+        paths["rubric.json"].write_bytes(b'{"synthetic": true}\n')
         revision = "4" * 40
         pin_payload = io.build_pin_manifest(ROOT, revision)
         pin_path = input_dir / "pin-manifest.json"
@@ -158,6 +161,8 @@ class ReviewIOTests(unittest.TestCase):
             normalized_texts=protected.normalized_texts or frozenset({_sha(b"unused-protected-normalized-text")}),
         )
         code = io._code_digests(ROOT)
+        protocol_digest = io.canonical_lf_sha256(paths.protocol)
+        rubric_digest = io.canonical_lf_sha256(paths.rubric)
         keys = {
             "ids": sorted(protected.ids),
             "groups": sorted(protected.groups),
@@ -207,8 +212,8 @@ class ReviewIOTests(unittest.TestCase):
                 "source_audit_sha256": _sha(Path(path).read_bytes()), "dataset_revision": "7" * 40,
             }),
             patch.object(io, "require_frozen_text_inputs", return_value={
-                "protocol_sha256": "3991777aedadc8d50b7395a9ce8ef2aebfec946603229b823f1b6c118a16cbdf",
-                "rubric_sha256": "203f37b4c77789a0f9c0838905954b9e1b76acf4f7906ab7717849e94616fcd7",
+                "protocol_sha256": protocol_digest,
+                "rubric_sha256": rubric_digest,
             }),
             patch.object(io, "validate_training_data_source", return_value="1bdeeff73310808a3468eb54f6d94a16a008b02e027ba3f9d749602636024f0b"),
             patch.object(io, "validate_protected_union", side_effect=validate_captured_union),
@@ -216,6 +221,8 @@ class ReviewIOTests(unittest.TestCase):
             patch.object(io, "validate_arrow_schema", return_value=None),
             patch.object(io, "PARQUET_ROWS", 3),
             patch.object(review, "SOURCE_SHA256", parquet_digest),
+            patch.object(review, "PROTOCOL_SHA256", protocol_digest),
+            patch.object(review, "RUBRIC_SHA256", rubric_digest),
         ]
         return patches, pin_digest, receipt_sha, protected, protection_metadata, parquet_digest
 
@@ -297,7 +304,7 @@ class ReviewIOTests(unittest.TestCase):
                 pool_calls.append(args)
                 return real_builder(*args)
 
-            with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], patches[7], patch.object(
+            with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], patches[7], patches[8], patches[9], patch.object(
                 io, "sha256_file", side_effect=lambda p: _sha(Path(p).read_bytes())
             ), patch.object(io, "build_review_pool", side_effect=capture_pool):
                 result = io.prepare_review_pool(
@@ -364,7 +371,7 @@ class ReviewIOTests(unittest.TestCase):
             patches, pin_digest, receipt_sha, _, _, _ = self._patch_inputs(paths, parquet)
             with patches[0], patches[1], patches[2], patches[3], patches[4], patch.object(
                 io, "validate_arrow_schema", side_effect=ValueError("SCHEMA_PRIVATE_MARKER")
-            ), patches[6], patches[7], patch.object(
+            ), patches[6], patches[7], patches[8], patches[9], patch.object(
                 io, "sha256_file", side_effect=lambda p: _sha(Path(p).read_bytes())
             ):
                 result = io.prepare_review_pool(
@@ -433,7 +440,7 @@ class ReviewIOTests(unittest.TestCase):
                 paths.protected_union.write_bytes(b"REPLACED_ARTIFACT_MARKER")
                 return protected, metadata
 
-            with patches[0], patches[1], patches[2], patches[4], patches[5], patches[6], patches[7], patch.object(
+            with patches[0], patches[1], patches[2], patches[4], patches[5], patches[6], patches[7], patches[8], patches[9], patch.object(
                 io, "validate_protected_union", side_effect=replace_original_after_validation
             ), patch.object(
                 io, "sha256_file", side_effect=lambda p: _sha(Path(p).read_bytes())
@@ -463,7 +470,7 @@ class ReviewIOTests(unittest.TestCase):
             patches, pin_digest, receipt_sha, _, metadata, _ = self._patch_inputs(paths, parquet)
             opener_calls = []
             foreign_keys = ProtectedKeys(ids=frozenset({_sha(b"foreign-validator-key")}))
-            with patches[0], patches[1], patches[2], patches[4], patches[5], patches[6], patches[7], patch.object(
+            with patches[0], patches[1], patches[2], patches[4], patches[5], patches[6], patches[7], patches[8], patches[9], patch.object(
                 io, "validate_protected_union", return_value=(foreign_keys, metadata)
             ), patch.object(
                 io, "sha256_file", side_effect=lambda p: _sha(Path(p).read_bytes())
@@ -497,7 +504,7 @@ class ReviewIOTests(unittest.TestCase):
                 paths.protection_receipt.write_bytes(b"REPLACED_RECEIPT_MARKER")
                 return parquet
 
-            with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], patches[7], patch.object(
+            with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], patches[7], patches[8], patches[9], patch.object(
                 io, "sha256_file", side_effect=lambda p: _sha(Path(p).read_bytes())
             ):
                 result = io.prepare_review_pool(
