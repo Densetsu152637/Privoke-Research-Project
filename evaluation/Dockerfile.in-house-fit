@@ -1,0 +1,36 @@
+# Train-only fitter runtime. Explicit COPY keeps datasets, results, fixtures,
+# catalogue state, controls, weights, and test sources outside this image.
+FROM python:3.11-slim-bookworm AS fit-runtime
+WORKDIR /workspace
+COPY evaluation/requirements-in-house-fit.txt /tmp/requirements-in-house-fit.txt
+COPY evaluation/requirements-training.txt /tmp/requirements-training.txt
+RUN python -m pip install --no-cache-dir --only-binary=:all: -r /tmp/requirements-in-house-fit.txt
+
+COPY shared/python/privoke_model/__init__.py /workspace/shared/python/privoke_model/__init__.py
+COPY shared/python/privoke_model/scratch_presence.py /workspace/shared/python/privoke_model/scratch_presence.py
+COPY shared/python/privoke_model/presence.py /workspace/shared/python/privoke_model/presence.py
+COPY shared/python/privoke_model/artifact.py /workspace/shared/python/privoke_model/artifact.py
+COPY shared/python/privoke_model/fingerprint.py /workspace/shared/python/privoke_model/fingerprint.py
+COPY shared/python/privoke_model/training_data.py /workspace/shared/python/privoke_model/training_data.py
+COPY extension/client-runtime/src/__init__.py /workspace/extension/client-runtime/src/__init__.py
+COPY extension/client-runtime/src/model.py /workspace/extension/client-runtime/src/model.py
+COPY extension/client-runtime/src/transformer_encoder.py /workspace/extension/client-runtime/src/transformer_encoder.py
+COPY extension/client-runtime/src/detection/preprocessing.py /workspace/extension/client-runtime/src/detection/preprocessing.py
+COPY models/generate_baseline.py /workspace/models/generate_baseline.py
+COPY evaluation/privoke_eval/__init__.py /workspace/evaluation/privoke_eval/__init__.py
+COPY evaluation/privoke_eval/presence_training.py /workspace/evaluation/privoke_eval/presence_training.py
+COPY evaluation/privoke_eval/in_house_presence_training.py /workspace/evaluation/privoke_eval/in_house_presence_training.py
+COPY evaluation/privoke_eval/in_house_study_contract.py /workspace/evaluation/privoke_eval/in_house_study_contract.py
+COPY evaluation/privoke_eval/in_house_study_fit.py /workspace/evaluation/privoke_eval/in_house_study_fit.py
+COPY evaluation/fit-in-house-study-arm.py /workspace/evaluation/fit-in-house-study-arm.py
+
+ENV PYTHONPATH=/workspace/evaluation:/workspace/shared/python:/workspace/extension/client-runtime:/workspace/models
+ENV PYTHONDONTWRITEBYTECODE=1 PRIVOKE_EVAL_IN_CONTAINER=true OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 NUMEXPR_NUM_THREADS=4 TMPDIR=/tmp
+USER 65534:65534
+WORKDIR /workspace/evaluation
+ENTRYPOINT ["python", "-B", "fit-in-house-study-arm.py"]
+
+# Synthetic tests use a separate target with the one assigned test module.
+FROM fit-runtime AS fit-tests
+COPY evaluation/tests/test_in_house_study_fit.py /workspace/evaluation/tests/test_in_house_study_fit.py
+ENTRYPOINT ["python", "-B", "-m", "unittest", "discover", "-s", "tests", "-p", "test_in_house_study_fit.py", "-v"]

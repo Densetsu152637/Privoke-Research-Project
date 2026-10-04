@@ -1,0 +1,41 @@
+# Standalone train-only execution harness. Build context is the repository root.
+# It mounts no dataset, result directory, model catalogue, or runtime control.
+x-in-house-fit-security: &in-house-fit-security
+  platform: linux/amd64
+  network_mode: none
+  read_only: true
+  user: "65534:65534"
+  cpus: 4.0
+  mem_limit: 4g
+  pids_limit: 128
+  shm_size: 64mb
+  tmpfs:
+    - /tmp:size=128m,mode=1777,noexec,nosuid,nodev
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  init: true
+  environment:
+    PYTHONPATH: /workspace/evaluation:/workspace/shared/python:/workspace/extension/client-runtime:/workspace/models
+    PYTHONDONTWRITEBYTECODE: "1"
+    PRIVOKE_EVAL_IN_CONTAINER: "true"
+    OMP_NUM_THREADS: "4"
+    MKL_NUM_THREADS: "4"
+    OPENBLAS_NUM_THREADS: "4"
+    NUMEXPR_NUM_THREADS: "4"
+    TMPDIR: /tmp
+
+services:
+  in-house-fit-tests:
+    <<: *in-house-fit-security
+    build:
+      context: ..
+      dockerfile: evaluation/Dockerfile.in-house-fit
+      target: fit-tests
+
+  in-house-fit:
+    <<: *in-house-fit-security
+    profiles: ["in-house-fit"]
+    build:
+      context: ..
+      dockerfile: evaluation/Dockerfile.in-house-fit
+      target: fit-runtime
