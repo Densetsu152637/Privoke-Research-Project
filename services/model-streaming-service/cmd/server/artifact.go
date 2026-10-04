@@ -53,7 +53,13 @@ func loadModelArtifact(path string, expectedModelID string) (*loadedArtifact, er
 	if err != nil {
 		return nil, err
 	}
+	return loadModelArtifactBytes(raw, expectedModelID)
+}
 
+func loadModelArtifactBytes(raw []byte, expectedModelID string) (*loadedArtifact, error) {
+	if len(raw) == 0 || len(raw) > maxArtifactBytes {
+		return nil, fmt.Errorf("artifact bytes exceed supported range")
+	}
 	// Inspect root declarations before typed tensor decoding; preserve duplicate evidence.
 	scratchDeclared, err := scratchDeclaredInRaw(raw)
 	if err != nil {
