@@ -1,0 +1,147 @@
+# Standalone recipe. ROOT freezes image, source tree and every named volume.
+# Publication exit zero remains pending until the retained train-reader passes.
+x-publication: &publication
+  image: ${IN_HOUSE_PUBLICATION_IMAGE:?Pinned evaluator image ID required}
+  pull_policy: never
+  entrypoint: [python, /workspace/evaluation/publish-in-house-partitions.py]
+  user: "0:0"
+  read_only: true
+  network_mode: none
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  cpus: 4
+  mem_limit: 4g
+  pids_limit: 128
+  tmpfs: [/tmp:rw,noexec,nosuid,size=128m]
+  environment: {PYTHONDONTWRITEBYTECODE: "1", PYTHONPATH: /workspace/evaluation:/workspace/shared/python}
+
+services:
+  in-house-partitions-prepare:
+    <<: *publication
+    volumes:
+      - {type: volume, source: empty-mask, target: /workspace/evaluation/datasets, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: empty-mask, target: /workspace/evaluation/results, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: empty-mask, target: /workspace/evaluation/artifacts, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: empty-mask, target: /workspace/evaluation/fixtures, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: empty-mask, target: /workspace/evaluation/tests, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: empty-mask, target: /workspace/models, read_only: true, volume: {nocopy: true}}
+      - type: bind
+        source: ${IN_HOUSE_PUBLICATION_SOURCE:?Read-only pinned checkout required}
+        target: /workspace
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${IN_HOUSE_PUBLICATION_REQUEST:?Exact immutable operator request required}
+        target: /request.json
+        read_only: true
+        bind: {create_host_path: false}
+      - type: volume
+        source: preparation
+        target: /workspace/evaluation/results/published-review
+        read_only: true
+        volume: {nocopy: true}
+      - type: volume
+        source: inputs
+        target: /inputs
+        read_only: true
+        volume: {nocopy: true}
+      - type: volume
+        source: reviews
+        target: /reviews
+        read_only: true
+        volume: {nocopy: true}
+      - type: volume
+        source: prepared
+        target: /prepared
+        volume: {nocopy: true}
+  in-house-partitions-publish:
+    <<: *publication
+    cap_add: [CHOWN]
+    volumes:
+      - {type: volume, source: empty-mask, target: /workspace/evaluation/datasets, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: empty-mask, target: /workspace/evaluation/results, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: empty-mask, target: /workspace/evaluation/artifacts, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: empty-mask, target: /workspace/evaluation/fixtures, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: empty-mask, target: /workspace/evaluation/tests, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: empty-mask, target: /workspace/models, read_only: true, volume: {nocopy: true}}
+      - type: bind
+        source: ${IN_HOUSE_PUBLICATION_SOURCE:?Read-only pinned checkout required}
+        target: /workspace
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${IN_HOUSE_PUBLICATION_REQUEST:?Exact immutable operator request required}
+        target: /request.json
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${IN_HOUSE_PROGRAMME_FILE:?Exact frozen programme file required}
+        target: /programme.json
+        read_only: true
+        bind: {create_host_path: false}
+      - type: volume
+        source: prepared
+        target: /prepared
+        read_only: true
+        volume: {nocopy: true}
+      - type: volume
+        source: train
+        target: /train
+        volume: {nocopy: true}
+      - type: volume
+        source: validation
+        target: /validation
+        volume: {nocopy: true}
+      - type: volume
+        source: fixtures
+        target: /fixtures
+        volume: {nocopy: true}
+      - type: volume
+        source: test
+        target: /test
+        volume: {nocopy: true}
+      - type: volume
+        source: metadata
+        target: /metadata
+        volume: {nocopy: true}
+      - type: volume
+        source: sealed-metadata
+        target: /sealed-metadata
+        volume: {nocopy: true}
+  in-house-partitions-train-reader:
+    <<: *publication
+    user: "65534:65534"
+    volumes:
+      - {type: volume, source: empty-mask, target: /workspace/evaluation/datasets, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: empty-mask, target: /workspace/evaluation/results, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: empty-mask, target: /workspace/evaluation/artifacts, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: empty-mask, target: /workspace/evaluation/fixtures, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: empty-mask, target: /workspace/evaluation/tests, read_only: true, volume: {nocopy: true}}
+      - {type: volume, source: empty-mask, target: /workspace/models, read_only: true, volume: {nocopy: true}}
+      - type: bind
+        source: ${IN_HOUSE_PUBLICATION_SOURCE:?Read-only pinned checkout required}
+        target: /workspace
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${IN_HOUSE_PUBLICATION_REQUEST:?Exact immutable operator request required}
+        target: /request.json
+        read_only: true
+        bind: {create_host_path: false}
+      - type: volume
+        source: train
+        target: /train
+        read_only: true
+        volume: {nocopy: true}
+volumes:
+  empty-mask: {external: true, name: "${IN_HOUSE_PUBLICATION_EMPTY_MASK_VOLUME:?Fresh empty readonly mask required}"}
+  preparation: {external: true, name: "${IN_HOUSE_REVIEW_PREPARATION_VOLUME:?Required}"}
+  inputs: {external: true, name: "${IN_HOUSE_SOURCE_INPUT_VOLUME:?Required}"}
+  reviews: {external: true, name: "${IN_HOUSE_REVIEW_RESPONSE_VOLUME:?Required}"}
+  prepared: {external: true, name: "${IN_HOUSE_PREPARED_VOLUME:?Required}"}
+  train: {external: true, name: "${IN_HOUSE_FLAT_TRAIN_VOLUME:?Required}"}
+  validation: {external: true, name: "${IN_HOUSE_FLAT_VALIDATION_VOLUME:?Required}"}
+  fixtures: {external: true, name: "${IN_HOUSE_FLAT_FIXTURE_VOLUME:?Required}"}
+  test: {external: true, name: "${IN_HOUSE_SEALED_TEST_VOLUME:?Required}"}
+  metadata: {external: true, name: "${IN_HOUSE_PUBLICATION_METADATA_VOLUME:?Required}"}
+  sealed-metadata: {external: true, name: "${IN_HOUSE_TEST_LOCATOR_VOLUME:?Required}"}

@@ -47,6 +47,13 @@ def binding(arm='S0', epoch=0, phase='collect-validation', rows=None, **changes)
     return e.CollectionBinding(**value), raw
 
 
+def fixture_rows():
+    """Authored action requirements do not supply binary presence annotations."""
+    return [{'id': str(i), 'group_id': str(i), 'text': 'synthetic', 'expected_has_pii': None,
+             **{key: case[key] for key in ('ambiguous', 'required_sensitive', 'required_action', 'visibility_hint')}}
+            for i, case in enumerate(contract_fixtures.fixtures())]
+
+
 def response(gated=False, block=False):
     result = {'request_id': 'synthetic', 'action': 'BLOCK' if block else 'ALLOW', 'allowed': not block,
               'masked_text': 'synthetic', 'classification': {'sensitivity': 'S0', 'visibility': 'PU', 'categories': []},
@@ -121,6 +128,45 @@ class EvidenceBoundaryTests(unittest.TestCase):
         bad, bad_raw = binding(rows=rows)
         with self.assertRaises(e.StudyEvidenceError):
             e.dataset_rows(bad_raw, bad)
+
+    def test_fixture_unannotated_presence_preserves_action_requirements_and_keys(self):
+        rows = fixture_rows()
+        b, raw = binding(phase='collect-fixtures', rows=rows)
+        self.assertEqual(e.dataset_rows(raw, b), tuple(rows))
+        labelled = copy.deepcopy(rows)
+        for row in labelled:
+            if not row['ambiguous']:
+                row['expected_has_pii'] = row['required_sensitive']
+        labelled_binding, labelled_raw = binding(phase='collect-fixtures', rows=labelled)
+        self.assertEqual(e.dataset_rows(labelled_raw, labelled_binding), tuple(labelled))
+        self.assertNotEqual(b.dataset_keys_sha256, labelled_binding.dataset_keys_sha256)
+        with self.assertRaises(e.StudyEvidenceError):
+            e.dataset_rows(raw, replace(b, dataset_keys_sha256=labelled_binding.dataset_keys_sha256))
+        variants = [('required_action', None), ('required_action', 'INVALID'),
+                    ('required_sensitive', None), ('required_sensitive', 1),
+                    ('expected_has_pii', 1), ('expected_has_pii', 'unknown')]
+        for key, value in variants:
+            bad = copy.deepcopy(rows)
+            bad[0][key] = value
+            bad_binding, bad_raw = binding(phase='collect-fixtures', rows=bad)
+            with self.subTest(key=key, value=value), self.assertRaises(e.StudyEvidenceError):
+                e.dataset_rows(bad_raw, bad_binding)
+        for key in ('expected_has_pii', 'required_sensitive', 'required_action'):
+            bad = copy.deepcopy(rows)
+            bad[-1][key] = 'ALLOW' if key == 'required_action' else False
+            bad_binding, bad_raw = binding(phase='collect-fixtures', rows=bad)
+            with self.subTest(ambiguous_key=key), self.assertRaises(e.StudyEvidenceError):
+                e.dataset_rows(bad_raw, bad_binding)
+
+    def test_binary_validation_rerun_and_test_reject_unannotated_presence(self):
+        for phase in ('collect-validation', 'rerun-validation', 'collect-test'):
+            original, raw = binding(phase=phase)
+            self.assertEqual(len(e.dataset_rows(raw, original)), 2000)
+            rows = [json.loads(line) for line in raw.splitlines()]
+            rows[0]['expected_has_pii'] = None
+            bad_binding, bad_raw = binding(phase=phase, rows=rows)
+            with self.subTest(phase=phase), self.assertRaises(e.StudyEvidenceError):
+                e.dataset_rows(bad_raw, bad_binding)
 
     def test_row_and_group_domains_do_not_collide(self):
         self.assertNotEqual(e.opaque('row', 'same'), e.opaque('group', 'same'))
@@ -328,17 +374,15 @@ class EvidenceBoundaryTests(unittest.TestCase):
         selection = a.select_joint_validation(joint)
         selection_raw = e.canonical(selection)
         live, fixtures = [], []
-        fixture_views = []
-        for i, case in enumerate(contract_fixtures.fixtures()):
-            fixture_views.append({'id': str(i), 'group_id': str(i), 'text': 'synthetic', 'expected_has_pii': case['required_sensitive'],
-                                 **{key: case[key] for key in ('ambiguous', 'required_sensitive', 'required_action', 'visibility_hint')}})
+        fixture_views = fixture_rows()
         for item in analysis_fixtures.live_input(joint, selection)['arms']:
             common = dict(control_binding_sha256=source['control_binding_sha256'], programme_sha256=programme.sha256,
                           operational_hashes=operational, decision_threshold=item['threshold'], selection_sha256=e.sha(selection_raw))
             b, _ = binding(item['arm'], item['epoch'], phase='rerun-validation', **common)
             live.append(synthetic_authenticated(b, item['rows']))
-            fb, _ = binding(item['arm'], item['epoch'], phase='collect-fixtures', rows=fixture_views, **common)
-            rows = [{'row_id_sha256': case['case_sha256'], 'group_id_sha256': case['case_sha256'], 'truth': case['required_sensitive'],
+            fb, fixture_raw = binding(item['arm'], item['epoch'], phase='collect-fixtures', rows=fixture_views, **common)
+            self.assertEqual(e.dataset_rows(fixture_raw, fb), tuple(fixture_views))
+            rows = [{'row_id_sha256': case['case_sha256'], 'group_id_sha256': case['case_sha256'], 'truth': None,
                      **{key: case[key] for key in ('ambiguous', 'required_sensitive', 'required_action', 'visibility_hint')},
                      'ordinary': {'action': case['ordinary_action']}, 'outcome': {'action': case['action']}} for case in contract_fixtures.fixtures()]
             fixtures.append(synthetic_authenticated(fb, rows))
@@ -423,6 +467,38 @@ except ImportError:
 
 @unittest.skipUnless(HAS_WIRE, 'Actual generated protobuf unavailable; Linux generated-wire gate mandatory.')
 class GeneratedWireTests(unittest.TestCase):
+    def test_action_fixture_collection_and_raw_verification_accept_unannotated_presence(self):
+        codec = e.WireCodec()
+        b, dataset = binding(phase='collect-fixtures', rows=fixture_rows())
+        rows = e.dataset_rows(dataset, b)
+        class Writer:
+            def __init__(self):
+                self.files = {}
+            def write(self, name, raw):
+                self.files[name] = raw
+                return e.sha(raw)
+        class Client:
+            def analyze(self, request):
+                gated = request.HasField('semantic_presence_gate')
+                payload = response(gated)
+                payload['request_id'] = request.request_id
+                if not gated and runtime_pb2.DETECTION_LAYER_SEMANTIC not in request.layers:
+                    payload['layers'][-1].update(status='not_requested', error=a.NOT_REQUESTED_REASON)
+                return ParseDict(payload, runtime_pb2.AnalyzePromptResponse()).SerializeToString(deterministic=True)
+        writer = Writer()
+        e.collect_rows(Client(), b, rows, writer, codec)
+        inventory_raw = writer.files.pop('inventory.json')
+        with patch.object(e, 'attest_sources'), patch.object(e, 'artifact_identity', return_value={'config': {'threshold': .5}}):
+            verified = e.verify_raw_collection(inventory_raw, inventory_sha256=e.sha(inventory_raw),
+                trusted_phase_binding=b, captured_dataset=dataset,
+                captured_artifacts={'contextual': b'public-synthetic', 'presence': b'public-synthetic'},
+                raw_files=writer.files, codec=codec)
+        self.assertEqual(len(verified.rows), 48)
+        for source, claim in zip(rows, verified.rows):
+            self.assertIsNone(claim['truth'])
+            for key in ('ambiguous', 'required_sensitive', 'required_action', 'visibility_hint'):
+                self.assertEqual(claim[key], source[key])
+
     def test_raw_rerun_and_test_semantic_retention_matches_actual_generated_trace(self):
         codec = e.WireCodec()
         finding = {'classification': {'sensitivity': 'S2', 'visibility': 'PU', 'categories': ['IDENTITY']},

@@ -950,6 +950,7 @@ class _FreshOutput:
         try:
             info = os.stat(name, dir_fd=self.fd, follow_symlinks=False)
             if (not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) & 0o077
+                    or info.st_uid != os.geteuid() or info.st_nlink != 1
                     or (info.st_dev, info.st_ino) != identity or info.st_size > 64 * 1024 * 1024):
                 _fail("Output file identity or private mode changed during the run.")
             fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=self.fd)
@@ -969,7 +970,9 @@ class _FreshOutput:
             finally:
                 os.close(fd)
             path_after = os.stat(name, dir_fd=self.fd, follow_symlinks=False)
-            if ((info.st_dev, info.st_ino) != identity or (opened.st_dev, opened.st_ino) != identity
+            if (any(not stat.S_ISREG(item.st_mode) or item.st_uid != os.geteuid()
+                    or item.st_nlink != 1 for item in (opened, after, path_after))
+                    or (info.st_dev, info.st_ino) != identity or (opened.st_dev, opened.st_ino) != identity
                     or (after.st_dev, after.st_ino) != identity or (path_after.st_dev, path_after.st_ino) != identity
                     or info.st_size != opened.st_size or opened.st_size != after.st_size
                     or after.st_size != path_after.st_size
@@ -1049,6 +1052,8 @@ class _FreshOutput:
         raw = json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2,
                          allow_nan=False).encode("utf-8") + b"\n"
         self._verify_dir()
+        if self._manifest_identity is not None:
+            self._verify_file("run-manifest.json", self._manifest_identity, self._manifest_sha256)
         self._manifest_sequence += 1
         temp = f".run-manifest-{self._manifest_sequence:04d}.tmp"
         flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
@@ -1070,9 +1075,7 @@ class _FreshOutput:
                 _fail("Temporary run manifest identity changed during the write.")
             self._verify_dir()
             if self._manifest_identity is not None:
-                existing = os.stat("run-manifest.json", dir_fd=self.fd, follow_symlinks=False)
-                if (existing.st_dev, existing.st_ino) != self._manifest_identity:
-                    _fail("Run manifest identity changed during the fit.")
+                self._verify_file("run-manifest.json", self._manifest_identity, self._manifest_sha256)
             os.replace(temp, "run-manifest.json", src_dir_fd=self.fd, dst_dir_fd=self.fd)
             current = os.stat("run-manifest.json", dir_fd=self.fd, follow_symlinks=False)
             if (current.st_dev, current.st_ino) != temp_identity or not stat.S_ISREG(current.st_mode):
