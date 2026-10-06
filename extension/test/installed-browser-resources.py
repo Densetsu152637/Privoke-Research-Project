@@ -334,6 +334,16 @@ def _processes(transition=None) -> tuple[list[dict[str, object]], dict[str, int]
             command = " ".join(fresh.cmdline())
             role = _role_for_command(command, included_chromium)
             if role is None or role != role_hint:
+                # Zombies can remain is_running() while losing their command line.
+                terminal_identity = _process_stat_identity(pid)
+                if (terminal_identity is None or terminal_identity[1] != before[1]
+                        or terminal_identity[0] in {"Z", "X", "x"}):
+                    authorized = _termination_disposition(
+                        role_hint, profile_root, "process exited before fresh metrics",
+                        transition=transition, pid=pid, identity=terminal_identity)
+                    if not authorized:
+                        identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
+                    continue
                 raise RuntimeError(f"{role_hint} process role changed between enumeration and sampling")
             if profile_root and not _browser_match(fresh.cmdline()):
                 raise RuntimeError("Chromium profile root no longer matches the sampled process command")

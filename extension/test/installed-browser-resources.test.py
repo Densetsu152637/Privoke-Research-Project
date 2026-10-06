@@ -654,6 +654,32 @@ class StartupTransitionTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "identity changed during resource sampling"):
                 RESOURCES._processes(transition)
 
+    def test_zombie_loses_cmdline_only_exact_dispatched_predecessor_can_retire(self):
+        supervisor, predecessor = self.identities()
+        process = SimpleNamespace(info={"pid": 321, "ppid": 123,
+            "cmdline": ["python", "extension/client-runtime/src/grpc_main.py"],
+            "create_time": 1.0, "memory_info": None, "cpu_times": None})
+        fresh = SimpleNamespace(create_time=lambda: 1.0, is_running=lambda: True, cmdline=lambda: [])
+        for phase, ticks, allowed in (("dispatched", 300, True), ("prepared", 300, False),
+                                      ("dispatched", 301, False)):
+            with self.subTest(phase=phase, ticks=ticks):
+                transition = RESOURCES.StartupTransition()
+                transition.phase = phase
+                transition.record = {"predecessor": predecessor, "supervisor": supervisor,
+                                     "transition_id": "c" * 32}
+                with patch.object(RESOURCES.psutil, "process_iter", return_value=[process]), \
+                     patch.object(RESOURCES.psutil, "Process", return_value=fresh), \
+                     patch.object(RESOURCES, "_browser_process_ids", return_value=(set(), set())), \
+                     patch.object(RESOURCES, "_process_stat_identity", side_effect=[("S", 300), ("Z", ticks)]):
+                    if allowed:
+                        rows, races = RESOURCES._processes(transition)
+                        self.assertEqual((rows, races), ([], {}))
+                        self.assertEqual(transition.events[0]["state"], "Z")
+                    else:
+                        with self.assertRaises(RESOURCES.ProcessIdentityFailure):
+                            RESOURCES._processes(transition)
+                self.assertEqual(transition.retired, allowed)
+
     def test_predecessor_reuse_or_live_state_is_not_authorized(self):
         supervisor, predecessor = self.identities()
         transition = RESOURCES.StartupTransition()

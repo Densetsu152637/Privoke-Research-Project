@@ -634,6 +634,16 @@ export function createSamplerStartupTransitionClient(child, { timeoutMs = 5_000 
   let lineBuffer = Buffer.alloc(0);
   let pending;
   let failed = null;
+  const fail = (message) => {
+    failed ??= new Error(message);
+    pending?.reject(failed);
+    pending = null;
+  };
+  const onInputError = () => fail("sampler transition input pipe failed");
+  const onOutputError = () => fail("sampler transition output pipe failed");
+  child.stdin.on("error", onInputError);
+  child.stdout.on("error", onOutputError);
+  child.once("error", () => fail("sampler process failed during startup transition"));
   const onData = (chunk) => {
     lineBuffer = Buffer.concat([lineBuffer, chunk]);
     if (lineBuffer.length > MAX_STARTUP_CONTROL_BYTES) {
@@ -667,8 +677,7 @@ export function createSamplerStartupTransitionClient(child, { timeoutMs = 5_000 
   };
   child.stdout.on("data", onData);
   child.once("close", () => {
-    if (pending) pending.reject(new Error("sampler closed during startup transition"));
-    pending = null;
+    fail("sampler closed during startup transition");
   });
   let sequence = 0;
   return {
@@ -682,7 +691,11 @@ export function createSamplerStartupTransitionClient(child, { timeoutMs = 5_000 
       if (bytes.length > MAX_STARTUP_CONTROL_BYTES) throw new Error("sampler startup control record exceeded its byte bound");
       if (pending) throw new Error("sampler startup transition already has a pending acknowledgement");
       const response = new Promise((resolvePromise, reject) => { pending = { resolve: resolvePromise, reject }; });
-      child.stdin.write(bytes);
+      try {
+        child.stdin.write(bytes, (error) => { if (error) onInputError(); });
+      } catch {
+        onInputError();
+      }
       let timer;
       try {
         const value = await Promise.race([response, new Promise((_, reject) => {
@@ -696,7 +709,12 @@ export function createSamplerStartupTransitionClient(child, { timeoutMs = 5_000 
     },
     close() {
       child.stdout.off("data", onData);
-      child.stdin.end();
+      // Keep error listeners for failures emitted while the pipes finish closing.
+      try {
+        child.stdin.end();
+      } catch {
+        onInputError();
+      }
     },
   };
 }

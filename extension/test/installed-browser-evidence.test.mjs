@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PassThrough } from "node:stream";
+import { PassThrough, Writable } from "node:stream";
 import test from "node:test";
 import vm from "node:vm";
 import {
@@ -113,6 +113,24 @@ test("sampler transition pipe validates bounded acknowledged records", async () 
   const rejectingClient = createSamplerStartupTransitionClient(oversized);
   await assert.rejects(rejectingClient.exchange(request), /exceeded its byte bound/);
   rejectingClient.close();
+});
+
+test("sampler pipe failures reject pending and later transitions without uncaught errors", async () => {
+  for (const pipe of ["input", "output"]) {
+    const child = { stdout: new PassThrough(), once() {} };
+    child.stdin = pipe === "input" ? new Writable({
+      write(_bytes, _encoding, callback) {
+        callback(Object.assign(new Error("private pipe detail"), { code: "EPIPE" }));
+      },
+    }) : new PassThrough();
+    const client = createSamplerStartupTransitionClient(child, { timeoutMs: 100 });
+    const pending = client.exchange({ type: "prepare" });
+    if (pipe === "output") child.stdout.destroy(new Error("private output detail"));
+    await assert.rejects(pending, new RegExp(`${pipe} pipe failed`));
+    await assert.rejects(client.exchange({ type: "dispatch" }), new RegExp(`${pipe} pipe failed`));
+    client.close();
+    await new Promise((resolvePromise) => setImmediate(resolvePromise));
+  }
 });
 
 test("startup settings are never dispatched if preparation acknowledgement fails", async () => {
