@@ -6,8 +6,11 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import hashlib
 import os
 from pathlib import Path
+import re
+import select
 import signal
 import sys
 import time
@@ -23,6 +26,97 @@ PATTERNS = {
     "supervisor_bridge": ("extension/runtime-supervisor/src/main.py",),
     "detector": ("extension/client-runtime/src/grpc_main.py",),
 }
+PROCESS_FAILURE_REASONS = {
+    "pid_exited_before_stat_snapshot", "pid_reused_after_enumeration",
+    "process_exited_before_fresh_metrics", "pid_changed_during_metrics",
+    "process_vanished_during_fresh_reads", "predecessor_absent_before_dispatch",
+    "predecessor_terminal_before_dispatch", "predecessor_identity_changed_before_dispatch",
+    "predecessor_identity_unreadable_before_dispatch",
+    "predecessor_identity_changed_during_transition", "supervisor_identity_changed_during_transition",
+}
+_UNKNOWN_OBSERVED_STATE = object()
+
+
+def _process_failure_record(role, reason, requested_identity, pid, transition_state,
+                            observed_state=_UNKNOWN_OBSERVED_STATE):
+    if role not in {*PATTERNS, "chromium"} or reason not in PROCESS_FAILURE_REASONS:
+        raise ValueError("invalid process failure evidence discriminator")
+    requested = None
+    if requested_identity is not None:
+        requested = {"pid": requested_identity.get("pid"), "state": None,
+                     "start_ticks": requested_identity.get("start_ticks"),
+                     "command_sha256": requested_identity.get("command_sha256"),
+                     "parent_pid": requested_identity.get("parent_pid"),
+                     "parent_start_ticks": requested_identity.get("parent_start_ticks")}
+    observed = {"pid": pid, "state": None, "start_ticks": None, "command_sha256": None,
+                "parent_pid": None, "parent_start_ticks": None}
+    try:
+        state = (_process_stat_identity(pid) if observed_state is _UNKNOWN_OBSERVED_STATE else observed_state)
+        if state is not None:
+            observed["state"], observed["start_ticks"] = state
+        root = Path("/proc") / str(pid)
+        try:
+            command = root.joinpath("cmdline").read_bytes().replace(b"\0", b" ").strip()
+            observed["command_sha256"] = hashlib.sha256(command).hexdigest()
+        except OSError:
+            pass
+        try:
+            status = root.joinpath("status").read_text()
+            match = re.search(r"^PPid:\s+(\d+)", status, re.M)
+            if match:
+                observed["parent_pid"] = int(match.group(1))
+                parent = _process_stat_identity(observed["parent_pid"])
+                observed["parent_start_ticks"] = parent[1] if parent is not None else None
+        except OSError:
+            pass
+    except (OSError, ValueError, RuntimeError):
+        pass
+    return _validate_process_failure({"schema_version": 1, "role": role, "reason": reason,
+            "requested_identity": requested, "observed_identity": observed,
+            "transition_state": transition_state or "idle", "observed_at_ns": str(time.monotonic_ns())})
+
+
+class ProcessIdentityFailure(RuntimeError):
+    def __init__(self, role, reason, requested_identity, pid, transition_state,
+                 *, detail=None, observed_state=_UNKNOWN_OBSERVED_STATE):
+        safe_detail = detail or reason.replace("_", " ")
+        super().__init__(f"{role} process identity changed during resource sampling: {safe_detail}")
+        self.process_failure = _process_failure_record(
+            role, reason, requested_identity, pid, transition_state, observed_state,
+        )
+
+
+def _validate_process_failure(value):
+    keys = {"schema_version", "role", "reason", "requested_identity", "observed_identity",
+            "transition_state", "observed_at_ns"}
+    if not isinstance(value, dict) or set(value) != keys or type(value.get("schema_version")) is not int \
+            or value["schema_version"] != 1:
+        raise ValueError("invalid process failure evidence schema")
+    if value["role"] not in {*PATTERNS, "chromium"} or value["reason"] not in PROCESS_FAILURE_REASONS:
+        raise ValueError("invalid process failure evidence discriminator")
+    if value["transition_state"] not in {"idle", "prepared", "dispatched", "committed"}:
+        raise ValueError("invalid process failure transition state")
+    if not isinstance(value["observed_at_ns"], str) or not value["observed_at_ns"].isascii() \
+            or not value["observed_at_ns"].isdigit() or len(value["observed_at_ns"]) > 20:
+        raise ValueError("invalid process failure observation time")
+    identity_keys = {"pid", "state", "start_ticks", "command_sha256", "parent_pid", "parent_start_ticks"}
+    for field in ("requested_identity", "observed_identity"):
+        identity = value[field]
+        if identity is None and field == "requested_identity":
+            continue
+        if not isinstance(identity, dict) or set(identity) != identity_keys:
+            raise ValueError("invalid process failure identity")
+        if type(identity["pid"]) is not int or identity["pid"] <= 1 or identity["pid"] > 2**53 - 1:
+            raise ValueError("invalid process failure PID")
+        for numeric in ("start_ticks", "parent_pid", "parent_start_ticks"):
+            if identity[numeric] is not None and (type(identity[numeric]) is not int or identity[numeric] < 0
+                                                  or identity[numeric] > 2**53 - 1):
+                raise ValueError("invalid process failure identity number")
+        if identity["state"] is not None and identity["state"] not in {"R", "S", "D", "Z", "T", "t", "W", "X", "x", "I", "P"}:
+            raise ValueError("invalid process failure state")
+        if identity["command_sha256"] is not None and not re_full_sha(identity["command_sha256"]):
+            raise ValueError("invalid process failure command fingerprint")
+    return value
 
 
 def _browser_profiles() -> list[Path]:
@@ -156,13 +250,46 @@ def _role_for_command(command: str, included_chromium: bool) -> str | None:
     return next((name for name in PATTERNS if _matches(name, command)), "chromium" if included_chromium else None)
 
 
-def _termination_disposition(role: str, profile_root: bool, detail: str) -> None:
+def _termination_disposition(role: str, profile_root: bool, detail: str, *, transition=None, pid=None,
+                             identity=None) -> bool:
+    if transition is not None and transition.allow_predecessor_retirement(role, pid, identity, detail):
+        return True
     if role == "chromium" and not profile_root:
-        return
-    raise RuntimeError(f"{role} process identity changed during resource sampling: {detail}")
+        return False
+    reasons = {
+        "PID exited before stat snapshot": "pid_exited_before_stat_snapshot",
+        "PID was reused after process enumeration": "pid_reused_after_enumeration",
+        "process exited before fresh metrics": "process_exited_before_fresh_metrics",
+        "PID exited or changed start ticks during metrics": "pid_changed_during_metrics",
+        "process vanished during fresh reads": "process_vanished_during_fresh_reads",
+    }
+    reason = reasons.get(detail)
+    if (transition is not None and transition.phase == "prepared" and role == "detector"
+            and transition.record and pid == transition.record["predecessor"]["pid"]):
+        expected = transition.record["predecessor"]
+        if identity is None:
+            reason = "predecessor_absent_before_dispatch"
+        elif identity[1] != expected["start_ticks"]:
+            reason = "predecessor_identity_changed_before_dispatch"
+        elif identity[0] in {"Z", "X", "x"}:
+            reason = "predecessor_terminal_before_dispatch"
+        else:
+            reason = "predecessor_identity_changed_before_dispatch"
+    if reason is None:
+        raise RuntimeError("process identity validation failed")
+    expected = None
+    state = transition.phase if transition is not None else "idle"
+    if transition is not None and transition.record:
+        predecessor = transition.record.get("predecessor")
+        supervisor = transition.record.get("supervisor")
+        if role == "detector" and predecessor and pid == predecessor.get("pid"):
+            expected = predecessor
+        elif role == "supervisor_bridge" and supervisor and pid == supervisor.get("pid"):
+            expected = supervisor
+    raise ProcessIdentityFailure(role, reason, expected, pid, state, detail=detail, observed_state=identity)
 
 
-def _processes() -> tuple[list[dict[str, object]], dict[str, int]]:
+def _processes(transition=None) -> tuple[list[dict[str, object]], dict[str, int]]:
     rows: list[dict[str, object]] = []
     identity_races: dict[str, int] = {}
     processes = list(psutil.process_iter(("pid", "ppid", "cmdline", "create_time", "memory_info", "cpu_times")))
@@ -182,20 +309,27 @@ def _processes() -> tuple[list[dict[str, object]], dict[str, int]]:
                 raise RuntimeError(f"{role_hint} process lacks enumeration-time creation identity")
             before = _process_stat_identity(pid)
             if before is None:
-                _termination_disposition(role_hint, profile_root, "PID exited before stat snapshot")
-                identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
+                authorized = _termination_disposition(role_hint, profile_root, "PID exited before stat snapshot",
+                                                       transition=transition, pid=pid, identity=None)
+                if not authorized:
+                    identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
                 continue
             fresh = psutil.Process(pid)
             fresh_create_time = fresh.create_time()
             if not math.isfinite(fresh_create_time):
                 raise RuntimeError(f"{role_hint} process creation identity is invalid")
             if fresh_create_time != expected_create_time:
-                _termination_disposition(role_hint, profile_root, "PID was reused after process enumeration")
-                identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
+                authorized = _termination_disposition(role_hint, profile_root, "PID was reused after process enumeration",
+                                                       transition=transition, pid=pid, identity=before)
+                if not authorized:
+                    identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
                 continue
             if not fresh.is_running():
-                _termination_disposition(role_hint, profile_root, "process exited before fresh metrics")
-                identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
+                terminal_identity = _process_stat_identity(pid)
+                authorized = _termination_disposition(role_hint, profile_root, "process exited before fresh metrics",
+                                                       transition=transition, pid=pid, identity=terminal_identity)
+                if not authorized:
+                    identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
                 continue
             command = " ".join(fresh.cmdline())
             role = _role_for_command(command, included_chromium)
@@ -210,8 +344,10 @@ def _processes() -> tuple[list[dict[str, object]], dict[str, int]]:
             pss_bytes = _pss_bytes(pid)
             after = _process_stat_identity(pid)
             if after is None or after[1] != before[1]:
-                _termination_disposition(role, profile_root, "PID exited or changed start ticks during metrics")
-                identity_races[role] = identity_races.get(role, 0) + 1
+                authorized = _termination_disposition(role, profile_root, "PID exited or changed start ticks during metrics",
+                                                       transition=transition, pid=pid, identity=after)
+                if not authorized:
+                    identity_races[role] = identity_races.get(role, 0) + 1
                 continue
             parent_pid_after = fresh.ppid()
             parent_after = _process_stat_identity(parent_pid_after) if parent_pid_after > 0 else None
@@ -246,9 +382,361 @@ def _processes() -> tuple[list[dict[str, object]], dict[str, int]]:
             role_hint = _role_for_command(expected_command, included_chromium)
             if role_hint is None:
                 continue
-            _termination_disposition(role_hint, pid in chromium_root_ids, "process vanished during fresh reads")
-            identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
+            before = _process_stat_identity(pid)
+            authorized = _termination_disposition(role_hint, pid in chromium_root_ids, "process vanished during fresh reads",
+                                                   transition=transition, pid=pid, identity=before)
+            if not authorized:
+                identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
     return rows, identity_races
+
+
+def _control_digest(record: dict) -> str:
+    encoded = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+class StartupTransition:
+    """One bounded runner-attested detector transition during cold startup."""
+
+    _COMMON = {"schema_version", "type", "transition_id", "session_id", "expires_at_ns",
+               "predecessor", "supervisor", "source_revision", "protocol_sha256"}
+
+    def __init__(self, source_revision=None, protocol_sha256=None):
+        self.phase = "idle"
+        self.record = None
+        self.successor = None
+        self.events = []
+        self.buffer = bytearray()
+        self.messages = 0
+        self.last_rows = []
+        self.retired = False
+        self.dispatch_seen = False
+        self.source_revision = source_revision
+        self.protocol_sha256 = protocol_sha256
+
+    @staticmethod
+    def _identity(value, *, detector):
+        expected = {"pid", "start_ticks", "command_sha256", "parent_pid", "parent_start_ticks"} if detector else {
+            "pid", "start_ticks", "command_sha256"}
+        if not isinstance(value, dict) or set(value) != expected:
+            raise RuntimeError("startup transition identity schema is invalid")
+        if any(type(value[key]) is not int or value[key] < 0 for key in
+               ("pid", "start_ticks", "parent_pid", "parent_start_ticks") if key in value):
+            raise RuntimeError("startup transition identity numbers are invalid")
+        if value["pid"] <= 1 or not re_full_sha(value["command_sha256"]):
+            raise RuntimeError("startup transition identity fingerprint is invalid")
+        if "parent_pid" in value and value["parent_pid"] <= 1:
+            raise RuntimeError("startup transition parent PID is invalid")
+        return value
+
+    def _read_controls(self):
+        try:
+            ready, _, _ = select.select([sys.stdin], [], [], 0)
+        except (OSError, ValueError):
+            return
+        if not ready:
+            return
+        chunk = os.read(sys.stdin.fileno(), 4097)
+        if not chunk:
+            return
+        if self.messages >= 3:
+            raise RuntimeError("startup transition received an excess control record")
+        self.buffer.extend(chunk)
+        if len(self.buffer) > 4096:
+            raise RuntimeError("startup transition control exceeded its byte bound")
+        if b"\n" not in self.buffer:
+            return
+        line, separator, remainder = self.buffer.partition(b"\n")
+        if remainder or not separator or not line:
+            raise RuntimeError("startup transition control framing is invalid")
+        self.buffer.clear()
+        try:
+            record = json.loads(line.decode("utf-8", errors="strict"), object_pairs_hook=_unique_object)
+        except (UnicodeError, json.JSONDecodeError, ValueError):
+            raise RuntimeError("startup transition control could not be decoded") from None
+        self._accept(record)
+
+    def _accept(self, record):
+        self.messages += 1
+        if (self.messages > 3 or not isinstance(record, dict)
+                or type(record.get("schema_version")) is not int or record.get("schema_version") != 1):
+            raise RuntimeError("startup transition control sequence is invalid")
+        kind = record.get("type")
+        expected_keys = self._COMMON | {"type"} | ({"operation"} if kind == "dispatch" else
+                                       {"successor"} if kind == "commit" else set())
+        if set(record) != expected_keys or kind not in {"prepare", "dispatch", "commit"}:
+            raise RuntimeError("startup transition control fields are invalid")
+        self._identity(record["predecessor"], detector=True)
+        self._identity(record["supervisor"], detector=False)
+        if (not isinstance(record["transition_id"], str) or not re_full_hex(record["transition_id"], 32)
+                or not isinstance(record["session_id"], str) or not re_full_session(record["session_id"])
+                or type(record["expires_at_ns"]) is not int or record["expires_at_ns"] <= time.monotonic_ns()
+                or record["expires_at_ns"] > 2**53 - 1
+                or record["expires_at_ns"] - time.monotonic_ns() > 90_000_000_000
+                or not re_full_hex(record["source_revision"], 40)
+                or not re_full_sha(record["protocol_sha256"])):
+            raise RuntimeError("startup transition binding is invalid or expired")
+        if ((self.source_revision is not None and record["source_revision"] != self.source_revision)
+                or (self.protocol_sha256 is not None and record["protocol_sha256"] != self.protocol_sha256)):
+            raise RuntimeError("startup transition source binding does not match the sampler process")
+        if kind == "prepare":
+            if self.phase != "idle" or self.messages != 1:
+                raise RuntimeError("startup transition preparation is not one-shot")
+            self.record = record
+            self._validate_live_predecessor()
+            self.phase = "prepared"
+        else:
+            if self.phase not in {"prepared", "dispatched"} or not self.record:
+                raise RuntimeError("startup transition control has no matching preparation")
+            if any(record[key] != self.record[key] for key in self._COMMON - {"type"}):
+                raise RuntimeError("startup transition control binding changed")
+            if time.monotonic_ns() >= self.record["expires_at_ns"]:
+                raise RuntimeError("startup transition expired")
+            if kind == "dispatch":
+                if self.phase != "prepared" or record.get("operation") != "cloud_to_local_startup":
+                    raise RuntimeError("startup transition dispatch is invalid")
+                predecessor = self.record["predecessor"]
+                try:
+                    state = _process_stat_identity(predecessor["pid"])
+                except Exception:
+                    raise ProcessIdentityFailure("detector", "predecessor_identity_unreadable_before_dispatch",
+                                                 predecessor, predecessor["pid"], self.phase,
+                                                 observed_state=None) from None
+                if state is None:
+                    raise ProcessIdentityFailure("detector", "predecessor_absent_before_dispatch",
+                                                 predecessor, predecessor["pid"], self.phase, observed_state=state)
+                if state[1] != predecessor["start_ticks"]:
+                    raise ProcessIdentityFailure("detector", "predecessor_identity_changed_before_dispatch",
+                                                 predecessor, predecessor["pid"], self.phase, observed_state=state)
+                if state[0] in {"Z", "X", "x"}:
+                    raise ProcessIdentityFailure("detector", "predecessor_terminal_before_dispatch",
+                                                 predecessor, predecessor["pid"], self.phase, observed_state=state)
+                self._validate_live_predecessor()
+                self.dispatch_seen = True
+                self.phase = "dispatched"
+            else:
+                if self.phase != "dispatched":
+                    raise RuntimeError("startup transition commit arrived before dispatch")
+                successor = self._identity(record["successor"], detector=True)
+                if not self.retired or not self.successor or successor != self.successor:
+                    raise RuntimeError("startup transition successor was not observed exactly")
+                self._validate_live_successor(successor)
+                self.phase = "committed"
+                self.successor = successor
+        ack = {
+            "schema_version": 1, "type": "ack", "sequence": kind,
+            "transition_id": record["transition_id"], "request_sha256": _control_digest(record),
+            "status": "accepted", "observed_at_ns": str(time.monotonic_ns()),
+            "predecessor": {"pid": record["predecessor"]["pid"],
+                            "start_ticks": record["predecessor"]["start_ticks"]},
+            "supervisor": {"pid": record["supervisor"]["pid"],
+                           "start_ticks": record["supervisor"]["start_ticks"]},
+            "successor": ({"pid": self.successor["pid"], "start_ticks": self.successor["start_ticks"]}
+                          if kind == "commit" else None),
+        }
+        sys.stdout.write(json.dumps(ack, sort_keys=True, separators=(",", ":")) + "\n")
+        sys.stdout.flush()
+        self.events.append({"type": kind, "transition_id": record["transition_id"],
+                            "observed_at_ns": ack["observed_at_ns"], "request_sha256": ack["request_sha256"],
+                            "predecessor": ack["predecessor"], "supervisor": ack["supervisor"],
+                            "successor": ack["successor"]})
+
+    def _validate_live_predecessor(self):
+        predecessor = self.record["predecessor"]
+        supervisor = self.record["supervisor"]
+        try:
+            self._require_observed(self.last_rows, "detector", predecessor)
+        except Exception:
+            raise ProcessIdentityFailure("detector", "predecessor_identity_changed_before_dispatch",
+                                         predecessor, predecessor["pid"], self.phase,
+                                         detail="predecessor identity was not observed") from None
+        try:
+            self._require_observed(self.last_rows, "supervisor_bridge", supervisor)
+        except Exception:
+            raise ProcessIdentityFailure("supervisor_bridge", "supervisor_identity_changed_during_transition",
+                                         supervisor, supervisor["pid"], self.phase,
+                                         detail="supervisor identity was not observed") from None
+        try:
+            self._require_live(predecessor)
+        except Exception:
+            raise ProcessIdentityFailure("detector", "predecessor_identity_changed_before_dispatch",
+                                         predecessor, predecessor["pid"], self.phase,
+                                         detail="predecessor live identity changed") from None
+        try:
+            self._require_live(supervisor)
+        except Exception:
+            raise ProcessIdentityFailure("supervisor_bridge", "supervisor_identity_changed_during_transition",
+                                         supervisor, supervisor["pid"], self.phase,
+                                         detail="supervisor live identity changed") from None
+
+    def _validate_live_successor(self, successor):
+        supervisor = self.record["supervisor"]
+        self._require_observed(self.last_rows, "detector", successor)
+        self._require_observed(self.last_rows, "supervisor_bridge", supervisor)
+        self._require_live(successor)
+        self._require_live(supervisor)
+        if successor["pid"] == self.record["predecessor"]["pid"]:
+            raise RuntimeError("startup transition reused the predecessor PID")
+        predecessor_live = _process_stat_identity(self.record["predecessor"]["pid"])
+        if predecessor_live is not None:
+            raise RuntimeError("startup transition predecessor was not fully reaped")
+
+    @staticmethod
+    def _require_observed(rows, role, identity):
+        if not any(row.get("role") == role and row.get("pid") == identity["pid"]
+                   and row.get("start_ticks") == identity["start_ticks"]
+                   and row.get("command_sha256") == identity["command_sha256"]
+                   and ("parent_pid" not in identity or (row.get("ppid") == identity["parent_pid"]
+                        and row.get("parent_start_ticks") == identity["parent_start_ticks"]))
+                   for row in rows):
+            raise RuntimeError("startup transition identity was not present in a valid sampler row")
+
+    @staticmethod
+    def _require_live(identity):
+        live = _process_stat_identity(identity["pid"])
+        if live is None or live[1] != identity["start_ticks"] or live[0] in {"Z", "X", "x"}:
+            raise RuntimeError("startup transition identity is no longer live")
+        root = Path("/proc") / str(identity["pid"])
+        try:
+            command = root.joinpath("cmdline").read_bytes().replace(b"\0", b" ").strip()
+            status = root.joinpath("status").read_text()
+        except OSError:
+            raise RuntimeError("startup transition live identity became unreadable") from None
+        if hashlib.sha256(command).hexdigest() != identity["command_sha256"]:
+            raise RuntimeError("startup transition live command changed")
+        if "parent_pid" in identity:
+            match = re.search(r"^PPid:\s+(\d+)", status, re.M)
+            if not match or int(match.group(1)) != identity["parent_pid"]:
+                raise RuntimeError("startup transition live parent changed")
+            parent = _process_stat_identity(identity["parent_pid"])
+            if parent is None or parent[1] != identity["parent_start_ticks"]:
+                raise RuntimeError("startup transition live parent identity changed")
+
+    def allow_predecessor_retirement(self, role, pid, identity, detail):
+        if (self.phase != "dispatched" or role != "detector" or not self.record
+                or pid != self.record["predecessor"]["pid"]):
+            return False
+        expected = self.record["predecessor"]
+        if identity is not None and identity[1] != expected["start_ticks"]:
+            return False
+        # A same-identity terminal state is safe evidence; unreadable or changed identity is not.
+        if identity is not None and identity[0] not in {"Z", "X", "x"}:
+            return False
+        if self.retired:
+            return True
+        self.retired = True
+        self.events.append({"type": "predecessor_retired", "transition_id": self.record["transition_id"],
+                            "role": "detector", "reason": "authorized_startup_transition",
+                            "pid": expected["pid"], "start_ticks": expected["start_ticks"],
+                            "command_sha256": expected["command_sha256"],
+                            "parent_pid": expected["parent_pid"],
+                            "parent_start_ticks": expected["parent_start_ticks"],
+                            "state": identity[0] if identity else "absent", "observed_at_ns": str(time.monotonic_ns())})
+        return True
+
+    def observe(self, rows):
+        self.last_rows = rows
+        if self.phase == "idle":
+            return []
+        record = self.record
+        if time.monotonic_ns() >= record["expires_at_ns"] and self.phase != "committed":
+            raise RuntimeError("startup transition expired before commit")
+        supervisors = [row for row in rows if row.get("role") == "supervisor_bridge"]
+        if len(supervisors) != 1 or not self._row_matches(supervisors[0], record["supervisor"]):
+            observed = supervisors[0] if len(supervisors) == 1 else None
+            state = (None, observed.get("start_ticks")) if observed and type(observed.get("start_ticks")) is int else None
+            raise ProcessIdentityFailure("supervisor_bridge", "supervisor_identity_changed_during_transition",
+                                         record["supervisor"], record["supervisor"]["pid"], self.phase,
+                                         detail="startup transition supervisor identity changed", observed_state=state)
+        detector_rows = [row for row in rows if row.get("role") == "detector"]
+        predecessor = record["predecessor"]
+        predecessor_rows = [row for row in detector_rows if row.get("pid") == predecessor["pid"]]
+        if predecessor_rows:
+            row = predecessor_rows[0]
+            if not self._row_matches(row, predecessor):
+                reason = ("predecessor_identity_changed_before_dispatch" if self.phase == "prepared"
+                          else "predecessor_identity_changed_during_transition")
+                state = (None, row.get("start_ticks")) if type(row.get("start_ticks")) is int else None
+                raise ProcessIdentityFailure("detector", reason, predecessor, predecessor["pid"], self.phase,
+                                             detail="startup transition predecessor identity changed",
+                                             observed_state=state)
+            if self.phase == "committed":
+                raise RuntimeError("startup transition predecessor returned after commit")
+        elif self.phase == "dispatched":
+            if not self.retired:
+                # Absence is confirmed only when /proc no longer contains the exact PID.
+                state = _process_stat_identity(predecessor["pid"])
+                if state is None:
+                    self.allow_predecessor_retirement("detector", predecessor["pid"], None, "absent")
+                elif state[1] == predecessor["start_ticks"] and state[0] in {"Z", "X", "x"}:
+                    self.allow_predecessor_retirement("detector", predecessor["pid"], state, "terminal")
+                else:
+                    raise RuntimeError("startup transition predecessor remains live or PID was reused")
+        elif self.phase == "prepared":
+            try:
+                state = _process_stat_identity(predecessor["pid"])
+            except Exception:
+                raise ProcessIdentityFailure("detector", "predecessor_identity_unreadable_before_dispatch",
+                                             predecessor, predecessor["pid"], self.phase,
+                                             observed_state=None) from None
+            reason = ("predecessor_absent_before_dispatch" if state is None else
+                      "predecessor_identity_changed_before_dispatch" if state[1] != predecessor["start_ticks"] else
+                      "predecessor_terminal_before_dispatch" if state[0] in {"Z", "X", "x"} else
+                      "predecessor_identity_changed_before_dispatch")
+            raise ProcessIdentityFailure("detector", reason, predecessor, predecessor["pid"], self.phase,
+                                         observed_state=state)
+        candidates = [row for row in detector_rows if row.get("pid") != predecessor["pid"]]
+        if self.phase in {"prepared", "idle"} and candidates:
+            raise RuntimeError("detector successor appeared before settings dispatch")
+        if self.phase in {"dispatched", "committed"} and candidates:
+            if len(candidates) != 1 or not self.retired:
+                raise RuntimeError("startup transition observed an unexpected detector successor")
+            row = candidates[0]
+            if row.get("parent_start_ticks") != record["supervisor"]["start_ticks"]:
+                raise RuntimeError("startup transition successor has a foreign parent")
+            if (row.get("ppid") != record["supervisor"]["pid"]
+                    or row.get("command_sha256") != predecessor["command_sha256"]):
+                raise RuntimeError("startup transition successor executable or supervisor PID changed")
+            candidate = {"pid": row["pid"], "start_ticks": row["start_ticks"],
+                         "command_sha256": row["command_sha256"], "parent_pid": row["ppid"],
+                         "parent_start_ticks": row["parent_start_ticks"]}
+            if self.successor and candidate != self.successor:
+                raise RuntimeError("startup transition observed more than one successor identity")
+            self.successor = candidate
+        elif self.phase == "dispatched" and self.successor:
+            raise RuntimeError("startup transition successor disappeared before commit")
+        elif self.phase == "committed":
+            raise RuntimeError("committed detector successor disappeared")
+        events, self.events = self.events, []
+        return events
+
+    @staticmethod
+    def _row_matches(row, identity):
+        return (row.get("pid") == identity["pid"] and row.get("start_ticks") == identity["start_ticks"]
+                and row.get("command_sha256") == identity["command_sha256"]
+                and ("parent_pid" not in identity or (row.get("ppid") == identity["parent_pid"]
+                     and row.get("parent_start_ticks") == identity["parent_start_ticks"])))
+
+
+def _unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate key")
+        result[key] = value
+    return result
+
+
+def re_full_sha(value):
+    return isinstance(value, str) and len(value) == 64 and all(char in "0123456789abcdef" for char in value)
+
+
+def re_full_hex(value, length):
+    return isinstance(value, str) and len(value) == length and all(char in "0123456789abcdef" for char in value)
+
+
+def re_full_session(value):
+    return isinstance(value, str) and 1 <= len(value) <= 96 and all(char.isalnum() or char in "-_" for char in value)
 
 
 def _terminal_diagnostic_payload(status: str, samples_written: int, error: Exception | None = None) -> dict:
@@ -263,13 +751,17 @@ def _terminal_diagnostic_payload(status: str, samples_written: int, error: Excep
         frames = [_safe_terminal_frame(frame) for frame in traceback.extract_tb(error.__traceback__)[-12:]]
     elif status == "error":
         raise ValueError("error terminal state requires an exception")
-    return {
+    payload = {
         "schema_version": 1,
         "status": status,
         "samples_written": samples_written,
         "exception_type": exception_type,
         "frames": frames,
     }
+    process_failure = getattr(error, "process_failure", None) if error is not None else None
+    if process_failure is not None:
+        payload["process_failure"] = _validate_process_failure(process_failure)
+    return payload
 
 
 def _safe_terminal_frame(frame: traceback.FrameSummary) -> dict[str, object]:
@@ -289,7 +781,8 @@ def _write_terminal_diagnostic(path: Path, payload: dict) -> None:
         stream.write("\n")
 
 
-def sample(output: Path, interval_ms: int, progress: dict | None = None) -> None:
+def sample(output: Path, interval_ms: int, progress: dict | None = None,
+           source_revision: str | None = None, protocol_sha256: str | None = None) -> None:
     stop = False
 
     def stop_sampling(_signum, _frame):
@@ -301,13 +794,17 @@ def sample(output: Path, interval_ms: int, progress: dict | None = None) -> None
     interval = interval_ms / 1000
     next_sample = time.monotonic()
     samples_written = 0
+    transition = StartupTransition(source_revision, protocol_sha256)
     with output.open("x", encoding="utf-8", buffering=1) as stream:
         while not stop:
             now = time.monotonic()
-            roles, identity_races = _processes()
+            transition._read_controls()
+            roles, identity_races = _processes(transition)
+            transition_events = transition.observe(roles)
             stream.write(json.dumps({
                 "sample_monotonic_ns": time.monotonic_ns(),
                 "roles": roles,
+                "startup_transition_events": transition_events,
                 "process_identity_races": identity_races,
                 "cgroup": _cgroup_sample(),
             }, separators=(",", ":")) + "\n")
@@ -323,12 +820,16 @@ def main() -> int:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--interval-ms", type=int, default=100)
     parser.add_argument("--terminal-diagnostic", required=True, type=Path)
+    parser.add_argument("--source-revision", required=True)
+    parser.add_argument("--protocol-sha256", required=True)
     args = parser.parse_args()
     if args.interval_ms != 100:
         parser.error("The installed-browser protocol fixes sampling at 100 ms.")
+    if not re_full_hex(args.source_revision, 40) or not re_full_sha(args.protocol_sha256):
+        parser.error("source and protocol bindings must be lower-case SHA-256/Git hex.")
     progress = {"samples_written": 0}
     try:
-        sample(args.output, args.interval_ms, progress)
+        sample(args.output, args.interval_ms, progress, args.source_revision, args.protocol_sha256)
     except FileExistsError:
         print("Refusing to overwrite resource samples.", file=sys.stderr)
         return 2

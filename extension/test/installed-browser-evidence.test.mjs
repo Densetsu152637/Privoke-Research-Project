@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 import vm from "node:vm";
 import {
@@ -33,8 +34,264 @@ import {
   createResourceWindowFinalizer,
   runAfterResourceWindow,
   finalizeResourceWindowBeforeCleanup,
+  assertStartupLifecycleKnown,
   summarizeResourceCpuWindows,
+  createSamplerStartupTransitionClient,
+  startupControlDigest,
+  validateStartupTransitionWindow,
+  runBoundedStartupTransition,
 } from "./installed-browser-evidence.mjs";
+
+test("runner startup transition waits for PREPARE and dispatch acknowledgements before settings", async () => {
+  const order = [];
+  const supervisor = { pid: 20, startTicks: 200, commandSha256: "a".repeat(64) };
+  const detector = (pid, ticks) => ({ pid, startTicks: ticks, commandSha256: "b".repeat(64),
+    parentPid: supervisor.pid, parentStartTicks: supervisor.startTicks });
+  const statuses = [{ processId: "21" }, { processId: "22" }];
+  const result = await runBoundedStartupTransition({
+    sessionId: "01-fetch-allow-r1", sourceRevision: "c".repeat(40), protocolSha256: "d".repeat(64),
+    getSettings: async () => ({ ok: true, settings: { enabled: true, useLocalStack: false } }),
+    waitReady: async () => { order.push("status"); return statuses.shift(); },
+    captureRuntime: async (status) => ({ status,
+      detector: detector(Number(status.processId), Number(status.processId) * 10), supervisor, listeners: { 50057: [Number(status.processId)] } }),
+    waitSampled: async (ids) => { order.push(`sample:${ids.at(-1).pid}`); return new Map(); },
+    waitPredecessorReaped: async () => { order.push("reaped"); },
+    exchange: async (record) => {
+      assert.equal(record.type, ["prepare", "dispatch", "commit"][order.filter((item) => item.startsWith("ack:")).length]);
+      order.push(`ack:${record.type}`);
+      return { schema_version: 1, type: "ack", sequence: record.type, status: "accepted",
+        transition_id: record.transition_id,
+        observed_at_ns: "123456", predecessor: { pid: record.predecessor.pid, start_ticks: record.predecessor.start_ticks },
+        supervisor: { pid: record.supervisor.pid, start_ticks: record.supervisor.start_ticks },
+        successor: record.type === "commit" ? { pid: record.successor.pid, start_ticks: record.successor.start_ticks } : null,
+        request_sha256: startupControlDigest(record) };
+    },
+    updateSettings: async () => {
+      assert.deepEqual(order.slice(-2), ["ack:prepare", "ack:dispatch"]);
+      order.push("settings");
+      return { ok: true, settings: { enabled: true, useLocalStack: true,
+        layers: { regex: true, ner: true, llm: false }, waitForRegex: true } };
+    },
+    nowNs: (() => { let value = 1000n; return () => (value += 100n).toString(); })(),
+  });
+  assert.deepEqual(order, ["status", "sample:21", "ack:prepare", "ack:dispatch", "settings",
+    "status", "reaped", "sample:22", "ack:commit"]);
+  assert.equal(result.current.detector.pid, 22);
+  assert.equal(result.successor.start_ticks, 220);
+  assert.ok(result.totalElapsedMs >= 0);
+});
+
+test("sampler transition pipe validates bounded acknowledged records", async () => {
+  const child = { stdin: new PassThrough(), stdout: new PassThrough(), once() {} };
+  child.stdin.on("data", (bytes) => {
+    const request = JSON.parse(bytes.toString("utf8"));
+    child.stdout.write(`${JSON.stringify({ schema_version: 1, type: "ack", sequence: request.type,
+      transition_id: request.transition_id, request_sha256: startupControlDigest(request),
+      status: "accepted", observed_at_ns: "123", predecessor: { pid: 20, start_ticks: 200 },
+      supervisor: { pid: 10, start_ticks: 100 }, successor: null })}\n`);
+  });
+  const client = createSamplerStartupTransitionClient(child);
+  const request = { schema_version: 1, type: "prepare", transition_id: "f".repeat(32),
+    expires_at_ns: 1000,
+    predecessor: { pid: 20, start_ticks: 200 }, supervisor: { pid: 10, start_ticks: 100 } };
+  const ack = await client.exchange(request);
+  assert.equal(ack.status, "accepted");
+  client.close();
+
+  const mismatched = { stdin: new PassThrough(), stdout: new PassThrough(), once() {} };
+  mismatched.stdin.on("data", () => mismatched.stdout.write(`${JSON.stringify({ schema_version: 1,
+    type: "ack", sequence: "prepare", transition_id: request.transition_id,
+    request_sha256: "0".repeat(64), status: "accepted", observed_at_ns: "123",
+    predecessor: { pid: 20, start_ticks: 200 }, supervisor: { pid: 10, start_ticks: 100 },
+    successor: null })}\n`));
+  const mismatchedClient = createSamplerStartupTransitionClient(mismatched);
+  await assert.rejects(mismatchedClient.exchange(request), /acknowledgement is invalid/);
+  mismatchedClient.close();
+
+  const oversized = { stdin: new PassThrough(), stdout: new PassThrough(), once() {} };
+  oversized.stdin.on("data", () => oversized.stdout.write(`${"x".repeat(4097)}\n`));
+  const rejectingClient = createSamplerStartupTransitionClient(oversized);
+  await assert.rejects(rejectingClient.exchange(request), /exceeded its byte bound/);
+  rejectingClient.close();
+});
+
+test("startup settings are never dispatched if preparation acknowledgement fails", async () => {
+  let dispatched = false;
+  const supervisor = { pid: 20, startTicks: 200, commandSha256: "a".repeat(64) };
+  await assert.rejects(runBoundedStartupTransition({
+    sessionId: "01-fetch-allow-r1", sourceRevision: "c".repeat(40), protocolSha256: "d".repeat(64),
+    getSettings: async () => ({ ok: true, settings: { enabled: true, useLocalStack: false } }),
+    waitReady: async () => ({ processId: "21" }),
+    captureRuntime: async () => ({ detector: { pid: 21, startTicks: 210, commandSha256: "b".repeat(64),
+      parentPid: 20, parentStartTicks: 200 }, supervisor, listeners: {} }),
+    waitSampled: async () => new Map(), waitPredecessorReaped: async () => {},
+    exchange: async () => { throw new Error("unacknowledged"); },
+    updateSettings: async () => { dispatched = true; },
+  }), /unacknowledged/);
+  assert.equal(dispatched, false);
+});
+
+test("one absolute startup deadline bounds settings, status, dispatch and commit awaits", async () => {
+  async function startCase(targetPhase, { trackSamplerExit = false, autoFire = true } = {}) {
+    const timers = [];
+    const order = [];
+    const supervisor = { pid: 20, startTicks: 200, commandSha256: "a".repeat(64) };
+    const statuses = [{ processId: "21" }, { processId: "22" }];
+    let finalStatusCalls = 0;
+    let resolveLateSettings;
+    let resolveSamplerExit;
+    let fakeNow = 1_000n;
+    const pendingSettings = new Promise((resolvePromise) => { resolveLateSettings = resolvePromise; });
+    const samplerClosed = trackSamplerExit ? new Promise((resolvePromise) => { resolveSamplerExit = resolvePromise; }) : undefined;
+    const start = runBoundedStartupTransition({
+      sessionId: "01-fetch-allow-r1", sourceRevision: "c".repeat(40), protocolSha256: "d".repeat(64),
+      nowNs: () => (fakeNow += 100n).toString(),
+      scheduleTimeout: (callback, delayMs, phase) => {
+        const timer = { phase, cancelled: false, fire() {
+          fakeNow += BigInt(delayMs) * 1_000_000n;
+          callback();
+        } };
+        timers.push(timer);
+        return timer;
+      },
+      cancelTimeout: (timer) => { timer.cancelled = true; },
+      getSettings: async () => {
+        if (targetPhase === "initial settings read") return new Promise(() => {});
+        return { ok: true, settings: { enabled: true, useLocalStack: false } };
+      },
+      waitReady: async () => {
+        if (statuses.length === 2 && targetPhase === "initial runtime status") return new Promise(() => {});
+        finalStatusCalls += 1;
+        return statuses.shift();
+      },
+      captureRuntime: async (status) => ({ status,
+        detector: { pid: Number(status.processId), startTicks: Number(status.processId) * 10,
+          commandSha256: "b".repeat(64), parentPid: supervisor.pid, parentStartTicks: supervisor.startTicks },
+        supervisor, listeners: { 50057: [Number(status.processId)] } }),
+      waitSampled: async () => new Map(),
+      waitPredecessorReaped: async () => {},
+      exchange: async (record) => {
+        order.push(record.type);
+        if (targetPhase === `${record.type.toUpperCase()} acknowledgement`) return new Promise(() => {});
+        return { schema_version: 1, type: "ack", sequence: record.type, status: "accepted",
+          transition_id: record.transition_id, observed_at_ns: "123456",
+          request_sha256: startupControlDigest(record),
+          predecessor: { pid: record.predecessor.pid, start_ticks: record.predecessor.start_ticks },
+          supervisor: { pid: record.supervisor.pid, start_ticks: record.supervisor.start_ticks },
+          successor: record.type === "commit" ? { pid: record.successor.pid, start_ticks: record.successor.start_ticks } : null };
+      },
+      updateSettings: async () => {
+        order.push("settings");
+        return targetPhase === "settings update" ? pendingSettings : { ok: true,
+        settings: { enabled: true, useLocalStack: true,
+            layers: { regex: true, ner: true, llm: false }, waitForRegex: true } };
+      },
+      samplerClosed,
+    });
+    while (!timers.some((timer) => !timer.cancelled && timer.phase === targetPhase)) {
+      await new Promise((resolvePromise) => setImmediate(resolvePromise));
+    }
+    if (autoFire) timers.findLast((timer) => !timer.cancelled && timer.phase === targetPhase).fire();
+    return { start, order, getFinalStatusCalls: () => finalStatusCalls,
+      resolveLateSettings: () => resolveLateSettings({ ok: true,
+      settings: { enabled: true, useLocalStack: true,
+        layers: { regex: true, ner: true, llm: false }, waitForRegex: true } }),
+      resolveSamplerExit: () => resolveSamplerExit?.({ code: 1, signal: null }) };
+  }
+
+  for (const phase of ["initial settings read", "initial runtime status", "DISPATCH acknowledgement"]) {
+    const result = await startCase(phase);
+    await assert.rejects(result.start, (error) => error.name === "StartupTransitionDeadlineExceeded"
+      && error.startupLifecycleUnknown !== true);
+  }
+  const late = await startCase("settings update");
+  await assert.rejects(late.start, (error) => error.name === "StartupTransitionDeadlineExceeded"
+    && error.startupLifecycleUnknown === true && error.preventMonitoredTeardown === true);
+  late.resolveLateSettings();
+  await new Promise((resolvePromise) => setImmediate(resolvePromise));
+  assert.equal(late.getFinalStatusCalls(), 1, "late settings callback advanced to replacement status");
+
+  const samplerExit = await startCase("settings update", { trackSamplerExit: true, autoFire: false });
+  samplerExit.resolveSamplerExit();
+  await assert.rejects(samplerExit.start, (error) => error.name === "StartupTransitionSamplerExited"
+    && error.startupLifecycleUnknown === true && error.preventMonitoredTeardown === true);
+
+  const commit = await startCase("COMMIT acknowledgement");
+  await assert.rejects(commit.start, (error) => error.name === "StartupTransitionDeadlineExceeded"
+    && error.startupLifecycleUnknown === true && error.preventMonitoredTeardown === true);
+});
+
+test("extension message callbacks and readiness status awaits have finite bounds", async () => {
+  const runner = await readFile(new URL("../../evaluation/run-installed-browser-capture.mjs", import.meta.url), "utf8");
+  const from = runner.indexOf("async function runtimeStatus(page,");
+  const stop = runner.indexOf("async function processIdentity(pid)", from);
+  assert.ok(from >= 0 && stop > from, "bounded runtime status and extension-message helpers must remain extractable");
+  const helpers = `${runner.slice(from, stop)}\nglobalThis.__test = { sendExtensionMessage, waitRuntimeReady };`;
+  const context = vm.createContext({
+    assert,
+    chrome: { runtime: { lastError: null, sendMessage() {} } },
+    delay: (milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds)),
+    safeError: () => ({ type: "Timeout" }),
+    setTimeout,
+    clearTimeout,
+  });
+  vm.runInContext(helpers, context);
+  const helpersApi = context.__test;
+  const page = { evaluate: (callback, payload) => callback(payload) };
+  await assert.rejects(helpersApi.sendExtensionMessage(page, { type: "GET_SETTINGS" }, { timeoutMs: 5 }),
+    /extension response callback timed out/);
+  await assert.rejects(helpersApi.waitRuntimeReady(page, { timeoutMs: 5 }),
+    /Browser-launched detector did not become ready/);
+});
+
+test("final startup detector requires its own interval, not the predecessor's earlier interval", () => {
+  const predecessor = { pid: 12, start_ticks: 120, command_sha256: "a".repeat(64),
+    parent_pid: 11, parent_start_ticks: 110 };
+  const successor = { pid: 13, start_ticks: 130, command_sha256: "a".repeat(64),
+    parent_pid: 11, parent_start_ticks: 110 };
+  const supervisor = { pid: 11, start_ticks: 110, command_sha256: "b".repeat(64) };
+  const transition = { status: "committed", transitionId: "f".repeat(32), predecessor, successor, supervisor,
+    controlAcknowledgements: [
+      { sequence: "prepare", requestSha256: "a".repeat(64), observedAtNs: "100" },
+      { sequence: "dispatch", requestSha256: "b".repeat(64), observedAtNs: "200" },
+      { sequence: "commit", requestSha256: "c".repeat(64), observedAtNs: "300" },
+    ] };
+  const events = [
+    { type: "prepare", transition_id: transition.transitionId,
+      predecessor: { pid: predecessor.pid, start_ticks: predecessor.start_ticks },
+      supervisor: { pid: supervisor.pid, start_ticks: supervisor.start_ticks }, successor: null,
+      request_sha256: "a".repeat(64), observed_at_ns: "100" },
+    { type: "dispatch", transition_id: transition.transitionId,
+      predecessor: { pid: predecessor.pid, start_ticks: predecessor.start_ticks },
+      supervisor: { pid: supervisor.pid, start_ticks: supervisor.start_ticks }, successor: null,
+      request_sha256: "b".repeat(64), observed_at_ns: "200" },
+    { type: "predecessor_retired", transition_id: transition.transitionId,
+      role: "detector", reason: "authorized_startup_transition", pid: predecessor.pid,
+      start_ticks: predecessor.start_ticks, command_sha256: predecessor.command_sha256, parent_pid: supervisor.pid,
+      parent_start_ticks: supervisor.start_ticks, state: "absent" },
+    { type: "commit", transition_id: transition.transitionId,
+      predecessor: { pid: predecessor.pid, start_ticks: predecessor.start_ticks },
+      supervisor: { pid: supervisor.pid, start_ticks: supervisor.start_ticks },
+      successor: { pid: successor.pid, start_ticks: successor.start_ticks },
+      request_sha256: "c".repeat(64), observed_at_ns: "300" },
+  ];
+  const row = (role, pid, start_ticks, cpu_seconds) => ({ role, pid, start_ticks, cpu_seconds, rss_bytes: 10, pss_bytes: null });
+  const sample = (time, cpuUsec, roles, startupEvents = []) => ({ sample_monotonic_ns: time,
+    cgroup: { cpu_usage_usec: cpuUsec, memory_current_bytes: 100 },
+    roles: [row("xvfb", 10, 100, time / 1e9), row("chromium", 14, 140, time / 1e9),
+      row("supervisor_bridge", 11, 110, time / 1e9), ...roles], startup_transition_events: startupEvents });
+  const samples = [
+    sample(1_000_000_000, 100, [row("detector", 12, 120, 0.1)], [events[0]]),
+    sample(1_500_000_000, 150, [row("detector", 13, 130, 0.2)], events.slice(1, 3)),
+    sample(2_000_000_000, 200, [row("detector", 13, 130, 0.3)], [events[3]]),
+  ];
+  samples[2].roles.splice(3, 1);
+  assert.throws(() => validateStartupTransitionWindow(samples, transition), /final detector lacks its own/);
+  samples[2].roles.splice(3, 0, row("detector", 13, 130, 0.3));
+  const evidence = validateStartupTransitionWindow(samples, transition);
+  assert.equal(evidence.status, "verified");
+  assert.equal(evidence.finalDetectorCpuSampleCount, 2);
+});
 
 test("resource windows finalize and validate before matrix work, exactly once", async () => {
   const events = [];
@@ -55,11 +312,23 @@ test("resource finalization failures block matrix and still permit cleanup witho
   assert.deepEqual(events, ["finalize", "cleanup"]);
 });
 
+test("uncommitted startup lifecycle prevents monitored session cleanup", async () => {
+  const events = [];
+  const result = await finalizeResourceWindowBeforeCleanup(
+    async () => assertStartupLifecycleKnown(true),
+    async () => { events.push("cleanup"); },
+  );
+  assert.equal(result.cleanupSkipped, true);
+  assert.equal(result.finalizationError?.name, "StartupLifecycleQuiescenceUnknown");
+  assert.deepEqual(events, []);
+  assert.doesNotThrow(() => assertStartupLifecycleKnown(false));
+});
+
 test("unknown sampler quiescence blocks actual runner cleanup until an inert close arrives", async () => {
   const runner = await readFile(new URL("../../evaluation/run-installed-browser-capture.mjs", import.meta.url), "utf8");
   const from = runner.indexOf("async function finishSession() {");
   const stop = runner.indexOf("function stopSampler() {", from);
-  const runtime = runner.indexOf("async function runtimeStatus(page) {", stop);
+  const runtime = runner.indexOf("async function runtimeStatus(page,", stop);
   assert.ok(from >= 0 && stop > from && runtime > stop, "runner lifecycle functions must remain extractable");
   const lifecycleSource = `${runner.slice(from, stop)}\n${runner.slice(stop, runtime)}\nglobalThis.__test = { finishSession, stopSampler };`;
   const events = [];
@@ -126,7 +395,7 @@ test("late sampler close is reaped before monitored cleanup and preserves timeou
   const runner = await readFile(new URL("../../evaluation/run-installed-browser-capture.mjs", import.meta.url), "utf8");
   const from = runner.indexOf("async function finishSession() {");
   const stop = runner.indexOf("function stopSampler() {", from);
-  const runtime = runner.indexOf("async function runtimeStatus(page) {", stop);
+  const runtime = runner.indexOf("async function runtimeStatus(page,", stop);
   const lifecycleSource = `${runner.slice(from, stop)}\n${runner.slice(stop, runtime)}\nglobalThis.__test = { finishSession };`;
   const events = [];
   let closeResolve;
@@ -263,7 +532,9 @@ async function productionResourceSummary(inputWindows) {
   return summarize(windows.map((samples, index) => ({ file: `window-${index}.jsonl`,
     sha256: `synthetic-sha-${index}`, sessionId: `synthetic-session-${index}`,
     requestedStartMonotonicNs: "0", requestedEndMonotonicNs: "600000000",
-    phaseRequestCounts: { firstDecision: 1, warmup: 5, measured: 30 } })));
+    phaseRequestCounts: { firstDecision: 1, warmup: 5, measured: 30 },
+    startupTransition: { status: "committed", samplerEvidence: { status: "verified",
+      finalDetectorCpuSampleCount: 2 } } })));
 }
 
 function resourceSample(timestamp, cgroupCpu, coreCpu, { detectorSecond = true, nativeSingleton = true, chromiumChild = true } = {}) {
@@ -525,7 +796,9 @@ test("required resource evidence rejects partial RSS, CPU, and start-tick sample
     maximumObservedSampleGapNs: 100_000_000,
     windows: [{ sampleCount: 2, observedSampleSpanNs: 100_000_000,
       maximumObservedSampleGapNs: 100_000_000,
-      roleCpuIntervals: { xvfb: 1, chromium: 1, supervisor_bridge: 1, detector: 1 } }],
+      roleCpuIntervals: { xvfb: 1, chromium: 1, supervisor_bridge: 1, detector: 1 },
+      startupTransition: { status: "committed", samplerEvidence: { status: "verified",
+        finalDetectorCpuSampleCount: 2 } } }],
     processes: ["xvfb", "chromium", "supervisor_bridge", "detector"].map((role) => ({
       role, startTicks: 100, sampledPeakRssBytes: 4096, sampledPeakPssBytes: null, cpuDeltaSeconds: 0.1,
       cpuSampleCount: 2, cpuIntervalCount: 1, cpuSampledSpanNs: 100_000_000,
@@ -596,6 +869,17 @@ test("sampler terminal diagnostics accept bounded frames and reject messages or 
   assert.throws(() => validateSamplerTerminalDiagnostic({ ...failed, message: "synthetic prompt secret" }), /schema/);
   assert.throws(() => validateSamplerTerminalDiagnostic({ ...failed,
     frames: [{ ...failed.frames[0], file: "/private/path.py" }] }), /frame/);
+  const processFailure = { schema_version: 1, role: "detector", reason: "predecessor_absent_before_dispatch",
+    requested_identity: { pid: 321, state: null, start_ticks: 300, command_sha256: "a".repeat(64),
+      parent_pid: 123, parent_start_ticks: 200 },
+    observed_identity: { pid: 321, state: null, start_ticks: null, command_sha256: null,
+      parent_pid: null, parent_start_ticks: null }, transition_state: "prepared", observed_at_ns: "123456" };
+  const typedFailure = { ...failed, process_failure: processFailure };
+  assert.equal(validateSamplerTerminalDiagnostic(typedFailure), typedFailure);
+  assert.throws(() => validateSamplerTerminalDiagnostic({ ...typedFailure,
+    process_failure: { ...processFailure, raw_command: "synthetic private command" } }), /process failure/);
+  assert.throws(() => validateSamplerTerminalDiagnostic({ ...typedFailure,
+    process_failure: { ...processFailure, reason: "private arbitrary message" } }), /process failure/);
 });
 
 test("resource validation failure preserves partial aggregates, counters, and construction fallback", () => {

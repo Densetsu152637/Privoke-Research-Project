@@ -43,6 +43,10 @@ import {
   validatePageAnalysis,
   summarizeSupervisorStartupLog,
   buildStartupIdentityDiagnostic,
+  createSamplerStartupTransitionClient,
+  runBoundedStartupTransition,
+  validateStartupTransitionWindow,
+  assertStartupLifecycleKnown,
   readSamplerTerminalSidecar,
   createResourceWindowFinalizer,
   runAfterResourceWindow,
@@ -58,7 +62,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const EXTENSION_ID = "hmlhjfklebbbhpjdjodegbjnbamlkonp";
 const NATIVE_HOST_NAME = "org.privoke.runtime_launcher";
 const PORTS = [8080, 50056, 50057];
-const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v2";
+const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v4";
 const RATE_REPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_REPS, 30);
 const WARMUPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_WARMUPS, 5);
 const COLD_SESSIONS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_SESSIONS, 12);
@@ -118,8 +122,10 @@ let samplerTerminalPath;
 let samplerClosed;
 let samplerSpawnError;
 let samplerStopPromise;
+let samplerStartupTransitionClient;
 let samplerCloseState = "not_started";
 let samplerClosureUnknown = false;
+let startupLifecycleUnknown = false;
 let startedProcesses = new Map();
 let receipt;
 let sampleEndFailure;
@@ -233,14 +239,16 @@ try {
   const cleanupFailures = [];
   let certificateDirectoryRemoved = !certificateDirectory;
   try { await finishSession(); } catch (error) { cleanupFailures.push(safeError(error)); }
-  if (samplerClosureUnknown) {
-    cleanupFailures.push({ type: "sampler_quiescence_unconfirmed", phase: "provider_fixture_cleanup_skipped" });
+  if (samplerClosureUnknown || startupLifecycleUnknown) {
+    cleanupFailures.push({ type: samplerClosureUnknown ? "sampler_quiescence_unconfirmed" : "startup_lifecycle_quiescence_unknown",
+      phase: "provider_fixture_cleanup_skipped" });
   } else {
     try { await stopProviderFixture(); } catch (error) { cleanupFailures.push(safeError(error)); }
   }
   if (certificateDirectory) {
-    if (samplerClosureUnknown) {
-      cleanupFailures.push({ type: "sampler_quiescence_unconfirmed", phase: "certificate_cleanup_skipped" });
+    if (samplerClosureUnknown || startupLifecycleUnknown) {
+      cleanupFailures.push({ type: samplerClosureUnknown ? "sampler_quiescence_unconfirmed" : "startup_lifecycle_quiescence_unknown",
+        phase: "certificate_cleanup_skipped" });
     } else {
       try {
         await rm(certificateDirectory, { recursive: true, force: false });
@@ -263,6 +271,8 @@ try {
     receipt.resourceSampleFiles = resourceFiles;
     receipt.samplerTerminalDiagnostics = samplerTerminalDiagnostics;
     receipt.samplerClosure = { state: samplerCloseState, quiescenceUnknown: samplerClosureUnknown };
+    receipt.startupLifecycle = { state: startupLifecycleUnknown ? "unknown" : "verified_or_not_started",
+      monitoredCleanupBlocked: startupLifecycleUnknown };
     try {
       receipt.resourceSampling = await resourceSummary(resourceFiles);
       assert.equal(resourceFiles.length, COLD_SESSIONS, "one resource sample file is required per cold session");
@@ -521,6 +531,7 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   await mkdir(profilePath, { recursive: false });
   const activeNativeRegistration = await registerNativeHostForProfile(profilePath);
   samplerPath = join(OUTPUT, `resources-${sessionId}.jsonl`);
+  const protocolSha256 = await hashFile(join(ROOT, "paper/research/installed-browser-protocol.md"));
   const resourceFile = { file: relative(OUTPUT, samplerPath), sha256: null,
     sessionId, requestedStartMonotonicNs: process.hrtime.bigint().toString(),
     requestedEndMonotonicNs: null, phaseRequestCounts: { firstDecision: 0, warmup: 0, measured: 0 },
@@ -529,21 +540,27 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   currentResourceWindow = resourceFile;
   samplerCloseState = "running";
   samplerClosureUnknown = false;
+  startupLifecycleUnknown = false;
   samplerSpawnError = null;
   samplerStopPromise = null;
-  sampler = spawnSampler(samplerPath);
+  sampler = spawnSampler(samplerPath, { sourceRevision: SOURCE_REVISION, protocolSha256 });
   finalizeCurrentResourceWindow = createResourceWindowFinalizer(async () => {
     if (!currentResourceWindow) return;
+    const windowSamplePath = samplerPath;
     currentResourceWindow.requestedEndMonotonicNs = process.hrtime.bigint().toString();
     let identityError;
     try { currentResourceWindow.sampledBrowserIdentities = await sampledBrowserIdentities(samplerPath); }
     catch (error) { identityError = error; }
     await stopSampler();
+    assertStartupLifecycleKnown(startupLifecycleUnknown);
     if (identityError) throw identityError;
     if (sampleEndFailure) throw new Error("resource capture window did not finalize cleanly");
     const expected = { firstDecision: 1, warmup: WARMUPS, measured: RATE_REPS };
     assert.deepEqual(currentResourceWindow.phaseRequestCounts, expected,
       "resource window did not contain the requested startup, first decision, warmups, and measured requests");
+    const finalRows = parseJsonl(await readFile(windowSamplePath, "utf8"));
+    currentResourceWindow.startupTransition.samplerEvidence =
+      validateStartupTransitionWindow(finalRows, currentResourceWindow.startupTransition);
     currentResourceWindow.finalized = true;
   });
 
@@ -580,34 +597,77 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   await cdp.attach(protobuf);
   popup = await browserContext.newPage();
   await popup.goto(`chrome-extension://${EXTENSION_ID}/popup.html`);
-  const configStart = performance.now();
-  const configured = await sendExtensionMessage(popup, {
-    type: "UPDATE_SETTINGS",
-    patch: { useLocalStack: true, enabled: true, layers: { regex: true, ner: true, llm: false }, waitForRegex: true },
-  });
-  assert.equal(configured.ok, true, `local browser settings failed: ${configured.error || "unknown"}`);
-  assert.deepEqual(configured.settings.layers, { regex: true, ner: true, llm: false });
-  assert.equal(configured.settings.useLocalStack, true);
-  assert.equal(configured.settings.enabled, true);
-  times.settingsUpdateElapsedMs = performance.now() - configStart;
-
-  const readinessProbeStart = performance.now();
-  const status = await waitRuntimeReady(popup);
-  const runtimeReadyMonotonic = performance.now();
+  const transitionStart = performance.now();
+  let transition;
+  try { transition = await runBoundedStartupTransition({
+    sessionId,
+    sourceRevision: SOURCE_REVISION,
+    protocolSha256,
+    exchange: (record) => samplerStartupTransitionClient.exchange(record),
+    getSettings: (timeoutMs) => sendExtensionMessage(popup, { type: "GET_SETTINGS" }, { timeoutMs }),
+    waitReady: (timeoutMs) => waitRuntimeReady(popup, { timeoutMs }),
+    captureRuntime: async (status) => {
+      const detectorPid = Number(status.processId);
+      assert.ok(detectorPid > 1, "supervisor status must expose the detector child PID");
+      const detectorIdentity = await processIdentity(detectorPid);
+      assert.ok(detectorIdentity.command.includes("extension/client-runtime/src/grpc_main.py"),
+        "runtime status PID is not the expected detector executable");
+      const supervisorIdentity = await processIdentity(detectorIdentity.parentPid);
+      assert.ok(supervisorIdentity.command.includes("extension/runtime-supervisor/src/main.py"),
+        "detector parent is not the expected supervisor entry point");
+      const listenerOwnership = await assertOwnedListeners(supervisorIdentity.pid, detectorIdentity.pid);
+      return {
+        status,
+        detector: { ...detectorIdentity, parentStartTicks: supervisorIdentity.startTicks },
+        supervisor: supervisorIdentity,
+        listeners: listenerOwnership,
+      };
+    },
+    waitSampled: (identities) => sampledProcessTimes(samplerPath, identities),
+    waitPredecessorReaped: (identity) => waitStartupPredecessorReaped(identity, 5_000),
+    updateSettings: (timeoutMs) => sendExtensionMessage(popup, {
+      type: "UPDATE_SETTINGS",
+      patch: { useLocalStack: true, enabled: true, layers: { regex: true, ner: true, llm: false }, waitForRegex: true },
+    }, { timeoutMs }),
+    samplerClosed,
+  }); } catch (error) {
+    if (error?.startupLifecycleUnknown === true) startupLifecycleUnknown = true;
+    throw error;
+  }
+  times.startupTransitionElapsedMs = transition.totalElapsedMs;
+  times.settingsUpdateElapsedMs = transition.settingsUpdateElapsedMs;
+  times.runtimeStatusProbeElapsedBeforeTransitionMs = transition.priorStatusElapsedMs;
+  times.runtimeStatusProbeElapsedAfterTransitionMs = transition.finalStatusElapsedMs;
+  times.startupTransitionControlElapsedMs = transition.prepareAckElapsedMs
+    + transition.dispatchAckElapsedMs + transition.commitAckElapsedMs;
+  const status = transition.status;
+  const detectorIdentity = transition.current.detector;
+  const supervisorIdentity = transition.current.supervisor;
+  const detectorPid = detectorIdentity.pid;
+  const supervisorPid = supervisorIdentity.pid;
+  const listenerOwnership = transition.listeners;
   const readyWall = Date.now();
-  const statusProbeElapsedMs = performance.now() - readinessProbeStart;
-  const detectorPid = Number(status.processId);
-  assert.ok(detectorPid > 1, "supervisor status must expose the detector child PID");
-  const detectorIdentity = await processIdentity(detectorPid);
-  assert.equal(detectorIdentity.command.includes("extension/client-runtime/src/grpc_main.py"), true,
-    "runtime status PID is not the expected detector executable");
-  const supervisorPid = detectorIdentity.parentPid;
-  const supervisorIdentity = await processIdentity(supervisorPid);
-  assert.equal(supervisorIdentity.command.includes("extension/runtime-supervisor/src/main.py"), true,
-    "detector parent is not the expected supervisor entry point");
   startedProcesses = new Map([[supervisorPid, supervisorIdentity], [detectorPid, detectorIdentity]]);
-  const listenerOwnership = await assertOwnedListeners(supervisorPid, detectorPid);
-  times.ownedListenerVerificationElapsedAfterStatusMs = performance.now() - runtimeReadyMonotonic;
+  const startupTransition = {
+    status: "committed",
+    transitionId: transition.transitionId,
+    sourceRevision: SOURCE_REVISION,
+    protocolSha256,
+    predecessor: transition.predecessor,
+    successor: transition.successor,
+    supervisor: transition.supervisor,
+    dispatchStartedAtNs: transition.dispatchStartedAtNs,
+    controlAcknowledgements: [transition.prepareAck, transition.dispatchAck, transition.commitAck].map((ack) => ({
+      sequence: ack.sequence, requestSha256: ack.request_sha256, observedAtNs: ack.observed_at_ns,
+    })),
+  };
+  currentResourceWindow.startupTransition = startupTransition;
+  times.initialSettingsReadElapsedMs = transition.settingsReadElapsedMs;
+  times.predecessorListenerAndIdentityElapsedMs = transition.predecessorCaptureElapsedMs;
+  times.predecessorSamplingWaitElapsedMs = transition.predecessorSamplingWaitElapsedMs;
+  times.predecessorReapElapsedMs = transition.predecessorReapElapsedMs;
+  times.successorSamplingWaitElapsedMs = transition.successorSamplingWaitElapsedMs;
+  times.successorListenerAndIdentityElapsedMs = transition.finalIdentityAndListenersElapsedMs;
   const nativeEvidence = await waitForNativeHostSample(samplerPath, 2_000);
   const extensionManifest = JSON.parse(await readFile(join(EXTENSION_ROOT, "manifest.json"), "utf8"));
   assert.equal(extensionManifest.background.service_worker, "background.js");
@@ -629,13 +689,16 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
     browserLaunchToContextMs: times.browserLaunchToContextMs,
     browserLaunchToExtensionWorkerObservationMs: workerMonotonic - launchMonotonic,
     settingsUpdateElapsedMs: times.settingsUpdateElapsedMs,
-    runtimeStatusProbeElapsedAfterSettingsMs: statusProbeElapsedMs,
-    ownedListenerVerificationElapsedAfterStatusMs: times.ownedListenerVerificationElapsedAfterStatusMs,
+    runtimeStatusProbeElapsedAfterSettingsMs: transition.finalStatusElapsedMs,
+    runtimeStatusProbeElapsedBeforeSettingsMs: transition.priorStatusElapsedMs,
+    startupTransitionElapsedMs: transition.totalElapsedMs,
+    startupTransitionTimingsMs: times,
     supervisorProcessBirthOffsetFromWorkerReadyMs: null,
     detectorProcessBirthOffsetFromSupervisorBirthMs: null,
     detectorProcessBirthOffsetFromContextMs: null,
     processBirthOffsetBasis: "psutil create_time wall clock minus Date.now event timestamps; signed; not readiness",
     processBirthOffsetsAreNotReadinessIntervals: true,
+    startupTransition,
     detectorPid: detectorIdentity.pid,
     detectorStartTicks: detectorIdentity.startTicks,
     supervisorPid: supervisorIdentity.pid,
@@ -652,31 +715,10 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
     readyAtWall: new Date(readyWall).toISOString(),
   };
 
-  const startupIdentities = [
-    { role: "supervisor_bridge", ...supervisorIdentity },
-    { role: "detector", ...detectorIdentity },
-  ];
-  receipt.resourceStartupIdentityWait = {
-    status: "waiting",
-    sessionId,
-    expectedIdentities: startupIdentities.map(({ role, pid, startTicks }) => ({ role, pid, startTicks })),
-  };
-  let processSamples;
-  try {
-    processSamples = await sampledProcessTimes(samplerPath, startupIdentities);
-  } catch (error) {
-    const rows = parseJsonl(await readFile(samplerPath, "utf8").catch(() => ""));
-    receipt.resourceStartupIdentityWait.status = "failed";
-    receipt.resourceStartupIdentityWait.diagnostic = buildStartupIdentityDiagnostic(startupIdentities, rows);
-    receipt.resourceStartupIdentityWait.samplerClose = null;
-    receipt.resourceStartupIdentityWait.terminalDiagnostic = null;
-    throw error;
-  }
-  delete receipt.resourceStartupIdentityWait;
-  cold.supervisorProcessBirthOffsetFromWorkerReadyMs = processSamples.get(supervisorPid).startedAtEpochMs - workerWall;
+  cold.supervisorProcessBirthOffsetFromWorkerReadyMs = transition.currentSamples.get(supervisorPid).startedAtEpochMs - workerWall;
   cold.detectorProcessBirthOffsetFromSupervisorBirthMs =
-    processSamples.get(detectorPid).startedAtEpochMs - processSamples.get(supervisorPid).startedAtEpochMs;
-  cold.detectorProcessBirthOffsetFromContextMs = processSamples.get(detectorPid).startedAtEpochMs - launchWall;
+    transition.currentSamples.get(detectorPid).startedAtEpochMs - transition.currentSamples.get(supervisorPid).startedAtEpochMs;
+  cold.detectorProcessBirthOffsetFromContextMs = transition.currentSamples.get(detectorPid).startedAtEpochMs - launchWall;
 
   const coldDecision = await performAndValidate({
     transport: cell.transport,
@@ -1376,6 +1418,10 @@ function stopSampler() {
 async function stopSamplerOnce() {
   if (!sampler) return;
   const child = sampler;
+  if (typeof samplerStartupTransitionClient !== "undefined") {
+    samplerStartupTransitionClient?.close();
+    samplerStartupTransitionClient = null;
+  }
   try {
     if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
   } catch {
@@ -1484,18 +1530,18 @@ async function waitForSamplerClose(timeoutMs) {
   });
 }
 
-async function runtimeStatus(page) {
-  const result = await sendExtensionMessage(page, { type: "GET_RUNTIME_STATUS" });
+async function runtimeStatus(page, { timeoutMs = 90_000 } = {}) {
+  const result = await sendExtensionMessage(page, { type: "GET_RUNTIME_STATUS" }, { timeoutMs });
   assert.equal(result.ok, true, `runtime status failed: ${result.error || "unknown"}`);
   return result.runtime;
 }
 
-async function waitRuntimeReady(page) {
+async function waitRuntimeReady(page, { timeoutMs = 90_000 } = {}) {
   let last;
-  const deadline = Date.now() + 90_000;
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      last = await runtimeStatus(page);
+      last = await runtimeStatus(page, { timeoutMs: Math.max(1, deadline - Date.now()) });
       if (last.enabled && last.status === "RUNNING" && Number(last.processId) > 0) return last;
     } catch (error) { last = error; }
     await delay(250);
@@ -1534,13 +1580,17 @@ async function waitOwnedProcessesGone(identities, timeoutMs) {
   throw new Error("extension lifecycle did not stop the previously owned runtime identities");
 }
 
-async function sendExtensionMessage(page, message) {
-  return page.evaluate((payload) => new Promise((resolvePromise) => {
-    chrome.runtime.sendMessage(payload, (response) => resolvePromise({
-      response,
-      error: chrome.runtime.lastError?.message || null,
-    }));
-  }).then((result) => result.error ? { ok: false, error: result.error } : result.response), message);
+async function sendExtensionMessage(page, message, { timeoutMs = 90_000 } = {}) {
+  assert.ok(Number.isSafeInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 90_000,
+    "extension message deadline is invalid");
+  return page.evaluate(({ payload, timeout }) => new Promise((resolvePromise, rejectPromise) => {
+    const timer = setTimeout(() => rejectPromise(new Error("extension response callback timed out")), timeout);
+    chrome.runtime.sendMessage(payload, (response) => {
+      clearTimeout(timer);
+      resolvePromise({ response, error: chrome.runtime.lastError?.message || null });
+    });
+  }).then((result) => result.error ? { ok: false, error: result.error } : result.response),
+  { payload: message, timeout: timeoutMs });
 }
 
 async function processIdentity(pid) {
@@ -1785,6 +1835,24 @@ async function waitOwnedProcessReaped(termination, timeoutMs, phase = "recovery"
   throw new Error(`owned process ${termination.pid} zombie remained after ${phase} parent reaping`);
 }
 
+async function waitStartupPredecessorReaped(identity, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    let statLine;
+    try { statLine = await readFile(join("/proc", String(identity.pid), "stat"), "utf8"); }
+    catch (error) {
+      if (error?.code === "ENOENT") return;
+      throw error;
+    }
+    const disposition = classifyLinuxProcessStat(statLine, identity);
+    if (disposition === "different_process") {
+      throw new Error("startup predecessor PID was reused before reaping");
+    }
+    await delay(50);
+  }
+  throw new Error("startup predecessor remained present after replacement");
+}
+
 async function waitNoProcessContains(profileFragment, timeoutMs) {
   return waitForProcessesToDisappear(() => scanProfileProcesses(profileFragment), {
     timeoutMs,
@@ -1888,7 +1956,9 @@ async function resourceSummary(files) {
     windows.push({ file: file.file, sessionId: file.sessionId,
       requestedStartMonotonicNs: file.requestedStartMonotonicNs,
       requestedEndMonotonicNs: file.requestedEndMonotonicNs,
-      phaseRequestCounts: file.phaseRequestCounts, samples });
+      phaseRequestCounts: file.phaseRequestCounts,
+      startupTransition: file.startupTransition || null,
+      samples });
     for (const sample of samples) {
       for (const [role, count] of Object.entries(sample.process_identity_races || {})) {
         if (!Number.isSafeInteger(count) || count < 0) throw new Error("invalid process identity race count");
@@ -2011,13 +2081,15 @@ async function verifyNoExternalRequests() {
 
 async function assertPortsClosedAfterRecovery() { await assertPortsClosed("post-recovery"); }
 
-function spawnSampler(outputPath) {
+function spawnSampler(outputPath, { sourceRevision, protocolSha256 }) {
   const terminalPath = `${outputPath}.terminal.json`;
   samplerTerminalPath = terminalPath;
   const child = spawn("/workspace/extension/client-runtime/.venv/bin/python", [
     RESOURCE_SAMPLER, "--output", outputPath, "--interval-ms", "100",
     "--terminal-diagnostic", terminalPath,
-  ], { cwd: ROOT, env: process.env, stdio: "ignore" });
+    "--source-revision", sourceRevision, "--protocol-sha256", protocolSha256,
+  ], { cwd: ROOT, env: process.env, stdio: ["pipe", "pipe", "ignore"] });
+  samplerStartupTransitionClient = createSamplerStartupTransitionClient(child);
   samplerClosed = new Promise((resolvePromise) => {
     child.once("error", (error) => { samplerSpawnError = error; });
     child.once("close", (code, signal) => resolvePromise({ code, signal, error: samplerSpawnError }));
