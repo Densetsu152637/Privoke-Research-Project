@@ -496,9 +496,80 @@ class InHouseStudyFitTests(unittest.TestCase):
                 outside.write_bytes(b"synthetic")
                 (output / "run-manifest.json").unlink()
                 (output / "run-manifest.json").symlink_to(outside)
+                # Force the inode-reuse case independently of the filesystem allocator.
+                replaced = (output / "run-manifest.json").lstat()
+                store._manifest_identity = (replaced.st_dev, replaced.st_ino)
                 with self.assertRaises(fit.StudyFitError):
                     store.write_manifest({"schema_version": 1, "status": "replacement"})
                 self.assertEqual(outside.read_bytes(), b"synthetic")
+                self.assertTrue((output / "run-manifest.json").is_symlink())
+                self.assertEqual(sorted(item.name for item in output.iterdir()), ["run-manifest.json"])
+            finally:
+                store.close()
+
+    @unittest.skipUnless(fit._private_output_supported(), "requires POSIX dirfd output support")
+    def test_manifest_replacement_rejects_same_inode_tampering(self):
+        for alteration in ("content", "mode", "hardlink", "owner"):
+            with self.subTest(alteration=alteration), tempfile.TemporaryDirectory() as temporary:
+                output = Path(temporary) / "output"
+                store = fit._FreshOutput(output)
+                try:
+                    store.write_manifest({"schema_version": 1, "status": "synthetic"})
+                    manifest = output / "run-manifest.json"
+                    identity = store._manifest_identity
+                    if alteration == "content":
+                        manifest.write_bytes(b"tampered")
+                    elif alteration == "mode":
+                        manifest.chmod(0o644)
+                    elif alteration == "hardlink":
+                        os.link(manifest, Path(temporary) / "linked.json")
+                    before = manifest.read_bytes()
+                    info = manifest.lstat()
+                    self.assertEqual((info.st_dev, info.st_ino), identity)
+                    owner = os.geteuid() + 1 if alteration == "owner" else os.geteuid()
+                    with mock.patch.object(fit.os, "geteuid", return_value=owner):
+                        with self.assertRaises(fit.StudyFitError):
+                            store.write_manifest({"schema_version": 1, "status": "replacement"})
+                    self.assertEqual(manifest.read_bytes(), before)
+                    self.assertEqual(sorted(item.name for item in output.iterdir()), ["run-manifest.json"])
+                finally:
+                    store.close()
+
+    @unittest.skipUnless(fit._private_output_supported(), "requires POSIX dirfd output support")
+    def test_manifest_replacement_rechecks_after_temporary_write(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "output"
+            store = fit._FreshOutput(output)
+            try:
+                store.write_manifest({"status": "synthetic"})
+                manifest = output / "run-manifest.json"
+                original_fsync = fit.os.fsync
+                def tamper_on_fsync(fd):
+                    original_fsync(fd)
+                    manifest.write_bytes(b"tampered during temporary write")
+                with mock.patch.object(fit.os, "fsync", side_effect=tamper_on_fsync):
+                    with self.assertRaises(fit.StudyFitError):
+                        store.write_manifest({"status": "replacement"})
+                self.assertEqual(manifest.read_bytes(), b"tampered during temporary write")
+                self.assertEqual(sorted(item.name for item in output.iterdir()), ["run-manifest.json"])
+            finally:
+                store.close()
+
+    @unittest.skipUnless(fit._private_output_supported(), "requires POSIX dirfd output support")
+    def test_manifest_successive_writes_remain_private_and_verified(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "output"
+            store = fit._FreshOutput(output)
+            try:
+                for status in ("running", "completed", "failed"):
+                    digest = store.write_manifest({"status": status})
+                    manifest = output / "run-manifest.json"
+                    self.assertEqual(_sha(manifest.read_bytes()), digest)
+                    self.assertEqual(json.loads(manifest.read_bytes()), {"status": status})
+                    self.assertEqual(manifest.stat().st_mode & 0o777, 0o600)
+                    self.assertEqual(manifest.stat().st_nlink, 1)
+                    store.verify_written_files()
+                self.assertEqual(sorted(item.name for item in output.iterdir()), ["run-manifest.json"])
             finally:
                 store.close()
 
