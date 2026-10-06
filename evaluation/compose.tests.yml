@@ -2,18 +2,28 @@
 services:
   client-runtime:
     container_name: privoke-research-eval-20261003-runtime
+    ports:
+      - "127.0.0.1:50054:50054"
     environment:
       PRIVOKE_MODEL_DEVICE: cpu
   model-streaming-service:
     container_name: privoke-research-eval-20261003-model
+    ports:
+      - "127.0.0.1:50051:50051"
   param-update-service:
     container_name: privoke-research-eval-20261003-updater
+    ports:
+      - "127.0.0.1:50052:50052"
     environment:
       FUZZER_PROMPT_COUNT: 0
   privoke-fuzzer:
     container_name: privoke-research-eval-20261003-fuzzer
+    ports:
+      - "127.0.0.1:50053:50053"
   telemetry-service:
     container_name: privoke-research-eval-20261003-telemetry
+    ports:
+      - "127.0.0.1:50055:50055"
   evaluation-tests:
     build:
       context: .

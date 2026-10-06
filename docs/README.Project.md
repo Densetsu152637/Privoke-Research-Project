@@ -74,7 +74,7 @@ Detector output is represented by `extension/client-runtime/src/classification`.
 - `client-runtime`: always-on server detector gRPC on `50054`.
 - `telemetry-service`: gRPC on `50055`.
 
-Production Compose keeps all five ports internal to its service network. The development override publishes `50051`, `50052`, `50054`, and `50055` on host loopback only (`127.0.0.1`); the fuzzer's `50053` remains internal. Use `docker compose exec privoke-fuzzer ...` for its CLI. A real external API must be exposed explicitly through an authenticated TLS ingress rather than by publishing these plaintext gRPC ports.
+Production Compose keeps all five ports internal to its service network. The development and research-test overrides publish `50051` through `50055` on host loopback (`127.0.0.1`) for Python evaluation and integration scripts. Run fuzzer checks with `python evaluation/run-fuzzer-tests.py`; see [host test setup](../evaluation/README.md). A real external API must be exposed explicitly through an authenticated TLS ingress rather than by publishing these plaintext gRPC ports.
 
 The extension-local ports `8080`, `50056`, and `50057` are not Compose service ports. They are owned by the workstation supervisor and remain bound to loopback.
 
@@ -107,8 +107,8 @@ deployment calls it for pushes to `main` before publishing images. It:
   image,
 - runs each Python service's unit tests inside its production image,
 - starts the production topology and waits for every health check,
-- verifies the non-root/read-only/no-published-port container controls,
-- simulates a client-runtime request and verifies parameter streaming and
+- verifies non-root/read-only container controls and loopback-only test port mappings,
+- runs host Python scripts to simulate a client-runtime request and verify parameter streaming and
   telemetry persistence,
 - runs a small fuzzer cycle across the model, runtime, and parameter-update
   services, and

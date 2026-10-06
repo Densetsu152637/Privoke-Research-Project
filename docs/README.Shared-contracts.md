@@ -76,6 +76,13 @@ Each service keeps generated protobuf code locally:
 
 The Dockerfiles generate these bindings at image build time. `docker-compose.dev.yml` regenerates them at container startup before running the service.
 
+Host evaluation and integration scripts use `python evaluation/setup-host.py`
+from the repository root to generate all three Python contracts into
+`extension/client-runtime/generated` and refresh each Python service/supervisor's
+local `generated` directory so stale component bindings cannot shadow the clients.
+Install `evaluation/requirements-host.txt`
+first and regenerate with the same interpreter after contract changes.
+
 The presence RPCs are additive. Rebuild affected service images and regenerate
 runtime/fuzzer/evaluator and workstation consumers' bindings before calling them;
 older servers do not implement these methods. Existing contextual RPCs retain

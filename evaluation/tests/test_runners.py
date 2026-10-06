@@ -1,26 +1,67 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-from privoke_eval.runners import run_pipeline, _bridge_process
+from concurrent.futures import ThreadPoolExecutor
+import grpc
+from grpc_runtime_client import runtime_pb2 as pb, runtime_pb2_grpc as rpc
+
+from privoke_eval import runners
+from privoke_eval.runners import run_pipeline
 
 
 class RunnerTests(unittest.TestCase):
-    def test_container_mode_uses_local_bridge_without_nested_docker(self):
-        process = MagicMock()
-        with patch("privoke_eval.runners._bridge", None), patch.dict(
-            "os.environ", {"PRIVOKE_EVAL_IN_CONTAINER": "true"}
-        ), patch("privoke_eval.runners.subprocess.Popen", return_value=process) as start:
-            self.assertIs(_bridge_process(), process)
-        command = start.call_args.args[0]
-        self.assertNotIn("docker", command)
-        self.assertTrue(command[-1].endswith("grpc_runtime_client.py"))
+    def test_default_report_endpoint_is_localhost(self):
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertEqual(runners.runtime_url(), "grpc://127.0.0.1:50054")
 
     def setUp(self) -> None:
         patcher = patch("privoke_eval.runners.configure_backend")
         self.addCleanup(patcher.stop)
         patcher.start()
+
+    def test_host_requests_reach_local_grpc_without_docker(self):
+        class Runtime(rpc.PrivokeRuntimeServiceServicer):
+            def Health(self, request, context):
+                return pb.RuntimeHealthResponse(service="client-runtime", status="SERVING")
+
+            def AnalyzePrompt(self, request, context):
+                self.request = request
+                response = pb.AnalyzePromptResponse(action="WARN", elapsed_ms=3)
+                response.classification.sensitivity = "S2"
+                response.classification.visibility = "P3"
+                response.classification.categories.append("HEALTH")
+                return response
+
+        service = Runtime()
+        server = grpc.server(ThreadPoolExecutor(max_workers=2))
+        rpc.add_PrivokeRuntimeServiceServicer_to_server(service, server)
+        port = server.add_insecure_port("127.0.0.1:0")
+        server.start()
+        self.addCleanup(lambda: server.stop(0).wait())
+        self.addCleanup(runners._close_client)
+        with patch.dict("os.environ", {"PRIVOKE_RUNTIME_TARGET": f"127.0.0.1:{port}"}), \
+                patch("subprocess.Popen", side_effect=AssertionError("No subprocess transport")):
+            runners.check_runtime_available()
+            outcome = run_pipeline("Synthetic medical example", "streamed", "regex-ner")
+        self.assertEqual(outcome.sensitivity, "S2")
+        self.assertEqual(list(service.request.layers), [pb.DETECTION_LAYER_REGEX, pb.DETECTION_LAYER_NER])
+
+    def test_grpc_rejection_is_reported_as_failure(self):
+        class Runtime(rpc.PrivokeRuntimeServiceServicer):
+            def Health(self, request, context):
+                context.abort(grpc.StatusCode.UNAVAILABLE, "synthetic unavailable")
+
+        server = grpc.server(ThreadPoolExecutor(max_workers=1))
+        rpc.add_PrivokeRuntimeServiceServicer_to_server(Runtime(), server)
+        port = server.add_insecure_port("127.0.0.1:0")
+        server.start()
+        self.addCleanup(lambda: server.stop(0).wait())
+        self.addCleanup(runners._close_client)
+        with patch.dict("os.environ", {"PRIVOKE_RUNTIME_TARGET": f"127.0.0.1:{port}"}):
+            with self.assertRaisesRegex(RuntimeError, "UNAVAILABLE.*synthetic unavailable"):
+                runners.check_runtime_available()
 
     def test_uses_returned_classification_even_when_action_is_allow(self) -> None:
         response = {

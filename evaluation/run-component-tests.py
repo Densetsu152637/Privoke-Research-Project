@@ -2,6 +2,7 @@
 from pathlib import Path
 import subprocess
 import sys
+from host_environment import python_environment
 ROOT = Path(__file__).resolve().parents[1]
 SUITES = {"client-runtime": "extension/client-runtime/test", "supervisor": "extension/runtime-supervisor/test", "fuzzer": "services/privoke-fuzzer/tests", "param-update": "services/param-update-service/tests", "telemetry": "services/telemetry-service/tests", "shared": "shared/python/tests", "evaluator": "evaluation/tests"}
 SMOKES = {"stack-smoke": "extension/client-runtime/test/stack_smoke.py", "deployment-smoke": "deploy/gce/tests/smoke.py"}
@@ -17,6 +18,11 @@ def main():
         suite = ROOT / SUITES[name]
         command = [sys.executable, "-m", "unittest", "discover", "-s", str(suite), "-v", *arguments]
         directory = suite.parent
-    return subprocess.run(command, cwd=directory).returncode
+    # Keep component imports isolated while sharing only contracts and clients.
+    imports = [directory]
+    if name == "evaluator":
+        imports.append(ROOT / "extension/client-runtime")
+    return subprocess.run(command, cwd=directory,
+                          env=python_environment(*imports)).returncode
 if __name__ == "__main__":
     raise SystemExit(main())

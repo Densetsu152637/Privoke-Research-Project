@@ -7,6 +7,10 @@ import re
 from pathlib import Path
 import subprocess
 import sys
+from host_environment import configure_imports
+
+configure_imports()
+
 from privoke_model.artifact import float32
 from privoke_model.fingerprint import parameter_fingerprint
 

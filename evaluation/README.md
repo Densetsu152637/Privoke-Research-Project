@@ -5,15 +5,36 @@ components; evaluator tests remain in `tests/`. The fuzzer training loop remains
 in `services/privoke-fuzzer`; evaluation calls its existing CLI or endpoint.
 Each Python suite runs in a separate process to isolate component imports.
 
-The default evaluator image installs the pinned CPU training-mechanics dependencies
-from `requirements-training.txt`, including Torch 2.10.0+cpu and NumPy 1.26.4.
-These dependencies let the discovered in-house contextual and binary-presence
-mechanics tests run in the same image; they use only synthetic fixtures and do not
-fit a study dataset, publish weights, or require pretrained models. The image copies
-only the runtime modules used by those tests and the scratch inference parity path,
-plus the generated parameter protobufs, rather than mounting or copying a full
-runtime installation. Do not skip or exclude these tests when running the evaluator
-suite.
+Run evaluation and integration checks as host Python scripts. Use Python 3.11 or
+3.12; the current NumPy constraint excludes Python 3.13 wheels. From the repository
+root, create a virtual environment once, install the host dependencies and generate
+the protobuf clients. The synthetic evaluator mechanics tests need Torch, but do
+not fit a study dataset, publish weights or download pretrained models.
+
+```powershell
+py -3.12 -m venv evaluation/.venv
+evaluation/.venv/Scripts/Activate.ps1
+python -m pip install -r evaluation/requirements-host.txt
+python evaluation/setup-host.py
+python evaluation/run-component-tests.py evaluator
+python evaluation/run-component-tests.py supervisor
+python evaluation/run-component-tests.py shared
+```
+
+On Linux/macOS use `python3.11 -m venv evaluation/.venv` and
+`source evaluation/.venv/bin/activate`. Regenerate clients after protobuf changes.
+Use the same interpreter for setup and all checks. Component Python suites can
+also run through `run-component-tests.py` on the host after installing that
+component's requirements. Existing Python, JavaScript and Go unit tests retain
+their original frameworks; the optional image-validation commands below still
+test service-image packaging.
+
+The protected research-file suites require a Linux host with their documented
+POSIX ownership/descriptor prerequisites; Windows supports the localhost RPC
+scripts, but does not supply those protections. Linux-only protected-file
+checks are skipped on Windows. These are separate from transport tests, which can
+be selected with `python evaluation/run-component-tests.py evaluator -p test_host_scripts.py`
+and `python evaluation/run-component-tests.py evaluator -p test_runners.py`.
 
 Use the same Compose files throughout:
 
@@ -34,18 +55,35 @@ The Go runner invokes the original service tests with the race detector.
 Browser tests run without network access. The deployment smoke runner invokes
 `deploy/gce/tests/smoke.py` and requires its documented Docker/TLS prerequisites.
 
-For live measurements, start only the five server services and their storage
-initializer, rather than starting test containers as persistent services:
+For live measurements, start the five server services and their storage
+initializer. The research override publishes all five gRPC ports on `127.0.0.1`;
+the development override also publishes the fuzzer on `50053`. No test
+container is needed for these checks:
 
 ```powershell
 docker compose -f docker-compose.yml -f evaluation/compose.tests.yml up -d --wait --wait-timeout 240 model-streaming-service telemetry-service client-runtime privoke-fuzzer param-update-service
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml exec -T client-runtime python /workspace/evaluation/run-component-tests.py stack-smoke --skip-training
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml run --rm --no-deps evaluation-tests python evaluate.py --dataset piimb --samples 500 --sampling balanced --english-only --seed 42 --backend streamed --run-name pilot
+python evaluation/run-fuzzer-tests.py health
+python evaluation/run-component-tests.py stack-smoke --skip-training
+python evaluation/evaluate.py --dataset piimb --samples 500 --sampling balanced --english-only --seed 42 --backend streamed --run-name pilot
+python evaluation/run-fuzzer-tests.py test-prompts --layer regex --prompt "My email is alex@example.com"
 ```
 
-The evaluator container sends gRPC directly to the existing runtime and persists
-reports through `evaluation/results`. Host execution keeps the existing Docker-exec
-bridge. `--layer` supports pipeline, regex, NER, semantic and regex+NER ablations.
+The evaluator sends gRPC directly to `127.0.0.1:50054` and writes reports under
+`evaluation/results`. `PRIVOKE_RUNTIME_TARGET` overrides the runtime address;
+`FUZZER_TARGET` or `run-fuzzer-tests.py --target` overrides `127.0.0.1:50053`.
+The fuzzer serves health and training RPCs; prompt analysis uses the runtime RPC.
+Prompt-probe dumps go to `dumps/privoke-fuzzer` on the host.
+`--layer` supports pipeline, regex, NER, semantic and regex+NER ablations.
+
+To test a real training publication and durable replay, run
+`python evaluation/run-component-tests.py stack-smoke` without `--skip-training`.
+This changes the running model. A single training request is also available as
+`python evaluation/run-fuzzer-tests.py train --model-id privoke-balanced --prompt-count 32`.
+Rejected cycles exit with status 1. For production-image integration on the host,
+use `docker compose -f docker-compose.yml -f evaluation/compose.localhost.yml up -d --wait`;
+base production Compose continues to publish no ports. CI uses this loopback
+override for its host Python smoke checks. Clients running in containers must
+use explicit service DNS targets.
 
 The user selected development targets on 3 October 2026: sensitive recall >= 90%
 and clean specificity >= 90%, together with the research completion plan's evidence
@@ -96,7 +134,7 @@ containers and named volumes. Do not change a model during a matched batch.
 
 ```powershell
 # After restoring v0.3.0 and clearing runtime/model caches:
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml run --rm --no-deps evaluation-tests python run-ablations.py --dataset-file results/locked-public/development.jsonl --run-name UNIQUE_RUN_NAME --model-artifact results/original-v0.3.0-model.json
+python evaluation/run-ablations.py --dataset-file evaluation/results/locked-public/development.jsonl --run-name UNIQUE_RUN_NAME --model-artifact evaluation/results/original-v0.3.0-model.json
 # Invoke actual fuzzer cycles through their existing service, then paired measurements:
 python evaluation/run-independent-updates.py --experiment-id UNIQUE_EXPERIMENT_ID
 # Native Chromium page hook and local receiver, with controlled broker decisions:
@@ -312,24 +350,24 @@ artifacts, and freezes all profile selections before any development inference.
 It exports only the train partition as the separate fuzzer curriculum. It does
 not score development or read final examples; the locked final file is checked by
 SHA-256 only. The scorer makes typed `DetectAnnotationPresence` RPCs directly
-from the evaluation container and requires the returned model ID, version,
+from a host Python process and requires the returned model ID, version,
 checksum, parameter fingerprint, threshold, enum, and probability to match the
 frozen artifact and shared arithmetic.
 
-Use fresh result-directory names. Fit and standalone scoring commands run in
-the evaluation container, which can resolve the runtime service by Compose DNS;
-do not invoke these RPC commands from the host. The fourth Compose override
-mounts the exact prospective protocol read-only. Use these four files in order
-from the repository root:
+Use fresh result-directory names. Fit and standalone scoring commands run on the
+host after the setup above; standalone scoring defaults to `127.0.0.1:50054`.
+The matched study controllers still manage Docker images, model volumes and
+isolated evidence jobs to preserve their recorded execution identities. Use the
+four Compose files in order when starting their server stack:
 
 ```powershell
 $ComposeFiles = @('-f','docker-compose.yml','-f','evaluation/compose.tests.yml','-f','evaluation/compose.public-negatives.yml','-f','evaluation/compose.presence.yml')
 $FitSourceSha = (git rev-parse HEAD).Trim()
 $ProtocolSha = (Get-FileHash paper/research/model-refactor-protocol.md -Algorithm SHA256).Hash.ToLowerInvariant()
-docker compose @ComposeFiles run --rm --no-deps -T evaluation-tests python /workspace/evaluation/fit-presence-profiles.py --prepared /workspace/evaluation/results/representation_20261004_v3/prepared --locked-root /workspace/evaluation/results/locked-public --bootstrap-source /workspace/models/generate_baseline.py --output /workspace/evaluation/results/FRESHFIT --source-revision $FitSourceSha --protocol-sha256 $ProtocolSha
+python evaluation/fit-presence-profiles.py --prepared evaluation/results/representation_20261004_v3/prepared --locked-root evaluation/results/locked-public --bootstrap-source models/generate_baseline.py --output evaluation/results/FRESHFIT --source-revision $FitSourceSha --protocol-sha256 $ProtocolSha
 $ExecutionSha = (git rev-parse HEAD).Trim()
 $FitSourceSha = (Get-Content evaluation/results/FRESHFIT/run-manifest.json -Raw | ConvertFrom-Json).source_revision
-docker compose @ComposeFiles run --rm --no-deps -T evaluation-tests python /workspace/evaluation/evaluate-presence.py --artifact /workspace/evaluation/results/FRESHFIT/profiles/balanced/artifact.json --selection /workspace/evaluation/results/FRESHFIT/profiles/balanced/selection.json --fit-manifest /workspace/evaluation/results/FRESHFIT/run-manifest.json --dataset-file /workspace/evaluation/results/locked-public/development.jsonl --output /workspace/evaluation/results/FRESH_BASE_SCORE --target client-runtime:50054 --source-revision $ExecutionSha --fit-source-revision $FitSourceSha --protocol-sha256 $ProtocolSha
+python evaluation/evaluate-presence.py --artifact evaluation/results/FRESHFIT/profiles/balanced/artifact.json --selection evaluation/results/FRESHFIT/profiles/balanced/selection.json --fit-manifest evaluation/results/FRESHFIT/run-manifest.json --dataset-file evaluation/results/locked-public/development.jsonl --output evaluation/results/FRESH_BASE_SCORE --target 127.0.0.1:50054 --source-revision $ExecutionSha --fit-source-revision $FitSourceSha --protocol-sha256 $ProtocolSha
 ```
 
 The study owner must first have the four-file Compose stack and images ready,

@@ -306,7 +306,7 @@ def request_for(pb, text, request_id, semantic_id, *, presence_id=None, threshol
 
 class RuntimeClient:
     def __init__(self, target):
-        generated = Path("/workspace/extension/client-runtime/generated")
+        generated = ROOT / "extension/client-runtime/generated"
         if generated.is_dir():
             sys.path.insert(0, str(generated))
         import grpc
@@ -494,7 +494,7 @@ def main(argv=None):
         parser.add_argument("--" + name, type=Path, required=True)
     for name in ("source-revision", "fit-source-revision", "protocol-sha256", "runtime-image-id", "evaluator-image-id"):
         parser.add_argument("--" + name, required=True)
-    parser.add_argument("--target", default="client-runtime:50054")
+    parser.add_argument("--target", default=os.getenv("PRIVOKE_RUNTIME_TARGET", "127.0.0.1:50054"))
     parser.add_argument("--protocol-file", type=Path, required=True,
                         help="Verified prospective protocol copy accessible in the evaluator container.")
     parser.add_argument("--control", choices=CONTROLS)

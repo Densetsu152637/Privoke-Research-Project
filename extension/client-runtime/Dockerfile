@@ -13,7 +13,7 @@ RUN apt-get update \
     && pip install --no-cache-dir --upgrade pip setuptools wheel
 
 COPY shared /workspace/shared
-COPY evaluation/run-component-tests.py /workspace/evaluation/run-component-tests.py
+COPY evaluation/run-component-tests.py evaluation/host_environment.py /workspace/evaluation/
 COPY extension/client-runtime /workspace/extension/client-runtime
 
 WORKDIR /workspace/extension/client-runtime

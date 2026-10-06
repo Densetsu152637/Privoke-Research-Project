@@ -106,19 +106,25 @@ The fuzzer has no source dependency on `extension/client-runtime`. Production an
 
 ## CLI
 
-Train and persist a new model version from inside the Compose fuzzer container:
+Run host Python scripts from the repository root after the
+[host setup](../evaluation/README.md). The development or research-test stack
+publishes the fuzzer on `127.0.0.1:50053`; prompt probes connect to the runtime
+on `127.0.0.1:50054`. The fuzzer retains the training loop on the server.
+
+Check fuzzer health, then train and persist a new model version:
 
 ```bash
-python src/cli.py train \
-  --target privoke-fuzzer:50053 \
-  --model-id privoke-baseline \
+python evaluation/run-fuzzer-tests.py health
+python evaluation/run-fuzzer-tests.py train \
+  --target 127.0.0.1:50053 \
+  --model-id privoke-balanced \
   --prompt-count 32
 ```
 
 Run a prompt through the runtime gRPC service:
 
 ```bash
-python src/cli.py test-prompts \
+python evaluation/run-fuzzer-tests.py test-prompts \
   --layer runtime \
   --prompt "My email is alex@example.com"
 ```
@@ -126,11 +132,11 @@ python src/cli.py test-prompts \
 Run generated prompts against multiple layers:
 
 ```bash
-python src/cli.py test-prompts \
+python evaluation/run-fuzzer-tests.py test-prompts \
   --layer regex \
   --layer ner \
   --layer semantic \
-  --model-id privoke-baseline \
+  --model-id privoke-balanced \
   --regex-parallel \
   --generated-count 8
 ```
@@ -148,7 +154,11 @@ Prompt files can be JSON, JSONL, or text. JSON entries may be strings or objects
 
 The CLI writes a JSON dump for each prompt-test run and prints the full per-prompt JSON report. Each prompt entry includes the request text, optional expected classification, and each selected layer's elapsed runtime time plus observed classification/action/results. If any layer run fails, it exits with status `1`.
 
-In Docker dev mode, dumps are bind-mounted to `./dumps/privoke-fuzzer` on the host. In the production stack, `/workspace/dumps/privoke-fuzzer` is backed by the `fuzzer-dumps` named volume.
+The host script writes dumps to `./dumps/privoke-fuzzer`. In Docker dev mode,
+dumps use the same host directory through a bind mount. In the production stack,
+`/workspace/dumps/privoke-fuzzer` is backed by the `fuzzer-dumps` named volume.
+The service-local `src/cli.py` remains available inside containers with explicit
+service-DNS targets. Rejected training requests exit with status `1`.
 
 ## Subagent Tasks
 

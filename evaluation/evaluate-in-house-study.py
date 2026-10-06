@@ -14,7 +14,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'shared/python'))
-generated = Path('/workspace/extension/client-runtime/generated')
+generated = ROOT / 'extension/client-runtime/generated'
 if generated.is_dir():
     sys.path.insert(0, str(generated))
 
@@ -185,7 +185,7 @@ def main(argv=None):
     parser.add_argument('--trust-bundle', type=Path, required=True)
     parser.add_argument('--trust-bundle-sha256', required=True)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--target', default='client-runtime:50054')
+    parser.add_argument('--target', default=os.getenv('PRIVOKE_RUNTIME_TARGET', '127.0.0.1:50054'))
     args = parser.parse_args(argv)
     try:
         run(args)

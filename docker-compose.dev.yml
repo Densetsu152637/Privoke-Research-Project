@@ -205,6 +205,8 @@ services:
     depends_on:
       client-runtime:
         condition: service_healthy
+    ports:
+      - "127.0.0.1:50053:50053"
     environment:
       PRIVOKE_RUNTIME_TARGET: client-runtime:50054
       PYTHONPATH: /workspace/shared/python

@@ -3,11 +3,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+
+from host_environment import configure_imports, RUNTIME_TARGET
+
+configure_imports()
 
 import grpc
 
-sys.path.insert(0, "/workspace/extension/client-runtime/generated")
 from privoke.v1 import runtime_pb2, runtime_pb2_grpc  # noqa: E402
 
 
@@ -32,7 +36,7 @@ def handle(stub, request: dict) -> dict:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--target", default="client-runtime:50054")
+    parser.add_argument("--target", default=os.getenv("PRIVOKE_RUNTIME_TARGET", RUNTIME_TARGET))
     args = parser.parse_args()
     with grpc.insecure_channel(args.target) as channel:
         stub = runtime_pb2_grpc.PrivokeRuntimeServiceStub(channel)

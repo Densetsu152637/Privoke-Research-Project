@@ -2,13 +2,13 @@
 
 > Source area: `evaluation`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
 
-This folder evaluates whether PriVoke detects privacy-sensitive information. It sends every selected dataset prompt directly to the running Docker `client-runtime` gRPC service, so the tested system is the complete regex/rules + NER + selected LLM pipeline.
+This folder evaluates whether PriVoke detects privacy-sensitive information. Host Python scripts send every selected dataset prompt directly to the running `client-runtime` gRPC service at `127.0.0.1:50054`, so the tested system is the complete regex/rules + NER + selected LLM pipeline.
 
-The scoring evaluator does not import runtime modules, train another classifier or use SMOTE. Separate evaluation-owned orchestration can request the existing fuzzer training service and rerun matched measurements; the service retains its training-loop implementation. See [Docker runners and research orchestration](../evaluation/README.md).
+The scoring evaluator does not import runtime modules, train another classifier or use SMOTE. Separate evaluation-owned orchestration can request the existing fuzzer training service and rerun matched measurements; the service retains its training-loop implementation. See [host Python tests and research orchestration](../evaluation/README.md).
 
 ```text
 dataset prompt
-  -> Docker exec gRPC client -> client-runtime:50054 AnalyzePrompt
+  -> host Python gRPC client -> 127.0.0.1:50054 AnalyzePrompt
   -> regex/rules + NER + selected LLM backend
   -> privacy classification and ALLOW/WARN/BLOCK action
   -> score the privacy classification only
@@ -44,14 +44,14 @@ Use `prompt_detection_recall_by_source_category` in the JSON report to see which
 
 ## Setup after the project and browser-extension guides
 
-Start the normal production-style Docker stack once and leave it running in the background:
+Complete the [host Python setup](../evaluation/README.md), then start the server stack with loopback ports and leave it running in the background:
 
 ```bash
-docker compose up -d --build
-docker compose ps
+docker compose -f docker-compose.yml -f evaluation/compose.tests.yml up -d --build --wait model-streaming-service telemetry-service client-runtime privoke-fuzzer param-update-service
+docker compose -f docker-compose.yml -f evaluation/compose.tests.yml ps
 ```
 
-Continue when the five services are running and healthy. The evaluator uses `docker compose exec` to run a small generated-protobuf gRPC client inside the existing `client-runtime` container. It does not start another runtime, expose another port, use the fuzzer, or import detector implementation modules.
+Continue when the five services are healthy. Evaluation calls the published runtime port directly; fuzzer checks call `127.0.0.1:50053`. Generated clients live locally under `extension/client-runtime/generated`. Detector execution stays in the running service.
 
 Then run the evaluation from the host:
 
@@ -184,12 +184,13 @@ python evaluate.py \
 Only run this if `evaluation/.venv` does not exist or packages are missing:
 
 ```bash
-python3 -m venv evaluation/.venv
+python3.11 -m venv evaluation/.venv
 source evaluation/.venv/bin/activate
-pip install -r evaluation/requirements.txt
+python -m pip install -r evaluation/requirements-host.txt
+python evaluation/setup-host.py
 ```
 
-The evaluator environment only needs dataset and reporting dependencies. The gRPC client runs inside the existing Docker `client-runtime`, which already contains gRPC and generated service-contract bindings.
+Use Python 3.11 or 3.12. The host environment contains dataset/reporting dependencies, gRPC clients and Torch for synthetic evaluator mechanics tests. Evaluation and integration checks connect over localhost; no Docker-exec bridge or evaluator container is required. Set `PRIVOKE_RUNTIME_TARGET` to use another runtime address.
 
 ## English-only evaluation
 

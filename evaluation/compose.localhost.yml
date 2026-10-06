@@ -1,0 +1,12 @@
+# Publish production-style services only to host Python test clients on loopback.
+services:
+  model-streaming-service:
+    ports: ["127.0.0.1:50051:50051"]
+  param-update-service:
+    ports: ["127.0.0.1:50052:50052"]
+  privoke-fuzzer:
+    ports: ["127.0.0.1:50053:50053"]
+  client-runtime:
+    ports: ["127.0.0.1:50054:50054"]
+  telemetry-service:
+    ports: ["127.0.0.1:50055:50055"]

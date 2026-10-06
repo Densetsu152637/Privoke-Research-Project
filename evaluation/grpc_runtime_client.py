@@ -1,8 +1,7 @@
 """JSON-lines bridge to the running client-runtime gRPC service.
 
-This file is executed inside the existing client-runtime container by the
-evaluation runner. It imports only generated protobuf client stubs, never
-PriVoke detector implementation modules.
+Run on the host against localhost, or pass an explicit service target when
+running in a container. Only generated protobuf clients are imported.
 """
 
 from __future__ import annotations
@@ -11,15 +10,17 @@ import json
 import os
 import sys
 
+from host_environment import configure_imports, RUNTIME_TARGET
+
+configure_imports()
+
 import grpc
 
-
-sys.path.insert(0, "/workspace/extension/client-runtime/generated")
 
 from privoke.v1 import runtime_pb2, runtime_pb2_grpc  # noqa: E402
 
 
-TARGET = os.getenv("PRIVOKE_RUNTIME_TARGET", "127.0.0.1:50054")
+TARGET = os.getenv("PRIVOKE_RUNTIME_TARGET", RUNTIME_TARGET)
 
 LAYER_NAMES = {
     "pipeline": runtime_pb2.DETECTION_LAYER_RUNTIME,

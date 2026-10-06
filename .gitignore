@@ -5,7 +5,6 @@
 .env.*
 !.env.example
 gha-creds-*.json
-**/secrets/
 *.key
 *.pem
 *.p12
@@ -19,8 +18,6 @@ __pycache__/
 *.pyc
 
 # Local Docker/test output/build files
-/.tmp/gce-smoke-*/
-dumps/
 services/*/generated/
 services/model-streaming-service/gen/
 extension/client-runtime/generated/
@@ -34,3 +31,9 @@ extension/dist-firefox/
 .idea/
 agents.md
 agents.*.md
+
+# cache and local files
+/dumps
+/.tmp
+/.ruff_cache
+/.secrets

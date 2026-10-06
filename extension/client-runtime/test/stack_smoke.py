@@ -1,10 +1,8 @@
-"""Exercise the running Compose topology through its public gRPC contracts.
+"""Exercise running localhost services through their public gRPC contracts.
 
-Run this from the production client-runtime container so that the test uses
-the same Docker network and generated protobuf bindings as the deployed
-runtime:
+    python evaluation/run-component-tests.py stack-smoke --skip-training
 
-    docker compose exec -T client-runtime python /workspace/evaluation/run-component-tests.py stack-smoke
+Explicit *_TARGET variables also support the production CI container network.
 """
 
 from __future__ import annotations
@@ -44,11 +42,11 @@ RPC_TIMEOUT_SECONDS = float(os.getenv("CI_RPC_TIMEOUT_SECONDS", "15"))
 # need the concrete artifact configured on the fuzzer/update services.
 MODEL_ID = os.getenv("SMOKE_MODEL_ID", "privoke-balanced")
 TARGETS = {
-    "model": os.getenv("MODEL_STREAMING_TARGET", "model-streaming-service:50051"),
-    "updates": os.getenv("PARAM_UPDATE_TARGET", "param-update-service:50052"),
-    "fuzzer": os.getenv("FUZZER_TARGET", "privoke-fuzzer:50053"),
-    "runtime": os.getenv("PRIVOKE_RUNTIME_TARGET", "client-runtime:50054"),
-    "telemetry": os.getenv("TELEMETRY_TARGET", "telemetry-service:50055"),
+    "model": os.getenv("MODEL_STREAMING_TARGET", "127.0.0.1:50051"),
+    "updates": os.getenv("PARAM_UPDATE_TARGET", "127.0.0.1:50052"),
+    "fuzzer": os.getenv("FUZZER_TARGET", "127.0.0.1:50053"),
+    "runtime": os.getenv("PRIVOKE_RUNTIME_TARGET", "127.0.0.1:50054"),
+    "telemetry": os.getenv("TELEMETRY_TARGET", "127.0.0.1:50055"),
 }
 
 

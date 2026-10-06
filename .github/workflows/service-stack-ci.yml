@@ -128,9 +128,18 @@ jobs:
     timeout-minutes: 40
     env:
       COMPOSE_PROJECT_NAME: privoke-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      COMPOSE_FILE: docker-compose.yml:evaluation/compose.localhost.yml
       FUZZER_PROMPT_COUNT: "0"
     steps:
       - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Prepare host gRPC test clients
+        run: |
+          pip install -r extension/runtime-supervisor/requirements.txt
+          python evaluation/setup-host.py
 
       - name: Validate production and development Compose configurations
         run: |
@@ -164,25 +173,24 @@ jobs:
               (.HostConfig.CapDrop | index("ALL") != null) and
               (.HostConfig.SecurityOpt | index("no-new-privileges:true") != null) and
               (.Config.User != "" and .Config.User != "root" and .Config.User != "0") and
-              (.HostConfig.PortBindings == {})' >/dev/null
+              (.HostConfig.PortBindings | to_entries | all(.value | all(.HostIp == "127.0.0.1")))' >/dev/null
           done
 
       - name: Exercise all live gRPC service paths
-        run: docker compose exec -T client-runtime python /workspace/evaluation/run-component-tests.py stack-smoke --training-request-id ci-production-training
+        run: python evaluation/run-component-tests.py stack-smoke --training-request-id ci-production-training
 
       - name: Verify durable training replay after service restart
         run: |
           docker compose restart param-update-service privoke-fuzzer
           docker compose up -d --wait --wait-timeout 120 param-update-service privoke-fuzzer
-          docker compose exec -T client-runtime python /workspace/evaluation/run-component-tests.py stack-smoke \
+          python evaluation/run-component-tests.py stack-smoke \
             --training-request-id ci-production-training --replay-training
 
       - name: Verify recovery after a model-service restart
         run: |
           docker compose restart model-streaming-service
           docker compose up -d --wait --wait-timeout 120 model-streaming-service
-          docker compose exec -T client-runtime \
-            python /workspace/evaluation/run-component-tests.py stack-smoke --skip-training
+          python evaluation/run-component-tests.py stack-smoke --skip-training
 
       - name: Stop the production stack before development integration
         run: docker compose down --remove-orphans --timeout 20
@@ -202,8 +210,7 @@ jobs:
 
       - name: Exercise all development gRPC service paths
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.dev.yml \
-            exec -T client-runtime python /workspace/evaluation/run-component-tests.py stack-smoke
+          python evaluation/run-component-tests.py stack-smoke
 
       - name: Show stack state and logs after a failure
         if: failure()

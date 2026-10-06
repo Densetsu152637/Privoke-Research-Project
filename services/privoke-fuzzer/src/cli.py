@@ -46,6 +46,8 @@ def run_training_cycle(args) -> None:
             sort_keys=True,
         )
     )
+    if not response.accepted:
+        raise SystemExit(1)
 
 
 def main() -> None:

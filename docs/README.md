@@ -29,7 +29,7 @@ Commands in these guides retain their original working-directory assumptions. St
 | [Contextual cascade results](contextual-cascade-results.md) | Development cascade and provisional contextual-fixture comparison; final remains unscored |
 | [Evaluation](README.Evaluation.md) | Datasets, experiments and metrics |
 | [Regex evaluation results](README.Regex-evaluation-results.md) | Existing evaluation report |
-| [Docker evaluation runners](../evaluation/README.md) | Central test invocation, controlled update experiments and raw run manifests |
+| [Host Python evaluation and tests](../evaluation/README.md) | Localhost test invocation, controlled update experiments and raw run manifests |
 | [Research completion plan](Research-completion-plan.md) | Research questions, experiments, milestones and publication readiness |
 | [Research paper writing guide](Research-paper-writing-guide.md) | Methodology improvements, wording, evidence reporting and venue requirements |
 | [Current research evidence](../paper/research/claims.md) | Provisional claims, measured development results, protocol and professor review requests |

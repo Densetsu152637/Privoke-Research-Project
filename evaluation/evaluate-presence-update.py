@@ -185,7 +185,7 @@ def main(argv=None):
     parser.add_argument("--dataset-file", type=Path, required=True)
     parser.add_argument("--partition", choices=tuple(PARTITIONS), required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--target", default=os.getenv("PRIVOKE_RUNTIME_TARGET", "client-runtime:50054"))
+    parser.add_argument("--target", default=os.getenv("PRIVOKE_RUNTIME_TARGET", "127.0.0.1:50054"))
     parser.add_argument("--source-revision", required=True)
     parser.add_argument("--fit-source-revision")
     parser.add_argument("--protocol-sha256", required=True)

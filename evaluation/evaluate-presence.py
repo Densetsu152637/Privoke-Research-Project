@@ -25,7 +25,7 @@ from privoke_eval.presence_training import binary_metrics, metrics_by_family, so
 
 LOCKED_DEV_SHA256 = "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
 LOCKED_DEV_ROWS = 502
-GENERATED = Path("/workspace/extension/client-runtime/generated")
+GENERATED = ROOT / "extension/client-runtime/generated"
 if GENERATED.is_dir():
     sys.path.insert(0, str(GENERATED))
 
@@ -217,7 +217,7 @@ def main(argv=None):
     parser.add_argument("--dataset-file", type=Path, required=True,
                         help="Locked development JSONL only; never pass final.")
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--target", default=os.getenv("PRIVOKE_RUNTIME_TARGET", "client-runtime:50054"))
+    parser.add_argument("--target", default=os.getenv("PRIVOKE_RUNTIME_TARGET", "127.0.0.1:50054"))
     parser.add_argument("--source-revision", required=True)
     parser.add_argument("--fit-source-revision")
     parser.add_argument("--fit-manifest", type=Path, required=True)
