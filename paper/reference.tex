@@ -1,0 +1,255 @@
+\documentclass[conference]{IEEEtran}
+% packages
+\usepackage{cite}
+\usepackage{url} 
+\usepackage{hyperref}
+\usepackage{comment}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{comment}
+\usepackage{listings}
+\usepackage{minted} 
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xspace}
+
+% custom commands
+\newcommand{\privoke}{\textsc{PriVoke}\xspace}
+
+% default setting overrides
+\IEEEoverridecommandlockouts
+
+% 
+\begin{document}
+
+\title{\privoke: A Client-Side Semantic Privacy Firewall for User Prompts in Web-Hosted LLMs}
+
+\author{
+\IEEEauthorblockN{Nicholas Bisset\IEEEauthorrefmark{1}}
+\IEEEauthorblockA{Monash University Clayton, Australia\\
+nbis0006@student.monash.edu}
+\and
+\IEEEauthorblockN{Manpreet Sahadevan, Nixon Ngai, and Sanoop Mallissery}
+\IEEEauthorblockA{Monash University Malaysia, Malaysia\\
+\{msah0018, nnga0004\}@student.monash.edu, sanoop.mallissery@monash.edu}
+
+\thanks{This paper was submitted for review on --/--/2026.}
+\thanks{\IEEEauthorrefmark{1}Corresponding author: Nicholas Bisset.}
+\thanks{\href{https://github.com/Densetsu152637/Privoke-Research-Project}{GitHub Repository Link}}
+}
+
+\maketitle
+%----------------------------------------------------------------------%
+\begin{abstract}    
+
+Web-hosted Large Language Models (LLMs) have introduced a new privacy leakage surface: sensitive user information can be exposed directly through prompts before any organizational or provider-side control can intervene. This paper presents \privoke, a client-side semantic privacy firewall that intercepts outgoing LLM prompts and enforces privacy decisions before transmission. It combines rule-based detection, Named Entity Recognition (NER), and semantic risk analysis to identify Personally Identifiable Information (PII) and context-dependent sensitive disclosures. To improve robustness beyond static filtering, the system incorporates a privacy-oriented prompt fuzzing pipeline that tests detection behavior against obfuscated, paraphrased, and adversarial prompt variants. \privoke utilizes Differential Privacy (DP)-protected telemetry, enabling deployment monitoring without collecting raw prompts or directly identifiable user data. By localizing prompt-level privacy enforcement,\privoke provides a practical foundation for reducing sensitive prompt leakage while preserving usability in web-hosted LLM workflows.
+
+\end{abstract}
+%----------------------------------------------------------------------%
+\begin{IEEEkeywords} 
+Differential Privacy, Large Language Model, Named Entity Recognition, Personal Identifying Information.
+\end{IEEEkeywords}
+%----------------------------------------------------------------------%
+\section{Introduction}
+\label{sec:introduction}
+
+Web-hosted Large Language Models (LLMs) are increasingly shaping modern AI-assisted workflows, particularly in writing, coding, analysis, and document-centric professional tasks~\cite{Gupta2024, LIANG2025101366, koraag2025comparing}. Their widespread adoption is largely driven by the capabilities of large-scale hosted models, which often provide substantially greater model capacity than locally deployable alternatives such as LLaMA-style models~\cite{Florian2025, MEDEC2024}. This increased capacity enables higher-quality responses, broader task handling, and greater productivity benefits, encouraging users to rely on web-hosted LLMs for everyday work activities~\cite{Crane2025, Zahra2025}. However, this convenience also introduces a critical privacy risk: users may include personal, organizational, or contextually sensitive information in prompts without fully recognizing the implications of sending that data to an external service~\cite{Athey2017}. While major LLM providers such as OpenAI, Google, and Microsoft offer privacy policies, retention controls, and enterprise settings, prompt processing remains largely provider-dependent, and user-submitted data may still be processed, logged, or reused within service improvement pipelines depending on the provider’s policy and configuration~\cite{barbera2025ai,King2025}. As a result, prompt-based interaction with web-hosted LLMs poses a practical security challenge: sensitive information can leave the client before effective privacy enforcement can occur.
+
+Recent incidents show that prompt privacy is no longer a hypothetical concern. In 2023, Samsung employees reportedly exposed confidential source code, internal meeting notes, and engineering information by submitting them to Chat-GPT for work-related assistance, prompting the company to restrict the use of generative AI tools within its workplace~\cite{SamsungBans2023}. In the same year, a Chat-GPT service bug exposed parts of users' conversation-history metadata and limited billing-related information for a subset of subscribers, demonstrating that prompt ecosystems can fail not only through user mistakes but also through platform-side vulnerabilities~\cite{BBCChatGPTHistoryBug2023}. Google reportedly warned employees not to enter confidential material into AI chatbots, including its own Bard/Gemini system, and its privacy notice cautioned users against including confidential or sensitive information in Bard conversations~\cite{GoogleWarns2023}. Similar risks have appeared in high-stakes public-sector settings, where sensitive child-protection information was entered into Chat-GPT during the preparation of a court-related report, leading regulators to impose restrictions on generative AI use within the department~\cite{ChatGPTChildProtection}. Claude.ai has also been shown to face prompt-injection and data-exfiltration risks, where chained vulnerabilities could enable sensitive information from conversation history to be extracted through provider-side workflows~\cite{ClaudeDay2026}. Beyond individual incidents, prior studies and provider-side analyses show that sensitive information supplied through prompts may be retained, reproduced, analyzed, or insufficiently sanitized by LLM-based systems~\cite{tamkin2024clio,priyanshu2023chatbots}. These cases highlight a critical gap in current LLM usage: privacy protection still depends on user caution, provider policy, or post-submission controls, while the most effective point of intervention is before sensitive content leaves the client.
+
+Motivated by this gap, we propose \privoke, a client-side semantic privacy firewall that shifts prompt protection from provider-side afterthoughts to the moment sensitive information is about to leave the user’s device. Rather than relying on user caution, organizational policy, or remote service guarantees, \privoke inspects outgoing prompts locally before they are transmitted to web-hosted LLM endpoints and enforces privacy-aware actions such as warning, masking, or blocking. Its design combines real-time prompt analysis on the client with a supporting microservices architecture for model management, privacy-oriented prompt fuzzing, controlled parameter updates, and telemetry protected by Differential Privacy (DP). This separation allows the system to remain lightweight for browser-based deployment while still supporting continuous robustness testing and privacy-preserving deployment monitoring. In this way, \privoke provides a practical endpoint-level defense against sensitive prompt leakage in everyday LLM workflows, without requiring users to abandon the convenience and utility of web-hosted AI services.
+
+The main contributions of this work are as follows:
+\begin{itemize}
+    \item We frame prompt-level privacy leakage as an endpoint security problem in web-hosted LLM workflows, where sensitive information may leave the client before effective safeguards are applied.
+
+    \item We present \privoke, a lightweight client-side semantic privacy firewall that inspects outgoing prompts and applies warning, masking, or blocking before transmission.
+
+    \item We design a layered privacy-risk detection pipeline that combines rule-based matching, Named Entity Recognition (NER), and semantic risk analysis to detect Personally Identifiable Information (PII) and context-dependent sensitive disclosures.
+
+    \item We introduce a robustness-support architecture with privacy-focused prompt fuzzing, model streaming, and controlled parameter updates to test and improve detection against obfuscated and adversarial prompts.
+
+    \item We integrate Differential Privacy (DP)-protected telemetry to monitor deployment behavior without collecting raw prompts or directly identifiable user information.
+\end{itemize}
+
+%----------------------------------------------------------------------%
+\section{Background} 
+\label{sec:background}
+
+\subsection{Large Language Models and Prompt-Based Interaction}
+
+LLMs are widely used in modern AI-assisted workflows, including writing, coding, summarization, information retrieval and decision-support tasks. Most contemporary web-hosted LLM services, such as Chat-GPT, Microsoft Copilot, and Google Gemini, are built on Transformer-based architectures that support scalable pre-training and effective modeling of long-range textual dependencies~\cite{courseraTransformersConvolutional,liu2025understanding}. Transformer-based pre-trained language models (PLMs), when trained on large-scale corpora and adapted for interactive use, form the foundation of many current LLM systems~\cite{zhong2023chatradio}.
+
+Users interact with these systems primarily through prompts, which are natural-language instructions, questions or contextual inputs submitted to the model. In practical workflows, prompts often contain more than simple queries: users may paste personal details, organizational information, code fragments, legal or medical context, internal documents, or other sensitive content to obtain useful responses. Although LLMs can also be deployed locally using smaller open-weight models such as LLaMA-style systems~\cite{Llama2023}, web-hosted LLM services remain widely adopted because they reduce local computational requirements and provide convenient access to high-capacity models. This deployment model, however, shifts prompt processing outside the user's direct control.
+
+\subsection{Privacy Risks in External LLM Systems}
+
+The widespread adoption of web-hosted LLMs has raised privacy concerns about the processing, retention, and reuse of user-submitted prompts. Recent studies highlight risks associated with prompt collection, provider-side logging, and policy-dependent data handling in external LLM services~\cite{li2025security, de2025lifecycle}. Prior systems such as Casper~\cite{Casper2024} and PromptShield~\cite{kelecspromptshield} further emphasize that web-hosted LLM services may process, store, or share user prompts depending on their privacy policies and service configurations. Once a sensitive prompt is submitted, users may have limited visibility into how the content is handled, retained, analyzed, or used in downstream service-improvement pipelines.
+
+A further concern is that sensitive content may remain difficult to fully control after submission. Studies on memorization and training-data reconstruction show that information used during model training can, under certain conditions, be partially recovered or reproduced~\cite{haim2022reconstructing}. While not every submitted prompt is necessarily used for model training, these findings reinforce the broader risk that sensitive data entering an LLM pipeline may create long-term privacy exposure. This motivates privacy controls that operate before disclosure, rather than relying only on provider-side policies or post-submission deletion mechanisms.
+
+\subsection{Privacy Preservation Techniques}
+
+Existing frameworks, including Casper \cite{Casper2024}, HaS \cite{HaS2024}, and ProSan~\cite{ProSan2024}, use techniques such as prompt sanitization, data anonymisation, NER, semantic risk detection, semantic substitution, DP, local inference, and client-side filtering to reduce privacy risks in LLM workflows.
+
+Prompt sanitization refers to the process of inspecting, cleaning, or transforming user inputs before they are passed to a language model or downstream service~\cite{Mousumi_Bakshi2025}. In security settings, sanitization may remove malicious instructions to reduce prompt-injection risks; in privacy settings, it may redact or replace PII before disclosure. While server-side systems may apply sanitization to protect their own infrastructure, they may not always prevent user-sensitive information from reaching the provider in the first place~\cite{pradhan2025zero}. This motivates client-side filtering approaches, where sensitive content is detected and controlled before the prompt leaves the user's device.
+
+Data anonymisation focuses on reducing the identifiability of user-submitted content, typically through two steps: PII detection followed by text replacement or transformation. Rule-based detection uses regular expressions and predefined patterns to identify common sensitive fields such as email addresses, phone numbers, or identification numbers. Although effective for explicit and well-structured identifiers, rule-based methods are limited when sensitive information appears in unusual formats or depends on context. NER addresses part of this limitation by identifying structured entities such as persons, organizations, locations, and dates from unstructured text~\cite{munnangi2024brief}. However, sensitive information may also arise from the semantic meaning of a prompt rather than from explicit identifiers alone. Semantic risk detection, therefore, uses Natural Language Processing (NLP) methods to infer privacy risk from context, enabling detection of disclosures that may not be captured by surface-level patterns or entity labels. Once sensitive content is identified, it may be redacted, replaced, masked, or semantically rewritten to reduce privacy leakage.
+
+DP provides a formal framework for limiting privacy risk during data collection and analysis. DP can be mathematically formalized:
+
+$\Pr[M(D)=o] \leq e^{\varepsilon}\Pr[M(D')=o]+\delta$
+
+It is widely used for large-scale telemetry and usage statistics collection by organizations such as Google, Apple, and Microsoft~\cite{cormode2018privacy, cortes2016differential}. Local Differential Privacy (LDP) extends this idea by perturbing information on the user's device before transmission, reducing reliance on a trusted central collector. In the context of client-side LLM privacy tools, DP is particularly relevant for collecting aggregate deployment telemetry, such as risk-score buckets, action types, and model-version statistics, without exposing raw prompts or directly identifiable user information.
+
+%----------------------------------------------------------------------%
+\section{Literature Review} 
+\label{sec:literature_review}
+
+\subsection{PII Detection}
+
+Existing privacy-preserving LLM systems commonly combine rule-based, entity-based and semantic approaches to identify sensitive information prior to disclosure. While recent frameworks such as ProSan~\cite{ProSan2024} and Casper~\cite{Casper2024} have demonstrated improvements in contextual privacy detection beyond traditional entity recognition, their detection capabilities remain largely fixed after deployment.
+
+As privacy-sensitive content increasingly depends on application context, domain-specific terminology, and evolving user behavior, static detection models may experience reduced effectiveness when encountering previously unseen prompt structures or adversarially crafted inputs. Existing systems therefore lack adaptive mechanisms capable of continuously improving detection robustness over time, motivating the research direction explored by \privoke.
+
+\subsection{Continuous LLM Training Methods}
+
+Recent research has explored feedback-driven refinement, active learning, and adversarial testing as mechanisms for improving model performance after deployment. These approaches leverage challenging or misclassified examples to continuously strengthen model robustness and adapt to changing input distributions.
+
+Despite their success in broader machine learning and security domains, such techniques have seen limited adoption within prompt privacy systems. Existing privacy-preserving frameworks generally operate as static pipelines and provide few mechanisms for continuously refining detection capabilities in response to real-world usage. This limitation motivates \privoke's integration of automated fuzzing and feedback-driven model improvement.
+
+\subsection{Differential Privacy \& Telemetry Collection}
+
+Differentially private telemetry has been widely adopted for privacy-preserving analytics and software monitoring, enabling aggregate system metrics to be collected without exposing individual user data. Existing telemetry frameworks demonstrate that useful feedback can be gathered while reducing risks associated with metadata leakage and user re-identification. In contrast, applying Differential Privacy directly to prompt contents is generally impractical for LLM privacy systems, as the noise required to provide meaningful privacy guarantees can significantly degrade prompt utility and reconstruction accuracy while introducing substantial computational overhead~\cite{HaS2024}.
+
+However, the application of privacy-preserving telemetry within prompt privacy systems remains relatively unexplored. Existing solutions primarily focus on prompt sanitization and anonymisation, while limited research investigates how differentially private telemetry can be used to continuously improve local privacy detection models. \privoke addresses this gap by combining privacy-preserving telemetry collection with adaptive model refinement.
+
+\subsection{Research Gap}
+
+Existing prompt privacy systems provide effective mechanisms for privacy detection and prompt sanitization, but they remain largely static after deployment. Detection performance is therefore constrained by the training data available during development and may degrade as prompt patterns, privacy risks, and adversarial bypass techniques evolve.
+
+While adversarial testing, continuous learning, and privacy-preserving telemetry have been successfully applied in other domains, their integration within prompt privacy systems remains limited. This motivates \privoke, which combines automated fuzzing and differentially private telemetry to continuously improve semantic privacy detection without exposing sensitive user data.
+
+%----------------------------------------------------------------------%
+\section{PII Categorization}
+\label{sec:pii_categorisation}
+
+To support context-aware privacy decisions, \privoke classifies detected information according to public visibility (P0--P3, PU), sensitivity (S0--S3), and information category. Category labels are stored as bit-mask flags covering domains such as health, financial information, location data, criminal history, religion, and personal identifiers. This multi-dimensional representation enables efficient storage while allowing privacy decisions to consider both the sensitivity and public exposure of detected information.
+
+\vspace{\baselineskip}
+%----------------------------------------------------------------------%
+\section{System Architecture \& Data Pipelines}
+\label{sec:system_architecture}
+
+\subsection{Client Runtime Service}
+
+This service is implemented as a google extension and functions as a typescript wrapper for the primary \privoke Runtime. It is responsible for intercepting outgoing requests to known web-hosted LLM endpoints, running the prompt through the \privoke runtime and getting a response of whether the request should be canceled or not. The runtime will then interrupt the request if necessary, alerting the user in the process.
+
+\begin{minted}{typescript}
+const endpoints = ["api.example.com"]
+const intercept = (details) => {    
+    let cancel = false;
+    if (endpoints
+        .map(details.url.includes)
+        .some(Boolean)
+    ) {
+        const prompt = details.prompt
+        cancel = runtime_check(prompt);
+        if (cancel) alertUser();
+    }        
+    return { cancel }        
+}
+\end{minted}
+\subsection{\privoke Runtime}
+
+\privoke runtime (Python/PyTorch) is used to locally host the PII detection pipeline, which involves locally running the \privoke LLM. This runtime will take in a string input, and reactively download the model when a request is made, if the model is not already loaded on the client's machine. The client will have methods to download a specific version of the \privoke model, but will default to the most recent if nothing is specified. 
+
+\subsection{"Fuzzer" Service}
+
+\privoke's Fuzzer service works by listening for a request made by the update service. When it receives the request to generate a new batch of randomly generated prompts, it downloads the latest \privoke model, processing the prompts. It then performs a training cycle on the model, ultimately distilling updated parameters. \privoke's Fuzzer then responds with the parameters so that the update service can perform server-side backpropagation, consolidating them into the global \privoke model whilst offloading training responsibility on the parameter update service.
+\begin{minted}{python}
+def generate_prompts(N: int):
+    return threadpool.map(
+        generate_prompt,
+        list(range(N)
+    )
+
+def train_n_batches(N: int):
+    batch_no = list(range(N)
+    prompts_f = threadpool.submit(
+        generate_prompts,args=(N,)
+    )
+    model_f = threadpool.submit(get_latest_model)
+    prompts = prompts_f.get()
+    model = model_f.get()
+    results = model.process(prompts)
+    parameters = model.backpropagate(
+        prompts, results
+    )
+    steam_to_update(parameters)
+
+listen_for_update_request(train_n_batches)
+\end{minted}
+
+\subsection{Telemetry Collector Service}
+
+The telemetry collector service is used to diagnose bugs, collect usage metrics and evaluate our data model efficiency. When the client runs a prompt through the \privoke runtime, non-private metrics are collated into a .protobuff format. This includes Time bucket, Most severe risk category, Risk score bucket, Action taken and the \privoke model version. Before being emitted to the telemetry collector service, DP (Differential Privacy) is applied to these metrics to de-identify the information, allowing \privoke servers to monitor usage metrics while de-identifying users.
+
+\subsection{Model Streaming Service}
+
+The model streaming service is an endpoint for the \privoke runtime to download model parameters. It is implemented in Go to allow for robust concurrency programming. \privoke's model parameters are efficiently streamed to the user via secure TLS-encrypted web-sockets (wss). Internally, the model streaming service uses an in-memory cache to ensure highly requested models and their parameters have low streaming latency to users.
+
+\subsection{Model Update Service}
+
+The model update service consolidates parameters sourced from decentralized training into the global \privoke model. It is implemented in python to allow for the use of PyTorch, which has libraries for LLM training. A valid extension of this research is potential for Federated Learning, as scalability and overfitting can become issues with static training libraries, even with the precautions \privoke takes to prevent overfitting. We make possible extensions easier by abstracting the update service to its own runtime. This also facilitates proper thread/database synchronization to occur between this service and the model streaming service, offloading responsibility from the Fuzzer.
+
+%----------------------------------------------------------------------%
+\section{Results (expected)}
+\label{sec:results}
+
+\subsection{Model Detection Accuracy}
+
+Unlike precedents, we hypothesize \privoke's detection accuracy to increase with time, even beyond the scope of this study. We can obtain this information by way of running the Fuzzer. This is observed by the Fuzzer's training process, where we can evaluate how accurate \privoke's detection performs against pre-computed, correctly human identified information. 
+
+\begin{figure}[H]
+    \includegraphics[width=\columnwidth]{figures/Figure_1.png}
+    \caption{
+    Figure 1 depicts the expected accuracy of \privoke runtime as time progresses towards the end of the year and beyond
+    }
+    \label{fig:expected detection accuracy against time }
+\end{figure}
+
+\subsection{Model Runtime Speed}
+
+\privoke aims to be lightweight, and over the study \privoke's runtime performance will be continuously optimized. We hypothesis that \privoke's runtime performance will continue to improve as we prune the model over the course of the study, removing redundant nodes and fine-tuning important ones.
+
+\begin{figure}[H]
+    \includegraphics[width=\columnwidth]{figures/Figure_2.png}
+    \caption{
+    Figure 2 depicts the expected runtime speed of \privoke runtime as time progresses towards the end of the year and beyond
+    }
+    \label{fig:expected model execution time against time }
+\end{figure}
+%----------------------------------------------------------------------%
+\section{Limitations}
+\label{sec:limitations}
+
+TODO
+
+%----------------------------------------------------------------------%
+\section{Conclusion}
+\label{sec:conclusion}
+
+TODO
+
+%----------------------------------------------------------------------%
+\section{Extensions}
+\label{sec:extensions}
+
+TODO
+
+%----------------------------------------------------------------------%
+\bibliographystyle{ieeetr}
+\bibliography{ref}
+
+\end{document}
