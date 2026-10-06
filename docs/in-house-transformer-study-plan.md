@@ -8,13 +8,13 @@ Read this with the [clean-augmentation protocol](../paper/research/clean-augment
 
 The new primary backbone question is whether **balanced full-encoder training improves full-pipeline specificity over matched balanced head-only training**, subject to the declared recall and provisional action-regression criteria. The existing augmentation question remains augmented sparse balanced C1 versus its frozen original sparse balanced C1 control. Neither comparison is a test of pretrained language modeling: all transformer encoder weights originate in repository-owned random initialization. No external pretrained weights, model APIs or language-model objective are used.
 
-| Arm key | Presence representation and training | Confirmatory role |
-| --- | --- | --- |
-| S0 | Frozen original presence-balanced C1 release | Augmentation control |
-| S1 | Sparse presence-balanced C1 on original plus reviewed added training | Existing augmentation treatment |
-| E-H / E-F | Efficient scratch encoder, head-only / full encoder | Descriptive matched pair |
-| B-H / B-F | Balanced scratch encoder, head-only / full encoder | New primary backbone pair |
-| Q-H / Q-F | Quality scratch encoder, head-only / full encoder | Descriptive matched pair |
+| Arm key   | Presence representation and training                                 | Confirmatory role               |
+| --------- | -------------------------------------------------------------------- | ------------------------------- |
+| S0        | Frozen original presence-balanced C1 release                         | Augmentation control            |
+| S1        | Sparse presence-balanced C1 on original plus reviewed added training | Existing augmentation treatment |
+| E-H / E-F | Efficient scratch encoder, head-only / full encoder                  | Descriptive matched pair        |
+| B-H / B-F | Balanced scratch encoder, head-only / full encoder                   | New primary backbone pair       |
+| Q-H / Q-F | Quality scratch encoder, head-only / full encoder                    | Descriptive matched pair        |
 
 All eight gate the **same original contextual balanced v0.3.0 artifact** and use the same current approved regex, NER, normalization, visibility handling, fusion and action/error policy. Selecting the original contextual artifact does not roll those components back. Freeze its actual bytes/checksum and transported float32 fingerprint, the S0 completed-fit/selection/artifact commitments, effective configuration, source and actual image IDs before execution; do not invent missing artifact hashes. No latest/default model substitution or policy promotion is allowed. Ordinary ungated pipeline and nonsemantic pipeline are matched descriptive controls, not additional fitted arms.
 
@@ -28,11 +28,11 @@ For each profile, initialize encoder tensors from the frozen generator's `initia
 
 Use the unchanged source pin, full graph closure, duplicate representatives, eligibility and blinded provisional-review rules. Preserve historical protection bytes and prospectively freeze the fixture add-on and actual combined protection identity described below. Pool cap remains **12,096**: all eligible1,232 native hard negatives, up to6,200 native ordinary negatives and up to4 native-positive representatives per each of1,166 structural positive components. These ceilings do not prove usable capacity. No detector/prediction labels, pool replenishment or outcome-dependent substitutions. Independent annotation assistants may provide blinded provisional judgments; professor confirmation remains pending.
 
-| Partition | Reviewed positive | Reviewed absent: ordinary | Reviewed absent: hard | Total |
-| --- | ---: | ---: | ---: | ---: |
-| Fresh test | 1,000 | 750 | 250 | 2,000 |
-| Fresh validation | 1,000 | 750 | 250 | 2,000 |
-| Added training | 2,000 | 1,600 | 400 | 4,000 |
+| Partition        | Reviewed positive | Reviewed absent: ordinary | Reviewed absent: hard | Total |
+| ---------------- | ----------------: | ------------------------: | --------------------: | ----: |
+| Fresh test       |             1,000 |                       750 |                   250 | 2,000 |
+| Fresh validation |             1,000 |                       750 |                   250 | 2,000 |
+| Added training   |             2,000 |                     1,600 |                   400 | 4,000 |
 
 Each evaluation class needs at least200 **represented full connected components** in validation and test; training has no component floor. Preserve component shuffle seed `11102026`, sampling seed `13102026`, test-first then validation then training assignment, exact one-pass greedy allocation and anchor/fill rules. Native negative rows reviewed present do not fill positive quotas. Unknown labels contribute no capacity. Parent, exact/normalized text, identifier-value and known template links include excluded/unreviewed bridges before filtering. Components cannot cross partitions; same-text contradictory reviewed labels or any protected member excludes the whole component. No quota/class/stratum relaxation, changed seed, duplication or source switch after inspection.
 
@@ -64,16 +64,16 @@ Enumerate `{0,1}`, every executed probability, and `nextafter(probability,+infin
 
 Freeze all eight artifacts, candidate/selection tables, source/data/protocol/config/image bindings and choice digest together. Live-rerun all eight selected validation pipelines and require exact projection/live classification/action correspondence and identities. Then complete zero-error fixture assessments of all eight fixed choices on the addon-protected48-case provisional fixture, with only its four explicit hints,24controls/17disclosures/7ambiguous. The41 nonambiguous cases alone contribute quantitative rubric metrics. Every arm needs complete bound evidence; the arm-specific **eligibility** conditions are distinct:
 
-| Arm | Fixed fixture role/reference | Pretest fixture eligibility |
-| --- | --- | --- |
-| S0 | Reference for S1 | Completed zero-error assessment; baseline private failures descriptive and nonblocking |
-| S1 | Treatment against S0 | Completed zero-error assessment and no additional private-action losses against S0 |
-| E-H | Reference for E-F | Completed zero-error assessment; baseline private failures descriptive and nonblocking |
-| E-F | Treatment against E-H | Completed zero-error assessment and no additional private-action losses against E-H |
-| B-H | Reference for B-F | Completed zero-error assessment; baseline private failures descriptive and nonblocking |
-| B-F | Treatment against B-H | Completed zero-error assessment and no additional private-action losses against B-H |
-| Q-H | Reference for Q-F | Completed zero-error assessment; baseline private failures descriptive and nonblocking |
-| Q-F | Treatment against Q-H | Completed zero-error assessment and no additional private-action losses against Q-H |
+| Arm | Fixed fixture role/reference | Pretest fixture eligibility                                                            |
+| --- | ---------------------------- | -------------------------------------------------------------------------------------- |
+| S0  | Reference for S1             | Completed zero-error assessment; baseline private failures descriptive and nonblocking |
+| S1  | Treatment against S0         | Completed zero-error assessment and no additional private-action losses against S0     |
+| E-H | Reference for E-F            | Completed zero-error assessment; baseline private failures descriptive and nonblocking |
+| E-F | Treatment against E-H        | Completed zero-error assessment and no additional private-action losses against E-H    |
+| B-H | Reference for B-F            | Completed zero-error assessment; baseline private failures descriptive and nonblocking |
+| B-F | Treatment against B-H        | Completed zero-error assessment and no additional private-action losses against B-H    |
+| Q-H | Reference for Q-F            | Completed zero-error assessment; baseline private failures descriptive and nonblocking |
+| Q-F | Treatment against Q-H        | Completed zero-error assessment and no additional private-action losses against Q-H    |
 
 Use the frozen rubric's nonambiguous cases with `required_sensitive=True` and resolved required action WARN or BLOCK. Define a pairwise loss when action rank(reference)>=rank(required)>rank(treatment), with ALLOW<WARN<BLOCK. Any such loss for S1/E-F/B-F/Q-F invalidates that arm and stops the whole program before test. Reference baseline failures alone do not block or select an alternative checkpoint. Separately report **ordinary ungated-to-arm losses for all eight arms** using the same formula with ordinary as reference, all41 quantitative cases and the same four explicit hints. These ordinary-relative counts, all action downgrades and baseline private failures are descriptive; ordinary output is not ground truth and no ordinary enforcement floor is imposed. A weak reference can lose an ordinary finding shared by both members of a passing pair. Zero pairwise loss therefore does not establish ordinary enforcement preservation or safety. Fixtures never tune a model/threshold, provide training examples or select another checkpoint.
 

@@ -18,15 +18,15 @@ The first v1 preparation used a blanket ambiguous-UID exclusion: it retained 2,9
 
 The valid preparation is `evaluation/results/external_pii_20261004_prepared_v3/manifest.json`, SHA-256 `2b8a63b168d72510ce4e61e03748bf5f7858bdc33b41d15f0095780164658e1c`, created from source revision `85c7f475fb8ebd1529254e4135b774d98505ddb1`. The original training data were preserved as an exact prefix. Counts are:
 
-| Partition | Rows | Scope |
-| --- | ---: | --- |
-| Original training reference | 3,832 | Existing project examples |
-| Nemotron training | 13,168 | Valid positive annotations, parent-UID-grouped |
-| Meddies training | 2,993 | Valid positive annotations, coarse metadata-family grouped |
-| **Total training** | **19,993** | Within the frozen 20,000-row cap |
-| Validation | 968 | Unchanged selection set; SHA-256 `d2d0c538e49f5bbc7a8f85887b9b8cfddb188a5ab9aae55c69ce26ae932be6d1` |
-| Nemotron source-heldout | 1,000 | Positive-only, 500 parent UID groups |
-| Meddies source-heldout | 999 | Positive-only, 36 metadata families |
+| Partition                   |       Rows | Scope                                                                                               |
+| --------------------------- | ---------: | --------------------------------------------------------------------------------------------------- |
+| Original training reference |      3,832 | Existing project examples                                                                           |
+| Nemotron training           |     13,168 | Valid positive annotations, parent-UID-grouped                                                      |
+| Meddies training            |      2,993 | Valid positive annotations, coarse metadata-family grouped                                          |
+| **Total training**          | **19,993** | Within the frozen 20,000-row cap                                                                    |
+| Validation                  |        968 | Unchanged selection set; SHA-256 `d2d0c538e49f5bbc7a8f85887b9b8cfddb188a5ab9aae55c69ce26ae932be6d1` |
+| Nemotron source-heldout     |      1,000 | Positive-only, 500 parent UID groups                                                                |
+| Meddies source-heldout      |        999 | Positive-only, 36 metadata families                                                                 |
 
 Among the pinned source rows, the manifest records 41,718 verified Nemotron parent pairs and 8,282 excluded parent groups; it separately records 9,128 annotation/text mismatches, 7,430 invalid sibling rows, 6 unknown annotations, and one normalized duplicate. Meddies had 47,691 valid positive annotations, with two text mismatches, two malformed entity values, and 49 empty/unknown annotations. The caps and group assignments reduce selected rows below raw source counts. Candidate duplicate IDs/texts, protected ID/group/text overlaps, and cross-partition group overlaps were all zero. The preparation manifest records all per-source and partition hashes; no final examples were read.
 
@@ -36,11 +36,11 @@ The fit at `evaluation/results/external_pii_profiles_20261004_v1/run-manifest.js
 
 Validation contains 475 positive and 493 clean rows. Counts below are `TP/TN/FP/FN`; percentages are recomputed from these raw counts. Matched frozen-profile controls are included for context.
 
-| Profile | Expanded TP/TN/FP/FN | Recall | Specificity | Frozen control TP/TN/FP/FN |
-| --- | --- | ---: | ---: | --- |
-| Efficient | 428 / 330 / 163 / 47 | 90.11% | 66.94% | 429 / 378 / 115 / 46 |
-| Balanced | 428 / 396 / 97 / 47 | 90.11% | 80.32% | 428 / 392 / 101 / 47 |
-| Quality | 430 / 384 / 109 / 45 | 90.53% | 77.89% | 428 / 394 / 99 / 47 |
+| Profile   | Expanded TP/TN/FP/FN | Recall | Specificity | Frozen control TP/TN/FP/FN |
+| --------- | -------------------- | -----: | ----------: | -------------------------- |
+| Efficient | 428 / 330 / 163 / 47 | 90.11% |      66.94% | 429 / 378 / 115 / 46       |
+| Balanced  | 428 / 396 / 97 / 47  | 90.11% |      80.32% | 428 / 392 / 101 / 47       |
+| Quality   | 430 / 384 / 109 / 45 | 90.53% |      77.89% | 428 / 394 / 99 / 47        |
 
 The validation effects are mixed. The quality profile adds two true positives and ten false positives relative to its matched control. Since validation selected C and thresholds, these are selection-conditioned development comparisons, not independent confirmation or a causal estimate of the added sources.
 
@@ -53,6 +53,7 @@ The experimental sparse profiles were installed and measured through live RPC fo
 The 968-row validation set is a fixed project selection control, not an external test. The project’s original PIIMB-derived fitting reference comes from the benchmark test population and is exploratory within-corpus evidence, not benchmark-clean training. The source-heldout corpora are synthetic or machine-generated, positive-only, and not representative evidence about real clinical records or deployment. The Meddies metadata families do not establish document independence. Final remains locked and unscored.
 
 Meddies is CC-BY-NC-4.0 and Nemotron is CC-BY-4.0 at the pinned revisions. Retain source attribution and the non-commercial restriction. Sparse vocabularies may encode generated names or identifiers; keep all text-bearing inputs, clinical text, entity lists, exclusion/group records, and fitted vocabularies in restricted ignored experiment storage. Public documentation should contain only reviewed aggregate counts and metrics.
+
 ## Completed runtime comparison
 
 The runtime study manifest is `evaluation/results/external_pii_rpc_20261004_v2/run-manifest.json`, SHA-256 `62b28e0f6c2e8006915e9bdc8498462d636e44d5bb397f8704a95d96d2ab8671`. Its verified aggregate is `evaluation/results/external_pii_summary_20261004_v1.json`, SHA-256 `e5e138d42f0930390702fb56a745ae0b8e7f7772791d8ed473ab56d51b250c2d`. The run bound execution source `083ee0c5fb38efdfb63ade634b185eba0c67432d`, fit source `85c7f475fb8ebd1529254e4135b774d98505ddb1`, the protocol and prepared-manifest hashes above, and the exact 968-row validation and positive-only source partitions. All 18 profile/control/partition runs covered 17,802 RPC requests and returned zero errors. The manifest records verified restoration, `admin_mutation_outcome_unknown=false`, identical contextual payload SHA-256 before and after (`e4363fc47b0b4663f92d923842e2bfe635b0d7b2b165c9cd4a8fb2f4a7e66d93`), and unchanged runtime image IDs before/after.

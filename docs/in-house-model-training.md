@@ -21,11 +21,11 @@ training or language-model pretraining.
 
 The generator's three named source configurations are:
 
-| Profile | Model ID | Vocabulary | Hidden | Intermediate | Context tokens | Encoder layers | Attention heads |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Efficient | `privoke-efficient` | 512 | 24 | 48 | 64 | 1 | 2 |
-| Balanced | `privoke-balanced` | 512 | 32 | 64 | 96 | 2 | 4 |
-| Quality | `privoke-quality` | 768 | 32 | 64 | 128 | 3 | 4 |
+| Profile   | Model ID            | Vocabulary | Hidden | Intermediate | Context tokens | Encoder layers | Attention heads |
+| --------- | ------------------- | ---------: | -----: | -----------: | -------------: | -------------: | --------------: |
+| Efficient | `privoke-efficient` |        512 |     24 |           48 |             64 |              1 |               2 |
+| Balanced  | `privoke-balanced`  |        512 |     32 |           64 |             96 |              2 |               4 |
+| Quality   | `privoke-quality`   |        768 |     32 |           64 |            128 |              3 |               4 |
 
 These are configured artifact dimensions, not evidence that a larger profile
 performs better. Profile names and parameter counts do not establish accuracy,
@@ -104,7 +104,7 @@ contextual model. See the still-draft
 
 The proposed in-house mechanics direction is a separate offline CPU training
 path for the repository's randomly initialized transformer. In this context,
-*end-to-end* means optimizing the encoder and task head together on an explicitly
+_end-to-end_ means optimizing the encoder and task head together on an explicitly
 labeled supervised objective. It does not mean that PriVoke has a generative
 language model, that it performs self-supervised language-model pretraining, or
 that it uses externally pretrained weights. The existing sparse-presence
