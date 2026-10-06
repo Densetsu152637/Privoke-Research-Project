@@ -11,7 +11,8 @@ x-study-job: &study-job
   pids_limit: 128
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
-  tmpfs: [/tmp:size=128m,mode=1777,noexec,nosuid,nodev]
+  tmpfs:
+    - /tmp:size=128m,mode=1777,noexec,nosuid,nodev
   environment:
     PYTHONPATH: /workspace/evaluation:/workspace/shared/python:/workspace/extension/client-runtime/generated
     PYTHONDONTWRITEBYTECODE: "1"
@@ -24,6 +25,11 @@ services:
     user: "0:0"
     # Explicit per-job input/evidence subtree bind mounts are added by controller.
     # Existing project default network reaches only local runtime/model services.
+  in-house-fit-reader:
+    <<: *study-job
+    user: "65534:65534"
+    network_mode: none
+    # Only the fit volume and bounded metadata request are mounted read-only.
   in-house-catalog-admin:
     <<: *study-job
     user: "10001:10001"

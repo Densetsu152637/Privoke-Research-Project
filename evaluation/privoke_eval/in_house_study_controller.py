@@ -35,6 +35,7 @@ ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_FILES = ('docker-compose.yml', 'evaluation/compose.tests.yml',
                  'evaluation/compose.public-negatives.yml', 'evaluation/compose.presence.yml',
                  'evaluation/compose.in-house-fit.yml', 'evaluation/compose.in-house-study.yml')
+FIT_ROOT = Path('/private-fit-root')
 
 
 class ControllerError(ValueError):
@@ -429,12 +430,13 @@ def private_helper(request):
     """Source-attested in-container producer/reader. No arbitrary cat/copy mode."""
     if os.name != 'posix' or os.environ.get('PRIVOKE_EVAL_IN_CONTAINER') != 'true':
         fail()
-    fd = os.open(PRIVATE_ROOT, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    try:
-        os.fchmod(fd, 0o700)
-    finally:
-        os.close(fd)
     mode = request.get('mode')
+    if mode != 'read-fit':
+        fd = os.open(PRIVATE_ROOT, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fchmod(fd, 0o700)
+        finally:
+            os.close(fd)
     if mode == 'capture-data':
         evidence.closed(request, ('mode', 'inventory', 'source', 'target'))
         data = verify_volume_inventory(request['inventory'])
@@ -468,10 +470,21 @@ def private_helper(request):
                 'metadata': phase_metadata(phase, raw, request['expected_sha256'])}
     if mode == 'read-fit':
         evidence.closed(request, ('mode', 'manifest_sha256', 'arm'))
-        if request['arm'] not in contract.ARM_KEYS[1:]:
+        if os.geteuid() != 65534 or request['arm'] not in contract.ARM_KEYS[1:]:
             fail()
-        root = Path('/private-fit-root')/'arm'
-        raw = evidence.read_committed(root/'manifest.json', request['manifest_sha256'])
+        root = FIT_ROOT/'arm'
+        for directory in (FIT_ROOT, root):
+            info = directory.lstat()
+            if not stat.S_ISDIR(info.st_mode) or info.st_uid != 65534 or stat.S_IMODE(info.st_mode) != 0o700:
+                fail()
+        def read_fit_file(name, digest, limit=evidence.MAX_INPUT_BYTES):
+            path = root/name
+            info = path.lstat()
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != 65534
+                    or stat.S_IMODE(info.st_mode) != 0o600 or info.st_nlink != 1):
+                fail()
+            return evidence.read_committed(path, digest, limit)
+        raw = read_fit_file('run-manifest.json', request['manifest_sha256'])
         value = evidence.checked_json(raw, request['manifest_sha256'])
         if value.get('arm_key') != request['arm'] or value.get('status') != 'complete':
             fail()
@@ -481,7 +494,7 @@ def private_helper(request):
         for record in records:
             if not re.fullmatch(r'checkpoint-epoch-0[0-5]\.json', record['artifact_file']):
                 fail()
-            artifact_raw = evidence.read_committed(root/record['artifact_file'], record['artifact_sha256'], evidence.MAX_FRAME_BYTES)
+            artifact_raw = read_fit_file(record['artifact_file'], record['artifact_sha256'], evidence.MAX_FRAME_BYTES)
             if artifact_identity(artifact_raw)[0] != record['identity']:
                 fail()
             sanitized.append({k: record[k] for k in allowed})
@@ -531,10 +544,17 @@ class DockerBackend:
 
     def helper(self, request, *, mounts=()):
         ref = save(self.output/f'private-request-{uuid.uuid4().hex}.json', request)
-        raw, receipt = self.job('in-house-evidence-job', ['python', '/workspace/evaluation/run-in-house-study.py',
+        fit_reader = request.get('mode') == 'read-fit'
+        if fit_reader:
+            if len(mounts) != 1 or mounts[0][1:] != (str(FIT_ROOT), True) or not mounts[0][0].startswith('volume:'):
+                fail()
+            os.chmod(ref['file'], 0o444)
+        job_mounts = ((ref['file'], '/request.json', True), *mounts) if fit_reader else (
+            (ref['file'], '/request.json', True), ('volume:'+self.private_store(), str(PRIVATE_ROOT), False), *mounts)
+        raw, receipt = self.job('in-house-fit-reader' if fit_reader else 'in-house-evidence-job', ['python', '/workspace/evaluation/run-in-house-study.py',
             '--private-helper', '--request', '/request.json', '--request-sha256', ref['sha256'],
             '--controller-sha256', self.inputs['controller_sha256'], '--cli-sha256', self.inputs['cli_sha256']],
-            mounts=((ref['file'], '/request.json', True), ('volume:'+self.private_store(), str(PRIVATE_ROOT), False), *mounts),
+            mounts=job_mounts,
             timeout=120, request_sha256=ref['sha256'])
         value = evidence.checked_json(raw, raw_hash(raw))
         save(self.output/f'private-export-{uuid.uuid4().hex}.json', {'job_receipt_sha256': receipt, 'metadata': value})
@@ -606,6 +626,10 @@ class DockerBackend:
             if observed['Image'] != 'sha256:'+self.inputs['images'][role]:
                 fail()
             config, host = observed['Config'], observed['HostConfig']
+            if service in ('in-house-fit-reader', 'in-house-fit-job') and (
+                    config.get('User') != '65534:65534' or host.get('CapDrop') != ['ALL']
+                    or host.get('CapAdd') or host.get('SecurityOpt') != ['no-new-privileges:true']):
+                fail()
             if (config['Cmd'] != list(args) or config.get('Labels', {}).get('com.docker.compose.service') != service
                     or host['ReadonlyRootfs'] is not True or host['Memory'] != 4*1024**3
                     or host['NanoCpus'] != 4_000_000_000
@@ -770,7 +794,7 @@ class DockerBackend:
             timeout=120, request_sha256=evidence.digest({'arm': arm, 'operation': 'train-only-permissions', 'script_sha256': raw_hash(permission_script.encode())}))
         # Fixed training source CLI, captured privately. Only its actual manifest
         # RAW hash is emitted; no train labels/rows or untrusted stdout reaches host.
-        script = "import subprocess,sys,json,hashlib;from pathlib import Path\nr=subprocess.run(['python','-B','/workspace/evaluation/fit-in-house-study-arm.py',*sys.argv[1:]],stdout=subprocess.PIPE,stderr=subprocess.PIPE)\nif r.returncode:raise SystemExit(1)\nwith open('/fit-output/arm/manifest.json','rb') as f:b=f.read(256*1024+1)\nif len(b)>256*1024:raise SystemExit(1)\nprint(json.dumps({'manifest_sha256':hashlib.sha256(b).hexdigest()}))\n"
+        script = "import subprocess,sys,json,hashlib;from pathlib import Path\nr=subprocess.run(['python','-B','/workspace/evaluation/fit-in-house-study-arm.py',*sys.argv[1:]],stdout=subprocess.PIPE,stderr=subprocess.PIPE)\nif r.returncode:raise SystemExit(1)\nwith open('/fit-output/arm/run-manifest.json','rb') as f:b=f.read(256*1024+1)\nif len(b)>256*1024:raise SystemExit(1)\nprint(json.dumps({'manifest_sha256':hashlib.sha256(b).hexdigest()}))\n"
         args = ['python', '-c', script, '--arm', arm, '--train-file', '/train/train.jsonl',
             '--training-manifest', '/train/training-manifest.json', '--expected-inputs', '/expected.json',
             '--expected-inputs-sha256', refs['expected']['sha256'], '--output', '/fit-output/arm',
@@ -1053,6 +1077,9 @@ class Controller:
         receipt = produced['metadata']
         if receipt.get('programme_sha256') != self.programme.sha256 or receipt.get('selection_raw_sha256') != self.selection['sha256']:
             fail()
+        for arm in contract.ARM_KEYS:
+            item = selected['selections'][arm]
+            verify_barrier_metadata(self.binding('collect-test', arm, item['epoch'], item['threshold'], self.selection['sha256'], self.barrier_receipt['sha256']), receipt, self.selection['sha256'])
         # Pure receipt is insufficient: source/catalog and actual named jobs are
         # checked BEFORE opening the separately pinned release locator.
         self.controls_unchanged()
@@ -1070,9 +1097,6 @@ class Controller:
             fail()
         if release['dataset']['sha256'] != self.inputs['test_metadata']['sha256']:
             fail()
-        for arm in contract.ARM_KEYS:
-            item = selected['selections'][arm]
-            verify_barrier_metadata(self.binding('collect-test', arm, item['epoch'], item['threshold'], self.selection['sha256'], self.barrier_receipt['sha256']), receipt, self.selection['sha256'])
         self.test_data = self.backend.capture_dataset(release['dataset'], role='test')
         self.state['test_released'] = True
         self.record('test-released')

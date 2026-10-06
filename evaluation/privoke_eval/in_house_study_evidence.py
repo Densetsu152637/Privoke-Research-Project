@@ -244,6 +244,7 @@ def opaque(kind, value):
 
 
 def dataset_rows(raw, binding):
+    """Bind binary evaluation truth; action fixtures may leave presence unannotated."""
     if sha(raw) != binding.dataset_sha256 or len(raw) > MAX_INPUT_BYTES:
         fail()
     rows = []
@@ -262,7 +263,8 @@ def dataset_rows(raw, binding):
             if item['ambiguous']:
                 if any(item[k] is not None for k in ('expected_has_pii', 'required_sensitive', 'required_action')):
                     fail()
-            elif (type(item['required_sensitive']) is not bool or type(item['expected_has_pii']) is not bool
+            elif (type(item['required_sensitive']) is not bool
+                  or type(item['expected_has_pii']) not in (bool, type(None))
                   or item['required_action'] not in ('ALLOW', 'WARN', 'BLOCK')):
                 fail()
         elif type(item['expected_has_pii']) is not bool:

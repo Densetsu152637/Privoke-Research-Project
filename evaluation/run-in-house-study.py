@@ -13,7 +13,7 @@ from privoke_eval import in_house_study_evidence as evidence
 
 def main(argv=None):
     if '--private-helper' in (sys.argv[1:] if argv is None else argv):
-        parser = argparse.ArgumentParser(description='Restricted metadata-only private-volume helper.')
+        parser = argparse.ArgumentParser(description='Restricted private-volume helper; fit exports require the isolated UID65534 reader.')
         parser.add_argument('--private-helper', action='store_true', required=True)
         parser.add_argument('--request', required=True, type=Path)
         parser.add_argument('--request-sha256', required=True)

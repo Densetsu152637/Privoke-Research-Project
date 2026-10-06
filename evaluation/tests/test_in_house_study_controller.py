@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import hashlib
+import itertools
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -252,6 +254,29 @@ class SequenceTests(unittest.TestCase):
                 self.assertFalse(any(call.args[0].get('file') == self.release['file'] for call in reads.call_args_list))
                 self.assertEqual(self.backend.catalog, self.backend.initial)
 
+    def test_malformed_or_missing_barrier_binding_never_opens_release(self):
+        for mutation in ('missing', 'malformed'):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as tmp:
+                self.out = pathlib.Path(tmp)/'synthetic-binding-0001'
+                self.backend = FakeBackend(self.inputs, self.out)
+                original_phase = self.backend.phase
+                def phase(name, *args, **kwargs):
+                    produced = original_phase(name, *args, **kwargs)
+                    if name == 'pretest-barrier':
+                        if mutation == 'missing':
+                            produced['metadata']['bindings'].pop()
+                        else:
+                            produced['metadata']['bindings'][0]['binding_sha256'] = 'd'*64
+                    return produced
+                self.backend.phase = phase
+                with patch.object(c, 'read_reference', wraps=c.read_reference) as reads:
+                    result = self.run_sequence()
+                self.assertEqual(result['status'], 'failed')
+                self.assertFalse(result['test_released'])
+                self.assertFalse(any(call.args[0].get('file') == self.release['file'] for call in reads.call_args_list))
+                self.assertFalse(any(call[:2] == ('dataset-volume', 'test') for call in self.backend.calls))
+                self.assertEqual(self.backend.catalog, self.backend.initial)
+
     def test_unknown_fit_stops_restore_and_all_subsequent_writes(self):
         result = self.run_sequence('fit-unknown')
         self.assertEqual(result['status'], 'failed')
@@ -388,10 +413,33 @@ class PrivateVolumeTests(unittest.TestCase):
             self.assertEqual(json.loads(init[1][3]),{'train.jsonl':H,'training-manifest.json':H})
             fit = calls[1]
             compile(fit[1][2],'<fit-wrapper>','exec')
+            self.assertIn('/fit-output/arm/run-manifest.json', fit[1][2])
             self.assertEqual(fit[2]['mounts'][0],('volume:private-training','/train',True))
             self.assertEqual(fit[2]['mounts'][1],('volume:private-fit-output','/fit-output',False))
             self.assertEqual(fit[2]['timeout'],7200)
             self.assertFalse(any('test' in str(v) or 'validation' in str(v) for v in fit[2]['mounts']))
+
+    def test_fit_reader_uses_same_uid_service_and_only_readonly_fit_and_request(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            backend = c.DockerBackend(pathlib.Path(tmp), {'images': {r:H for r in c.IMAGE_ROLES},
+                'controller_sha256': H, 'cli_sha256': H})
+            calls = []
+            backend.private_store = lambda: self.fail('Fit reader must not mount/write evidence volume.')
+            def job(service, args, **kwargs):
+                calls.append((service, args, kwargs))
+                request_file = pathlib.Path(kwargs['mounts'][0][0])
+                self.assertEqual(request_file.stat().st_mode & 0o777, 0o444)
+                return e.canonical({'kind': 'synthetic-reader-result'}), H
+            backend.job = job
+            backend.helper({'mode':'read-fit', 'manifest_sha256':H, 'arm':'S1'},
+                           mounts=(('volume:synthetic-private-fit', str(c.FIT_ROOT), True),))
+            service, args, options = calls[0]
+            self.assertEqual(service, 'in-house-fit-reader')
+            self.assertEqual(options['mounts'][1:], (('volume:synthetic-private-fit', str(c.FIT_ROOT), True),))
+            self.assertEqual(options['mounts'][0][1:], ('/request.json', True))
+            with self.assertRaises(c.ControllerError):
+                backend.helper({'mode':'read-fit', 'manifest_sha256':H, 'arm':'S1'},
+                               mounts=(('volume:synthetic-private-fit', str(c.FIT_ROOT), False),))
 
     def test_actual_phase_backend_keeps_raw_evidence_private(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -460,6 +508,79 @@ class PrivateVolumeTests(unittest.TestCase):
             self.assertEqual(len(calls),1)
             self.assertIn(('volume:private-evidence',str(c.PRIVATE_ROOT),False), calls[0][1]['mounts'])
 
+
+
+@unittest.skipUnless(sys.platform == 'linux' and getattr(os, 'geteuid', lambda: -1)() == 0,
+                     'requires Linux root for synthetic ownership and capability-drop checks')
+class FitReaderPermissionTests(unittest.TestCase):
+    def test_actual_private_helper_reads_fitter_filename_without_relaxing_permissions(self):
+        inputs = {key:H for key in ('expected_inputs_raw', 'training_view_manifest_raw', 'train_raw',
+            'original_train_prefix_raw', 'prepared_manifest_raw', 'programme_input_raw', 'programme',
+            'allocation_receipt', 'reviewed_labels_receipt', 'trainer_contract', 'dependency_lock')}
+        value = {'status':'complete', 'arm_key':'S1', 'checkpoint_count':0, 'checkpoint_records':[],
+            'actual_training_image_id':'sha256:'+H, 'test_scored':False, 'validation_read':False,
+            'inputs_sha256':inputs, 'private_training_marker':'DO_NOT_EXPORT_SYNTHETIC_MARKER'}
+        script = """
+import ctypes,json,os,sys
+from pathlib import Path
+sys.path.insert(0,sys.argv[1])
+from privoke_eval import in_house_study_controller as c
+root=Path(sys.argv[2]);mode=sys.argv[4]
+if mode=='legacy-root':
+ class Header(ctypes.Structure):_fields_=[('version',ctypes.c_uint32),('pid',ctypes.c_int)]
+ class Data(ctypes.Structure):_fields_=[('effective',ctypes.c_uint32),('permitted',ctypes.c_uint32),('inheritable',ctypes.c_uint32)]
+ data=(Data*2)();header=Header(0x20080522,0)
+ if ctypes.CDLL(None,use_errno=True).capset(ctypes.byref(header),data)!=0:raise RuntimeError('Synthetic capability drop failed.')
+ try:(root/'arm'/'run-manifest.json').read_bytes()
+ except PermissionError:print('legacy-root-denied');raise SystemExit(0)
+ raise RuntimeError('Capability-free root unexpectedly traversed private UID65534 output.')
+os.setgroups([]);os.setgid(65534);os.setuid(65534)
+c.FIT_ROOT=root;os.environ['PRIVOKE_EVAL_IN_CONTAINER']='true'
+try:result=c.private_helper({'mode':'read-fit','manifest_sha256':sys.argv[3],'arm':'S1'})
+except Exception:result=None
+if result is not None:
+ assert result['manifest']['status']=='complete'
+ assert 'private_training_marker' not in result['manifest']
+permissions=[(p.lstat().st_uid,p.lstat().st_mode&0o777) for p in (root,root/'arm',root/'arm'/'run-manifest.json')]
+print(json.dumps({'kind':'reader-rejected' if result is None else result['kind'],'uid':os.geteuid(),'permissions':permissions}))
+raise SystemExit(2 if result is None else 0)
+"""
+        for mutation in (None, 'mode', 'owner', 'schema'):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as tmp:
+                base = pathlib.Path(tmp)
+                root = base/'fit-output'
+                arm = root/'arm'
+                arm.mkdir(parents=True, mode=0o700)
+                root.chmod(0o700)
+                manifest = arm/'run-manifest.json'
+                payload = dict(value)
+                if mutation == 'schema':
+                    payload['status'] = 'failed'
+                raw = e.canonical(payload)
+                manifest.write_bytes(raw)
+                manifest.chmod(0o600)
+                if mutation == 'mode':
+                    manifest.chmod(0o644)
+                # Deepest first keeps setup possible without DAC capabilities.
+                for path in (manifest, arm, root, base):
+                    os.chown(path, 0 if mutation == 'owner' and path == manifest else 65534, 65534)
+                expected_permissions = [[65534,0o700],[65534,0o700],
+                    [0 if mutation == 'owner' else 65534,0o644 if mutation == 'mode' else 0o600]]
+                try:
+                    arguments = [sys.executable, '-B', '-c', script, str(EVALUATION), str(root), c.raw_hash(raw)]
+                    if mutation is None:
+                        negative = subprocess.run([*arguments, 'legacy-root'], capture_output=True, text=True)
+                        self.assertEqual(negative.returncode, 0, negative.stderr)
+                        self.assertEqual(negative.stdout.strip(), 'legacy-root-denied')
+                    result = subprocess.run([*arguments, 'same-uid'], capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 0 if mutation is None else 2, result.stderr)
+                    self.assertNotIn('DO_NOT_EXPORT_SYNTHETIC_MARKER', result.stdout+result.stderr)
+                    self.assertEqual(json.loads(result.stdout), {'kind':'private-fit-export-v1' if mutation is None else 'reader-rejected',
+                        'uid':65534,'permissions':expected_permissions})
+                finally:
+                    # Reclaim only these synthetic fixture objects for TempDirectory cleanup.
+                    for path in (base, root, arm, manifest):
+                        os.chown(path, 0, 0)
 
 
 class CompatibilityTests(unittest.TestCase):
@@ -533,6 +654,33 @@ class DockerJobTests(unittest.TestCase):
             return SimpleNamespace(returncode=0, stdout=raw, stderr=b'')
         backend = c.DockerBackend(output, {'images': {r: H for r in c.IMAGE_ROLES}}, runner=runner)
         return backend, calls
+
+    def test_actual_fit_jobs_reject_user_or_security_drift(self):
+        for service, drift in itertools.product(('in-house-fit-reader', 'in-house-fit-job'),
+                (None, 'user', 'cap-add', 'cap-drop', 'security', 'network')):
+            with self.subTest(service=service, drift=drift):
+                backend, _ = self.job()
+                original = backend.runner
+                def runner(args, **kwargs):
+                    result = original(args, **kwargs)
+                    if args[1] == 'inspect':
+                        state = json.loads(result.stdout)
+                        item = state[0]
+                        item['Config'].update(User='0:0' if drift == 'user' else '65534:65534',
+                            Labels={'com.docker.compose.service':service})
+                        item['HostConfig'].update(NetworkMode='default' if drift == 'network' else 'none',
+                            CapDrop=[] if drift == 'cap-drop' else ['ALL'],
+                            CapAdd=['DAC_OVERRIDE'] if drift == 'cap-add' else None,
+                            SecurityOpt=[] if drift == 'security' else ['no-new-privileges:true'])
+                        result.stdout = e.canonical(state)
+                    return result
+                backend.runner = runner
+                if drift is None:
+                    backend.job(service, ['python','synthetic.py'], request_sha256=H)
+                else:
+                    with self.assertRaises(c.ControllerError):
+                        backend.job(service, ['python','synthetic.py'], request_sha256=H)
+                self.assertFalse(backend.unresolved)
 
     def test_actual_job_rejects_wrong_named_volume_despite_matching_destination(self):
         for actual_name in ('private-validation','foreign-volume'):

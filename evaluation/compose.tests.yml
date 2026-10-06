@@ -21,6 +21,11 @@ services:
     volumes:
       - ./evaluation:/workspace/evaluation:ro
       - ./evaluation/results:/workspace/evaluation/results
+      - type: bind
+        source: ./paper/research/clean-augmentation-rubric.json
+        target: /workspace/paper/research/clean-augmentation-rubric.json
+        read_only: true
+        bind: {create_host_path: false}
   supervisor-tests:
     build:
       context: .
