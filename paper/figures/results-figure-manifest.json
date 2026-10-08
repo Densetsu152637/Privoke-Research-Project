@@ -1,0 +1,238 @@
+{
+  "outputs": {
+    "results-cascade-errors.png": "75576d05215500bdbad4bd70ffa85c499e437205910df8cfc9518730ab44e5ea",
+    "results-cascade-errors.svg": "cec109946b1cbf96a3f5e453dfd4de24c7b92a2543d0bb95ced0c31802855bad",
+    "results-external-specificity.png": "9b4c4b49bb7ccabb3706e65cc8e3b7ce2186281971afccd50c0c3191529a520a",
+    "results-external-specificity.svg": "3633609ba467df11548d5cbff07f03aabfe51a237f5f81df56129c5a3f1086a3",
+    "results-layer-ablation.png": "f7cbc6d8ce708ffc20015fba05eb876e6e1930f5b2165edc1034c8a3d092e406",
+    "results-layer-ablation.svg": "17936317ac3e8d72cf459aac3f5287cc4b008451bf85f7757864383e225970e5",
+    "results-update-outcomes.png": "e75413faba3ae673e3970cb8d28de0f2c2820a9bfda44035bf603b8b18b136ec",
+    "results-update-outcomes.svg": "76c6c944d903137413df439637c1170c26edf0c73c56a5077c122ea59ed25314"
+  },
+  "plotted_data": {
+    "cascade": [
+      {
+        "fn": 17,
+        "fp": 185,
+        "label": "Ordinary control",
+        "tn": 53,
+        "tp": 247
+      },
+      {
+        "fn": 22,
+        "fp": 63,
+        "label": "Efficient gate",
+        "tn": 175,
+        "tp": 242
+      },
+      {
+        "fn": 22,
+        "fp": 69,
+        "label": "Balanced gate",
+        "tn": 169,
+        "tp": 242
+      },
+      {
+        "fn": 22,
+        "fp": 79,
+        "label": "Quality gate",
+        "tn": 159,
+        "tp": 242
+      }
+    ],
+    "external": [
+      {
+        "base": {
+          "fn": 46,
+          "fp": 115,
+          "tn": 378,
+          "tp": 429
+        },
+        "delta_pp": -9.736308316430021,
+        "expanded": {
+          "fn": 47,
+          "fp": 163,
+          "tn": 330,
+          "tp": 428
+        },
+        "label": "Efficient",
+        "lower_pp": -13.43,
+        "upper_pp": -6.3
+      },
+      {
+        "base": {
+          "fn": 47,
+          "fp": 101,
+          "tn": 392,
+          "tp": 428
+        },
+        "delta_pp": 0.8113590263691683,
+        "expanded": {
+          "fn": 47,
+          "fp": 97,
+          "tn": 396,
+          "tp": 428
+        },
+        "label": "Balanced",
+        "lower_pp": -1.46,
+        "upper_pp": 3.08
+      },
+      {
+        "base": {
+          "fn": 47,
+          "fp": 99,
+          "tn": 394,
+          "tp": 428
+        },
+        "delta_pp": -2.028397565922921,
+        "expanded": {
+          "fn": 45,
+          "fp": 109,
+          "tn": 384,
+          "tp": 430
+        },
+        "label": "Quality",
+        "lower_pp": -4.71,
+        "upper_pp": 0.43
+      }
+    ],
+    "layers": [
+      {
+        "fn": 85,
+        "fp": 30,
+        "label": "Regex",
+        "recall": 67.8030303030303,
+        "specificity": 87.39495798319328,
+        "tn": 208,
+        "tp": 179
+      },
+      {
+        "fn": 209,
+        "fp": 6,
+        "label": "NER",
+        "recall": 20.833333333333332,
+        "specificity": 97.47899159663865,
+        "tn": 232,
+        "tp": 55
+      },
+      {
+        "fn": 66,
+        "fp": 35,
+        "label": "Regex + NER",
+        "recall": 75.0,
+        "specificity": 85.29411764705883,
+        "tn": 203,
+        "tp": 198
+      },
+      {
+        "fn": 95,
+        "fp": 178,
+        "label": "Semantic",
+        "recall": 64.01515151515152,
+        "specificity": 25.210084033613445,
+        "tn": 60,
+        "tp": 169
+      },
+      {
+        "fn": 17,
+        "fp": 191,
+        "label": "Full pipeline",
+        "recall": 93.56060606060606,
+        "specificity": 19.747899159663866,
+        "tn": 47,
+        "tp": 247
+      },
+      {
+        "fn": 56,
+        "fp": 49,
+        "label": "Presidio",
+        "recall": 78.78787878787878,
+        "specificity": 79.41176470588235,
+        "tn": 189,
+        "tp": 208
+      }
+    ],
+    "studies": [
+      {
+        "accepted": 23,
+        "accepted_ineligible": 8,
+        "attempts": 54,
+        "eligible": 15,
+        "label": "Initial grid",
+        "rejected": 31,
+        "retained": 0
+      },
+      {
+        "accepted": 10,
+        "accepted_ineligible": 10,
+        "attempts": 24,
+        "eligible": 0,
+        "label": "Class-balanced",
+        "rejected": 14,
+        "retained": 0
+      },
+      {
+        "accepted": 5,
+        "accepted_ineligible": 5,
+        "attempts": 12,
+        "eligible": 0,
+        "label": "Mean-category",
+        "rejected": 7,
+        "retained": 0
+      },
+      {
+        "accepted": 6,
+        "accepted_ineligible": 6,
+        "attempts": 12,
+        "eligible": 0,
+        "label": "Role-quota",
+        "rejected": 6,
+        "retained": 0
+      },
+      {
+        "accepted": 9,
+        "accepted_ineligible": 9,
+        "attempts": 18,
+        "eligible": 0,
+        "label": "Local SGD",
+        "rejected": 9,
+        "retained": 0
+      },
+      {
+        "accepted": 6,
+        "accepted_ineligible": 6,
+        "attempts": 6,
+        "eligible": 0,
+        "label": "Decision-margin",
+        "rejected": 0,
+        "retained": 0
+      }
+    ],
+    "study_totals": {
+      "accepted": 59,
+      "attempts": 126,
+      "eligible": 15,
+      "rejected": 67
+    }
+  },
+  "reproduction": {
+    "command": "python paper/scripts/plot_paper_results.py --overwrite",
+    "matplotlib": "3.10.9",
+    "script_sha256": "1a838ad7f8e38df7a2e6d2537f8df68f32712631f262ed7fbcb0f96ad2218067"
+  },
+  "schema_version": 1,
+  "scope": "Exploratory aggregate evidence; no raw/final examples accessed",
+  "source_hash_algorithm": "SHA-256 of UTF-8 text with LF line endings",
+  "sources": {
+    "docs/PII-dataset-analysis.md": "4e4619858ff62c4a878b2e2e62da46a0c5e344ef3b5d0c34df5d3aba0bdeab7a",
+    "docs/contextual-cascade-results.md": "c03684f938b684c4d8f9396c8843564356fb26997c7924c3ce8b9a6a85c2863c",
+    "docs/fuzzer-model-results-20261006.md": "15cae57d7566fbb99db65df0d40cd6c544c86c3294aef15fb2b9b84daa5dbb9c",
+    "docs/model-quality-study-index-20261006.md": "a7518e86371aafe768be6a25d80b072f647bfa562210f0f4a5f3b629ad943632",
+    "paper/research/development-results.md": "7105bc69fdf0ad22e7c80a1ff8f86529a37ded373c2bd981b2846cbdbee2104f"
+  },
+  "uncertainty": {
+    "cascade": "paired intervals uncomputed",
+    "external": "reported descriptive 95% paired source-group intervals; 2000 resamples, 714 groups, seed 10102026",
+    "layers": "not plotted"
+  }
+}
