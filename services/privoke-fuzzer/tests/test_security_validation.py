@@ -10,7 +10,8 @@ for path in (SERVICE_ROOT / "src", SERVICE_ROOT / "generated"):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from fuzzer_service import validate_training_request
+from fuzzer_service import validate_training_request, _training_request_fingerprint
+from prompt_generation.generator import CONTEXTUAL_SAMPLING_STRATEGY_KEY, CONTEXTUAL_ROLE_QUOTA_STRATEGY
 from privoke.v1 import parameters_pb2
 
 
@@ -27,6 +28,31 @@ def valid_request():
 class FuzzerRequestValidationTests(unittest.TestCase):
     def test_accepts_bounded_request(self) -> None:
         validate_training_request(valid_request(), "privoke-baseline")
+
+    def test_contextual_sampling_policy_is_explicit_validated_and_budgeted(self):
+        request = valid_request()
+        request.prompt_count = 256
+        request.metadata[CONTEXTUAL_SAMPLING_STRATEGY_KEY] = CONTEXTUAL_ROLE_QUOTA_STRATEGY
+        validate_training_request(request, "privoke-baseline")
+        for value in ("", "unknown", "uniform"):
+            request.metadata[CONTEXTUAL_SAMPLING_STRATEGY_KEY] = value
+            with self.assertRaisesRegex(ValueError, "sampling strategy"):
+                validate_training_request(request, "privoke-baseline")
+        request.metadata[CONTEXTUAL_SAMPLING_STRATEGY_KEY] = CONTEXTUAL_ROLE_QUOTA_STRATEGY
+        request.prompt_count = 8
+        with self.assertRaisesRegex(ValueError, "256"):
+            validate_training_request(request, "privoke-baseline")
+
+    def test_sampling_policy_changes_replay_fingerprint_with_same_request_identity(self):
+        request = valid_request()
+        request.prompt_count = 256
+        legacy = _training_request_fingerprint(request)
+        request.metadata[CONTEXTUAL_SAMPLING_STRATEGY_KEY] = CONTEXTUAL_ROLE_QUOTA_STRATEGY
+        quota = _training_request_fingerprint(request)
+        self.assertNotEqual(legacy, quota)
+        self.assertEqual(quota, _training_request_fingerprint(request))
+        del request.metadata[CONTEXTUAL_SAMPLING_STRATEGY_KEY]
+        self.assertEqual(legacy, _training_request_fingerprint(request))
 
     def test_rejects_missing_request_id(self) -> None:
         request = valid_request()

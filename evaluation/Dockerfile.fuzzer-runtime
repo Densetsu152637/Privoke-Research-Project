@@ -1,0 +1,9 @@
+# Opt-in research runtime: ordinary runtime image/dependencies remain unchanged.
+# Build the normal runtime image first and pass its immutable identity here.
+ARG PRIVOKE_RUNTIME_IMAGE
+FROM ${PRIVOKE_RUNTIME_IMAGE}
+USER root
+COPY evaluation/requirements-fuzzer-training.txt /tmp/fuzzer-training-requirements.txt
+RUN /opt/venv/bin/python -m pip install --no-cache-dir --only-binary=:all: -r /tmp/fuzzer-training-requirements.txt \
+    && /opt/venv/bin/python -m pip check
+USER 10001:10001

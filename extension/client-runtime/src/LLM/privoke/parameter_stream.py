@@ -50,12 +50,14 @@ class ParameterSnapshot:
 
     @property
     def cache_key(self) -> str:
-        contract = json.dumps(
-            {name: self.metadata.get(name) for name in (
-                "architecture", "model_config", "trainable_parameters",
-            )},
-            sort_keys=True, separators=(",", ":"), ensure_ascii=False,
-        )
+        fields = {name: self.metadata.get(name) for name in (
+                "architecture", "model_config", "trainable_parameters", "contextual_training_strategy",
+                "contextual_training_objective",
+            )}
+        # Preserve the exact legacy cache identity when this opt-in is absent.
+        if "contextual_training_optimizer" in self.metadata:
+            fields["contextual_training_optimizer"] = self.metadata["contextual_training_optimizer"]
+        contract = json.dumps(fields, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         contract_hash = hashlib.sha256(contract.encode("utf-8")).hexdigest()
         return f"{self.model_id}:{self.version}:{self.fingerprint}:{contract_hash}"
 

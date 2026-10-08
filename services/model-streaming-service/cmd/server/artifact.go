@@ -74,7 +74,7 @@ func loadModelArtifactBytes(raw []byte, expectedModelID string) (*loadedArtifact
 	if err := json.Unmarshal(raw, &artifact); err != nil {
 		return nil, fmt.Errorf("decode artifact: %w", err)
 	}
-	if artifact.Architecture == presenceArchitecture {
+	if artifact.Architecture == presenceArchitecture || artifact.Architecture == expectedArchitecture {
 		if err := validatePresenceRawTensorFlags(raw); err != nil {
 			return nil, err
 		}
@@ -168,7 +168,7 @@ func validateModelArtifact(artifact *modelArtifact, expectedModelID string) erro
 	if artifact.Architecture == presenceArchitecture {
 		return validatePresenceArtifact(artifact)
 	}
-	return nil
+	return validateContextualTrainingArtifact(artifact)
 }
 
 type presenceBranch struct {
@@ -341,7 +341,7 @@ func validatePresenceRawTensorFlags(raw []byte) error {
 	for name, tensor := range parameters {
 		value, ok := tensor["trainable"]
 		if !ok || (string(bytes.TrimSpace(value)) != "true" && string(bytes.TrimSpace(value)) != "false") {
-			return fmt.Errorf("presence tensor %q requires an explicit boolean trainable flag", name)
+			return fmt.Errorf("tensor %q requires an explicit boolean trainable flag", name)
 		}
 	}
 	return nil

@@ -39,7 +39,10 @@ def main():
     parser.add_argument("--run-name", required=True)
     parser.add_argument("--layers", nargs="+", default=["regex", "ner", "semantic", "regex-ner", "pipeline"])
     parser.add_argument("--model-artifact", type=Path, required=True)
+    parser.add_argument("--bootstrap-iterations", type=int, default=2000)
     args = parser.parse_args()
+    if args.bootstrap_iterations < 0:
+        parser.error("Bootstrap iterations must be non-negative.")
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", args.run_name):
         parser.error("Use a run identifier of 1-64 letters, digits, dots, underscores or hyphens, starting with a letter or digit.")
     root = Path(__file__).resolve().parent
@@ -53,14 +56,14 @@ def main():
                 "model_id": artifact["model_id"],
                 "model_file_sha256": hashlib.sha256(artifact_bytes).hexdigest(),
                 "model_version": artifact["version"], "artifact_checksum": artifact["checksum"],
-                "layers": args.layers, "completed": []}
+                "layers": args.layers, "bootstrap_iterations": args.bootstrap_iterations, "completed": []}
     manifest_path = output / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2))
     for layer in args.layers:
         command = [sys.executable, str(root / "evaluate.py"), "--dataset", "local-jsonl",
                    "--dataset-file", str(args.dataset_file), "--samples", "all", "--seed", "3102026",
                    "--layer", layer, "--backend", "streamed", "--run-name", args.run_name,
-                   "--output-dir", str(output), "--quiet"]
+                   "--output-dir", str(output), "--bootstrap-iterations", str(args.bootstrap_iterations), "--quiet"]
         with (output / (layer + ".log")).open("w", encoding="utf-8") as log:
             result = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT,
                                     env={**os.environ, "MODEL_ID": artifact["model_id"]})

@@ -26,7 +26,7 @@ func TestGetModelParametersLoadsPersistentArtifact(t *testing.T) {
 	if response.GetModelId() != "privoke-baseline" || response.GetVersion() != "v1" {
 		t.Fatalf("returned unexpected model/version %q %q", response.GetModelId(), response.GetVersion())
 	}
-	if len(response.GetParameters()) != 1 || len(response.GetParameters()[0].GetShape()) != 2 {
+	if len(response.GetParameters()) != 26 {
 		t.Fatalf("artifact tensor shape was not streamed")
 	}
 }
@@ -148,26 +148,22 @@ func TestArtifactChecksumMatchesSharedPythonCanonicalJSON(t *testing.T) {
 
 func writeTestArtifact(t *testing.T) string {
 	t.Helper()
-	config, err := json.Marshal(map[string]int{"hidden_size": 2})
+	typed := contextualFixture(t)
+	delete(typed.Metadata, contextualStrategyKey)
+	heads, _, err := contextualTrainableNames(typed.Config, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	payload, err := json.Marshal(modelArtifact{
-		SchemaVersion:   expectedSchema,
-		ModelID:         "privoke-baseline",
-		Version:         "v1",
-		GeneratedAtUnix: 1,
-		Architecture:    expectedArchitecture,
-		Config:          config,
-		Parameters: map[string]artifactTensor{
-			"head.weight": {Shape: []uint32{1, 2}, Values: []float64{0.1, 0.2}, Trainable: true},
-		},
-		Metadata: map[string]string{},
-		Checksum: "",
-	})
+	for name, tensor := range typed.Parameters {
+		tensor.Trainable = heads[name]
+		typed.Parameters[name] = tensor
+	}
+	typed.ModelID, typed.Version, typed.GeneratedAtUnix = "privoke-baseline", "v1", 1
+	payload, err := json.Marshal(typed)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	checksum, err := calculateArtifactChecksum(payload)
 	if err != nil {
 		t.Fatal(err)

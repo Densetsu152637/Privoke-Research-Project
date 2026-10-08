@@ -6,13 +6,15 @@ import logging
 import math
 import hashlib
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import grpc
 from config import FuzzerConfig
 from privoke.v1 import parameters_pb2, parameters_pb2_grpc
 from privoke_service import validate_text
 from prompt_generation import generate_presence_training_partition, generate_training_partition
+from prompt_generation.generator import (CONTEXTUAL_SAMPLING_STRATEGY_KEY,
+    contextual_sampling_audit, validate_contextual_sampling_strategy)
 from runtime_client import PrivokeRuntimeClient, RuntimeAnalysisError
 from training import emit_training_update, train_parameter_batch, train_presence_batch
 from training.types import BatchTrainingUpdate
@@ -163,13 +165,19 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                 metadata={"replayed": "true"},
             )
         _log_cycle_started(request, cycle)
+        sampling_strategy = request.metadata.get(CONTEXTUAL_SAMPLING_STRATEGY_KEY)
+        sampling_arguments = ({"sampling_strategy": sampling_strategy} if sampling_strategy is not None else {})
+        sampling_audit = {}
         try:
             examples, heldout_examples = generate_training_partition(
                 count=cycle.prompt_count,
                 heldout_count=self.config.heldout_prompt_count,
                 seed=cycle.seed,
                 dataset_path=self.config.prompt_dataset_path,
+                **sampling_arguments,
             )
+            if sampling_strategy is not None:
+                sampling_audit = contextual_sampling_audit(examples)
         except ValueError as exc:
             context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
         update = self._train(
@@ -179,6 +187,8 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             cycle.seed,
             context,
         )
+        if sampling_audit:
+            update = replace(update, metadata={**update.metadata, **sampling_audit})
         try:
             validate_training_update(
                 update,
@@ -299,6 +309,8 @@ def validate_training_request(request, expected_model_id: str) -> None:
     for key, value in request.metadata.items():
         validate_text(key, "metadata key", required=True, limit=128)
         validate_text(value, "metadata value", required=False, limit=2_048)
+    if CONTEXTUAL_SAMPLING_STRATEGY_KEY in request.metadata:
+        validate_contextual_sampling_strategy(request.metadata[CONTEXTUAL_SAMPLING_STRATEGY_KEY], request.prompt_count)
 
 
 def _training_request_fingerprint(request) -> str:
@@ -465,8 +477,13 @@ def _resolve_cycle(request, config: FuzzerConfig) -> TrainingCycle:
 
 
 def _log_cycle_started(request, cycle: TrainingCycle) -> None:
+    message = (
+        "starting automatic training run id=%r source=%r model=%r prompts=%s"
+        if request.metadata.get("initiator") == "param-update-service"
+        else "received training request id=%r source=%r model=%r prompts=%s"
+    )
     LOGGER.info(
-        "received training request id=%r source=%r model=%r prompts=%s",
+        message,
         request.request_id,
         request.source_id,
         cycle.model_id,

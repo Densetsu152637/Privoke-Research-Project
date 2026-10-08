@@ -127,6 +127,12 @@ def validate_artifact(payload: object) -> None:
             raise ModelArtifactError("Presence model ID does not match its profile.")
         if len(json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")) > MAX_ARTIFACT_BYTES:
             raise ModelArtifactError("Presence artifact exceeds the 8 MiB budget.")
+    if payload["architecture"] == ARCHITECTURE_NAME:
+        from .contextual_training import validate_contextual_training_contract
+        validate_contextual_training_contract(
+            config, {n: t["values"] for n, t in parameters.items()},
+            {n: t["shape"] for n, t in parameters.items()},
+            {n: t.get("trainable") for n, t in parameters.items()}, payload.get("metadata", {}))
     checksum = payload.get("checksum")
     if not isinstance(checksum, str) or len(checksum) != 64:
         raise ModelArtifactError("Model artifact has no valid checksum.")
