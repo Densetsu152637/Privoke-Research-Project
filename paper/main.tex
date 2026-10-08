@@ -1,196 +1,308 @@
 \documentclass[conference]{IEEEtran}
+% packages
 \usepackage{cite}
 \usepackage{url}
 \usepackage{hyperref}
+\usepackage{comment}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{comment}
+\usepackage{listings}
+\usepackage{minted}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 \usepackage{xspace}
+
+% custom commands
 \newcommand{\privoke}{\textsc{PriVoke}\xspace}
+
+% default setting overrides
 \IEEEoverridecommandlockouts
+
+%
 \begin{document}
-\title{\privoke: Interim Evidence for a Client-Side Prompt Privacy Firewall}
+
+\title{\privoke: A Client-Side Semantic Privacy Firewall for User Prompts in Web-Hosted LLMs}
+
 \author{
 \IEEEauthorblockN{Nicholas Bisset\IEEEauthorrefmark{1}}
-\IEEEauthorblockA{Monash University Clayton, Australia\\nbis0006@student.monash.edu}
+\IEEEauthorblockA{Monash University Clayton, Australia\\
+nbis0006@student.monash.edu}
 \and
 \IEEEauthorblockN{Manpreet Sahadevan, Nixon Ngai, and Sanoop Mallissery}
 \IEEEauthorblockA{Monash University Malaysia, Malaysia\\
 \{msah0018, nnga0004\}@student.monash.edu, sanoop.mallissery@monash.edu}
-\thanks{Internal research progress draft: evidence checkpoint 5 October 2026.}
-\thanks{\IEEEauthorrefmark{1}Corresponding author: Nicholas Bisset.}
-\thanks{\href{https://github.com/Densetsu152637/Privoke-Research-Project}{Research repository}.}
-}
-\maketitle
-\begin{abstract}
-Prompts submitted to hosted large language models can disclose sensitive information before provider-side controls intervene. \privoke combines browser request interception with rules, named entity recognition and a local streamed classifier. This interim report evaluates layer contributions, bounded classifier-head updates and a separate annotation-presence gate. On 502 development sentences, the initial full pipeline achieved 93.56\% annotation-presence recall and 19.75\% specificity. A later negative-curriculum checkpoint achieved 90.53\% recall and 29.41\% specificity. An opt-in efficient presence gate on the revised original pipeline reduced false positives from 185 to 63, while adding five misses, giving 91.67\% recall and 73.53\% specificity. Initial template updates did not improve pipeline recall; none of nine sparse-head updates qualified for retention. These findings expose tradeoffs rather than establish contextual privacy or safe actions. The 498-row final partition remains locked and unscored; independent contextual adjudication and complete installed-extension measurements remain unresolved.
-\end{abstract}
-\begin{IEEEkeywords}
-Prompt privacy, client-side enforcement, annotation presence, controlled model updates, local differential privacy.
-\end{IEEEkeywords}
 
+\thanks{This paper was submitted for review on --/--/2026.}
+\thanks{\IEEEauthorrefmark{1}Corresponding author: Nicholas Bisset.}
+\thanks{\href{https://github.com/Densetsu152637/Privoke-Research-Project}{GitHub Repository Link}}
+}
+
+\maketitle
+%----------------------------------------------------------------------%
+\begin{abstract}
+
+Web-hosted Large Language Models (LLMs) introduce a privacy leakage surface in which sensitive user information can be disclosed through outgoing prompts. This paper presents \privoke, a client-side semantic privacy firewall that combines rule-based detection, Named Entity Recognition (NER), and a compact semantic classifier to inspect supported requests before transmission. Its principal contribution is the design and evaluation of a guarded cloud-training and parameter-redistribution path for a locally executed prompt-privacy classifier: a server-side fuzzer supplies labeled examples, a cloud runtime computes bounded model updates, and accepted parameter revisions are streamed to clients for local inference. This architecture permits successive retraining as new examples become available without requiring the collection of users' raw prompts for training. We investigate whether these updates improve detection while preserving existing coverage, distinguishing annotation-presence detection, contextual privacy decisions, and request enforcement. The current extension forwards the original request on ALLOW or WARN and cancels supported requests on BLOCK. Locally randomized categorical telemetry supports aggregate monitoring under a conditional event-tuple privacy guarantee and remains separate from the training path. \privoke therefore provides an architecture for evaluating adaptation over time; the effectiveness of an update is determined by held-out comparisons rather than assumed from successful training or publication.
+
+\end{abstract}
+%----------------------------------------------------------------------%
+\begin{IEEEkeywords}
+Local Differential Privacy, Large Language Models, Named Entity Recognition, Personally Identifiable Information, Adaptive Privacy Detection.
+\end{IEEEkeywords}
+%----------------------------------------------------------------------%
 \section{Introduction}
 \label{sec:introduction}
-Hosted large language models (LLMs) support writing, coding and analysis, but prompt submission moves user-supplied content across an external disclosure boundary. Privacy-sensitive applications require attention to what is submitted, as well as what a model returns~\cite{priyanshu2023chatbots,barbera2025ai}. Workplace and public-sector incidents illustrate accidental disclosure of confidential code and sensitive case information~\cite{SamsungBans2023,ChatGPTChildProtection}. Provider retention controls do not replace an endpoint decision about whether to transmit a particular request.
 
-Client-side prompt sanitization has close precedents. Casper combines regular expressions, NER and a local model in a browser privacy pipeline~\cite{Casper2024}; HaS and ProSan investigate other prompt-protection approaches~\cite{HaS2024,ProSan2024}. We credit this architectural overlap. Our question is whether bounded updates and a separately learned annotation-presence control improve the detection tradeoff in the implemented \privoke pipeline. Combining familiar components alone does not establish novelty or superiority.
+Web-hosted Large Language Models (LLMs) are increasingly shaping modern AI-assisted workflows, particularly in writing, coding, analysis, and document-centric professional tasks~\cite{Gupta2024, LIANG2025101366, koraag2025comparing}. Their widespread adoption is largely driven by the capabilities of large-scale hosted models, which often provide substantially greater model capacity than locally deployable alternatives such as LLaMA-style models~\cite{Florian2025, MEDEC2024}. This increased capacity enables higher-quality responses, broader task handling, and greater productivity benefits, encouraging users to rely on web-hosted LLMs for everyday work activities~\cite{Crane2025, Zahra2025}. However, this convenience also introduces a critical privacy risk: users may include personal, organizational, or contextually sensitive information in prompts without fully recognizing the implications of sending that data to an external service~\cite{Athey2017}. While major LLM providers such as OpenAI, Google, and Microsoft offer privacy policies, retention controls, and enterprise settings, prompt processing remains largely provider-dependent, and user-submitted data may still be processed, logged, or reused within service improvement pipelines depending on the provider’s policy and configuration~\cite{barbera2025ai,King2025}. As a result, prompt-based interaction with web-hosted LLMs poses a practical security challenge: sensitive information can leave the client before effective privacy enforcement can occur.
 
-\privoke warns or cancels supported requests; WARN forwards the original request and BLOCK cancels it. It does not rewrite prompts. Its streamed classifier uses repository-owned, randomly initialized compact encoder weights and fitted heads, rather than a pretrained conversational LLM. Locally randomized telemetry is a separate monitoring mechanism, not a training source.
+Recent incidents show that prompt privacy is no longer a hypothetical concern. In 2023, Samsung employees reportedly exposed confidential source code, internal meeting notes, and engineering information by submitting them to Chat-GPT for work-related assistance, prompting the company to restrict the use of generative AI tools within its workplace~\cite{SamsungBans2023}. In the same year, a Chat-GPT service bug exposed parts of users' conversation-history metadata and limited billing-related information for a subset of subscribers, demonstrating that prompt ecosystems can fail not only through user mistakes but also through platform-side vulnerabilities~\cite{BBCChatGPTHistoryBug2023}. Google reportedly warned employees not to enter confidential material into AI chatbots, including its own Bard/Gemini system, and its privacy notice cautioned users against including confidential or sensitive information in Bard conversations~\cite{GoogleWarns2023}. Similar risks have appeared in high-stakes public-sector settings, where sensitive child-protection information was entered into Chat-GPT during the preparation of a court-related report, leading regulators to impose restrictions on generative AI use within the department~\cite{ChatGPTChildProtection}. Claude.ai has also been shown to face prompt-injection and data-exfiltration risks, where chained vulnerabilities could enable sensitive information from conversation history to be extracted through provider-side workflows~\cite{ClaudeDay2026}. Beyond individual incidents, prior studies and provider-side analyses show that sensitive information supplied through prompts may be retained, reproduced, analyzed, or insufficiently sanitized by LLM-based systems~\cite{tamkin2024clio,priyanshu2023chatbots}. These cases highlight a critical gap in current LLM usage: privacy protection still depends on user caution, provider policy, or post-submission controls, while the most effective point of intervention is before sensitive content leaves the client.
 
-This progress report contributes (1) an implementation-grounded account of interception, detection, model publication and telemetry boundaries; (2) matched development measurements of layer ablations and controlled head-update regressions; and (3) measurements of a separate sparse presence model and exploratory semantic gate, retaining action failures and data limitations. These are interim observations, not submission-readiness or universal privacy claims.
+Motivated by this gap, we propose \privoke, a client-side semantic privacy firewall that shifts prompt protection to the moment sensitive information is about to leave the user's device. In addition to user caution, organizational policy, and remote service controls, \privoke inspects outgoing prompts locally before they are transmitted to supported web-hosted LLM endpoints and applies warning or blocking decisions. Its design combines real-time prompt analysis on the client with a supporting microservices architecture for model management, privacy-oriented prompt fuzzing, controlled parameter updates, and telemetry protected by Local Differential Privacy (LDP). The current implementation forwards the original request on ALLOW or WARN and cancels a supported request on BLOCK; span masking returned by the runtime is not automatically substituted into browser traffic. This separation allows cloud-side training and robustness experiments to proceed independently of interactive client inference, while deployment cost and usability remain empirical questions. In this way, \privoke provides an endpoint-level intervention within existing web-hosted LLM workflows, with protection bounded by the supported request paths and enabled detector layers.
 
-\section{Background and Related Work}
+The principal contribution of \privoke is the design and evaluation of a guarded update path that retrains the privacy classifier in the cloud and distributes revised parameters to deployed clients while continuing to inspect user prompts locally. Labeled generated or prepared examples are processed by a server-side instance of the runtime, and accepted updates are published as versioned artifacts. A client retrieves the selected model and refreshes its cached parameters, so further training does not require an application release or client-side collection of training prompts. Successive updates can therefore support adaptation to newly supplied examples, but improvement is a hypothesis to evaluate: an updated classifier may improve one outcome while regressing another.
+
+Client-side layered inspection has precedent in Casper~\cite{Casper2024}. We build on that established design and examine the additional training, publication, and redistribution path. The resulting research questions concern the contribution of each layer, the effect of controlled cloud-side updates, and whether the extension enforces the intended request decisions. The incident examples above motivate minimizing avoidable outgoing disclosure; billing exposure and exfiltration of information already held by a provider also illustrate downstream risks that a prompt interceptor cannot generally prevent.
+
+The main contributions of this work are as follows:
+\begin{itemize}
+    \item We frame prompt-level privacy leakage as an endpoint security problem in web-hosted LLM workflows, where sensitive information may leave the client before effective safeguards are applied.
+
+    \item We present \privoke, a client-side semantic privacy firewall that inspects supported outgoing prompts and applies ALLOW, WARN, or BLOCK decisions before transmission, with explicit forwarding and failure behavior.
+
+    \item We combine rule-based matching, Named Entity Recognition (NER), and semantic classification with a sensitivity, visibility, and category policy, and distinguish entity-presence detection from contextual disclosure and action correctness.
+
+    \item We introduce a cloud-training and local-inference architecture in which a privacy-focused fuzzer supplies labeled batches, the server runtime computes bounded updates, and validated revisions are streamed to deployed clients. This enables controlled evaluation of adaptation as new data become available, including detection gains and regressions.
+
+    \item We integrate locally randomized categorical telemetry for aggregate deployment monitoring, with an explicit event-tuple privacy scope, composition budget, and exclusions; telemetry is independent of the model-training data path.
+\end{itemize}
+
+%----------------------------------------------------------------------%
+\section{Background}
 \label{sec:background}
-Rules identify structured fields, while NER identifies entity types in unstructured text. Entity presence and contextual privacy differ: a public name can be annotated as PII, while private business information may lack an annotated entity. Prompt sanitization can redact or transform content~\cite{Casper2024,HaS2024,ProSan2024}; \privoke applies ALLOW, WARN and BLOCK decisions. No matching Casper experiment or user study was performed, so we make no numerical ranking or usability claim.
 
-Memorization studies show that training information can sometimes be reconstructed~\cite{haim2022reconstructing}; they do not show that every submitted prompt is used for training. Controlled template testing can diagnose failures, but accepted parameter updates and internal guards do not establish generalization.
+\subsection{Large Language Models and Prompt-Based Interaction}
 
-Local differential privacy (LDP) randomizes reports before collection~\cite{cormode2018privacy}. For neighboring event values $x,x'$ and output $o$, pure $\varepsilon$-LDP requires $\Pr[M(x)=o]\leq e^\varepsilon\Pr[M(x')=o]$. Event-value protection does not conceal report presence or transport metadata.
+LLMs are widely used in modern AI-assisted workflows, including writing, coding, summarization, information retrieval and decision-support tasks. Most contemporary web-hosted LLM services, such as Chat-GPT, Microsoft Copilot, and Google Gemini, are built on Transformer-based architectures that support scalable pre-training and effective modeling of long-range textual dependencies~\cite{courseraTransformersConvolutional,liu2025understanding}. Transformer-based pre-trained language models (PLMs), when trained on large-scale corpora and adapted for interactive use, form the foundation of many current LLM systems~\cite{zhong2023chatradio}.
 
+Users interact with these systems primarily through prompts, which are natural-language instructions, questions or contextual inputs submitted to the model. In practical workflows, prompts often contain more than simple queries: users may paste personal details, organizational information, code fragments, legal or medical context, internal documents, or other sensitive content to obtain useful responses. Although LLMs can also be deployed locally using smaller open-weight models such as LLaMA-style systems~\cite{Llama2023}, web-hosted LLM services remain widely adopted because they reduce local computational requirements and provide convenient access to high-capacity models. This deployment model, however, shifts prompt processing outside the user's direct control.
+
+\subsection{Privacy Risks in External LLM Systems}
+
+The widespread adoption of web-hosted LLMs has raised privacy concerns about the processing, retention, and reuse of user-submitted prompts. Recent studies highlight risks associated with prompt collection, provider-side logging, and policy-dependent data handling in external LLM services~\cite{li2025security, de2025lifecycle}. Prior systems such as Casper~\cite{Casper2024} and PromptShield~\cite{kelecspromptshield} further emphasize that web-hosted LLM services may process, store, or share user prompts depending on their privacy policies and service configurations. Once a sensitive prompt is submitted, users may have limited visibility into how the content is handled, retained, analyzed, or used in downstream service-improvement pipelines.
+
+A further concern is that sensitive content may remain difficult to fully control after submission. Studies on memorization and training-data reconstruction show that information used during model training can, under certain conditions, be partially recovered or reproduced~\cite{haim2022reconstructing}. While not every submitted prompt is necessarily used for model training, these findings reinforce the broader risk that sensitive data entering an LLM pipeline may create long-term privacy exposure. This motivates privacy controls that operate before disclosure, rather than relying only on provider-side policies or post-submission deletion mechanisms.
+
+\subsection{Privacy Preservation Techniques}
+
+Existing frameworks, including Casper \cite{Casper2024}, HaS \cite{HaS2024}, and ProSan~\cite{ProSan2024}, use techniques such as prompt sanitization, data anonymisation, NER, semantic risk detection, semantic substitution, local inference, and client-side filtering to reduce privacy risks in LLM workflows. Their detector, transformation and deployment choices differ, as discussed in Section~\ref{sec:literature_review}.
+
+Prompt sanitization refers to the process of inspecting, cleaning, or transforming user inputs before they are passed to a language model or downstream service~\cite{Mousumi_Bakshi2025}. In security settings, sanitization may remove malicious instructions to reduce prompt-injection risks; in privacy settings, it may redact or replace PII before disclosure. While server-side systems may apply sanitization to protect their own infrastructure, they may not always prevent user-sensitive information from reaching the provider in the first place~\cite{pradhan2025zero}. This motivates client-side filtering approaches, where sensitive content is detected and controlled before the prompt leaves the user's device.
+
+Data anonymisation focuses on reducing the identifiability of user-submitted content, typically through two steps: PII detection followed by text replacement or transformation. Rule-based detection uses regular expressions and predefined patterns to identify common sensitive fields such as email addresses, phone numbers, or identification numbers. Although effective for explicit and well-structured identifiers, rule-based methods are limited when sensitive information appears in unusual formats or depends on context. NER addresses part of this limitation by identifying structured entities such as persons, organizations, locations, and dates from unstructured text~\cite{munnangi2024brief}. However, sensitive information may also arise from the semantic meaning of a prompt rather than from explicit identifiers alone. Semantic risk detection, therefore, uses Natural Language Processing (NLP) methods to infer privacy risk from context, enabling detection of disclosures that may not be captured by surface-level patterns or entity labels. Once sensitive content is identified, it may be redacted, replaced, masked, or semantically rewritten to reduce privacy leakage.
+
+DP provides a formal framework for limiting privacy risk during data collection and analysis. A randomized mechanism $M$ is $(\varepsilon,\delta)$-differentially private when, for every pair of neighboring datasets $D,D'$ and every measurable output set $O$,
+\begin{equation}
+\Pr[M(D)\in O] \leq e^{\varepsilon}\Pr[M(D')\in O]+\delta.
+\end{equation}
+The neighboring relation specifies the protected change in the data; $\varepsilon$ bounds privacy loss and $\delta$ permits a bounded exceptional probability. These parameters do not by themselves specify which data or observable channels a system protects.
+
+It is widely used for large-scale telemetry and usage statistics collection by organizations such as Google, Apple, and Microsoft~\cite{cormode2018privacy, cortes2016differential}. Local Differential Privacy (LDP) extends this idea by perturbing information on the user's device before transmission, reducing reliance on a trusted central collector. In the context of client-side LLM privacy tools, LDP can protect released categorical telemetry, such as risk buckets, action types, and model-release statistics. Payload minimization and a value-level privacy guarantee must be distinguished from hiding report presence or identifying metadata in the transport.
+
+%----------------------------------------------------------------------%
+\section{Literature Review}
+\label{sec:literature_review}
+
+\subsection{PII Detection}
+
+Existing privacy-preserving LLM systems commonly combine rule-based, entity-based and semantic approaches to identify sensitive information prior to disclosure. Casper~\cite{Casper2024} provides a browser-local layered detector, whereas HaS~\cite{HaS2024} and ProSan~\cite{ProSan2024} study prompt transformation and the utility of subsequent responses. These systems establish relevant detection and sanitization precedents, but their tasks and reported measurements are not interchangeable with request blocking or binary annotation-presence evaluation.
+
+As privacy-sensitive content depends on application context, domain-specific terminology, and evolving input distributions, a fixed classifier can encounter examples outside its training coverage. Updating the classifier is a candidate response to this problem. In \privoke, the question is whether new labeled cloud-side batches produce useful changes in the locally executed detector under controlled comparisons. This formulation distinguishes a learned update from manual rule customization and does not assume that every existing prompt-privacy system is incapable of adaptation.
+
+\subsection{Continuous Model Training Methods}
+
+Feedback-driven refinement, active learning, and adversarial testing offer different ways to identify or generate additional training examples. Their benefit depends on the correctness of labels, the representation being updated, and the separation of training from evaluation. A reduction in training loss or success on generated variants is insufficient to establish performance on unseen sources.
+
+\privoke uses centrally orchestrated training and versioned redistribution to support successive classifier updates after client deployment. The fuzzer supplies labeled examples to a server-side runtime rather than collecting user gradients. Its optional transformations permit controlled robustness experiments, while each executed study records whether transformations were enabled. The current evidence addresses bounded updates to repository-owned classifiers; it does not establish autonomous learning from live user behavior, federated learning, or monotonically improving detection.
+
+\subsection{Differential Privacy \& Telemetry Collection}
+
+Differentially private telemetry supports aggregate analytics by randomizing data before release. Telemetry privacy and prompt sanitization protect different disclosures: one bounds information released through monitoring fields, while the other changes or prevents the content sent to an LLM. Text anonymization and reconstruction, as studied by HaS~\cite{HaS2024}, also involve utility tradeoffs that differ from categorical monitoring.
+
+\privoke applies local randomization to bounded event fields and uses the resulting summaries for monitoring. The current telemetry path does not provide prompt features, corrected labels, or gradients to the fuzzer. We therefore describe monitoring and model refinement as separate architectural functions, each with its own assumptions and evaluation requirements. A future telemetry-guided training mechanism would need an explicit learning signal and a separate privacy argument.
+
+\subsection{Research Gap}
+
+The architectural precedent of local layered filtering leaves an empirical question about maintaining a deployed privacy classifier: can centrally trained, bounded revisions improve detection while preserving the existing protection afforded by other layers? Answering this question requires fixed-base comparisons, separate semantic and full-pipeline measurements, and explicit accounting for clean-input regressions.
+
+\privoke addresses this question through a cloud-training path coupled to local inference and guarded parameter publication. Its contribution is the design and evaluation of this update path in a prompt-privacy system, including its limits. Comparisons with prior sanitizers must state differences in task, intervention and data; the existence of the integration alone does not establish measured superiority or a universally novel training technique.
+
+%----------------------------------------------------------------------%
+\section{PII Categorization}
+\label{sec:pii_categorisation}
+
+To support context-aware privacy decisions, \privoke classifies detected information according to public visibility (P0--P4, PU), sensitivity (S0--S3), and information category. Category labels are stored as bit-mask flags covering domains such as health, financial information, location data, criminal history, religion, and personal identifiers. This multi-dimensional representation enables efficient storage while allowing privacy decisions to consider both the sensitivity and public exposure of detected information.
+
+Sensitivity expresses the configured disclosure-risk level: S0 denotes no identified risk, S1 low-risk personal context, S2 personal information associated with targeting or harm, and S3 high-risk sensitive or identifying details, including credentials and secrets. Visibility distinguishes public (P0), semi-public (P1), authentication-restricted (P2), group-private (P3), and personal-private (P4) contexts; PU denotes unknown visibility. These are policy labels and model outputs, not independent evidence that a person has authorized disclosure. Unknown visibility should remain explicit when the text or supplied context does not support a more precise class.
+
+The ten categories are HEALTH, POLITICS, RELIGION, CRIMINAL, FINANCIAL, SEXUAL, CHILD, LOCATION, IDENTITY, and THIRD\_PARTY. Multiple categories may coexist, and each detector returns evidence, confidence, and a span where available. Normalized spans are mapped back to the original prompt. A public biography containing a name and a privately supplied account credential can both contain annotated identifiers, yet require different disclosure decisions.
+
+The policy maps S3 to BLOCK and S2 to WARN, while S0/S1 remain ALLOW unless both IDENTITY and LOCATION occur, or either category occurs with restricted/private visibility (P2--P4). Confidence below 0.5 moderates S3 to WARN and S2 without IDENTITY or LOCATION to ALLOW; other low-confidence classifications also map to ALLOW. This threshold is an implemented policy choice; returned confidence is not established as a calibrated probability. Aggregation preserves individual enforcement decisions and combines categories and the strongest sensitivity and known visibility. Accordingly, entity presence, contextual labels, and policy actions are evaluated separately.
+
+\vspace{\baselineskip}
+%----------------------------------------------------------------------%
 \section{Threat Model and Scope}
-\label{sec:scope}
-The protected asset is prompt text on supported configured browser endpoints. We consider accidental disclosure and bounded textual evasion, trusting the browser, extension, workstation supervisor, detector, artifacts and configured service boundary. A compromised page can interfere with same-window decision messaging; this is not an isolated defense against a compromised client. Unsupported formats, nontext attachments, alternative transports, provider-side retention and bypass outside intercepted paths are outside the demonstrated scope. Optional hosted inference sends text to another service and has a different disclosure boundary.
+\label{sec:threat_model}
 
-The hook supports bounded POST fetch and asynchronous XMLHttpRequest paths. Requests without extracted prompt text can pass without analysis. Bridge and transport errors block, but known semantic unavailability omits that layer if regex or NER remains enabled; semantic-only use blocks. A requested-layer error upgrades an otherwise ALLOW result to BLOCK while retaining surviving WARN or BLOCK decisions.
+We consider a user who intends to interact with a hosted LLM but may inadvertently include private personal, third-party, or organizational information in a prompt. The protected opportunity is the outgoing request before transmission on a supported interception path. We trust the workstation, browser and extension configuration, local supervisor/runtime, and authenticated model publisher. A compromised client, malicious model publisher, adversarial local process, or page code that deliberately replaces the interception hook lies outside this boundary. Deliberate prompt evasion requires separate testing from accidental disclosure.
 
-\section{Design and Implementation}
+The extension covers recognized prompt POST endpoint and body formats through page \texttt{fetch} and asynchronous \texttt{XMLHttpRequest}. Unsupported transports, worker traffic, unrecognized attachments and future endpoint changes are not covered by this claim. Disabling the master toggle or all detector layers explicitly bypasses protection. A warning communicates a risk while forwarding the original request; a block cancels that request. Historical provider records and billing data are outside the outgoing-prompt boundary.
+
+In streamed mode, user prompt inspection occurs on the workstation and parameter downloads carry weights rather than user text. Cloud-side training processes labeled generated or prepared research examples in a separate runtime instance. Optional inference through a hosted model changes the disclosure boundary and is excluded from the local-inference evaluation. Telemetry introduces a further release channel with the restricted guarantee specified in Section~\ref{sec:telemetry_mechanism}.
+
+%----------------------------------------------------------------------%
+\section{System Architecture \& Data Pipelines}
 \label{sec:system_architecture}
-\subsection{Runtime and Classification}
-The extension uses a workstation supervisor with loopback lifecycle control on port 50056, detector on 50057 and gRPC-Web bridge on 8080. The Compose detector on internal port 50054 is an independent process used by the fuzzer and evaluators, not an extension fallback.
 
-Normalization applies NFKC, lowercase conversion and bounded deobfuscation while preserving provenance to original-text spans. Regex runs first by default and short-circuits remaining requested layers on BLOCK. Otherwise pending layers run concurrently. The spaCy \texttt{en\_core\_web\_sm} NER path maps PERSON, GPE, LOC, FAC and ORG, not DATE. Fusion retains strongest sensitivity, strongest known visibility and category union. Successful evidence survives other layer errors, and fusion does not weaken individual actions.
+\subsection{Client Runtime Service}
 
-Classification uses sensitivity S0--S3, visibility P0--P4 and PU, and flags for health, politics, religion, criminal, financial, sexual, child, location, identity and third-party information. S3 blocks and S2 warns; identity/location with restricted visibility or both categories can warn. Confidence below 0.5 moderates S3 to WARN and non-identifying S2 to ALLOW. Binary annotated-entity prediction is distinct from action.
+The browser component is a TypeScript WebExtension backed by a workstation-local Python runtime. A page hook intercepts supported outgoing requests and sends extracted prompt text through the extension's background process and a loopback gRPC-Web bridge to the detector. A separate supervisor, started through native messaging, owns both the bridge and detector process and provides lifecycle control. The extension instance is independent of the server-side runtime used for training and evaluation; it does not fall back to that server for user prompt inspection.
 
-\subsection{Streamed Contextual Classifier}
-The encoder hashes tokens into a bounded vocabulary and truncates context. Seeded random initialization supplies embeddings, attention and feed-forward weights; 43 authored bootstrap examples fit only six sensitivity, visibility and category head tensors. Runtime updates also alter heads only. Efficient, balanced and quality configurations use respectively one/two/three layers, hidden dimensions 24/32/32, context limits 64/96/128 and vocabularies 512/512/768. Their names do not establish quality.
+The extension displays warning or blocking notices and enforces the returned action. ALLOW and WARN preserve the original request body, whereas BLOCK prevents forwarding on the supported path. The runtime can return a masked primary span as evidence, but the extension does not substitute this text into the request. If the bridge or runtime is unavailable, the supported request is blocked. A streaming outage can temporarily use other enabled detector layers; when semantic detection is the only enabled layer, unavailable analysis blocks the request. Such fallback preserves the available layers rather than guaranteeing semantic coverage.
 
-The Go service returns one immutable artifact snapshot per request, not a continuing subscription. Clients validate chunk order, offsets, shapes, identity and completeness, reconstruct models and retain a short-lived cache. Local inference supports CPU with CUDA/MPS paths where available. The \texttt{latest} alias selects a configured current artifact, not a historical version.
+\subsection{\privoke Runtime}
 
-\subsection{Training and Publication}
-The fuzzer deterministically samples labeled templates or a configured curriculum and can apply fixed transformations; it has no generative sampling-temperature control. Automatic/background cycles are disabled by default; studies explicitly request cycles. It sends examples to the runtime to compute bounded head deltas. It does not download tensors or train the encoder. Unlabeled examples may use the model's predictions as targets and are not independent supervised truth.
+The Python runtime hosts normalization, rule matching, spaCy NER and the selected semantic classifier. It applies Unicode compatibility normalization, lowercasing, email-separator normalization, digit-space removal and whitespace normalization, retaining offsets to remap evidence to the original text. Regex runs first by default and a regex BLOCK short-circuits the remaining requested layers. Otherwise the runtime executes the enabled layers and aggregates their classification evidence and errors. A failed requested layer blocks an otherwise ALLOW decision; valid non-ALLOW results remain visible rather than being replaced by a clean default.
 
-The updater validates deltas, rejects stale base versions and serializes accepted updates. Atomic replacement includes the committed receipt; durable historical receipts support replay recovery without applying an identified payload twice. Candidate checks use publication-compatible float32/clipping arithmetic and an internal held-out guard. This is sequential centralized updating, not federated learning. Compose internal gRPC is plaintext; deployment outside a trusted service network requires the configured authenticated transport boundary.
+The streamed semantic component is a compact repository-owned transformer classifier, not a general-purpose conversational LLM. Efficient, balanced and quality profiles differ in depth, context and vocabulary; these names do not establish relative model quality. The balanced profile has two encoder blocks, hidden size 32, a 512-entry vocabulary, a 96-token context and 36,756 parameters. Its original encoder is initialized from seeded randomness, with six sensitivity/visibility/category head tensors bootstrapped on 43 authored examples. Head-only training updates 660 parameters while retaining the encoder. Separately declared experimental treatments can train the last encoder block, and offline full-encoder mechanics remain distinct from the default online updater.
 
-\subsection{Separate Presence Task and Training Mechanics}
-A typed annotation-presence RPC exposes a separate word/character TF-IDF logistic model. Efficient/balanced/quality maximum capacities are 2,000+2,000, 8,000+8,000 and 16,000+16,000 features. Vocabulary and IDF remain frozen during head updates; coefficient blocks contain at most 4,096 values. Presence supplies no sensitivity, visibility, category or action truth.
+The runtime reconstructs validated streamed tensors and performs inference locally, using available acceleration or CPU execution. It caches a model snapshot for the configured refresh interval and coalesces concurrent loads. The client can select a model identifier; \texttt{latest} resolves to the configured release channel, currently balanced, rather than identifying the best-scoring candidate. A snapshot is identified by architecture, configuration, version, checksum and tensor fingerprint.
 
-The ordinary contextual path remains unchanged. An explicit research gate on the balanced contextual model suppresses only semantic findings when presence is ABSENT, preserving regex and NER. ABSENT does not mean safe. Callers must verify the returned trace rather than assume an older server applied the option.
+A separate word/character TF-IDF classifier predicts binary annotation presence and exposes distinct inference and training RPCs. An explicit research-only cascade can use its ABSENT decision to suppress semantic findings before fusion, while retaining regex/NER findings. Presence does not supply sensitivity, visibility or action truth, and ABSENT is not a declaration that the prompt is safe. This cascade is opt-in and is not the default deployed policy.
 
-Separate offline CPU trainers implement head-only and full-encoder supervised mechanics for contextual and scratch binary transformers: explicit targets, finite-gradient checks, clipping, rollback and export. Presence inference also supports six explicit scratch model IDs. These mechanics differ from measured sparse gradient dispatch. No research-data scratch-transformer fit or quality result is reported.
+\subsection{Fuzzer Service}
 
-\subsection{Telemetry}
-Workstation telemetry is opt-in through runtime configuration; Compose evaluation settings are separate. Five fields are randomized: action, risk bucket, primary category, normalized model release and coarse UTC time-of-day. Generalized randomized response uses default event budget $\varepsilon=1$, equally divided across fields, with $\delta=0$. A durable installation-local ledger limits cumulative expenditure to $\varepsilon=8$ per UTC day and suppresses emission when exhausted or unusable.
+The fuzzer is a server-side orchestration worker that generates or loads labeled prompt batches and requests training through the cloud runtime. It does not download model weights or execute the classifier itself. For a training request it reserves distinct clean and sensitive held-out examples, excludes their normalized texts and declared source groups from training, and submits the bounded batches to \texttt{ComputeSemanticGradients}. Model fetching, execution and gradient computation occur inside the server runtime. The fuzzer receives model-bound deltas and candidate metrics, and submits eligible updates to the update service.
 
-This assumes a trusted emitter randomizes values and preserves its ledger. The collector validates schema/budget but cannot prove randomization. Reports contain no raw prompt, direct user identifier, exact timestamp or exact risk score. Marginal estimates apply inverse randomized-response correction and clipping, which can introduce bias. Exact sample counts, report presence and network timing/metadata remain outside the guarantee. Reports do not train models; telemetry utility is unmeasured.
+The default treatment updates the sensitivity, visibility and category heads. Optional transformed variants are generated according to the declared experiment; the presence of transformation support does not imply that every study uses adversarial examples. The runtime uses the same canonical normalization for training and inference and evaluates the exact bounded, float32 candidate on held-out examples without mutating its serving cache. Publication requires finite metrics, both held-out classes, nonregressing exact match/recall/specificity, and the configured casewise severity/action guard. These internal checks are distinct from public evaluation and do not establish generalization.
 
-\section{Methods}
-\label{sec:methods}
-We ask RQ1: how do layers contribute to recall and false alarms? RQ2: do bounded updates improve both class rates? RQ3: how do presence inference and gating trade errors and actions? RQ4: what detector costs are measured?
+Repeated training can be requested by the update service or experiment controller. Automatic startup training is disabled by default; configured batches and intervals permit successive cycles. The current source of adaptation is supplied labeled data, not user telemetry or gradients collected from deployed browsers. The separate annotation-presence training path updates its own logistic head under binary labels and is not contextual transformer training.
 
-English PIIMB data\footnote{\url{https://huggingface.co/datasets/piimb/pii-masking-benchmark}} are pinned to revision \texttt{4a13e9ffe6fd0d275efbde8afd4d8d8f1ffc2133}. Seed 3102026, deduplication, conflict exclusion and source-document grouping select 1,000 rows: 502 development (264 annotated-positive, 238 annotation-negative) and 498 final (236/262). Final remains locked and unscored. Later controls fit 3,832 training rows and calibrate on 968 validation rows (475/493), retaining the same development population. Fitting on unused documents from this upstream benchmark-test corpus creates a custom within-corpus study, not an untouched official test score.
+\subsection{Telemetry Collector Service}
+\label{sec:telemetry_mechanism}
 
-A prediction is positive if sensitivity is S1--S3 or any category is set, regardless of action. Annotations do not establish exact spans, contextual privacy, visibility or safe actions. Provided labels are retained even when unannotated text triggers broader policy rules. Precision in this class mix is not deployment precision.
+The telemetry collector receives locally randomized categorical reports and stores marginal aggregate counts stratified by declared epsilon. The official packet contains action, an action/sensitivity-derived risk bucket, one category selected by fixed precedence, a bounded model-release label, and a four-hour UTC time-of-day bin without a date. Raw prompts, direct identifiers, exact scores and per-layer results are absent. Training suffixes are removed from the reported model release. The fields can reveal information about an event, so omission of identifiers alone is not described as de-identification.
 
-Comparisons match IDs, labels and groups; reported 502-row detector runs have zero runtime errors. Independent Presidio\footnote{\url{https://microsoft.github.io/presidio/}} uses English \texttt{en\_core\_web\_sm} and threshold 0.5, smaller than its upstream default NLP model. Initial updates use three independent seeds, 256 source prompts and rate 0.03. Later negative-curriculum selection maximizes specificity subject to at least 90\% recall and recorded floor/tie rules. Validation selects sparse C values, thresholds and gates before development scoring. Earlier development findings informed these designs.
+For a public event budget $\varepsilon$, each of the five fields receives $\varepsilon_i=\varepsilon/5$. Generalized randomized response on field $i$, with domain size $K_i$, outputs its true value with probability $p_i$ and each alternative with probability $q_i$, where
+\begin{equation}
+p_i=\frac{e^{\varepsilon_i}}{e^{\varepsilon_i}+K_i-1},
+\quad q_i=\frac{1}{e^{\varepsilon_i}+K_i-1}
+\end{equation}
+With independent draws, the product of the five field likelihood ratios is at most $e^{\sum_i\varepsilon_i}=e^\varepsilon$. This establishes pure LDP for the nominal event-tuple randomizer at a fixed reporting opportunity, under public input-independent configuration, compliant execution and ideal sampling. The implementation uses floating-point probabilities and finite randomness; its exact sampler privacy loss has not been certified.
 
-Computed paired source-group bootstrap intervals use 2,000 resamples, seed 3102026 and 465 development groups. They are descriptive after search/selection, not confirmatory significance. Cascade intervals remain uncomputed. The practical 90\% recall/90\% specificity targets are development criteria, not publication requirements. The companion ledger separately records artifact checksums, file hashes, parameter fingerprints, source/image identities and raw reports.
+The default event epsilon is 1, configurable from 0.5 to 2. An installation-local persistent ledger reserves budget before packet construction, caps nominal expenditure at epsilon 8 per UTC day by default, and does not refund failed submissions. This bound assumes retained state and a trusted clock; it is neither a cross-device user budget nor a rolling 24-hour guarantee. Report presence, exact accepted counts, delivery selection and network metadata remain outside the guarantee. The collector validates domains and declared epsilon but cannot attest client randomization. Inverse-response marginal estimates are clipped, which can introduce bias, and monitoring utility requires separate measurement. Telemetry remains independent of model training.
 
-\section{Measured Development Results}
+\subsection{Model Streaming Service}
+
+The Go model-streaming service supplies versioned artifacts through gRPC tensor streams. A consumer validates ordered chunks, offsets, shapes, finite values and complete model identity before constructing a model. Each stream is pinned to one artifact snapshot so that a concurrent publication cannot mix versions within a download. Workstation cloud connections use the configured authenticated TLS boundary; internal Compose gRPC remains confined to the trusted service network. The transport is not a browser WebSocket connection.
+
+The streaming service reads the persistent artifact catalog, while the update service publishes accepted revisions to that catalog. A subsequent streaming request can receive the new artifact, and the client checks for revisions after its configured cache interval. Consequently training and publication do not require a browser-extension release or remote execution of the user's prompt. The refresh mechanism does not guarantee instantaneous fleet-wide synchronization; experiment records must identify the actual snapshot used by each runtime.
+
+\subsection{Model Update Service}
+
+The Python update service requests fuzzer cycles when enabled and validates submitted model-bound deltas. It checks the configured model identifier, exact base version, allowed trainable tensors, shapes, finite values and magnitude limits, then applies the bounded deltas and atomically publishes a revised artifact. It does not perform backpropagation; that computation has already occurred in the runtime. The artifact revision increments as \texttt{release+train.N}, and durable receipts bind a request identity to its committed outcome so that an identical retry does not apply the update twice. A stale base or conflicting request reuse is rejected.
+
+Training and publication are centralized server operations. The architecture therefore supports cloud-side retraining and distribution while retaining local user inference, but does not implement federated learning or privately trained user gradients. Offline encoder-training experiments are separate from this bounded online contract and cannot be treated as deployed update capabilities without compatible publication and validation.
+
+\subsection{Cloud Training and Client Refresh Cycle}
+
+The complete update path is: labeled examples to the fuzzer; bounded training/held-out batches to the server runtime; candidate deltas and metrics back to the fuzzer; eligible deltas to the updater; an atomic artifact revision to streaming; and refreshed weights to client runtimes. User prompt inspection follows a separate path from the browser to the workstation runtime and then, on an allowed request, to the hosted LLM. This separation is the mechanism that permits adaptation over successive cloud-side training cycles. Whether a given cycle improves detection is evaluated against its fixed base and held-out data, rather than inferred from the existence of a new version.
+
+%----------------------------------------------------------------------%
+\section{Evaluation Methodology}
+\label{sec:methodology}
+
+\subsection{Research Questions and Measurement Units}
+
+We investigate three questions: what each detection layer contributes; whether controlled cloud-side updates improve detection without unacceptable regressions; and whether browser enforcement matches the returned policy action. Client cost and telemetry utility are separate supporting questions. Annotation-presence detection is measured per prompt, contextual sensitivity/visibility/categories are separate label dimensions, action correctness depends on the configured policy, and prevention is measured by whether the original request reaches a receiver. These outcomes are not combined into a single privacy-accuracy score.
+
+\subsection{Data Provenance, Labels and Partition Use}
+
+The initial public binary study uses English PIIMB sentences at revision \texttt{4a13e9ffe6fd0d275efbde8afd4d8d8f1ffc2133}. Selection uses seed 3102026, exact-text deduplication, conflict exclusion and source-document grouping. The selected 1,000 rows are split into 502 development rows (264 annotation-positive, 238 annotation-negative) and 498 protected final rows (236 positive, 262 negative), with disjoint source groups. An additional reused validation partition contains 968 rows (475 positive, 493 negative). Its exact preparation and artifact commitments are retained with each later study.
+
+For the binary metric, a valid source PII annotation defines a positive reference. A prediction is positive when the returned classification has S1--S3 or any privacy category, regardless of action. This proxy does not establish whether a prompt is contextually private, whether every span was found, or whether a warning/block is appropriate. Positive-only external sources supply recall evidence and cannot independently establish specificity. Absence of a source annotation is not silently converted into independently verified contextual harmlessness.
+
+Synthetic development examples and authored contextual contrasts provide controlled checks, with their shared template/family structure retained. The separate 48-case contextual fixture comprises 24 controls, 17 disclosure candidates and seven ambiguous exclusions; 41 cases enter quantitative rubric analysis. Its labels remain assistant-provisional pending independent human review and adjudication. Agreement between two human annotators is not claimed. Public/private visibility and desired action require explicit supplied context rather than inference from a topic keyword alone.
+
+Validation and development have informed repeated exploratory studies. A prospectively frozen choice within a later study does not make those reused data untouched confirmation. Training exclusions track groups, row identifiers and normalized text, and known overlap in a historical trained control limits that comparison to diagnostics. Training on unused source documents from PIIMB's upstream \texttt{test} corpus creates a custom within-corpus experiment, not an untouched official test score. The protected final partition remains unscored and is unavailable for fitting, threshold choice or error-driven revision.
+
+\subsection{Baselines, Ablations and Update Treatments}
+
+Comparisons use matched examples for regex, NER, semantic, regex+NER and the full pipeline. The independent configured baseline is Presidio's English analyzer with spaCy \texttt{en\_core\_web\_sm} and score threshold 0.5, without PriVoke-specific rules. This smaller NLP configuration is disclosed rather than presented as the strongest available Presidio baseline. Learned sparse text controls and the separate annotation-presence models test alternatives to the contextual transformer under the binary task; their outputs do not validate contextual decisions.
+
+Every update study binds its source revision, image identities, exact base artifact, curriculum, trainable tensors, learning rates, seeds, transforms and selection rule before candidate assessment. Same-profile base-versus-update contrasts assess training change, whereas comparisons against the current deployed checkpoint assess replacement and are named separately. Neither a changed checksum nor a successful publication establishes an improvement.
+
+The 6 October fuzzer grid contains 54 one-cycle conditions: three profiles, head-only or last-block training, learning rates 0.003/0.01/0.03, and seeds 42/1337/2026. Each request uses 256 training prompts, 16 distinct held-out groups, a maximum tensor delta of 0.05 and zero text transformations. Its filtered curriculum contains 2,129 public annotation-negative examples, 43 bootstrap replay examples and 128 authored contextual examples. Provisional contextual targets and sparse positive exposure are recorded as treatment limits. Later class-balanced, mean-category, role-quota, local-SGD and decision-margin studies have their own prospective specifications and retain their unsuccessful attempts. Their base artifacts and objectives are not silently pooled into one training-effect estimate.
+
+\subsection{Selection, Uncertainty and Reproducibility}
+
+The recent contextual studies qualify candidates using at least 90\% full-pipeline recall and increased specificity against the study's declared reference, followed by the stated development and casewise contextual-retention checks. These practical criteria differ from the earlier joint 90\% recall/90\% specificity objective and from internal publication guards; none is a venue acceptance rule. Study-specific ranking, reference model, stopping limits and amendments remain attached to each result. A no-new-failure criterion does not certify that pre-existing private-action failures are absent.
+
+The reporting schema includes TP, TN, FP, FN, class denominators, recall, specificity, precision, F1, balanced accuracy, evaluated coverage and errors. Semantic and pipeline outcomes are reported separately so recovery by rules/NER does not conceal semantic regressions. Zero-error matched coverage is required for the declared comparisons; rejected candidates are recorded as rejections rather than assigned unmeasured accuracy. Precision from a selected class mix is not deployment precision.
+
+Where computed, paired 95\% intervals use 2,000 source-group bootstrap resamples on the same predictions. Related examples are resampled together; multiple training seeds or RPC calls are not additional independent prompts. Development-selected estimates remain descriptive. The recent fixed fuzzer grids use verified raw counts with bootstrap iterations set to zero, and the cascade's paired intervals remain uncomputed; those studies make no inferential improvement claim. Each result retains its uncertainty procedure rather than inheriting intervals from another experiment.
+
+Dataset selection digests, provenance, configurations, source/image identities, model checksums/fingerprints, raw predictions, rejected updates and restoration outcomes are archived with their study. Final scoring requires frozen model/rule choices and analysis plans. A subsequent study informed by final failures would need a new independent evaluation boundary.
+
+\subsection{Request Enforcement, Cost and Telemetry Evaluation}
+
+Browser enforcement is evaluated with synthetic prompts and a real receiver, checking unchanged forwarding on ALLOW/WARN and zero forwarding on BLOCK. The existing page-hook fixture uses a controlled decision broker and cannot establish installed extension, native messaging, real-provider compatibility or complete outage behavior. A separate installed-path protocol covers the browser-launched supervisor, bridge and detector; a partial or failed run remains diagnostic rather than complete deployment evidence.
+
+Warm/cold latency and resource cost must specify hardware, software, backend, workload and sampling boundaries. Runtime service elapsed time is kept separate from browser/bridge round trip, model download and startup costs. Telemetry assessment separates the nominal privacy argument and ledger behavior from aggregate estimation utility, reporting-selection effects and network observables. The manuscript's Results section remains reserved for consolidated evidence from these distinct measurements.
+
+%----------------------------------------------------------------------%
+\section{Results}
 \label{sec:results}
-\subsection{RQ1: Layer Contributions}
-Immutable original v0.3.0 comparisons at source \texttt{712ed72} show increased pipeline recall with many annotation-negative detections (Table~\ref{tab:ablations}). This cannot identify contextual false alarms without independent labels.
-\begin{table}[t]
-\centering
-\caption{Initial matched PIIMB development ablations, $n=502$ (264 positive, 238 negative). Counts are TP/TN/FP/FN; rates are percentages.}
-\label{tab:ablations}
-\begin{tabular}{lrrr}\hline
-Configuration & Counts & Recall & Specificity\\\hline
-Regex & 179/208/30/85 & 67.80 & 87.39\\
-NER & 55/232/6/209 & 20.83 & 97.48\\
-Regex + NER & 198/203/35/66 & 75.00 & 85.29\\
-Semantic & 169/60/178/95 & 64.02 & 25.21\\
-Full pipeline & 247/47/191/17 & 93.56 & 19.75\\
-Presidio (small) & 208/189/49/56 & 78.79 & 79.41\\\hline
-\end{tabular}
-\end{table}
-Later rules produce a distinct original-model baseline, 247/53/185/17 (93.56\% recall, 22.27\% specificity). It must not replace the initial ablation baseline.
 
-\subsection{RQ2: Update Tradeoffs}
-Initial transformed and ordinary rate-0.03 updates give no pipeline recall gain across three seeds and reduce specificity by 0.84--1.26 percentage points. Accepted internal checks do not imply public improvement. A historical lower-rate/rule checkpoint corrected seven initial false positives without changing recall, still giving only 22.69\% specificity.
+TODO
 
-A broader curriculum of 2,400 public negatives plus bootstrap anchors yields Table~\ref{tab:updates}. Nine independent attempts produce six scored candidates and three held-out regression rejections. Larger accepted rates fall below the recall floor. Cycle two of the selected seed reaches 236/78/160/28 (89.39\% recall); the protocol stops and restores cycle one.
-\begin{table}[t]\centering
-\caption{Revised-rule original and selected negative-curriculum development checkpoints, same 502 rows; rates are percentages.}
-\label{tab:updates}
-\begin{tabular}{lrrr}\hline
-Checkpoint & TP/TN/FP/FN & Recall & Specificity\\\hline
-Original & 247/53/185/17 & 93.56 & 22.27\\
-Selected & 239/70/168/25 & 90.53 & 29.41\\\hline
-\end{tabular}
-\end{table}
-Relative to the same-source original, selection removes 17 false positives and adds eight false negatives. Recall changes by $-3.03$ percentage points (descriptive 95\% interval $[-5.26,-1.12]$), specificity by $+7.14$ ($[4.00,10.48]$). Semantic recall falls from 64.02\% to 53.03\%; other layers retain some detections. This is a tradeoff, not improved semantic understanding.
-
-\subsection{RQ3: Presence and Gating}
-The separate sparse task gives Table~\ref{tab:presence}. An offline larger text control yields 248/186/52/16 (93.94\% recall, 78.15\% specificity), not a deployed contextual result. None of nine accepted sparse fuzzer updates is retained because validation specificity does not strictly improve.
-\begin{table}[t]\centering
-\caption{Separate annotation-presence RPC results on 502 development rows, not full-pipeline or action scores; rates are percentages.}
-\label{tab:presence}
-\begin{tabular}{lrrr}\hline
-Profile & TP/TN/FP/FN & Recall & Specificity\\\hline
-Efficient & 249/169/69/15 & 94.32 & 71.01\\
-Balanced & 247/181/57/17 & 93.56 & 76.05\\
-Quality & 247/189/49/17 & 93.56 & 79.41\\\hline
-\end{tabular}
-\end{table}
-An expanded 19,993-row fit selects C=10 on validation. Each profile detects 1,000/1,000 Nemotron\footnote{\url{https://huggingface.co/datasets/nvidia/Nemotron-PII/tree/b70ffaf5ff39e079776134c5bf4381f00a9fd1ed}} and 999/999 Meddies\footnote{\url{https://huggingface.co/datasets/Meddies/meddies-pii/tree/6a5c8f5441e3b421d983c9741770262365acdd77}} source-heldout positives. Positive-only sets cannot estimate specificity. Mixed validation specificity is 66.94\%, 80.32\% and 77.89\%; no contextual inference follows.
-
-Original-balanced gating reduces false positives but adds five misses per profile (Table~\ref{tab:cascade}). Thresholds are validation-selected and paired intervals uncomputed. Trained-control arms are skipped because validation recall is 426/475 (89.68\%), below the floor. No gate is promoted.
-\begin{table}[t]\centering
-\caption{Original balanced pipeline with validation-selected semantic gates, same 502 development rows; regex/NER remain intact; rates are percentages.}
-\label{tab:cascade}
-\begin{tabular}{lrrr}\hline
-Gate & TP/TN/FP/FN & Recall & Specificity\\\hline
-None & 247/53/185/17 & 93.56 & 22.27\\
-Efficient & 242/175/63/22 & 91.67 & 73.53\\
-Balanced & 242/169/69/22 & 91.67 & 71.01\\
-Quality & 242/159/79/22 & 91.67 & 66.81\\\hline
-\end{tabular}
-\end{table}
-The returned regex/NER union has 13 development false positives, an observed specificity ceiling of 94.54\%. This necessary bound does not show a gate can reach it while retaining recall or safe actions.
-
-A separate 48-case authored fixture has 24 controls, 17 disclosure candidates and seven ambiguous exclusions. Labels are assistant-provisional; professor confirmation is pending. Ordinary actions are rubric-compatible on 30/41 evaluable cases, versus 32/41 for efficient and 31/41 for balanced/quality gates. All meet minimum private action on 15/17. Two required-BLOCK cases remain below BLOCK, one ALLOW and one WARN. This is not policy-safety certification.
-
-\subsection{RQ4: Detector Costs}
-Table~\ref{tab:timing} reports sequential CPU measurements on an x86\_64 Intel Core i7-13700KF with 24 visible CPUs. Contextual timings use returned evaluator elapsed time; sparse timings are internal service measurements. Summaries include the first request and exclude browser/native-messaging/bridge overhead. They are not robust cold-start or deployment-latency measurements.
-\begin{table*}[t]\centering
-\caption{Detector median/p95 latency (ms), 502 requests per configuration. Different timing boundaries preclude additive comparison.}
-\label{tab:timing}
-\begin{tabular}{lrrr}\hline
-Profile & Semantic & Pipeline & Sparse internal\\\hline
-Efficient & 6.45/7.58 & 229.48/289.24 & 2.524/3.932\\
-Balanced & 13.45/16.91 & 267.21/338.31 & 9.921/13.803\\
-Quality & 20.05/23.96 & 276.94/354.27 & 15.396/19.086\\\hline
-\end{tabular}
-\end{table*}
-Profiles differ in initialization, depth, context, vocabulary and bootstrap epochs. Quality has higher semantic recall but lower pipeline recall/specificity than balanced. No causal capacity effect, memory result or usability benefit is established.
-
-\section{Discussion and Limitations}
+%----------------------------------------------------------------------%
+\section{Limitations}
 \label{sec:limitations}
-Layer union raises recall while retaining false positives. Negative-head updates shift the tradeoff; presence gates suppress semantic findings, including annotated positives. The evidence does not support monotonic learning, a safe ABSENT interpretation or the joint 90/90 target. Representation/task mismatch and source-label differences remain competing explanations.
 
-Construct validity is limited by annotation presence as a disclosure proxy and by provisional fixture labels. Internal validity is limited by development-informed changes and differing configurations. The selected trained contextual curriculum overlaps later validation, so its diagnostic comparisons are not independent. External validity is limited to English corpus samples, source imbalance and authored fixtures. Intervals after selection are descriptive.
+The evaluation's main label source records annotation presence rather than independent contextual privacy truth. Public entities can be annotated, and unannotated sentences can still contain sensitive context. Thus binary recall/specificity cannot establish correct visibility, category, action, masking or comprehensive privacy protection. The authored contextual fixture is small, excludes ambiguous cases and awaits independent human adjudication; preserving its prior decisions is a relative regression check.
 
-Detector scores do not establish transmitted-request outcomes. Installed-extension validation was attempted but did not complete successfully; no complete end-to-end latency/resource evidence is available at this checkpoint. Partial forwarding probes cannot certify broad coverage. Unsupported requests, failed extraction, WARN forwarding and trusted-page assumptions bound enforcement. Event LDP excludes model training and network metadata; telemetry utility is unmeasured.
+The original semantic encoder is randomly initialized and predominantly frozen during online updates. Short token contexts, limited bootstrap supervision, provisional targets and uneven training exposure constrain interpretation of adaptation. A head-update failure does not establish that cloud training in general cannot work, and a specificity gain does not establish robust contextual reasoning. Offline full-encoder mechanics and different presence representations must be evaluated under their own tasks and protocols.
 
-\section{Ethics, Artifacts and Remaining Work}
-\label{sec:artifacts}
-PIIMB documentation lists CC BY-NC 4.0 and upstream sources; raw redistribution requires license review and attribution. Saved local evidence contains prompt text and needs appropriate access controls. The companion \path{paper/research/manuscript-progress-20261005.md} maps tables to source/raw evidence and distinguishes file hashes from model identities. Ignored local artifacts are not automatically a public reproducibility package.
+Repeated development/validation use, source imbalance and within-corpus training limit confirmatory inference and external validity. English benchmark sentences and authored prompts do not represent all production workloads, languages or sensitive categories. Final results, representative user-level intervention rates and usability cannot be inferred from selected development measurements. Training-data controls reduce named overlap risks without proving semantic independence.
 
-Generative AI assisted this revision, evidence organization and provisional fixture construction. The assistance record identifies configured model and scope; authors must verify factual content, labels, references and venue-specific disclosure. No independent human agreement or ethics approval is implied.
+Protection depends on a trusted enabled client and recognized request paths. WARN forwards sensitive content when the policy chooses a warning; unsupported transports, unmatched bodies and deliberate hook tampering remain outside coverage. Partial-layer fallback can reduce detection coverage, while blocking unavailable analysis creates an availability cost. Runtime timing and controlled page-hook probes alone do not establish installed or fleet-wide performance.
 
-Final scoring must follow frozen model/rule/protocol decisions and preserve the 498-row lock until then. Independent contextual/action adjudication, complete installed-extension enforcement/cost assessment, representative deployment evidence and telemetry utility remain pending. A clean-data augmentation structural scan covers 104,728 rows, but reviewed broad-target eligibility, fresh quota-feasible partitions, fitting and scoring remain pending. Offline encoder-training mechanics need a separate research-data fit before quality claims.
+Telemetry's nominal event-tuple guarantee excludes report presence, exact counts and transport identifiers, and depends on public configuration, compliant randomization, retained ledger state and a trusted clock. Finite-sampler certification, aggregate utility and reporting-selection effects remain unmeasured. It supplies neither anonymous communication nor privacy for model training.
 
+\subsection{Ethics and Artifact Availability}
+
+Controlled request-capture probes use invented identifiers rather than collecting private user prompts. Generated and weak source labels remain distinguished from independently reviewed contextual labels. Dataset provenance and source restrictions must accompany any released material; archival integrity does not authorize redistribution of licensed raw text. Reproduction requires the recorded source, configuration, input selection and exact model artifacts. The public repository provides implementation and protocols, while final artifact packaging and applicable data-license checks remain pending. AI-assisted manuscript editing and provisional example authoring require author verification and disclosure under the selected venue's policy.
+
+%----------------------------------------------------------------------%
 \section{Conclusion}
 \label{sec:conclusion}
-\privoke implements interception, layered analysis, local streamed inference, governed head updates and opt-in event-level LDP telemetry. Development measurements show substantial false alarms and recall--specificity tradeoffs. Initial updates do not improve pipeline recall; later negative training and semantic gating reduce false positives with lost detections. Presence-only scores and provisional fixtures do not establish contextual safety. Final remains unscored, and broader deployment/privacy conclusions require additional evidence.
+
+\privoke separates client-side prompt inspection from cloud-side training and model publication. A server runtime computes bounded updates from fuzzer-supplied labeled examples, an updater validates and publishes parameter revisions, and clients refresh their locally executed classifiers. This design enables a deployed prompt-privacy system to incorporate further training data while keeping user inference on the workstation in streamed mode.
+
+The architecture makes adaptation possible, but the benefit of a revision depends on held-out evidence. Detection layers, contextual policy decisions and actual request forwarding therefore require separate evaluation, including regressions and failed updates. Aggregate telemetry has its own bounded privacy scope and does not supply the current training signal. A final empirical conclusion about detection gains and operational costs depends on the consolidated results and the remaining evaluation gates.
+
+%----------------------------------------------------------------------%
+\section{Extensions}
+\label{sec:extensions}
+
+A prospective extension is supervised full-encoder training of the repository-owned transformer, compared with a matched head-only control. Offline training mechanics exist, but research-data fitting and measured generalization for that path remain prospective. Binary annotation-presence training must remain distinct from contextual sensitivity/visibility/action supervision, and publication of large encoder tensors requires a separately reviewed update contract.
+
+Further robustness work can supply new labeled source families and label-preserving transformations under disjoint training and evaluation boundaries. Independently reviewed contextual contrasts are needed to evaluate whether adaptation preserves appropriate actions rather than merely changing entity-presence predictions. Broader installed-browser measurements, representative client costs and telemetry-utility studies would extend the operational evidence.
+
+Automated request-body masking, pruning, federated learning and telemetry-guided example selection are possible future directions. They are not claimed as implemented contributions or automatic consequences of the current cloud updater. Each would require its own data flow, correctness criteria, privacy assumptions and comparison with the existing mechanism.
+
+%----------------------------------------------------------------------%
 \bibliographystyle{ieeetr}
 \bibliography{ref}
+
 \end{document}
