@@ -4,7 +4,7 @@ The revised curriculum and seeded sampler address two separate limitations of th
 
 ## Source and resource commitments
 
-Implementation started from `85bf44726f78227c7f8ef22ec3d7098135b406b7` on `feat/dev-testing`. The original resource and v1 rendering remain unchanged. New JSON resources use explicit LF checkout attributes so their byte commitments survive Git checkout.
+Implementation started from `85bf44726f78227c7f8ef22ec3d7098135b406b7` on `feat/dev-testing`. The original resource and v1 rendering remain unchanged. All three reviewed JSON resources use explicit byte-preserving Git attributes so their exact reviewed CRLF byte commitments survive staging and checkout. A pre-freeze Git-blob audit found that text normalization had stored LF blobs despite the reviewed CRLF working bytes; the attribute repair preserves the reviewed bytes without changing any JSON content or experiment targets. The audit is retained in `evaluation/results/curriculum_improvement_20261009_core/git-resource-byte-audit.json`.
 
 | Resource | SHA256 |
 | --- | --- |
