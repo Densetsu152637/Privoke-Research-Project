@@ -65,7 +65,7 @@ docker compose -f docker-compose.yml -f evaluation/compose.tests.yml up -d --wai
 python evaluation/run-fuzzer-tests.py health
 python evaluation/run-component-tests.py stack-smoke --skip-training
 python evaluation/evaluate.py --dataset piimb --samples 500 --sampling balanced --english-only --seed 42 --backend streamed --run-name pilot
-python evaluation/run-fuzzer-tests.py test-prompts --layer regex --prompt "My email is alex@example.com"
+python evaluation/run-fuzzer-tests.py test-prompts --layer semantic --prompt "My email is alex@example.com"
 ```
 
 The evaluator sends gRPC directly to `127.0.0.1:50054` and writes reports under
@@ -73,7 +73,13 @@ The evaluator sends gRPC directly to `127.0.0.1:50054` and writes reports under
 `FUZZER_TARGET` or `run-fuzzer-tests.py --target` overrides `127.0.0.1:50053`.
 The fuzzer serves health and training RPCs; prompt analysis uses the runtime RPC.
 Prompt-probe dumps go to `dumps/privoke-fuzzer` on the host.
-`--layer` supports pipeline, regex, NER, semantic and regex+NER ablations.
+Evaluation and prompt tests default to the semantic layer only, and verify the
+returned execution so regex/NER cannot affect an LLM-only result. Requests always
+declare a nonempty layer selection. `--layer pipeline` (evaluator) or `--layer runtime`
+(prompt tests) explicitly selects a product end-to-end test; regex, NER and
+regex+NER ablations also require explicit selection for that purpose. Historical
+combined-detector reports retain their original meaning and are not LLM-only scores.
+See the persistent [repository testing policy](../AGENTS.md).
 
 Normal deployment enables automatic training (32 prompts, hourly interval).
 Keep `evaluation/compose.tests.yml` or the study's explicit count-0 override

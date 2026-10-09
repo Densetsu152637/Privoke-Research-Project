@@ -35,7 +35,7 @@ def add_test_prompt_args(parser: argparse.ArgumentParser) -> None:
         choices=LAYER_CHOICES,
         help=(
             "Detection layer to exercise. Repeat to run multiple layers. "
-            "Defaults to runtime."
+            "Defaults to semantic only. Select runtime explicitly for product end-to-end tests."
         ),
     )
     parser.add_argument(
@@ -153,7 +153,9 @@ def run_prompt_tests(args: argparse.Namespace) -> None:
 def _normalise_layers(
     raw_layers: list[str] | None,
 ) -> list[str]:
-    layers = raw_layers or ["runtime"]
+    layers = ["semantic"] if raw_layers is None else raw_layers
+    if not layers or any(layer not in LAYER_CHOICES for layer in layers):
+        raise ValueError("Prompt tests require explicit recognized nonempty detection layers.")
     normalised = []
     for layer in layers:
         if layer not in normalised:

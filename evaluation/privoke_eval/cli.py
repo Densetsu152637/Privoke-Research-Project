@@ -37,7 +37,7 @@ def _software_versions() -> dict[str, str]:
 
 
 def _resolve_backends(args) -> list[str | None]:
-    if args.layer != "pipeline":
+    if args.layer not in {"pipeline", "semantic"}:
         return [None]
     if args.all_backends:
         return list(DEFAULT_BACKENDS)
@@ -82,8 +82,8 @@ def evaluate_run(
     run_name: str | None = None,
     english_only: bool = False,
 ) -> EvaluationSummary:
-    active_backend = backend if layer == "pipeline" else None
-    if layer == "pipeline" and active_backend is None:
+    active_backend = backend if layer in {"pipeline", "semantic"} else None
+    if layer in {"pipeline", "semantic"} and active_backend is None:
         active_backend = os.getenv("PRIVOKE_LLM_CHOICE", "streamed")
 
     y_true: list[int] = []
@@ -103,11 +103,7 @@ def evaluate_run(
     iterator = tqdm(examples, desc=f"Evaluating {dataset_name} / {layer}") if not quiet else examples
     for index, example in enumerate(iterator):
         try:
-            outcome = (
-                run_pipeline(example.text, active_backend)
-                if layer == "pipeline"
-                else run_pipeline(example.text, active_backend, layer=layer)
-            )
+            outcome = run_pipeline(example.text, active_backend, layer=layer)
         except Exception as exc:  # noqa: BLE001
             errors += 1
             prediction_records.append({
@@ -311,18 +307,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--layer",
         choices=("pipeline", "regex", "ner", "semantic", "regex-ner"),
-        default="pipeline",
-        help="Detector layer to evaluate.",
+        default="semantic",
+        help="Detector layer to evaluate; semantic only by default. Select pipeline explicitly for product end-to-end tests.",
     )
     parser.add_argument(
         "--backend",
         choices=DEFAULT_BACKENDS,
-        help="Semantic backend for --layer pipeline. Defaults to the runtime environment.",
+        help="Semantic backend for --layer semantic or pipeline. Defaults to the runtime environment.",
     )
     parser.add_argument(
         "--all-backends",
         action="store_true",
-        help="Run pipeline evaluations for streamed and OpenAI backends.",
+        help="Evaluate the selected semantic or pipeline layer with streamed and OpenAI backends.",
     )
     parser.add_argument(
         "--samples",
@@ -421,8 +417,7 @@ def main() -> None:
         raise SystemExit(str(exc)) from exc
 
     print(
-        "Evaluation calls the Docker client-runtime AnalyzePrompt gRPC API and therefore "
-        "measures the complete regex + NER + semantic pipeline."
+        f"Evaluation calls client-runtime AnalyzePrompt with the explicit {args.layer} layer selection."
     )
     print(
         f"Dataset role={spec.research_role}; mode={spec.evaluation_mode}; "
@@ -443,7 +438,7 @@ def main() -> None:
     summaries: list[EvaluationSummary] = []
 
     for layer in layers:
-        layer_backends = backends if layer == "pipeline" else [None]
+        layer_backends = backends if layer in {"pipeline", "semantic"} else [None]
         for backend in layer_backends:
             summary = evaluate_run(
                 dataset_name=args.dataset,

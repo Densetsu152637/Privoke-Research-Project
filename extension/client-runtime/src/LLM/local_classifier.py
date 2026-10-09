@@ -135,8 +135,6 @@ class LocalClassifier(AbstractClassifier):
             raise RuntimeError("Semantic classifier returned invalid JSON.")
 
         results = build_external_results(parsed, text)
-        if not results:
-            raise RuntimeError("Semantic classifier returned no valid results.")
         for result in results:
             result.metadata.setdefault("classifier", "local_lm_studio")
             result.metadata.setdefault("model", model)

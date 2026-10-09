@@ -93,5 +93,27 @@ Environment:
 
 `LocalClassifier` calls an OpenAI-compatible `/v1/chat/completions` endpoint such as LM Studio. `OpenClassifier` calls an OpenAI-compatible hosted endpoint through the OpenAI SDK. Both parse the JSON contract defined in `prompt.py`.
 
+The conversational policy now requires supported textual evidence and distinguishes
+general discussion or explicitly invented examples from asserted personal facts.
+It forbids inventing identifying facts or external linkage, retains actual disclosures
+inside quotations, hypothetical frames or mixed passages, and treats public availability
+separately from sensitivity. Sensitivity, visibility and categories retain their existing
+definitions; unstated visibility is `PU`. The analyzed text is encoded as one JSON string
+and instructions within it are designated as data. These are prompt instructions, not a
+verified injection-resistance guarantee or a measured improvement in accuracy.
 
-Both external backends validate complete classification results before accepting them. Missing/unknown sensitivity, visibility or category values, malformed fields, non-finite/out-of-range confidence, invalid spans, and mixed valid/invalid result lists cause a layer error instead of a clean default. No-risk responses must contain an explicit valid `S0` result; empty arrays are errors. Local responses may use a complete Markdown JSON fence, but partial JSON surrounded by arbitrary text is rejected. Error messages exclude raw model content. The internal legacy `build_results` parser remains available for trusted callers.
+Both backends receive the same system policy and request exactly one JSON object
+containing a `results` array. The exact envelope `{"results": []}` is now a valid
+explicit no-risk response and yields a successful empty finding list; the runtime's
+existing empty-result aggregation remains clean. Complete explicit `S0` findings remain
+compatible. Bare `[]`, `{}`, an empty envelope with additional error keys, malformed
+JSON and partial/mixed-invalid findings remain errors. This is a deliberate external
+output contract change from the earlier requirement for a nonempty clean finding.
+
+The streamed `PriVokeClassifier` reconstructs and executes tensor parameters and does
+not consume `prompt.py`; this conversational revision does not change the current
+streamed curriculum experiment, its training data, gradients or publication guard.
+Compatibility checks use mocked chat responses. Actual hosted/local model accuracy
+and prompt-injection behavior require separately authorized semantic-only evaluation.
+
+Both external backends validate complete classification results before accepting them. Missing/unknown sensitivity, visibility or category values, malformed fields, non-finite/out-of-range confidence, invalid spans, and mixed valid/invalid result lists cause a layer error instead of a clean default. Local responses may use a complete Markdown JSON fence, but partial JSON surrounded by arbitrary text is rejected. Error messages exclude raw model content. The internal legacy `build_results` parser remains available for trusted callers.

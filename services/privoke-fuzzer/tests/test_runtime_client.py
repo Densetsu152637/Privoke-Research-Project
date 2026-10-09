@@ -16,7 +16,7 @@ for path in (SERVICE_ROOT / "src", SERVICE_ROOT / "generated"):
         sys.path.insert(0, str(path))
 
 from privoke.v1 import runtime_pb2, runtime_pb2_grpc
-from runtime_client import PrivokeRuntimeClient
+from runtime_client import PrivokeRuntimeClient, RuntimeAnalysisError, _validate_requested_execution
 from training.types import BatchTrainingExample
 
 
@@ -33,6 +33,7 @@ class _RuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
         try:
             time.sleep(0.02)
             return runtime_pb2.AnalyzePromptResponse(
+                layers=[runtime_pb2.RuntimeLayerExecution(layer=runtime_pb2.DETECTION_LAYER_SEMANTIC, status="ok")],
                 classification=runtime_pb2.RuntimeClassification(
                     sensitivity="S1",
                     visibility="PU",
@@ -60,6 +61,24 @@ class _RuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
 
 
 class RuntimeClientBatchTests(unittest.TestCase):
+    def test_default_semantic_request_and_explicit_product_selection(self):
+        client = PrivokeRuntimeClient("unused")
+        self.assertEqual(list(client._request({"text": "test"}).layers), [runtime_pb2.DETECTION_LAYER_SEMANTIC])
+        self.assertEqual(list(client._request({}, layers=["runtime"]).layers), [runtime_pb2.DETECTION_LAYER_RUNTIME])
+        for layers in ([], (), [""], ["unknown"], "semantic"):
+            with self.subTest(layers=layers), self.assertRaises(ValueError):
+                client._request({}, layers=layers)
+
+    def test_semantic_execution_contract_rejects_missing_extra_failed_and_skipped_layers(self):
+        request = PrivokeRuntimeClient("unused")._request({})
+        good = runtime_pb2.RuntimeLayerExecution(layer=runtime_pb2.DETECTION_LAYER_SEMANTIC, status="ok")
+        for layers in ([], [good, runtime_pb2.RuntimeLayerExecution(layer=runtime_pb2.DETECTION_LAYER_REGEX, status="ok")],
+                       [runtime_pb2.RuntimeLayerExecution(layer=runtime_pb2.DETECTION_LAYER_SEMANTIC, status="skipped")],
+                       [runtime_pb2.RuntimeLayerExecution(layer=runtime_pb2.DETECTION_LAYER_SEMANTIC, status="error")]):
+            with self.subTest(layers=layers), self.assertRaises(RuntimeAnalysisError):
+                _validate_requested_execution(request, runtime_pb2.AnalyzePromptResponse(layers=layers))
+        _validate_requested_execution(request, runtime_pb2.AnalyzePromptResponse(layers=[good]))
+
     def test_classify_many_reuses_a_bounded_concurrent_channel(self) -> None:
         service = _RuntimeService()
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))

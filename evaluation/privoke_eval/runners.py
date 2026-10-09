@@ -32,8 +32,10 @@ def configure_backend(backend: str) -> None:
         )
 
 
-def run_pipeline(text: str, backend: str | None, layer: str = "pipeline") -> DetectionOutcome:
-    if layer == "pipeline":
+def run_pipeline(text: str, backend: str | None, layer: str = "semantic") -> DetectionOutcome:
+    if layer not in {"semantic", "pipeline", "runtime", "regex", "ner", "regex-ner"}:
+        raise ValueError(f"Unsupported evaluation layer: {layer}")
+    if layer in {"semantic", "pipeline", "runtime"}:
         configure_backend(backend or os.getenv("PRIVOKE_LLM_CHOICE", "streamed"))
     payload = _request_grpc(
         {
@@ -61,6 +63,11 @@ def run_pipeline(text: str, backend: str | None, layer: str = "pipeline") -> Det
     action = str(payload.get("action", ""))
     if action not in {"ALLOW", "WARN", "BLOCK"}:
         raise RuntimeError(f"Client runtime returned an invalid action: {action!r}")
+    if layer == "semantic":
+        executions = payload.get("layers", [])
+        if (len(executions) != 1 or executions[0].get("layer") != "DETECTION_LAYER_SEMANTIC"
+                or executions[0].get("status") != "ok" or executions[0].get("error")):
+            raise RuntimeError("Semantic-only evaluation requires exactly one successful semantic layer execution.")
 
     confidence = payload.get("confidence")
     elapsed_ms = payload.get("elapsed_ms")

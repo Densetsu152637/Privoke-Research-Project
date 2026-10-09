@@ -256,6 +256,29 @@ class StudyTests(unittest.TestCase):
 
 
 class LoopbackRpcTests(unittest.TestCase):
+    def test_study_layer_selection_rejects_unknown_and_unexpected_semantic_execution(self):
+        class Runtime:
+            def AnalyzePrompt(self, request, timeout):
+                self.request = request
+                return RP.AnalyzePromptResponse(request_id=request.request_id, action="ALLOW",
+                    classification=RP.RuntimeClassification(sensitivity="S0", visibility="PU"), layers=self.layers)
+        client = study.RpcClient.__new__(study.RpcClient)
+        client.runtime = Runtime()
+        for invalid in ("", None, "typo", "regex"):
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(ValueError, "Unsupported"):
+                client.analyze({"text": "test"}, "privoke-efficient", invalid, "test")
+        good = RP.RuntimeLayerExecution(layer=RP.DETECTION_LAYER_SEMANTIC, status="ok")
+        for layers in ([], [good, RP.RuntimeLayerExecution(layer=RP.DETECTION_LAYER_NER, status="ok")],
+                       [RP.RuntimeLayerExecution(layer=RP.DETECTION_LAYER_SEMANTIC, status="skipped")]):
+            client.runtime.layers = layers
+            with self.subTest(layers=layers), self.assertRaisesRegex(ValueError, "Semantic-only"):
+                client.analyze({"text": "test"}, "privoke-efficient", "semantic", "test")
+        client.runtime.layers = [good]
+        client.analyze({"text": "test"}, "privoke-efficient", "semantic", "test")
+        self.assertEqual(list(client.runtime.request.layers), [RP.DETECTION_LAYER_SEMANTIC])
+        client.analyze({"text": "test"}, "privoke-efficient", "pipeline", "test")
+        self.assertEqual(list(client.runtime.request.layers), [RP.DETECTION_LAYER_RUNTIME])
+
     def test_actual_rpc_requests_timeouts_selection_and_snapshot_identity(self):
         requests = []
         identity = {"model_id": "privoke-efficient", "model_version": "synthetic-v1", "artifact_checksum": "synthetic-checksum",

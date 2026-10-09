@@ -35,6 +35,14 @@ class RuntimeAnalysisError(RuntimeError):
     pass
 
 
+def _validate_requested_execution(request, response):
+    if list(request.layers) == [runtime_pb2.DETECTION_LAYER_SEMANTIC]:
+        if (response.error or len(response.layers) != 1
+                or response.layers[0].layer != runtime_pb2.DETECTION_LAYER_SEMANTIC
+                or response.layers[0].status != "ok" or response.layers[0].error):
+            raise RuntimeAnalysisError("Semantic-only testing requires exactly one successful semantic layer execution.")
+
+
 class PrivokeRuntimeClient:
     def __init__(
         self,
@@ -74,6 +82,7 @@ class PrivokeRuntimeClient:
                 request,
                 timeout=self.timeout_seconds,
             )
+        _validate_requested_execution(request, response)
         return response
 
     def _request(
@@ -83,7 +92,9 @@ class PrivokeRuntimeClient:
         regex_first: bool | None = None,
     ):
         metadata = payload.get("metadata") or {}
-        requested_layers = list(layers or ["runtime"])
+        if layers is not None and (not isinstance(layers, (list, tuple)) or not layers):
+            raise ValueError("Detection layers must be a nonempty list or tuple.")
+        requested_layers = list(layers) if layers is not None else ["semantic"]
         unknown_layers = [
             layer for layer in requested_layers if layer not in LAYER_VALUES
         ]
@@ -140,6 +151,8 @@ class PrivokeRuntimeClient:
                     for request in requests[start : start + self.max_in_flight]
                 ]
                 responses.extend(future.result() for future in pending)
+        for request, response in zip(requests, responses):
+            _validate_requested_execution(request, response)
         return [_classification_from_response(response) for response in responses]
 
     def compute_semantic_gradients(

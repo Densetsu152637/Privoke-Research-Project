@@ -203,14 +203,22 @@ class RpcClient:
                 "metadata": dict(response.metadata), "generated_at_unix": response.generated_at_unix}
 
     def analyze(self, row, model_id, layer, request_id):
+        layers = {"semantic": RP.DETECTION_LAYER_SEMANTIC,
+                  "pipeline": RP.DETECTION_LAYER_RUNTIME, "runtime": RP.DETECTION_LAYER_RUNTIME}
+        if layer not in layers:
+            raise ValueError(f"Unsupported study evaluation layer: {layer}")
         request = RP.AnalyzePromptRequest(text=row["text"], source="continual-fuzzer-study", request_id=request_id,
                                          semantic_model_id=model_id,
-                                         layers=[RP.DETECTION_LAYER_SEMANTIC if layer == "semantic" else RP.DETECTION_LAYER_RUNTIME])
+                                         layers=[layers[layer]])
         if row.get("visibility_hint") is not None:
             request.visibility_hint = row["visibility_hint"]
         response = self.runtime.AnalyzePrompt(request, timeout=120)
         if response.request_id != request_id or response.error:
             raise ValueError(response.error or "Runtime request identity mismatch.")
+        if layer == "semantic" and (len(response.layers) != 1
+                or response.layers[0].layer != RP.DETECTION_LAYER_SEMANTIC
+                or response.layers[0].status != "ok" or response.layers[0].error):
+            raise ValueError("Semantic-only evaluation requires exactly one successful semantic layer execution.")
         raw = MessageToDict(response, preserving_proto_field_name=True)
         if response.action not in {"ALLOW", "WARN", "BLOCK"} or response.classification.sensitivity not in {"S0", "S1", "S2", "S3"}:
             raise ValueError("Invalid runtime classification/action.")

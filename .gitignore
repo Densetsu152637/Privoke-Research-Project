@@ -42,3 +42,6 @@ agents.*.md
 /.tmp
 /.ruff_cache
 /.secrets
+
+# Shared repository policy is versioned; personal agent files remain ignored.
+!/AGENTS.md

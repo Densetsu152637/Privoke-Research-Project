@@ -2,14 +2,14 @@
 
 > Source area: `evaluation`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
 
-This folder evaluates whether PriVoke detects privacy-sensitive information. Host Python scripts send every selected dataset prompt directly to the running `client-runtime` gRPC service at `127.0.0.1:50054`, so the tested system is the complete regex/rules + NER + selected LLM pipeline.
+This folder evaluates whether PriVoke detects privacy-sensitive information. Host Python scripts send every selected dataset prompt directly to the running `client-runtime` gRPC service at `127.0.0.1:50054`. LLM tests default to the semantic layer only, with an explicit layer request and verification that only that layer executed. Select `--layer pipeline` only for an explicitly requested product end-to-end test; regex and NER ablations likewise require explicit selection. Historical full-pipeline scores remain combined-detector evidence and are not LLM-only results.
 
 The scoring evaluator does not import runtime modules, train another classifier or use SMOTE. Separate evaluation-owned orchestration can request the existing fuzzer training service and rerun matched measurements; the service retains its training-loop implementation. See [host Python tests and research orchestration](../evaluation/README.md).
 
 ```text
 dataset prompt
   -> host Python gRPC client -> 127.0.0.1:50054 AnalyzePrompt
-  -> regex/rules + NER + selected LLM backend
+  -> selected LLM backend only (semantic layer)
   -> privacy classification and ALLOW/WARN/BLOCK action
   -> score the privacy classification only
 ```
@@ -40,7 +40,7 @@ Use `prompt_detection_recall_by_source_category` in the JSON report to see which
 
 ### Runtime API limitation
 
-`AnalyzePrompt` returns the classification selected by the client-runtime pipeline, not every raw result separately produced by regex, NER, and the LLM. An internal result that remains at `ALLOW` level may not be exposed. The evaluator measures the strongest action-independent detection signal available from the existing API, without changing the runtime.
+`AnalyzePrompt` returns the classification for the requested detector set. Semantic-only tests reject missing, failed or additional layer executions instead of allowing regex or NER to affect the LLM score. Explicit full-pipeline product tests return the pipeline's selected classification; an internal result that remains at `ALLOW` level may not be exposed. The evaluator measures the action-independent detection signal available for its declared layer selection.
 
 ## Setup after the project and browser-extension guides
 
@@ -70,7 +70,7 @@ python evaluate.py \
   --backend streamed
 ```
 
-This is the recommended English-only main experiment.
+This tests the streamed semantic layer only. Add `--layer pipeline` for a separately requested product end-to-end experiment.
 
 ## Personalized Synthetic Dataset
 
@@ -289,6 +289,8 @@ Do not average different datasets into one score. Some share source material, an
 | `--bootstrap-iterations 2000` | Estimate score uncertainty. Keep `2000` for paper results; use `0` only for quick testing. |
 | `--run-name my_run` | Add `my_run` to the result filename so runs do not overwrite each other. |
 | `--backend streamed` | Use PriVoke's model-streaming backend. |
+| `--layer semantic` | Isolate the LLM layer; this is the default. |
+| `--layer pipeline` | Explicitly test the combined product pipeline. |
 | `--backend openai` | Use PriVoke's OpenAI backend. This may cost money. |
 
 For example:
@@ -297,7 +299,7 @@ For example:
 python evaluate.py --dataset piimb --samples 500 --sampling balanced --english-only --seed 42 --backend streamed
 ```
 
-means: test 500 English PIIMB prompts, choose equal sensitive and clean counts, make the selection repeatable with seed 42, and send the prompts through the streamed PriVoke pipeline.
+means: test 500 English PIIMB prompts, choose equal sensitive and clean counts, make the selection repeatable with seed 42, and test only the streamed PriVoke semantic layer.
 
 ## Retained datasets
 
@@ -409,7 +411,7 @@ These checks prevent known loading and scoring loopholes. They cannot prove that
 Results are saved as:
 
 ```text
-results/<dataset>_pipeline_<backend>_<run-name>_results.json
+results/<dataset>_<layer>_<backend>_<run-name>_results.json
 ```
 
 Run tests from the repository root:

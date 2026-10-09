@@ -127,15 +127,16 @@ python evaluation/run-fuzzer-tests.py train \
   --prompt-count 32
 ```
 
-Run a prompt through the runtime gRPC service:
+Test the LLM layer through the runtime gRPC service:
 
 ```bash
 python evaluation/run-fuzzer-tests.py test-prompts \
-  --layer runtime \
+  --layer semantic \
   --prompt "My email is alex@example.com"
 ```
 
-Run generated prompts against multiple layers:
+For an explicitly requested product end-to-end test or detector ablation, select
+the full runtime or multiple layers. Keep these results separate from LLM tests:
 
 ```bash
 python evaluation/run-fuzzer-tests.py test-prompts \
@@ -154,7 +155,7 @@ Available test layers:
 - `ner`: asks the runtime to isolate NER detection.
 - `semantic`: asks the runtime to isolate its configured semantic backend.
 
-Repeat `--layer` to send a selected set in one RPC. `--regex-first` and `--regex-parallel` override the runtime's default ordering for that request. `--model-id` selects the streamed semantic model and defaults to `MODEL_ID` when set. Detector failures are written to the report from the runtime's per-layer response and cause the CLI to exit with status `1`; layers intentionally skipped after a regex `BLOCK` are counted separately and are not failures.
+Without `--layer`, prompt tests send only `semantic` and require exactly one successful semantic execution in the response. Empty or unknown selections fail. Repeat `--layer` to send an explicitly selected set in one RPC for product tests. `--regex-first` and `--regex-parallel` override the runtime's default ordering for that request. `--model-id` selects the streamed semantic model and defaults to `MODEL_ID` when set. Detector failures are written to the report from the runtime's per-layer response and cause the CLI to exit with status `1`; layers intentionally skipped after a regex `BLOCK` in an explicit product test are counted separately and are not failures. Historical full-runtime scores are not LLM-only evidence.
 
 Prompt files can be JSON, JSONL, or text. JSON entries may be strings or objects with `text`/`prompt` fields.
 

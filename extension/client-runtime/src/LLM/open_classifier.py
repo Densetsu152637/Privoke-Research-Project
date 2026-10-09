@@ -122,6 +122,4 @@ class OpenClassifier(AbstractClassifier):
             raise RuntimeError("Semantic classifier returned invalid JSON.") from exc
 
         results = build_external_results(parsed, text)
-        if not results:
-            raise RuntimeError("Semantic classifier returned no valid results.")
         return results

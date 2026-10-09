@@ -58,7 +58,7 @@ def handle(stub, request: dict) -> dict:
             layers=(
                 [runtime_pb2.DETECTION_LAYER_REGEX, runtime_pb2.DETECTION_LAYER_NER]
                 if request.get("layer") == "regex-ner"
-                else [_layer_value(request.get("layer", "pipeline"))]
+                else [_layer_value(request.get("layer", "semantic"))]
             ),
             semantic_model_id=request.get("model_id", "privoke-baseline"),
         ),
@@ -66,6 +66,10 @@ def handle(stub, request: dict) -> dict:
     )
     if response.error:
         raise RuntimeError(response.error)
+    if request.get("layer", "semantic") == "semantic":
+        if (len(response.layers) != 1 or response.layers[0].layer != runtime_pb2.DETECTION_LAYER_SEMANTIC
+                or response.layers[0].status != "ok" or response.layers[0].error):
+            raise RuntimeError("Semantic-only evaluation requires exactly one successful semantic layer execution.")
     evidence = response.evidence
     return {
         "action": response.action,

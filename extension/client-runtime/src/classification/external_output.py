@@ -9,9 +9,12 @@ from .classification_types import Category, Sensitivity, Visibility
 def build_external_results(content: Any, text: str) -> list[ClassificationResult]:
     """Reject incomplete/malformed responses rather than defaulting them clean.
 
-    The legacy internal parser stays permissive. External APIs must return an
-    explicit clean S0 result when no risk exists, rather than an empty response.
+    The exact {"results": []} envelope is an explicit no-risk response. Bare
+    empty arrays, missing fields and malformed findings remain errors. Existing
+    complete S0 findings and legacy nonempty envelopes remain compatible.
     """
+    if isinstance(content, dict) and content == {"results": []}:
+        return []
     if isinstance(content, dict):
         if 'results' in content:
             raw_results = content['results']
