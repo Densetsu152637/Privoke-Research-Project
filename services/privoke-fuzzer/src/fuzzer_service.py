@@ -6,7 +6,7 @@ import logging
 import math
 import hashlib
 import threading
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 
 import grpc
 from config import FuzzerConfig
@@ -15,6 +15,7 @@ from privoke_service import validate_text
 from prompt_generation import generate_presence_training_partition, generate_training_partition
 from prompt_generation.generator import (CONTEXTUAL_SAMPLING_STRATEGY_KEY,
     contextual_sampling_audit, validate_contextual_sampling_strategy)
+from prompt_generation.curriculum import load_curriculum, reserve_batch, request_fingerprint
 from runtime_client import PrivokeRuntimeClient, RuntimeAnalysisError
 from training import emit_training_update, train_parameter_batch, train_presence_batch
 from training.types import BatchTrainingUpdate
@@ -153,7 +154,27 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
 
     def _run_training_cycle(self, request, context):
         cycle = _resolve_cycle(request, self.config)
-        previous = self._previous_update(request, cycle, context)
+        curriculum = None
+        fingerprint = None
+        try:
+            manifest_path = getattr(self.config, "curriculum_manifest_path", None)
+            if manifest_path:
+                curriculum = load_curriculum(manifest_path)
+                for key, actual in (("curriculum_id", curriculum.curriculum_id),
+                                    ("curriculum_manifest_sha256", curriculum.manifest_sha256)):
+                    expected = request.metadata.get(key)
+                    if expected is not None and expected != actual:
+                        raise ValueError(f"Requested {key} differs from the server curriculum.")
+                settings = {"training": asdict(self.config.batch_training_config(cycle.seed)),
+                            "prompt_count": cycle.prompt_count, "model_id": cycle.model_id,
+                            "replay_fraction": self.config.curriculum_replay_fraction,
+                            "minimum_exact_match_rate": self.config.minimum_exact_match_rate,
+                            "heldout_count": self.config.heldout_prompt_count}
+                fingerprint = request_fingerprint(request, curriculum, settings)
+        except (ValueError, OSError, KeyError, TypeError) as exc:
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
+        previous = (self._previous_update_for_fingerprint(request, cycle, context, fingerprint)
+                    if curriculum else self._previous_update(request, cycle, context))
         if previous.found:
             return parameters_pb2.FuzzerTrainingResponse(
                 accepted=previous.ack.accepted,
@@ -168,17 +189,27 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
         sampling_strategy = request.metadata.get(CONTEXTUAL_SAMPLING_STRATEGY_KEY)
         sampling_arguments = ({"sampling_strategy": sampling_strategy} if sampling_strategy is not None else {})
         sampling_audit = {}
+        replay_examples = ()
         try:
-            examples, heldout_examples = generate_training_partition(
-                count=cycle.prompt_count,
-                heldout_count=self.config.heldout_prompt_count,
-                seed=cycle.seed,
-                dataset_path=self.config.prompt_dataset_path,
-                **sampling_arguments,
-            )
-            if sampling_strategy is not None:
-                sampling_audit = contextual_sampling_audit(examples)
-        except ValueError as exc:
+            if curriculum:
+                if sampling_strategy is not None:
+                    raise ValueError("Contextual sampling strategy cannot override the fixed curriculum.")
+                batch = reserve_batch(curriculum, self.config.curriculum_state_path, request,
+                                      cycle.prompt_count, self.config.curriculum_replay_fraction,
+                                      fingerprint=fingerprint, model_id=cycle.model_id)
+                examples, heldout_examples, replay_examples = batch.examples, batch.heldout, batch.replay
+                sampling_audit = batch.audit
+            else:
+                examples, heldout_examples = generate_training_partition(
+                    count=cycle.prompt_count,
+                    heldout_count=self.config.heldout_prompt_count,
+                    seed=cycle.seed,
+                    dataset_path=self.config.prompt_dataset_path,
+                    **sampling_arguments,
+                )
+                if sampling_strategy is not None:
+                    sampling_audit = contextual_sampling_audit(examples)
+        except (ValueError, OSError, KeyError, TypeError) as exc:
             context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
         update = self._train(
             cycle.model_id,
@@ -186,6 +217,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             heldout_examples,
             cycle.seed,
             context,
+            **({"golden_examples": replay_examples} if curriculum else {}),
         )
         if sampling_audit:
             update = replace(update, metadata={**update.metadata, **sampling_audit})
@@ -202,7 +234,9 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                 grpc.StatusCode.CANCELLED,
                 "Training request was cancelled before update submission.",
             )
-        ack = self._submit_update(request, cycle, update, len(examples), context)
+        generated_count = len(examples) + len(replay_examples)
+        ack = self._submit_update(request, cycle, update, generated_count, context,
+                                  **({"fingerprint": fingerprint} if curriculum else {}))
         LOGGER.info(
             "completed training request id=%r accepted=%s version=%r prompts=%s",
             request.request_id,
@@ -210,7 +244,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             ack.applied_version,
             len(examples),
         )
-        return build_training_response(ack, update, len(examples))
+        return build_training_response(ack, update, generated_count)
 
     def _previous_update(self, request, cycle, context):
         return self._previous_update_for_fingerprint(
@@ -235,12 +269,13 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                 context.abort(grpc.StatusCode.ALREADY_EXISTS, "request_id belongs to a different training request.")
             context.abort(grpc.StatusCode.UNAVAILABLE, "Parameter update receipts are unavailable.")
 
-    def _train(self, model_id, examples, heldout_examples, seed: int, context) -> BatchTrainingUpdate:
+    def _train(self, model_id, examples, heldout_examples, seed: int, context, *, golden_examples=()) -> BatchTrainingUpdate:
         try:
             return train_parameter_batch(
                 model_id=model_id,
                 new_examples=examples,
                 heldout_examples=heldout_examples,
+                golden_examples=golden_examples,
                 config=self.config.batch_training_config(seed),
                 runtime_client=PrivokeRuntimeClient(
                     self.config.privoke_runtime_target,
@@ -263,6 +298,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
         update: BatchTrainingUpdate,
         generated_count: int,
         context,
+        *, fingerprint=None,
     ):
         try:
             return emit_training_update(
@@ -275,7 +311,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                     "requested_prompt_count": str(cycle.requested_prompt_count),
                     "generated_prompt_count": str(generated_count),
                     "training_pipeline": "client_runtime_semantic_gradients",
-                    "training_request_fingerprint": _training_request_fingerprint(request),
+                    "training_request_fingerprint": fingerprint or _training_request_fingerprint(request),
                 },
                 timeout_seconds=self.config.timeout_seconds,
             )

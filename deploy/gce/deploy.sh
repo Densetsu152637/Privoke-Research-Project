@@ -22,10 +22,12 @@ install -d -m 0700 "$release_dir/secrets"
 gcloud secrets versions access latest --project="$GCP_PROJECT_ID" --secret="$TLS_CERT_SECRET" > "$release_dir/secrets/server.crt"
 gcloud secrets versions access latest --project="$GCP_PROJECT_ID" --secret="$TLS_KEY_SECRET" > "$release_dir/secrets/server.key"
 gcloud secrets versions access latest --project="$GCP_PROJECT_ID" --secret="$CLIENT_CA_SECRET" > "$release_dir/secrets/client-ca.crt"
-printf 'IMAGE_PREFIX=%s\nIMAGE_TAG=%s\nSECRETS_DIR=%s\nFUZZER_PROMPT_COUNT=%s\n' \
-  "$image_prefix" "$release_tag" "$release_dir/secrets" "${FUZZER_PROMPT_COUNT:-0}" > "$release_dir/release.env"
+printf 'IMAGE_PREFIX=%s\nIMAGE_TAG=%s\nSECRETS_DIR=%s\nFUZZER_PROMPT_COUNT=%s\nFUZZER_REQUEST_INTERVAL_SECONDS=%s\nFUZZER_REQUEST_SEED=%s\n' \
+  "$image_prefix" "$release_tag" "$release_dir/secrets" \
+  "${FUZZER_PROMPT_COUNT:-32}" "${FUZZER_REQUEST_INTERVAL_SECONDS:-3600}" \
+  "${FUZZER_REQUEST_SEED:-1337}" > "$release_dir/release.env"
 # Compose must use the saved release values, including during rollback.
-unset IMAGE_PREFIX IMAGE_TAG SECRETS_DIR FUZZER_PROMPT_COUNT
+unset IMAGE_PREFIX IMAGE_TAG SECRETS_DIR FUZZER_PROMPT_COUNT FUZZER_REQUEST_INTERVAL_SECONDS FUZZER_REQUEST_SEED
 export DOCKER_CONFIG
 DOCKER_CONFIG=$(mktemp -d)
 trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT

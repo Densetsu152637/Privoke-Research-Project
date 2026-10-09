@@ -13,6 +13,8 @@ RUN apt-get update \
 
 COPY shared /workspace/shared
 COPY evaluation/run-component-tests.py evaluation/host_environment.py /workspace/evaluation/
+COPY evaluation/privoke_eval/synthetic_curriculum.py /workspace/evaluation/privoke_eval/
+COPY evaluation/datasets/synthetic-teacher-templates.json /workspace/evaluation/datasets/
 COPY services/privoke-fuzzer /workspace/services/privoke-fuzzer
 
 WORKDIR /workspace/services/privoke-fuzzer

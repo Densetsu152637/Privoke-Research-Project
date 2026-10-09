@@ -11,9 +11,11 @@ from contextlib import ExitStack
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 from pathlib import Path
 import random
 import time
+import subprocess
 
 from host_environment import configure_imports
 
@@ -287,9 +289,28 @@ def mine_training(client, rows, model_id, identity, tag):
 
 def study_config(args, inputs):
     return {"models": [args.model_id] if args.model_id else list(PROFILES), "cycles": args.cycles, "seed": args.seed,
+            "duration_seconds": args.duration_seconds, "checkpoint_interval_seconds": args.checkpoint_interval_seconds,
+            "round_pause_seconds": args.round_pause_seconds, "checkpoint_only_snapshots": args.checkpoint_only_snapshots,
             "prompt_count": args.prompt_count, "checkpoints": sorted(set(args.checkpoints + [0, args.cycles])),
             "target": args.target, "runtime_target": args.runtime_target, "model_target": args.model_target,
-            "controller_sha256": sha(Path(__file__)), "mining": not args.no_mining, "bootstrap_iterations": args.bootstrap_iterations, "cache_wait_seconds": args.cache_wait_seconds, "inputs": inputs}
+                               "controller_sha256": sha(Path(__file__)), "mining": not args.no_mining, "bootstrap_iterations": args.bootstrap_iterations, "cache_wait_seconds": args.cache_wait_seconds, "inputs": inputs}
+
+
+def verify_operations(path):
+    """Check frozen Docker images and effective settings before issuing study RPCs."""
+    path = permitted_path(path)
+    manifest = read_json(path)
+    expected = manifest["containers"]
+    inspected = subprocess.run(["docker", "inspect", *expected], check=True,
+                               capture_output=True, text=True)
+    actual = {row["Name"].lstrip("/"): row for row in json.loads(inspected.stdout)}
+    for name, pinned in expected.items():
+        container = actual[name]
+        environment = dict(item.split("=", 1) for item in container["Config"]["Env"] if "=" in item)
+        if (container["Image"] != pinned["image_id"] or not container["State"]["Running"]
+                or any(environment.get(key) != value for key, value in pinned["environment"].items())):
+            raise ValueError("Live Docker image or settings differ from the frozen operational manifest.")
+    return {"path": str(path), "sha256": sha(path)}
 
 
 def save_checkpoint(client, evaluation, model_id, model, directory, cycle, state, args):
@@ -314,6 +335,7 @@ def save_checkpoint(client, evaluation, model_id, model, directory, cycle, state
     snapshot_path = directory / f"snapshot-{cycle:03d}.json"
     write_json(snapshot_path, snapshot)
     model["checkpoints"][key] = {"path": path.name, "sha256": sha(path), "identity": snapshot["identity"],
+                                "measured_at": datetime.now(timezone.utc).isoformat(),
                                 "snapshot_path": snapshot_path.name, "snapshot_sha256": sha(snapshot_path)}
 
 
@@ -333,6 +355,8 @@ def save_mining(client, splits, model_id, model, directory, cycle, state):
 
 def run(args, client=None):
     evaluation, splits, inputs = load_inputs(args.dataset_file, args.dataset_sha256, args.curriculum_manifest)
+    if args.operational_manifest:
+        inputs["operations"] = verify_operations(args.operational_manifest)
     config = study_config(args, inputs)
     output = Path(args.output).resolve()
     if args.resume:
@@ -369,6 +393,16 @@ def run(args, client=None):
                 save_checkpoint(client, evaluation, model_id, model, directory, 0, state, args)
                 write_json(manifest_path, state)
             completed = len(model["rounds"])
+            if args.duration_seconds and "training_deadline_unix" not in model:
+                model["duration_started_unix"] = time.time()
+                model["training_deadline_unix"] = model["duration_started_unix"] + args.duration_seconds
+                model["next_checkpoint_unix"] = model["duration_started_unix"] + args.checkpoint_interval_seconds
+                write_json(manifest_path, state)
+            if model.get("checkpoint_due_cycle") is not None:
+                save_checkpoint(client, evaluation, model_id, model, directory, model["checkpoint_due_cycle"], state, args)
+                model.pop("checkpoint_due_cycle")
+                model["next_checkpoint_unix"] = time.time() + args.checkpoint_interval_seconds
+                write_json(manifest_path, state)
             if completed and completed % 5 == 0 and not args.no_mining:
                 save_mining(client, splits, model_id, model, directory, completed, state)
                 write_json(manifest_path, state)
@@ -377,6 +411,8 @@ def run(args, client=None):
                 write_json(manifest_path, state)
             for cycle in range(len(model["rounds"]) + 1, args.cycles + 1):
                 request = model.get("pending")
+                if request is None and args.duration_seconds and time.time() >= model["training_deadline_unix"]:
+                    break
                 if request is None:
                     request = {"request_id": f"continual-{state['run_id']}-{model_id}-{cycle:03d}", "source_id": "continual-fuzzer-study",
                                "model_id": model_id, "prompt_count": args.prompt_count, "seed": args.seed + cycle - 1,
@@ -390,6 +426,9 @@ def run(args, client=None):
                         or request["request_id"] != f"continual-{state['run_id']}-{model_id}-{expected_cycle:03d}"):
                     raise ValueError("Pending request changed before resume.")
                 started = time.monotonic()
+                if args.operational_manifest:
+                    if verify_operations(args.operational_manifest) != inputs["operations"]:
+                        raise ValueError("Operational manifest changed during the study.")
                 print(f"Training {model_id} round {cycle}/{args.cycles}, seed {request['seed']}", flush=True)
                 response = client.train(request)
                 response_path = directory / f"response-{cycle:03d}.json"
@@ -405,6 +444,11 @@ def run(args, client=None):
                     raise ValueError("Training response identity is incomplete.")
                 snapshot = client.snapshot(model_id)
                 if response["accepted"]:
+                    if response["metadata"].get("replayed") != "true":
+                        for key, expected in (("curriculum_id", inputs["curriculum_id"]),
+                                              ("curriculum_manifest_sha256", inputs["manifest_sha256"])):
+                            if response["metadata"].get(key) != expected:
+                                raise ValueError("Accepted training used a different curriculum commitment.")
                     if (snapshot["identity"]["model_version"] != response["applied_version"]
                             or response["applied_version"] == response["base_version"]):
                         raise ValueError("Accepted training response does not match published model.")
@@ -424,15 +468,36 @@ def run(args, client=None):
                 model["current_identity"] = snapshot["identity"]
                 model.pop("pending", None)
                 write_json(directory / f"round-{cycle:03d}.json", record)
-                write_json(directory / f"snapshot-{cycle:03d}.json", snapshot)
+                if not args.checkpoint_only_snapshots:
+                    write_json(directory / f"snapshot-{cycle:03d}.json", snapshot)
                 write_json(manifest_path, state)
                 print(f"Round {cycle}: accepted={response['accepted']}, accepted updates={model['accepted_updates']}", flush=True)
                 if cycle % 5 == 0 and not args.no_mining:
                     save_mining(client, splits, model_id, model, directory, cycle, state)
                     write_json(manifest_path, state)
-                if cycle in config["checkpoints"]:
-                    save_checkpoint(client, evaluation, model_id, model, directory, cycle, state, args)
+                timed_checkpoint = (args.duration_seconds and args.checkpoint_interval_seconds > 0
+                                    and time.time() >= model["next_checkpoint_unix"])
+                if cycle in config["checkpoints"] or timed_checkpoint:
+                    model["checkpoint_due_cycle"] = cycle
                     write_json(manifest_path, state)
+                    save_checkpoint(client, evaluation, model_id, model, directory, cycle, state, args)
+                    model.pop("checkpoint_due_cycle")
+                    model["next_checkpoint_unix"] = time.time() + args.checkpoint_interval_seconds
+                    write_json(manifest_path, state)
+                pause = args.round_pause_seconds
+                if args.duration_seconds:
+                    pause = min(pause, max(0, model["training_deadline_unix"] - time.time()))
+                if pause:
+                    time.sleep(pause)
+            if args.duration_seconds:
+                elapsed = time.time() - model["duration_started_unix"]
+                if elapsed < args.duration_seconds:
+                    raise ValueError("Cycle cap reached before the required training duration.")
+                model["timed_training_seconds"] = elapsed
+                model["duration_finished_unix"] = time.time()
+                model["final_cycle"] = len(model["rounds"])
+                save_checkpoint(client, evaluation, model_id, model, directory, model["final_cycle"], state, args)
+                write_json(manifest_path, state)
         state["status"] = "complete"
         state["finished_at"] = datetime.now(timezone.utc).isoformat()
         write_json(manifest_path, state)
@@ -451,6 +516,10 @@ def parser():
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument("--model-id", choices=PROFILES)
     result.add_argument("--cycles", type=int, default=20)
+    result.add_argument("--duration-seconds", type=float, default=0, help="Required elapsed training window per model; cycles becomes a safety cap")
+    result.add_argument("--checkpoint-interval-seconds", type=float, default=0)
+    result.add_argument("--round-pause-seconds", type=float, default=0)
+    result.add_argument("--checkpoint-only-snapshots", action="store_true", help="Archive full weights only at checkpoints; still verify every round")
     result.add_argument("--seed", type=int, default=1337)
     result.add_argument("--prompt-count", type=int, default=256)
     result.add_argument("--target", default="127.0.0.1:50053")
@@ -465,12 +534,15 @@ def parser():
     result.add_argument("--cache-wait-seconds", type=float, default=2.1)
     result.add_argument("--no-mining", action="store_true")
     result.add_argument("--resume", action="store_true")
+    result.add_argument("--operational-manifest", help="Frozen Docker image/settings record, verified before RPC training")
     return result
 
 
 def main(argv=None):
     command = parser()
     args = command.parse_args(argv)
+    if any(not math.isfinite(value) or value < 0 for value in (args.duration_seconds, args.checkpoint_interval_seconds, args.round_pause_seconds)):
+        command.error("durations and intervals must be finite nonnegative seconds")
     if args.cycles < 1 or args.prompt_count < 1 or args.seed < 0 or args.seed + args.cycles > 2**32 or args.cache_wait_seconds < 0 or args.bootstrap_iterations < 0:
         command.error("cycles/count must be positive; seed, wait and bootstrap iterations must be valid nonnegative values")
     if any(value < 0 or value > args.cycles for value in args.checkpoints):

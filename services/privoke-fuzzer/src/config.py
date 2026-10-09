@@ -29,6 +29,9 @@ class FuzzerConfig:
     training_transformations_per_example: int
     minimum_exact_match_rate: float
     heldout_prompt_count: int
+    curriculum_manifest_path: str | None = None
+    curriculum_state_path: str | None = None
+    curriculum_replay_fraction: float = 0.25
 
     @classmethod
     def from_env(cls) -> FuzzerConfig:
@@ -64,9 +67,18 @@ class FuzzerConfig:
                 0.0,
             ),
             heldout_prompt_count=env_int("FUZZ_HELDOUT_PROMPT_COUNT", 16),
+            curriculum_manifest_path=os.getenv("FUZZ_CURRICULUM_MANIFEST_PATH"),
+            curriculum_state_path=os.getenv("FUZZ_CURRICULUM_STATE_PATH"),
+            curriculum_replay_fraction=env_float("FUZZ_CURRICULUM_REPLAY_FRACTION", 0.25),
         ).validated()
 
     def validated(self) -> FuzzerConfig:
+        if not math.isfinite(self.curriculum_replay_fraction) or not 0 < self.curriculum_replay_fraction < 1:
+            raise ValueError("FUZZ_CURRICULUM_REPLAY_FRACTION must be between zero and one.")
+        if self.curriculum_manifest_path and not self.curriculum_state_path:
+            raise ValueError("Curriculum training requires a durable FUZZ_CURRICULUM_STATE_PATH.")
+        if self.curriculum_manifest_path and self.heldout_prompt_count != 16:
+            raise ValueError("Curriculum training requires the fixed 16-row gate.")
         _validate_positive_ints(
             FUZZ_MAX_PROMPT_COUNT=self.max_prompt_count,
             FUZZ_MAX_CONCURRENT_CYCLES=self.max_concurrent_cycles,

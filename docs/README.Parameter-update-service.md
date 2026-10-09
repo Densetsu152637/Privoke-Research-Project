@@ -72,20 +72,26 @@ The `Health` RPC returns `SERVING` only when the audit path is writable and the 
 
 ## Fuzzer Requests
 
-If `FUZZER_PROMPT_COUNT` is greater than zero, the service starts a daemon requester thread after gRPC startup.
+Automatic training is enabled by default: the service starts a daemon requester
+thread after gRPC startup, requests 32 prompts, and requests another cycle one
+hour after the previous cycle finishes. Set `FUZZER_PROMPT_COUNT=0` to disable
+the requester, or `FUZZER_REQUEST_INTERVAL_SECONDS=0` for one startup cycle.
+Research and CI overrides explicitly disable it so background updates cannot
+change a controlled study's model. Accepted cycles publish persistent model
+updates; existing fuzzer quality gates still decide whether a candidate qualifies.
 
 Environment variables:
 
 - `FUZZER_TARGET`, default `privoke-fuzzer:50053`
-- `FUZZER_PROMPT_COUNT`, default `0`
+- `FUZZER_PROMPT_COUNT`, default `32`; `0` disables automatic training
 - `MODEL_ID`, default `privoke-baseline`
 - `PARAM_UPDATE_SOURCE_ID`, default `param-update-service`
 - `FUZZER_REQUEST_TIMEOUT_SECONDS`, default `30.0`
-- `FUZZER_REQUEST_INTERVAL_SECONDS`, default `0.0`
+- `FUZZER_REQUEST_INTERVAL_SECONDS`, default `3600.0`; `0` selects one cycle
 - `FUZZER_REQUEST_INITIAL_DELAY_SECONDS`, default `2.0`
 - `FUZZER_REQUEST_RETRY_SECONDS`, default `2.0`
 - `FUZZER_REQUEST_MAX_ATTEMPTS`, default `3`
-- `FUZZER_REQUEST_SEED`, default `1337`
+- `FUZZER_REQUEST_SEED`, default `1337`, unsigned 32-bit initial seed
 
 When enabled, it sends:
 
@@ -94,7 +100,7 @@ FuzzerTrainingRequest {
   request_id: "<source>-<unix>-<suffix>"
   source_id: "param-update-service"
   model_id: "privoke-baseline"
-  prompt_count: 8
+  prompt_count: 32
   seed: 1337
   metadata: {
     "initiator": "param-update-service"
@@ -102,9 +108,19 @@ FuzzerTrainingRequest {
 }
 ```
 
-If `FUZZER_REQUEST_INTERVAL_SECONDS` is `0`, the requester stops after one successful request or after `FUZZER_REQUEST_MAX_ATTEMPTS` consecutive failures. If the interval is positive, it keeps requesting on that interval and retries failures after `FUZZER_REQUEST_RETRY_SECONDS`.
-Retries of one cycle retain the same `request_id`; a new ID is allocated only after a
-successful cycle and interval.
+Each cycle has at most `FUZZER_REQUEST_MAX_ATTEMPTS` attempts, with retries after
+`FUZZER_REQUEST_RETRY_SECONDS`. A rejected response counts as a failure. Retries
+retain the same request ID and seed for durable replay. After success or exhausted
+attempts, a positive interval schedules a new cycle with a new ID and the next
+seed. The seed wraps from `4294967295` to `1`, avoiding the fuzzer's omitted-seed
+sentinel. Interval `0` stops after the cycle. A process restart begins again at
+the configured seed; this sequence is reproducible, not a durable curriculum or
+a guarantee that every rendered prompt is new.
+
+Compose wires count, interval and initial seed through the matching environment
+variables. Existing explicit values take precedence, including count `0`.
+Configuration changes require recreation; Python code copied into images also
+requires a rebuild. The development stack writes accepted updates into `./models`.
 
 ## Relationship to Other Services
 

@@ -75,6 +75,14 @@ The fuzzer serves health and training RPCs; prompt analysis uses the runtime RPC
 Prompt-probe dumps go to `dumps/privoke-fuzzer` on the host.
 `--layer` supports pipeline, regex, NER, semantic and regex+NER ablations.
 
+Normal deployment enables automatic training (32 prompts, hourly interval).
+Keep `evaluation/compose.tests.yml` or the study's explicit count-0 override
+for every updater in the Compose file sequence for controlled measurements.
+Some study overlays disable only their additional updater: the original
+`param-update-service` must also have count `0`. This prevents background
+requesters from changing the model between observations. The normal
+development stack can publish updates into its bind-mounted `./models`.
+
 To test a real training publication and durable replay, run
 `python evaluation/run-component-tests.py stack-smoke` without `--skip-training`.
 This changes the running model. A single training request is also available as
@@ -424,6 +432,74 @@ audit and per-seed counts are recorded in the
 is not a reason to add C values, change thresholds, or repeat update cycles on
 the same development evidence; any next experiment needs a new prospective
 question and frozen protocol.
+
+## Continual synthetic fuzzer study
+
+`prepare-synthetic-curriculum.py` creates fresh, deterministic grammar, offline
+teacher, and evolved pools. Its required opaque exclusion index is checked before
+output; optional development examples require their exact SHA-256. All contextual
+targets are assistant provisional, and lexical siblings share permanent families.
+
+`compose.continual-fuzzer-study.yml` adds isolated storage and manual training to
+the base plus `compose.tests.yml`. Set a unique `CONTINUAL_STUDY_ID`, the absolute
+prepared directory in `CONTINUAL_STUDY_CURRICULUM`, and
+`CONTINUAL_STUDY_MODEL_ID` to the model being trained. Start the stack with those
+three Compose files and a unique `--project-name`; it exposes ports 50051–50055.
+Automatic startup requests are disabled for this experiment. RPC timeouts remain
+positive; zero would cancel a call rather than accelerate training.
+
+Run the host Python controller against the already running stack:
+
+```powershell
+python evaluation/run-continual-fuzzer-study.py --model-id privoke-balanced --cycles 20 --prompt-count 256 --checkpoints 0,5,10,20 --dataset-file evaluation/results/locked-public/development.jsonl --curriculum-manifest evaluation/results/FRESH/curriculum/manifest.json --output evaluation/results/FRESH/balanced
+```
+
+Switch the fuzzer and updater's configured model together before each profile,
+keeping the isolated model catalog and per-model cursor. Use a fresh output
+directory for each run. `--resume` verifies inputs, archived evidence and live
+identity, and retries only an ambiguous pending request under its exact ID.
+Known gate rejections count as attempts, not accepted updates. Mining examines
+only TRAIN rows, never endpoint examples. Checkpoints archive parameter values,
+row predictions, RPC errors, confusion counts, paired changes and group bootstrap
+intervals for semantic and pipeline detection. Development labels measure binary
+annotation presence, which is not identical to contextual privacy. The controller
+does not promote a model or access final examples. Fixed synthetic guard results
+alone do not establish generalization.
+
+For reproducible live runs, pass `--operational-manifest` pointing to a frozen JSON
+record with `containers` mapping each serving container name to its `image_id`
+and selected `environment` key/value map. The controller uses read-only Docker
+inspection before starting and before every training request; changed images,
+settings, stopped services or changed manifest bytes abort the run. Preserve the
+prospective protocol and source hashes alongside this record. An RPC-only run
+without this argument does not establish that server configuration stayed fixed.
+
+The completed 9 October study made 60 attempts across the three profiles, with
+41 accepted updates. Balanced gained pipeline specificity while losing recall;
+efficient had one semantic correction with no pipeline change; quality retained
+one update with no endpoint prediction changes. See the
+[results and limitations](../docs/continual-fuzzer-results-20261009.md).
+`summarize-continual-fuzzer-study.py --study-root PATH` independently reconciles
+archived predictions, float32 exports, hashes and durable batch allocations;
+it does not read datasets or issue service RPCs.
+
+For a sustained six-hour run using the same tested service images and fresh
+isolated volumes, run `python evaluation/run-long-fuzzer-study.py --output
+evaluation/results/long_fuzzer_20261009 --study-id privoke-long-20261009` from
+the evaluation Python environment. The supervisor runs each profile for two
+hours, pauses 15 seconds between requests, measures approximately every 20
+minutes, and exports/audits the final results. `supervisor.json` records the live
+process and profile status; `results.md` and `summary.json` are produced only
+after all profiles finish. Preserve interrupted directories and volumes.
+The controller's duration mode uses `--cycles` as a safety cap, which fails if
+reached early. An expired deadline still resolves an ambiguous pending request
+under the same ID on `--resume`; deadlines are preserved rather than reset.
+Full parameter snapshots may be restricted to checkpoints with
+`--checkpoint-only-snapshots`, while every round still verifies published values.
+Elapsed windows include inter-request pauses, mining and checkpoint work;
+reported window duration is not GPU training time. An interrupted window is
+not evidence of uninterrupted training. The sustained results are pending and
+must not be inferred from the earlier 20-round study.
 
 ## AdvPIIBench clean-data preflight
 

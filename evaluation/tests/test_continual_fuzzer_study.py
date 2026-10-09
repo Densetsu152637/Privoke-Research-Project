@@ -6,6 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
 from privoke_eval import continual_fuzzer_study as study
 from privoke.v1 import parameters_pb2 as PP, parameters_pb2_grpc as PA
@@ -41,7 +42,8 @@ class FixtureClient:
             self.version += 1
             self.identity["model_version"] = f"v{self.version}"
         return {"accepted": accepted, "model_id": request["model_id"], "base_version": base,
-                "applied_version": self.identity["model_version"], "prompts_generated": request["prompt_count"], "metadata": {}, "message": "synthetic"}
+                "applied_version": self.identity["model_version"], "prompts_generated": request["prompt_count"],
+                "metadata": {key: request["metadata"][key] for key in ("curriculum_id", "curriculum_manifest_sha256")}, "message": "synthetic"}
 
 
 class StudyTests(unittest.TestCase):
@@ -83,6 +85,23 @@ class StudyTests(unittest.TestCase):
         self.assertEqual(metric["coverage"], .8)
         self.assertFalse(metric["paper_result_valid"])
         self.assertIsNone(study.metrics([])["recall"])
+
+    def test_frozen_live_operations_reject_image_and_setting_drift(self):
+        path = self.root / "operations.json"
+        study.write_json(path, {"containers": {"fixture": {"image_id": "sha256:expected", "environment": {"MODEL_ID": "privoke-efficient"}}}})
+        row = {"Name": "/fixture", "Image": "sha256:expected", "State": {"Running": True},
+               "Config": {"Env": ["MODEL_ID=privoke-efficient"]}}
+        with patch.object(study.subprocess, "run", return_value=SimpleNamespace(stdout=json.dumps([row]))):
+            self.assertEqual(study.verify_operations(path)["sha256"], study.sha(path))
+        for field in ("image", "environment"):
+            changed = copy.deepcopy(row)
+            if field == "image":
+                changed["Image"] = "sha256:other"
+            else:
+                changed["Config"]["Env"] = ["MODEL_ID=privoke-quality"]
+            with patch.object(study.subprocess, "run", return_value=SimpleNamespace(stdout=json.dumps([changed]))):
+                with self.assertRaisesRegex(ValueError, "settings differ"):
+                    study.verify_operations(path)
 
     def test_paired_group_arithmetic_alignment_and_errors(self):
         before, after = self.predictions([0, 0, 0, 0]), self.predictions([0, 1, 0, 1])
@@ -130,6 +149,44 @@ class StudyTests(unittest.TestCase):
         self.assertEqual(study.read_json(self.args.output / "privoke-efficient/checkpoint-002.json")["semantic"]["paired_vs_baseline"]["improved"], 2)
         with self.assertRaises(FileExistsError):
             study.run(self.args, client)
+
+    def test_duration_runs_until_deadline_and_saves_final_checkpoint(self):
+        self.args.cycles = 100
+        self.args.checkpoints = [0]
+        self.args.duration_seconds = 30
+        self.args.round_pause_seconds = 10
+        self.args.checkpoint_interval_seconds = 15
+        self.args.checkpoint_only_snapshots = True
+        clock = [100.0]
+        with patch.object(study.time, "time", side_effect=lambda: clock[0]), patch.object(study.time, "sleep", side_effect=lambda seconds: clock.__setitem__(0, clock[0] + seconds)):
+            state = study.run(self.args, FixtureClient())
+        model = state["models"]["privoke-efficient"]
+        self.assertEqual(len(model["rounds"]), 3)
+        self.assertEqual(model["timed_training_seconds"], 30)
+        self.assertEqual(model["final_cycle"], 3)
+        self.assertEqual(set(model["checkpoints"]), {"0", "3"})
+        self.assertFalse((self.args.output / "privoke-efficient/snapshot-001.json").exists())
+
+    def test_duration_rejects_early_cycle_cap(self):
+        self.args.duration_seconds = 100
+        with patch.object(study.time, "time", return_value=100):
+            with self.assertRaisesRegex(ValueError, "Cycle cap"):
+                study.run(self.args, FixtureClient())
+        self.assertEqual(study.read_json(self.args.output / "run-manifest.json")["status"], "interrupted")
+
+    def test_expired_duration_resume_resolves_exact_pending_request(self):
+        self.args.duration_seconds = 30
+        client = FixtureClient(interrupt="train")
+        with patch.object(study.time, "time", return_value=100):
+            with self.assertRaisesRegex(RuntimeError, "unknown"):
+                study.run(self.args, client)
+        pending = copy.deepcopy(client.requests[0])
+        self.args.resume = True
+        with patch.object(study.time, "time", return_value=140):
+            state = study.run(self.args, client)
+        self.assertEqual(client.requests[1], pending)
+        self.assertEqual(len(client.requests), 2)
+        self.assertEqual(state["models"]["privoke-efficient"]["training_deadline_unix"], 130)
 
     def test_resume_reuses_pending_request_and_does_not_reissue_completed_rounds(self):
         client = FixtureClient(interrupt="train")

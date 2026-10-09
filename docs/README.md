@@ -30,6 +30,8 @@ Commands in these guides retain their original working-directory assumptions. St
 | [Evaluation](README.Evaluation.md) | Datasets, experiments and metrics |
 | [Regex evaluation results](README.Regex-evaluation-results.md) | Existing evaluation report |
 | [Host Python evaluation and tests](../evaluation/README.md) | Localhost test invocation, controlled update experiments and raw run manifests |
+| [Synthetic prompt generation](synthetic-prompt-generation-research-20261009.md) | Generation methods, continual fuzzer integration, label quality, retention and prospective evaluation |
+| [Continual synthetic fuzzer results](continual-fuzzer-results-20261009.md) | Three-profile, 60-attempt Docker study; matched before/after metrics, replay coverage and observed recall/specificity tradeoffs |
 | [Research completion plan](Research-completion-plan.md) | Research questions, experiments, milestones and publication readiness |
 | [Research paper writing guide](Research-paper-writing-guide.md) | Methodology improvements, wording, evidence reporting and venue requirements |
 | [Current research evidence](../paper/research/claims.md) | Provisional claims, measured development results, protocol and professor review requests |

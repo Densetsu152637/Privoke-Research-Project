@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 SHARED_DIR = Path(__file__).resolve().parents[3] / "shared/python"
@@ -37,7 +37,7 @@ class FuzzerRequestConfig:
     def from_env(cls) -> FuzzerRequestConfig:
         config = cls(
             target=env_string("FUZZER_TARGET", "privoke-fuzzer:50053", strip=True),
-            prompt_count=env_int("FUZZER_PROMPT_COUNT", 0),
+            prompt_count=env_int("FUZZER_PROMPT_COUNT", 32),
             model_id=env_string("MODEL_ID", "privoke-baseline", strip=True),
             source_id=env_string(
                 "PARAM_UPDATE_SOURCE_ID",
@@ -45,7 +45,7 @@ class FuzzerRequestConfig:
                 strip=True,
             ),
             timeout_seconds=env_float("FUZZER_REQUEST_TIMEOUT_SECONDS", 30.0),
-            interval_seconds=env_float("FUZZER_REQUEST_INTERVAL_SECONDS", 0.0),
+            interval_seconds=env_float("FUZZER_REQUEST_INTERVAL_SECONDS", 3600.0),
             initial_delay_seconds=env_float(
                 "FUZZER_REQUEST_INITIAL_DELAY_SECONDS",
                 2.0,
@@ -65,6 +65,8 @@ class FuzzerRequestConfig:
             raise ValueError("FUZZER_PROMPT_COUNT must not be negative.")
         if self.max_attempts <= 0:
             raise ValueError("FUZZER_REQUEST_MAX_ATTEMPTS must be positive.")
+        if not 0 <= self.seed <= 0xFFFFFFFF:
+            raise ValueError("FUZZER_REQUEST_SEED must fit an unsigned 32-bit integer.")
         for name, value, allow_zero in (
             ("FUZZER_REQUEST_TIMEOUT_SECONDS", self.timeout_seconds, False),
             ("FUZZER_REQUEST_INTERVAL_SECONDS", self.interval_seconds, True),
@@ -102,6 +104,8 @@ def request_fuzzer_loop(config: FuzzerRequestConfig) -> None:
                 config,
                 training_request_id=cycle_request_id,
             )
+            if not response.accepted:
+                raise RuntimeError("Fuzzer rejected the training cycle.")
             LOGGER.info(
                 "fuzzer training response accepted=%s model=%s version=%s prompts=%s",
                 response.accepted,
@@ -109,18 +113,21 @@ def request_fuzzer_loop(config: FuzzerRequestConfig) -> None:
                 response.applied_version,
                 response.prompts_generated,
             )
-            attempts = 0
         except (grpc.RpcError, RuntimeError) as exc:
             LOGGER.warning("fuzzer training request failed: %s", exc)
-            if config.interval_seconds <= 0 and attempts >= config.max_attempts:
-                return
-            time.sleep(config.retry_seconds)
-            continue
+            if attempts < config.max_attempts:
+                time.sleep(config.retry_seconds)
+                continue
+            LOGGER.warning("fuzzer cycle exhausted %s attempts", attempts)
 
         if config.interval_seconds <= 0:
             return
         time.sleep(config.interval_seconds)
+        attempts = 0
         cycle_request_id = request_id(config.source_id)
+        # Retries keep their seed/identity; new cycles explore a reproducible
+        # sequence. Avoid zero, which the fuzzer treats as an omitted seed.
+        config = replace(config, seed=config.seed % 0xFFFFFFFF + 1)
 
 
 def request_fuzzer_training(

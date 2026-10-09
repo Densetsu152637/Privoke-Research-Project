@@ -6,6 +6,12 @@
 
 It is not in the hosted prompt decision path. Training cycles deliberately target the streamed semantic model path rather than the full regex + NER + semantic pipeline.
 
+Normal deployments enable the updater's automatic requester by default: 32
+prompts at startup and another cycle every hour, with a different seed for each
+new cycle and the same seed on retries. Set `FUZZER_PROMPT_COUNT=0` on the updater
+to disable it. Controlled research and CI overrides do this explicitly. See
+[requester configuration](README.Parameter-update-service.md#fuzzer-requests).
+
 ## gRPC Worker
 
 Defined in `shared/proto/privoke/v1/parameters.proto`:
@@ -159,6 +165,35 @@ dumps use the same host directory through a bind mount. In the production stack,
 `/workspace/dumps/privoke-fuzzer` is backed by the `fuzzer-dumps` named volume.
 The service-local `src/cli.py` remains available inside containers with explicit
 service-DNS targets. Rejected training requests exit with status `1`.
+
+## Durable synthetic curriculum
+
+An optional prepared curriculum enables grammar prompts, offline teacher
+paraphrases, and fact-preserving evolution. Prepare it with
+`evaluation/prepare-synthetic-curriculum.py`; inputs are checked against an opaque
+protected-key index and a byte-pinned development endpoint. The final corpus is
+never needed. Assistant-authored targets remain `assistant_provisional`.
+
+Set `FUZZ_CURRICULUM_MANIFEST_PATH`, `FUZZ_CURRICULUM_STATE_PATH` and optionally
+`FUZZ_CURRICULUM_REPLAY_FRACTION` (default 0.25). Split files are bound by SHA-256,
+with globally distinct IDs, canonical text and parent families. The fixed
+publication guard contains exactly 16 rows, and the replay pool at least 64.
+Curriculum batches balance roles and clean/sensitive targets. Total requested
+prompt count includes replay, which uses the trainer's existing 0.35 weight.
+
+SQLite reservations retain batch IDs and per-model cursors across restarts;
+retrying the same request reuses its batch, and a new request advances the cursor
+even if its candidate was rejected. Receipt fingerprints include the manifest
+digest. `curriculum_stage` selects `all`, `grammar`, `teacher`, or `evolved`;
+`curriculum_hard_ids` is a JSON array of up to eight eligible TRAIN IDs. Guard and
+replay IDs cannot be mined. Publication quality checks remain mandatory.
+
+Automatic augmentation retains labels only for conservative transformations;
+redaction and phone replacement are available explicitly, but are no longer
+randomly applied while retaining an unchanged contextual label.
+
+See the [continual-study instructions](../evaluation/README.md#continual-synthetic-fuzzer-study)
+for isolated Docker execution and before/after measurement.
 
 ## Subagent Tasks
 

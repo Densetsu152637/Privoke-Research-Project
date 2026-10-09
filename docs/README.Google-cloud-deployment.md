@@ -168,15 +168,34 @@ GitHub **Settings → Environments → production** must contain these secrets, 
 
 These values are stored as GitHub secrets in the `production` environment. Restrict the environment to the `main` branch and protect `main` with required CI/review checks. Leave required environment reviewers unset for automatic deployment; enabling them intentionally introduces an approval gate. `.env` files are not uploaded to GitHub automatically.
 
-`FUZZER_PROMPT_COUNT=0` in the VM `.env` disables automatic training on startup. Use a nonzero value only when intentional; model updates write persistent state. Workstation OpenAI/LM Studio keys are unrelated to these deployment identities and are never required for the streamed server stack.
+Automatic training defaults to 32 prompts at startup and an hourly interval.
+`FUZZER_PROMPT_COUNT=0` in the VM `.env` disables it. Accepted model updates write
+persistent state. Workstation OpenAI/LM Studio keys are unrelated to these
+deployment identities and are never required for the streamed server stack.
 
 ### Training cycles and telemetry boundary
 
-The fuzzer and parameter-update service are included for controlled research cycles. Set `FUZZER_PROMPT_COUNT` to a positive count only for a planned cycle, deploy, observe the resulting update, and return it to `0` for ordinary serving. The value is read into each release's `release.env`; changing the VM `.env` affects a later deployment, not an already running release. The service writes update history to `param-update-data` and the resulting model to `model-data`.
+The fuzzer and parameter-update service request repeated training by default.
+Configure `FUZZER_PROMPT_COUNT`, `FUZZER_REQUEST_INTERVAL_SECONDS` and
+`FUZZER_REQUEST_SEED` in the VM `.env`; defaults are `32`, `3600` and `1337`.
+Count `0` disables training, while interval `0` requests one startup cycle.
+New cycles advance the seed; retries retain the same identity and seed. Failed
+cycles exhaust their bounded retries before waiting for the next interval.
+All three values are saved into each release's `release.env`; changing the VM
+`.env` affects a later deployment, not an already running release. The service
+writes update history to `param-update-data` and the resulting model to
+`model-data`. Disable automatic training before a controlled research study.
 
 This stack does not train on browser-extension traffic. With the checked-in Compose settings, the server-side `client-runtime` sends locally randomized categorical telemetry to `telemetry-service`; workstation telemetry is disabled by default and can be enabled separately. Each report contains randomized action, risk bucket, primary category, fixed model release, and randomized four-hour time-of-day bucket. It excludes prompts, identifiers, target app names, exact timestamps, exact scores, text length, and layer timings. The event-level local-DP guarantee, daily installation-local budget, exact aggregate sample count, transport metadata limits, and legacy database handling are documented in [README.Telemetry-service.md](README.Telemetry-service.md). This is not user-level or event-existence privacy: report presence, timing, IP address and operational logs remain outside the guarantee.
 
-To run one deliberate cycle, first back up the model and update volumes, then deploy with a reviewed `.env` containing (for example) `FUZZER_PROMPT_COUNT=8`. Verify the fuzzer and parameter-update logs, inspect the update artifact, and record the resulting model ID/fingerprint. Set the value back to `0` and redeploy after the cycle. Do not delete `model-data` to force an update; that removes the persistent model and causes the one-time seed copy to run again.
+To run one deliberate cycle, first back up the model and update volumes, then
+deploy with a reviewed `.env` containing (for example) `FUZZER_PROMPT_COUNT=8`
+and `FUZZER_REQUEST_INTERVAL_SECONDS=0`. Verify the fuzzer and parameter-update
+logs, inspect the update artifact, and record the resulting model ID/fingerprint.
+Set count to `0` and redeploy to keep training disabled afterward, or restore the
+hourly settings for automatic operation. Do not delete `model-data` to force an
+update; that removes the persistent model and causes the one-time seed copy to
+run again.
 
 ## 6. Deploy and verify
 
