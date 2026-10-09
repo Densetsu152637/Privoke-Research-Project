@@ -483,31 +483,49 @@ one update with no endpoint prediction changes. See the
 archived predictions, float32 exports, hashes and durable batch allocations;
 it does not read datasets or issue service RPCs.
 
-For a sustained six-hour run using the same tested service images and fresh
-isolated volumes, run `python evaluation/run-long-fuzzer-study.py --output
-evaluation/results/long_fuzzer_20261009 --study-id privoke-long-20261009` from
-the evaluation Python environment. The supervisor runs each profile for two
-hours, pauses 15 seconds between requests, measures approximately every 20
-minutes, and exports/audits the final results. `supervisor.json` records the live
-process and profile status; `results.md` and `summary.json` are produced only
-after all profiles finish. Preserve interrupted directories and volumes.
-The controller's duration mode uses `--cycles` as a safety cap, which fails if
-reached early. An expired deadline still resolves an ambiguous pending request
-under the same ID on `--resume`; deadlines are preserved rather than reset.
-Full parameter snapshots may be restricted to checkpoints with
-`--checkpoint-only-snapshots`, while every round still verifies published values.
-Elapsed windows include inter-request pauses, mining and checkpoint work;
-reported window duration is not GPU training time. An interrupted window is
-not evidence of uninterrupted training. The sustained results are pending and
-must not be inferred from the earlier 20-round study.
+The completed six-hour study is reported in
+[`docs/long-fuzzer-results-20261009.md`](../docs/long-fuzzer-results-20261009.md).
+Its tracked safe evidence copies are
+[`summary.json`](../docs/evidence/long-fuzzer-20261009/summary.json),
+[`independent-audit.json`](../docs/evidence/long-fuzzer-20261009/independent-audit.json),
+[`protocol.json`](../docs/evidence/long-fuzzer-20261009/protocol.json) and
+[`provenance.json`](../docs/evidence/long-fuzzer-20261009/provenance.json).
+The independent six-hour audit passed for all three profiles: 1,220 attempts
+and 72 paired metric checks per profile. The summary and audit copies preserve
+their original SHA-256 commitments. The provenance sidecar adds only safe
+aggregate timestamps, source hashes, role-exposure totals and serving image
+IDs; it contains no prompts, row IDs, predictions or model weights.
 
-After completion, run `python evaluation/audit-long-fuzzer-study.py --study-root
-evaluation/results/long_fuzzer_20261009`. This additional audit requires a
-six-hour protocol by default and independently recomputes paired bootstrap
-intervals with grouped count vectors and inclusive quantiles. It also checks
-archived round/response files, publication identity chains, settings and elapsed
-windows. It reads only study outputs. `--minimum-hours 0` is reserved for testing
-the auditor on the brief integration run; it cannot establish the six-hour goal.
+For a new sustained run, use fresh isolated volumes and a new output path and
+study ID. From PowerShell, create a unique lowercase ID and run:
+
+```powershell
+$studyId = "privoke-long-" + [guid]::NewGuid().ToString("N")
+$studyOutput = "evaluation/results/long_fuzzer_$studyId"
+python evaluation/run-long-fuzzer-study.py --output $studyOutput --study-id $studyId
+```
+
+The supervisor runs each profile for two hours, pauses 15 seconds between
+requests, measures approximately every 20 minutes, and exports the final
+results. `supervisor.json` records the process and profile status; `results.md`
+and `summary.json` are produced only after all profiles finish. Preserve
+interrupted directories and volumes. The controller's duration mode uses
+`--cycles` as a safety cap, which fails if reached early. An expired deadline
+still resolves an ambiguous pending request under the same ID on `--resume`;
+deadlines are preserved rather than reset. Full parameter snapshots may be
+restricted to checkpoints with `--checkpoint-only-snapshots`, while every
+round still verifies published values.
+
+Elapsed windows include inter-request pauses, mining and checkpoint work;
+reported duration is not GPU compute time. An interrupted window is not
+evidence of uninterrupted training. After a future run completes, execute
+`python evaluation/audit-long-fuzzer-study.py --study-root $studyOutput`.
+The audit requires six hours across profiles by default and independently
+recomputes paired bootstrap intervals with grouped count vectors and inclusive
+quantiles. It also checks archived round/response files, publication identity
+chains, settings and elapsed windows. It reads only study outputs.
+`--minimum-hours 0` is reserved for testing the auditor on the brief integration
+run; it cannot establish the six-hour goal.
 
 ## AdvPIIBench clean-data preflight
 

@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "minimum_hours": 6,
+  "profiles": {
+    "efficient": {
+      "attempts_verified": 399,
+      "paired_metrics_verified": 72,
+      "window_seconds": 7200.000285387039
+    },
+    "balanced": {
+      "attempts_verified": 385,
+      "paired_metrics_verified": 72,
+      "window_seconds": 7200.000180482864
+    },
+    "quality": {
+      "attempts_verified": 436,
+      "paired_metrics_verified": 72,
+      "window_seconds": 7200.000060081482
+    }
+  },
+  "auditor_sha256": "1782e8102fecadfad6eaf1f7fd2bb5942c97c390a2927867c8180d4b58fcfff6",
+  "summary_sha256": "de8bb37328b17cd0795eddcd4b21a7ea8a7d49cb1145cda325919bd416b51ecd",
+  "method": "Independent grouped count vectors and inclusive quantiles; archived round/version chains"
+}

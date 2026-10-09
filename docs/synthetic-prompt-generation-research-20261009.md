@@ -3,10 +3,13 @@
 PriVoke should expand its reviewed contextual scenarios first, use a separate
 teacher model to diversify their wording, and then mine constrained hard cases
 from permitted training pools. These methods can expose missing coverage while
-keeping supervision traceable. More generated rows or more accepted updates do
-not establish improved detection: the six completed contextual studies produced
-126 attempts without a retained qualifying model. The next experiment must
-measure gains and forgetting against independent, fixed inputs.
+keeping supervision traceable. More generated rows or accepted updates do not
+establish improved detection. The six contextual grids completed on 6 October
+produced 126 attempts without a retained qualifying model under their study
+criteria. A separate six-hour study completed on 9 October and measured repeated
+training against a binary annotation-presence endpoint; its mixed profile
+results do not establish contextual quality or support model promotion. See the
+[six-hour study report](long-fuzzer-results-20261009.md).
 [Current study outcomes](model-quality-study-index-20261006.md) and
 [training-signal diagnosis](fuzzer-training-signal-diagnosis-20261006.md).
 

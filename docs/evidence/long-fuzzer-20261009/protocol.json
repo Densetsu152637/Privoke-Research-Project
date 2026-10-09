@@ -1,0 +1,41 @@
+{
+  "schema_version": 2,
+  "question": "What happens during repeated synthetic fuzzer training over two hours per model profile?",
+  "created_at": "2026-10-09T04:30:35.194880+00:00",
+  "profiles": [
+    "privoke-efficient",
+    "privoke-balanced",
+    "privoke-quality"
+  ],
+  "duration_seconds_per_profile": 7200,
+  "cycles_per_profile": 100000,
+  "prompt_count": 256,
+  "new_rows": 192,
+  "replay_rows": 64,
+  "checkpoint_interval_seconds": 1200,
+  "round_pause_seconds": 15,
+  "seed_start": 1337,
+  "bootstrap_iterations": 2000,
+  "learning_rate": 0.003,
+  "replay_weight": 0.35,
+  "transforms": 0,
+  "heldout_count": 16,
+  "dataset_sha256": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095",
+  "curriculum_manifest_sha256": "e0ba3edd3b69d42668e426f30212ca8930ee5ffd86839a2135d0324e05d9652b",
+  "source_revision": "9351e9b215a3a21a0c43a313ee27bcd7fef1cf09",
+  "source_files": {
+    "evaluation\\run-long-fuzzer-study.py": "e3182956f559472dd17475da541677f79f9b3fb942bb587f35286111db973c8f",
+    "evaluation\\privoke_eval\\continual_fuzzer_study.py": "e80064f6be7686b66f659d6be2e58c4c5f07c662ef3fd0f571230407451c0ce1",
+    "services\\privoke-fuzzer\\src\\prompt_generation\\curriculum.py": "7d645158acd6897bfaa22ac4839003100b6c3d6630e8b4037e3fca503bb2d415",
+    "services\\privoke-fuzzer\\src\\fuzzer_service.py": "371a34564a3b63cd67c2921a335b17212c44469ee2f5fdb51290cd8da89aea91",
+    "services\\privoke-fuzzer\\src\\config.py": "5be7e8b70619caad205434eedbecb12dce270e221f465971db7be5ce9f4d16a2",
+    "services\\privoke-fuzzer\\src\\training\\trainer.py": "c17d83cabb08b17c8b63bd0af3c3e1aa91dc017070161ff0977e565778e35afe",
+    "services\\privoke-fuzzer\\src\\training\\transforms.py": "a8463508058ff580fcd43becd9268dca767ac74d477a1b0498972491ac7e128b",
+    "evaluation\\compose.continual-fuzzer-study.yml": "eb6fbac900212d6c1040cc4d05d3932761f642b5b7488a3c158ca0af2fd59e7b"
+  },
+  "limitations": [
+    "Exploratory development comparisons; no old-sampler control or model promotion.",
+    "Contextual synthetic labels are provisional and differ from annotation-presence endpoint targets.",
+    "Repeated rounds reuse a finite synthetic pool; exposures are correlated."
+  ]
+}

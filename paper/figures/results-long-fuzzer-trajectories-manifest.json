@@ -1,0 +1,568 @@
+{
+  "outputs": {
+    "results-long-fuzzer-trajectories.png": "e9aabc8ad5c97ca7911166e0dfce7201f3f5e98eeb8454bfd1aaa977db26dd53",
+    "results-long-fuzzer-trajectories.svg": "fbc314782ad4ebeb3ee9be0457f95d9b4441bf889c9558ef3982079f94efef06"
+  },
+  "plotted_data": {
+    "balanced": {
+      "pipeline": {
+        "recall": [
+          {
+            "cycle": "0",
+            "elapsed_minutes_since_baseline": 0.0,
+            "measured_at": "2026-10-09T06:32:48.588453+00:00",
+            "rate_percent": 93.56060606060606
+          },
+          {
+            "cycle": "63",
+            "elapsed_minutes_since_baseline": 20.56685248333333,
+            "measured_at": "2026-10-09T06:53:22.599602+00:00",
+            "rate_percent": 90.9090909090909
+          },
+          {
+            "cycle": "127",
+            "elapsed_minutes_since_baseline": 41.16113445,
+            "measured_at": "2026-10-09T07:13:58.256520+00:00",
+            "rate_percent": 88.63636363636364
+          },
+          {
+            "cycle": "193",
+            "elapsed_minutes_since_baseline": 61.86196566666667,
+            "measured_at": "2026-10-09T07:34:40.306393+00:00",
+            "rate_percent": 87.87878787878788
+          },
+          {
+            "cycle": "259",
+            "elapsed_minutes_since_baseline": 82.54641086666668,
+            "measured_at": "2026-10-09T07:55:21.373105+00:00",
+            "rate_percent": 87.5
+          },
+          {
+            "cycle": "325",
+            "elapsed_minutes_since_baseline": 103.03065251666666,
+            "measured_at": "2026-10-09T08:15:50.427604+00:00",
+            "rate_percent": 87.5
+          },
+          {
+            "cycle": "385",
+            "elapsed_minutes_since_baseline": 120.38614001666666,
+            "measured_at": "2026-10-09T08:33:11.756854+00:00",
+            "rate_percent": 87.5
+          }
+        ],
+        "specificity": [
+          {
+            "cycle": "0",
+            "elapsed_minutes_since_baseline": 0.0,
+            "measured_at": "2026-10-09T06:32:48.588453+00:00",
+            "rate_percent": 22.268907563025213
+          },
+          {
+            "cycle": "63",
+            "elapsed_minutes_since_baseline": 20.56685248333333,
+            "measured_at": "2026-10-09T06:53:22.599602+00:00",
+            "rate_percent": 31.092436974789916
+          },
+          {
+            "cycle": "127",
+            "elapsed_minutes_since_baseline": 41.16113445,
+            "measured_at": "2026-10-09T07:13:58.256520+00:00",
+            "rate_percent": 35.294117647058826
+          },
+          {
+            "cycle": "193",
+            "elapsed_minutes_since_baseline": 61.86196566666667,
+            "measured_at": "2026-10-09T07:34:40.306393+00:00",
+            "rate_percent": 38.23529411764706
+          },
+          {
+            "cycle": "259",
+            "elapsed_minutes_since_baseline": 82.54641086666668,
+            "measured_at": "2026-10-09T07:55:21.373105+00:00",
+            "rate_percent": 37.39495798319328
+          },
+          {
+            "cycle": "325",
+            "elapsed_minutes_since_baseline": 103.03065251666666,
+            "measured_at": "2026-10-09T08:15:50.427604+00:00",
+            "rate_percent": 36.554621848739494
+          },
+          {
+            "cycle": "385",
+            "elapsed_minutes_since_baseline": 120.38614001666666,
+            "measured_at": "2026-10-09T08:33:11.756854+00:00",
+            "rate_percent": 36.554621848739494
+          }
+        ]
+      },
+      "semantic": {
+        "recall": [
+          {
+            "cycle": "0",
+            "elapsed_minutes_since_baseline": 0.0,
+            "measured_at": "2026-10-09T06:32:48.588453+00:00",
+            "rate_percent": 64.01515151515152
+          },
+          {
+            "cycle": "63",
+            "elapsed_minutes_since_baseline": 20.56685248333333,
+            "measured_at": "2026-10-09T06:53:22.599602+00:00",
+            "rate_percent": 51.89393939393939
+          },
+          {
+            "cycle": "127",
+            "elapsed_minutes_since_baseline": 41.16113445,
+            "measured_at": "2026-10-09T07:13:58.256520+00:00",
+            "rate_percent": 45.45454545454545
+          },
+          {
+            "cycle": "193",
+            "elapsed_minutes_since_baseline": 61.86196566666667,
+            "measured_at": "2026-10-09T07:34:40.306393+00:00",
+            "rate_percent": 41.66666666666667
+          },
+          {
+            "cycle": "259",
+            "elapsed_minutes_since_baseline": 82.54641086666668,
+            "measured_at": "2026-10-09T07:55:21.373105+00:00",
+            "rate_percent": 39.77272727272727
+          },
+          {
+            "cycle": "325",
+            "elapsed_minutes_since_baseline": 103.03065251666666,
+            "measured_at": "2026-10-09T08:15:50.427604+00:00",
+            "rate_percent": 39.77272727272727
+          },
+          {
+            "cycle": "385",
+            "elapsed_minutes_since_baseline": 120.38614001666666,
+            "measured_at": "2026-10-09T08:33:11.756854+00:00",
+            "rate_percent": 39.015151515151516
+          }
+        ],
+        "specificity": [
+          {
+            "cycle": "0",
+            "elapsed_minutes_since_baseline": 0.0,
+            "measured_at": "2026-10-09T06:32:48.588453+00:00",
+            "rate_percent": 25.210084033613445
+          },
+          {
+            "cycle": "63",
+            "elapsed_minutes_since_baseline": 20.56685248333333,
+            "measured_at": "2026-10-09T06:53:22.599602+00:00",
+            "rate_percent": 33.61344537815126
+          },
+          {
+            "cycle": "127",
+            "elapsed_minutes_since_baseline": 41.16113445,
+            "measured_at": "2026-10-09T07:13:58.256520+00:00",
+            "rate_percent": 38.23529411764706
+          },
+          {
+            "cycle": "193",
+            "elapsed_minutes_since_baseline": 61.86196566666667,
+            "measured_at": "2026-10-09T07:34:40.306393+00:00",
+            "rate_percent": 41.17647058823529
+          },
+          {
+            "cycle": "259",
+            "elapsed_minutes_since_baseline": 82.54641086666668,
+            "measured_at": "2026-10-09T07:55:21.373105+00:00",
+            "rate_percent": 40.33613445378151
+          },
+          {
+            "cycle": "325",
+            "elapsed_minutes_since_baseline": 103.03065251666666,
+            "measured_at": "2026-10-09T08:15:50.427604+00:00",
+            "rate_percent": 39.49579831932773
+          },
+          {
+            "cycle": "385",
+            "elapsed_minutes_since_baseline": 120.38614001666666,
+            "measured_at": "2026-10-09T08:33:11.756854+00:00",
+            "rate_percent": 39.49579831932773
+          }
+        ]
+      }
+    },
+    "efficient": {
+      "pipeline": {
+        "recall": [
+          {
+            "cycle": "0",
+            "elapsed_minutes_since_baseline": 0.0,
+            "measured_at": "2026-10-09T04:31:28.508169+00:00",
+            "rate_percent": 89.39393939393939
+          },
+          {
+            "cycle": "67",
+            "elapsed_minutes_since_baseline": 20.461184416666665,
+            "measured_at": "2026-10-09T04:51:56.179234+00:00",
+            "rate_percent": 89.39393939393939
+          },
+          {
+            "cycle": "132",
+            "elapsed_minutes_since_baseline": 40.899249749999996,
+            "measured_at": "2026-10-09T05:12:22.463154+00:00",
+            "rate_percent": 89.39393939393939
+          },
+          {
+            "cycle": "199",
+            "elapsed_minutes_since_baseline": 61.42926763333333,
+            "measured_at": "2026-10-09T05:32:54.264227+00:00",
+            "rate_percent": 89.39393939393939
+          },
+          {
+            "cycle": "266",
+            "elapsed_minutes_since_baseline": 82.15187208333333,
+            "measured_at": "2026-10-09T05:53:37.620494+00:00",
+            "rate_percent": 89.39393939393939
+          },
+          {
+            "cycle": "335",
+            "elapsed_minutes_since_baseline": 102.68173048333333,
+            "measured_at": "2026-10-09T06:14:09.411998+00:00",
+            "rate_percent": 89.39393939393939
+          },
+          {
+            "cycle": "399",
+            "elapsed_minutes_since_baseline": 120.36811465000001,
+            "measured_at": "2026-10-09T06:31:50.595048+00:00",
+            "rate_percent": 89.39393939393939
+          }
+        ],
+        "specificity": [
+          {
+            "cycle": "0",
+            "elapsed_minutes_since_baseline": 0.0,
+            "measured_at": "2026-10-09T04:31:28.508169+00:00",
+            "rate_percent": 25.210084033613445
+          },
+          {
+            "cycle": "67",
+            "elapsed_minutes_since_baseline": 20.461184416666665,
+            "measured_at": "2026-10-09T04:51:56.179234+00:00",
+            "rate_percent": 26.47058823529412
+          },
+          {
+            "cycle": "132",
+            "elapsed_minutes_since_baseline": 40.899249749999996,
+            "measured_at": "2026-10-09T05:12:22.463154+00:00",
+            "rate_percent": 26.89075630252101
+          },
+          {
+            "cycle": "199",
+            "elapsed_minutes_since_baseline": 61.42926763333333,
+            "measured_at": "2026-10-09T05:32:54.264227+00:00",
+            "rate_percent": 26.89075630252101
+          },
+          {
+            "cycle": "266",
+            "elapsed_minutes_since_baseline": 82.15187208333333,
+            "measured_at": "2026-10-09T05:53:37.620494+00:00",
+            "rate_percent": 27.310924369747898
+          },
+          {
+            "cycle": "335",
+            "elapsed_minutes_since_baseline": 102.68173048333333,
+            "measured_at": "2026-10-09T06:14:09.411998+00:00",
+            "rate_percent": 27.310924369747898
+          },
+          {
+            "cycle": "399",
+            "elapsed_minutes_since_baseline": 120.36811465000001,
+            "measured_at": "2026-10-09T06:31:50.595048+00:00",
+            "rate_percent": 27.310924369747898
+          }
+        ]
+      },
+      "semantic": {
+        "recall": [
+          {
+            "cycle": "0",
+            "elapsed_minutes_since_baseline": 0.0,
+            "measured_at": "2026-10-09T04:31:28.508169+00:00",
+            "rate_percent": 59.84848484848485
+          },
+          {
+            "cycle": "67",
+            "elapsed_minutes_since_baseline": 20.461184416666665,
+            "measured_at": "2026-10-09T04:51:56.179234+00:00",
+            "rate_percent": 59.46969696969697
+          },
+          {
+            "cycle": "132",
+            "elapsed_minutes_since_baseline": 40.899249749999996,
+            "measured_at": "2026-10-09T05:12:22.463154+00:00",
+            "rate_percent": 59.09090909090909
+          },
+          {
+            "cycle": "199",
+            "elapsed_minutes_since_baseline": 61.42926763333333,
+            "measured_at": "2026-10-09T05:32:54.264227+00:00",
+            "rate_percent": 59.09090909090909
+          },
+          {
+            "cycle": "266",
+            "elapsed_minutes_since_baseline": 82.15187208333333,
+            "measured_at": "2026-10-09T05:53:37.620494+00:00",
+            "rate_percent": 58.333333333333336
+          },
+          {
+            "cycle": "335",
+            "elapsed_minutes_since_baseline": 102.68173048333333,
+            "measured_at": "2026-10-09T06:14:09.411998+00:00",
+            "rate_percent": 58.333333333333336
+          },
+          {
+            "cycle": "399",
+            "elapsed_minutes_since_baseline": 120.36811465000001,
+            "measured_at": "2026-10-09T06:31:50.595048+00:00",
+            "rate_percent": 58.333333333333336
+          }
+        ],
+        "specificity": [
+          {
+            "cycle": "0",
+            "elapsed_minutes_since_baseline": 0.0,
+            "measured_at": "2026-10-09T04:31:28.508169+00:00",
+            "rate_percent": 25.630252100840334
+          },
+          {
+            "cycle": "67",
+            "elapsed_minutes_since_baseline": 20.461184416666665,
+            "measured_at": "2026-10-09T04:51:56.179234+00:00",
+            "rate_percent": 27.310924369747898
+          },
+          {
+            "cycle": "132",
+            "elapsed_minutes_since_baseline": 40.899249749999996,
+            "measured_at": "2026-10-09T05:12:22.463154+00:00",
+            "rate_percent": 27.73109243697479
+          },
+          {
+            "cycle": "199",
+            "elapsed_minutes_since_baseline": 61.42926763333333,
+            "measured_at": "2026-10-09T05:32:54.264227+00:00",
+            "rate_percent": 27.73109243697479
+          },
+          {
+            "cycle": "266",
+            "elapsed_minutes_since_baseline": 82.15187208333333,
+            "measured_at": "2026-10-09T05:53:37.620494+00:00",
+            "rate_percent": 28.15126050420168
+          },
+          {
+            "cycle": "335",
+            "elapsed_minutes_since_baseline": 102.68173048333333,
+            "measured_at": "2026-10-09T06:14:09.411998+00:00",
+            "rate_percent": 28.15126050420168
+          },
+          {
+            "cycle": "399",
+            "elapsed_minutes_since_baseline": 120.36811465000001,
+            "measured_at": "2026-10-09T06:31:50.595048+00:00",
+            "rate_percent": 28.15126050420168
+          }
+        ]
+      }
+    },
+    "quality": {
+      "pipeline": {
+        "recall": [
+          {
+            "cycle": "0",
+            "elapsed_minutes_since_baseline": 0.0,
+            "measured_at": "2026-10-09T08:34:00.702030+00:00",
+            "rate_percent": 91.28787878787878
+          },
+          {
+            "cycle": "75",
+            "elapsed_minutes_since_baseline": 20.525114900000002,
+            "measured_at": "2026-10-09T08:54:32.208924+00:00",
+            "rate_percent": 91.28787878787878
+          },
+          {
+            "cycle": "150",
+            "elapsed_minutes_since_baseline": 41.23649286666667,
+            "measured_at": "2026-10-09T09:15:14.891602+00:00",
+            "rate_percent": 91.28787878787878
+          },
+          {
+            "cycle": "225",
+            "elapsed_minutes_since_baseline": 61.9486117,
+            "measured_at": "2026-10-09T09:35:57.618732+00:00",
+            "rate_percent": 91.28787878787878
+          },
+          {
+            "cycle": "300",
+            "elapsed_minutes_since_baseline": 82.64628851666666,
+            "measured_at": "2026-10-09T09:56:39.479341+00:00",
+            "rate_percent": 91.28787878787878
+          },
+          {
+            "cycle": "375",
+            "elapsed_minutes_since_baseline": 103.33725258333334,
+            "measured_at": "2026-10-09T10:17:20.937185+00:00",
+            "rate_percent": 91.28787878787878
+          },
+          {
+            "cycle": "436",
+            "elapsed_minutes_since_baseline": 120.50576321666668,
+            "measured_at": "2026-10-09T10:34:31.047823+00:00",
+            "rate_percent": 91.28787878787878
+          }
+        ],
+        "specificity": [
+          {
+            "cycle": "0",
+            "elapsed_minutes_since_baseline": 0.0,
+            "measured_at": "2026-10-09T08:34:00.702030+00:00",
+            "rate_percent": 18.907563025210084
+          },
+          {
+            "cycle": "75",
+            "elapsed_minutes_since_baseline": 20.525114900000002,
+            "measured_at": "2026-10-09T08:54:32.208924+00:00",
+            "rate_percent": 18.907563025210084
+          },
+          {
+            "cycle": "150",
+            "elapsed_minutes_since_baseline": 41.23649286666667,
+            "measured_at": "2026-10-09T09:15:14.891602+00:00",
+            "rate_percent": 18.907563025210084
+          },
+          {
+            "cycle": "225",
+            "elapsed_minutes_since_baseline": 61.9486117,
+            "measured_at": "2026-10-09T09:35:57.618732+00:00",
+            "rate_percent": 18.907563025210084
+          },
+          {
+            "cycle": "300",
+            "elapsed_minutes_since_baseline": 82.64628851666666,
+            "measured_at": "2026-10-09T09:56:39.479341+00:00",
+            "rate_percent": 18.907563025210084
+          },
+          {
+            "cycle": "375",
+            "elapsed_minutes_since_baseline": 103.33725258333334,
+            "measured_at": "2026-10-09T10:17:20.937185+00:00",
+            "rate_percent": 18.907563025210084
+          },
+          {
+            "cycle": "436",
+            "elapsed_minutes_since_baseline": 120.50576321666668,
+            "measured_at": "2026-10-09T10:34:31.047823+00:00",
+            "rate_percent": 18.907563025210084
+          }
+        ]
+      },
+      "semantic": {
+        "recall": [
+          {
+            "cycle": "0",
+            "elapsed_minutes_since_baseline": 0.0,
+            "measured_at": "2026-10-09T08:34:00.702030+00:00",
+            "rate_percent": 71.96969696969697
+          },
+          {
+            "cycle": "75",
+            "elapsed_minutes_since_baseline": 20.525114900000002,
+            "measured_at": "2026-10-09T08:54:32.208924+00:00",
+            "rate_percent": 71.96969696969697
+          },
+          {
+            "cycle": "150",
+            "elapsed_minutes_since_baseline": 41.23649286666667,
+            "measured_at": "2026-10-09T09:15:14.891602+00:00",
+            "rate_percent": 71.96969696969697
+          },
+          {
+            "cycle": "225",
+            "elapsed_minutes_since_baseline": 61.9486117,
+            "measured_at": "2026-10-09T09:35:57.618732+00:00",
+            "rate_percent": 71.96969696969697
+          },
+          {
+            "cycle": "300",
+            "elapsed_minutes_since_baseline": 82.64628851666666,
+            "measured_at": "2026-10-09T09:56:39.479341+00:00",
+            "rate_percent": 71.96969696969697
+          },
+          {
+            "cycle": "375",
+            "elapsed_minutes_since_baseline": 103.33725258333334,
+            "measured_at": "2026-10-09T10:17:20.937185+00:00",
+            "rate_percent": 71.96969696969697
+          },
+          {
+            "cycle": "436",
+            "elapsed_minutes_since_baseline": 120.50576321666668,
+            "measured_at": "2026-10-09T10:34:31.047823+00:00",
+            "rate_percent": 71.96969696969697
+          }
+        ],
+        "specificity": [
+          {
+            "cycle": "0",
+            "elapsed_minutes_since_baseline": 0.0,
+            "measured_at": "2026-10-09T08:34:00.702030+00:00",
+            "rate_percent": 20.168067226890756
+          },
+          {
+            "cycle": "75",
+            "elapsed_minutes_since_baseline": 20.525114900000002,
+            "measured_at": "2026-10-09T08:54:32.208924+00:00",
+            "rate_percent": 20.168067226890756
+          },
+          {
+            "cycle": "150",
+            "elapsed_minutes_since_baseline": 41.23649286666667,
+            "measured_at": "2026-10-09T09:15:14.891602+00:00",
+            "rate_percent": 20.168067226890756
+          },
+          {
+            "cycle": "225",
+            "elapsed_minutes_since_baseline": 61.9486117,
+            "measured_at": "2026-10-09T09:35:57.618732+00:00",
+            "rate_percent": 20.168067226890756
+          },
+          {
+            "cycle": "300",
+            "elapsed_minutes_since_baseline": 82.64628851666666,
+            "measured_at": "2026-10-09T09:56:39.479341+00:00",
+            "rate_percent": 20.168067226890756
+          },
+          {
+            "cycle": "375",
+            "elapsed_minutes_since_baseline": 103.33725258333334,
+            "measured_at": "2026-10-09T10:17:20.937185+00:00",
+            "rate_percent": 20.168067226890756
+          },
+          {
+            "cycle": "436",
+            "elapsed_minutes_since_baseline": 120.50576321666668,
+            "measured_at": "2026-10-09T10:34:31.047823+00:00",
+            "rate_percent": 20.168067226890756
+          }
+        ]
+      }
+    }
+  },
+  "reproduction": {
+    "checkpoint_axis": "actual measured_at UTC, relative to each profile's baseline checkpoint",
+    "command": "python paper/scripts/plot_long_fuzzer_trajectories.py --overwrite",
+    "matplotlib": "3.10.9",
+    "script_sha256": "8bfb75171a9a42ba2993d09eb04190fdebad6f6337e699862f13caa786e8f573"
+  },
+  "schema_version": 1,
+  "scope": "Exploratory annotation-presence development trajectories; no row-level inputs accessed",
+  "sources": {
+    "independent_audit_sha256": "1f3d8b78c6fa5a3f3e648dfa2c255bd482bad8f285fe77cf706820bdff88ab2c",
+    "protocol_sha256": "1d5a564ae47c5058316f4c15b94d77402732ff24bc085afc17ce6ac40baa343a",
+    "provenance_sha256": "c517ef85fced196d9f86d13195f298676dc1adf57aa9bac0f13e6765ec24d030",
+    "summary_sha256": "de8bb37328b17cd0795eddcd4b21a7ea8a7d49cb1145cda325919bd416b51ecd"
+  }
+}

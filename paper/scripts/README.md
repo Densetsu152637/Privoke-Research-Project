@@ -21,3 +21,31 @@ The generator parses only these named aggregate Markdown documents. It does not 
 Layer and cascade uncertainty is not invented; cascade paired intervals remain uncomputed. External intervals are selection-conditioned, using 2,000 paired source-group bootstrap resamples over 714 groups, seed 10102026. The script plots the report's rounded interval endpoints and recomputes point changes from counts; it does not recompute bootstrap intervals or claim significance.
 
 `fig1.py` and `fig2.py` draw hypothetical accuracy/runtime trends. Their existing outputs are retained but are not used as measured evidence in the main paper. `plot_external_pii_results.py` remains available for its separate hash-bound external aggregate-JSON comparison; its fresh-directory workflow is unchanged.
+
+## Six hour fuzzer trajectories
+
+Run from the repository root with Python and Matplotlib from
+`paper/requirements.txt`:
+
+```powershell
+python paper/scripts/plot_long_fuzzer_trajectories.py --validate-only
+python paper/scripts/plot_long_fuzzer_trajectories.py --overwrite
+```
+
+The plot reads only the tracked aggregate evidence in
+`docs/evidence/long-fuzzer-20261009/`: `summary.json` supplies checkpoint
+counts and rates, and `provenance.json` supplies actual checkpoint times and
+archive commitments. The validator checks the independent audit, source hashes,
+endpoint denominators, confusion-count arithmetic and per-profile timing before
+plotting. It does not read the source dataset, per-example predictions, training
+prompts, row IDs or model weights.
+
+The script writes `paper/figures/results-long-fuzzer-trajectories.png`, its
+editable SVG counterpart and
+`paper/figures/results-long-fuzzer-trajectories-manifest.json`. The four panels
+show semantic recall, semantic specificity, pipeline recall and pipeline
+specificity for the three profiles. The x-axis uses measured checkpoint times
+relative to a baseline measured just before each profile's window. The final
+measurements occur after 120 minutes because checkpoint evaluation finished
+after the elapsed windows. Without `--overwrite`, the script refuses to replace
+its named outputs.
