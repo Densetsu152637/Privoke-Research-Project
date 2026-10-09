@@ -54,15 +54,15 @@ def outcome_statistics(records, *, deltas=False):
     return result
 
 
-def round_chain(directory, model_id, model, durable_metadata=None):
+def round_chain(directory, model_id, model, durable_metadata=None, *, attempts=20, prompt_count=256, trainer_seed=1337):
     baseline = continual.read_json(directory / "snapshot-000.json")
     current = baseline["identity"]
     rounds = model["rounds"]
-    if len(rounds) != 20 or model.get("pending") or model["accepted_updates"] != sum(r["response"]["accepted"] for r in rounds):
-        raise ValueError("Exactly 20 resolved attempts, including rejections, required.")
+    if len(rounds) != attempts or model.get("pending") or model["accepted_updates"] != sum(r["response"]["accepted"] for r in rounds):
+        raise ValueError("Exact resolved attempt budget, including rejections, required.")
     for index, row in enumerate(rounds, 1):
         request, response = row["request"], row["response"]
-        if row["cycle"] != index or request["seed"] != 1337 + index - 1 or request["prompt_count"] != 256 or request["model_id"] != model_id:
+        if row["cycle"] != index or request["seed"] != trainer_seed + index - 1 or request["prompt_count"] != prompt_count or request["model_id"] != model_id:
             raise ValueError("Training request budget/identity differs.")
         import hashlib
         fingerprint = hashlib.sha256(PP.FuzzerTrainingRequest(**request).SerializeToString(deterministic=True)).hexdigest()
@@ -95,7 +95,7 @@ def round_chain(directory, model_id, model, durable_metadata=None):
     return rounds
 
 
-def durable_publications(directory, rounds, published, fuzzer_id):
+def durable_publications(directory, rounds, published, fuzzer_id, *, prompt_count=256):
     audit_path = directory / "parameter-update-data/updates.jsonl"
     receipt_path = audit_path.with_name(audit_path.name + ".receipts.sqlite3")
     rows = [json.loads(line) for line in audit_path.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -121,7 +121,7 @@ def durable_publications(directory, rounds, published, fuzzer_id):
                                            gradients=row["gradients"], metadata=metadata)
         expected = {"key": key, "payload_digest": hashlib.sha256(update.SerializeToString(deterministic=True)).hexdigest(),
                     "request_fingerprint": metadata["training_request_fingerprint"], "model_id": request["model_id"],
-                    "base_version": response["base_version"], "applied_version": response["applied_version"], "prompts_generated": 256}
+                    "base_version": response["base_version"], "applied_version": response["applied_version"], "prompts_generated": prompt_count}
         if receipt != expected:
             raise ValueError("Durable receipt differs from exact transported publication payload.")
         last = receipt

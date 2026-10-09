@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 import math
 import hashlib
+import json
+from pathlib import Path
 import threading
 from dataclasses import asdict, dataclass, replace
 
@@ -224,6 +226,11 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
         )
         if sampling_audit:
             update = replace(update, metadata={**update.metadata, **sampling_audit})
+        if request.metadata.get("study_gate_diagnostics") == "v1":
+            try:
+                write_gate_diagnostics(request, update, self.config)
+            except (OSError, ValueError) as exc:
+                context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
         try:
             validate_training_update(
                 update,
@@ -354,6 +361,59 @@ def validate_training_request(request, expected_model_id: str) -> None:
 
 def _training_request_fingerprint(request) -> str:
     return hashlib.sha256(request.SerializeToString(deterministic=True)).hexdigest()
+
+
+def gate_diagnostics(request, update, minimum):
+    """Numeric, prompt-free record of the unchanged publication guard."""
+    metrics = {key: value for key, value in update.metrics.items()
+               if key in {"exact_match_rate", "heldout_exact_match_rate", "candidate_heldout_exact_match_rate",
+                          "heldout_sensitive_recall", "candidate_heldout_sensitive_recall",
+                          "heldout_clean_specificity", "candidate_heldout_clean_specificity",
+                          "heldout_sensitive_examples", "heldout_clean_examples",
+                          "candidate_heldout_safety_regression_rate"}}
+    # Invalid values remain explicit and serializable rather than becoming zero.
+    metrics = {key: value if math.isfinite(value) else None for key, value in metrics.items()}
+    failures = []
+    try:
+        validate_training_update(update, minimum_exact_match_rate=minimum)
+    except ValueError as exc:
+        failures.append({"predicate": "validation", "message": str(exc)})
+    comparisons = (("training_exact_above_minimum", "exact_match_rate", None),
+                   ("heldout_exact_no_decline", "candidate_heldout_exact_match_rate", "heldout_exact_match_rate"),
+                   ("heldout_recall_no_decline", "candidate_heldout_sensitive_recall", "heldout_sensitive_recall"),
+                   ("heldout_specificity_no_decline", "candidate_heldout_clean_specificity", "heldout_clean_specificity"),
+                   ("no_safety_regression", "candidate_heldout_safety_regression_rate", None))
+    for predicate, key, reference in comparisons:
+        value = metrics.get(key)
+        base = metrics.get(reference) if reference else None
+        failed = (value is None or (reference is not None and base is None))
+        if not failed:
+            failed = value <= minimum if key == "exact_match_rate" else (value > 0 if reference is None else value < base)
+        if failed:
+            failures.append({"predicate": predicate})
+    identities = {key: update.metadata.get(key) for key in ("base_parameter_fingerprint", "updated_parameter_fingerprint")}
+    if any(not isinstance(value, str) or len(value) != 64 for value in identities.values()):
+        raise ValueError("Study gate diagnostics require exact base and candidate fingerprints.")
+    return {"schema_version": 1, "request_id": request.request_id, "source_id": request.source_id,
+            "request_sha256": _training_request_fingerprint(request), "model_id": update.model_id,
+            "base_version": update.base_version, **identities, "minimum_exact_match_rate": minimum,
+            "metrics": metrics, "failed_predicates": failures, "gate_passed": not failures}
+
+
+def write_gate_diagnostics(request, update, config):
+    if not config.curriculum_state_path:
+        raise ValueError("Study diagnostics require durable curriculum storage.")
+    record = gate_diagnostics(request, update, config.minimum_exact_match_rate)
+    directory = Path(config.curriculum_state_path).parent / "gate-diagnostics"
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / (record["request_sha256"] + ".json")
+    if path.exists():
+        if json.loads(path.read_text(encoding="utf-8")) != record:
+            raise ValueError("Conflicting durable gate diagnostics for the same request.")
+        return
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(record, sort_keys=True, allow_nan=False) + "\n", encoding="utf-8")
+    temporary.replace(path)
 
 
 def validate_training_update(

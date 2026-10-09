@@ -321,6 +321,7 @@ def study_config(args, inputs):
             "round_pause_seconds": args.round_pause_seconds, "checkpoint_only_snapshots": args.checkpoint_only_snapshots,
             "prompt_count": args.prompt_count, "checkpoints": sorted(set(args.checkpoints + [0, args.cycles])),
             "evaluation_layers": ["semantic"],
+            **({"gate_diagnostics": True} if getattr(args, "gate_diagnostics", False) else {}),
             "curriculum_sampler_policy": getattr(args, "curriculum_sampler_policy", "deterministic_v1"),
             "curriculum_sampler_seed": getattr(args, "curriculum_sampler_seed", 0),
             "target": args.target, "runtime_target": args.runtime_target, "model_target": args.model_target,
@@ -344,8 +345,13 @@ def verify_operations(path):
     return {"path": str(path), "sha256": sha(path)}
 
 
-def save_checkpoint(client, evaluation, model_id, model, directory, cycle, state, args):
+def save_checkpoint(client, evaluation, model_id, model, directory, cycle, state, args, checkpoint_callback=None):
     key = str(cycle)
+    if checkpoint_callback is not None:
+        callback_snapshot = client.snapshot(model_id)
+        if callback_snapshot["identity"] != model["current_identity"]:
+            raise ValueError("Model changed before checkpoint callback.")
+        checkpoint_callback(client, model_id, callback_snapshot, cycle)
     if key in model["checkpoints"]:
         saved = model["checkpoints"][key]
         if sha(directory / saved["path"]) != saved["sha256"]:
@@ -384,7 +390,7 @@ def save_mining(client, splits, model_id, model, directory, cycle, state):
     model["mining"][str(cycle)] = {"path": path.name, "sha256": sha(path), "hard_ids": hard}
 
 
-def run(args, client=None):
+def run(args, client=None, checkpoint_callback=None):
     evaluation, splits, inputs = load_inputs(args.dataset_file, args.dataset_sha256, args.curriculum_manifest)
     if args.operational_manifest:
         inputs["operations"] = verify_operations(args.operational_manifest)
@@ -421,7 +427,7 @@ def run(args, client=None):
                     raise ValueError("Archived checkpoint or snapshot changed before resume.")
             if "0" not in model["checkpoints"]:
                 model["current_identity"] = snapshot["identity"]
-                save_checkpoint(client, evaluation, model_id, model, directory, 0, state, args)
+                save_checkpoint(client, evaluation, model_id, model, directory, 0, state, args, checkpoint_callback)
                 write_json(manifest_path, state)
             completed = len(model["rounds"])
             if args.duration_seconds and "training_deadline_unix" not in model:
@@ -430,7 +436,7 @@ def run(args, client=None):
                 model["next_checkpoint_unix"] = model["duration_started_unix"] + args.checkpoint_interval_seconds
                 write_json(manifest_path, state)
             if model.get("checkpoint_due_cycle") is not None:
-                save_checkpoint(client, evaluation, model_id, model, directory, model["checkpoint_due_cycle"], state, args)
+                save_checkpoint(client, evaluation, model_id, model, directory, model["checkpoint_due_cycle"], state, args, checkpoint_callback)
                 model.pop("checkpoint_due_cycle")
                 model["next_checkpoint_unix"] = time.time() + args.checkpoint_interval_seconds
                 write_json(manifest_path, state)
@@ -438,7 +444,7 @@ def run(args, client=None):
                 save_mining(client, splits, model_id, model, directory, completed, state)
                 write_json(manifest_path, state)
             if completed and completed in config["checkpoints"]:
-                save_checkpoint(client, evaluation, model_id, model, directory, completed, state, args)
+                save_checkpoint(client, evaluation, model_id, model, directory, completed, state, args, checkpoint_callback)
                 write_json(manifest_path, state)
             for cycle in range(len(model["rounds"]) + 1, args.cycles + 1):
                 request = model.get("pending")
@@ -454,6 +460,8 @@ def run(args, client=None):
                         request["metadata"].update(
                             curriculum_sampler_policy=args.curriculum_sampler_policy,
                             curriculum_sampler_seed=str(args.curriculum_sampler_seed))
+                    if getattr(args, "gate_diagnostics", False):
+                        request["metadata"]["study_gate_diagnostics"] = "v1"
                     model["pending"] = request
                     write_json(manifest_path, state)
                 expected_cycle = len(model["rounds"]) + 1
@@ -515,7 +523,7 @@ def run(args, client=None):
                 if cycle in config["checkpoints"] or timed_checkpoint:
                     model["checkpoint_due_cycle"] = cycle
                     write_json(manifest_path, state)
-                    save_checkpoint(client, evaluation, model_id, model, directory, cycle, state, args)
+                    save_checkpoint(client, evaluation, model_id, model, directory, cycle, state, args, checkpoint_callback)
                     model.pop("checkpoint_due_cycle")
                     model["next_checkpoint_unix"] = time.time() + args.checkpoint_interval_seconds
                     write_json(manifest_path, state)
@@ -531,7 +539,7 @@ def run(args, client=None):
                 model["timed_training_seconds"] = elapsed
                 model["duration_finished_unix"] = time.time()
                 model["final_cycle"] = len(model["rounds"])
-                save_checkpoint(client, evaluation, model_id, model, directory, model["final_cycle"], state, args)
+                save_checkpoint(client, evaluation, model_id, model, directory, model["final_cycle"], state, args, checkpoint_callback)
                 write_json(manifest_path, state)
         state["status"] = "complete"
         state["finished_at"] = datetime.now(timezone.utc).isoformat()
@@ -571,6 +579,7 @@ def parser():
     result.add_argument("--bootstrap-iterations", type=int, default=2000)
     result.add_argument("--cache-wait-seconds", type=float, default=2.1)
     result.add_argument("--no-mining", action="store_true")
+    result.add_argument("--gate-diagnostics", action="store_true", help="Require attempt-linked durable numeric gate diagnostics")
     result.add_argument("--resume", action="store_true")
     result.add_argument("--operational-manifest", help="Frozen Docker image/settings record, verified before RPC training")
     return result

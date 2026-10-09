@@ -34,6 +34,7 @@ Commands in these guides retain their original working-directory assumptions. St
 | [Continual synthetic fuzzer results](continual-fuzzer-results-20261009.md) | Three-profile, 60-attempt Docker study; matched before/after metrics, replay coverage and observed recall/specificity tradeoffs |
 | [Six-hour synthetic fuzzer results](long-fuzzer-results-20261009.md) | Three sequential two-hour profile windows; aggregate endpoint trajectories, paired intervals and limitations |
 | [Curriculum improvement process and results](fuzzer-curriculum-improvement-process-20261009.md) | Audited semantic-only 63-cell comparison of curriculum, sampler, replay and offline representation; all seed outcomes, tradeoffs and amendment history |
+| [Accelerated normal-batch fuzzer study](accelerated-fuzzer-study-20261010.md) | Prospective twelve-trajectory semantic-only schedule, fixed budgets, gate diagnostics and iteration criteria; results pending |
 | [Research completion plan](Research-completion-plan.md) | Research questions, experiments, milestones and publication readiness |
 | [Research paper writing guide](Research-paper-writing-guide.md) | Methodology improvements, wording, evidence reporting and venue requirements |
 | [Current research evidence](../paper/research/claims.md) | Provisional claims, measured development results, protocol and professor review requests |

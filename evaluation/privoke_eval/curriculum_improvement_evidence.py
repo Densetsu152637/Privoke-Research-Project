@@ -116,7 +116,7 @@ def accepted_metadata(record, durable_metadata=None):
     return durable_metadata[key]
 
 
-def audit_allocations(database_path, rounds, lookup, sampler_policy, sampler_seed, replay_weight, durable_metadata=None):
+def audit_allocations(database_path, rounds, lookup, sampler_policy, sampler_seed, replay_weight, durable_metadata=None, *, new_count=192, replay_count=64):
     """Reconcile durable reservations and quotas, including rejected attempts."""
     with closing(sqlite3.connect(Path(database_path).resolve().as_uri() + "?mode=ro", uri=True)) as database:
         reservations = list(database.execute("SELECT identity, fingerprint, allocation FROM batches"))
@@ -135,8 +135,8 @@ def audit_allocations(database_path, rounds, lookup, sampler_policy, sampler_see
         request, response = record["request"], record["response"]
         allocation = keyed[(request["source_id"], request["model_id"], request["request_id"])]
         train, replay = allocation["train"], allocation["replay"]
-        if len(train) != 192 or len(replay) != 64 or len(set(train + replay)) != 256:
-            raise ValueError("Allocation violates fixed 192/64 unique-row budget.")
+        if len(train) != new_count or len(replay) != replay_count or len(set(train + replay)) != new_count + replay_count:
+            raise ValueError("Allocation violates fixed train/replay unique-row budget.")
         counts = Counter()
         for role, ids in (("train", train), ("replay", replay)):
             for row_id in ids:
@@ -147,9 +147,11 @@ def audit_allocations(database_path, rounds, lookup, sampler_policy, sampler_see
                 counts[(role, row["metadata"]["curriculum_role"], sensitive)] += 1
                 exposed[row_id] += 1
                 exposed_families.add(row["metadata"]["group_id"])
-        if any(counts[("train", role, sensitive)] != 32 for role in ("grammar", "teacher", "evolved") for sensitive in (False, True)):
+        if new_count % 6 or replay_count % 2:
+            raise ValueError("Audit requires balanced integral role/class quotas.")
+        if any(counts[("train", role, sensitive)] != new_count // 6 for role in ("grammar", "teacher", "evolved") for sensitive in (False, True)):
             raise ValueError("Training role/class quotas differ.")
-        if sum(n for (role, _, sensitive), n in counts.items() if role == "replay" and sensitive) != 32:
+        if sum(n for (role, _, sensitive), n in counts.items() if role == "replay" and sensitive) != replay_count // 2:
             raise ValueError("Replay class quota differs.")
         positions = allocation.get("positions", {})
         if len(positions) != 8:
@@ -160,17 +162,18 @@ def audit_allocations(database_path, rounds, lookup, sampler_policy, sampler_see
             role, sensitive_string = stratum.split(":")
             split = "replay" if role == "replay" else "train"
             sensitive = sensitive_string == "True"
+            required = replay_count // 2 if split == "replay" else new_count // 6
             pool = [row for row_split, row in lookup.values() if row_split == split and row["metadata"]["curriculum_role"] == role
                     and (row["classification"]["sensitivity"] != "S0" or bool(row["classification"]["categories"])) == sensitive]
             if cursor["pool_size"] != len(pool):
                 raise ValueError("Cursor pool size differs from frozen rows.")
-            if cursor["start"] != previous.get(stratum, 0) or cursor["stop"] <= cursor["start"] or cursor["pool_size"] < 32:
+            if cursor["start"] != previous.get(stratum, 0) or cursor["stop"] <= cursor["start"] or cursor["pool_size"] < required:
                 raise ValueError("Sampler cursor chain differs.")
             if cursor["start_epoch"] != cursor["start"] // cursor["pool_size"] or cursor["stop_epoch"] != cursor["stop"] // cursor["pool_size"]:
                 raise ValueError("Sampler epoch audit differs.")
             previous[stratum] = cursor["stop"]
             position, selected, order, last_epoch = cursor["start"], [], [], None
-            while len(selected) < 32:
+            while len(selected) < required:
                 epoch = position // len(pool)
                 if epoch != last_epoch:
                     families = defaultdict(list)
