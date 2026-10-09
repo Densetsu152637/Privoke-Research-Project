@@ -501,6 +501,14 @@ reported window duration is not GPU training time. An interrupted window is
 not evidence of uninterrupted training. The sustained results are pending and
 must not be inferred from the earlier 20-round study.
 
+After completion, run `python evaluation/audit-long-fuzzer-study.py --study-root
+evaluation/results/long_fuzzer_20261009`. This additional audit requires a
+six-hour protocol by default and independently recomputes paired bootstrap
+intervals with grouped count vectors and inclusive quantiles. It also checks
+archived round/response files, publication identity chains, settings and elapsed
+windows. It reads only study outputs. `--minimum-hours 0` is reserved for testing
+the auditor on the brief integration run; it cannot establish the six-hour goal.
+
 ## AdvPIIBench clean-data preflight
 
 The pinned AdvPIIBench Parquet was downloaded and its complete 4,258,476 bytes verified against the recorded LFS SHA-256. A count-only structural scan covered 104,728 rows, found unique UIDs throughout, and recorded 24,958 components and 14,496 few-shot exclusions. The local protected-key union was also built from the opaque prior selection, reference/bootstrap rows, and existing Nemotron/Meddies partitions. These checks establish source integrity and structural exclusion coverage only: native labels have not received the required blinded whole-prompt review, and no new train/validation/test partitions, model fit, or score have been produced. See the [dataset analysis](../docs/PII-dataset-analysis.md) and [evidence ledger](../paper/research/data-expansion-ledger.md); the frozen protocol and rubric remain the authority for any later access or fitting.
