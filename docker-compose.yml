@@ -84,6 +84,8 @@ services:
       FUZZER_REQUEST_MAX_ATTEMPTS: 5
       FUZZER_REQUEST_INTERVAL_SECONDS: ${FUZZER_REQUEST_INTERVAL_SECONDS:-3600}
       FUZZER_REQUEST_SEED: ${FUZZER_REQUEST_SEED:-1337}
+      FUZZER_CURRICULUM_SAMPLER_POLICY: ${FUZZER_CURRICULUM_SAMPLER_POLICY:-deterministic_v1}
+      FUZZER_CURRICULUM_SAMPLER_SEED: ${FUZZER_CURRICULUM_SAMPLER_SEED:-0}
       MODEL_ID: privoke-balanced
     volumes:
       - param-update-data:/data
@@ -207,6 +209,7 @@ services:
       FUZZER_ID: server-fuzzer
       PRIVOKE_FUZZER_DUMP_DIR: /workspace/dumps/privoke-fuzzer
       FUZZ_MAX_CONCURRENT_CYCLES: 1
+      FUZZ_TRAINING_REPLAY_WEIGHT: ${FUZZ_TRAINING_REPLAY_WEIGHT:-0.35}
     volumes:
       - fuzzer-dumps:/workspace/dumps/privoke-fuzzer
     healthcheck:

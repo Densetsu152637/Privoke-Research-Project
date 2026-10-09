@@ -44,6 +44,29 @@ def accepted_response():
 
 
 class AutomaticFuzzerRequestTests(unittest.TestCase):
+    def test_explicit_sampler_seed_stays_stable_across_periodic_cycles(self):
+        config = configuration(curriculum_sampler_policy="seeded_family_v1", curriculum_sampler_seed=42)
+        config.validate()
+        with patch("fuzzer_requests.request_fuzzer_training", side_effect=(accepted_response(), StopLoop())) as train, patch("fuzzer_requests.time.sleep"):
+            with self.assertRaises(StopLoop):
+                request_fuzzer_loop(config)
+        self.assertEqual([call.args[0].curriculum_sampler_seed for call in train.call_args_list], [42, 42])
+        self.assertEqual([call.args[0].seed for call in train.call_args_list], [1337, 1338])
+
+    def test_sampler_environment_validation_and_rpc_metadata(self):
+        with patch.dict(os.environ, {"FUZZER_CURRICULUM_SAMPLER_POLICY": "seeded_family_v1", "FUZZER_CURRICULUM_SAMPLER_SEED": "44"}, clear=True):
+            config = FuzzerRequestConfig.from_env()
+        for candidate in (configuration(curriculum_sampler_policy="bad"), configuration(curriculum_sampler_seed=42),
+                          configuration(curriculum_sampler_policy="seeded_family_v1", curriculum_sampler_seed=-1),
+                          configuration(curriculum_sampler_policy="seeded_family_v1", curriculum_sampler_seed=2**32)):
+            with self.assertRaises(ValueError):
+                candidate.validate()
+        for candidate, metadata in ((configuration(), {"initiator": "param-update-service"}),
+                                    (config, {"initiator": "param-update-service", "curriculum_sampler_policy": "seeded_family_v1", "curriculum_sampler_seed": "44"})):
+            with patch("fuzzer_requests.grpc.insecure_channel"), patch("fuzzer_requests.parameters_pb2_grpc.FuzzerServiceStub") as stub:
+                request_fuzzer_training(candidate, "cycle")
+            self.assertEqual(dict(stub.return_value.RunTrainingCycle.call_args.args[0].metadata), metadata)
+
     def test_default_environment_starts_periodic_training(self):
         with patch.dict(os.environ, {}, clear=True):
             config = FuzzerRequestConfig.from_env()

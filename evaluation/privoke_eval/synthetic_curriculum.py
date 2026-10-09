@@ -14,6 +14,7 @@ from privoke_contracts.classification import Category, Sensitivity, Visibility
 from privoke_model.training_data import training_text_key
 
 VERSION = "contextual_fact_grammar_v1"
+REVISED_VERSION = "contextual_situations_v2"
 LABEL_STATUS = "assistant_provisional"
 # Efficient profile: models/generate_baseline.py uses 64 tokens including CLS.
 MAX_CONTENT_TOKENS = 63
@@ -55,6 +56,8 @@ def validate_resource(resource: Mapping) -> None:
         raise ValueError("Teacher resource must be an object.")
     if resource.get("schema_version") != 1 or resource.get("label_status") != LABEL_STATUS:
         raise ValueError("Teacher resource requires schema 1 and assistant_provisional labels.")
+    if resource.get("generator_version", VERSION) not in (VERSION, REVISED_VERSION):
+        raise ValueError("Unknown curriculum generator version.")
     if not resource.get("origin") or not resource.get("teacher_model"):
         raise ValueError("Teacher resource needs origin and teacher_model provenance.")
     families = resource.get("families")
@@ -72,14 +75,20 @@ def validate_resource(resource: Mapping) -> None:
         slots = family.get("values")
         if not isinstance(slots, list) or len(slots) < 4 or any(not isinstance(v, str) or not v for v in slots):
             raise ValueError("Families require four explicit fact values.")
-        for field in ("private", "clean", "teacher_private", "teacher_clean"):
+        fields_to_validate = ("private", "clean", "teacher_private", "teacher_clean")
+        if resource.get("generator_version") == REVISED_VERSION:
+            fields_to_validate += ("evolved_private", "evolved_clean")
+            if not family.get("contrast") or not family.get("control_fact"):
+                raise ValueError("Revised families require a contrast and explicit control fact.")
+        for field in fields_to_validate:
             template = family.get(field)
             if not isinstance(template, str) or not template.strip():
                 raise ValueError("Missing teacher/fact rendering.")
             fields = [name for _, name, spec, conversion in Formatter().parse(template) if name is not None]
             if fields != ["value"] or any(spec or conversion for _, name, spec, conversion in Formatter().parse(template) if name is not None):
                 raise ValueError("Each rendering must preserve exactly one plain value slot.")
-            if field.endswith("clean") and "fiction" not in template.lower() and "blank" not in template.lower() and "public" not in template.lower():
+            if (resource.get("generator_version") != REVISED_VERSION and field.endswith("clean")
+                    and "fiction" not in template.lower() and "blank" not in template.lower() and "public" not in template.lower()):
                 raise ValueError("Clean renderings must state the control's decisive fact.")
     heldout = resource.get("heldout")
     replay = resource.get("replay")
@@ -95,7 +104,7 @@ def _row(text: str, target: dict, group: str, role: str, parent: str,
          facts: dict, provenance: Mapping, seed: int, variant: int) -> dict:
     return {"id": f"{group}/{role}/{variant}", "text": text, "classification": target,
             "metadata": {"group_id": group, "family_id": group, "parent_id": parent,
-                         "generator": VERSION, "label_status": LABEL_STATUS,
+                         "generator": provenance.get("generator_version", VERSION), "label_status": LABEL_STATUS,
                          "curriculum_role": role, "seed": str(seed),
                          "scenario_facts": canonical_json(facts),
                          "teacher_origin": provenance["origin"],
@@ -112,6 +121,10 @@ def build_curriculum(resource: Mapping, seed: int = 9102026) -> dict[str, list[d
     """
     validate_resource(resource)
     pools = {"train": [], "heldout": [], "replay": []}
+    anchor_resource = resource
+    if resource.get("generator_version") == REVISED_VERSION:
+        anchor_resource = {**resource, "generator_version": VERSION,
+                           "origin": "Codex assistant authored offline fact-preserving teacher templates"}
     for family in resource["families"]:
         group = f"synthetic/train/{family['family_id']}"
         for value_index, value in enumerate(family["values"][:4]):
@@ -124,13 +137,17 @@ def build_curriculum(resource: Mapping, seed: int = 9102026) -> dict[str, list[d
                          "real_subject_asserted": is_private, "fact_value": value,
                          "mentioned_categories": family["categories"],
                          "subject_relationship": family.get("subject_relationship", "self"),
-                         "control": "none" if is_private else "fictional_or_generic"}
+                         "control": "none" if is_private else family.get("control_fact", "fictional_or_generic")}
+                if resource.get("generator_version") == REVISED_VERSION:
+                    facts["contrast"] = family["contrast"]
                 variant = value_index * 2 + int(is_private)
                 parent = f"{group}/grammar/{variant}"
                 for role in ROLES:
                     template = family[key] if role == "grammar" else family[f"teacher_{key}"]
                     text = template.format(value=value)
-                    if role == "evolved":
+                    if role == "evolved" and resource.get("generator_version") == REVISED_VERSION:
+                        text = family[f"evolved_{key}"].format(value=value)
+                    elif role == "evolved":
                         # Negation refers to hypothetical status, never negates a diagnosis.
                         prefixes = ("Chat note: ", "Document excerpt: ", "Email summary: ", "Message: ")
                         suffix = " This is not hypothetical." if is_private else " No real person is described."
@@ -142,7 +159,7 @@ def build_curriculum(resource: Mapping, seed: int = 9102026) -> dict[str, list[d
         group = f"synthetic/heldout/guard_{index:02d}"
         target = classification(item["sensitivity"], item["visibility"], item["categories"])
         pools["heldout"].append(_row(item["text"], target, group, "grammar", "",
-                                    {"domain": item["domain"], "guard_family": True}, resource, seed, 0))
+                                    {"domain": item["domain"], "guard_family": True}, anchor_resource, seed, 0))
     for index, item in enumerate(resource["replay"]):
         group = f"synthetic/replay/anchor_{index:02d}"
         target = classification(item["sensitivity"], item["visibility"], item["categories"])
@@ -151,7 +168,7 @@ def build_curriculum(resource: Mapping, seed: int = 9102026) -> dict[str, list[d
                                        "" if variant == 0 else f"{group}/replay/0",
                                        {"domain": item["domain"], "historical_anchor": True,
                                         "source": "assistant_review_of_existing_bootstrap_semantics"},
-                                       resource, seed, variant))
+                                       anchor_resource, seed, variant))
     rng = random.Random(seed)
     for rows in pools.values():
         rng.shuffle(rows)
@@ -222,6 +239,55 @@ def verify_exclusions(pools: Mapping, index: Mapping, development_rows: Sequence
                 raise ValueError("Synthetic row overlaps protected keys or pinned development.")
 
 
+def build_assessment(resource: Mapping, curricula: Sequence[Mapping] = ()) -> list[dict]:
+    """Validate an authored, frozen endpoint separately from gate and mining pools.
+
+    Callers pass both versions' pools to check exact family/text/ID separation.
+    Semantic separation and provisional targets additionally require case review.
+    """
+    if (resource.get("schema_version") != 1 or resource.get("label_status") != LABEL_STATUS
+            or not resource.get("assessment_id") or not resource.get("origin")):
+        raise ValueError("Assessment requires explicit provisional provenance and identity.")
+    rows = resource.get("rows")
+    if not isinstance(rows, list) or len(rows) < 64:
+        raise ValueError("Assessment requires at least 64 authored rows.")
+    groups, ids, texts = {}, set(), set()
+    for row in rows:
+        target, meta = row.get("classification", {}), row.get("metadata", {})
+        validated = classification(target.get("sensitivity"), target.get("visibility"), target.get("categories"))
+        sensitive = validated["sensitivity"] != "S0" or bool(validated["categories"])
+        group, row_id, text = row.get("group_id"), row.get("id"), row.get("text")
+        if (not isinstance(group, str) or not group or meta.get("group_id") != group
+                or meta.get("family_id") != group or not meta.get("contrast")
+                or meta.get("curriculum_role") != "assessment" or meta.get("label_status") != LABEL_STATUS
+                or not meta.get("generator") or not meta.get("teacher_origin") or not meta.get("teacher_model")
+                or not isinstance(row_id, str) or not row_id or not isinstance(text, str) or not text.strip()):
+            raise ValueError("Assessment requires explicit families, roles, labels and text.")
+        if (row.get("required_sensitive") is not sensitive
+                or row.get("context_truth_eligible") is not True or row.get("action_accuracy_eligible") is not True):
+            raise ValueError("Assessment contextual eligibility and truth must match explicit targets.")
+        expected_action = "BLOCK" if target["sensitivity"] == "S3" else "WARN" if sensitive else "ALLOW"
+        if row.get("allowed_actions") != [expected_action]:
+            raise ValueError("Assessment allowed actions must match provisional policy targets.")
+        if len(text.split()) > MAX_WORDS or len(TOKEN_PATTERN.findall(training_text_key(text))) > MAX_CONTENT_TOKENS:
+            raise ValueError("Assessment decisive facts exceed serving token capacity.")
+        key = training_text_key(text)
+        if row_id in ids or key in texts:
+            raise ValueError("Assessment contains duplicate ID or normalized text.")
+        ids.add(row_id)
+        texts.add(key)
+        groups.setdefault(group, []).append(sensitive)
+    if len(groups) < 32 or any(sorted(labels) != [False, True] for labels in groups.values()):
+        raise ValueError("Assessment requires at least 32 matched control/disclosure families.")
+    for curriculum in curricula:
+        for pool in curriculum.values():
+            for row in pool:
+                if (row["id"] in ids or row["metadata"]["group_id"] in groups
+                        or training_text_key(row["text"]) in texts):
+                    raise ValueError("Assessment overlaps curriculum IDs, families or normalized text.")
+    return rows
+
+
 def reject_final_path(path: Path) -> None:
     """Reject final-named inputs before opening files; never discover corpus paths."""
     if any(re.search(r"(^|[^a-z])final([^a-z]|$)", part.lower()) for part in path.resolve().parts):
@@ -230,7 +296,7 @@ def reject_final_path(path: Path) -> None:
 
 def prepare(output: Path, teacher_templates: Path, exclusion_index: Path,
             evaluation_file: Path | None = None, evaluation_sha256: str | None = None,
-            seed: int = 9102026) -> dict:
+            seed: int = 9102026, assessment_resource: Path | None = None) -> dict:
     """Write a fresh immutable pool package after provenance and overlap verification."""
     for path in (output, teacher_templates, exclusion_index):
         reject_final_path(path)
@@ -239,6 +305,11 @@ def prepare(output: Path, teacher_templates: Path, exclusion_index: Path,
     teacher_raw, exclusion_raw = teacher_templates.read_bytes(), exclusion_index.read_bytes()
     resource = json.loads(teacher_raw)
     pools = build_curriculum(resource, seed)
+    assessment_raw, assessment_rows = None, []
+    if assessment_resource is not None:
+        reject_final_path(assessment_resource)
+        assessment_raw = assessment_resource.read_bytes()
+        assessment_rows = build_assessment(json.loads(assessment_raw), [pools])
     development_rows = []
     development_hash = None
     if evaluation_file is not None:
@@ -255,9 +326,12 @@ def prepare(output: Path, teacher_templates: Path, exclusion_index: Path,
     elif evaluation_sha256:
         raise ValueError("Development digest requires its evaluation file.")
     verify_exclusions(pools, json.loads(exclusion_raw), development_rows)
+    if assessment_rows:
+        verify_exclusions({"assessment": assessment_rows}, json.loads(exclusion_raw), development_rows)
     payloads = {name: ("\n".join(canonical_json(row) for row in rows) + "\n").encode()
                 for name, rows in pools.items()}
-    curriculum_id = sha256(canonical_json({"generator": VERSION, "teacher": sha256(teacher_raw),
+    version = resource.get("generator_version", VERSION)
+    curriculum_id = sha256(canonical_json({"generator": version, "teacher": sha256(teacher_raw),
                                            "exclusion": sha256(exclusion_raw), "seed": seed,
                                            "pools": {name: sha256(raw) for name, raw in payloads.items()}}).encode())
     splits = {}
@@ -266,7 +340,7 @@ def prepare(output: Path, teacher_templates: Path, exclusion_index: Path,
         splits[name] = {"path": f"{name}.jsonl", "sha256": sha256(payloads[name]), "count": len(rows),
                         "family_ids": sorted({r["metadata"]["group_id"] for r in rows}),
                         "counts_by_role_class": {f"{role}/{label}": count for (role, label), count in sorted(counts.items())}}
-    manifest = {"schema_version": 1, "curriculum_id": curriculum_id, "generator": VERSION,
+    manifest = {"schema_version": 1, "curriculum_id": curriculum_id, "generator": version,
                 "seed": seed, "splits": splits, "label_status": LABEL_STATUS,
                 "teacher_origin": resource["origin"], "teacher_model": resource["teacher_model"],
                 "teacher_templates_sha256": sha256(teacher_raw), "exclusion_index_sha256": sha256(exclusion_raw),
@@ -278,8 +352,17 @@ def prepare(output: Path, teacher_templates: Path, exclusion_index: Path,
                                 "Offline authored teacher templates; no live external teacher API or invented model identity.",
                                 "Lexical descendants are correlated siblings; family counts are distinct from row counts.",
                                 "Fixed guard is a publication check, not generalization ground truth."]}
+    assessment_payload = None
+    if assessment_rows:
+        assessment_payload = ("\n".join(canonical_json(row) for row in assessment_rows) + "\n").encode()
+        manifest["assessment"] = {"path": "assessment.jsonl", "sha256": sha256(assessment_payload),
+                                  "resource_sha256": sha256(assessment_raw), "count": len(assessment_rows),
+                                  "family_count": len({row["group_id"] for row in assessment_rows}),
+                                  "use": "separate_contextual_endpoint_never_gate_or_mining"}
     output.mkdir(parents=True, exist_ok=False)
     for name, payload in payloads.items():
         (output / f"{name}.jsonl").write_bytes(payload)
+    if assessment_payload is not None:
+        (output / "assessment.jsonl").write_bytes(assessment_payload)
     (output / "manifest.json").write_text(canonical_json(manifest) + "\n", encoding="utf-8")
     return manifest

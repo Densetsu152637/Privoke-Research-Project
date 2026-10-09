@@ -435,10 +435,63 @@ question and frozen protocol.
 
 ## Continual synthetic fuzzer study
 
+The prospective curriculum comparison is controlled by
+`run-curriculum-improvement-study.py` with explicit `prepare`, `execute`, and
+`audit` phases. Its specification and provisional-label limitations are in
+[`docs/fuzzer-curriculum-improvement-process-20261009.md`](../docs/fuzzer-curriculum-improvement-process-20261009.md).
+The matrix contains 45 fresh live cells (900 attempted cycles) and a separate
+18-cell offline matched-Adam mechanics comparison. It never promotes a model.
+Preparation requires committed computation sources, reviewed resource hashes,
+and an images JSON mapping the five serving service names plus
+`offline-training` to full immutable `sha256:` image IDs. Source-only service
+overlays and the CPU training target are in `Dockerfile.curriculum-improvement`.
+The existing service parent tags must be inspected and their resolved IDs
+retained in the build logs; ordinary service images are not overwritten.
+
+```powershell
+python evaluation/run-curriculum-improvement-study.py prepare --study-id privoke-improve-UNIQUE --output evaluation/results/curriculum_improvement_20261009_v1 --images evaluation/results/curriculum_improvement_20261009_core/images.json
+python evaluation/run-curriculum-improvement-study.py execute --output evaluation/results/curriculum_improvement_20261009_v1 --cell efficient-a-42
+python evaluation/run-curriculum-improvement-study.py execute --output evaluation/results/curriculum_improvement_20261009_v1
+python evaluation/run-curriculum-improvement-study.py audit --output evaluation/results/curriculum_improvement_20261009_v1
+```
+
+Replace `UNIQUE` with a unique lowercase identifier. The first full cell provides
+an elapsed-cost benchmark. Every cell owns a unique Compose project and five
+named volumes; cells run sequentially on ports 50051–50055. An interrupted
+`execute` resumes saved state, retained storage and the controller's exact pending
+request ID. It never resets a model or retries a known rejection as a new attempt.
+Interrupted offline fits require an audited repair; partial output is preserved.
+Services stop after each cell. Preserve task volumes until all raw archives and
+durable receipts pass audit; subsequent cleanup must use only the recorded task
+project names. The unrelated builder and existing projects remain outside scope.
+`summary.json` and `audit.json` contain aggregate evidence; raw checkpoints,
+predictions, parameters, IDs and databases remain in ignored results storage.
+
+For ordinary periodic training, the updater accepts
+`FUZZER_CURRICULUM_SAMPLER_POLICY=seeded_family_v1` and a stable unsigned
+`FUZZER_CURRICULUM_SAMPLER_SEED` (for example 42). Base Compose forwards both
+variables and `FUZZ_TRAINING_REPLAY_WEIGHT` to their consuming services. Defaults
+retain `deterministic_v1`, seed 0, and replay weight 0.35. The stable sampler seed
+does not increment with the periodic trainer seed. Seeded sampling also requires
+the existing prepared curriculum manifest/state configuration and a sufficient
+prompt budget; this configuration does not change the ordinary model or gate.
+
 `prepare-synthetic-curriculum.py` creates fresh, deterministic grammar, offline
 teacher, and evolved pools. Its required opaque exclusion index is checked before
 output; optional development examples require their exact SHA-256. All contextual
 targets are assistant provisional, and lexical siblings share permanent families.
+
+Use `--teacher-templates evaluation/datasets/synthetic-teacher-templates-v2.json`
+for the versioned revised situation resource at the original 672-row budget.
+Optional `--assessment-resource evaluation/datasets/contextual-assessment-20261009.json`
+freezes a separate 64-row contextual endpoint in `manifest.assessment`, outside
+the training, replay and gate splits. It must also be checked against both
+curriculum versions before matrix execution. The controller accepts
+`--curriculum-sampler-policy seeded_family_v1 --curriculum-sampler-seed 42`;
+the stable allocation seed is distinct from its changing trainer cycle seed.
+The original deterministic sampler remains the default. See the
+[improvement protocol](../docs/fuzzer-curriculum-improvement-process-20261009.md)
+for the controlled matrix and limits on causal and generalization claims.
 
 `compose.continual-fuzzer-study.yml` adds isolated storage and manual training to
 the base plus `compose.tests.yml`. Set a unique `CONTINUAL_STUDY_ID`, the absolute

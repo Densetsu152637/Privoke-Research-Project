@@ -179,7 +179,9 @@ Set `FUZZ_CURRICULUM_MANIFEST_PATH`, `FUZZ_CURRICULUM_STATE_PATH` and optionally
 with globally distinct IDs, canonical text and parent families. The fixed
 publication guard contains exactly 16 rows, and the replay pool at least 64.
 Curriculum batches balance roles and clean/sensitive targets. Total requested
-prompt count includes replay, which uses the trainer's existing 0.35 weight.
+prompt count includes replay. `FUZZ_TRAINING_REPLAY_WEIGHT` sets its relative
+example weight (default 0.35; finite values in (0,1]), separately from the row
+fraction. Effective trainer settings are included in receipt fingerprints.
 
 SQLite reservations retain batch IDs and per-model cursors across restarts;
 retrying the same request reuses its batch, and a new request advances the cursor
@@ -187,6 +189,22 @@ even if its candidate was rejected. Receipt fingerprints include the manifest
 digest. `curriculum_stage` selects `all`, `grammar`, `teacher`, or `evolved`;
 `curriculum_hard_ids` is a JSON array of up to eight eligible TRAIN IDs. Guard and
 replay IDs cannot be mined. Publication quality checks remain mandatory.
+
+The default `curriculum_sampler_policy=deterministic_v1` preserves existing
+allocation and requires `curriculum_sampler_seed=0`. Set request metadata
+`curriculum_sampler_policy=seeded_family_v1` and `curriculum_sampler_seed` to an
+unsigned 32-bit integer for seeded family/descendant permutations per epoch.
+Keep this sampler seed stable across cycles; the trainer seed may change.
+Seeded cursors have separate policy/seed namespaces and survive retries and
+restart. Audits record sampler settings, positions/epochs, replay weight and
+train/replay ID digests. Role/class quotas and within-batch uniqueness are retained.
+
+The versioned resource `evaluation/datasets/synthetic-teacher-templates-v2.json`
+uses complete authored evolved renderings and contextual contrasts at the same
+row budget. Optional preparation `--assessment-resource` writes a separate
+contextual endpoint outside all training, replay and publication-guard splits.
+See the [improvement protocol](fuzzer-curriculum-improvement-process-20261009.md)
+for exposure distributions, provisional-label limits and controlled comparisons.
 
 Automatic augmentation retains labels only for conservative transformations;
 redaction and phone replacement are available explicitly, but are no longer
@@ -207,3 +225,16 @@ Subagents working here should:
 - preserve the runtime RPC boundary for all detector execution.
 
 The default dataset mixes challenging compound templates with independently labeled calibration phrases also used by model bootstrap training. The held-out split is disjoint within each adaptive cycle; this calibration overlap cannot establish generalization to unseen data.
+
+## Periodic sampler configuration
+
+To opt an existing curriculum deployment into seeded allocation, set the updater's
+`FUZZER_CURRICULUM_SAMPLER_POLICY=seeded_family_v1` and
+`FUZZER_CURRICULUM_SAMPLER_SEED=42` through base Compose or the service environment.
+The sampler seed stays fixed across periodic cycles and retries, while
+`FUZZER_REQUEST_SEED` continues to advance for new trainer cycles. The defaults
+remain `deterministic_v1` with sampler seed 0; a nonzero deterministic seed is
+rejected. Explicit seeded metadata is included in the durable request commitment.
+`FUZZ_TRAINING_REPLAY_WEIGHT` is forwarded by base Compose and defaults to 0.35.
+These controls require the existing curriculum manifest and durable state paths;
+they do not install a curriculum or promote a model automatically.

@@ -92,6 +92,8 @@ Environment variables:
 - `FUZZER_REQUEST_RETRY_SECONDS`, default `2.0`
 - `FUZZER_REQUEST_MAX_ATTEMPTS`, default `3`
 - `FUZZER_REQUEST_SEED`, default `1337`, unsigned 32-bit initial seed
+- `FUZZER_CURRICULUM_SAMPLER_POLICY`, default `deterministic_v1`; explicitly opt into `seeded_family_v1` for a configured curriculum
+- `FUZZER_CURRICULUM_SAMPLER_SEED`, default `0`, unsigned 32-bit stable allocation seed; deterministic policy requires zero
 
 When enabled, it sends:
 

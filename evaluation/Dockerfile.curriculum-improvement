@@ -1,0 +1,18 @@
+# Source-only overlays preserve existing service dependencies. Immutable parents
+# are supplied by the build command and recorded before protocol freeze.
+ARG FUZZER_IMAGE
+ARG UPDATER_IMAGE
+FROM ${FUZZER_IMAGE} AS curriculum-fuzzer
+COPY services/privoke-fuzzer/src /workspace/services/privoke-fuzzer/src
+COPY evaluation/privoke_eval/synthetic_curriculum.py /workspace/evaluation/privoke_eval/synthetic_curriculum.py
+COPY shared/python /workspace/shared/python
+
+FROM ${UPDATER_IMAGE} AS curriculum-updater
+COPY services/param-update-service/app /workspace/services/param-update-service/app
+COPY shared/python /workspace/shared/python
+
+# Explicit CPU mechanics image. No datasets, final input, or model publication.
+FROM python:3.11-slim-bookworm AS offline-training
+COPY evaluation/requirements-training.txt /tmp/requirements-training.txt
+RUN pip install --no-cache-dir --only-binary=:all: -r /tmp/requirements-training.txt
+ENV PYTHONDONTWRITEBYTECODE=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1

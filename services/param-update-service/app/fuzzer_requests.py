@@ -32,6 +32,8 @@ class FuzzerRequestConfig:
     retry_seconds: float
     max_attempts: int
     seed: int
+    curriculum_sampler_policy: str = "deterministic_v1"
+    curriculum_sampler_seed: int = 0
 
     @classmethod
     def from_env(cls) -> FuzzerRequestConfig:
@@ -53,6 +55,8 @@ class FuzzerRequestConfig:
             retry_seconds=env_float("FUZZER_REQUEST_RETRY_SECONDS", 2.0),
             max_attempts=env_int("FUZZER_REQUEST_MAX_ATTEMPTS", 3),
             seed=env_int("FUZZER_REQUEST_SEED", 1337),
+            curriculum_sampler_policy=env_string("FUZZER_CURRICULUM_SAMPLER_POLICY", "deterministic_v1", strip=True),
+            curriculum_sampler_seed=env_int("FUZZER_CURRICULUM_SAMPLER_SEED", 0),
         )
         config.validate()
         return config
@@ -67,6 +71,12 @@ class FuzzerRequestConfig:
             raise ValueError("FUZZER_REQUEST_MAX_ATTEMPTS must be positive.")
         if not 0 <= self.seed <= 0xFFFFFFFF:
             raise ValueError("FUZZER_REQUEST_SEED must fit an unsigned 32-bit integer.")
+        if self.curriculum_sampler_policy not in {"deterministic_v1", "seeded_family_v1"}:
+            raise ValueError("Unknown FUZZER_CURRICULUM_SAMPLER_POLICY.")
+        if not 0 <= self.curriculum_sampler_seed <= 0xFFFFFFFF:
+            raise ValueError("FUZZER_CURRICULUM_SAMPLER_SEED must fit an unsigned 32-bit integer.")
+        if self.curriculum_sampler_policy == "deterministic_v1" and self.curriculum_sampler_seed:
+            raise ValueError("deterministic_v1 requires FUZZER_CURRICULUM_SAMPLER_SEED=0.")
         for name, value, allow_zero in (
             ("FUZZER_REQUEST_TIMEOUT_SECONDS", self.timeout_seconds, False),
             ("FUZZER_REQUEST_INTERVAL_SECONDS", self.interval_seconds, True),
@@ -134,6 +144,10 @@ def request_fuzzer_training(
     config: FuzzerRequestConfig,
     training_request_id: str | None = None,
 ):
+    metadata = {"initiator": "param-update-service"}
+    if config.curriculum_sampler_policy != "deterministic_v1":
+        metadata.update(curriculum_sampler_policy=config.curriculum_sampler_policy,
+                        curriculum_sampler_seed=str(config.curriculum_sampler_seed))
     with grpc.insecure_channel(config.target) as channel:
         client = parameters_pb2_grpc.FuzzerServiceStub(channel)
         return client.RunTrainingCycle(
@@ -143,7 +157,7 @@ def request_fuzzer_training(
                 model_id=config.model_id,
                 prompt_count=config.prompt_count,
                 seed=config.seed,
-                metadata={"initiator": "param-update-service"},
+                metadata=metadata,
             ),
             timeout=config.timeout_seconds,
         )

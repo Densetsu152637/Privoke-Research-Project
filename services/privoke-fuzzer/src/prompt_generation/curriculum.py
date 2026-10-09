@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import random
 import sqlite3
 from dataclasses import dataclass
 from contextlib import closing
@@ -19,6 +21,7 @@ from privoke_model.training_data import training_text_key
 from training.io import training_example_from_mapping
 
 ROLES = ("grammar", "teacher", "evolved")
+SAMPLER_POLICIES = ("deterministic_v1", "seeded_family_v1")
 CATEGORIES = {"HEALTH", "POLITICS", "RELIGION", "CRIMINAL", "FINANCIAL",
               "SEXUAL", "CHILD", "LOCATION", "IDENTITY", "THIRD_PARTY"}
 
@@ -123,10 +126,48 @@ def _family_order(rows: list[dict]) -> list[dict]:
             for family in families.values() if index < len(family)]
 
 
+def sampler_settings(request) -> dict:
+    """Keep the sampler seed stable while the trainer's cycle seed changes."""
+    policy = request.metadata.get("curriculum_sampler_policy", "deterministic_v1")
+    raw_seed = request.metadata.get("curriculum_sampler_seed", "0")
+    if policy not in SAMPLER_POLICIES:
+        raise ValueError("Unknown curriculum_sampler_policy.")
+    if not isinstance(raw_seed, str) or not raw_seed.isascii() or not raw_seed.isdecimal():
+        raise ValueError("curriculum_sampler_seed must be an unsigned 32-bit integer.")
+    seed = int(raw_seed)
+    if seed >= 2**32:
+        raise ValueError("curriculum_sampler_seed must be an unsigned 32-bit integer.")
+    if policy == "deterministic_v1" and seed:
+        raise ValueError("deterministic_v1 requires curriculum_sampler_seed=0.")
+    return {"policy": policy, "seed": seed}
+
+
+def _epoch_order(pool, sampler, stratum, epoch):
+    if sampler["policy"] == "deterministic_v1":
+        return pool
+    # Stable SHA namespace avoids process-randomized Python hashes. Each round
+    # visits every family before its next descendant; epochs contain every row.
+    rng = random.Random(_digest([sampler["seed"], stratum, epoch]))
+    families = {}
+    for row in sorted(pool, key=lambda item: item["id"]):
+        families.setdefault(row["metadata"]["group_id"], []).append(row)
+    groups = sorted(families)
+    rng.shuffle(groups)
+    for rows in families.values():
+        rng.shuffle(rows)
+    return [families[group][index] for index in range(max(map(len, families.values())))
+            for group in groups if index < len(families[group])]
+
+
 def reserve_batch(curriculum: Curriculum, state_path: str, request,
                   count: int, replay_fraction: float = 0.25, *,
                   fingerprint: str | None = None, model_id: str | None = None) -> CurriculumBatch:
     """Reserve a balanced batch once; persist IDs rather than prompt text."""
+    sampler = sampler_settings(request)
+    if (isinstance(count, bool) or not isinstance(count, int) or count < 1
+            or isinstance(replay_fraction, bool) or not isinstance(replay_fraction, (float, int))
+            or not math.isfinite(replay_fraction) or not 0 < replay_fraction < 1):
+        raise ValueError("Batch count must be positive and replay_fraction finite between zero and one.")
     stage = request.metadata.get("curriculum_stage", "all")
     if stage not in (*ROLES, "all"):
         raise ValueError("curriculum_stage must be all, grammar, teacher or evolved.")
@@ -144,7 +185,13 @@ def reserve_batch(curriculum: Curriculum, state_path: str, request,
     new_count = count - replay_count
     if replay_count < 2 or new_count < max(2, len(hard_ids)):
         raise ValueError("Curriculum batches must include both new and replay classes.")
-    fingerprint = fingerprint or request_fingerprint(request, curriculum, {"count": count, "replay_fraction": replay_fraction})
+    if sampler["policy"] == "deterministic_v1":
+        fingerprint = fingerprint or request_fingerprint(request, curriculum, {
+            "count": count, "replay_fraction": replay_fraction})
+    else:
+        fingerprint = request_fingerprint(request, curriculum, {
+            "caller_fingerprint": fingerprint, "count": count,
+            "replay_fraction": replay_fraction, "sampler": sampler})
     model_id = model_id or request.model_id
     identity = json.dumps([request.source_id, model_id, request.request_id])
     state = Path(state_path)
@@ -160,6 +207,7 @@ def reserve_batch(curriculum: Curriculum, state_path: str, request,
             allocation = json.loads(prior[1])
         else:
             chosen = list(hard_ids)
+            positions = {}
             roles = ROLES if stage == "all" else (stage,)
             strata = [(role, sensitive) for role in roles for sensitive in (False, True)]
             # Balance both labels and roles, including any hard examples already selected.
@@ -173,16 +221,18 @@ def reserve_batch(curriculum: Curriculum, state_path: str, request,
                 required = targets[(role, sensitive)] - sum(
                     eligible[item]["metadata"]["curriculum_role"] == role
                     and _sensitive(eligible[item]) == sensitive for item in chosen)
-                if required < 0 or len(pool) < targets[(role, sensitive)]:
+                if required < 0 or not pool or len(pool) < targets[(role, sensitive)]:
                     raise ValueError("Curriculum pool or hard examples cannot satisfy balanced quotas.")
-                _take(database, curriculum, model_id, f"{role}:{sensitive}", pool, required, chosen)
+                positions[f"{role}:{sensitive}"] = _take(
+                    database, curriculum, model_id, f"{role}:{sensitive}", pool, required, chosen, sampler)
             replay = []
             for sensitive, required in ((False, replay_count // 2), (True, replay_count - replay_count // 2)):
                 pool = _family_order([row for row in curriculum.splits["replay"] if _sensitive(row) == sensitive])
                 if len(pool) < required:
                     raise ValueError("Replay pool cannot satisfy this batch size.")
-                _take(database, curriculum, model_id, f"replay:{sensitive}", pool, required, replay)
-            allocation = {"train": chosen, "replay": replay}
+                positions[f"replay:{sensitive}"] = _take(
+                    database, curriculum, model_id, f"replay:{sensitive}", pool, required, replay, sampler)
+            allocation = {"train": chosen, "replay": replay, "positions": positions}
             database.execute("INSERT INTO batches VALUES (?, ?, ?)", (identity, fingerprint, json.dumps(allocation)))
     by_id = {row["id"]: row for rows in curriculum.splits.values() for row in rows}
     examples = tuple(_example(by_id[item]) for item in allocation["train"])
@@ -193,20 +243,37 @@ def reserve_batch(curriculum: Curriculum, state_path: str, request,
              "curriculum_stage": stage, "curriculum_new_count": str(len(examples)),
              "curriculum_replay_count": str(len(replay)), "curriculum_hard_count": str(len(hard_ids)),
              "curriculum_train_ids_sha256": _digest(allocation["train"]),
+             "curriculum_replay_ids_sha256": _digest(allocation["replay"]),
+             "curriculum_sampler_policy": sampler["policy"],
+             "curriculum_sampler_seed": str(sampler["seed"]),
+             "curriculum_sampler_positions": json.dumps(allocation.get("positions", {}), sort_keys=True),
              "curriculum_gate_ids_sha256": _digest([row["id"] for row in curriculum.splits["heldout"]])}
     return CurriculumBatch(examples, replay, gate, audit)
 
 
-def _take(database, curriculum, model_id, stratum, pool, count, chosen):
-    key = json.dumps([curriculum.manifest_sha256, model_id, stratum])
+def _take(database, curriculum, model_id, stratum, pool, count, chosen, sampler):
+    namespace = [curriculum.manifest_sha256, model_id, stratum]
+    # Keep legacy deterministic cursor identities so existing reservations resume.
+    if sampler["policy"] != "deterministic_v1":
+        namespace.extend([sampler["policy"], sampler["seed"]])
+    key = json.dumps(namespace)
     stored = database.execute("SELECT position FROM cursors WHERE identity=?", (key,)).fetchone()
     position = stored[0] if stored else 0
+    start = position
+    epoch, order = None, None
     for _ in range(count):
-        while pool[position % len(pool)]["id"] in chosen:
+        while True:
+            if epoch != position // len(pool):
+                epoch = position // len(pool)
+                order = _epoch_order(pool, sampler, stratum, epoch)
+            row_id = order[position % len(pool)]["id"]
             position += 1
-        chosen.append(pool[position % len(pool)]["id"])
-        position += 1
+            if row_id not in chosen:
+                chosen.append(row_id)
+                break
     database.execute("INSERT OR REPLACE INTO cursors VALUES (?, ?)", (key, position))
+    return {"start": start, "stop": position, "pool_size": len(pool),
+            "start_epoch": start // len(pool), "stop_epoch": position // len(pool)}
 
 
 def _digest(ids):

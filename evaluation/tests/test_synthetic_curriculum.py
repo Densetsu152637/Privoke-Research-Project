@@ -10,7 +10,7 @@ from host_environment import configure_imports
 
 configure_imports()
 from privoke_eval.synthetic_curriculum import (
-    LABEL_STATUS, MAX_CONTENT_TOKENS, TOKEN_PATTERN, build_curriculum,
+    LABEL_STATUS, MAX_CONTENT_TOKENS, TOKEN_PATTERN, build_curriculum, build_assessment,
     canonical_json, classification, opaque_key, prepare, reject_final_path,
     sha256, validate_pools, verify_exclusions,
 )
@@ -18,6 +18,8 @@ from privoke_model.training_data import training_text_key
 
 ROOT = Path(__file__).resolve().parents[2]
 RESOURCE = ROOT / "evaluation/datasets/synthetic-teacher-templates.json"
+REVISED = ROOT / "evaluation/datasets/synthetic-teacher-templates-v2.json"
+ASSESSMENT = ROOT / "evaluation/datasets/contextual-assessment-20261009.json"
 EMPTY_INDEX = {"schema_version": 1, "all_exclusion_key_sets": {"ids": [], "groups": [], "texts": []}}
 EMPTY_INDEX["all_exclusion_key_sets_sha256"] = sha256(canonical_json(EMPTY_INDEX["all_exclusion_key_sets"]).encode())
 
@@ -36,6 +38,62 @@ class SyntheticCurriculumTests(unittest.TestCase):
         visibility = {row["classification"]["visibility"] for row in self.pools["train"]}
         self.assertTrue({"P0", "P2", "P3", "P4", "PU"} <= visibility)
         validate_pools(self.pools)
+
+    def test_revised_equal_budget_preserves_guard_replay_and_has_authored_evolution(self):
+        resource = json.loads(REVISED.read_text(encoding="utf-8"))
+        revised = build_curriculum(resource)
+        self.assertEqual({k: len(v) for k, v in revised.items()},
+                         {k: len(v) for k, v in self.pools.items()})
+        self.assertEqual(revised["heldout"], self.pools["heldout"])
+        self.assertEqual(revised["replay"], self.pools["replay"])
+        self.assertEqual(len({r["metadata"]["group_id"] for r in revised["train"]}), 28)
+        for row in revised["train"]:
+            self.assertEqual(row["metadata"]["generator"], "contextual_situations_v2")
+            self.assertIn("contrast", json.loads(row["metadata"]["scenario_facts"]))
+        del resource["families"][0]["evolved_clean"]
+        with self.assertRaisesRegex(ValueError, "rendering"):
+            build_curriculum(resource)
+
+    def test_frozen_assessment_separate_from_both_curricula_and_covers_hard_positive_cues(self):
+        resource = json.loads(ASSESSMENT.read_text(encoding="utf-8"))
+        revised = build_curriculum(json.loads(REVISED.read_text(encoding="utf-8")))
+        rows = build_assessment(resource, [self.pools, revised])
+        self.assertEqual((len(rows), len({row["group_id"] for row in rows})), (64, 32))
+        positives = [row for row in rows if row["required_sensitive"]]
+        self.assertTrue(any(row["classification"]["visibility"] == "P0" for row in positives))
+        for name in ("quoted_actual_fact_vs_fictional_quote", "hypothetical_frame_actual_fact_vs_invented_fact",
+                     "mixed_discussion_actual_disclosure_vs_discussion"):
+            self.assertTrue(any(row["metadata"]["contrast"] == name for row in positives))
+        pools = copy.deepcopy(revised)
+        pools["train"][0]["text"] = rows[0]["text"].upper()
+        with self.assertRaisesRegex(ValueError, "overlaps"):
+            build_assessment(resource, [pools])
+        invalid = copy.deepcopy(resource)
+        invalid["rows"][0]["required_sensitive"] = True
+        with self.assertRaisesRegex(ValueError, "truth"):
+            build_assessment(invalid)
+        invalid = copy.deepcopy(resource)
+        invalid["rows"][0]["text"] += " filler" * 100
+        with self.assertRaisesRegex(ValueError, "capacity"):
+            build_assessment(invalid)
+
+    def test_assessment_is_frozen_outside_training_splits_and_protected_exclusions_apply(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            index = root / "exclusions.json"
+            index.write_text(canonical_json(EMPTY_INDEX), encoding="utf-8")
+            manifest = prepare(root / "package", REVISED, index, assessment_resource=ASSESSMENT)
+            self.assertEqual(set(manifest["splits"]), {"train", "replay", "heldout"})
+            self.assertEqual(manifest["assessment"]["count"], 64)
+            self.assertEqual(sha256((root / "package/assessment.jsonl").read_bytes()), manifest["assessment"]["sha256"])
+            blocked = copy.deepcopy(EMPTY_INDEX)
+            first = json.loads(ASSESSMENT.read_text(encoding="utf-8"))["rows"][0]
+            blocked["all_exclusion_key_sets"]["texts"] = [opaque_key("text_key", training_text_key(first["text"]))]
+            blocked["all_exclusion_key_sets_sha256"] = sha256(canonical_json(blocked["all_exclusion_key_sets"]).encode())
+            index.write_text(canonical_json(blocked), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "overlaps"):
+                prepare(root / "blocked", REVISED, index, assessment_resource=ASSESSMENT)
+            self.assertFalse((root / "blocked").exists())
 
     def test_seed_changes_order_never_family_membership(self):
         other = build_curriculum(self.resource, seed=71)

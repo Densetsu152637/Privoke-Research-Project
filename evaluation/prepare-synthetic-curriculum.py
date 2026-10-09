@@ -17,10 +17,12 @@ def main():
     parser.add_argument("--evaluation-file", type=Path, help="Pinned development JSONL only; final paths are rejected.")
     parser.add_argument("--evaluation-sha256")
     parser.add_argument("--seed", type=int, default=9102026)
+    parser.add_argument("--assessment-resource", type=Path,
+                        help="Optional separate frozen contextual endpoint; never enters gate, training or replay")
     args = parser.parse_args()
     try:
         manifest = prepare(args.output, args.teacher_templates, args.exclusion_index,
-                           args.evaluation_file, args.evaluation_sha256, args.seed)
+                           args.evaluation_file, args.evaluation_sha256, args.seed, args.assessment_resource)
     except (ValueError, OSError) as error:
         parser.exit(1, f"Preparation failed: {error}\n")
     print(json.dumps({"output": str(args.output), "curriculum_id": manifest["curriculum_id"],

@@ -206,6 +206,8 @@ class RpcClient:
         request = RP.AnalyzePromptRequest(text=row["text"], source="continual-fuzzer-study", request_id=request_id,
                                          semantic_model_id=model_id,
                                          layers=[RP.DETECTION_LAYER_SEMANTIC if layer == "semantic" else RP.DETECTION_LAYER_RUNTIME])
+        if row.get("visibility_hint") is not None:
+            request.visibility_hint = row["visibility_hint"]
         response = self.runtime.AnalyzePrompt(request, timeout=120)
         if response.request_id != request_id or response.error:
             raise ValueError(response.error or "Runtime request identity mismatch.")
@@ -292,6 +294,8 @@ def study_config(args, inputs):
             "duration_seconds": args.duration_seconds, "checkpoint_interval_seconds": args.checkpoint_interval_seconds,
             "round_pause_seconds": args.round_pause_seconds, "checkpoint_only_snapshots": args.checkpoint_only_snapshots,
             "prompt_count": args.prompt_count, "checkpoints": sorted(set(args.checkpoints + [0, args.cycles])),
+            "curriculum_sampler_policy": getattr(args, "curriculum_sampler_policy", "deterministic_v1"),
+            "curriculum_sampler_seed": getattr(args, "curriculum_sampler_seed", 0),
             "target": args.target, "runtime_target": args.runtime_target, "model_target": args.model_target,
                                "controller_sha256": sha(Path(__file__)), "mining": not args.no_mining, "bootstrap_iterations": args.bootstrap_iterations, "cache_wait_seconds": args.cache_wait_seconds, "inputs": inputs}
 
@@ -419,6 +423,10 @@ def run(args, client=None):
                                "metadata": {"initiator": "continual-study-controller", "curriculum_stage": "all",
                                             "curriculum_id": inputs["curriculum_id"], "curriculum_manifest_sha256": inputs["manifest_sha256"],
                                             "curriculum_hard_ids": json.dumps(model["hard_ids"], separators=(",", ":"))}}
+                    if getattr(args, "curriculum_sampler_policy", "deterministic_v1") != "deterministic_v1":
+                        request["metadata"].update(
+                            curriculum_sampler_policy=args.curriculum_sampler_policy,
+                            curriculum_sampler_seed=str(args.curriculum_sampler_seed))
                     model["pending"] = request
                     write_json(manifest_path, state)
                 expected_cycle = len(model["rounds"]) + 1
@@ -521,6 +529,9 @@ def parser():
     result.add_argument("--round-pause-seconds", type=float, default=0)
     result.add_argument("--checkpoint-only-snapshots", action="store_true", help="Archive full weights only at checkpoints; still verify every round")
     result.add_argument("--seed", type=int, default=1337)
+    result.add_argument("--curriculum-sampler-policy", choices=("deterministic_v1", "seeded_family_v1"), default="deterministic_v1")
+    result.add_argument("--curriculum-sampler-seed", type=int, default=0,
+                        help="Stable allocation seed; independent of the changing trainer cycle seed")
     result.add_argument("--prompt-count", type=int, default=256)
     result.add_argument("--target", default="127.0.0.1:50053")
     result.add_argument("--runtime-target", default="127.0.0.1:50054")
@@ -541,6 +552,9 @@ def parser():
 def main(argv=None):
     command = parser()
     args = command.parse_args(argv)
+    if (not 0 <= args.curriculum_sampler_seed < 2**32
+            or (args.curriculum_sampler_policy == "deterministic_v1" and args.curriculum_sampler_seed != 0)):
+        command.error("sampler seed must be unsigned 32-bit; deterministic_v1 requires zero")
     if any(not math.isfinite(value) or value < 0 for value in (args.duration_seconds, args.checkpoint_interval_seconds, args.round_pause_seconds)):
         command.error("durations and intervals must be finite nonnegative seconds")
     if args.cycles < 1 or args.prompt_count < 1 or args.seed < 0 or args.seed + args.cycles > 2**32 or args.cache_wait_seconds < 0 or args.bootstrap_iterations < 0:

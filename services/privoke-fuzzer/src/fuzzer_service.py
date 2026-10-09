@@ -15,7 +15,7 @@ from privoke_service import validate_text
 from prompt_generation import generate_presence_training_partition, generate_training_partition
 from prompt_generation.generator import (CONTEXTUAL_SAMPLING_STRATEGY_KEY,
     contextual_sampling_audit, validate_contextual_sampling_strategy)
-from prompt_generation.curriculum import load_curriculum, reserve_batch, request_fingerprint
+from prompt_generation.curriculum import load_curriculum, reserve_batch, request_fingerprint, sampler_settings
 from runtime_client import PrivokeRuntimeClient, RuntimeAnalysisError
 from training import emit_training_update, train_parameter_batch, train_presence_batch
 from training.types import BatchTrainingUpdate
@@ -160,6 +160,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             manifest_path = getattr(self.config, "curriculum_manifest_path", None)
             if manifest_path:
                 curriculum = load_curriculum(manifest_path)
+                sampler_settings(request)
                 for key, actual in (("curriculum_id", curriculum.curriculum_id),
                                     ("curriculum_manifest_sha256", curriculum.manifest_sha256)):
                     expected = request.metadata.get(key)
@@ -199,6 +200,8 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                                       fingerprint=fingerprint, model_id=cycle.model_id)
                 examples, heldout_examples, replay_examples = batch.examples, batch.heldout, batch.replay
                 sampling_audit = batch.audit
+                sampling_audit["curriculum_replay_weight"] = str(
+                    self.config.batch_training_config(cycle.seed).golden_example_weight)
             else:
                 examples, heldout_examples = generate_training_partition(
                     count=cycle.prompt_count,

@@ -32,6 +32,7 @@ class FuzzerConfig:
     curriculum_manifest_path: str | None = None
     curriculum_state_path: str | None = None
     curriculum_replay_fraction: float = 0.25
+    training_replay_weight: float = 0.35
 
     @classmethod
     def from_env(cls) -> FuzzerConfig:
@@ -70,9 +71,12 @@ class FuzzerConfig:
             curriculum_manifest_path=os.getenv("FUZZ_CURRICULUM_MANIFEST_PATH"),
             curriculum_state_path=os.getenv("FUZZ_CURRICULUM_STATE_PATH"),
             curriculum_replay_fraction=env_float("FUZZ_CURRICULUM_REPLAY_FRACTION", 0.25),
+            training_replay_weight=env_float("FUZZ_TRAINING_REPLAY_WEIGHT", 0.35),
         ).validated()
 
     def validated(self) -> FuzzerConfig:
+        if not math.isfinite(self.training_replay_weight) or not 0 < self.training_replay_weight <= 1:
+            raise ValueError("FUZZ_TRAINING_REPLAY_WEIGHT must be finite and in (0, 1].")
         if not math.isfinite(self.curriculum_replay_fraction) or not 0 < self.curriculum_replay_fraction < 1:
             raise ValueError("FUZZ_CURRICULUM_REPLAY_FRACTION must be between zero and one.")
         if self.curriculum_manifest_path and not self.curriculum_state_path:
@@ -123,6 +127,7 @@ class FuzzerConfig:
             max_gradient=self.training_max_gradient,
             transformations_per_example=self.training_transformations_per_example,
             seed=seed,
+            golden_example_weight=self.training_replay_weight,
         )
 
     def presence_training_config(self, seed: int) -> BatchTrainingConfig:
