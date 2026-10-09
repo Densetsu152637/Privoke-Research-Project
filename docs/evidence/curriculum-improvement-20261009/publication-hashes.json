@@ -1,0 +1,44 @@
+{
+  "reproduction_script_sha256": "a6fca333cad9b5d4308334972e1f8b1f0ff7b76dcaa28a110ba3929ce2bce284",
+  "published_sha256": {
+    "audit.json": "e7b54de530239e39d0b7974c9ccd675152ca76bc2e13af507c16f3564ad43bd4",
+    "contextual-subgroups.json": "cd36576ec556ff2a0d065a76d9ffeaa991f8d8e4d5f391dfa5b826c1e8adca2e",
+    "protocol.json": "9ac94efc09ee9ae7e12a8ec386cd7781271f4e5ab8adc1abb7858fbcf6424155",
+    "provenance.json": "293a06ae57c0ceec4b58c302c0fb5190f4c2e89d30b05bcb8c4ac17be93fc92f",
+    "rejection-breakdown.json": "964652044466bfa1b45662327906fb9d5f8d91b58d3206f1cacc97a1de92fde2",
+    "summary.json": "2fd3cb862e37e02f36c5cef0411bad8c9bcbc039c48202a64f6918473ea11de4"
+  },
+  "raw_to_published": {
+    "summary.json": {
+      "raw_name": "summary.json",
+      "raw_sha256": "b191e660f3e792a53047282c352e57089ff1f1bf05698a1c3c0d40b0c72867c2",
+      "published_sha256": "2fd3cb862e37e02f36c5cef0411bad8c9bcbc039c48202a64f6918473ea11de4",
+      "identical_bytes": false
+    },
+    "protocol.json": {
+      "raw_name": "protocol.json",
+      "raw_sha256": "f631c6078c439f9f7ff616e29f9c3d09ad36e22f079d2cdeed16a7fb459fc602",
+      "published_sha256": "9ac94efc09ee9ae7e12a8ec386cd7781271f4e5ab8adc1abb7858fbcf6424155",
+      "identical_bytes": false
+    },
+    "audit.json": {
+      "raw_name": "audit.json",
+      "raw_sha256": "e7b54de530239e39d0b7974c9ccd675152ca76bc2e13af507c16f3564ad43bd4",
+      "published_sha256": "e7b54de530239e39d0b7974c9ccd675152ca76bc2e13af507c16f3564ad43bd4",
+      "identical_bytes": true
+    },
+    "contextual-subgroups.json": {
+      "raw_name": "post-observation-contextual-subgroups.json",
+      "raw_sha256": "944b71e7d5df0e21ddaf8fb76843d6f9c533440ff8e0a0edc9c7ffe086cf63a8",
+      "published_sha256": "cd36576ec556ff2a0d065a76d9ffeaa991f8d8e4d5f391dfa5b826c1e8adca2e",
+      "identical_bytes": false
+    },
+    "rejection-breakdown.json": {
+      "raw_name": "rejection-breakdown.json",
+      "raw_sha256": "964652044466bfa1b45662327906fb9d5f8d91b58d3206f1cacc97a1de92fde2",
+      "published_sha256": "964652044466bfa1b45662327906fb9d5f8d91b58d3206f1cacc97a1de92fde2",
+      "identical_bytes": true
+    }
+  },
+  "projection": "All cell/group/contrast metrics, counts, intervals and qualification values are unchanged. Summary omits duplicated amendment provenance; protocol separates import/source attestation into provenance and omits local input paths; subgroup omits local endpoint path/hash inventory. Raw audit summary_sha256 binds the original local summary, not the published projection. Publication hashes below bind the actual selected files."
+}

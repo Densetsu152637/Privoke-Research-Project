@@ -9,6 +9,8 @@ evaluation/datasets/contextual-assessment-20261009.json -text whitespace=blank-a
 
 # Preserve byte-pinned audit evidence and generated vector artifacts exactly in Git.
 docs/evidence/long-fuzzer-20261009/*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+docs/evidence/curriculum-improvement-20261009/*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+docs/evidence/curriculum-improvement-20261009/reproduce.py text eol=lf
 paper/figures/results-long-fuzzer-trajectories.svg -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 paper/figures/results-long-fuzzer-trajectories-manifest.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 paper/scripts/plot_long_fuzzer_trajectories.py text eol=lf

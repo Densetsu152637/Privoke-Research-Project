@@ -206,7 +206,7 @@ The versioned resource `evaluation/datasets/synthetic-teacher-templates-v2.json`
 uses complete authored evolved renderings and contextual contrasts at the same
 row budget. Optional preparation `--assessment-resource` writes a separate
 contextual endpoint outside all training, replay and publication-guard splits.
-See the [improvement protocol](fuzzer-curriculum-improvement-process-20261009.md)
+See the [audited improvement process and results](fuzzer-curriculum-improvement-process-20261009.md)
 for exposure distributions, provisional-label limits and controlled comparisons.
 
 Automatic augmentation retains labels only for conservative transformations;

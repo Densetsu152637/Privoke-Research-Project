@@ -18,8 +18,16 @@ sensitivity, visibility, categories and required actions. Binary annotation
 presence is a separate objective. The comparison below uses primary research
 and the implementation at base revision `4b5508b1b9e1b6dbaa85778d8119b31c727ae56c`,
 with the automatic-requester changes described below. Research date: 9 October
-2026. The recommendations remain prospective; no new detector-quality result
-is implied by the scheduler change.
+2026. No detector-quality result is implied by the scheduler change. The later
+[audited curriculum comparison](fuzzer-curriculum-improvement-process-20261009.md)
+completed 63 cells and tested a revised contextual package, persistent seeded
+allocation, replay weighting and a separate offline representation comparison.
+It measured gains and losses but retained no qualifying candidate. Teacher-model
+paraphrases and reviewed failure-guided mining remain prospective and were not
+tested in that matrix. Its targets remain assistant-provisional. The historical
+combined-detector studies retain their original scope; current and future LLM
+comparisons use explicit semantic-only requests and validate returned execution,
+following the user's later instruction and the repository policy.
 
 ## Automatic training behavior
 
@@ -133,17 +141,19 @@ matched trainable-representation arm as a competing explanation for a plateau.
 
 4. **Add persistent curriculum and retention state.** Declare a reviewed replay
    buffer covering clean controls, sensitive disclosures and rare categories.
-   The trainer has a golden-example input, but the ordinary worker does not
-   supply a declared golden buffer. A future curriculum selector should persist
-   its version, coverage counts, selected IDs and cycle cursor independently of
-   process restarts. Experimentally choose a replay ratio and freeze it before
-   selection. Preserve a fixed family-disjoint publication gate across cycles,
-   rather than repeatedly rotating all available data between train and guard.
-   This requires a separately configured, validated gate input; the current
-   automatic requester does not implement that feature.
+   The accepted curriculum path now persists its manifest-bound allocations and
+   cursors, supports explicit stable seeded-family allocation, and supplies fixed
+   guard/replay splits. The ordinary requester can pass the configured sampler
+   policy/seed; legacy deterministic behavior remains the default. This is distinct
+   from the trainer's separate golden-example input. The completed matrix varied
+   replay weight at a fixed 25% replay allocation; it did not select an optimal
+   replay ratio. Freeze any future ratio and retain a fixed family-disjoint gate
+   rather than rotating evaluation examples into training. See the
+   [implemented controls and exposure audit](fuzzer-curriculum-improvement-process-20261009.md).
 
 5. **Introduce reviewed hard-case search.** Probe only permitted TRAIN families
-   through `AnalyzePrompt` for both semantic and full-pipeline outputs. Prioritize
+   through `AnalyzePrompt` with explicit semantic-only layer selection and
+   validation that exactly the semantic layer executed. Prioritize
    clean false positives and missed private disclosures, then mutate with
    explicit semantic constraints and bounded search depth. Keep some broad
    exploration to avoid a failure-only curriculum. Send disagreements to review;
@@ -166,7 +176,8 @@ partitions and must not be reused for this work.
 
 Use four matched arms: reviewed templates; templates plus teacher paraphrases;
 the same with controlled breadth/depth evolution; and the same with constrained
-failure-guided mining. Freeze the exact base, rule/NER configurations, serving
+failure-guided mining. These are future arms, distinct from the completed
+curriculum/sampler/replay/representation matrix. Freeze the exact base, semantic serving
 normalization, learning rate, trainable tensors, replay fraction, publication
 guards and per-arm generation/training budgets. Compare independent single
 cycles and a declared multicycle sequence. A practical initial design is five
@@ -176,23 +187,28 @@ proposed resource allowance, not a powered sample-size calculation or the
 normal deployment's 32-row setting. Count effective training rows after
 transformations and teacher/search cost too.
 
-Separate accepted/rejected updates from qualified models. Report semantic and
-pipeline recall/specificity, contextual target correctness, required-action
+Separate accepted/rejected updates from qualified models. Report semantic-only
+recall/specificity, contextual target correctness, required-action
 failures, newly introduced clean interventions, retained-anchor performance,
 unique families and coverage cells, per-domain results, and cost/latency per
 cycle. Include unchanged and deteriorating outcomes. Pair comparisons by source
 family and show uncertainty; repeated seeds and RPCs are not independent prompts.
 
-Qualification requires at least 90% pipeline recall, measured specificity
-improvement against the declared fresh reference, and no new casewise harms in
-the 41 quantitative provisional contextual fixture cases. This is the existing
-study criterion, not a safety certification. Reused development results remain
-exploratory. Select without accessing protected final, then freeze the model,
-rules and analysis before an authorized final evaluation.
+The current amended LLM criterion requires at least 90% semantic recall, strict
+semantic specificity improvement against the declared fresh reference, no decline
+in semantic joint sensitivity/visibility/category-set exact agreement, and no new
+or worsened casewise action harm in the 41 quantitative provisional contextual
+fixture cases. It replaced the historical pipeline criterion after 15 cells had
+been observed; preserve that disclosure and predeclare any future study criterion.
+It is not a safety certification. Reused development results remain
+exploratory. Select without accessing protected final, then freeze the model and
+analysis before an authorized final evaluation. Product pipeline or detector
+ablation testing requires a separately authorized scope and separate results.
 [Quality criteria](model-quality-study-index-20261006.md).
 
-If no generation arm qualifies, compare matched head-only and
-trainable-representation controls before increasing generation volume. The
-useful research outcome is a supported explanation and reproducible comparison,
-including a null result, rather than an assumption that periodic training must
-improve the classifier.
+The completed matched head-only/full-representation comparison found higher
+specificity and S0-control exactness for balanced and quality full training,
+alongside lower development recall and casewise harms. It retained no qualifying
+candidate. Future teacher/mining experiments should use this bounded evidence to
+design independent controls and reviewed targets before increasing volume;
+periodic training alone does not establish better classification.

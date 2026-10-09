@@ -1,4 +1,6 @@
-# Fuzzer curriculum improvement protocol and implementation
+# Fuzzer curriculum improvement process and results
+
+The amended semantic-only comparison is complete and audited: 63 cells, 900 live attempts (615 accepted publications, 285 held-out rejections) and 360 separate offline steps. Specificity and clean-control gains coexist with recall loss and casewise harms; no candidate qualified or was promoted. The [completed results](#completed-semantic-only-results) and [safe aggregate evidence](evidence/curriculum-improvement-20261009/README.md) follow the preserved implementation and amendment history.
 
 The revised curriculum and seeded sampler address two separate limitations of the earlier combined training run: narrow template variation and deterministic allocation that ignored the request seed. This record preserves the implementation, controlled comparison and limitations. Implementation alone does not establish improved model quality. The earlier six-hour run increased balanced pipeline specificity from 22.27% to 36.55% while recall fell from 93.56% to 87.50%; those results motivated further experiments and did not qualify a model for promotion.
 
@@ -60,11 +62,11 @@ The contextual endpoint is frozen before scoring and stored separately from `tra
 
 This is an independently authored scenario regression assessment with overlapping semantic archetypes, not a test of entirely unseen semantic families or broad generalization. Declared assessment groups, parent IDs and exact normalized texts are withheld; within-assessment family bootstrap units do not prove independence from training. Four positive cases test actual disclosure under public wording, quotation of an actual third-party fact, hypothetical framing containing an asserted actual itinerary, and mixed generic discussion plus actual disclosure. V2 has clean quotation/hypothetical/discussion contrasts but does not explicitly train those four positive mechanisms; report their outcomes separately. Both resources operationalize a clean contextual control as S0 with empty categories, so topic category presence is not itself contextual disclosure truth.
 
-## Validation and pending evidence
+## Historical core validation milestone
 
-Focused validation uses the existing Python 3.11 study environment with `PYTHONPATH=evaluation`. Windows sandbox temporary-directory atomic replacement failed in the default OS temporary path; setting `TMP` and `TEMP` to the task's ignored results `test-temp` directory allowed the existing controller fixtures to run. Initial new tests also compared classification objects by identity and left a SQLite connection open; their assertions now compare packed targets/text/metadata and explicitly close the connection.
+Focused validation uses the existing host study environment with `PYTHONPATH=evaluation`. Windows sandbox temporary-directory atomic replacement failed in the default OS temporary path; setting `TMP` and `TEMP` to the task's ignored results `test-temp` directory allowed the existing controller fixtures to run. Initial new tests also compared classification objects by identity and left a SQLite connection open; their assertions now compare packed targets/text/metadata and explicitly close the connection.
 
-The focused suites passed: 14 curriculum/config tests, 14 synthetic-resource tests and 16 continual-controller tests. They cover seed-dependent allocation, reproducibility, epochs/restart, within-batch uniqueness, balanced quotas and fair family visits, conflicting retries, independent cursor namespaces, invalid configuration, contextual facts/token capacity, exclusions and separation. Logs are under `evaluation/results/curriculum_improvement_20261009_core/` as `curriculum-tests.log`, `synthetic-tests.log` and `controller-tests.log`. Live training and model-quality conclusions remain pending the separately implemented supervisor and its audited results.
+The focused suites passed: 14 curriculum/config tests, 14 synthetic-resource tests and 16 continual-controller tests. They cover seed-dependent allocation, reproducibility, epochs/restart, within-batch uniqueness, balanced quotas and fair family visits, conflicting retries, independent cursor namespaces, invalid configuration, contextual facts/token capacity, exclusions and separation. Logs are under `evaluation/results/curriculum_improvement_20261009_core/` as `curriculum-tests.log`, `synthetic-tests.log` and `controller-tests.log`. Live training and quality conclusions were pending at this core milestone; the completed amended results are recorded below.
 
 Paper alignment initially belonged to the root integration writer; the semantic-only amendment updates the affected prospective methods under the serialized EX-4 assignment. Affected text is `paper/main.tex` around line 191 (curriculum allocation/replay), line 245 (study commitments), line 324 onward (new results only after measured runs), and line 524 (limitations and unresolved component effects). Existing historical result numbers must remain unchanged.
 
@@ -153,8 +155,8 @@ frozen study training data or endpoints. Runtime dependency
 probing found no Torch in the existing serving image, so a dedicated CPU training
 image was built from the pinned CPU requirements. Source overlays preserve normal
 service images. Build and test evidence is retained under the ignored core-results
-directory; final experiment results remain pending source/protocol acceptance and
-explicit execution authorization.
+directory. Source/protocol acceptance and execution authorization were still
+pending at this integration milestone; the amended matrix has since completed.
 
 
 ## Semantic-only v2 amendment (10 October local time)
@@ -207,10 +209,15 @@ unexpected executed layers. CI-5 revises the conversational chat prompt and its
 output compatibility following the user's request, “can you also revise the prompt then”.
 The exact canonical object `{"results":[]}` is a valid clean response; complete
 S0 findings remain compatible. Other malformed empty forms still fail validation.
-Parsing/compatibility tests passed. Three regex-masking subcases were observed
-and remain unresolved outside the changed semantic/chat paths; their baseline
-status and causal independence from these changes are unverified. Actual
-chat-model accuracy is unverified. The Tiny classifier and its trainer do not
+Eleven chat prompt/compatibility contract checks passed. A later matched host
+baseline check reproduced the same three regex-masking subcase failures on
+`4b71dc5` and `7c0322d`, with the same interpreter, tests and dependencies:
+all six observations lacked `presidio_analyzer`, returned BLOCK and had null
+masked text. These observed dependency-setup failures precede the prompt revision;
+they are separate from semantic accuracy evidence. Correct masking with the
+required dependencies remains unverified. The local comparison handoff hash is
+`ceec6095fe50441aa8c7349d39986309d5af19dc8e4ca40ffb92934071d97673`.
+Actual chat-model accuracy is unverified. The Tiny classifier and its trainer do not
 consume the conversational prompt. Scoped source comparison verifies the semantic
 gradient function's AST, training caller, guard, training modules and Tiny inference
 remain unchanged from v1. Six changed chat/testing files are recorded explicitly.
@@ -228,4 +235,224 @@ semantic casewise qualification, cross-origin baseline poisoning, and exact pend
 request recovery. Image attestation validates 45 fuzzer, 26 updater and 80 runtime
 computation files. Actual archived import admission validates all 18,420 semantic
 observations without issuing new quality RPCs. Source/protocol acceptance and the
-48 prospective cells remain pending; these checks establish contracts, not quality.
+48 prospective cells were pending at that implementation milestone; those checks
+established contracts, and the completed quality measurements follow below.
+
+## Completed semantic-only results
+
+The amended study completed on 9 October UTC (10 October Sydney time) and passed
+the full raw audit. All 63 cells completed: 15 imported efficient live semantic
+views and 48 prospective cells. Execution used source
+`7c0322d6872e7b99ed88d1bc5bd67f2d0b9623a4` and immutable execution protocol
+`f631c6078c439f9f7ff616e29f9c3d09ad36e22f079d2cdeed16a7fb459fc602`.
+The documentation publication revision is later and does not replace these
+execution commitments. The semantic import manifest is
+`8d43fd5d0fda1a6e73b7796cfc0b2585c09ef2d8080c5973b0e23a70f06c5bfa`.
+
+The 45 live cells resolved 900 attempts: 615 accepted publications and durable
+receipts, and 285 held-out rejections. Efficient and balanced each accepted
+300/300 attempts. Every quality arm/seed accepted its first attempt and rejected
+the remaining 19, for 15/300 accepted. All 285 rejected responses have code
+FAILED_PRECONDITION and message “Candidate model is worse on the held-out
+evaluation set.” Their wrappers contain zero generated prompts and empty
+metadata, but all reservations consumed their allocated rows: 5,120
+presentations per live cell, 230,400 in total. Exposure is an allocation count,
+not an accepted-update count. The attested service path reserves, computes a
+candidate and checks its guard before submission; rejected candidates do not
+publish or advance the deployed artifact. Their tensors, numerical gate values
+and specific failed gate component were not independently retained. Unchanged
+deployed endpoints therefore do not establish zero candidate effect.
+
+The separate 18 offline cells completed 360 Adam steps and 11,520 presentations;
+each used 640 unique TRAIN rows in a partial epoch, with identical schedules
+within head/full pairs. Actual export/NumPy inference parity, serving identities,
+fresh-baseline predictions, source/configuration commitments, live encoder
+immutability, offline encoder-mode behavior, SQLite cursors, publication payloads
+and durable receipts passed the raw audit. Execution and audit processes both
+terminated with exit status 0. No protected final examples were read.
+
+No cell qualified, and no model was promoted. Every final development recall
+remained below the 90% semantic floor. Several cells also introduced fixture
+harms or lost contextual exactness. Qualification failure does not erase the
+measured improvements in specificity or clean-control classification.
+
+### Endpoints by profile and arm
+
+A=current curriculum/deterministic/weight 0.35; B=revised/deterministic/0.35;
+C=current/seeded/0.35; D=revised/seeded/0.35; E=revised/seeded/1.0.
+Offline modes use revised TRAIN and the separate matched Adam protocol above.
+The following are final semantic-only means across seeds 42, 43, 44; brackets show
+the observed minimum and maximum when they differ. Identical values across
+three replicas are shown once. Exact seed outcomes, sample standard deviations,
+all component metrics, casewise harm counts and bootstrap intervals are in the
+[aggregate summary](evidence/curriculum-improvement-20261009/summary.json).
+
+| Profile | Arm/mode | Recall % | Specificity % | Context joint % | Qualified |
+| --- | --- | ---: | ---: | ---: | ---: |
+| efficient | A | 59.85 | 25.63 | 14.06 | 0/3 |
+| efficient | B | 57.95 | 26.47 | 15.62 | 0/3 |
+| efficient | C | 59.85 | 25.63 | 14.06 | 0/3 |
+| efficient | D | 57.95 | 26.47 | 15.62 | 0/3 |
+| efficient | E | 58.33 | 26.47 | 15.62 | 0/3 |
+| efficient | head_only | 54.17 | 31.09 | 15.62 | 0/3 |
+| efficient | end_to_end | 46.72 [37.12, 62.12] | 38.52 [23.95, 46.64] | 9.90 [6.25, 12.50] | 0/3 |
+| balanced | A | 57.95 | 28.57 | 18.75 | 0/3 |
+| balanced | B | 59.85 | 27.73 | 15.62 | 0/3 |
+| balanced | C | 57.58 | 28.57 | 18.75 | 0/3 |
+| balanced | D | 59.85 | 27.73 | 15.62 | 0/3 |
+| balanced | E | 59.85 | 27.31 | 15.62 | 0/3 |
+| balanced | head_only | 52.53 [52.27, 52.65] | 29.97 [29.83, 30.25] | 20.31 | 0/3 |
+| balanced | end_to_end | 27.15 [21.59, 33.71] | 61.34 [57.56, 67.23] | 39.58 [37.50, 42.19] | 0/3 |
+| quality | A | 71.97 | 20.17 | 12.50 | 0/3 |
+| quality | B | 71.97 | 20.17 | 12.50 | 0/3 |
+| quality | C | 71.97 | 20.17 | 12.50 | 0/3 |
+| quality | D | 71.97 | 20.17 | 12.50 | 0/3 |
+| quality | E | 71.97 | 20.17 | 12.50 | 0/3 |
+| quality | head_only | 67.68 [67.42, 67.80] | 21.85 | 15.62 | 0/3 |
+| quality | end_to_end | 55.93 [50.76, 58.71] | 33.47 [31.09, 36.55] | 31.77 [28.12, 34.38] | 0/3 |
+
+Fresh semantic baselines were identical within each profile across all cells:
+efficient recall/specificity/context joint = 59.85/25.63/14.06%;
+balanced = 64.02/25.21/15.62%; quality = 71.97/20.17/12.50%.
+Development metrics use 502 annotation-presence rows (264 positive, 238 negative;
+465 source groups). Contextual exactness uses 64 provisional rows in 32 declared
+families; it requires simultaneous sensitivity, visibility and category-set
+agreement. These are different targets and denominators.
+
+### What the comparisons establish
+
+For efficient, revised B versus A gains 0.84 percentage points in specificity
+and 1.56 in contextual joint agreement while losing 1.89 in development recall.
+Seeded C versus A and D versus B have identical final aggregate endpoints;
+raising replay weight E versus D restores one development positive (0.38 recall
+points) with unchanged specificity/contextual joint. This establishes a small
+measured tradeoff, not a qualifying improvement.
+
+For balanced, A improves specificity from 25.21% to 28.57% and contextual joint
+from 15.62% to 18.75%, while recall falls from 64.02% to 57.95%.
+Revised B versus A recovers 1.89 recall points but loses 0.84 specificity and 3.125
+contextual points. C versus A misses one additional development positive;
+D versus B is unchanged. E versus D loses one correct development negative
+(0.42 specificity points). All live balanced cells worsen an already incorrect
+fixture restriction from WARN to BLOCK; aggregate action accuracy alone hides
+that harm. The fixture gate compares each case against its fresh baseline,
+including worsening on already incorrect baseline cases.
+
+Quality live endpoints remain 190/264 positive detections, 48/238 correct
+negatives and 8/64 contextual joint-correct rows in every arm and seed. Only one
+candidate is published per cell; the 19 subsequent rejections consume allocations
+and preserve deployed identities. This is evidence about the guarded deployment
+sequence, with the rejected-candidate measurement gaps stated above.
+
+The offline full-encoder comparison changes the tradeoff more strongly.
+Balanced full training raises mean specificity to 61.34% and contextual joint
+to 39.58%, compared with 29.97% and 20.31% for head-only, while development recall
+falls to 27.15% from 52.53%. Quality full training raises specificity to 33.47%
+and contextual joint to 31.77%, compared with 21.85% and 15.62%, while recall
+falls to 55.93% from 67.68%. Efficient full training has lower mean recall and
+contextual joint than head-only, with substantial seed variation. All 18 offline
+cells introduce new or worsened eligible fixture harms. Representation updates
+are mechanically possible and have measurable effects; these results do not
+support an online encoder switch or promotion.
+
+A uniformly applied **post-observation descriptive** breakdown separates 32 S0
+controls from 32 authored nonS0 disclosures in every offline cell. All balanced
+and quality full-minus-head contextual joint gains come from controls: respectively
+12/11/14 and 12/11/8 additional correct controls for seeds 42/43/44.
+Efficient loses 6/2/3 correct controls. NonS0 joint correctness stays 0/32 at
+baseline and at every offline endpoint. Binary nonS0 sensitivity on the authored
+disclosures does not uniformly worsen against head-only: it increases for all
+balanced and efficient pairs and two quality pairs, and decreases by one case
+for quality seed 42. This cannot be conflated with development annotation-presence
+recall. The breakdown explains the observed aggregate conflict; it changes no
+primary, qualification threshold, training allocation or RPC. See the
+[subgroup aggregates](evidence/curriculum-improvement-20261009/contextual-subgroups.json).
+All 63 cells also have 0/4 hard-positive contextual joint-correct cases; sensitivity,
+action and component results remain separately visible in the aggregate summary.
+
+All 24 prescribed per-profile comparisons are retained, including B−A, D−C, C−A,
+D−B, D−A, E−D, the interaction and offline full−head. Seeded streams are reproducible,
+durable and auditable, but endpoint similarity at this budget does not establish
+that sampling has no effect. Deterministic replicas are not independent trials.
+The 2,000 paired development source-group/contextual family bootstrap replicates
+describe scenario sampling variation; they are not confidence intervals inferred
+from three training seeds. There is no pooled profile quality estimate.
+
+The concrete implementation improvements are a byte-frozen contextual curriculum,
+persistent configurable seeded allocation, configurable replay weighting, strict
+semantic isolation, exact-request recovery and a validated offline representation
+export path. The measured gains and losses above bound their current quality
+evidence. This matrix does not test teacher-model paraphrases, external generation
+or hard-case mining; those require later separately frozen experiments and reviewed
+targets. Assistant-provisional labels, shared semantic archetypes and the revised
+package's changed wording/visibility/category exposure limit causal and
+generalization claims. Offline Adam and exposure/gate settings differ from live
+training, so their optimizer effects cannot be assigned to the online factors.
+
+### Operational recovery, timing and evidence
+
+After the first six efficient offline cells, Docker exhausted its predefined
+address pools while starting reserved balanced A42. No controller, endpoint RPC
+or training attempt had begun in that cell. The failed startup log and four
+already-created volumes were retained. EX-6 retired 21 exact completed-cell
+networks only after verifying raw archives/audits, project labels and empty
+endpoints immediately before each removal. The same reserved cell resumed under
+the unchanged source/protocol/artifacts. A further 27 completed empty networks
+were retired with individual proofs. No global prune, daemon configuration,
+unrelated network change or model reset occurred.
+
+The first resumed cell has four different observed spans: 518.51 s across failed
+startup/recovery, 75.99 s for its controller including measurements, 61.12 s summed
+round durations including RPC, and 87.84 s from successful operations capture to
+archive completion. None is isolated model compute time. Failed startup is
+excluded from successful-phase estimates, and imported v1 and prospective v2
+latency/runtime are not pooled.
+
+At experimental handoff, 63 owned projects retained 378 stopped containers,
+315 named volumes (five per project), 15 empty networks and all images. The 48
+removed networks have individual archive/identity/removal/absence evidence.
+An initial final inventory incorrectly filtered names using a project underscore
+prefix; actual volumes have explicit project-hyphen names. That zero-volume
+inventory is preserved as superseded evidence. The correction reconciles all 315
+exact archived operation mounts, retained container mounts, actual volume names,
+owner labels and consumers. Earlier network-retirement volume checks used
+nonempty correct inventories (109 initially, including the four reserved-start
+volumes; five per subsequent cell) and did not use the defective filter.
+Resource cleanup remains a separate acceptance step; no containers, named volumes
+or images have been removed at this publication milestone.
+
+The [tracked evidence index](evidence/curriculum-improvement-20261009/README.md)
+contains safe aggregates, execution controls, source/image commitments, full audit
+archive hashes, exact raw-to-published hash mappings and a deterministic
+publication script. The local full summary hash is
+`b191e660f3e792a53047282c352e57089ff1f1bf05698a1c3c0d40b0c72867c2`;
+the raw audit hash is
+`e7b54de530239e39d0b7974c9ccd675152ca76bc2e13af507c16f3564ad43bd4`.
+The audit binds that original summary; the sanitized published summary has its
+own distinct hash. All cell/group/contrast metrics remain unchanged. Complete
+prompts, predictions, SQLite state, model chains, optimizer states and detailed
+operations remain in ignored local results and are excluded from tracked artifacts.
+Independent full-result critique reconciled all 63 primary endpoints/harms/
+qualifications, 18 subgroup breakdowns and 24 contrasts without a quantitative
+blocker; this is independent assistant review, not human label adjudication.
+
+### Completed resource cleanup after raw-audit acceptance
+
+EX-8 retired the accepted study resources after revalidating all 63 raw archives
+and exact ownership/consumer identities: 378 stopped containers, 315 named
+volumes, the 15 remaining empty networks and five unused exclusively task-tagged
+images. Every removal has an exact command result and absence proof. All scoped
+resources are absent; 27 unrelated containers, 135 unrelated volumes, 11 unrelated
+networks and all non-scoped image rows (including parent/shared images) remain
+unchanged. The running buildx container was preserved. The earlier 48 verified
+empty-network retirements remain separately recorded. No global prune, forced
+removal or daemon change was used.
+
+All accepted raw hashes and all 63 archived file inventories were checked again
+after cleanup and remain unchanged; complete local raw evidence and superseded
+proofs are retained. Cleanup exited successfully. The separate safe
+[cleanup receipt](evidence/curriculum-improvement-20261009/cleanup.json) has SHA256
+`86e9afa0616e110a99cbe0d91d2cdbdbe3a4cbb7b573d94c74defa2ece3781f7`; detailed before/removal/after identities and
+commands remain in the ignored cleanup receipt. This later operational result
+does not change execution source/protocol, metrics, qualification or the original
+six generated publication artifacts.

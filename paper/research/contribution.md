@@ -8,8 +8,8 @@ familiar detectors or successfully transporting model deltas.
 Closest overlap: Casper already provides a local browser extension with rules,
 NER and semantic topic identification. PriVoke differs in its risk/action policy,
 streamed compact model, bounded update path and private event telemetry. None of
-these integration differences alone establishes publication novelty. Current
-public development evidence shows only one clean correction from the selected
+these integration differences alone establishes publication novelty. That historical
+selected-update comparison's public development evidence shows only one clean correction from the selected
 training update; it does not establish useful adaptation generalization. See
 `false-positive-experiments.md` for all attempts and unchanged pipeline recall.
 
