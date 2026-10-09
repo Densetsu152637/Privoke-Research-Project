@@ -4,6 +4,8 @@
 
 This folder evaluates whether PriVoke detects privacy-sensitive information. Host Python scripts send every selected dataset prompt directly to the running `client-runtime` gRPC service at `127.0.0.1:50054`. LLM tests default to the semantic layer only, with an explicit layer request and verification that only that layer executed. Select `--layer pipeline` only for an explicitly requested product end-to-end test; regex and NER ablations likewise require explicit selection. Historical full-pipeline scores remain combined-detector evidence and are not LLM-only results.
 
+Older contextual fuzzer and independent-update, model-profile, training-curve and public-negative study commands retain combined-detector protocols and pipeline selection rules. They now refuse execution by default; `--allow-product-pipeline` is reserved for a separately authorized product test or detector analysis. Use the current semantic-only curriculum-improvement study for LLM comparisons. Named detector-ablation and full-pipeline cascade tools remain separate product-analysis entrypoints.
+
 The scoring evaluator does not import runtime modules, train another classifier or use SMOTE. Separate evaluation-owned orchestration can request the existing fuzzer training service and rerun matched measurements; the service retains its training-loop implementation. See [host Python tests and research orchestration](../evaluation/README.md).
 
 ```text

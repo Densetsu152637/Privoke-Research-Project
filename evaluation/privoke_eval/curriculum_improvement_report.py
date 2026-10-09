@@ -18,6 +18,7 @@ from privoke_eval.curriculum_improvement_evidence import (
     accepted_metadata, audit_allocations, binary_counts, contextual_changes, contextual_metrics, digest,
     matched, restriction_harms, seed_statistics,
 )
+from privoke_eval.curriculum_improvement_imports import semantic_view, verify_import_manifest
 from privoke_eval.curriculum_improvement_study import (
     ARMS, PROFILES, SEEDS, artifact_identity, assert_baseline, validate_operations, verify_archive,
 )
@@ -25,7 +26,7 @@ from privoke_eval.curriculum_improvement_study import (
 
 def compare_layers(before, after, contextual=False, iterations=2000):
     result = {}
-    for layer in ("semantic", "pipeline"):
+    for layer in ("semantic",):
         a, b = before[layer]["predictions"], after[layer]["predictions"]
         matched(a, b)
         if contextual:
@@ -43,7 +44,7 @@ def outcome_statistics(records, *, deltas=False):
         if endpoint not in records[0]:
             continue
         result[endpoint] = {}
-        for layer in ("semantic", "pipeline"):
+        for layer in ("semantic",):
             result[endpoint][layer] = {}
             for metric, value in records[0][endpoint][layer]["after"].items():
                 if type(value) not in (int, float):
@@ -146,8 +147,24 @@ def offline_tensor_changes(initial, published):
     return result
 
 
+def semantic_eligibility(outcomes):
+    before, after = (outcomes["development"]["semantic"][key] for key in ("before", "after"))
+    contextual = outcomes["contextual"]["semantic"]
+    return (after["recall"] >= .9 and after["specificity"] > before["specificity"]
+            and contextual["after"]["joint_accuracy"] >= contextual["before"]["joint_accuracy"]
+            and outcomes["fixtures"]["semantic"]["passed"])
+
+
 def load_cell(output, protocol, cell, state):
-    directory = output / "cells" / cell["id"]
+    imported = bool(state.get("imported"))
+    analysis_protocol = protocol
+    if imported:
+        entry = protocol["imports"]["cells"][cell["id"]]
+        protocol = verify_import_manifest(analysis_protocol["imports"])
+        directory = Path(entry["directory"])
+        cell, state = entry["cell"], entry["state"]
+    else:
+        directory = output / "cells" / cell["id"]
     verify_archive(directory, state["archive_sha256"])
     validate_operations(continual.read_json(directory / "operations.json"), cell, protocol)
     model_id = f"privoke-{cell['profile']}"
@@ -161,6 +178,8 @@ def load_cell(output, protocol, cell, state):
         raise ValueError("Contextual endpoints differ from archived baseline/final artifact identities.")
     if any(f["identity"] != c["identity"] for f, c in zip(fixture, context)):
         raise ValueError("Fixture/contextual endpoint identities differ.")
+    for endpoint in (*context, *fixture):
+        endpoint["layers"] = semantic_view(endpoint["layers"], imported=imported)
     exposure = None
     if cell["kind"] == "live":
         controller = directory / "controller"
@@ -189,6 +208,8 @@ def load_cell(output, protocol, cell, state):
         exposure = audit_allocations(directory / "curriculum.sqlite3", rounds, lookup, cell["policy"], cell["sampler_seed"], cell["replay_weight"], durable_metadata)
         exposure.update(publication_counts)
         development = [continual.read_json(raw / f"checkpoint-{cycle:03d}.json") for cycle in (0, 20)]
+        if not imported and config.get("evaluation_layers") != ["semantic"]:
+            raise ValueError("Controller did not bind semantic-only measurement.")
         for cycle, checkpoint in zip((0, 20), development):
             saved = model["checkpoints"][str(cycle)]
             if continual.sha(raw / saved["path"]) != saved["sha256"] or continual.sha(raw / saved["snapshot_path"]) != saved["snapshot_sha256"]:
@@ -225,18 +246,18 @@ def load_cell(output, protocol, cell, state):
             raise ValueError("Offline matched schedule differs.")
         exposure = {k: fit[k] for k in ("steps", "presentations", "unique_rows", "unique_families", "partial_epoch", "maximum_inference_parity_error", "changed_tensors")}
         attempts, accepted = None, None
+    development = [semantic_view(endpoint, imported=imported) for endpoint in development]
     outcomes = {"development": compare_layers(*development), "contextual": compare_layers(context[0]["layers"], context[1]["layers"], True),
-                "fixtures": {layer: restriction_harms(fixture[0]["layers"][layer]["predictions"], fixture[1]["layers"][layer]["predictions"]) for layer in ("semantic", "pipeline")}}
+                "fixtures": {layer: restriction_harms(fixture[0]["layers"][layer]["predictions"], fixture[1]["layers"][layer]["predictions"]) for layer in ("semantic",)}}
     outcomes["fixture_classification"] = compare_layers(fixture[0]["layers"], fixture[1]["layers"], True)
     outcomes["hard_positive_contextual"] = compare_layers(
-        *[{layer: {"predictions": [row for row in endpoint["layers"][layer]["predictions"] if row.get("hard_positive")]} for layer in ("semantic", "pipeline")} for endpoint in context], contextual=True)
-    before, after = (outcomes["development"]["pipeline"][key] for key in ("before", "after"))
-    contextual = outcomes["contextual"]["pipeline"]
-    eligible = (after["recall"] >= .9 and after["specificity"] > before["specificity"]
-                and contextual["after"]["joint_accuracy"] >= contextual["before"]["joint_accuracy"]
-                and all(value["passed"] for value in outcomes["fixtures"].values()))
+        *[{layer: {"predictions": [row for row in endpoint["layers"][layer]["predictions"] if row.get("hard_positive")]} for layer in ("semantic",)} for endpoint in context], contextual=True)
+    before, after = (outcomes["development"]["semantic"][key] for key in ("before", "after"))
+    eligible = semantic_eligibility(outcomes)
     baseline_signature = {"development": development[0], "contextual": context[0]["layers"], "fixtures": fixture[0]["layers"]}
-    return {"id": cell["id"], "kind": cell["kind"], "profile": cell["profile"], "arm": cell.get("arm"), "mode": cell.get("mode"),
+    return {"id": cell["id"], "kind": cell["kind"],
+            "measurement_origin": "imported_v1_semantic" if imported else "prospective_v2_semantic",
+            "execution_source_revision": protocol["source_revision"], "profile": cell["profile"], "arm": cell.get("arm"), "mode": cell.get("mode"),
             "seed": cell["replicate_seed"], "attempts": attempts, "accepted_updates": accepted,
             "rejected_attempts": attempts - accepted if attempts is not None else None, "eligible": eligible,
             "baseline_recall_gate_passed": before["recall"] >= .9, "outcomes": outcomes, "exposure": exposure}, {
@@ -247,6 +268,11 @@ def audit(output):
     """Audit archived data only; never issues RPCs or reads protected examples."""
     protocol = continual.read_json(output / "protocol.json")
     state = continual.read_json(output / "supervisor.json")
+    if protocol.get("schema_version") != 2 or protocol.get("evaluation_layers") != ["semantic"]:
+        raise ValueError("Only amended semantic-only v2 analysis is supported; historical v1 remains unchanged.")
+    verify_import_manifest(protocol["imports"])
+    if continual.sha(output / "semantic-imports.json") != protocol["import_manifest_sha256"]:
+        raise ValueError("Semantic import manifest commitment changed.")
     if continual.sha(output / "protocol.json") != state["protocol_sha256"] or state["status"] != "complete":
         raise ValueError("Complete frozen matrix required before aggregate conclusions.")
     if len(protocol["cells"]) != 63 or set(state["cells"]) != {c["id"] for c in protocol["cells"]}:
@@ -262,7 +288,7 @@ def audit(output):
         current = evidence["baseline"]
         reference = baseline.setdefault(cell["profile"], current)
         for endpoint in reference:
-            for layer in ("semantic", "pipeline"):
+            for layer in ("semantic",):
                 pairs = matched(reference[endpoint][layer]["predictions"], current[endpoint][layer]["predictions"])
                 if any((a.get("classification", a.get("raw", {}).get("classification")), a.get("action", a.get("raw", {}).get("action")), a.get("detected_sensitive")) !=
                        (b.get("classification", b.get("raw", {}).get("classification")), b.get("action", b.get("raw", {}).get("action")), b.get("detected_sensitive")) for a, b in pairs):
@@ -278,15 +304,15 @@ def audit(output):
                 a, b = (raw[f"{profile}-{arm.lower()}-{seed}"] for arm in (left, right))
                 seed_records.append({"seed": seed, "development": compare_layers(a["development"], b["development"]),
                                      "contextual": compare_layers(a["contextual"], b["contextual"], True),
-                                     "fixtures": {layer: restriction_harms(a["fixtures"][layer]["predictions"], b["fixtures"][layer]["predictions"]) for layer in ("semantic", "pipeline")}})
+                                     "fixtures": {layer: restriction_harms(a["fixtures"][layer]["predictions"], b["fixtures"][layer]["predictions"]) for layer in ("semantic",)}})
             contrasts.append({"profile": profile, "comparison": f"{right}-{left}", "meaning": label, "seeds": seed_records,
                               "endpoint_delta_statistics": outcome_statistics(seed_records, deltas=True),
-                              "pipeline_specificity_delta": seed_statistics([row["development"]["pipeline"]["after"]["specificity"] - row["development"]["pipeline"]["before"]["specificity"] for row in seed_records]),
-                              "pipeline_contextual_joint_delta": seed_statistics([row["contextual"]["pipeline"]["after"]["joint_accuracy"] - row["contextual"]["pipeline"]["before"]["joint_accuracy"] for row in seed_records])})
+                              "semantic_specificity_delta": seed_statistics([row["development"]["semantic"]["after"]["specificity"] - row["development"]["semantic"]["before"]["specificity"] for row in seed_records]),
+                              "semantic_contextual_joint_delta": seed_statistics([row["contextual"]["semantic"]["after"]["joint_accuracy"] - row["contextual"]["semantic"]["before"]["joint_accuracy"] for row in seed_records])})
         interaction = {}
         for endpoint in ("development", "contextual"):
             interaction[endpoint] = {}
-            for layer in ("semantic", "pipeline"):
+            for layer in ("semantic",):
                 interaction[endpoint][layer] = {}
                 sample = by_id[f"{profile}-a-42"]["outcomes"][endpoint][layer]["after"]
                 for metric, point in sample.items():
@@ -313,10 +339,12 @@ def audit(output):
             group_summaries.append({"profile": profile, "arm_or_mode": key, "deterministic_replicas_not_independent": key in {"A", "B"},
                                     "all_endpoint_statistics": outcome_statistics([r["outcomes"] for r in selected]),
                                     "eligible_cells": sum(r["eligible"] for r in selected),
-                                    "pipeline_recall": seed_statistics([r["outcomes"]["development"]["pipeline"]["after"]["recall"] for r in selected]),
-                                    "pipeline_specificity": seed_statistics([r["outcomes"]["development"]["pipeline"]["after"]["specificity"] for r in selected]),
-                                    "pipeline_contextual_joint": seed_statistics([r["outcomes"]["contextual"]["pipeline"]["after"]["joint_accuracy"] for r in selected])})
-    summary = {"schema_version": 1, "protocol_sha256": state["protocol_sha256"], "source_revision": protocol["source_revision"],
+                                    "semantic_recall": seed_statistics([r["outcomes"]["development"]["semantic"]["after"]["recall"] for r in selected]),
+                                    "semantic_specificity": seed_statistics([r["outcomes"]["development"]["semantic"]["after"]["specificity"] for r in selected]),
+                                    "semantic_contextual_joint": seed_statistics([r["outcomes"]["contextual"]["semantic"]["after"]["joint_accuracy"] for r in selected])})
+    summary = {"schema_version": 2, "evaluation_layers": ["semantic"], "amendment": protocol["amendment"], "protocol_sha256": state["protocol_sha256"], "source_revision": protocol["source_revision"],
+               "imported_semantic_cells": sum(r["measurement_origin"] == "imported_v1_semantic" for r in records),
+               "prospective_semantic_cells": sum(r["measurement_origin"] == "prospective_v2_semantic" for r in records),
                "status": "audited", "live_cells": 45, "offline_cells": 18, "live_attempts": sum(r["attempts"] or 0 for r in records),
                "accepted_updates": sum(r["accepted_updates"] or 0 for r in records), "offline_steps": 360,
                "cells": records, "groups": group_summaries, "contrasts": contrasts, "limitations": protocol["limitations"],
@@ -325,5 +353,6 @@ def audit(output):
         raise ValueError("Live attempt total differs from 900.")
     continual.write_json(output / "summary.json", summary)
     continual.write_json(output / "audit.json", {"passed": True, "protocol_sha256": state["protocol_sha256"], "summary_sha256": continual.sha(output / "summary.json"),
+                         "execution_protocols": {key: protocol["imports"]["protocol_sha256"] if value.get("imported") else state["protocol_sha256"] for key, value in state["cells"].items()},
                          "archives": {key: value["archive_sha256"] for key, value in state["cells"].items()}, "checks": ["baseline bytes/float32 identities/predictions", "attempt/response/publication chains", "SQLite allocations/cursor reconstruction", "matched truth/group endpoints", "offline exposure/export contracts"]})
     return summary

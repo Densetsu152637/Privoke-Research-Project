@@ -291,7 +291,8 @@ def request_for(pb, text, request_id, semantic_id, *, presence_id=None, threshol
                 visibility_hint=None):
     kwargs = {"text": text, "request_id": request_id, "source": "contextual-cascade-evaluation",
               "semantic_model_id": semantic_id,
-              "layers": [pb.DETECTION_LAYER_REGEX, pb.DETECTION_LAYER_NER] if nonsemantic else [],
+              "layers": [pb.DETECTION_LAYER_REGEX, pb.DETECTION_LAYER_NER] if nonsemantic else
+                        [pb.DETECTION_LAYER_REGEX, pb.DETECTION_LAYER_NER, pb.DETECTION_LAYER_SEMANTIC],
               "regex_execution_order": pb.REGEX_EXECUTION_ORDER_FIRST}
     if visibility_hint is not None:
         if visibility_hint not in ("P0", "P1", "P2", "P3", "P4", "PU"):

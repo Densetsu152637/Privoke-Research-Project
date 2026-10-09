@@ -77,17 +77,17 @@ class MatrixTests(unittest.TestCase):
         identity = {"model_id": "privoke-efficient"}
         class Client:
             def analyze(self, *args):
-                return {"identities": [identity], "raw": {"classification": {"sensitivity": "S1", "visibility": "P0", "categories": ["IDENTITY"]}, "action": "WARN"}}
+                return {"identities": [identity], "raw": {"layers": [{"layer": "DETECTION_LAYER_SEMANTIC", "status": "ok"}], "classification": {"sensitivity": "S1", "visibility": "P0", "categories": ["IDENTITY"]}, "action": "WARN"}}
             def snapshot(self, *args):
                 return {"identity": identity}
         fixture = {"case_id": "clean", "family_id": "public_bio", "text": "Synthetic public biography", "ambiguous": False,
                    "expected_sensitivity": "S1", "expected_visibility": "P0", "expected_categories": ["IDENTITY"],
                    "minimum_action": "ALLOW", "expected_action": "ALLOW", "allowed_actions": ["ALLOW"]}
         report = study.contextual_rows(Client(), [fixture], "privoke-efficient", identity, "test", True)
-        row = report["pipeline"]["predictions"][0]
+        row = report["semantic"]["predictions"][0]
         self.assertEqual(row["allowed_actions"], ["ALLOW"])
         self.assertEqual(row["group_id"], "public_bio")
-        self.assertEqual(report["pipeline"]["metrics"]["over_restriction_rate"], 1)
+        self.assertEqual(report["semantic"]["metrics"]["over_restriction_rate"], 1)
 
     def test_rpc_forwards_visibility_hint_and_omits_legacy_hint(self):
         requests = []
@@ -173,10 +173,10 @@ class MatrixTests(unittest.TestCase):
             study.assert_baseline(snapshot, artifact)
 
     def test_source_and_protocol_drift_rejected_before_execution(self):
-        protocol = {"source_files": {"fixture.py": "old"}}
+        protocol = {"schema_version": 2, "evaluation_layers": ["semantic"], "imports": {}, "import_manifest_sha256": "synthetic", "source_files": {"fixture.py": "old"}}
         study.continual.write_json(self.root / "protocol.json", protocol)
         study.continual.write_json(self.root / "supervisor.json", {"protocol_sha256": study.continual.sha(self.root / "protocol.json")})
-        with patch.object(study, "source_inventory", return_value={"fixture.py": "new"}), self.assertRaisesRegex(ValueError, "source"):
+        with patch.object(study, "verify_import_manifest"), patch.object(study.continual, "sha", return_value="synthetic"), patch.object(study, "source_inventory", return_value={"fixture.py": "new"}), self.assertRaisesRegex(ValueError, "source"):
             study.verify_freeze(self.root)
         with patch.object(study, "command", side_effect=["commit\n", " M fixture.py\n"]), self.assertRaisesRegex(ValueError, "Commit"):
             study.require_committed_sources({"fixture.py": "old"})

@@ -23,7 +23,7 @@ class FixtureRpcTests(unittest.TestCase):
                          "checksum": "synthetic-checksum",
                          "parameters": {"head": {"shape": [1], "values": [0.0]}}}
         self.identity = STUDY.artifact_identity(self.artifact)
-        self.args = SimpleNamespace(project_name="synthetic", runtime_target="fake.invalid:1")
+        self.args = SimpleNamespace(allow_product_pipeline=True, project_name="synthetic", runtime_target="fake.invalid:1")
         self.state = {"prefix": "fixture-test", "prepared": "unused-synthetic-curriculum",
                       "runtime_target": self.args.runtime_target}
         self.requests = []
@@ -50,6 +50,8 @@ class FixtureRpcTests(unittest.TestCase):
 
         def analyze(request, *, timeout):
             self.assertIsInstance(request, PB.AnalyzePromptRequest)
+            self.assertEqual(list(request.layers), [PB.DETECTION_LAYER_REGEX,
+                             PB.DETECTION_LAYER_NER, PB.DETECTION_LAYER_SEMANTIC])
             self.assertEqual(timeout, 120)
             self.requests.append(request)
             return next(pending)(request)

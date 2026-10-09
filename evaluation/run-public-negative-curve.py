@@ -1,5 +1,6 @@
 """Call at most two further cycles under the public-negative study protocol."""
 import argparse
+from study_scope import add_product_pipeline_argument, require_product_pipeline
 import hashlib
 import importlib.util
 import json
@@ -65,7 +66,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--study-manifest", type=Path, required=True)
     parser.add_argument("--experiment-id", required=True)
+    add_product_pipeline_argument(parser)
     args = parser.parse_args()
+    require_product_pipeline(args, parser)
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,49}", args.experiment_id):
         parser.error("Use a 1-50 character experiment identifier starting with a letter or digit.")
     output = ROOT / "evaluation/results" / args.experiment_id

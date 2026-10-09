@@ -81,6 +81,16 @@ regex+NER ablations also require explicit selection for that purpose. Historical
 combined-detector reports retain their original meaning and are not LLM-only scores.
 See the persistent [repository testing policy](../AGENTS.md).
 
+Legacy combined studies require `--allow-product-pipeline` for separately
+authorized product/detector analysis: `run-contextual-fuzzer-study.py` and its
+class-balanced, mean-category, role-quota, local-SGD and decision-margin variants;
+`run-independent-updates.py`, `run-model-profile-study.py`, `run-training-curve.py`,
+`run-public-negative-study.py` and `run-public-negative-curve.py`. They refuse by
+default before study data access or work and preserve their original pipeline
+eligibility rules. For LLM-only comparisons, use the current semantic-only
+curriculum-improvement study rather than this opt-in. `run-ablations.py` and the
+named full-pipeline cascade tools serve explicit product/detector tasks.
+
 Normal deployment enables automatic training (32 prompts, hourly interval).
 Keep `evaluation/compose.tests.yml` or the study's explicit count-0 override
 for every updater in the Compose file sequence for controlled measurements.
@@ -445,8 +455,10 @@ The prospective curriculum comparison is controlled by
 `run-curriculum-improvement-study.py` with explicit `prepare`, `execute`, and
 `audit` phases. Its specification and provisional-label limitations are in
 [`docs/fuzzer-curriculum-improvement-process-20261009.md`](../docs/fuzzer-curriculum-improvement-process-20261009.md).
-The matrix contains 45 fresh live cells (900 attempted cycles) and a separate
-18-cell offline matched-Adam mechanics comparison. It never promotes a model.
+The amended semantic-only v2 matrix contains 45 live cells (900 attempted cycles)
+and a separate 18-cell offline matched-Adam mechanics comparison. Fifteen completed
+v1 efficient live cells contribute read-only isolated semantic views; 48 cells
+are prospective. The original combined-detector measurements remain historical. It never promotes a model.
 Preparation requires committed computation sources, reviewed resource hashes,
 and an images JSON mapping the five serving service names plus
 `offline-training` to full immutable `sha256:` image IDs. Source-only service
@@ -455,18 +467,26 @@ The existing service parent tags must be inspected and their resolved IDs
 retained in the build logs; ordinary service images are not overwritten.
 
 ```powershell
-python evaluation/run-curriculum-improvement-study.py prepare --study-id privoke-improve-UNIQUE --output evaluation/results/curriculum_improvement_20261009_v1 --images evaluation/results/curriculum_improvement_20261009_core/images.json
-python evaluation/run-curriculum-improvement-study.py execute --output evaluation/results/curriculum_improvement_20261009_v1 --cell efficient-a-42
-python evaluation/run-curriculum-improvement-study.py execute --output evaluation/results/curriculum_improvement_20261009_v1
-python evaluation/run-curriculum-improvement-study.py audit --output evaluation/results/curriculum_improvement_20261009_v1
+python evaluation/run-curriculum-improvement-study.py prepare --study-id privoke-improve-UNIQUE-v2 --output evaluation/results/curriculum_improvement_20261009_v2 --images evaluation/results/curriculum_improvement_20261009_amendment/images.json --import-semantic-from evaluation/results/curriculum_improvement_20261009_v1
+python evaluation/run-curriculum-improvement-study.py execute --output evaluation/results/curriculum_improvement_20261009_v2 --cell efficient-head-only-42
+python evaluation/run-curriculum-improvement-study.py execute --output evaluation/results/curriculum_improvement_20261009_v2
+python evaluation/run-curriculum-improvement-study.py audit --output evaluation/results/curriculum_improvement_20261009_v2
 ```
 
 Replace `UNIQUE` with a unique lowercase identifier. The first full cell provides
-an elapsed-cost benchmark. Every cell owns a unique Compose project and five
+an elapsed-cost benchmark. Every prospective cell owns a unique Compose project and five
 named volumes; cells run sequentially on ports 50051–50055. An interrupted
 `execute` resumes saved state, retained storage and the controller's exact pending
 request ID. It never resets a model or retries a known rejection as a new attempt.
 Interrupted offline fits require an audited repair; partial output is preserved.
+The v1 supervisor is never resumed: its explicit interruption checkpoint remains
+outside immutable archives. V2 binds imported archive hashes and each original
+execution protocol, unchanged prepared inputs, new source/images, and the user
+instruction. Its semantic primary/qualification criterion changed after fifteen
+observed cells; the study is exploratory rather than untouched confirmation.
+All fresh requests explicitly select semantic only and validate actual execution.
+Reports contain semantic metrics only, with casewise fixture harms and no pooled
+runtime or latency comparison between imported and prospective observations.
 Services stop after each cell. Preserve task volumes until all raw archives and
 durable receipts pass audit; subsequent cleanup must use only the recorded task
 project names. The unrelated builder and existing projects remain outside scope.
@@ -556,7 +576,14 @@ aggregate timestamps, source hashes, role-exposure totals and serving image
 IDs; it contains no prompts, row IDs, predictions or model weights.
 
 For a new sustained run, use fresh isolated volumes and a new output path and
-study ID. From PowerShell, create a unique lowercase ID and run:
+study ID.
+
+New sustained runs use protocol schema 3, `evaluation_layers=["semantic"]`
+and the `sustained-semantic-v1` results contract. The wrapper accepts only
+semantic checkpoint results. Archived combined-detector runs keep their
+original protocol and scores; this change does not reinterpret those archives.
+
+From PowerShell, create a unique lowercase ID and run:
 
 ```powershell
 $studyId = "privoke-long-" + [guid]::NewGuid().ToString("N")

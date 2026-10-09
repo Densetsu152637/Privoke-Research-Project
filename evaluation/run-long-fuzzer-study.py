@@ -1,4 +1,4 @@
-"""Run a prospective six-hour study in isolated Compose storage, then audit it.
+"""Run a semantic-only prospective six-hour study in isolated Compose storage, then audit it.
 
 Uses the installed evaluation Python environment and existing tested service
 images. Does not read final examples, select models, or alter source artifacts.
@@ -26,6 +26,22 @@ def execute(command, env=None):
     subprocess.run(list(map(str, command)), cwd=ROOT, env=env, check=True)
 
 
+def semantic_results_lines(summary):
+    """Render only the declared semantic results; reject mixed archived contracts."""
+    for profile in summary["profiles"].values():
+        if any(set(checkpoint) != {"semantic"} for checkpoint in profile["checkpoints"].values()):
+            raise ValueError("Sustained semantic-v1 results require exactly the semantic layer.")
+    lines = ["# Sustained semantic-only synthetic fuzzer study", "", "Exploratory development results; no model promotion. Contextual training targets and annotation-presence evaluation are distinct tasks.", "",
+             "| Profile | Training hours | Attempts | Accepted | Layer | Recall before → after | Specificity before → after |", "|---|---:|---:|---:|---|---|---|"]
+    for short, profile in summary["profiles"].items():
+        final = profile["checkpoints"][str(profile["final_cycle"])]
+        for layer in ("semantic",):
+            before = profile["checkpoints"]["0"][layer]["metrics"]
+            after = final[layer]["metrics"]
+            lines.append(f"| {short} | {profile['timed_training_seconds']/3600:.3f} | {profile['attempts']} | {profile['accepted_updates']} | {layer} | {before['recall']:.2%} → {after['recall']:.2%} | {before['specificity']:.2%} → {after['specificity']:.2%} |")
+    return lines
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
@@ -48,7 +64,8 @@ def main():
                  "--exclusion-index", ROOT / "evaluation/results/external_pii_20261004_prepared_v3/exclusion-index.json",
                  "--evaluation-file", ROOT / "evaluation/results/locked-public/development.jsonl", "--evaluation-sha256", DEVELOPMENT_SHA])
         duration = args.hours_per_profile * 3600
-        protocol = {"schema_version": 2, "question": "What happens during repeated synthetic fuzzer training over two hours per model profile?",
+        protocol = {"schema_version": 3, "evaluation_layers": ["semantic"],
+                    "results_contract": "sustained-semantic-v1", "question": "What happens during repeated synthetic fuzzer training over two hours per model profile?",
                     "created_at": now(), "profiles": list(PROFILES), "duration_seconds_per_profile": duration,
                     "cycles_per_profile": 100000, "prompt_count": 256, "new_rows": 192, "replay_rows": 64,
                     "checkpoint_interval_seconds": 1200, "round_pause_seconds": 15, "seed_start": 1337,
@@ -97,14 +114,7 @@ def main():
         execute(["docker", "cp", f"{args.study_id}-updater:/data", output / "state/parameter-update-data"])
         execute([sys.executable, ROOT / "evaluation/summarize-continual-fuzzer-study.py", "--study-root", output])
         summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
-        lines = ["# Sustained synthetic fuzzer study", "", "Exploratory development results; no model promotion. Contextual training targets and annotation-presence evaluation are distinct tasks.", "",
-                 "| Profile | Training hours | Attempts | Accepted | Layer | Recall before → after | Specificity before → after |", "|---|---:|---:|---:|---|---|---|"]
-        for short, profile in summary["profiles"].items():
-            final = profile["checkpoints"][str(profile["final_cycle"])]
-            for layer in ("semantic", "pipeline"):
-                before = profile["checkpoints"]["0"][layer]["metrics"]
-                after = final[layer]["metrics"]
-                lines.append(f"| {short} | {profile['timed_training_seconds']/3600:.3f} | {profile['attempts']} | {profile['accepted_updates']} | {layer} | {before['recall']:.2%} → {after['recall']:.2%} | {before['specificity']:.2%} → {after['specificity']:.2%} |")
+        lines = semantic_results_lines(summary)
         lines += ["", "All rejected attempts and deterioration remain in summary.json. Its checkpoint records include paired group bootstrap intervals. Repeated checkpoints reuse 502 endpoint rows in 465 source groups; they do not increase the independent sample size.", "", *protocol["limitations"]]
         (output / "results.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
         state.update(status="complete", finished_at=now(), summary_sha256=sha(output / "summary.json"))

@@ -249,9 +249,12 @@ class CascadeTests(unittest.TestCase):
             CASCADE.verify_live(ordinary, gated, {"semantic": SEMANTIC, "presence": PRESENCE}, .5)
 
     def test_request_explicit_zero_threshold_and_ordinary_omission(self):
-        pb = SimpleNamespace(DETECTION_LAYER_REGEX=2, DETECTION_LAYER_NER=3, REGEX_EXECUTION_ORDER_FIRST=1,
+        pb = SimpleNamespace(DETECTION_LAYER_REGEX=2, DETECTION_LAYER_NER=3, DETECTION_LAYER_SEMANTIC=4, REGEX_EXECUTION_ORDER_FIRST=1,
                              SemanticPresenceGate=lambda **kwargs: kwargs, AnalyzePromptRequest=lambda **kwargs: kwargs)
         ordinary = CASCADE.request_for(pb, "test", "id", "privoke-balanced")
+        self.assertEqual(ordinary["layers"], [2, 3, 4])
+        nonsemantic = CASCADE.request_for(pb, "test", "id", "privoke-balanced", nonsemantic=True)
+        self.assertEqual(nonsemantic["layers"], [2, 3])
         self.assertNotIn("semantic_presence_gate", ordinary)
         gated = CASCADE.request_for(pb, "test", "id", "privoke-balanced", presence_id=PRESENCE["model_id"], threshold=0)
         self.assertEqual(gated["semantic_presence_gate"]["threshold"], 0)

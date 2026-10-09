@@ -105,7 +105,7 @@ class StudyTests(unittest.TestCase):
             STUDY.verify_guarded_publication(artifact, wrong_shape, response)
 
     def test_measurement_endpoint_uses_frozen_scope_over_inherited_environment(self):
-        args = SimpleNamespace(project_name="study")
+        args = SimpleNamespace(allow_product_pipeline=True, project_name="study")
         state = {"prefix": "scope-test", "prepared": "prepared", "runtime_target": "127.0.0.1:50054"}
         with patch.dict(STUDY.os.environ, {"PRIVOKE_RUNTIME_TARGET": "different.example:1234"}):
             driver = STUDY.Driver(args, state)

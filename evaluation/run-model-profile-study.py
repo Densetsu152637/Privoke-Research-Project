@@ -1,5 +1,6 @@
 """Measure released model profiles through the existing Docker evaluator."""
 import argparse
+from study_scope import add_product_pipeline_argument, require_product_pipeline
 import hashlib
 import importlib.util
 import json
@@ -44,7 +45,9 @@ def image_ids():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-prefix", default="model_profiles_20261003")
+    add_product_pipeline_argument(parser)
     args = parser.parse_args()
+    require_product_pipeline(args, parser)
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}", args.run_prefix):
         parser.error("Use a 1-40 character run prefix starting with a letter or digit.")
     output = ROOT / "evaluation/results" / args.run_prefix

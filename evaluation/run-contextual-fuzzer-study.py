@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from study_scope import add_product_pipeline_argument, require_product_pipeline
 from contextlib import contextmanager
 import hashlib
 import itertools
@@ -63,7 +64,7 @@ def read(path):
 def computation_sources():
     """Bind the actual scorer and relevant serving/training source, including dirty edits."""
     paths = {ROOT / "evaluation" / name for name in
-             ("run-ablations.py", "evaluate.py", "host_environment.py", "requirements.txt")}
+             ("run-ablations.py", "evaluate.py", "host_environment.py", "requirements.txt", "study_scope.py")}
     for directory in ("evaluation/privoke_eval", "extension/client-runtime/src",
                       "shared/python", "services/privoke-fuzzer/src",
                       "services/param-update-service/app", "services/model-streaming-service/cmd/server"):
@@ -184,6 +185,7 @@ class UnknownUpdateOutcome(RuntimeError):
 
 class Driver:
     def __init__(self, args, state):
+        require_product_pipeline(args)
         self.args, self.state = args, state
         self.environment = {**os.environ, "CONTEXTUAL_STUDY_ID": state["prefix"], "CONTEXTUAL_STUDY_CURRICULUM": str(Path(state["prepared"]).resolve() / "prompts.jsonl")}
         self.environment["PRIVOKE_RUNTIME_TARGET"] = state["runtime_target"]
@@ -379,7 +381,8 @@ print(json.dumps(result))
                 if case["case_id"] in result:
                     continue
                 request_id = "ctx-fixture-" + hashlib.sha256((str(path) + case["case_id"]).encode()).hexdigest()[:40]
-                kwargs = {"text": case["text"], "request_id": request_id, "source": "contextual-fuzzer-study", "semantic_model_id": artifact["model_id"]}
+                kwargs = {"text": case["text"], "request_id": request_id, "source": "contextual-fuzzer-study", "semantic_model_id": artifact["model_id"],
+                          "layers": [pb.DETECTION_LAYER_REGEX, pb.DETECTION_LAYER_NER, pb.DETECTION_LAYER_SEMANTIC]}
                 if case.get("visibility_hint") is not None:
                     kwargs["visibility_hint"] = case["visibility_hint"]
                 response = client.AnalyzePrompt(pb.AnalyzePromptRequest(**kwargs), timeout=120)
@@ -600,7 +603,9 @@ def main():
     for image in ("runtime", "streamer", "updater", "fuzzer"):
         parser.add_argument(f"--{image}-image", help="Root-built study image; resolved to immutable ID before changes, never built by controller.")
     parser.add_argument("--limit", type=int, default=1, help="Number of next fixed attempts in this stage, 1..54; selection always requires all 54.")
+    add_product_pipeline_argument(parser)
     args = parser.parse_args()
+    require_product_pipeline(args, parser)
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,31}", args.prefix) or not 1 <= args.limit <= 54:
         parser.error("Prefix must be 1..32 safe characters; stage limit must be 1..54.")
     args.output = args.output.resolve()

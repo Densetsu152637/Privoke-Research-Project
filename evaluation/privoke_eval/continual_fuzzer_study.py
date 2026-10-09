@@ -218,7 +218,7 @@ class RpcClient:
         if layer == "semantic" and (len(response.layers) != 1
                 or response.layers[0].layer != RP.DETECTION_LAYER_SEMANTIC
                 or response.layers[0].status != "ok" or response.layers[0].error):
-            raise ValueError("Semantic-only evaluation requires exactly one successful semantic layer execution.")
+            raise LayerIsolationError("Semantic-only evaluation requires exactly one successful semantic layer execution.")
         raw = MessageToDict(response, preserving_proto_field_name=True)
         if response.action not in {"ALLOW", "WARN", "BLOCK"} or response.classification.sensitivity not in {"S0", "S1", "S2", "S3"}:
             raise ValueError("Invalid runtime classification/action.")
@@ -245,9 +245,21 @@ class RpcClient:
                 "message": response.message, "metadata": dict(response.metadata)}
 
 
+class LayerIsolationError(ValueError):
+    """Detector isolation violation; never downgraded to an ordinary row error."""
+
+
+def require_semantic_execution(raw):
+    """Validate archived and newly returned execution, including synthetic clients."""
+    layers = raw.get("layers", [])
+    if (len(layers) != 1 or layers[0].get("layer") != "DETECTION_LAYER_SEMANTIC"
+            or layers[0].get("status") != "ok" or layers[0].get("error")):
+        raise LayerIsolationError("Exactly one successful semantic layer execution is required.")
+
+
 def measure(client, rows, model_id, identity, tag):
     reports = {}
-    for layer in ("semantic", "pipeline"):
+    for layer in ("semantic",):
         predictions = []
         seen_identity = False
         for row in rows:
@@ -255,11 +267,14 @@ def measure(client, rows, model_id, identity, tag):
             request_id = "continual-probe-" + hashlib.sha256(f"{tag}:{layer}:{row['id']}".encode()).hexdigest()[:40]
             try:
                 result = client.analyze(row, model_id, layer, request_id)
+                require_semantic_execution(result["raw"])
                 if any(observed != identity for observed in result["identities"]):
                     raise ValueError("Returned semantic identity differs from pinned snapshot.")
                 seen_identity |= bool(result["identities"])
                 record.update(status="ok", request_id=request_id, **result)
             except (grpc.RpcError, ValueError) as exc:
+                if isinstance(exc, LayerIsolationError):
+                    raise
                 record.update(status="error", request_id=request_id, error=str(exc))
             predictions.append(record)
         if not seen_identity:
@@ -284,12 +299,15 @@ def mine_training(client, rows, model_id, identity, tag):
                   "parent_id": row["metadata"].get("parent_id"), "request_id": request_id}
         try:
             result = client.analyze(row, model_id, "semantic", request_id)
+            require_semantic_execution(result["raw"])
             if any(value != identity for value in result["identities"]):
                 raise ValueError("Mining identity mismatch.")
             record.update(status="ok", **result)
             if expected != result["detected_sensitive"]:
                 hard.append(row["id"])
         except (grpc.RpcError, ValueError) as exc:
+            if isinstance(exc, LayerIsolationError):
+                raise
             record.update(status="error", error=str(exc))
         records.append(record)
     if client.snapshot(model_id)["identity"] != identity:
@@ -302,6 +320,7 @@ def study_config(args, inputs):
             "duration_seconds": args.duration_seconds, "checkpoint_interval_seconds": args.checkpoint_interval_seconds,
             "round_pause_seconds": args.round_pause_seconds, "checkpoint_only_snapshots": args.checkpoint_only_snapshots,
             "prompt_count": args.prompt_count, "checkpoints": sorted(set(args.checkpoints + [0, args.cycles])),
+            "evaluation_layers": ["semantic"],
             "curriculum_sampler_policy": getattr(args, "curriculum_sampler_policy", "deterministic_v1"),
             "curriculum_sampler_seed": getattr(args, "curriculum_sampler_seed", 0),
             "target": args.target, "runtime_target": args.runtime_target, "model_target": args.model_target,

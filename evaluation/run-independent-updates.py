@@ -4,6 +4,7 @@ The actual training cycle remains implemented by the fuzzer service. Run only
 after the frozen baseline batch completes. All writes target research volumes.
 """
 import argparse
+from study_scope import add_product_pipeline_argument, require_product_pipeline
 import hashlib
 import json
 import re
@@ -28,7 +29,9 @@ def main():
     parser.add_argument("--experiment-id", required=True)
     parser.add_argument("--seeds", nargs="+", type=int, default=[42, 1337, 2026])
     parser.add_argument("--compose-override", type=Path, action="append", default=[])
+    add_product_pipeline_argument(parser)
     args = parser.parse_args()
+    require_product_pipeline(args, parser)
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", args.experiment_id):
         parser.error("Use a run identifier of 1-64 letters, digits, dots, underscores or hyphens, starting with a letter or digit.")
     for override in args.compose_override:

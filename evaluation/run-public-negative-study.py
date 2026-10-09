@@ -1,5 +1,6 @@
 """Call the existing fuzzer and evaluator for the prospective negative-coverage study."""
 import argparse
+from study_scope import add_product_pipeline_argument, require_product_pipeline
 import hashlib
 import json
 from pathlib import Path
@@ -80,7 +81,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path)
     parser.add_argument("--experiment-prefix", default="public_negative_20261003")
+    add_product_pipeline_argument(parser)
     args = parser.parse_args()
+    require_product_pipeline(args, parser)
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}", args.experiment_prefix):
         parser.error("Use a 1-40 character prefix starting with a letter or digit.")
     args.output = args.output or ROOT / "evaluation/results" / args.experiment_prefix
@@ -120,7 +123,7 @@ def main():
                 experiment_id = f"{args.experiment_prefix}_lr{slug}"
                 call(["up", "-d", "--no-deps", "--force-recreate", "--wait", "privoke-fuzzer"], log=log, compose=compose)
                 command = [sys.executable, "evaluation/run-independent-updates.py", "--experiment-id", experiment_id,
-                           "--compose-override", "evaluation/compose.public-negatives.yml"]
+                           "--allow-product-pipeline", "--compose-override", "evaluation/compose.public-negatives.yml"]
                 if overlay:
                     command += ["--compose-override", overlay]
                 subprocess.run(command, cwd=ROOT, stdout=log, stderr=log, check=True)

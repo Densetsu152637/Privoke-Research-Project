@@ -25,3 +25,9 @@ Copy [.env.example](.env.example) for the complete list of GitHub secret names. 
 This repository supplies deployment configuration; the [deployment guide](docs/README.Google-cloud-deployment.md) covers provisioning, certificates, rollout, backups, and rollback.
 
 Implementation contracts, regression coverage, and pending release checks are recorded in the [feature completion matrix](docs/feature-completion.md).
+
+LLM training and evaluation tests isolate the semantic layer and validate actual
+returned execution. The versioned curriculum/sampler/representation study preserves
+fifteen archived semantic views and runs forty-eight fresh semantic-only cells;
+see [the amended study protocol](docs/fuzzer-curriculum-improvement-process-20261009.md).
+Historical combined-detector results remain separate.

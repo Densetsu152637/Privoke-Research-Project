@@ -29,7 +29,7 @@ class FixtureClient:
             self.interrupt = None
             raise RuntimeError("synthetic interrupted checkpoint")
         expected = row.get("expected_has_pii", row.get("classification", {}).get("sensitivity") == "S2")
-        return {"identities": [dict(self.identity)], "raw": {"request_id": request_id}, "detected_sensitive": expected if self.version else False}
+        return {"identities": [dict(self.identity)], "raw": {"request_id": request_id, "layers": [{"layer": "DETECTION_LAYER_SEMANTIC", "status": "ok"}]}, "detected_sensitive": expected if self.version else False}
 
     def train(self, request):
         self.requests.append(copy.deepcopy(request))
@@ -238,7 +238,7 @@ class StudyTests(unittest.TestCase):
         client.analyze = analyze
         report = study.measure(client, self.rows, "privoke-efficient", client.identity, "synthetic")
         self.assertEqual(report["semantic"]["metrics"]["runtime_errors"], 1)
-        self.assertEqual(report["pipeline"]["metrics"]["coverage"], .75)
+        self.assertEqual(report["semantic"]["metrics"]["coverage"], .75)
         self.assertEqual(report["semantic"]["predictions"][0]["status"], "error")
 
     def test_resume_rejects_changed_inputs_or_model(self):

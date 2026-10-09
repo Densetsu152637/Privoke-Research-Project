@@ -2,6 +2,7 @@
 # are supplied by the build command and recorded before protocol freeze.
 ARG FUZZER_IMAGE
 ARG UPDATER_IMAGE
+ARG RUNTIME_IMAGE
 FROM ${FUZZER_IMAGE} AS curriculum-fuzzer
 COPY services/privoke-fuzzer/src /workspace/services/privoke-fuzzer/src
 COPY evaluation/privoke_eval/synthetic_curriculum.py /workspace/evaluation/privoke_eval/synthetic_curriculum.py
@@ -9,6 +10,10 @@ COPY shared/python /workspace/shared/python
 
 FROM ${UPDATER_IMAGE} AS curriculum-updater
 COPY services/param-update-service/app /workspace/services/param-update-service/app
+COPY shared/python /workspace/shared/python
+
+FROM ${RUNTIME_IMAGE} AS curriculum-runtime
+COPY extension/client-runtime/src /workspace/extension/client-runtime/src
 COPY shared/python /workspace/shared/python
 
 # Explicit CPU mechanics image. No datasets, final input, or model publication.

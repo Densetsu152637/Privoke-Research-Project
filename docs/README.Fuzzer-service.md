@@ -6,6 +6,8 @@
 
 It is not in the hosted prompt decision path. Training cycles deliberately target the streamed semantic model path rather than the full regex + NER + semantic pipeline.
 
+For LLM study comparisons, use the semantic-only curriculum-improvement runner. Older combined-protocol study commands require `--allow-product-pipeline` solely for separately authorized product/detector analysis; their pipeline selection rules and historical scores retain that scope. See the [evaluation entrypoint policy](../evaluation/README.md).
+
 Normal deployments enable the updater's automatic requester by default: 32
 prompts at startup and another cycle every hour, with a different seed for each
 new cycle and the same seed on retries. Set `FUZZER_PROMPT_COUNT=0` on the updater

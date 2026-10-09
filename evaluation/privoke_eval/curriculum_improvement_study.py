@@ -6,6 +6,8 @@ replaces a pending request, promotes a model, or opens protected final data.
 from __future__ import annotations
 
 import argparse
+import ast
+import hashlib
 from collections import defaultdict
 from datetime import datetime, timezone
 import json
@@ -22,6 +24,9 @@ from privoke_model.artifact import float32, load_artifact
 from privoke_model.fingerprint import parameter_fingerprint
 from privoke_eval import continual_fuzzer_study as continual
 from privoke_eval import synthetic_curriculum as synthetic
+from privoke_eval.curriculum_improvement_imports import (
+    build_import_manifest, verify_import_manifest, semantic_view, V1_SOURCE, USER_INSTRUCTION,
+)
 from privoke_eval.curriculum_improvement_evidence import (
     audit_allocations, binary_counts, contextual_changes, contextual_metrics,
     digest, matched, restriction_harms, seed_statistics,
@@ -123,12 +128,57 @@ def pinned_jsonl(path, commitment):
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def training_equivalence(inventory):
+    """Bound reuse to unchanged training and Tiny inference, not whole images."""
+    changed = {}
+    reviewed_source = "8889902158f48bc7d0186efacc4f76b125a3a8f8"
+    allowed = {"services/privoke-fuzzer/src/prompt_testing.py", "services/privoke-fuzzer/src/runtime_client.py",
+               "extension/client-runtime/src/LLM/local_classifier.py", "extension/client-runtime/src/LLM/open_classifier.py",
+               "extension/client-runtime/src/LLM/prompt.py", "extension/client-runtime/src/classification/external_output.py"}
+    for path, commitment in inventory.items():
+        if not path.startswith(("shared/python/", "services/privoke-fuzzer/src/", "services/param-update-service/app/", "extension/client-runtime/src/")):
+            continue
+        before = subprocess.check_output(["git", "show", f"{V1_SOURCE}:{path}"], cwd=ROOT)
+        # Text checkouts may have CRLF. Training source equivalence is textual/AST.
+        after = (ROOT / path).read_bytes()
+        if before.replace(b"\r\n", b"\n") != after.replace(b"\r\n", b"\n"):
+            reviewed = subprocess.check_output(["git", "show", f"{reviewed_source}:{path}"], cwd=ROOT)
+            if reviewed.replace(b"\r\n", b"\n") != after.replace(b"\r\n", b"\n"):
+                raise ValueError("Serving-path change differs from the reviewed CI-4/CI-5 revision.")
+            changed[path] = {"before_sha256": hashlib.sha256(before).hexdigest(), "after_sha256": commitment}
+    if set(changed) - allowed:
+        raise ValueError("Training/Tiny inference source changed; imported evidence requires a new review.")
+    # Discover the owning file rather than assuming the trainer's module name.
+    candidates = [name for name in inventory if name.startswith("services/privoke-fuzzer/src/")
+                  and "def compute_semantic_gradients(" in (ROOT / name).read_text(encoding="utf-8")]
+    if len(candidates) != 1:
+        raise ValueError("Cannot identify the reviewed semantic gradient implementation.")
+    path = candidates[0]
+    def gradient_ast(text):
+        nodes = [n for n in ast.walk(ast.parse(text)) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == "compute_semantic_gradients"]
+        if len(nodes) != 1:
+            raise ValueError("Ambiguous semantic gradient function.")
+        return ast.dump(nodes[0], include_attributes=False)
+    before = command(["git", "show", f"{V1_SOURCE}:{path}"])
+    current = (ROOT / path).read_text(encoding="utf-8")
+    if gradient_ast(before) != gradient_ast(current):
+        raise ValueError("Semantic training gradient AST changed.")
+    return {"original_source": V1_SOURCE, "reviewed_serving_changes_source": reviewed_source, "changed_serving_files": changed,
+            "gradient_function_ast_sha256": digest(gradient_ast(current)),
+            "scope": "Training caller, guard, trainer and Tiny inference sources unchanged; changed chat/testing files are separate paths. Images are versioned, not byte-equivalent."}
+
+
 def prepare(args):
     output = continual.permitted_path(args.output)
-    if not re.fullmatch(r"privoke-improve-[a-z0-9-]+", args.study_id):
-        raise ValueError("Unique lowercase privoke-improve- study ID required.")
+    if not re.fullmatch(r"privoke-improve-[a-z0-9-]+-v2", args.study_id):
+        raise ValueError("Unique lowercase privoke-improve- study ID ending -v2 required.")
     inventory = source_inventory()
     revision = require_committed_sources(inventory)
+    imports = build_import_manifest(args.import_semantic_from)
+    original = verify_import_manifest(imports)
+    equivalence = training_equivalence(inventory)
+    if any(inventory[f"models/privoke-{profile}.json"] != original["source_files"][f"models/privoke-{profile}.json"] for profile in PROFILES):
+        raise ValueError("Amendment must retain all exact original baseline artifact bytes.")
     for name, commitment in RESOURCES.values():
         if continual.sha(ROOT / "evaluation/datasets" / name) != commitment:
             raise ValueError("Reviewed resource bytes changed.")
@@ -154,18 +204,23 @@ def prepare(args):
             raise ValueError("Image identity differs.")
     attestation = attest_image_sources(images, inventory)
     output.mkdir(parents=True, exist_ok=False)
-    for name in ("current", "revised"):
-        synthetic.prepare(output / "curricula" / name, ROOT / "evaluation/datasets" / RESOURCES[name][0],
-                          args.exclusion_index, dataset, continual.DEVELOPMENT_SHA, 9102026, assessment_resource)
-    inputs = {"dataset": {"path": str(dataset), "sha256": continual.DEVELOPMENT_SHA},
-              "fixture": {"path": str(Path(args.fixture).resolve()), "sha256": FIXTURE_SHA},
-              "exclusion_index": {"path": str(Path(args.exclusion_index).resolve()), "sha256": continual.sha(args.exclusion_index)}}
-    for name in ("current", "revised"):
-        directory = output / "curricula" / name
-        manifest = continual.read_json(directory / "manifest.json")
-        inputs[name] = {"manifest": str(directory / "manifest.json"), "manifest_sha256": continual.sha(directory / "manifest.json"),
-                        "files": {entry["path"]: entry["sha256"] for entry in [*manifest["splits"].values(), manifest["assessment"]]}}
-    protocol = {"schema_version": 1, "study_id": args.study_id, "created_at": now(), "source_revision": revision,
+    # Reuse exact prepared-row/manifests commitments; do not regenerate IDs with new source provenance.
+    inputs = original["inputs"]
+    if (continual.sha(dataset) != inputs["dataset"]["sha256"] or continual.sha(args.fixture) != inputs["fixture"]["sha256"]
+            or continual.sha(args.exclusion_index) != inputs["exclusion_index"]["sha256"]):
+        raise ValueError("Amendment inputs differ from original frozen inputs.")
+    continual.write_json(output / "semantic-imports.json", imports)
+    for imported in imports["cells"].values():
+        directory = Path(imported["directory"])
+        verify_baseline_endpoints(output, "efficient", directory, directory / "controller/privoke-efficient", imported=True)
+    protocol = {"schema_version": 2, "evaluation_layers": ["semantic"], "study_id": args.study_id, "created_at": now(), "source_revision": revision,
+                "imports": imports, "import_manifest_sha256": continual.sha(output / "semantic-imports.json"),
+                "amendment": {"user_instruction": USER_INSTRUCTION, "original_user_message_at": None,
+                              "original_user_message_time_status": "unavailable from conversation interface",
+                              "recorded_at": now(), "cessation_verified_at": imports["cessation_verified_at"],
+                              "eligibility_changed_after_observation": True, "imported_cells": 15, "prospective_cells": 48,
+                              "training_equivalence": equivalence,
+                              "reason": "Explicit user instruction isolates LLM evaluation from regex/NER; semantic criterion replaces historical pipeline criterion after 15 observed cells."},
                 "source_files": inventory, "images": images, "image_source_attestation": attestation, "inputs": inputs, "cells": matrix(args.study_id),
                 "live": {"attempts": 20, "trainer_seed": 1337, "prompt_count": 256, "new_rows": 192, "replay_rows": 64,
                          "learning_rate": .003, "gradient_clamp": .05, "transforms": 0, "mining": False, "checkpoints": [0, 20]},
@@ -173,23 +228,31 @@ def prepare(args):
                             "weight_decay": .0001, "max_gradient_norm": 1.0, "replay": False, "gate": False,
                             "schedule": "seeded shuffled without replacement revised TRAIN; same schedule per head/full pair; partial epoch"},
                 "analysis": {"bootstrap_iterations": 2000, "bootstrap_seed": 10102026,
-                             "primary_contextual_metric": "pipeline joint sensitivity/visibility/category exact accuracy",
-                             "eligibility": "pipeline recall>=.90; strict specificity gain; contextual primary no decline; no new/worsened casewise fixture harm",
+                             "primary_contextual_metric": "semantic joint sensitivity/visibility/category exact accuracy",
+                             "eligibility": "semantic recall>=.90; strict semantic specificity gain; semantic contextual primary no decline; no new/worsened semantic casewise fixture harm",
                              "contrasts": ["B-A", "D-C", "C-A", "D-B", "(D-C)-(B-A)", "D-A", "E-D"],
                              "seed_uncertainty": "individual, mean, range, sample SD; deterministic replicas may be identical, not independent"},
                 "limitations": ["Assistant-provisional contextual truth; overlapping semantic archetypes, not broad generalization.",
                                 "Revised curriculum package changes wording, visibility and category mix; not isolated diversity.",
                                 "Annotation-presence development labels differ from contextual truth.",
                                 "Offline matched Adam comparison has different budget/optimizer/gate from live study.",
+                                "15 semantic views imported after observation; 48 prospective cells under amended criterion; no untouched confirmatory claim.",
+                                "Versioned images differ in chat/testing paths; training/Tiny path equivalence is scoped; no cross-origin runtime/latency pooling.",
                                 "No automatic model promotion; protected final never read."]}
     continual.write_json(output / "protocol.json", protocol)
-    continual.write_json(output / "supervisor.json", {"status": "prepared", "protocol_sha256": continual.sha(output / "protocol.json"), "cells": {}})
+    continual.write_json(output / "supervisor.json", {"status": "prepared", "protocol_sha256": continual.sha(output / "protocol.json"),
+                         "cells": {key: {"status": "complete", "imported": True, "archive_sha256": value["archive_sha256"]} for key, value in imports["cells"].items()}})
     return protocol
 
 
 def verify_freeze(output):
     protocol = continual.read_json(output / "protocol.json")
     state = continual.read_json(output / "supervisor.json")
+    if protocol.get("schema_version") != 2 or protocol.get("evaluation_layers") != ["semantic"]:
+        raise ValueError("Historical v1 execution/resume is prohibited; prepare a separate semantic-only v2 study.")
+    verify_import_manifest(protocol["imports"])
+    if continual.sha(output / "semantic-imports.json") != protocol["import_manifest_sha256"]:
+        raise ValueError("Semantic import manifest changed.")
     if state["protocol_sha256"] != continual.sha(output / "protocol.json") or protocol["source_files"] != source_inventory():
         raise ValueError("Frozen protocol or source bytes changed.")
     if require_committed_sources(protocol["source_files"]) != protocol["source_revision"]:
@@ -222,11 +285,12 @@ def assert_baseline(snapshot, artifact):
 
 def contextual_rows(client, rows, model_id, identity, tag, fixture=False):
     result = {}
-    for layer in ("semantic", "pipeline"):
+    for layer in ("semantic",):
         predictions, seen = [], False
         for row in rows:
             key = row["case_id"] if fixture else row["id"]
             response = client.analyze(row, model_id, layer, "improve-" + digest([tag, layer, key])[:40])
+            continual.require_semantic_execution(response["raw"])
             if any(value != identity for value in response["identities"]):
                 raise ValueError("Contextual endpoint served a different model identity.")
             seen |= bool(response["identities"])
@@ -321,8 +385,9 @@ def endpoints(client, protocol, cell, identity, directory, checkpoint, *, develo
             continual.write_json(destination, continual.measure(client, rows, f"privoke-{cell['profile']}", identity, f"{cell['id']}:{checkpoint}"))
 
 
-def baseline_equivalence(output, profile, checkpoints):
+def baseline_equivalence(output, profile, checkpoints, *, imported=False):
     path = output / f"baseline-{profile}.json"
+    checkpoints = {name: semantic_view(layers, imported=imported) for name, layers in checkpoints.items()}
     compact = {name: {layer: [{k: row.get(k) for k in ("id", "group_id", "status", "detected_sensitive", "classification", "action", "target", "allowed_actions", "quantitative")}
                             | {"classification": row.get("classification", row.get("raw", {}).get("classification")),
                                "action": row.get("action", row.get("raw", {}).get("action"))} for row in data["predictions"]]
@@ -334,11 +399,11 @@ def baseline_equivalence(output, profile, checkpoints):
         continual.write_json(path, compact)
 
 
-def verify_baseline_endpoints(output, profile, directory, live_directory=None):
+def verify_baseline_endpoints(output, profile, directory, live_directory=None, *, imported=False):
     development = continual.read_json(live_directory / "checkpoint-000.json" if live_directory else directory / "development-000.json")
     baseline_equivalence(output, profile, {"development": development,
                          "context": continual.read_json(directory / "context-000.json")["layers"],
-                         "fixture": continual.read_json(directory / "fixture-000.json")["layers"]})
+                         "fixture": continual.read_json(directory / "fixture-000.json")["layers"]}, imported=imported)
 
 
 def archive_cell(directory):
@@ -360,7 +425,8 @@ def execute(args):
         if existing and existing.get("blocked_collision"):
             raise ValueError("Cell resource collision requires explicit ownership repair; cannot resume.")
         if existing and existing["status"] == "complete":
-            verify_archive(output / "cells" / cell["id"], existing["archive_sha256"])
+            directory = Path(protocol["imports"]["cells"][cell["id"]]["directory"]) if existing.get("imported") else output / "cells" / cell["id"]
+            verify_archive(directory, existing["archive_sha256"])
             continue
         directory, compose, env = compose_configuration(output, protocol, cell)
         cell_state = existing or {"status": "reserved", "started_at": now(), "project": cell["project"]}
@@ -517,14 +583,15 @@ def main(argv=None):
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--study-id")
     parser.add_argument("--images", type=Path)
+    parser.add_argument("--import-semantic-from", type=Path, help="Read-only interrupted v1 study; prepare v2 without resuming v1")
     parser.add_argument("--dataset", type=Path, default=ROOT / "evaluation/results/locked-public/development.jsonl")
     parser.add_argument("--fixture", type=Path, default=ROOT / "evaluation/results/contextual_fixtures_20261004_v1/support/fixture.jsonl")
     parser.add_argument("--exclusion-index", type=Path, default=ROOT / "evaluation/results/external_pii_20261004_prepared_v3/exclusion-index.json")
     parser.add_argument("--cell", help="Optional exact cell; first full arm benchmarks elapsed cost.")
     args = parser.parse_args(argv)
     if args.phase == "prepare":
-        if not args.study_id or not args.images:
-            parser.error("prepare requires --study-id and --images")
+        if not args.study_id or not args.images or not args.import_semantic_from:
+            parser.error("prepare requires --study-id, --images and --import-semantic-from")
         prepare(args)
     elif args.phase == "execute":
         execute(args)

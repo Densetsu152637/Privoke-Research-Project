@@ -2,6 +2,8 @@
 
 The revised curriculum and seeded sampler address two separate limitations of the earlier combined training run: narrow template variation and deterministic allocation that ignored the request seed. This record preserves the implementation, controlled comparison and limitations. Implementation alone does not establish improved model quality. The earlier six-hour run increased balanced pipeline specificity from 22.27% to 36.55% while recall fell from 93.56% to 87.50%; those results motivated further experiments and did not qualify a model for promotion.
 
+The user's implementation objective was: “Implement your suggestions. Make sure you document this process as we can use this data to discuss how we improved”. The record separates implemented changes from measured outcomes so later discussion can include improvements, deterioration and unresolved effects. The conversation interface did not expose the original message timestamp.
+
 ## Source and resource commitments
 
 Implementation started from `85bf44726f78227c7f8ef22ec3d7098135b406b7` on `feat/dev-testing`. The original resource and v1 rendering remain unchanged. All three reviewed JSON resources use explicit byte-preserving Git attributes so their exact reviewed CRLF byte commitments survive staging and checkout. A pre-freeze Git-blob audit found that text normalization had stored LF blobs despite the reviewed CRLF working bytes; the attribute repair preserves the reviewed bytes without changing any JSON content or experiment targets. The audit is retained in `evaluation/results/curriculum_improvement_20261009_core/git-resource-byte-audit.json`.
@@ -64,9 +66,13 @@ Focused validation uses the existing Python 3.11 study environment with `PYTHONP
 
 The focused suites passed: 14 curriculum/config tests, 14 synthetic-resource tests and 16 continual-controller tests. They cover seed-dependent allocation, reproducibility, epochs/restart, within-batch uniqueness, balanced quotas and fair family visits, conflicting retries, independent cursor namespaces, invalid configuration, contextual facts/token capacity, exclusions and separation. Logs are under `evaluation/results/curriculum_improvement_20261009_core/` as `curriculum-tests.log`, `synthetic-tests.log` and `controller-tests.log`. Live training and model-quality conclusions remain pending the separately implemented supervisor and its audited results.
 
-Paper alignment is assigned to the root integration writer. Affected text is `paper/main.tex` around line 191 (curriculum allocation/replay), line 245 (study commitments), line 324 onward (new results only after measured runs), and line 524 (limitations and unresolved component effects). Existing historical result numbers must remain unchanged.
+Paper alignment initially belonged to the root integration writer; the semantic-only amendment updates the affected prospective methods under the serialized EX-4 assignment. Affected text is `paper/main.tex` around line 191 (curriculum allocation/replay), line 245 (study commitments), line 324 onward (new results only after measured runs), and line 524 (limitations and unresolved component effects). Existing historical result numbers must remain unchanged.
 
-## Implemented execution and evidence contract
+## Historical v1 execution and evidence contract (superseded by semantic-only v2)
+
+This section records the original combined-detector v1 protocol. It is historical;
+the semantic-only v2 amendment below defines the current primary endpoint and
+eligibility. The current runner refuses v1 execution.
 
 `evaluation/run-curriculum-improvement-study.py` separates protocol preparation,
 execution and read-only raw-evidence auditing. Preparation refuses dirty computation
@@ -149,3 +155,77 @@ image was built from the pinned CPU requirements. Source overlays preserve norma
 service images. Build and test evidence is retained under the ignored core-results
 directory; final experiment results remain pending source/protocol acceptance and
 explicit execution authorization.
+
+
+## Semantic-only v2 amendment (10 October local time)
+
+The user instructed: “when running the pipelines for testing the LLM layer,
+ensure you are running them only with the LLM layer (and in the future as well)”.
+The conversation interface did not expose the original message timestamp; v2
+records it as unavailable, separately from amendment preparation time and the
+verified cessation at 2026-10-09 13:16:03.311119 UTC. The v1 supervisor and
+controller were stopped with no pending training request. Fifteen efficient
+cells completed 300 resolved attempts; no balanced or offline cell started.
+The final efficient E44 endpoint/archive completion raced with stopping and is
+retained honestly in `semantic-only-pause-checkpoint.json`. That explicit record
+annotates the interrupted study outside immutable cell archives. V1 protocol
+`0892e64651a59d279aafa8975cca90cc337e769509853bd84cd5c0d1e83ad713`, source
+`4b71dc504d71d71f7159279911f9cd839ab72e7d`, archived combined-detector outputs
+and historical eligibility are preserved; the new runner refuses v1 execution.
+
+V2 uses a separate output directory, protocol and source commitment. Its import
+manifest pins the original protocol and pause-record hashes, fifteen cell IDs,
+archive hashes and original project/image provenance. Only the isolated semantic
+views enter amended analysis: 18,420 successful observations, each with exactly
+one successful semantic layer execution. Import validation rejects missing,
+changed, unsuccessful, empty or mixed-layer evidence. Original v1 execution
+provenance remains authoritative for operation settings, allocation cursors,
+publication receipts, model chains and exact baseline bytes. Metrics are computed
+after selecting semantic views; historical pipeline scores are not reinterpreted
+as LLM results. The remaining 48 cells execute prospectively with fresh v2
+projects/volumes and explicit nonempty semantic-only RPC selection. Returned
+execution must contain exactly one successful semantic layer. Controller
+checkpoints and mining default to semantic only, and their resume configuration
+binds that choice. Unknown v2 request outcomes retain exact-ID recovery.
+
+All 63 profile/seed/arm budgets remain: 900 live attempts and 360 separate offline
+steps. V2 reuses the original prepared manifests and train/replay/guard/assessment
+byte commitments. Training targets and schedules are unchanged. The primary is
+now **semantic joint exact sensitivity/visibility/category-set agreement**;
+qualification requires semantic recall at least 90%, strict semantic specificity
+gain, no primary decline, and no newly incorrect or worsened semantic action harm
+on any eligible fixture. Sensitivity, visibility, category exact agreement, actions
+and hard-positive mechanisms remain separate. Profiles/seeds and paired group
+bootstraps use the same prescribed contrasts. This criterion changed after fifteen
+observed cells, so neither the imported views nor the complete amended study are
+untouched confirmation. No candidate is automatically promoted. Same-profile
+semantic baselines must match across imported and prospective origins. Runtime
+and latency comparisons are not pooled across those origins.
+
+The prerequisite CI-4 changes make semantic-only test defaults explicit and reject
+unexpected executed layers. CI-5 revises the conversational chat prompt and its
+output compatibility following the user's request, “can you also revise the prompt then”.
+The exact canonical object `{"results":[]}` is a valid clean response; complete
+S0 findings remain compatible. Other malformed empty forms still fail validation.
+Parsing/compatibility tests passed. Three regex-masking subcases were observed
+and remain unresolved outside the changed semantic/chat paths; their baseline
+status and causal independence from these changes are unverified. Actual
+chat-model accuracy is unverified. The Tiny classifier and its trainer do not
+consume the conversational prompt. Scoped source comparison verifies the semantic
+gradient function's AST, training caller, guard, training modules and Tiny inference
+remain unchanged from v1. Six changed chat/testing files are recorded explicitly.
+New fuzzer/runtime source overlays are therefore versioned environments, rather
+than a claim of byte-identical images. Copied serving source files are attested
+inside immutable images; updater/model/telemetry/offline images are retained only
+where unchanged. New TRAIN authoring ideas belong to a later separately frozen
+experiment, not this amendment.
+
+EX-4 validation logs and source/image provenance are retained under
+`evaluation/results/curriculum_improvement_20261009_amendment/`. At this implementation
+milestone the focused matrix/amendment suite passes 26 tests and the controller
+suite passes 17 tests, including tampered imports, empty/mixed layer execution,
+semantic casewise qualification, cross-origin baseline poisoning, and exact pending
+request recovery. Image attestation validates 45 fuzzer, 26 updater and 80 runtime
+computation files. Actual archived import admission validates all 18,420 semantic
+observations without issuing new quality RPCs. Source/protocol acceptance and the
+48 prospective cells remain pending; these checks establish contracts, not quality.

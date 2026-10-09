@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from study_scope import add_product_pipeline_argument, require_product_pipeline
 import ast
 from contextlib import contextmanager
 import importlib.util
@@ -707,7 +708,9 @@ def main():
     parser.add_argument("--limit", type=int, default=1)
     for name in ("runtime", "streamer", "updater", "fuzzer"):
         parser.add_argument(f"--{name}-image")
+    add_product_pipeline_argument(parser)
     args = parser.parse_args()
+    require_product_pipeline(args, parser)
     args.output = args.output.resolve()
     require(args.output.parent == (ROOT / "evaluation/results").resolve() and 1 <= args.limit <= 12, "Fresh direct-child output and limit1..12 required.")
     if args.mode in ("plan", "initialize"):

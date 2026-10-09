@@ -1,5 +1,6 @@
 """Call bounded additional fuzzer cycles; training implementation stays in its service."""
 import argparse
+from study_scope import add_product_pipeline_argument, require_product_pipeline
 import hashlib
 import json
 from pathlib import Path
@@ -30,7 +31,9 @@ def restore(content, log):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--experiment-id", required=True)
+    add_product_pipeline_argument(parser)
     args = parser.parse_args()
+    require_product_pipeline(args, parser)
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", args.experiment_id):
         parser.error("Use a 1-64 character experiment identifier starting with a letter or digit.")
     output = ROOT / "evaluation/results" / args.experiment_id
