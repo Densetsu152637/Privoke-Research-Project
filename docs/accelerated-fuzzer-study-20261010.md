@@ -1,12 +1,17 @@
 # Accelerated normal batch fuzzer study
 
-Research record **AS-20261010**. Implementation and protocol draft are ready for
-review; no study results exist yet. The original user message timestamp is
-unavailable. The exact objective is:
+Research record **AS-20261010**. All twelve prospective trajectories and the
+full raw audit completed on 10 October 2026 in Australia/Sydney (9 October UTC).
+Training changed predictions, but none of nine revised realizations met the
+prespecified promising criterion, none of three profiles passed, and none of
+twelve cells qualified. The evidence supports closing this experiment and
+discussing its negative results and tradeoffs in the paper. It does not establish
+deployment readiness or the effect of the conversational prompt revision.
+The original user message timestamp is unavailable. The exact objective is:
 
 > Can you now simulate an accelerated Fuzzer training period so that we can see whether the changes we made had measurable impacts on the LLM layer? This will inform whether we do more iteration on improvement or we can move to discussion and wrap up the paper.
 
-This is new prospective training from fresh checked-in Tiny model bases. The
+This was new prospective training from fresh checked-in Tiny model bases. The
 conversational backend prompt revision is not consumed by Tiny head training, so
 these measurements cannot establish its effect. Seeded sampling remains opt-in;
 normal defaults remain deterministic sampling, seed zero and replay weight 0.35.
@@ -19,7 +24,7 @@ not import old trajectories, run offline Adam, promote weights or open protected
 final examples. Every endpoint explicitly requests semantic only and asserts the
 actual returned successful layer execution. Training uses semantic gradients.
 
-## Prospective budget
+## Frozen prospective budget
 
 Each profile (efficient, balanced, quality) has one shared original-curriculum /
 deterministic control and three revised-curriculum / seeded realizations with
@@ -138,23 +143,128 @@ SQLite allocations and cursor consumption, accepted publication payloads and
 durable receipts, endpoint truth/identity/layer contracts, archives and fixed
 decision rules are audited independently of service return wrappers.
 
-The manager must accept the implementation before source commit, Docker preflight,
-source-overlay builds and protocol freeze. No live study starts during this
-implementation milestone. Build only task-owned fuzzer/updater/runtime overlays
-from inspected immutable parents; preserve normal image tags and unrelated
-resources. After freeze, use the existing evaluation interpreter:
+The implementation was reviewed before execution source
+`f2df530353a66de657a9a1adb8699021b072e418` was committed. Preparation froze the
+protocol at `2026-10-09T16:39:58.404715+00:00`, SHA256
+`39cbf3f7d88ed3b0260f97b41ebe3c41bd8b0e09376bf3e1488dba600da0aef3`.
+Three task-owned fuzzer/updater/runtime source overlays were built from inspected
+immutable parents and their copied sources attested; streaming and telemetry
+used existing immutable images. Normal image tags and unrelated resources were
+preserved. These were the execution commands, using the existing interpreter and
+process-local import paths:
 
 ```powershell
+$env:PYTHONPATH='evaluation;shared/python;extension/client-runtime/generated'
+$env:PYTHONDONTWRITEBYTECODE='1'
 & evaluation/.venv/Scripts/python.exe evaluation/run-accelerated-fuzzer-study.py prepare --study-id privoke-accelerated-20261010 --output evaluation/results/accelerated_fuzzer_20261010 --images evaluation/results/accelerated_fuzzer_20261010_build/images.json --current evaluation/results/curriculum_improvement_20261009_v1/curricula/current/manifest.json --revised evaluation/results/curriculum_improvement_20261009_v1/curricula/revised/manifest.json
 & evaluation/.venv/Scripts/python.exe evaluation/run-accelerated-fuzzer-study.py execute --output evaluation/results/accelerated_fuzzer_20261010 --cell efficient-control
 & evaluation/.venv/Scripts/python.exe evaluation/run-accelerated-fuzzer-study.py execute --output evaluation/results/accelerated_fuzzer_20261010
 & evaluation/.venv/Scripts/python.exe evaluation/run-accelerated-fuzzer-study.py audit --output evaluation/results/accelerated_fuzzer_20261010
 ```
 
-These are prospective commands; image inventory/build and protocol creation have
-not yet occurred. The first complete prespecified trajectory supplies a runtime
-benchmark and remains included. It cannot alter outcome budgets. Stop services
-after each trajectory, preserve raw archives/volumes until acceptance, and clean
-only verified task-owned resources afterward. Raw prompts, predictions, weights,
-SQLite state and diagnostics remain in ignored local results; any later safe
-publication must link its own execution source, freeze, audit and limitations.
+The first complete prespecified trajectory remained included and took 519.225
+seconds from cell start through archive capture. This includes startup,
+measurements, inspections, snapshots and training requests, and excludes the
+subsequent service stop; it is not isolated model compute time. Its audit was
+accepted before the other eleven trajectories ran. No budget changed in response
+to results. All executions and the full raw audit exited successfully, and their
+launcher and Python processes were confirmed absent. Services were stopped after
+each trajectory. At accepted handoff, 72 stopped task containers, 60 volumes,
+twelve empty networks and three overlay images remained available for audit;
+cleanup has separate acceptance. No model was promoted.
+
+## Results and controlled package effects
+
+All 2,016 attempted requests resolved: 1,270 accepted publications with matching
+durable receipts and 746 guard rejections. Every attempt has numeric gate
+diagnostics and an allocation receipt, including rejected attempts. The audit
+reconciled 64,512 allocated presentations and all 29,472 semantic endpoint
+observations. Each trajectory covered 736 distinct training/replay rows in 44
+families, with a maximum of 21 exposures to one row. These are repeated exposures
+to a fixed pool, not 64,512 independent examples.
+
+The table reports final annotation-presence recall and clean specificity, and
+contextual joint exact matches out of 64. Percentages are rounded here only; the
+[aggregate evidence](evidence/accelerated-fuzzer-20261010/README.md) preserves
+every numeric value without rounding, all checkpoints, all component and
+subgroup metrics, paired intervals and fixture harm counts.
+
+| Profile and realization | Accepted | Rejected | Recall % | Specificity % | Context joint / 64 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Efficient shared control | 162 | 6 | 59.09 | 27.73 | 9 |
+| Efficient revised 42 | 147 | 21 | 51.52 | 32.35 | 9 |
+| Efficient revised 43 | 145 | 23 | 51.89 | 32.35 | 9 |
+| Efficient revised 44 | 143 | 25 | 51.89 | 32.35 | 9 |
+| Balanced shared control | 168 | 0 | 41.67 | 40.34 | 17 |
+| Balanced revised 42 | 165 | 3 | 47.73 | 35.29 | 14 |
+| Balanced revised 43 | 167 | 1 | 47.35 | 35.29 | 14 |
+| Balanced revised 44 | 166 | 2 | 47.73 | 35.29 | 14 |
+| Quality shared control | 1 | 167 | 71.59 | 20.17 | 8 |
+| Quality revised 42 | 2 | 166 | 71.59 | 20.17 | 8 |
+| Quality revised 43 | 2 | 166 | 71.59 | 20.17 | 8 |
+| Quality revised 44 | 2 | 166 | 71.59 | 20.17 | 8 |
+
+Efficient revised package gained 4.62 percentage points in specificity against
+its shared control, with 7.20–7.58 points less annotation recall and no contextual
+joint gain. Its baseline recall was 59.85%, so the final revised recall loss was
+7.95–8.33 points. Balanced revised package retained 5.68–6.06 points more recall
+than its control, but lost 5.04 points of specificity and 4.69 points of contextual
+joint accuracy against that control. Both balanced arms lost recall against their
+64.02% baseline. These are package tradeoffs, not improvements across the tasks.
+
+Quality reached a publication plateau: the control accepted one update and each
+revised realization accepted two, then all four accepted zero updates in their
+final 24 attempts. Final recall, specificity and contextual joint metrics matched
+across the four cells. Exact prediction changes still differed: quality revised
+43 and 44 each changed four development predictions against baseline, compared
+with three for control and revised 42. Equal headline rates therefore do not mean
+identical predictions. Across all attempts, safety regression failed in 734
+diagnostics, held-out recall declined in 665, exact match declined in ten, and
+specificity declined in six; these overlapping predicate counts must not be
+summed as separate rejections. No attempt failed the training exact-match floor.
+
+All disclosure subgroup category-set exact and joint accuracies remained zero
+out of 32 rows at every checkpoint. Efficient revised runs also lost disclosure
+sensitivity and action accuracy against both references; balanced revised runs
+lost disclosure sensitivity and visibility accuracy against the shared control.
+Every profile had at least one revised realization with new quantitative fixture
+harm against baseline, activating the profile veto. Quality revised 43 avoided
+new fixture harm against its own baseline but still failed the other required
+criteria. No revised realization passed the complete engineering criterion.
+
+The paired final package effects verify identical baseline predictions and
+identities, retain both arms' changes, and show that their difference equals the
+final contrast. The source-group/family bootstrap intervals remain descriptive
+and conditional on one shared control per profile. They do not create independent
+control replicas or demonstrate generalization. The revised package combines
+curriculum wording, visibility/category exposure and allocation changes, so this
+experiment cannot isolate their individual effects. Contextual targets remain
+assistant-provisional and archetypes overlap. The conversational backend prompt
+was not consumed by these Tiny head updates.
+
+Repeating this schedule does not supply evidence of a promising package under
+the frozen rule. The supported next step is to wrap the current experiment and
+explain its measurable tradeoffs and plateau in the paper. Further implementation
+work would need a distinct hypothesis and fresh evaluation; these results do not
+justify promotion or a broad claim of LLM-layer readiness.
+
+## Public evidence and reproduction
+
+The accepted raw summary SHA256 is
+`66c419b4e3f755242ee7ac42dde5df84d40e5f5ce5ab1f255a1b0d2510716fc8`;
+the raw audit SHA256 is
+`10c58eef05a5f9d90cd3a6419e6f080aa151f2e219bdaf3508a8a801ae00476f`.
+The [publication manifest](evidence/accelerated-fuzzer-20261010/publication-hashes.json)
+separately binds the aggregate public files and projection script. The unchanged
+audit receipt binds the raw summary, not the public summary projection.
+
+Explicit structural allowlists retain all numeric metrics, counts, predicates,
+decisions, controlled contrasts and uncertainty. They omit example identifiers
+including nested `changed_ids`, per-attempt candidate/base fingerprints and
+version names, project storage names and local input paths. Copied-source names
+are repository-relative. The standalone [reproduction helper](evidence/accelerated-fuzzer-20261010/reproduce.py)
+hash-verifies the three raw inputs and three accepted handoff receipts before
+regeneration; it performs no RPCs, fitting or raw archive mutation. Raw prompts,
+predictions, weights, SQLite state, diagnostics and operational logs remain in
+ignored local results. Public aggregates alone cannot repeat the complete raw
+archive audit.

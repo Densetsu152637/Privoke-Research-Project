@@ -1,0 +1,28 @@
+{
+  "passed": true,
+  "protocol_sha256": "39cbf3f7d88ed3b0260f97b41ebe3c41bd8b0e09376bf3e1488dba600da0aef3",
+  "summary_sha256": "66c419b4e3f755242ee7ac42dde5df84d40e5f5ce5ab1f255a1b0d2510716fc8",
+  "archives": {
+    "efficient-control": "a125464b4ce1d581bedd43f2b08e918267570410425c634d852c8fc4f6ba40c9",
+    "efficient-revised-42": "835890a32376298e6f083c70e452610ce8eed1db852052a8b002a4a2b5553f37",
+    "efficient-revised-43": "323b82f3e80f6289070a9fe473f7ef76f63940382e581334b3fb56472ed001c8",
+    "efficient-revised-44": "f848b4c8ec59aec13ffeacc8c1ac7420e8152814418b5feb8edf5a385486322b",
+    "balanced-control": "5b890151ca010386865ed08737edb8654f9f0789d03eadcd9b48d057f1300f4f",
+    "balanced-revised-42": "63f14140c10945e7d0a767f018eaf5e47d15eb452b36f71f3a55963ffd5eacf8",
+    "balanced-revised-43": "b1ea968676151f4295c091618c0441aa3001ef357fd247f8240461becb566c50",
+    "balanced-revised-44": "18d3019abb65b32fed3cfc0a8ad89beb1d429951204d0af859d3ed61a0bca1c0",
+    "quality-control": "38754152ca562b4e3583253e5b6d7289d250e2ed5aeafa84632446048a38c9ad",
+    "quality-revised-42": "89fe4f3fb5a04fc78db05719fce77cb09bb721f14f30fd0952b257158eae0c2f",
+    "quality-revised-43": "41b316c6c58edf3bfd894f58d8f8786a97551b43b6412d102894ec36edbef23b",
+    "quality-revised-44": "c23094bbeca9a172651c2bab17f1a41a76b0f312923f087b2aab764be4e60a09"
+  },
+  "checks": [
+    "fresh base bytes/float32 identity/predictions",
+    "all attempts/snapshots/encoder immutability",
+    "numeric accepted/rejected gate diagnostics",
+    "reservation/cursor reconstruction",
+    "publication payloads/receipts",
+    "semantic returned execution and endpoint identity",
+    "fixed final decision with disclosure and casewise harm vetoes"
+  ]
+}

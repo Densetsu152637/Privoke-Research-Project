@@ -1,0 +1,60 @@
+{
+  "execution_source_revision": "f2df530353a66de657a9a1adb8699021b072e418",
+  "raw_input_sha256": {
+    "protocol.json": "39cbf3f7d88ed3b0260f97b41ebe3c41bd8b0e09376bf3e1488dba600da0aef3",
+    "summary.json": "66c419b4e3f755242ee7ac42dde5df84d40e5f5ce5ab1f255a1b0d2510716fc8",
+    "audit.json": "10c58eef05a5f9d90cd3a6419e6f080aa151f2e219bdaf3508a8a801ae00476f"
+  },
+  "accepted_handoff_sha256": {
+    "full-handoff-receipt.json": "0f1140be4ecc5475f9eefeaf8630d4ed1be2f318f706aea25414a0ec74bfb35c",
+    "full-resource-inventory.json": "93435ce4bc87c30497c902caf9fc64e12d5eb72993d431cc1d6f0f7c2445e8cf",
+    "process-cessation-receipt.json": "70d34cfa1bcb66e4e74c15c09379d6f3591904860fcec12bab4afc14eca303d8"
+  },
+  "counts": {
+    "attempts": 2016,
+    "accepted": 1270,
+    "rejected": 746,
+    "gate_diagnostics": 2016,
+    "presentations": 64512,
+    "checkpoint_observations": 29472,
+    "qualified_cells": 0
+  },
+  "all_archives_and_static_inputs_reverified": true,
+  "process_cessation": {
+    "execution_exit": 0,
+    "audit_exit": 0,
+    "passed": true
+  },
+  "resource_status_at_handoff": {
+    "stopped_containers": 72,
+    "retained_volumes": 60,
+    "empty_networks": 12,
+    "retained_task_images": 3,
+    "checks": {
+      "twelve_projects": true,
+      "seventy_two_stopped_containers": true,
+      "sixty_volumes": true,
+      "twelve_empty_networks": true,
+      "consumers_owned": true,
+      "execution_pids_ceased": true
+    },
+    "cleanup_status": "retained pending separate cleanup acceptance"
+  },
+  "runtime_scope": "Cell start through archive creation includes service startup, baseline and four checkpoint endpoint measurements, attempts, artifact inspections, snapshots and archive capture; excludes subsequent service stop. It is not isolated training compute time. Rejections still consume attempts.",
+  "cell_runtime_seconds": {
+    "efficient-control": 519.224603,
+    "efficient-revised-42": 476.739443,
+    "efficient-revised-43": 479.712191,
+    "efficient-revised-44": 466.020085,
+    "balanced-control": 541.488663,
+    "balanced-revised-42": 537.407343,
+    "balanced-revised-43": 548.553603,
+    "balanced-revised-44": 539.486949,
+    "quality-control": 174.587389,
+    "quality-revised-42": 179.854558,
+    "quality-revised-43": 176.787589,
+    "quality-revised-44": 177.532218
+  },
+  "projection": "Explicit field allowlists preserve numeric metrics, counts, predicates, decisions, controlled contrasts and intervals without rounding. Omit changed_ids everywhere, per-attempt base_version and parameter fingerprints, project storage names and local input paths. Image source names are repository-relative. The raw audit binds the raw summary; the publication manifest separately binds public bytes.",
+  "candidate_evidence_limit": "Fingerprint commitment and service metrics; rejected tensors and independent metric recomputation are not retained."
+}
