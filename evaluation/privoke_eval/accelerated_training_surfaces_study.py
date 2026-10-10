@@ -146,7 +146,7 @@ def source_inventory():
         for path in sorted((ROOT / prefix).rglob("*")):
             if path.is_file() and "__pycache__" not in path.parts and path.suffix in (".py", ".proto", ".json"):
                 result[path.relative_to(ROOT).as_posix()] = sha(path)
-    for name in ("evaluation/run-accelerated-training-surfaces-study.py", "evaluation/host_environment.py", "evaluation/compose.accelerated-training-surfaces.yml", "evaluation/run-accelerated-training-surfaces-worker.py", "evaluation/Dockerfile.accelerated-training-surfaces-worker", "evaluation/Dockerfile.accelerated-training-surfaces-runtime", "evaluation/requirements-accelerated-training-surfaces.txt"):
+    for name in ("evaluation/run-accelerated-training-surfaces-study.py", "evaluation/host_environment.py", "evaluation/compose.accelerated-training-surfaces.yml", "evaluation/run-accelerated-training-surfaces-worker.py", "evaluation/Dockerfile.accelerated-training-surfaces-worker", "evaluation/requirements-accelerated-training-surfaces.txt"):
         result[name] = sha(ROOT / name)
     return dict(sorted(result.items()))
 

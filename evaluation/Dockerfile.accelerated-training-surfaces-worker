@@ -1,6 +1,6 @@
 # Supply an immutable Linux x86_64 CPython3.11 parent (name@sha256:digest).
 ARG STUDY_PARENT
-FROM ${STUDY_PARENT}
+FROM ${STUDY_PARENT} AS worker
 ARG STUDY_PARENT
 ARG SOURCE_REVISION
 ENV AS_SOURCE_REVISION=${SOURCE_REVISION} PYTHONPATH=/study/evaluation:/study/shared/python:/study/extension/client-runtime:/study/extension/client-runtime/generated PYTHONDONTWRITEBYTECODE=1
@@ -24,3 +24,19 @@ RUN mkdir -p /study/extension/client-runtime/generated \
       /study/shared/proto/privoke/v1/parameters.proto \
       /study/shared/proto/privoke/v1/runtime.proto \
       /study/shared/proto/privoke/v1/telemetry.proto
+
+# Build with --target runtime for isolated semantic serving. The named stage
+# avoids depending on a local image being resolvable through a remote registry.
+FROM worker AS runtime
+RUN cp -a /study /workspace \
+    && groupadd --system --gid 10001 privoke \
+    && useradd --system --uid 10001 --gid privoke --no-create-home privoke \
+    && mkdir -p /var/lib/privoke \
+    && chown privoke:privoke /var/lib/privoke
+ENV PYTHONPATH=/workspace/evaluation:/workspace/shared/python:/workspace/extension/client-runtime:/workspace/extension/client-runtime/generated
+ENV HOME=/tmp PYTHONUNBUFFERED=1 PRIVOKE_GRPC_HOST=0.0.0.0
+ENV TELEMETRY_PRIVACY_LEDGER_PATH=/var/lib/privoke/telemetry-budget.sqlite3
+WORKDIR /workspace/extension/client-runtime
+USER privoke:privoke
+EXPOSE 50054
+# The isolated Compose contract supplies the direct semantic gRPC entrypoint.
