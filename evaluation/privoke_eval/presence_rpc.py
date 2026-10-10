@@ -21,6 +21,8 @@ def response_record(response: Any) -> dict:
         "artifact_checksum": str(getattr(response, "artifact_checksum", "")),
         "parameter_fingerprint": str(getattr(response, "parameter_fingerprint", "")),
         "elapsed_ms": getattr(response, "elapsed_ms", None),
+        "executions": [{"layer": int(e.layer), "status": str(e.status), "error": str(e.error)}
+                       for e in getattr(response, "executions", ())],
         "error": "",
     }
 
@@ -33,6 +35,7 @@ def validate_response(record: Mapping[str, Any], *, request_id: str,
     error = record.get("error")
     if error:
         raise RuntimeError(f"Runtime rejected presence request: {error}")
+    validate_execution(record)
     if record.get("request_id") != request_id:
         raise ValueError("Presence RPC request ID mismatch.")
     for field in ("model_id", "model_version", "artifact_checksum", "parameter_fingerprint"):
@@ -62,3 +65,11 @@ def validate_response(record: Mapping[str, Any], *, request_id: str,
             "predicted_label": predicted, "elapsed_ms": float(elapsed),
             "identity": {key: record[key] for key in
                          ("model_id", "model_version", "artifact_checksum", "parameter_fingerprint")}}
+
+
+def validate_execution(record: Mapping[str, Any]) -> None:
+    """Reject a prediction without one actual successful semantic execution."""
+    executions = record.get("executions")
+    if (not isinstance(executions, list) or len(executions) != 1
+            or executions[0] != {"layer": 4, "status": "ok", "error": ""}):
+        raise ValueError("Presence RPC requires one actual successful semantic execution.")

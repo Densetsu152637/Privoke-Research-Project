@@ -90,6 +90,16 @@ class ExternalPresenceRpcTests(unittest.TestCase):
         self.assertFalse(scorer.selection_matches_profile({"profile": "efficient"}, "balanced"))
         self.assertFalse(scorer.selection_matches_profile({"profile": None}, "balanced"))
 
+    def test_presence_response_rejects_missing_extra_wrong_and_failed_execution(self):
+        from privoke_eval.presence_rpc import response_record, validate_response
+        for executions in ([], [SimpleNamespace(layer=2,status="ok",error="")],
+                [SimpleNamespace(layer=4,status="skipped",error="")], [SimpleNamespace(layer=4,status="ok",error="failed")],
+                [SimpleNamespace(layer=4,status="ok",error="")]*2):
+            with self.subTest(executions=executions):
+                raw=self.response();raw["executions"]=executions
+                with self.assertRaisesRegex(ValueError,"semantic execution"):
+                    validate_response(response_record(SimpleNamespace(**raw)),request_id="r",expected_identity=self.identity(),present_enum=2,absent_enum=1)
+
     def identity(self):
         return {"model_id": "privoke-presence-balanced",
                 "model_version": "v1.0.0",
@@ -103,7 +113,7 @@ class ExternalPresenceRpcTests(unittest.TestCase):
                 "artifact_checksum": self.identity()["artifact_checksum"],
                 "parameter_fingerprint": self.identity()["parameter_fingerprint"],
                 "probability": probability, "threshold": threshold,
-                "predicted_label": label, "elapsed_ms": 1.25, "error": ""}
+                "predicted_label": label, "elapsed_ms": 1.25, "error": "", "executions": [SimpleNamespace(layer=4,status="ok",error="")]}
 
     def test_score_row_uses_typed_rpc_timeout_and_never_returns_prompt(self):
         row = make_row("source-row-7", "nemotron-pii:uid", "private synthetic prompt", True,
@@ -111,7 +121,7 @@ class ExternalPresenceRpcTests(unittest.TestCase):
                        domain="health", document_format="email")
         stub = FakeStub(self.response())
         pb = SimpleNamespace(DetectAnnotationPresenceRequest=FakeRequest,
-                             ANNOTATION_PRESENCE_PRESENT=2,
+                             ANNOTATION_PRESENCE_PRESENT=2, DETECTION_LAYER_SEMANTIC=4,
                              ANNOTATION_PRESENCE_ABSENT=1)
         record = scorer.score_row(stub, pb, FakeModel(),
                                   {"model_id": self.identity()["model_id"]},
@@ -127,7 +137,7 @@ class ExternalPresenceRpcTests(unittest.TestCase):
     def test_score_row_rejects_nonfinite_response_and_identity_mismatch(self):
         row = make_row("row", "family:group", "some text", True)
         pb = SimpleNamespace(DetectAnnotationPresenceRequest=FakeRequest,
-                             ANNOTATION_PRESENCE_PRESENT=2,
+                             ANNOTATION_PRESENCE_PRESENT=2, DETECTION_LAYER_SEMANTIC=4,
                              ANNOTATION_PRESENCE_ABSENT=1)
         with self.assertRaisesRegex(ValueError, "probability"):
             scorer.score_row(FakeStub(self.response(probability=float("nan"))), pb,

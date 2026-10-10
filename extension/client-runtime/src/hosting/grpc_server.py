@@ -174,6 +174,8 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
         # The RPC duration excludes the caller's network/browser round trip.
         started = time.perf_counter()
         try:
+            if list(request.layers) != [runtime_pb2.DETECTION_LAYER_SEMANTIC]:
+                raise ValueError("Presence inference requires explicit semantic-only layers.")
             _validate_presence_inference_model_id(request.model_id)
             if not request.request_id.strip():
                 raise ValueError("request_id is required.")
@@ -200,6 +202,8 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
                 artifact_checksum=model.snapshot.metadata.get("artifact_checksum", ""),
                 parameter_fingerprint=model.snapshot.fingerprint,
                 elapsed_ms=(time.perf_counter() - started) * 1000.0,
+                executions=[runtime_pb2.RuntimeLayerExecution(
+                    layer=runtime_pb2.DETECTION_LAYER_SEMANTIC, status="ok")],
             )
         except Exception as exc:
             return runtime_pb2.DetectAnnotationPresenceResponse(
@@ -209,6 +213,10 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
 
     def ComputePresenceGradients(self, request, context):
         try:
+            if list(request.layers) != [runtime_pb2.DETECTION_LAYER_SEMANTIC]:
+                raise ValueError("Presence training requires explicit semantic-only layers.")
+            if not request.heldout_examples:
+                raise ValueError("Presence training requires nonempty heldout examples.")
             _validate_presence_model_id(request.model_id)
             if not request.request_id.strip():
                 raise ValueError("request_id is required.")
@@ -266,6 +274,9 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
                 ],
                 metrics=batch.metrics,
                 metadata=batch.metadata,
+                executions=[runtime_pb2.SemanticTrainingExecution(phase=phase,
+                    layer=runtime_pb2.DETECTION_LAYER_SEMANTIC, status="ok", examples=count)
+                    for phase, count in batch.executions],
             )
         except Exception as exc:
             return runtime_pb2.ComputePresenceGradientsResponse(

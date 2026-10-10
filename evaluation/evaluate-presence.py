@@ -73,7 +73,7 @@ def score_one(stub, pb, row: dict, model_id: str, identity: dict,
               local_model: SparsePresenceModel, request_id: str) -> dict:
     local_probability = local_model.predict_probability(row["text"])
     response = stub.DetectAnnotationPresence(
-        pb.DetectAnnotationPresenceRequest(request_id=request_id, text=row["text"], model_id=model_id),
+        pb.DetectAnnotationPresenceRequest(request_id=request_id, text=row["text"], model_id=model_id, layers=[pb.DETECTION_LAYER_SEMANTIC]),
         timeout=120)
     raw = response_record(response)
     checked = validate_response(raw, request_id=request_id, expected_identity=identity,

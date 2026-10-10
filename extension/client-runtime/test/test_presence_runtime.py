@@ -124,6 +124,53 @@ def _assert_started(test_case, timer, model):
 
 
 class PresenceRuntimeTests(unittest.TestCase):
+    def test_additive_presence_fields_keep_existing_wire_numbers(self):
+        messages=runtime_pb2.DESCRIPTOR.message_types_by_name
+        self.assertEqual(messages["DetectAnnotationPresenceRequest"].fields_by_name["layers"].number,4)
+        self.assertEqual(messages["DetectAnnotationPresenceResponse"].fields_by_name["executions"].number,11)
+        self.assertEqual(messages["ComputePresenceGradientsRequest"].fields_by_name["layers"].number,7)
+        self.assertEqual(messages["ComputePresenceGradientsResponse"].fields_by_name["executions"].number,8)
+        legacy=runtime_pb2.DetectAnnotationPresenceRequest.FromString(b"\x0a\x03old")
+        self.assertEqual(legacy.request_id,"old")
+        self.assertFalse(legacy.layers)
+
+    def test_presence_selection_and_nonempty_guard_are_required_before_compute(self):
+        for layers in ([], [runtime_pb2.DETECTION_LAYER_REGEX], [4, 2], [4, 4]):
+            with self.subTest(layers=layers), patch("src.hosting.grpc_server.ModelParameterStreamer") as stream, patch("src.hosting.grpc_server.compute_presence_gradients") as compute:
+                inference = PrivokeRuntimeService().DetectAnnotationPresence(
+                    runtime_pb2.DetectAnnotationPresenceRequest(request_id="p", text="clean", model_id="privoke-presence-efficient", layers=layers), None)
+                training = PrivokeRuntimeService().ComputePresenceGradients(
+                    runtime_pb2.ComputePresenceGradientsRequest(request_id="t", model_id="privoke-presence-efficient", layers=layers), None)
+                for response in (inference, training):
+                    self.assertIn("semantic-only", response.error)
+                    self.assertFalse(response.executions)
+                stream.assert_not_called()
+                compute.assert_not_called()
+        with patch("src.hosting.grpc_server.compute_presence_gradients") as compute:
+            response = PrivokeRuntimeService().ComputePresenceGradients(
+                runtime_pb2.ComputePresenceGradientsRequest(request_id="t", model_id="privoke-presence-efficient", layers=[4]), None)
+            self.assertIn("heldout", response.error)
+            compute.assert_not_called()
+
+    def test_real_presence_computation_records_training_and_both_guard_phases(self):
+        model = StreamedPresenceModel(_snapshot())
+        def row(text, label, group):
+            return runtime_pb2.PresenceTrainingExample(text=text, target=label, group_id=group, weight=1)
+        request = runtime_pb2.ComputePresenceGradientsRequest(request_id="actual", model_id=model.model_id,
+            layers=[runtime_pb2.DETECTION_LAYER_SEMANTIC], learning_rate=.03, max_gradient=.05,
+            examples=[row("diagnosis mail",2,"t1"), row("safe meeting",1,"t2")],
+            heldout_examples=[row("diagnosis safe",2,"h1"), row("mail meeting",1,"h2")])
+        from src.LLM.privoke import presence_training
+        with patch.object(presence_training.GLOBAL_STREAMED_MODEL_CACHE,"presence_model_for_training",return_value=model), patch.object(presence_training,"_heldout_metrics", wraps=presence_training._heldout_metrics) as guards:
+            response = PrivokeRuntimeService().ComputePresenceGradients(request, None)
+        self.assertFalse(response.error)
+        self.assertEqual(guards.call_count, 2)
+        self.assertIs(guards.call_args_list[0].args[0], model.model)
+        self.assertIsNot(guards.call_args_list[1].args[0], model.model)
+        self.assertEqual([(e.phase,e.layer,e.status,e.examples,e.error) for e in response.executions],
+            [(phase,4,"ok",2,"") for phase in ("training","base_heldout","candidate_heldout")])
+        self.assertEqual(set(g.name for g in response.gradients), {"head.presence.bias","head.presence.weight.000"})
+
     def test_stream_wrapper_rejects_contextual_artifact(self):
         snapshot = _snapshot()
         wrong = replace(snapshot, metadata={**snapshot.metadata, "architecture": "privoke_tiny_transformer_v1"})
@@ -361,7 +408,7 @@ class PresenceRuntimeTests(unittest.TestCase):
             request_id="presence-1",
             text="diagnosis mail",
             model_id="privoke-presence-efficient",
-        )
+            layers=[runtime_pb2.DETECTION_LAYER_SEMANTIC])
         with (
             patch("src.hosting.grpc_server.ModelParameterStreamer"),
             patch("src.hosting.grpc_server.time.perf_counter", side_effect=[10.0, 10.75]) as timer,
@@ -373,6 +420,7 @@ class PresenceRuntimeTests(unittest.TestCase):
         ):
             response = PrivokeRuntimeService().DetectAnnotationPresence(request, None)
         self.assertFalse(response.error)
+        self.assertEqual([(e.layer,e.status,e.error) for e in response.executions], [(4,"ok","")])
         self.assertEqual(response.model_id, model.model_id)
         self.assertEqual(response.model_version, model.version)
         self.assertIn(response.predicted_label, (
@@ -388,7 +436,7 @@ class PresenceRuntimeTests(unittest.TestCase):
             request_id=request.request_id,
             text=request.text,
             model_id="privoke-balanced",
-        )
+            layers=[runtime_pb2.DETECTION_LAYER_SEMANTIC])
         with patch("src.hosting.grpc_server.ModelParameterStreamer") as streamer:
             failed = PrivokeRuntimeService().DetectAnnotationPresence(wrong_request, None)
         self.assertIn("privoke-presence", failed.error)
@@ -407,7 +455,7 @@ class PresenceRuntimeTests(unittest.TestCase):
             ],
             learning_rate=0.1,
             max_gradient=0.2,
-        )
+            layers=[runtime_pb2.DETECTION_LAYER_SEMANTIC], heldout_examples=[runtime_pb2.PresenceTrainingExample(text="held clean", target=runtime_pb2.ANNOTATION_PRESENCE_ABSENT, weight=1, group_id="h1"), runtime_pb2.PresenceTrainingExample(text="held present", target=runtime_pb2.ANNOTATION_PRESENCE_PRESENT, weight=1, group_id="h2")])
         rejected = PrivokeRuntimeService().ComputePresenceGradients(invalid, None)
         self.assertIn("PRESENT or ABSENT", rejected.error)
         self.assertFalse(rejected.gradients)
@@ -421,7 +469,7 @@ class PresenceRuntimeTests(unittest.TestCase):
             ],
             learning_rate=0.1,
             max_gradient=0.2,
-        )
+            layers=[runtime_pb2.DETECTION_LAYER_SEMANTIC], heldout_examples=[runtime_pb2.PresenceTrainingExample(text="held clean", target=runtime_pb2.ANNOTATION_PRESENCE_ABSENT, weight=1, group_id="h1"), runtime_pb2.PresenceTrainingExample(text="held present", target=runtime_pb2.ANNOTATION_PRESENCE_PRESENT, weight=1, group_id="h2")])
         fake_batch = type("Batch", (), {
             "model_id": valid.model_id,
             "base_version": "v1",
@@ -429,6 +477,7 @@ class PresenceRuntimeTests(unittest.TestCase):
             "shapes": {"head.presence.bias": (1,)},
             "metrics": {"examples": 2.0},
             "metadata": {"task": "annotation_presence"},
+            "executions": (("training",2),("base_heldout",2),("candidate_heldout",2)),
         })()
         with patch(
             "src.hosting.grpc_server.compute_presence_gradients",
@@ -436,6 +485,7 @@ class PresenceRuntimeTests(unittest.TestCase):
         ) as compute:
             response = PrivokeRuntimeService().ComputePresenceGradients(valid, None)
         self.assertFalse(response.error)
+        self.assertEqual([(e.phase,e.layer,e.status,e.examples,e.error) for e in response.executions], [(p,4,"ok",2,"") for p in ("training","base_heldout","candidate_heldout")])
         converted = compute.call_args.args[0]
         self.assertEqual([item.target for item in converted], [True, False])
         self.assertEqual([item.group_id for item in converted], ["g1", "g2"])

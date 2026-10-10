@@ -362,7 +362,7 @@ def score_row(stub, pb, model, artifact: dict, identity: dict,
         raise ValueError("Local serialized-model inference returned an invalid probability.")
     response = stub.DetectAnnotationPresence(
         pb.DetectAnnotationPresenceRequest(request_id=request_id, text=text,
-                                           model_id=artifact["model_id"]),
+                                           model_id=artifact["model_id"], layers=[pb.DETECTION_LAYER_SEMANTIC]),
         timeout=120)
     checked = validate_response(
         response_record(response), request_id=request_id, expected_identity=identity,

@@ -66,7 +66,8 @@ from privoke.v1 import runtime_pb2 as pb,runtime_pb2_grpc as stubs
 expected=json.load(sys.stdin)
 with grpc.insecure_channel('client-runtime:50054') as channel:
  response=stubs.PrivokeRuntimeServiceStub(channel).DetectAnnotationPresence(
-  pb.DetectAnnotationPresenceRequest(request_id='external-pii-readiness',text='Presence runtime readiness probe.',model_id=expected['model_id']),timeout=10)
+  pb.DetectAnnotationPresenceRequest(request_id='external-pii-readiness',text='Presence runtime readiness probe.',model_id=expected['model_id'], layers=[pb.DETECTION_LAYER_SEMANTIC]),timeout=10)
+ if not (len(response.executions)==1 and response.executions[0].layer==4 and response.executions[0].status=="ok" and not response.executions[0].error):raise ValueError("Presence semantic execution missing")
 print(json.dumps({'model_id':response.model_id,'model_version':response.model_version,
  'artifact_checksum':response.artifact_checksum,'parameter_fingerprint':response.parameter_fingerprint,
  'threshold':response.threshold,'error':response.error},sort_keys=True))

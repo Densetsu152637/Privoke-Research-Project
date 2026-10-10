@@ -267,6 +267,7 @@ class PrivokeRuntimeClient:
         request = runtime_pb2.ComputePresenceGradientsRequest(
             request_id=request_id,
             model_id=model_id,
+            layers=[runtime_pb2.DETECTION_LAYER_SEMANTIC],
             examples=[runtime_pb2.PresenceTrainingExample(
                 text=example.text,
                 target=labels[example.sensitive],
@@ -282,12 +283,23 @@ class PrivokeRuntimeClient:
             learning_rate=learning_rate,
             max_gradient=max_gradient,
         )
-        with grpc.insecure_channel(self.target) as channel:
-            response = runtime_pb2_grpc.PrivokeRuntimeServiceStub(
-                channel
-            ).ComputePresenceGradients(request, timeout=self.timeout_seconds)
-        if response.error:
-            raise RuntimeAnalysisError(response.error)
+        from training.evidence import persist_presence_runtime_attempt
+        try:
+            with grpc.insecure_channel(self.target) as channel:
+                response = runtime_pb2_grpc.PrivokeRuntimeServiceStub(channel).ComputePresenceGradients(
+                    request, timeout=self.timeout_seconds)
+        except grpc.RpcError as exc:
+            response = runtime_pb2.ComputePresenceGradientsResponse()
+            persist_presence_runtime_attempt(request, response, _presence_execution_evidence(request, response),
+                status="unknown", error=exc.code().name)
+            raise
+        evidence = _presence_execution_evidence(request, response)
+        try:
+            validate_presence_training_response(request, response)
+        except RuntimeAnalysisError as exc:
+            persist_presence_runtime_attempt(request, response, evidence, status="rejected", error=str(exc))
+            raise
+        persist_presence_runtime_attempt(request, response, evidence, status="execution_validated")
         gradients, shapes = {}, {}
         for parameter in response.gradients:
             if parameter.name in gradients:
@@ -309,6 +321,7 @@ class PrivokeRuntimeClient:
             "shapes": shapes,
             "metrics": dict(response.metrics),
             "metadata": dict(response.metadata),
+            "execution_evidence": evidence,
         }
 
 
@@ -466,3 +479,29 @@ def _regex_execution_order(regex_first: bool | None) -> int:
 
 def _string_value(value: Any) -> str:
     return value if isinstance(value, str) else json.dumps(value, sort_keys=True)
+
+
+def validate_presence_training_response(request, response):
+    """Require evidence of all actual binary-task computations before publication."""
+    if list(request.layers) != [runtime_pb2.DETECTION_LAYER_SEMANTIC]:
+        raise RuntimeAnalysisError("Presence training requires explicit semantic-only layers.")
+    if (response.error or response.request_id != request.request_id
+            or response.model_id != request.model_id or not response.base_version):
+        raise RuntimeAnalysisError("Presence training response identity or error is invalid.")
+    phases = (("training", len(request.examples)), ("base_heldout", len(request.heldout_examples)),
+              ("candidate_heldout", len(request.heldout_examples)))
+    if any(count <= 0 for _, count in phases) or len(response.executions) != len(phases):
+        raise RuntimeAnalysisError("Presence training requires three nonempty actual semantic executions.")
+    for execution, (phase, count) in zip(response.executions, phases):
+        if (execution.phase != phase or execution.examples != count
+                or execution.layer != runtime_pb2.DETECTION_LAYER_SEMANTIC
+                or execution.status != "ok" or execution.error):
+            raise RuntimeAnalysisError("Presence training execution evidence is invalid.")
+
+
+def _presence_execution_evidence(request, response):
+    return {"rpc": "ComputePresenceGradients", "request_layers": list(request.layers),
+        "request_protobuf_base64": base64.b64encode(request.SerializeToString(deterministic=True)).decode("ascii"),
+        "response_protobuf_base64": base64.b64encode(response.SerializeToString(deterministic=True)).decode("ascii"),
+        "executions": [{"phase": e.phase, "layer": e.layer, "status": e.status,
+                        "examples": e.examples, "error": e.error} for e in response.executions]}

@@ -449,9 +449,9 @@ def typed_packet():
                 parameter=pb.ParameterChunk(name=name,shape=tensor['shape'],value_offset=offset,values=tensor['values'][offset:offset+1024])))
     for index,chunk in enumerate(chunks):chunk.chunk_index=index;chunk.total_chunks=len(chunks)
     chunks[0].metadata.update(meta)
-    preq=rb.DetectAnnotationPresenceRequest(request_id=p.CONSUMER+'-presence',text=p.PROBE_TEXT,model_id=i['model_id'])
+    preq=rb.DetectAnnotationPresenceRequest(request_id=p.CONSUMER+'-presence',text=p.PROBE_TEXT,model_id=i['model_id'], layers=[rb.DETECTION_LAYER_SEMANTIC])
     pres=rb.DetectAnnotationPresenceResponse(request_id=preq.request_id,model_id=i['model_id'],model_version=i['version'],
-        artifact_checksum=i['artifact_checksum'],parameter_fingerprint=i['parameter_fingerprint'],probability=0.5,threshold=0.5,predicted_label=rb.ANNOTATION_PRESENCE_PRESENT)
+        artifact_checksum=i['artifact_checksum'],parameter_fingerprint=i['parameter_fingerprint'],probability=0.5,threshold=0.5,predicted_label=rb.ANNOTATION_PRESENCE_PRESENT,executions=[rb.RuntimeLayerExecution(layer=4,status="ok")])
     req=rb.AnalyzePromptRequest(request_id=p.CONSUMER+'-gate',text=p.PROBE_TEXT,semantic_model_id='privoke-balanced',layers=[rb.DETECTION_LAYER_SEMANTIC])
     req.semantic_presence_gate.model_id=i['model_id'];req.semantic_presence_gate.threshold=0.0
     trace=rb.SemanticPresenceGateTrace(status=rb.SEMANTIC_PRESENCE_GATE_STATUS_APPLIED,model_id=i['model_id'],model_version=i['version'],

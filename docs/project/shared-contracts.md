@@ -114,6 +114,8 @@ browser overhead.
 
 `PresenceTrainingExample` carries text, explicit ABSENT/PRESENT target, positive
 weight and a required source group. UNSPECIFIED/unknown labels are rejected.
+Both dedicated presence RPCs require exactly `layers=[DETECTION_LAYER_SEMANTIC]`; omitted, mixed or duplicate selections fail before model access. Inference returns exactly one successful semantic `RuntimeLayerExecution`. Training requires a nonempty disjoint binary guard and returns actual `training`, `base_heldout` and `candidate_heldout` `SemanticTrainingExecution` records with exact nonzero example counts. Callers reject missing or failed traces before accepting predictions or publishing updates. These records identify semantic computation of the binary task, not contextual classifications. Regenerate protobuf bindings for this stricter admission contract; older responses without execution evidence are rejected. Historical measurements are unchanged.
+
 `ComputePresenceGradients` carries separate bounded training and held-out batches
 and returns head deltas tied to the exact base version, binary metrics and
 fingerprints. Runtime rejects normalized-text overlap and held-out group overlap;

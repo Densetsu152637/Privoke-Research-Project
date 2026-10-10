@@ -338,7 +338,8 @@ sys.path.insert(0,'/workspace/extension/client-runtime/generated')
 from privoke.v1 import runtime_pb2 as pb,runtime_pb2_grpc as stubs
 expected=json.load(sys.stdin)
 with grpc.insecure_channel('client-runtime:50054') as ch:
- r=stubs.PrivokeRuntimeServiceStub(ch).DetectAnnotationPresence(pb.DetectAnnotationPresenceRequest(request_id='presence-readiness',text='Presence runtime readiness probe.',model_id=expected['model_id']),timeout=10)
+ r=stubs.PrivokeRuntimeServiceStub(ch).DetectAnnotationPresence(pb.DetectAnnotationPresenceRequest(request_id='presence-readiness',text='Presence runtime readiness probe.',model_id=expected['model_id'], layers=[pb.DETECTION_LAYER_SEMANTIC]),timeout=10)
+ if not (len(r.executions)==1 and r.executions[0].layer==4 and r.executions[0].status=="ok" and not r.executions[0].error):raise ValueError("Presence semantic execution missing")
 print(json.dumps({'model_id':r.model_id,'model_version':r.model_version,'artifact_checksum':r.artifact_checksum,'parameter_fingerprint':r.parameter_fingerprint,'threshold':r.threshold,'error':r.error}))
 """
         deadline, last = time.monotonic() + 30, None

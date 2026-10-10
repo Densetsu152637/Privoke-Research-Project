@@ -330,7 +330,11 @@ def verify_probe(packet_raw, packet_sha256, scratch_raw, contextual_raw):
         if req.text != PROBE_TEXT or req.request_id != CONSUMER+'-'+key or response.request_id != req.request_id:
             fail()
         if key == 'presence':
-            if req.model_id != scratch['model_id'] or response.error:
+            if (req.model_id != scratch['model_id'] or response.error
+                    or list(req.layers) != [r.DETECTION_LAYER_SEMANTIC]
+                    or len(response.executions) != 1
+                    or response.executions[0].layer != r.DETECTION_LAYER_SEMANTIC
+                    or response.executions[0].status != 'ok' or response.executions[0].error):
                 fail()
             _identity_matches(response, scratch)
             if (not math.isfinite(response.probability) or not 0 <= response.probability <= 1
@@ -385,7 +389,9 @@ def verify_absence(packet_raw, packet_sha256, model_id, *, contextual_identity=N
         if req.text != PROBE_TEXT or req.request_id != CONSUMER+'-'+key or response.request_id != req.request_id:
             fail()
         if key == 'presence':
-            if req.model_id != model_id or not response.error or response.predicted_label != r.ANNOTATION_PRESENCE_UNSPECIFIED:
+            if (req.model_id != model_id or list(req.layers) != [r.DETECTION_LAYER_SEMANTIC]
+                    or not response.error or response.executions
+                    or response.predicted_label != r.ANNOTATION_PRESENCE_UNSPECIFIED):
                 fail()
         else:
             if (req.semantic_model_id != 'privoke-balanced' or list(req.layers) != [r.DETECTION_LAYER_SEMANTIC]
@@ -408,7 +414,7 @@ def capture_probe(model_id, *, absence=False, ttl=1.0, clock=time.monotonic, sle
     if model_id not in controller.SCRATCH_IDS or not math.isfinite(ttl) or not 0 <= ttl <= 60:
         fail()
     stream_request = p.ModelParametersRequest(consumer_id=CONSUMER, model_id=model_id)
-    presence_request = r.DetectAnnotationPresenceRequest(request_id=CONSUMER+'-presence', text=PROBE_TEXT, model_id=model_id)
+    presence_request = r.DetectAnnotationPresenceRequest(request_id=CONSUMER+'-presence', text=PROBE_TEXT, model_id=model_id, layers=[r.DETECTION_LAYER_SEMANTIC])
     gate_request = r.AnalyzePromptRequest(request_id=CONSUMER+'-gate', text=PROBE_TEXT,
         source=CONSUMER, semantic_model_id='privoke-balanced', layers=[r.DETECTION_LAYER_SEMANTIC])
     gate_request.semantic_presence_gate.model_id = model_id

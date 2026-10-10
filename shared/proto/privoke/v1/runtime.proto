@@ -186,6 +186,8 @@ message DetectAnnotationPresenceRequest {
   string request_id = 1;
   string text = 2;
   string model_id = 3;
+  // Exactly SEMANTIC; empty or mixed selections are rejected.
+  repeated DetectionLayer layers = 4;
 }
 
 message DetectAnnotationPresenceResponse {
@@ -200,6 +202,7 @@ message DetectAnnotationPresenceResponse {
   double elapsed_ms = 9;
   // On error, predicted_label is UNSPECIFIED; numeric defaults are not predictions.
   string error = 10;
+  repeated RuntimeLayerExecution executions = 11;
 }
 
 message PresenceTrainingExample {
@@ -216,6 +219,7 @@ message ComputePresenceGradientsRequest {
   double learning_rate = 4;
   double max_gradient = 5;
   repeated PresenceTrainingExample heldout_examples = 6;
+  repeated DetectionLayer layers = 7;
 }
 
 message ComputePresenceGradientsResponse {
@@ -226,6 +230,7 @@ message ComputePresenceGradientsResponse {
   map<string, double> metrics = 5;
   map<string, string> metadata = 6;
   string error = 7;
+  repeated SemanticTrainingExecution executions = 8;
 }
 
 service PrivokeRuntimeControlService {

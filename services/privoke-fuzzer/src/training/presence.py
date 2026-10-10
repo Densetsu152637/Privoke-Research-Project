@@ -58,4 +58,5 @@ def train_presence_batch(
         parameter_shapes=batch["shapes"],
         metrics=dict(batch["metrics"]),
         metadata=metadata,
+        execution_evidence=batch.get("execution_evidence", {}),
     )

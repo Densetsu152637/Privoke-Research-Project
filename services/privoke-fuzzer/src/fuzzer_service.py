@@ -95,6 +95,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
         fingerprint = _presence_training_request_fingerprint(request)
         previous = self._previous_update_for_fingerprint(request, cycle, context, fingerprint)
         if previous.found:
+            recover_cycle_evidence_ack(request, "presence", previous)
             return parameters_pb2.FuzzerTrainingResponse(
                 accepted=previous.ack.accepted, model_id=previous.ack.model_id,
                 base_version=previous.base_version, applied_version=previous.ack.applied_version,
@@ -122,12 +123,15 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                 expected_heldout_examples=len(heldout),
             )
         except ValueError as exc:
+            persist_cycle_evidence(request, update, "presence", gate_passed=False, gate_diagnostics={"minimum_exact_match_rate": self.config.minimum_exact_match_rate, "metrics": dict(update.metrics), "error": str(exc)})
             LOGGER.warning("rejecting presence training update: %s", exc)
             context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
         if not context.is_active():
             context.abort(grpc.StatusCode.CANCELLED,
                           "Training request was cancelled before update submission.")
+        persist_cycle_evidence(request, update, "presence", gate_passed=True, gate_diagnostics={"minimum_exact_match_rate": self.config.minimum_exact_match_rate, "metrics": dict(update.metrics), "error": ""})
         ack = self._submit_presence_update(request, cycle, update, len(examples), fingerprint, context)
+        persist_cycle_evidence(request, update, "presence", gate_passed=True, ack=ack, gate_diagnostics={"minimum_exact_match_rate": self.config.minimum_exact_match_rate, "metrics": dict(update.metrics), "error": ""})
         return build_training_response(ack, update, len(examples))
 
     def _train_presence(self, model_id, examples, heldout, request, context):

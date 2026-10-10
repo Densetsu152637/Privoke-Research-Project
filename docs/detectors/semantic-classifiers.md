@@ -152,8 +152,10 @@ This option is exploratory. It has no default enablement or validated safety cla
 the [prospective cascade protocol](../../paper/research/contextual-cascade-protocol.md)
 records the planned controls and limitations.
 
+Both dedicated presence RPCs require exactly `layers=[DETECTION_LAYER_SEMANTIC]`; omitted, mixed or duplicate selections fail before model access. Inference returns exactly one successful semantic `RuntimeLayerExecution`. Training requires a nonempty disjoint binary guard and returns actual `training`, `base_heldout` and `candidate_heldout` `SemanticTrainingExecution` records with exact nonzero example counts. Callers reject missing or failed traces before accepting predictions or publishing updates. These records identify semantic computation of the binary task, not contextual classifications. Regenerate protobuf bindings for this stricter admission contract; older responses without execution evidence are rejected. Historical measurements are unchanged.
+
 `ComputePresenceGradients` updates only the sparse logistic head; its vocabulary and
-IDF tensors remain frozen. Optional held-out examples must contain both binary labels
+IDF tensors remain frozen. Required held-out examples must contain both binary labels
 and must not share normalized text or declared groups with training. The response
 reports the exact candidate evaluated with the same float32 publication arithmetic.
 This RPC returns deltas and does not itself publish or mutate a serving artifact.

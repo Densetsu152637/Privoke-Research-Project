@@ -24,14 +24,14 @@ def handle(stub, request: dict) -> dict:
     if not all(isinstance(value, str) and value for value in (request_id, model_id)) or not isinstance(text, str):
         raise ValueError("Presence request ID/model ID/text is invalid.")
     response = stub.DetectAnnotationPresence(
-        runtime_pb2.DetectAnnotationPresenceRequest(request_id=request_id, text=text, model_id=model_id),
+        runtime_pb2.DetectAnnotationPresenceRequest(request_id=request_id, text=text, model_id=model_id, layers=[runtime_pb2.DETECTION_LAYER_SEMANTIC]),
         timeout=120)
-    return {"request_id": response.request_id, "model_id": response.model_id,
-            "model_version": response.model_version, "probability": response.probability,
-            "threshold": response.threshold, "predicted_label": int(response.predicted_label),
-            "artifact_checksum": response.artifact_checksum,
-            "parameter_fingerprint": response.parameter_fingerprint,
-            "elapsed_ms": response.elapsed_ms, "error": response.error}
+    from privoke_eval.presence_rpc import response_record, validate_execution
+    record = response_record(response)
+    if not record.get("error"):
+        validate_execution(record)
+    return record
+
 
 
 def main():

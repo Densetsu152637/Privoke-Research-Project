@@ -297,7 +297,7 @@ class ScratchPresenceRuntimeTests(unittest.TestCase):
             with patch("src.hosting.grpc_server.ModelParameterStreamer"), \
                  patch.object(StreamedModelCache, "annotation_presence_model_for_streamer", return_value=model):
                 response = PrivokeRuntimeService().DetectAnnotationPresence(runtime_pb2.DetectAnnotationPresenceRequest(
-                    request_id="synthetic-1", text="mail", model_id=model_id), None)
+                    request_id="synthetic-1", text="mail", model_id=model_id, layers=[runtime_pb2.DETECTION_LAYER_SEMANTIC]), None)
             self.assertFalse(response.error)
             self.assertEqual(response.model_id, model_id)
             self.assertEqual(response.probability, model.predict_probability("mail"))
@@ -306,11 +306,11 @@ class ScratchPresenceRuntimeTests(unittest.TestCase):
             self.assertEqual(response.parameter_fingerprint, model.snapshot.fingerprint)
             with patch("src.hosting.grpc_server.compute_presence_gradients") as gradients:
                 failed = PrivokeRuntimeService().ComputePresenceGradients(runtime_pb2.ComputePresenceGradientsRequest(
-                    request_id="synthetic-training", model_id=model_id), None)
+                    request_id="synthetic-training", model_id=model_id, layers=[runtime_pb2.DETECTION_LAYER_SEMANTIC]), None)
             self.assertTrue(failed.error)
             gradients.assert_not_called()
         failed = PrivokeRuntimeService().DetectAnnotationPresence(runtime_pb2.DetectAnnotationPresenceRequest(
-            request_id="failure", text="mail", model_id="privoke-scratch-presence-unknown"), None)
+            request_id="failure", text="mail", model_id="privoke-scratch-presence-unknown", layers=[runtime_pb2.DETECTION_LAYER_SEMANTIC]), None)
         self.assertTrue(failed.error)
         self.assertEqual(failed.predicted_label, runtime_pb2.ANNOTATION_PRESENCE_UNSPECIFIED)
 

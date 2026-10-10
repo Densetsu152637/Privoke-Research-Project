@@ -31,6 +31,7 @@ class PresenceGradientBatch:
     shapes: dict[str, tuple[int, ...]]
     metrics: dict[str, float]
     metadata: dict[str, str]
+    executions: tuple[tuple[str, int], ...]
 
 
 def compute_presence_gradients(
@@ -53,8 +54,9 @@ def compute_presence_gradients(
     if isinstance(max_gradient, bool) or not math.isfinite(max_gradient) or max_gradient <= 0:
         raise ValueError("max_gradient must be finite and greater than zero.")
     _validate_examples(examples, "training")
-    if heldout_examples:
-        _validate_heldout_examples(examples, heldout_examples)
+    if not heldout_examples:
+        raise ValueError("Presence training requires nonempty held-out examples.")
+    _validate_heldout_examples(examples, heldout_examples)
 
     streamer = ModelParameterStreamer(model_id=model_id)
     runtime_model = GLOBAL_STREAMED_MODEL_CACHE.presence_model_for_training(streamer)
@@ -125,6 +127,8 @@ def compute_presence_gradients(
         gradients=gradients,
         shapes={name: snapshot.shapes[name] for name in gradients},
         metrics=metrics,
+        executions=(("training", len(examples)), ("base_heldout", len(heldout_examples)),
+                    ("candidate_heldout", len(heldout_examples))),
         metadata={
             "strategy": "sparse_annotation_presence_head_finetune",
             "task": "annotation_presence",
