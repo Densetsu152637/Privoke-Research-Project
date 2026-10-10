@@ -53,7 +53,7 @@ func validatePretrainedContextArtifact(artifact *modelArtifact) error {
 	if err := json.Unmarshal(artifact.Config, &config); err != nil {
 		return fmt.Errorf("invalid pretrained contextual config: %w", err)
 	}
-	if config.Task != "contextual_privacy" || config.BackboneModelID != "sentence-transformers/all-MiniLM-L6-v2" || config.BackboneRevision != "1110a243fdf4706b3f48f1d95db1a4f5529b4d41" || config.BackboneSHA256 != pretrainedBackboneHash || config.TokenizerSHA256 != pretrainedTokenizerHash || config.HiddenSize != 384 || config.MaxTokens != 256 || config.Pooling != "masked_mean_l2_v1" || config.Normalization != "detector_normalize_text_v1" || config.CategorySemantics != "asserted_personal_disclosure_v1" || config.Arithmetic != "float32_onnx_numpy_heads_v1" {
+	if config.Task != "contextual_privacy" || config.BackboneModelID != "sentence-transformers/all-MiniLM-L6-v2" || config.BackboneRevision != "1110a243fdf4706b3f48f1d95db1a4f5529b4d41" || config.BackboneSHA256 != pretrainedBackboneHash || config.TokenizerSHA256 != pretrainedTokenizerHash || config.HiddenSize != 384 || (config.MaxTokens != 256 && config.MaxTokens != 512) || config.Pooling != "masked_mean_l2_v1" || config.Normalization != "detector_normalize_text_v1" || config.CategorySemantics != "asserted_personal_disclosure_v1" || config.Arithmetic != "float32_onnx_numpy_heads_v1" {
 		return fmt.Errorf("pretrained contextual encoder contract mismatch")
 	}
 	if !reflect.DeepEqual(config.SensitivityLabels, pretrainedLabels["sensitivity"]) || !reflect.DeepEqual(config.VisibilityLabels, pretrainedLabels["visibility"]) || !reflect.DeepEqual(config.CategoryLabels, pretrainedLabels["category"]) {

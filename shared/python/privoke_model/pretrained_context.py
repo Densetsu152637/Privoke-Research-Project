@@ -18,6 +18,7 @@ BACKBONE_SHA256 = "6fd5d72fe4589f189f8ebc006442dbb529bb7ce38f8082112682524616046
 TOKENIZER_SHA256 = "be50c3628f2bf5bb5e3a7f17b1f74611b2561a3a27eeab05e5aa30f411572037"
 HIDDEN_SIZE = 384
 MAX_TOKENS = 256
+SUPPORTED_MAX_TOKENS = (256, 512)
 CONFIG_CONSTANTS = {
     "task": "contextual_privacy", "backbone_model_id": BACKBONE_MODEL_ID,
     "backbone_revision": BACKBONE_REVISION, "backbone_sha256": BACKBONE_SHA256,
@@ -45,15 +46,24 @@ def unique_json_object(pairs):
     return result
 
 
-def default_config(category_threshold: float = 0.5) -> dict:
+def validate_max_tokens(max_tokens: int) -> int:
+    if type(max_tokens) is not int or max_tokens not in SUPPORTED_MAX_TOKENS:
+        raise ModelArtifactError("Pretrained contextual max_tokens must be exactly 256 or 512.")
+    return max_tokens
+
+
+def default_config(category_threshold: float = 0.5, *, max_tokens: int = MAX_TOKENS) -> dict:
     return {**CONFIG_CONSTANTS, **{task + "_labels": list(labels) for task, labels in LABELS.items()},
-            "category_threshold": category_threshold}
+            "category_threshold": category_threshold, "max_tokens": validate_max_tokens(max_tokens)}
 
 
 def validate_pretrained_config(config, model_id=PRETRAINED_CONTEXT_MODEL_ID) -> dict:
     if model_id != PRETRAINED_CONTEXT_MODEL_ID or not isinstance(config, dict) or set(config) != CONFIG_KEYS:
         raise ModelArtifactError("Pretrained contextual config/model ID is unsupported.")
     for name, expected in CONFIG_CONSTANTS.items():
+        if name == "max_tokens":
+            validate_max_tokens(config[name])
+            continue
         if type(config[name]) is not type(expected) or config[name] != expected:
             raise ModelArtifactError("Pretrained contextual encoder contract does not match.")
     for task, labels in LABELS.items():
@@ -134,7 +144,8 @@ def validate_pretrained_stream(model_id, metadata) -> dict:
 
 
 def build_head_artifact(parameters: Mapping, *, version: str, generated_at_unix: int,
-                        metadata: Mapping[str, str], category_threshold: float = 0.5) -> dict:
+                        metadata: Mapping[str, str], category_threshold: float = 0.5,
+                        max_tokens: int = MAX_TOKENS) -> dict:
     """Serialize six offline-fitted NumPy-compatible flat head arrays as float32."""
     from .artifact import artifact_checksum, validate_artifact
     shapes = head_tensor_shapes()
@@ -143,7 +154,7 @@ def build_head_artifact(parameters: Mapping, *, version: str, generated_at_unix:
     artifact = {"schema_version": 1, "model_id": PRETRAINED_CONTEXT_MODEL_ID,
                 "version": version, "generated_at_unix": generated_at_unix,
                 "architecture": PRETRAINED_CONTEXT_ARCHITECTURE,
-                "config": default_config(category_threshold), "metadata": dict(metadata),
+                "config": default_config(category_threshold, max_tokens=max_tokens), "metadata": dict(metadata),
                 "parameters": {name: {"shape": list(shapes[name]), "trainable": False,
                                       "values": [float32(value) for value in parameters[name]]}
                                for name in shapes}}

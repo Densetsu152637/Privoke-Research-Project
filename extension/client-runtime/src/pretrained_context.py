@@ -9,7 +9,7 @@ from types import MappingProxyType
 import numpy as np
 from privoke_model.pretrained_context import (
     BACKBONE_SHA256, TOKENIZER_SHA256, HIDDEN_SIZE, MAX_TOKENS,
-    validate_pretrained_config, validate_pretrained_parameters,
+    validate_pretrained_config, validate_pretrained_parameters, validate_max_tokens,
 )
 
 from .detection.preprocessing import normalize_text
@@ -39,7 +39,8 @@ class FrozenPretrainedEncoder:
     either parser receives them, so reopening mutable filenames cannot race parsing.
     """
 
-    def __init__(self, asset_directory: str | Path | None = None):
+    def __init__(self, asset_directory: str | Path | None = None, *, max_tokens: int = MAX_TOKENS):
+        self._max_tokens = validate_max_tokens(max_tokens)
         selected = asset_directory if asset_directory is not None else os.getenv("PRIVOKE_PRETRAINED_CONTEXT_DIR")
         if not selected:
             raise ValueError("PRIVOKE_PRETRAINED_CONTEXT_DIR must name verified local encoder assets.")
@@ -67,6 +68,11 @@ class FrozenPretrainedEncoder:
         self._tokenizer.no_truncation()
         self._tokenizer.no_padding()
 
+    @property
+    def max_tokens(self) -> int:
+        """Admitted context length including special tokens; fixed at construction."""
+        return self._max_tokens
+
     def encode(self, text: str) -> np.ndarray:
         """Offline/raw-text entry point; apply detector normalization once."""
         return self.encode_normalized(normalize_text(text))
@@ -79,8 +85,8 @@ class FrozenPretrainedEncoder:
         """
         encoding = self._tokenizer.encode(text, add_special_tokens=True)
         length = len(encoding.ids)
-        if not 2 <= length <= MAX_TOKENS:
-            raise ValueError("Pretrained contextual input exceeds its 256-token context including special tokens.")
+        if not 2 <= length <= self.max_tokens:
+            raise ValueError(f"Pretrained contextual input exceeds its {self.max_tokens}-token context including special tokens.")
         inputs = {"input_ids": np.asarray([encoding.ids], dtype=np.int64),
                   "attention_mask": np.asarray([encoding.attention_mask], dtype=np.int64),
                   "token_type_ids": np.asarray([encoding.type_ids], dtype=np.int64)}
@@ -113,6 +119,8 @@ class PretrainedContextModel:
 
     def __init__(self, config, parameters, shapes, encoder: FrozenPretrainedEncoder):
         validated = validate_pretrained_config(config)
+        if encoder.max_tokens != validated["max_tokens"]:
+            raise ValueError("Pretrained contextual encoder/config max_tokens mismatch.")
         self.config = MappingProxyType({name: tuple(value) if isinstance(value, list) else value
                                        for name, value in validated.items()})
         validate_pretrained_parameters(parameters, shapes, {name: False for name in parameters})

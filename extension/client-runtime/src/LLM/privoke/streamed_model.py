@@ -120,7 +120,7 @@ class StreamedModelCache:
         # returned by the semantic transformer cache.
         self._presence_models: Dict[tuple[str, str], _CachedPresenceModel] = {}
         self._scratch_presence_models: Dict[tuple[str, str], _CachedScratchPresenceModel] = {}
-        self._pretrained_encoder = None
+        self._pretrained_encoders = {}
         self.refresh_interval_seconds = (
             refresh_interval_seconds
             if refresh_interval_seconds is not None
@@ -299,16 +299,17 @@ class StreamedModelCache:
     def _semantic_cache_key(self, snapshot):
         if (snapshot.metadata.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE
                 or snapshot.model_id == PRETRAINED_CONTEXT_MODEL_ID):
-            validate_pretrained_stream(snapshot.model_id, snapshot.metadata)
+            config = validate_pretrained_stream(snapshot.model_id, snapshot.metadata)
             validate_pretrained_release_identity(snapshot.version, snapshot.generated_at_unix)
-            return snapshot.cache_key + ":" + snapshot.metadata["artifact_checksum"]
+            return snapshot.cache_key + ":" + snapshot.metadata["artifact_checksum"] + ":" + str(config["max_tokens"])
         return snapshot.cache_key
 
     def _semantic_model(self, snapshot):
         if snapshot.metadata.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE:
             from .pretrained_context_model import StreamedPretrainedContextModel
-            model = StreamedPretrainedContextModel(snapshot, self._pretrained_encoder)
-            self._pretrained_encoder = model.model.encoder
+            max_tokens = validate_pretrained_stream(snapshot.model_id, snapshot.metadata)["max_tokens"]
+            model = StreamedPretrainedContextModel(snapshot, self._pretrained_encoders.get(max_tokens))
+            self._pretrained_encoders[max_tokens] = model.model.encoder
             return model
         return StreamedTransformerPrivacyModel(snapshot)
 
@@ -317,7 +318,7 @@ class StreamedModelCache:
             self._models.clear()
             self._presence_models.clear()
             self._scratch_presence_models.clear()
-            self._pretrained_encoder = None
+            self._pretrained_encoders.clear()
 
 
 GLOBAL_STREAMED_MODEL_CACHE = StreamedModelCache()

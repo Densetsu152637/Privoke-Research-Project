@@ -35,7 +35,7 @@ class PretrainedContextContractTests(unittest.TestCase):
                      lambda a: a.update(version="x" * 129),
                      lambda a: a.update(architecture="privoke_tiny_transformer_v1"),
                      lambda a: a["config"].update(tokenizer_sha256="f" * 64),
-                     lambda a: a["config"].update(max_tokens=512),
+                     lambda a: a["config"].update(max_tokens=513),
                      lambda a: a["config"].update(hidden_size=True),
                      lambda a: a["config"].update(category_threshold=0),
                      lambda a: a["config"].update(extra=True),
@@ -52,6 +52,27 @@ class PretrainedContextContractTests(unittest.TestCase):
             artifact = fixture()
             mutate(artifact)
             with self.subTest(mutate=mutate), self.assertRaises(ModelArtifactError):
+                validate_artifact(artifact)
+
+    def test_explicit_context_profiles_roundtrip_preserve_heads_and_default(self):
+        original = fixture()
+        parameters = {name: tensor["values"] for name, tensor in original["parameters"].items()}
+        extended = build_head_artifact(parameters, version=original["version"], generated_at_unix=1,
+                                       metadata=original["metadata"], max_tokens=512)
+        self.assertEqual(original["config"]["max_tokens"], 256)
+        self.assertEqual(extended["parameters"], original["parameters"])
+        self.assertNotEqual(extended["checksum"], original["checksum"])
+        with TemporaryDirectory() as temporary:
+            for artifact in (original, extended):
+                path = Path(temporary) / "artifact.json"
+                path.write_text(json.dumps(artifact), encoding="utf-8")
+                self.assertEqual(load_artifact(path), artifact)
+        for value in (True, 256.0, 512.0, "512", None, 0, 255, 257, 511, 513):
+            with self.subTest(value=value), self.assertRaises(ModelArtifactError):
+                default_config(max_tokens=value)
+            artifact = fixture()
+            artifact["config"]["max_tokens"] = value
+            with self.assertRaises(ModelArtifactError):
                 validate_artifact(artifact)
 
     def test_duplicate_json_keys_cannot_hide_reserved_identity(self):

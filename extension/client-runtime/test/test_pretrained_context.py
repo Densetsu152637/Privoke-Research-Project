@@ -8,7 +8,7 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 
@@ -28,20 +28,23 @@ from src.hosting.grpc_server import PrivokeRuntimeService
 
 
 class FeatureEncoder:
+    def __init__(self, *, max_tokens=256):
+        self.max_tokens = max_tokens
+
     def encode_normalized(self, text):
         if text == "overlength":
             raise ValueError("Pretrained contextual input exceeds its 256-token context including special tokens.")
         return np.full(384, 1 / np.sqrt(384), dtype=np.float32)
 
 
-def snapshot_for(clean=False, checksum="a" * 64):
+def snapshot_for(clean=False, checksum="a" * 64, max_tokens=256):
     parameters = {name: [0.] * math.prod(shape) for name, shape in head_tensor_shapes().items()}
     parameters["head.sensitivity.bias"][0 if clean else 2] = 10.
     parameters["head.visibility.bias"][5] = 10.
     parameters["head.category.bias"] = [-10.] * 10
     if not clean:
         parameters["head.category.bias"][4] = 10.
-    artifact = build_head_artifact(parameters, version="v1.0.0+synthetic.1", generated_at_unix=1, metadata={})
+    artifact = build_head_artifact(parameters, version="v1.0.0+synthetic.1", generated_at_unix=1, metadata={}, max_tokens=max_tokens)
     return ParameterSnapshot(artifact["model_id"], artifact["version"], 1,
                              {n: tuple(t["values"]) for n, t in artifact["parameters"].items()},
                              {n: tuple(t["shape"]) for n, t in artifact["parameters"].items()},
@@ -56,13 +59,60 @@ def fake_dependencies(length=3, nonfinite=False, invalid_signature=False):
     output = [SimpleNamespace(name=n, type=t, shape=s) for n, t, s in OUTPUT_SIGNATURE]
     session = SimpleNamespace(get_inputs=lambda: [] if invalid_signature else signatures,
         get_outputs=lambda: output, get_providers=lambda: ["CPUExecutionProvider"],
-        run=lambda names, values: [np.full((1, length, 384), np.nan if nonfinite else 1., dtype=np.float32)])
+        run=Mock(return_value=[np.full((1, length, 384), np.nan if nonfinite else 1., dtype=np.float32)]))
     ort = SimpleNamespace(__version__="1.23.2", SessionOptions=SimpleNamespace, InferenceSession=lambda *args, **kwargs: session)
     tokens = SimpleNamespace(__version__="0.22.1", Tokenizer=SimpleNamespace(from_str=lambda raw: tokenizer))
     return {"onnxruntime": ort, "tokenizers": tokens}
 
 
 class PretrainedContextRuntimeTests(unittest.TestCase):
+    def test_context_boundaries_reject_before_onnx_and_invalid_limit_before_assets(self):
+        for maximum, length, admitted in ((256, 256, True), (256, 257, False),
+                                          (512, 256, True), (512, 257, True),
+                                          (512, 512, True), (512, 513, False)):
+            dependencies = fake_dependencies(length=length)
+            session = dependencies["onnxruntime"].InferenceSession()
+            with self.subTest(maximum=maximum, length=length), patch.dict(sys.modules, dependencies), \
+                    patch("src.pretrained_context._verified_bytes", return_value=b"{}"), \
+                    patch.object(np, "__version__", "2.2.6"):
+                encoder = FrozenPretrainedEncoder("assets", max_tokens=maximum)
+                self.assertEqual(encoder.max_tokens, maximum)
+                with self.assertRaises(AttributeError):
+                    encoder.max_tokens = 512
+                if admitted:
+                    self.assertEqual(encoder.encode("Synthetic").shape, (384,))
+                    session.run.assert_called_once()
+                else:
+                    with self.assertRaisesRegex(ValueError, f"{maximum}-token"):
+                        encoder.encode("Synthetic")
+                    session.run.assert_not_called()
+        with patch("src.pretrained_context._verified_bytes") as read:
+            for invalid in (True, 512.0, 257, 513):
+                with self.assertRaises(ValueError):
+                    FrozenPretrainedEncoder("assets", max_tokens=invalid)
+            read.assert_not_called()
+
+    def test_cache_separates_limit_identity_reuses_each_encoder_and_rejects_mismatch(self):
+        cache = StreamedModelCache(0)
+        first_snapshot = snapshot_for()
+        extended_snapshot = snapshot_for(max_tokens=512)
+        # Deliberately hold every other identity field equal: the limit itself
+        # must prevent reuse, even if a malformed upstream checksum is repeated.
+        self.assertNotEqual(cache._semantic_cache_key(first_snapshot), cache._semantic_cache_key(extended_snapshot))
+        with patch("src.LLM.privoke.pretrained_context_model.FrozenPretrainedEncoder", side_effect=FeatureEncoder) as load:
+            first = cache._model_for_snapshot(first_snapshot)
+            extended = cache._model_for_snapshot(extended_snapshot)
+            self.assertEqual(extended.model.encoder.max_tokens, 512)
+            self.assertIsNot(first.model.encoder, extended.model.encoder)
+            returned = cache._model_for_snapshot(first_snapshot)
+            self.assertIs(returned.model.encoder, first.model.encoder)
+            self.assertEqual(load.call_count, 2)
+            cache.clear()
+            cache._model_for_snapshot(first_snapshot)
+            self.assertEqual(load.call_count, 3)
+        with self.assertRaisesRegex(ValueError, "max_tokens mismatch"):
+            StreamedPretrainedContextModel(extended_snapshot, FeatureEncoder())
+
     def test_verified_byte_loader_hash_bounds_and_fixed_local_file(self):
         with TemporaryDirectory() as temporary:
             path = Path(temporary) / "model.onnx"

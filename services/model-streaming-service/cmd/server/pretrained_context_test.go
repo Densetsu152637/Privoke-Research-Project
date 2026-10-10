@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -73,7 +74,7 @@ func TestPretrainedArtifactRejectsConfigHeadAndIdentityDrift(t *testing.T) {
 		"unknown":     func(c map[string]any) { c["extra"] = true },
 		"tokenizer":   func(c map[string]any) { c["tokenizer_sha256"] = strings.Repeat("f", 64) },
 		"backbone":    func(c map[string]any) { c["backbone_revision"] = strings.Repeat("f", 40) },
-		"context":     func(c map[string]any) { c["max_tokens"] = 512 },
+		"context":     func(c map[string]any) { c["max_tokens"] = 513 },
 		"threshold":   func(c map[string]any) { c["category_threshold"] = 0 },
 		"label order": func(c map[string]any) { c["sensitivity_labels"] = []string{"S3", "S2", "S1", "S0"} },
 	} {
@@ -84,6 +85,25 @@ func TestPretrainedArtifactRejectsConfigHeadAndIdentityDrift(t *testing.T) {
 				t.Fatal("invalid pretrained config accepted")
 			}
 		})
+	}
+}
+
+func TestPretrainedOnlyAdmittedContextProfilesPreserveStreamConfig(t *testing.T) {
+	for _, limit := range []any{256, 512, 0, 255, 257, 511, 513, true, "512", 512.5, nil} {
+		artifact := pretrainedFixture(t).modelArtifact
+		rewritePresenceConfig(t, &artifact, func(config map[string]any) { config["max_tokens"] = limit })
+		err := validateModelArtifact(&artifact, "")
+		admitted := limit == 256 || limit == 512
+		if (err == nil) != admitted {
+			t.Fatalf("context limit %v admission mismatch: %v", limit, err)
+		}
+		if admitted {
+			response := parameterResponse(&loadedArtifact{modelArtifact: artifact}, "test")
+			var config pretrainedContextConfig
+			if err := json.Unmarshal([]byte(response.Metadata["model_config"]), &config); err != nil || config.MaxTokens != limit {
+				t.Fatalf("stream lost admitted context limit %v: %v", limit, err)
+			}
+		}
 	}
 }
 

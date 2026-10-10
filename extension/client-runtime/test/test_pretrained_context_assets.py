@@ -11,6 +11,7 @@ for path in (ROOT / "shared/python", ROOT / "extension/client-runtime"):
     sys.path.insert(0, str(path))
 
 from privoke_model.artifact import load_artifact
+from privoke_model.pretrained_context import build_head_artifact, head_tensor_shapes
 from src.detection.preprocessing import normalize_text
 from src.pretrained_context import FrozenPretrainedEncoder, PretrainedContextModel
 
@@ -42,6 +43,31 @@ class OfficialPretrainedAssetTests(unittest.TestCase):
         self.assertEqual(self.encoder.encode(maximum).shape, (384,))
         with self.assertRaisesRegex(ValueError, "256-token"):
             self.encoder.encode("hello " * 255)
+
+    def test_extended_pinned_context_boundaries_and_short_prediction_parity(self):
+        extended = FrozenPretrainedEncoder(max_tokens=512)
+        for tokens in (256, 257, 512):
+            text = "hello " * (tokens - 2)
+            self.assertEqual(len(extended._tokenizer.encode(text).ids), tokens)
+            vector = extended.encode(text)
+            self.assertEqual(vector.shape, (384,))
+            self.assertTrue(np.isfinite(vector).all())
+            self.assertAlmostEqual(float(np.linalg.norm(vector)), 1., places=6)
+        with self.assertRaisesRegex(ValueError, "512-token"):
+            extended.encode("hello " * 511)
+        text = normalize_text("Synthetic short [at] example.test contact.")
+        np.testing.assert_array_equal(self.encoder.encode_normalized(text), extended.encode_normalized(text))
+        parameters = {name: (np.arange(np.prod(shape), dtype=np.float32) % 13 - 6) * .01
+                      for name, shape in head_tensor_shapes().items()}
+        predictions = []
+        for encoder in (self.encoder, extended):
+            artifact = build_head_artifact(parameters, version="v1.synthetic", generated_at_unix=1,
+                                           metadata={}, max_tokens=encoder.max_tokens)
+            model = PretrainedContextModel(artifact["config"],
+                {name: tensor["values"] for name, tensor in artifact["parameters"].items()},
+                {name: tuple(tensor["shape"]) for name, tensor in artifact["parameters"].items()}, encoder)
+            predictions.append(model.predict(text))
+        self.assertEqual(predictions[0], predictions[1])
 
 
 if __name__ == "__main__":

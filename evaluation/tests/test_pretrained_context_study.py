@@ -256,6 +256,8 @@ class PretrainedStudyTests(unittest.TestCase):
         from src.LLM.privoke.pretrained_context_model import StreamedPretrainedContextModel
         from src.pipeline import strongest_result
         class Encoder:
+            max_tokens = 256
+
             def encode_normalized(self, text):
                 return np.ones(384, dtype=np.float32) / np.sqrt(np.float32(384))
         encoder = Encoder()

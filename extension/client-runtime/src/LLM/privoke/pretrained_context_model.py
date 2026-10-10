@@ -24,7 +24,7 @@ class StreamedPretrainedContextModel(StreamedTransformerPrivacyModel):
             MappingProxyType(dict(snapshot.metadata)),
         )
         self.model = PretrainedContextModel(config, self.snapshot.parameters, self.snapshot.shapes,
-                                            encoder if encoder is not None else FrozenPretrainedEncoder())
+                                            encoder if encoder is not None else FrozenPretrainedEncoder(max_tokens=config["max_tokens"]))
 
     def classify(self, text):
         # The pipeline owns normalization and original-offset recovery.
