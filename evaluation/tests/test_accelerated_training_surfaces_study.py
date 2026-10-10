@@ -168,6 +168,59 @@ class StudyTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'amendment differs'):
                 study.verify_frozen_sources(self.path,protocol)
 
+    def test_environment_amendment_preserves_fitter_budget_and_original_audit_receipt(self):
+        supervisor='evaluation/privoke_eval/accelerated_training_surfaces_study.py'
+        recipe='evaluation/Dockerfile.accelerated-training-surfaces-worker'
+        auditor='evaluation/privoke_eval/accelerated_training_surfaces_report.py'
+        pythonpath='/study/evaluation:/study/shared/python:/study/extension/client-runtime:/study/extension/client-runtime/generated'
+        argv='["docker","run","--rm","--network","none","--read-only","--tmpfs","/tmp:rw,nosuid,size=1g",*mounts]'
+        original={supervisor:'def verify_frozen_sources():\n    pass\ndef offline_worker():\n    args='+argv+'\n    return 96\n',
+                  recipe:'ENV PYTHONPATH='+pythonpath+'\nENV PYTHONPATH='+pythonpath.replace('/study/','/workspace/')+'\n',
+                  auditor:'def audit_runtime_evidence():\n    return 1\ndef qualify():\n    return 2\n'}
+        audited=dict(original);audited[auditor]=original[auditor].replace('return 1','return 3')
+        revised=dict(audited)
+        revised[supervisor]=audited[supervisor].replace(',*mounts]',',"--env","PYTHONPATH='+pythonpath+':/study/models",*mounts]')
+        revised[recipe]=audited[recipe].replace(pythonpath,pythonpath+':/study/models').replace(pythonpath.replace('/study/','/workspace/'),pythonpath.replace('/study/','/workspace/')+':/workspace/models')
+        def inventory(texts):
+            import hashlib
+            return {p:hashlib.sha256(t.encode()).hexdigest() for p,t in texts.items()}|{'models/trainer.py':'unchanged'}
+        frozen_files=inventory(original);audited_files=inventory(audited);current=inventory(revised)
+        protocol={'source_revision':'a'*40,'source_files':frozen_files,'offline_worker_image':'sha256:'+'d'*64}
+        study.write(self.path/'protocol.json',protocol)
+        audit={'status':'accepted','scope':'audit_only','protocol_sha256':study.sha(self.path/'protocol.json'),
+               'frozen_source_revision':'a'*40,'source_revision':'b'*40,'source_files':audited_files}
+        study.write(self.path/'audit-source-amendment.json',audit)
+        audit_sha=study.sha(self.path/'audit-source-amendment.json')
+        environment={'status':'accepted','scope':'worker_environment_only','protocol_sha256':study.sha(self.path/'protocol.json'),
+                     'audit_amendment_sha256':audit_sha,'prior_source_revision':'b'*40,'prior_source_files':audited_files,
+                     'source_revision':'c'*40,'source_files':current,'offline_worker_image':protocol['offline_worker_image'],
+                     'pythonpath_before':pythonpath,'pythonpath_after':pythonpath+':/study/models'}
+        def bind(texts):
+            current.clear();current.update(inventory(texts))
+            for path,text in texts.items():
+                destination=self.path/path;destination.parent.mkdir(parents=True,exist_ok=True);destination.write_text(text)
+            study.write(self.path/'worker-environment-amendment.json',environment)
+        bind(revised)
+        def git_show(args):return (original if args[2].startswith('a'*40) else audited)[args[2].split(':',1)[1]]
+        with patch.object(study,'ROOT',self.path),patch.object(study,'source_inventory',return_value=current),patch.object(study,'revision',return_value='c'*40),patch.object(study,'command',side_effect=git_show):
+            study.verify_frozen_sources(self.path,protocol)
+            for path,before,after in ((supervisor,'return 96','return 97'),(supervisor,'size=1g','size=2g'),
+                                      (supervisor,':/study/models',':/study/models:/unreviewed'),
+                                      (recipe,':/study/models',':/study/models:/unreviewed'),
+                                      (auditor,'return 2','return 4')):
+                with self.subTest(path=path,before=before):
+                    changed=dict(revised);changed[path]=changed[path].replace(before,after);bind(changed)
+                    with self.assertRaises(ValueError):study.verify_frozen_sources(self.path,protocol)
+            bind(revised)
+            for key in ('audit_amendment_sha256','protocol_sha256','prior_source_revision','source_revision','offline_worker_image','pythonpath_after'):
+                saved=environment[key];environment[key]='wrong';bind(revised)
+                with self.subTest(commitment=key),self.assertRaises(ValueError):study.verify_frozen_sources(self.path,protocol)
+                environment[key]=saved
+            bind(revised);current['models/trainer.py']='changed'
+            study.write(self.path/'worker-environment-amendment.json',environment)
+            with self.assertRaisesRegex(ValueError,'fitting or unapproved'):study.verify_frozen_sources(self.path,protocol)
+        self.assertEqual(study.sha(self.path/'audit-source-amendment.json'),audit_sha)
+
     def snapshot(self,version='v0',head=0.,encoder=0.):
         return {'identity':{'model_id':'m','model_version':version,'artifact_checksum':'a','parameter_fingerprint':'f'},
             'parameters':{'head.weight':{'shape':[1],'values':[head]},'embedding':{'shape':[1],'values':[encoder]}}}

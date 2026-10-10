@@ -232,31 +232,74 @@ def verify_protocol(output, *, execution=False):
 
 
 def verify_frozen_sources(output,protocol):
-    """Admit a hash-bound audit repair while preserving every fitting source."""
+    """Admit chained audit/environment repairs without changing fitting code."""
     import ast
     current=source_inventory();current_revision=revision()
     if protocol['source_files']==current and protocol['source_revision']==current_revision:return
     receipt=read(Path(output)/'audit-source-amendment.json')
+    environment_path=Path(output)/'worker-environment-amendment.json'
+    environment=read(environment_path) if environment_path.exists() else None
+    audited=receipt.get('source_files') if environment else current
+    audited_revision=receipt.get('source_revision') if environment else current_revision
     if (receipt.get('status')!='accepted' or receipt.get('scope')!='audit_only'
             or receipt.get('protocol_sha256')!=sha(Path(output)/'protocol.json')
             or receipt.get('frozen_source_revision')!=protocol['source_revision']
-            or receipt.get('source_revision')!=current_revision or receipt.get('source_files')!=current
-            or set(protocol['source_files'])!=set(current)):
+            or receipt.get('source_revision')!=audited_revision or receipt.get('source_files')!=audited
+            or set(protocol['source_files'])!=set(current) or set(audited)!=set(current)):
         raise ValueError('Audit-only source amendment differs')
     allowed={'evaluation/privoke_eval/accelerated_training_surfaces_report.py':{'audit_runtime_evidence'},
              'evaluation/privoke_eval/accelerated_training_surfaces_study.py':{'verify_protocol','verify_frozen_sources'},
              'evaluation/tests/test_accelerated_training_surfaces_study.py':None}
-    changed={p for p in current if current[p]!=protocol['source_files'][p]}
+    changed={p for p in audited if audited[p]!=protocol['source_files'][p]}
     if not changed or changed-set(allowed):raise ValueError('Audit amendment changes fitting or unapproved sources')
     for path in sorted(changed):
         if allowed[path] is None:continue
         original=command(['git','show',protocol['source_revision']+':'+path])
-        revised=(ROOT/path).read_text(encoding='utf-8')
+        revised=command(['git','show',audited_revision+':'+path]) if environment else (ROOT/path).read_text(encoding='utf-8')
         def protected(text):
             tree=ast.parse(text)
             tree.body=[node for node in tree.body if not (isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef)) and node.name in allowed[path])]
             return ast.dump(tree,include_attributes=False)
         if protected(original)!=protected(revised):raise ValueError('Audit amendment changes protected computation')
+    if environment is None:return
+    pythonpath='/study/evaluation:/study/shared/python:/study/extension/client-runtime:/study/extension/client-runtime/generated'
+    if (environment.get('status')!='accepted' or environment.get('scope')!='worker_environment_only'
+            or environment.get('protocol_sha256')!=sha(Path(output)/'protocol.json')
+            or environment.get('audit_amendment_sha256')!=sha(Path(output)/'audit-source-amendment.json')
+            or environment.get('prior_source_revision')!=audited_revision
+            or environment.get('prior_source_files')!=audited
+            or environment.get('source_revision')!=current_revision or environment.get('source_files')!=current
+            or environment.get('offline_worker_image')!=protocol['offline_worker_image']
+            or environment.get('pythonpath_before')!=pythonpath or environment.get('pythonpath_after')!=pythonpath+':/study/models'):
+        raise ValueError('Worker environment amendment differs')
+    supervisor='evaluation/privoke_eval/accelerated_training_surfaces_study.py'
+    recipe='evaluation/Dockerfile.accelerated-training-surfaces-worker'
+    changed={p for p in current if current[p]!=audited[p]}
+    if changed!={supervisor,recipe}:raise ValueError('Environment amendment changes fitting or unapproved sources')
+    for path in sorted(changed):
+        original=command(['git','show',audited_revision+':'+path])
+        revised=(ROOT/path).read_text(encoding='utf-8')
+        if path==recipe:
+            for root in ('study','workspace'):
+                before=pythonpath.replace('/study/','/'+root+'/')
+                after=before+':/'+root+'/models'
+                if revised.count('PYTHONPATH='+after)!=1:raise ValueError('Worker recipe environment differs')
+                revised=revised.replace('PYTHONPATH='+after,'PYTHONPATH='+before)
+            if original!=revised:raise ValueError('Environment amendment changes worker recipe computation')
+            continue
+        def environment_protected(text, *, amended):
+            tree=ast.parse(text)
+            tree.body=[node for node in tree.body if not (isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef)) and node.name=='verify_frozen_sources')]
+            if amended:
+                worker=next(node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name=='offline_worker')
+                argv=next(node.value for node in worker.body if isinstance(node,ast.Assign) and len(node.targets)==1 and isinstance(node.targets[0],ast.Name) and node.targets[0].id=='args')
+                expected=[ast.Constant('--env'),ast.Constant('PYTHONPATH='+pythonpath+':/study/models')]
+                if not isinstance(argv,ast.List) or ast.dump(ast.List(elts=argv.elts[8:10],ctx=ast.Load()))!=ast.dump(ast.List(elts=expected,ctx=ast.Load())):
+                    raise ValueError('Worker environment arguments differ')
+                del argv.elts[8:10]
+            return ast.dump(tree,include_attributes=False)
+        if environment_protected(original,amended=False)!=environment_protected(revised,amended=True):
+            raise ValueError('Environment amendment changes protected computation')
 
 
 def freeze(output, approval):
@@ -973,7 +1016,7 @@ def offline_worker(protocol,cell,inputs,directory,operation):
         raise ValueError("Fit worker received assessment input")
     request_path=work/"request.json";write(request_path,request,immutable=True)
     mounts.extend(["--mount",f"type=bind,source={request_path},target=/request.json,readonly","--mount",f"type=bind,source={work},target=/output"])
-    args=["docker","run","--rm","--network","none","--read-only","--tmpfs","/tmp:rw,nosuid,size=1g",*mounts,"--entrypoint","python",image,"/study/evaluation/run-accelerated-training-surfaces-worker.py","/request.json","/output"]
+    args=["docker","run","--rm","--network","none","--read-only","--tmpfs","/tmp:rw,nosuid,size=1g","--env","PYTHONPATH=/study/evaluation:/study/shared/python:/study/extension/client-runtime:/study/extension/client-runtime/generated:/study/models",*mounts,"--entrypoint","python",image,"/study/evaluation/run-accelerated-training-surfaces-worker.py","/request.json","/output"]
     with (work/"operations.log").open("a",encoding="utf-8") as log:
         subprocess.run(args,check=True,stdout=log,stderr=subprocess.STDOUT)
     raw=read(work/"result.json")
