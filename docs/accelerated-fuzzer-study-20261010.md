@@ -268,3 +268,25 @@ regeneration; it performs no RPCs, fitting or raw archive mutation. Raw prompts,
 predictions, weights, SQLite state, diagnostics and operational logs remain in
 ignored local results. Public aggregates alone cannot repeat the complete raw
 archive audit.
+
+## Completed resource cleanup
+
+After acceptance of the raw audit and public aggregates, cleanup removed all 72
+owned stopped containers, 60 named volumes, twelve empty networks and three
+task overlay images. Docker also removed four unused, untagged intermediates
+created by the task's legacy image builds. All 147 explicit deletion commands
+succeeded. The initial post-clean checker exited 2 because its image comparison
+excluded only the three tagged overlays; retained build and deletion records
+proved the four intermediate images were task-owned. A separate reconciliation
+passed without further deletion, preserving the initial diagnostic receipt.
+
+All 27 unrelated containers, 135 volumes, eleven networks and fourteen image
+records, including all five normal/shared parent images, were preserved. All
+twelve raw archives, frozen sources and inputs, raw protocol/summary/audit and
+original public aggregates were reverified unchanged. The original handoff
+provenance remains a dated retained-resource snapshot. The separate
+[cleanup receipt](evidence/accelerated-fuzzer-20261010/cleanup.json), completed at
+`2026-10-10T02:37:06.594742+00:00`, records the later removal and binds the detailed
+local reconciliation and command proofs. Its SHA256 is
+`d1ef45166a9e2da35640bb3e61b1b11ce5201d63e5a232520c5a2ed2c14fa378`.
+The original publication manifest and reproduction helper remain unchanged.

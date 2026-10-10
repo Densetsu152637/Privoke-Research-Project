@@ -60,3 +60,25 @@ source. At accepted handoff, all execution/audit processes had ceased, 72 owned
 containers were stopped, 60 volumes and twelve empty networks were retained,
 and three task overlay images remained available. Resource cleanup is a separate
 subsequent step; these original receipts do not claim it is complete.
+
+## Completed resource cleanup
+
+The later [cleanup receipt](cleanup.json) records removal of 72 owned stopped
+containers, 60 volumes, twelve empty networks and three task overlay images, plus
+four unused task build intermediates removed automatically by Docker. All 147
+explicit deletion commands succeeded. The initial post-checker exited 2 because
+its comparison omitted the four intermediate images from task ownership;
+retained uncached build steps and deletion output resolved that discrepancy.
+The original checker receipt remains intact, and the separate reconciliation
+passed without additional deletion.
+
+All 27 unrelated containers, 135 volumes, eleven networks and fourteen image
+records were preserved, including all five normal/shared parent images. All
+twelve raw archives, frozen inputs/sources and original public evidence were
+reverified unchanged. Cleanup completed at
+`2026-10-10T02:37:06.594742+00:00`; the separate receipt SHA256 is
+`d1ef45166a9e2da35640bb3e61b1b11ce5201d63e5a232520c5a2ed2c14fa378`.
+Its reconciliation and proof hashes bind the local operational evidence without
+publishing identifiers or local paths. The five original JSON files and
+`reproduce.py` retain their original hashes; this later receipt is separately
+hashed and is not an output of that original reproduction helper.

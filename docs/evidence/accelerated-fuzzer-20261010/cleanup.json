@@ -1,0 +1,77 @@
+{
+  "schema_version": "accelerated-fuzzer-cleanup-v1",
+  "completed_at_utc": "2026-10-10T02:37:06.594742+00:00",
+  "execution_source_revision": "f2df530353a66de657a9a1adb8699021b072e418",
+  "cleanup_checkout_revision": "6b09c0a3ded31685fd10b8888492481dec053dd5",
+  "status": "complete",
+  "accepted_reconciliation_sha256": "a2e0c305be9933626aff8156d393a969a78009fbfd9e467603d6356623b2fb1a",
+  "original_postchecker_receipt_sha256": "4197717f2cdc7ea588733c2aa432dd1d0b0e644e742a1787458a82c49d5d6582",
+  "resource_inventory_before_sha256": "4eb666db8651d45a9bbf1745d099350581208f8e2192ef73105d3c3d02b2d77b",
+  "resource_inventory_after_sha256": "68cbddf04ead1a90cef3b5947d231278330553a0b99be4a1f4f277fbd3d62329",
+  "deletion_command_log_sha256": "84f0edc59675d5e1f2d0c08a0a3e80c730c8ba8698a281488ec723109eb121f5",
+  "explicit_removed": {
+    "containers": 72,
+    "volumes": 60,
+    "networks": 12,
+    "task_overlay_images": 3
+  },
+  "automatically_removed_task_build_intermediate_images": 4,
+  "total_image_ids_removed": 7,
+  "explicit_deletion_commands": 147,
+  "all_deletion_commands_exit_zero": true,
+  "unrelated_preserved": {
+    "containers": 27,
+    "volumes": 135,
+    "networks": 11,
+    "image_records": 14,
+    "normal_and_shared_parent_images": 5
+  },
+  "ownership_and_preservation_checks": {
+    "containers_absent": true,
+    "volumes_absent": true,
+    "networks_absent": true,
+    "images_absent": true,
+    "parent_images_preserved": true,
+    "unrelated_containers_preserved": true,
+    "unrelated_volumes_preserved": true,
+    "unrelated_networks_preserved": true,
+    "unrelated_images_preserved_after_task_intermediate_reconciliation": true,
+    "raw_archives_preserved": true,
+    "raw_protocol_summary_audit_preserved": true,
+    "static_inputs_preserved": true,
+    "frozen_sources_preserved": true,
+    "original_public_json_preserved": true,
+    "checkout_clean_and_unchanged": true
+  },
+  "initial_postchecker_exit": 2,
+  "corrected_reconciliation_passed": true,
+  "postchecker_explanation": "The initial preservation comparison excluded only three tagged task overlays. Docker also removed four unused, untagged task build intermediates while deleting those overlays. Retained uncached legacy-build steps and deletion output prove their task ownership. The original failed checker receipt remains unchanged; a separate reconciliation verifies all unrelated image records and all normal/shared parent images preserved. No additional deletion command was run.",
+  "raw_artifact_sha256": {
+    "protocol.json": "39cbf3f7d88ed3b0260f97b41ebe3c41bd8b0e09376bf3e1488dba600da0aef3",
+    "summary.json": "66c419b4e3f755242ee7ac42dde5df84d40e5f5ce5ab1f255a1b0d2510716fc8",
+    "audit.json": "10c58eef05a5f9d90cd3a6419e6f080aa151f2e219bdaf3508a8a801ae00476f"
+  },
+  "unchanged_archive_sha256": {
+    "efficient-control": "a125464b4ce1d581bedd43f2b08e918267570410425c634d852c8fc4f6ba40c9",
+    "efficient-revised-42": "835890a32376298e6f083c70e452610ce8eed1db852052a8b002a4a2b5553f37",
+    "efficient-revised-43": "323b82f3e80f6289070a9fe473f7ef76f63940382e581334b3fb56472ed001c8",
+    "efficient-revised-44": "f848b4c8ec59aec13ffeacc8c1ac7420e8152814418b5feb8edf5a385486322b",
+    "balanced-control": "5b890151ca010386865ed08737edb8654f9f0789d03eadcd9b48d057f1300f4f",
+    "balanced-revised-42": "63f14140c10945e7d0a767f018eaf5e47d15eb452b36f71f3a55963ffd5eacf8",
+    "balanced-revised-43": "b1ea968676151f4295c091618c0441aa3001ef357fd247f8240461becb566c50",
+    "balanced-revised-44": "18d3019abb65b32fed3cfc0a8ad89beb1d429951204d0af859d3ed61a0bca1c0",
+    "quality-control": "38754152ca562b4e3583253e5b6d7289d250e2ed5aeafa84632446048a38c9ad",
+    "quality-revised-42": "89fe4f3fb5a04fc78db05719fce77cb09bb721f14f30fd0952b257158eae0c2f",
+    "quality-revised-43": "41b316c6c58edf3bfd894f58d8f8786a97551b43b6412d102894ec36edbef23b",
+    "quality-revised-44": "c23094bbeca9a172651c2bab17f1a41a76b0f312923f087b2aab764be4e60a09"
+  },
+  "unchanged_original_public_sha256": {
+    "audit.json": "10c58eef05a5f9d90cd3a6419e6f080aa151f2e219bdaf3508a8a801ae00476f",
+    "protocol.json": "1b5447d0d95f9783b975f3684dd0f950dd2149c4f5cc479fa2e8ef5af2b175ee",
+    "provenance.json": "d553312f7138a287e25deb0d9069072caeb053fc79fe638ce0abf6abc536e2a4",
+    "publication-hashes.json": "0cf772d8295dbd73c2b43c6637540aa827b3bf654f2f58708b178fd4bad1d409",
+    "summary.json": "1a2607d18325868393e7007f850decf4e555881a23ab9df6dd9c74bebdaba187"
+  },
+  "unchanged_reproduction_script_sha256": "28a39912f626dea6a84347a4a4c3c76f23404e028645fa348c848f9c8e7b8ce3",
+  "evidence_preservation": "All twelve raw archives, protocol, summary, audit, static inputs, frozen sources, original aggregate publication and required receipts/logs remain intact. The original handoff provenance is a dated retained-resource snapshot; this separate later receipt records completed resource removal."
+}
