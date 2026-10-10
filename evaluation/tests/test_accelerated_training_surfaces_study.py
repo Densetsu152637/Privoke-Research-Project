@@ -46,10 +46,81 @@ class StudyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'Fresh serving base differs'):
             study.run_online(client,{}, {'model_id':'m'},self.path/'extra',artifact)
 
+    def test_saved_clean_trace_uses_server_identity_and_rejects_tampering(self):
+        identity={'model_id':'m','model_version':'v','artifact_checksum':'a','parameter_fingerprint':'f'}
+        raw={'layers':[{'layer':'DETECTION_LAYER_SEMANTIC','status':'ok'}],
+             'metadata':{'privoke.semantic.'+k:v for k,v in identity.items()},
+             'classification':{'sensitivity':'S0','visibility':'PU'},'action':'ALLOW'}
+        row={'status':'ok','raw':raw,'identities':[identity],'classification':raw['classification'],'action':'ALLOW'}
+        observation={'slot':0,'identity':identity,'execution_mode':'network_protobuf_v1','endpoints':{'primary':{'layers':{'semantic':{'predictions':[row]}}}}}
+        study.write(self.path/'snapshot-000.json',{'identity':identity})
+        report.audit_saved_inference(observation,{'kind':'online','surface':'tiny'},self.path)
+        for field in identity:
+            altered=copy.deepcopy(observation)
+            del altered['endpoints']['primary']['layers']['semantic']['predictions'][0]['raw']['metadata']['privoke.semantic.'+field]
+            with self.assertRaisesRegex(ValueError,'identity differs'):
+                report.audit_saved_inference(altered,{'kind':'online','surface':'tiny'},self.path)
+        altered=copy.deepcopy(observation)
+        altered['endpoints']['primary']['layers']['semantic']['predictions'][0]['action']='BLOCK'
+        with self.assertRaisesRegex(ValueError,'action differs'):
+            report.audit_saved_inference(altered,{'kind':'online','surface':'tiny'},self.path)
+
     def test_dual_plan_has48cycles_and_does_not_claim96independentseeds(self):
         cell=next(c for c in study.matrix('privoke-all-surfaces-test') if c['scope']=='dual')
         self.assertEqual(cell['cycles'],48)
         self.assertEqual(cell['stage_seed_plan_sha256'],study.digest([42+i//2 for i in range(96)]))
+
+    def test_qualification_treats_omitted_protobuf_categories_as_empty(self):
+        rows=[]
+        for i in range(320):
+            sensitivity='S0' if i<160 else 'S1' if i<200 else 'S2'
+            classification={'sensitivity':sensitivity,'visibility':'PU','categories':[]}
+            action='ALLOW' if sensitivity=='S0' else 'WARN' if sensitivity=='S1' else 'BLOCK'
+            rows.append({'id':str(i),'group_id':str(i),'status':'ok','classification':classification,
+                         'target':copy.deepcopy(classification),'action':action,'allowed_actions':[action]})
+        explicit=report.qualification_rule(rows,rows,'context',{})
+        omitted=copy.deepcopy(rows)
+        for row in omitted:del row['classification']['categories']
+        self.assertEqual(report.qualification_rule(omitted,omitted,'context',{}),explicit)
+
+    def test_candidate_audit_matches_durable_rounding_and_rejects_tampering(self):
+        import base64
+        from privoke.v1 import runtime_pb2 as R
+        from privoke_model.artifact import float32
+        from privoke_model.fingerprint import parameter_fingerprint
+        base={'head.weight':[float32(.001)],'embedding':[float32(.2)]}
+        shapes={'head.weight':[1],'embedding':[1]}
+        candidate=copy.deepcopy(base)
+        delta=float32(.000000003)
+        candidate['head.weight']=[float32(round(base['head.weight'][0]+delta,8))]
+        unrounded=copy.deepcopy(base)
+        unrounded['head.weight']=[float32(base['head.weight'][0]+delta)]
+        self.assertNotEqual(candidate,unrounded)
+        for presence in (False,True):
+            with self.subTest(presence=presence):
+                request_type=R.ComputePresenceGradientsRequest if presence else R.ComputeSemanticGradientsRequest
+                response_type=R.ComputePresenceGradientsResponse if presence else R.ComputeSemanticGradientsResponse
+                request=request_type(request_id='r',model_id='m',layers=[R.DETECTION_LAYER_SEMANTIC])
+                request.examples.add();request.heldout_examples.add()
+                fingerprint=lambda values:parameter_fingerprint(values,shapes) if presence else parameter_fingerprint(values)
+                response=response_type(request_id='r',model_id='m',base_version='v0')
+                response.gradients.add(name='head.weight',shape=[1],values=[delta])
+                for phase in ('training','base_heldout','candidate_heldout'):
+                    response.executions.add(phase=phase,examples=1,layer=R.DETECTION_LAYER_SEMANTIC,status='ok')
+                response.metadata.update(base_parameter_fingerprint=fingerprint(base),updated_parameter_fingerprint=fingerprint(candidate))
+                evidence={'execution_evidence':{'request_protobuf_base64':base64.b64encode(request.SerializeToString()).decode()}}
+                def bind_response():
+                    evidence['execution_evidence']['response_protobuf_base64']=base64.b64encode(response.SerializeToString()).decode()
+                bind_response()
+                pending={'base':{'identity':{'model_id':'m','model_version':'v0'},'parameters':{n:{'shape':shapes[n],'values':v} for n,v in base.items()}}}
+                stage={'state':'accepted','snapshot':{'parameters':{n:{'shape':shapes[n],'values':v} for n,v in candidate.items()}}}
+                self.assertEqual(report.audit_runtime_evidence(evidence,stage,pending,presence=presence)['candidate_parameter_fingerprint'],fingerprint(candidate))
+                altered=copy.deepcopy(stage);altered['snapshot']['parameters']['embedding']['values'][0]+=1.
+                with self.assertRaisesRegex(ValueError,'Published tensors differ'):
+                    report.audit_runtime_evidence(evidence,altered,pending,presence=presence)
+                response.metadata['updated_parameter_fingerprint']=fingerprint(unrounded);bind_response()
+                with self.assertRaisesRegex(ValueError,'Candidate commitment differs'):
+                    report.audit_runtime_evidence(evidence,stage,pending,presence=presence)
 
     def snapshot(self,version='v0',head=0.,encoder=0.):
         return {'identity':{'model_id':'m','model_version':version,'artifact_checksum':'a','parameter_fingerprint':'f'},

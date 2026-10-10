@@ -206,7 +206,7 @@ def audit_runtime_evidence(evidence, stage, pending, *, presence=False):
     import base64
     from privoke.v1 import runtime_pb2 as R
     from privoke_model.fingerprint import parameter_fingerprint
-    from privoke_model.artifact import float32
+    from privoke_model.artifact import float32, updated_parameter_values
     trace=evidence['execution_evidence']
     request_type=R.ComputePresenceGradientsRequest if presence else R.ComputeSemanticGradientsRequest
     response_type=R.ComputePresenceGradientsResponse if presence else R.ComputeSemanticGradientsResponse
@@ -232,7 +232,7 @@ def audit_runtime_evidence(evidence, stage, pending, *, presence=False):
         if name not in candidate or list(gradient.shape)!=before['parameters'][name]['shape'] or len(gradient.values)!=len(candidate[name]):
             raise ValueError('Transported gradient inventory differs')
         if any(not math.isfinite(v) or abs(v)>.05 for v in gradient.values):raise ValueError('Transported gradient violates frozen clamp')
-        candidate[name]=[float32(float32(v)+float32(delta)) for v,delta in zip(candidate[name],gradient.values)]
+        candidate[name]=[float32(v) for v in updated_parameter_values(candidate[name],gradient.values)]
     if response.metadata.get('updated_parameter_fingerprint')!=fingerprint(candidate):
         raise ValueError('Candidate commitment differs from reconstructed actual tensors')
     if stage['state']=='accepted':
@@ -276,12 +276,12 @@ def qualification_rule(before,after,task,endpoints):
             if name=="primary":continue
             veto=veto or bool(e["error_observations"]) or e["after"]["recall"]<.9 or e["changes"]["recall"]<0 or e["changes"]["specificity"]<0
         return {"rule":"presence_specificity8of160_recall144of160_allseed_v1","eligible":a["tn"]<=152,"specificity_gain_count":b["tn"]-a["tn"],"recall_before_count":a["tp"],"recall_after_count":b["tp"],"passes":not veto and b["tn"]-a["tn"]>=8,"veto":veto}
-    def union(row):return row.get("status")=="ok" and (row["classification"]["sensitivity"]!="S0" or bool(row["classification"]["categories"]))
+    def union(row):return row.get("status")=="ok" and (row["classification"]["sensitivity"]!="S0" or bool(row["classification"].get("categories",[])))
     subsets={}
     for name,select,denominator,gain,tolerance in (("non_s0",lambda r:r["target"]["sensitivity"]!="S0",160,16,3),("serious",lambda r:r["target"]["sensitivity"] in ("S2","S3"),120,12,2),("s0",lambda r:r["target"]["sensitivity"]=="S0",160,None,3)):
         left=[r for r in before if select(r)];right=[r for r in after if select(r)]
         if len(left)!=denominator:raise ValueError("Context subgroup denominator differs")
-        def joint(rows):return sum(r.get("status")=="ok" and r["classification"]["sensitivity"]==r["target"]["sensitivity"] and r["classification"]["visibility"]==r["target"]["visibility"] and set(r["classification"]["categories"])==set(r["target"]["categories"]) for r in rows)
+        def joint(rows):return sum(r.get("status")=="ok" and r["classification"]["sensitivity"]==r["target"]["sensitivity"] and r["classification"]["visibility"]==r["target"]["visibility"] and set(r["classification"].get("categories",[]))==set(r["target"]["categories"]) for r in rows)
         old,new=joint(left),joint(right)
         old_union=sum((not union(r)) if name=="s0" else union(r) for r in left)
         new_union=sum((not union(r)) if name=="s0" else union(r) for r in right)
@@ -327,9 +327,13 @@ def audit_saved_inference(observation,cell,directory):
                 if row["predicted_present"]!=(response.predicted_label==R.ANNOTATION_PRESENCE_PRESENT):raise ValueError("Saved presence prediction differs")
             else:
                 raw=row["raw"];require_semantic_execution(raw)
-                actual=[{k:r.get("metadata",{}).get(k,"") for k in identity} for layer in raw.get("layers",[]) for r in layer.get("results",[])]
+                actual=[]
+                server_identity={k:raw.get('metadata',{}).get('privoke.semantic.'+k,'') for k in identity}
+                if all(server_identity.values()):actual.append(server_identity)
+                actual.extend({k:r.get("metadata",{}).get(k,"") for k in identity} for layer in raw.get("layers",[]) for r in layer.get("results",[]))
                 if not actual or any(v!=identity for v in actual) or row.get("identities")!=actual:raise ValueError("Saved semantic execution identity differs")
                 if "classification" in row and row["classification"]!=raw["classification"]:raise ValueError("Saved classification differs from trace")
+                if 'action' in row and row['action']!=raw['action']:raise ValueError('Saved action differs from trace')
 
 
 def configuration_decisions(manifest,cells):

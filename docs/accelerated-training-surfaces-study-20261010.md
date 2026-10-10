@@ -55,6 +55,8 @@ Each trajectory owns isolated Compose projects, named Linux state volumes, ports
 
 The initial concurrency is two deterministic lanes with separate ports and process ownership locks, contingent on prospectively accepted hardware checks. Only hardware and storage readiness can change concurrency before execution; outcomes cannot change budgets. Each trajectory permits two transport recovery retries with the original pending bytes. Exhausted uncertain transport preserves pending state and requires diagnosis.
 
+Independent candidate reconstruction applies the publisher's exact arithmetic: round the sum of float32 base and delta to eight decimal places, then convert the durable value to float32 for the runtime commitment and serving comparison. Omitting the decimal rounding produces a different candidate commitment. The audit checks every transported candidate, including rejected updates, and requires accepted publications to match its complete reconstructed tensor inventory. Archived contextual traces bind the complete reserved server identity plus any finding identities; clean predictions need no fabricated finding. Saved actions must match the trace, and protobuf-omitted category lists mean the empty set in qualification calculations.
+
 ## Commands and required configuration
 
 Run from the repository root with the configured evaluation interpreter and generated protobuf import paths:
