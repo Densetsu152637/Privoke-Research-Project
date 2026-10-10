@@ -6,7 +6,7 @@ x-security: &security
   read_only: true
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
-  tmpfs: [/tmp:rw,nosuid,nodev,size=128m]
+  tmpfs: ["/tmp:rw,nosuid,nodev,size=128m"]
   restart: "no"
 services:
   model-streaming-service:
