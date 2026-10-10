@@ -1,6 +1,6 @@
 # PriVoke Runtime Supervisor
 
-For current cloud credentials and the hidden local-stack switch, see [Client configuration](README.Client-configuration.md). Cloud is now the workstation default.
+For current cloud credentials and the hidden local-stack switch, see [Client configuration](client-configuration.md). Cloud is now the workstation default.
 
 > Source area: `extension/runtime-supervisor`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
 

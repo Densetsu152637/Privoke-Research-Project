@@ -1,6 +1,6 @@
 # PriVoke Client Runtime
 
-For current cloud credentials and the hidden local-stack switch, see [Client configuration](README.Client-configuration.md). Cloud is now the workstation default.
+For current cloud credentials and the hidden local-stack switch, see [Client configuration](client-configuration.md). Cloud is now the workstation default.
 
 > Source area: `extension/client-runtime`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
 
@@ -116,7 +116,7 @@ Important behavior:
 - With the gate enabled, the runtime runs contextual and presence inference when the semantic layer is reached, locally on the client; model streaming supplies weights, not request text. PRESENT retains the original semantic results. ABSENT removes only those semantic results before the existing fusion step; regex and NER results and their independent enforcement remain intact. This can remove a valid private semantic-only finding, so the option is not validated for safety and is not a deployment recommendation. A presence prediction does not create a clean classification, set severity/category, or establish that text is safe. The research protocol describes known evaluation limits and does not promote the gate to a default.
 - The semantic layer includes a typed `semantic_presence_gate` trace with status, presence and contextual model identities, probability, artifact and decision thresholds, binary label, and remapped raw contextual results. This trace also preserves contextual model identity when its classifier returns an empty S0 result. A semantic failure records NOT_RUN. A presence failure retains the contextual results and reports an error; the existing failure policy turns an otherwise ALLOW outcome into BLOCK and preserves any stronger non-ALLOW outcome.
 - The gate request and response fields are additive. Older generated callers can omit the request field; an older server may ignore an unknown field, so an opt-in caller must verify an APPLIED trace before treating the gate as executed. Regenerate the affected protobuf bindings and rebuild the runtime with the repository's Docker workflow before using the field.
-- Read the [prospective semantic presence-cascade protocol](../paper/research/contextual-cascade-protocol.md) before interpreting this research-only option.
+- Read the [prospective semantic presence-cascade protocol](../../paper/research/contextual-cascade-protocol.md) before interpreting this research-only option.
 - Presence detection's `elapsed_ms` includes request validation, model snapshot fetch/cache lookup, and local inference; it excludes the caller's network and browser round trip.
 - `ComputePresenceGradients` accepts at most 1,024 training plus held-out examples and 200,000 total text characters. It validates explicit binary labels, distinct normalized texts, nonempty group IDs, disjoint training/held-out groups, and both labels in each supplied partition. Only `head.presence.*` tensors are returned as deltas; vocabulary and IDF parameters stay frozen. Candidate metrics evaluate the exact float32-rounded parameters that the updater would publish. The RPC computes deltas only and does not update the artifact.
 - The streamed client rejects a snapshot whose returned model ID differs from an explicitly requested model. The special `latest` alias accepts the server's resolved release-channel model ID.
@@ -229,7 +229,7 @@ therefore avoids carrying CUDA libraries when only CPU inference is needed.
 
 The gRPC runtime uses `StructuredEventEmitter` and a bounded background `TelemetryReporter` when `TELEMETRY_ENABLED=true`. Prompt decisions never wait for telemetry delivery. Queue overflow or collector failure drops the packet; telemetry errors are logged without event identifiers or field values.
 
-Before enqueueing, the emitter applies generalized randomized response to a fixed-domain action, risk bucket, primary category, model release and randomized four-hour time-of-day bucket. It reserves a per-installation daily epsilon budget in a durable local SQLite ledger first. Packets exclude prompts, identifiers, target-app names, exact timestamps/scores, text length and layer timings. Compose enables reporting to `telemetry-service`, which retains only epsilon-stratified marginal counts. See [README.Telemetry-service.md](README.Telemetry-service.md) for the event-level guarantee, accounting limits and aggregate API behavior.
+Before enqueueing, the emitter applies generalized randomized response to a fixed-domain action, risk bucket, primary category, model release and randomized four-hour time-of-day bucket. It reserves a per-installation daily epsilon budget in a durable local SQLite ledger first. Packets exclude prompts, identifiers, target-app names, exact timestamps/scores, text length and layer timings. Compose enables reporting to `telemetry-service`, which retains only epsilon-stratified marginal counts. See [Telemetry service](../services/telemetry.md) for the event-level guarantee, accounting limits and aggregate API behavior.
 
 ## Local Setup
 
@@ -271,7 +271,7 @@ Run a standalone gRPC runtime (direct default port `50054`):
 python src/grpc_main.py
 ```
 
-For extension-controlled startup and shutdown, run the sibling [`runtime-supervisor`](README.Runtime-supervisor.md) package instead of starting this server directly. The supervisor forces its child to `127.0.0.1:50057`; it does not connect to an already-running service on `50054`.
+For extension-controlled startup and shutdown, run the sibling [`runtime-supervisor`](supervisor.md) package instead of starting this server directly. The supervisor forces its child to `127.0.0.1:50057`; it does not connect to an already-running service on `50054`.
 
 Run the optional local server:
 

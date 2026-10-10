@@ -6,13 +6,13 @@
 
 It is not in the hosted prompt decision path. Training cycles deliberately target the streamed semantic model path rather than the full regex + NER + semantic pipeline.
 
-For LLM study comparisons, use the semantic-only curriculum-improvement runner. Older combined-protocol study commands require `--allow-product-pipeline` solely for separately authorized product/detector analysis; their pipeline selection rules and historical scores retain that scope. See the [evaluation entrypoint policy](../evaluation/README.md).
+For LLM study comparisons, use the semantic-only curriculum-improvement runner. Older combined-protocol study commands require `--allow-product-pipeline` solely for separately authorized product/detector analysis; their pipeline selection rules and historical scores retain that scope. See the [evaluation entrypoint policy](../../evaluation/README.md).
 
 Normal deployments enable the updater's automatic requester by default: 32
 prompts at startup and another cycle every hour, with a different seed for each
 new cycle and the same seed on retries. Set `FUZZER_PROMPT_COUNT=0` on the updater
 to disable it. Controlled research and CI overrides do this explicitly. See
-[requester configuration](README.Parameter-update-service.md#fuzzer-requests).
+[requester configuration](parameter-updates.md#fuzzer-requests).
 
 ## gRPC Worker
 
@@ -115,7 +115,7 @@ The fuzzer has no source dependency on `extension/client-runtime`. Production an
 ## CLI
 
 Run host Python scripts from the repository root after the
-[host setup](../evaluation/README.md). The development or research-test stack
+[host setup](../../evaluation/README.md). The development or research-test stack
 publishes the fuzzer on `127.0.0.1:50053`; prompt probes connect to the runtime
 on `127.0.0.1:50054`. The fuzzer retains the training loop on the server.
 
@@ -206,14 +206,14 @@ The versioned resource `evaluation/datasets/synthetic-teacher-templates-v2.json`
 uses complete authored evolved renderings and contextual contrasts at the same
 row budget. Optional preparation `--assessment-resource` writes a separate
 contextual endpoint outside all training, replay and publication-guard splits.
-See the [audited improvement process and results](fuzzer-curriculum-improvement-process-20261009.md)
+See the [audited improvement process and results](../fuzzer-curriculum-improvement-process-20261009.md)
 for exposure distributions, provisional-label limits and controlled comparisons.
 
 Automatic augmentation retains labels only for conservative transformations;
 redaction and phone replacement are available explicitly, but are no longer
 randomly applied while retaining an unchanged contextual label.
 
-See the [continual-study instructions](../evaluation/README.md#continual-synthetic-fuzzer-study)
+See the [continual-study instructions](../../evaluation/README.md#continual-synthetic-fuzzer-study)
 for isolated Docker execution and before/after measurement.
 
 ## Subagent Tasks

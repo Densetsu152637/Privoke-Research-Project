@@ -127,8 +127,8 @@ detector's finding. Only the explicit semantic-presence gate request may suppres
 the original semantic layer's results on ABSENT; it leaves regex/NER results intact
 and makes no clean/safe or policy claim. `AnalyzePrompt`, contextual training and
 policy otherwise remain separate. Read the [prospective model-refactor
-protocol](../paper/research/model-refactor-protocol.md) and [prospective cascade
-protocol](../paper/research/contextual-cascade-protocol.md) for their distinct
+protocol](../../paper/research/model-refactor-protocol.md) and [prospective cascade
+protocol](../../paper/research/contextual-cascade-protocol.md) for their distinct
 data exclusions, calibration procedures, and evidence limitations.
 
 ## Contract Guidance

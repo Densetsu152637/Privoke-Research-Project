@@ -8,7 +8,7 @@ in-house training plan remains a draft. PriVoke's transformer work uses randomly
 initialized repository-owned weights; it does not use external pretrained
 weights, hosted model weights, or external language-model APIs as a training
 source. This description applies to the in-house Tiny transformer path. The
-separate opt-in [frozen pretrained contextual architecture](README.Semantic-classifiers.md#experimental-frozen-pretrained-contextual-model)
+separate opt-in [frozen pretrained contextual architecture](detectors/semantic-classifiers.md#experimental-frozen-pretrained-contextual-model)
 uses an external MiniLM backbone for local inference with offline-fitted heads;
 it is experimental, is not a default model, and has no measured accuracy claim.
 

@@ -40,7 +40,7 @@ precedence. The sequence restarts at the configured seed on process restart and
 does not guarantee novel texts. Candidate quality gates, durable receipts and
 the runtime training boundary remain in place.
 [Requester](../services/param-update-service/app/fuzzer_requests.py) and
-[configuration](README.Parameter-update-service.md#fuzzer-requests).
+[configuration](services/parameter-updates.md#fuzzer-requests).
 
 Controlled experiments must include `evaluation/compose.tests.yml` and their
 study-specific overlays, or explicitly disable the original updater too.
@@ -105,7 +105,7 @@ The balanced profile has only 95 content tokens after serving normalization, so
 long synthetic documents can hide decisive facts. Better generation cannot
 guarantee that a frozen representation learns a missing relationship. Test a
 matched trainable-representation arm as a competing explanation for a plateau.
-[Semantic classifier](README.Semantic-classifiers.md),
+[Semantic classifier](detectors/semantic-classifiers.md),
 [diagnosis](fuzzer-training-signal-diagnosis-20261006.md),
 [paper limitations](../paper/main.tex).
 

@@ -35,8 +35,8 @@ The six allowlisted `privoke-scratch-presence-{efficient,balanced,quality}-{head
 The default `latest` alias still resolves to `privoke-balanced`; installing a
 presence artifact does not change that release channel. Presence is a separate
 binary task, with no inferred contextual severity or privacy action. See
-[model artifacts](README.Model-artifacts.md) and the
-[prospective protocol](../paper/research/model-refactor-protocol.md).
+[model artifacts](model-artifacts.md) and the
+[prospective protocol](../../paper/research/model-refactor-protocol.md).
 
 ## API
 

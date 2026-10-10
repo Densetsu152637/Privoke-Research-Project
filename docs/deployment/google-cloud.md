@@ -8,7 +8,7 @@ This is the supported cloud shape in this repository: a single VM running `deplo
 
 CI also runs a disposable copy of the cloud Compose stack, tests client-certificate authentication and RPC access restrictions, and checks persisted data after container recreation. Run it locally after `docker compose build` with `python deploy/gce/tests/smoke.py` using an environment with `grpcio` and `grpcio-tools`. OpenSSL and a running Docker engine are required.
 
-The workflow in [deploy-gce.yml](../.github/workflows/deploy-gce.yml) runs on pushes to `main`, and can be dispatched manually on `main`. It calls the existing service CI before publishing or deploying. Five images are tagged with the tested commit SHA, pushed to Artifact Registry, then pulled on the VM. Deployments are serialized and wait for container health. An unsuccessful rollout attempts to restore the previous release.
+The workflow in [deploy-gce.yml](../../.github/workflows/deploy-gce.yml) runs on pushes to `main`, and can be dispatched manually on `main`. It calls the existing service CI before publishing or deploying. Five images are tagged with the tested commit SHA, pushed to Artifact Registry, then pulled on the VM. Deployments are serialized and wait for container health. An unsuccessful rollout attempts to restore the previous release.
 
 The Google guidance behind the commands below is [IAP TCP forwarding](https://cloud.google.com/iap/docs/using-tcp-forwarding) (including the `35.235.240.0/20` source range), [Artifact Registry Docker authentication](https://cloud.google.com/artifact-registry/docs/docker/authentication), and [Secret Manager per-secret access](https://cloud.google.com/secret-manager/docs/manage-access-to-secrets). This workflow authenticates with a service account JSON key stored in a GitHub Actions secret; keep that long-lived credential restricted and rotate it under your organization's policy.
 
@@ -141,13 +141,13 @@ for secret in privoke-server-cert privoke-server-key privoke-client-ca; do
 done
 ```
 
-For existing secrets, use `gcloud secrets versions add NAME --data-file=FILE` instead of `create`. The deployer does not need direct Secret Manager access. The VM fetches the current versions into a root-only directory for each release. CA private keys never go to the VM, GitHub or clients. Distribute only `client.crt`, `client.key`, and (for this private server CA) `server-ca.crt` to the intended installation, then configure the [client `.env`](README.Client-configuration.md). Issue a new key and certificate for every other installation.
+For existing secrets, use `gcloud secrets versions add NAME --data-file=FILE` instead of `create`. The deployer does not need direct Secret Manager access. The VM fetches the current versions into a root-only directory for each release. CA private keys never go to the VM, GitHub or clients. Distribute only `client.crt`, `client.key`, and (for this private server CA) `server-ca.crt` to the intended installation, then configure the [client `.env`](../runtime/client-configuration.md). Issue a new key and certificate for every other installation.
 
 The example grants all currently valid certificates signed by the client CA the same limited download/telemetry access. It does not implement user accounts or enrollment. For individual revocation, maintain a CA-signed CRL, add it as a Secret Manager secret, fetch it alongside the other files in `deploy.sh`, and enable nginx `ssl_crl`; otherwise rely on short validity or rotate the client CA to revoke all clients. Renew server and client certificates before expiry. Publish the server secret versions and redeploy to reload nginx. A rollback restores the previous certificate snapshot as well as code, so confirm it is still valid.
 
 ## 5. Configure VM and GitHub environments
 
-Copy [deploy/gce/.env.example](../deploy/gce/.env.example) to `deploy/gce/.env`, edit its project ID and Secret Manager names, then transfer it:
+Copy [deploy/gce/.env.example](../../deploy/gce/.env.example) to `deploy/gce/.env`, edit its project ID and Secret Manager names, then transfer it:
 
 ```bash
 gcloud compute scp deploy/gce/.env "$INSTANCE:~/privoke.env" --zone="$ZONE" --tunnel-through-iap
@@ -155,7 +155,7 @@ gcloud compute ssh "$INSTANCE" --zone="$ZONE" --tunnel-through-iap \
   --command='sudo install -o root -g root -m 0600 ~/privoke.env /opt/privoke/.env && rm ~/privoke.env'
 ```
 
-GitHub **Settings → Environments → production** must contain these secrets, also listed in the root [.env.example](../.env.example):
+GitHub **Settings → Environments → production** must contain these secrets, also listed in the root [.env.example](../../.env.example):
 
 | Secret name | Value |
 | --- | --- |
@@ -186,7 +186,7 @@ All three values are saved into each release's `release.env`; changing the VM
 writes update history to `param-update-data` and the resulting model to
 `model-data`. Disable automatic training before a controlled research study.
 
-This stack does not train on browser-extension traffic. With the checked-in Compose settings, the server-side `client-runtime` sends locally randomized categorical telemetry to `telemetry-service`; workstation telemetry is disabled by default and can be enabled separately. Each report contains randomized action, risk bucket, primary category, fixed model release, and randomized four-hour time-of-day bucket. It excludes prompts, identifiers, target app names, exact timestamps, exact scores, text length, and layer timings. The event-level local-DP guarantee, daily installation-local budget, exact aggregate sample count, transport metadata limits, and legacy database handling are documented in [README.Telemetry-service.md](README.Telemetry-service.md). This is not user-level or event-existence privacy: report presence, timing, IP address and operational logs remain outside the guarantee.
+This stack does not train on browser-extension traffic. With the checked-in Compose settings, the server-side `client-runtime` sends locally randomized categorical telemetry to `telemetry-service`; workstation telemetry is disabled by default and can be enabled separately. Each report contains randomized action, risk bucket, primary category, fixed model release, and randomized four-hour time-of-day bucket. It excludes prompts, identifiers, target app names, exact timestamps, exact scores, text length, and layer timings. The event-level local-DP guarantee, daily installation-local budget, exact aggregate sample count, transport metadata limits, and legacy database handling are documented in [Telemetry service](../services/telemetry.md). This is not user-level or event-existence privacy: report presence, timing, IP address and operational logs remain outside the guarantee.
 
 To run one deliberate cycle, first back up the model and update volumes, then
 deploy with a reviewed `.env` containing (for example) `FUZZER_PROMPT_COUNT=8`
@@ -282,6 +282,6 @@ The retained boot disk is intentionally not deleted by the instance command; del
 
 The cloud deployment is only half of the system. On each workstation, copy `extension/client-runtime/.env.example` to a private `.env` and set `PRIVOKE_CLOUD_TARGET` to the DNS name and port, with no URL scheme (for example `stack.example.com:443`). Set `PRIVOKE_TLS_CERT_FILE` and `PRIVOKE_TLS_KEY_FILE` to that installation's client certificate and private key, and set `PRIVOKE_TLS_CA_FILE` only when the server certificate is issued by the private CA. Use a distinct client key/certificate per installation; never distribute a Google service-account key or a shared client private key.
 
-Install the client-runtime and runtime-supervisor dependencies, generate the supervisor/runtime protobuf bindings, and install the native host using the commands in [README.Runtime-supervisor.md](README.Runtime-supervisor.md). The supervisor owns loopback ports `50056` (control), `50057` (detector), and `8080` (gRPC-Web); the extension never connects directly to the VM. The cloud target is the default. The hidden **Use local development servers** setting changes model and telemetry targets to `127.0.0.1`; turn it off for a cloud installation. `PRIVOKE_STACK_MODE=internal`, `MODEL_STREAMING_TARGET`, and `TELEMETRY_TARGET` belong to the server Compose container and must not be copied into a workstation `.env`.
+Install the client-runtime and runtime-supervisor dependencies, generate the supervisor/runtime protobuf bindings, and install the native host using the commands in [Runtime supervisor](../runtime/supervisor.md). The supervisor owns loopback ports `50056` (control), `50057` (detector), and `8080` (gRPC-Web); the extension never connects directly to the VM. The cloud target is the default. The hidden **Use local development servers** setting changes model and telemetry targets to `127.0.0.1`; turn it off for a cloud installation. `PRIVOKE_STACK_MODE=internal`, `MODEL_STREAMING_TARGET`, and `TELEMETRY_TARGET` belong to the server Compose container and must not be copied into a workstation `.env`.
 
 For a workstation with streamed-transformer inference, install the normal client requirements and, when GPU inference is desired, install `extension/client-runtime/requirements-gpu.txt` into the same environment selected by the supervisor. `PRIVOKE_MODEL_DEVICE=auto` chooses CUDA or Apple MPS when available and otherwise uses CPU. The server's `docker-compose.gpu.yml` override affects only the separate Compose runtime; it does not accelerate the browser extension's child process.

@@ -74,7 +74,7 @@ Detector output is represented by `extension/client-runtime/src/classification`.
 - `client-runtime`: always-on server detector gRPC on `50054`.
 - `telemetry-service`: gRPC on `50055`.
 
-Production Compose keeps all five ports internal to its service network. The development and research-test overrides publish `50051` through `50055` on host loopback (`127.0.0.1`) for Python evaluation and integration scripts. Run fuzzer checks with `python evaluation/run-fuzzer-tests.py`; see [host test setup](../evaluation/README.md). A real external API must be exposed explicitly through an authenticated TLS ingress rather than by publishing these plaintext gRPC ports.
+Production Compose keeps all five ports internal to its service network. The development and research-test overrides publish `50051` through `50055` on host loopback (`127.0.0.1`) for Python evaluation and integration scripts. Run fuzzer checks with `python evaluation/run-fuzzer-tests.py`; see [host test setup](../../evaluation/README.md). A real external API must be exposed explicitly through an authenticated TLS ingress rather than by publishing these plaintext gRPC ports.
 
 The extension-local ports `8080`, `50056`, and `50057` are not Compose service ports. They are owned by the workstation supervisor and remain bound to loopback.
 
@@ -137,7 +137,7 @@ npm install
 npm run build
 ```
 
-Load `extension/dist` in Chromium-family browsers, or build the Firefox target and load `extension/dist-firefox`, using the browser's development-extension page. The extension itself is never run by Compose. Register the browser-specific native messaging launcher described in [Browser extension](README.Browser-extension.md); the extension can then start the workstation supervisor on demand. The supervisor hosts the gRPC-Web bridge on `8080`, its control service on `50056`, and its extension-local detector on `50057`. The server-side development Compose detector remains on `50054`, so both paths can run simultaneously. Port `50051` is contacted by Python only when streamed LLM health or parameters are requested.
+Load `extension/dist` in Chromium-family browsers, or build the Firefox target and load `extension/dist-firefox`, using the browser's development-extension page. The extension itself is never run by Compose. Register the browser-specific native messaging launcher described in [Browser extension](../runtime/browser-extension.md); the extension can then start the workstation supervisor on demand. The supervisor hosts the gRPC-Web bridge on `8080`, its control service on `50056`, and its extension-local detector on `50057`. The server-side development Compose detector remains on `50054`, so both paths can run simultaneously. Port `50051` is contacted by Python only when streamed LLM health or parameters are requested.
 
 Run paper figure scripts:
 
@@ -221,4 +221,4 @@ The dev Compose override regenerates Python and Go protobuf bindings into each s
 
 Avoid reintroducing string-only severity/category flow. Preserve `Classification`, `ClassificationResult`, `PriVokeAction`, and protobuf boundaries where they are already used.
 
-See the [feature completion matrix](feature-completion.md) for contract coverage and release validation still required.
+See the [feature completion matrix](../feature-completion.md) for contract coverage and release validation still required.

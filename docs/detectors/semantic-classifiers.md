@@ -1,6 +1,6 @@
 # Semantic Classifiers
 
-For current cloud credentials and the hidden local-stack switch, see [Client configuration](README.Client-configuration.md). Cloud is now the workstation default.
+For current cloud credentials and the hidden local-stack switch, see [Client configuration](../runtime/client-configuration.md). Cloud is now the workstation default.
 
 > Source area: `extension/client-runtime/src/LLM`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
 
@@ -37,7 +37,7 @@ conversational LLM. Its encoder starts from seeded NumPy random initialization;
 the baseline generator bootstraps only the six sensitivity, visibility, and
 category head tensors on a small synthetic phrase curriculum. The current
 default Tiny semantic update path is head-only and does not use external pretrained weights.
-See [in-house model training status](in-house-model-training.md) for this
+See [in-house model training status](../in-house-model-training.md) for this
 implemented path and the separately accepted, not-yet-validated end-to-end
 training direction.
 
@@ -130,7 +130,7 @@ results. Errors remain visible, and the ordinary failure policy applies. Older s
 may ignore the additive request field; a caller must verify the returned trace.
 
 This option is exploratory. It has no default enablement or validated safety claim;
-the [prospective cascade protocol](../paper/research/contextual-cascade-protocol.md)
+the [prospective cascade protocol](../../paper/research/contextual-cascade-protocol.md)
 records the planned controls and limitations.
 
 `ComputePresenceGradients` updates only the sparse logistic head; its vocabulary and

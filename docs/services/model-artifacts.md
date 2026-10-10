@@ -51,8 +51,8 @@ filter only the semantic findings from a request that explicitly selected
 supplies no severity, visibility, category or ALLOW/WARN/BLOCK policy label. A
 per-request decision threshold is only a gate setting; it does not alter the frozen
 artifact threshold or weights. This is a research option, not a default or safety
-claim; see the [prospective semantic presence-cascade protocol](../paper/research/contextual-cascade-protocol.md).
-See the [prospective model-refactor protocol](../paper/research/model-refactor-protocol.md)
+claim; see the [prospective semantic presence-cascade protocol](../../paper/research/contextual-cascade-protocol.md).
+See the [prospective model-refactor protocol](../../paper/research/model-refactor-protocol.md)
 for fitting, independent fuzzer cycles, locked-data protection and reporting rules.
 
 ## Contextual baseline and updates

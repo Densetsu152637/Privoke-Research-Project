@@ -1,6 +1,6 @@
 # PriVoke Portable WebExtension
 
-For current cloud credentials and the hidden local-stack switch, see [Client configuration](README.Client-configuration.md). Cloud is now the workstation default.
+For current cloud credentials and the hidden local-stack switch, see [Client configuration](client-configuration.md). Cloud is now the workstation default.
 
 > Source area: `extension`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
 
@@ -193,6 +193,6 @@ For incremental builds, run `npm run dev` and reload the unpacked extension plus
 - `client-runtime`: Python inspection runtime and detector layers.
 - `runtime-supervisor`: separate Python lifecycle process that owns the loopback gRPC-Web bridge, detector child, and model-health control RPC.
 
-The two Python processes are documented in [Client runtime](README.Client-runtime.md) and [Runtime supervisor](README.Runtime-supervisor.md).
+The two Python processes are documented in [Client runtime](client-runtime.md) and [Runtime supervisor](supervisor.md).
 
 The hook covers recognized POST endpoint/body shapes through page `fetch` and asynchronous XHR. It does not claim coverage for WebSocket, `sendBeacon`, workers, every attachment payload, or future website endpoint changes. WARN continues the original request; returned `masked_text` is evidence for consumers and is not automatically substituted into website traffic. Live website/native-host compatibility requires release validation beyond the JavaScript harness.
