@@ -22,6 +22,10 @@ Evidence and context:
 - Classify sensitivity, visibility, and categories separately using the definitions
   below. A category mention alone does not establish personal disclosure or high
   sensitivity. Public availability does not erase the sensitivity of an actual disclosure.
+- Categories are not mutually exclusive. Include every category supported by each
+  disclosed fact. When sensitive information concerns someone other than the speaker,
+  include THIRD_PARTY alongside the other applicable categories; include CHILD when
+  that person is a minor.
 - Use PU when visibility is unstated. Do not infer a sharing audience from a topic,
   credential, or the mere description of personal information.
 - Return evidence from the supplied text, not invented identifiers or inferred facts.

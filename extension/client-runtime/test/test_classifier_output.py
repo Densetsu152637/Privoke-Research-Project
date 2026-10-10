@@ -46,12 +46,12 @@ class ClassifierOutputTests(unittest.TestCase):
 
 
 class ExternalClassifierContractTests(unittest.TestCase):
-    def classify(self, backend, content):
+    def classify(self, backend, content, text='alex'):
         if backend == 'local':
             classifier = LocalClassifier(model='test-model', use_environment=False)
             with patch.object(classifier, '_post_chat_completion',
                               return_value={'choices': [{'message': {'content': content}}]}) as request:
-                results = classifier.classify('alex')
+                results = classifier.classify(text)
                 self.last_messages = request.call_args.args[0]['messages']
                 return results
         classifier = OpenClassifier.__new__(OpenClassifier)
@@ -60,7 +60,7 @@ class ExternalClassifierContractTests(unittest.TestCase):
             self.last_messages = kwargs['messages']
             return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
         classifier.client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
-        return classifier.classify('alex')
+        return classifier.classify(text)
 
     def valid(self):
         return {'sensitivity': 'S0', 'visibility': 'PU', 'categories': [],
@@ -127,6 +127,17 @@ class ExternalClassifierContractTests(unittest.TestCase):
             result = self.classify(backend, json.dumps({'results': [item]}))[0]
             self.assertEqual(result.action().name, 'BLOCK')
             self.assertEqual(result.span, (0, 4))
+
+    def test_both_backends_preserve_all_supported_categories(self):
+        text = 'My eight-year-old daughter has dyslexia.'
+        categories = ['HEALTH', 'CHILD', 'THIRD_PARTY']
+        item = {**self.valid(), 'sensitivity': 'S3', 'categories': categories,
+                'section_of_text': text, 'reasoning': 'Medical disclosure about a minor.'}
+        for backend in ('local', 'openai'):
+            with self.subTest(backend=backend):
+                result = self.classify(backend, json.dumps({'results': [item]}), text)[0]
+                self.assertEqual([category.name for category in result.classification.categories()],
+                                 categories)
 
     def test_local_accepts_complete_markdown_json_but_rejects_trailing_garbage(self):
         content = json.dumps({'results': [self.valid()]})
