@@ -6,6 +6,7 @@
 evaluation/datasets/synthetic-teacher-templates.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 evaluation/datasets/synthetic-teacher-templates-v2.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 evaluation/datasets/contextual-assessment-20261009.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+evaluation/datasets/contextual-head-study-20261010.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 
 # Preserve byte-pinned audit evidence and generated vector artifacts exactly in Git.
 docs/evidence/long-fuzzer-20261009/*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

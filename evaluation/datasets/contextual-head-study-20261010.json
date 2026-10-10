@@ -1,0 +1,1222 @@
+{
+  "schema_version": 1,
+  "target_convention": "asserted_personal_disclosure_v1",
+  "label_status": "assistant_provisional",
+  "origin": "offline assistant authored synthetic scenarios",
+  "synthetic_scope": "All asserted people and values belong to invented scenarios. Scenario assertions are treated as actual within each scenario; reserved domains and invalid credential strings cannot identify real accounts.",
+  "frames": {
+    "train": {
+      "P0": "This message is openly visible to anyone. {fact}",
+      "P1": "This message is in a semi-public community thread. {fact}",
+      "P2": "This message is restricted to authenticated readers. {fact}",
+      "P3": "This message is shared only in a private group chat. {fact}",
+      "P4": "This is my unshared personal note, visible to nobody else. {fact}",
+      "PU": "The audience of this message is unspecified. {fact}",
+      "fiction": "In an entirely invented story, the narrator says: {fact} No actual person has this fact.",
+      "mixed": "The surrounding novel is imaginary. Separately, I assert this actual personal fact: {fact}",
+      "hypothetical": "For a hypothetical discussion, my actual personal premise is: {fact}"
+    },
+    "validation": {
+      "P0": "Anyone can read this openly published message. {fact}",
+      "P1": "Readers encounter this message in a semi-public discussion community. {fact}",
+      "P2": "An authentication requirement limits access to this message. {fact}",
+      "P3": "Only members of a private messaging group receive this message. {fact}",
+      "P4": "Nobody else receives this personal note; it remains unshared. {fact}",
+      "PU": "No sharing audience is given for this message. {fact}",
+      "fiction": "A wholly fictional narrator states: {fact} This describes no actual person.",
+      "mixed": "Although the script is fiction, the following is separately true of an actual person: {fact}",
+      "hypothetical": "Suppose we discuss a hypothetical example based on my actual circumstance: {fact}"
+    },
+    "assessment": {
+      "P0": "This message has unrestricted public readership. {fact}",
+      "P1": "A semi-public forum community sees this message. {fact}",
+      "P2": "Readers must authenticate before accessing this message. {fact}",
+      "P3": "This message circulates within a closed private group conversation. {fact}",
+      "P4": "I keep this personal draft entirely to myself, without sharing it. {fact}",
+      "PU": "Who can see this message has not been stated. {fact}",
+      "fiction": "An invented character speaks these words: {fact} Every personal detail here is fictional.",
+      "mixed": "An imaginary scene appears around a separate actual disclosure: {fact}",
+      "hypothetical": "A hypothetical question follows from this real personal premise: {fact}"
+    }
+  },
+  "visibility_rationales": {
+    "P0": "The current message explicitly has unrestricted public access.",
+    "P1": "The current message explicitly appears in a semi-public community context.",
+    "P2": "The current message explicitly requires authentication.",
+    "P3": "The current message explicitly circulates only in a private group.",
+    "P4": "The current personal note explicitly remains unshared.",
+    "PU": "No concrete sharing audience is supplied; visibility is unknown."
+  },
+  "families": [
+    {
+      "family_id": "health_insulin",
+      "primary_category": "HEALTH",
+      "split": "train",
+      "fact": "I take insulin for my diagnosed diabetes.",
+      "mild_fact": "My ordinary non-identifying preference is blue mugs.",
+      "entity_inventory": [
+        "insulin"
+      ],
+      "categories": [
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "HEALTH": "The speaker asserts a personal health fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "health_panictherapy",
+      "primary_category": "HEALTH",
+      "split": "train",
+      "fact": "I attend therapy for my panic disorder.",
+      "mild_fact": "My ordinary non-identifying preference is wooden puzzles.",
+      "entity_inventory": [
+        "panic disorder"
+      ],
+      "categories": [
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "HEALTH": "The speaker asserts a personal health fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "health_pregnancycomplication",
+      "primary_category": "HEALTH",
+      "split": "train",
+      "fact": "I am being treated for a pregnancy complication.",
+      "mild_fact": "My ordinary non-identifying preference is striped socks.",
+      "entity_inventory": [
+        "pregnancy complication"
+      ],
+      "categories": [
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "HEALTH": "The speaker asserts a personal health fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "health_epilepsymedication",
+      "primary_category": "HEALTH",
+      "split": "train",
+      "fact": "I take levetiracetam for my epilepsy.",
+      "mild_fact": "My ordinary non-identifying preference is quiet music.",
+      "entity_inventory": [
+        "levetiracetam"
+      ],
+      "categories": [
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "HEALTH": "The speaker asserts a personal health fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "health_dialysis",
+      "primary_category": "HEALTH",
+      "split": "validation",
+      "fact": "I receive dialysis for kidney failure.",
+      "mild_fact": "My ordinary non-identifying preference is soft cushions.",
+      "entity_inventory": [
+        "kidney failure"
+      ],
+      "categories": [
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "HEALTH": "The speaker asserts a personal health fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "health_autoimmunetreatment",
+      "primary_category": "HEALTH",
+      "split": "assessment",
+      "fact": "I receive immunosuppressive treatment for lupus.",
+      "mild_fact": "My ordinary non-identifying preference is round bowls.",
+      "entity_inventory": [
+        "lupus"
+      ],
+      "categories": [
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "HEALTH": "The speaker asserts a personal health fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "politics_campaignvolunteer",
+      "primary_category": "POLITICS",
+      "split": "train",
+      "fact": "I volunteer for the Cedar Alliance election campaign.",
+      "mild_fact": "My ordinary non-identifying preference is green notebooks.",
+      "entity_inventory": [
+        "Cedar Alliance"
+      ],
+      "categories": [
+        "POLITICS"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "POLITICS": "The speaker asserts a personal politics fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "politics_partymembership",
+      "primary_category": "POLITICS",
+      "split": "train",
+      "fact": "I hold membership in the Harbor Reform Party.",
+      "mild_fact": "My ordinary non-identifying preference is paper bookmarks.",
+      "entity_inventory": [
+        "Harbor Reform Party"
+      ],
+      "categories": [
+        "POLITICS"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "POLITICS": "The speaker asserts a personal politics fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "politics_ballotchoice",
+      "primary_category": "POLITICS",
+      "split": "train",
+      "fact": "I voted for the Orchard Coalition candidate.",
+      "mild_fact": "My ordinary non-identifying preference is small candles.",
+      "entity_inventory": [
+        "Orchard Coalition"
+      ],
+      "categories": [
+        "POLITICS"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "POLITICS": "The speaker asserts a personal politics fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "politics_donation",
+      "primary_category": "POLITICS",
+      "split": "train",
+      "fact": "My political allegiance is with the Copper Movement; I support its campaign.",
+      "mild_fact": "My ordinary non-identifying preference is plain scarves.",
+      "entity_inventory": [
+        "Copper Movement"
+      ],
+      "categories": [
+        "POLITICS"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "POLITICS": "The speaker asserts a personal politics fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "politics_canvassing",
+      "primary_category": "POLITICS",
+      "split": "validation",
+      "fact": "I canvass for the Willow Civic League because I support its politics.",
+      "mild_fact": "My ordinary non-identifying preference is red mittens.",
+      "entity_inventory": [
+        "Willow Civic League"
+      ],
+      "categories": [
+        "POLITICS"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "POLITICS": "The speaker asserts a personal politics fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "politics_caucus",
+      "primary_category": "POLITICS",
+      "split": "assessment",
+      "fact": "I participate in the Juniper Union political caucus.",
+      "mild_fact": "My ordinary non-identifying preference is woven baskets.",
+      "entity_inventory": [
+        "Juniper Union"
+      ],
+      "categories": [
+        "POLITICS"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "POLITICS": "The speaker asserts a personal politics fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "religion_conversion",
+      "primary_category": "RELIGION",
+      "split": "train",
+      "fact": "I converted to Buddhism and now follow that faith.",
+      "mild_fact": "My ordinary non-identifying preference is yellow plates.",
+      "entity_inventory": [
+        "Buddhism"
+      ],
+      "categories": [
+        "RELIGION"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "RELIGION": "The speaker asserts a personal religion fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "religion_fasting",
+      "primary_category": "RELIGION",
+      "split": "train",
+      "fact": "I fast for Ramadan as part of my Islamic faith.",
+      "mild_fact": "My ordinary non-identifying preference is linen napkins.",
+      "entity_inventory": [
+        "Ramadan"
+      ],
+      "categories": [
+        "RELIGION"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "RELIGION": "The speaker asserts a personal religion fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "religion_congregation",
+      "primary_category": "RELIGION",
+      "split": "train",
+      "fact": "I belong to a Baptist congregation and practice its religion.",
+      "mild_fact": "My ordinary non-identifying preference is oval trays.",
+      "entity_inventory": [
+        "Baptist"
+      ],
+      "categories": [
+        "RELIGION"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "RELIGION": "The speaker asserts a personal religion fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "religion_pilgrimage",
+      "primary_category": "RELIGION",
+      "split": "train",
+      "fact": "My Hindu belief motivates my religious pilgrimage.",
+      "mild_fact": "My ordinary non-identifying preference is floral curtains.",
+      "entity_inventory": [
+        "Hindu"
+      ],
+      "categories": [
+        "RELIGION"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "RELIGION": "The speaker asserts a personal religion fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "religion_worship",
+      "primary_category": "RELIGION",
+      "split": "validation",
+      "fact": "I practice Sikh worship as a believer.",
+      "mild_fact": "My ordinary non-identifying preference is purple ribbons.",
+      "entity_inventory": [
+        "Sikh"
+      ],
+      "categories": [
+        "RELIGION"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "RELIGION": "The speaker asserts a personal religion fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "religion_initiation",
+      "primary_category": "RELIGION",
+      "split": "assessment",
+      "fact": "I underwent initiation into the Jain faith that I follow.",
+      "mild_fact": "My ordinary non-identifying preference is wool blankets.",
+      "entity_inventory": [
+        "Jain"
+      ],
+      "categories": [
+        "RELIGION"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "RELIGION": "The speaker asserts a personal religion fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "criminal_probation",
+      "primary_category": "CRIMINAL",
+      "split": "train",
+      "fact": "I am on probation after a burglary sentence.",
+      "mild_fact": "My ordinary non-identifying preference is orange vases.",
+      "entity_inventory": [
+        "burglary"
+      ],
+      "categories": [
+        "CRIMINAL"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "CRIMINAL": "The speaker asserts a personal criminal fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "criminal_arrest",
+      "primary_category": "CRIMINAL",
+      "split": "train",
+      "fact": "I was arrested on suspicion of assault.",
+      "mild_fact": "My ordinary non-identifying preference is cotton towels.",
+      "entity_inventory": [
+        "assault"
+      ],
+      "categories": [
+        "CRIMINAL"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "CRIMINAL": "The speaker asserts a personal criminal fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "criminal_fraudcharge",
+      "primary_category": "CRIMINAL",
+      "split": "train",
+      "fact": "I face a charge of insurance fraud.",
+      "mild_fact": "My ordinary non-identifying preference is silver spoons.",
+      "entity_inventory": [
+        "insurance fraud"
+      ],
+      "categories": [
+        "CRIMINAL"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "CRIMINAL": "The speaker asserts a personal criminal fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "criminal_restrainingorder",
+      "primary_category": "CRIMINAL",
+      "split": "train",
+      "fact": "I am subject to a restraining order for harassment.",
+      "mild_fact": "My ordinary non-identifying preference is glass tumblers.",
+      "entity_inventory": [
+        "harassment"
+      ],
+      "categories": [
+        "CRIMINAL"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "CRIMINAL": "The speaker asserts a personal criminal fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "criminal_conviction",
+      "primary_category": "CRIMINAL",
+      "split": "validation",
+      "fact": "I have a conviction for embezzlement.",
+      "mild_fact": "My ordinary non-identifying preference is flat coasters.",
+      "entity_inventory": [
+        "embezzlement"
+      ],
+      "categories": [
+        "CRIMINAL"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "CRIMINAL": "The speaker asserts a personal criminal fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "criminal_bail",
+      "primary_category": "CRIMINAL",
+      "split": "assessment",
+      "fact": "I am on bail while awaiting trial for arson.",
+      "mild_fact": "My ordinary non-identifying preference is square tins.",
+      "entity_inventory": [
+        "arson"
+      ],
+      "categories": [
+        "CRIMINAL"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "CRIMINAL": "The speaker asserts a personal criminal fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "financial_salary",
+      "primary_category": "FINANCIAL",
+      "split": "train",
+      "fact": "My annual salary is 71340 dollars.",
+      "mild_fact": "My ordinary non-identifying preference is brown slippers.",
+      "entity_inventory": [
+        "71340 dollars"
+      ],
+      "categories": [
+        "FINANCIAL"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "FINANCIAL": "The speaker asserts a personal financial fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "financial_mortgagearrears",
+      "primary_category": "FINANCIAL",
+      "split": "train",
+      "fact": "My mortgage is 2860 dollars in arrears.",
+      "mild_fact": "My ordinary non-identifying preference is ceramic pots.",
+      "entity_inventory": [
+        "2860 dollars"
+      ],
+      "categories": [
+        "FINANCIAL"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "FINANCIAL": "The speaker asserts a personal financial fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "financial_creditdebt",
+      "primary_category": "FINANCIAL",
+      "split": "train",
+      "fact": "I owe 9740 dollars in credit card debt.",
+      "mild_fact": "My ordinary non-identifying preference is white lamps.",
+      "entity_inventory": [
+        "9740 dollars"
+      ],
+      "categories": [
+        "FINANCIAL"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "FINANCIAL": "The speaker asserts a personal financial fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "financial_investmentloss",
+      "primary_category": "FINANCIAL",
+      "split": "train",
+      "fact": "My investment portfolio lost 13820 dollars.",
+      "mild_fact": "My ordinary non-identifying preference is denim jackets.",
+      "entity_inventory": [
+        "13820 dollars"
+      ],
+      "categories": [
+        "FINANCIAL"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "FINANCIAL": "The speaker asserts a personal financial fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "financial_pension",
+      "primary_category": "FINANCIAL",
+      "split": "validation",
+      "fact": "My pension pays 1645 dollars each month.",
+      "mild_fact": "My ordinary non-identifying preference is tiny bells.",
+      "entity_inventory": [
+        "1645 dollars"
+      ],
+      "categories": [
+        "FINANCIAL"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "FINANCIAL": "The speaker asserts a personal financial fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "financial_taxdebt",
+      "primary_category": "FINANCIAL",
+      "split": "assessment",
+      "fact": "I owe 4325 dollars in overdue tax.",
+      "mild_fact": "My ordinary non-identifying preference is curved hooks.",
+      "entity_inventory": [
+        "4325 dollars"
+      ],
+      "categories": [
+        "FINANCIAL"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "FINANCIAL": "The speaker asserts a personal financial fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "sexual_orientation",
+      "primary_category": "SEXUAL",
+      "split": "train",
+      "fact": "I am bisexual; that is my sexual orientation.",
+      "mild_fact": "My ordinary non-identifying preference is black umbrellas.",
+      "entity_inventory": [
+        "bisexual"
+      ],
+      "categories": [
+        "SEXUAL"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "SEXUAL": "The speaker asserts a personal sexual fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "sexual_intimaterelationship",
+      "primary_category": "SEXUAL",
+      "split": "train",
+      "fact": "I am in a consensual sexual relationship with an adult partner.",
+      "mild_fact": "My ordinary non-identifying preference is silk ties.",
+      "entity_inventory": [
+        "consensual sexual relationship"
+      ],
+      "categories": [
+        "SEXUAL",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "SEXUAL": "The speaker asserts a personal sexual fact, rather than merely naming the topic.",
+        "THIRD_PARTY": "The actual sexual relationship also discloses the adult partner's participation, a sensitive fact about someone other than the speaker."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "sexual_comingout",
+      "primary_category": "SEXUAL",
+      "split": "train",
+      "fact": "I am gay and have recently come out about my sexuality.",
+      "mild_fact": "My ordinary non-identifying preference is long pencils.",
+      "entity_inventory": [
+        "gay"
+      ],
+      "categories": [
+        "SEXUAL"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "SEXUAL": "The speaker asserts a personal sexual fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "sexual_preference",
+      "primary_category": "SEXUAL",
+      "split": "train",
+      "fact": "My intimate sexual preference is consensual role play.",
+      "mild_fact": "My ordinary non-identifying preference is brass buttons.",
+      "entity_inventory": [
+        "consensual role play"
+      ],
+      "categories": [
+        "SEXUAL"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "SEXUAL": "The speaker asserts a personal sexual fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "sexual_encounterhistory",
+      "primary_category": "SEXUAL",
+      "split": "validation",
+      "fact": "My sexual history includes three past adult partners.",
+      "mild_fact": "My ordinary non-identifying preference is short brushes.",
+      "entity_inventory": [
+        "three past adult partners"
+      ],
+      "categories": [
+        "SEXUAL",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "SEXUAL": "The speaker asserts a personal sexual fact, rather than merely naming the topic.",
+        "THIRD_PARTY": "The asserted sexual history also discloses participation by the three actual past adult partners, sensitive information about other people."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "sexual_specificsexualrelationship",
+      "primary_category": "SEXUAL",
+      "split": "assessment",
+      "fact": "I have a sexual relationship with my adult spouse.",
+      "mild_fact": "My ordinary non-identifying preference is felt hats.",
+      "entity_inventory": [
+        "adult spouse"
+      ],
+      "categories": [
+        "SEXUAL",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "SEXUAL": "The speaker asserts a personal sexual fact, rather than merely naming the topic.",
+        "THIRD_PARTY": "The actual sexual relationship also discloses the adult spouse's sexual participation, a sensitive fact about another person."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "child_care",
+      "primary_category": "CHILD",
+      "split": "train",
+      "fact": "My child is six years old and needs daily childcare.",
+      "mild_fact": "My ordinary non-identifying preference is pink envelopes.",
+      "entity_inventory": [
+        "six years old"
+      ],
+      "categories": [
+        "CHILD",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "CHILD": "The speaker asserts care or custody information about their actual minor child.",
+        "THIRD_PARTY": "The asserted sensitive fact concerns a person other than the speaker."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "child_schoolpickup",
+      "primary_category": "CHILD",
+      "split": "train",
+      "fact": "My child is seven years old and I handle school pickup.",
+      "mild_fact": "My ordinary non-identifying preference is clay cups.",
+      "entity_inventory": [
+        "seven years old"
+      ],
+      "categories": [
+        "CHILD",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "CHILD": "The speaker asserts care or custody information about their actual minor child.",
+        "THIRD_PARTY": "The asserted sensitive fact concerns a person other than the speaker."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "child_custody",
+      "primary_category": "CHILD",
+      "split": "train",
+      "fact": "My child is eight years old and is in my sole custody.",
+      "mild_fact": "My ordinary non-identifying preference is sturdy folders.",
+      "entity_inventory": [
+        "eight years old"
+      ],
+      "categories": [
+        "CHILD",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "CHILD": "The speaker asserts care or custody information about their actual minor child.",
+        "THIRD_PARTY": "The asserted sensitive fact concerns a person other than the speaker."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "child_supervisedactivity",
+      "primary_category": "CHILD",
+      "split": "train",
+      "fact": "My child is nine years old and attends supervised activities.",
+      "mild_fact": "My ordinary non-identifying preference is narrow shelves.",
+      "entity_inventory": [
+        "nine years old"
+      ],
+      "categories": [
+        "CHILD",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "CHILD": "The speaker asserts care or custody information about their actual minor child.",
+        "THIRD_PARTY": "The asserted sensitive fact concerns a person other than the speaker."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "child_afterschool",
+      "primary_category": "CHILD",
+      "split": "validation",
+      "fact": "My child is ten years old and receives afterschool care.",
+      "mild_fact": "My ordinary non-identifying preference is teal boxes.",
+      "entity_inventory": [
+        "ten years old"
+      ],
+      "categories": [
+        "CHILD",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "CHILD": "The speaker asserts care or custody information about their actual minor child.",
+        "THIRD_PARTY": "The asserted sensitive fact concerns a person other than the speaker."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "child_overnightcare",
+      "primary_category": "CHILD",
+      "split": "assessment",
+      "fact": "My child is eleven years old and receives overnight care.",
+      "mild_fact": "My ordinary non-identifying preference is marble beads.",
+      "entity_inventory": [
+        "eleven years old"
+      ],
+      "categories": [
+        "CHILD",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "CHILD": "The speaker asserts care or custody information about their actual minor child.",
+        "THIRD_PARTY": "The asserted sensitive fact concerns a person other than the speaker."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "location_home",
+      "primary_category": "LOCATION",
+      "split": "train",
+      "fact": "My current home is at 17 Imaginary Crescent.",
+      "mild_fact": "My ordinary non-identifying preference is large pegs.",
+      "entity_inventory": [
+        "17 Imaginary Crescent"
+      ],
+      "categories": [
+        "LOCATION"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "LOCATION": "The speaker asserts a personal location fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "location_commute",
+      "primary_category": "LOCATION",
+      "split": "train",
+      "fact": "My daily commute follows Imaginary Path from its north gate to its south bridge.",
+      "mild_fact": "My ordinary non-identifying preference is copper clips.",
+      "entity_inventory": [
+        "Imaginary Path"
+      ],
+      "categories": [
+        "LOCATION"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "LOCATION": "The speaker asserts a personal location fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "location_workattendance",
+      "primary_category": "LOCATION",
+      "split": "train",
+      "fact": "I am physically in room 14 at the North Atrium worksite each morning.",
+      "mild_fact": "My ordinary non-identifying preference is smooth stones.",
+      "entity_inventory": [
+        "North Atrium"
+      ],
+      "categories": [
+        "LOCATION"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "LOCATION": "The speaker asserts a personal location fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "location_accommodation",
+      "primary_category": "LOCATION",
+      "split": "train",
+      "fact": "I am staying in room 23 at East Lodge.",
+      "mild_fact": "My ordinary non-identifying preference is wicker chairs.",
+      "entity_inventory": [
+        "East Lodge"
+      ],
+      "categories": [
+        "LOCATION"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "LOCATION": "The speaker asserts a personal location fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "location_privateappointmentroute",
+      "primary_category": "LOCATION",
+      "split": "validation",
+      "fact": "My private appointment route goes through West Passage from entrance 2 to room 5.",
+      "mild_fact": "My ordinary non-identifying preference is cream rugs.",
+      "entity_inventory": [
+        "West Passage"
+      ],
+      "categories": [
+        "LOCATION"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "LOCATION": "The speaker asserts a personal location fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "location_secludedmeeting",
+      "primary_category": "LOCATION",
+      "split": "assessment",
+      "fact": "I am meeting in room 8 at South Alcove this evening.",
+      "mild_fact": "My ordinary non-identifying preference is lace collars.",
+      "entity_inventory": [
+        "South Alcove"
+      ],
+      "categories": [
+        "LOCATION"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "LOCATION": "The speaker asserts a personal location fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "identity_email",
+      "primary_category": "IDENTITY",
+      "split": "train",
+      "fact": "My private account login email is cedar-contact@example.com.",
+      "mild_fact": "My ordinary non-identifying preference is rubber stamps.",
+      "entity_inventory": [
+        "cedar-contact@example.com"
+      ],
+      "categories": [
+        "IDENTITY"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "IDENTITY": "The speaker asserts a personal identity fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "identity_phone",
+      "primary_category": "IDENTITY",
+      "split": "train",
+      "fact": "My private account recovery phone is +0 000 000 001.",
+      "mild_fact": "My ordinary non-identifying preference is bamboo mats.",
+      "entity_inventory": [
+        "+0 000 000 001"
+      ],
+      "categories": [
+        "IDENTITY"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "IDENTITY": "The speaker asserts a personal identity fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "identity_linkedusername",
+      "primary_category": "IDENTITY",
+      "split": "train",
+      "fact": "My private account login identifier is DEMO_ONLY_COPPER_USER.",
+      "mild_fact": "My ordinary non-identifying preference is peach cards.",
+      "entity_inventory": [
+        "DEMO_ONLY_COPPER_USER"
+      ],
+      "categories": [
+        "IDENTITY"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "IDENTITY": "The speaker asserts a personal identity fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "identity_credential",
+      "primary_category": "IDENTITY",
+      "split": "train",
+      "fact": "My active password is INVALID_DEMO_PASSWORD_ORCHARD.",
+      "mild_fact": "My ordinary non-identifying preference is velvet pouches.",
+      "entity_inventory": [
+        "INVALID_DEMO_PASSWORD_ORCHARD"
+      ],
+      "categories": [
+        "IDENTITY"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "IDENTITY": "The speaker asserts a personal identity fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "identity_recoveryidentifier",
+      "primary_category": "IDENTITY",
+      "split": "validation",
+      "fact": "My secret account recovery code is DEMO_ONLY_WILLOW_RECOVERY.",
+      "mild_fact": "My ordinary non-identifying preference is ribbed gloves.",
+      "entity_inventory": [
+        "DEMO_ONLY_WILLOW_RECOVERY"
+      ],
+      "categories": [
+        "IDENTITY"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "IDENTITY": "The speaker asserts a personal identity fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "identity_accesstoken",
+      "primary_category": "IDENTITY",
+      "split": "assessment",
+      "fact": "My active access token is INVALID_DEMO_JUNIPER_TOKEN.",
+      "mild_fact": "My ordinary non-identifying preference is polished frames.",
+      "entity_inventory": [
+        "INVALID_DEMO_JUNIPER_TOKEN"
+      ],
+      "categories": [
+        "IDENTITY"
+      ],
+      "sensitivity": "S3",
+      "category_rationales": {
+        "IDENTITY": "The speaker asserts a personal identity fact, rather than merely naming the topic."
+      },
+      "sensitivity_rationale": "The asserted fact is highly sensitive personal information under the frozen experimental severity convention.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "third_party_coworksalary",
+      "primary_category": "THIRD_PARTY",
+      "split": "train",
+      "fact": "My coworker earns an annual salary of 82470 dollars.",
+      "mild_fact": "My ordinary non-identifying preference is indigo bags.",
+      "entity_inventory": [
+        "82470 dollars"
+      ],
+      "categories": [
+        "FINANCIAL",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "FINANCIAL": "The speaker asserts a personal financial fact, rather than merely naming the topic.",
+        "THIRD_PARTY": "The asserted sensitive fact concerns a person other than the speaker."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "third_party_frienddebt",
+      "primary_category": "THIRD_PARTY",
+      "split": "train",
+      "fact": "My friend owes 6980 dollars in personal debt.",
+      "mild_fact": "My ordinary non-identifying preference is canvas aprons.",
+      "entity_inventory": [
+        "6980 dollars"
+      ],
+      "categories": [
+        "FINANCIAL",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "FINANCIAL": "The speaker asserts a personal financial fact, rather than merely naming the topic.",
+        "THIRD_PARTY": "The asserted sensitive fact concerns a person other than the speaker."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "third_party_relativeloss",
+      "primary_category": "THIRD_PARTY",
+      "split": "train",
+      "fact": "My relative lost 11260 dollars in investments.",
+      "mild_fact": "My ordinary non-identifying preference is beige curtains.",
+      "entity_inventory": [
+        "11260 dollars"
+      ],
+      "categories": [
+        "FINANCIAL",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "FINANCIAL": "The speaker asserts a personal financial fact, rather than merely naming the topic.",
+        "THIRD_PARTY": "The asserted sensitive fact concerns a person other than the speaker."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "third_party_clientarrears",
+      "primary_category": "THIRD_PARTY",
+      "split": "train",
+      "fact": "My client has 3470 dollars in unpaid loan arrears.",
+      "mild_fact": "My ordinary non-identifying preference is knitted caps.",
+      "entity_inventory": [
+        "3470 dollars"
+      ],
+      "categories": [
+        "FINANCIAL",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "FINANCIAL": "The speaker asserts a personal financial fact, rather than merely naming the topic.",
+        "THIRD_PARTY": "The asserted sensitive fact concerns a person other than the speaker."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "third_party_colleaguepension",
+      "primary_category": "THIRD_PARTY",
+      "split": "validation",
+      "fact": "My colleague receives a monthly pension of 1875 dollars.",
+      "mild_fact": "My ordinary non-identifying preference is painted tiles.",
+      "entity_inventory": [
+        "1875 dollars"
+      ],
+      "categories": [
+        "FINANCIAL",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "FINANCIAL": "The speaker asserts a personal financial fact, rather than merely naming the topic.",
+        "THIRD_PARTY": "The asserted sensitive fact concerns a person other than the speaker."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    },
+    {
+      "family_id": "third_party_neighbortaxdebt",
+      "primary_category": "THIRD_PARTY",
+      "split": "assessment",
+      "fact": "My neighbor owes 5635 dollars in overdue tax.",
+      "mild_fact": "My ordinary non-identifying preference is dotted cushions.",
+      "entity_inventory": [
+        "5635 dollars"
+      ],
+      "categories": [
+        "FINANCIAL",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S2",
+      "category_rationales": {
+        "FINANCIAL": "The speaker asserts a personal financial fact, rather than merely naming the topic.",
+        "THIRD_PARTY": "The asserted sensitive fact concerns a person other than the speaker."
+      },
+      "sensitivity_rationale": "An asserted personal financial circumstance or private whereabouts can enable targeting or harm.",
+      "mild_rationale": "An ordinary object preference is mild personal context without an identifier or a sensitive category."
+    }
+  ]
+}
