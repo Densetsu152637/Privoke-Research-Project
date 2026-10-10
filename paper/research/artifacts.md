@@ -1,8 +1,14 @@
 # Local development evidence package
 
+## Frozen pretrained contextual package — 10 October 2026
+
+The [study record](../../docs/semantic-pretrained-context-study-20261010.md) preserves question `RQ-SEM-PRETRAINED-CONTEXT-20261010`, the original user prompts, prospective method, amendments and negative qualification decision. The [public evidence directory](../../docs/evidence/semantic-pretrained-20261010/README.md) contains allowlisted synthetic labels/actions, aggregate secondary counts, functional 512-token outcomes and a standard-library arithmetic reproducer. Its publication manifest binds delivered bytes; provenance hashes bind separate retained local receipts. No real public-development prompt text or raw response is redistributed.
+
+Primary source `1064a9518b497186f6031698f43c47d6ea38a3be` and summary SHA-256 `2d673c73234b9d96a126847f3aa29fb971fae17c110ecf4a77f2d0126a1b7668` remain unchanged. The secondary-only scoring amendment and later runtime `fd0b507ddddd82ee88fb45e1249711738cc8f0c2` have separate provenance. Gains failed a serious-action veto; secondary credential harms and 256-token errors are retained. The subsequent nine-request 512-token check is functional evidence only. Public arithmetic reproduction does not rerun the model, verify unavailable raw archives or constitute independent human adjudication. Protected final data remain unscored.
+
 ## Profiles and frozen-representation diagnostic — 4 October 2026
 
-The newest local package is
+The historical 4 October local package is
 `evaluation/artifacts/research-20261004-profiles-representation.zip`
 (32,120,849 bytes; SHA-256
 `333e3fd6fb7891a64953b98dc954fabbff1e7edc95f6696aeefa42358b1bc207`).

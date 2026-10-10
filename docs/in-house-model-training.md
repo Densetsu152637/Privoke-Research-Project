@@ -10,7 +10,7 @@ weights, hosted model weights, or external language-model APIs as a training
 source. This description applies to the in-house Tiny transformer path. The
 separate opt-in [frozen pretrained contextual architecture](detectors/semantic-classifiers.md#experimental-frozen-pretrained-contextual-model)
 uses an external MiniLM backbone for local inference with offline-fitted heads;
-it is experimental, is not a default model, and has no measured accuracy claim.
+it is experimental and is not a default model. Its [completed contextual study](semantic-pretrained-context-study-20261010.md) improved provisional synthetic joint agreement but failed its harm veto. Reused development specificity was poor and a separate credential action regressed; no model was promoted. The later explicit 512-token profile passed functional boundary checks only.
 
 ## Current transformer artifacts
 

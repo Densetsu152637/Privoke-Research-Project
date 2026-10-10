@@ -47,8 +47,8 @@ The explicit streamed model ID `privoke-pretrained-context-minilm` selects
 `privoke_pretrained_context_v1`. It uses a local frozen
 `sentence-transformers/all-MiniLM-L6-v2` ONNX encoder and six offline-fitted
 sensitivity/visibility/category head tensors (7,700 float32 values). It is an
-experimental English contextual classifier, has no measured accuracy claim,
-and cannot be selected by the `latest` alias or `MODEL_LATEST_ID`. Default Tiny
+experimental English contextual classifier. The [completed study](../semantic-pretrained-context-study-20261010.md) measured synthetic contextual gains but failed its casewise harm veto; it was not promoted. It
+cannot be selected by the `latest` alias or `MODEL_LATEST_ID`. Default Tiny
 models and conversational backends retain their existing behavior. Online
 semantic gradient requests and parameter updates for this architecture fail
 explicitly; no backbone tensors are streamed or trained.
@@ -82,8 +82,15 @@ The loader verifies file bytes before constructing a CPU-only session and
 tokenizer. The admitted graph takes `input_ids`, `attention_mask` and
 `token_type_ids`, all int64 `[batch_size, sequence_length]`, and returns float32
 `last_hidden_state` `[batch_size, sequence_length, 384]`. Features use masked
-mean pooling including special tokens followed by L2 normalization. The 256-token
-limit includes special tokens; overlength input raises a semantic layer error.
+mean pooling including special tokens followed by L2 normalization. Artifacts explicitly
+select a 256- or 512-token limit including special tokens. Builders and offline
+encoding default to 256 for historical reproduction. A 512-token artifact has a
+distinct version/checksum even with identical heads; encoder caches include the
+limit, and mismatched configurations fail. Overlength input raises a semantic
+layer error without silent truncation. The original study used 256. A later
+nine-request semantic-only check verified 512-token execution, short-input parity
+and boundary rejection, including recovery of the two formerly overlength inputs.
+This checks execution capacity, not accuracy or latency at the expanded limit.
 Missing assets/dependencies, hash/signature drift and non-finite output also
 remain visible errors, with the ordinary failure policy and no fallback.
 

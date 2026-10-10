@@ -69,6 +69,7 @@ Research documents, dataset reviews and evidence retain their existing locations
 | [Continual synthetic fuzzer results](continual-fuzzer-results-20261009.md) | Three-profile, 60-attempt Docker study; matched before/after metrics, replay coverage and observed recall/specificity tradeoffs |
 | [Six-hour synthetic fuzzer results](long-fuzzer-results-20261009.md) | Three sequential two-hour profile windows; aggregate endpoint trajectories, paired intervals and limitations |
 | [Curriculum improvement process and results](fuzzer-curriculum-improvement-process-20261009.md) | Audited semantic-only 63-cell comparison of curriculum, sampler, replay and offline representation; all seed outcomes, tradeoffs and amendment history |
+| [Frozen pretrained contextual study](semantic-pretrained-context-study-20261010.md) | Research question, measured synthetic gains with failed harm veto, secondary regressions, separate 512-token checks and [public arithmetic evidence](evidence/semantic-pretrained-20261010/README.md) |
 | [Accelerated normal-batch fuzzer study](accelerated-fuzzer-study-20261010.md) | Audited twelve-trajectory semantic-only schedule; measurable tradeoffs, quality plateau, fixed iteration criteria and safe reproducible aggregates |
 | [Research completion plan](Research-completion-plan.md) | Research questions, experiments, milestones and publication readiness |
 | [Research paper writing guide](Research-paper-writing-guide.md) | Methodology improvements, wording, evidence reporting and venue requirements |

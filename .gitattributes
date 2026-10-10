@@ -17,3 +17,6 @@ docs/evidence/accelerated-fuzzer-20261010/reproduce.py text eol=lf
 paper/figures/results-long-fuzzer-trajectories.svg -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 paper/figures/results-long-fuzzer-trajectories-manifest.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 paper/scripts/plot_long_fuzzer_trajectories.py text eol=lf
+
+docs/evidence/semantic-pretrained-20261010/*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+docs/evidence/semantic-pretrained-20261010/reproduce.py text eol=lf

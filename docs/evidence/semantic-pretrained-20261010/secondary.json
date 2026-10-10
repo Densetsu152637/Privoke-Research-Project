@@ -1,0 +1,364 @@
+{
+  "controller_revision": "8227218ef1846e10c4950fce8646483c59e49e04",
+  "runtime_revision": "1064a9518b497186f6031698f43c47d6ea38a3be",
+  "amendment_sha256": "f850346598b6e8433e162bcf4bae754d7637771acf9ce3485eb8f557d3e7dd6f",
+  "counts": {
+    "represented": 3850,
+    "new_requests": 3348,
+    "new_successes": 3342,
+    "errors": 6,
+    "retained_random42_development": 502,
+    "fixture_successes": 336
+  },
+  "cells": [
+    {
+      "tag": "baseline",
+      "identity": {
+        "model_id": "privoke-balanced",
+        "model_version": "v0.3.0",
+        "artifact_checksum": "8390b96871c6edd00916e3a6126da1b09c19f9fdbdda8214ebe667a893e5ee2c",
+        "parameter_fingerprint": "fec1a27b2252e01f659b5b856e5bdb124ef79b72f28995c7b3599f5ce0bd44c6"
+      },
+      "receipt_sha256": "5799a086b49ae9274d99280e4986484f078a6fb833f6a3f0b2cb0188659b5461",
+      "development_reused": false,
+      "development": {
+        "counts": {
+          "false_positives": 178,
+          "true_positives": 169,
+          "false_negatives": 95,
+          "true_negatives": 60
+        },
+        "ok": 502,
+        "errors": 0,
+        "error_positive_labels": 0,
+        "error_negative_labels": 0,
+        "recall_successful_only": 0.6401515151515151,
+        "specificity_successful_only": 0.25210084033613445,
+        "coverage": 1.0
+      },
+      "historical_fixture": {
+        "ok": 48,
+        "errors": 0,
+        "ambiguous_null_actions": 7,
+        "sensitivity_correct": 16,
+        "action_correct": 27,
+        "denominator": 41
+      }
+    },
+    {
+      "tag": "random-42",
+      "identity": {
+        "model_id": "privoke-balanced",
+        "model_version": "head-study-random-42-epoch25",
+        "artifact_checksum": "4cb195843eeb463a47bea3a281915b809cd1a6693fd8ff35d278cd6d394889f0",
+        "parameter_fingerprint": "dc421bc19f853d7ba70d51c1e3b46ecc89843274e0b11f56c589693ed2cb6291"
+      },
+      "receipt_sha256": "bd13c088c72c14736735519bb7d5e383512fe1f657ea35dba16d6f85e169d112",
+      "development_reused": true,
+      "development": {
+        "counts": {
+          "false_positives": 183,
+          "true_positives": 189,
+          "false_negatives": 75,
+          "true_negatives": 55
+        },
+        "ok": 502,
+        "errors": 0,
+        "error_positive_labels": 0,
+        "error_negative_labels": 0,
+        "recall_successful_only": 0.7159090909090909,
+        "specificity_successful_only": 0.23109243697478993,
+        "coverage": 1.0
+      },
+      "historical_fixture": {
+        "ok": 48,
+        "errors": 0,
+        "ambiguous_null_actions": 7,
+        "sensitivity_correct": 7,
+        "action_correct": 12,
+        "denominator": 41
+      }
+    },
+    {
+      "tag": "pretrained-42",
+      "identity": {
+        "model_id": "privoke-pretrained-context-minilm",
+        "model_version": "head-study-pretrained-42-epoch25",
+        "artifact_checksum": "902a162280449317b69282c1c21e52eea2f4f20afc7357612d29716cd69b5983",
+        "parameter_fingerprint": "90838b563d873457481ac3982a0d71ffb5687ae66581aa54434c45322ce73487"
+      },
+      "receipt_sha256": "830622746534d6e93e0f420070126c52a31af880d249c984a852cca2cf6241d9",
+      "development_reused": false,
+      "development": {
+        "counts": {
+          "true_negatives": 14,
+          "true_positives": 233,
+          "false_positives": 223,
+          "false_negatives": 30
+        },
+        "ok": 500,
+        "errors": 2,
+        "error_positive_labels": 1,
+        "error_negative_labels": 1,
+        "recall_successful_only": 0.8859315589353612,
+        "specificity_successful_only": 0.05907172995780591,
+        "coverage": 0.9960159362549801
+      },
+      "historical_fixture": {
+        "ok": 48,
+        "errors": 0,
+        "ambiguous_null_actions": 7,
+        "sensitivity_correct": 12,
+        "action_correct": 28,
+        "denominator": 41
+      }
+    },
+    {
+      "tag": "random-43",
+      "identity": {
+        "model_id": "privoke-balanced",
+        "model_version": "head-study-random-43-epoch25",
+        "artifact_checksum": "579c057d7128701895e9893d54676a7a189786ddb3c5fd0623c9b8686428f45d",
+        "parameter_fingerprint": "50706a23c5382a3b58bca705b6392b9bde89fc83b7c42db447d243cfcd060f79"
+      },
+      "receipt_sha256": "33973257cbd5b70d1f84d7d1fafe5b53dc32bcf03af0ad79158b1e6d637d8efc",
+      "development_reused": false,
+      "development": {
+        "counts": {
+          "false_positives": 179,
+          "true_positives": 186,
+          "false_negatives": 78,
+          "true_negatives": 59
+        },
+        "ok": 502,
+        "errors": 0,
+        "error_positive_labels": 0,
+        "error_negative_labels": 0,
+        "recall_successful_only": 0.7045454545454546,
+        "specificity_successful_only": 0.24789915966386555,
+        "coverage": 1.0
+      },
+      "historical_fixture": {
+        "ok": 48,
+        "errors": 0,
+        "ambiguous_null_actions": 7,
+        "sensitivity_correct": 7,
+        "action_correct": 12,
+        "denominator": 41
+      }
+    },
+    {
+      "tag": "pretrained-43",
+      "identity": {
+        "model_id": "privoke-pretrained-context-minilm",
+        "model_version": "head-study-pretrained-43-epoch25",
+        "artifact_checksum": "aff580470074e23ccacb0b6328f8488be9a0ac1581215ac3182263d7d07e77ad",
+        "parameter_fingerprint": "7de20ed2af4f89a593fb6273a29856394665ef5cb06351e7d4be11f5ae912bc6"
+      },
+      "receipt_sha256": "234c99dce59f62b0593828b9ad32312c01eb1b6239b2759e0c4fea542cc6deb0",
+      "development_reused": false,
+      "development": {
+        "counts": {
+          "true_negatives": 14,
+          "true_positives": 233,
+          "false_positives": 223,
+          "false_negatives": 30
+        },
+        "ok": 500,
+        "errors": 2,
+        "error_positive_labels": 1,
+        "error_negative_labels": 1,
+        "recall_successful_only": 0.8859315589353612,
+        "specificity_successful_only": 0.05907172995780591,
+        "coverage": 0.9960159362549801
+      },
+      "historical_fixture": {
+        "ok": 48,
+        "errors": 0,
+        "ambiguous_null_actions": 7,
+        "sensitivity_correct": 12,
+        "action_correct": 28,
+        "denominator": 41
+      }
+    },
+    {
+      "tag": "random-44",
+      "identity": {
+        "model_id": "privoke-balanced",
+        "model_version": "head-study-random-44-epoch25",
+        "artifact_checksum": "6d0b7a24ce82e817964d5b79f40a81656bc1b1b8dc084c3442023cd87185e977",
+        "parameter_fingerprint": "318ec5bb3197fb3282e4365c2ad3f96614bd141122a082adf31454dc0f52edf9"
+      },
+      "receipt_sha256": "e874d2bdb4b1920cf5ef2fd603c093b42ff4a64081a1b8d541a2ad4bc84642b8",
+      "development_reused": false,
+      "development": {
+        "counts": {
+          "true_negatives": 71,
+          "true_positives": 173,
+          "false_positives": 167,
+          "false_negatives": 91
+        },
+        "ok": 502,
+        "errors": 0,
+        "error_positive_labels": 0,
+        "error_negative_labels": 0,
+        "recall_successful_only": 0.6553030303030303,
+        "specificity_successful_only": 0.29831932773109243,
+        "coverage": 1.0
+      },
+      "historical_fixture": {
+        "ok": 48,
+        "errors": 0,
+        "ambiguous_null_actions": 7,
+        "sensitivity_correct": 7,
+        "action_correct": 12,
+        "denominator": 41
+      }
+    },
+    {
+      "tag": "pretrained-44",
+      "identity": {
+        "model_id": "privoke-pretrained-context-minilm",
+        "model_version": "head-study-pretrained-44-epoch25",
+        "artifact_checksum": "066db85289fd946e66a38e4a67ba0713b5ec9735ba10bb290b00d3f33b243e8a",
+        "parameter_fingerprint": "7d7742cc5919f0fa2ef17be9195fef2efdf020bfe0e99cd36d37d0f399cff49d"
+      },
+      "receipt_sha256": "f2b788ab45b9b2f07c8eab623e0e702382fb2eede10d3c8d866ddadd8157d7e6",
+      "development_reused": false,
+      "development": {
+        "counts": {
+          "true_negatives": 14,
+          "true_positives": 233,
+          "false_positives": 223,
+          "false_negatives": 30
+        },
+        "ok": 500,
+        "errors": 2,
+        "error_positive_labels": 1,
+        "error_negative_labels": 1,
+        "recall_successful_only": 0.8859315589353612,
+        "specificity_successful_only": 0.05907172995780591,
+        "coverage": 0.9960159362549801
+      },
+      "historical_fixture": {
+        "ok": 48,
+        "errors": 0,
+        "ambiguous_null_actions": 7,
+        "sensitivity_correct": 12,
+        "action_correct": 28,
+        "denominator": 41
+      }
+    }
+  ],
+  "hint_scope": {
+    "scope": "Text-only replay; request builder does not forward visibility_hint. Private grouping uses expected target visibility; no visibility accuracy.",
+    "cases": [
+      {
+        "case_id": "cc-visibility_hints-01",
+        "visibility_hint": "P0",
+        "text_visibility": "P0",
+        "expected_visibility": "P0"
+      },
+      {
+        "case_id": "cc-visibility_hints-02",
+        "visibility_hint": "PU",
+        "text_visibility": "PU",
+        "expected_visibility": "PU"
+      },
+      {
+        "case_id": "cc-visibility_hints-03",
+        "visibility_hint": "P4",
+        "text_visibility": "PU",
+        "expected_visibility": "P4"
+      },
+      {
+        "case_id": "cc-visibility_hints-04",
+        "visibility_hint": "P3",
+        "text_visibility": "P3",
+        "expected_visibility": "P3"
+      }
+    ]
+  },
+  "fixture_casewise_regressions": {
+    "pretrained-42-vs-baseline": [
+      {
+        "id": "cc-credentials-03",
+        "before": "WARN",
+        "after": "ALLOW",
+        "required": "BLOCK",
+        "expected_visibility": "PU",
+        "has_unforwarded_hint": false
+      }
+    ],
+    "pretrained-42-vs-random-42": [
+      {
+        "id": "cc-credentials-03",
+        "before": "BLOCK",
+        "after": "ALLOW",
+        "required": "BLOCK",
+        "expected_visibility": "PU",
+        "has_unforwarded_hint": false
+      }
+    ],
+    "pretrained-43-vs-baseline": [
+      {
+        "id": "cc-credentials-03",
+        "before": "WARN",
+        "after": "ALLOW",
+        "required": "BLOCK",
+        "expected_visibility": "PU",
+        "has_unforwarded_hint": false
+      }
+    ],
+    "pretrained-43-vs-random-43": [
+      {
+        "id": "cc-credentials-03",
+        "before": "BLOCK",
+        "after": "ALLOW",
+        "required": "BLOCK",
+        "expected_visibility": "PU",
+        "has_unforwarded_hint": false
+      }
+    ],
+    "pretrained-44-vs-baseline": [
+      {
+        "id": "cc-credentials-03",
+        "before": "WARN",
+        "after": "ALLOW",
+        "required": "BLOCK",
+        "expected_visibility": "PU",
+        "has_unforwarded_hint": false
+      }
+    ],
+    "pretrained-44-vs-random-44": [
+      {
+        "id": "cc-credentials-03",
+        "before": "BLOCK",
+        "after": "ALLOW",
+        "required": "BLOCK",
+        "expected_visibility": "PU",
+        "has_unforwarded_hint": false
+      }
+    ]
+  },
+  "failed_input_lengths": [
+    {
+      "id": "piimb:privy:2468_s0",
+      "input_characters": 922,
+      "normalized_characters": 922,
+      "pretrained_tokens_including_special": 381,
+      "contract_limit": 256
+    },
+    {
+      "id": "piimb:privy:3520_s0",
+      "input_characters": 637,
+      "normalized_characters": 637,
+      "pretrained_tokens_including_special": 286,
+      "contract_limit": 256
+    }
+  ],
+  "passed_archive_audit": true,
+  "secondary_error_free": false,
+  "original_failed_receipt_sha256": "e3c8aeadaed552f4076200b0739cbcc38d2aa2085b36718ea29d50cfdceee48a",
+  "original_primary_summary_sha256": "2d673c73234b9d96a126847f3aa29fb971fae17c110ecf4a77f2d0126a1b7668"
+}
