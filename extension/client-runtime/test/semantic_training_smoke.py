@@ -200,20 +200,41 @@ def check_inference(runtime_stub, model_id, expected_version, expected_fp):
     return MessageToDict(response, preserving_proto_field_name=True)
 
 
-def boundary_requests(runtime_stub, model_id, expected):
+def boundary_training_request(count, model_id):
+    from src.classification import Sensitivity, Visibility, Category, initialise_unpacked
+    sensitive = initialise_unpacked(Sensitivity.S3, Visibility.P0, [Category.HEALTH])
+    clean = initialise_unpacked(Sensitivity.S0, Visibility.PU, [])
+    return R.ComputeSemanticGradientsRequest(model_id=model_id, request_id=f"boundary-{count}",
+        examples=[R.RuntimeTrainingExample(text=" ".join(["hello"] * (count - 1)), has_target=True,
+            target=R.RuntimeClassification(packed=sensitive.pack()),weight=1)],
+        heldout_examples=[R.RuntimeTrainingExample(text="Guard private diagnosis",has_target=True,target=R.RuntimeClassification(packed=sensitive.pack()),weight=1),
+                          R.RuntimeTrainingExample(text="Guard public weather",has_target=True,target=R.RuntimeClassification(packed=clean.pack()),weight=1)],
+        learning_rate=.003,max_gradient=.00001,layers=[R.DETECTION_LAYER_SEMANTIC])
+
+
+def boundary_response(runtime_stub, rpc, request, records, count, timeout):
+    record={"tokens":count,"rpc":rpc,"request":MessageToDict(request,preserving_proto_field_name=True),
+        "request_protobuf_base64":base64.b64encode(request.SerializeToString()).decode()}
+    records.append(record)
+    try:
+        response=getattr(runtime_stub,rpc)(request,timeout=timeout)
+    except Exception as exc:
+        record["transport_error"]={"type":type(exc).__name__,"error":str(exc)}
+        raise
+    record.update(response=MessageToDict(response,preserving_proto_field_name=True),
+        response_protobuf_base64=base64.b64encode(response.SerializeToString()).decode())
+    return response
+
+
+def boundary_requests(runtime_stub, model_id, expected, records):
     """Fixed 97/256/257 counts include Tiny's one start token; never publish."""
     from src.transformer_encoder import TOKEN_PATTERN
-    records = []
     for count in (97, 256, 257):
         text = " ".join(["hello"] * (count - 1))
         require(len(TOKEN_PATTERN.findall(text.lower())) + 1 == count, "Boundary fixture token count differs")
-        request = R.ComputeSemanticGradientsRequest(model_id=model_id, request_id=f"boundary-{count}",
-            examples=[R.RuntimeTrainingExample(text=text, has_target=True, target=R.RuntimeClassification(sensitivity="S3",visibility="P0",categories=["HEALTH"]),weight=1)],
-            heldout_examples=[R.RuntimeTrainingExample(text="Guard private diagnosis",has_target=True,target=R.RuntimeClassification(sensitivity="S3",visibility="P0",categories=["HEALTH"]),weight=1),
-                              R.RuntimeTrainingExample(text="Guard public weather",has_target=True,target=R.RuntimeClassification(sensitivity="S0",visibility="PU"),weight=1)],
-            learning_rate=.003,max_gradient=.00001,layers=[R.DETECTION_LAYER_SEMANTIC])
+        request = boundary_training_request(count,model_id)
         for method in ("ComputeSemanticGradients", "ComputeUnderlyingModelGradients"):
-            response = getattr(runtime_stub, method)(request,timeout=120)
+            response = boundary_response(runtime_stub,method,request,records,count,120)
             if count <= 256:
                 require(not response.error and len(response.executions)==3, f"{method} rejected supported length")
                 counts={"training":len(request.examples),"base_heldout":len(request.heldout_examples),"candidate_heldout":len(request.heldout_examples)}
@@ -223,9 +244,8 @@ def boundary_requests(runtime_stub, model_id, expected):
                 reconstruct_candidate(expected,response,"heads" if method=="ComputeSemanticGradients" else "full_encoder",request.max_gradient)
             else:
                 require(bool(response.error) and "256" in response.error and not response.gradients, "Overlength training did not fail closed")
-            records.append({"tokens":count,"rpc":method,"request":MessageToDict(request,preserving_proto_field_name=True),"response":MessageToDict(response,preserving_proto_field_name=True)})
         inference_request=R.AnalyzePromptRequest(text=text,request_id=f"boundary-inference-{count}",semantic_model_id=model_id,layers=[R.DETECTION_LAYER_SEMANTIC])
-        response=runtime_stub.AnalyzePrompt(inference_request,timeout=30)
+        response=boundary_response(runtime_stub,"AnalyzePrompt",inference_request,records,count,30)
         require(len(response.layers)==1 and response.layers[0].layer==R.DETECTION_LAYER_SEMANTIC, "Boundary inference selected other layer")
         require(not response.layers[0].HasField("semantic_presence_gate"),"Unexpected boundary presence gate")
         if count <=256:
@@ -233,8 +253,21 @@ def boundary_requests(runtime_stub, model_id, expected):
             require(bool(response.layers[0].results),"Fixed biased boundary fixture must expose loaded identity")
             require(all(f.metadata.get("model_version")==expected["version"] and f.metadata.get("parameter_fingerprint")==expected["fingerprint"] for f in response.layers[0].results),"Boundary inference used another snapshot")
         else: require(bool(response.error) and response.layers[0].status=="error" and "256" in response.layers[0].error, "Overlength inference silently truncated")
-        records.append({"tokens":count,"rpc":"AnalyzePrompt","request":MessageToDict(inference_request,preserving_proto_field_name=True),"response":MessageToDict(response,preserving_proto_field_name=True)})
     return records
+
+
+def verify_boundaries(runtime, models, model_id, output):
+    require(not Path(output).exists(), "Boundary output already exists; refusing another attempt")
+    records=[]
+    try:
+        before=snapshot(models,model_id)
+        boundary_requests(runtime,model_id,before,records)
+        require(snapshot(models,model_id)==before,"Gradient boundary checks published/mutated serving parameters")
+    except Exception as exc:
+        write_new(output,{"status":"failed","scope":"functional_boundaries_no_publication","records":records,
+            "error_type":type(exc).__name__,"error":str(exc)})
+        raise
+    write_new(output,{"status":"passed","scope":"functional_boundaries_no_publication","records":records})
 
 
 def prepare_fixture(state_dir, revision):
@@ -322,10 +355,7 @@ def run_focused(args, targets):
             write_new(output,{"status":"captured_s0","inference":inference,"snapshot_protobuf_base64":base64.b64encode(actual.SerializeToString()).decode(),"initial_artifact_sha256":sha(state/"initial-256.json")})
             return
         if args.training_action == "boundaries":
-            before = snapshot(models,initial["model_id"])
-            records = boundary_requests(runtime,initial["model_id"],before)
-            require(snapshot(models,initial["model_id"])==before,"Gradient boundary checks published/mutated serving parameters")
-            write_new(output,{"status":"passed","scope":"functional_boundaries_no_publication","records":records})
+            verify_boundaries(runtime,models,initial["model_id"],output)
             return
         captured = read_json(state/"captured-s0.json")
         actual_s0 = streamed_state(P.ModelParametersResponse.FromString(base64.b64decode(captured["snapshot_protobuf_base64"],validate=True)))

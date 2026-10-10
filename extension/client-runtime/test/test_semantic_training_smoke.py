@@ -16,6 +16,60 @@ from semantic_training_smoke import decode_trace, apply_actual_stage, reconstruc
 
 
 class SemanticTrainingSmokeTests(unittest.TestCase):
+    def test_boundary_packed_targets_decode_to_requested_training_and_guard_labels(self):
+        from semantic_training_smoke import boundary_training_request
+        from src.classification import Classification, Sensitivity, Visibility, Category
+        request=boundary_training_request(97,'privoke-balanced')
+        decoded=[Classification(int(row.target.packed)) for row in list(request.examples)+list(request.heldout_examples)]
+        self.assertEqual(list(request.layers),[R.DETECTION_LAYER_SEMANTIC])
+        for target in decoded[:2]:
+            self.assertEqual(target.sensitivity(),Sensitivity.S3)
+            self.assertEqual(target.visibility(),Visibility.P0)
+            self.assertEqual(target.categories(),[Category.HEALTH])
+        self.assertEqual(decoded[2].sensitivity(),Sensitivity.S0)
+        self.assertEqual(decoded[2].visibility(),Visibility.PU)
+        self.assertEqual(decoded[2].categories(),[])
+        self.assertEqual({row.is_sensitive() for row in decoded[1:]},{True,False})
+        old_fields_only=R.RuntimeClassification(sensitivity='S3',visibility='P0',categories=['HEALTH'])
+        self.assertFalse(Classification(int(old_fields_only.packed)).is_sensitive())
+
+    def test_boundary_failure_retains_actual_wire_response_and_prevents_output_reuse(self):
+        import tempfile
+        from unittest.mock import patch
+        from semantic_training_smoke import verify_boundaries,read_json
+        class RejectedRuntime:
+            calls=0
+            def ComputeSemanticGradients(self,request,timeout):
+                self.calls+=1
+                return R.ComputeSemanticGradientsResponse(request_id=request.request_id,error='retained rejection')
+        runtime=RejectedRuntime()
+        root=ROOT/'evaluation/results/fuzzer_underlying_training_20261010'
+        root.mkdir(parents=True,exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=root) as directory,patch('semantic_training_smoke.snapshot',return_value={}):
+            output=Path(directory)/'boundary-failure.json'
+            with self.assertRaisesRegex(AssertionError,'rejected supported length'):verify_boundaries(runtime,None,'privoke-balanced',output)
+            receipt=read_json(output)
+            self.assertEqual(receipt['status'],'failed')
+            record=receipt['records'][0]
+            raw=R.ComputeSemanticGradientsResponse.FromString(base64.b64decode(record['response_protobuf_base64']))
+            self.assertEqual(raw.error,'retained rejection')
+            self.assertEqual(raw.request_id,'boundary-97')
+            before=output.read_bytes()
+            with self.assertRaisesRegex(AssertionError,'refusing another attempt'):verify_boundaries(runtime,None,'privoke-balanced',output)
+            self.assertEqual(runtime.calls,1)
+            self.assertEqual(output.read_bytes(),before)
+
+    def test_boundary_transport_failure_retains_request_without_fabricated_response(self):
+        from semantic_training_smoke import boundary_response,boundary_training_request
+        class FailedRuntime:
+            def ComputeSemanticGradients(self,request,timeout):raise RuntimeError('transport failed')
+        records=[]
+        with self.assertRaisesRegex(RuntimeError,'transport failed'):
+            boundary_response(FailedRuntime(),'ComputeSemanticGradients',boundary_training_request(97,'privoke-balanced'),records,97,120)
+        self.assertEqual(records[0]['transport_error']['error'],'transport failed')
+        self.assertIn('request_protobuf_base64',records[0])
+        self.assertNotIn('response_protobuf_base64',records[0])
+
     def fixture(self):
         config={'vocab_size':2,'hidden_size':2,'intermediate_size':2,'max_tokens':256,'num_layers':2,
                 'sensitivity_labels':['S0','S1','S2','S3'],'visibility_labels':['P0','P1','P2','P3','P4','PU'],
