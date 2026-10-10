@@ -53,6 +53,12 @@ def fingerprint(parameters, shapes):
     return parameter_fingerprint({n: [float32(v) for v in values] for n, values in parameters.items()}, shapes)
 
 
+def training_fingerprint(parameters):
+    # Established gradient RPC identities omit shapes; stream identities include
+    # them. Both hash the same canonical float32 values, with shapes checked apart.
+    return parameter_fingerprint({n: [float32(v) for v in values] for n, values in parameters.items()})
+
+
 def artifact_state(artifact):
     shapes = {n: tuple(t["shape"]) for n, t in artifact["parameters"].items()}
     parameters = {n: tuple(float32(v) for v in t["values"]) for n, t in artifact["parameters"].items()}
@@ -101,28 +107,34 @@ def decode_trace(trace):
     return request, response
 
 
-def apply_actual_stage(base, trace):
-    request, response = decode_trace(trace)
+def reconstruct_candidate(base, response, scope, max_gradient):
+    require(math.isfinite(max_gradient) and max_gradient > 0, "Actual request gradient bound must be finite and positive")
     config = json.loads(response.metadata["model_config"])
     require(config == base["config"], "Actual model configuration changed between stages")
-    expected = HEAD_NAMES if trace["training_stage"] == "heads" else contextual_trainable_names(config, FULL_ENCODER_STRATEGY)
+    expected = HEAD_NAMES if scope == "heads" else contextual_trainable_names(config, FULL_ENCODER_STRATEGY)
     require(len(response.gradients) == len(expected) and {p.name for p in response.gradients} == set(expected), "Actual delta inventory differs from stage")
     require(json.loads(response.metadata["trained_parameter_names"]) == sorted(expected), "Claimed trained inventory differs")
-    require(response.base_version == base["version"] and response.metadata["base_parameter_fingerprint"] == base["fingerprint"], "Stage used stale base")
+    require(response.base_version == base["version"] and response.metadata["base_parameter_fingerprint"] == training_fingerprint(base["parameters"]), "Stage used stale base")
     updated = dict(base["parameters"])
     for delta in response.gradients:
         require(tuple(delta.shape) == base["shapes"][delta.name], "Actual delta shape differs")
         require(all(math.isfinite(v) for v in delta.values), "Nonfinite actual delta")
+        require(all(abs(v) <= max_gradient for v in delta.values), "Actual delta exceeds request gradient bound")
         require(len(delta.values)==math.prod(base["shapes"][delta.name]), "Actual delta value count differs")
         updated[delta.name] = tuple(float32(v) for v in updated_parameter_values(base["parameters"][delta.name], delta.values))
-    candidate_fp = fingerprint(updated, base["shapes"])
     inventory_fp = parameter_fingerprint({n:() for n in expected},{n:base["shapes"][n] for n in expected})
     require(response.metadata["trained_parameter_inventory_fingerprint"]==inventory_fp,"Actual inventory fingerprint differs")
-    require(candidate_fp == response.metadata["updated_parameter_fingerprint"], "Actual candidate fingerprint differs from reconstructed deltas")
+    require(training_fingerprint(updated) == response.metadata["updated_parameter_fingerprint"], "Actual candidate fingerprint differs from reconstructed deltas")
+    return updated
+
+
+def apply_actual_stage(base, trace):
+    request, response = decode_trace(trace)
+    updated = reconstruct_candidate(base, response, trace["training_stage"], request.max_gradient)
     ack = trace["ack"]
     require(trace["gate_passed"] is True and ack["accepted"] is True and ack["model_id"] == base["model_id"], "Stage not accepted/published")
     require(ack["applied_version"] and ack["applied_version"] != base["version"], "Publication version did not advance")
-    return dict(base, parameters=updated, version=ack["applied_version"], fingerprint=candidate_fp)
+    return dict(base, parameters=updated, version=ack["applied_version"], fingerprint=fingerprint(updated, base["shapes"]))
 
 
 def verify_pair(initial, head, full, final):
@@ -142,6 +154,8 @@ def verify_pair(initial, head, full, final):
     require(final["model_id"] == s2["model_id"] and final["version"] == s2["version"] and final["config"] == s2["config"], "Final stream identity/config differs")
     require(final["parameters"] == s2["parameters"] and final["shapes"] == s2["shapes"] and final["fingerprint"] == s2["fingerprint"], "Published S2 differs from exact actual candidate")
     return {"observed_streamed_s0": s0["fingerprint"], "reconstructed_s1": s1["fingerprint"],
+            "training_wire_s0": training_fingerprint(s0["parameters"]), "training_wire_s1": training_fingerprint(s1["parameters"]),
+            "training_wire_s2": training_fingerprint(s2["parameters"]),
             "observed_full_base_version": full["base_version"], "observed_full_base_checksum": full["metadata"]["artifact_checksum"],
             "observed_streamed_s2": final["fingerprint"], "head_version": s1["version"], "full_version": s2["version"]}
 
@@ -206,7 +220,7 @@ def boundary_requests(runtime_stub, model_id, expected):
                 require({e.phase for e in response.executions}==set(counts),"Boundary training phases differ")
                 require(all(e.layer==R.DETECTION_LAYER_SEMANTIC and e.status=="ok" and not e.error and e.examples==counts[e.phase] for e in response.executions), "Boundary training execution differs")
                 require(all(math.isfinite(v) for delta in response.gradients for v in delta.values),"Nonfinite boundary gradients")
-                require(response.metadata["base_parameter_fingerprint"]==expected["fingerprint"] and response.base_version==expected["version"],"Boundary training used another base")
+                reconstruct_candidate(expected,response,"heads" if method=="ComputeSemanticGradients" else "full_encoder",request.max_gradient)
             else:
                 require(bool(response.error) and "256" in response.error and not response.gradients, "Overlength training did not fail closed")
             records.append({"tokens":count,"rpc":method,"request":MessageToDict(request,preserving_proto_field_name=True),"response":MessageToDict(response,preserving_proto_field_name=True)})

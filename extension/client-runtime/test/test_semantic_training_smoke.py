@@ -12,7 +12,7 @@ for path in (ROOT/'shared/python',ROOT/'extension/client-runtime',ROOT/'extensio
 from privoke.v1 import runtime_pb2 as R
 from privoke_model.contextual_training import full_encoder_tensor_shapes, HEAD_NAMES
 from privoke_model.fingerprint import parameter_fingerprint
-from semantic_training_smoke import decode_trace, apply_actual_stage, fingerprint
+from semantic_training_smoke import decode_trace, apply_actual_stage, reconstruct_candidate, fingerprint, training_fingerprint
 
 
 class SemanticTrainingSmokeTests(unittest.TestCase):
@@ -24,14 +24,14 @@ class SemanticTrainingSmokeTests(unittest.TestCase):
         import math
         params={n:tuple([0.]*math.prod(shape)) for n,shape in shapes.items()}
         base={'model_id':'privoke-balanced','version':'v0','parameters':params,'shapes':shapes,'config':config,'fingerprint':fingerprint(params,shapes)}
-        request=R.ComputeSemanticGradientsRequest(model_id='privoke-balanced',request_id='heads',layers=[R.DETECTION_LAYER_SEMANTIC],examples=[R.RuntimeTrainingExample(text='train',has_target=True,weight=1)],heldout_examples=[R.RuntimeTrainingExample(text='guard',has_target=True,weight=1)])
-        response=R.ComputeSemanticGradientsResponse(model_id=request.model_id,request_id=request.request_id,base_version='v0',metadata={'training_scope':'heads','model_config':json.dumps(config),'base_parameter_fingerprint':base['fingerprint'],'trained_parameter_names':json.dumps(sorted(HEAD_NAMES))})
+        request=R.ComputeSemanticGradientsRequest(model_id='privoke-balanced',request_id='heads',max_gradient=.02,layers=[R.DETECTION_LAYER_SEMANTIC],examples=[R.RuntimeTrainingExample(text='train',has_target=True,weight=1)],heldout_examples=[R.RuntimeTrainingExample(text='guard',has_target=True,weight=1)])
+        response=R.ComputeSemanticGradientsResponse(model_id=request.model_id,request_id=request.request_id,base_version='v0',metadata={'training_scope':'heads','model_config':json.dumps(config),'base_parameter_fingerprint':training_fingerprint(params),'trained_parameter_names':json.dumps(sorted(HEAD_NAMES))})
         for name in sorted(HEAD_NAMES):response.gradients.add(name=name,shape=shapes[name],values=[.01]*len(params[name]))
         for phase in ('training','base_heldout','candidate_heldout'):response.executions.add(phase=phase,layer=R.DETECTION_LAYER_SEMANTIC,status='ok',examples=1)
         from privoke_model.artifact import updated_parameter_values,float32
         candidate=dict(params)
         for delta in response.gradients:candidate[delta.name]=tuple(float32(v) for v in updated_parameter_values(params[delta.name],delta.values))
-        response.metadata['updated_parameter_fingerprint']=fingerprint(candidate,shapes)
+        response.metadata['updated_parameter_fingerprint']=training_fingerprint(candidate)
         response.metadata['trained_parameter_inventory_fingerprint']=parameter_fingerprint({n:() for n in HEAD_NAMES},{n:shapes[n] for n in HEAD_NAMES})
         return base,request,response
 
@@ -40,7 +40,9 @@ class SemanticTrainingSmokeTests(unittest.TestCase):
 
     def test_float32_candidate_reconstruction_preserves_all_encoder_values(self):
         base,req,res=self.fixture();updated=apply_actual_stage(base,self.trace(req,res))
-        self.assertEqual(updated['fingerprint'],res.metadata['updated_parameter_fingerprint'])
+        self.assertEqual(training_fingerprint(updated['parameters']),res.metadata['updated_parameter_fingerprint'])
+        self.assertEqual(updated['fingerprint'],fingerprint(updated['parameters'],updated['shapes']))
+        self.assertNotEqual(updated['fingerprint'],res.metadata['updated_parameter_fingerprint'])
         self.assertTrue(all(updated['parameters'][n]==base['parameters'][n] for n in base['parameters'] if n not in HEAD_NAMES))
 
     def test_rejects_empty_layers_even_if_trace_claims_semantic(self):
@@ -63,8 +65,45 @@ class SemanticTrainingSmokeTests(unittest.TestCase):
     def test_rejects_stale_base_and_candidate_fingerprint_claim(self):
         base,req,res=self.fixture();res.metadata['base_parameter_fingerprint']='0'*64
         with self.assertRaisesRegex(AssertionError,'stale'):apply_actual_stage(base,self.trace(req,res))
-        res.metadata['base_parameter_fingerprint']=base['fingerprint'];res.metadata['updated_parameter_fingerprint']='0'*64
+        res.metadata['base_parameter_fingerprint']=training_fingerprint(base['parameters']);res.metadata['updated_parameter_fingerprint']='0'*64
         with self.assertRaisesRegex(AssertionError,'candidate fingerprint'):apply_actual_stage(base,self.trace(req,res))
+
+    def test_training_wire_rejects_shape_bound_hashes_for_identical_values(self):
+        base,req,res=self.fixture()
+        res.metadata['base_parameter_fingerprint']=base['fingerprint']
+        with self.assertRaisesRegex(AssertionError,'stale'):apply_actual_stage(base,self.trace(req,res))
+        res.metadata['base_parameter_fingerprint']=training_fingerprint(base['parameters'])
+        candidate=apply_actual_stage(base,self.trace(req,res))
+        res.metadata['updated_parameter_fingerprint']=candidate['fingerprint']
+        with self.assertRaisesRegex(AssertionError,'candidate fingerprint'):apply_actual_stage(base,self.trace(req,res))
+
+    def test_actual_request_bound_is_enforced_in_both_stage_and_boundary_paths(self):
+        from privoke_model.artifact import updated_parameter_values,float32
+        for scope in ('heads','full_encoder'):
+            with self.subTest(scope=scope):
+                base,req,res=self.fixture()
+                names=HEAD_NAMES if scope=='heads' else set(base['parameters'])
+                res.ClearField('gradients')
+                for n in sorted(names):res.gradients.add(name=n,shape=base['shapes'][n],values=[.01]*len(base['parameters'][n]))
+                values=dict(base['parameters'])
+                for n in names:values[n]=tuple(float32(v) for v in updated_parameter_values(values[n],[.01]*len(values[n])))
+                res.metadata.update(training_scope=scope,trained_parameter_names=json.dumps(sorted(names)),
+                    trained_parameter_inventory_fingerprint=parameter_fingerprint({n:() for n in names},{n:base['shapes'][n] for n in names}),
+                    updated_parameter_fingerprint=training_fingerprint(values))
+                reconstruct_candidate(base,res,scope,req.max_gradient)
+                req.max_gradient=.001
+                trace=self.trace(req,res)
+                trace['training_stage']=scope
+                trace['execution_evidence']['rpc']='ComputeSemanticGradients' if scope=='heads' else 'ComputeUnderlyingModelGradients'
+                with self.assertRaisesRegex(AssertionError,'exceeds request gradient bound'):apply_actual_stage(base,trace)
+                # Boundary RPC checks use this same strict reconstruction entry point.
+                with self.assertRaisesRegex(AssertionError,'exceeds request gradient bound'):reconstruct_candidate(base,res,scope,req.max_gradient)
+
+    def test_request_gradient_bound_must_be_finite_and_positive(self):
+        base,_,res=self.fixture()
+        for bound in (0,-1,float('nan'),float('inf')):
+            with self.subTest(bound=bound),self.assertRaisesRegex(AssertionError,'finite and positive'):
+                reconstruct_candidate(base,res,'heads',bound)
 
     def test_real_fixture_preserves_short_output_and_position_prefix_without_training(self):
         import tempfile
@@ -125,16 +164,20 @@ class SemanticTrainingSmokeTests(unittest.TestCase):
         s1=apply_actual_stage(base,head)
         full_req=copy.deepcopy(req);full_req.request_id='full'
         full_res=copy.deepcopy(res);full_res.request_id='full';full_res.base_version='v1';full_res.ClearField('gradients')
-        full_res.metadata.update(training_scope='full_encoder',base_parameter_fingerprint=s1['fingerprint'],artifact_checksum='a'*64,trained_parameter_names=json.dumps(sorted(base['parameters'])))
+        full_res.metadata.update(training_scope='full_encoder',base_parameter_fingerprint=training_fingerprint(s1['parameters']),artifact_checksum='a'*64,trained_parameter_names=json.dumps(sorted(base['parameters'])))
         for n in sorted(base['parameters']):full_res.gradients.add(name=n,shape=base['shapes'][n],values=[.01]*len(base['parameters'][n]))
         values={n:tuple(float32(v) for v in updated_parameter_values(s1['parameters'][n],[.01]*len(s1['parameters'][n]))) for n in s1['parameters']}
-        full_res.metadata['updated_parameter_fingerprint']=fingerprint(values,base['shapes'])
+        full_res.metadata['updated_parameter_fingerprint']=training_fingerprint(values)
         full_res.metadata['trained_parameter_inventory_fingerprint']=parameter_fingerprint({n:() for n in base['parameters']},base['shapes'])
         full=self.trace(full_req,full_res);full.update(training_stage='full_encoder',request_id='full',source_id=hashlib.sha256(b'underlying-v1:auto').hexdigest())
         full['ack']['applied_version']='v2';full['execution_evidence']['rpc']='ComputeUnderlyingModelGradients'
         final=dict(base,parameters=values,fingerprint=fingerprint(values,base['shapes']),version='v2')
         proof=verify_pair(initial,head,full,final)
         self.assertEqual(proof['observed_streamed_s2'],final['fingerprint'])
+        self.assertEqual(proof['training_wire_s2'],training_fingerprint(final['parameters']))
+        wrong_shapes=dict(final,shapes=dict(final['shapes']))
+        wrong_shapes['shapes']['token_embedding']=(1,len(final['parameters']['token_embedding']))
+        with self.assertRaisesRegex(AssertionError,'Published S2'):verify_pair(initial,head,full,wrong_shapes)
         full_res.gradients[0].values[0]=float('nan')
         bad=self.trace(full_req,full_res);bad.update(training_stage='full_encoder',source_id=full['source_id'])
         bad['execution_evidence']['rpc']='ComputeUnderlyingModelGradients'
