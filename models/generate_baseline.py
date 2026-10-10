@@ -190,6 +190,9 @@ def bootstrap_heads(
         config,
         {name: array.ravel() for name, array in arrays.items()},
         {name: array.shape for name, array in arrays.items()},
+        # Bootstrap updates NumPy arrays in place; cached accelerator tensors
+        # would retain the initial heads instead of observing each SGD update.
+        device="cpu",
     )
     for _ in range(epochs):
         for index in rng.permutation(len(samples)):

@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 import unittest
 from dataclasses import replace
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 for path in (ROOT / "evaluation", ROOT / "shared/python", ROOT / "extension/client-runtime", ROOT / "models"):
@@ -10,6 +11,7 @@ for path in (ROOT / "evaluation", ROOT / "shared/python", ROOT / "extension/clie
 
 import numpy as np
 import torch
+import generate_baseline
 from generate_baseline import MODEL_PROFILES, initial_parameters, SENSITIVITIES, VISIBILITIES, CATEGORIES
 from src.model import ModelConfig, TinyTransformerModel
 from src.detection.preprocessing import normalize_text
@@ -36,6 +38,37 @@ class InHouseTransformerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         torch.set_num_threads(1)
+
+    def test_baseline_bootstrap_uses_live_cpu_heads_and_repeats_exactly(self):
+        config, initial = fixture(layers=1)
+        sample = ("Synthetic financial disclosure", "S2", "P3", ("FINANCIAL",))
+        expected = {name: value.copy() for name, value in initial.items()}
+        # Reconstruct for each step so this reference cannot use stale heads.
+        for _ in range(2):
+            deltas = runtime(config, expected).classification_head_deltas(
+                sample[0], sensitivity=sample[1], visibility=sample[2], categories=sample[3])
+            for name, values in deltas.items():
+                expected[name] += .025 * np.asarray(values, dtype=np.float32).reshape(expected[name].shape)
+
+        def cpu_only(requested):
+            if requested != "cpu":
+                raise AssertionError("Baseline bootstrap must not resolve an automatic accelerator.")
+            return "cpu", None
+
+        outputs = []
+        for _ in range(2):
+            arrays = {name: value.copy() for name, value in initial.items()}
+            with patch.object(generate_baseline, "training_samples", return_value=[sample, sample]), \
+                    patch("src.model._resolve_compute_device", side_effect=cpu_only), \
+                    patch.dict("os.environ", {"PRIVOKE_MODEL_DEVICE": "cuda"}):
+                generate_baseline.bootstrap_heads(config, arrays, np.random.default_rng(19), 1)
+            for name in arrays:
+                np.testing.assert_array_equal(arrays[name], expected[name])
+                if name not in generate_baseline.TRAINABLE:
+                    np.testing.assert_array_equal(arrays[name], initial[name])
+            outputs.append(arrays)
+        for name in outputs[0]:
+            self.assertEqual(outputs[0][name].tobytes(), outputs[1][name].tobytes())
 
     def test_numpy_logits_padding_empty_unicode_and_single_layer_parity(self):
         texts = ("", "Ｓｙｎｔｈｅｔｉｃ [at] example.test 🧪", "Short", "word " * 40)

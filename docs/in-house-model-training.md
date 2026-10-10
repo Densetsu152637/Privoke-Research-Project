@@ -14,8 +14,10 @@ source.
 `models/generate_baseline.py::initial_parameters` creates token and position
 embeddings, attention, and feed-forward tensors from seeded NumPy randomness.
 Its `TRAINABLE` set contains only the six sensitivity, visibility, and category
-head tensors. `bootstrap_heads` updates those heads on the script's small
-synthetic phrase curriculum; encoder tensors remain fixed at their random
+head tensors. `bootstrap_heads` explicitly uses CPU inference so its in-place
+NumPy updates are visible to every subsequent prediction, independent of
+accelerator availability or `PRIVOKE_MODEL_DEVICE`. It updates those heads on
+the script's small synthetic phrase curriculum; encoder tensors remain fixed at their random
 initialization. This is head-only bootstrap fine-tuning, not end-to-end encoder
 training or language-model pretraining.
 
@@ -112,10 +114,15 @@ protocol does not authorize this transformer fit; a real training experiment
 requires its own prospectively reviewed protocol.
 
 The differentiable trainer, isolated training image, and mechanics tests have
-since been added and mechanically tested, but no research-data fit or resulting
-accuracy measurement exists. Work remains separate from the existing head-only
-fuzzer updates and sparse-presence study. Before any fit is treated as evidence,
-the design requires:
+since been added and mechanically tested. The separate
+[9 October curriculum comparison](fuzzer-curriculum-improvement-process-20261009.md)
+also completed 18 exploratory head-only/full-encoder cells on provisional
+authored contextual labels: three profiles, three seeds and two training modes,
+each with 20 Adam batches of 32. None qualified; disclosure joint correctness
+remained 0/32 at every offline endpoint, and every cell introduced fixture harms.
+These are measured exploratory results, not an independently reviewed-data fit
+or a promoted model. Work remains separate from the existing head-only fuzzer
+updates and sparse-presence study. The pending reviewed-data design requires:
 
 - independent train/validation/test groups and explicitly reviewed labels for
   the chosen task; no reuse of development or locked final rows for fitting;
@@ -132,7 +139,8 @@ The current draft proposes comparing a head-only random-encoder arm with an
 end-to-end random-encoder arm under the same tokenizer, initialization, and
 prospectively reviewed grouped data. It is not an accepted protocol, a result, or
 permission to score data before the separate data and protocol gates pass.
-Research-data fit, resource use, and performance remain unmeasured for this path.
+Fit, resource use, and performance under that reviewed-data design remain
+unmeasured; the provisional-label comparison above does not satisfy its gates.
 
 ## Labels, publication limits, and claims
 
