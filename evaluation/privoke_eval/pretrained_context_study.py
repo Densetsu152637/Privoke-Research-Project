@@ -612,12 +612,126 @@ def endpoint_metrics(predictions):
     return result
 
 
+SECONDARY_CHANGED_PATHS = frozenset(("evaluation/privoke_eval/pretrained_context_study.py",
+                                   "evaluation/tests/test_pretrained_context_study.py"))
+
+
+def fixture_action(row, action):
+    eligible = not row["ambiguous"] and row.get("action_accuracy_eligible", True)
+    allowed = row.get("allowed_actions")
+    if eligible and (not isinstance(allowed, list) or not allowed
+                     or any(not isinstance(value, str) or value not in {"ALLOW", "WARN", "BLOCK"} for value in allowed)
+                     or len(set(allowed)) != len(allowed)):
+        raise ValueError("Eligible fixture actions require a nonempty valid action list.")
+    return {"action_eligible": eligible, "allowed_actions": allowed,
+            "action_correct": action in allowed if eligible else None}
+
+
+def verify_secondary_amendment(output, path):
+    """Allow exactly the accepted secondary repair without relaxing primary gates."""
+    amendment, frozen, eligibility = read(path), read(output / "freeze.json"), read(output / "eligibility.json")
+    revision = git("rev-parse", "HEAD")
+    expected = {"schema_version": 1, "status": "accepted", "scope": "secondary-only",
+        "freeze_sha256": sha(output / "freeze.json"), "selection_commitment_sha256": sha(output / "selection-commitment.json"),
+        "frozen_runtime_source_revision": frozen["source_revision"], "controller_revision": revision}
+    import re
+    if (any(amendment.get(k) != v for k, v in expected.items())
+            or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", amendment.get("amendment_id", ""))
+            or any(not amendment.get(k) for k in ("reason", "review_evidence", "test_evidence"))
+            or set(amendment.get("permitted_changed_paths", [])) != SECONDARY_CHANGED_PATHS
+            or set(amendment.get("amended_source_hashes", {})) != SECONDARY_CHANGED_PATHS):
+        raise ValueError("Accepted, revision-bound secondary-only amendment required.")
+    current = source_inventory()
+    changed = {name for name in set(current) | set(frozen["sources"]) if current.get(name) != frozen["sources"].get(name)}
+    committed_changed = set(git("diff", "--name-only", frozen["source_revision"], revision).splitlines())
+    if (changed != SECONDARY_CHANGED_PATHS or committed_changed != SECONDARY_CHANGED_PATHS
+            or any(current[name] != amendment["amended_source_hashes"][name] for name in SECONDARY_CHANGED_PATHS)
+            or sha(output / "eligibility.json") != frozen["eligibility_sha256"]):
+        raise ValueError("Unlisted or uncommitted source/eligibility amendment.")
+    verify_prepared(output, eligibility)
+    for filename, key in (("model.onnx", "backbone_sha256"), ("tokenizer.json", "tokenizer_sha256")):
+        if sha(Path(eligibility["assets"]["directory"]) / filename) != eligibility["assets"][key]:
+            raise ValueError("Original encoder assets changed.")
+    commitment, seen = read(output / "selection-commitment.json"), set()
+    if commitment.get("freeze_sha256") != sha(output / "freeze.json") or len(commitment.get("selections", [])) != 6:
+        raise ValueError("Original six selections required.")
+    for item in commitment["selections"]:
+        receipt_path = permitted(output / item["file"]); receipt_path.relative_to(output)
+        receipt = read(receipt_path)
+        artifact_path = permitted(receipt_path.parent / receipt["selected"]["artifact"]); artifact_path.relative_to(output)
+        key = receipt["arm"], receipt["seed"]
+        if (sha(receipt_path) != item["sha256"] or key in seen or receipt["steps"] != 2000
+                or receipt["freeze_sha256"] != sha(output / "freeze.json")
+                or sha(artifact_path) != receipt["selected"]["artifact_sha256"]):
+            raise ValueError("Original selected artifact/receipt changed.")
+        seen.add(key)
+    if seen != {(arm, seed) for arm in ARMS for seed in SEEDS}:
+        raise ValueError("Original paired selections incomplete.")
+    return amendment
+
+
+def secondary_server_manifest(args, output, amendment):
+    record = read(args.server_manifest)
+    frozen = read(output / "freeze.json")
+    runtime_hashes = {name: value for name, value in frozen["sources"].items()
+                      if name.startswith(("extension/client-runtime/", "shared/", "services/model-streaming-service/"))}
+    expected = {"source_revision": amendment["controller_revision"], "checkout_revision": amendment["controller_revision"],
+        "frozen_runtime_source_revision": frozen["source_revision"], "runtime_source_hashes": runtime_hashes,
+        "runtime_device": "cpu", "encoder_threads": 1, "concurrent_publication": False, "automatic_training": False,
+        "catalog_isolated": True, "runtime_target": args.runtime_target, "model_target": args.model_target}
+    if (any(record.get(k) != v for k, v in expected.items()) or not record.get("runtime_pid") or not record.get("cpu_name")
+            or not args.runtime_target.startswith(("127.0.0.1:", "localhost:"))):
+        raise ValueError("Secondary serving attestation must bind actual checkout and unchanged frozen runtime.")
+    if os.name == "nt":
+        port = int(args.runtime_target.rsplit(":", 1)[1])
+        command = f"Get-NetTCPConnection -State Listen -LocalPort {port} | Select-Object -ExpandProperty OwningProcess | ConvertTo-Json -Compress"
+        result = subprocess.run(["powershell", "-NoProfile", "-Command", command], capture_output=True, text=True, check=True)
+        owners = json.loads(result.stdout)
+        if record["runtime_pid"] not in (owners if isinstance(owners, list) else [owners]):
+            raise ValueError("Attested secondary runtime PID does not own the listener.")
+    return record
+
+
+def reuse_completed_development(path, amendment, arm, seed, identity):
+    binding = amendment.get("development_reuse", {}) if amendment else {}
+    if arm != "random" or seed != 42 or str(permitted(path)) != binding.get("path") or sha(path) != binding.get("receipt_sha256"):
+        raise ValueError("Development reuse requires accepted original random42 receipt binding.")
+    receipt = read(path)
+    block = receipt.get("endpoints", {}).get("development_presence", {})
+    predictions, summary = block.get("predictions", []), block.get("summary", {})
+    if (receipt.get("status") != "failed" or receipt.get("identity") != identity
+            or sha256(canonical_json(block).encode()) != binding.get("block_sha256")
+            or len(predictions) != 502 or len({p["id"] for p in predictions}) != 502
+            or any(p.get("status") != "ok" for p in predictions)
+            or any(summary.get(k) != v for k, v in {"loaded_samples": 502, "evaluated_samples": 502, "runtime_errors": 0}.items())):
+        raise ValueError("Original development block must contain all 502 successful identity-bound rows.")
+    return block
+
+
+def fixture_summary(data, predictions):
+    eligible = [p for p in predictions if p["status"] == "ok" and p["quantitative"]]
+    action_rows = [p for p in eligible if p["action_eligible"]]
+    errors = sum(p["status"] != "ok" for p in predictions)
+    return {"loaded_rows": len(data), "runtime_errors": errors, "evaluated_rows": len(predictions) - errors,
+        "coverage": (len(predictions) - errors) / len(data), "ambiguous_exclusions": sum(row["ambiguous"] for row in data),
+        "expected_action_eligible": sum(not row["ambiguous"] and row.get("action_accuracy_eligible", True) for row in data),
+        "sensitivity_denominator": len(eligible), "sensitivity_correct": sum(p["sensitivity_correct"] for p in eligible),
+        "action_denominator": len(action_rows), "action_correct": sum(p["action_correct"] for p in action_rows),
+        "category_exact_comparison": "excluded: historical topic-tag convention differs",
+        "private_action_failures": [p["id"] for p in action_rows if not p["action_correct"] and p["visibility"] in {"P2", "P3", "P4"}]}
+
+
 def secondary(args):
     """Reused public presence and historical sensitivity/action guards, kept separate."""
     output = permitted(args.output)
-    selection_barrier(output)
-    _, eligibility = verify_freeze(output)
-    server_manifest(args, output)
+    amendment_path = getattr(args, "amendment", None)
+    amendment = verify_secondary_amendment(output, amendment_path) if amendment_path else None
+    if amendment is None:
+        selection_barrier(output)
+        _, eligibility = verify_freeze(output)
+    else:
+        eligibility = read(output / "eligibility.json")
+    secondary_server_manifest(args, output, amendment) if amendment else server_manifest(args, output)
     server_sha = sha(args.server_manifest)
     if args.arm == "baseline":
         artifact = load_artifact(eligibility["baseline"]["path"])
@@ -628,7 +742,11 @@ def secondary(args):
         artifact = load_artifact(directory / selected["artifact"])
         tag = f"{args.arm}-{args.seed}"
     identity = artifact_identity(artifact)
-    destination = output / f"secondary-{tag}.json"
+    amendment_sha = sha(amendment_path) if amendment else None
+    provenance = {"controller_revision": git("rev-parse", "HEAD"), "runtime_source_revision": read(output / "freeze.json")["source_revision"],
+                  "amendment_sha256": amendment_sha, "selected_artifact_identity": identity,
+                  "selected_artifact_sha256": sha(eligibility["baseline"]["path"] if args.arm == "baseline" else directory / selected["artifact"])}
+    destination = output / (f"secondary-{tag}-amendment-{amendment['amendment_id']}.json" if amendment else f"secondary-{tag}.json")
     if destination.exists():
         raise ValueError("Secondary endpoint already attempted; preserve its result.")
     from .continual_fuzzer_study import RpcClient, metrics
@@ -636,16 +754,22 @@ def secondary(args):
     from google.protobuf.json_format import MessageToDict
     client = RpcClient(args.fuzzer_target, args.runtime_target, args.model_target)
     endpoints = {}
-    write(destination, {"status": "started", "identity": identity})
+    reuse = getattr(args, "reuse_development", None)
+    if reuse:
+        endpoints["development_presence"] = reuse_completed_development(reuse, amendment, args.arm, args.seed, identity)
+        provenance["development_reuse"] = {"receipt_sha256": sha(reuse), "block_sha256": sha256(canonical_json(endpoints["development_presence"]).encode())}
+    write(destination, {"status": "started", "identity": identity, "provenance": provenance})
     try:
         development_path = next(item["path"] for item in eligibility["prior_public_inputs"] if Path(item["path"]).name == "development.jsonl")
         for name, data in (("development_presence", rows(development_path)), ("historical_fixture", rows(FIXTURE))):
+            if name in endpoints:
+                continue
             predictions = []
             for row in data:
                 key = row.get("id", row.get("case_id"))
                 if client.snapshot(artifact["model_id"])["identity"] != identity:
                     raise ValueError("Secondary before-request identity changed.")
-                request_id = "secondary-" + sha256(f"{tag}:{name}:{key}".encode())[:40]
+                request_id = "secondary-" + sha256(f"{amendment_sha}:{tag}:{name}:{key}".encode())[:40] if amendment else "secondary-" + sha256(f"{tag}:{name}:{key}".encode())[:40]
                 request = RP.AnalyzePromptRequest(text=row["text"], source="pretrained-secondary", request_id=request_id,
                     semantic_model_id=artifact["model_id"], layers=[RP.DETECTION_LAYER_SEMANTIC])
                 response = client.runtime.AnalyzePrompt(request, timeout=120)
@@ -667,8 +791,7 @@ def secondary(args):
                 else:
                     record.update(quantitative=not row["ambiguous"], expected_sensitivity=row["expected_sensitivity"],
                         sensitivity_correct=predicted["sensitivity"] == row["expected_sensitivity"],
-                        action_eligible=not row["ambiguous"] and row.get("action_accuracy_eligible", True),
-                        allowed_actions=row["allowed_actions"], action_correct=response.action in row["allowed_actions"],
+                        **fixture_action(row, response.action),
                         minimum_action=row.get("minimum_action"), visibility=row["expected_visibility"])
                 predictions.append(record)
             if name == "development_presence":
@@ -677,21 +800,15 @@ def secondary(args):
                 metric_rows = [{**p, "expected_has_pii": by_id[p["id"]]["expected_has_pii"]} for p in predictions]
                 summary = metrics(metric_rows)
             else:
-                eligible = [p for p in predictions if p["status"] == "ok" and p["quantitative"]]
-                action_rows = [p for p in eligible if p["action_eligible"]]
-                summary = {"loaded_rows": len(data), "runtime_errors": sum(p["status"] != "ok" for p in predictions),
-                    "sensitivity_denominator": len(eligible), "sensitivity_correct": sum(p["sensitivity_correct"] for p in eligible),
-                    "action_denominator": len(action_rows), "action_correct": sum(p["action_correct"] for p in action_rows),
-                    "category_exact_comparison": "excluded: historical topic-tag convention differs",
-                    "private_action_failures": [p["id"] for p in action_rows if not p["action_correct"] and p["visibility"] in {"P2", "P3", "P4"}]}
+                summary = fixture_summary(data, predictions)
             endpoints[name] = {"summary": summary, "predictions": predictions}
-            write(destination, {"status": "running", "identity": identity, "endpoints": endpoints})
+            write(destination, {"status": "running", "identity": identity, "endpoints": endpoints, "provenance": provenance})
         if sha(args.server_manifest) != server_sha:
             raise ValueError("Secondary server attestation changed.")
         write(destination, {"status": "complete", "identity": identity, "endpoints": endpoints,
-            "scope": "reused secondary endpoints; no fresh TEST claim", "server_manifest_sha256": server_sha})
+            "scope": "reused secondary endpoints; no fresh TEST claim", "server_manifest_sha256": server_sha, "provenance": provenance})
     except Exception as exc:
-        write(destination, {"status": "failed", "error": str(exc), "identity": identity, "endpoints": endpoints})
+        write(destination, {"status": "failed", "error": str(exc), "identity": identity, "endpoints": endpoints, "provenance": provenance})
         raise
     finally:
         client.close()
@@ -904,6 +1021,8 @@ def main(argv=None):
     guard.add_argument("--model-target", default="127.0.0.1:50051")
     guard.add_argument("--fuzzer-target", default="127.0.0.1:50053")
     guard.add_argument("--server-manifest", type=Path, required=True)
+    guard.add_argument("--amendment", type=Path, help="Accepted secondary-only amendment; primary commands never accept this option")
+    guard.add_argument("--reuse-development", type=Path, help="Hash-bound complete original random42 development block; rerun all fixture rows")
     args = parser.parse_args(argv)
     os.environ.setdefault("TEMP", str(ASSETS / "tmp")); os.environ.setdefault("TMP", str(ASSETS / "tmp"))
     {"prepare": prepare, "freeze": freeze, "fit": fit, "evaluate": evaluate, "operational": operational,

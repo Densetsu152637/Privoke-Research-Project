@@ -15,6 +15,109 @@ from privoke.v1 import runtime_pb2 as RP
 
 
 class PretrainedStudyTests(unittest.TestCase):
+    def test_fixture_action_eligibility_null_and_warn_block_membership(self):
+        row = {"ambiguous": True, "allowed_actions": None}
+        self.assertEqual(study.fixture_action(row, "WARN"), {"action_eligible": False, "allowed_actions": None, "action_correct": None})
+        row = {"ambiguous": False, "allowed_actions": ["WARN", "BLOCK"]}
+        self.assertTrue(study.fixture_action(row, "WARN")["action_correct"])
+        self.assertTrue(study.fixture_action(row, "BLOCK")["action_correct"])
+        self.assertFalse(study.fixture_action(row, "ALLOW")["action_correct"])
+        for invalid in (None, [], "WARN", ["REJECT"], ["WARN", "WARN"], [{}]):
+            with self.assertRaises(ValueError):
+                study.fixture_action({"ambiguous": False, "allowed_actions": invalid}, "WARN")
+
+    def test_fixture_all_rows_retained_and_runtime_error_not_clean(self):
+        data = [{"ambiguous": i < 7, "allowed_actions": None if i < 7 else ["WARN", "BLOCK"]} for i in range(48)]
+        predictions = [{"id": str(i), "status": "ok", "quantitative": not row["ambiguous"],
+            "sensitivity_correct": True, "visibility": "P3", **study.fixture_action(row, "WARN")} for i, row in enumerate(data)]
+        summary = study.fixture_summary(data, predictions)
+        self.assertEqual((summary["loaded_rows"], summary["ambiguous_exclusions"], summary["action_denominator"]), (48, 7, 41))
+        self.assertTrue(all(p["action_correct"] is None for p in predictions[:7]))
+        predictions[-1] = {"id": "47", "status": "error", "error": "runtime failed"}
+        summary = study.fixture_summary(data, predictions)
+        self.assertEqual(summary["runtime_errors"], 1)
+        self.assertEqual(summary["action_denominator"], 40)
+        self.assertEqual(summary["expected_action_eligible"], 41)
+        self.assertEqual(summary["coverage"], 47 / 48)
+
+    def amendment_fixture(self, root):
+        original = {name: "original" for name in study.SECONDARY_CHANGED_PATHS}
+        original["extension/client-runtime/src/model.py"] = "runtime"
+        current = {**original, **{name: "amended" for name in study.SECONDARY_CHANGED_PATHS}}
+        study.write(root / "eligibility.json", {"assets": {"directory": str(root), "backbone_sha256": "asset", "tokenizer_sha256": "asset"}})
+        study.write(root / "freeze.json", {"source_revision": "original-revision", "sources": original,
+            "eligibility_sha256": study.sha(root / "eligibility.json")})
+        selections = []
+        for arm in study.ARMS:
+            for seed in study.SEEDS:
+                directory = root / f"{arm}-{seed}"; directory.mkdir()
+                study.write(directory / "artifact.json", {"head": arm, "seed": seed})
+                study.write(directory / "selection.json", {"arm": arm, "seed": seed, "steps": 2000,
+                    "freeze_sha256": study.sha(root / "freeze.json"),
+                    "selected": {"artifact": "artifact.json", "artifact_sha256": study.sha(directory / "artifact.json")}})
+                selections.append({"file": f"{arm}-{seed}/selection.json", "sha256": study.sha(directory / "selection.json")})
+        study.write(root / "selection-commitment.json", {"freeze_sha256": study.sha(root / "freeze.json"), "selections": selections})
+        amendment = {"schema_version": 1, "status": "accepted", "scope": "secondary-only", "amendment_id": "fixture-action-v1",
+            "freeze_sha256": study.sha(root / "freeze.json"), "selection_commitment_sha256": study.sha(root / "selection-commitment.json"),
+            "frozen_runtime_source_revision": "original-revision", "controller_revision": "amended-revision",
+            "permitted_changed_paths": sorted(study.SECONDARY_CHANGED_PATHS),
+            "amended_source_hashes": {name: current[name] for name in study.SECONDARY_CHANGED_PATHS},
+            "reason": "Null ambiguous fixture action repair", "review_evidence": ["controlled test"], "test_evidence": ["controlled test"]}
+        study.write(root / "amendment.json", amendment)
+        return current, amendment
+
+    def test_secondary_amendment_binds_scope_sources_selections_and_artifacts(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            current, amendment = self.amendment_fixture(root)
+            def fake_sha(path):
+                return "asset" if Path(path).name in {"model.onnx", "tokenizer.json"} else real_sha(path)
+            real_sha = study.sha
+            def fake_git(*args):
+                return "amended-revision" if args[0] == "rev-parse" else "\n".join(sorted(study.SECONDARY_CHANGED_PATHS))
+            with patch.object(study, "source_inventory", return_value=current), patch.object(study, "verify_prepared"), patch.object(study, "git", side_effect=fake_git), patch.object(study, "sha", side_effect=fake_sha):
+                self.assertEqual(study.verify_secondary_amendment(root, root / "amendment.json"), amendment)
+                with self.assertRaisesRegex(ValueError, "Source/eligibility freeze changed"):
+                    study.verify_freeze(root)
+                current["extension/client-runtime/src/model.py"] = "changed-runtime"
+                with self.assertRaisesRegex(ValueError, "Unlisted"):
+                    study.verify_secondary_amendment(root, root / "amendment.json")
+                current["extension/client-runtime/src/model.py"] = "runtime"
+                for field, bad in (("scope", "fit"), ("controller_revision", "wrong-revision"), ("frozen_runtime_source_revision", "wrong-runtime")):
+                    mutated = {**amendment, field: bad}; study.write(root / "amendment.json", mutated)
+                    with self.assertRaises(ValueError):
+                        study.verify_secondary_amendment(root, root / "amendment.json")
+                study.write(root / "amendment.json", amendment)
+                receipt_path = root / "random-42/selection.json"
+                receipt = study.read(receipt_path)
+                study.write(receipt_path, {**receipt, "steps": 1999})
+                with self.assertRaisesRegex(ValueError, "artifact/receipt"):
+                    study.verify_secondary_amendment(root, root / "amendment.json")
+                study.write(receipt_path, receipt)
+                study.write(root / "random-42/artifact.json", {"head": "mutated"})
+                with self.assertRaisesRegex(ValueError, "artifact/receipt"):
+                    study.verify_secondary_amendment(root, root / "amendment.json")
+
+    def test_reuse_only_hash_bound_complete_random42_development(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "secondary-random-42.json"
+            identity = {"model_id": "privoke-balanced", "artifact_checksum": "selected"}
+            block = {"summary": {"loaded_samples": 502, "evaluated_samples": 502, "runtime_errors": 0},
+                     "predictions": [{"id": str(i), "status": "ok"} for i in range(502)]}
+            receipt = {"status": "failed", "identity": identity, "endpoints": {"development_presence": block}}
+            study.write(path, receipt)
+            amendment = {"development_reuse": {"path": str(path.resolve()), "receipt_sha256": study.sha(path),
+                "block_sha256": study.sha256(study.canonical_json(block).encode())}}
+            self.assertEqual(study.reuse_completed_development(path, amendment, "random", 42, identity), block)
+            with self.assertRaises(ValueError):
+                study.reuse_completed_development(path, amendment, "random", 43, identity)
+            with self.assertRaises(ValueError):
+                study.reuse_completed_development(path, amendment, "random", 42, {"artifact_checksum": "other"})
+            receipt["endpoints"]["development_presence"]["predictions"].pop()
+            study.write(path, receipt)
+            with self.assertRaises(ValueError):
+                study.reuse_completed_development(path, amendment, "random", 42, identity)
+
     def test_original_balanced_identity_matches_protobuf_float32_wire_values(self):
         from privoke.v1 import parameters_pb2 as PP
         from src.LLM.privoke.parameter_stream import ParameterSnapshot
