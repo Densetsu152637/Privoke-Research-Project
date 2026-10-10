@@ -30,6 +30,21 @@ class Context:
 
 
 class UnderlyingCycleTests(unittest.TestCase):
+    def test_definitive_updater_rejections_reach_scheduler_without_transient_relabeling(self):
+        class RejectedUpdate(grpc.RpcError):
+            def __init__(self, status): self.status=status
+            def code(self): return self.status
+        self.config.param_update_target="unused"
+        self.config.fuzzer_id="test-fuzzer"
+        for status in (grpc.StatusCode.INVALID_ARGUMENT, grpc.StatusCode.FAILED_PRECONDITION,
+                       grpc.StatusCode.ALREADY_EXISTS, grpc.StatusCode.UNAVAILABLE):
+            context=Context()
+            with self.subTest(status=status),patch("fuzzer_service.emit_training_update",side_effect=RejectedUpdate(status)):
+                with self.assertRaises(Aborted):
+                    self.service._submit_update(self.request,SimpleNamespace(requested_prompt_count=8),
+                                                self.update,8,context)
+            self.assertEqual(context.code,status)
+
     def test_durable_reservation_rejects_changed_effective_settings_before_lookup_or_training(self):
         from training.evidence import reserve_training_request
         reserve_training_request(self.request,"heads","old-settings")

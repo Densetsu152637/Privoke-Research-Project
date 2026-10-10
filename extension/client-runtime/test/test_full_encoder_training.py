@@ -1,5 +1,7 @@
 """Full Tiny CPU mechanics: gradients, serialized updates and semantic-only RPC."""
 import json
+import importlib.util
+from dataclasses import replace
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -18,7 +20,7 @@ from src.LLM.privoke.supervised_training import supervised_last_block_deltas
 from src.model import TinyTransformerModel
 from src.classification import initialise_unpacked, Sensitivity, Visibility, Category
 from src.hosting.grpc_server import PrivokeRuntimeService
-from privoke.v1 import runtime_pb2
+from privoke.v1 import runtime_pb2, parameters_pb2
 from test_training_adaptation import snapshot
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -26,6 +28,40 @@ ROOT = Path(__file__).resolve().parents[3]
 
 @unittest.skipUnless(torch is not None, "Optional CPU training dependency torch is unavailable")
 class FullEncoderTrainingTests(unittest.TestCase):
+    def test_pretty_streamed_config_is_canonical_and_actual_updates_pass_updater_validation(self):
+        spec = importlib.util.spec_from_file_location("full_training_update_validation",
+                    ROOT / "services/param-update-service/app/validation.py")
+        validation = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(validation)
+        pretty = json.dumps(self.artifact["config"], indent=2).replace("\n", "\r\n")
+        streamed = snapshot(self.artifact)
+        wrapper = StreamedTransformerPrivacyModel(replace(streamed,
+                    metadata={**streamed.metadata, "model_config": pretty}))
+        for trainer in (compute_semantic_gradients, compute_underlying_model_gradients):
+            with self.subTest(trainer=trainer.__name__):
+                with patch.object(GLOBAL_STREAMED_MODEL_CACHE, "model_for_training", return_value=wrapper):
+                    batch = trainer(self.rows, model_id=self.artifact["model_id"], learning_rate=.003,
+                                    max_gradient=.0001, heldout_examples=self.heldout)
+                metadata = {**batch.metadata, **{key: str(value) for key, value in batch.metrics.items()},
+                            "request_id": "canonical-config", "request_source_id": "synthetic-test",
+                            "requested_prompt_count": "2", "generated_prompt_count": "2",
+                            "training_pipeline": "client_runtime_training", "training_request_fingerprint": "a"*64}
+                request = parameters_pb2.ParameterUpdateRequest(source_id="test-fuzzer",
+                    model_id=batch.model_id, base_version=batch.base_version, metadata=metadata,
+                    gradients=[parameters_pb2.Parameter(name=name,shape=batch.shapes[name],values=values)
+                               for name,values in batch.gradients.items()])
+                self.assertEqual(json.loads(request.metadata["model_config"]), self.artifact["config"])
+                validation.validate_parameter_update(request, expected_model_id=batch.model_id,
+                    max_abs_gradient=.0001, artifact=self.artifact)
+                self.assertEqual(request.metadata["model_config"],
+                    json.dumps(self.artifact["config"], sort_keys=True, separators=(",", ":")))
+                # The trust boundary remains strict: raw Go-style multiline
+                # metadata is rejected even though its JSON contents are valid.
+                request.metadata["model_config"] = pretty
+                with self.assertRaisesRegex(ValueError, "control characters"):
+                    validation.validate_parameter_update(request, expected_model_id=batch.model_id,
+                        max_abs_gradient=.0001, artifact=self.artifact)
+
     def test_missing_or_unusable_torch_preflight_rejects_full_capable_head_and_full(self):
         for trainer in (compute_semantic_gradients, compute_underlying_model_gradients):
             for unusable in (False, True):

@@ -393,6 +393,9 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                 "parameter update submission failed code=%s",
                 exc.code(),
             )
+            if exc.code() in (grpc.StatusCode.INVALID_ARGUMENT, grpc.StatusCode.FAILED_PRECONDITION,
+                              grpc.StatusCode.ALREADY_EXISTS):
+                context.abort(exc.code(), "Parameter update service rejected the training stage.")
             context.abort(
                 grpc.StatusCode.UNAVAILABLE,
                 "Parameter update service is unavailable.",

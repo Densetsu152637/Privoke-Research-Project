@@ -285,7 +285,8 @@ def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradie
             "trained_parameter_inventory_fingerprint": parameter_fingerprint(
                 {name: () for name in scaled}, {name: snapshot.shapes[name] for name in scaled}),
             "artifact_checksum": snapshot.metadata.get("artifact_checksum", ""),
-            "model_config": snapshot.metadata["model_config"],
+            "model_config": json.dumps(runtime_model.model.config.__dict__,
+                                       sort_keys=True, separators=(",", ":"), allow_nan=False),
             "base_parameter_fingerprint": _parameter_fingerprint(snapshot.parameters),
             "updated_parameter_fingerprint": _parameter_fingerprint(candidate_parameters),
             "learning_rate": str(learning_rate),
