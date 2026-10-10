@@ -112,6 +112,8 @@ service ParamUpdateService {
 
 service FuzzerService {
   rpc RunTrainingCycle(FuzzerTrainingRequest) returns (FuzzerTrainingResponse);
+  // Full Tiny encoder objective, separate replay namespace from the head cycle.
+  rpc RunUnderlyingTrainingCycle(FuzzerTrainingRequest) returns (FuzzerTrainingResponse);
   // Separate objective and replay fingerprint namespace from contextual training.
   rpc RunPresenceTrainingCycle(FuzzerTrainingRequest) returns (FuzzerTrainingResponse);
   rpc Health(HealthRequest) returns (HealthResponse);

@@ -35,6 +35,49 @@ func TestContextualSharedFixtureTrainabilityAndMetadata(t *testing.T) {
 	}
 }
 
+func TestFullEncoderProfilesAdmitEmbeddingsAndRejectFrozenOrWrongScope(t *testing.T) {
+	for _, profile := range []string{"baseline", "efficient", "balanced", "quality"} {
+		raw, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "models", "privoke-"+profile+".json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var artifact modelArtifact
+		if err := json.Unmarshal(raw, &artifact); err != nil {
+			t.Fatal(err)
+		}
+		artifact.Metadata[contextualStrategyKey] = contextualFullEncoderStrategy
+		for name, tensor := range artifact.Parameters {
+			tensor.Trainable = true
+			artifact.Parameters[name] = tensor
+		}
+		if err := validateModelArtifact(&artifact, ""); err != nil {
+			t.Fatalf("full profile %s rejected: %v", profile, err)
+		}
+		parameters, names := parameterMessages(artifact.Parameters)
+		if len(parameters) != len(names) {
+			t.Fatal("full tensor trainability lost during transport")
+		}
+		artifact.Metadata[contextualStrategyKey] = contextualLastBlockStrategy
+		if err := validateModelArtifact(&artifact, ""); err == nil {
+			t.Fatal("legacy strategy accepted full trainability")
+		}
+		artifact.Metadata[contextualStrategyKey] = contextualFullEncoderStrategy
+		tensor := artifact.Parameters["token_embedding"]
+		originalShape := tensor.Shape
+		tensor.Shape = []uint32{1, uint32(len(tensor.Values))}
+		artifact.Parameters["token_embedding"] = tensor
+		if err := validateModelArtifact(&artifact, ""); err == nil {
+			t.Fatal("full strategy accepted incorrect embedding dimensions")
+		}
+		tensor.Shape = originalShape
+		tensor.Trainable = false
+		artifact.Parameters["token_embedding"] = tensor
+		if err := validateModelArtifact(&artifact, ""); err == nil {
+			t.Fatal("full strategy accepted frozen embedding")
+		}
+	}
+}
+
 func TestContextualStrategyAndManifestRejectInvalid(t *testing.T) {
 	mutations := map[string]func(*modelArtifact){
 		"unknown strategy": func(a *modelArtifact) { a.Metadata[contextualStrategyKey] = "unknown" },

@@ -30,6 +30,7 @@ class RuntimeTrainingRpcTests(unittest.TestCase):
             shapes={"head.sensitivity.bias": (4,)},
             metrics={"examples": 1.0},
             metadata={"model_cache_key": "privoke-balanced:v1:fingerprint"},
+            executions=(("training", 1), ("base_heldout", 1), ("candidate_heldout", 1)),
         )
         request = runtime_pb2.ComputeSemanticGradientsRequest(
             request_id="training-1",
@@ -44,6 +45,8 @@ class RuntimeTrainingRpcTests(unittest.TestCase):
             ],
             learning_rate=0.03,
             max_gradient=0.05,
+            layers=[runtime_pb2.DETECTION_LAYER_SEMANTIC],
+            heldout_examples=[runtime_pb2.RuntimeTrainingExample(text="heldout", weight=1)],
         )
 
         with patch(
@@ -56,6 +59,27 @@ class RuntimeTrainingRpcTests(unittest.TestCase):
         self.assertEqual(response.base_version, "v1")
         self.assertEqual(response.gradients[0].shape, [4])
         self.assertEqual(compute.call_args.kwargs["model_id"], "privoke-balanced")
+        self.assertEqual([item.phase for item in response.executions], ["training", "base_heldout", "candidate_heldout"])
+        self.assertTrue(all(item.layer == runtime_pb2.DETECTION_LAYER_SEMANTIC and item.status == "ok"
+                            and item.examples == 1 and not item.error for item in response.executions))
+
+    def test_both_endpoints_reject_missing_extra_wrong_layers_before_model_execution(self):
+        service = PrivokeRuntimeService()
+        for method in (service.ComputeSemanticGradients, service.ComputeUnderlyingModelGradients):
+            for layers in ([], [runtime_pb2.DETECTION_LAYER_REGEX],
+                           [runtime_pb2.DETECTION_LAYER_SEMANTIC, runtime_pb2.DETECTION_LAYER_NER],
+                           [runtime_pb2.DETECTION_LAYER_SEMANTIC] * 2):
+                request = runtime_pb2.ComputeSemanticGradientsRequest(model_id="privoke-balanced",
+                    examples=[runtime_pb2.RuntimeTrainingExample(text="x", weight=1)], layers=layers,
+                    heldout_examples=[runtime_pb2.RuntimeTrainingExample(text="heldout", weight=1)])
+                response = method(request, None)
+                self.assertIn("semantic-only", response.error)
+                self.assertFalse(response.executions)
+            request.layers[:] = [runtime_pb2.DETECTION_LAYER_SEMANTIC]
+            request.ClearField("heldout_examples")
+            response = method(request, None)
+            self.assertIn("heldout", response.error)
+            self.assertFalse(response.executions)
 
     def test_rejects_empty_training_batch(self) -> None:
         response = PrivokeRuntimeService().ComputeSemanticGradients(

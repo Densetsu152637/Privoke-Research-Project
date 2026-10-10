@@ -1,4 +1,4 @@
-"""Isolated CPU autograd for the explicit contextual last-block strategy."""
+"""Isolated CPU autograd for explicitly admitted Tiny encoder training scopes."""
 from __future__ import annotations
 
 import math

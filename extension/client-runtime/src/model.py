@@ -171,9 +171,11 @@ class TinyTransformerModel:
         parameters: Mapping[str, Sequence[float]],
         shapes: Mapping[str, Sequence[int]],
         device: str | None = None,
+        *, reject_overlength: bool = False,
     ):
         config.validate_capacity()
         self.config = config
+        self.reject_overlength = reject_overlength
         self.parameters = {
             name: np.asarray(values, dtype=np.float32).reshape(tuple(shapes[name]))
             for name, values in parameters.items()
@@ -206,7 +208,9 @@ class TinyTransformerModel:
                 raise ModelArtifactError("Invalid artifact parameter entry.")
             parameters[name] = tensor["values"]
             shapes[name] = tensor["shape"]
-        return cls(ModelConfig.from_mapping(config_value), parameters, shapes)
+        from privoke_model.contextual_training import STRATEGY_KEY, FULL_ENCODER_STRATEGY
+        strict = payload.get("metadata", {}).get(STRATEGY_KEY) == FULL_ENCODER_STRATEGY
+        return cls(ModelConfig.from_mapping(config_value), parameters, shapes, reject_overlength=strict)
 
     def predict(self, text: str) -> ModelPrediction:
         return self.predict_many((text,))[0]
@@ -466,6 +470,8 @@ class TinyTransformerModel:
         )
 
     def token_ids(self, text: str) -> np.ndarray:
+        if self.reject_overlength and len(TOKEN_PATTERN.findall(text.lower())) + 1 > self.config.max_tokens:
+            raise ValueError(f"Tiny full-training input exceeds its {self.config.max_tokens}-token context including the start token.")
         return encoder_token_ids(text, self.config)
 
     def _validate_shapes(self) -> None:

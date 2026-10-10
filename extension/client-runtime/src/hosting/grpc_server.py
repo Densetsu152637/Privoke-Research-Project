@@ -15,7 +15,7 @@ from ..LLM.privoke.presence_training import (
     compute_presence_gradients,
 )
 from ..LLM.privoke.streamed_model import GLOBAL_STREAMED_MODEL_CACHE
-from ..LLM.privoke.training import SemanticTrainingExample, compute_semantic_gradients
+from ..LLM.privoke.training import SemanticTrainingExample, compute_semantic_gradients, compute_underlying_model_gradients
 from ..config import GLOBAL_CONFIG, LLMChoice
 from ..pipeline import (
     DETECTION_LAYERS,
@@ -92,11 +92,21 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
             )
 
     def ComputeSemanticGradients(self, request, context):
+        return self._compute_training_gradients(request, compute_semantic_gradients)
+
+    def ComputeUnderlyingModelGradients(self, request, context):
+        return self._compute_training_gradients(request, compute_underlying_model_gradients)
+
+    def _compute_training_gradients(self, request, trainer):
         try:
             if not request.model_id.strip():
                 raise ValueError("model_id is required.")
             if not request.examples:
                 raise ValueError("At least one training example is required.")
+            if list(request.layers) != [runtime_pb2.DETECTION_LAYER_SEMANTIC]:
+                raise ValueError("Training requires exactly the explicit semantic-only layer selection.")
+            if not request.heldout_examples:
+                raise ValueError("Training RPC requires nonempty heldout examples for both candidate guard phases.")
             all_examples = tuple(request.examples) + tuple(request.heldout_examples)
             if len(all_examples) > DEFAULT_MAX_TRAINING_EXAMPLES:
                 raise ValueError(
@@ -128,7 +138,7 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
                         weight=float(item.weight),
                     )
                 )
-            batch = compute_semantic_gradients(
+            batch = trainer(
                 converted[:len(request.examples)],
                 model_id=request.model_id,
                 learning_rate=float(request.learning_rate),
@@ -149,6 +159,9 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
                 ],
                 metrics=batch.metrics,
                 metadata=batch.metadata,
+                executions=[runtime_pb2.SemanticTrainingExecution(phase=phase,
+                    layer=runtime_pb2.DETECTION_LAYER_SEMANTIC, status="ok", examples=count)
+                    for phase, count in batch.executions],
             )
         except Exception as exc:
             return runtime_pb2.ComputeSemanticGradientsResponse(

@@ -111,6 +111,17 @@ message ComputeSemanticGradientsRequest {
   double learning_rate = 4;
   double max_gradient = 5;
   repeated RuntimeTrainingExample heldout_examples = 6;
+  // Mandatory explicit semantic-only selection; empty is rejected at this RPC.
+  repeated DetectionLayer layers = 7;
+}
+
+// Direct Tiny model execution, not an AnalyzePrompt/product-pipeline trace.
+message SemanticTrainingExecution {
+  string phase = 1; // training, base_heldout, candidate_heldout
+  DetectionLayer layer = 2;
+  string status = 3;
+  uint32 examples = 4;
+  string error = 5;
 }
 
 message RuntimeParameterDelta {
@@ -127,11 +138,13 @@ message ComputeSemanticGradientsResponse {
   map<string, double> metrics = 5;
   map<string, string> metadata = 6;
   string error = 7;
+  repeated SemanticTrainingExecution executions = 8;
 }
 
 service PrivokeRuntimeService {
   rpc AnalyzePrompt(AnalyzePromptRequest) returns (AnalyzePromptResponse);
   rpc ComputeSemanticGradients(ComputeSemanticGradientsRequest) returns (ComputeSemanticGradientsResponse);
+  rpc ComputeUnderlyingModelGradients(ComputeSemanticGradientsRequest) returns (ComputeSemanticGradientsResponse);
   rpc DetectAnnotationPresence(DetectAnnotationPresenceRequest) returns (DetectAnnotationPresenceResponse);
   rpc ComputePresenceGradients(ComputePresenceGradientsRequest) returns (ComputePresenceGradientsResponse);
   rpc Health(RuntimeHealthRequest) returns (RuntimeHealthResponse);

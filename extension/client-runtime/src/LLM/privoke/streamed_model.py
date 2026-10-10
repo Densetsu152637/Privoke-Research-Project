@@ -34,6 +34,7 @@ class StreamedTransformerPrivacyModel:
             ModelConfig.from_metadata(snapshot.metadata),
             snapshot.parameters,
             snapshot.shapes,
+            reject_overlength=snapshot.metadata.get("contextual_training_strategy") == "contextual_full_encoder_sgd_v1",
         )
 
     def classify(self, text: str) -> List[ClassificationResult]:

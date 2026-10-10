@@ -17,6 +17,8 @@ for path in (SERVICE_ROOT / "app", SERVICE_ROOT / "generated"):
         sys.path.insert(0, str(path))
 
 from privoke.v1 import parameters_pb2
+from privoke_model.artifact import load_artifact, write_artifact_atomic, ModelArtifactError
+from privoke_model.contextual_training import prepare_full_encoder_artifact
 from fuzzer_requests import FuzzerRequestConfig, request_fuzzer_loop
 from server import (
     ParamUpdateService,
@@ -47,6 +49,32 @@ class AbortContext:
 
 
 class ParameterUpdateValidationTests(unittest.TestCase):
+    def test_large_embedding_requires_validated_full_artifact_and_exact_shape(self):
+        source = load_artifact(SERVICE_ROOT.parents[1] / "models/privoke-balanced.json")
+        full = prepare_full_encoder_artifact(source, version="v0.4.0+test", generated_at_unix=1, source_revision="a" * 40)
+        tensor = full["parameters"]["token_embedding"]
+        request = valid_request()
+        request.model_id = full["model_id"]
+        request.base_version = full["version"]
+        request.ClearField("gradients")
+        request.gradients.add(name="token_embedding", shape=tensor["shape"], values=[.0001] * len(tensor["values"]))
+        with self.assertRaises(ValueError):
+            validate_parameter_update(request, expected_model_id=full["model_id"], max_abs_gradient=1.)
+        with self.assertRaises(ValueError):
+            validate_parameter_update(request, expected_model_id=full["model_id"], max_abs_gradient=1., artifact=source)
+        validate_parameter_update(request, expected_model_id=full["model_id"], max_abs_gradient=1., artifact=full)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "model.json"
+            write_artifact_atomic(path, full)
+            service = ParamUpdateService(Path(directory) / "updates.jsonl", full["model_id"], model_artifact_path=path)
+            ack = service.SubmitParameterUpdate(request, AbortContext())
+            stored = load_artifact(path)
+            self.assertEqual(stored["version"], ack.applied_version)
+            self.assertNotEqual(stored["parameters"]["token_embedding"]["values"], tensor["values"])
+        request.gradients[0].shape[:] = [1, len(tensor["values"])]
+        with self.assertRaises(ModelArtifactError):
+            validate_parameter_update(request, expected_model_id=full["model_id"], max_abs_gradient=1., artifact=full)
+
     def test_applies_update_to_versioned_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             artifact_path = Path(directory) / "privoke-baseline.json"

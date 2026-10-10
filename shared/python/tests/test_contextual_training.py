@@ -7,7 +7,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "shared/python"))
 from privoke_model.artifact import ModelArtifactError, artifact_checksum, validate_artifact
-from privoke_model.contextual_training import (HEAD_NAMES, LAST_BLOCK_STRATEGY, STRATEGY_KEY,
+from privoke_model.contextual_training import (HEAD_NAMES, LAST_BLOCK_STRATEGY, FULL_ENCODER_STRATEGY,
+    prepare_full_encoder_artifact, STRATEGY_KEY,
     OPTIMIZER_KEY, LOCAL_SGD_1, LOCAL_SGD_4, validate_contextual_training_optimizer,
     prepare_training_optimizer_artifact, contextual_trainable_names, prepare_contextual_training_artifact,
     prepare_training_objective_artifact, OBJECTIVE_KEY, CLASS_BALANCED_OBJECTIVE, CLASS_BALANCED_MEAN_CATEGORY_OBJECTIVE,
@@ -15,6 +16,60 @@ from privoke_model.contextual_training import (HEAD_NAMES, LAST_BLOCK_STRATEGY, 
 
 
 class ContextualTrainingContractTests(unittest.TestCase):
+    def test_context_extension_preserves_prefix_and_other_weights_without_clamping(self):
+        for profile in ("baseline", "efficient", "balanced", "quality"):
+            source = self.original(profile)
+            options = dict(version="v0.4.0", generated_at_unix=1, source_revision="a" * 40, max_tokens=256)
+            release = prepare_full_encoder_artifact(source, **options)
+            self.assertEqual(release, prepare_full_encoder_artifact(source, **options))
+            self.assertEqual(release["config"]["max_tokens"], 256)
+            self.assertLessEqual(sum(len(tensor["values"]) for tensor in release["parameters"].values()), 65536)
+            for name, tensor in source["parameters"].items():
+                values = release["parameters"][name]["values"]
+                self.assertEqual(values[:len(tensor["values"])], tensor["values"])
+                if name != "position_embedding":
+                    self.assertEqual(values, tensor["values"])
+                else:
+                    self.assertTrue(all(abs(value) <= .030001 for value in values[len(tensor["values"]):]))
+        for length in (True, 256., 95, 513):
+            with self.assertRaises(ModelArtifactError):
+                prepare_full_encoder_artifact(self.original(), version="v0.4.0", generated_at_unix=1,
+                                              source_revision="a" * 40, max_tokens=length)
+        with self.assertRaises(ModelArtifactError):
+            prepare_full_encoder_artifact(self.original("quality"), version="v0.4.0", generated_at_unix=1,
+                                          source_revision="a" * 40, max_tokens=512)
+
+    def test_full_release_preserves_all_source_weights_binds_provenance_and_exact_flags(self):
+        for profile in ("baseline", "efficient", "balanced", "quality"):
+            source = self.original(profile)
+            before = copy.deepcopy(source)
+            release = prepare_full_encoder_artifact(source, version="v0.4.0+training", generated_at_unix=1,
+                                                    source_revision="a" * 40)
+            self.assertEqual(source, before)
+            self.assertNotEqual(source["checksum"], release["checksum"])
+            self.assertEqual(release["metadata"]["preparation_base_checksum"], source["checksum"])
+            self.assertEqual(contextual_trainable_names(release["config"], FULL_ENCODER_STRATEGY), set(source["parameters"]))
+            for name, tensor in release["parameters"].items():
+                self.assertTrue(tensor["trainable"])
+                self.assertEqual(tensor["values"], source["parameters"][name]["values"])
+            validate_artifact(release)
+            wrong_shape = copy.deepcopy(release)
+            wrong_shape["parameters"]["token_embedding"]["shape"] = [1, len(wrong_shape["parameters"]["token_embedding"]["values"])]
+            with self.assertRaisesRegex(ModelArtifactError, "shapes"):
+                validate_artifact(wrong_shape)
+            release["parameters"]["token_embedding"]["trainable"] = False
+            with self.assertRaises(ModelArtifactError):
+                validate_artifact(release)
+        for updates in ({"version": "v0.3.0"}, {"source_revision": "unknown"}, {"generated_at_unix": 0}):
+            options = dict(version="v0.4.0", generated_at_unix=1, source_revision="a" * 40)
+            options.update(updates)
+            with self.assertRaises(ModelArtifactError):
+                prepare_full_encoder_artifact(self.original(), **options)
+        source = self.original()
+        source["metadata"]["last_update_receipt"] = "{}"
+        with self.assertRaisesRegex(ModelArtifactError, "receipt"):
+            prepare_full_encoder_artifact(source, version="v0.4.0", generated_at_unix=1, source_revision="a" * 40)
+
     def original(self, profile="balanced"):
         return json.loads((ROOT / f"models/privoke-{profile}.json").read_text(encoding="utf-8"))
 

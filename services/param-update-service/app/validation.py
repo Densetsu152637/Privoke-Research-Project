@@ -18,6 +18,7 @@ def validate_parameter_update(
     *,
     expected_model_id: str,
     max_abs_gradient: float,
+    artifact=None,
 ) -> None:
     validate_text(request.source_id, "source_id", required=True)
     validate_text(request.model_id, "model_id", required=True)
@@ -31,11 +32,21 @@ def validate_parameter_update(
             f"A parameter update may contain at most {MAX_GRADIENTS} gradients."
         )
 
-    _validate_gradients(request.gradients, max_abs_gradient)
+    maximum = MAX_GRADIENT_VALUES
+    if artifact is not None:
+        from privoke_model.artifact import validate_artifact
+        from privoke_model.contextual_training import STRATEGY_KEY, FULL_ENCODER_STRATEGY, FULL_ENCODER_MAX_TENSOR_VALUES
+        validate_artifact(artifact)
+        if artifact["model_id"] != request.model_id:
+            raise ValueError("Parameter update does not match the validated artifact model ID.")
+        if artifact.get("metadata", {}).get(STRATEGY_KEY) == FULL_ENCODER_STRATEGY:
+            maximum = FULL_ENCODER_MAX_TENSOR_VALUES
+        validate_gradient_shapes_against_artifact(request, artifact)
+    _validate_gradients(request.gradients, max_abs_gradient, maximum)
     _validate_metadata(request.metadata)
 
 
-def _validate_gradients(gradients, max_abs_gradient: float) -> None:
+def _validate_gradients(gradients, max_abs_gradient: float, maximum=MAX_GRADIENT_VALUES) -> None:
     names: set[str] = set()
     total_values = 0
 
@@ -45,7 +56,7 @@ def _validate_gradients(gradients, max_abs_gradient: float) -> None:
             raise ValueError(f"Duplicate gradient name: {gradient.name!r}.")
         names.add(gradient.name)
 
-        _validate_gradient_shape(gradient)
+        _validate_gradient_shape(gradient, maximum)
         _validate_gradient_values(gradient, max_abs_gradient)
         total_values += len(gradient.values)
 
@@ -55,12 +66,12 @@ def _validate_gradients(gradients, max_abs_gradient: float) -> None:
         )
 
 
-def _validate_gradient_shape(gradient) -> None:
+def _validate_gradient_shape(gradient, maximum=MAX_GRADIENT_VALUES) -> None:
     if not gradient.values:
         raise ValueError(f"Gradient {gradient.name!r} has no values.")
-    if len(gradient.values) > MAX_GRADIENT_VALUES:
+    if len(gradient.values) > maximum:
         raise ValueError(
-            f"Gradient {gradient.name!r} exceeds {MAX_GRADIENT_VALUES} values."
+            f"Gradient {gradient.name!r} exceeds {maximum} values."
         )
     if not gradient.shape:
         raise ValueError(f"Gradient {gradient.name!r} has no shape.")

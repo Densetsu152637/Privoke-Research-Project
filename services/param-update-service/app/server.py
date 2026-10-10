@@ -66,8 +66,9 @@ class ParamUpdateService(parameters_pb2_grpc.ParamUpdateServiceServicer):
                 request,
                 expected_model_id=self.expected_model_id,
                 max_abs_gradient=self.max_abs_gradient,
+                artifact=load_artifact(self.model_artifact_path) if self.model_artifact_path is not None else None,
             )
-        except ValueError as exc:
+        except (ValueError, OSError) as exc:
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(exc))
 
         if self.model_artifact_path is None:
@@ -111,6 +112,10 @@ class ParamUpdateService(parameters_pb2_grpc.ParamUpdateServiceServicer):
                     f"Artifact model_id is {artifact['model_id']!r}, "
                     f"not {request.model_id!r}."
                 )
+            # Revalidate under the writer lock against the exact current artifact,
+            # including its strategy-specific tensor bound; metadata is not authority.
+            validate_parameter_update(request, expected_model_id=self.expected_model_id,
+                                      max_abs_gradient=self.max_abs_gradient, artifact=artifact)
             request_id = request.metadata.get("request_id", "")
             if request_id:
                 key = receipt_key(request.source_id, request_id, request.metadata.get("request_source_id", ""))

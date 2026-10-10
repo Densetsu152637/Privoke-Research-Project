@@ -9,7 +9,7 @@ from privoke_model.artifact import float32, updated_parameter_values
 from privoke_model.pretrained_context import PRETRAINED_CONTEXT_MODEL_ID
 from privoke_model.training_data import training_text_key
 from privoke_model.fingerprint import parameter_fingerprint
-from privoke_model.contextual_training import (STRATEGY_KEY, LAST_BLOCK_STRATEGY,
+from privoke_model.contextual_training import (STRATEGY_KEY, LAST_BLOCK_STRATEGY, FULL_ENCODER_STRATEGY, HEAD_NAMES,
     OBJECTIVE_KEY, CLASS_BALANCED_OBJECTIVES, CLASS_BALANCED_MEAN_CATEGORY_OBJECTIVE,
     CLASS_BALANCED_DECISION_MARGIN_OBJECTIVE, MEAN_CATEGORY_OBJECTIVES, validate_decision_margin_config,
     validate_contextual_training_contract, OPTIMIZER_KEY, LOCAL_SGD_STEPS,
@@ -36,6 +36,7 @@ class SemanticGradientBatch:
     shapes: dict[str, tuple[int, ...]]
     metrics: dict[str, float]
     metadata: dict[str, str]
+    executions: tuple[tuple[str, int], ...] = ()
 
 
 def compute_semantic_gradients(
@@ -46,6 +47,19 @@ def compute_semantic_gradients(
     max_gradient: float,
     heldout_examples: Sequence[SemanticTrainingExample] = (),
 ) -> SemanticGradientBatch:
+    """Legacy/head endpoint; full-capable artifacts restrict this path to heads."""
+    return _compute_training_gradients(examples, model_id=model_id, learning_rate=learning_rate,
+        max_gradient=max_gradient, heldout_examples=heldout_examples, full_encoder=False)
+
+
+def compute_underlying_model_gradients(examples, *, model_id, learning_rate, max_gradient, heldout_examples=()):
+    """Train all Tiny encoder and head tensors on an explicitly capable artifact."""
+    return _compute_training_gradients(examples, model_id=model_id, learning_rate=learning_rate,
+        max_gradient=max_gradient, heldout_examples=heldout_examples, full_encoder=True)
+
+
+def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradient,
+                                heldout_examples, full_encoder):
     """Compute a bounded update with optional transported-state local SGD."""
     if model_id == PRETRAINED_CONTEXT_MODEL_ID:
         raise ValueError("Pretrained contextual online training is unsupported; use offline head fitting.")
@@ -80,10 +94,21 @@ def compute_semantic_gradients(
         runtime_model.model.config.__dict__, snapshot.parameters, snapshot.shapes,
         {name: name in trainable_names for name in snapshot.parameters}, snapshot.metadata)
     strategy = snapshot.metadata.get(STRATEGY_KEY)
+    artifact_strategy = strategy
+    if artifact_strategy == FULL_ENCODER_STRATEGY:
+        checksum = snapshot.metadata.get("artifact_checksum", "")
+        if not isinstance(checksum, str) or len(checksum) != 64 or any(character not in "0123456789abcdef" for character in checksum):
+            raise ValueError("Full encoder training requires the streamed artifact checksum identity.")
+    if full_encoder:
+        if strategy != FULL_ENCODER_STRATEGY:
+            raise ValueError("Underlying training requires the full Tiny encoder artifact strategy.")
+    elif strategy == FULL_ENCODER_STRATEGY:
+        trainable_names = set(HEAD_NAMES)
+        strategy = None
     local_steps = validate_contextual_training_optimizer(snapshot.metadata)
     if local_steps is not None and any(item.target is None for item in examples):
         raise ValueError("Local SGD requires explicit contextual targets for every row.")
-    if strategy == LAST_BLOCK_STRATEGY and any(item.target is None for item in examples):
+    if strategy in (LAST_BLOCK_STRATEGY, FULL_ENCODER_STRATEGY) and any(item.target is None for item in examples):
         raise ValueError("Encoder adaptation requires explicit contextual targets for every row.")
     if not trainable_names:
         raise ValueError("The streamed model declares no trainable parameters.")
@@ -162,7 +187,7 @@ def compute_semantic_gradients(
             supervised_loss = math.fsum((*objective_metrics.values(), auxiliary_total)) if decision_margin else math.fsum(objective_metrics.values())
         except OverflowError as exc:
             raise ValueError("Contextual supervised objective must remain finite.") from exc
-    if strategy == LAST_BLOCK_STRATEGY:
+    if strategy in (LAST_BLOCK_STRATEGY, FULL_ENCODER_STRATEGY):
         from .supervised_training import supervised_last_block_deltas
         if mean_category:
             gradients, supervised_loss = supervised_last_block_deltas(
@@ -183,12 +208,15 @@ def compute_semantic_gradients(
             raise ValueError("Contextual normalized gradients, task losses and objective must remain finite.")
     optimizer_trace = None
     if local_steps is None:
+        # Full-capable scopes obey the original double request bound after
+        # float32 transport; rounding the real bound outwards would exceed it.
+        transport_cap = _inward_float32_bound(max_gradient) if artifact_strategy == FULL_ENCODER_STRATEGY else max_gradient
         scaled = {
             name: tuple(
                 float32(_clamp(
                     (value / gradient_denominator) * learning_rate,
-                    -max_gradient,
-                    max_gradient,
+                    -transport_cap,
+                    transport_cap,
                 ))
                 for value in values
             )
@@ -209,6 +237,9 @@ def compute_semantic_gradients(
         if name in scaled else tuple(float32(value) for value in values)
         for name, values in snapshot.parameters.items()
     }
+    if full_encoder and not any(candidate_parameters[name] != tuple(float32(value) for value in snapshot.parameters[name])
+                                for name in trainable_names - HEAD_NAMES):
+        raise ValueError("Underlying training produced no transported encoder weight update.")
     heldout_metrics.update(
         {
             f"candidate_{key}": value
@@ -238,6 +269,12 @@ def compute_semantic_gradients(
         metadata={
             **({"contextual_optimizer_trace": optimizer_trace} if optimizer_trace is not None else {}),
             "strategy": strategy or "transformer_classification_head_finetune",
+            "artifact_training_strategy": artifact_strategy or "transformer_classification_head_finetune",
+            "training_scope": "full_encoder" if full_encoder else ("last_block" if strategy == LAST_BLOCK_STRATEGY else "heads"),
+            "trained_parameter_names": json.dumps(sorted(scaled), separators=(",", ":")),
+            "trained_parameter_inventory_fingerprint": parameter_fingerprint(
+                {name: () for name in scaled}, {name: snapshot.shapes[name] for name in scaled}),
+            "artifact_checksum": snapshot.metadata.get("artifact_checksum", ""),
             "base_parameter_fingerprint": _parameter_fingerprint(snapshot.parameters),
             "updated_parameter_fingerprint": _parameter_fingerprint(candidate_parameters),
             "learning_rate": str(learning_rate),
@@ -253,6 +290,8 @@ def compute_semantic_gradients(
                 **{key: str(value) for key, value in objective_metrics.items()},
                 "supervised_objective_loss": str(supervised_loss)} if mean_category else {}),
         },
+        executions=(("training", len(examples)),) +
+            ((("base_heldout", len(heldout_examples)), ("candidate_heldout", len(heldout_examples))) if heldout_examples else ()),
     )
 
 
@@ -309,7 +348,7 @@ def _local_training_losses(model, examples, objective):
 
 def _local_sgd_direction(model, examples, names, strategy, objective):
     """Recompute the current direction, preserving each objective's operation order."""
-    if strategy == LAST_BLOCK_STRATEGY:
+    if strategy in (LAST_BLOCK_STRATEGY, FULL_ENCODER_STRATEGY):
         from .supervised_training import supervised_last_block_deltas
         return supervised_last_block_deltas(model, examples, names, objective=objective)[0], 1.0
     mean_category = objective in MEAN_CATEGORY_OBJECTIVES
@@ -391,7 +430,8 @@ def _local_sgd_updates(model, base, shapes, examples, names, strategy, objective
         updates.append([norm, raw_max, clipped, transported_max])
         parameters = _transport_local_parameters(base, accumulated)
         state_fingerprints.append(parameter_fingerprint(parameters, shapes))
-        local_model = TinyTransformerModel(model.config, parameters, shapes, device=model.compute_device)
+        local_model = TinyTransformerModel(model.config, parameters, shapes, device=model.compute_device,
+                                          reject_overlength=model.reject_overlength)
     losses.append(_local_training_losses(local_model, examples, objective))
     trace = json.dumps({"optimizer": optimizer, "steps": steps,
         "objective": objective or "legacy_sum_category", "rate": rate,
@@ -544,6 +584,7 @@ def _heldout_metrics(runtime_model, parameters, examples, *, reference_parameter
         ModelConfig.from_metadata(runtime_model.snapshot.metadata),
         parameters,
         runtime_model.snapshot.shapes,
+        reject_overlength=runtime_model.model.reject_overlength,
     )
     predictions = model.predict_many(tuple(example.text for example in examples))
     exact = 0
@@ -577,6 +618,7 @@ def _heldout_metrics(runtime_model, parameters, examples, *, reference_parameter
             ModelConfig.from_metadata(runtime_model.snapshot.metadata),
             reference_parameters,
             runtime_model.snapshot.shapes,
+            reject_overlength=runtime_model.model.reject_overlength,
         ).predict_many(tuple(example.text for example in examples))
         metrics["heldout_safety_regression_rate"] = _safety_regression_rate(
             [example.target for example in examples],

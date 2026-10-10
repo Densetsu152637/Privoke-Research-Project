@@ -114,6 +114,7 @@ class TrainingSafetyTests(unittest.TestCase):
 
     def test_training_rpc_bounds_include_heldout_data(self):
         request = runtime_pb2.ComputeSemanticGradientsRequest(
+            layers=[runtime_pb2.DETECTION_LAYER_SEMANTIC],
             model_id="privoke-balanced",
             examples=[runtime_pb2.RuntimeTrainingExample(text="training", weight=1.0)],
             heldout_examples=[runtime_pb2.RuntimeTrainingExample(text="x" * 20001, weight=1.0)],
