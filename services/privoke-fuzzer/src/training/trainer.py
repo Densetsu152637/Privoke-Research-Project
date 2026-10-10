@@ -42,6 +42,9 @@ def train_parameter_batch(
     heldout_examples: Sequence[BatchTrainingExample] = (),
     config: BatchTrainingConfig | None = None,
     runtime_client: PrivokeRuntimeClient | None = None,
+    training_scope: str = "heads",
+    request_id: str = "",
+    require_full_capability: bool = False,
 ) -> BatchTrainingUpdate:
     """Prepare examples and delegate model execution and descent to client-runtime."""
     config = config or BatchTrainingConfig()
@@ -58,12 +61,16 @@ def train_parameter_batch(
     ):
         raise ValueError("Held-out examples overlap transformed training texts.")
     runtime_client = runtime_client or _default_runtime_client()
-    batch = runtime_client.compute_semantic_gradients(
+    method = (runtime_client.compute_underlying_gradients if training_scope == "full_encoder"
+              else runtime_client.compute_semantic_gradients)
+    batch = method(
         trainer_examples,
         heldout_examples=heldout_examples,
         model_id=model_id,
         learning_rate=config.learning_rate,
         max_gradient=config.max_gradient,
+        request_id=request_id,
+        require_full_capability=require_full_capability,
     )
     metrics = dict(batch["metrics"])
     metrics.update(
@@ -81,6 +88,7 @@ def train_parameter_batch(
         parameter_shapes=batch["shapes"],
         metrics=metrics,
         metadata=metadata,
+        execution_evidence=batch.get("execution_evidence", {}),
     )
 
 

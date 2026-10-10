@@ -44,20 +44,13 @@ class _RuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
                 self.active -= 1
 
     def ComputeSemanticGradients(self, request, context):
-        return runtime_pb2.ComputeSemanticGradientsResponse(
-            request_id=request.request_id,
-            model_id=request.model_id,
-            base_version="v1",
-            gradients=[
-                runtime_pb2.RuntimeParameterDelta(
-                    name="head.sensitivity.bias",
-                    values=[0.01, 0.0, 0.0, -0.01],
-                    shape=[4],
-                )
-            ],
-            metrics={"examples": float(len(request.examples))},
-            metadata={"strategy": "transformer_classification_head_finetune"},
-        )
+        from test_dual_runtime_contract import contract
+        _, response = contract()
+        response.request_id = request.request_id
+        response.model_id = request.model_id
+        response.base_version = "v1"
+        self.training_layers = list(request.layers)
+        return response
 
 
 class RuntimeClientBatchTests(unittest.TestCase):
@@ -115,6 +108,7 @@ class RuntimeClientBatchTests(unittest.TestCase):
                 f"127.0.0.1:{port}", timeout_seconds=1.0
             ).compute_semantic_gradients(
                 [BatchTrainingExample("example")],
+                heldout_examples=[BatchTrainingExample("held-out")],
                 model_id="privoke-balanced",
                 learning_rate=0.03,
                 max_gradient=0.05,
@@ -123,6 +117,7 @@ class RuntimeClientBatchTests(unittest.TestCase):
             server.stop(0).wait()
 
         self.assertEqual(batch["base_version"], "v1")
+        self.assertEqual(service.training_layers, [runtime_pb2.DETECTION_LAYER_SEMANTIC])
         self.assertEqual(batch["shapes"]["head.sensitivity.bias"], (4,))
 
 

@@ -26,6 +26,22 @@ ROOT = Path(__file__).resolve().parents[3]
 
 @unittest.skipUnless(torch is not None, "Optional CPU training dependency torch is unavailable")
 class FullEncoderTrainingTests(unittest.TestCase):
+    def test_missing_or_unusable_torch_preflight_rejects_full_capable_head_and_full(self):
+        for trainer in (compute_semantic_gradients, compute_underlying_model_gradients):
+            for unusable in (False, True):
+                with self.subTest(trainer=trainer.__name__, unusable=unusable):
+                    with patch.object(GLOBAL_STREAMED_MODEL_CACHE, "model_for_training", return_value=self.wrapper):
+                        if unusable:
+                            with patch("torch.tensor", side_effect=RuntimeError("unusable CPU autograd")):
+                                with self.assertRaisesRegex(RuntimeError, "unusable"):
+                                    trainer(self.rows, model_id=self.artifact["model_id"], learning_rate=.003,
+                                            max_gradient=.0001, heldout_examples=self.heldout)
+                        else:
+                            with patch.dict("sys.modules", {"torch": None}):
+                                with self.assertRaisesRegex(ValueError, "CPU training dependency"):
+                                    trainer(self.rows, model_id=self.artifact["model_id"], learning_rate=.003,
+                                            max_gradient=.0001, heldout_examples=self.heldout)
+
     def setUp(self):
         torch.set_num_threads(1)
         self.source = json.loads((ROOT / "models/privoke-balanced.json").read_text())

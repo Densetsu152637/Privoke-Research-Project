@@ -28,7 +28,13 @@ services:
           cp -a /models/. /state/models/
           touch /state/models/.initialized
         fi
+        python /workspace/services/param-update-service/app/bootstrap.py
         chown -R 10001:10001 /state/models /state/parameter-updates /state/telemetry /state/telemetry-client /state/fuzzer-dumps
+    environment:
+      MODEL_ID: privoke-balanced
+      MODEL_ARTIFACT_PATH: /state/models/privoke-balanced.json
+      PARAM_UPDATE_STORAGE_PATH: /state/parameter-updates/updates.jsonl
+      MODEL_TRAINING_MAX_TOKENS: 256
     volumes:
       - model-data:/state/models
       - param-update-data:/state/parameter-updates
@@ -75,6 +81,7 @@ services:
       telemetry-service: {condition: service_healthy}
       storage-permissions: {condition: service_completed_successfully}
     environment:
+      PRIVOKE_REQUIRE_TRAINING_CPU: "true"
       PRIVOKE_GRPC_HOST: "[::]"
       PRIVOKE_GRPC_PORT: 50054
       PRIVOKE_STACK_MODE: internal
@@ -130,6 +137,8 @@ services:
       PARAM_UPDATE_PORT: 50052
       PARAM_UPDATE_STORAGE_PATH: /data/updates.jsonl
       MODEL_ARTIFACT_PATH: /models/privoke-balanced.json
+      FUZZER_TRAIN_UNDERLYING: "true"
+      FUZZER_CYCLE_STATE_PATH: /data/training-cycles.sqlite3
       FUZZER_TARGET: privoke-fuzzer:50053
       FUZZER_PROMPT_COUNT: ${FUZZER_PROMPT_COUNT:-32}
       FUZZER_REQUEST_TIMEOUT_SECONDS: 60

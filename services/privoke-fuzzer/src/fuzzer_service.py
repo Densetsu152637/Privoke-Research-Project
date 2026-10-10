@@ -21,6 +21,7 @@ from prompt_generation.curriculum import load_curriculum, reserve_batch, request
 from runtime_client import PrivokeRuntimeClient, RuntimeAnalysisError
 from training import emit_training_update, train_parameter_batch, train_presence_batch
 from training.types import BatchTrainingUpdate
+from training.evidence import persist_cycle_evidence, recover_cycle_evidence_ack, reserve_training_request
 
 LOGGER = logging.getLogger(__name__)
 
@@ -67,6 +68,19 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                           "The maximum number of concurrent training cycles is already running.")
         try:
             return self._run_presence_training_cycle(request, context)
+        finally:
+            self._cycle_slots.release()
+
+    def RunUnderlyingTrainingCycle(self, request, context):
+        try:
+            validate_training_request(request, self.config.model_id)
+        except ValueError as exc:
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(exc))
+        if not self._cycle_slots.acquire(blocking=False):
+            context.abort(grpc.StatusCode.RESOURCE_EXHAUSTED,
+                          "The maximum number of concurrent training cycles is already running.")
+        try:
+            return self._run_training_cycle(request, context, training_scope="full_encoder")
         finally:
             self._cycle_slots.release()
 
@@ -154,7 +168,15 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             LOGGER.warning("presence parameter update submission failed code=%s", exc.code())
             context.abort(grpc.StatusCode.UNAVAILABLE, "Parameter update service is unavailable.")
 
-    def _run_training_cycle(self, request, context):
+    def _run_training_cycle(self, request, context, *, training_scope="heads"):
+        if training_scope == "full_encoder":
+            # Receipt and curriculum reservations cannot collide with a head or
+            # presence request carrying the same caller-supplied identity.
+            scoped = parameters_pb2.FuzzerTrainingRequest()
+            scoped.CopyFrom(request)
+            scoped.metadata["original_request_source_id"] = request.source_id
+            scoped.source_id = hashlib.sha256(("underlying-v1:" + request.source_id).encode()).hexdigest()
+            request = scoped
         cycle = _resolve_cycle(request, self.config)
         curriculum = None
         fingerprint = None
@@ -173,12 +195,29 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                             "replay_fraction": self.config.curriculum_replay_fraction,
                             "minimum_exact_match_rate": self.config.minimum_exact_match_rate,
                             "heldout_count": self.config.heldout_prompt_count}
+                if training_scope == "full_encoder":
+                    settings["training_scope"] = training_scope
                 fingerprint = request_fingerprint(request, curriculum, settings)
         except (ValueError, OSError, KeyError, TypeError) as exc:
             context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
+        if training_scope == "full_encoder" or request.metadata.get("require_full_capability") == "true":
+            try:
+                if not curriculum:
+                    settings = {"training": asdict(self.config.batch_training_config(cycle.seed)),
+                                "scope": training_scope, "prompt_count": cycle.prompt_count,
+                                "heldout_count": self.config.heldout_prompt_count,
+                                "minimum_exact_match_rate": self.config.minimum_exact_match_rate,
+                                "dataset_sha256": (hashlib.sha256(Path(self.config.prompt_dataset_path).read_bytes()).hexdigest()
+                                                   if self.config.prompt_dataset_path else "bundled_synthetic_generator_v1")}
+                    fingerprint = hashlib.sha256(json.dumps([request.SerializeToString(deterministic=True).hex(), settings],
+                                                           sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+                reserve_training_request(request, training_scope, fingerprint)
+            except (ValueError, OSError) as exc:
+                context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
         previous = (self._previous_update_for_fingerprint(request, cycle, context, fingerprint)
-                    if curriculum else self._previous_update(request, cycle, context))
+                    if fingerprint is not None else self._previous_update(request, cycle, context))
         if previous.found:
+            recover_cycle_evidence_ack(request, training_scope, previous)
             return parameters_pb2.FuzzerTrainingResponse(
                 accepted=previous.ack.accepted,
                 model_id=previous.ack.model_id,
@@ -222,10 +261,17 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             heldout_examples,
             cycle.seed,
             context,
+            training_scope=training_scope,
+            request_id=request.request_id,
+            require_full_capability=request.metadata.get("require_full_capability") == "true",
             **({"golden_examples": replay_examples} if curriculum else {}),
         )
         if sampling_audit:
             update = replace(update, metadata={**update.metadata, **sampling_audit})
+        expected_base = request.metadata.get("expected_base_version")
+        if expected_base and update.base_version != expected_base:
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION,
+                          "Underlying stage base differs from the prior committed head stage.")
         if request.metadata.get("study_gate_diagnostics") == "v1":
             try:
                 write_gate_diagnostics(request, update, self.config)
@@ -237,6 +283,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                 minimum_exact_match_rate=self.config.minimum_exact_match_rate,
             )
         except ValueError as exc:
+            persist_cycle_evidence(request, update, training_scope, gate_passed=False)
             LOGGER.warning("rejecting training update: %s", exc)
             context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
         if not context.is_active():
@@ -245,8 +292,20 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                 "Training request was cancelled before update submission.",
             )
         generated_count = len(examples) + len(replay_examples)
+        try:
+            persist_cycle_evidence(request, update, training_scope, gate_passed=True)
+        except (OSError, ValueError) as exc:
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
         ack = self._submit_update(request, cycle, update, generated_count, context,
-                                  **({"fingerprint": fingerprint} if curriculum else {}))
+                                  **({"fingerprint": fingerprint} if fingerprint is not None else {}))
+        if not ack.accepted or ack.model_id != update.model_id or not ack.applied_version:
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, "Parameter updater did not acknowledge the selected model publication.")
+        try:
+            persist_cycle_evidence(request, update, training_scope, gate_passed=True, ack=ack)
+        except OSError:
+            # Prepared evidence and durable updater receipt remain available for
+            # recovery; a missing acknowledgement must never trigger republication.
+            LOGGER.exception("Committed training acknowledgement evidence persistence failed")
         LOGGER.info(
             "completed training request id=%r accepted=%s version=%r prompts=%s",
             request.request_id,
@@ -279,13 +338,17 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                 context.abort(grpc.StatusCode.ALREADY_EXISTS, "request_id belongs to a different training request.")
             context.abort(grpc.StatusCode.UNAVAILABLE, "Parameter update receipts are unavailable.")
 
-    def _train(self, model_id, examples, heldout_examples, seed: int, context, *, golden_examples=()) -> BatchTrainingUpdate:
+    def _train(self, model_id, examples, heldout_examples, seed: int, context, *, golden_examples=(),
+               training_scope="heads", request_id="", require_full_capability=False) -> BatchTrainingUpdate:
         try:
             return train_parameter_batch(
                 model_id=model_id,
                 new_examples=examples,
                 heldout_examples=heldout_examples,
                 golden_examples=golden_examples,
+                training_scope=training_scope,
+                request_id=request_id,
+                require_full_capability=require_full_capability,
                 config=self.config.batch_training_config(seed),
                 runtime_client=PrivokeRuntimeClient(
                     self.config.privoke_runtime_target,
@@ -320,7 +383,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                     "request_source_id": request.source_id,
                     "requested_prompt_count": str(cycle.requested_prompt_count),
                     "generated_prompt_count": str(generated_count),
-                    "training_pipeline": "client_runtime_semantic_gradients",
+                    "training_pipeline": "client_runtime_underlying_gradients" if update.metadata.get("training_scope") == "full_encoder" else "client_runtime_semantic_gradients",
                     "training_request_fingerprint": fingerprint or _training_request_fingerprint(request),
                 },
                 timeout_seconds=self.config.timeout_seconds,

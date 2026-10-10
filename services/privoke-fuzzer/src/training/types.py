@@ -52,3 +52,4 @@ class BatchTrainingUpdate:
     parameter_shapes: ShapeDict
     metrics: dict[str, float]
     metadata: dict[str, str]
+    execution_evidence: dict = field(default_factory=dict)

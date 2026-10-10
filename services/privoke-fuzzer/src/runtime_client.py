@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import base64
+import math
+import re
 import sys
 from collections.abc import Mapping
 from pathlib import Path
@@ -164,8 +167,13 @@ class PrivokeRuntimeClient:
         learning_rate: float,
         max_gradient: float,
         request_id: str = "",
+        training_scope: str = "heads",
+        require_full_capability: bool = False,
     ) -> dict[str, Any]:
+        if training_scope not in ("heads", "full_encoder") or not examples or not heldout_examples:
+            raise ValueError("Semantic training requires a known scope and nonempty training and held-out batches.")
         request = runtime_pb2.ComputeSemanticGradientsRequest(
+            layers=[runtime_pb2.DETECTION_LAYER_SEMANTIC],
             request_id=request_id,
             model_id=model_id,
             examples=[
@@ -204,11 +212,13 @@ class PrivokeRuntimeClient:
             max_gradient=max_gradient,
         )
         with grpc.insecure_channel(self.target) as channel:
-            response = runtime_pb2_grpc.PrivokeRuntimeServiceStub(
-                channel
-            ).ComputeSemanticGradients(request, timeout=self.timeout_seconds)
+            stub = runtime_pb2_grpc.PrivokeRuntimeServiceStub(channel)
+            method = stub.ComputeUnderlyingModelGradients if training_scope == "full_encoder" else stub.ComputeSemanticGradients
+            response = method(request, timeout=self.timeout_seconds)
         if response.error:
             raise RuntimeAnalysisError(response.error)
+        validate_training_response(request, response, training_scope, max_gradient,
+                                   require_full_capability=require_full_capability)
         gradients = {}
         shapes = {}
         for parameter in response.gradients:
@@ -229,7 +239,18 @@ class PrivokeRuntimeClient:
             "shapes": shapes,
             "metrics": dict(response.metrics),
             "metadata": dict(response.metadata),
+            "execution_evidence": {
+                "rpc": "ComputeUnderlyingModelGradients" if training_scope == "full_encoder" else "ComputeSemanticGradients",
+                "request_layers": list(request.layers),
+                "request_protobuf_base64": base64.b64encode(request.SerializeToString(deterministic=True)).decode("ascii"),
+                "response_protobuf_base64": base64.b64encode(response.SerializeToString(deterministic=True)).decode("ascii"),
+                "executions": [{"phase": e.phase, "layer": e.layer, "status": e.status,
+                                "examples": e.examples, "error": e.error} for e in response.executions],
+            },
         }
+
+    def compute_underlying_gradients(self, examples, **kwargs):
+        return self.compute_semantic_gradients(examples, training_scope="full_encoder", **kwargs)
 
     def compute_presence_gradients(
         self, examples, *, heldout_examples=(), model_id: str,
@@ -289,6 +310,76 @@ class PrivokeRuntimeClient:
             "metrics": dict(response.metrics),
             "metadata": dict(response.metadata),
         }
+
+
+def validate_training_response(request, response, scope, max_gradient, *, require_full_capability=False):
+    """Admit actual semantic execution and independently derived Tiny tensor shapes."""
+    from privoke_model.contextual_training import HEAD_NAMES, FULL_ENCODER_STRATEGY, LAST_BLOCK_STRATEGY, full_encoder_tensor_shapes, contextual_trainable_names
+    from privoke_model.fingerprint import parameter_fingerprint
+    def reject(message):
+        raise RuntimeAnalysisError(message)
+    if list(request.layers) != [runtime_pb2.DETECTION_LAYER_SEMANTIC]:
+        reject("Training requires an explicit semantic-only request.")
+    if (response.request_id != request.request_id or response.model_id != request.model_id
+            or not response.base_version or response.error):
+        reject("Runtime training response identity is incomplete or mismatched.")
+    phases = [("training", len(request.examples)), ("base_heldout", len(request.heldout_examples)),
+              ("candidate_heldout", len(request.heldout_examples))]
+    if len(response.executions) != len(phases):
+        reject("Runtime training requires all three actual semantic executions.")
+    for execution, (phase, count) in zip(response.executions, phases):
+        if (execution.phase != phase or execution.examples != count or execution.status != "ok"
+                or execution.error or execution.layer != runtime_pb2.DETECTION_LAYER_SEMANTIC):
+            reject("Runtime training execution phase, layer, count or status is invalid.")
+    metadata = response.metadata
+    full = scope == "full_encoder"
+    legacy_last = (not full and not require_full_capability and metadata.get("artifact_training_strategy") == LAST_BLOCK_STRATEGY)
+    if metadata.get("training_scope") != ("last_block" if legacy_last else scope):
+        reject("Runtime returned the wrong training scope.")
+    expected_strategy = FULL_ENCODER_STRATEGY if full else (LAST_BLOCK_STRATEGY if legacy_last else "transformer_classification_head_finetune")
+    if metadata.get("strategy") != expected_strategy:
+        reject("Runtime executed the wrong training strategy.")
+    if (full or require_full_capability) and metadata.get("artifact_training_strategy") != FULL_ENCODER_STRATEGY:
+        reject("Automatic dual training requires a full-capable Tiny artifact before head publication.")
+    if (full or require_full_capability) and metadata.get("underlying_training_available") != "true":
+        reject("Automatic dual training requires usable CPU autograd before head publication.")
+    for key in ("artifact_checksum", "base_parameter_fingerprint", "updated_parameter_fingerprint"):
+        if not re.fullmatch("[0-9a-f]{64}", metadata.get(key, "")):
+            reject("Runtime training lacks an exact artifact identity.")
+    try:
+        config = json.loads(metadata["model_config"])
+        for task, enum in (("sensitivity", Sensitivity), ("visibility", Visibility), ("category", Category)):
+            labels = config.get(task + "_labels")
+            if (not isinstance(labels, list) or len(labels) != len(enum)
+                    or set(labels) != set(enum.__members__)):
+                raise ValueError("Invalid classification label inventory")
+        expected_names = contextual_trainable_names(config, FULL_ENCODER_STRATEGY if full else (LAST_BLOCK_STRATEGY if legacy_last else None))
+        all_shapes = full_encoder_tensor_shapes(config)
+        shapes = {name: all_shapes[name] for name in expected_names}
+        from privoke_model.artifact import float32
+        # Legacy trainers clipped in float32, which may round a double request
+        # bound outward. Full-capable artifacts enforce the exact double bound.
+        strict_bound = metadata.get("artifact_training_strategy") == FULL_ENCODER_STRATEGY
+        admitted_bound = max_gradient if strict_bound else max(max_gradient, float32(max_gradient))
+        names = [p.name for p in response.gradients]
+        if len(names) != len(set(names)) or set(names) != set(shapes):
+            raise ValueError("Incomplete or unexpected tensor inventory")
+        if json.loads(metadata["trained_parameter_names"]) != sorted(shapes):
+            raise ValueError("Incorrect declared inventory")
+        expected_fingerprint = parameter_fingerprint({name: () for name in shapes}, shapes)
+        if metadata["trained_parameter_inventory_fingerprint"] != expected_fingerprint:
+            raise ValueError("Incorrect inventory fingerprint")
+        if sum(math.prod(shape) for shape in shapes.values()) > 65536:
+            raise ValueError("Excessive total tensor size")
+        for parameter in response.gradients:
+            if (tuple(parameter.shape) != shapes[parameter.name] or len(parameter.values) != math.prod(parameter.shape)
+                    or len(parameter.values) > (24576 if full else 4096)
+                    or any(not math.isfinite(v) or abs(v) > admitted_bound for v in parameter.values)):
+                raise ValueError("Invalid tensor shape, size or delta")
+        if response.metrics.get("examples") != len(request.examples) or response.metrics.get("heldout_examples") != len(request.heldout_examples):
+            raise ValueError("Incorrect metric counts")
+    except (ValueError, KeyError, TypeError) as exc:
+        reject(f"Runtime training contract failed: {exc}")
 
 
 def response_to_dict(response) -> dict[str, Any]:

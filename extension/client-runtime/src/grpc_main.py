@@ -38,6 +38,16 @@ def main() -> None:
     signal.signal(signal.SIGINT, _stop)
 
     check_required_detector_dependencies()
+    if env_bool("PRIVOKE_REQUIRE_TRAINING_CPU", False):
+        try:
+            import torch
+            with torch.enable_grad():
+                probe = torch.tensor(1.0, device="cpu", requires_grad=True)
+                (probe * probe).backward()
+                if probe.grad is None or probe.grad.item() != 2.0:
+                    raise RuntimeError("CPU autograd probe failed.")
+        except ImportError as exc:
+            raise RuntimeError("Automatic underlying training requires the CPU training dependency; rebuild with PRIVOKE_INSTALL_TRAINING_CPU=true.") from exc
 
     GLOBAL_CONFIG.llm_choice = LLMChoice.parse(
         os.getenv("PRIVOKE_LLM_CHOICE", "streamed")

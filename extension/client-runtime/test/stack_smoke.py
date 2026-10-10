@@ -59,7 +59,23 @@ def main() -> None:
     )
     parser.add_argument("--training-request-id", default=None)
     parser.add_argument("--replay-training", action="store_true")
+    parser.add_argument("--semantic-training-only", action="store_true", help="Focused Tiny training checks; no telemetry/product detectors.")
+    parser.add_argument("--training-action", choices=("prepare", "capture", "verify", "replay", "restart", "admission", "negative", "boundaries"), default="verify")
+    parser.add_argument("--training-state-dir", type=Path)
+    parser.add_argument("--training-output", type=Path)
+    parser.add_argument("--training-source-revision")
+    parser.add_argument("--training-wait-seconds", type=float, default=120)
     args = parser.parse_args()
+    if args.semantic_training_only:
+        if args.training_state_dir is None or (args.training_action != "prepare" and args.training_output is None):
+            parser.error("Focused training requires --training-state-dir and --training-output.")
+        if args.training_action == "prepare" and not args.training_source_revision:
+            parser.error("Fixture preparation requires the exact --training-source-revision.")
+        if args.skip_training or args.replay_training or args.training_request_id:
+            parser.error("Legacy stack smoke flags cannot be combined with focused training mode.")
+        from semantic_training_smoke import run_focused
+        run_focused(args, TARGETS)
+        return
 
     check_health_endpoints()
     check_model_snapshot()

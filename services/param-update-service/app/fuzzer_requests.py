@@ -16,8 +16,20 @@ if SHARED_DIR.exists() and str(SHARED_DIR) not in sys.path:
 import grpc
 from privoke.v1 import parameters_pb2, parameters_pb2_grpc
 from privoke_service import env_float, env_int, env_string, validate_text
+from training_cycles import TrainingCycles
 
 LOGGER = logging.getLogger(__name__)
+
+
+class StageRejected(RuntimeError):
+    """A definite protocol rejection, rather than an uncertain transport outcome."""
+
+
+def _underlying_enabled():
+    value = env_string("FUZZER_TRAIN_UNDERLYING", "true").lower()
+    if value not in ("true", "false"):
+        raise ValueError("FUZZER_TRAIN_UNDERLYING must be true or false.")
+    return value == "true"
 
 
 @dataclass(frozen=True)
@@ -34,6 +46,8 @@ class FuzzerRequestConfig:
     seed: int
     curriculum_sampler_policy: str = "deterministic_v1"
     curriculum_sampler_seed: int = 0
+    train_underlying: bool = True
+    state_path: str = "/data/training-cycles.sqlite3"
 
     @classmethod
     def from_env(cls) -> FuzzerRequestConfig:
@@ -57,11 +71,15 @@ class FuzzerRequestConfig:
             seed=env_int("FUZZER_REQUEST_SEED", 1337),
             curriculum_sampler_policy=env_string("FUZZER_CURRICULUM_SAMPLER_POLICY", "deterministic_v1", strip=True),
             curriculum_sampler_seed=env_int("FUZZER_CURRICULUM_SAMPLER_SEED", 0),
+            train_underlying=_underlying_enabled(),
+            state_path=env_string("FUZZER_CYCLE_STATE_PATH", "/data/training-cycles.sqlite3"),
         )
         config.validate()
         return config
 
     def validate(self) -> None:
+        if type(self.train_underlying) is not bool or not self.state_path:
+            raise ValueError("Automatic training requires a boolean stage selection and durable state path.")
         validate_text(self.target, "FUZZER_TARGET", required=True, limit=256)
         validate_text(self.model_id, "MODEL_ID", required=True)
         validate_text(self.source_id, "PARAM_UPDATE_SOURCE_ID", required=True)
@@ -102,65 +120,102 @@ def start_fuzzer_requester(config: FuzzerRequestConfig) -> None:
 
 
 def request_fuzzer_loop(config: FuzzerRequestConfig) -> None:
+    if config.prompt_count <= 0:
+        return
     if config.initial_delay_seconds > 0:
         time.sleep(config.initial_delay_seconds)
-
-    attempts = 0
-    cycle_request_id = request_id(config.source_id)
-    while True:
-        attempts += 1
-        try:
-            response = request_fuzzer_training(
-                config,
-                training_request_id=cycle_request_id,
-            )
-            if not response.accepted:
-                raise RuntimeError("Fuzzer rejected the training cycle.")
-            LOGGER.info(
-                "fuzzer training response accepted=%s model=%s version=%s prompts=%s",
-                response.accepted,
-                response.model_id,
-                response.applied_version,
-                response.prompts_generated,
-            )
-        except (grpc.RpcError, RuntimeError) as exc:
-            LOGGER.warning("fuzzer training request failed: %s", exc)
-            if attempts < config.max_attempts:
-                time.sleep(config.retry_seconds)
+    journal = TrainingCycles(config.state_path)
+    try:
+        while True:
+            cycle = journal.reserve(config)
+            if cycle is None:
+                return
+            if cycle["state"] != "pending":
+                remaining = cycle.get("finished_at", 0) + config.interval_seconds - time.time()
+                if remaining > 0:
+                    time.sleep(remaining)
                 continue
-            LOGGER.warning("fuzzer cycle exhausted %s attempts", attempts)
-
-        if config.interval_seconds <= 0:
-            return
-        time.sleep(config.interval_seconds)
-        attempts = 0
-        cycle_request_id = request_id(config.source_id)
-        # Retries keep their seed/identity; new cycles explore a reproducible
-        # sequence. Avoid zero, which the fuzzer treats as an omitted seed.
-        config = replace(config, seed=config.seed % 0xFFFFFFFF + 1)
+            for stage in ("heads", "full_encoder") if config.train_underlying else ("heads",):
+                state = cycle["stages"][stage]
+                if state["state"] == "accepted":
+                    continue
+                stage_config = replace(config, seed=cycle["seed"])
+                expected_base = cycle["stages"]["heads"].get("applied_version") if stage == "full_encoder" else None
+                state["request_protobuf_hex"] = build_training_request(stage_config, state["request_id"], expected_base).SerializeToString(deterministic=True).hex()
+                journal.save(cycle)
+                for attempt in range(config.max_attempts):
+                    try:
+                        response = request_fuzzer_training(replace(config, seed=cycle["seed"]),
+                            training_request_id=state["request_id"], training_scope=stage,
+                            expected_base_version=expected_base)
+                        if not response.accepted or response.model_id != config.model_id or not response.applied_version:
+                            raise StageRejected("Fuzzer rejected the training stage or returned a mismatched publication.")
+                        if expected_base and response.base_version != expected_base:
+                            raise StageRejected("Underlying stage did not use the acknowledged head publication base.")
+                        state.update(state="accepted", base_version=response.base_version,
+                                     applied_version=response.applied_version,
+                                     response_protobuf_hex=response.SerializeToString(deterministic=True).hex())
+                        journal.save(cycle)
+                        break
+                    except (grpc.RpcError, RuntimeError) as exc:
+                        terminal = isinstance(exc, StageRejected) or (isinstance(exc, grpc.RpcError) and exc.code() in (
+                            grpc.StatusCode.FAILED_PRECONDITION, grpc.StatusCode.INVALID_ARGUMENT,
+                            grpc.StatusCode.ALREADY_EXISTS))
+                        state["last_error"] = str(exc)
+                        if terminal:
+                            state["state"] = "rejected"
+                            cycle["state"] = "partial" if any(s["state"] == "accepted" for s in cycle["stages"].values()) else "rejected"
+                            cycle["finished_at"] = time.time()
+                        journal.save(cycle)
+                        LOGGER.warning("automatic training cycle=%s stage=%s state=%s: %s", cycle["cycle_id"], stage, cycle["state"], exc)
+                        if terminal or attempt + 1 == config.max_attempts:
+                            break
+                        time.sleep(config.retry_seconds)
+                if state["state"] != "accepted":
+                    break
+            if all(s["state"] == "accepted" for s in cycle["stages"].values()):
+                cycle["state"] = "complete"
+                cycle["finished_at"] = time.time()
+                journal.save(cycle)
+            if config.interval_seconds <= 0:
+                return
+            time.sleep(config.interval_seconds)
+            # Transient exhaustion remains pending and resumes identical stage
+            # IDs; terminal safety rejection starts a fresh independent cycle.
+    finally:
+        journal.close()
 
 
 def request_fuzzer_training(
     config: FuzzerRequestConfig,
     training_request_id: str | None = None,
+    training_scope: str = "heads",
+    expected_base_version: str | None = None,
 ):
+    with grpc.insecure_channel(config.target) as channel:
+        client = parameters_pb2_grpc.FuzzerServiceStub(channel)
+        method = client.RunUnderlyingTrainingCycle if training_scope == "full_encoder" else client.RunTrainingCycle
+        return method(build_training_request(config, training_request_id or request_id(config.source_id), expected_base_version),
+                      timeout=config.timeout_seconds)
+
+
+def build_training_request(config, training_request_id, expected_base_version=None):
     metadata = {"initiator": "param-update-service"}
+    if config.train_underlying:
+        metadata["require_full_capability"] = "true"
+    if expected_base_version:
+        metadata["expected_base_version"] = expected_base_version
     if config.curriculum_sampler_policy != "deterministic_v1":
         metadata.update(curriculum_sampler_policy=config.curriculum_sampler_policy,
                         curriculum_sampler_seed=str(config.curriculum_sampler_seed))
-    with grpc.insecure_channel(config.target) as channel:
-        client = parameters_pb2_grpc.FuzzerServiceStub(channel)
-        return client.RunTrainingCycle(
-            parameters_pb2.FuzzerTrainingRequest(
-                request_id=training_request_id or request_id(config.source_id),
+    return parameters_pb2.FuzzerTrainingRequest(
+                request_id=training_request_id,
                 source_id=config.source_id,
                 model_id=config.model_id,
                 prompt_count=config.prompt_count,
                 seed=config.seed,
                 metadata=metadata,
-            ),
-            timeout=config.timeout_seconds,
-        )
+            )
 
 
 def request_id(source_id: str) -> str:

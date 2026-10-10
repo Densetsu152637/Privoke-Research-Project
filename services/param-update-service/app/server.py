@@ -234,10 +234,16 @@ def create_server(config: ParamUpdateConfig):
 def serve() -> None:
     configure_logging()
     config = ParamUpdateConfig.from_env()
+    fuzzer_config = FuzzerRequestConfig.from_env()
+    if fuzzer_config.prompt_count > 0 and fuzzer_config.train_underlying:
+        from privoke_model.contextual_training import FULL_ENCODER_STRATEGY, STRATEGY_KEY
+        artifact = load_artifact(config.model_artifact_path)
+        if artifact["model_id"] != config.model_id or artifact.get("metadata", {}).get(STRATEGY_KEY) != FULL_ENCODER_STRATEGY:
+            raise RuntimeError("Automatic dual training requires the selected full-capable Tiny artifact; run model bootstrap before readiness.")
     server = create_server(config)
     server.start()
     LOGGER.info("%s listening on %s", SERVICE_NAME, config.port)
-    start_fuzzer_requester(FuzzerRequestConfig.from_env())
+    start_fuzzer_requester(fuzzer_config)
     server.wait_for_termination()
 
 

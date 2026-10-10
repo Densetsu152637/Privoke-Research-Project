@@ -96,6 +96,15 @@ def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradie
     strategy = snapshot.metadata.get(STRATEGY_KEY)
     artifact_strategy = strategy
     if artifact_strategy == FULL_ENCODER_STRATEGY:
+        try:
+            import torch
+            with torch.inference_mode(False), torch.enable_grad():
+                capability = torch.tensor(1.0, device="cpu", requires_grad=True)
+                capability.square().backward()
+                if capability.grad is None or capability.grad.item() != 2.0:
+                    raise ValueError("CPU autograd capability check failed.")
+        except ImportError as exc:
+            raise ValueError("Full-capable training requires the CPU training dependency before either stage.") from exc
         checksum = snapshot.metadata.get("artifact_checksum", "")
         if not isinstance(checksum, str) or len(checksum) != 64 or any(character not in "0123456789abcdef" for character in checksum):
             raise ValueError("Full encoder training requires the streamed artifact checksum identity.")
@@ -270,11 +279,13 @@ def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradie
             **({"contextual_optimizer_trace": optimizer_trace} if optimizer_trace is not None else {}),
             "strategy": strategy or "transformer_classification_head_finetune",
             "artifact_training_strategy": artifact_strategy or "transformer_classification_head_finetune",
+            "underlying_training_available": "true" if artifact_strategy == FULL_ENCODER_STRATEGY else "false",
             "training_scope": "full_encoder" if full_encoder else ("last_block" if strategy == LAST_BLOCK_STRATEGY else "heads"),
             "trained_parameter_names": json.dumps(sorted(scaled), separators=(",", ":")),
             "trained_parameter_inventory_fingerprint": parameter_fingerprint(
                 {name: () for name in scaled}, {name: snapshot.shapes[name] for name in scaled}),
             "artifact_checksum": snapshot.metadata.get("artifact_checksum", ""),
+            "model_config": snapshot.metadata["model_config"],
             "base_parameter_fingerprint": _parameter_fingerprint(snapshot.parameters),
             "updated_parameter_fingerprint": _parameter_fingerprint(candidate_parameters),
             "learning_rate": str(learning_rate),

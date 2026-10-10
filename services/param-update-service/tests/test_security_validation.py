@@ -195,6 +195,10 @@ class ParameterUpdateValidationTests(unittest.TestCase):
             )
 
     def test_fuzzer_retry_reuses_the_cycle_request_id(self) -> None:
+        import tempfile
+        from privoke.v1 import parameters_pb2
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
         config = FuzzerRequestConfig(
             target="fuzzer:50053",
             prompt_count=1,
@@ -206,8 +210,11 @@ class ParameterUpdateValidationTests(unittest.TestCase):
             retry_seconds=0.0,
             max_attempts=2,
             seed=1337,
+            train_underlying=False,
+            state_path=str(Path(temporary.name) / "cycles.sqlite3"),
         )
-        response = SimpleNamespace(
+        response = parameters_pb2.FuzzerTrainingResponse(
+            base_version="v1",
             accepted=True,
             model_id="privoke-baseline",
             applied_version="v1+train.1",

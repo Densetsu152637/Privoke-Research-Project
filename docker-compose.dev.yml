@@ -27,7 +27,7 @@ services:
     volumes:
       - ./services/model-streaming-service:/workspace/services/model-streaming-service
       - ./shared:/workspace/shared
-      - ./models:/models:ro
+      - model-data:/models:ro
     command:
       [
         "sh",
@@ -83,7 +83,7 @@ services:
       - param-update-data:/data
       - ./services/param-update-service:/workspace/services/param-update-service
       - ./shared:/workspace/shared
-      - ./models:/models
+      - model-data:/models
     command:
       [
         "sh",

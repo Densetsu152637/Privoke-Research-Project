@@ -21,10 +21,10 @@ WORKDIR /workspace/extension/client-runtime
 ENV PRIVOKE_GRPC_HOST=0.0.0.0
 
 ARG PRIVOKE_INSTALL_GPU=false
-ARG PRIVOKE_INSTALL_TRAINING_CPU=false
+ARG PRIVOKE_INSTALL_TRAINING_CPU=true
 
 RUN pip install --no-cache-dir -r requirements.txt /workspace/shared/python \
-    && if [ "${PRIVOKE_INSTALL_TRAINING_CPU}" = "true" ]; then \
+    && if [ "${PRIVOKE_INSTALL_TRAINING_CPU}" = "true" ] && [ "${PRIVOKE_INSTALL_GPU}" != "true" ]; then \
       pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu -r requirements-training-cpu.txt; \
     fi \
     && if [ "${PRIVOKE_INSTALL_GPU}" = "true" ]; then \
