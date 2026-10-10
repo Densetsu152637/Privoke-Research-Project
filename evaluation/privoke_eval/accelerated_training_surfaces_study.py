@@ -235,6 +235,44 @@ def verify_frozen_sources(output,protocol):
     """Admit chained audit/environment/scoring repairs without changing fits."""
     import ast
     current=source_inventory();current_revision=revision()
+    reporting_path=Path(output)/'report-ledger-amendment.json'
+    reporting=read(reporting_path) if reporting_path.exists() else None
+    if reporting:
+        prior_scoring=read(Path(output)/'score-dependency-amendment.json')
+        supervisor='evaluation/privoke_eval/accelerated_training_surfaces_study.py'
+        reporter='evaluation/privoke_eval/accelerated_training_surfaces_report.py'
+        prior=reporting.get('prior_source_files',{})
+        if (reporting.get('status')!='accepted' or reporting.get('scope')!='report_comparator_schema_only'
+                or reporting.get('protocol_sha256')!=sha(Path(output)/'protocol.json')
+                or reporting.get('scoring_amendment_sha256')!=sha(Path(output)/'score-dependency-amendment.json')
+                or reporting.get('prior_source_revision')!=prior_scoring.get('source_revision')
+                or prior!=prior_scoring.get('source_files')
+                or reporting.get('source_revision')!=current_revision or reporting.get('source_files')!=current
+                or reporting.get('offline_worker_image')!=protocol['offline_worker_image']
+                or set(prior)!=set(current) or {p for p in current if current[p]!=prior[p]}!={supervisor,reporter}):
+            raise ValueError('Report ledger amendment differs')
+        for path in (supervisor,reporter):
+            original=command(['git','show',reporting['prior_source_revision']+':'+path])
+            revised=(ROOT/path).read_text(encoding='utf-8')
+            def reporting_protected(text,*,amended):
+                tree=ast.parse(text)
+                if path==supervisor:
+                    tree.body=[n for n in tree.body if not (isinstance(n,ast.FunctionDef) and n.name=='verify_frozen_sources')]
+                elif amended:
+                    helpers=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='report_comparator']
+                    if len(helpers)!=1 or hashlib.sha256(ast.dump(helpers[0],include_attributes=False).replace(', type_params=[]','').encode()).hexdigest()!='3d234d3d51a2279135861b82a285f8fdaa68e436247dbcf7ed7927219f384f7e':
+                        raise ValueError('Report comparator helper differs')
+                    tree.body.remove(helpers[0])
+                    function=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='report')
+                    old=ast.parse("reference=ledger[cell['id']]['comparator']\nif reference=='own_baseline':continue")
+                    new=ast.parse("reference=report_comparator(ledger[cell['id']]['comparator'],cell)\nif reference is None:continue")
+                    loops=[n for n in function.body if isinstance(n,ast.For) and ast.dump(ast.Module(body=n.body[:2],type_ignores=[]),include_attributes=False)==ast.dump(new,include_attributes=False)]
+                    if len(loops)!=1:raise ValueError('Report comparator invocation differs')
+                    loops[0].body[:2]=old.body
+                return ast.dump(tree,include_attributes=False)
+            if reporting_protected(original,amended=False)!=reporting_protected(revised,amended=True):
+                raise ValueError('Report amendment changes protected computation')
+        current=prior;current_revision=reporting['prior_source_revision']
     scoring_path=Path(output)/'score-dependency-amendment.json'
     scoring=read(scoring_path) if scoring_path.exists() else None
     if scoring:

@@ -176,7 +176,7 @@ class StudyTests(unittest.TestCase):
         argv='["docker","run","--rm","--network","none","--read-only","--tmpfs","/tmp:rw,nosuid,size=1g",*mounts]'
         original={supervisor:'def verify_frozen_sources():\n    pass\ndef offline_worker():\n    args='+argv+'\n    return 96\n',
                   recipe:'ENV PYTHONPATH='+pythonpath+'\nENV PYTHONPATH='+pythonpath.replace('/study/','/workspace/')+'\n',
-                  auditor:'def audit_runtime_evidence():\n    return 1\ndef qualify():\n    return 2\n'}
+                  auditor:'def audit_runtime_evidence():\n    return 1\ndef qualify():\n    return 2\ndef report():\n    for cell in protocol["cells"]:\n        reference=ledger[cell["id"]]["comparator"]\n        if reference=="own_baseline":continue\n        controlled[cell["id"]]=reference\n'}
         audited=dict(original);audited[auditor]=original[auditor].replace('return 1','return 3')
         revised=dict(audited)
         revised[supervisor]=audited[supervisor].replace(',*mounts]',',"--env","PYTHONPATH='+pythonpath+':/study/models",*mounts]')
@@ -251,6 +251,32 @@ class StudyTests(unittest.TestCase):
                 with self.subTest(score_commitment=key),self.assertRaises(ValueError):study.verify_frozen_sources(self.path,protocol)
                 score[key]=saved
         self.assertEqual(study.sha(self.path/'audit-source-amendment.json'),audit_sha)
+        score_bind(repaired)
+        prior_reporting=inventory(repaired)
+        reporting_text=dict(repaired)
+        reporting_text[supervisor]=reporting_text[supervisor].replace('    pass','    return 0')
+        reporting_text[auditor]=reporting_text[auditor].replace('reference=ledger[cell["id"]]["comparator"]',
+            'reference=report_comparator(ledger[cell["id"]]["comparator"],cell)').replace('if reference=="own_baseline":continue','if reference is None:continue')+'\n'+inspect.getsource(report.report_comparator)
+        reporting={'status':'accepted','scope':'report_comparator_schema_only','protocol_sha256':study.sha(self.path/'protocol.json'),
+                   'scoring_amendment_sha256':study.sha(self.path/'score-dependency-amendment.json'),
+                   'prior_source_revision':'e'*40,'prior_source_files':prior_reporting,'source_revision':'f'*40,
+                   'source_files':inventory(reporting_text),'offline_worker_image':protocol['offline_worker_image']}
+        def report_bind(texts):
+            current.clear();current.update(inventory(texts))
+            for path,text in texts.items():(self.path/path).write_text(text)
+            study.write(self.path/'report-ledger-amendment.json',reporting)
+        def report_show(args):return {'a':original,'b':audited,'c':revised,'e':repaired}[args[2][0]][args[2].split(':',1)[1]]
+        report_bind(reporting_text)
+        with patch.object(study,'ROOT',self.path),patch.object(study,'source_inventory',return_value=current),patch.object(study,'revision',return_value='f'*40),patch.object(study,'command',side_effect=report_show):
+            study.verify_frozen_sources(self.path,protocol)
+            for path,before,after in ((supervisor,'return 96','return 97'),(auditor,'return 2','return 4'),(auditor,'return None','return "own_baseline"'),(auditor,'if reference is None:continue','if reference is not None:continue')):
+                changed=dict(reporting_text);changed[path]=changed[path].replace(before,after);reporting['source_files']=inventory(changed);report_bind(changed)
+                with self.subTest(report_change=before),self.assertRaises(ValueError):study.verify_frozen_sources(self.path,protocol)
+            reporting['source_files']=inventory(reporting_text);report_bind(reporting_text)
+            for key in ('scoring_amendment_sha256','protocol_sha256','prior_source_revision','source_revision','offline_worker_image'):
+                saved=reporting[key];reporting[key]='wrong';report_bind(reporting_text)
+                with self.subTest(report_commitment=key),self.assertRaises(ValueError):study.verify_frozen_sources(self.path,protocol)
+                reporting[key]=saved
 
     def test_score_dependency_mount_is_committed_readonly_and_absent_from_fits(self):
         cell={'surface':'random_control','id':'control'}
@@ -272,6 +298,30 @@ class StudyTests(unittest.TestCase):
             study.write(self.path/'worker-fit/request.json',{'operation':'fit','cell':cell,'inputs':{'base_artifact':changed}})
             inputs['snapshot']['sha256']=study.sha(snapshot)
             with self.subTest(target=target),self.assertRaisesRegex(ValueError,'base reference'):study.score_dependency_mounts(inputs,self.path,cell,'score-000-primary')
+
+    def test_report_comparator_accepts_frozen_endpoint_descriptors_and_rejects_other_checkpoints(self):
+        kinds={'tiny':'offline_fixed_final_Adam_step96','sparse_presence':'offline_fixed_LBFGS_final',
+               'scratch_presence':'offline_fixed_final_Adam_step96','minilm':'fixed_final_head_Adam_step96','random_control':'fixed_final_head_Adam_step96'}
+        for cell in study.matrix('test'):
+            kind='actual_streamed_snapshot_slot96' if cell['kind']=='online' else kinds[cell['surface']]
+            self.assertIsNone(report.report_comparator({'kind':kind},cell))
+            self.assertIsNone(report.report_comparator('own_baseline',cell))
+            self.assertEqual(report.report_comparator('another-cell',cell),'another-cell')
+            for value in ({'kind':'snapshot32'},{'kind':kind,'cell_id':'unplanned'},[],None):
+                with self.subTest(cell=cell['id'],value=value),self.assertRaises(ValueError):report.report_comparator(value,cell)
+        scratch=next(c for c in study.matrix('test') if c['surface']=='scratch_presence' and c['profile']=='efficient')
+        with self.assertRaisesRegex(ValueError,'native context'):report.report_comparator({'kind':kinds['scratch_presence'],'native_context':256},scratch)
+
+    def test_report_assembles_own_baseline_dictionary_ledger_without_cross_cell_contrasts(self):
+        cells=[c for c in study.matrix('test') if c['id'].startswith('main-balanced-heads-')]
+        ledger=self.path/'ledger.json';study.write(ledger,{'routes':{c['id']:{'comparator':{'kind':'actual_streamed_snapshot_slot96'}} for c in cells}})
+        protocol={'cells':cells,'inputs':{'endpoint_ledger':{'path':str(ledger)}}};study.write(self.path/'protocol.json',protocol)
+        receipt={'assessment':{},'qualification':{'eligible':True,'passes':False,'veto':False}}
+        for c in cells:study.write(self.path/'cells'/c['id']/'complete.json',receipt)
+        with patch.object(report,'verify_protocol',return_value=(protocol,{})),patch.object(report,'audit_cell',return_value=receipt):
+            result=report.report(self.path)
+        self.assertEqual(len(result['cells']),3);self.assertEqual(len(result['group_decisions']),1)
+        self.assertEqual(result['controlled_contrasts'],{});self.assertFalse(result['all_eligible_configurations_qualify'])
 
     def snapshot(self,version='v0',head=0.,encoder=0.):
         return {'identity':{'model_id':'m','model_version':version,'artifact_checksum':'a','parameter_fingerprint':'f'},

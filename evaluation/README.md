@@ -637,13 +637,14 @@ Use the record's Linux container helper recipe with UID/GID `10001:10001`, task 
 
 ## Accelerated training across model surfaces
 
-`run-accelerated-training-surfaces-study.py` owns the prospective all-surface
+`run-accelerated-training-surfaces-study.py` owns the frozen all-surface
 protocol. Its `plan`, `render-assessment`, `prepare` and `preflight` operations do
 not fit models. `freeze` requires an internal root acceptance receipt bound to
 source, images, assessment and review hashes. `execute --cell CELL_ID` runs one
 fixed-budget isolated trajectory; `execute --cell all` uses prospectively
-accepted hardware concurrency. `audit` reconciles raw evidence, while `report`
-adds fixed-final paired comparisons.
+accepted hardware concurrency. `audit` and `report` independently reconcile
+raw evidence and fixed-final paired comparisons, writing `audit.json` and
+`summary.json` respectively; their contents must agree.
 
 See [the complete study protocol](../docs/accelerated-training-surfaces-study-20261010.md)
 for the 168-cell matrix, native offline budget exceptions, mandatory semantic

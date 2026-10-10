@@ -166,6 +166,23 @@ def audit_cell(directory,cell,protocol):
             'dose':dose,'assessment':measured,'qualification':qualification,'endpoints':endpoints,'disclosure':disclosure,'evidence_files':inventory,'archive_sha256':digest(inventory)}
 
 
+def report_comparator(value,cell):
+    """Distinguish fixed-final endpoint descriptors from cross-cell references."""
+    if value=='own_baseline':return None
+    if isinstance(value,str) and value:return value
+    if not isinstance(value,dict):raise ValueError('Invalid comparator descriptor')
+    expected=('actual_streamed_snapshot_slot96' if cell['kind']=='online' else
+              'offline_fixed_LBFGS_final' if cell['surface']=='sparse_presence' else
+              'fixed_final_head_Adam_step96' if cell['surface'] in ('minilm','random_control') else
+              'offline_fixed_final_Adam_step96')
+    allowed={'kind','selection','solver','native_context','causal_scope'}
+    if value.get('kind')!=expected or set(value)-allowed:
+        raise ValueError('Comparator does not describe the frozen final endpoint')
+    if 'native_context' in value and value['native_context']!={'efficient':64,'balanced':96,'quality':128}[cell['profile']]:
+        raise ValueError('Comparator native context differs')
+    return None
+
+
 def report(output,*,summary=False):
     protocol,state=verify_protocol(output,execution=True)
     cells={}
@@ -177,8 +194,8 @@ def report(output,*,summary=False):
     controlled={}
     ledger=read(protocol['inputs']['endpoint_ledger']['path'])['routes']
     for cell in protocol['cells']:
-        reference=ledger[cell['id']]['comparator']
-        if reference=='own_baseline':continue
+        reference=report_comparator(ledger[cell['id']]['comparator'],cell)
+        if reference is None:continue
         if reference not in cells:raise ValueError('Declared comparator missing from complete matrix')
         own=cells[cell['id']]['assessment'];other=cells[reference]['assessment']
         own_initial=read(Path(output)/'cells'/cell['id']/'assessment-000.json')['identity']['parameter_fingerprint']
