@@ -36,10 +36,22 @@ The generated transformer is a compact research classifier, not a general-purpos
 conversational LLM. Its encoder starts from seeded NumPy random initialization;
 the baseline generator bootstraps only the six sensitivity, visibility, and
 category head tensors on a small synthetic phrase curriculum. The current
-default Tiny semantic update path is head-only and does not use external pretrained weights.
+Tiny bootstrap is head-only and does not use external pretrained weights. The
+prepared full-training release additionally supports supervised encoder-and-head
+updates through `ComputeUnderlyingModelGradients`; `ComputeSemanticGradients`
+keeps its head-only scope on that release. Both require explicit semantic-only
+selection and report the actual training/base-heldout/candidate-heldout phases.
+The full Tiny context is 256 total tokens by default (255 content tokens plus
+one start token), with overlength errors rather than silent truncation. This
+new version preserves existing weight coordinates and appends deterministic
+position rows. Historical artifacts retain their original behavior. The Linux
+server image installs pinned CPU Torch 2.10.0 through
+`requirements-training-cpu.txt` and probes CPU autograd before readiness when
+`PRIVOKE_REQUIRE_TRAINING_CPU=true`. This training dependency is separate from
+the optional MiniLM ONNX environment.
 See [in-house model training status](../in-house-model-training.md) for this
-implemented path and the separately accepted, not-yet-validated end-to-end
-training direction.
+implemented paths, historical exploratory results and pending reviewed-data
+quality evaluation. The [underlying-training record](../fuzzer-underlying-training-20261010.md) separates mechanics from measured quality.
 
 ## Experimental Frozen Pretrained Contextual Model
 

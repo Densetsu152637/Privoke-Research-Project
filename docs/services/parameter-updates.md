@@ -66,22 +66,34 @@ Environment variables:
 - `PARAM_UPDATE_MAX_MESSAGE_BYTES`, default `1048576`
 - `MODEL_ID`, default `privoke-baseline`; updates for other model IDs are rejected
 
-Production Compose and Compute Engine persist audit/receipt data in `param-update-data` and weights in `model-data`. The updater mounts weights read-write and streaming mounts them read-only. The development override instead bind-mounts `./models`, so a successful balanced-model training cycle appears in `git diff -- models/privoke-balanced.json` and can be reviewed and committed. Standalone defaults above retain the legacy baseline ID; Compose explicitly selects `privoke-balanced`.
+Base, development and Compute Engine Compose persist audit/receipt/scheduler data in `param-update-data` and mutable weights in `model-data`. The updater mounts weights read-write and streaming mounts them read-only. Development no longer writes training updates into the tracked `./models` files. Standalone defaults above retain the legacy baseline ID; Compose explicitly selects `privoke-balanced`.
+
+Before serving, the storage bootstrap validates the selected model ID under the receipt writer lock, checkpoints/reloads committed receipt state, and prepares the current learned artifact for full Tiny training. It preserves every existing tensor coordinate, extends position rows to at least `MODEL_TRAINING_MAX_TOKENS=256`, and binds a distinct release version/checksum to the previous committed artifact. A valid full-capability artifact with sufficient context is reused byte-for-byte. Initialization markers do not skip this capability migration. Do not delete the model volume to obtain a new capability; that would lose learned weights.
+
+Full-strategy updates require the complete validated shape contract, at most 24,576 values per tensor and 65,536 in total; legacy tensor limits remain 4,096. Larger tensors are admitted only for the explicit validated artifact strategy, including revalidation under the writer lock. An underlying update is one atomic artifact publication, not independently committed embedding fragments.
 
 The `Health` RPC returns `SERVING` only when the audit path is writable and the model artifact is valid and replaceable.
 
 ## Fuzzer Requests
 
 Automatic training is enabled by default: the service starts a daemon requester
-thread after gRPC startup, requests 32 prompts, and requests another cycle one
-hour after the previous cycle finishes. Set `FUZZER_PROMPT_COUNT=0` to disable
+thread after gRPC startup, requests 32 prompts for each stage, and requests another
+cycle one hour after the previous cycle finishes. By default it calls head training
+then underlying Tiny training on the same model ID. The second stage uses the
+acknowledged first stage version as its expected base. These are independent
+compare-and-swap publications, not one atomic two-stage transaction. Set `FUZZER_PROMPT_COUNT=0` to disable
 the requester, or `FUZZER_REQUEST_INTERVAL_SECONDS=0` for one startup cycle.
-Research and CI overrides explicitly disable it so background updates cannot
-change a controlled study's model. Accepted cycles publish persistent model
+Controlled quality-study and general product-smoke overrides disable background
+training. The dedicated semantic-training CI job deliberately enables one cycle
+on isolated fixed-fixture state; it does not update a quality study's model. Accepted cycles publish persistent model
 updates; existing fuzzer quality gates still decide whether a candidate qualifies.
+
+SQLite retains each cycle's seed, stage request IDs, committed versions and serialized responses. After restart, accepted stages are not repeated and an uncertain stage reuses its original identity. Changing training settings while a cycle is pending fails closed. Transport retries are bounded per pass; transient exhaustion retains the pending stage for the next interval or restart. A definite rejection records `rejected` or `partial` and a later periodic cycle advances the seed; an accepted head remains published. A completed one-shot (`FUZZER_REQUEST_INTERVAL_SECONDS=0`) does not run again on restart with unchanged settings. Back up this journal with model weights and update receipts.
 
 Environment variables:
 
+- `FUZZER_TRAIN_UNDERLYING`, default `true`; `false` selects only the head stage
+- `FUZZER_CYCLE_STATE_PATH`, default `/data/training-cycles.sqlite3`; durable automatic-cycle journal
 - `FUZZER_TARGET`, default `privoke-fuzzer:50053`
 - `FUZZER_PROMPT_COUNT`, default `32`; `0` disables automatic training
 - `MODEL_ID`, default `privoke-baseline`
@@ -95,17 +107,19 @@ Environment variables:
 - `FUZZER_CURRICULUM_SAMPLER_POLICY`, default `deterministic_v1`; explicitly opt into `seeded_family_v1` for a configured curriculum
 - `FUZZER_CURRICULUM_SAMPLER_SEED`, default `0`, unsigned 32-bit stable allocation seed; deterministic policy requires zero
 
-When enabled, it sends:
+For the default dual-stage path, the first request has this shape (the persisted
+cycle ID replaces the placeholder):
 
 ```protobuf
 FuzzerTrainingRequest {
-  request_id: "<source>-<unix>-<suffix>"
+  request_id: "<cycle-id>-heads"
   source_id: "param-update-service"
   model_id: "privoke-baseline"
   prompt_count: 32
   seed: 1337
   metadata: {
     "initiator": "param-update-service"
+    "require_full_capability": "true"
   }
 }
 ```

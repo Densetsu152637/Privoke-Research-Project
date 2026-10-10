@@ -175,7 +175,7 @@ deployment identities and are never required for the streamed server stack.
 
 ### Training cycles and telemetry boundary
 
-The fuzzer and parameter-update service request repeated training by default.
+The fuzzer and parameter-update service request repeated supervised Tiny training by default. Each automatic cycle performs head training followed by full encoder-and-head training on the same selected model ID. The maintained Compose file sets `FUZZER_TRAIN_UNDERLYING=true`; a reviewed Compose override setting it to `false` selects the head stage only (this value is not one of the release `.env` substitutions below). Each stage has an independent quality gate and atomic publication: if the second fails, an accepted first update remains. Both use explicit semantic-only runtime execution; regex and NER are not part of these training/guard phases.
 Configure `FUZZER_PROMPT_COUNT`, `FUZZER_REQUEST_INTERVAL_SECONDS` and
 `FUZZER_REQUEST_SEED` in the VM `.env`; defaults are `32`, `3600` and `1337`.
 Count `0` disables training, while interval `0` requests one startup cycle.
@@ -184,7 +184,7 @@ cycles exhaust their bounded retries before waiting for the next interval.
 All three values are saved into each release's `release.env`; changing the VM
 `.env` affects a later deployment, not an already running release. The service
 writes update history to `param-update-data` and the resulting model to
-`model-data`. Disable automatic training before a controlled research study.
+`model-data`. The durable `FUZZER_CYCLE_STATE_PATH=/data/training-cycles.sqlite3` journal resumes uncertain stages with the same IDs and seed, skips acknowledged stages and preserves completed one-shot status across restarts. Definite rejection records a partial/rejected cycle; the next periodic cycle uses a new seed. The second stage requires the first stage's committed base, so an intervening update is rejected rather than overwritten. The maintained runtime image includes CPU Torch 2.10.0 and checks autograd readiness before training. Disable automatic training before a controlled research study. Source and local-test validation do not imply these changes have been deployed to a VM.
 
 This stack does not train on browser-extension traffic. With the checked-in Compose settings, the server-side `client-runtime` sends locally randomized categorical telemetry to `telemetry-service`; workstation telemetry is disabled by default and can be enabled separately. Each report contains randomized action, risk bucket, primary category, fixed model release, and randomized four-hour time-of-day bucket. It excludes prompts, identifiers, target app names, exact timestamps, exact scores, text length, and layer timings. The event-level local-DP guarantee, daily installation-local budget, exact aggregate sample count, transport metadata limits, and legacy database handling are documented in [Telemetry service](../services/telemetry.md). This is not user-level or event-existence privacy: report presence, timing, IP address and operational logs remain outside the guarantee.
 
@@ -201,7 +201,7 @@ run again.
 
 Push the prepared repository changes to `main` or run **Actions → Deploy Compute Engine → Run workflow** on `main`. The workflow verifies the complete stack, builds all five images, authenticates with the `GCP_SA_KEY` secret, publishes them, transfers just deployment files through IAP, then runs the VM deployment script.
 
-The script validates inputs, locks deployment, fetches TLS secrets, pulls images, validates nginx, and runs `docker compose up --wait`. Model seeds are copied from the parameter-update image only when the model volume has never been initialized. Later deploys preserve trained artifacts. The successful release lives at `/opt/privoke/current`; Compose always uses the project name `privoke` so volume identities are stable. It does not automatically delete old releases or data.
+The script validates inputs, locks deployment, fetches TLS secrets, pulls images, validates nginx, and runs `docker compose up --wait`. Model seeds are copied from the parameter-update image only when the model volume has never been initialized. On every startup the bootstrap additionally checks the selected mutable artifact for the full-Tiny capability, including already-initialized volumes. It checkpoints recovery receipts under the writer lock and migrates current learned coordinates to a new bound version/checksum, extending position rows to at least `MODEL_TRAINING_MAX_TOKENS=256` (255 content tokens plus one start token). An already-capable artifact with sufficient context is reused unchanged. Historical tracked model files are not rewritten. Later deploys therefore preserve learned values while deliberately migrating the selected artifact contract. The successful release lives at `/opt/privoke/current`; Compose always uses the project name `privoke` so volume identities are stable. It does not automatically delete old releases or data.
 
 On the VM:
 
@@ -276,7 +276,7 @@ The retained boot disk is intentionally not deleted by the instance command; del
 | nginx configuration fails | PEM files, matching server certificate/key, client CA and directory mount |
 | Cloud LLM health offline | DNS, server SAN/trust, client certificate expiry and private key, port 443 firewall |
 | Local development works, cloud fails | Hidden toggle state and installation `.env`; local mode bypasses cloud TLS by design |
-| Model release appears unchanged | Persistent model volume is seeded once; publish/migrate models deliberately rather than deleting the volume |
+| Model release appears unchanged | Seeds are copied once; the selected-artifact bootstrap migrates capability while preserving learned coordinates, and reuses an already-capable release. Inspect bootstrap/update receipts; never delete the volume to force migration |
 
 ## 9. Configure and operate a workstation installation
 

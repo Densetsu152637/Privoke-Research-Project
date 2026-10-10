@@ -37,8 +37,9 @@ performs better. Profile names and parameter counts do not establish accuracy,
 contextual quality, or generalization.
 
 The streamed semantic runtime executes the compact classifier locally. Its
-current runtime update path computes classification-head deltas; the fuzzer
-receives bounded parameter updates rather than model weights. In
+head endpoint computes classification-head deltas, while the separately selected
+full-Tiny endpoint computes encoder-and-head deltas; the fuzzer receives bounded
+parameter updates rather than model weights. In
 `compute_semantic_gradients`, an example with `target=None` uses the model's own
 prediction as a target, so that example is not independently labeled supervised
 ground truth. Do not describe this path as encoder training.
@@ -97,18 +98,21 @@ preparation, twelve-input/protection freeze, actual review packages, provisional
 labels, allocation, and training partitions remain pending. Passing synthetic
 tests do not establish clean-data eligibility or model performance.
 
-These mechanics do not change the served transformer updater. The online update
-path still updates the six classifier-head tensors and enforces the existing
-per-gradient-tensor limit. The offline full-encoder path is separate from the
-binary `annotation_presence` classifier and does not make that classifier a
-contextual model. See the still-draft
+A subsequent versioned full-Tiny contract now supports online supervised
+encoder-and-head updates through a separate runtime/fuzzer endpoint. The head
+endpoint still updates only its six heads on that artifact. Automatic cycles
+sequence head then underlying training on the same model ID, with independent
+publication guards and durable recovery. The [implementation record](fuzzer-underlying-training-20261010.md)
+separates its mechanical validation from quality evidence. The offline fitter
+and online full-Tiny path remain separate from the binary `annotation_presence`
+classifier and do not make that classifier a contextual model. See the still-draft
 [prospective study plan](in-house-transformer-study-plan.md) and the
 [training module](../evaluation/privoke_eval/in_house_transformer_training.py).
 
-## Prospective end-to-end training direction
+## End-to-end training scope and pending reviewed-data study
 
-The proposed in-house mechanics direction is a separate offline CPU training
-path for the repository's randomly initialized transformer. In this context,
+The repository now has separate offline and online CPU training paths for its
+randomly initialized transformer. In this context,
 _end-to-end_ means optimizing the encoder and task head together on an explicitly
 labeled supervised objective. It does not mean that PriVoke has a generative
 language model, that it performs self-supervised language-model pretraining, or
@@ -124,16 +128,18 @@ authored contextual labels: three profiles, three seeds and two training modes,
 each with 20 Adam batches of 32. None qualified; disclosure joint correctness
 remained 0/32 at every offline endpoint, and every cell introduced fixture harms.
 These are measured exploratory results, not an independently reviewed-data fit
-or a promoted model. Work remains separate from the existing head-only fuzzer
-updates and sparse-presence study. The pending reviewed-data design requires:
+or a promoted model. The later full-Tiny online publication capability does not
+change those historical results or establish improved accuracy. The pending
+reviewed-data design remains separate from the sparse-presence study and requires:
 
 - independent train/validation/test groups and explicitly reviewed labels for
   the chosen task; no reuse of development or locked final rows for fitting;
 - a differentiable forward pass outside the serving method's inference mode,
   independent trainable Torch parameters, finite-loss/gradient checks, and
   round-trip parity with the runtime's serialized inference;
-- a training-only CPU Torch environment with pinned dependencies; ordinary
-  serving dependencies should remain separate from that training dependency;
+- a pinned CPU Torch environment and recorded versions; the maintained server
+  image now includes the CPU training dependency, while the MiniLM ONNX
+  experiment retains its separate environment;
 - frozen tokenization, model configuration, seed, stopping limits, thresholds,
   selection rule, and artifact format, with complete provenance and failed-run
   records.
@@ -152,15 +158,19 @@ visibility, category, masking, or action behavior. Do not map an `ABSENT` result
 to a clean or safe prompt, or report presence metrics as contextual-pipeline
 improvement. The current project development result remains 90.53% recall and
 29.41% specificity, below the 90% specificity target; locked final data remain
-unscored. A new representation does not resolve that gap without the required
-full-pipeline evidence.
+unscored. A new representation does not resolve that historical product gap without
+separately authorized product qualification. LLM-layer improvement and training
+comparisons must use explicit semantic-only evaluation; this task does not
+require or authorize a full-pipeline run.
 
-The online update service permits at most 4,096 values in one gradient tensor.
-For example, the balanced token embedding has shape `[512, 32]` (16,384 values)
-and exceeds that per-tensor bound. The current update mapper has no reviewed
-atomic chunk-assembly contract for a full-encoder update. Keep end-to-end fitting
-offline; do not split an embedding update into independent published deltas or
-raise transport limits without a separately reviewed, versioned contract.
+Legacy online artifacts retain the 4,096-value per-tensor bound. The explicit
+`contextual_full_encoder_sgd_v1` contract admits exact validated full-Tiny shapes
+with at most 24,576 values per tensor and 65,536 total. It publishes the complete
+bounded candidate atomically; embedding fragments are not separate updates.
+Preparation preserves all existing weights and extends context to 256 total
+tokens by default, including one start token. Added position rows use a versioned
+SHA-256 coordinate initializer, and the prepared artifact receives a new version
+and checksum. This capacity change is not a measured quality improvement.
 
 **Current wording:** “The generated PriVoke transformer uses a seeded random
 encoder and head-only synthetic bootstrap; it is not initialized from external

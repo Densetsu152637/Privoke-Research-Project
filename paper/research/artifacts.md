@@ -1,5 +1,11 @@
 # Local development evidence package
 
+## Online full-Tiny fuzzer mechanics — 10 October 2026
+
+The [implementation record](../../docs/fuzzer-underlying-training-20261010.md) retains `RQ-FUZZER-FULL-ENCODER-20261010`, exact goal/prompt attribution, current contracts, mechanical results and failed-attempt limits. Local evidence is under `evaluation/results/fuzzer_underlying_training_20261010/FT5E/`: `FT5E-result.json` SHA-256 `07b3792fb83adc3f1911796ab1a5e46e1cf32ed2e3ba385699f67e63edf2c844` and `FT5E-evidence-manifest.json` SHA-256 `264af4759a2da599ff4d5bbd3f4399cc49f24646900e363c32306568fdd5bd64` bind 142 retained files. Runtime/fuzzer images use `98a59eebf9e897b656a392551ffa0a3913e715e3`, model/updater source remains `3d2490dfb773fc32824afd604c882e3eca2db68b`, and read-only helper source is `b509f0e355e98338c2c1730cf5a58a261623318d`.
+
+Two actual publications demonstrate mechanics on a fixed synthetic fixture, not quality improvement. S0/S2 were streamed; S1 was reconstructed. All retained failures, the unproven SQLite precipitant, unit-only pending-FULL crash coverage and the missing original malformed-boundary error response remain disclosed. CI separation at `c7d8015447fcbade3cc20b2c2c26c2cc88622985` has local checks but no hosted run at this checkpoint. No cloud deployment or protected-final scoring is claimed; the historical evidence packages below are unchanged.
+
 ## Frozen pretrained contextual package — 10 October 2026
 
 The [study record](../../docs/semantic-pretrained-context-study-20261010.md) preserves question `RQ-SEM-PRETRAINED-CONTEXT-20261010`, the original user prompts, prospective method, amendments and negative qualification decision. The [public evidence directory](../../docs/evidence/semantic-pretrained-20261010/README.md) contains allowlisted synthetic labels/actions, aggregate secondary counts, functional 512-token outcomes and a standard-library arithmetic reproducer. Its publication manifest binds delivered bytes; provenance hashes bind separate retained local receipts. No real public-development prompt text or raw response is redistributed.

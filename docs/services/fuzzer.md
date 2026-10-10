@@ -2,16 +2,21 @@
 
 > Source area: `services/privoke-fuzzer`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
 
-`privoke-fuzzer` is a Python gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, asks `client-runtime` to execute a bounded semantic training batch, submits the returned classification-head gradients to `param-update-service`, and runs ad hoc prompt tests through the same runtime service.
+`privoke-fuzzer` is a Python gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, asks `client-runtime` to execute a bounded semantic training batch, submits the returned head-only or full-Tiny encoder-and-head deltas to `param-update-service`, and runs ad hoc prompt tests through the same runtime service.
 
 It is not in the hosted prompt decision path. Training cycles deliberately target the streamed semantic model path rather than the full regex + NER + semantic pipeline.
 
 For LLM study comparisons, use the semantic-only curriculum-improvement runner. Older combined-protocol study commands require `--allow-product-pipeline` solely for separately authorized product/detector analysis; their pipeline selection rules and historical scores retain that scope. See the [evaluation entrypoint policy](../../evaluation/README.md).
 
 Normal deployments enable the updater's automatic requester by default: 32
-prompts at startup and another cycle every hour, with a different seed for each
-new cycle and the same seed on retries. Set `FUZZER_PROMPT_COUNT=0` on the updater
-to disable it. Controlled research and CI overrides do this explicitly. See
+prompts per stage at startup and another cycle every hour after completion.
+Each cycle runs head training followed by full Tiny encoder-and-head training on
+the same model ID, with a different seed for each new cycle and the same seed
+and stage IDs on retries. The stages publish independently; a full-stage
+rejection does not roll back an accepted head update. Set `FUZZER_PROMPT_COUNT=0` on the updater
+to disable it. Controlled quality studies and general product smoke overrides
+do this explicitly. The dedicated semantic-training CI job instead enables one
+automatic cycle on an isolated fixed fixture. See
 [requester configuration](parameter-updates.md#fuzzer-requests).
 
 ## gRPC Worker
@@ -19,6 +24,7 @@ to disable it. Controlled research and CI overrides do this explicitly. See
 Defined in `shared/proto/privoke/v1/parameters.proto`:
 
 - `RunTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
+- `RunUnderlyingTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
 - `RunPresenceTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
 - `Health(HealthRequest) -> HealthResponse`
 
@@ -47,7 +53,9 @@ The fuzzer does not connect to `model-streaming-service`. Fetching, validation, 
 
 ## Training Semantics
 
-The training cycle fine-tunes the sensitivity, visibility, and multi-label category heads of the streamed transformer. The encoder remains frozen in this first architecture revision, which keeps updates small and makes online experiments repeatable.
+`RunTrainingCycle` updates the six sensitivity, visibility and category head tensors on a full-capability Tiny artifact. `RunUnderlyingTrainingCycle` instead calls `ComputeUnderlyingModelGradients` to update token/position embeddings, every attention/feed-forward block and those heads. It requires the versioned `contextual_full_encoder_sgd_v1` artifact strategy and explicit contextual targets. Existing declared last-block research artifacts retain their scoped behavior. This is supervised task-specific classification training, not general language-model pretraining. Frozen MiniLM online updates still fail explicitly.
+
+Both runtime training RPCs require exactly `[DETECTION_LAYER_SEMANTIC]` and nonempty held-out examples; empty or mixed layer lists fail. The fuzzer checks returned `training`, `base_heldout` and `candidate_heldout` records for the semantic layer, successful status and exact example counts. These are direct Tiny execution records, not an `AnalyzePrompt` product-pipeline trace. It also validates request/model/base identity, artifact checksum, declared strategy, exact tensor shapes/inventory, fingerprints and bounded finite deltas before publication.
 Training and held-out execution use the same canonical text normalization as
 serving, so Unicode compatibility forms, obfuscated email separators and spaced
 digits have a consistent semantic representation in candidate quality checks.
@@ -59,9 +67,11 @@ digits have a consistent semantic representation in candidate quality checks.
 - receives bounded tensor deltas, metrics, fingerprints, and the exact base version,
 - packages those values for `param-update-service` without receiving model weights.
 
-Only trainable-head deltas are sent to `param-update-service`; raw prompt text is not included. Runtime quality evaluation compares the base model and exact clipped/float32 candidate on distinct held-out labels without mutating its serving cache. Publication requires training exact-match rate strictly above `FUZZ_MIN_EXACT_MATCH_RATE`, both held-out strata present, and no decrease in held-out exact-match rate, sensitive recall, or clean specificity. `candidate_heldout_safety_regression_rate` must also be zero: each example preserves at least the lesser of its target and baseline severity and policy action, including confidence-based action thresholds. Missing/invalid metrics fail the cycle. This synthetic held-out guard does not establish generalization to public benchmarks.
+Only the selected strategy's tensor deltas are sent to `param-update-service`; raw prompt text is not included in that update. The fuzzer's local training evidence does retain the synthetic request/response protobufs and execution records under `PRIVOKE_FUZZER_DUMP_DIR/training-cycles/`, so those evidence files need separate handling from the bounded update metadata. Runtime quality evaluation compares the base model and exact clipped/float32 candidate on distinct held-out labels without mutating its serving cache. Publication requires training exact-match rate strictly above `FUZZ_MIN_EXACT_MATCH_RATE`, both held-out strata present, and no decrease in held-out exact-match rate, sensitive recall, or clean specificity. `candidate_heldout_safety_regression_rate` must also be zero: each example preserves at least the lesser of its target and baseline severity and policy action, including confidence-based action thresholds. Missing/invalid metrics fail the cycle. This synthetic held-out guard does not establish generalization to public benchmarks.
 
 The update service checks the base version, atomically applies accepted deltas, increments `+train.N`, and streaming makes that artifact available on the next request. Runtime caches refresh after their configured interval. A retry after a lost acknowledgment queries durable status before generating or training new data; conflicting request reuse is rejected, and unavailable status storage prevents a new cycle.
+
+The full endpoint uses a separate replay namespace from head and annotation-presence training. Before automatic head publication, the dual-stage path checks that the model supports full training and CPU autograd is usable. The full stage requires the head stage's acknowledged applied version; an intervening publication fails the expected-base/CAS checks. Retry recovery queries durable outcomes before generating or training again. See the [underlying-training record](../fuzzer-underlying-training-20261010.md) for scope, validation and remaining limits.
 
 ## Prompt Generation
 
