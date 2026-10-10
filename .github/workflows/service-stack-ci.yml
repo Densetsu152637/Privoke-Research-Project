@@ -134,8 +134,8 @@ jobs:
     env:
       COMPOSE_PROJECT_NAME: privoke-semantic-ci-${{ github.run_id }}-${{ github.run_attempt }}
       COMPOSE_FILE: evaluation/compose.underlying-training-smoke.yml
-      CI_STATE_ROOT: ${{ runner.temp }}/privoke-semantic-training
-      FT5_STATE_DIR: ${{ runner.temp }}/privoke-semantic-training/positive
+      CI_STATE_ROOT: /tmp/privoke-semantic-training-${{ github.run_id }}-${{ github.run_attempt }}
+      FT5_STATE_DIR: /tmp/privoke-semantic-training-${{ github.run_id }}-${{ github.run_attempt }}/positive
     steps:
       - uses: actions/checkout@v6
       - name: Prepare isolated state and semantic-only client command
@@ -216,7 +216,7 @@ jobs:
         with:
           name: semantic-training-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            ${{ runner.temp }}/privoke-semantic-training
+            ${{ env.CI_STATE_ROOT }}
             ${{ runner.temp }}/semantic-diagnostics
           if-no-files-found: warn
 
