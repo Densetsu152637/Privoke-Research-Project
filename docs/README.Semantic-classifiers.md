@@ -36,10 +36,69 @@ The generated transformer is a compact research classifier, not a general-purpos
 conversational LLM. Its encoder starts from seeded NumPy random initialization;
 the baseline generator bootstraps only the six sensitivity, visibility, and
 category head tensors on a small synthetic phrase curriculum. The current
-semantic update path is head-only and does not use external pretrained weights.
+default Tiny semantic update path is head-only and does not use external pretrained weights.
 See [in-house model training status](in-house-model-training.md) for this
 implemented path and the separately accepted, not-yet-validated end-to-end
 training direction.
+
+## Experimental Frozen Pretrained Contextual Model
+
+The explicit streamed model ID `privoke-pretrained-context-minilm` selects
+`privoke_pretrained_context_v1`. It uses a local frozen
+`sentence-transformers/all-MiniLM-L6-v2` ONNX encoder and six offline-fitted
+sensitivity/visibility/category head tensors (7,700 float32 values). It is an
+experimental English contextual classifier, has no measured accuracy claim,
+and cannot be selected by the `latest` alias or `MODEL_LATEST_ID`. Default Tiny
+models and conversational backends retain their existing behavior. Online
+semantic gradient requests and parameter updates for this architecture fail
+explicitly; no backbone tensors are streamed or trained.
+
+Its immutable config binds
+`category_semantics="asserted_personal_disclosure_v1"`: categories describe
+asserted personal disclosures, rather than standalone topic tags. Invented or
+generic discussion controls therefore have empty target categories. A disclosure
+about another person's child requires both `CHILD` and `THIRD_PARTY`. This
+experimental target convention does not relabel historical fixtures that permit
+topic categories on S0/S1 controls, or change default Tiny targets.
+
+Install `extension/client-runtime/requirements-pretrained-context.txt` in a
+dedicated semantic-only environment; it includes pinned gRPC/protobuf,
+configuration and HTTP dependencies. This path was checked with Python 3.13
+on Windows. Do not combine it with `evaluation/requirements-host.txt`, whose
+NumPy constraint differs. Compatibility with the default spaCy/NER environment
+has not been verified. The loader requires exactly NumPy 2.2.6, ONNX Runtime
+1.23.2 and Tokenizers 0.22.1. Configure
+`PRIVOKE_PRETRAINED_CONTEXT_DIR` to a local directory containing only the fixed
+runtime asset names `model.onnx` and `tokenizer.json` (additional provenance files
+may coexist). No hub download, remote code or artifact-selected path is used.
+Obtain the official files from revision
+`1110a243fdf4706b3f48f1d95db1a4f5529b4d41`:
+
+- [ONNX model](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/onnx/model.onnx), SHA-256 `6fd5d72fe4589f189f8ebc006442dbb529bb7ce38f8082112682524616046452`.
+- [Tokenizer](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/tokenizer.json), SHA-256 `be50c3628f2bf5bb5e3a7f17b1f74611b2561a3a27eeab05e5aa30f411572037`.
+- [Model card](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/blob/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/README.md), which declares Apache-2.0 licensing; the pinned repository has no separate `LICENSE` file.
+
+The loader verifies file bytes before constructing a CPU-only session and
+tokenizer. The admitted graph takes `input_ids`, `attention_mask` and
+`token_type_ids`, all int64 `[batch_size, sequence_length]`, and returns float32
+`last_hidden_state` `[batch_size, sequence_length, 384]`. Features use masked
+mean pooling including special tokens followed by L2 normalization. The 256-token
+limit includes special tokens; overlength input raises a semantic layer error.
+Missing assets/dependencies, hash/signature drift and non-finite output also
+remain visible errors, with the ordinary failure policy and no fallback.
+
+The pipeline applies detector normalization once. Runtime heads consume
+`FrozenPretrainedEncoder.encode_normalized`; offline callers use `encode` or
+`features` on raw text. `privoke_model.pretrained_context.build_head_artifact`
+serializes the exact six flat head arrays with frozen serving flags. Head refreshes
+reuse the frozen encoder, while artifact checksum changes replace the wrapper.
+Successful clean results remain empty findings. For every admitted pretrained
+snapshot, even a clean result or subsequent inference error, the gRPC response
+metadata supplies `privoke.pretrained_context.` keys `model_id`, `model_version`,
+`artifact_checksum`, `parameter_fingerprint`, `backbone_sha256` and
+`tokenizer_sha256`. Failed asset admission supplies none of these keys; request
+metadata cannot impersonate them. Evaluations must explicitly select only the
+semantic layer and verify returned execution and model identity.
 
 ## Separate Annotation-Presence Model
 

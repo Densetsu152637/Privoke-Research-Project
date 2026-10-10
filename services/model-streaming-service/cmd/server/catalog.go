@@ -32,6 +32,9 @@ func loadModelCatalog(directory, latestModelID string) (*modelCatalog, error) {
 	if isScratchModelID(latestModelID) {
 		return nil, fmt.Errorf("scratch presence cannot be the latest model")
 	}
+	if latestModelID == pretrainedContextModelID {
+		return nil, fmt.Errorf("experimental pretrained contextual model cannot be latest")
+	}
 	absoluteDirectory, err := filepath.Abs(directory)
 	if err != nil {
 		return nil, fmt.Errorf("resolve model artifact directory: %w", err)
@@ -91,6 +94,9 @@ func loadModelCatalog(directory, latestModelID string) (*modelCatalog, error) {
 		if isScratchModelID(artifact.ModelID) && entry.Name() != artifact.ModelID+".json" {
 			return nil, fmt.Errorf("scratch model %q must use its canonical filename", artifact.ModelID)
 		}
+		if artifact.ModelID == pretrainedContextModelID && entry.Name() != pretrainedContextModelID+".json" {
+			return nil, fmt.Errorf("pretrained contextual model must use its canonical filename")
+		}
 		if _, exists := catalog.paths[artifact.ModelID]; exists {
 			return nil, fmt.Errorf("duplicate model ID %q", artifact.ModelID)
 		}
@@ -107,6 +113,9 @@ func loadModelCatalog(directory, latestModelID string) (*modelCatalog, error) {
 }
 
 func (c *modelCatalog) load(requestedModelID string) (*loadedArtifact, error) {
+	if c.latestModelID == pretrainedContextModelID {
+		return nil, fmt.Errorf("experimental pretrained contextual model cannot be latest")
+	}
 	modelID := requestedModelID
 	if modelID == "" || modelID == latestModelAlias {
 		modelID = c.latestModelID
@@ -129,6 +138,9 @@ func (c *modelCatalog) load(requestedModelID string) (*loadedArtifact, error) {
 		return nil, fmt.Errorf("model %q is unavailable", requestedModelID)
 	}
 	artifact, err := loadModelArtifact(path, modelID)
+	if err == nil && modelID == c.latestModelID && artifact.Architecture == pretrainedContextArchitecture {
+		return nil, fmt.Errorf("experimental pretrained contextual model cannot be latest")
+	}
 	if err == nil && modelID == c.latestModelID && artifact.Architecture == scratchPresenceArchitecture {
 		return nil, fmt.Errorf("scratch presence cannot be the latest model")
 	}

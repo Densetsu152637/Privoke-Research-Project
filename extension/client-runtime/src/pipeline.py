@@ -9,6 +9,7 @@ from .classification.classification_types import merge_classifications
 from .config import GLOBAL_CONFIG, LLMChoice
 from .detection.preprocessing import NormalizedText, normalize_with_offsets
 from privoke_model.scratch_presence import SCRATCH_PRESENCE_MODEL_IDS
+from privoke_model.pretrained_context import PRETRAINED_CONTEXT_MODEL_ID
 
 
 REGEX_LAYER = "regex"
@@ -65,6 +66,7 @@ class LayerExecution:
     results: tuple[ClassificationResult, ...] = ()
     error: str | None = None
     semantic_presence_gate: SemanticPresenceGateTrace | None = None
+    pretrained_context_identity: dict[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -244,11 +246,37 @@ def _execute_layer(
         return _execute_semantic_with_presence_gate(
             text, semantic_model_id, semantic_presence_gate
         )
+    if layer == SEMANTIC_LAYER and semantic_model_id == PRETRAINED_CONTEXT_MODEL_ID:
+        return _execute_pretrained_context(text)
     try:
         results = _detector_for(layer, semantic_model_id=semantic_model_id)(text)
         return LayerExecution(layer, "ok", tuple(results))
     except Exception as exc:
         return LayerExecution(layer, "error", error=_error_message(exc))
+
+
+def _execute_pretrained_context(text: str) -> LayerExecution:
+    # Capture the validated loaded snapshot before inference: clean results and
+    # overlength errors still need an auditable model identity without a finding.
+    identity = {}
+    try:
+        detector = get_llm_choice(model_id=PRETRAINED_CONTEXT_MODEL_ID)
+        model = _streamed_model_for_semantic_detector(detector)
+        from .LLM.privoke.pretrained_context_model import StreamedPretrainedContextModel
+        if not isinstance(model, StreamedPretrainedContextModel):
+            raise ValueError("Pretrained contextual request returned an unsupported architecture.")
+        identity = {"privoke.pretrained_context." + key: value for key, value in {
+            "model_id": model.snapshot.model_id, "model_version": model.snapshot.version,
+            "artifact_checksum": model.snapshot.metadata["artifact_checksum"],
+            "parameter_fingerprint": model.snapshot.fingerprint,
+            "backbone_sha256": model.model.config["backbone_sha256"],
+            "tokenizer_sha256": model.model.config["tokenizer_sha256"],
+        }.items()}
+        results = tuple(model.classify(text))
+        return LayerExecution(SEMANTIC_LAYER, "ok", results, pretrained_context_identity=identity)
+    except Exception as exc:
+        return LayerExecution(SEMANTIC_LAYER, "error", error=_error_message(exc),
+                              pretrained_context_identity=identity)
 
 
 def _execute_semantic_with_presence_gate(

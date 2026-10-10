@@ -77,7 +77,7 @@ func scratchDeclaredInRaw(raw []byte) (bool, error) {
 		}
 		if key == "architecture" || key == "model_id" {
 			var text string
-			if json.Unmarshal(value, &text) == nil && ((key == "architecture" && text == scratchPresenceArchitecture) || (key == "model_id" && isScratchModelID(text))) {
+			if json.Unmarshal(value, &text) == nil && ((key == "architecture" && (text == scratchPresenceArchitecture || text == pretrainedContextArchitecture)) || (key == "model_id" && (isScratchModelID(text) || text == pretrainedContextModelID))) {
 				declared = true
 			}
 		}

@@ -19,6 +19,10 @@ from .parameter_stream import ModelParameterStreamer, ParameterSnapshot
 from .presence_model import StreamedPresenceModel
 from .scratch_presence_model import StreamedScratchPresenceModel
 from privoke_model.scratch_presence import SCRATCH_PRESENCE_MODEL_IDS
+from privoke_model.pretrained_context import (
+    PRETRAINED_CONTEXT_ARCHITECTURE, PRETRAINED_CONTEXT_MODEL_ID, validate_pretrained_stream,
+    validate_pretrained_release_identity,
+)
 
 
 class StreamedTransformerPrivacyModel:
@@ -47,7 +51,8 @@ class StreamedTransformerPrivacyModel:
         category_probabilities = {
             label: round(probability, 4)
             for label, probability in zip(
-                self.model.config.category_labels,
+                (self.model.config["category_labels"] if self.snapshot.metadata.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE
+                 else self.model.config.category_labels),
                 prediction.category_probabilities,
             )
         }
@@ -115,6 +120,7 @@ class StreamedModelCache:
         # returned by the semantic transformer cache.
         self._presence_models: Dict[tuple[str, str], _CachedPresenceModel] = {}
         self._scratch_presence_models: Dict[tuple[str, str], _CachedScratchPresenceModel] = {}
+        self._pretrained_encoder = None
         self.refresh_interval_seconds = (
             refresh_interval_seconds
             if refresh_interval_seconds is not None
@@ -141,7 +147,12 @@ class StreamedModelCache:
         streamer: ModelParameterStreamer,
     ) -> StreamedTransformerPrivacyModel:
         """Return the cached, versioned model used for one atomic training batch."""
-        return self._model_for_streamer(streamer, force_refresh=True)
+        if streamer.model_id == PRETRAINED_CONTEXT_MODEL_ID:
+            raise ValueError("Pretrained contextual online training is unsupported; use offline head fitting.")
+        model = self._model_for_streamer(streamer, force_refresh=True)
+        if model.snapshot.metadata.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE:
+            raise ValueError("Pretrained contextual online training is unsupported; use offline head fitting.")
+        return model
 
     def semantic_model_for_streamer(
         self,
@@ -253,12 +264,15 @@ class StreamedModelCache:
                 raise RuntimeError(
                     "Model parameter stream returned a different model ID."
                 )
-            if cached is not None and cached.cache_key == snapshot.cache_key:
+            if snapshot.metadata.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE and streamer.model_id != PRETRAINED_CONTEXT_MODEL_ID:
+                raise ValueError("Pretrained contextual inference requires its explicit model ID; latest is prohibited.")
+            key = self._semantic_cache_key(snapshot)
+            if cached is not None and cached.cache_key == key:
                 model = cached.model
             else:
-                model = StreamedTransformerPrivacyModel(snapshot)
+                model = self._semantic_model(snapshot)
             self._models[identity] = _CachedModel(
-                cache_key=snapshot.cache_key,
+                cache_key=key,
                 model=model,
                 refreshed_at=time.monotonic(),
             )
@@ -271,21 +285,39 @@ class StreamedModelCache:
         with self._lock:
             identity = ("", snapshot.model_id)
             cached = self._models.get(identity)
-            if cached is not None and cached.cache_key == snapshot.cache_key:
+            key = self._semantic_cache_key(snapshot)
+            if cached is not None and cached.cache_key == key:
                 return cached.model
-            model = StreamedTransformerPrivacyModel(snapshot)
+            model = self._semantic_model(snapshot)
             self._models[identity] = _CachedModel(
-                cache_key=snapshot.cache_key,
+                cache_key=key,
                 model=model,
                 refreshed_at=time.monotonic(),
             )
             return model
+
+    def _semantic_cache_key(self, snapshot):
+        if (snapshot.metadata.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE
+                or snapshot.model_id == PRETRAINED_CONTEXT_MODEL_ID):
+            validate_pretrained_stream(snapshot.model_id, snapshot.metadata)
+            validate_pretrained_release_identity(snapshot.version, snapshot.generated_at_unix)
+            return snapshot.cache_key + ":" + snapshot.metadata["artifact_checksum"]
+        return snapshot.cache_key
+
+    def _semantic_model(self, snapshot):
+        if snapshot.metadata.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE:
+            from .pretrained_context_model import StreamedPretrainedContextModel
+            model = StreamedPretrainedContextModel(snapshot, self._pretrained_encoder)
+            self._pretrained_encoder = model.model.encoder
+            return model
+        return StreamedTransformerPrivacyModel(snapshot)
 
     def clear(self) -> None:
         with self._lock:
             self._models.clear()
             self._presence_models.clear()
             self._scratch_presence_models.clear()
+            self._pretrained_encoder = None
 
 
 GLOBAL_STREAMED_MODEL_CACHE = StreamedModelCache()

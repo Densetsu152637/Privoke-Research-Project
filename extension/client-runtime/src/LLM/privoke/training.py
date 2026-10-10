@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from typing import Sequence
 
 from privoke_model.artifact import float32, updated_parameter_values
+from privoke_model.pretrained_context import PRETRAINED_CONTEXT_MODEL_ID
 from privoke_model.training_data import training_text_key
 from privoke_model.fingerprint import parameter_fingerprint
 from privoke_model.contextual_training import (STRATEGY_KEY, LAST_BLOCK_STRATEGY,
@@ -46,6 +47,8 @@ def compute_semantic_gradients(
     heldout_examples: Sequence[SemanticTrainingExample] = (),
 ) -> SemanticGradientBatch:
     """Compute a bounded update with optional transported-state local SGD."""
+    if model_id == PRETRAINED_CONTEXT_MODEL_ID:
+        raise ValueError("Pretrained contextual online training is unsupported; use offline head fitting.")
     if not examples:
         raise ValueError("At least one training example is required.")
     if not math.isfinite(learning_rate) or learning_rate <= 0:

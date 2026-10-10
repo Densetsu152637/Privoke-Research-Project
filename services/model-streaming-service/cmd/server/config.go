@@ -37,6 +37,9 @@ func loadServerConfig() (serverConfig, error) {
 	if err := validateConfiguredIdentifier("MODEL_LATEST_ID", config.latestModelID); err != nil {
 		return serverConfig{}, err
 	}
+	if config.latestModelID == pretrainedContextModelID {
+		return serverConfig{}, fmt.Errorf("experimental pretrained contextual model cannot be MODEL_LATEST_ID")
+	}
 	return config, nil
 }
 

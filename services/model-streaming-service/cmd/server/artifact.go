@@ -146,7 +146,7 @@ func validateModelArtifact(artifact *modelArtifact, expectedModelID string) erro
 	if artifact.SchemaVersion != expectedSchema {
 		return fmt.Errorf("unsupported artifact schema %d", artifact.SchemaVersion)
 	}
-	if artifact.Architecture != expectedArchitecture && artifact.Architecture != presenceArchitecture && artifact.Architecture != scratchPresenceArchitecture {
+	if artifact.Architecture != expectedArchitecture && artifact.Architecture != presenceArchitecture && artifact.Architecture != scratchPresenceArchitecture && artifact.Architecture != pretrainedContextArchitecture {
 		return fmt.Errorf("unsupported artifact architecture %q", artifact.Architecture)
 	}
 	if expectedModelID != "" && artifact.ModelID != expectedModelID {
@@ -164,6 +164,9 @@ func validateModelArtifact(artifact *modelArtifact, expectedModelID string) erro
 	}
 	if artifact.Architecture == scratchPresenceArchitecture || isScratchModelID(artifact.ModelID) {
 		return validateScratchArtifact(artifact)
+	}
+	if artifact.Architecture == pretrainedContextArchitecture || artifact.ModelID == pretrainedContextModelID {
+		return validatePretrainedContextArtifact(artifact)
 	}
 	if artifact.Architecture == presenceArchitecture {
 		return validatePresenceArtifact(artifact)

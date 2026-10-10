@@ -316,7 +316,13 @@ def _regex_first(value: int) -> bool | None:
 
 def _analysis_response(analysis: PromptAnalysis):
     payload = analysis.response()
-    metadata = payload.get("metadata") or {}
+    metadata = {key: value for key, value in (payload.get("metadata") or {}).items()
+                if not key.startswith("privoke.pretrained_context.")}
+    for execution in analysis.execution.layers:
+        if execution.pretrained_context_identity is not None:
+            # Request metadata cannot impersonate an admitted encoder identity,
+            # including when asset admission failed before inference began.
+            metadata.update(execution.pretrained_context_identity)
     errors = [
         f"{execution.layer}: {execution.error}"
         for execution in analysis.execution.layers

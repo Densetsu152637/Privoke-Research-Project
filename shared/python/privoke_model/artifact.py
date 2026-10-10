@@ -34,10 +34,11 @@ def load_artifact(path: str | Path) -> dict[str, Any]:
         raw = raw_bytes.decode("utf-8", errors="strict")
         payload = json.loads(raw)
         from .scratch_presence import SCRATCH_PRESENCE_MODEL_IDS, SCRATCH_PRESENCE_ARCHITECTURE
+        from .pretrained_context import PRETRAINED_CONTEXT_MODEL_ID, PRETRAINED_CONTEXT_ARCHITECTURE
         root_pairs = json.loads(raw, object_pairs_hook=lambda pairs: pairs) if isinstance(payload, dict) else []
         scratch_declared = any(
-            (key == "architecture" and value == SCRATCH_PRESENCE_ARCHITECTURE)
-            or (key == "model_id" and isinstance(value, str) and value in SCRATCH_PRESENCE_MODEL_IDS)
+            (key == "architecture" and value in (SCRATCH_PRESENCE_ARCHITECTURE, PRETRAINED_CONTEXT_ARCHITECTURE))
+            or (key == "model_id" and isinstance(value, str) and (value in SCRATCH_PRESENCE_MODEL_IDS or value == PRETRAINED_CONTEXT_MODEL_ID))
             for key, value in root_pairs
         )
         if scratch_declared:
@@ -47,7 +48,7 @@ def load_artifact(path: str | Path) -> dict[str, Any]:
                 result = {}
                 for key, value in pairs:
                     if key in result:
-                        raise ModelArtifactError("Scratch JSON contains duplicate keys.")
+                        raise ModelArtifactError("Offline model JSON contains duplicate keys.")
                     result[key] = value
                 return result
             payload = json.loads(raw, object_pairs_hook=unique_object)
@@ -64,11 +65,14 @@ def validate_artifact(payload: object) -> None:
         raise ModelArtifactError(f"Unsupported model schema: {payload.get('schema_version')!r}.")
     from .presence import PRESENCE_ARCHITECTURE, validate_presence_parameters
     from .scratch_presence import SCRATCH_PRESENCE_MODEL_IDS, SCRATCH_PRESENCE_ARCHITECTURE, validate_scratch_artifact
+    from .pretrained_context import PRETRAINED_CONTEXT_MODEL_ID, PRETRAINED_CONTEXT_ARCHITECTURE, validate_pretrained_artifact
 
     if payload.get("architecture") == SCRATCH_PRESENCE_ARCHITECTURE or (isinstance(payload.get("model_id"), str) and payload.get("model_id") in SCRATCH_PRESENCE_MODEL_IDS):
         validate_scratch_artifact(payload)
+    if payload.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE or payload.get("model_id") == PRETRAINED_CONTEXT_MODEL_ID:
+        validate_pretrained_artifact(payload)
 
-    if payload.get("architecture") not in (ARCHITECTURE_NAME, PRESENCE_ARCHITECTURE, SCRATCH_PRESENCE_ARCHITECTURE):
+    if payload.get("architecture") not in (ARCHITECTURE_NAME, PRESENCE_ARCHITECTURE, SCRATCH_PRESENCE_ARCHITECTURE, PRETRAINED_CONTEXT_ARCHITECTURE):
         raise ModelArtifactError(f"Unsupported model architecture: {payload.get('architecture')!r}.")
     for field in ("model_id", "version"):
         value = payload.get(field)
@@ -164,8 +168,11 @@ def apply_parameter_update(
 ) -> dict[str, Any]:
     validate_artifact(payload)
     from .scratch_presence import SCRATCH_PRESENCE_ARCHITECTURE
+    from .pretrained_context import PRETRAINED_CONTEXT_ARCHITECTURE
     if payload["architecture"] == SCRATCH_PRESENCE_ARCHITECTURE:
         raise ModelArtifactError("Scratch artifacts only allow offline release fitting.")
+    if payload["architecture"] == PRETRAINED_CONTEXT_ARCHITECTURE:
+        raise ModelArtifactError("Pretrained contextual artifacts only allow offline release fitting.")
     if payload["version"] != base_version:
         raise ModelArtifactError(
             f"Stale base_version {base_version!r}; current version is {payload['version']!r}."
