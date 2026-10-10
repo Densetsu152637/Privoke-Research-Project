@@ -119,7 +119,22 @@ def start_fuzzer_requester(config: FuzzerRequestConfig) -> None:
     thread.start()
 
 
-def request_fuzzer_loop(config: FuzzerRequestConfig) -> None:
+def request_fuzzer_loop(config: FuzzerRequestConfig, *, cycles=None, stages=None,
+                        stage_observer=None, request_metadata=None) -> None:
+    """Run the normal journaled requester, optionally with a fixed study budget.
+
+    Bounded callers own their durable journal and observer evidence. Observer
+    exceptions stop before the next stage; accepted publications are not undone.
+    A pending transport outcome raises rather than consuming another cycle.
+    """
+    if cycles is not None:
+        if type(cycles) is not int or cycles < 1:
+            raise ValueError("cycles must be a positive integer")
+        stages = tuple(stages or (("heads", "full_encoder") if config.train_underlying else ("heads",)))
+        if stages not in (("heads",), ("full_encoder",), ("heads", "full_encoder")):
+            raise ValueError("Unsupported bounded stage sequence")
+    elif stages is not None or stage_observer is not None or request_metadata is not None:
+        raise ValueError("Study controls require a bounded cycle count")
     if config.prompt_count <= 0:
         return
     if config.initial_delay_seconds > 0:
@@ -127,7 +142,7 @@ def request_fuzzer_loop(config: FuzzerRequestConfig) -> None:
     journal = TrainingCycles(config.state_path)
     try:
         while True:
-            cycle = journal.reserve(config)
+            cycle = journal.reserve(config, limit=cycles, stages=stages, request_metadata=request_metadata)
             if cycle is None:
                 return
             if cycle["state"] != "pending":
@@ -135,19 +150,33 @@ def request_fuzzer_loop(config: FuzzerRequestConfig) -> None:
                 if remaining > 0:
                     time.sleep(remaining)
                 continue
-            for stage in ("heads", "full_encoder") if config.train_underlying else ("heads",):
+            for stage in (stages or (("heads", "full_encoder") if config.train_underlying else ("heads",))):
                 state = cycle["stages"][stage]
                 if state["state"] == "accepted":
+                    if stage_observer is not None:
+                        stage_observer(cycle, stage, "accepted")
                     continue
                 stage_config = replace(config, seed=cycle["seed"])
-                expected_base = cycle["stages"]["heads"].get("applied_version") if stage == "full_encoder" else None
-                state["request_protobuf_hex"] = build_training_request(stage_config, state["request_id"], expected_base).SerializeToString(deterministic=True).hex()
+                expected_base = cycle["stages"].get("heads", {}).get("applied_version") if stage == "full_encoder" else None
+                request = build_training_request(stage_config, state["request_id"], expected_base)
+                request.metadata.update(request_metadata or {})
+                serialized = request.SerializeToString(deterministic=True).hex()
+                if state.get("request_protobuf_hex", serialized) != serialized:
+                    raise ValueError("Pending automatic request bytes changed")
+                state["request_protobuf_hex"] = serialized
                 journal.save(cycle)
-                for attempt in range(config.max_attempts):
+                if stage_observer is not None:
+                    stage_observer(cycle, stage, "pending")
+                first_attempt=state.get("physical_attempts",0) if cycles is not None else 0
+                if cycles is not None and first_attempt>=config.max_attempts:
+                    raise RuntimeError("Durable bounded request exhausted recovery retries")
+                for attempt in range(first_attempt,config.max_attempts):
+                    state["physical_attempts"] = state.get("physical_attempts", 0) + 1
+                    journal.save(cycle)
                     try:
                         response = request_fuzzer_training(replace(config, seed=cycle["seed"]),
                             training_request_id=state["request_id"], training_scope=stage,
-                            expected_base_version=expected_base)
+                            expected_base_version=expected_base, request_metadata=request_metadata)
                         if not response.accepted or response.model_id != config.model_id or not response.applied_version:
                             raise StageRejected("Fuzzer rejected the training stage or returned a mismatched publication.")
                         if expected_base and response.base_version != expected_base:
@@ -162,21 +191,30 @@ def request_fuzzer_loop(config: FuzzerRequestConfig) -> None:
                             grpc.StatusCode.FAILED_PRECONDITION, grpc.StatusCode.INVALID_ARGUMENT,
                             grpc.StatusCode.ALREADY_EXISTS))
                         state["last_error"] = str(exc)
+                        state.setdefault("attempt_errors", []).append(str(exc))
                         if terminal:
                             state["state"] = "rejected"
                             cycle["state"] = "partial" if any(s["state"] == "accepted" for s in cycle["stages"].values()) else "rejected"
                             cycle["finished_at"] = time.time()
                         journal.save(cycle)
                         LOGGER.warning("automatic training cycle=%s stage=%s state=%s: %s", cycle["cycle_id"], stage, cycle["state"], exc)
+                        if terminal and stage_observer is not None:
+                            stage_observer(cycle, stage, "rejected")
                         if terminal or attempt + 1 == config.max_attempts:
                             break
                         time.sleep(config.retry_seconds)
+                if state["state"] == "accepted" and stage_observer is not None:
+                    stage_observer(cycle, stage, "accepted")
                 if state["state"] != "accepted":
+                    if cycles is not None and state["state"] == "pending":
+                        raise RuntimeError("Unknown automatic stage outcome remains pending; resume exact journal")
                     break
             if all(s["state"] == "accepted" for s in cycle["stages"].values()):
                 cycle["state"] = "complete"
                 cycle["finished_at"] = time.time()
                 journal.save(cycle)
+            if cycles is not None:
+                continue
             if config.interval_seconds <= 0:
                 return
             time.sleep(config.interval_seconds)
@@ -191,12 +229,14 @@ def request_fuzzer_training(
     training_request_id: str | None = None,
     training_scope: str = "heads",
     expected_base_version: str | None = None,
+    request_metadata: dict | None = None,
 ):
     with grpc.insecure_channel(config.target) as channel:
         client = parameters_pb2_grpc.FuzzerServiceStub(channel)
         method = client.RunUnderlyingTrainingCycle if training_scope == "full_encoder" else client.RunTrainingCycle
-        return method(build_training_request(config, training_request_id or request_id(config.source_id), expected_base_version),
-                      timeout=config.timeout_seconds)
+        request = build_training_request(config, training_request_id or request_id(config.source_id), expected_base_version)
+        request.metadata.update(request_metadata or {})
+        return method(request, timeout=config.timeout_seconds)
 
 
 def build_training_request(config, training_request_id, expected_base_version=None):

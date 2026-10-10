@@ -29,18 +29,28 @@ class TrainingCycles:
     def close(self):
         self.connection.close()
 
-    def reserve(self, config):
+    def reserve(self, config, *, limit=None, stages=None, request_metadata=None):
         self.connection.execute("BEGIN IMMEDIATE")
         try:
             row = self.connection.execute("SELECT sequence,fingerprint,state,record FROM cycles ORDER BY sequence DESC LIMIT 1").fetchone()
             fingerprint = config_fingerprint(config)
+            if limit is not None:
+                if type(limit) is not int or limit < 1:
+                    raise ValueError("Bounded cycles require a positive fixed limit.")
+                fingerprint = hashlib.sha256(json.dumps({"config": fingerprint,
+                    "limit": limit, "stages": stages, "metadata": request_metadata or {}},
+                    sort_keys=True, separators=(",", ":")).encode()).hexdigest()
             if row and row[2] == "pending":
                 if row[1] != fingerprint:
                     raise ValueError("Pending automatic training cycle belongs to different training settings; resume its original settings first.")
                 record = json.loads(row[3])
-            elif row and row[1] == fingerprint and config.interval_seconds <= 0:
+            elif row and row[1] != fingerprint and limit is not None:
+                raise ValueError("Bounded journal belongs to a different protocol.")
+            elif row and limit is not None and row[0] + 1 >= limit:
+                record = None
+            elif row and limit is None and row[1] == fingerprint and config.interval_seconds <= 0:
                 record = None  # A completed one-shot stays completed on restart.
-            elif row and row[1] == fingerprint and time.time() < json.loads(row[3]).get("finished_at", 0) + config.interval_seconds:
+            elif row and limit is None and row[1] == fingerprint and time.time() < json.loads(row[3]).get("finished_at", 0) + config.interval_seconds:
                 record = json.loads(row[3])
             else:
                 sequence = row[0] + 1 if row else 0
@@ -51,7 +61,7 @@ class TrainingCycles:
                           "source_id": config.source_id, "state": "pending",
                           "created_at": time.time(), "stages": {
                               stage: {"request_id": identity + "-" + stage, "state": "pending"}
-                              for stage in (("heads", "full_encoder") if config.train_underlying else ("heads",))}}
+                              for stage in (stages or (("heads", "full_encoder") if config.train_underlying else ("heads",)))}}
                 self.connection.execute("INSERT INTO cycles VALUES (?,?,?,?)",
                                         (sequence, fingerprint, "pending", json.dumps(record, sort_keys=True)))
             self.connection.execute("COMMIT")

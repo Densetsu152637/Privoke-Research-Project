@@ -634,3 +634,18 @@ The explicit full-Tiny strategy enables `RunUnderlyingTrainingCycle` / `ComputeU
 The accepted local four-service smoke completed two publications (HEAD then FULL), actual semantic-only phase checks, a nine-request context boundary matrix, replay/admission checks, all-service restart and a fresh strict-negative guard. It is a fixed synthetic mechanics test, not a quality benchmark; failed attempts and S1 reconstruction limits are retained in the linked record. The maintained [CI workflow](../.github/workflows/service-stack-ci.yml) runs its dedicated `semantic-training` job by default on push/PR. The separate full-product `docker-stack` job runs only with explicit `allow_product_pipeline=true`; dispatch/call defaults are false, while deployment calls opt in for their separate product-integration purpose. [hosted run 38032520611](https://github.com/Densetsu152637/Privoke-Research-Project/actions/runs/38032520611) passed on tested implementation revision `2ce3879c60c78fbc1c396b351043ccc880bbcc90`: five active jobs succeeded and the product job was skipped. The first hosted attempt failed validation before jobs because of unsupported job-level `runner.temp`; the three-line workflow correction and full chronology are retained in the implementation record. Hosted results are separate from the local smoke counts above and do not claim later documentation revisions were tested.
 
 Use the record's Linux container helper recipe with UID/GID `10001:10001`, task state mounted at `/state`, model seeds mounted read-only at `/workspace/models`, and internal service DNS targets. Keep live SQLite access inside the Linux storage boundary. Reproduce into fresh isolated state; do not overwrite retained studies or enable the product-pipeline flag for LLM-only testing.
+
+## Accelerated training across model surfaces
+
+`run-accelerated-training-surfaces-study.py` owns the prospective all-surface
+protocol. Its `plan`, `render-assessment`, `prepare` and `preflight` operations do
+not fit models. `freeze` requires an internal root acceptance receipt bound to
+source, images, assessment and review hashes. `execute --cell CELL_ID` runs one
+fixed-budget isolated trajectory; `execute --cell all` uses prospectively
+accepted hardware concurrency. `audit` reconciles raw evidence, while `report`
+adds fixed-final paired comparisons.
+
+See [the complete study protocol](../docs/accelerated-training-surfaces-study-20261010.md)
+for the 168-cell matrix, native offline budget exceptions, mandatory semantic
+execution assertions, config/approval schemas and commands. This entrypoint
+never invokes legacy product-pipeline studies or protected-final input.

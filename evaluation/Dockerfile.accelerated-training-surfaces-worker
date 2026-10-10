@@ -1,0 +1,26 @@
+# Supply an immutable Linux x86_64 CPython3.11 parent (name@sha256:digest).
+ARG STUDY_PARENT
+FROM ${STUDY_PARENT}
+ARG STUDY_PARENT
+ARG SOURCE_REVISION
+ENV AS_SOURCE_REVISION=${SOURCE_REVISION} PYTHONPATH=/study/evaluation:/study/shared/python:/study/extension/client-runtime:/study/extension/client-runtime/generated PYTHONDONTWRITEBYTECODE=1
+WORKDIR /study
+RUN python -c "import platform,re,sys; assert re.fullmatch(r'.+@sha256:[0-9a-f]{64}',sys.argv[1]); assert sys.version_info[:2]==(3,11); assert sys.platform=='linux' and platform.machine()=='x86_64'" "${STUDY_PARENT}"
+COPY evaluation/requirements-accelerated-training-surfaces.txt /study/evaluation/requirements-accelerated-training-surfaces.txt
+RUN python -m pip install --no-cache-dir -r /study/evaluation/requirements-accelerated-training-surfaces.txt && python -m pip check && python -m pip freeze --all > /study/effective-pip-freeze.txt
+COPY evaluation/privoke_eval /study/evaluation/privoke_eval
+COPY evaluation/host_environment.py /study/evaluation/
+COPY evaluation/tests /study/evaluation/tests
+COPY evaluation/run-accelerated-training-surfaces-worker.py /study/evaluation/
+COPY shared/python /study/shared/python
+COPY shared/proto /study/shared/proto
+COPY extension/client-runtime/src /study/extension/client-runtime/src
+COPY models /study/models
+COPY services/param-update-service/app /study/services/param-update-service/app
+RUN mkdir -p /study/extension/client-runtime/generated \
+    && python -m grpc_tools.protoc -I /study/shared/proto \
+      --python_out=/study/extension/client-runtime/generated \
+      --grpc_python_out=/study/extension/client-runtime/generated \
+      /study/shared/proto/privoke/v1/parameters.proto \
+      /study/shared/proto/privoke/v1/runtime.proto \
+      /study/shared/proto/privoke/v1/telemetry.proto

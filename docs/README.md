@@ -72,6 +72,7 @@ Research documents, dataset reviews and evidence retain their existing locations
 | [Full Tiny fuzzer training](fuzzer-underlying-training-20261010.md) | Separate semantic-only head/full-encoder endpoints, durable sequential batches, 256-token prepared releases and mechanical evidence limits |
 | [Frozen pretrained contextual study](semantic-pretrained-context-study-20261010.md) | Research question, measured synthetic gains with failed harm veto, secondary regressions, separate 512-token checks and [public arithmetic evidence](evidence/semantic-pretrained-20261010/README.md) |
 | [Accelerated normal-batch fuzzer study](accelerated-fuzzer-study-20261010.md) | Audited twelve-trajectory semantic-only schedule; measurable tradeoffs, quality plateau, fixed iteration criteria and safe reproducible aggregates |
+| [Accelerated training across model surfaces](accelerated-training-surfaces-study-20261010.md) | Prospective 168-trajectory protocol across online, offline, contextual and presence training interfaces; strict freeze and paired assessment gates |
 | [Research completion plan](Research-completion-plan.md) | Research questions, experiments, milestones and publication readiness |
 | [Research paper writing guide](Research-paper-writing-guide.md) | Methodology improvements, wording, evidence reporting and venue requirements |
 | [Current research evidence](../paper/research/claims.md) | Provisional claims, measured development results, protocol and professor review requests |
