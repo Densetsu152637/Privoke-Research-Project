@@ -19,7 +19,12 @@ services:
         for p in target.glob('*.json'): os.chmod(p,0o666)
     volumes:
       - ${AS_CATALOG:?prepared catalog}:/seed:ro
-      - model-data:/models
+      # Only the prepared seed may initialize this volume. Consumers can be
+      # created before init, and their images include release catalogs.
+      - type: volume
+        source: model-data
+        target: /models
+        volume: {nocopy: true}
       - update-data:/updates
       - fuzzer-data:/fuzzer
     restart: 'no'
@@ -28,7 +33,12 @@ services:
     image: ${AS_MODEL_IMAGE:?immutable model image}
     environment: {MODEL_STREAMING_PORT: '50051', MODEL_LATEST_ID: '${AS_MODEL_ID}', MODEL_ARTIFACT_DIR: /models}
     ports: ['127.0.0.1:${AS_MODEL_PORT}:50051']
-    volumes: [model-data:/models:ro]
+    volumes:
+      - type: volume
+        source: model-data
+        target: /models
+        read_only: true
+        volume: {nocopy: true}
     depends_on: {storage-permissions: {condition: service_completed_successfully}}
     healthcheck: {test: [CMD, /model-streaming-service, healthcheck], interval: 2s, timeout: 2s, retries: 45}
   client-runtime:
@@ -73,7 +83,12 @@ services:
       MODEL_ID: ${AS_MODEL_ID}
       FUZZER_PROMPT_COUNT: '0'
     ports: ['127.0.0.1:${AS_UPDATER_PORT}:50052']
-    volumes: [model-data:/models, update-data:/data]
+    volumes:
+      - type: volume
+        source: model-data
+        target: /models
+        volume: {nocopy: true}
+      - update-data:/data
     depends_on: {storage-permissions: {condition: service_completed_successfully}, model-streaming-service: {condition: service_healthy}}
     healthcheck: {test: [CMD, python, /workspace/shared/python/grpc_healthcheck.py, param-update-service, '127.0.0.1:50052', /workspace/services/param-update-service/generated], interval: 2s, timeout: 2s, retries: 45}
   privoke-fuzzer:
