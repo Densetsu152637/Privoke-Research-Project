@@ -16,6 +16,9 @@ jobs:
   verify:
     if: github.ref == 'refs/heads/main'
     uses: ./.github/workflows/service-stack-ci.yml
+    # Deployment validation explicitly includes the separate product pipeline.
+    with:
+      allow_product_pipeline: true
 
   publish:
     needs: verify
