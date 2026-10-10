@@ -2,8 +2,7 @@
 ARG STUDY_PARENT
 FROM ${STUDY_PARENT} AS worker
 ARG STUDY_PARENT
-ARG SOURCE_REVISION
-ENV AS_SOURCE_REVISION=${SOURCE_REVISION} PYTHONPATH=/study/evaluation:/study/shared/python:/study/extension/client-runtime:/study/extension/client-runtime/generated PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONPATH=/study/evaluation:/study/shared/python:/study/extension/client-runtime:/study/extension/client-runtime/generated PYTHONDONTWRITEBYTECODE=1
 WORKDIR /study
 RUN python -c "import platform,re,sys; assert re.fullmatch(r'.+@sha256:[0-9a-f]{64}',sys.argv[1]); assert sys.version_info[:2]==(3,11); assert sys.platform=='linux' and platform.machine()=='x86_64'" "${STUDY_PARENT}"
 COPY evaluation/requirements-accelerated-training-surfaces.txt /study/evaluation/requirements-accelerated-training-surfaces.txt
@@ -24,6 +23,10 @@ RUN mkdir -p /study/extension/client-runtime/generated \
       /study/shared/proto/privoke/v1/parameters.proto \
       /study/shared/proto/privoke/v1/runtime.proto \
       /study/shared/proto/privoke/v1/telemetry.proto
+
+# Stamp the final source without invalidating the pinned dependency layer.
+ARG SOURCE_REVISION
+ENV AS_SOURCE_REVISION=${SOURCE_REVISION}
 
 # Build with --target runtime for isolated semantic serving. The named stage
 # avoids depending on a local image being resolvable through a remote registry.

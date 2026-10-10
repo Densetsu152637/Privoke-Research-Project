@@ -28,6 +28,24 @@ class StudyTests(unittest.TestCase):
         self.assertTrue(all(c['optimizer_steps'] is None and c['solver_budget']['solver']=='lbfgs' for c in sparse))
         self.assertEqual(sum(c['optimizer_steps']*c['batch_size'] for c in cells if c['kind']=='offline' and c['optimizer_steps']),119808)
 
+    def test_initial_stream_admission_uses_exact_wire_coordinates_not_decimal_json(self):
+        artifact={'parameters':{'head.weight':{'shape':[1],'values':[.1]}}}
+        snapshot=self.snapshot();snapshot['parameters']=study.wire_parameters(artifact)
+        client=SimpleNamespace(snapshot=lambda _:snapshot)
+        # Stop at the first checkpoint, before scoring or requester setup.
+        with patch.object(study,'checkpoint',side_effect=RuntimeError('admitted')):
+            with self.assertRaisesRegex(RuntimeError,'admitted'):
+                study.run_online(client,{}, {'model_id':'m'},self.path/'exact',artifact)
+        changed=copy.deepcopy(snapshot)
+        changed['parameters']['head.weight']['values'][0]+=1e-7
+        client.snapshot=lambda _:changed
+        with self.assertRaisesRegex(ValueError,'Fresh serving base differs'):
+            study.run_online(client,{}, {'model_id':'m'},self.path/'changed',artifact)
+        extra=copy.deepcopy(snapshot);extra['parameters']['unexpected']={'shape':[1],'values':[0.]}
+        client.snapshot=lambda _:extra
+        with self.assertRaisesRegex(ValueError,'Fresh serving base differs'):
+            study.run_online(client,{}, {'model_id':'m'},self.path/'extra',artifact)
+
     def test_dual_plan_has48cycles_and_does_not_claim96independentseeds(self):
         cell=next(c for c in study.matrix('privoke-all-surfaces-test') if c['scope']=='dual')
         self.assertEqual(cell['cycles'],48)

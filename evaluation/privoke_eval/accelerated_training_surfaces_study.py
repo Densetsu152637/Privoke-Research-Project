@@ -361,7 +361,7 @@ def run_online(client, protocol, cell, directory, artifact):
     initial_path = directory / "snapshot-000.json"
     initial = read(initial_path) if initial_path.exists() else client.snapshot(cell["model_id"])
     if not initial_path.exists():
-        if initial["identity"]["model_id"]!=cell["model_id"] or any(initial["parameters"].get(n)!={"shape":t["shape"],"values":t["values"]} for n,t in artifact["parameters"].items()):
+        if initial["identity"]["model_id"]!=cell["model_id"] or initial["parameters"]!=wire_parameters(artifact):
             raise ValueError("Fresh serving base differs from prepared artifact")
     write(initial_path, initial, immutable=True)
     checkpoint(client, protocol, cell, directory, 0, initial)
@@ -749,7 +749,7 @@ def native_serving_parity(protocol,cell,directory,result):
         client=RpcClient(f"127.0.0.1:{protocol['ports']['fuzzer']}",f"127.0.0.1:{protocol['ports']['runtime']}",f"127.0.0.1:{protocol['ports']['model']}")
         try:
             snapshot=client.snapshot(artifact['model_id'])
-            if any(snapshot['parameters'][n]!={'shape':t['shape'],'values':t['values']} for n,t in artifact['parameters'].items()):raise ValueError('Served final tensors differ')
+            if snapshot['parameters']!=wire_parameters(artifact):raise ValueError('Served final tensors differ')
             checkpoint(client,protocol,serving_cell,state,96,snapshot)
         finally:client.close()
     finally:command(compose+['stop'],env=env)
@@ -765,6 +765,13 @@ def native_serving_parity(protocol,cell,directory,result):
         if not matches:raise ValueError('Learned forward/native serving parity differs')
     write(parity,{'status':'passed','rows':len(direct),'execution_mode':'network_protobuf_v1',
         'final_sha256':result['final_artifact']['sha256'],'network_assessment_sha256':sha(state/'assessment-096.json')},immutable=True)
+
+def wire_parameters(artifact):
+    """Exact protobuf float32 coordinates and shapes, without changing artifacts."""
+    from privoke_model.artifact import float32
+    return {name:{'shape':tensor['shape'],'values':[float32(v) for v in tensor['values']]}
+            for name,tensor in artifact['parameters'].items()}
+
 
 def contextual_prediction_key(record):
     # Protobuf classification also carries packed bits; category order is not
