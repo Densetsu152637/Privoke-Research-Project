@@ -221,6 +221,58 @@ class StudyTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'fitting or unapproved'):study.verify_frozen_sources(self.path,protocol)
         self.assertEqual(study.sha(self.path/'audit-source-amendment.json'),audit_sha)
 
+        # A second, scoring-only amendment must preserve the original chain.
+        import inspect
+        prior=inventory(revised)
+        environment['source_files']=prior
+        study.write(self.path/'worker-environment-amendment.json',environment)
+        repaired=dict(revised)
+        repaired[supervisor]=repaired[supervisor].replace('    args=',
+            '    mounts.extend(score_dependency_mounts(inputs,directory,cell,operation))\n    args=')+'\n'+inspect.getsource(study.score_dependency_mounts)
+        score={'status':'accepted','scope':'score_dependency_mount_only','protocol_sha256':study.sha(self.path/'protocol.json'),
+               'environment_amendment_sha256':study.sha(self.path/'worker-environment-amendment.json'),
+               'prior_source_revision':'c'*40,'prior_source_files':prior,'source_revision':'e'*40,
+               'source_files':inventory(repaired),'offline_worker_image':protocol['offline_worker_image']}
+        def score_bind(texts):
+            current.clear();current.update(inventory(texts))
+            for path,text in texts.items():(self.path/path).write_text(text)
+            study.write(self.path/'score-dependency-amendment.json',score)
+        def score_show(args):return {'a':original,'b':audited,'c':revised}[args[2][0]][args[2].split(':',1)[1]]
+        score_bind(repaired)
+        with patch.object(study,'ROOT',self.path),patch.object(study,'source_inventory',return_value=current),patch.object(study,'revision',return_value='e'*40),patch.object(study,'command',side_effect=score_show):
+            study.verify_frozen_sources(self.path,protocol)
+            for before,after in (('return 96','return 97'),('readonly','readwrite'),('size=1g','size=2g'),('mounts.extend(score_dependency_mounts','mounts.append(score_dependency_mounts')):
+                changed=dict(repaired);changed[supervisor]=changed[supervisor].replace(before,after)
+                score['source_files']=inventory(changed);score_bind(changed)
+                with self.subTest(score_change=before),self.assertRaises(ValueError):study.verify_frozen_sources(self.path,protocol)
+            score['source_files']=inventory(repaired);score_bind(repaired)
+            for key in ('environment_amendment_sha256','protocol_sha256','prior_source_revision','source_revision','offline_worker_image'):
+                saved=score[key];score[key]='wrong';score_bind(repaired)
+                with self.subTest(score_commitment=key),self.assertRaises(ValueError):study.verify_frozen_sources(self.path,protocol)
+                score[key]=saved
+        self.assertEqual(study.sha(self.path/'audit-source-amendment.json'),audit_sha)
+
+    def test_score_dependency_mount_is_committed_readonly_and_absent_from_fits(self):
+        cell={'surface':'random_control','id':'control'}
+        base=self.path/'prepared-base.json';study.write(base,{'weights':[1]})
+        reference={'path':'/inputs/1/prepared-base.json','sha256':study.sha(base)}
+        study.write(self.path/'worker-fit/request.json',{'operation':'fit','cell':cell,'inputs':{'base_artifact':reference}})
+        snapshot=self.path/'snapshot.json';study.write(snapshot,{'schema_version':'accelerated-random-control-v1','base_artifact':reference})
+        inputs={'snapshot':{'path':str(snapshot),'sha256':study.sha(snapshot)}}
+        self.assertEqual(study.score_dependency_mounts({},self.path,cell,'fit'),[])
+        self.assertEqual(study.score_dependency_mounts({},self.path,{'surface':'minilm'},'score-000-primary'),[])
+        self.assertEqual(study.score_dependency_mounts(inputs,self.path,cell,'score-000-primary'),
+                         ['--mount',f'type=bind,source={base.resolve()},target=/inputs/1/prepared-base.json,readonly'])
+        study.write(base,{'weights':[2]})
+        with self.assertRaisesRegex(ValueError,'base artifact changed'):study.score_dependency_mounts(inputs,self.path,cell,'score-096-primary')
+        study.write(base,{'weights':[1]})
+        for target in ('/etc/passwd','/inputs/../prepared-base.json','/inputs/1/other.json'):
+            changed=reference|{'path':target}
+            study.write(snapshot,{'schema_version':'accelerated-random-control-v1','base_artifact':changed})
+            study.write(self.path/'worker-fit/request.json',{'operation':'fit','cell':cell,'inputs':{'base_artifact':changed}})
+            inputs['snapshot']['sha256']=study.sha(snapshot)
+            with self.subTest(target=target),self.assertRaisesRegex(ValueError,'base reference'):study.score_dependency_mounts(inputs,self.path,cell,'score-000-primary')
+
     def snapshot(self,version='v0',head=0.,encoder=0.):
         return {'identity':{'model_id':'m','model_version':version,'artifact_checksum':'a','parameter_fingerprint':'f'},
             'parameters':{'head.weight':{'shape':[1],'values':[head]},'embedding':{'shape':[1],'values':[encoder]}}}

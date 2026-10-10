@@ -232,9 +232,43 @@ def verify_protocol(output, *, execution=False):
 
 
 def verify_frozen_sources(output,protocol):
-    """Admit chained audit/environment repairs without changing fitting code."""
+    """Admit chained audit/environment/scoring repairs without changing fits."""
     import ast
     current=source_inventory();current_revision=revision()
+    scoring_path=Path(output)/'score-dependency-amendment.json'
+    scoring=read(scoring_path) if scoring_path.exists() else None
+    if scoring:
+        environment=read(Path(output)/'worker-environment-amendment.json')
+        supervisor='evaluation/privoke_eval/accelerated_training_surfaces_study.py'
+        prior=scoring.get('prior_source_files',{})
+        if (scoring.get('status')!='accepted' or scoring.get('scope')!='score_dependency_mount_only'
+                or scoring.get('protocol_sha256')!=sha(Path(output)/'protocol.json')
+                or scoring.get('environment_amendment_sha256')!=sha(Path(output)/'worker-environment-amendment.json')
+                or scoring.get('prior_source_revision')!=environment.get('source_revision')
+                or prior!=environment.get('source_files')
+                or scoring.get('source_revision')!=current_revision or scoring.get('source_files')!=current
+                or scoring.get('offline_worker_image')!=protocol['offline_worker_image']
+                or set(prior)!=set(current) or {p for p in current if current[p]!=prior[p]}!={supervisor}):
+            raise ValueError('Score dependency amendment differs')
+        original=command(['git','show',scoring['prior_source_revision']+':'+supervisor])
+        revised=(ROOT/supervisor).read_text(encoding='utf-8')
+        def scoring_protected(text,*,amended):
+            tree=ast.parse(text)
+            tree.body=[node for node in tree.body if not (isinstance(node,ast.FunctionDef) and node.name=='verify_frozen_sources')]
+            if amended:
+                helpers=[node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name=='score_dependency_mounts']
+                if len(helpers)!=1 or hashlib.sha256(ast.dump(helpers[0],include_attributes=False).replace(', type_params=[]','').encode()).hexdigest()!='e57821277001d33d91634b109b00a6aa675d7bbcc05eb9add8f82d33589fd419':
+                    raise ValueError('Score dependency helper differs')
+                tree.body.remove(helpers[0])
+                worker=next(node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name=='offline_worker')
+                expected=ast.parse('mounts.extend(score_dependency_mounts(inputs,directory,cell,operation))').body[0]
+                matches=[i for i,node in enumerate(worker.body) if ast.dump(node,include_attributes=False)==ast.dump(expected,include_attributes=False)]
+                if len(matches)!=1:raise ValueError('Score dependency invocation differs')
+                del worker.body[matches[0]]
+            return ast.dump(tree,include_attributes=False)
+        if scoring_protected(original,amended=False)!=scoring_protected(revised,amended=True):
+            raise ValueError('Score amendment changes protected computation')
+        current=prior;current_revision=scoring['prior_source_revision']
     if protocol['source_files']==current and protocol['source_revision']==current_revision:return
     receipt=read(Path(output)/'audit-source-amendment.json')
     environment_path=Path(output)/'worker-environment-amendment.json'
@@ -278,7 +312,7 @@ def verify_frozen_sources(output,protocol):
     if changed!={supervisor,recipe}:raise ValueError('Environment amendment changes fitting or unapproved sources')
     for path in sorted(changed):
         original=command(['git','show',audited_revision+':'+path])
-        revised=(ROOT/path).read_text(encoding='utf-8')
+        revised=command(['git','show',current_revision+':'+path]) if scoring else (ROOT/path).read_text(encoding='utf-8')
         if path==recipe:
             for root in ('study','workspace'):
                 before=pythonpath.replace('/study/','/'+root+'/')
@@ -990,6 +1024,24 @@ def measure_binary_proxy(client,data,cell,identity,tag):
     return {'semantic':{'predictions':predictions}}
 
 
+def score_dependency_mounts(inputs,directory,cell,operation):
+    """Mount the unchanged fit baseline needed by a projected-control score."""
+    if operation=='fit' or cell.get('surface')!='random_control':return []
+    snapshot_ref=inputs['snapshot']
+    if sha(snapshot_ref['path'])!=snapshot_ref['sha256']:raise ValueError('Score snapshot changed')
+    snapshot=read(snapshot_ref['path'])
+    if snapshot.get('schema_version')!='accelerated-random-control-v1':raise ValueError('Control snapshot schema differs')
+    reference=snapshot['base_artifact']
+    fit_request=read(Path(directory)/'worker-fit/request.json')
+    if (fit_request.get('operation')!='fit' or fit_request.get('cell')!=cell
+            or reference!=fit_request['inputs']['base_artifact']
+            or not re.fullmatch(r'/inputs/[0-9]+/prepared-base\.json',reference['path'])):
+        raise ValueError('Control base reference differs from frozen fit')
+    base=(Path(directory)/'prepared-base.json').resolve(strict=True)
+    if sha(base)!=reference['sha256']:raise ValueError('Control base artifact changed')
+    return ['--mount',f"type=bind,source={base},target={reference['path']},readonly"]
+
+
 def offline_worker(protocol,cell,inputs,directory,operation):
     """Separate pinned Linux process: fit has no assessment files or network."""
     image=protocol["offline_worker_image"]
@@ -1012,6 +1064,7 @@ def offline_worker(protocol,cell,inputs,directory,operation):
         if isinstance(value,list):return [bind(v) for v in value]
         return value
     request={"schema_version":"accelerated-offline-worker-v1","operation":"fit" if operation=="fit" else "score", "cell":cell,"inputs":bind(inputs),"source_revision":protocol["source_revision"],"adapter_sha256":protocol["source_files"]["evaluation/privoke_eval/accelerated_training_surfaces_offline.py"]}
+    mounts.extend(score_dependency_mounts(inputs,directory,cell,operation))
     if operation=="fit" and any(k in inputs for k in ("rows","assessment","assessments","test","validation")):
         raise ValueError("Fit worker received assessment input")
     request_path=work/"request.json";write(request_path,request,immutable=True)

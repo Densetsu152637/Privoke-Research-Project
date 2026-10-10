@@ -65,6 +65,8 @@ A subsequent `worker-environment-amendment.json` may chain to that unchanged aud
 
 ## Commands and required configuration
 
+Projected random-control snapshots retain a hash-bound reference to their prepared fit baseline. Separate scoring workers mount that same baseline read-only at its recorded container path, after checking the snapshot hash, fit request, cell identity, path shape and baseline hash. Fits receive no additional mounts or assessment inputs. A `score-dependency-amendment.json` may chain to the unchanged environment receipt; it binds the original protocol/image and both source inventories. Its source check admits only this exact scoring helper and invocation, then compares every other computation against the prior source. This repairs missing score-worker dependency mounts while retaining completed fits, original requests and failure logs, without resetting the recovery allowance.
+
 Run from the repository root with the configured evaluation interpreter and generated protobuf import paths:
 
 ```text
