@@ -216,9 +216,9 @@ def verify_protocol(output, *, execution=False):
     output = Path(output)
     protocol, state = read(output / "protocol.json"), read(output / "supervisor.json")
     if (protocol["schema_version"] != SCHEMA or protocol["cells"] != matrix(protocol["study_id"])
-            or protocol["settings"] != DEFAULTS or state["protocol_sha256"] != sha(output / "protocol.json")
-            or protocol["source_files"] != source_inventory() or protocol["source_revision"] != revision()):
+            or protocol["settings"] != DEFAULTS or state["protocol_sha256"] != sha(output / "protocol.json")):
         raise ValueError("Frozen matrix/settings/source/protocol differs")
+    verify_frozen_sources(output,protocol)
     verify_files(protocol["inputs"])
     verify_review_gates(protocol)
     if assessment_inventory(protocol["inputs"]) != protocol["assessment_inventory"]:
@@ -229,6 +229,34 @@ def verify_protocol(output, *, execution=False):
                 or approval.get("assessment_inventory") != protocol["assessment_inventory"] or state["status"] != "frozen"):
             raise ValueError("Root protocol and labels acceptance required before any fitting/scoring")
     return protocol, state
+
+
+def verify_frozen_sources(output,protocol):
+    """Admit a hash-bound audit repair while preserving every fitting source."""
+    import ast
+    current=source_inventory();current_revision=revision()
+    if protocol['source_files']==current and protocol['source_revision']==current_revision:return
+    receipt=read(Path(output)/'audit-source-amendment.json')
+    if (receipt.get('status')!='accepted' or receipt.get('scope')!='audit_only'
+            or receipt.get('protocol_sha256')!=sha(Path(output)/'protocol.json')
+            or receipt.get('frozen_source_revision')!=protocol['source_revision']
+            or receipt.get('source_revision')!=current_revision or receipt.get('source_files')!=current
+            or set(protocol['source_files'])!=set(current)):
+        raise ValueError('Audit-only source amendment differs')
+    allowed={'evaluation/privoke_eval/accelerated_training_surfaces_report.py':{'audit_runtime_evidence'},
+             'evaluation/privoke_eval/accelerated_training_surfaces_study.py':{'verify_protocol','verify_frozen_sources'},
+             'evaluation/tests/test_accelerated_training_surfaces_study.py':None}
+    changed={p for p in current if current[p]!=protocol['source_files'][p]}
+    if not changed or changed-set(allowed):raise ValueError('Audit amendment changes fitting or unapproved sources')
+    for path in sorted(changed):
+        if allowed[path] is None:continue
+        original=command(['git','show',protocol['source_revision']+':'+path])
+        revised=(ROOT/path).read_text(encoding='utf-8')
+        def protected(text):
+            tree=ast.parse(text)
+            tree.body=[node for node in tree.body if not (isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef)) and node.name in allowed[path])]
+            return ast.dump(tree,include_attributes=False)
+        if protected(original)!=protected(revised):raise ValueError('Audit amendment changes protected computation')
 
 
 def freeze(output, approval):

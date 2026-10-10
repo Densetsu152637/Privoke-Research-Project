@@ -207,6 +207,7 @@ def audit_runtime_evidence(evidence, stage, pending, *, presence=False):
     from privoke.v1 import runtime_pb2 as R
     from privoke_model.fingerprint import parameter_fingerprint
     from privoke_model.artifact import float32, updated_parameter_values
+    from privoke_model.contextual_training import FULL_ENCODER_STRATEGY, STRATEGY_KEY
     trace=evidence['execution_evidence']
     request_type=R.ComputePresenceGradientsRequest if presence else R.ComputeSemanticGradientsRequest
     response_type=R.ComputePresenceGradientsResponse if presence else R.ComputeSemanticGradientsResponse
@@ -227,11 +228,14 @@ def audit_runtime_evidence(evidence, stage, pending, *, presence=False):
         raise ValueError('Runtime base fingerprint differs from independently archived tensors')
     gradients={p.name:p for p in response.gradients}
     if len(gradients)!=len(response.gradients):raise ValueError('Duplicate transported gradient')
+    if request.max_gradient!=.05:raise ValueError('Training clamp differs from frozen request')
+    full_capable=FULL_ENCODER_STRATEGY in (response.metadata.get('artifact_training_strategy'),before.get('metadata',{}).get(STRATEGY_KEY))
+    transport_cap=request.max_gradient if full_capable else float32(request.max_gradient)
     candidate={n:list(v) for n,v in base.items()}
     for name,gradient in gradients.items():
         if name not in candidate or list(gradient.shape)!=before['parameters'][name]['shape'] or len(gradient.values)!=len(candidate[name]):
             raise ValueError('Transported gradient inventory differs')
-        if any(not math.isfinite(v) or abs(v)>.05 for v in gradient.values):raise ValueError('Transported gradient violates frozen clamp')
+        if any(not math.isfinite(v) or abs(v)>transport_cap for v in gradient.values):raise ValueError('Transported gradient violates frozen clamp')
         candidate[name]=[float32(v) for v in updated_parameter_values(candidate[name],gradient.values)]
     if response.metadata.get('updated_parameter_fingerprint')!=fingerprint(candidate):
         raise ValueError('Candidate commitment differs from reconstructed actual tensors')

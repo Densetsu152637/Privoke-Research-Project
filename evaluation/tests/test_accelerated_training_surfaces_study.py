@@ -100,7 +100,7 @@ class StudyTests(unittest.TestCase):
             with self.subTest(presence=presence):
                 request_type=R.ComputePresenceGradientsRequest if presence else R.ComputeSemanticGradientsRequest
                 response_type=R.ComputePresenceGradientsResponse if presence else R.ComputeSemanticGradientsResponse
-                request=request_type(request_id='r',model_id='m',layers=[R.DETECTION_LAYER_SEMANTIC])
+                request=request_type(request_id='r',model_id='m',max_gradient=.05,layers=[R.DETECTION_LAYER_SEMANTIC])
                 request.examples.add();request.heldout_examples.add()
                 fingerprint=lambda values:parameter_fingerprint(values,shapes) if presence else parameter_fingerprint(values)
                 response=response_type(request_id='r',model_id='m',base_version='v0')
@@ -121,6 +121,52 @@ class StudyTests(unittest.TestCase):
                 response.metadata['updated_parameter_fingerprint']=fingerprint(unrounded);bind_response()
                 with self.assertRaisesRegex(ValueError,'Candidate commitment differs'):
                     report.audit_runtime_evidence(evidence,stage,pending,presence=presence)
+                # Legacy heads transport a rounded float32 cap; full-capable
+                # artifacts retain their stricter inward double request bound.
+                response.gradients[0].values[0]=float32(.05)
+                capped=copy.deepcopy(base)
+                capped['head.weight']=[float32(round(base['head.weight'][0]+float32(.05),8))]
+                response.metadata['updated_parameter_fingerprint']=fingerprint(capped);bind_response()
+                capped_stage={'state':'accepted','snapshot':{'parameters':{n:{'shape':shapes[n],'values':v} for n,v in capped.items()}}}
+                report.audit_runtime_evidence(evidence,capped_stage,pending,presence=presence)
+                from privoke_model.contextual_training import FULL_ENCODER_STRATEGY
+                response.metadata['artifact_training_strategy']=FULL_ENCODER_STRATEGY;bind_response()
+                with self.assertRaisesRegex(ValueError,'frozen clamp'):
+                    report.audit_runtime_evidence(evidence,capped_stage,pending,presence=presence)
+                del response.metadata['artifact_training_strategy']
+                bind_response()
+                full_base=copy.deepcopy(pending);full_base['base']['metadata']={'contextual_training_strategy':FULL_ENCODER_STRATEGY}
+                with self.assertRaisesRegex(ValueError,'frozen clamp'):
+                    report.audit_runtime_evidence(evidence,capped_stage,full_base,presence=presence)
+                response.gradients[0].values[0]=float32(.050000004);bind_response()
+                with self.assertRaisesRegex(ValueError,'frozen clamp'):
+                    report.audit_runtime_evidence(evidence,capped_stage,pending,presence=presence)
+
+    def test_audit_source_amendment_preserves_fitting_and_qualification_code(self):
+        path='evaluation/privoke_eval/accelerated_training_surfaces_report.py'
+        destination=self.path/path;destination.parent.mkdir(parents=True)
+        original='def audit_runtime_evidence():\n    return 1\n\ndef qualification_rule():\n    return 2\n'
+        revised=original.replace('return 1','return 3');destination.write_text(revised)
+        frozen={path:'original','models/trainer.py':'unchanged'}
+        current={path:study.sha(destination),'models/trainer.py':'unchanged'}
+        protocol={'source_files':frozen,'source_revision':'a'*40}
+        study.write(self.path/'protocol.json',protocol)
+        receipt={'status':'accepted','scope':'audit_only','protocol_sha256':study.sha(self.path/'protocol.json'),
+                 'frozen_source_revision':'a'*40,'source_revision':'b'*40,'source_files':current}
+        def bind():study.write(self.path/'audit-source-amendment.json',receipt)
+        bind()
+        with patch.object(study,'ROOT',self.path),patch.object(study,'source_inventory',return_value=current),patch.object(study,'revision',return_value='b'*40),patch.object(study,'command',return_value=original):
+            study.verify_frozen_sources(self.path,protocol)
+            destination.write_text(revised.replace('return 2','return 4'));current[path]=study.sha(destination);bind()
+            with self.assertRaisesRegex(ValueError,'protected computation'):
+                study.verify_frozen_sources(self.path,protocol)
+            destination.write_text(revised);current[path]=study.sha(destination)
+            current['models/trainer.py']='changed';bind()
+            with self.assertRaisesRegex(ValueError,'fitting or unapproved'):
+                study.verify_frozen_sources(self.path,protocol)
+            current['models/trainer.py']='unchanged';receipt['protocol_sha256']='wrong';bind()
+            with self.assertRaisesRegex(ValueError,'amendment differs'):
+                study.verify_frozen_sources(self.path,protocol)
 
     def snapshot(self,version='v0',head=0.,encoder=0.):
         return {'identity':{'model_id':'m','model_version':version,'artifact_checksum':'a','parameter_fingerprint':'f'},
