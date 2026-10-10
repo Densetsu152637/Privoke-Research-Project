@@ -67,6 +67,7 @@ class LayerExecution:
     error: str | None = None
     semantic_presence_gate: SemanticPresenceGateTrace | None = None
     pretrained_context_identity: dict[str, str] | None = None
+    semantic_model_identity: dict[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -249,8 +250,18 @@ def _execute_layer(
     if layer == SEMANTIC_LAYER and semantic_model_id == PRETRAINED_CONTEXT_MODEL_ID:
         return _execute_pretrained_context(text)
     try:
-        results = _detector_for(layer, semantic_model_id=semantic_model_id)(text)
-        return LayerExecution(layer, "ok", tuple(results))
+        detector = _detector_for(layer, semantic_model_id=semantic_model_id)
+        identity = None
+        if layer == SEMANTIC_LAYER:
+            from .LLM.privoke_classifier import PriVokeClassifier
+
+            owner = getattr(detector, "__self__", None)
+            if isinstance(owner, PriVokeClassifier):
+                model = _streamed_model_for_semantic_detector(owner)
+                identity = _semantic_snapshot_identity(model)
+                detector = model.classify
+        results = detector(text)
+        return LayerExecution(layer, "ok", tuple(results), semantic_model_identity=identity)
     except Exception as exc:
         return LayerExecution(layer, "error", error=_error_message(exc))
 
@@ -273,7 +284,8 @@ def _execute_pretrained_context(text: str) -> LayerExecution:
             "tokenizer_sha256": model.model.config["tokenizer_sha256"],
         }.items()}
         results = tuple(model.classify(text))
-        return LayerExecution(SEMANTIC_LAYER, "ok", results, pretrained_context_identity=identity)
+        return LayerExecution(SEMANTIC_LAYER, "ok", results, pretrained_context_identity=identity,
+                              semantic_model_identity=_semantic_snapshot_identity(model))
     except Exception as exc:
         return LayerExecution(SEMANTIC_LAYER, "error", error=_error_message(exc),
                               pretrained_context_identity=identity)
@@ -378,6 +390,13 @@ def _execute_semantic_with_presence_gate(
                 contextual_parameter_fingerprint=(semantic_model.snapshot.fingerprint if "semantic_model" in locals() else ""),
             ),
         )
+
+
+def _semantic_snapshot_identity(model):
+    snapshot = model.snapshot
+    return {"model_id": snapshot.model_id, "model_version": snapshot.version,
+            "artifact_checksum": snapshot.metadata["artifact_checksum"],
+            "parameter_fingerprint": snapshot.fingerprint}
 
 
 def _streamed_model_for_semantic_detector(semantic_detector):

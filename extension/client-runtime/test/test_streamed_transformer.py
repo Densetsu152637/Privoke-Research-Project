@@ -52,6 +52,46 @@ class StreamedTransformerTests(unittest.TestCase):
             [],
         )
 
+    def test_clean_semantic_rpc_retains_exact_used_identity_without_a_finding(self):
+        from privoke.v1 import runtime_pb2
+        from src.hosting.grpc_server import PrivokeRuntimeService
+        from src.LLM.privoke_classifier import PriVokeClassifier
+
+        snapshot = self.model.snapshot
+        request = runtime_pb2.AnalyzePromptRequest(
+            text="write a friendly email about tomorrow meeting", request_id="clean-identity",
+            semantic_model_id=snapshot.model_id, layers=[runtime_pb2.DETECTION_LAYER_SEMANTIC],
+            metadata={"privoke.semantic.model_id": "spoofed"})
+        with patch("src.pipeline.get_llm_choice", return_value=PriVokeClassifier(model_id=snapshot.model_id)), \
+                patch("src.pipeline._streamed_model_for_semantic_detector", return_value=self.model), \
+                patch.object(self.model.model, "predict", wraps=self.model.model.predict) as predict:
+            response = PrivokeRuntimeService().AnalyzePrompt(request, None)
+        self.assertEqual(predict.call_count, 1)
+        self.assertEqual(response.error, "")
+        self.assertEqual(response.action, "ALLOW")
+        self.assertEqual(len(response.layers), 1)
+        self.assertEqual(response.layers[0].layer, runtime_pb2.DETECTION_LAYER_SEMANTIC)
+        self.assertEqual(response.layers[0].status, "ok")
+        self.assertEqual(len(response.layers[0].results), 0)
+        self.assertEqual({key: response.metadata["privoke.semantic." + key] for key in
+                          ("model_id", "model_version", "artifact_checksum", "parameter_fingerprint")},
+                         {"model_id": snapshot.model_id, "model_version": snapshot.version,
+                          "artifact_checksum": snapshot.metadata["artifact_checksum"],
+                          "parameter_fingerprint": snapshot.fingerprint})
+
+    def test_failed_semantic_rpc_cannot_echo_caller_identity(self):
+        from privoke.v1 import runtime_pb2
+        from src.hosting.grpc_server import PrivokeRuntimeService
+
+        request = runtime_pb2.AnalyzePromptRequest(text="synthetic", request_id="failed-identity",
+            layers=[runtime_pb2.DETECTION_LAYER_SEMANTIC], semantic_model_id="privoke-baseline",
+            metadata={"privoke.semantic.model_id": "spoofed", "caller_tag": "retained"})
+        with patch("src.pipeline.get_llm_choice", side_effect=RuntimeError("synthetic unavailable")):
+            response = PrivokeRuntimeService().AnalyzePrompt(request, None)
+        self.assertEqual(len(response.layers), 1)
+        self.assertEqual(response.layers[0].status, "error")
+        self.assertFalse(any(key.startswith("privoke.semantic.") for key in response.metadata))
+
     def test_all_quality_profiles_execute_with_their_expected_capacity(self) -> None:
         expected = {
             "privoke-efficient": (1, 2),

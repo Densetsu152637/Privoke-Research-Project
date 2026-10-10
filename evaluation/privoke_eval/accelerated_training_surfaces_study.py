@@ -550,6 +550,10 @@ def compose_command(protocol,cell,directory):
         assets=offline_inputs(protocol,cell)["assets"]
         override["services"]["client-runtime"]={"environment":{"PRIVOKE_PRETRAINED_CONTEXT_DIR":"/assets"},
             "volumes":[{"type":"bind","source":str(Path(assets["model.onnx"]["path"]).parent),"target":"/assets","read_only":True}]}
+    if cell["surface"] in ("minilm", "scratch_presence"):
+        # These opt-in architectures are deliberately forbidden as latest.
+        # Every scored RPC still names the experimental artifact explicitly.
+        override["services"]["model-streaming-service"]={"environment":{"MODEL_LATEST_ID":"privoke-balanced"}}
     path=directory/"compose.json";write(path,override,immutable=True)
     return ["docker","compose","-p",cell["project"],"-f",str(ROOT/"evaluation/compose.accelerated-training-surfaces.yml"),"-f",str(path)],env
 
@@ -732,6 +736,10 @@ def native_serving_parity(protocol,cell,directory,result):
     artifact=read(result['final_artifact']['path'])
     serving_cell=cell|{'kind':'online','project':protocol['study_id']+'-parity-'+cell['id'],'model_id':artifact['model_id']}
     write(catalog/(artifact['model_id']+'.json'),artifact,immutable=True)
+    if cell['surface'] in ('minilm','scratch_presence'):
+        fallback=protocol['inputs']['base_artifacts']['privoke-balanced']
+        verify_files(fallback)
+        write(catalog/'privoke-balanced.json',read(fallback['path']),immutable=True)
     compose,env=compose_command(protocol,serving_cell,state)
     reserve_resources(compose,env,serving_cell,state)
     try:
@@ -750,10 +758,20 @@ def native_serving_parity(protocol,cell,directory,result):
     if len(direct)!=len(network):raise ValueError('Serving parity denominator differs')
     for a,b in zip(direct,network):
         if a['id']!=b['id'] or a['status']!='ok' or b['status']!='ok':raise ValueError('Serving parity incomplete')
-        keys=('predicted_present',) if cell['surface'] in ('sparse_presence','scratch_presence') else ('classification','action')
-        if any(a[k]!=b[k] for k in keys):raise ValueError('Learned forward/native serving parity differs')
+        if cell['surface'] in ('sparse_presence','scratch_presence'):
+            matches=a['predicted_present']==b['predicted_present']
+        else:
+            matches=contextual_prediction_key(a)==contextual_prediction_key(b)
+        if not matches:raise ValueError('Learned forward/native serving parity differs')
     write(parity,{'status':'passed','rows':len(direct),'execution_mode':'network_protobuf_v1',
         'final_sha256':result['final_artifact']['sha256'],'network_assessment_sha256':sha(state/'assessment-096.json')},immutable=True)
+
+def contextual_prediction_key(record):
+    # Protobuf classification also carries packed bits; category order is not
+    # semantic. Compare every learned label and the resulting action instead.
+    value=record['classification']
+    return value['sensitivity'],value['visibility'],tuple(sorted(value.get('categories',[]))),record['action']
+
 
 def render_fresh_assessment(raw_path, task, destination):
     """Render supplied natural-language audience context, never gold labels."""

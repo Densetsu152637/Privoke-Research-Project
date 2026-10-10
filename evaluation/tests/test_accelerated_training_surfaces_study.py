@@ -83,6 +83,20 @@ class StudyTests(unittest.TestCase):
         response.executions=[]
         with self.assertRaises(ValueError):validate_presence_execution(response,identity,4)
 
+    def test_context_client_uses_server_identity_when_clean_prediction_has_no_finding(self):
+        from privoke_eval.continual_fuzzer_study import RpcClient, RP
+        identity=dict(model_id='m',model_version='v',artifact_checksum='a',parameter_fingerprint='p')
+        response=RP.AnalyzePromptResponse(request_id='r',action='ALLOW',
+            classification=RP.RuntimeClassification(sensitivity='S0',visibility='PU'),
+            layers=[RP.RuntimeLayerExecution(layer=RP.DETECTION_LAYER_SEMANTIC,status='ok')],
+            metadata={'privoke.semantic.'+k:v for k,v in identity.items()})
+        client=RpcClient.__new__(RpcClient)
+        client.runtime=SimpleNamespace(AnalyzePrompt=lambda *a,**k:response)
+        actual=client.analyze({'text':'synthetic'},'m','semantic','r')
+        self.assertEqual(actual['identities'],[identity])
+        del response.metadata['privoke.semantic.artifact_checksum']
+        self.assertEqual(client.analyze({'text':'synthetic'},'m','semantic','r')['identities'],[])
+
     def test_paired_errors_remain_in_fixed_denominator_and_veto(self):
         before=[{'id':'a','group_id':'g','target':True,'predicted_present':False,'status':'ok'},
                 {'id':'b','group_id':'g','target':False,'predicted_present':True,'status':'ok'}]
@@ -265,12 +279,23 @@ class ReviewClosureTests(unittest.TestCase):
 
 
 class SecondReviewClosureTests(unittest.TestCase):
+    def test_native_parity_compares_all_labels_and_action_across_transport_shapes(self):
+        direct={'classification':{'sensitivity':'S2','visibility':'P3','categories':['HEALTH','FINANCIAL']},'action':'WARN'}
+        network=copy.deepcopy(direct)
+        network['classification'].update(packed=562,categories=['FINANCIAL','HEALTH'])
+        self.assertEqual(study.contextual_prediction_key(direct),study.contextual_prediction_key(network))
+        for key,value in (('sensitivity','S1'),('visibility','P1'),('categories',['HEALTH'])):
+            changed=copy.deepcopy(network);changed['classification'][key]=value
+            self.assertNotEqual(study.contextual_prediction_key(direct),study.contextual_prediction_key(changed))
+        network['action']='ALLOW'
+        self.assertNotEqual(study.contextual_prediction_key(direct),study.contextual_prediction_key(network))
+
     def test_real_compose_construction_all_declared_branches(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
             protocol={'images':{service:'sha256:'+'a'*64 for service in study.SERVICES},'ports':{'model':52551,'updater':52552,'fuzzer':52553,'runtime':52554},'inputs':{'curriculum':{'path':str(root/'curriculum/manifest.json')},'presence_train':{'path':str(root/'presence.jsonl')}}}
             base={'id':'cell','project':'privoke-all-surfaces-test','model_id':'privoke-balanced','surface':'tiny','sampling':'procedural'}
-            for branch,changes in (('procedural',{}),('curriculum',{'sampling':'curriculum'}),('sparse',{'surface':'sparse_presence'}),('minilm',{'surface':'minilm'})):
+            for branch,changes in (('procedural',{}),('curriculum',{'sampling':'curriculum'}),('sparse',{'surface':'sparse_presence'}),('minilm',{'surface':'minilm'}),('scratch',{'surface':'scratch_presence'})):
                 directory=root/branch;directory.mkdir()
                 assets={'assets':{'model.onnx':{'path':str(root/'assets/model.onnx')}}}
                 with patch.object(study,'offline_inputs',return_value=assets):
@@ -285,6 +310,9 @@ class SecondReviewClosureTests(unittest.TestCase):
                     self.assertEqual(fuzzer['environment']['FUZZ_PRESENCE_DATASET_PATH'],'/training/presence.jsonl')
                     self.assertTrue(fuzzer['volumes'][0]['read_only'])
                 if branch=='minilm':self.assertEqual(override['services']['client-runtime']['environment']['PRIVOKE_PRETRAINED_CONTEXT_DIR'],'/assets')
+                if branch in ('minilm','scratch'):
+                    self.assertEqual(override['services']['model-streaming-service']['environment']['MODEL_LATEST_ID'],'privoke-balanced')
+                    self.assertEqual(env['AS_MODEL_ID'],base['model_id'])
 
     def _configuration(self,surface,seed):
         return {'id':f'{surface}-{seed}','seed':seed,'kind':'offline','group':'offline-representation','surface':surface,'profile':'balanced','scope':'heads','sampling':'procedural','objective':'contextual','optimizer':'adam'}

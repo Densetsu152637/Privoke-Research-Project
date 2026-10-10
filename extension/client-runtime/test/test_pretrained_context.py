@@ -212,6 +212,11 @@ class PretrainedContextRuntimeTests(unittest.TestCase):
             self.assertEqual(response.metadata["privoke.pretrained_context.model_id"], PRETRAINED_CONTEXT_MODEL_ID)
             self.assertEqual(response.metadata["privoke.pretrained_context.artifact_checksum"], snapshot.metadata["artifact_checksum"])
             self.assertEqual(layer.status, "error" if text == "overlength" else "ok")
+            if text != "overlength":
+                self.assertEqual(response.metadata["privoke.semantic.model_id"], PRETRAINED_CONTEXT_MODEL_ID)
+                self.assertEqual(response.metadata["privoke.semantic.parameter_fingerprint"], snapshot.fingerprint)
+            else:
+                self.assertFalse(any(key.startswith("privoke.semantic.") for key in response.metadata))
             if text == "overlength":
                 self.assertIn("256-token", layer.error)
             else:

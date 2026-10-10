@@ -341,8 +341,11 @@ def _regex_first(value: int) -> bool | None:
 def _analysis_response(analysis: PromptAnalysis):
     payload = analysis.response()
     metadata = {key: value for key, value in (payload.get("metadata") or {}).items()
-                if not key.startswith("privoke.pretrained_context.")}
+                if not key.startswith(("privoke.pretrained_context.", "privoke.semantic."))}
     for execution in analysis.execution.layers:
+        if execution.status == "ok" and execution.semantic_model_identity is not None:
+            metadata.update({"privoke.semantic." + key: value
+                             for key, value in execution.semantic_model_identity.items()})
         if execution.pretrained_context_identity is not None:
             # Request metadata cannot impersonate an admitted encoder identity,
             # including when asset admission failed before inference began.

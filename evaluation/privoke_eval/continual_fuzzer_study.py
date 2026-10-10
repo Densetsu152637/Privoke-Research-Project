@@ -223,6 +223,10 @@ class RpcClient:
         if response.action not in {"ALLOW", "WARN", "BLOCK"} or response.classification.sensitivity not in {"S0", "S1", "S2", "S3"}:
             raise ValueError("Invalid runtime classification/action.")
         identities = []
+        if layer == "semantic":
+            identity = {key: response.metadata.get("privoke.semantic." + key, "") for key in IDENTITY_KEYS}
+            if all(identity.values()):
+                identities.append(identity)
         for execution in response.layers:
             if execution.status == "error":
                 raise ValueError(execution.error or "Runtime layer failed.")
