@@ -650,3 +650,12 @@ See [the complete study protocol](../docs/accelerated-training-surfaces-study-20
 for the 168-cell matrix, native offline budget exceptions, mandatory semantic
 execution assertions, config/approval schemas and commands. This entrypoint
 never invokes legacy product-pipeline studies or protected-final input.
+
+The completed 10 October study covers 111 online and 57 offline trajectories.
+Its record reports every configuration: none of 56 qualified under the frozen
+gain/harm rules. Six scratch configurations lacked specificity gain headroom;
+overall contextual joint gains mostly came from clean controls. Reused-secondary
+overlength errors remain visible. These results do not promote a model or test
+a conversational-prompt effect. Matching maintained audit/report outputs and
+independent count reconciliation passed. The [public aggregate package](../docs/evidence/all-surfaces-20261010/README.md)
+binds the accepted raw inputs and supplies reproducible projections.

@@ -6,6 +6,31 @@ The active goal objective is: “Now that these things have been refactored, run
 
 Research record `RQ-FUZZER-ALL-SURFACES-20261010` asks which supported training configurations improve their matched fixed-final endpoints under the frozen gain and harm rules. It separates execution coverage, descriptive metric changes and qualification; none alone establishes deployment readiness.
 
+## Results
+
+Both maintained raw audit and report commands passed, producing byte-identical aggregate SHA-256 `ec530e92d01f5f1f6747549c84a7315db521cf8fdcb99be794ea311f0abe9b63`. Independent count reconciliation passed for all 168 trajectories, 56 configuration decisions and 600 primary/secondary endpoint pairs. The [public evidence package](evidence/all-surfaces-20261010/README.md) binds eight accepted raw inputs and provides reproducible aggregate projections.
+
+All 168 trajectories completed. **None of the 56 configurations qualified** under the frozen gain and harm rules. Fifty configurations had sufficient gain headroom; all six scratch configurations were ineligible because their initial specificity left fewer than eight additional correct negatives available. No individual realization passed its complete qualification rule. Online training published 3,758 candidates, rejected 6,715 and consumed 183 skipped opportunities after rejected heads. Rejected attempts still consumed training work.
+
+| Training surface | Configurations | Gain-eligible | Qualified |
+| --- | ---: | ---: | ---: |
+| Online Tiny: scopes, objectives, optimizers and curriculum | 34 | 34 | 0 |
+| Offline Tiny HEAD/FULL | 8 | 8 | 0 |
+| Online sparse presence | 3 | 3 | 0 |
+| Offline sparse presence | 3 | 3 | 0 |
+| Offline scratch presence HEAD/FULL | 6 | 0 | 0 |
+| Frozen MiniLM heads | 1 | 1 | 0 |
+| Projected random-representation control | 1 | 1 | 0 |
+| Total | 56 | 50 | 0 |
+
+All 132 contextual baselines had zero joint sensitivity/visibility/category-set matches on the 160 non-S0 disclosure rows, including zero on the 120 serious rows. At the fixed final endpoint, 131 trajectories still had zero; offline quality FULL seed 43 reached one match in each subgroup. Thus overall joint gains predominantly came from S0 controls, not disclosure exactness. For example, MiniLM reached 78–79 overall joint matches out of 320, all on S0 rows, while adding 57–67 incorrect actions and 38–73 serious underaction worsenings per realization. These overlapping harm counts use provisional targets and are not counts of independent harms across seeds. Every default procedural main-arm LAST/FULL attempt was rejected (2,304 total); their unchanged endpoints do not establish the quality of 96 accepted encoder updates.
+
+Offline sparse presence gained 68, 107 and 110 correct negatives out of 160 for efficient, balanced and quality respectively, but recall fell from 160/160 to 115/160, 84/160 and 83/160. Each profile's three solver runs produced identical final parameter fingerprints; these are deterministic repetitions. Online efficient and quality presence endpoints were unchanged, while balanced lost two correct negatives without recall gain. Scratch FULL training increased recall from zero to 118–140 correct positives out of 160 across profiles/seeds, while specificity fell to 16–42 correct negatives out of 160; these changes are descriptive tradeoffs, not qualified improvements.
+
+There were zero primary, annotation-transfer or fixture errors. The reused historical annotation endpoint retained **714 overlength error observations across 18 unique case IDs**, repeated across models, seeds and before/after endpoints: 252 Tiny, six projected-control, twelve MiniLM and 216/132/96 scratch efficient/balanced/quality observations. Tiny and projected controls each had one overlength case per endpoint, MiniLM two, and scratch 18/11/8 at native 64/96/128 capacities. These remain fixed-denominator errors and qualification vetoes. Some legacy offline messages say “TRAIN” even when raised by a secondary scoring input; they do not indicate failed training admission.
+
+The [aggregate evidence](evidence/all-surfaces-20261010/README.md) preserves every configuration, component, harm count, error bound and descriptive paired interval. The actual ledger declares no cross-cell reference IDs, so `controlled_contrasts` is empty. Cross-configuration package summaries are descriptive. This study does not establish a beneficial conversational-prompt effect, a causal representation/variance effect, convergence at larger doses, independent human-label validity, long-context accuracy or deployment readiness. No model was promoted and protected final data were not scored.
+
 ## Fixed matrix and dose
 
 The maintained entrypoint is `evaluation/run-accelerated-training-surfaces-study.py`. Its `plan` operation enumerates 168 trajectories, each with seeds 42, 43 and 44 represented explicitly.
@@ -29,7 +54,7 @@ Offline neural trajectories use 96 optimizer steps. Tiny and frozen representati
 
 The maximum online opportunity count is 10,656, with 340,992 prompt allocations. Without skipped stages, contextual augmentation and sparse training produce at most 654,336 online training examples. Offline neural fitting adds 119,808 presentations, including 27,648 scratch presentations. Native sparse solver work is additional and has no fictitious equivalent presentation count. These totals describe planned exposure, not accepted updates.
 
-All 168 trajectories completed fitting and scoring. Actual online exposure comprised 10,656 opportunities, 10,473 attempted stages, 183 consumed skips, 335,136 prompt allocations, 636,112 training examples, 167,568 guard examples and 13,065 internal optimizer steps. There were 10,473 physical RPC attempts. Attempts and optimizer work include rejected candidates; neither count establishes publication or quality improvement. The generic `generated_prompts` counter records allocations: procedural contextual generation, finite curriculum selections and dataset-sampled presence examples must remain distinct, and the counter does not establish novelty.
+All 168 trajectories completed fitting and scoring. Actual online exposure comprised 10,656 opportunities, 10,473 attempted stages, 183 consumed skips, 335,136 prompt allocations, 636,112 TRAIN payload-row allocations, 167,568 guard examples and 13,065 internal optimizer steps. There were 10,473 physical RPC attempts. Attempts and optimizer work include rejected candidates; neither count establishes publication or quality improvement. TRAIN row allocations do not multiply repeated internal SGD steps; row counts, optimizer steps and accepted publication exposure are separate doses. Equal opportunity budgets therefore do not mean equal accepted exposure or compute. The generic `generated_prompts` counter records allocations: procedural contextual generation, finite curriculum selections and dataset-sampled presence examples must remain distinct, and the counter does not establish novelty.
 
 ## Baselines and assessment isolation
 
@@ -93,6 +118,8 @@ The complete matrix must be reviewed before freeze. The endpoint ledger specifie
 
 ## Validation and current limits
 
+The report-ledger schema repair passed 49 focused host tests and five active hosted CI jobs at `ad9241a86ba39e4d594b17eda67137807b7f632f` ([run 38075810690](https://github.com/Densetsu152637/Privoke-Research-Project/actions/runs/38075810690)); the product job was skipped. Both final maintained commands then recomputed all raw cell audits successfully and agreed byte for byte. The independent checker separately reconciled all 600 endpoint pairs and the frozen decisions. These host/report checks are separate from the earlier Linux worker and network validation below.
+
 Focused synthetic tests cover the complete matrix, native budget exceptions, strict input and execution gates, exact dual stage ordering, rejected-head skips, partial publications, immutable snapshots, pending transport recovery and legacy default behavior. The final scoring repair passed 61 focused tests in the original pinned Linux image with the accepted current supervisor and precision auditor mounted; a four-input synthetic probe verified the dependency mount and actual semantic-only execution without retraining. Five active hosted CI jobs passed at `236328d04a1673902375d91b0624265d2aa36f05`, including semantic-only HEAD/FULL integration; the product job was skipped. Host mechanics alone would not establish Linux dependencies, filesystem durability or network integration. The earlier 519-second head benchmark remains a rough historical reference, not a runtime prediction for this matrix.
 
 Offline fits ran in the immutable `offline_worker_image`, never the host supervisor. Prepare records `offline_worker_attestation`, binding source files, pinned Linux dependencies and passed adapter tests. Fit containers mounted TRAIN, assets and the initial baseline only, with networking disabled. Separate score containers received assessment rows after the fit. Root acceptance binds exact protocol and labels; the sequence is prepare, preflight review, freeze, execute, audit and report. Execution covered 111 online network trajectories, 54 offline fits with native runtime parity and three direct-only projected controls. Each offline parity comparison covered 320 primary labels and contextual actions where applicable; additional network secondary endpoints were collected without a direct offline parity comparison. The controls have no native serving architecture. This is 165 native-serving-supported trajectories, not 165 separate offline parity files.
@@ -108,3 +135,66 @@ The worker includes the evaluation environment helper and updater requester modu
 Sparse offline fits use the full3832-row native binary TRAIN cohort. Scratch uses the shared3684-row cohort admitted at the strictest native64-token capacity; per-profile input references bind that cohort explicitly. These are different training cohorts, and comparisons must disclose this difference. Fresh annotation-transfer rates remain descriptive; the contextual secondary recall veto applies specifically to the reused502-row historical annotation endpoint. Qualification groups include architecture/surface and require exactly one42/43/44 seed set. Deterministic sparse solver repetitions use a separate all-run rule, without stochastic corroboration; the global eligible-configuration decision aggregates configuration decisions rather than individual seeds.
 
 For stochastic configurations, gain eligibility requires at least two seeds with sufficient gain headroom. Qualification requires the same two or more seeds to pass both gain thresholds while all three clear the explicit vetoes. A third seed without gain headroom does not veto qualification; its per-seed headroom remains descriptive. Deterministic sparse repetitions retain their separate all-run criterion.
+
+## Every frozen configuration
+
+Counts within brackets follow seeds 42, 43 and 44. N/S are gains in joint matches on 160 non-S0 and 120 serious rows; TN is the gain in correct negatives out of 160. TP shows before → after correct positives out of 160. Eligibility and veto are configuration decisions; all configurations failed qualification. Complete components and descriptive uncertainty remain in the aggregate JSON.
+
+| Configuration (seed suffix omitted) | N/S gain counts | TN gain counts | TP before → after | Eligible | Any veto |
+| --- | --- | --- | --- | --- | --- |
+| `offline-presence-balanced-heads` | — | [107, 107, 107] | [160, 160, 160] → [84, 84, 84] | Yes | Yes |
+| `offline-presence-efficient-heads` | — | [68, 68, 68] | [160, 160, 160] → [115, 115, 115] | Yes | Yes |
+| `offline-presence-quality-heads` | — | [110, 110, 110] | [160, 160, 160] → [83, 83, 83] | Yes | Yes |
+| `offline-representation-balanced-minilm` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `offline-representation-balanced-random_control` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `offline-scratch-balanced-full_encoder` | — | [-126, -121, -141] | [0, 0, 0] → [128, 119, 133] | No | Yes |
+| `offline-scratch-balanced-heads` | — | [-83, -36, -3] | [0, 0, 0] → [59, 31, 2] | No | Yes |
+| `offline-scratch-efficient-full_encoder` | — | [-142, -141, -141] | [0, 0, 0] → [140, 140, 140] | No | Yes |
+| `offline-scratch-efficient-heads` | — | [-12, -1, 0] | [0, 0, 0] → [18, 3, 0] | No | Yes |
+| `offline-scratch-quality-full_encoder` | — | [-118, -120, -128] | [0, 0, 0] → [118, 122, 135] | No | Yes |
+| `offline-scratch-quality-heads` | — | [-90, -28, -4] | [0, 0, 0] → [76, 22, 0] | No | Yes |
+| `offline-tiny-balanced-full_encoder` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `offline-tiny-balanced-heads` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `offline-tiny-baseline-full_encoder` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `offline-tiny-baseline-heads` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `offline-tiny-efficient-full_encoder` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `offline-tiny-efficient-heads` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `offline-tiny-quality-full_encoder` | [0, 1, 0] / [0, 1, 0] | — | — | Yes | Yes |
+| `offline-tiny-quality-heads` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `curriculum-balanced-dual` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `curriculum-balanced-full_encoder` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `curriculum-balanced-heads` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `main-balanced-dual` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `main-balanced-full_encoder` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `main-balanced-heads` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `main-balanced-last_block` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `main-baseline-dual` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `main-baseline-full_encoder` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `main-baseline-heads` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `main-baseline-last_block` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `main-efficient-dual` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `main-efficient-full_encoder` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `main-efficient-heads` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `main-efficient-last_block` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `main-quality-dual` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `main-quality-full_encoder` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `main-quality-heads` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `main-quality-last_block` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `objective-balanced-full_encoder-o2` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `objective-balanced-full_encoder-o1` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `objective-balanced-full_encoder-o0` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `objective-balanced-heads-o2` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `objective-balanced-heads-o1` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `objective-balanced-heads-o0` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `objective-balanced-last_block-o2` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `objective-balanced-last_block-o1` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `objective-balanced-last_block-o0` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `online-presence-balanced-heads` | — | [-2, -2, -2] | [122, 122, 122] → [122, 122, 122] | Yes | Yes |
+| `online-presence-efficient-heads` | — | [0, 0, 0] | [151, 151, 151] → [151, 151, 151] | Yes | No |
+| `online-presence-quality-heads` | — | [0, 0, 0] | [103, 103, 103] → [103, 103, 103] | Yes | Yes |
+| `optimizer-balanced-full_encoder-p0` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `optimizer-balanced-full_encoder-p1` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `optimizer-balanced-heads-p0` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `optimizer-balanced-heads-p1` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `optimizer-balanced-last_block-p0` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |
+| `optimizer-balanced-last_block-p1` | [0, 0, 0] / [0, 0, 0] | — | — | Yes | Yes |

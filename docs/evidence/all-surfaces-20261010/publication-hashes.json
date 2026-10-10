@@ -1,0 +1,40 @@
+{
+  "accepted_bindings_sha256": "85288daf4dd1b22fe65c8839f5fa9e07d4dcf90ee047719557023966811dd5af",
+  "audit_source_revision": "f3650a3445ec26d17e8bba57da7cf7d7807b31ab",
+  "environment_source_revision": "7be337e704ade2773dd8b533ad0be2a454b06c11",
+  "fitting_source_revision": "0b469c7a5972beee4f64544f5c0f33337923fc85",
+  "omissions": [
+    "raw archive inventories",
+    "host paths",
+    "ports",
+    "temporary project names",
+    "raw prompts",
+    "per-example predictions",
+    "model tensors",
+    "SQLite state",
+    "operational logs"
+  ],
+  "public_files": {
+    "audit.json": "bcc9acaec0f7351ef5588702bd2d405ed2b59f36073fd9f66b649bb3f3a83264",
+    "bindings.json": "85288daf4dd1b22fe65c8839f5fa9e07d4dcf90ee047719557023966811dd5af",
+    "independent-check.json": "402d6c26ab94aad8a65b6ef6916cc66bcea52c0546d0536aac8315d4298e8280",
+    "independent-check.py": "a93df6f75511052a2615b0e86cf1d6821c8cc6ac106d99e822fc2f69dc580f45",
+    "protocol.json": "acf8f4d1384ce8890b9d34d05c09f3fbbec7df4d7addd9c782355214560eba34",
+    "reproduce.py": "11b3e2d2cd7f58a0846f20c6f153aa0f608131d8a5faace7002253595a302134",
+    "summary.json": "a4e55d10651d2fbb57a8b35520d47df9eb674ae8dc31f5af11caa6c80b44dda5"
+  },
+  "raw_inputs": {
+    "execution-study-v3/audit-source-amendment.json": "10095bd99c4072bc5259ac9c2a3aba04290b28dae38c969c7ae953e39ab8e916",
+    "execution-study-v3/audit.json": "ec530e92d01f5f1f6747549c84a7315db521cf8fdcb99be794ea311f0abe9b63",
+    "execution-study-v3/protocol.json": "aadcef30cd3fabb595cf076ce8beeb9c9bbc9159bfd44899dd0ede0fbc76e797",
+    "execution-study-v3/report-ledger-amendment.json": "f8fd1724c484716b8cde2f4d282f6b71b67bdef33693049580383681ebe5711b",
+    "execution-study-v3/score-dependency-amendment.json": "395764728fac207446397efb00cf34cae49c1540a7cc6eafdf165d6153a31309",
+    "execution-study-v3/summary.json": "ec530e92d01f5f1f6747549c84a7315db521cf8fdcb99be794ea311f0abe9b63",
+    "execution-study-v3/worker-environment-amendment.json": "dd72b129fd68a9a91180d77ef138bd8aef5f51434a6841fed8836f9bd16a652c",
+    "linux-validation/independent-quality-reconciliation.json": "baa886982a3bee66c7103367739d8b98d677a1980a4d23fd0b0ebe3e592bd3d9"
+  },
+  "report_source_revision": "ad9241a86ba39e4d594b17eda67137807b7f632f",
+  "schema_version": "all-surfaces-publication-manifest-v1",
+  "scope": "Aggregate projection only; full archive audit requires retained local raw evidence and frozen computation sources.",
+  "scoring_source_revision": "236328d04a1673902375d91b0624265d2aa36f05"
+}
