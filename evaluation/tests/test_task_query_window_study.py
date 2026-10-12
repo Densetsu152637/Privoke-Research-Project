@@ -54,6 +54,7 @@ class StudyContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=self.scratch) as temp:
             output = Path(temp)
             study.exclusive(output / "images.json", {})
+            study.exclusive(output / "unused-release.json", {})
             protocol = {"cells": study.matrix(), "initial_teachers": {}}
             with patch.object(study, "validate_release", return_value=protocol), patch.object(study, "command") as command, patch.object(study, "bind") as bind:
                 with self.assertRaisesRegex(ValueError, "Incomplete cell"):
@@ -62,6 +63,25 @@ class StudyContractTests(unittest.TestCase):
                 bind.assert_not_called()
                 self.assertFalse((output / "endpoint-candidates.json").exists())
                 self.assertFalse((output / "endpoints").exists())
+
+    def test_release_image_map_override_requires_local_filename_and_raw_sha(self):
+        with tempfile.TemporaryDirectory(dir=self.scratch) as temp:
+            output = Path(temp)
+            study.exclusive(output / "images.json", {"role": "historical"})
+            study.exclusive(output / "images.fit-r2.json", {"role": "repaired"})
+            release = output / "release.json"
+            release.write_bytes(study.canonical({}))
+            self.assertEqual(study.images_for_release(output, release), {"role": "historical"})
+            release.write_bytes(study.canonical({"images_file": "images.fit-r2.json",
+                "images_sha256": study.sha(output / "images.fit-r2.json")}))
+            self.assertEqual(study.images_for_release(output, release), {"role": "repaired"})
+            for fields in ({"images_file": "images.fit-r2.json"},
+                           {"images_sha256": study.sha(output / "images.fit-r2.json")},
+                           {"images_file": "../images.json", "images_sha256": "0" * 64},
+                           {"images_file": "images.fit-r2.json", "images_sha256": "0" * 64}):
+                release.write_bytes(study.canonical(fields))
+                with self.subTest(fields=fields), self.assertRaises(ValueError):
+                    study.images_for_release(output, release)
 
     def test_fixture_stimulus_preserves_only_historical_visibility_hint(self):
         for hint in ("P0", "P3", "P4", "PU", ""):

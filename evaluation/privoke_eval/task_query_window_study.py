@@ -266,6 +266,23 @@ def validate_release(output, path, phase):
     return read(protocol_path)
 
 
+def images_for_release(output, release_path):
+    """Use a release-bound local image map, retaining the historical default."""
+    release = read(release_path)
+    filename = release.get("images_file")
+    expected = release.get("images_sha256")
+    require((filename is None) == (expected is None), "Image map filename and SHA must be bound together")
+    if filename is None:
+        return read(output / "images.json")
+    require(isinstance(filename, str) and filename and Path(filename).name == filename
+            and "/" not in filename and "\\" not in filename, "Image map must be a local filename")
+    path = output / filename
+    require(path.resolve().parent == output.resolve(), "Image map escaped local study output")
+    require(isinstance(expected, str) and len(expected) == 64 and sha(path) == expected,
+            "Release image map SHA differs")
+    return read(path)
+
+
 def install_host_imports():
     for path in (ROOT / "shared/python", ROOT / "extension/client-runtime",
                  ROOT / "extension/client-runtime/generated", ROOT / "services/privoke-fuzzer/src",
@@ -619,7 +636,7 @@ def terminal_audit(cell, before, after, output, resolve_path, directory, pins=No
     receipt, database_sha = None, None
     if db.exists():
         database_sha = sha(db)
-        with sqlite3.connect(db.as_uri() + "?mode=ro", uri=True) as connection:
+        with sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True) as connection:
             connection.execute("PRAGMA query_only=ON")
             row = connection.execute("SELECT receipt FROM update_receipts WHERE key=?", (key,)).fetchone()
             receipt = json.loads(row[0]) if row else None
@@ -784,7 +801,7 @@ def prepare_cells(output, release_path):
 def execute_cells(output, release_path, only_cell=None):
     """Run fixed physical cells serially; any unknown audit halts progression."""
     protocol = validate_release(output, release_path, "fits")
-    images, releases = read(output / "images.json"), read(output / "accepted-releases.json")
+    images, releases = images_for_release(output, release_path), read(output / "accepted-releases.json")
     frozen = read(output / "cell-preparation.json")
     candidates = [c for c in protocol["cells"] if only_cell is None or c["id"] == only_cell]
     require(candidates, "Unknown cell selection")
@@ -851,7 +868,7 @@ def scoring_catalog(name, candidate):
 def score_models(output, release_path):
     """Require all twelve known cells before freezing or mounting endpoints."""
     protocol = validate_release(output, release_path, "endpoints")
-    images, candidates = read(output / "images.json"), {}
+    images, candidates = images_for_release(output, release_path), {}
     require(protocol["cells"] == matrix(), "Endpoint scoring requires the exact twelve planned cells")
     for cell in protocol["cells"]:
         directory = output / "cells" / cell["id"]

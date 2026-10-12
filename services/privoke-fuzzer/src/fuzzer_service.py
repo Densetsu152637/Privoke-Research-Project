@@ -426,7 +426,19 @@ def validate_training_request(request, expected_model_id: str) -> None:
         validate_text(key, "metadata key", required=True, limit=128)
         validate_text(value, "metadata value", required=False, limit=2_048)
     if CONTEXTUAL_SAMPLING_STRATEGY_KEY in request.metadata:
-        validate_contextual_sampling_strategy(request.metadata[CONTEXTUAL_SAMPLING_STRATEGY_KEY], request.prompt_count)
+        from privoke_model import window_training as window_contract
+        strategy = request.metadata[CONTEXTUAL_SAMPLING_STRATEGY_KEY]
+        if strategy == window_contract.SAMPLER:
+            if request.prompt_count != 256:
+                raise ValueError("Window sampling requires exactly 256 originals.")
+            if window_contract.expectations(request.metadata) is None:
+                raise ValueError("Window sampling requires its exact FULL policy and release pins.")
+            if any(key in request.metadata for key in (
+                    "expected_contextual_training_backtracking_policy",
+                    "expected_contextual_training_diagnostics_policy")):
+                raise ValueError("Window sampling excludes backtracking and diagnostics policies.")
+        else:
+            validate_contextual_sampling_strategy(strategy, request.prompt_count)
 
 
 def _training_request_fingerprint(request) -> str:
