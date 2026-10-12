@@ -19,6 +19,7 @@ def main() -> int:
                    f"--python_out={destination}", f"--grpc_python_out={destination}"]
         command.extend(str(proto_root / "privoke/v1" / name)
                        for name in ("parameters.proto", "runtime.proto", "telemetry.proto"))
+        command.append(str(proto_root / "privoke/experimental/v3.proto"))
         result = subprocess.run(command, cwd=ROOT)
         if result.returncode:
             return result.returncode

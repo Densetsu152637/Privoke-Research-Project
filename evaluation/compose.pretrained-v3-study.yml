@@ -1,0 +1,59 @@
+services:
+  checkpoint:
+    image: privoke-pretrained-v3:study
+    build:
+      context: ..
+      dockerfile: evaluation/Dockerfile.pretrained-v3
+    command: [python, services/pretrained-v3/src/checkpoint_server.py]
+    environment:
+      V3_STORE: /state/checkpoint
+      V3_INITIAL: /initial
+      V3_PORT: '50173'
+    ports: ['127.0.0.1:50173:50173']
+    volumes:
+      - type: bind
+        source: ${V3_CELL}
+        target: /state
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${V3_INITIAL}
+        target: /initial
+        read_only: true
+        bind: {create_host_path: false}
+  runtime:
+    image: privoke-pretrained-v3:study
+    command: [python, services/pretrained-v3/src/runtime_server.py]
+    gpus: all
+    depends_on: [checkpoint]
+    environment:
+      V3_RUNTIME_STATE: /state/runtime
+      V3_CHECKPOINT_TARGET: checkpoint:50173
+      V3_DEVICE: cuda:0
+      V3_PORT: '50171'
+    ports: ['127.0.0.1:50171:50171']
+    volumes:
+      - type: bind
+        source: ${V3_CELL}
+        target: /state
+        bind: {create_host_path: false}
+  fuzzer:
+    image: privoke-pretrained-v3:study
+    command: [python, services/pretrained-v3/src/fuzzer_server.py]
+    depends_on: [runtime]
+    environment:
+      V3_FUZZER_STATE: /state/fuzzer
+      V3_RUNTIME_TARGET: runtime:50171
+      V3_CHECKPOINT_TARGET: checkpoint:50173
+      V3_POLICY_FILE: /state/policy.json
+      V3_PORT: '50172'
+    ports: ['127.0.0.1:50172:50172']
+    volumes:
+      - type: bind
+        source: ${V3_CELL}
+        target: /state
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${V3_INPUTS}
+        target: /app/evaluation/results/iterative_fuzzer_20261011
+        read_only: true
+        bind: {create_host_path: false}
