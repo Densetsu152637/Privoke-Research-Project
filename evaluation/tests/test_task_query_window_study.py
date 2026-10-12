@@ -225,5 +225,6 @@ class StudyContractTests(unittest.TestCase):
                 study.validate_release(Path(temp), path, "teachers")
 
 
+
 if __name__ == "__main__":
     unittest.main()

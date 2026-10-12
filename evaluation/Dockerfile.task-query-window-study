@@ -26,6 +26,7 @@ COPY services/privoke-fuzzer/src /workspace/services/privoke-fuzzer/src
 COPY services/param-update-service/app/receipts.py /workspace/services/param-update-service/app/receipts.py
 COPY --from=study-protos /study-generated /workspace/services/privoke-fuzzer/generated
 ENV PYTHONPATH=/workspace/shared/python:/workspace/evaluation:/workspace/services/privoke-fuzzer/generated
+RUN python -c "import numpy; assert numpy.__version__ == '1.26.4'"
 
 FROM ${UPDATER_IMAGE} AS study-updater
 COPY shared/python /workspace/shared/python

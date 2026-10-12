@@ -34,9 +34,11 @@ SOURCE_ROOTS = ("shared/python", "shared/proto", "extension/client-runtime/src",
                 "services/model-streaming-service", "evaluation/privoke_eval")
 SOURCE_FILES = (SOURCE_MODEL, "models/generate_baseline.py",
                 "extension/client-runtime/Dockerfile", "services/privoke-fuzzer/Dockerfile",
+                "services/privoke-fuzzer/requirements.txt",
                 "services/param-update-service/Dockerfile", "services/model-streaming-service/Dockerfile",
                 "evaluation/Dockerfile.task-query-window-study", "evaluation/run-task-query-window-study.py",
-                "evaluation/prepare-component-retention.py", "evaluation/tests/test_task_query_window_study.py", ".dockerignore")
+                "evaluation/prepare-component-retention.py", "evaluation/tests/test_task_query_window_study.py",
+                "evaluation/tests/test_task_query_window_precompute.py", ".dockerignore")
 
 
 def loopback_target(target):

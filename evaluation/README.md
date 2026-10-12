@@ -58,6 +58,15 @@ environment. Use that interpreter for `prepare-component-retention.py` and the
 TW01 `prepare-cells`/`execute` controller. Its Torch package is absent, so this
 does not make the broader Torch suites available.
 
+The frozen TW01 window precompute check needs that NumPy-enabled Python 3.11
+environment and the private `host-v2` releases. It validates all six window
+requests through the production reservation boundary without starting a server
+or fitting a model:
+
+```powershell
+evaluation/.venv-fuzzer-study/Scripts/python.exe -m unittest evaluation.tests.test_task_query_window_precompute -v
+```
+
 The protected research-file suites require a Linux host with their documented
 POSIX ownership/descriptor prerequisites; Windows supports the localhost RPC
 scripts, but does not supply those protections. Linux-only protected-file
