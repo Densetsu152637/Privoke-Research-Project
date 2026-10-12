@@ -20,6 +20,11 @@ services:
         target: /initial
         read_only: true
         bind: {create_host_path: false}
+      - type: bind
+        source: ${V3_INPUTS}
+        target: /app/evaluation/results/iterative_fuzzer_20261011
+        read_only: true
+        bind: {create_host_path: false}
   runtime:
     image: privoke-pretrained-v3:study
     command: [python, services/pretrained-v3/src/runtime_server.py]
@@ -35,6 +40,11 @@ services:
       - type: bind
         source: ${V3_CELL}
         target: /state
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${V3_INPUTS}
+        target: /app/evaluation/results/iterative_fuzzer_20261011
+        read_only: true
         bind: {create_host_path: false}
   fuzzer:
     image: privoke-pretrained-v3:study

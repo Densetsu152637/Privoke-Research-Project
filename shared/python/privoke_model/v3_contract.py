@@ -109,24 +109,115 @@ def validate_manifest(value):
         raise ValueError("Candidate requires immutable parent, ORIGINAL and evidence.")
     return value
 
-def validate_execution(evidence):
-    if evidence.get("layers") != [4] or evidence.get("scope") not in ("heads", "full_encoder"):
+def tensor_changes(before, after, layers):
+    """Recompute changed tensor groups from verified serialized inventories."""
+    changed = sorted(name for name in before if before[name]["sha256"] != after[name]["sha256"])
+    groups = {"heads": "heads.", "encoder": "encoder.", "embeddings": "encoder.embeddings.",
+              "first_block": "encoder.encoder.layer.0.", "last_block": f"encoder.encoder.layer.{layers - 1}.",
+              "pooler": "encoder.pooler."}
+    counts = {key: sum(name.startswith(prefix) for name in changed) for key, prefix in groups.items()}
+    counts["blocks"] = [sum(name.startswith(f"encoder.encoder.layer.{i}.") for name in changed) for i in range(layers)]
+    return changed, counts
+
+
+def validate_guard(value, denominator):
+    from privoke_contracts.classification import Classification, PriVokeAction
+    rows = value.get("rows", [])
+    if value.get("examples") != denominator or len(rows) != denominator:
+        raise ValueError("Guard row denominator differs from policy.")
+    for row in rows:
+        for key in ("target", "prediction"):
+            packed = row[key]
+            if type(packed) is not int or Classification(packed).pack() != packed:
+                raise ValueError("Invalid packed guard classification.")
+            Classification(packed).to_dict()
+        for key in ("action", "target_action"):
+            if row[key] not in PriVokeAction.__members__ or row[key + "_value"] != PriVokeAction[row[key]].value:
+                raise ValueError("Guard action name/value mismatch.")
+        confidence = row.get("confidence")
+        if type(confidence) not in (float, int) or not math.isfinite(confidence) or not 0 <= confidence <= 1:
+            raise ValueError("Actual guard confidence required.")
+        # Reuse the same production moderation as inference and the training guard.
+        from src.classification import ClassificationResult
+        for packed, score, action in ((row["prediction"], confidence, row["action"]),
+                                      (row["target"], .999, row["target_action"])):
+            if ClassificationResult(Classification(packed), "guard", "guard validation", confidence=score).action().name != action:
+                raise ValueError("Guard action differs from production classification policy.")
+        joint = row["target"] == row["prediction"] and row["action"] == row["target_action"]
+        if type(row["joint_correct"]) is not bool or row["joint_correct"] != joint:
+            raise ValueError("Guard joint correctness differs from rows.")
+    if value.get("joint_correct") != sum(row["joint_correct"] for row in rows):
+        raise ValueError("Guard joint count differs from rows.")
+    if value.get("action_correct") != sum(row["action"] == row["target_action"] for row in rows):
+        raise ValueError("Guard action count differs from rows.")
+    return rows
+
+
+def validate_execution(evidence, *, finalized=True):
+    """Reconcile actual semantic work, every block, and row-derived guard arithmetic."""
+    if evidence.get("schema") != 1 or evidence.get("layers") != [4] or evidence.get("scope") not in ("heads", "full_encoder"):
         raise ValueError("Actual explicit semantic-only training evidence required.")
+    policy = evidence.get("policy", {})
+    validate_policy(policy, pilot=policy.get("steps") == 2)
+    for key in ("base", "source_commitment", "train_wire_sha256", "guard_wire_sha256"):
+        check_sha(evidence.get(key))
+    if not evidence.get("request_id"):
+        raise ValueError("Execution request identity required.")
+    tier = TIERS.get(evidence.get("tier"))
+    if tier is None or evidence.get("model_id") != "privoke-v3-" + evidence["tier"]:
+        raise ValueError("Execution model/tier identity required.")
+    if evidence.get("parameter_count") != tier["parameters"]:
+        raise ValueError("Execution complete parameter count mismatch.")
+    expected_trainable = tier["parameters"] if evidence["scope"] == "full_encoder" else 20 * (tier["hidden_size"] + 1)
+    if evidence.get("trainable_count") != expected_trainable:
+        raise ValueError("Execution trainable parameter count mismatch.")
     phases = evidence.get("phases", {})
-    if set(phases) != {"training", "base_heldout", "candidate_heldout"}:
-        raise ValueError("All three actual training phases required.")
-    if any(p.get("layer") != 4 or p.get("status") != "ok" or p.get("examples", 0) <= 0 for p in phases.values()):
-        raise ValueError("Successful nonempty semantic execution required.")
+    counts = evidence.get("counts", {})
+    microbatches = policy["steps"] * policy["batch_rows"] // policy["microbatch"]
+    full = evidence["scope"] == "full_encoder"
+    expected_counts = {"optimizer_steps": policy["steps"], "train_rows": policy["steps"] * policy["batch_rows"],
+        "microbatch_forward": microbatches, "microbatch_backward": microbatches,
+        "encoder_block_forward": microbatches * tier["num_hidden_layers"],
+        "encoder_block_backward": microbatches * tier["num_hidden_layers"] if full else 0}
+    if counts != expected_counts:
+        raise ValueError("Actual work counters differ from frozen policy.")
+    block_counts = evidence.get("block_counts", {})
+    if block_counts != {"forward": [microbatches] * tier["num_hidden_layers"],
+                         "backward": [microbatches if full else 0] * tier["num_hidden_layers"]}:
+        raise ValueError("Every encoder block must attest actual forward/backward work.")
+    expected_phases = {"training": expected_counts["train_rows"], "base_heldout": policy["guard_rows"], "candidate_heldout": policy["guard_rows"]}
+    if set(phases) != set(expected_phases) or any(phases[k] != {"layer": 4, "status": "ok", "examples": n} for k, n in expected_phases.items()):
+        raise ValueError("Successful exact-denominator semantic phases required.")
     changes = evidence.get("changes", {})
-    if changes.get("heads", 0) <= 0:
-        raise ValueError("Observed head changes required.")
-    if evidence["scope"] == "heads" and changes.get("encoder", 0) != 0:
+    if changes.get("heads", 0) <= 0 or len(changes.get("blocks", [])) != tier["num_hidden_layers"]:
+        raise ValueError("Observed head and complete block changes required.")
+    if not full and (changes.get("encoder") != 0 or any(changes["blocks"])):
         raise ValueError("HEADS changed pretrained encoder.")
-    if evidence["scope"] == "full_encoder" and any(changes.get(key, 0) <= 0 for key in ("encoder", "embeddings", "first_block", "last_block", "pooler")):
-        raise ValueError("FULL requires observed embedding, early/late block and pooler changes.")
+    if full and (any(changes.get(k, 0) <= 0 for k in ("encoder", "embeddings", "first_block", "last_block", "pooler")) or any(n <= 0 for n in changes["blocks"])):
+        raise ValueError("FULL requires changes in embeddings, every encoder block, and pooler.")
+    if len(evidence.get("losses", [])) != policy["steps"] or any(not math.isfinite(v) for v in evidence["losses"]):
+        raise ValueError("Finite per-step loss trace required.")
+    trace = evidence.get("gradient_trace", [])
+    if len(trace) != policy["steps"] or any(row["step"] != i + 1 or not math.isfinite(row["norm_before_clip"]) for i, row in enumerate(trace)):
+        raise ValueError("Complete finite per-step gradient trace required.")
+    if full and not any(row["encoder_nonzero_gradients"] > 0 for row in trace[1:]):
+        raise ValueError("FULL requires observed encoder gradients after the zero-head step.")
+    before = validate_guard(evidence["base_guard"], policy["guard_rows"])
+    after = validate_guard(evidence["candidate_guard"], policy["guard_rows"])
+    if any(a["target"] != b["target"] or a["target_action"] != b["target_action"] for a, b in zip(before, after)):
+        raise ValueError("Base/candidate guard targets differ.")
+    harms = sum(any(max(0, d * (b["action_value"] - b["target_action_value"])) >
+                    max(0, d * (a["action_value"] - a["target_action_value"])) for d in (-1, 1))
+                for a, b in zip(before, after))
+    if evidence.get("action_harms") != harms:
+        raise ValueError("Action harm count differs from guard rows.")
+    if finalized:
+        check_sha(evidence.get("candidate_blob"))
+        if evidence.get("serialized_guard_parity") is not True:
+            raise ValueError("Serialized guard parity required.")
     return evidence
+
 
 def publication_passes(evidence):
     validate_execution(evidence)
-    before, after = evidence["base_guard"], evidence["candidate_guard"]
-    return after["joint_correct"] > before["joint_correct"] and evidence["action_harms"] == 0
+    return evidence["candidate_guard"]["joint_correct"] > evidence["base_guard"]["joint_correct"] and evidence["action_harms"] == 0

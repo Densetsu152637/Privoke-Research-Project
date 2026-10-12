@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import sqlite3
 import threading
-from common import pb, rpc, parameters_pb2, channel, canonical, digest, fetch, serve
+from common import pb, rpc, parameters_pb2, channel, canonical, digest, fetch, serve, source_identity
 from privoke_model.v3_contract import parse, validate_policy, validate_execution, validate_manifest, publication_passes
 from fuzzer_training import schedule
 
@@ -44,7 +44,7 @@ class FuzzerServer(rpc.V3FuzzerServiceServicer):
             training, guard, source = schedule(request.seed, self.policy)
             (work / "source.json").write_bytes(canonical(source))
             fit_request = pb.FitRequest(request_id=request.request_id, model_id=request.model_id, base=base, scope=scope,
-                layers=[4], train=training, guard=guard, policy_json=canonical(self.policy), source_commitment=digest(canonical(source)))
+                layers=[4], train=training, guard=guard, policy_json=canonical(self.policy), source_commitment=digest(canonical(source)), source_json=canonical(source))
             (work / "fit-request.pb").write_bytes(fit_request.SerializeToString(deterministic=True))
             try:
                 fitted = self.runtime.FitCandidate(fit_request, timeout=float(os.getenv("V3_FIT_TIMEOUT", "7200")))
@@ -52,7 +52,7 @@ class FuzzerServer(rpc.V3FuzzerServiceServicer):
                 status = self.runtime.GetFitStatus(pb.StatusRequest(request_id=request.request_id), timeout=15)
                 (work / "fit-status-after-error.pb").write_bytes(status.SerializeToString(deterministic=True))
                 raise RuntimeError("Physical fit response uncertain; stopped without replay. Status=" + status.status)
-            evidence = validate_execution(parse(bytes(fitted.evidence_json)))
+            evidence = validate_execution(parse(bytes(fitted.evidence_json), 80 * 1024 * 1024))
             if (digest(bytes(fitted.evidence_json)) != fitted.evidence or evidence["request_id"] != request.request_id
                     or evidence["base"] != base or evidence["source_commitment"] != digest(canonical(source))
                     or evidence["train_wire_sha256"] != source["train_wire_sha256"] or evidence["guard_wire_sha256"] != source["guard_wire_sha256"]
@@ -87,7 +87,7 @@ class FuzzerServer(rpc.V3FuzzerServiceServicer):
             return response
 
     def Health(self, request, context):
-        return pb.HealthResponse(ready=True, role="fuzzer", capabilities={"schema": "1", "policy_sha256": digest(canonical(self.policy))})
+        return pb.HealthResponse(ready=True, role="fuzzer", capabilities={"schema": "1", "policy_sha256": digest(canonical(self.policy)), "source_closure": source_identity()})
 
 if __name__ == "__main__":
     policy = parse(Path(os.environ["V3_POLICY_FILE"]).read_bytes())

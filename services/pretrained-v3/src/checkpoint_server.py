@@ -1,6 +1,6 @@
 from __future__ import annotations
 import os
-from common import pb, rpc, chunks, serve, MAX_BLOB_BYTES, CHUNK_BYTES
+from common import pb, rpc, chunks, serve, MAX_BLOB_BYTES, CHUNK_BYTES, source_identity
 from checkpoint_store import CheckpointStore
 
 class CheckpointServer(rpc.CheckpointServiceServicer):
@@ -29,7 +29,7 @@ class CheckpointServer(rpc.CheckpointServiceServicer):
     def GetCommitStatus(self, request, context):
         return pb.Receipt(**self.store.status(request.request_id))
     def Health(self, request, context):
-        return pb.HealthResponse(ready=True, role="checkpoint", capabilities={"schema": "1", "publication": "sqlite_atomic_cas_v1"})
+        return pb.HealthResponse(ready=True, role="checkpoint", capabilities={"schema": "1", "publication": "sqlite_atomic_cas_v1", "source_closure": source_identity()})
 
 if __name__ == "__main__":
     store = CheckpointStore(os.environ["V3_STORE"], os.getenv("V3_INITIAL"))

@@ -8,7 +8,7 @@ import tempfile
 import threading
 from common import canonical, digest
 from privoke_model.v3_contract import (MAX_BLOB_BYTES, check_sha, parse, publication_passes,
-                                      validate_manifest, validate_execution)
+                                      validate_manifest, validate_execution, tensor_changes, TIERS)
 
 class CheckpointStore:
     def __init__(self, directory, initial=None):
@@ -82,28 +82,49 @@ class CheckpointStore:
         with self.lock:
             self.db.execute("INSERT OR IGNORE INTO current VALUES (?,?)", (manifest["model_id"], sha))
 
-    def stage(self, payload, manifest_payload):
-        sha = self.put(payload)
-        if not manifest_payload: return sha
-        manifest = validate_manifest(parse(manifest_payload))
-        if manifest["blob"] != sha or manifest["scope"] == "original": raise ValueError("Candidate snapshot identity/scope mismatch.")
+    def admit_candidate(self, manifest):
+        """One complete admission path shared by staging and transactional commit."""
+        validate_manifest(manifest)
+        if manifest["scope"] == "original":
+            raise ValueError("Candidates cannot claim ORIGINAL scope.")
         parent = self.manifest(manifest["parent"])
         original_sha = parent["original"] or manifest["parent"]
-        if manifest["original"] != original_sha: raise ValueError("Candidate ORIGINAL binding mismatch.")
-        for key in ("model_id", "tier", "source", "config", "vocab", "parameter_count"):
-            if manifest[key] != parent[key]: raise ValueError("Candidate changed immutable model provenance/config.")
-        expected = {k: (v["shape"], v["dtype"]) for k, v in parent["tensors"].items()}
+        original = self.manifest(original_sha)
+        if original["scope"] != "original" or manifest["original"] != original_sha:
+            raise ValueError("Candidate ORIGINAL binding mismatch.")
+        for ancestor in (parent, original):
+            for key in ("model_id", "tier", "source", "config", "vocab", "parameter_count"):
+                if manifest[key] != ancestor[key]:
+                    raise ValueError("Candidate changed immutable model provenance/config.")
+        expected = {k: (v["shape"], v["dtype"]) for k, v in original["tensors"].items()}
         if {k: (v["shape"], v["dtype"]) for k, v in manifest["tensors"].items()} != expected:
             raise ValueError("Candidate changed admitted tensor inventory.")
+        for key in ("config", "vocab"):
+            self.read(manifest[key])
         self.verify_checkpoint(manifest)
-        evidence = validate_execution(parse(self.read(manifest["evidence"])))
-        if evidence["base"] != manifest["parent"] or evidence["candidate_blob"] != sha or evidence["scope"] != manifest["scope"]:
-            raise ValueError("Candidate evidence differs from staged snapshot.")
-        changed = [name for name in parent["tensors"] if parent["tensors"][name]["sha256"] != manifest["tensors"][name]["sha256"]]
-        if sorted(changed) != sorted(evidence["changed_tensors"]):
+        evidence = validate_execution(parse(self.read(manifest["evidence"]), MAX_BLOB_BYTES))
+        from fuzzer_training import validate_source_evidence
+        validate_source_evidence(evidence)
+        if (evidence["base"] != manifest["parent"] or evidence["candidate_blob"] != manifest["blob"]
+                or evidence["scope"] != manifest["scope"] or evidence["model_id"] != manifest["model_id"]):
+            raise ValueError("Candidate evidence differs from snapshot identity/scope.")
+        changed, changes = tensor_changes(parent["tensors"], manifest["tensors"], TIERS[manifest["tier"]]["num_hidden_layers"])
+        if changed != sorted(evidence["changed_tensors"]) or changes != evidence["changes"]:
             raise ValueError("Reported changes differ from actual checkpoint tensors.")
         if manifest["scope"] == "heads" and any(not name.startswith("heads.") for name in changed):
             raise ValueError("HEADS candidate changed pretrained encoder/pooler bytes.")
+        return evidence
+
+    def stage(self, payload, manifest_payload):
+        if not manifest_payload:
+            # Finalized execution evidence is the only manifest-free transport object.
+            validate_execution(parse(payload, MAX_BLOB_BYTES))
+            return self.put(payload)
+        manifest = validate_manifest(parse(manifest_payload))
+        if manifest["blob"] != digest(payload):
+            raise ValueError("Candidate snapshot identity mismatch.")
+        self.put(payload)
+        self.admit_candidate(manifest)
         return self.put(manifest_payload)
 
     def status(self, request_id):
@@ -124,7 +145,7 @@ class CheckpointStore:
                     if prior[0] != fingerprint: raise ValueError("Request ID reused with different commit content.")
                     self.db.execute("COMMIT"); return parse(bytes(prior[1]))
                 manifest = self.manifest(value["candidate"])
-                evidence = validate_execution(parse(self.read(value["evidence"])))
+                evidence = self.admit_candidate(manifest)
                 if (manifest["parent"] != value["expected_base"] or manifest["evidence"] != value["evidence"]
                         or manifest["model_id"] != value["model_id"] or evidence["request_id"] != value["request_id"]):
                     raise ValueError("Commit identity differs from candidate/fit evidence.")

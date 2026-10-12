@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 import torch
 from torch.nn import functional as F
-from privoke_model.v3_contract import LABELS, validate_execution
+from privoke_model.v3_contract import LABELS, validate_execution, tensor_changes
 from privoke_contracts.classification import Classification
 from ..classification import ClassificationResult
 from ..detection.preprocessing import normalize_text
@@ -28,6 +28,7 @@ def assess(model, rows):
         actual = ClassificationResult(prediction, row.text, "v3 guard", confidence=confidence).action()
         desired = ClassificationResult(truth, row.text, "explicit guard target", confidence=.999).action()
         results.append({"target": truth.pack(), "prediction": prediction.pack(), "action": actual.name,
+            "confidence": confidence,
             "target_action": desired.name, "action_value": actual.value, "target_action_value": desired.value,
             "joint_correct": prediction.pack() == truth.pack() and actual == desired})
     return {"rows": results, "joint_correct": sum(r["joint_correct"] for r in results),
@@ -54,11 +55,16 @@ def fit(model, request, policy, *, cancel_check=lambda: True):
     counts = {"optimizer_steps": 0, "train_rows": 0, "microbatch_forward": 0, "microbatch_backward": 0,
               "encoder_block_forward": 0, "encoder_block_backward": 0}
     handles = []
-    def forward_hook(module, inputs, output): counts["encoder_block_forward"] += 1
-    def backward_hook(module, inputs, output): counts["encoder_block_backward"] += 1
-    for block in model.encoder.encoder.layer:
-        handles.append(block.register_forward_hook(forward_hook))
-        if full: handles.append(block.register_full_backward_hook(backward_hook))
+    layers = len(model.encoder.encoder.layer)
+    block_counts = {"forward": [0] * layers, "backward": [0] * layers}
+    def hook(direction, index):
+        def record(module, inputs, output):
+            counts["encoder_block_" + direction] += 1
+            block_counts[direction][index] += 1
+        return record
+    for index, block in enumerate(model.encoder.encoder.layer):
+        handles.append(block.register_forward_hook(hook("forward", index)))
+        if full: handles.append(block.register_full_backward_hook(hook("backward", index)))
     losses, gradient_trace, start = [], [], time.monotonic()
     try:
         for step in range(policy["steps"]):
@@ -91,18 +97,12 @@ def fit(model, request, policy, *, cancel_check=lambda: True):
         for handle in handles: handle.remove()
     candidate_guard = assess(model, guard)
     after = inventory(model.state_dict())
-    changed = [name for name in before if before[name]["sha256"] != after[name]["sha256"]]
-    layers = len(model.encoder.encoder.layer)
-    changes = {"heads": sum(n.startswith("heads.") for n in changed), "encoder": sum(n.startswith("encoder.") for n in changed),
-        "embeddings": sum(n.startswith("encoder.embeddings.") for n in changed),
-        "first_block": sum(n.startswith("encoder.encoder.layer.0.") for n in changed),
-        "last_block": sum(n.startswith(f"encoder.encoder.layer.{layers - 1}.") for n in changed),
-        "pooler": sum(n.startswith("encoder.pooler.") for n in changed)}
+    changed, changes = tensor_changes(before, after, layers)
     # Both directions matter: new under-restriction and over-restriction are harms.
     harms = sum(any(max(0, direction * (b["action_value"] - b["target_action_value"])) >
                     max(0, direction * (a["action_value"] - a["target_action_value"])) for direction in (-1, 1))
                 for a, b in zip(base_guard["rows"], candidate_guard["rows"]))
-    evidence = {"schema": 1, "request_id": request.request_id, "base": request.base, "scope": "full_encoder" if full else "heads",
+    evidence = {"schema": 1, "model_id": request.model_id, "tier": request.model_id.removeprefix("privoke-v3-"), "request_id": request.request_id, "base": request.base, "scope": "full_encoder" if full else "heads",
         "layers": [4], "source_commitment": request.source_commitment, "policy": policy,
         "train_wire_sha256": __import__("hashlib").sha256(b"".join(r.SerializeToString(deterministic=True) for r in train)).hexdigest(),
         "guard_wire_sha256": __import__("hashlib").sha256(b"".join(r.SerializeToString(deterministic=True) for r in guard)).hexdigest(),
@@ -110,8 +110,8 @@ def fit(model, request, policy, *, cancel_check=lambda: True):
                    "base_heldout": {"layer": 4, "status": "ok", "examples": len(guard)},
                    "candidate_heldout": {"layer": 4, "status": "ok", "examples": len(guard)}},
         "base_guard": base_guard, "candidate_guard": candidate_guard, "action_harms": harms,
-        "changes": changes, "changed_tensors": changed, "counts": counts, "losses": losses, "gradient_trace": gradient_trace,
+        "changes": changes, "changed_tensors": changed, "counts": counts, "block_counts": block_counts, "losses": losses, "gradient_trace": gradient_trace,
         "parameter_count": sum(p.numel() for p in model.parameters()), "trainable_count": sum(p.numel() for p in model.parameters() if p.requires_grad),
         "device": device, "torch": torch.__version__, "seconds": time.monotonic() - start,
         "cuda_peak_bytes": torch.cuda.max_memory_allocated() if device.startswith("cuda") else 0}
-    return validate_execution(evidence)
+    return validate_execution(evidence, finalized=False)

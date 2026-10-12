@@ -4,6 +4,40 @@ Status: implementation mechanics and immutable ORIGINAL preparation are being
 validated. No completed study, quality improvement, protected-final score or model
 promotion is established by this document.
 
+## V3-R1 execution and recovery record (2026-10-12)
+
+Stable study ID: `pretrained_v3_20261012`, plan revision `V3-R1`.
+The human authorized approximately doubling pretrained tiers, training both the
+heads and entire encoder with the fuzzer, and running the study now. The exact
+original prompt remains in the parent task conversation; this paragraph records
+the accepted scope rather than claiming to reproduce that prompt verbatim.
+
+Completed: three byte-exact pretrained ORIGINALs with zero heads, independent
+official provenance, and host Python 3.11/Torch CPU environment. At recovery,
+only an efficient HEADS pilot binding exists; no physical fitting has occurred.
+Partial source changes are being integrated and have not yet passed root review.
+Previous synthetic mechanics establish no model-quality outcome.
+
+1. Finish shared stage/commit admission, ordered source sidecars, host controller
+   and scorer; run synthetic host mechanics and import checks; root review.
+2. Build the server image and run exactly three two-step pilots: efficient HEADS,
+   efficient FULL, quality FULL. Choose one common 64/256/512-step budget using
+   resource evidence only.
+3. Freeze and execute exactly 18 cells: three tiers, HEADS/FULL, seeds 42/43/44.
+   Each paired seed uses the same 512 TRAIN occurrences (eight batches of 32
+   originals plus one invariant transform each), 16 guard rows, and ORIGINAL.
+4. Audit every terminal candidate, including guard rejection; score all 18 raw
+   candidates and three ORIGINAL controls, derive effective publication outcomes
+   separately, and export the predetermined FULL seed 42 per tier with guard
+   status. No best-seed selection or release promotion.
+
+The phase-1 writer stops before Docker lifecycle, fitting RPCs, and endpoint
+scoring. Protected-final payload access and model promotion remain unauthorized.
+Reused context320/context64 are primary DEVELOPMENT evidence; binary development
+and hazard fixtures are separate secondary evidence. Paper/bibliography updates
+are deferred to the parent after real results because those files contain older
+study changes. Preserve failed attempts and immutable evidence on interruption.
+
 ## Family and initialization
 
 The opt-in `privoke_pretrained_bert_v3` family preserves every native Google BERT

@@ -13,6 +13,20 @@ from privoke_model.v3_contract import CHUNK_BYTES, MAX_BLOB_BYTES, canonical, di
 
 OPTIONS = (("grpc.max_receive_message_length", 2 * 1024 * 1024), ("grpc.max_send_message_length", 2 * 1024 * 1024))
 
+
+def source_inventory():
+    """Byte closure of copied server sources, including dirty helper dependencies."""
+    paths = []
+    for prefix in ("shared/python", "shared/proto", "extension/client-runtime/src",
+                   "services/privoke-fuzzer/src", "services/pretrained-v3/src"):
+        paths.extend(p for p in (ROOT / prefix).rglob("*") if p.is_file()
+                     and p.suffix in (".py", ".proto") and "__pycache__" not in p.parts)
+    return {p.relative_to(ROOT).as_posix(): digest(p.read_bytes()) for p in sorted(paths)}
+
+
+def source_identity():
+    return digest(canonical(source_inventory()))
+
 def channel(target):
     return grpc.insecure_channel(target, options=OPTIONS)
 

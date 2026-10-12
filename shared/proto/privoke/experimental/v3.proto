@@ -19,6 +19,8 @@ message FitRequest {
   repeated privoke.v1.RuntimeTrainingExample train = 6;
   repeated privoke.v1.RuntimeTrainingExample guard = 7;
   bytes policy_json = 8; string source_commitment = 9;
+  // Canonical pinned source/ordered sidecars, independently verified before fit.
+  bytes source_json = 10;
 }
 message FitResponse { string candidate = 1; string evidence = 2; bytes evidence_json = 3; }
 service CheckpointService {

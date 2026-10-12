@@ -16,6 +16,7 @@ from src.v3.model import PretrainedV3
 from src.v3.training import fit, assess
 from src.classification import Visibility, PriVokeAction
 from src.hosting.serialization import classification_for_response, _masked_text
+from fuzzer_training import validate_schedule
 
 def classification(value):
     return runtime_pb2.RuntimeClassification(**value.to_dict(), packed=value.pack())
@@ -29,13 +30,14 @@ def detection(result):
 
 def preflight(device):
     import importlib.metadata as metadata
-    required = {"transformers": "4.57.6", "numpy": "1.26.4", "grpcio": "1.82.1", "protobuf": "7.35.1", "tokenizers": "0.22.2", "safetensors": "0.8.0"}
+    required = {"transformers": "4.57.6", "numpy": "1.26.4", "grpcio": "1.82.1", "protobuf": "7.35.1", "tokenizers": "0.22.2", "safetensors": "0.8.0", "python-dotenv": "1.2.4"}
     versions = {key: metadata.version(key) for key in required}
     if versions != required or torch.__version__.split("+")[0] != "2.11.0": raise ValueError("V3 dependency versions differ from admitted environment.")
     torch.set_num_threads(int(os.getenv("V3_TORCH_THREADS", "4")))
     torch.use_deterministic_algorithms(True)
     torch.backends.cuda.matmul.allow_tf32 = False
     versions.update(torch=torch.__version__, device=device, threads=str(torch.get_num_threads()))
+    versions["source_closure"] = common.source_identity()
     if device.startswith("cuda"):
         if not torch.cuda.is_available() or torch.cuda.get_device_capability() != (12, 0) or "sm_120" not in torch.cuda.get_arch_list():
             raise ValueError("Expected admitted CUDA sm_120 capability.")
@@ -104,6 +106,10 @@ class RuntimeServer(rpc.TrainingServiceServicer, runtime_pb2_grpc.PrivokeRuntime
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Explicit bounded fit identity/scope and semantic-only selection required.")
         policy = parse(bytes(request.policy_json)); validate_policy(policy, pilot=policy.get("steps") == 2)
         check_sha(request.base); check_sha(request.source_commitment)
+        source = parse(bytes(request.source_json), 80 * 1024 * 1024)
+        if digest(bytes(request.source_json)) != request.source_commitment:
+            raise ValueError("Fit source commitment differs from supplied canonical bytes.")
+        validate_schedule(list(request.train), list(request.guard), source, policy)
         fingerprint = digest(request.SerializeToString(deterministic=True))
         with self.lock:
             prior = self.db.execute("SELECT fingerprint,status FROM fits WHERE id=?", (request.request_id,)).fetchone()
@@ -123,8 +129,8 @@ class RuntimeServer(rpc.TrainingServiceServicer, runtime_pb2_grpc.PrivokeRuntime
                 parity_manifest = dict(candidate, evidence="0" * 64)
                 reloaded = PretrainedV3.load(parity_manifest, candidate_file, self.materialize(manifest["config"]), self.materialize(manifest["vocab"]), device=self.device)
                 if assess(reloaded, list(request.guard)) != evidence["candidate_guard"]: raise ValueError("Serialized candidate/guard inference differs.")
-                evidence.update(candidate_blob=candidate["blob"], serialized_guard_parity=True, capabilities=self.capabilities,
-                    source_hashes={str(path.relative_to(common.ROOT)): digest(path.read_bytes()) for path in (Path(__file__), common.ROOT / "extension/client-runtime/src/v3/model.py", common.ROOT / "extension/client-runtime/src/v3/training.py", common.ROOT / "shared/python/privoke_model/v3_contract.py")})
+                evidence.update(candidate_blob=candidate["blob"], serialized_guard_parity=True, capabilities=self.capabilities, source=source,
+                    source_hashes={path.relative_to(common.ROOT).as_posix(): digest(path.read_bytes()) for path in (Path(__file__), common.ROOT / "extension/client-runtime/src/v3/model.py", common.ROOT / "extension/client-runtime/src/v3/training.py", common.ROOT / "shared/python/privoke_model/v3_contract.py")})
                 evidence_bytes = canonical(evidence); candidate["evidence"] = digest(evidence_bytes)
                 (work / "evidence.json").write_bytes(evidence_bytes); (work / "manifest.json").write_bytes(canonical(candidate))
                 self.stub.StageCheckpoint(chunks(evidence_bytes), timeout=120)
