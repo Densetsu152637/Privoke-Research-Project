@@ -15,6 +15,13 @@ STUDY_ID = "pretrained_v3_20261012"
 SEEDS = (42, 43, 44)
 PILOTS = (("efficient", "heads", 42), ("efficient", "full_encoder", 42), ("quality", "full_encoder", 42))
 MAX_TOTAL_FIT_SECONDS = 14400
+AUDIT_AMENDMENT_PATHS = (
+    "evaluation/privoke_eval/pretrained_v3_scoring.py", "evaluation/privoke_eval/pretrained_v3_plan.py",
+    "evaluation/privoke_eval/pretrained_v3_study.py", "evaluation/run-pretrained-v3-study.py",
+    "evaluation/tests/test_pretrained_v3_controller.py")
+AMENDMENT_PRIOR_NAMES = ("efficient-heads-42", "efficient-full_encoder-42", "balanced-heads-42",
+                         "balanced-full_encoder-42", "quality-heads-42")
+AMENDMENT_SCOPE = "post_fit_scoring_analysis_fixed_export"
 
 
 def read(path):
@@ -124,12 +131,17 @@ def freeze_plan(directory, pilot_cells, image_id, *, max_total_seconds, vram_cap
 
 
 def validate_plan(directory):
+    """Training and ordinary scoring always require the original source closure."""
+    return _validate_plan_sources(directory, read(Path(directory) / "protocol.json")["source_files"])
+
+
+def _validate_plan_sources(directory, expected_sources):
     directory = Path(directory)
     plan = read(directory / "protocol.json")
     expected = matrix()
     if plan["study_id"] != STUDY_ID or [{k: cell[k] for k in ("id", "tier", "scope", "seed")} for cell in plan["cells"]] != expected:
         raise ValueError("Exact frozen 18-cell plan required.")
-    if plan["source_files"] != source_closure() or plan["host_environment"] != study.host_environment() or plan["endpoints"] != ENDPOINTS:
+    if expected_sources != source_closure() or plan["host_environment"] != study.host_environment() or plan["endpoints"] != ENDPOINTS:
         raise ValueError("Frozen source/environment/endpoints changed.")
     for cell in plan["cells"]:
         path = Path(cell["directory"])
@@ -144,6 +156,147 @@ def validate_plan(directory):
             if study.digest((RUN / "initials" / cell["tier"] / name).read_bytes()) != plan["originals"][cell["tier"]][key]:
                 raise ValueError("Independently pinned ORIGINAL bytes changed.")
     return plan
+
+
+def _amendment_source_files(directory, changes):
+    plan = read(Path(directory) / "protocol.json")
+    if set(changes) != set(AUDIT_AMENDMENT_PATHS): raise ValueError("Exact five-path amendment allowlist required.")
+    expected = dict(plan["source_files"])
+    if study.digest(study.canonical(expected)) != plan["source_closure"]:
+        raise ValueError("Original source closure differs.")
+    for name, sha in expected.items():
+        if study.digest((Path(directory) / "source-bytes" / sha).read_bytes()) != sha:
+            raise ValueError("Captured original source bytes differ.")
+        if name in changes:
+            if set(changes[name]) != {"old", "new"} or changes[name]["old"] != sha or changes[name]["new"] == sha:
+                raise ValueError("Amendment old/new source hash differs.")
+            expected[name] = changes[name]["new"]
+    _validate_plan_sources(directory, expected)
+    return expected
+
+
+def _fit_amendment_bindings(directory, plan):
+    completion = read(Path(directory) / "fit-completion.json")
+    if completion != {"completed": [c["id"] for c in plan["cells"]], "physical_attempts": 18}:
+        raise ValueError("All 18 completed fits required before amendment.")
+    names = ("terminal-manifest.json", "terminal-evidence.json", "terminal-candidate.safetensors",
+             "host-dispatch.pb", "host-receipt.pb", "summary.json")
+    return {"protocol_sha256": study.digest((Path(directory) / "protocol.json").read_bytes()),
+            "frozen": {key: plan[key] for key in ("source_closure", "server_source_closure", "image_id",
+                       "host_environment", "policy", "endpoints", "originals")},
+            "fit_completion_sha256": study.digest((Path(directory) / "fit-completion.json").read_bytes()),
+            "terminal_artifacts": {cell["id"]: {name: study.digest((Path(cell["directory"]) / name).read_bytes())
+                                   for name in names} for cell in plan["cells"]}}
+
+
+def _endpoint_inventory(directory, plan, names):
+    """Hash exact retained case/summary artifacts, excluding operational startup logs."""
+    directory = Path(directory)
+    candidates = read(directory / "endpoint-candidates.json")
+    expected_names = [c["id"] for c in plan["cells"]] + ["original-" + tier for tier in TIERS]
+    if [c["name"] for c in candidates] != expected_names:
+        raise ValueError("Exact 21-candidate endpoint index required.")
+    if any(p.is_dir() and p.name not in expected_names for p in (directory / "endpoints").iterdir()):
+        raise ValueError("Extraneous endpoint candidate directory.")
+    files = {"endpoint-candidates.json": study.digest((directory / "endpoint-candidates.json").read_bytes())}
+    counts = {"requested": 0, "eligible": 0, "errors": 0}
+    for name in names:
+        output = directory / "endpoints" / name
+        complete = read(output / "complete.json")
+        candidate = next(c for c in candidates if c["name"] == name)
+        if complete["snapshot"] != candidate["snapshot"]: raise ValueError("Endpoint completion identity differs.")
+        expected = {output / "complete.json"}
+        for kind, item in plan["endpoints"].items():
+            summary_path = output / kind / "summary.json"; expected.add(summary_path)
+            rows = []
+            for index in range(item["rows"]):
+                row_dir = output / kind / "rows" / f"{index:04d}"
+                record = read(row_dir / "record.json"); rows.append(record)
+                expected.update((row_dir / "request.pb", row_dir / "record.json"))
+                if record["status"] == "transport_error": expected.add(row_dir / "transport-error.json")
+                elif record["status"] in ("ok", "error"): expected.add(row_dir / "response.pb")
+                else: raise ValueError("Unknown retained endpoint outcome.")
+            summary = summarize_records(rows, kind)
+            if summary != read(summary_path) or summary != complete["summaries"][kind] or summary["eligible"] != item["eligible"]:
+                raise ValueError("Retained endpoint summary/count differs.")
+            for key in ("requested", "eligible"): counts[key] += summary[key]
+            counts["errors"] += sum(row["status"] != "ok" for row in rows)
+        actual = {p for p in output.rglob("*") if p.is_file() and "startup" not in p.relative_to(output).parts}
+        if actual != expected: raise ValueError("Missing/extraneous endpoint case evidence or reserved row.")
+        files.update({p.relative_to(directory).as_posix(): study.digest(p.read_bytes()) for p in expected})
+    return {"files": dict(sorted(files.items())), "counts": counts}
+
+
+def create_audit_amendment(directory, output, *, expected_protocol_sha256, prior_evidence):
+    """Record the root-approved post-fit operation after exactly five completed snapshots."""
+    directory = Path(directory); plan = read(directory / "protocol.json")
+    if study.digest((directory / "protocol.json").read_bytes()) != expected_protocol_sha256:
+        raise ValueError("Amendment requires the accepted original protocol hash.")
+    current = source_closure()
+    changes = {name: {"old": plan["source_files"][name], "new": current[name]} for name in AUDIT_AMENDMENT_PATHS}
+    expected = _amendment_source_files(directory, changes)
+    candidates = candidates_for_scoring(plan)  # independently audits all 18 accepted terminal fits
+    if read(directory / "endpoint-candidates.json") != candidates: raise ValueError("Endpoint index differs from accepted terminal fits.")
+    completed = {p.parent.name for p in (directory / "endpoints").glob("*/complete.json")}
+    if completed != set(AMENDMENT_PRIOR_NAMES): raise ValueError("Exactly the five pre-amendment endpoint sets required.")
+    for candidate in candidates:
+        output_dir = directory / "endpoints" / candidate["name"]
+        if candidate["name"] not in completed and any(p.is_file() and "startup" not in p.relative_to(output_dir).parts for p in output_dir.rglob("*")):
+            raise ValueError("Unexpected prior endpoint evidence/reservation.")
+        if candidate["name"] in completed:
+            manifest_path = Path(candidate["directory"]) / "terminal-manifest.json"
+            manifest = validate_manifest(read(manifest_path))
+            for kind, item in plan["endpoints"].items():
+                audit_endpoint_records(manifest, candidate["snapshot"], kind, item, output_dir / kind)
+    prior = _endpoint_inventory(directory, plan, AMENDMENT_PRIOR_NAMES)
+    if prior["counts"]["errors"]: raise ValueError("Pre-amendment records must have zero errors.")
+    bindings = _fit_amendment_bindings(directory, plan)
+    baseline = read(prior_evidence)
+    terminal_baseline = {str(Path(cell["directory"]) / name): sha for cell in plan["cells"]
+                         for name, sha in bindings["terminal_artifacts"][cell["id"]].items() if name != "summary.json"}
+    if (baseline["protocol_sha256"] != bindings["protocol_sha256"] or baseline["source_closure"] != plan["source_closure"]
+            or baseline["fit_completion_sha256"] != bindings["fit_completion_sha256"]
+            or baseline["terminal_artifacts"] != terminal_baseline or baseline["endpoint_files"] != prior["files"]
+            or baseline["endpoint_inventory_sha256"] != study.digest(study.canonical(prior["files"]))):
+        raise ValueError("Pre-amendment baseline evidence changed.")
+    record = {"schema": 1, "scope": AMENDMENT_SCOPE, "changes": changes,
+              "bindings": bindings, "amended_source_closure": study.digest(study.canonical(expected)),
+              "pre_amendment_evidence": {"path": str(Path(prior_evidence).resolve()), "sha256": study.digest(Path(prior_evidence).read_bytes())},
+              "implementation_commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True, capture_output=True, check=True).stdout.strip(),
+              "scoring_readiness_timeout_seconds": 180, "prior_names": list(AMENDMENT_PRIOR_NAMES),
+              "prior_inventory": prior, "prior_inventory_sha256": study.digest(study.canonical(prior)),
+              "reason": "Two pre-case runtime readiness failures; nullable fixture/protobuf audit representation repair; no learning or quality selection change."}
+    study.exclusive(Path(output), study.canonical(record))
+    return record
+
+
+def _postfit_plan(directory, audit_amendment):
+    if audit_amendment is None: return validate_plan(directory)
+    record = read(audit_amendment); plan = read(Path(directory) / "protocol.json")
+    if (record["schema"] != 1 or record["scope"] != AMENDMENT_SCOPE or record["scoring_readiness_timeout_seconds"] != 180
+            or record["prior_names"] != list(AMENDMENT_PRIOR_NAMES)):
+        raise ValueError("Unsupported post-fit amendment scope.")
+    expected = _amendment_source_files(directory, record["changes"])
+    if (record["bindings"] != _fit_amendment_bindings(directory, plan)
+            or record["amended_source_closure"] != study.digest(study.canonical(expected))):
+        raise ValueError("Amendment frozen/terminal/source bindings differ.")
+    if study.digest(Path(record["pre_amendment_evidence"]["path"]).read_bytes()) != record["pre_amendment_evidence"]["sha256"]:
+        raise ValueError("Pre-amendment evidence record changed.")
+    prior = _endpoint_inventory(directory, plan, AMENDMENT_PRIOR_NAMES)
+    if prior != record["prior_inventory"] or study.digest(study.canonical(prior)) != record["prior_inventory_sha256"]:
+        raise ValueError("Prior scoring evidence changed since amendment.")
+    return plan
+
+
+def _analysis_provenance(directory, plan, audit_amendment):
+    names = [c["id"] for c in plan["cells"]] + ["original-" + tier for tier in TIERS]
+    inventory = _endpoint_inventory(directory, plan, names)
+    return {"schema": 1, "scope": AMENDMENT_SCOPE,
+            "audit_amendment_sha256": study.digest(Path(audit_amendment).read_bytes()),
+            "protocol_sha256": study.digest((Path(directory) / "protocol.json").read_bytes()),
+            "source_closure": study.digest(study.canonical(source_closure())), "complete_models": len(names),
+            "endpoint_inventory_sha256": study.digest(study.canonical(inventory)),
+            "analysis_sha256": study.digest((Path(directory) / "analysis.json").read_bytes())}
 
 
 def stop(cell):
@@ -218,8 +371,8 @@ def candidates_for_scoring(plan):
     return candidates
 
 
-def score_plan(directory):
-    directory = Path(directory); plan = validate_plan(directory)
+def score_plan(directory, *, audit_amendment=None):
+    directory = Path(directory); plan = _postfit_plan(directory, audit_amendment)
     candidates = candidates_for_scoring(plan)
     study.retain(directory / "endpoint-candidates.json", study.canonical(candidates))
     for candidate in candidates:
@@ -227,7 +380,10 @@ def score_plan(directory):
         if (output / "complete.json").exists(): continue
         path = Path(candidate["directory"])
         try:
-            study.start(path, output=output / "startup", roles=("checkpoint", "runtime"))
+            if audit_amendment is None:
+                study.start(path, output=output / "startup", roles=("checkpoint", "runtime"))
+            else:
+                study.start(path, output=output / "startup", roles=("checkpoint", "runtime"), readiness_timeout=180)
             with study.channel("127.0.0.1:50173") as connection:
                 manifest = validate_manifest(parse(study.fetch(study.rpc.CheckpointServiceStub(connection), candidate["snapshot"])))
             with study.channel("127.0.0.1:50171") as connection:
@@ -236,11 +392,11 @@ def score_plan(directory):
             study.exclusive(output / "complete.json", study.canonical({"snapshot": candidate["snapshot"], "summaries": summaries}))
         finally:
             stop(path)
-    return analyze_plan(directory)
+    return analyze_plan(directory, audit_amendment=audit_amendment)
 
 
-def analyze_plan(directory):
-    directory = Path(directory); plan = validate_plan(directory)
+def analyze_plan(directory, *, audit_amendment=None):
+    directory = Path(directory); plan = _postfit_plan(directory, audit_amendment)
     candidates = candidates_for_scoring(plan)
     if len(candidates) != 21: raise ValueError("All 18 raw candidates plus three ORIGINAL controls required.")
     counts, records = {}, {}
@@ -275,6 +431,8 @@ def analyze_plan(directory):
     result["candidate_minus_original_across_seeds"] = aggregate_seed_differences(candidate_minus_original)
     result["total_fit_seconds"] = sum(c["seconds"] for c in candidates if not c["name"].startswith("original-"))
     study.retain(directory / "analysis.json", study.canonical(result))
+    if audit_amendment is not None:
+        study.retain(directory / "postfit-analysis-provenance.json", study.canonical(_analysis_provenance(directory, plan, audit_amendment)))
     return result
 
 
@@ -303,9 +461,14 @@ def aggregate_seed_differences(differences):
     return result
 
 
-def export_fixed_models(directory):
-    directory = Path(directory); plan = validate_plan(directory)
+def export_fixed_models(directory, *, audit_amendment=None):
+    directory = Path(directory); plan = _postfit_plan(directory, audit_amendment)
     if not (directory / "analysis.json").exists(): raise ValueError("Complete 21-model endpoint audit precedes export.")
+    provenance = None
+    if audit_amendment is not None:
+        provenance = _analysis_provenance(directory, plan, audit_amendment)
+        if provenance != read(directory / "postfit-analysis-provenance.json"):
+            raise ValueError("Fixed export requires matching complete amended analysis provenance.")
     exports = []
     for tier in TIERS:
         cell = next(c for c in plan["cells"] if c["tier"] == tier and c["scope"] == "full_encoder" and c["seed"] == 42)
@@ -321,6 +484,9 @@ def export_fixed_models(directory):
                   "candidate": audit["manifest"], "publication_status": audit["publication_status"], "guard_passed": audit["guard_passed"],
                   "source_directory": str(path), "export_directory": str(target), "protocol_sha256": study.digest((directory / "protocol.json").read_bytes()),
                   "promotion": False, "all_other_cells_retained": True}
+        if provenance is not None:
+            record["audit_amendment_sha256"] = provenance["audit_amendment_sha256"]
+            record["analysis_provenance_sha256"] = study.digest((directory / "postfit-analysis-provenance.json").read_bytes())
         study.retain(target / "export.json", study.canonical(record)); exports.append(record)
     study.retain(directory / "exports.json", study.canonical(exports))
     return exports

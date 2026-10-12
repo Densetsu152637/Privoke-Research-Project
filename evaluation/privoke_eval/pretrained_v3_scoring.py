@@ -161,9 +161,11 @@ def audit_endpoint_records(manifest, snapshot, kind, item, output):
             raise ValueError("Retained endpoint truth differs from frozen fixture.")
         request_bytes = (directory / "request.pb").read_bytes()
         request = runtime_pb2.AnalyzePromptRequest.FromString(request_bytes)
+        expected_hint = row.get("visibility_hint", "") if kind == "hazard48" else ""
+        if expected_hint is None: expected_hint = ""
         if (request.text != row["text"] or list(request.layers) != [4] or request.semantic_model_id != manifest["model_id"]
                 or request.metadata.get("v3_checkpoint") != snapshot or record["request_sha256"] != digest(request_bytes)
-                or request.visibility_hint != (row.get("visibility_hint", "") if kind == "hazard48" else "")):
+                or request.visibility_hint != expected_hint):
             raise ValueError("Retained endpoint stimulus/identity differs.")
         if record["status"] == "transport_error":
             if not (directory / "transport-error.json").exists() or (directory / "response.pb").exists():

@@ -120,7 +120,7 @@ def check_live_binding(cell):
             raise ValueError("Live image differs before dispatch.")
     return execution
 
-def start(cell, *, output=None, roles=("checkpoint", "runtime", "fuzzer")):
+def start(cell, *, output=None, roles=("checkpoint", "runtime", "fuzzer"), readiness_timeout=60):
     # Sequential server admission; raw readiness clients execute only on the host.
     cell = Path(cell); output = Path(output) if output else cell / "startup"
     output.mkdir(parents=True, exist_ok=True)
@@ -139,7 +139,7 @@ def start(cell, *, output=None, roles=("checkpoint", "runtime", "fuzzer")):
         result = compose(cell, "up", "-d", "--no-build", "--no-deps", role)
         exclusive(output / (role + ".log"), (result.stdout + result.stderr).encode())
         if result.returncode: raise RuntimeError("Compose startup failed: " + role)
-        results[role] = health(role)
+        results[role] = health(role, timeout=readiness_timeout)
         if results[role]["capabilities"].get("source_closure") != binding["server_source_closure"]:
             raise ValueError("Running server source bytes differ from frozen host source.")
         ids = compose(cell, "ps", "-q", role)
