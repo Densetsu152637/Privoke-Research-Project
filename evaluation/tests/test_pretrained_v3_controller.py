@@ -79,7 +79,28 @@ class PlanTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "without replay"): study.reconcile(cell)
             runtime.FitCandidate.assert_not_called()
             checkpoint.CommitCandidate.assert_not_called()
-            self.assertTrue((cell / "unknown-receipt.pb").exists())
+            self.assertEqual(len(list((cell / "status-observations/publication").glob("*.pb"))), 1)
+
+    def test_unknown_publication_preserves_fit_progress_without_redispatch(self):
+        for terminal_status in ("completed", "failed"):
+            with self.subTest(terminal_status=terminal_status), tempfile.TemporaryDirectory() as temporary:
+                cell = Path(temporary)
+                study.init_cell(cell, "efficient", "heads", 42)
+                study.exclusive(cell / "host-dispatch.pb", study.parameters_pb2.FuzzerTrainingRequest(request_id="reserved").SerializeToString())
+                checkpoint, runtime = Mock(), Mock()
+                receipts = [study.pb.Receipt(status="unknown", request_id="reserved", reason=reason) for reason in ("pending", "still pending")]
+                statuses = [study.pb.Receipt(status=status, request_id="reserved") for status in ("started", terminal_status)]
+                checkpoint.GetCommitStatus.side_effect = receipts
+                runtime.GetFitStatus.side_effect = statuses
+                connection = Mock(); connection.__enter__ = Mock(return_value=connection); connection.__exit__ = Mock(return_value=False)
+                with patch.object(study, "check_binding", return_value={}), patch.object(study, "channel", return_value=connection), patch.object(study.rpc, "CheckpointServiceStub", return_value=checkpoint), patch.object(study.rpc, "TrainingServiceStub", return_value=runtime):
+                    for status in ("started", terminal_status):
+                        with self.assertRaisesRegex(RuntimeError, "Fit status=" + status): study.reconcile(cell)
+                for kind, observations in (("publication", receipts), ("fit", statuses)):
+                    paths = list((cell / "status-observations" / kind).glob("*.pb"))
+                    self.assertEqual({path.read_bytes() for path in paths}, {value.SerializeToString(deterministic=True) for value in observations})
+                runtime.FitCandidate.assert_not_called()
+                checkpoint.CommitCandidate.assert_not_called()
 
 
 class ScoringTests(unittest.TestCase):

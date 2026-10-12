@@ -202,11 +202,14 @@ def reconcile(cell):
     with channel("127.0.0.1:50173") as connection:
         checkpoint = rpc.CheckpointServiceStub(connection)
         receipt = checkpoint.GetCommitStatus(pb.StatusRequest(request_id=request_id), timeout=15)
-        retain(cell / ("host-receipt.pb" if receipt.status in ("applied", "rejected") else "unknown-receipt.pb"), receipt.SerializeToString(deterministic=True))
+        receipt_bytes = receipt.SerializeToString(deterministic=True)
+        receipt_path = cell / "host-receipt.pb" if receipt.status in ("applied", "rejected") else cell / "status-observations" / "publication" / (digest(receipt_bytes) + ".pb")
+        retain(receipt_path, receipt_bytes)
         if receipt.status not in ("applied", "rejected"):
             with channel("127.0.0.1:50171") as runtime_connection:
                 status = rpc.TrainingServiceStub(runtime_connection).GetFitStatus(pb.StatusRequest(request_id=request_id), timeout=15)
-            retain(cell / "unpublished-fit-status.pb", status.SerializeToString(deterministic=True))
+            status_bytes = status.SerializeToString(deterministic=True)
+            retain(cell / "status-observations" / "fit" / (digest(status_bytes) + ".pb"), status_bytes)
             raise RuntimeError("Publication outcome unknown; retain attempt and stop without replay. Fit status=" + status.status)
         candidate_sha = receipt.candidate
         if (receipt.request_id != request_id or receipt.model_id != binding["model_id"] or receipt.base != binding["original_manifest"]):

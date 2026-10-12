@@ -180,6 +180,8 @@ No command below is evidence that its physical phase has run.
 - `reconcile --cell <directory>` queries publication/fit status, fetches terminal
   artifacts and checks one TRAIN inference. It never calls a fitting or commit
   RPC. A reserved fit with unknown publication stops the study without refitting.
+  Evolving unknown publication and fit statuses are retained by content hash under
+  `status-observations/{publication,fit}/`, preserving every distinct observation.
 - `freeze-plan --plan <fresh-directory> --pilot-cells <three-directories>
   --image-id sha256:<exact-ID> --max-total-seconds <resource-budget>
   --vram-capacity-bytes <observed-capacity>` validates the three pilot work
