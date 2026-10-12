@@ -15,6 +15,26 @@ quality metadata, and checksum in one Git-friendly JSON file.
 
 `privoke-baseline.json` remains available for backward compatibility. The model streaming service resolves `latest` to the current release-channel artifact (`privoke-balanced` by default), so clients can receive new trained revisions without changing settings.
 
+## Experimental pretrained v3 artifacts
+
+The [v3 family](../pretrained-v3-study.md#family-and-initialization) uses complete
+Google BERT encoder/pooler tensors with three new zero affine heads.
+
+| Explicit model ID | Complete parameters |
+| --- | ---: |
+| `privoke-v3-efficient` | 4,785,044 |
+| `privoke-v3-balanced` | 9,596,180 |
+| `privoke-v3-quality` | 17,493,780 |
+
+Unlike the legacy JSON artifacts described above, v3 binds a canonical manifest
+to finite float32 safetensors, native configuration and vocabulary, exact tensor
+inventories and independently pinned official source revisions/hashes. Immutable
+ORIGINALs retain every pretrained encoder/pooler value. Its dedicated binary
+protocol admits at most 80 MiB per blob, 1 MiB per ordered chunk and 256 KiB per
+manifest. These separate limits do not enlarge existing Go/Tiny contracts. Weights
+and failed attempts remain ignored under `models/experiments/pretrained_v3_20261012/`;
+fixed FULL seed-42 research exports do not promote a release or select a best seed.
+
 ## Sparse annotation-presence artifacts
 
 Architecture `privoke_sparse_presence_v1` has task `annotation_presence`. Its

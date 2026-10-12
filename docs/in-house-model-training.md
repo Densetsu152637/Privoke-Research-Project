@@ -12,6 +12,13 @@ separate opt-in [frozen pretrained contextual architecture](detectors/semantic-c
 uses an external MiniLM backbone for local inference with offline-fitted heads;
 it is experimental and is not a default model. Its [completed contextual study](semantic-pretrained-context-study-20261010.md) improved provisional synthetic joint agreement but failed its harm veto. Reused development specificity was poor and a separate credential action regressed; no model was promoted. The later explicit 512-token profile passed functional boundary checks only.
 
+The separate opt-in [pretrained v3 family](pretrained-v3-study.md) preserves native
+Google BERT encoder and pooler weights and adds zero affine task heads. Its HEADS
+arm freezes that representation; FULL trains the complete encoder, pooler and heads.
+It uses isolated experimental services and does not change the Tiny or frozen
+MiniLM paths. Three resource pilots passed and an 18-cell, 256-step protocol is
+frozen; main fitting and quality evidence remain pending.
+
 ## Current transformer artifacts
 
 `models/generate_baseline.py::initial_parameters` creates token and position

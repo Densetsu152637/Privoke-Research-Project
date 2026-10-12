@@ -7,6 +7,16 @@ sparse annotation-presence artifacts. It reloads the selected artifact for every
 request, so an atomically published fuzzer update becomes visible without
 restarting this service or the client runtime.
 
+## Separate experimental v3 checkpoint service
+
+The [pretrained v3 stack](../pretrained-v3-study.md#isolated-services-and-binary-publication)
+uses an isolated Python checkpoint server and dedicated bounded binary protocol.
+It validates pinned manifests and complete safetensors before atomic publication;
+staged/rejected candidates do not change the serving pointer. Its 80 MiB blob,
+1 MiB chunk and 256 KiB manifest bounds are independent of this Go service.
+The JSON/tensor transport and 65,536-value limits below describe legacy families.
+V3 does not become `latest` or establish browser/native consumer integration.
+
 ## Artifact
 
 At startup, the service catalogs valid JSON artifacts in `models`. Requests may select `privoke-efficient`, `privoke-balanced`, or `privoke-quality`; an empty ID or `latest` resolves to the configured release channel. Each artifact contains:

@@ -680,6 +680,21 @@ Recreate a dedicated Python 3.13.2 environment from `extension/client-runtime/re
 
 The corrected preparation is `evaluation/results/semantic_pretrained_20261010/prepared-v3/`; preceding preparations are preserved in the parent and `prepared-v2/` directories. All six primary assessments and operational runs completed; synthetic gains passed the fixed gain criteria, but one repeated child-care action regression failed qualification. The seven amended secondary comparisons retained six explicit overlength errors and a distinct repeated credential-action regression. No model was promoted. Original primary inputs, results and the failed secondary attempt remain immutable. The later 512-token extension has nine functional RPC checks, not a new quality evaluation. [Public projections and the standard-library reproducer](../docs/evidence/semantic-pretrained-20261010/README.md) recompute arithmetic without a model environment or private prompt text. Historical fixture topic-category labels differ from the new asserted-personal-disclosure target convention; reused development and fixture guards remain separate secondary evidence.
 
+## Experimental pretrained v3 host study
+
+[The v3 study record](../docs/pretrained-v3-study.md) documents
+`run-pretrained-v3-study.py` and `prepare-pretrained-v3.py`. Use the dedicated
+`evaluation/.venv-v3-study` Python 3.11 host environment and `evaluation/setup-host.py`
+for protobuf bindings; raw tests, controllers, scoring and dataset loops run on
+the host. `compose.pretrained-v3-study.yml` hosts only isolated servers.
+The selected environments use Torch 2.11.0 CPU on the host and 2.11.0+cu128
+on the GPU server, with Transformers 4.57.6. Three accepted resource pilots
+selected 256 steps for the frozen 18-cell HEADS/FULL matrix. Main fits and quality
+results are pending runtime startup diagnosis. All requests explicitly select
+and verify semantic execution; immutable reservations/status recovery prevent
+replacement fits after unknown outcomes. Reused context320/context64 DEVELOPMENT
+and separate binary/hazard endpoints are not protected-final evaluation.
+
 ## Full Tiny online training mechanics
 
 `prepare-underlying-training-model.py` prepares a separate versioned artifact without fitting or installing it. Supply a validated Tiny `--input`, new `--output`, distinct `--version`, positive `--generated-at-unix` and exact 40-character `--source-revision`. The CLI defaults `--max-tokens` to 256 total tokens: at most 255 content tokens plus one start token. It preserves the original position prefix and every other weight coordinate, appending deterministic SHA-256-initialized position rows when needed. It refuses output overwrite and artifacts carrying an uncleared recovery receipt; live receipt migration belongs to the locked deployment bootstrap, not this offline CLI.

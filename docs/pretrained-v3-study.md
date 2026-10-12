@@ -1,24 +1,39 @@
 # Experimental pretrained v3 stack and study
 
-Status: implementation mechanics and immutable ORIGINAL preparation are being
-validated. No completed study, quality improvement, protected-final score or model
-promotion is established by this document.
+Status: three resource pilots are accepted and the 18-cell V3-R1 protocol is
+frozen at 256 steps. Main study: zero fits; runtime startup diagnosis is pending.
+No model-quality result, protected-final score or model promotion is established.
 
 ## V3-R1 execution and recovery record (2026-10-12)
 
 Stable study ID: `pretrained_v3_20261012`, plan revision `V3-R1`.
 The human authorized approximately doubling pretrained tiers, training both the
 heads and entire encoder with the fuzzer, and running the study now. The exact
-original prompt remains in the parent task conversation; this paragraph records
-the accepted scope rather than claiming to reproduce that prompt verbatim.
+original prompt and accepted clarifications are recorded verbatim below.
 
 Completed: three byte-exact pretrained ORIGINALs with zero heads, independent
-official provenance, and host Python 3.11/Torch CPU environment. At recovery,
-only an efficient HEADS pilot binding exists; no physical fitting has occurred.
-Source admission repairs are committed in `c022f13` and accepted by the parent.
-The controller/scorer integration has passed 25 focused host mechanics tests;
-independent review and physical GPU readiness remain pending. Previous synthetic
-mechanics establish no model-quality outcome.
+official provenance, host Python 3.11/Torch CPU preparation and three accepted
+resource pilots (efficient HEADS, efficient FULL, quality FULL). Resource evidence
+selected the common 256-step budget; the 18-cell protocol is frozen. Main fitting
+has not started and runtime startup diagnosis is pending. Mechanical/resource
+checks establish no model-quality outcome.
+
+Accepted identities:
+
+- Protocol SHA-256: `06f272f2a2b305fddebc17899b82d1e208a14398fdbdc6b34de0726b7931e273`.
+- Server image: `sha256:4a5624eda0c0cd7dfb3da2366e3d18e720eda4a82797bf4e92320fa0987e9bd1`.
+- Pilot resource summary SHA-256: `0d8be24ee1d8830df0167471492893aafc92363712c1e318ae213c03d1ce3abc`.
+
+The original user goal, verbatim (without the `/goal` command prefix):
+
+> Now that this study is completed, use the other chat's context and create a new set of v3 models, each tier being 2x parameters as the previous. However, do not initialise the models with random weights, see if you can find one that has already gone linguistic training as a base model, and then we will train it (the model and the encoder) with the fuzzer. Coordinate this yourself as a long-horizon task and as the final study that we will do.
+
+Accepted clarifications: "Approximately 2× with intact pretrained weights";
+"Prepare models and run the final study now". Prior TW01 closed as an early
+negative partial study. V3 is the final planned research study; its endpoints
+remain reused DEVELOPMENT evidence, not protected-final evaluation.
+
+The original execution sequence (steps 1-2 are now complete):
 
 1. Finish shared stage/commit admission, ordered source sidecars, host controller
    and scorer; run synthetic host mechanics and import checks; root review.
@@ -33,12 +48,13 @@ mechanics establish no model-quality outcome.
    separately, and export the predetermined FULL seed 42 per tier with guard
    status. No best-seed selection or release promotion.
 
-The phase-1 writer stops before Docker lifecycle, fitting RPCs, and endpoint
+The original phase-1 implementation writer stopped before Docker lifecycle, fitting RPCs, and endpoint
 scoring. Protected-final payload access and model promotion remain unauthorized.
 Reused context320/context64 are primary DEVELOPMENT evidence; binary development
-and hazard fixtures are separate secondary evidence. Paper/bibliography updates
-are deferred to the parent after real results because those files contain older
-study changes. Preserve failed attempts and immutable evidence on interruption.
+and hazard fixtures are separate secondary evidence. Implementation methods and
+verified references are documented now; paper results and conclusion updates wait
+for accepted real results. Older study changes remain separately owned. Preserve
+failed attempts and immutable evidence on interruption.
 
 ## Family and initialization
 
@@ -229,3 +245,28 @@ server processes/resources and cleanup owners must be recorded at handoff.
 No protected final data are authorized. Historical Tiny metrics and reused
 development endpoints require separate labels; three seeds do not establish
 statistical confirmation or independent generalization.
+
+## Verified primary source keys
+
+Selected host/server Torch is 2.11.0 CPU / 2.11.0+cu128. Transformers is installed
+at 4.57.6; the consulted BERT API documentation is 4.57.1. Torch 2.12/cu130 was
+a considered alternative only. Sources were opened before metadata extraction;
+no unavailable author/date fields were invented. Pinned cards were retrieved
+through their equivalent raw revision URLs after browser rendering failed.
+
+| Claim | `paper/ref.bib` key | Primary URL |
+| --- | --- | --- |
+| Efficient upstream card/license | `googleBertL4H128A2` | [Source](https://huggingface.co/google/bert_uncased_L-4_H-128_A-2/blob/c29bee83fc7f003ac8c5e6e135529da4ecddb7c3/README.md) |
+| Balanced upstream card/license | `googleBertL2H256A4` | [Source](https://huggingface.co/google/bert_uncased_L-2_H-256_A-4/blob/4e937a8675e5afd9a4836735c186ec01695bc3ea/README.md) |
+| Quality upstream card/license | `googleBertL12H256A4` | [Source](https://huggingface.co/google/bert_uncased_L-12_H-256_A-4/blob/2ab9a0f41435a4d23d4cbc11cc3e7c922545f13d/README.md) |
+| Selected CPU/cu128 distribution commands | `pytorchPreviousVersions` | [Source](https://pytorch.org/get-started/previous-versions/) |
+| Blackwell/cu128 release support; not host readiness | `pytorch27Blackwell` | [Source](https://pytorch.org/blog/pytorch-2-7/) |
+| Restricted loading; not complete protection against denial of service/memory corruption | `pytorch211Serialization` | [Source](https://docs.pytorch.org/docs/2.11/notes/serialization.html) |
+| BertModel API; configuration alone does not load weights | `huggingfaceTransformers4571Bert` | [Source](https://huggingface.co/docs/transformers/v4.57.1/en/model_doc/bert) |
+| Alternative wheel availability only, including 2.11 cp311 Windows | `pytorchCu130TorchIndex` | [Source](https://download.pytorch.org/whl/cu130/torch/) |
+| Alternative 2.12 cu128 retirement/cu130 driver requirements | `pytorch212Release` | [Source](https://pytorch.org/blog/pytorch-2-12-release-blog/) |
+
+Card declarations do not establish project parameter counts or quality. Counts
+and byte-preserving initialization use local preparation/inventory evidence.
+The 2.12 article requires drivers 580.65.06 Linux / 580.88 Windows for its
+recommended CUDA 13.0+ route; it does not establish host compliance.

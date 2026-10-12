@@ -54,6 +54,18 @@ The fuzzer does not connect to `model-streaming-service`. Fetching, validation, 
 Both dedicated presence RPCs require exactly `layers=[DETECTION_LAYER_SEMANTIC]`; omitted, mixed or duplicate selections fail before model access. Inference returns exactly one successful semantic `RuntimeLayerExecution`. Training requires a nonempty disjoint binary guard and returns actual `training`, `base_heldout` and `candidate_heldout` `SemanticTrainingExecution` records with exact nonzero example counts. Callers reject missing or failed traces before accepting predictions or publishing updates. These records identify semantic computation of the binary task, not contextual classifications. Regenerate protobuf bindings for this stricter admission contract; older responses without execution evidence are rejected. Historical measurements are unchanged.
 
 
+## Experimental pretrained v3 study controller
+
+The [v3 protocol](../pretrained-v3-study.md) uses separate experimental Python
+fuzzer, runtime and checkpoint servers. Host Python drives the controller and
+dataset loops; the runtime performs physical HEADS or FULL fitting. The fuzzer
+validates explicit semantic execution, ordered TRAIN/guard commitments, actual
+work and candidate identity before requesting publication. Immutable raw terminal
+candidates remain scientific endpoints even when their guard rejects publication.
+CAS receipts, exact replay and status reconciliation preserve unknown outcomes
+without replacement fits. This opt-in route does not change the automatic Tiny
+requester or its independently published stages.
+
 ## Training Semantics
 
 `RunTrainingCycle` updates the six sensitivity, visibility and category head tensors on a full-capability Tiny artifact. `RunUnderlyingTrainingCycle` instead calls `ComputeUnderlyingModelGradients` to update token/position embeddings, every attention/feed-forward block and those heads. It requires the versioned `contextual_full_encoder_sgd_v1` artifact strategy and explicit contextual targets. Existing declared last-block research artifacts retain their scoped behavior. This is supervised task-specific classification training, not general language-model pretraining. Frozen MiniLM online updates still fail explicitly.

@@ -161,6 +161,17 @@ Semantic classifiers are in `src/LLM`:
 - `LocalClassifier` calls an OpenAI-compatible local API such as LM Studio.
 - `OpenClassifier` calls the OpenAI SDK.
 
+## Experimental pretrained v3 runtime
+
+The [v3 study runtime](../pretrained-v3-study.md) is an isolated Python server
+using existing `AnalyzePrompt` messages with explicit `privoke-v3-{efficient,balanced,quality}`
+IDs and exactly `layers=[4]`. Consumers verify actual successful semantic execution
+and checkpoint/backbone/tokenizer identities, including clean responses. Native
+uncased WordPiece inputs have a 512-token total bound; overlength inputs fail
+without truncation. The adapter reuses production classification/action and masking
+helpers. This experimental route does not establish browser/native streaming
+integration or alter the ordinary backend configuration below.
+
 ## Live Semantic Backend Config
 
 The startup backend is controlled by `--llm-choice` or `PRIVOKE_LLM_CHOICE`.
