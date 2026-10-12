@@ -1,5 +1,9 @@
 # Documentation index
 
+Run Python tests and evaluation clients in the host environment. Docker Compose
+provides local server services; see [evaluation setup](../evaluation/README.md).
+Retain reusable experiment weights under `models/experiments/<run>/`.
+
 Commands in these guides retain their original working-directory assumptions. Start from the repository root and follow each explicit `cd` command.
 
 ## Project and contracts

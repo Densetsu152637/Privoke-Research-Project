@@ -63,7 +63,13 @@ Regenerate the deterministic release baseline:
 python models/generate_baseline.py
 ```
 
-Run one fuzzer training request through the Compose stack with `docker compose exec -T privoke-fuzzer python src/cli.py train --prompt-count 32`. A successful cycle atomically updates the balanced release-channel artifact from `v0.3.0` to `v0.3.0+train.1`, then onward.
+For local integration, keep Compose services running as servers and issue a host
+Python request with `python evaluation/run-fuzzer-tests.py train --model-id
+privoke-balanced --prompt-count 32`. A successful cycle atomically updates the
+balanced release-channel artifact from `v0.3.0` to `v0.3.0+train.1`, then onward.
+For controlled experiments, retain temporary ORIGINAL weights, per-cell catalogs,
+effective weights, and provenance pins under `models/experiments/<run>/`. Remove
+redundant weight copies only after verifying byte hashes and recorded references.
 
 Production Compose and Compute Engine persist trained artifacts in `model-data`; they do not rewrite repository files. Development Compose bind-mounts `./models`, so training updates those Git-reviewable files directly. Export a production artifact deliberately before reviewing it in Git.
 

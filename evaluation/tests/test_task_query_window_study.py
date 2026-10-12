@@ -24,6 +24,32 @@ class StudyContractTests(unittest.TestCase):
             self.assertEqual({(r["architecture"], r["loop"]) for r in rows if r["seed"] == seed},
                              {(a, b) for a in ("v1", "v2") for b in ("legacy", "window")})
 
+    def test_existing_initials_are_pinned_across_current_head(self):
+        with patch.object(study, "git_read", side_effect=AssertionError("current HEAD must not define the frozen teacher")):
+            result = study.prepare_initials(self.scratch)
+        self.assertEqual(result["v1"]["sha256"], study.SOURCE_MODEL_SHA)
+        self.assertEqual(result["v2"]["sha256"], study.INITIAL_V2_SHA)
+        self.assertEqual(study.read(result["v2"]["path"])["metadata"]["preparation_source_revision"],
+                         study.INITIAL_V2_SOURCE_REVISION)
+
+    def test_scoring_catalog_reuses_trained_cell_and_checks_bytes(self):
+        with tempfile.TemporaryDirectory(dir=self.scratch) as temp, patch.object(study, "WEIGHTS_ROOT", Path(temp)):
+            cell_id = study.matrix()[0]["id"]
+            catalog = study.retained_catalog(cell_id) / "models"
+            catalog.mkdir(parents=True)
+            artifact = catalog / "privoke-balanced.json"
+            artifact.write_bytes(b"effective")
+            effective = Path(temp) / "effective.json"
+            effective.write_bytes(b"effective")
+            candidate = {"path": str(effective), "sha256": study.sha(effective)}
+            self.assertEqual(study.scoring_catalog(cell_id, candidate), catalog)
+            self.assertEqual(artifact.read_bytes(), b"effective")
+            artifact.write_bytes(b"stale")
+            with self.assertRaisesRegex(ValueError, "catalog differs"):
+                study.scoring_catalog(cell_id, candidate)
+            initial = study.scoring_catalog("initial-v1", candidate)
+            self.assertEqual((initial / "privoke-balanced.json").read_bytes(), b"effective")
+
     def test_incomplete_cells_refuse_before_endpoint_freeze_command_or_mount(self):
         with tempfile.TemporaryDirectory(dir=self.scratch) as temp:
             output = Path(temp)

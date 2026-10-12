@@ -14,7 +14,7 @@ This package is instantiated in two independent contexts:
 
 | Context | Owner | Binding | Consumer |
 | --- | --- | --- | --- |
-| Server simulation | Docker Compose | `[::]:50054` inside Compose; the development override also publishes `127.0.0.1:50054` | Fuzzer, evaluator, and server services |
+| Server simulation | Docker Compose | `[::]:50054` inside Compose; the development override also publishes `127.0.0.1:50054` | Host Python fuzzer and evaluator clients, and server services |
 | Browser extension | `../runtime-supervisor` | `127.0.0.1:50057` | Supervisor-owned bridge for the WebExtension |
 
 The contexts share source code only. The extension never calls the Compose instance, and the fuzzer never calls the extension instance. The supervisor also exposes its separate control service on `127.0.0.1:50056` and its gRPC-Web bridge on `127.0.0.1:8080`.

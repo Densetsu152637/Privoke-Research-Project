@@ -6,14 +6,29 @@ in `services/privoke-fuzzer`; evaluation calls its existing CLI or endpoint.
 Each Python suite runs in a separate process to isolate component imports.
 
 Run evaluation and integration checks as host Python scripts. Use Python 3.11 or
-3.12; the current NumPy constraint excludes Python 3.13 wheels. From the repository
-root, create a virtual environment once, install the host dependencies and generate
-the protobuf clients. The synthetic evaluator mechanics tests need Torch, but do
-not fit a study dataset, publish weights or download pretrained models.
+3.12 for the broad NumPy/Torch suites. For lightweight TW01 mechanics and RPC
+clients, prepare a host environment with the maintained protobuf pins:
 
 ```powershell
-py -3.12 -m venv evaluation/.venv
-evaluation/.venv/Scripts/Activate.ps1
+py -3.13 -m venv evaluation/.venv
+evaluation/.venv/Scripts/python.exe -m pip install -r extension/runtime-supervisor/requirements.txt
+evaluation/.venv/Scripts/python.exe evaluation/setup-host.py
+```
+
+The TW01 mechanics suite needs no model construction:
+
+```powershell
+evaluation/.venv/Scripts/python.exe -m unittest discover -s evaluation/tests -p test_task_query_window_study.py
+```
+
+For the broader suites, use a separate Python 3.11/3.12 host environment from the
+repository root, install the host dependencies and generate protobuf clients. The
+broader synthetic evaluator mechanics tests need Torch, but do not fit a study
+dataset, publish weights or download pretrained models.
+
+```powershell
+py -3.12 -m venv evaluation/.venv-broad
+evaluation/.venv-broad/Scripts/Activate.ps1
 python -m pip install -r evaluation/requirements-host.txt
 python evaluation/setup-host.py
 python evaluation/run-component-tests.py evaluator
@@ -21,13 +36,15 @@ python evaluation/run-component-tests.py supervisor
 python evaluation/run-component-tests.py shared
 ```
 
-On Linux/macOS use `python3.11 -m venv evaluation/.venv` and
-`source evaluation/.venv/bin/activate`. Regenerate clients after protobuf changes.
-Use the same interpreter for setup and all checks. Component Python suites can
+On Linux/macOS use `python3.11 -m venv evaluation/.venv-broad` and
+`source evaluation/.venv-broad/bin/activate`. Use the same interpreter for setup and
+all checks; regenerate clients after protobuf changes. The current local Python
+3.13 environment has grpcio 1.82.1
+and protobuf 7.36.2, while the maintained supervisor pin specifies protobuf
+7.35.1. Live descriptor compatibility is still unverified. Component Python suites can
 also run through `run-component-tests.py` on the host after installing that
 component's requirements. Existing Python, JavaScript and Go unit tests retain
-their original frameworks; the optional image-validation commands below still
-test service-image packaging.
+their original frameworks. Service image packaging is a separate validation task.
 
 The protected research-file suites require a Linux host with their documented
 POSIX ownership/descriptor prerequisites; Windows supports the localhost RPC
@@ -36,20 +53,9 @@ checks are skipped on Windows. These are separate from transport tests, which ca
 be selected with `python evaluation/run-component-tests.py evaluator -p test_host_scripts.py`
 and `python evaluation/run-component-tests.py evaluator -p test_runners.py`.
 
-Use the same Compose files throughout:
-
-```powershell
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml build
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml run --rm --no-deps browser-tests
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml run --rm --no-deps model-tests
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml run --rm --no-deps supervisor-tests
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml run --rm --no-deps evaluation-tests
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml run --rm --no-deps --entrypoint python client-runtime /workspace/evaluation/run-component-tests.py client-runtime
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml run --rm --no-deps --entrypoint python privoke-fuzzer /workspace/evaluation/run-component-tests.py fuzzer
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml run --rm --no-deps --entrypoint python param-update-service /workspace/evaluation/run-component-tests.py param-update
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml run --rm --no-deps --entrypoint python telemetry-service /workspace/evaluation/run-component-tests.py telemetry
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml run --rm --no-deps --entrypoint python client-runtime /workspace/evaluation/run-component-tests.py shared
-```
+Docker Compose starts server services for live integration; Python test drivers
+stay on the host. Historical Compose test-service recipes remain in Git history
+for image-packaging investigations.
 
 The Go runner invokes the original service tests with the race detector.
 Browser tests run without network access. The deployment smoke runner invokes
@@ -73,6 +79,18 @@ The evaluator sends gRPC directly to `127.0.0.1:50054` and writes reports under
 `FUZZER_TARGET` or `run-fuzzer-tests.py --target` overrides `127.0.0.1:50053`.
 The fuzzer serves health and training RPCs; prompt analysis uses the runtime RPC.
 Prompt-probe dumps go to `dumps/privoke-fuzzer` on the host.
+
+For controlled TW01 runs, execute `evaluation/run-task-query-window-study.py`
+with host Python. The `teacher` phase requires `--target 127.0.0.1:PORT`,
+`--bank`, `--teacher`, `--teacher-sha256`, `--architecture`, `--capture-directory`,
+`--worker-output`, `--release`, and `--output`. Its authenticated study runtime
+must mount that same ORIGINAL teacher and capture directory. The `execute` and
+`score-models` phases take `--release` and `--output`, start server containers,
+and issue fit, audit, and scoring calls from host Python. Every LLM test request
+sets `layers=[4]` and verifies the returned sole semantic execution. Reusable
+weights and provenance pins belong under
+`models/experiments/task_query_window_20261012/`; disposable service logs remain
+in the run output.
 Evaluation and prompt tests default to the semantic layer only, and verify the
 returned execution so regex/NER cannot affect an LLM-only result. Requests always
 declare a nonempty layer selection. `--layer pipeline` (evaluator) or `--layer runtime`
@@ -106,8 +124,8 @@ This changes the running model. A single training request is also available as
 Rejected cycles exit with status 1. For production-image integration on the host,
 use `docker compose -f docker-compose.yml -f evaluation/compose.localhost.yml up -d --wait`;
 base production Compose continues to publish no ports. CI uses this loopback
-override for its host Python smoke checks. Clients running in containers must
-use explicit service DNS targets.
+override for its host Python smoke checks. Internal server-to-server RPC uses
+explicit Compose service DNS targets.
 
 The user selected development targets on 3 October 2026: sensitive recall >= 90%
 and clean specificity >= 90%, together with the research completion plan's evidence
@@ -162,8 +180,7 @@ python evaluation/run-ablations.py --dataset-file evaluation/results/locked-publ
 # Invoke actual fuzzer cycles through their existing service, then paired measurements:
 python evaluation/run-independent-updates.py --experiment-id UNIQUE_EXPERIMENT_ID
 # Native Chromium page hook and local receiver, with controlled broker decisions:
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml build browser-capture
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml run --rm --no-deps browser-capture
+node evaluation/run-browser-capture.mjs
 ```
 
 `run-ablations.py` refuses to overwrite a run directory and fails when returned
@@ -262,7 +279,7 @@ exclusions, provisional negative-policy labels and a full-pipeline recall floor.
 It must not be presented as untouched official PIIMB benchmark-test evaluation.
 
 ```powershell
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml -f evaluation/compose.public-negatives.yml run --rm --no-deps evaluation-tests python prepare-public-negatives.py
+python evaluation/prepare-public-negatives.py
 docker compose -f docker-compose.yml -f evaluation/compose.tests.yml -f evaluation/compose.public-negatives.yml build client-runtime privoke-fuzzer
 python evaluation/run-public-negative-study.py
 ```

@@ -23,6 +23,8 @@ STUDY_ID = "privoke-tw01-20261012"
 WEIGHTS_ROOT = ROOT / "models/experiments/task_query_window_20261012"
 SOURCE_MODEL = "models/privoke-balanced.json"
 SOURCE_MODEL_SHA = "dcacb490bf19cf771fe4084e7f3484d83daee040609c496c1aef04f0da779b51"
+INITIAL_V2_SHA = "1fca4eff13ac6892395c07b13158761612e7a95cfa6659ba712fcf6e70392ffc"
+INITIAL_V2_SOURCE_REVISION = "250780ae13fd2687c7deae1b99a4c065d6d6ae64"
 OBJECTIVE = "class_balanced_contextual_sum_category_decision_margin_v1"
 LEGACY = "full_projected_adam64_v1"
 WINDOW = "full_projected_adam64_window_checkpoint_v1"
@@ -223,7 +225,8 @@ def prepare_initials(output):
     from privoke_model.contextual_training import prepare_task_query_artifact, FULL_ENCODER_STRATEGY
     source = read(ROOT / SOURCE_MODEL)
     v2 = prepare_task_query_artifact(source, version="tw01-v2-initial", generated_at_unix=1791763200,
-        source_revision=git_read("rev-parse", "HEAD").strip(), strategy=FULL_ENCODER_STRATEGY)
+        source_revision=INITIAL_V2_SOURCE_REVISION, strategy=FULL_ENCODER_STRATEGY)
+    require(digest(v2) == INITIAL_V2_SHA, "Current migration does not reproduce pinned v2 ORIGINAL")
     result = {}
     for name, artifact in (("v1", source), ("v2", v2)):
         path = WEIGHTS_ROOT / "initials" / name / "original.json"
@@ -236,7 +239,9 @@ def prepare_initials(output):
         else:
             if not path.exists():
                 exclusive(path, artifact)
-            require(read(path) == artifact, "Retained v2 ORIGINAL differs")
+            require(sha(path) == INITIAL_V2_SHA and read(path) == artifact
+                    and artifact["metadata"]["preparation_source_revision"] == INITIAL_V2_SOURCE_REVISION,
+                    "Retained v2 ORIGINAL differs from independently pinned migration")
         result[name] = {"path": str(path.resolve()), "sha256": sha(path),
                         "config": artifact["config"], "version": artifact["version"], "checksum": artifact["checksum"]}
     require(all(v == v2["parameters"][n] or (v["shape"] == v2["parameters"][n]["shape"] and
@@ -823,6 +828,23 @@ def execute_cells(output, release_path, only_cell=None):
             cleanup_stack(compose, services, cell["project"], directory, output)
 
 
+def scoring_catalog(name, candidate):
+    """Reuse frozen trained weights; materialize only independent initial controls."""
+    model_directory = retained_catalog(name) / "models"
+    artifact = model_directory / "privoke-balanced.json"
+    source = Path(candidate["path"])
+    require(sha(source) == candidate["sha256"], "Candidate weight bytes changed")
+    if name.startswith("initial-"):
+        model_directory.mkdir(parents=True, exist_ok=True)
+        if not artifact.exists():
+            with artifact.open("xb") as stream:
+                stream.write(source.read_bytes())
+    else:
+        require(artifact.is_file(), "Trained cell catalog missing")
+    require(sha(artifact) == candidate["sha256"], "Scoring catalog differs from effective candidate")
+    return model_directory
+
+
 def score_models(output, release_path):
     """Require all twelve known cells before freezing or mounting endpoints."""
     protocol = validate_release(output, release_path, "endpoints")
@@ -847,10 +869,7 @@ def score_models(output, release_path):
     exclusive(output / "endpoint-candidates.json", candidates)
     for name, candidate in candidates.items():
         directory = output / "endpoints" / name
-        model_directory = retained_catalog(name) / "models"
-        model_directory.mkdir(parents=True)
-        with (model_directory / "privoke-balanced.json").open("xb") as stream:
-            stream.write(Path(candidate["path"]).read_bytes())
+        scoring_catalog(name, candidate)
         cell = {"id": name, "project": STUDY_ID + "-score-" + name, "loop": "legacy", "ports": available_ports()}
         compose_model = compose_cell(cell, directory, images, {}, protocol["inputs"])
         compose_model["services"] = {k: v for k, v in compose_model["services"].items() if k.endswith(("-model", "-runtime"))}

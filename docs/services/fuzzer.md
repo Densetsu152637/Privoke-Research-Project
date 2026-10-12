@@ -127,7 +127,7 @@ The fuzzer has no source dependency on `extension/client-runtime`. Production an
 
 ## CLI
 
-Run host Python scripts from the repository root after the
+Run raw host Python scripts from the repository root after the
 [host setup](../../evaluation/README.md). The development or research-test stack
 publishes the fuzzer on `127.0.0.1:50053`; prompt probes connect to the runtime
 on `127.0.0.1:50054`. The fuzzer retains the training loop on the server.
