@@ -11,3 +11,22 @@ LLM-layer training, evaluation and testing must isolate the semantic layer. Send
 Run regex, NER or the full pipeline only for an explicitly requested product end-to-end task or detector ablation. Keep that purpose and its results separate from LLM-only results. Historical combined-detector scores remain historical full-pipeline measurements and must not be presented as LLM-only evidence.
 
 Legacy combined-protocol study commands refuse execution unless `--allow-product-pipeline` explicitly selects that separately authorized product/detector-analysis scope. Do not use this flag for LLM-only testing or reinterpret their historical pipeline selection rules as semantic-only results.
+
+# Host Python test workflow
+
+Run raw Python tests, evaluation clients, dataset loops, and study scoring in the
+host Python environment. Docker Compose may host model streaming, runtime, fuzzer,
+and updater servers on loopback ports; do not use `docker compose run` or a test
+driver container to execute Python test cases. Use `evaluation/setup-host.py` to
+generate host protobuf clients with the maintained host environment, then invoke
+the relevant host test script. The TW01 synthetic mechanics command is
+`evaluation/.venv/Scripts/python.exe -m unittest discover -s evaluation/tests -p test_task_query_window_study.py`.
+The broader NumPy/Torch suites require a supported Python 3.11/3.12 environment;
+report them unavailable when only Python 3.13 is installed.
+
+Retain reusable temporary model weights and their provenance metadata under
+`models/experiments/<run>/`. Keep per-cell initial catalogs, effective artifacts,
+and independently pinned ORIGINAL weights there. Remove only disposable temporary
+copies after byte hashes and references are verified; preserve immutable evidence
+and failed-attempt records. Generated experiment weights are local and ignored by
+Git and Docker build context.
