@@ -17,7 +17,8 @@ Google BERT encoder and pooler weights and adds zero affine task heads. Its HEAD
 arm freezes that representation; FULL trains the complete encoder, pooler and heads.
 It uses isolated experimental services and does not change the Tiny or frozen
 MiniLM paths. Three resource pilots passed and an 18-cell, 256-step protocol is
-frozen; main fitting and quality evidence remain pending.
+frozen; all 18 fits are complete. Endpoint scoring and accepted quality evidence
+remain pending; the linked record distinguishes the post-fit host audit amendment.
 
 ## Current transformer artifacts
 

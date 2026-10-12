@@ -689,8 +689,12 @@ for protobuf bindings; raw tests, controllers, scoring and dataset loops run on
 the host. `compose.pretrained-v3-study.yml` hosts only isolated servers.
 The selected environments use Torch 2.11.0 CPU on the host and 2.11.0+cu128
 on the GPU server, with Transformers 4.57.6. Three accepted resource pilots
-selected 256 steps for the frozen 18-cell HEADS/FULL matrix. Main fits and quality
-results are pending runtime startup diagnosis. All requests explicitly select
+selected 256 steps for the frozen 18-cell HEADS/FULL matrix. All 18 fits completed;
+21-snapshot scoring is ongoing and accepted quality results remain pending. The
+linked study record preserves failed starts and the explicit host-only post-fit
+readiness/audit amendment; score/analyze/export require its `--audit-amendment`
+path, while training/default validation retain the original strict closure.
+All requests explicitly select
 and verify semantic execution; immutable reservations/status recovery prevent
 replacement fits after unknown outcomes. Reused context320/context64 DEVELOPMENT
 and separate binary/hazard endpoints are not protected-final evaluation.

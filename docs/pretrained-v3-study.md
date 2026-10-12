@@ -1,8 +1,10 @@
 # Experimental pretrained v3 stack and study
 
 Status: three resource pilots are accepted and the 18-cell V3-R1 protocol is
-frozen at 256 steps. Main study: zero fits; runtime startup diagnosis is pending.
-No model-quality result, protected-final score or model promotion is established.
+frozen at 256 steps. All 18 main fits are complete and independently accepted.
+Scoring of all 21 snapshots is ongoing; five sets were complete at the scoring
+amendment checkpoint. Accepted final quality analysis, fixed exports and cleanup
+remain pending. No protected-final score or model promotion is established.
 
 ## V3-R1 execution and recovery record (2026-10-12)
 
@@ -14,9 +16,9 @@ original prompt and accepted clarifications are recorded verbatim below.
 Completed: three byte-exact pretrained ORIGINALs with zero heads, independent
 official provenance, host Python 3.11/Torch CPU preparation and three accepted
 resource pilots (efficient HEADS, efficient FULL, quality FULL). Resource evidence
-selected the common 256-step budget; the 18-cell protocol is frozen. Main fitting
-has not started and runtime startup diagnosis is pending. Mechanical/resource
-checks establish no model-quality outcome.
+selected the common 256-step budget; the 18-cell protocol is frozen and all main
+fits are complete. Scoring remains ongoing. Mechanical/resource and guard
+publication outcomes alone establish no model-quality improvement.
 
 Accepted identities:
 
@@ -33,7 +35,7 @@ Accepted clarifications: "Approximately 2× with intact pretrained weights";
 negative partial study. V3 is the final planned research study; its endpoints
 remain reused DEVELOPMENT evidence, not protected-final evaluation.
 
-The original execution sequence (steps 1-2 are now complete):
+The original execution sequence (steps 1-3 are now complete):
 
 1. Finish shared stage/commit admission, ordered source sidecars, host controller
    and scorer; run synthetic host mechanics and import checks; root review.
@@ -55,6 +57,48 @@ and hazard fixtures are separate secondary evidence. Implementation methods and
 verified references are documented now; paper results and conclusion updates wait
 for accepted real results. Older study changes remain separately owned. Preserve
 failed attempts and immutable evidence on interruption.
+
+## Completed fits and scoring amendment checkpoint
+
+All 18 terminal cells completed 256 optimizer steps each: 4,608 steps and 294,912
+TRAIN exposures in total. Aggregate physical fit time was 1,020.4155697559981 s;
+the longest cell took 142.130528833 s and maximum reported CUDA allocation was
+419,415,552 bytes. Ten guards applied publication and eight rejected it; all raw
+terminal candidates remain retained for endpoint scoring. These are execution
+and publication counts, not quality conclusions. Fit completion is pinned by
+`study/fit-completion.json`, SHA-256
+`5b8dc294c06367113c2de7e66ab0f96bbc9374a7ddf67e3aaae640be6017fe30`.
+Failed main-start attempts remain under `evaluation/results/pretrained_v3_20261012/main/`.
+
+Scoring attempts 01 and 02 failed on pre-case 60-second runtime Health readiness
+windows, after two and then five complete snapshot sets. One prewarm recovery
+preceded the second attempt. No incomplete scoring reservations existed at the
+amendment checkpoint. The 4,670 prior requested cases (4,635 eligible) had no
+errors; 14,036 prior evidence files and all 18 terminal artifacts are pinned and
+preserved byte-for-byte. Failure records remain under
+`evaluation/results/pretrained_v3_20261012/scoring/`.
+
+An explicit post-fit operational/audit amendment at implementation commit
+`6b491e8380a66f8a19c82bd3d29903e98929c7e3` changes exactly five host paths. Its
+scope is a 180-second scoring readiness window and normalization of nullable
+hazard visibility hints (`None` to protobuf empty string) for audit comparison.
+TRAIN, stimulus generation, scoring metrics, model selection and export choices
+are unchanged. Attempt 03 is ongoing at this checkpoint; observed runtime
+readiness around 77 seconds after container start supports the longer window as
+a mitigation, without establishing the cause of the earlier failures.
+
+The explicit amendment file is
+`models/experiments/pretrained_v3_20261012/study/amendments/postfit-scoring-audit-01.json`,
+SHA-256 `fc22e6d4c3d34d31903b051550a3f87e9ea5a8332a8e495141cefb940259e9c7`.
+It retains original 165-file source closure
+`c540b0ab4efcad07235a54b6694d23a42015c8ccc186267fb647ea84c2802c38`
+and records amended closure
+`899b9ae53f0917fc36a1a6e79a63060e09ebd419d1e9ca27675952b89e67acec`.
+The 144-file server closure, image, original protocol and completed fits are
+unchanged. Original frozen source captures are retained, not rewritten. Strict
+training/default validation intentionally rejects the changed host source;
+only score/analyze/export accept this explicit audited amendment. Seventeen
+focused host tests passed in 13.024 s; final quality/export acceptance is pending.
 
 ## Family and initialization
 
@@ -209,10 +253,22 @@ No command below is evidence that its physical phase has run.
   The parent fixed `--max-total-seconds 14400` prospectively before endpoint
   results; each projected cell must also remain below 7200 seconds. No fitting
   budget is admitted if those limits or the 90% measured-VRAM gate fail.
-- `validate-plan`, `run-plan`, `score-plan`, `analyze-plan`, and `export` take
-  `--plan <directory>`. Matrix execution stops on an unknown cell. Completed
+- `validate-plan` and `run-plan` take `--plan <directory>` under the original
+  strict source closure. Score/analyze/export use the explicit amendment below
+  after the accepted host-only change. Matrix execution stops on an unknown cell. Completed
   cells are audited and skipped; a reserved incomplete cell requires explicit
   reconciliation before the matrix can continue.
+
+The actual post-fit scoring/analysis/export commands use the host interpreter
+and retain the original study directory. Analysis/export remain pending until
+all endpoint evidence is complete and accepted; these commands are reproduction
+instructions, not claims of completion:
+
+```powershell
+evaluation/.venv-v3-study/Scripts/python.exe evaluation/run-pretrained-v3-study.py score-plan --plan models/experiments/pretrained_v3_20261012/study --audit-amendment models/experiments/pretrained_v3_20261012/study/amendments/postfit-scoring-audit-01.json
+evaluation/.venv-v3-study/Scripts/python.exe evaluation/run-pretrained-v3-study.py analyze-plan --plan models/experiments/pretrained_v3_20261012/study --audit-amendment models/experiments/pretrained_v3_20261012/study/amendments/postfit-scoring-audit-01.json
+evaluation/.venv-v3-study/Scripts/python.exe evaluation/run-pretrained-v3-study.py export --plan models/experiments/pretrained_v3_20261012/study --audit-amendment models/experiments/pretrained_v3_20261012/study/amendments/postfit-scoring-audit-01.json
+```
 
 `score-plan` first requires all 18 audited terminal cells. It scores all raw
 terminal candidates plus three ORIGINAL controls using explicit `layers=[4]`,
