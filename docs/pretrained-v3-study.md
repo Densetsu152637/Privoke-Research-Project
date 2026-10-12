@@ -56,9 +56,9 @@ The original execution sequence (all four steps are now complete):
 The original phase-1 implementation writer stopped before Docker lifecycle, fitting RPCs, and endpoint
 scoring. Protected-final payload access and model promotion remain unauthorized.
 Reused context320/context64 are primary DEVELOPMENT evidence; binary development
-and hazard fixtures are separate secondary evidence. Implementation methods and
-verified references are documented now; paper results and conclusion updates wait
-for accepted real results. Older study changes remain separately owned. Preserve
+and hazard fixtures are separate secondary evidence. Implementation methods and verified references were documented before results
+were available; paper results and conclusions are now updated from accepted
+final evidence. Older study changes remain separately owned. Preserve
 failed attempts and immutable evidence on interruption.
 
 ## Completed fits and scoring amendment checkpoint
@@ -472,7 +472,7 @@ regression counts remain in the accepted `study/analysis.json`.
 | Candidate-ORIGINAL | quality-full_encoder | +190 | +24 | +64 | +66 | 381/47 | 17/6 | 5/4 |
 | Candidate-ORIGINAL | quality-heads | +89 | +18 | +34 | +57 | 303/60 | 12/11 | 8/10 |
 
-FULL exceeds matched HEADS context320 joint counts in all nine seeds, but
+FULL exceeds matched HEADS context320 joint counts in all nine paired tier/seed comparisons, but
 regresses individual joint cases in every comparison. Context64 net changes
 include one negative and two ties. Binary502 FULL-minus-HEADS totals are -99,
 -47 and +30 correct occurrences for efficient, balanced and quality respectively;
@@ -564,7 +564,7 @@ VRAM. Every cell completed 256 steps and 16,384 repeated TRAIN exposures.
 
 ### Limits and study closure
 
-Targets are assistant-provisional, both primary fixtures and secondary guards
+Targets are assistant-provisional, both primary fixtures and secondary fixtures
 are reused DEVELOPMENT data, and all seeds reuse case identities. Counts and
 paired contrasts are descriptive; they establish neither independent
 population generalization nor contextual privacy safety. Zero heads make the
