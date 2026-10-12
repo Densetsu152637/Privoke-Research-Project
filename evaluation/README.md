@@ -690,7 +690,9 @@ the host. `compose.pretrained-v3-study.yml` hosts only isolated servers.
 The selected environments use Torch 2.11.0 CPU on the host and 2.11.0+cu128
 on the GPU server, with Transformers 4.57.6. Three accepted resource pilots
 selected 256 steps for the frozen 18-cell HEADS/FULL matrix. All 18 fits completed;
-21-snapshot scoring is ongoing and accepted quality results remain pending. The
+all 21 snapshots completed with 19,614 requested cases, 19,467 eligible cases and
+zero errors. Paired descriptive analysis, fixed FULL seed-42 exports and project
+cleanup were accepted on 13 October 2026 (Sydney). The
 linked study record preserves failed starts and the explicit host-only post-fit
 readiness/audit amendment; score/analyze/export require its `--audit-amendment`
 path, while training/default validation retain the original strict closure.

@@ -2,9 +2,11 @@
 
 Status: three resource pilots are accepted and the 18-cell V3-R1 protocol is
 frozen at 256 steps. All 18 main fits are complete and independently accepted.
-Scoring of all 21 snapshots is ongoing; five sets were complete at the scoring
-amendment checkpoint. Accepted final quality analysis, fixed exports and cleanup
-remain pending. No protected-final score or model promotion is established.
+All 21 raw snapshots, paired analysis, three fixed FULL seed-42 research exports
+and cleanup are accepted. The final planned study closed on 13 October 2026
+(Sydney); its stable ID and earlier source-access dates remain unchanged.
+Results are reused DEVELOPMENT evidence, with limited absolute joint agreement
+and action harms. No protected-final score or model promotion is established.
 
 ## V3-R1 execution and recovery record (2026-10-12)
 
@@ -17,8 +19,9 @@ Completed: three byte-exact pretrained ORIGINALs with zero heads, independent
 official provenance, host Python 3.11/Torch CPU preparation and three accepted
 resource pilots (efficient HEADS, efficient FULL, quality FULL). Resource evidence
 selected the common 256-step budget; the 18-cell protocol is frozen and all main
-fits are complete. Scoring remains ongoing. Mechanical/resource and guard
-publication outcomes alone establish no model-quality improvement.
+fits, all 21 endpoint sets, paired analysis and fixed exports are complete.
+Mechanical/resource and guard publication outcomes remain separate from the
+development quality measurements reported below.
 
 Accepted identities:
 
@@ -35,7 +38,7 @@ Accepted clarifications: "Approximately 2× with intact pretrained weights";
 negative partial study. V3 is the final planned research study; its endpoints
 remain reused DEVELOPMENT evidence, not protected-final evaluation.
 
-The original execution sequence (steps 1-3 are now complete):
+The original execution sequence (all four steps are now complete):
 
 1. Finish shared stage/commit admission, ordered source sidecars, host controller
    and scorer; run synthetic host mechanics and import checks; root review.
@@ -83,7 +86,8 @@ An explicit post-fit operational/audit amendment at implementation commit
 scope is a 180-second scoring readiness window and normalization of nullable
 hazard visibility hints (`None` to protobuf empty string) for audit comparison.
 TRAIN, stimulus generation, scoring metrics, model selection and export choices
-are unchanged. Attempt 03 is ongoing at this checkpoint; observed runtime
+are unchanged. At this historical amendment checkpoint, attempt 03 was ongoing;
+it subsequently completed with known exit code zero. Observed runtime
 readiness around 77 seconds after container start supports the longer window as
 a mitigation, without establishing the cause of the earlier failures.
 
@@ -98,7 +102,8 @@ The 144-file server closure, image, original protocol and completed fits are
 unchanged. Original frozen source captures are retained, not rewritten. Strict
 training/default validation intentionally rejects the changed host source;
 only score/analyze/export accept this explicit audited amendment. Seventeen
-focused host tests passed in 13.024 s; final quality/export acceptance is pending.
+focused host tests passed in 13.024 s. Subsequent analysis/export acceptance is
+recorded below; no checkpoint or budget was selected from endpoint quality.
 
 ## Family and initialization
 
@@ -191,12 +196,12 @@ trains all encoder/pooler/head parameters, including word embeddings. The first
 zero-head step may have zero encoder gradient; later nonzero embedding, first
 block, last block, pooler and head changes must be observed.
 
-The two-step pilot uses 64 TRAIN rows and 16 guard rows. The planned 18-cell study
-compares 3 tiers x HEADS/FULL x seeds 42/43/44. Its prospective common window
+The two-step pilot uses 64 TRAIN rows and 16 guard rows. The completed 18-cell study
+compares 3 tiers x HEADS/FULL x seeds 42/43/44. Its frozen common window
 has 512 rows (8 x 64) and one fixed 16-row guard. Main work budgets 64/256/512 steps
-correspond to 4096/16384/32768 repeated exposures. The final work budget requires
-resource-only acceptance after efficient HEADS/FULL and representative quality
-FULL pilots. There is no development-driven checkpoint selection or tuning.
+correspond to 4096/16384/32768 repeated exposures. The final 256-step budget was
+accepted from efficient HEADS/FULL and representative quality FULL resource
+pilots. There was no development-driven checkpoint selection or tuning.
 
 Publication requires at least one additional guard case with exact
 sensitivity/category-set/visibility and production action correctness. Neither
@@ -211,7 +216,7 @@ Python. Docker runs only servers. The host environment is
 `evaluation/.venv-v3-study` (Python3.11, CPU Torch2.11.0); the GPU server uses
 Torch2.11.0+cu128 and verifies sm_120 kernel/device/autograd readiness before
 model access. The workstation reports RTX5080/16,303 MiB VRAM; readiness and
-pilot measurements must establish actual usability.
+pilot measurements established usability for the admitted workload.
 
 ## Commands and evidence
 
@@ -222,12 +227,12 @@ evaluation/.venv-v3-study/Scripts/python.exe evaluation/setup-host.py
 evaluation/.venv-v3-study/Scripts/python.exe -m unittest discover -s evaluation/tests -p "test_pretrained_v3*.py"
 ```
 
-`evaluation/run-pretrained-v3-study.py` provides the following prospective phases.
-No command below is evidence that its physical phase has run.
+`evaluation/run-pretrained-v3-study.py` provides the phases below. Actual completed
+work is established by the pinned receipts and audits, not by command examples.
 
 - `init-cell --cell <directory> --tier <tier> --scope <scope> --seed 42 --steps 2`
-  admits only the three predeclared pilot coordinates. The already initialized
-  efficient HEADS pilot must be reused, not initialized again.
+  admitted only the three predeclared pilot coordinates. Their completed immutable
+  cells are retained; do not initialize or fit them again.
 - `bind-cell --cell <directory> --image-id sha256:<exact-ID>` freezes current
   server source bytes (including dirty helper dependencies), all installed host
   package versions, and the actual ordered schedule before startup. An existing
@@ -260,9 +265,9 @@ No command below is evidence that its physical phase has run.
   reconciliation before the matrix can continue.
 
 The actual post-fit scoring/analysis/export commands use the host interpreter
-and retain the original study directory. Analysis/export remain pending until
-all endpoint evidence is complete and accepted; these commands are reproduction
-instructions, not claims of completion:
+and retain the original study directory. All three phases completed under the
+explicit amendment. These reproduction commands do not authorize overwriting
+retained immutable evidence or repeating fits:
 
 ```powershell
 evaluation/.venv-v3-study/Scripts/python.exe evaluation/run-pretrained-v3-study.py score-plan --plan models/experiments/pretrained_v3_20261012/study --audit-amendment models/experiments/pretrained_v3_20261012/study/amendments/postfit-scoring-audit-01.json
@@ -301,6 +306,313 @@ server processes/resources and cleanup owners must be recorded at handoff.
 No protected final data are authorized. Historical Tiny metrics and reused
 development endpoints require separate labels; three seeds do not establish
 statistical confirmation or independent generalization.
+
+## Accepted development results and interpretation
+
+All 21 snapshots completed: 19,614 requested cases, 19,467 eligible cases and
+zero errors. Each snapshot requested 320 + 64 + 502 + 48 cases; the hazard
+fixture excludes seven ambiguous cases, leaving 41 eligible. Actual semantic
+execution and checkpoint/backbone/tokenizer identity were checked on every
+response, including clean responses. Scoring attempt 03 completed with exit zero.
+The final independent review checked all 58,948 current evidence files against
+audited bytes/provenance and all 19,614 raw records, including ambiguous cases.
+
+Every ORIGINAL has intact pretrained encoder/pooler weights and zero task heads.
+Its observed output is S0, P0, all ten categories and WARN. Thus binary detection
+is positive on every binary502 row despite S0: 264/264 annotated positives and
+0/238 annotation-negative specificity. All three ORIGINALs score zero contextual
+joint correctness. Improvement against this untrained task-head baseline is
+weak evidence of useful privacy classification and does not isolate pretraining.
+
+### Raw terminal primary counts
+
+Joint requires complete packed sensitivity/visibility/category correctness and
+allowed production action correctness. Counts below are raw terminal candidates,
+including guard rejection. Each seed sees the same reused cases; seed repetitions
+do not create independent prompts. ORIGINAL rows are one control per tier.
+
+| Snapshot | context320 joint | context64 joint | Guard publication | Effective snapshot |
+| --- | --- | --- | --- | --- |
+| efficient-heads-42 | 9/320 | 6/64 | rejected | original-efficient |
+| efficient-heads-43 | 13/320 | 5/64 | rejected | original-efficient |
+| efficient-heads-44 | 14/320 | 8/64 | rejected | original-efficient |
+| efficient-full_encoder-42 | 42/320 | 8/64 | applied | efficient-full_encoder-42 |
+| efficient-full_encoder-43 | 44/320 | 5/64 | applied | efficient-full_encoder-43 |
+| efficient-full_encoder-44 | 39/320 | 9/64 | applied | efficient-full_encoder-44 |
+| original-efficient | 0/320 | 0/64 | control | original-efficient |
+| balanced-heads-42 | 34/320 | 9/64 | rejected | original-balanced |
+| balanced-heads-43 | 32/320 | 8/64 | rejected | original-balanced |
+| balanced-heads-44 | 32/320 | 8/64 | rejected | original-balanced |
+| balanced-full_encoder-42 | 51/320 | 8/64 | applied | balanced-full_encoder-42 |
+| balanced-full_encoder-43 | 48/320 | 11/64 | applied | balanced-full_encoder-43 |
+| balanced-full_encoder-44 | 47/320 | 12/64 | rejected | original-balanced |
+| original-balanced | 0/320 | 0/64 | control | original-balanced |
+| quality-heads-42 | 34/320 | 7/64 | applied | quality-heads-42 |
+| quality-heads-43 | 27/320 | 5/64 | applied | quality-heads-43 |
+| quality-heads-44 | 28/320 | 6/64 | applied | quality-heads-44 |
+| quality-full_encoder-42 | 66/320 | 7/64 | rejected | original-quality |
+| quality-full_encoder-43 | 59/320 | 10/64 | applied | quality-full_encoder-43 |
+| quality-full_encoder-44 | 65/320 | 7/64 | applied | quality-full_encoder-44 |
+| original-quality | 0/320 | 0/64 | control | original-quality |
+
+The largest raw context320 joint count is 66/320 (20.625%); the largest
+context64 count is 12/64 (18.75%). These different fixtures remain separate.
+
+### Primary component counts
+
+Every cell below is correct/eligible. Action agreement alone is not joint
+classification correctness or an absence of casewise harms.
+
+| Snapshot | Fixture | Sensitivity | Visibility | Category set | Action | Sensitive recall | Clean specificity |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| balanced-full_encoder-42 | context320 | 161/320 | 142/320 | 160/320 | 177/320 | 10/160 | 159/160 |
+| balanced-full_encoder-42 | context64 | 57/64 | 21/64 | 33/64 | 55/64 | 31/32 | 30/32 |
+| balanced-full_encoder-43 | context320 | 159/320 | 139/320 | 160/320 | 176/320 | 10/160 | 158/160 |
+| balanced-full_encoder-43 | context64 | 57/64 | 19/64 | 35/64 | 55/64 | 31/32 | 29/32 |
+| balanced-full_encoder-44 | context320 | 161/320 | 133/320 | 160/320 | 177/320 | 10/160 | 159/160 |
+| balanced-full_encoder-44 | context64 | 56/64 | 22/64 | 34/64 | 53/64 | 30/32 | 30/32 |
+| balanced-heads-42 | context320 | 141/320 | 89/320 | 160/320 | 167/320 | 50/160 | 141/160 |
+| balanced-heads-42 | context64 | 52/64 | 13/64 | 31/64 | 47/64 | 29/32 | 27/32 |
+| balanced-heads-43 | context320 | 142/320 | 95/320 | 160/320 | 167/320 | 57/160 | 138/160 |
+| balanced-heads-43 | context64 | 51/64 | 16/64 | 32/64 | 48/64 | 31/32 | 27/32 |
+| balanced-heads-44 | context320 | 145/320 | 88/320 | 160/320 | 159/320 | 38/160 | 142/160 |
+| balanced-heads-44 | context64 | 50/64 | 14/64 | 32/64 | 43/64 | 29/32 | 26/32 |
+| efficient-full_encoder-42 | context320 | 161/320 | 135/320 | 161/320 | 180/320 | 75/160 | 144/160 |
+| efficient-full_encoder-42 | context64 | 54/64 | 16/64 | 34/64 | 52/64 | 31/32 | 26/32 |
+| efficient-full_encoder-43 | context320 | 150/320 | 142/320 | 161/320 | 167/320 | 83/160 | 132/160 |
+| efficient-full_encoder-43 | context64 | 54/64 | 15/64 | 33/64 | 54/64 | 31/32 | 26/32 |
+| efficient-full_encoder-44 | context320 | 156/320 | 122/320 | 160/320 | 173/320 | 62/160 | 144/160 |
+| efficient-full_encoder-44 | context64 | 55/64 | 16/64 | 35/64 | 55/64 | 30/32 | 29/32 |
+| efficient-heads-42 | context320 | 106/320 | 74/320 | 159/320 | 169/320 | 122/160 | 80/160 |
+| efficient-heads-42 | context64 | 47/64 | 13/64 | 32/64 | 50/64 | 32/32 | 21/32 |
+| efficient-heads-43 | context320 | 103/320 | 84/320 | 159/320 | 162/320 | 124/160 | 74/160 |
+| efficient-heads-43 | context64 | 47/64 | 12/64 | 32/64 | 51/64 | 32/32 | 21/32 |
+| efficient-heads-44 | context320 | 116/320 | 84/320 | 159/320 | 169/320 | 124/160 | 81/160 |
+| efficient-heads-44 | context64 | 50/64 | 16/64 | 32/64 | 52/64 | 32/32 | 23/32 |
+| original-balanced | context320 | 160/320 | 41/320 | 0/320 | 119/320 | 160/160 | 0/160 |
+| original-balanced | context64 | 32/64 | 13/64 | 0/64 | 7/64 | 32/32 | 0/32 |
+| original-efficient | context320 | 160/320 | 41/320 | 0/320 | 119/320 | 160/160 | 0/160 |
+| original-efficient | context64 | 32/64 | 13/64 | 0/64 | 7/64 | 32/32 | 0/32 |
+| original-quality | context320 | 160/320 | 41/320 | 0/320 | 119/320 | 160/160 | 0/160 |
+| original-quality | context64 | 32/64 | 13/64 | 0/64 | 7/64 | 32/32 | 0/32 |
+| quality-full_encoder-42 | context320 | 162/320 | 154/320 | 160/320 | 178/320 | 10/160 | 160/160 |
+| quality-full_encoder-42 | context64 | 56/64 | 23/64 | 34/64 | 56/64 | 26/32 | 30/32 |
+| quality-full_encoder-43 | context320 | 156/320 | 145/320 | 160/320 | 172/320 | 18/160 | 155/160 |
+| quality-full_encoder-43 | context64 | 52/64 | 23/64 | 35/64 | 52/64 | 25/32 | 30/32 |
+| quality-full_encoder-44 | context320 | 158/320 | 151/320 | 160/320 | 175/320 | 21/160 | 157/160 |
+| quality-full_encoder-44 | context64 | 57/64 | 24/64 | 36/64 | 57/64 | 29/32 | 30/32 |
+| quality-heads-42 | context320 | 144/320 | 66/320 | 160/320 | 172/320 | 70/160 | 130/160 |
+| quality-heads-42 | context64 | 54/64 | 20/64 | 35/64 | 48/64 | 31/32 | 27/32 |
+| quality-heads-43 | context320 | 168/320 | 66/320 | 160/320 | 190/320 | 100/160 | 125/160 |
+| quality-heads-43 | context64 | 53/64 | 24/64 | 34/64 | 49/64 | 32/32 | 25/32 |
+| quality-heads-44 | context320 | 158/320 | 69/320 | 159/320 | 175/320 | 56/160 | 135/160 |
+| quality-heads-44 | context64 | 51/64 | 26/64 | 34/64 | 48/64 | 31/32 | 24/32 |
+
+### Paired changes and action harms
+
+All differences compare matched eligible cases. Each net is improved minus
+regressed correctness; zero net can conceal changes in both directions. Under
+and over counts mark casewise increases in distance to the allowed-action set
+relative to the reference. They are separate directional counts, not a unique
+harmful-case union. No confidence intervals or significance claims are inferred.
+
+#### FULL minus matched HEADS by seed
+
+| Candidate | Joint320 net; improved/regressed | Joint64 net; improved/regressed | 320 under/over | 64 under/over | Hazard under/over | Binary502 net | Hazard action net; improved/regressed |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| balanced-full_encoder-42 | +17; 30/13 | -1; 5/6 | 29/2 | 3/0 | 3/1 | -41 | +2; 6/4 |
+| balanced-full_encoder-43 | +16; 27/11 | +3; 8/5 | 31/1 | 2/1 | 2/2 | +8 | 0; 4/4 |
+| balanced-full_encoder-44 | +15; 30/15 | +4; 9/5 | 15/6 | 3/1 | 2/1 | -14 | +1; 4/3 |
+| efficient-full_encoder-42 | +33; 38/5 | +2; 7/5 | 34/27 | 6/4 | 2/1 | -28 | +4; 6/2 |
+| efficient-full_encoder-43 | +31; 36/5 | 0; 5/5 | 23/43 | 3/5 | 4/1 | -33 | -1; 3/4 |
+| efficient-full_encoder-44 | +25; 34/9 | +1; 8/7 | 35/29 | 6/1 | 4/1 | -38 | -1; 2/3 |
+| quality-full_encoder-42 | +32; 43/11 | 0; 5/5 | 39/3 | 2/1 | 0/1 | +5 | +4; 5/1 |
+| quality-full_encoder-43 | +32; 42/10 | +5; 10/5 | 40/13 | 6/1 | 0/1 | +11 | +3; 4/1 |
+| quality-full_encoder-44 | +37; 49/12 | +1; 7/6 | 19/12 | 1/1 | 1/1 | +14 | +2; 3/1 |
+
+#### Raw candidate minus its ORIGINAL by seed
+
+| Candidate | Joint320 net; improved/regressed | Joint64 net; improved/regressed | 320 under/over | 64 under/over | Hazard under/over | Binary502 net | Hazard action net; improved/regressed |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| balanced-full_encoder-42 | +51; 51/0 | +8; 8/0 | 135/7 | 3/1 | 5/3 | +8 | +18; 23/5 |
+| balanced-full_encoder-43 | +48; 48/0 | +11; 11/0 | 133/8 | 1/2 | 5/4 | +36 | +17; 22/5 |
+| balanced-full_encoder-44 | +47; 47/0 | +12; 12/0 | 134/6 | 3/2 | 5/3 | +27 | +18; 23/5 |
+| balanced-heads-42 | +34; 34/0 | +9; 9/0 | 107/33 | 5/2 | 5/2 | +49 | +16; 20/4 |
+| balanced-heads-43 | +32; 32/0 | +8; 8/0 | 104/35 | 4/2 | 5/2 | +28 | +17; 21/4 |
+| balanced-heads-44 | +32; 32/0 | +8; 8/0 | 122/19 | 8/1 | 4/2 | +41 | +17; 20/3 |
+| efficient-full_encoder-42 | +42; 42/0 | +8; 8/0 | 69/67 | 2/3 | 2/3 | -16 | +20; 22/2 |
+| efficient-full_encoder-43 | +44; 44/0 | +5; 5/0 | 61/84 | 1/4 | 5/5 | -17 | +16; 19/3 |
+| efficient-full_encoder-44 | +39; 39/0 | +9; 9/0 | 83/58 | 3/1 | 5/5 | -15 | +16; 19/3 |
+| efficient-heads-42 | +9; 9/0 | +6; 6/0 | 42/61 | 2/5 | 1/4 | +12 | +16; 16/0 |
+| efficient-heads-43 | +13; 13/0 | +5; 5/0 | 45/56 | 2/3 | 1/4 | +16 | +17; 17/0 |
+| efficient-heads-44 | +14; 14/0 | +8; 8/0 | 54/48 | 3/2 | 1/4 | +23 | +17; 17/0 |
+| quality-full_encoder-42 | +66; 66/0 | +7; 7/0 | 133/8 | 6/2 | 2/2 | +8 | +22; 23/1 |
+| quality-full_encoder-43 | +59; 59/0 | +10; 10/0 | 126/20 | 7/2 | 2/1 | +31 | +22; 22/0 |
+| quality-full_encoder-44 | +65; 65/0 | +7; 7/0 | 122/19 | 4/2 | 1/1 | +25 | +22; 22/0 |
+| quality-heads-42 | +34; 34/0 | +7; 7/0 | 97/29 | 5/3 | 3/4 | +3 | +18; 19/1 |
+| quality-heads-43 | +27; 27/0 | +5; 5/0 | 93/17 | 3/4 | 3/3 | +20 | +19; 20/1 |
+| quality-heads-44 | +28; 28/0 | +6; 6/0 | 113/14 | 4/4 | 2/3 | +11 | +20; 21/1 |
+
+#### Across-seed descriptive contrasts
+
+Denominators are 960 for context320, 192 for context64, 1,506 for binary502
+and 123 for hazard action. These are three repeated sets of the same cases,
+not independent samples of those sizes. Full component-level improvement and
+regression counts remain in the accepted `study/analysis.json`.
+
+| Contrast | Tier/arm | Joint320 net | Joint64 net | Binary502 net | Hazard action net | 320 under/over | 64 under/over | Hazard under/over |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| FULL-HEADS | balanced-full_encoder | +48 | +6 | -47 | +3 | 75/9 | 8/2 | 7/4 |
+| FULL-HEADS | efficient-full_encoder | +89 | +3 | -99 | +2 | 92/99 | 15/10 | 10/3 |
+| FULL-HEADS | quality-full_encoder | +101 | +6 | +30 | +9 | 98/28 | 9/3 | 1/3 |
+| Candidate-ORIGINAL | balanced-full_encoder | +146 | +31 | +71 | +53 | 402/21 | 7/5 | 15/10 |
+| Candidate-ORIGINAL | balanced-heads | +98 | +25 | +118 | +50 | 333/87 | 17/5 | 14/6 |
+| Candidate-ORIGINAL | efficient-full_encoder | +125 | +22 | -48 | +52 | 213/209 | 6/8 | 12/13 |
+| Candidate-ORIGINAL | efficient-heads | +36 | +19 | +51 | +50 | 141/165 | 7/10 | 3/12 |
+| Candidate-ORIGINAL | quality-full_encoder | +190 | +24 | +64 | +66 | 381/47 | 17/6 | 5/4 |
+| Candidate-ORIGINAL | quality-heads | +89 | +18 | +34 | +57 | 303/60 | 12/11 | 8/10 |
+
+FULL exceeds matched HEADS context320 joint counts in all nine seeds, but
+regresses individual joint cases in every comparison. Context64 net changes
+include one negative and two ties. Binary502 FULL-minus-HEADS totals are -99,
+-47 and +30 correct occurrences for efficient, balanced and quality respectively;
+hazard action totals are +2, +3 and +9. These dependent contrasts and action harms
+support a tradeoff description, not uniform benefit or monotonic capacity gains.
+
+### Separate secondary counts
+
+Binary502 has 264 annotated positives and 238 negatives. Hazard action uses
+allowed action sets on 41 eligible cases out of 48 requested. Binary annotations
+do not establish contextual sensitivity/visibility/action truth; hazard targets
+are assistant-provisional. No primary and secondary denominators are pooled.
+
+| Snapshot | Binary correct | Annotated-positive recall | Annotation-negative specificity | Hazard action |
+| --- | --- | --- | --- | --- |
+| balanced-full_encoder-42 | 272/502 | 91/264 | 181/238 | 33/41 |
+| balanced-full_encoder-43 | 300/502 | 159/264 | 141/238 | 32/41 |
+| balanced-full_encoder-44 | 291/502 | 126/264 | 165/238 | 33/41 |
+| balanced-heads-42 | 313/502 | 194/264 | 119/238 | 31/41 |
+| balanced-heads-43 | 292/502 | 219/264 | 73/238 | 32/41 |
+| balanced-heads-44 | 305/502 | 223/264 | 82/238 | 32/41 |
+| efficient-full_encoder-42 | 248/502 | 113/264 | 135/238 | 35/41 |
+| efficient-full_encoder-43 | 247/502 | 138/264 | 109/238 | 31/41 |
+| efficient-full_encoder-44 | 249/502 | 120/264 | 129/238 | 31/41 |
+| efficient-heads-42 | 276/502 | 208/264 | 68/238 | 31/41 |
+| efficient-heads-43 | 280/502 | 229/264 | 51/238 | 32/41 |
+| efficient-heads-44 | 287/502 | 227/264 | 60/238 | 32/41 |
+| original-balanced | 264/502 | 264/264 | 0/238 | 15/41 |
+| original-efficient | 264/502 | 264/264 | 0/238 | 15/41 |
+| original-quality | 264/502 | 264/264 | 0/238 | 15/41 |
+| quality-full_encoder-42 | 272/502 | 113/264 | 159/238 | 37/41 |
+| quality-full_encoder-43 | 295/502 | 157/264 | 138/238 | 37/41 |
+| quality-full_encoder-44 | 289/502 | 150/264 | 139/238 | 37/41 |
+| quality-heads-42 | 267/502 | 176/264 | 91/238 | 33/41 |
+| quality-heads-43 | 284/502 | 203/264 | 81/238 | 34/41 |
+| quality-heads-44 | 275/502 | 187/264 | 88/238 | 35/41 |
+
+### Effective guarded outcomes and resource costs
+
+Ten applied cells use their raw candidate predictions; eight rejected cells use
+the unchanged ORIGINAL predictions. Reporting only applied cells would omit
+predeclared scientific endpoints. The first table gives the exact mapping.
+
+| Cell | Effective source | Joint320 | Joint64 | Binary correct | Hazard action |
+| --- | --- | --- | --- | --- | --- |
+| balanced-full_encoder-42 | balanced-full_encoder-42 | 51/320 | 8/64 | 272/502 | 33/41 |
+| balanced-full_encoder-43 | balanced-full_encoder-43 | 48/320 | 11/64 | 300/502 | 32/41 |
+| balanced-full_encoder-44 | original-balanced | 0/320 | 0/64 | 264/502 | 15/41 |
+| balanced-heads-42 | original-balanced | 0/320 | 0/64 | 264/502 | 15/41 |
+| balanced-heads-43 | original-balanced | 0/320 | 0/64 | 264/502 | 15/41 |
+| balanced-heads-44 | original-balanced | 0/320 | 0/64 | 264/502 | 15/41 |
+| efficient-full_encoder-42 | efficient-full_encoder-42 | 42/320 | 8/64 | 248/502 | 35/41 |
+| efficient-full_encoder-43 | efficient-full_encoder-43 | 44/320 | 5/64 | 247/502 | 31/41 |
+| efficient-full_encoder-44 | efficient-full_encoder-44 | 39/320 | 9/64 | 249/502 | 31/41 |
+| efficient-heads-42 | original-efficient | 0/320 | 0/64 | 264/502 | 15/41 |
+| efficient-heads-43 | original-efficient | 0/320 | 0/64 | 264/502 | 15/41 |
+| efficient-heads-44 | original-efficient | 0/320 | 0/64 | 264/502 | 15/41 |
+| quality-full_encoder-42 | original-quality | 0/320 | 0/64 | 264/502 | 15/41 |
+| quality-full_encoder-43 | quality-full_encoder-43 | 59/320 | 10/64 | 295/502 | 37/41 |
+| quality-full_encoder-44 | quality-full_encoder-44 | 65/320 | 7/64 | 289/502 | 37/41 |
+| quality-heads-42 | quality-heads-42 | 34/320 | 7/64 | 267/502 | 33/41 |
+| quality-heads-43 | quality-heads-43 | 27/320 | 5/64 | 284/502 | 34/41 |
+| quality-heads-44 | quality-heads-44 | 28/320 | 6/64 | 275/502 | 35/41 |
+
+Physical fit costs exclude scoring, startup, export and total elapsed study
+time. CUDA peak is reported allocated tensor memory, not total process/driver
+VRAM. Every cell completed 256 steps and 16,384 repeated TRAIN exposures.
+
+| Cell | Fit seconds | Reported CUDA peak bytes |
+| --- | --- | --- |
+| balanced-full_encoder-42 | 35.558738 | 293053952 |
+| balanced-full_encoder-43 | 40.500049 | 293053952 |
+| balanced-full_encoder-44 | 35.215249 | 293053952 |
+| balanced-heads-42 | 21.967830 | 161722880 |
+| balanced-heads-43 | 21.485838 | 161722880 |
+| balanced-heads-44 | 22.718616 | 161722880 |
+| efficient-full_encoder-42 | 52.674191 | 180103680 |
+| efficient-full_encoder-43 | 54.044822 | 180103680 |
+| efficient-full_encoder-44 | 60.430969 | 180103680 |
+| efficient-heads-42 | 34.365250 | 114695168 |
+| efficient-heads-43 | 28.469863 | 114695168 |
+| efficient-heads-44 | 28.578818 | 114695168 |
+| quality-full_encoder-42 | 139.082761 | 419415552 |
+| quality-full_encoder-43 | 142.130529 | 419415552 |
+| quality-full_encoder-44 | 129.696933 | 419415552 |
+| quality-heads-42 | 59.165093 | 193313280 |
+| quality-heads-43 | 56.817476 | 193313280 |
+| quality-heads-44 | 57.512545 | 193313280 |
+
+### Limits and study closure
+
+Targets are assistant-provisional, both primary fixtures and secondary guards
+are reused DEVELOPMENT data, and all seeds reuse case identities. Counts and
+paired contrasts are descriptive; they establish neither independent
+population generalization nor contextual privacy safety. Zero heads make the
+ORIGINAL a weak task baseline. Tier packages differ in depth/width/capacity;
+there is no matched random-encoder arm, so the experiment does not isolate a
+causal pretraining or capacity effect. Guard acceptance is a small TRAIN guard
+publication decision, not a development-safety certificate. Absolute joint
+accuracy remains low, and net improvements conceal regressions and harms.
+No protected-final data were scored and no artifact was promoted. This closes
+the final planned experimental study; no additional study is promised here.
+
+## Fixed exports, final evidence and cleanup
+
+All three predetermined FULL seed-42 research exports completed without best-seed
+selection. Each contains manifest, safetensors, training evidence, native config
+and vocabulary under `models/experiments/pretrained_v3_20261012/final-models/<tier>/`.
+Independent review verified all 15 copied file hashes. Quality FULL42 failed its
+guard and is retained as a rejected raw candidate; its effective served snapshot
+remained ORIGINAL. Efficient and balanced FULL42 were applied. These local
+research exports do not change the default release channel or establish browser
+integration, deployment readiness or promotion.
+
+| Tier | Candidate manifest SHA-256 | Guard/publication |
+| --- | --- | --- |
+| efficient | `3e60f251144c975dbf947d06bc25e0e35ae56006fae3c8d08af1f6add444bc0b` | applied |
+| balanced | `bb1627fa5cdde65dc4d313e0525f1ee4d2f59c697fe0d1a9bdbd56e57f91de1f` | applied |
+| quality | `812f24d35c99f2f6b77e692d3dfd2cb7f95bc3cbab8ad8df401bfca6dace1a1d` | rejected |
+
+Final evidence identities (all under the stable October 12 study ID):
+
+| Record | SHA-256 |
+| --- | --- |
+| `models/experiments/pretrained_v3_20261012/study/analysis.json` | `ad7726cd21cb377c793f91c40394a5cffe5ff05e47634632797f8a1bb1c3ee2b` |
+| `models/experiments/pretrained_v3_20261012/study/postfit-analysis-provenance.json` | `ca48c245b9018e95f09ef7051438e3a20be0c7eb2d542698fbcfe7d82d2fb939` |
+| `evaluation/results/pretrained_v3_20261012/scoring/independent-audit/final-analysis-review.json` | `882571402b20f70e354b72eba7e4f94abddc3f0e97df634f762d108c30a93034` |
+| `models/experiments/pretrained_v3_20261012/study/exports.json` | `b56518a13bd40301fd99a1bad0924c22e6468e3f2066d9411528118f021f2932` |
+| `evaluation/results/pretrained_v3_20261012/finalization/independent-export-review.json` | `bf787ee1e9bcea0d3164f31e4b0a62b34b3264315d307c71f1f43e1313b4ceae` |
+| `evaluation/results/pretrained_v3_20261012/finalization/export-cleanup-review.json` | `7c4d3355308bac4055614f4ce3a39f2138efb967063e42eb69e70829054057c7` |
+
+Cleanup receipt time is `2026-10-12T13:33:16.0977655Z` (13 October in Sydney,
+UTC+11). Project-scoped `docker compose ... down` exited zero without volume/image
+removal or global pruning: zero `privoke-v3-study` containers/networks remained,
+ports 50171-50173 were released, and no live study command remained. The exact
+image `sha256:4a5624eda0c0cd7dfb3da2366e3d18e720eda4a82797bf4e92320fa0987e9bd1`
+is retained for reproduction/serving; root owns cleanup when the user no longer
+needs it. Host environment, source captures, upstream assets, ORIGINALs, all 18
+cells, all 21 endpoint sets and failed attempts remain retained. No task worktree
+was created; the shared primary checkout and unrelated dirty work were preserved.
 
 ## Verified primary source keys
 
