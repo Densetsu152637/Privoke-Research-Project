@@ -168,7 +168,8 @@ class StudyContractTests(unittest.TestCase):
         inputs = {n: {"path": "synthetic/" + n} for n in ("taxonomy", "benign_pool", "benign_manifest", "benign_proof")}
         compose = study.compose_cell(cell, Path("synthetic/cell"), images, {}, inputs)
         self.assertEqual(len(compose["services"]), 4)
-        self.assertTrue(compose["networks"]["default"]["internal"])
+        self.assertFalse(compose["networks"]["default"]["internal"])
+        self.assertEqual(compose["networks"]["default"]["driver"], "bridge")
         serialized = study.canonical(compose).decode()
         self.assertNotIn("bootstrap", serialized)
         self.assertNotIn("context64", serialized)

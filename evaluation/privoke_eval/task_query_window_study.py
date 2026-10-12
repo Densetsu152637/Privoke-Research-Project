@@ -432,8 +432,11 @@ def compose_cell(cell, directory, images, releases, input_map):
     services[names["runtime"]]["depends_on"] = {names["model"]: {"condition": "service_healthy"}}
     services[names["fuzzer"]]["depends_on"] = {names["runtime"]: {"condition": "service_healthy"},
                                                 names["updater"]: {"condition": "service_healthy"}}
+    # Docker Desktop does not publish loopback ports from an internal network.
+    # The named bridge keeps service DNS while published ports remain loopback-only.
     return {"name": cell["project"], "services": services,
-            "networks": {"default": {"internal": True, "name": cell["project"] + "-network"}}}
+            "networks": {"default": {"driver": "bridge", "internal": False,
+                                     "name": cell["project"] + "-network"}}}
 
 
 def network_snapshot(target, output):
