@@ -15,8 +15,10 @@ the accepted scope rather than claiming to reproduce that prompt verbatim.
 Completed: three byte-exact pretrained ORIGINALs with zero heads, independent
 official provenance, and host Python 3.11/Torch CPU environment. At recovery,
 only an efficient HEADS pilot binding exists; no physical fitting has occurred.
-Partial source changes are being integrated and have not yet passed root review.
-Previous synthetic mechanics establish no model-quality outcome.
+Source admission repairs are committed in `c022f13` and accepted by the parent.
+The controller/scorer integration has passed 25 focused host mechanics tests;
+independent review and physical GPU readiness remain pending. Previous synthetic
+mechanics establish no model-quality outcome.
 
 1. Finish shared stage/commit admission, ordered source sidecars, host controller
    and scorer; run synthetic host mechanics and import checks; root review.
@@ -129,10 +131,10 @@ trains all encoder/pooler/head parameters, including word embeddings. The first
 zero-head step may have zero encoder gradient; later nonzero embedding, first
 block, last block, pooler and head changes must be observed.
 
-The two-step pilot uses64 TRAIN rows and16 guard rows. A subsequent18-cell study
-would compare3 tiers × HEADS/FULL × seeds42/43/44. Its prospective common window
-has512 rows (8×64) and one fixed16-row guard. Main work budgets64/256/512 steps
-correspond to4096/16384/32768 repeated exposures. The final work budget requires
+The two-step pilot uses 64 TRAIN rows and 16 guard rows. The planned 18-cell study
+compares 3 tiers x HEADS/FULL x seeds 42/43/44. Its prospective common window
+has 512 rows (8 x 64) and one fixed 16-row guard. Main work budgets 64/256/512 steps
+correspond to 4096/16384/32768 repeated exposures. The final work budget requires
 resource-only acceptance after efficient HEADS/FULL and representative quality
 FULL pilots. There is no development-driven checkpoint selection or tuning.
 
@@ -157,14 +159,66 @@ Generate host bindings and run scoped host mechanics:
 
 ```powershell
 evaluation/.venv-v3-study/Scripts/python.exe evaluation/setup-host.py
-evaluation/.venv-v3-study/Scripts/python.exe -m unittest discover -s evaluation/tests -p test_pretrained_v3.py
+evaluation/.venv-v3-study/Scripts/python.exe -m unittest discover -s evaluation/tests -p "test_pretrained_v3*.py"
 ```
 
-The host controller provides `init-cell`, `start`, `health`, `cycle`, and `stop`.
-It starts/admit-checks servers sequentially through loopback, dispatches one
-fuzzer cycle, retains terminal checkpoint/evidence/receipt, then performs one
-serialized-candidate semantic request on a TRAIN row. It does not automatically
-run the full matrix or score endpoint datasets.
+`evaluation/run-pretrained-v3-study.py` provides the following prospective phases.
+No command below is evidence that its physical phase has run.
+
+- `init-cell --cell <directory> --tier <tier> --scope <scope> --seed 42 --steps 2`
+  admits only the three predeclared pilot coordinates. The already initialized
+  efficient HEADS pilot must be reused, not initialized again.
+- `bind-cell --cell <directory> --image-id sha256:<exact-ID>` freezes current
+  server source bytes (including dirty helper dependencies), all installed host
+  package versions, and the actual ordered schedule before startup. An existing
+  binding is immutable and may only be reused byte-for-byte.
+- `start`, `health`, `cycle`, and `stop` use the cell directory. Startup checks
+  the server byte closure against the host, inspects each running container's
+  exact image ID, and records readiness and the full container configuration.
+  `cycle` rechecks live source, policy and image before durably reserving the
+  single fit. The physical optimizer runs only inside the runtime server.
+- `reconcile --cell <directory>` queries publication/fit status, fetches terminal
+  artifacts and checks one TRAIN inference. It never calls a fitting or commit
+  RPC. A reserved fit with unknown publication stops the study without refitting.
+- `freeze-plan --plan <fresh-directory> --pilot-cells <three-directories>
+  --image-id sha256:<exact-ID> --max-total-seconds <resource-budget>
+  --vram-capacity-bytes <observed-capacity>` validates the three pilot work
+  records, then chooses the largest of 64/256/512 steps fitting the supplied
+  resource limit. The estimate uses measured per-step time, the slowest pilot
+  for unmeasured arms, a 50% allowance, and peak allocation below 90% of capacity.
+  Guard/endpoint quality does not participate. This writes all 18 cell bindings,
+  shared per-seed schedules, source byte snapshots and the immutable protocol.
+  The parent fixed `--max-total-seconds 14400` prospectively before endpoint
+  results; each projected cell must also remain below 7200 seconds. No fitting
+  budget is admitted if those limits or the 90% measured-VRAM gate fail.
+- `validate-plan`, `run-plan`, `score-plan`, `analyze-plan`, and `export` take
+  `--plan <directory>`. Matrix execution stops on an unknown cell. Completed
+  cells are audited and skipped; a reserved incomplete cell requires explicit
+  reconciliation before the matrix can continue.
+
+`score-plan` first requires all 18 audited terminal cells. It scores all raw
+terminal candidates plus three ORIGINAL controls using explicit `layers=[4]`,
+with exact model/manifest/blob/backbone/tokenizer identity and actual execution
+checks on every response. Immutable request, response or transport error, and
+case records remain under `endpoints/<model>/<fixture>/rows/`. All requested
+eligible cases remain in denominators; error BLOCK responses earn no correctness.
+Allowed actions are sets. Primary context320/context64 and secondary binary/hazard
+results remain separate. Analysis recomputes row counts from retained response
+bytes, reports paired FULL-minus-HEADS and candidate-minus-ORIGINAL by seed and
+across all three seeds, and derives effective publication outcomes separately.
+
+`export` writes the predetermined FULL seed 42 candidate for each tier to the
+ignored `models/experiments/pretrained_v3_20261012/final-models/<tier>/`, with
+manifest, vocabulary, configuration, training evidence and explicit guard and
+publication status. This is a retained research artifact, without release
+promotion. All other cells and failed attempts remain retained.
+
+Compose uses the dedicated project `privoke-v3-study`. The controller stops its
+three services after each main/scoring cell and preserves their state directories.
+The parent owns final container/network cleanup and any retained image; no
+volumes or unrelated containers are removed. On interruption, inspect existing
+cell reservations, status databases and artifacts before restarting a server;
+missing agent handles alone do not establish that processes stopped.
 
 Evidence lives under `models/experiments/pretrained_v3_20261012/{initials,pilot,cells}`
 and `evaluation/results/pretrained_v3_20261012/`. Keep ORIGINALs, effective

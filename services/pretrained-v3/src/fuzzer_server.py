@@ -42,6 +42,9 @@ class FuzzerServer(rpc.V3FuzzerServiceServicer):
             if base != self.checkpoint.ResolveCurrent(pb.Model(model_id=request.model_id), timeout=15).sha256:
                 raise ValueError("Cycle expected base differs from private current catalog.")
             training, guard, source = schedule(request.seed, self.policy)
+            if (request.metadata.get("policy_sha256") != digest(canonical(self.policy))
+                    or request.metadata.get("source_commitment") != digest(canonical(source))):
+                raise ValueError("Host frozen policy/source differs from actual dispatched schedule.")
             (work / "source.json").write_bytes(canonical(source))
             fit_request = pb.FitRequest(request_id=request.request_id, model_id=request.model_id, base=base, scope=scope,
                 layers=[4], train=training, guard=guard, policy_json=canonical(self.policy), source_commitment=digest(canonical(source)), source_json=canonical(source))

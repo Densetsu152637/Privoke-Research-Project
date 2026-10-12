@@ -1,19 +1,38 @@
-"""Host controller. Full-study dispatch requires the separate root milestone."""
+"""Host controller. Physical phases run only after the root milestone review."""
 from pathlib import Path
 import argparse
 import json
-from privoke_eval.pretrained_v3_study import init_cell, start, cycle, health, compose
+from privoke_eval.pretrained_v3_study import init_cell, bind_cell, start, cycle, reconcile, health, compose
+from privoke_eval.pretrained_v3_plan import freeze_plan, validate_plan, run_plan, score_plan, analyze_plan, export_fixed_models
 parser = argparse.ArgumentParser()
-parser.add_argument("phase", choices=("init-cell", "start", "cycle", "health", "stop"))
-parser.add_argument("--cell", type=Path, required=True)
+parser.add_argument("phase", choices=("init-cell", "bind-cell", "start", "cycle", "reconcile", "health", "stop", "freeze-plan", "validate-plan", "run-plan", "score-plan", "analyze-plan", "export"))
+parser.add_argument("--cell", type=Path)
+parser.add_argument("--plan", type=Path)
+parser.add_argument("--image-id")
+parser.add_argument("--pilot-cells", nargs=3, type=Path)
+parser.add_argument("--max-total-seconds", type=float)
+parser.add_argument("--vram-capacity-bytes", type=int)
 parser.add_argument("--tier", choices=("efficient", "balanced", "quality"), default="efficient")
 parser.add_argument("--scope", choices=("heads", "full_encoder"), default="heads")
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--steps", type=int, choices=(2, 64, 256, 512), default=2)
-args = parser.parse_args(); cell = args.cell.resolve()
-if args.phase == "init-cell": value = init_cell(cell, args.tier, args.scope, args.seed, steps=args.steps)
+args = parser.parse_args(); cell = args.cell.resolve() if args.cell else None
+if args.phase in ("freeze-plan", "validate-plan", "run-plan", "score-plan", "analyze-plan", "export"):
+    if args.plan is None: parser.error("--plan is required for plan phases")
+    if args.phase == "freeze-plan":
+        if not args.pilot_cells or not args.image_id or args.max_total_seconds is None or args.vram_capacity_bytes is None:
+            parser.error("freeze-plan requires --pilot-cells, --image-id, --max-total-seconds and --vram-capacity-bytes")
+        value = freeze_plan(args.plan, args.pilot_cells, args.image_id, max_total_seconds=args.max_total_seconds, vram_capacity_bytes=args.vram_capacity_bytes)
+    else:
+        value = {"validate-plan": validate_plan, "run-plan": run_plan, "score-plan": score_plan, "analyze-plan": analyze_plan, "export": export_fixed_models}[args.phase](args.plan)
+elif cell is None: parser.error("--cell is required for cell phases")
+elif args.phase == "init-cell": value = init_cell(cell, args.tier, args.scope, args.seed, steps=args.steps)
+elif args.phase == "bind-cell":
+    if not args.image_id: parser.error("bind-cell requires --image-id")
+    value = bind_cell(cell, args.image_id)
 elif args.phase == "start": value = start(cell)
 elif args.phase == "cycle": value = cycle(cell)
+elif args.phase == "reconcile": value = reconcile(cell)
 elif args.phase == "health": value = {role: health(role) for role in ("checkpoint", "runtime", "fuzzer")}
 else:
     result = compose(cell, "stop", "fuzzer", "runtime", "checkpoint")
