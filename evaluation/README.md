@@ -118,7 +118,12 @@ client call. Server-to-server RPC still uses the private Compose DNS names.
 
 The frozen TW01 `host-v2` evidence has 400 authenticated semantic-only TRAIN
 teacher responses, three native windows, schema-2 component releases and an
-accepted 12-cell pin map. No physical fit or endpoint score has run. Its first
+accepted 12-cell pin map. The user approved all twelve physical fits and
+development scoring. All fits reached known terminal outcomes, but scoring
+stopped early after a frozen seed-42 safety regression. See the
+[partial TW01 study record](../docs/task-query-window-20261012.md) and the
+run's `early-termination.json`; do not treat it as a complete fourteen-candidate
+result. Its first
 fit canary was rejected by automatic approval review before process creation;
 `evaluation/results/task_query_window_20261012/host-v2/fit-approval-rejection.json`
 records the exact held phase and confirms no reservation or server startup.
