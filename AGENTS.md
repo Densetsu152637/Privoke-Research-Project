@@ -21,8 +21,11 @@ driver container to execute Python test cases. Use `evaluation/setup-host.py` to
 generate host protobuf clients with the maintained host environment, then invoke
 the relevant host test script. The TW01 synthetic mechanics command is
 `evaluation/.venv/Scripts/python.exe -m unittest discover -s evaluation/tests -p test_task_query_window_study.py`.
-The broader NumPy/Torch suites require a supported Python 3.11/3.12 environment;
-report them unavailable when only Python 3.13 is installed.
+TW01 component-reference preparation and post-fit evidence audit also require
+NumPy on the host. This checkout has `evaluation/.venv-fuzzer-study` with Python
+3.11 and NumPy for those phases; use the same compatible host environment for
+the TW01 fit controller. The broader NumPy/Torch suites require their own
+supported Python 3.11/3.12 dependencies; report them unavailable if missing.
 
 Retain reusable temporary model weights and their provenance metadata under
 `models/experiments/<run>/`. Keep per-cell initial catalogs, effective artifacts,

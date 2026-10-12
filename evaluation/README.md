@@ -41,10 +41,22 @@ On Linux/macOS use `python3.11 -m venv evaluation/.venv-broad` and
 all checks; regenerate clients after protobuf changes. The current local Python
 3.13 environment has grpcio 1.82.1
 and protobuf 7.36.2, while the maintained supervisor pin specifies protobuf
-7.35.1. Live descriptor compatibility is still unverified. Component Python suites can
-also run through `run-component-tests.py` on the host after installing that
-component's requirements. Existing Python, JavaScript and Go unit tests retain
-their original frameworks. Service image packaging is a separate validation task.
+7.35.1. The TW01 host-v2 run proved this 3.13 environment can exchange 400
+semantic-only `AnalyzePrompt` requests and responses with the current v1/v2
+teacher servers, with matching generated descriptor hashes and identity checks.
+That observation does not establish training-wire compatibility. Component
+Python suites can also run through `run-component-tests.py` on the host after
+installing that component's requirements. Existing Python, JavaScript and Go
+unit tests retain their original frameworks. Service image packaging is a
+separate validation task.
+
+TW01 component-reference preparation and post-fit evidence audit call NumPy on
+the host. In this checkout, `evaluation/.venv-fuzzer-study/Scripts/python.exe`
+provides Python 3.11.9, NumPy 1.26.4, grpcio 1.82.1 and protobuf 7.35.1; its
+generated runtime and parameters descriptors import and match the RPC-only host
+environment. Use that interpreter for `prepare-component-retention.py` and the
+TW01 `prepare-cells`/`execute` controller. Its Torch package is absent, so this
+does not make the broader Torch suites available.
 
 The protected research-file suites require a Linux host with their documented
 POSIX ownership/descriptor prerequisites; Windows supports the localhost RPC
@@ -90,7 +102,19 @@ and issue fit, audit, and scoring calls from host Python. Every LLM test request
 sets `layers=[4]` and verifies the returned sole semantic execution. Reusable
 weights and provenance pins belong under
 `models/experiments/task_query_window_20261012/`; disposable service logs remain
-in the run output.
+in the run output. The study Compose network uses a named bridge: Docker Desktop
+did not publish localhost ports from the earlier internal network. Verify the
+effective `127.0.0.1` port binding and host gRPC channel readiness before a live
+client call. Server-to-server RPC still uses the private Compose DNS names.
+
+The frozen TW01 `host-v2` evidence has 400 authenticated semantic-only TRAIN
+teacher responses, three native windows, schema-2 component releases and an
+accepted 12-cell pin map. No physical fit or endpoint score has run. Its first
+fit canary was rejected by automatic approval review before process creation;
+`evaluation/results/task_query_window_20261012/host-v2/fit-approval-rejection.json`
+records the exact held phase and confirms no reservation or server startup.
+Do not infer a model improvement from the preparation evidence.
+
 Evaluation and prompt tests default to the semantic layer only, and verify the
 returned execution so regex/NER cannot affect an LLM-only result. Requests always
 declare a nonempty layer selection. `--layer pipeline` (evaluator) or `--layer runtime`
