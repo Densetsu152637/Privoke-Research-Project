@@ -289,6 +289,9 @@ Primary qualification requires at least ten percentage points of joint sensitivi
 % V3-R1: completed study; docs/pretrained-v3-study.md and pinned accepted analysis.
 A separate opt-in pretrained BERT v3 experiment preserves complete Google encoder/pooler weights and adds zero affine task heads. Its efficient, balanced and quality tiers contain 4,785,044, 9,596,180 and 17,493,780 parameters respectively, with pinned upstream cards~\cite{googleBertL4H128A2,googleBertL2H256A4,googleBertL12H256A4}. Isolated Python services use bounded binary checkpoints; host Python drives paired HEADS/FULL cells for seeds 42/43/44 with explicit semantic execution checks. Three accepted resource pilots selected a common 256-step budget without endpoint-quality selection. The frozen 18-cell protocol compares all raw terminal candidates, including publication rejections, with three immutable ORIGINAL controls on reused DEVELOPMENT context320/context64; binary502 and hazard48 (41 eligible) remain separate secondary evidence. All 18 fits completed 4,608 optimizer steps and 294,912 TRAIN exposures in aggregate; ten guard publications applied and eight rejected, with all raw endpoints retained. All 21 snapshots subsequently completed with actual semantic execution and identity checks; results are reported in Section~\ref{sec:pretrained_v3_results}. Two pre-case scoring readiness failures after two and five complete snapshot sets prompted an explicit post-fit host-only amendment (commit \texttt{6b491e8}): the scoring readiness window became 180 seconds and audit comparison normalized nullable hazard visibility hints to protobuf empty strings. Original fit/protocol/server/image identities and prior scoring bytes remain pinned; training, stimulus generation, metrics and selection are unchanged. The amendment must be supplied explicitly for score/analyze/export, while default training validation retains the original source closure. Fixed FULL seed-42 exports are research artifacts without best-seed selection or promotion. The selected Torch 2.11 CPU/CUDA 12.8 distributions and restricted weights-only loading follow official documentation~\cite{pytorchPreviousVersions,pytorch27Blackwell,pytorch211Serialization}; BERT API documentation is version 4.57.1 while the installed Transformers patch is 4.57.6~\cite{huggingfaceTransformers4571Bert}. The separately considered Torch 2.12/CUDA 13.0 alternative is not the selected environment~\cite{pytorch212Release,pytorchCu130TorchIndex}. Protocol and implementation evidence are retained in \texttt{docs/pretrained-v3-study.md}.
 
+% V123-R1: post-study existing-package comparison; no new fitting.
+A subsequent comparison tests all 14 existing v1/v2/v3 snapshots: three v1 tiers, seven balanced v2 ORIGINAL/effective terminals, three fixed v3 FULL seed-42 exports and the distinct quality v3 ORIGINAL control. V2 efficient/quality are unavailable. Identical original-field requests use explicit semantic layer 4 and actual native identity checks on context320/context64, binary502 and hazard48. Native windows, tokenization, hint handling and NumPy/Torch backends are preserved. A common Linux CPU lane uses batch/concurrency one and one native backend thread. Three fresh processes per artifact each run 32 common-fit warmup inputs and 320 measured RPCs; only the first process scores accuracy. Artifact order is fixed sequentially. Host full-response latency is primary; PID1 loaded RSS and lifetime VmHWM through the performance phase measure process memory, including runtime/backend imports and startup high water. These are descriptive serving-package measurements, separate from CUDA fit costs. The complete method and component/paired tables are retained in \texttt{docs/model-generation-comparison-20261013.md}; results follow in Section~\ref{sec:v123_comparison}.
+
 \subsection{Offline Controls, Presence Fitting and Cascade Selection}
 % Evidence: paper/research/representation-protocol.md, model-refactor-protocol.md, contextual-cascade-protocol.md; docs/PII-dataset-analysis.md.
 
@@ -553,6 +556,43 @@ Separate secondary results show the tradeoffs. FULL-minus-HEADS binary-correct t
 
 Ten guards applied candidates and eight rejected them. Effective rejected snapshots retain ORIGINAL predictions; all raw terminal predictions remain scientific endpoints. Aggregate fit time was 1,020.416 seconds, longest fit 142.131 seconds and peak reported CUDA allocation 419,415,552 bytes, excluding startup/scoring and total process VRAM. An explicit host-only post-fit amendment preserved all fitting and prior evidence while extending scoring readiness from 60 to 180 seconds and normalizing nullable hazard hints for audit comparison. Two pre-case scoring failures and recovery attempts remain recorded; completed scoring attempt 03 exited zero. Independently verified fixed FULL seed-42 exports retain efficient/balanced applied candidates and the rejected quality candidate without best-seed selection or promotion. Project containers/networks were removed and ports released; the exact image and all immutable evidence remain retained. This closes the final planned study on 13 October 2026 (Sydney), using reused DEVELOPMENT data rather than protected-final evaluation.
 
+\subsection{Existing v1/v2/v3 Serving-Package Comparison}
+\label{sec:v123_comparison}
+% V123-R1 accepted analysis SHA 6bb52dadc49d87117eea80efee8bff9f0fa704af1ee5004a3fd4d3d5626e9c54.
+All 14 snapshots completed 13,076 accuracy requests (12,978 eligible) across 42 fresh CPU processes. The same eleven over-96-token binary inputs failed in each of seven v2 snapshots: 77 runtime errors, retained as incorrect. All other accuracy requests and all measured timing calls succeeded. Table~\ref{tab:v123_packages} reports every tested artifact; missing v2 efficient/quality tiers are unavailable. V2 window seeds 42/43 are no-update effective artifacts, and quality v3 FULL42 remains a raw guard-rejected export rather than its separate ORIGINAL control.
+
+\begin{table}[ht]
+\centering
+\caption{Existing-package comparison. J320/J64 are joint correct counts out of 320/64; B is binary correct out of 502; H is hazard allowed-action agreement out of 41 eligible. Latency is the range of three successful CPU RPC p50 values (ms). No snapshots were selected by these outcomes.}
+\label{tab:v123_packages}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrrrrl}
+\hline
+Snapshot & J320 & J64 & B & H & p50 range \\
+\hline
+v1 efficient & 39 & 9 & 219 & 28 & 16.810--17.067 \\
+v1 balanced & 63 & 10 & 229 & 27 & 26.300--31.188 \\
+v1 quality & 43 & 8 & 238 & 27 & 37.754--40.345 \\
+v2 original & 63 & 10 & 226 & 27 & 28.153--28.712 \\
+v2 legacy-42 & 40 & 2 & 200 & 30 & 29.424--29.959 \\
+v2 legacy-43 & 58 & 0 & 203 & 33 & 27.945--29.555 \\
+v2 legacy-44 & 26 & 5 & 213 & 32 & 27.890--28.072 \\
+v2 window-42 & 63 & 10 & 226 & 27 & 27.048--27.064 \\
+v2 window-43 & 63 & 10 & 226 & 27 & 26.919--27.042 \\
+v2 window-44 & 42 & 5 & 209 & 33 & 27.659--28.107 \\
+v3 efficient & 42 & 8 & 248 & 35 & 4.336--4.468 \\
+v3 balanced & 51 & 8 & 272 & 33 & 4.674--4.941 \\
+v3 quality & 66 & 7 & 272 & 37 & 10.768--11.213 \\
+v3 quality-original & 0 & 0 & 264 & 15 & 10.768--10.887 \\
+\hline
+\end{tabular}
+\end{table}
+
+V3-minus-v1 joint changes are +3/$-1$, $-12$/$-2$ and +23/$-1$ on context320/context64 for efficient, balanced and quality respectively. Raw quality v3 scores highest on context320 (66/320), while v1 balanced and unchanged v2 controls score 63/320 and lead context64 at 10/64. All 40 same-tier paired contrasts, component correctness, improved/regressed counts and directional action harms are retained in the report; mixed gains and regressions prevent a universal winner. V3 has shorter successful CPU latency in this workload but larger process memory footprints. The image contains Torch 2.11.0+cu128 executing on CPU versus Tiny NumPy 1.26.4; imported backend overhead contributes to RSS. The p50/p95 ranges describe three fixed-workload processes, not confidence intervals. Lifetime peak-minus-loaded RSS includes startup high water and is not isolated inference allocation. Accepted cleanup released project containers/network and ports, preserving the image, artifacts and evidence without promotion.
+
+Quality's context320 joint gain coexists with 17 fewer correct actions and 106 under-restriction distance worsenings against v1 quality. Binary correct totals increase by 29/43/34 across tiers while positive recall falls from 158/169/190 to 113/91/113 out of 264. Whole-process lifetime HWM spans 69.590--79.387 MiB for Tiny and 763.355--853.492 MiB for v3. These tradeoffs prevent interpreting faster successful RPCs or higher joint counts as production safety.
+
 \subsection{Binary Presence Models and Data Expansion}
 % Evidence: paper/research/representation-results.md; paper/research/text-control-results.md; docs/presence-model-improvements.md.
 
@@ -714,6 +754,8 @@ The all-surface comparison in Section~\ref{sec:all_surfaces_methods} completed e
 
 The v3 comparison in Section~\ref{sec:pretrained_v3_results} reuses provisional DEVELOPMENT fixtures and repeats their cases across three seeds. Zero task heads make ORIGINAL a weak task baseline; no matched random-encoder arm isolates pretraining. Tier depth, width and capacity vary together, and secondary binary annotations do not establish contextual privacy truth. Small guard acceptance does not establish development safety. Low absolute joint accuracy, paired regressions and directional action harms prevent a promotion or population-generalization claim.
 
+The post-study v1/v2/v3 comparison (Section~\ref{sec:v123_comparison}) is also bounded by missing v2 tiers and unequal artifact histories, native windows, tokenization, hint policies and NumPy/Torch backends. Fixed sequential artifact order and three fresh processes do not randomize those differences or establish causal generation effects. Successful latency is reported alongside errors, and PID1 lifetime memory includes backend imports and startup high water. These reused DEVELOPMENT measurements establish neither an independent generalization result nor a production SLA.
+
 \subsection{Selection, Contamination and Generalization}
 
 Development and validation have informed repeated exploratory research. Even prospectively specified later grids reuse those partitions, so small changes and bootstrap intervals remain descriptive. Historical training overlap with validation limits the trained-control cascade branch to diagnostics. Threshold search and profile/C selection condition the reported comparisons; repeated seeds, profiles and RPCs are not independent prompts. The initial frozen rules, revised-rule original control and later trained checkpoints differ and cannot be pooled to imply progress. The amended semantic-only criterion changed after fifteen observed cells, and the offline S0/nonS0 breakdown was post-observation; neither is untouched confirmation. Final performance remains unknown.
@@ -747,6 +789,8 @@ The separate accelerated study completed 2,016 normal-batch attempts with 1,270 
 The subsequent frozen pretrained package improved provisional disclosure joint agreement, including 19/80 serious rows versus zero for each matched random control, but failed its serious-action veto. Poor reused-development specificity and a distinct credential-action regression reinforce the negative qualification decision. The optional runtime and separate 512-token functional extension are engineering results; neither establishes deployment readiness. A useful next study requires independently reviewed contextual labels and casewise policy coverage, rather than tuning on these assessment failures.
 
 The final planned v3 study extends this evidence to intact pretrained BERT encoders: FULL improved context320 joint counts against matched HEADS in all nine paired tier/seed comparisons, while context64 and binary outcomes were mixed and casewise harms persisted. All raw candidates, effective guarded outcomes and fixed research exports were retained. This closes the planned experimental series without promotion; the weak zero-head baseline, reused DEVELOPMENT cases and low absolute joint accuracy bound the claim.
+
+A subsequent exhaustive comparison of all 14 available v1/v2/v3 snapshots found mixed contextual and secondary tradeoffs: v3 quality had the highest context320 joint count, while balanced v1/unchanged v2 controls led context64. V3 successful CPU RPC latency was shorter in the admitted workload, with larger process memory. Missing tiers and native package/training differences prevent a causal generation ranking; the complete casewise results and costs remain descriptive, with no promotion.
 
 The practical implication is that cloud training makes adaptation possible while the usefulness of each revision must be measured against its fixed base and retained coverage. Further work should address representation and independently reviewed contextual supervision, alongside complete installed-client measurement. Protected final scoring, human adjudication, cascade uncertainty and telemetry utility remain TODO; the present conclusion applies to the documented exploratory studies.
 
