@@ -192,7 +192,7 @@ class PrivacyDataTests(unittest.TestCase):
             PREPARER.exclusion_audit(self.pools, resource)
 
     def test_release_manifest_schema_and_source_bindings(self):
-        manifest_path = ROOT / "evaluation/results/privacy_heads_v3_20261013/data/release-02/manifest.json"
+        manifest_path = ROOT / "evaluation/results/privacy_heads_v3_20261013/data/release-03/manifest.json"
         if not manifest_path.exists():
             self.skipTest("Local immutable release is not present; run host preparer for release check.")
         manifest = json.loads(manifest_path.read_bytes())

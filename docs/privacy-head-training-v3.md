@@ -1,6 +1,6 @@
 # Privacy-head training and fresh v1 comparison (PH3-R1)
 
-Status: prospective protocol and R2 data preparation; training and comparison results **PENDING**. This record does not claim trained models, superiority, independent human labels or promotion. Study ID: `privacy_heads_v3_20261013`, 13 October 2026, Sydney.
+Status: prospective protocol and R3 data preparation; training and comparison results **PENDING**. This record does not claim trained models, superiority, independent human labels or promotion. Study ID: `privacy_heads_v3_20261013`, 13 October 2026, Sydney.
 
 Exact user request: “Can you then train V3s heads for privacy? This can be a lengthy training session. Once this is done run a fresh eval comparing them with V1”.
 
@@ -35,7 +35,7 @@ Labels are **assistant-provisional synthetic truth**, not professor confirmation
 Run in the host Python environment with Transformers/tokenizers installed:
 
 ```powershell
-evaluation/.venv-v3-study/Scripts/python.exe evaluation/prepare-privacy-heads-v3.py --output evaluation/results/privacy_heads_v3_20261013/data/release-02
+evaluation/.venv-v3-study/Scripts/python.exe evaluation/prepare-privacy-heads-v3.py --output evaluation/results/privacy_heads_v3_20261013/data/release-03
 evaluation/.venv-v3-study/Scripts/python.exe -m unittest discover -s evaluation/tests -p test_privacy_heads_data.py
 ```
 
@@ -51,7 +51,9 @@ The first release was rejected before any fitting because its shared debt/asthma
 
 R2 has390 explicit assertion components (180 primary,180 secondary,30 mild auxiliary) and complete split lineage. Paid political donations/funding/dues include FINANCIAL. Sexual-interest/orientation and child family-contact cases now explicitly assert nonmedical facts instead of ambiguous counselling, and religious vows explicitly assert adherence. Six historical TRAIN components were rewritten. Validation/evaluation financial loan, wage and retirement variants were replaced by distinct inheritance, policy surrender, spousal maintenance, gambling loss, insolvency and claim-payout situations. Borrowing/loan-credit obligations and employment-pay records are explicitly grouped as coarse mechanisms within TRAIN. General category concepts remain shared and are not described as novel categories.
 
-The R2 manifest is `data/release-02/manifest.json`; controllers must bind that exact path and hash, rather than the rejected R1 manifest. Independent review and root admission remain required before fitting.
+R2 was also withheld from fitting because two secondary predicates ambiguously added a criminal fine or dental service without additional categories. R3 removes the fine from the conviction and uses a nonmedical boiler-repair debt. Allocations and labels remain unchanged; R2 data and source captures are retained under `data/release-02/` and `planning/data-build/failed-candidate-02/`.
+
+The current manifest is `data/release-03/manifest.json`; controllers must bind that exact path and hash, rather than either earlier manifest. Independent review and root admission remain required before fitting.
 
 Root owns the independent review, final training protocol, fitted-export freeze, fresh scoring, integration and publication. Report native errors as incorrect, sensitivity/visibility/category/packed/action/joint metrics, category micro/macro precision/recall/F1 and every category's support. Show category-positive sensitive disclosure successes and clean specificity separately, paired casewise improvements/regressions and action harms. Different historical V1 training and native packages preclude causal generation claims; synthetic fresh results alone do not establish production privacy safety.
 

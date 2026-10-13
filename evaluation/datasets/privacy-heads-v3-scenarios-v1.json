@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "resource_id": "PH3-CURRICULUM-R2",
+  "resource_id": "PH3-CURRICULUM-R3",
   "generator_version": "privacy_heads_fact_contrast_v2",
   "label_status": "assistant_provisional",
   "origin": "Newly authored by Codex for the explicit privacy-head training request; no model predictions used",
@@ -1415,14 +1415,14 @@
       "secondary": {
         "component_id": "PH3/train/religion/00/secondary-fact",
         "split": "train",
-        "fact": "I was fined after a conviction for criminal trespass",
+        "fact": "I was convicted of criminal trespass into a restricted warehouse",
         "categories": [
           "CRIMINAL"
         ],
         "sensitivity": "S3",
-        "coarse_situation_id": "criminal/i_was_fined_after_a_conviction_for_criminal_trespass",
-        "coarse_situation_description": "I was fined after a conviction for criminal trespass",
-        "label_rationale": "Explicit additional actual criminal disclosure; categories cover all asserted domains and other-person/minor roles. No category is inferred merely from a name or title.",
+        "coarse_situation_id": "criminal/I_was_convicted_of_criminal_trespass_into_a_restricted_warehouse",
+        "coarse_situation_description": "I was convicted of criminal trespass into a restricted warehouse",
+        "label_rationale": "Additional actual criminal conviction with S3 CRIMINAL; no fine or financial transaction is asserted.",
         "entity_values": [],
         "subject_relationship": "self"
       },
@@ -2299,14 +2299,14 @@
       "secondary": {
         "component_id": "PH3/train/criminal/08/secondary-fact",
         "split": "train",
-        "fact": "I owe 1200 dollars for dental work",
+        "fact": "I owe 1200 dollars for replacing a broken boiler",
         "categories": [
           "FINANCIAL"
         ],
         "sensitivity": "S2",
-        "coarse_situation_id": "financial/i_owe_1200_dollars_for_dental_work",
-        "coarse_situation_description": "I owe 1200 dollars for dental work",
-        "label_rationale": "Explicit additional actual financial disclosure; categories cover all asserted domains and other-person/minor roles. No category is inferred merely from a name or title.",
+        "coarse_situation_id": "financial/I_owe_1200_dollars_for_replacing_a_broken_boiler",
+        "coarse_situation_description": "I owe 1200 dollars for replacing a broken boiler",
+        "label_rationale": "Additional actual personal nonmedical repair debt with S2 FINANCIAL; no medical service, diagnosis or treatment is asserted.",
         "entity_values": [],
         "subject_relationship": "self"
       },
@@ -6726,6 +6726,7 @@
     "R1 rejected before fitting: shared secondary components, incomplete labels and coarse loan-record leakage.",
     "R2 uses separate explicit primary/secondary components with complete labels, severity and lineage.",
     "Six historical primary literal overlaps replaced; financial validation/evaluation loan/wage/retirement facts replaced with distinct event types.",
-    "Complete category closure and meaningful coarse situation separation take precedence over arbitrary cardinality ratios."
+    "Complete category closure and meaningful coarse situation separation take precedence over arbitrary cardinality ratios.",
+    "R3 preserves all R2 allocations/labels while removing ambiguous fine and dental-service facts; all earlier release bytes retained and unscored."
   ]
 }
