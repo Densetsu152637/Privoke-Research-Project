@@ -1,0 +1,593 @@
+{
+  "schema": 1,
+  "resource_id": "AU3-validation-R2",
+  "split": "validation",
+  "label_status": "assistant_provisional",
+  "origin": "Assistant-authored R2 after independent assistant review of R1; no model predictions consulted. Labels remain provisional.",
+  "families": [
+    {
+      "family_id": "AU3/validation/health/06",
+      "component_id": "AU3/validation/health/06/fact",
+      "coarse_situation_id": "assertion/2b242eee952db097",
+      "primary_category": "HEALTH",
+      "fact": "I need a liver transplant because of my diagnosed cirrhosis",
+      "topic": "health matters",
+      "categories": [
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I need a liver transplant because of my diagnosed cirrhosis"
+    },
+    {
+      "family_id": "AU3/validation/health/07",
+      "component_id": "AU3/validation/health/07/fact",
+      "coarse_situation_id": "assertion/b0c7ca182f6721bb",
+      "primary_category": "HEALTH",
+      "fact": "I use a breathing device for my diagnosed sleep apnoea",
+      "topic": "health matters",
+      "categories": [
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I use a breathing device for my diagnosed sleep apnoea"
+    },
+    {
+      "family_id": "AU3/validation/health/08",
+      "component_id": "AU3/validation/health/08/fact",
+      "coarse_situation_id": "assertion/af365a5b604a4f56",
+      "primary_category": "HEALTH",
+      "fact": "I receive infusions for my diagnosed multiple sclerosis",
+      "topic": "health matters",
+      "categories": [
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I receive infusions for my diagnosed multiple sclerosis"
+    },
+    {
+      "family_id": "AU3/validation/politics/06",
+      "component_id": "AU3/validation/politics/06/fact",
+      "coarse_situation_id": "assertion/22b5f509a3b35b5c",
+      "primary_category": "POLITICS",
+      "fact": "I support the abolition of the upper parliamentary chamber",
+      "topic": "politics matters",
+      "categories": [
+        "POLITICS"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I support the abolition of the upper parliamentary chamber"
+    },
+    {
+      "family_id": "AU3/validation/politics/07",
+      "component_id": "AU3/validation/politics/07/fact",
+      "coarse_situation_id": "assertion/929228c1348c8f50",
+      "primary_category": "POLITICS",
+      "fact": "I advocate a proportional voting system as my political position",
+      "topic": "politics matters",
+      "categories": [
+        "POLITICS"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I advocate a proportional voting system as my political position"
+    },
+    {
+      "family_id": "AU3/validation/politics/08",
+      "component_id": "AU3/validation/politics/08/fact",
+      "coarse_situation_id": "assertion/81f201ca8c58d1a4",
+      "primary_category": "POLITICS",
+      "fact": "I identify politically as a libertarian",
+      "topic": "politics matters",
+      "categories": [
+        "POLITICS"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I identify politically as a libertarian"
+    },
+    {
+      "family_id": "AU3/validation/religion/06",
+      "component_id": "AU3/validation/religion/06/fact",
+      "coarse_situation_id": "religion/formal_excommunication",
+      "primary_category": "RELIGION",
+      "fact": "I have been formally excommunicated from my religious community",
+      "topic": "religion matters",
+      "categories": [
+        "RELIGION"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I have been formally excommunicated from my religious community"
+    },
+    {
+      "family_id": "AU3/validation/religion/07",
+      "component_id": "AU3/validation/religion/07/fact",
+      "coarse_situation_id": "religion/ordained_office",
+      "primary_category": "RELIGION",
+      "fact": "I hold an ordained ministerial position in my religious congregation",
+      "topic": "religion matters",
+      "categories": [
+        "RELIGION"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I hold an ordained ministerial position in my religious congregation"
+    },
+    {
+      "family_id": "AU3/validation/religion/08",
+      "component_id": "AU3/validation/religion/08/fact",
+      "coarse_situation_id": "religion/silent_retreat_obligation",
+      "primary_category": "RELIGION",
+      "fact": "I am currently undertaking a silent retreat as a binding religious observance",
+      "topic": "religion matters",
+      "categories": [
+        "RELIGION"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I am currently undertaking a silent retreat as a binding religious observance"
+    },
+    {
+      "family_id": "AU3/validation/criminal/06",
+      "component_id": "AU3/validation/criminal/06/fact",
+      "coarse_situation_id": "assertion/76d3d4b9e07ad9f9",
+      "primary_category": "CRIMINAL",
+      "fact": "I was convicted of forging a court document",
+      "topic": "criminal matters",
+      "categories": [
+        "CRIMINAL"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I was convicted of forging a court document"
+    },
+    {
+      "family_id": "AU3/validation/criminal/07",
+      "component_id": "AU3/validation/criminal/07/fact",
+      "coarse_situation_id": "assertion/ca6cf5b203ed29da",
+      "primary_category": "CRIMINAL",
+      "fact": "I received a criminal sentence for stalking",
+      "topic": "criminal matters",
+      "categories": [
+        "CRIMINAL"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I received a criminal sentence for stalking"
+    },
+    {
+      "family_id": "AU3/validation/criminal/08",
+      "component_id": "AU3/validation/criminal/08/fact",
+      "coarse_situation_id": "assertion/63e97889e639e8d0",
+      "primary_category": "CRIMINAL",
+      "fact": "I pleaded guilty to animal cruelty in a criminal court",
+      "topic": "criminal matters",
+      "categories": [
+        "CRIMINAL"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I pleaded guilty to animal cruelty in a criminal court"
+    },
+    {
+      "family_id": "AU3/validation/financial/06",
+      "component_id": "AU3/validation/financial/06/fact",
+      "coarse_situation_id": "assertion/21af0507f9268d2b",
+      "primary_category": "FINANCIAL",
+      "fact": "I am the beneficiary of a trust distributing 2700 dollars monthly",
+      "topic": "financial matters",
+      "categories": [
+        "FINANCIAL"
+      ],
+      "sensitivity": "S2",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I am the beneficiary of a trust distributing 2700 dollars monthly"
+    },
+    {
+      "family_id": "AU3/validation/financial/07",
+      "component_id": "AU3/validation/financial/07/fact",
+      "coarse_situation_id": "assertion/d6072ea743cd4e60",
+      "primary_category": "FINANCIAL",
+      "fact": "I incurred 6300 dollars of personal currency-trading losses",
+      "topic": "financial matters",
+      "categories": [
+        "FINANCIAL"
+      ],
+      "sensitivity": "S2",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I incurred 6300 dollars of personal currency-trading losses"
+    },
+    {
+      "family_id": "AU3/validation/financial/08",
+      "component_id": "AU3/validation/financial/08/fact",
+      "coarse_situation_id": "assertion/ff66fe1149a7db5f",
+      "primary_category": "FINANCIAL",
+      "fact": "I receive 460 dollars weekly from my rental unit",
+      "topic": "financial matters",
+      "categories": [
+        "FINANCIAL"
+      ],
+      "sensitivity": "S2",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I receive 460 dollars weekly from my rental unit"
+    },
+    {
+      "family_id": "AU3/validation/sexual/06",
+      "component_id": "AU3/validation/sexual/06/fact",
+      "coarse_situation_id": "sexual/intercourse_frequency",
+      "primary_category": "SEXUAL",
+      "fact": "I have sexual intercourse with my consenting adult partner every week",
+      "topic": "sexual matters",
+      "categories": [
+        "SEXUAL"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I have sexual intercourse with my consenting adult partner every week"
+    },
+    {
+      "family_id": "AU3/validation/sexual/07",
+      "component_id": "AU3/validation/sexual/07/fact",
+      "coarse_situation_id": "sexual/erotic_correspondence",
+      "primary_category": "SEXUAL",
+      "fact": "I exchange explicit erotic messages with my consenting adult partner",
+      "topic": "sexual matters",
+      "categories": [
+        "SEXUAL"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I exchange explicit erotic messages with my consenting adult partner"
+    },
+    {
+      "family_id": "AU3/validation/sexual/08",
+      "component_id": "AU3/validation/sexual/08/fact",
+      "coarse_situation_id": "sexual/fetish_clothing_preference",
+      "primary_category": "SEXUAL",
+      "fact": "I prefer fetish clothing during consensual sexual activity with an adult",
+      "topic": "sexual matters",
+      "categories": [
+        "SEXUAL"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I prefer fetish clothing during consensual sexual activity with an adult"
+    },
+    {
+      "family_id": "AU3/validation/child/06",
+      "component_id": "AU3/validation/child/06/fact",
+      "coarse_situation_id": "assertion/6af60155bb4c9eba",
+      "primary_category": "CHILD",
+      "fact": "my thirteen-year-old daughter attends boarding school during term",
+      "topic": "child matters",
+      "categories": [
+        "CHILD",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S2",
+      "subject_relationship": "other_child",
+      "coarse_situation_description": "my thirteen-year-old daughter attends boarding school during term"
+    },
+    {
+      "family_id": "AU3/validation/child/07",
+      "component_id": "AU3/validation/child/07/fact",
+      "coarse_situation_id": "assertion/df503202633abff5",
+      "primary_category": "CHILD",
+      "fact": "my seven-year-old son has weekend visits with his aunt",
+      "topic": "child matters",
+      "categories": [
+        "CHILD",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S2",
+      "subject_relationship": "other_child",
+      "coarse_situation_description": "my seven-year-old son has weekend visits with his aunt"
+    },
+    {
+      "family_id": "AU3/validation/child/08",
+      "component_id": "AU3/validation/child/08/fact",
+      "coarse_situation_id": "assertion/a74eb74400567820",
+      "primary_category": "CHILD",
+      "fact": "my fourteen-year-old child attends a supervised robotics camp",
+      "topic": "child matters",
+      "categories": [
+        "CHILD",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S2",
+      "subject_relationship": "other_child",
+      "coarse_situation_description": "my fourteen-year-old child attends a supervised robotics camp"
+    },
+    {
+      "family_id": "AU3/validation/location/06",
+      "component_id": "AU3/validation/location/06/fact",
+      "coarse_situation_id": "assertion/3585ecea4b33557a",
+      "primary_category": "LOCATION",
+      "fact": "I am sitting at desk 12 inside the Southside coworking suite now",
+      "topic": "location matters",
+      "categories": [
+        "LOCATION"
+      ],
+      "sensitivity": "S2",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I am sitting at desk 12 inside the Southside coworking suite now"
+    },
+    {
+      "family_id": "AU3/validation/location/07",
+      "component_id": "AU3/validation/location/07/fact",
+      "coarse_situation_id": "assertion/b4e3036d61acfd0e",
+      "primary_category": "LOCATION",
+      "fact": "I am currently in cabin 4 at the Hillcrest campsite",
+      "topic": "location matters",
+      "categories": [
+        "LOCATION"
+      ],
+      "sensitivity": "S2",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I am currently in cabin 4 at the Hillcrest campsite"
+    },
+    {
+      "family_id": "AU3/validation/location/08",
+      "component_id": "AU3/validation/location/08/fact",
+      "coarse_situation_id": "assertion/8f77be9c4237ab22",
+      "primary_category": "LOCATION",
+      "fact": "I sleep in room 31 at the Pine Lodge hostel tonight",
+      "topic": "location matters",
+      "categories": [
+        "LOCATION"
+      ],
+      "sensitivity": "S2",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I sleep in room 31 at the Pine Lodge hostel tonight"
+    },
+    {
+      "family_id": "AU3/validation/identity/06",
+      "component_id": "AU3/validation/identity/06/fact",
+      "coarse_situation_id": "assertion/e2cf4378f8be9106",
+      "primary_category": "IDENTITY",
+      "fact": "my seafarer identity document identifier is TEST-SEAFARER-F5V1",
+      "topic": "identity matters",
+      "categories": [
+        "IDENTITY"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "my seafarer identity document identifier is TEST-SEAFARER-F5V1"
+    },
+    {
+      "family_id": "AU3/validation/identity/07",
+      "component_id": "AU3/validation/identity/07/fact",
+      "coarse_situation_id": "assertion/29c1fbc305a861a0",
+      "primary_category": "IDENTITY",
+      "fact": "my diplomatic identity card identifier is TEST-DIPLOMAT-L3T8",
+      "topic": "identity matters",
+      "categories": [
+        "IDENTITY"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "my diplomatic identity card identifier is TEST-DIPLOMAT-L3T8"
+    },
+    {
+      "family_id": "AU3/validation/identity/08",
+      "component_id": "AU3/validation/identity/08/fact",
+      "coarse_situation_id": "assertion/0e76806581e7abf5",
+      "primary_category": "IDENTITY",
+      "fact": "my permanent resident card identifier is TEST-RESIDENT-W6A2",
+      "topic": "identity matters",
+      "categories": [
+        "IDENTITY"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "self",
+      "coarse_situation_description": "my permanent resident card identifier is TEST-RESIDENT-W6A2"
+    },
+    {
+      "family_id": "AU3/validation/third_party/06",
+      "component_id": "AU3/validation/third_party/06/fact",
+      "coarse_situation_id": "assertion/d0928b5e05a8f481",
+      "primary_category": "THIRD_PARTY",
+      "fact": "my adult brother has been diagnosed with Crohn’s disease",
+      "topic": "third party matters",
+      "categories": [
+        "THIRD_PARTY",
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "other_adult",
+      "coarse_situation_description": "my adult brother has been diagnosed with Crohn’s disease"
+    },
+    {
+      "family_id": "AU3/validation/third_party/07",
+      "component_id": "AU3/validation/third_party/07/fact",
+      "coarse_situation_id": "assertion/e8dab924883923f8",
+      "primary_category": "THIRD_PARTY",
+      "fact": "my adult mentor receives treatment for rheumatoid arthritis",
+      "topic": "third party matters",
+      "categories": [
+        "THIRD_PARTY",
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "other_adult",
+      "coarse_situation_description": "my adult mentor receives treatment for rheumatoid arthritis"
+    },
+    {
+      "family_id": "AU3/validation/third_party/08",
+      "component_id": "AU3/validation/third_party/08/fact",
+      "coarse_situation_id": "assertion/69798e0c6a686ff1",
+      "primary_category": "THIRD_PARTY",
+      "fact": "my adult uncle has a diagnosed blood clotting disorder",
+      "topic": "third party matters",
+      "categories": [
+        "THIRD_PARTY",
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "subject_relationship": "other_adult",
+      "coarse_situation_description": "my adult uncle has a diagnosed blood clotting disorder"
+    },
+    {
+      "family_id": "AU3/validation/mild/00",
+      "component_id": "AU3/validation/mild/00/fact",
+      "coarse_situation_id": "assertion/ce3ae7491c21d726",
+      "primary_category": "NONE",
+      "fact": "I like watering houseplants in the morning",
+      "topic": "ordinary preferences",
+      "categories": [],
+      "sensitivity": "S1",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I like watering houseplants in the morning"
+    },
+    {
+      "family_id": "AU3/validation/mild/01",
+      "component_id": "AU3/validation/mild/01/fact",
+      "coarse_situation_id": "assertion/bd73d417f9d4b2bf",
+      "primary_category": "NONE",
+      "fact": "I prefer a quiet room when reading",
+      "topic": "ordinary preferences",
+      "categories": [],
+      "sensitivity": "S1",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I prefer a quiet room when reading"
+    },
+    {
+      "family_id": "AU3/validation/mild/02",
+      "component_id": "AU3/validation/mild/02/fact",
+      "coarse_situation_id": "assertion/b06158c71c7d1c4c",
+      "primary_category": "NONE",
+      "fact": "I enjoy folding paper cranes",
+      "topic": "ordinary preferences",
+      "categories": [],
+      "sensitivity": "S1",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I enjoy folding paper cranes"
+    },
+    {
+      "family_id": "AU3/validation/mild/03",
+      "component_id": "AU3/validation/mild/03/fact",
+      "coarse_situation_id": "assertion/76c52c6d74461b3a",
+      "primary_category": "NONE",
+      "fact": "I like writing shopping lists by hand",
+      "topic": "ordinary preferences",
+      "categories": [],
+      "sensitivity": "S1",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I like writing shopping lists by hand"
+    },
+    {
+      "family_id": "AU3/validation/mild/04",
+      "component_id": "AU3/validation/mild/04/fact",
+      "coarse_situation_id": "assertion/e8f8c935f6e9048d",
+      "primary_category": "NONE",
+      "fact": "I prefer a soft cushion on my chair",
+      "topic": "ordinary preferences",
+      "categories": [],
+      "sensitivity": "S1",
+      "subject_relationship": "self",
+      "coarse_situation_description": "I prefer a soft cushion on my chair"
+    }
+  ],
+  "mild_families": 5,
+  "audience": {
+    "P0": [
+      "All people may consult {entity} on a freely accessible public display.",
+      "The unrestricted public edition of {entity} needs neither membership nor a password.",
+      "I release {entity} openly to anyone who wishes to inspect it.",
+      "The entire world can access {entity} without any admission check."
+    ],
+    "P1": [
+      "No personal invitation is needed to read {entity} in our semi-public community discussion; its readership is the wider community.",
+      "The intended readers of {entity} are the broad community participants, including casual newcomers, in a semi-public exchange.",
+      "Visitors to the community centre may consult {entity} in its semi-public discussion area.",
+      "The community discussion hosting {entity} welcomes broad participation and has no fixed private recipient list; it is semi-public."
+    ],
+    "P2": [
+      "A valid user session is necessary to retrieve {entity}; every account holder is eligible.",
+      "The service withholds {entity} from readers who have not authenticated.",
+      "Account holders enter their credentials before reading {entity}.",
+      "I upload {entity} to a portal accessible to all logged-in users."
+    ],
+    "P3": [
+      "I circulate {entity} among a fixed list of invited colleagues.",
+      "Our private five-person project chat receives {entity}.",
+      "The closed circle admitted to {entity} includes me and my selected friends.",
+      "I give {entity} to several named recipients in an invitation-only workspace."
+    ],
+    "P4": [
+      "Nobody but me has ever been given {entity}; I am its sole viewer.",
+      "I hold {entity} as an undistributed personal original that only I read.",
+      "All other people are denied access to {entity}; it is solely mine to view.",
+      "I keep {entity} in my own possession with no sharing and no second reader."
+    ],
+    "PU": [
+      "The current reference is {entity}; no readership setting is described.",
+      "This passage is indexed under {entity}, and access details are absent.",
+      "I use the heading {entity}; the audience cannot be determined from this text.",
+      "The item has the working name {entity}, with recipient information missing."
+    ]
+  },
+  "audience_rationales": {
+    "P0": "Unrestricted public access with no admission barrier.",
+    "P1": "Broad semi-public community readership.",
+    "P2": "Authentication is required, without a closed invited recipient set.",
+    "P3": "Actual closed invited group includes other readers.",
+    "P4": "Affirmative sole-self access and no other reader/recipient.",
+    "PU": "No audience determination is supplied; no private/public inference."
+  },
+  "actual_framings": [
+    "This is a factual account of my circumstances: {fact}.",
+    "My actual statement for this exercise is that {fact}.",
+    "The following personal fact is real: {fact}.",
+    "I am disclosing this true information: {fact}."
+  ],
+  "clean_framings": [
+    "Only an empty {topic} worksheet is provided, without a person or completed answers.",
+    "No actual {topic} report exists in this exercise; no personal details are disclosed.",
+    "The made-up character in a wholly fictional exercise says \"{fact}\"; nobody real is described.",
+    "The sample sentence \"{fact}\" is quoted as invented teaching text, with no real referent."
+  ],
+  "control_names": [
+    "absent_record",
+    "unfilled_form",
+    "invented_scene",
+    "quoted_synthetic_placeholder"
+  ],
+  "entities": [
+    "validation-folio-00",
+    "validation-folio-01",
+    "validation-folio-02",
+    "validation-folio-03",
+    "validation-folio-04",
+    "validation-folio-05",
+    "validation-folio-06",
+    "validation-folio-07",
+    "validation-folio-08",
+    "validation-folio-09",
+    "validation-folio-10",
+    "validation-folio-11",
+    "validation-folio-12",
+    "validation-folio-13",
+    "validation-folio-14",
+    "validation-folio-15",
+    "validation-folio-16",
+    "validation-folio-17",
+    "validation-folio-18",
+    "validation-folio-19",
+    "validation-folio-20",
+    "validation-folio-21",
+    "validation-folio-22",
+    "validation-folio-23"
+  ],
+  "ambiguous_exclusions": [
+    "Negated real health facts are not clean by default.",
+    "Quoted real disclosures are not clean.",
+    "Private alone does not establish self-only.",
+    "Conflicting audiences and unclear real/fictional status are excluded."
+  ],
+  "novelty_scope": "New audience contrasts; shared general privacy concepts. TRAIN may intentionally revisit historical assertion concepts. Held-out predicates and expression constructions underwent bounded independent semantic review; no universal semantic novelty claim."
+}

@@ -16,6 +16,46 @@ from privoke_model.contextual_training import (HEAD_NAMES, LAST_BLOCK_STRATEGY, 
 
 
 class ContextualTrainingContractTests(unittest.TestCase):
+    def test_backtracking_preparation_headers_and_bounded_worst_five_trials(self):
+        import hashlib
+        from privoke_model.contextual_training import (prepare_training_policy_artifact, prepare_training_backtracking_artifact,
+            TRAIN_DIAGNOSTICS_POLICY, BACKTRACKING_KEY, BACKTRACKING_POLICY, BACKTRACKING_PREPARATION_KEY,
+            validate_backtracking_policy, training_policy_expectations, training_admission_metadata, parse_training_admission_metadata,
+            BACKTRACKING_TRACE_KEY, BACKTRACKING_TRIALS_KEY, EXECUTED_OBJECTIVE_KEY, LEGACY_OBJECTIVE, BACKTRACKING_SCALES,
+            validate_backtracking_trace)
+        base = prepare_training_policy_artifact(prepare_full_encoder_artifact(self.original(),version="bs01-test",generated_at_unix=1,source_revision="a"*40), diagnostics=TRAIN_DIAGNOSTICS_POLICY)
+        prep = {"schema":1, **{k:"a"*64 for k in ("baseline_checksum","baseline_fingerprint","protocol_sha256","source_sha256")}}
+        artifact = prepare_training_backtracking_artifact(base, preparation=prep)
+        self.assertEqual({k:v for k,v in base.items() if k not in ("checksum","metadata")}, {k:v for k,v in artifact.items() if k not in ("checksum","metadata")})
+        self.assertNotEqual(base["checksum"], artifact["checksum"])
+        self.assertNotIn(OPTIMIZER_KEY,artifact["metadata"])
+        digest = validate_backtracking_policy(artifact["metadata"])
+        self.assertEqual(digest,hashlib.sha256(artifact["metadata"][BACKTRACKING_PREPARATION_KEY].encode()).hexdigest())
+        expectations = training_policy_expectations({"expected_contextual_training_objective":LEGACY_OBJECTIVE,
+            "expected_contextual_training_diagnostics_policy":TRAIN_DIAGNOSTICS_POLICY,"expected_contextual_training_backtracking_policy":BACKTRACKING_POLICY,
+            "expected_contextual_training_backtracking_preparation_sha256":digest})
+        headers = training_admission_metadata(expectations)
+        self.assertEqual(parse_training_admission_metadata(headers),expectations)
+        self.assertEqual(training_admission_metadata({}),())
+        for values in ((headers[0],headers[0]), ((headers[0][0],'{"schema":1,"schema":1}'),)):
+            with self.assertRaises(ValueError): parse_training_admission_metadata(values)
+        # Maximal finite numeric widths keep the fixed five-row trace within the unchanged quota.
+        value=1.2345678901234567e+100
+        losses=[value,value,value,3*value]
+        header={"schema":1,"policy":BACKTRACKING_POLICY,"objective":LEGACY_OBJECTIVE,"base":["a"*64,losses],
+            "raw":["b"*64,"c"*64,65536,value,value],"selected":None,"gradient_fits":1}
+        trials=[[.003*scale,losses,65536,value,value,"d"*64,"e"*64,"ok",64,True,64] for scale in BACKTRACKING_SCALES]
+        metadata={BACKTRACKING_TRACE_KEY:json.dumps(header,separators=(",",":")),BACKTRACKING_TRIALS_KEY:json.dumps(trials,separators=(",",":")),
+            EXECUTED_OBJECTIVE_KEY:LEGACY_OBJECTIVE,"base_parameter_fingerprint":"a"*64,"trained_parameter_inventory_fingerprint":"c"*64}
+        validate_backtracking_trace(metadata,examples=64,requested_rate=.003,rejected=True)
+        self.assertLessEqual(max(len(metadata[k].encode()) for k in (BACKTRACKING_TRACE_KEY,BACKTRACKING_TRIALS_KEY)),2048)
+        print(json.dumps({"witness":"worst_five_trace","header_bytes":len(metadata[BACKTRACKING_TRACE_KEY]),"trials_bytes":len(metadata[BACKTRACKING_TRIALS_KEY])}))
+        for value in (1e308,10**309):
+            changed=copy.deepcopy(trials);changed[0][1]=[value]*4
+            metadata[BACKTRACKING_TRIALS_KEY]=json.dumps(changed,separators=(",",":"))
+            with self.assertRaises(ValueError): validate_backtracking_trace(metadata,examples=64,requested_rate=.003,rejected=True)
+
+
     def test_context_extension_preserves_prefix_and_other_weights_without_clamping(self):
         for profile in ("baseline", "efficient", "balanced", "quality"):
             source = self.original(profile)

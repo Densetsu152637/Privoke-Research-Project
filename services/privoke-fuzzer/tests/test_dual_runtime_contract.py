@@ -41,6 +41,7 @@ def contract(scope="heads"):
 
 
 class DualRuntimeContractTests(unittest.TestCase):
+
     def test_legacy_float32_clip_bound_remains_admitted_but_full_capability_is_strict(self):
         from privoke_model.artifact import float32
         request,response=contract()

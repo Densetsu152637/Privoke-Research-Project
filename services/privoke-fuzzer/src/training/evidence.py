@@ -17,6 +17,69 @@ def cycle_identity(request, stage):
                                     separators=(",", ":")).encode()).hexdigest()
 
 
+def persist_policy_attempt(request, response, *, scope, expectations, error=None):
+    """Retain immutable physical RPC evidence, including unadmitted and unknown outcomes."""
+    directory = os.getenv("PRIVOKE_FUZZER_DUMP_DIR")
+    if not directory:
+        raise ValueError("Training policy attempts require durable PRIVOKE_FUZZER_DUMP_DIR.")
+    wire = request.SerializeToString(deterministic=True)
+    record = {"schema_version": 1, "training_stage": scope, "request_id": request.request_id,
+        "model_id": request.model_id, "expectations": expectations,
+        "request_protobuf_base64": base64.b64encode(wire).decode("ascii"),
+        "request_protobuf_sha256": hashlib.sha256(wire).hexdigest(),
+        "compute_status": "response_received_unadmitted" if response is not None else "transport_outcome_unknown",
+        "admission_status": "rejected" if error else "accepted",
+        "error_type": type(error).__name__ if error else None,
+        "error": str(error)[:512] if isinstance(error, ValueError) or type(error).__name__ == "RuntimeAnalysisError" else ("Runtime transport failed; execution outcome unknown." if error else None)}
+    if response is not None:
+        record["response_protobuf_base64"] = base64.b64encode(response.SerializeToString(deterministic=True)).decode("ascii")
+        record["declared_executions"] = [{"phase": e.phase, "layer": e.layer, "status": e.status,
+                                          "examples": e.examples} for e in response.executions]
+        if not error:
+            record["compute_status"] = "semantic_execution_validated"
+    parent = Path(directory) / "policy-attempts" / record["request_protobuf_sha256"]
+    _write_presence_attempt(parent, record)
+
+
+def persist_backtracking_attempt(request, response, *, scope, expectations, invocation_metadata, error=None):
+    """One immutable header-admitted attempt, committed before response admission."""
+    directory = os.getenv("PRIVOKE_FUZZER_DUMP_DIR")
+    if not directory:
+        raise ValueError("Backtracking requires durable PRIVOKE_FUZZER_DUMP_DIR.")
+    wire = request.SerializeToString(deterministic=True)
+    digest = hashlib.sha256(wire).hexdigest()
+    record = {"schema_version": 1, "record_kind": "physical_compute_attempt", "training_stage": scope,
+        "request_id": request.request_id, "model_id": request.model_id, "expectations": expectations,
+        "invocation_metadata": list(invocation_metadata), "request_protobuf_sha256": digest,
+        "request_protobuf_base64": base64.b64encode(wire).decode("ascii"),
+        "compute_status": "response_received_unadmitted" if response is not None else "transport_outcome_unknown",
+        "gradient_fits": None, "error_type": type(error).__name__ if error else None}
+    if response is not None:
+        record["response_protobuf_base64"] = base64.b64encode(response.SerializeToString(deterministic=True)).decode("ascii")
+    return _write_presence_attempt(Path(directory) / "backtracking-attempts" / digest, record)
+
+
+def persist_backtracking_admission(attempt, response, *, status, error=None):
+    record = {"schema_version": 1, "record_kind": "admission_verdict", "physical_attempt": str(attempt),
+        "physical_attempt_sha256": hashlib.sha256(attempt.read_bytes()).hexdigest(), "status": status,
+        "gradient_fits": 1 if status in ("accepted", "known_train_rejection") else None,
+        "error_type": type(error).__name__ if error else None,
+        "error": str(error)[:512] if error else None}
+    if status in ("accepted", "known_train_rejection"):
+        from privoke_model.contextual_training import full_encoder_tensor_shapes, contextual_output_trainable_names
+        scope = json.loads(attempt.read_text())["training_stage"]
+        config = json.loads(response.metadata["model_config"])
+        shapes = full_encoder_tensor_shapes(config)
+        if scope == "heads":
+            shapes = {name: shape for name, shape in shapes.items() if name in contextual_output_trainable_names(config)}
+        elif scope != "full_encoder":
+            raise ValueError("Unknown admitted training scope.")
+        if status == "accepted" and {p.name: tuple(p.shape) for p in response.gradients} != shapes:
+            raise ValueError("Admitted response tensor inventory differs from its training scope.")
+        record["raw_gradient_shapes"] = shapes
+    return _write_presence_attempt(attempt.parent.parent / "admission", record)
+
+
 def reserve_training_request(request, stage, fingerprint):
     directory = os.getenv("PRIVOKE_FUZZER_DUMP_DIR")
     if not directory:
@@ -114,6 +177,7 @@ def _write_presence_attempt(parent, record):
                 os.fsync(descriptor)
             finally:
                 os.close(descriptor)
+        return path
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)

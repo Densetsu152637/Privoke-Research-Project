@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import base64
 import math
+import os
 import re
 import sys
 from collections.abc import Mapping
@@ -36,6 +37,10 @@ LAYER_NAMES = {value: key for key, value in LAYER_VALUES.items()}
 
 class RuntimeAnalysisError(RuntimeError):
     pass
+
+
+class TrainingStepRejected(ValueError):
+    """Known completed one-gradient TRAIN search with no publishable step."""
 
 
 def _validate_requested_execution(request, response):
@@ -169,9 +174,47 @@ class PrivokeRuntimeClient:
         request_id: str = "",
         training_scope: str = "heads",
         require_full_capability: bool = False,
+        expected_objective=None,
+        expected_diagnostics_policy=None,
+        expected_backtracking_policy=None,
+        expected_backtracking_preparation_sha256=None,
+        expected_optimizer=None,
+        expected_candidate_eligibility=None,
+        expected_optimizer_config=None,
+        expected_training_scope=None,
+        retention_release=None,
+        expected_retention_manifest_sha256=None,
     ) -> dict[str, Any]:
         if training_scope not in ("heads", "full_encoder") or not examples or not heldout_examples:
             raise ValueError("Semantic training requires a known scope and nonempty training and held-out batches.")
+        from privoke_model.contextual_training import training_policy_expectations, training_admission_metadata, BACKTRACKING_REJECTION
+        expectations = training_policy_expectations({key: value for key, value in (
+            ("expected_contextual_training_objective", expected_objective),
+            ("expected_contextual_training_diagnostics_policy", expected_diagnostics_policy),
+            ("expected_contextual_training_backtracking_policy", expected_backtracking_policy),
+            ("expected_contextual_training_backtracking_preparation_sha256", expected_backtracking_preparation_sha256),
+            ("expected_contextual_training_optimizer", expected_optimizer),
+            ("expected_contextual_candidate_eligibility", expected_candidate_eligibility),
+            ("expected_contextual_training_scope", expected_training_scope),
+            ("expected_full_projected_adam_config_v1", expected_optimizer_config),
+            ("expected_original_train_retention_manifest_sha256", expected_retention_manifest_sha256)) if value is not None})
+        from privoke_model import sensitive_retention as retention
+        retention_mode = expected_optimizer in retention.POLICIES
+        if retention_mode:
+            retention.validate_trusted_release(retention_release, model_id=model_id,
+                request_sha256=expected_retention_manifest_sha256, trusted_sha256=os.getenv("FUZZ_RETENTION_MANIFEST_SHA256"))
+        elif retention_release is not None or expected_retention_manifest_sha256 is not None:
+            raise ValueError("Orphan retention runtime-client snapshot/pin.")
+        invocation_metadata = training_admission_metadata(expectations)
+        if expected_optimizer is not None:
+            from privoke_model.full_adam import CONFIG
+            if expected_training_scope != training_scope or (training_scope == "full_encoder" and
+                    (learning_rate != CONFIG["eta"] or max_gradient != CONFIG["delta_cap"])):
+                raise ValueError("FULL Adam scope/rate/cap differs before runtime compute.")
+        if "expected_backtracking_policy" in expectations and training_scope != "full_encoder":
+            raise ValueError("Backtracking admission is FULL-only.")
+        if expectations and not os.getenv("PRIVOKE_FUZZER_DUMP_DIR"):
+            raise ValueError("Training policy admission requires durable PRIVOKE_FUZZER_DUMP_DIR.")
         request = runtime_pb2.ComputeSemanticGradientsRequest(
             layers=[runtime_pb2.DETECTION_LAYER_SEMANTIC],
             request_id=request_id,
@@ -211,14 +254,58 @@ class PrivokeRuntimeClient:
             learning_rate=learning_rate,
             max_gradient=max_gradient,
         )
-        with grpc.insecure_channel(self.target) as channel:
-            stub = runtime_pb2_grpc.PrivokeRuntimeServiceStub(channel)
-            method = stub.ComputeUnderlyingModelGradients if training_scope == "full_encoder" else stub.ComputeSemanticGradients
-            response = method(request, timeout=self.timeout_seconds)
-        if response.error:
-            raise RuntimeAnalysisError(response.error)
-        validate_training_response(request, response, training_scope, max_gradient,
-                                   require_full_capability=require_full_capability)
+        response = None
+        attempt = None
+        known_rejection = False
+        if expected_optimizer is not None:
+            from training.full_adam_evidence import reserve_physical_attempt, persist_reservation_rejection
+            try:
+                reserve_physical_attempt(request, [list(p) for p in invocation_metadata], os.getenv("PRIVOKE_FUZZER_DUMP_DIR"))
+            except OSError as exc:
+                persist_reservation_rejection(request, [list(p) for p in invocation_metadata],
+                    os.getenv("PRIVOKE_FUZZER_DUMP_DIR"), exc)
+                raise
+        try:
+            with grpc.insecure_channel(self.target) as channel:
+                stub = runtime_pb2_grpc.PrivokeRuntimeServiceStub(channel)
+                method = stub.ComputeUnderlyingModelGradients if training_scope == "full_encoder" else stub.ComputeSemanticGradients
+                response = method(request, timeout=180.0 if expected_optimizer is not None and training_scope == "full_encoder" else self.timeout_seconds,
+                                  **({"metadata": invocation_metadata} if invocation_metadata else {}))
+            if invocation_metadata:
+                from training.evidence import persist_backtracking_attempt
+                attempt = persist_backtracking_attempt(request, response, scope=training_scope,
+                    expectations=expectations, invocation_metadata=invocation_metadata)
+            if "expected_backtracking_policy" in expectations and response.error == BACKTRACKING_REJECTION:
+                validate_backtracking_response(request, response, expectations, rejected=True)
+                known_rejection = True
+                raise TrainingStepRejected("FULL TRAIN backtracking found no meaningful improving candidate.")
+            if response.error:
+                raise RuntimeAnalysisError(response.error)
+            validate_training_response(request, response, training_scope, max_gradient,
+                                       require_full_capability=require_full_capability)
+            if expectations:
+                validate_training_policy_response(request, response, **expectations)
+                if retention_mode:
+                    from training.sensitive_retention_evidence import validate_source_bindings
+                    validate_source_bindings(response.metadata, retention_release)
+        except (RuntimeAnalysisError, ValueError, grpc.RpcError, OSError) as exc:
+            if invocation_metadata:
+                from training.evidence import persist_backtracking_attempt, persist_backtracking_admission
+                if attempt is None:
+                    attempt = persist_backtracking_attempt(request, response, scope=training_scope,
+                        expectations=expectations, invocation_metadata=invocation_metadata, error=exc)
+                persist_backtracking_admission(attempt, response,
+                    status="known_train_rejection" if known_rejection else "unadmitted", error=exc)
+            elif expectations:
+                from training.evidence import persist_policy_attempt
+                persist_policy_attempt(request, response, scope=training_scope, expectations=expectations, error=exc)
+            raise
+        if invocation_metadata:
+            from training.evidence import persist_backtracking_admission
+            persist_backtracking_admission(attempt, response, status="accepted")
+        elif expectations:
+            from training.evidence import persist_policy_attempt
+            persist_policy_attempt(request, response, scope=training_scope, expectations=expectations)
         gradients = {}
         shapes = {}
         for parameter in response.gradients:
@@ -246,11 +333,16 @@ class PrivokeRuntimeClient:
                 "response_protobuf_base64": base64.b64encode(response.SerializeToString(deterministic=True)).decode("ascii"),
                 "executions": [{"phase": e.phase, "layer": e.layer, "status": e.status,
                                 "examples": e.examples, "error": e.error} for e in response.executions],
+                **({"invocation_metadata": [list(pair) for pair in invocation_metadata], "physical_attempt": str(attempt)} if invocation_metadata else {}),
             },
         }
 
     def compute_underlying_gradients(self, examples, **kwargs):
         return self.compute_semantic_gradients(examples, training_scope="full_encoder", **kwargs)
+
+    def compute_window_gradients(self, examples, **kwargs):
+        from training.window_evidence import compute
+        return compute(self,examples,**kwargs)
 
     def compute_presence_gradients(
         self, examples, *, heldout_examples=(), model_id: str,
@@ -325,6 +417,116 @@ class PrivokeRuntimeClient:
         }
 
 
+def validate_training_policy_response(request, response, *, expected_objective=None, expected_diagnostics_policy=None,
+                                     expected_backtracking_policy=None, expected_backtracking_preparation_sha256=None,
+                                     expected_optimizer=None, expected_candidate_eligibility=None, expected_optimizer_config=None,
+                                     expected_training_scope=None, expected_retention_manifest_sha256=None):
+    from privoke_model.contextual_training import (EXECUTED_OBJECTIVE_KEY, DIAGNOSTICS_POLICY_KEY,
+        DIAGNOSTICS_KEY, PROCESS_OBJECTIVES, CLASS_BALANCED_SUM_CATEGORY_DECISION_MARGIN_OBJECTIVE, validate_training_diagnostics)
+    actual = response.metadata.get(EXECUTED_OBJECTIVE_KEY)
+    if actual not in PROCESS_OBJECTIVES or (expected_objective is not None and actual != expected_objective):
+        raise RuntimeAnalysisError("Runtime executed a different or missing objective policy.")
+    if (expected_objective == CLASS_BALANCED_SUM_CATEGORY_DECISION_MARGIN_OBJECTIVE and expected_diagnostics_policy is None
+            and (DIAGNOSTICS_POLICY_KEY in response.metadata or DIAGNOSTICS_KEY in response.metadata)):
+        raise RuntimeAnalysisError("Runtime unexpectedly enabled TRAIN diagnostics.")
+    if expected_diagnostics_policy is not None:
+        if response.metadata.get(DIAGNOSTICS_POLICY_KEY) != expected_diagnostics_policy:
+            raise RuntimeAnalysisError("Runtime executed a different or missing TRAIN diagnostic policy.")
+        try:
+            record = validate_training_diagnostics(response.metadata.get(DIAGNOSTICS_KEY), objective=actual,
+                examples=len(request.examples), base_fingerprint=response.metadata["base_parameter_fingerprint"],
+                candidate_fingerprint=response.metadata["updated_parameter_fingerprint"])
+            from privoke_contracts.classification import Classification
+            sensitive = sum(Classification(item.target.packed).is_sensitive() for item in request.examples)
+            if any(not item.has_target for item in request.examples) or record["counts"] != [len(request.examples), len(request.examples) - sensitive, sensitive]:
+                raise ValueError("TRAIN diagnostic actual target counts differ.")
+        except (ValueError, TypeError, KeyError) as exc:
+            raise RuntimeAnalysisError("Runtime TRAIN diagnostics failed admission.") from exc
+    if expected_backtracking_policy is not None:
+        validate_backtracking_response(request, response, {
+            "expected_objective": expected_objective, "expected_diagnostics_policy": expected_diagnostics_policy,
+            "expected_backtracking_policy": expected_backtracking_policy,
+            "expected_backtracking_preparation_sha256": expected_backtracking_preparation_sha256})
+    if expected_optimizer is not None:
+        from privoke_model import sensitive_retention as retention
+        from privoke_model.full_adam import POLICY, CONFIG_KEY, ELIGIBILITY, validate_trace
+        from privoke_model.fingerprint import parameter_fingerprint
+        opted_retention = expected_optimizer in retention.POLICIES
+        if (expected_optimizer not in ({POLICY} | retention.POLICIES)
+                or expected_candidate_eligibility != (retention.ELIGIBILITY if opted_retention else ELIGIBILITY)
+                or response.metadata.get(CONFIG_KEY) != expected_optimizer_config or response.metadata.get("training_scope") != expected_training_scope):
+            raise RuntimeAnalysisError("Runtime FULL Adam policy identity differs.")
+        if opted_retention and response.metadata.get(retention.MANIFEST_KEY) != expected_retention_manifest_sha256:
+            raise RuntimeAnalysisError("Runtime ORIGINAL retention manifest differs.")
+        try:
+            validate_trace(response.metadata, scope=response.metadata["training_scope"], examples=len(request.examples),
+                candidate_fingerprint=response.metadata["updated_parameter_fingerprint"],
+                delta_fingerprint=parameter_fingerprint({p.name: tuple(p.values) for p in response.gradients},
+                    {p.name: tuple(p.shape) for p in response.gradients}))
+        except (ValueError, TypeError, KeyError) as exc:
+            raise RuntimeAnalysisError("Runtime FULL Adam trace failed admission.") from exc
+
+
+def validate_backtracking_response(request, response, expectations, *, rejected=False):
+    from privoke_model.contextual_training import (BACKTRACKING_KEY, BACKTRACKING_POLICY, BACKTRACKING_PREPARATION_KEY,
+        BACKTRACKING_REJECTION, FULL_ENCODER_STRATEGY, DIAGNOSTICS_POLICY_KEY, EXECUTED_OBJECTIVE_KEY, DIAGNOSTICS_KEY, full_encoder_tensor_shapes,
+        validate_backtracking_trace)
+    from privoke_model.fingerprint import parameter_fingerprint
+    try:
+        meta = response.metadata
+        if (response.request_id != request.request_id or response.model_id != request.model_id or not response.base_version
+                or list(request.layers) != [runtime_pb2.DETECTION_LAYER_SEMANTIC]
+                or meta.get(BACKTRACKING_KEY) != expectations["expected_backtracking_policy"]
+                or meta.get(BACKTRACKING_KEY) != BACKTRACKING_POLICY
+                or meta.get(BACKTRACKING_PREPARATION_KEY) != expectations["expected_backtracking_preparation_sha256"]
+                or meta.get(EXECUTED_OBJECTIVE_KEY) != expectations["expected_objective"]
+                or meta.get(DIAGNOSTICS_POLICY_KEY) != expectations["expected_diagnostics_policy"]
+                or meta.get("training_scope") != "full_encoder" or meta.get("learning_rate") != str(request.learning_rate)):
+            raise ValueError("Backtracking response policy/rate identity differs.")
+        shapes = full_encoder_tensor_shapes(json.loads(meta["model_config"]))
+        if (meta.get("strategy") != FULL_ENCODER_STRATEGY
+                or meta.get("artifact_training_strategy") != FULL_ENCODER_STRATEGY
+                or meta.get("underlying_training_available") != "true"
+                or any(not re.fullmatch("[0-9a-f]{64}", meta.get(k, "")) for k in ("artifact_checksum", "base_parameter_fingerprint"))
+                or any(not math.isfinite(value) for value in response.metrics.values())):
+            raise ValueError("Backtracking response capability/base/numeric identity differs.")
+        config = json.loads(meta["model_config"])
+        for task, enum in (("sensitivity", Sensitivity), ("visibility", Visibility), ("category", Category)):
+            labels = config.get(task + "_labels")
+            if not isinstance(labels, list) or len(labels) != len(enum) or set(labels) != set(enum.__members__):
+                raise ValueError("Backtracking classification label inventory differs.")
+        if (json.loads(meta["trained_parameter_names"]) != sorted(shapes)
+                or meta["trained_parameter_inventory_fingerprint"] != parameter_fingerprint({n: () for n in shapes}, shapes)):
+            raise ValueError("Backtracking raw gradient inventory differs.")
+        header, trials = validate_backtracking_trace(meta, examples=len(request.examples), requested_rate=request.learning_rate, rejected=rejected)
+        if header["raw"][2] != sum(math.prod(s) for s in shapes.values()):
+            raise ValueError("Backtracking raw coordinate count differs.")
+        if (response.metrics.get("gradient_fits") != 1 or response.metrics.get("backtracking_trials") != len(trials)
+                or response.metrics.get("backtracking_semantic_examples") != sum(row[8] for row in trials)
+                or response.metrics.get("backtracking_forward_attempts") != sum(row[10] > 0 for row in trials)
+                or response.metrics.get("backtracking_attempted_semantic_examples") != sum(row[10] for row in trials)):
+            raise ValueError("Backtracking physical/trial accounting differs.")
+        if rejected:
+            if (response.error != BACKTRACKING_REJECTION or response.gradients
+                    or len(response.executions) != 1 or response.executions[0].phase != "training"
+                    or response.executions[0].layer != runtime_pb2.DETECTION_LAYER_SEMANTIC
+                    or response.executions[0].status != "ok" or response.executions[0].error
+                    or response.executions[0].examples != len(request.examples)
+                    or any(k.startswith("heldout_") or k.startswith("candidate_heldout_") for k in response.metrics)
+                    or "updated_parameter_fingerprint" in meta or "effective_learning_rate" in meta or DIAGNOSTICS_KEY in meta):
+                raise ValueError("Known rejection falsely claims a selected step or guard.")
+        else:
+            selected = trials[header["selected"]]
+            delta = {p.name: tuple(p.values) for p in response.gradients}
+            if parameter_fingerprint(delta, shapes) != selected[5]:
+                raise ValueError("Selected transported delta differs from trace.")
+            diagnostic = json.loads(meta[DIAGNOSTICS_KEY])
+            if diagnostic["loss"] != [header["base"][1], selected[1]]:
+                raise ValueError("Selected TRAIN diagnostics differ from trial losses.")
+    except (ValueError, TypeError, KeyError, OverflowError) as exc:
+        raise RuntimeAnalysisError("Runtime backtracking evidence failed admission.") from exc
+
+
 def validate_training_response(request, response, scope, max_gradient, *, require_full_capability=False):
     """Admit actual semantic execution and independently derived Tiny tensor shapes."""
     from privoke_model.contextual_training import HEAD_NAMES, FULL_ENCODER_STRATEGY, LAST_BLOCK_STRATEGY, full_encoder_tensor_shapes, contextual_trainable_names
@@ -338,6 +540,9 @@ def validate_training_response(request, response, scope, max_gradient, *, requir
         reject("Runtime training response identity is incomplete or mismatched.")
     phases = [("training", len(request.examples)), ("base_heldout", len(request.heldout_examples)),
               ("candidate_heldout", len(request.heldout_examples))]
+    from privoke_model import sensitive_retention as retention
+    if response.metadata.get("contextual_training_optimizer") in retention.POLICIES:
+        phases.extend(retention.execution_phases(response.metadata))
     if len(response.executions) != len(phases):
         reject("Runtime training requires all three actual semantic executions.")
     for execution, (phase, count) in zip(response.executions, phases):
@@ -361,6 +566,8 @@ def validate_training_response(request, response, scope, max_gradient, *, requir
             reject("Runtime training lacks an exact artifact identity.")
     try:
         config = json.loads(metadata["model_config"])
+        from privoke_model.readout import validate_readout_identity
+        validate_readout_identity(metadata.get("architecture", "privoke_tiny_transformer_v1"), config)
         for task, enum in (("sensitivity", Sensitivity), ("visibility", Visibility), ("category", Category)):
             labels = config.get(task + "_labels")
             if (not isinstance(labels, list) or len(labels) != len(enum)

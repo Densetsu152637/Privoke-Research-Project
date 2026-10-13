@@ -7,6 +7,7 @@ COPY shared/python /app/shared/python
 COPY shared/proto /app/shared/proto
 COPY extension/client-runtime/src /app/extension/client-runtime/src
 COPY services/privoke-fuzzer/src /app/services/privoke-fuzzer/src
+COPY services/privoke-fuzzer/data /app/services/privoke-fuzzer/data
 COPY services/pretrained-v3/src /app/services/pretrained-v3/src
 RUN mkdir -p extension/client-runtime/generated && python -m grpc_tools.protoc -I shared/proto --python_out=extension/client-runtime/generated --grpc_python_out=extension/client-runtime/generated shared/proto/privoke/v1/runtime.proto shared/proto/privoke/v1/parameters.proto shared/proto/privoke/experimental/v3.proto
 CMD ["python", "services/pretrained-v3/src/runtime_server.py"]

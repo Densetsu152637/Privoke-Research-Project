@@ -71,7 +71,7 @@ class UnderlyingCycleTests(unittest.TestCase):
         self.addCleanup(environment.stop)
         self.config=SimpleNamespace(model_id="privoke-balanced", max_concurrent_cycles=1, seed=42,
             max_prompt_count=256,heldout_prompt_count=16,prompt_dataset_path=None,minimum_exact_match_rate=0.0)
-        self.config.batch_training_config=lambda seed: BatchTrainingConfig(seed=seed)
+        self.config.batch_training_config=lambda seed, **kwargs: BatchTrainingConfig(seed=seed)
         self.config.privoke_runtime_target="unused"
         self.config.timeout_seconds=10
         self.service=FuzzerTrainingService(self.config)
@@ -107,6 +107,31 @@ class UnderlyingCycleTests(unittest.TestCase):
         evidence=json.loads(next(Path(self.temporary.name).glob("training-cycles/*/*.json")).read_text())
         self.assertEqual(evidence["execution_evidence"],self.update.execution_evidence)
         self.assertEqual(evidence["ack"]["applied_version"],"S2")
+
+    def test_backtracking_identity_replay_and_known_rejection_no_submit(self):
+        from privoke_model.contextual_training import BACKTRACKING_POLICY, CLASS_BALANCED_OBJECTIVE, TRAIN_DIAGNOSTICS_POLICY
+        from runtime_client import TrainingStepRejected
+        self.request.metadata.update(expected_contextual_training_objective=CLASS_BALANCED_OBJECTIVE,
+            expected_contextual_training_diagnostics_policy=TRAIN_DIAGNOSTICS_POLICY,
+            expected_contextual_training_backtracking_policy=BACKTRACKING_POLICY,
+            expected_contextual_training_backtracking_preparation_sha256="a"*64)
+        status=pb.ParameterUpdateStatus(found=True,base_version="historical-base",ack=self.ack,prompts_generated=8)
+        with patch.object(self.service,"_previous_update_for_fingerprint",return_value=status), patch("fuzzer_service.generate_training_partition") as sample, patch.object(self.service,"_train") as train:
+            self.assertTrue(self.run_cycle().accepted)
+        sample.assert_not_called();train.assert_not_called()
+        self.request.metadata["expected_contextual_training_backtracking_preparation_sha256"]="b"*64
+        with patch.object(self.service,"_previous_update_for_fingerprint") as lookup, self.assertRaisesRegex(Aborted,"different effective"):
+            self.run_cycle()
+        lookup.assert_not_called()
+        self.request.metadata["expected_contextual_training_backtracking_preparation_sha256"]="a"*64
+        with patch.object(self.service,"_previous_update_for_fingerprint",return_value=pb.ParameterUpdateStatus()), patch("fuzzer_service.generate_training_partition",return_value=([BatchTrainingExample("synthetic")]*8,[])), patch("fuzzer_service.train_parameter_batch",side_effect=TrainingStepRejected("known one-fit no improvement")), patch.object(self.service,"_submit_update") as submit:
+            with self.assertRaisesRegex(Aborted,"known one-fit"): self.run_cycle()
+        submit.assert_not_called()
+        with patch.object(self.service,"_previous_update_for_fingerprint") as lookup, self.assertRaisesRegex(Aborted,"FULL-only"):
+            self.service.RunTrainingCycle(self.request,Context())
+        lookup.assert_not_called()
+        with patch.dict(os.environ,{"PRIVOKE_FUZZER_DUMP_DIR":""}), self.assertRaisesRegex(Aborted,"durable"):
+            self.run_cycle()
 
     def test_replay_uses_receipt_without_sampling_or_training(self):
         status=pb.ParameterUpdateStatus(found=True,base_version="S1",ack=self.ack,prompts_generated=8)

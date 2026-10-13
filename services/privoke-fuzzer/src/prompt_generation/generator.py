@@ -81,8 +81,41 @@ def generate_training_prompts(
     return generated
 
 
-def generate_training_partition(count, heldout_count, seed, dataset_path=None, *, sampling_strategy=None):
+def generate_training_partition(count, heldout_count, seed, dataset_path=None, *, sampling_strategy=None,
+                                taxonomy_dataset=None, rehearsal_manifest=None, benign_release=None, audience_release=None):
     """Reserve labeled examples; exclude their texts and any declared source groups."""
+    if sampling_strategy == "legacy_random_v1":
+        sampling_strategy = None
+    if sampling_strategy == "audience_coverage_v1":
+        from . import audience_coverage as audience
+        audience.validate_count(count, heldout_count)
+        if dataset_path is not None or taxonomy_dataset is not None or rehearsal_manifest is not None or benign_release is not None:
+            raise ValueError("Audience coverage cannot mix legacy source snapshots.")
+        return audience.generate_partition(audience_release or audience.load_release(), seed, count)
+    if audience_release is not None:
+        raise ValueError("Audience snapshot requires its explicit strategy.")
+    if sampling_strategy == "taxonomy_benign_coverage_v1":
+        from .benign_coverage import generate_partition
+        validate_contextual_sampling_strategy(sampling_strategy, count)
+        if heldout_count != 16 or taxonomy_dataset is None or benign_release is None or rehearsal_manifest is not None:
+            raise ValueError("Benign coverage requires its exclusive prepared snapshots and sixteen unchanged guard rows.")
+        return generate_partition(taxonomy_dataset, benign_release, seed)
+    if benign_release is not None:
+        raise ValueError("Benign release requires its explicit sampling strategy.")
+    if sampling_strategy == "taxonomy_anchor_rehearsal_v1":
+        from .anchor_rehearsal import generate_partition
+        validate_contextual_sampling_strategy(sampling_strategy, count)
+        if heldout_count != 16 or taxonomy_dataset is None or rehearsal_manifest is None:
+            raise ValueError("Rehearsal requires prepared dataset/manifest snapshots and sixteen guard rows.")
+        return generate_partition(taxonomy_dataset, rehearsal_manifest, seed)
+    if rehearsal_manifest is not None:
+        raise ValueError("Rehearsal manifest requires its explicit sampling strategy.")
+    if sampling_strategy == "taxonomy_coverage_v1":
+        from .taxonomy_coverage import generate_partition, load_dataset
+        validate_contextual_sampling_strategy(sampling_strategy, count)
+        if heldout_count != 16:
+            raise ValueError("Taxonomy coverage requires exactly 16 held-out examples.")
+        return generate_partition(taxonomy_dataset or load_dataset(dataset_path), seed)
     if sampling_strategy is not None:
         validate_contextual_sampling_strategy(sampling_strategy, count)
         if heldout_count != 16:
@@ -132,6 +165,16 @@ def generate_training_partition(count, heldout_count, seed, dataset_path=None, *
 
 def validate_contextual_sampling_strategy(strategy, count):
     """Fail closed on undeclared sampling modes and their fixed row budget."""
+    if strategy == "legacy_random_v1" and type(count) is int and count > 0:
+        return
+    if strategy == "audience_coverage_v1":
+        from .audience_coverage import validate_count
+        validate_count(count)
+        return
+    if type(strategy) is str and strategy in ("taxonomy_coverage_v1", "taxonomy_anchor_rehearsal_v1", "taxonomy_benign_coverage_v1"):
+        if type(count) is not int or count != 32:
+            raise ValueError("Taxonomy coverage requires exactly 32 training examples.")
+        return
     if strategy != CONTEXTUAL_ROLE_QUOTA_STRATEGY or type(strategy) is not str:
         raise ValueError("Unsupported contextual sampling strategy.")
     if type(count) is not int or count != 256:

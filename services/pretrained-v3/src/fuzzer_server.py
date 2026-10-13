@@ -14,6 +14,9 @@ class FuzzerServer(rpc.V3FuzzerServiceServicer):
         self.checkpoint_channel = channel(checkpoint_target); self.checkpoint = rpc.CheckpointServiceStub(self.checkpoint_channel)
         self.directory = Path(directory); self.directory.mkdir(parents=True, exist_ok=True)
         self.policy = validate_policy(policy, pilot=policy["steps"] == 2)
+        self.sampler = os.getenv("V3_SAMPLING_STRATEGY", "existing_taxonomy_benign_common_frozen_stream_v1")
+        if self.sampler not in ("existing_taxonomy_benign_common_frozen_stream_v1", "audience_common_frozen_stream_v1"):
+            raise ValueError("Unknown configured v3 sampler.")
         self.lock = threading.RLock()
         self.db = sqlite3.connect(self.directory / "cycles.sqlite", isolation_level=None, check_same_thread=False)
         self.db.execute("PRAGMA synchronous=FULL")
@@ -28,7 +31,14 @@ class FuzzerServer(rpc.V3FuzzerServiceServicer):
         import grpc
         if not request.request_id or len(request.request_id) > 200 or request.prompt_count != self.policy["window_batches"] * 32:
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Frozen request ID/original prompt budget required.")
-        fingerprint = digest(str(scope).encode() + request.SerializeToString(deterministic=True))
+        source_pin = "BC01"
+        if self.sampler == "audience_common_frozen_stream_v1":
+            from audience_schedule import trusted_release
+            source_pin = trusted_release().sha256
+        fingerprint_payload = str(scope).encode() + request.SerializeToString(deterministic=True)
+        if self.sampler == "audience_common_frozen_stream_v1":
+            fingerprint_payload += self.sampler.encode() + source_pin.encode()
+        fingerprint = digest(fingerprint_payload)
         with self.lock:
             prior = self.db.execute("SELECT fingerprint,response FROM cycles WHERE id=?", (request.request_id,)).fetchone()
             if prior:
@@ -41,7 +51,7 @@ class FuzzerServer(rpc.V3FuzzerServiceServicer):
             base = request.metadata.get("expected_base")
             if base != self.checkpoint.ResolveCurrent(pb.Model(model_id=request.model_id), timeout=15).sha256:
                 raise ValueError("Cycle expected base differs from private current catalog.")
-            training, guard, source = schedule(request.seed, self.policy)
+            training, guard, source = schedule(request.seed, self.policy, sampler=self.sampler)
             if (request.metadata.get("policy_sha256") != digest(canonical(self.policy))
                     or request.metadata.get("source_commitment") != digest(canonical(source))):
                 raise ValueError("Host frozen policy/source differs from actual dispatched schedule.")
@@ -90,7 +100,7 @@ class FuzzerServer(rpc.V3FuzzerServiceServicer):
             return response
 
     def Health(self, request, context):
-        return pb.HealthResponse(ready=True, role="fuzzer", capabilities={"schema": "1", "policy_sha256": digest(canonical(self.policy)), "source_closure": source_identity()})
+        return pb.HealthResponse(ready=True, role="fuzzer", capabilities={"schema": "1", "policy_sha256": digest(canonical(self.policy)), "source_closure": source_identity(), "sampler": self.sampler})
 
 if __name__ == "__main__":
     policy = parse(Path(os.environ["V3_POLICY_FILE"]).read_bytes())

@@ -6,6 +6,7 @@ import logging
 import math
 import hashlib
 import json
+import os
 from pathlib import Path
 import threading
 from dataclasses import asdict, dataclass, replace
@@ -18,6 +19,12 @@ from prompt_generation import generate_presence_training_partition, generate_tra
 from prompt_generation.generator import (CONTEXTUAL_SAMPLING_STRATEGY_KEY,
     contextual_sampling_audit, validate_contextual_sampling_strategy)
 from prompt_generation.curriculum import load_curriculum, reserve_batch, request_fingerprint, sampler_settings
+from privoke_model.contextual_training import training_policy_expectations
+from prompt_generation.taxonomy_coverage import (STRATEGY as TAXONOMY_STRATEGY, audit_originals,
+    load_dataset as load_taxonomy_dataset, policy_contract as taxonomy_policy_contract)
+from prompt_generation import anchor_rehearsal as rehearsal
+from prompt_generation import benign_coverage as benign
+from prompt_generation import audience_coverage as audience
 from runtime_client import PrivokeRuntimeClient, RuntimeAnalysisError
 from training import emit_training_update, train_parameter_batch, train_presence_batch
 from training.types import BatchTrainingUpdate
@@ -181,11 +188,126 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             scoped.metadata["original_request_source_id"] = request.source_id
             scoped.source_id = hashlib.sha256(("underlying-v1:" + request.source_id).encode()).hexdigest()
             request = scoped
+        from privoke_model import window_training as window_contract
+        if (request.metadata.get("expected_contextual_training_optimizer") == window_contract.POLICY
+                or request.metadata.get("contextual_sampling_strategy") == window_contract.SAMPLER):
+            from training.window_cycle import run
+            return run(self,request,context,training_scope=training_scope)
         cycle = _resolve_cycle(request, self.config)
         curriculum = None
+        taxonomy_dataset = None
+        rehearsal_manifest = None
+        benign_release = None
+        retention_release = None
+        audience_release = None
         fingerprint = None
         try:
+            policy_expectations = training_policy_expectations(request.metadata)
+            from privoke_model import sensitive_retention as retention
+            retention_mode = policy_expectations.get("expected_optimizer") in retention.POLICIES
+            if "expected_optimizer" in policy_expectations and policy_expectations["expected_training_scope"] != training_scope:
+                raise ValueError("FULL Adam request header scope differs before reservation.")
+            if "expected_optimizer" in policy_expectations and training_scope == "full_encoder":
+                from privoke_model.full_adam import CONFIG
+                settings = self.config.batch_training_config(cycle.seed, training_scope=training_scope)
+                if settings.learning_rate != CONFIG["eta"] or settings.max_gradient != CONFIG["delta_cap"]:
+                    raise ValueError("FULL Adam fixed rate/cap must match before reservation or receipt recovery.")
+            if policy_expectations.get("expected_backtracking_policy") and training_scope != "full_encoder":
+                raise ValueError("Backtracking admission is FULL-only.")
+            if policy_expectations and not os.getenv("PRIVOKE_FUZZER_DUMP_DIR"):
+                raise ValueError("Training policy admission requires durable PRIVOKE_FUZZER_DUMP_DIR.")
             manifest_path = getattr(self.config, "curriculum_manifest_path", None)
+            strategy = request.metadata.get(CONTEXTUAL_SAMPLING_STRATEGY_KEY)
+            if strategy is None:
+                strategy = getattr(self.config, "contextual_sampling_strategy", audience.LEGACY)
+            if strategy == audience.LEGACY:
+                strategy = None
+            if strategy == audience.STRATEGY:
+                if manifest_path or self.config.prompt_dataset_path or policy_expectations:
+                    raise ValueError("Audience mode cannot override explicit legacy curriculum/dataset/policy.")
+                audience.validate_count(cycle.prompt_count, self.config.heldout_prompt_count)
+                audience_release = audience.load_release(getattr(self.config, "audience_manifest_path", None),
+                                                         getattr(self.config, "audience_manifest_sha256", None))
+                settings = {"training": asdict(self.config.batch_training_config(cycle.seed, training_scope=training_scope)),
+                            "scope": training_scope, "prompt_count": cycle.prompt_count,
+                            "heldout_count": self.config.heldout_prompt_count, "strategy": strategy,
+                            "audience_manifest_sha256": audience_release.sha256,
+                            "audience_implementation_sha256": audience.implementation_closure()["sha256"],
+                            "minimum_exact_match_rate": self.config.minimum_exact_match_rate}
+                fingerprint = hashlib.sha256(json.dumps([request.SerializeToString(deterministic=True).hex(), settings],
+                    sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            if retention_mode and strategy != benign.STRATEGY:
+                raise ValueError("ORIGINAL retention requires the unchanged BC01 main composition.")
+            if strategy != rehearsal.STRATEGY and any(k in request.metadata for k in (rehearsal.BANK_KEY, rehearsal.MANIFEST_KEY)):
+                raise ValueError("Orphan rehearsal pins require the explicit rehearsal strategy.")
+            if strategy != benign.STRATEGY and any(k in request.metadata for k in (benign.POOL_KEY, benign.MANIFEST_KEY, benign.PROOF_KEY)):
+                raise ValueError("Orphan benign pins require the explicit benign strategy.")
+            if strategy in (TAXONOMY_STRATEGY, rehearsal.STRATEGY, benign.STRATEGY):
+                if manifest_path:
+                    raise ValueError("Taxonomy coverage cannot override a fixed curriculum.")
+                if not os.getenv("PRIVOKE_FUZZER_DUMP_DIR"):
+                    raise ValueError("Taxonomy coverage requires durable PRIVOKE_FUZZER_DUMP_DIR.")
+                training_config = self.config.batch_training_config(cycle.seed, training_scope=training_scope)
+                if cycle.prompt_count != 32 or self.config.heldout_prompt_count != 16 or training_config.transformations_per_example != 1:
+                    raise ValueError("Taxonomy coverage requires 32 originals, 16 guard rows and one transformation.")
+                taxonomy_dataset = load_taxonomy_dataset(self.config.prompt_dataset_path)
+                expected = request.metadata.get("taxonomy_dataset_sha256")
+                if expected is not None and expected != taxonomy_dataset.sha256:
+                    raise ValueError("Requested taxonomy dataset hash differs from the server release.")
+                if strategy == rehearsal.STRATEGY:
+                    from privoke_model.full_adam import POLICY, ELIGIBILITY, CONFIG, OBJECTIVE, canonical
+                    if (training_scope != 'full_encoder' or policy_expectations != {
+                            'expected_objective': OBJECTIVE, 'expected_diagnostics_policy': None, 'expected_optimizer': POLICY,
+                            'expected_candidate_eligibility': ELIGIBILITY, 'expected_optimizer_config': canonical(CONFIG),
+                            'expected_training_scope': 'full_encoder'} or training_config.new_example_weight != 1.0):
+                        raise ValueError("Rehearsal requires exact authenticated FULL Adam and unit raw weights before reservation.")
+                    rehearsal_manifest = rehearsal.load_manifest(getattr(self.config, 'rehearsal_manifest_path', None), taxonomy_dataset)
+                    rehearsal.validate_pins(request.metadata, rehearsal_manifest, taxonomy_dataset)
+                    # Validate selected rows and unchanged guard before reservation AND receipt lookup.
+                    rehearsal.generate_partition(taxonomy_dataset, rehearsal_manifest, cycle.seed)
+                if strategy == benign.STRATEGY:
+                    from privoke_model.full_adam import POLICY, ELIGIBILITY, CONFIG, OBJECTIVE, canonical
+                    required_policy = {
+                            'expected_objective': OBJECTIVE, 'expected_diagnostics_policy': None, 'expected_optimizer': POLICY,
+                            'expected_candidate_eligibility': ELIGIBILITY, 'expected_optimizer_config': canonical(CONFIG),
+                            'expected_training_scope': 'full_encoder'}
+                    if retention_mode:
+                        required_policy.update(expected_objective=retention.OBJECTIVES[policy_expectations['expected_optimizer']],
+                            expected_optimizer=policy_expectations['expected_optimizer'], expected_candidate_eligibility=retention.ELIGIBILITY,
+                            expected_retention_manifest_sha256=policy_expectations['expected_retention_manifest_sha256'])
+                    if (training_scope != 'full_encoder' or policy_expectations != required_policy or training_config.new_example_weight != 1.0):
+                        raise ValueError("Benign coverage requires exact authenticated FULL Adam and unit weights before reservation.")
+                    benign_release = benign.load_release(self.config.benign_pool_path, self.config.benign_manifest_path,
+                                                         self.config.benign_exclusion_proof_path, taxonomy_dataset)
+                    benign.validate_pins(request.metadata, benign_release, taxonomy_dataset)
+                    benign.generate_partition(taxonomy_dataset, benign_release, cycle.seed)
+                    if retention_mode:
+                        benign.validate_legacy_snapshot(taxonomy_dataset)
+                        retention_release = retention.load_release(self.config.retention_bank_path, self.config.retention_reference_path,
+                            self.config.retention_manifest_path, self.config.retention_teacher_path, model_id=cycle.model_id,
+                            expected_sha256=policy_expectations['expected_retention_manifest_sha256'])
+                        retention.validate_trusted_release(retention_release, model_id=cycle.model_id,
+                            request_sha256=policy_expectations['expected_retention_manifest_sha256'],
+                            trusted_sha256=self.config.retention_manifest_sha256)
+                settings = {"training": asdict(training_config), "scope": training_scope,
+                            "model_id": cycle.model_id, "prompt_count": cycle.prompt_count, "seed": cycle.seed,
+                            "heldout_count": self.config.heldout_prompt_count,
+                            "minimum_exact_match_rate": self.config.minimum_exact_match_rate,
+                            "dataset_sha256": taxonomy_dataset.sha256, "policy": taxonomy_policy_contract()}
+                if rehearsal_manifest is not None:
+                    settings.update(sampling_strategy=strategy, rehearsal_manifest_sha256=rehearsal_manifest.sha256,
+                                    rehearsal_bank_sha256=rehearsal_manifest.bank_sha256,
+                                    rehearsal_manifest=json.loads(rehearsal_manifest.payload))
+                if benign_release is not None:
+                    settings.update(sampling_strategy=strategy, benign_pool_sha256=benign_release.pool.sha256,
+                                    benign_manifest=json.loads(benign_release.payload),
+                                    benign_exclusion_proof_sha256=benign_release.proof_sha256,
+                                    benign_policy=benign.policy_contract())
+                if retention_release is not None:
+                    settings.update(original_train_retention_manifest=retention_release.manifest,
+                                    original_train_retention_manifest_sha256=retention_release.sha256)
+                fingerprint = hashlib.sha256(json.dumps([request.SerializeToString(deterministic=True).hex(), settings],
+                    sort_keys=True, separators=(",", ":")).encode()).hexdigest()
             if manifest_path:
                 curriculum = load_curriculum(manifest_path)
                 sampler_settings(request)
@@ -194,7 +316,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                     expected = request.metadata.get(key)
                     if expected is not None and expected != actual:
                         raise ValueError(f"Requested {key} differs from the server curriculum.")
-                settings = {"training": asdict(self.config.batch_training_config(cycle.seed)),
+                settings = {"training": asdict(self.config.batch_training_config(cycle.seed, training_scope=training_scope)),
                             "prompt_count": cycle.prompt_count, "model_id": cycle.model_id,
                             "replay_fraction": self.config.curriculum_replay_fraction,
                             "minimum_exact_match_rate": self.config.minimum_exact_match_rate,
@@ -204,17 +326,26 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                 fingerprint = request_fingerprint(request, curriculum, settings)
         except (ValueError, OSError, KeyError, TypeError) as exc:
             context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
-        if training_scope == "full_encoder" or request.metadata.get("require_full_capability") == "true":
+        if policy_expectations or taxonomy_dataset is not None or audience_release is not None or training_scope == "full_encoder" or request.metadata.get("require_full_capability") == "true":
             try:
-                if not curriculum:
-                    settings = {"training": asdict(self.config.batch_training_config(cycle.seed)),
+                if not curriculum and taxonomy_dataset is None and audience_release is None:
+                    settings = {"training": asdict(self.config.batch_training_config(cycle.seed, training_scope=training_scope)),
                                 "scope": training_scope, "prompt_count": cycle.prompt_count,
                                 "heldout_count": self.config.heldout_prompt_count,
                                 "minimum_exact_match_rate": self.config.minimum_exact_match_rate,
                                 "dataset_sha256": (hashlib.sha256(Path(self.config.prompt_dataset_path).read_bytes()).hexdigest()
                                                    if self.config.prompt_dataset_path else "bundled_synthetic_generator_v1")}
+                    if policy_expectations:
+                        settings.update(model_id=cycle.model_id, seed=cycle.seed, policy_admission="artifact_policy_v1",
+                                        expectations=policy_expectations,
+                                        semantic_execution_contract="training_base_heldout_candidate_heldout_v1")
                     fingerprint = hashlib.sha256(json.dumps([request.SerializeToString(deterministic=True).hex(), settings],
                                                            sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+                from privoke_model.contextual_training import training_admission_metadata
+                invocation_metadata = training_admission_metadata(policy_expectations)
+                if invocation_metadata:
+                    fingerprint = hashlib.sha256(json.dumps([fingerprint, invocation_metadata],
+                        sort_keys=True, separators=(",", ":")).encode()).hexdigest()
                 reserve_training_request(request, training_scope, fingerprint)
             except (ValueError, OSError) as exc:
                 context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
@@ -232,8 +363,16 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                 metadata={"replayed": "true"},
             )
         _log_cycle_started(request, cycle)
-        sampling_strategy = request.metadata.get(CONTEXTUAL_SAMPLING_STRATEGY_KEY)
+        sampling_strategy = strategy
         sampling_arguments = ({"sampling_strategy": sampling_strategy} if sampling_strategy is not None else {})
+        if taxonomy_dataset is not None:
+            sampling_arguments["taxonomy_dataset"] = taxonomy_dataset
+        if rehearsal_manifest is not None:
+            sampling_arguments["rehearsal_manifest"] = rehearsal_manifest
+        if benign_release is not None:
+            sampling_arguments["benign_release"] = benign_release
+        if audience_release is not None:
+            sampling_arguments["audience_release"] = audience_release
         sampling_audit = {}
         replay_examples = ()
         try:
@@ -246,7 +385,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                 examples, heldout_examples, replay_examples = batch.examples, batch.heldout, batch.replay
                 sampling_audit = batch.audit
                 sampling_audit["curriculum_replay_weight"] = str(
-                    self.config.batch_training_config(cycle.seed).golden_example_weight)
+                    self.config.batch_training_config(cycle.seed, training_scope=training_scope).golden_example_weight)
             else:
                 examples, heldout_examples = generate_training_partition(
                     count=cycle.prompt_count,
@@ -256,7 +395,11 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                     **sampling_arguments,
                 )
                 if sampling_strategy is not None:
-                    sampling_audit = contextual_sampling_audit(examples)
+                    sampling_audit = (audience.audit_originals(audience_release, examples, heldout_examples, cycle.seed)
+                                      if audience_release is not None else benign.audit_originals(taxonomy_dataset, benign_release, examples, heldout_examples, cycle.seed)
+                                      if benign_release is not None else rehearsal.audit_originals(taxonomy_dataset, rehearsal_manifest, examples, heldout_examples, cycle.seed)
+                                      if rehearsal_manifest is not None else audit_originals(taxonomy_dataset, examples, heldout_examples)
+                                      if taxonomy_dataset is not None else contextual_sampling_audit(examples))
         except (ValueError, OSError, KeyError, TypeError) as exc:
             context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
         update = self._train(
@@ -269,9 +412,20 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             request_id=request.request_id,
             require_full_capability=request.metadata.get("require_full_capability") == "true",
             **({"golden_examples": replay_examples} if curriculum else {}),
+            **({"taxonomy_dataset": taxonomy_dataset} if taxonomy_dataset is not None else {}),
+            **({"rehearsal_manifest": rehearsal_manifest} if rehearsal_manifest is not None else {}),
+            **({"benign_release": benign_release} if benign_release is not None else {}),
+            **({"audience_release": audience_release} if audience_release is not None else {}),
+            **({"retention_release": retention_release} if retention_release is not None else {}),
+            **policy_expectations,
         )
         if sampling_audit:
             update = replace(update, metadata={**update.metadata, **sampling_audit})
+        if update.metadata.get("executed_contextual_training_optimizer") in ({"full_projected_adam64_v1"} | retention.POLICIES):
+            from training.full_adam_evidence import gate_summary, GATE_KEY
+            from privoke_model.full_adam import canonical
+            update = replace(update, metadata={**update.metadata,
+                GATE_KEY: canonical(gate_summary(update, self.config.minimum_exact_match_rate))})
         expected_base = request.metadata.get("expected_base_version")
         if expected_base and update.base_version != expected_base:
             context.abort(grpc.StatusCode.FAILED_PRECONDITION,
@@ -343,7 +497,11 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             context.abort(grpc.StatusCode.UNAVAILABLE, "Parameter update receipts are unavailable.")
 
     def _train(self, model_id, examples, heldout_examples, seed: int, context, *, golden_examples=(),
-               training_scope="heads", request_id="", require_full_capability=False) -> BatchTrainingUpdate:
+               training_scope="heads", request_id="", require_full_capability=False, taxonomy_dataset=None, rehearsal_manifest=None, benign_release=None,
+               expected_objective=None, expected_diagnostics_policy=None,
+               expected_backtracking_policy=None, expected_backtracking_preparation_sha256=None,
+               expected_optimizer=None, expected_candidate_eligibility=None, expected_optimizer_config=None,
+               expected_training_scope=None, retention_release=None, expected_retention_manifest_sha256=None, audience_release=None) -> BatchTrainingUpdate:
         try:
             return train_parameter_batch(
                 model_id=model_id,
@@ -353,7 +511,19 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                 training_scope=training_scope,
                 request_id=request_id,
                 require_full_capability=require_full_capability,
-                config=self.config.batch_training_config(seed),
+                config=self.config.batch_training_config(seed, training_scope=training_scope),
+                **({"taxonomy_dataset": taxonomy_dataset} if taxonomy_dataset is not None else {}),
+                **({"rehearsal_manifest": rehearsal_manifest} if rehearsal_manifest is not None else {}),
+                **({"benign_release": benign_release} if benign_release is not None else {}),
+                **({"audience_release": audience_release} if audience_release is not None else {}),
+                **({"retention_release": retention_release, "expected_retention_manifest_sha256": expected_retention_manifest_sha256} if retention_release is not None else {}),
+                **({"expected_objective": expected_objective} if expected_objective is not None else {}),
+                **({"expected_diagnostics_policy": expected_diagnostics_policy} if expected_diagnostics_policy is not None else {}),
+                **({"expected_backtracking_policy": expected_backtracking_policy,
+                    "expected_backtracking_preparation_sha256": expected_backtracking_preparation_sha256}
+                   if expected_backtracking_policy is not None else {}),
+                **({"expected_optimizer": expected_optimizer, "expected_candidate_eligibility": expected_candidate_eligibility,
+                    "expected_optimizer_config": expected_optimizer_config, "expected_training_scope": expected_training_scope} if expected_optimizer is not None else {}),
                 runtime_client=PrivokeRuntimeClient(
                     self.config.privoke_runtime_target,
                     timeout_seconds=self.config.timeout_seconds,
@@ -361,7 +531,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
             )
         except ValueError as exc:
             context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
-        except (RuntimeAnalysisError, grpc.RpcError) as exc:
+        except (RuntimeAnalysisError, grpc.RpcError, OSError) as exc:
             LOGGER.warning("client runtime semantic training failed: %s", exc)
             context.abort(
                 grpc.StatusCode.UNAVAILABLE,
@@ -392,6 +562,8 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
                 },
                 timeout_seconds=self.config.timeout_seconds,
             )
+        except (ValueError, OSError) as exc:
+            context.abort(grpc.StatusCode.FAILED_PRECONDITION, "Training publication evidence or metadata is invalid.")
         except grpc.RpcError as exc:
             LOGGER.warning(
                 "parameter update submission failed code=%s",
@@ -447,12 +619,16 @@ def _training_request_fingerprint(request) -> str:
 
 def gate_diagnostics(request, update, minimum):
     """Numeric, prompt-free record of the unchanged publication guard."""
+    from training.full_adam_evidence import eligibility_metric, gate_summary
+    selected_metric = eligibility_metric(update)
+    candidate_route = selected_metric == "candidate_train_exact_match_rate"
     metrics = {key: value for key, value in update.metrics.items()
                if key in {"exact_match_rate", "heldout_exact_match_rate", "candidate_heldout_exact_match_rate",
                           "heldout_sensitive_recall", "candidate_heldout_sensitive_recall",
                           "heldout_clean_specificity", "candidate_heldout_clean_specificity",
                           "heldout_sensitive_examples", "heldout_clean_examples",
-                          "candidate_heldout_safety_regression_rate"}}
+                          "candidate_heldout_safety_regression_rate"}
+               or (candidate_route and key == "candidate_train_exact_match_rate")}
     # Invalid values remain explicit and serializable rather than becoming zero.
     metrics = {key: value if math.isfinite(value) else None for key, value in metrics.items()}
     failures = []
@@ -460,7 +636,7 @@ def gate_diagnostics(request, update, minimum):
         validate_training_update(update, minimum_exact_match_rate=minimum)
     except ValueError as exc:
         failures.append({"predicate": "validation", "message": str(exc)})
-    comparisons = (("training_exact_above_minimum", "exact_match_rate", None),
+    comparisons = (("training_exact_above_minimum", selected_metric, None),
                    ("heldout_exact_no_decline", "candidate_heldout_exact_match_rate", "heldout_exact_match_rate"),
                    ("heldout_recall_no_decline", "candidate_heldout_sensitive_recall", "heldout_sensitive_recall"),
                    ("heldout_specificity_no_decline", "candidate_heldout_clean_specificity", "heldout_clean_specificity"),
@@ -470,7 +646,7 @@ def gate_diagnostics(request, update, minimum):
         base = metrics.get(reference) if reference else None
         failed = (value is None or (reference is not None and base is None))
         if not failed:
-            failed = value <= minimum if key == "exact_match_rate" else (value > 0 if reference is None else value < base)
+            failed = value <= minimum if key == selected_metric else (value > 0 if reference is None else value < base)
         if failed:
             failures.append({"predicate": predicate})
     identities = {key: update.metadata.get(key) for key in ("base_parameter_fingerprint", "updated_parameter_fingerprint")}
@@ -479,6 +655,7 @@ def gate_diagnostics(request, update, minimum):
     return {"schema_version": 1, "request_id": request.request_id, "source_id": request.source_id,
             "request_sha256": _training_request_fingerprint(request), "model_id": update.model_id,
             "base_version": update.base_version, **identities, "minimum_exact_match_rate": minimum,
+            **({"metric_role": "candidate_train", "gate_policy": gate_summary(update, minimum)} if candidate_route else {}),
             "metrics": metrics, "failed_predicates": failures, "gate_passed": not failures}
 
 
@@ -503,6 +680,13 @@ def validate_training_update(
     *,
     minimum_exact_match_rate: float,
 ) -> None:
+    from privoke_model import window_training as window
+    if update.metadata.get("contextual_training_optimizer") == window.POLICY:
+        from training.window_evidence import validate_update
+        trace = validate_update(update)
+        if trace["status"] != "selected" or update.metrics["candidate_train_exact_match_rate"] <= minimum_exact_match_rate:
+            raise ValueError("Window policy has no publishable sensitive-progress checkpoint.")
+        return
     if not math.isfinite(minimum_exact_match_rate) or not 0 <= minimum_exact_match_rate <= 1:
         raise ValueError("Minimum exact match rate must be finite and within [0, 1].")
     required_rates = (
@@ -521,7 +705,13 @@ def validate_training_update(
         value = update.metrics.get(name, 0)
         if not math.isfinite(value) or value < 1 or value != int(value):
             raise ValueError("Held-out evaluation needs both clean and sensitive examples.")
-    exact_match_rate = update.metrics.get("exact_match_rate")
+    from training.full_adam_evidence import eligibility_metric
+    from privoke_model import sensitive_retention as retention
+    if update.metadata.get("contextual_training_optimizer") in retention.POLICIES:
+        summary = json.loads(update.metadata[retention.SUMMARY_KEY])
+        if summary["violations"] != 0:
+            raise ValueError("ORIGINAL TRAIN target-capped per-row admission failed; no update published.")
+    exact_match_rate = update.metrics.get(eligibility_metric(update))
     if exact_match_rate is None:
         raise ValueError("Training update did not report exact_match_rate.")
     if exact_match_rate <= minimum_exact_match_rate:

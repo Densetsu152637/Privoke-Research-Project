@@ -10,6 +10,11 @@ For LLM study comparisons, use the semantic-only curriculum-improvement runner. 
 
 Normal deployments enable the updater's automatic requester by default: 32
 prompts per stage at startup and another cycle every hour after completion.
+Its default random source now uses the shipped, pinned AU3 audience coverage
+release, with all six audiences and all ten primary categories represented in
+each 32-original cycle. Explicit legacy datasets and fixed named study protocols
+retain their selected source. See [audience coverage](../audience-v3-data.md) for
+quotas, source pins, deployment controls and evidence boundaries.
 Each cycle runs head training followed by full Tiny encoder-and-head training on
 the same model ID, with a different seed for each new cycle and the same seed
 and stage IDs on retries. The stages publish independently; a full-stage

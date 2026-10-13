@@ -56,6 +56,9 @@ def sidecar(row, *, transform="original", original_text=None):
 def validate_schedule(training, guard, source, policy, input_root=ROOT):
     """Validate actual serialized rows against pinned source, permanent split and transforms."""
     validate_policy(policy, pilot=policy["steps"] == 2)
+    if source.get("sampler") == "audience_common_frozen_stream_v1":
+        from audience_schedule import validate
+        return validate(training, guard, source, policy)
     dataset, release = load_sources(input_root)
     if source.get("schema") != 1 or source.get("sampler") != "existing_taxonomy_benign_common_frozen_stream_v1" or source.get("inputs") != {k: sha for k, (_, sha) in INPUTS.items()}:
         raise ValueError("Pinned source proof differs from admitted inputs.")
@@ -147,8 +150,15 @@ def validate_source_evidence(evidence):
     return source
 
 
-def schedule(seed, policy, input_root=ROOT):
+def schedule(seed, policy, input_root=ROOT, *, sampler=None):
     validate_policy(policy, pilot=policy["steps"] == 2)
+    if sampler == "audience_common_frozen_stream_v1":
+        from audience_schedule import build
+        training, guard, source = build(seed, policy)
+        validate_schedule(training, guard, source, policy, input_root)
+        return training, guard, source
+    if sampler not in (None, "existing_taxonomy_benign_common_frozen_stream_v1"):
+        raise ValueError("Unknown v3 source sampling strategy.")
     dataset, release = load_sources(input_root)
     training, records = [], []
     _, guard = benign.generate_partition(dataset, release, seed)
