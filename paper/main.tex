@@ -295,6 +295,8 @@ A subsequent comparison tests all 14 snapshots in the predeclared comparison inv
 % PH3-R1: docs/privacy-head-training-v3.md; protocol SHA230ec5a5f6f2330e3076523e0a8b30e682f76bc87f3d4a72ea2bdd4c36a833f6.
 A later user-authorized PH3 study trains privacy heads from independently pinned linguistic ORIGINALs for all three BERT tiers~\cite{googleBertL4H128A2,googleBertL2H256A4,googleBertL12H256A4,turc2019WellReadStudents}, rather than continuing the previous FULL42 candidates. Its separately authored synthetic release contains 6,240 TRAIN, 1,560 validation and 1,560 sealed comparison rows, with 140/35/35 scenario groups, complete sensitivity/visibility/category targets and assistant-provisional labels. Split-disjoint assertion components, framing and entity pools undergo historical/opaque-key and native-window checks. The encoder and pooler remain frozen; host CPU batch 16 extraction caches TRAIN/validation only. AdamW fits the affine heads at learning rate 0.001, batch 64, minimum 30/maximum 200 epochs and patience 20; validation loss selects a checkpoint only when improvement exceeds 0.0001. All selected/terminal exports and training audits were fixed before comparison tooling opened fresh payloads or computed their features/predictions; authorized prefit data-author and reviewer label audits were separate. Every comparison RPC explicitly selects and verifies semantic layer 4 and native model identity; no visibility hints are supplied. Shared general privacy concepts, different V1 training history and native packages prevent a causal generation claim.
 
+% EN3-R2: docs/privacy-encoder-training-v3.md; CPU protocol SHA256 16d7074212d898555cd7d90662f2484bb8b48db15a27170f9ac68cd65abf6355.
+A subsequent EN3 continuation starts each tier from its PH3 validation-selected package and jointly updates its encoder, first-token dense--tanh pooler and six task-head tensors through the native BERT forward pass. The same 6,240 TRAIN and 1,560 validation rows determine every tier's fit and checkpoint selection; the opened PH3 comparison fixture is excluded from fitting and selection. Host PyTorch 2.12.0+cu130 runs the admitted full fits on CPU with four threads, while native export verification uses the separately pinned PyTorch 2.11.0 CPU serving environment~\cite{pytorch212Release,pytorchStartLocally}. AdamW assigns encoder/pooler learning rate $2\times10^{-5}$ and head rate $10^{-4}$, with matrix decay 0.01 and no bias or LayerNorm decay. Microbatches of 16 accumulate to logical batches of 64 with global loss denominators; a 32-row final batch uses its actual denominator. A 98-update linear warmup reaches full rate at update 98, followed by fixed decay to zero at planned update 2,940. Training uses float32, active 0.1 encoder dropout and no mixed precision or TF32; validation/export disables dropout. The fixed stopping rule executes at least five and at most 30 epochs, patience five, and requires weighted validation-loss improvement greater than $10^{-4}$. Epoch zero is a reference, while selection is restricted to trained epochs. Full model, optimizer, schedule and RNG states are retained for exact epoch-boundary resume. The new encoder and head work is reported separately from PH3's selected 12/7/4 head epochs and unknown upstream language-pretraining counts.
 \subsection{Offline Controls, Presence Fitting and Cascade Selection}
 % Evidence: paper/research/representation-protocol.md, model-refactor-protocol.md, contextual-cascade-protocol.md; docs/PII-dataset-analysis.md.
 
@@ -640,6 +642,54 @@ PH3 quality &360 &48 &0.444 &663 &494 \\
 
 Same-case joint improvements/regressions are 318/11, 313/22 and 348/10, giving net gains of 307/291/338. These gains coexist with balanced clean specificity falling 674 to 520 of 750 and quality sensitive recall falling 709 to 663 of 810. Balanced has the highest joint count, ahead of quality and efficient; capacity does not produce a monotonic ranking. Even its category-bearing joint count is only 77/720. Summed under/over action distances change from 218/747 to 62/325, 293/148 to 96/349 and 153/736 to 144/365 respectively; distances are not counts of uniquely harmed cases. Per-category precision/recall/F1 and supports, full sensitivity/visibility confusion matrices, paired action worsenings and integer denominators are retained in the PH3 report and accepted \texttt{comparison/analysis.json}. Median batch-one RPC times are 12.489/4.116, 13.601/3.836 and 35.767/10.095 ms for V1/PH3 by tier; these single accuracy-loop observations are descriptive, not replicated latency or SLA evidence. Unequal histories and native packages prevent attributing these synthetic results solely to pretraining or architecture, and provisional labels do not establish real-world safety.
 
+\subsection{Joint Encoder Fine-Tuning}
+\label{sec:privacy_encoder_v3}
+% EN3-FIT/EXPORT/COMPARISON-R1: docs/privacy-encoder-training-v3.md; accepted postfit and comparison audits.
+All three joint fits completed under validation patience. Table~\ref{tab:privacy_encoder_epochs} separates inherited PH3 head epochs from new joint work, and completed work from the selected checkpoint. The new 52 epochs executed 5,096 optimizer updates and 324,480 repeated TRAIN exposures across the three tiers. Every encoder layer, embedding, pooler and six head tensors changed relative to its PH3 selected parent. All 52 full checkpoints and six selected/terminal native exports passed independent audit. A separate fitted-asset supplement directly compared PyTorch 2.12 CPU reference outputs with PyTorch 2.11 native outputs and a second native reload for all six exports on the first 16 validation rows; logits, classifications, confidence and actions matched exactly. The standalone export-verifier aggregates establish within-environment reload parity and use different thread/determinism settings; the supplement supplies the bounded direct cross-version proof.
+
+\begin{table}[t]
+\centering
+\caption{Actual EN3 joint encoder/pooler/head fitting. Inherited PH3 head epochs are a separate earlier stage; new updates and exposures are completed/selected. Fit seconds include in-loop validation and checkpointing, but exclude initial loading, exports, audits and scoring.}
+\label{tab:privacy_encoder_epochs}
+\small
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lrrrrr}
+\hline
+Tier & PH3 head E & New E & New updates & TRAIN exposures & Fit s \\
+\hline
+Efficient & 12 & 24/19 & 2352/1862 & 149760/118560 & 496.546 \\
+Balanced & 7 & 19/14 & 1862/1372 & 118560/87360 & 430.797 \\
+Quality & 4 & 9/4 & 882/392 & 56160/24960 & 685.734 \\
+\hline
+\end{tabular}%
+}
+\end{table}
+
+Only after all fits and exports were sealed, the three selected EN3 packages were scored through explicit requested and verified actual semantic layer 4, with native identity and no audience hints. The opened PH3 fixture is now reused DEVELOPMENT: 1,560 assistant-provisional synthetic cases in 35 families per tier, including 720 category-bearing disclosures, 810 contextually sensitive rows and 750 clean controls. The accepted PH3 selected-package raw responses were imported as before controls, paired by exact case/text/truth/allowed-action equality. All 4,680 new accuracy RPCs succeeded; errors would have counted incorrect. Table~\ref{tab:privacy_encoder_development} reports the same-case outcomes, with macro F1 across ten categories. The full per-category precision/recall/F1/support, component confusion matrices and slices are retained in \texttt{docs/privacy-encoder-training-v3.md} and the accepted EN3 \texttt{comparison/analysis.json}.
+
+\begin{table}[t]
+\centering
+\caption{PH3 selected before versus EN3 selected after on reused DEVELOPMENT. J is full joint correctness of 1,560; CJ is category-bearing joint correctness of 720; R and S are sensitive recall of 810 and clean specificity of 750.}
+\label{tab:privacy_encoder_development}
+\small
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lrrrrr}
+\hline
+Tier & J & CJ & Macro F1 & R & S \\
+\hline
+PH3 efficient & 358 & 64 & 0.532 & 763 & 564 \\
+EN3 efficient & 858 & 370 & 0.875 & 784 & 646 \\
+PH3 balanced & 396 & 77 & 0.597 & 757 & 520 \\
+EN3 balanced & 889 & 351 & 0.880 & 794 & 624 \\
+PH3 quality & 360 & 48 & 0.444 & 663 & 494 \\
+EN3 quality & 888 & 363 & 0.932 & 808 & 670 \\
+\hline
+\end{tabular}%
+}
+\end{table}
+
+Same-case joint improvements/regressions are 538/38, 559/66 and 560/32 for efficient/balanced/quality. Action-harm pairs include 19/4, 20/1 and 40/1 new over/under-action worsenings respectively, despite lower total action distances. Balanced exceeds quality by one joint-correct case; quality leads category macro F1, sensitive recall and clean specificity on this fixture. No universal tier ranking follows. The reused, correlated, provisionally labelled cases cannot establish an independent generalization or production result. PH3 and EN3 latency came from different runs and cannot establish a speedup.
+
 \subsection{Binary Presence Models and Data Expansion}
 % Evidence: paper/research/representation-results.md; paper/research/text-control-results.md; docs/presence-model-improvements.md.
 
@@ -804,6 +854,8 @@ The v3 comparison in Section~\ref{sec:pretrained_v3_results} reuses provisional 
 The post-study v1/v2/v3 comparison (Section~\ref{sec:v123_comparison}) is also bounded by missing v2 tiers and unequal artifact histories, native windows, tokenization, hint policies and NumPy/Torch backends. Fixed sequential artifact order and three fresh processes do not randomize those differences or establish causal generation effects. Successful latency is reported alongside errors, and PID1 lifetime memory includes backend imports and startup high water. These reused DEVELOPMENT measurements establish neither an independent generalization result nor a production SLA.
 
 The PH3 comparison uses a newly authored, sealed, short synthetic disclosure/control workload with assistant-provisional labels. Audited assertion/component separation does not make general privacy concepts unseen or establish indirect-disclosure, adversarial or real-world robustness. Its frozen pretrained encoder and unequal V1 history preclude attributing a package difference solely to language pretraining or capacity. Historical protected-final data remain unopened.
+
+The EN3 comparison in Section~\ref{sec:privacy_encoder_v3} reopens those PH3 rows as reused DEVELOPMENT after the three full-model fits were sealed. Exact case pairing measures a descriptive change from each PH3 selected parent, but reused provisional labels and dependent synthetic families do not establish fresh generalization or safety. Same-case joint regressions and over/under-action worsenings remain visible alongside aggregate gains. The observed tier ordering is fixture-specific; unequal model capacities and an absent matched untouched control prevent a causal capacity claim. Historical protected-final data remain unopened.
 
 \subsection{Selection, Contamination and Generalization}
 
