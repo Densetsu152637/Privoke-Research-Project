@@ -254,3 +254,37 @@ The [final acceptance supplement](../evaluation/results/v123_comparison_20261013
 Accepted cleanup removed the isolated `privoke-v123-comparison` containers and network, leaving zero project containers/networks and ports 50271/50273 released. No volumes, originals or images were deleted. The admitted image `sha256:4a5624eda0c0cd7dfb3da2366e3d18e720eda4a82797bf4e92320fa0987e9bd1`, private model copies, provenance, failed attempts and all immutable evidence remain retained. No task worktree was created; the shared primary checkout and unrelated dirty work were preserved.
 
 This comparison provides complete coverage of the predeclared 14-snapshot inventory, not all possible generation/tier combinations. Other historical training/research checkpoints outside that inventory were not rescored here; prior study history remains unchanged. Missing v2 tiers are unavailable, not zero-performing. Different training histories, guard/effective status, capacities, tokenization, native caps, hint policies and backends confound generation effects. Reused DEVELOPMENT/support cases and dependent comparisons do not establish protected-final generalization, production safety or a promotion decision. No new training, best-seed selection or further experimental study is proposed by this record.
+
+## Follow-up: why v1 balanced appears stronger (V123-D1)
+
+On 13 October 2026, the user asked: “Yeah you can push the commits, but why is V1 balanced so much better than all of the others?” This exploratory decomposition uses the existing frozen predictions; it adds no inference, fitting, checkpoint selection or protected-final evaluation. The [reproducible diagnostic](../evaluation/results/v123_comparison_20261013/diagnostic-v1-balanced/diagnose.py) and [complete subgroup/paired results](../evaluation/results/v123_comparison_20261013/diagnostic-v1-balanced/diagnostic.json) retain the prompt, source/input hashes, category distributions, intersections and case IDs.
+
+V1 balanced does not lead every task. It ties the unchanged balanced v2 controls, while the rejected raw v3 quality export exceeds it on context320 joint correctness (66 versus 63). V3 balanced performs better on several individual components and secondary tasks. Its joint deficit against v1 balanced is 12/320 cases (3.75 percentage points) and 2/64 cases (3.125 points), rather than evidence of a broad superiority of v1.
+
+The main qualification is that these joint scores almost entirely reward clean controls. Joint correctness requires exact sensitivity, the complete category set and visibility, plus an allowed action, all on the same case. For the four snapshots below, **every joint success is a clean control; none is a sensitive disclosure**.
+
+| Snapshot | context320 clean joint /160 | context320 sensitive joint /160 | context64 clean joint /32 | context64 sensitive joint /32 |
+| --- | --- | --- | --- | --- |
+| v1-balanced | 63 | 0 | 10 | 0 |
+| v3-balanced | 51 | 0 | 8 | 0 |
+| v1-quality | 43 | 0 | 8 | 0 |
+| v3-quality, rejected raw | 66 | 0 | 7 | 0 |
+
+Category prediction blocks sensitive-case joint correctness. On context320, both balanced models get 0/160 sensitive category sets exactly right: v1 balanced predicts an empty category set on 158/160 sensitive cases, and v3 balanced on 160/160. On context64 the corresponding exact counts are 0/32 and 1/32; the one v3 category success has incorrect visibility. This does not mean neither detects sensitivity: for example, v1 quality recognizes sensitive presence on 133/160 context320 disclosures, versus 45/160 for v1 balanced, despite its lower joint total. Detection and complete structured classification measure different capabilities.
+
+The precise balanced-model joint gap comes from **different visibility successes on clean cases**, with no shared joint successes:
+
+| Endpoint | V1-only joint successes | V3-only joint successes | Shared successes | V3 minus v1 |
+| --- | --- | --- | --- | --- |
+| context320 | 63 | 51 | 0 | -12 |
+| context64 | 10 | 8 | 0 | -2 |
+
+All 63 and 10 v1-only successes have `PU` (unspecified) visibility truth. V3 gets sensitivity, categories and action right on those cases but predicts explicit visibility, so visibility alone loses the joint credit. Conversely, all 51 and 8 v3-only successes have explicit visibility truth; v1 predicts `PU`. Among these v3-only successes, v1 also misses sensitivity on four context320 cases and three context64 cases, and action on three cases in each endpoint. V1 balanced returns `PU` on 319/320 and 63/64 cases overall, whereas v3 balanced returns it on 23/320 and 3/64. Clean truth contains `PU` on 93/160 and 20/32 cases, making v1's unspecified-visibility behavior useful for this particular joint metric.
+
+This is an intersection effect, not uniformly better components. On context320, v3 balanced has more correct sensitivity (161 versus 146), visibility (142 versus 120) and actions (177 versus 162), but fewer cases where everything is right together. On context64, it improves sensitivity (57 versus 35), categories (33 versus 30), actions (55 versus 34) and annotation-presence correctness (61 versus 46), while visibility falls from 25 to 21 and joint from 10 to 8. Packed and joint totals are identical here: action is not an additional bottleneck once the classification is exact.
+
+Both primary fixtures omit `visibility_hint` on every row, so all 384 unique input rows produce an empty wire hint. The separate `audience_hint` field in context320 is not forwarded as a protobuf visibility hint. Consequently the known Tiny/v3 difference in explicit hint handling is not an active explanation for these primary results. The diagnostic confirms the returned `PU` versus explicit-visibility pattern; assigning its cause to training, model capacity, pretraining or package postprocessing requires separate source evidence or an intervention.
+
+The method checks all 5,376 contextual prediction records (14 snapshots times 384 rows) against their accepted analysis inventory hashes and independently recomputes clean/sensitive metrics and selected paired contrasts. Every overall component total agrees with the accepted comparison. These remain reused, synthetic/provisional DEVELOPMENT cases with different native serving packages and dependent observations. The findings explain the measured score composition; they establish neither generalization nor a universal winner, and do not change the raw quality export's rejected status or imply promotion.
+
+The [source and training-provenance review](../evaluation/results/v123_comparison_20261013/diagnostic-v1-balanced/source-review.md) confirms that Tiny aggregation preserves explicit visibility and does not generally rewrite it to PU. V1 balanced already had task-trained heads; v3 retained a pretrained language encoder and fitted newly zero-initialized task heads on a different training stream. Head initialization, supervision, category thresholds and readouts differ, so language pretraining alone does not establish stronger privacy classification. Their individual causal contributions remain unmeasured.
