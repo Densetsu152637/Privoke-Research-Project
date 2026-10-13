@@ -690,6 +690,35 @@ EN3 quality & 888 & 363 & 0.932 & 808 & 670 \\
 
 Same-case joint improvements/regressions are 538/38, 559/66 and 560/32 for efficient/balanced/quality. Action-harm pairs include 19/4, 20/1 and 40/1 new over/under-action worsenings respectively, despite lower total action distances. Balanced exceeds quality by one joint-correct case; quality leads category macro F1, sensitive recall and clean specificity on this fixture. No universal tier ranking follows. The reused, correlated, provisionally labelled cases cannot establish an independent generalization or production result. PH3 and EN3 latency came from different runs and cannot establish a speedup.
 
+\subsection{Audience Coverage and Further V3 Continuation}
+\label{sec:audience_v3}
+% AU3: docs/audience-v3-training.md; cpu-02 protocol and accepted final raw/paired audit.
+AU3 integrates explicit audience contrasts into the normal automatic TRAIN-only sampler and separately continues all three current EN3 selected packages~\cite{privokeAU3Audience20261013}. Offline fitting uses 9,360 TRAIN rows (6,240 unchanged PH3 rehearsal plus 3,120 new audience cases), 1,560 NEW validation rows and a fresh sealed 1,560-row synthetic workload. Encoder, pooler and heads are jointly updated under a fixed CPU4 float32 AdamW recipe; only NEW validation selects trained checkpoints. Normal automatic HEADS/FULL network mechanics/publication passed; separate V3 physical pilot candidates were guard-rejected, not promoted.
+
+Efficient, balanced and quality completed/selected 16/11, 11/6 and 9/4 new joint epochs. Completed updates were 2,352/1,617/1,323 and TRAIN exposures 149,760/102,960/84,240. Selected cumulative encoder/pooler epochs are 30/20/8 and privacy-head epochs 42/27/12, with inherited PH3 head-only and EN3 selected ancestry kept distinct from discarded completed work. Upstream language-pretraining counts remain unknown. All three fits and six selected/terminal exports passed independent audit. Direct Torch 2.12 CPU versus Torch 2.11 native captures on 16 NEW validation rows per asset matched decisions/actions exactly, with maximum logit error $1.90735\times10^{-6}$ within fixed tolerances.
+
+Only after package/export/native seals, all six CURRENT-before/AU3-after selected models were newly scored through explicit requested and actual sole semantic layer 4 with pinned native identities and empty hints. All 9,360 accuracy RPCs succeeded; 24 separate warmups are excluded. Independent raw, paired and 294-interval reconciliation passed. Errors would count incorrect. Table~\ref{tab:audience_v3_fresh} reports before/after counts and category macro F1; the repository report retains component confusions, per-category precision/recall/F1/support, action distances, paired tradeoffs and separate family/expression cluster sensitivities.
+
+\begin{table}[t]
+\centering
+\caption{CURRENT EN3 selected / AU3 selected on new FRESH. J and V are joint and visibility correct of 1,560; R is sensitive recall of 810; S is clean specificity of 750. F1 is category macro F1.}
+\label{tab:audience_v3_fresh}
+\small
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lrrrrr}
+\hline
+Tier & J & V & F1 & R & S \\
+\hline
+Efficient &262/922 &660/1265 &.5869/.7256 &794/791 &468/738 \\
+Balanced &267/972 &718/1269 &.6038/.7932 &783/794 &427/740 \\
+Quality &429/1209 &712/1445 &.7323/.8735 &805/810 &640/749 \\
+\hline
+\end{tabular}%
+}
+\end{table}
+
+Joint improvements/regressions are 680/20, 732/27 and 792/12. P4 sole-self recognition rises 54/213, 78/243 and 105/256 of 260. Efficient sensitive recall falls 794 to 791 of 810 and CHILD F1 falls. Efficient/balanced S3 recall falls 570 to 544 and 569 to 554 of 576. Over-restriction distances fall 545/656/166 to zero, but under-restriction cases rise 10 to 31 and 17 to 30 for efficient/balanced, with 24/20 paired worsenings. Quality has zero observed action distance and action worsenings, yet 19 category-exact regressions and one contextual-sensitive regression remain. Its higher scores here do not establish a universal or causal architecture ranking, perfect privacy classification, or production safety.
+
 \subsection{Binary Presence Models and Data Expansion}
 % Evidence: paper/research/representation-results.md; paper/research/text-control-results.md; docs/presence-model-improvements.md.
 
@@ -856,6 +885,8 @@ The post-study v1/v2/v3 comparison (Section~\ref{sec:v123_comparison}) is also b
 The PH3 comparison uses a newly authored, sealed, short synthetic disclosure/control workload with assistant-provisional labels. Audited assertion/component separation does not make general privacy concepts unseen or establish indirect-disclosure, adversarial or real-world robustness. Its frozen pretrained encoder and unequal V1 history preclude attributing a package difference solely to language pretraining or capacity. Historical protected-final data remain unopened.
 
 The EN3 comparison in Section~\ref{sec:privacy_encoder_v3} reopens those PH3 rows as reused DEVELOPMENT after the three full-model fits were sealed. Exact case pairing measures a descriptive change from each PH3 selected parent, but reused provisional labels and dependent synthetic families do not establish fresh generalization or safety. Same-case joint regressions and over/under-action worsenings remain visible alongside aggregate gains. The observed tier ordering is fixture-specific; unequal model capacities and an absent matched untouched control prevent a causal capacity claim. Historical protected-final data remain unopened.
+
+AU3 in Section~\ref{sec:audience_v3} uses a newly sealed synthetic workload rather than reused PH3/EN3 development measurements. Labels remain assistant-provisional, not human annotation, and scenario families/audience expressions introduce crossed dependence. Separate percentile bootstrap sensitivities use 35 family and 24 expression clusters (only four expression clusters within each audience); neither proves crossed independence. Bounded historical/component checks do not establish universal semantic novelty or real-world robustness. Before/after gains measure the combined continuation package without isolating audience data from additional optimization. Component regressions and efficient/balanced under-restriction increases remain material. Historical protected-final data are untouched.
 
 \subsection{Selection, Contamination and Generalization}
 
