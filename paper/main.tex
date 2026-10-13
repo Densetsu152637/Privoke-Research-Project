@@ -292,6 +292,9 @@ A separate opt-in pretrained BERT v3 experiment preserves complete Google encode
 % V123-R1: post-study existing-package comparison; no new fitting.
 A subsequent comparison tests all 14 snapshots in the predeclared comparison inventory: three v1 tiers, seven balanced v2 ORIGINAL/effective terminals, three fixed v3 FULL seed-42 exports and the distinct quality v3 ORIGINAL control. V2 efficient/quality are unavailable. Identical original-field requests use explicit semantic layer 4 and actual native identity checks on context320/context64, binary502 and hazard48. Native windows, tokenization, hint handling and NumPy/Torch backends are preserved. A common Linux CPU lane uses batch/concurrency one and one native backend thread. Three fresh processes per artifact each run 32 common-fit warmup inputs and 320 measured RPCs; only the first process scores accuracy. Artifact order is fixed sequentially. Host full-response latency is primary; PID1 loaded RSS and lifetime VmHWM through the performance phase measure process memory, including runtime/backend imports and startup high water. These are descriptive serving-package measurements, separate from CUDA fit costs. The complete method and component/paired tables are retained in \texttt{docs/model-generation-comparison-20261013.md}; results follow in Section~\ref{sec:v123_comparison}.
 
+% PH3-R1: docs/privacy-head-training-v3.md; protocol SHA230ec5a5f6f2330e3076523e0a8b30e682f76bc87f3d4a72ea2bdd4c36a833f6.
+A later user-authorized PH3 study trains privacy heads from independently pinned linguistic ORIGINALs for all three BERT tiers~\cite{googleBertL4H128A2,googleBertL2H256A4,googleBertL12H256A4,turc2019WellReadStudents}, rather than continuing the previous FULL42 candidates. Its separately authored synthetic release contains 6,240 TRAIN, 1,560 validation and 1,560 sealed comparison rows, with 140/35/35 scenario groups, complete sensitivity/visibility/category targets and assistant-provisional labels. Split-disjoint assertion components, framing and entity pools undergo historical/opaque-key and native-window checks. The encoder and pooler remain frozen; host CPU batch 16 extraction caches TRAIN/validation only. AdamW fits the affine heads at learning rate 0.001, batch 64, minimum 30/maximum 200 epochs and patience 20; validation loss selects a checkpoint only when improvement exceeds 0.0001. All selected/terminal exports and training audits were fixed before comparison tooling opened fresh payloads or computed their features/predictions; authorized prefit data-author and reviewer label audits were separate. Every comparison RPC explicitly selects and verifies semantic layer 4 and native model identity; no visibility hints are supplied. Shared general privacy concepts, different V1 training history and native packages prevent a causal generation claim.
+
 \subsection{Offline Controls, Presence Fitting and Cascade Selection}
 % Evidence: paper/research/representation-protocol.md, model-refactor-protocol.md, contextual-cascade-protocol.md; docs/PII-dataset-analysis.md.
 
@@ -593,6 +596,50 @@ V3-minus-v1 joint changes are +3/$-1$, $-12$/$-2$ and +23/$-1$ on context320/con
 
 Quality's context320 joint gain coexists with 17 fewer correct actions and 106 under-restriction distance worsenings against v1 quality. Binary correct totals increase by 29/43/34 across tiers while positive recall falls from 158/169/190 to 113/91/113 out of 264. Whole-process lifetime HWM spans 69.590--79.387 MiB for Tiny and 763.355--853.492 MiB for v3. These tradeoffs prevent interpreting faster successful RPCs or higher joint counts as production safety.
 
+\subsection{Privacy-Head Training with a Sealed Fresh Comparison}
+\label{sec:privacy_heads_v3}
+% PH3-FIT-R1/PH3-EXPORT-R1: docs/privacy-head-training-v3.md; actual epoch-history-01.json and independently checked selected/terminal exports.
+All three frozen-encoder head fits completed their declared validation-patience criterion. Table~\ref{tab:privacy_heads_epochs} separates completed work from the earlier validation-selected checkpoint. A head epoch visits 6,240 TRAIN rows; exposures repeat those rows and are not new examples. Selected checkpoints contain 1,176/686/392 optimizer steps and 74,880/43,680/24,960 exposures for efficient/balanced/quality. The current base, encoder and pooler receive zero additional training epochs/steps. Checkpoint-specific upstream linguistic-pretraining epochs/steps remain unknown in the admitted provenance; downstream task fine-tuning epochs are not substituted for them.
+
+\begin{table}[t]
+\centering
+\caption{Actual PH3 head-only work. E is completed/selected head epoch; steps and exposures are total executed work. Fit seconds exclude cache, loading, exports, audits and scoring.}
+\label{tab:privacy_heads_epochs}
+\begin{tabular}{lrrrr}
+\hline
+Tier & E & Steps & Exposures & Fit(s) \\
+\hline
+Efficient &32/12 &3136 &199680 &18.797 \\
+Balanced &30/7 &2940 &187200 &18.328 \\
+Quality &30/4 &2940 &187200 &19.375 \\
+\hline
+\end{tabular}
+\end{table}
+
+The V1 baseline heads have 220/360/520 synthetic bootstrap epochs respectively, with seeded random encoders and zero encoder updates, not linguistic pretraining. All seven historical V2 balanced snapshots inherit 360 bootstrap head epochs: ORIGINAL and windows 42/43 add zero applied updates, while legacy 42/43/44 and window 44 each apply 64 full-encoder/head steps or projected-Adam directions. Actual V2 update epochs remain unknown; configured eight window epochs are not substituted. Each historical V3 FULL42 fit records 32 passes through a frozen 512-occurrence window, jointly updating encoder, pooler and heads in 256 steps with 16,384 repeated exposures. The historical quality ORIGINAL control has deterministic zero heads and zero additional task updates. These fourteen historical snapshots remain separate from the three current ORIGINAL-based PH3 fits.
+
+All six selected/terminal exports passed independent tensor/checkpoint and 92 epoch-record reconciliation: every encoder/pooler tensor matches ORIGINAL exactly and only the six head tensors change. Original export attempts failed an object-identity comparison of equal classifications. A separately hash-bound, reviewed finalizer compared finite logits and packed/named/confidence/action values without changing weights, selection, thresholds or the frozen training closure; failures and partial assets were preserved. The accepted fresh comparison independently reconciled 9,360 RPCs and 37,440 raw case files, with zero errors. Each model scored the same 1,560 rows in 35 families, including 720 category-bearing disclosures, 90 mild S1 rows and 750 clean controls. Table~\ref{tab:privacy_heads_fresh} reports error-inclusive counts and category macro F1; joint correctness requires all classification components and an allowed action. The selected PH3 head epochs are 12/7/4; base/encoder stages are unchanged as described above.
+
+\begin{table}[t]
+\centering
+\caption{Fresh semantic-only comparison. J: joint correct /1,560; CJ: category-bearing joint /720; R: sensitive detection /810; S: clean specificity /750.}
+\label{tab:privacy_heads_fresh}
+\begin{tabular}{lrrrrr}
+\hline
+Package & J & CJ & Macro F1 & R & S \\
+\hline
+V1 efficient &51 &0 &0.000 &605 &360 \\
+PH3 efficient &358 &64 &0.532 &763 &564 \\
+V1 balanced &105 &0 &0.000 &634 &674 \\
+PH3 balanced &396 &77 &0.597 &757 &520 \\
+V1 quality &22 &0 &0.015 &709 &82 \\
+PH3 quality &360 &48 &0.444 &663 &494 \\
+\hline
+\end{tabular}
+\end{table}
+
+Same-case joint improvements/regressions are 318/11, 313/22 and 348/10, giving net gains of 307/291/338. These gains coexist with balanced clean specificity falling 674 to 520 of 750 and quality sensitive recall falling 709 to 663 of 810. Balanced has the highest joint count, ahead of quality and efficient; capacity does not produce a monotonic ranking. Even its category-bearing joint count is only 77/720. Summed under/over action distances change from 218/747 to 62/325, 293/148 to 96/349 and 153/736 to 144/365 respectively; distances are not counts of uniquely harmed cases. Per-category precision/recall/F1 and supports, full sensitivity/visibility confusion matrices, paired action worsenings and integer denominators are retained in the PH3 report and accepted \texttt{comparison/analysis.json}. Median batch-one RPC times are 12.489/4.116, 13.601/3.836 and 35.767/10.095 ms for V1/PH3 by tier; these single accuracy-loop observations are descriptive, not replicated latency or SLA evidence. Unequal histories and native packages prevent attributing these synthetic results solely to pretraining or architecture, and provisional labels do not establish real-world safety.
+
 \subsection{Binary Presence Models and Data Expansion}
 % Evidence: paper/research/representation-results.md; paper/research/text-control-results.md; docs/presence-model-improvements.md.
 
@@ -755,6 +802,8 @@ The all-surface comparison in Section~\ref{sec:all_surfaces_methods} completed e
 The v3 comparison in Section~\ref{sec:pretrained_v3_results} reuses provisional DEVELOPMENT fixtures and repeats their cases across three seeds. Zero task heads make ORIGINAL a weak task baseline; no matched random-encoder arm isolates pretraining. Tier depth, width and capacity vary together, and secondary binary annotations do not establish contextual privacy truth. Small guard acceptance does not establish development safety. Low absolute joint accuracy, paired regressions and directional action harms prevent a promotion or population-generalization claim.
 
 The post-study v1/v2/v3 comparison (Section~\ref{sec:v123_comparison}) is also bounded by missing v2 tiers and unequal artifact histories, native windows, tokenization, hint policies and NumPy/Torch backends. Fixed sequential artifact order and three fresh processes do not randomize those differences or establish causal generation effects. Successful latency is reported alongside errors, and PID1 lifetime memory includes backend imports and startup high water. These reused DEVELOPMENT measurements establish neither an independent generalization result nor a production SLA.
+
+The PH3 comparison uses a newly authored, sealed, short synthetic disclosure/control workload with assistant-provisional labels. Audited assertion/component separation does not make general privacy concepts unseen or establish indirect-disclosure, adversarial or real-world robustness. Its frozen pretrained encoder and unequal V1 history preclude attributing a package difference solely to language pretraining or capacity. Historical protected-final data remain unopened.
 
 \subsection{Selection, Contamination and Generalization}
 
