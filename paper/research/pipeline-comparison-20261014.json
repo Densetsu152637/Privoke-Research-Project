@@ -1,0 +1,363 @@
+{
+  "schema_version": 1,
+  "study": "PIPE3-PAPER14",
+  "scope": "Reused assistant-provisional AU3 contextual product workload; first pass only; no promotion",
+  "source_revision": "a08c4d674bf9715ac66a92493498e691957558f9",
+  "provenance": {
+    "analysis": {
+      "path": "evaluation/results/pipeline_v1_v3_20261014/runs/cpu-01/analysis.json",
+      "sha256": "2d9190cc26003e9916719c96127791b6b348e1a0683a30b11891a058a96a302f"
+    },
+    "independent_review": {
+      "path": "evaluation/results/pipeline_v1_v3_20261014/planning/results-review-final-01.json",
+      "sha256": "7739f7f2e6d9ad907775606353e84cad42556c8915820f420f3d5302717790f0"
+    },
+    "protocol_sha256": "938f626bec9b5810a34e6e9f33d1d28f0070fbc10ac6a570e568b41c39346ed7",
+    "raw_inventory_sha256": "d68f9cb08b4d3f16db396a4f3fea4c5c8764803c3a387ff87719f637e7184da7",
+    "source_closure_sha256": "bf022fc18b16aebfdbcc75e68ef92e28ffb4f4765015c74fc56e95e1047864fa",
+    "data_manifest_sha256": "41cfd9e476f3d0a17c2a4997efab2afbb6b044c5fbd55217b0614525a2571fe0",
+    "fresh_payload_sha256": "e965c21a0d43babc0984f46eb70785c8d66d878e00e647eefb9565f219b2da0c"
+  },
+  "workload": {
+    "n": 1560,
+    "sensitive": 810,
+    "clean": 750,
+    "families": 35,
+    "audience_expression_groups": 24,
+    "repeats": 3,
+    "accuracy_requests": 28080,
+    "warmup_requests": 24,
+    "layers": [
+      2,
+      3,
+      4
+    ],
+    "regex_order": "FIRST",
+    "label_status": "assistant-provisional",
+    "reuse": "previously opened AU3 FRESH"
+  },
+  "models": [
+    {
+      "name": "v1-efficient",
+      "tier": "efficient",
+      "generation": "v1",
+      "denominator": 1560,
+      "joint": 266,
+      "action": 1029,
+      "sensitivity": 803,
+      "visibility": 641,
+      "category_exact": 743,
+      "sensitive_tp": 544,
+      "clean_tn": 494,
+      "sensitive_fn": 266,
+      "clean_fp": 256,
+      "category_macro_f1": 0.2135798141116015,
+      "category_micro_f1": 0.2800829875518672,
+      "under_cases": 234,
+      "over_cases": 297,
+      "under_distance": 234,
+      "over_distance": 503,
+      "host_rpc_median_ms": 55.1957,
+      "host_rpc_p95_ms": 70.0789,
+      "peak_rss_mib": 389.37109375,
+      "errors": 0,
+      "semantic_executed": 1271,
+      "regex_early_block": 289
+    },
+    {
+      "name": "v3-efficient",
+      "tier": "efficient",
+      "generation": "v3",
+      "denominator": 1560,
+      "joint": 693,
+      "action": 1415,
+      "sensitivity": 1319,
+      "visibility": 1089,
+      "category_exact": 885,
+      "sensitive_tp": 808,
+      "clean_tn": 629,
+      "sensitive_fn": 2,
+      "clean_fp": 121,
+      "category_macro_f1": 0.6641668044531333,
+      "category_micro_f1": 0.6626415094339623,
+      "under_cases": 6,
+      "over_cases": 139,
+      "under_distance": 6,
+      "over_distance": 248,
+      "host_rpc_median_ms": 43.71185,
+      "host_rpc_p95_ms": 50.1201,
+      "peak_rss_mib": 466.8203125,
+      "errors": 0,
+      "semantic_executed": 1271,
+      "regex_early_block": 289
+    },
+    {
+      "name": "v1-balanced",
+      "tier": "balanced",
+      "generation": "v1",
+      "denominator": 1560,
+      "joint": 160,
+      "action": 1026,
+      "sensitivity": 597,
+      "visibility": 654,
+      "category_exact": 743,
+      "sensitive_tp": 771,
+      "clean_tn": 318,
+      "sensitive_fn": 39,
+      "clean_fp": 432,
+      "category_macro_f1": 0.2135798141116015,
+      "category_micro_f1": 0.27993779160186627,
+      "under_cases": 129,
+      "over_cases": 405,
+      "under_distance": 129,
+      "over_distance": 545,
+      "host_rpc_median_ms": 65.86715000000001,
+      "host_rpc_p95_ms": 85.6526,
+      "peak_rss_mib": 389.79296875,
+      "errors": 0,
+      "semantic_executed": 1271,
+      "regex_early_block": 289
+    },
+    {
+      "name": "v3-balanced",
+      "tier": "balanced",
+      "generation": "v3",
+      "denominator": 1560,
+      "joint": 717,
+      "action": 1409,
+      "sensitivity": 1321,
+      "visibility": 1092,
+      "category_exact": 914,
+      "sensitive_tp": 802,
+      "clean_tn": 631,
+      "sensitive_fn": 8,
+      "clean_fp": 119,
+      "category_macro_f1": 0.703234962769919,
+      "category_micro_f1": 0.7008862629246676,
+      "under_cases": 12,
+      "over_cases": 139,
+      "under_distance": 12,
+      "over_distance": 248,
+      "host_rpc_median_ms": 42.7346,
+      "host_rpc_p95_ms": 47.8195,
+      "peak_rss_mib": 506.37890625,
+      "errors": 0,
+      "semantic_executed": 1271,
+      "regex_early_block": 289
+    },
+    {
+      "name": "v1-quality",
+      "tier": "quality",
+      "generation": "v1",
+      "denominator": 1560,
+      "joint": 226,
+      "action": 1073,
+      "sensitivity": 715,
+      "visibility": 654,
+      "category_exact": 675,
+      "sensitive_tp": 598,
+      "clean_tn": 468,
+      "sensitive_fn": 212,
+      "clean_fp": 282,
+      "category_macro_f1": 0.2285330851396389,
+      "category_micro_f1": 0.28121927236971483,
+      "under_cases": 236,
+      "over_cases": 251,
+      "under_distance": 236,
+      "over_distance": 364,
+      "host_rpc_median_ms": 59.5792,
+      "host_rpc_p95_ms": 90.0783,
+      "peak_rss_mib": 391.8359375,
+      "errors": 0,
+      "semantic_executed": 1271,
+      "regex_early_block": 289
+    },
+    {
+      "name": "v3-quality",
+      "tier": "quality",
+      "generation": "v3",
+      "denominator": 1560,
+      "joint": 879,
+      "action": 1421,
+      "sensitivity": 1344,
+      "visibility": 1217,
+      "category_exact": 979,
+      "sensitive_tp": 810,
+      "clean_tn": 641,
+      "sensitive_fn": 0,
+      "clean_fp": 109,
+      "category_macro_f1": 0.7613621197218148,
+      "category_micro_f1": 0.7474462839027827,
+      "under_cases": 0,
+      "over_cases": 139,
+      "under_distance": 0,
+      "over_distance": 248,
+      "host_rpc_median_ms": 50.01695,
+      "host_rpc_p95_ms": 59.484,
+      "peak_rss_mib": 523.3828125,
+      "errors": 0,
+      "semantic_executed": 1271,
+      "regex_early_block": 289
+    }
+  ],
+  "paired": {
+    "efficient": {
+      "joint": {
+        "denominator": 1560,
+        "improved": 484,
+        "net_correct": 427,
+        "regressed": 57
+      },
+      "action": {
+        "denominator": 1560,
+        "improved": 389,
+        "net_correct": 386,
+        "regressed": 3
+      },
+      "joint_cluster_sensitivity": {
+        "family_id": {
+          "after_minus_before": 0.27371794871794874,
+          "high": 0.31858974358974357,
+          "low": 0.2297718667690957
+        },
+        "audience_expression_group_id": {
+          "after_minus_before": 0.27371794871794874,
+          "high": 0.36217948717948717,
+          "low": 0.1865224358974359
+        }
+      }
+    },
+    "balanced": {
+      "joint": {
+        "denominator": 1560,
+        "improved": 573,
+        "net_correct": 557,
+        "regressed": 16
+      },
+      "action": {
+        "denominator": 1560,
+        "improved": 389,
+        "net_correct": 383,
+        "regressed": 6
+      },
+      "joint_cluster_sensitivity": {
+        "family_id": {
+          "after_minus_before": 0.35705128205128206,
+          "high": 0.4076946721311475,
+          "low": 0.303741902722881
+        },
+        "audience_expression_group_id": {
+          "after_minus_before": 0.35705128205128206,
+          "high": 0.431426282051282,
+          "low": 0.2878205128205128
+        }
+      }
+    },
+    "quality": {
+      "joint": {
+        "denominator": 1560,
+        "improved": 671,
+        "net_correct": 653,
+        "regressed": 18
+      },
+      "action": {
+        "denominator": 1560,
+        "improved": 348,
+        "net_correct": 348,
+        "regressed": 0
+      },
+      "joint_cluster_sensitivity": {
+        "family_id": {
+          "after_minus_before": 0.4185897435897436,
+          "high": 0.4801739926739926,
+          "low": 0.35190476190476194
+        },
+        "audience_expression_group_id": {
+          "after_minus_before": 0.4185897435897436,
+          "high": 0.49935897435897436,
+          "low": 0.33716346153846155
+        }
+      }
+    }
+  },
+  "presidio_contextual_reference": {
+    "status": "accepted",
+    "n": 1560,
+    "errors": 0,
+    "threshold": 0.5,
+    "configuration": "Presidio2.2.363 / spaCy3.7.5 / en_core_web_sm3.7.1; native recognizers",
+    "fn": 443,
+    "fp": 211,
+    "tn": 539,
+    "tp": 367,
+    "analysis_sha256": "0fb898b44020a09a1856864fd29ff842a28c3ccfc291deb4db3a567f64ecde1a",
+    "raw_sha256": "ce72efabc79cf4f58edda618acc7bf05790f7ecd0d2b197c73593a0aca4984d3",
+    "protocol_sha256": "eab5ca47221f4cd4b4c91cd9688cf9435bb7b4be7be042873112b5d2cce564f0",
+    "paired": {
+      "v1-balanced": {
+        "improved": 536,
+        "regressed": 353,
+        "net_correct": 183,
+        "both_correct": 553,
+        "both_incorrect": 118,
+        "denominator": 1560
+      },
+      "v1-efficient": {
+        "improved": 397,
+        "regressed": 265,
+        "net_correct": 132,
+        "both_correct": 641,
+        "both_incorrect": 257,
+        "denominator": 1560
+      },
+      "v1-quality": {
+        "improved": 459,
+        "regressed": 299,
+        "net_correct": 160,
+        "both_correct": 607,
+        "both_incorrect": 195,
+        "denominator": 1560
+      },
+      "v3-balanced": {
+        "improved": 607,
+        "regressed": 80,
+        "net_correct": 527,
+        "both_correct": 826,
+        "both_incorrect": 47,
+        "denominator": 1560
+      },
+      "v3-efficient": {
+        "improved": 612,
+        "regressed": 81,
+        "net_correct": 531,
+        "both_correct": 825,
+        "both_incorrect": 42,
+        "denominator": 1560
+      },
+      "v3-quality": {
+        "improved": 613,
+        "regressed": 68,
+        "net_correct": 545,
+        "both_correct": 838,
+        "both_incorrect": 41,
+        "denominator": 1560
+      }
+    },
+    "interpretation": "Same cases, deliberately different entity/contextual ontology; descriptive recognizer reference, not SOTA privacy ranking; unsupported joint/action/audience/category heads NA; no timing comparison"
+  },
+  "unsupported_presidio_heads": [
+    "sensitivity severity",
+    "audience",
+    "category exact",
+    "joint",
+    "action"
+  ],
+  "limitations": [
+    "Native package histories, capacity, thresholds, windows and backends differ.",
+    "Three passes are repeatability observations, not independent examples.",
+    "35 family and 24 expression clusters introduce dependent synthetic examples.",
+    "Latency is host RPC; memory is process peak RSS. Fixed V3-first order prevents a controlled speed claim.",
+    "NER executed on 1271 reached rows but generated zero converted PriVoke findings.",
+    "All three V3 packages share 139 over-enforced IDs; regex determines the maximum action there."
+  ]
+}

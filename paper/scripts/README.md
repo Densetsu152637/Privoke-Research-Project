@@ -1,5 +1,36 @@
 # Paper figures
 
+## Current native product and recognizer comparison (14 October 2026)
+
+```powershell
+python paper/scripts/plot_pipeline_comparison.py --validate-only
+python paper/scripts/plot_pipeline_comparison.py --overwrite
+```
+
+This generator reads only the tracked compact aggregate
+`paper/research/pipeline-comparison-20261014.json`. It requires no model, raw
+prompt, ignored study directory, service or protected-final data, so a clean
+checkout can reproduce the publication figures. Source analysis, protocol and
+independent review commitments are retained in the aggregate and explained in
+`paper/research/pipeline-comparison-20261014.md`.
+
+It validates six-package denominators, binary confusion counts, paired
+improvements/regressions, action-case accounting, zero-error coverage and
+actual product execution scope. Outputs are 450-dpi PNG plus vector SVG/PDF:
+
+| Output stem | Meaning |
+| --- | --- |
+| `results-pipeline-v1-v3` | First-pass joint/action correctness and under/over-enforced case counts on 1,560 reused contextual cases. Native packages differ; this is a full product comparison. |
+| `results-pipeline-v1-v3-cost` | Descriptive first-pass host RPC median/p95 and server-process peak RSS. Fixed ordering, native backends and regex skips prevent a controlled speed claim. |
+| `results-pipeline-presidio-reference` | All six product packages and configured Presidio on the same 810 contextual-sensitive/750 clean targets. Entity versus contextual ontology remains deliberately different; unsupported joint/action/audience/category tasks are unmeasured. |
+
+`results-pipeline-comparison-manifest.json` pins the aggregate, generator,
+Matplotlib/NumPy versions and all output hashes. Presidio direct-analyzer timing
+is excluded from the product-cost chart. No published sanitization score or
+historical 502-row annotation-presence score shares these axes. The external
+paper context table retains each work's own metric and population. Older
+generators and measured/hypothetical distinctions below remain unchanged.
+
 Run from the repository root with Python and the dependencies in `paper/requirements.txt`:
 
 ```powershell

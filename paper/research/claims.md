@@ -1,5 +1,15 @@
 # Claim ledger
 
+Latest paper evidence: [PAPER14 product/recognizer comparison record](pipeline-comparison-20261014.md)
+and its [compact figure aggregate](pipeline-comparison-20261014.json). Earlier
+checkpoints below retain their original scopes and numerical values.
+
+| ID | Claim | Evidence | Boundary / next requirement |
+| --- | --- | --- | --- |
+| C31 | Native V1-to-AU3-selected V3 product joint correctness improved by427/557/653 of1560 cases E/B/Q. | PIPE3 accepted analysis SHA256`2d9190cc26003e9916719c96127791b6b348e1a0683a30b11891a058a96a302f`; final independent raw review`7739f7f2e6d9ad907775606353e84cad42556c8915820f420f3d5302717790f0`; compact aggregate linked above. | Reused assistant-provisional synthetic product workload; actual semantic1271/skipped289. All V3 over-enforce139 common cases; new action failures3/6/0. No safety, causal architecture, promotion or final-data claim. |
+| C32 | Configured Presidio scored367/810 contextual-sensitive recall and539/750 clean specificity on exact same AU3 cases. | New host baseline raw`ce72efabc79cf4f58edda618acc7bf05790f7ecd0d2b197c73593a0aca4984d3`, analysis`0fb898b44020a09a1856864fd29ff842a28c3ccfc291deb4db3a567f64ecde1a`;1560/1560 zero errors, root-accepted independent raw count/paired audit. | Entity versus contextual ontology deliberately mismatched, one small English setting, reused PriVoke-developed synthetic labels. Unsupported joint/action/audience/category tasks NA; direct analyzer timing not RPC comparison. |
+| C33 | Closest-work publications report different task-specific outcomes and do not supply a matched ranking against PriVoke. | PAPER14 source ledger with Casper2025 proceedings institutional abstract, HaS2023v1/ProSan2024v1 full texts, PromptShield2025 institutional abstract. | No shared accuracy axis, inferred supports, reproduced external implementation or unverified publication-version mixing. Independent matched external benchmark remains needed. |
+
 Checkpoint: merged revision `5e71717`, tested central source `712ed72`,
 with separately tested development rule changes and learning-rate experiments.
 Observation is distinct from inference; tests establish their named scope only.
