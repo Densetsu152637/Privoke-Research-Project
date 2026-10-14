@@ -302,6 +302,40 @@ def _termination_disposition(role: str, profile_root: bool, detail: str, *, tran
     raise ProcessIdentityFailure(role, reason, expected, pid, state, detail=detail, observed_state=identity)
 
 
+def _confirm_dispatched_predecessor_exit(transition, pid, before, expected_command, enumeration_parent):
+    """Wait at most 50 ms for a bound retiring predecessor's empty argv to become terminal."""
+    if transition is None or transition.phase != "dispatched" or not transition.record:
+        return False
+    record = transition.record
+    predecessor = record["predecessor"]
+    supervisor = record["supervisor"]
+    if (pid != predecessor["pid"] or before[1] != predecessor["start_ticks"]
+            or hashlib.sha256(expected_command.encode()).hexdigest() != predecessor["command_sha256"]
+            or enumeration_parent != predecessor["parent_pid"]
+            or enumeration_parent != supervisor["pid"]):
+        return False
+    started = time.monotonic_ns()
+    deadline = min(started + 50_000_000, record.get("expires_at_ns", 0))
+    if deadline <= started:
+        return False
+    parent = _process_stat_identity(supervisor["pid"])
+    if (parent is None or parent[1] != predecessor["parent_start_ticks"]
+            or parent[1] != supervisor["start_ticks"] or parent[0] in {"Z", "X", "x"}):
+        return False
+    while time.monotonic_ns() < deadline:
+        identity = _process_stat_identity(pid)
+        if identity is None or (identity[1] == predecessor["start_ticks"] and identity[0] in {"Z", "X", "x"}):
+            return transition.allow_predecessor_retirement("detector", pid, identity, "confirmed empty-argv exit")
+        if identity[1] != predecessor["start_ticks"]:
+            raise ProcessIdentityFailure("detector", "pid_changed_during_metrics", predecessor,
+                                         pid, transition.phase, observed_state=identity)
+        remaining = deadline - time.monotonic_ns()
+        if remaining <= 0:
+            break
+        time.sleep(min(0.005, remaining / 1_000_000_000))
+    return False
+
+
 def _processes(transition=None) -> tuple[list[dict[str, object]], dict[str, int]]:
     rows: list[dict[str, object]] = []
     identity_races: dict[str, int] = {}
@@ -356,6 +390,10 @@ def _processes(transition=None) -> tuple[list[dict[str, object]], dict[str, int]
                         transition=transition, pid=pid, identity=terminal_identity)
                     if not authorized:
                         identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
+                    continue
+                if (role_hint == "detector" and not command
+                        and _confirm_dispatched_predecessor_exit(
+                            transition, pid, before, expected_command, int(info.get("ppid") or 0))):
                     continue
                 failure = ProcessIdentityFailure(
                     role_hint, "role_changed_between_enumeration_and_sampling",

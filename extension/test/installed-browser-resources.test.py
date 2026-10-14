@@ -704,6 +704,62 @@ class StartupTransitionTests(unittest.TestCase):
                             RESOURCES._processes(transition)
                 self.assertEqual(transition.retired, allowed)
 
+    def test_actual_process_walk_waits_for_terminal_empty_argv_only_after_bound_dispatch(self):
+        supervisor, base_predecessor = self.identities()
+        command = "python extension/client-runtime/src/grpc_main.py"
+        predecessor = {**base_predecessor, "command_sha256": hashlib.sha256(command.encode()).hexdigest()}
+        process = SimpleNamespace(info={"pid": 321, "ppid": 123, "cmdline": command.split(),
+            "create_time": 1.0, "memory_info": None, "cpu_times": None})
+        fresh = SimpleNamespace(create_time=lambda: 1.0, is_running=lambda: True, cmdline=lambda: [])
+        cases = (("terminal", "dispatched", 321, 300, 123, 200, True),
+                 ("absent", "dispatched", 321, 300, 123, 200, True),
+                 ("live", "dispatched", 321, 300, 123, 200, False),
+                 ("reused", "dispatched", 321, 300, 123, 200, False),
+                 ("prepared", "prepared", 321, 300, 123, 200, False),
+                 ("foreign", "dispatched", 322, 300, 123, 200, False),
+                 ("wrong_ticks", "dispatched", 321, 301, 123, 200, False),
+                 ("wrong_parent", "dispatched", 321, 300, 124, 200, False),
+                 ("parent_reused", "dispatched", 321, 300, 123, 201, False),
+                 ("wrong_hash", "dispatched", 321, 300, 123, 200, False),
+                 ("expired", "dispatched", 321, 300, 123, 200, False))
+        for mode, phase, bound_pid, bound_ticks, bound_parent, parent_ticks, allowed in cases:
+            with self.subTest(mode=mode):
+                transition = RESOURCES.StartupTransition()
+                transition.phase = phase
+                transition.record = {"predecessor": {**predecessor, "pid": bound_pid,
+                    "start_ticks": bound_ticks, "parent_pid": bound_parent,
+                    "command_sha256": "f" * 64 if mode == "wrong_hash" else predecessor["command_sha256"]},
+                    "supervisor": supervisor, "transition_id": "c" * 32,
+                    "expires_at_ns": 1 if mode == "expired" else 1_000_000_000}
+                now = [1_000]
+                process_reads = [0]
+                def identity(pid):
+                    if pid == 123:
+                        return ("S", parent_ticks)
+                    process_reads[0] += 1
+                    if process_reads[0] <= 3:
+                        return ("R", 300)
+                    if mode == "terminal": return ("Z", 300)
+                    if mode == "absent": return None
+                    if mode == "reused": return ("R", 301)
+                    return ("R", 300)
+                def sleep(seconds):
+                    now[0] += int(seconds * 1_000_000_000)
+                with patch.object(RESOURCES.psutil, "process_iter", return_value=[process]), \
+                     patch.object(RESOURCES.psutil, "Process", return_value=fresh), \
+                     patch.object(RESOURCES, "_browser_process_ids", return_value=(set(), set())), \
+                     patch.object(RESOURCES, "_process_stat_identity", side_effect=identity), \
+                     patch.object(RESOURCES.time, "monotonic_ns", side_effect=lambda: now[0]), \
+                     patch.object(RESOURCES.time, "sleep", side_effect=sleep):
+                    if allowed:
+                        self.assertEqual(RESOURCES._processes(transition), ([], {}))
+                        self.assertIn(transition.events[0]["state"], {"Z", "absent"})
+                    else:
+                        with self.assertRaises(RESOURCES.ProcessIdentityFailure):
+                            RESOURCES._processes(transition)
+                self.assertEqual(transition.retired, allowed)
+                self.assertLessEqual(now[0], 50_001_000)
+
     def test_predecessor_reuse_or_live_state_is_not_authorized(self):
         supervisor, predecessor = self.identities()
         transition = RESOURCES.StartupTransition()
