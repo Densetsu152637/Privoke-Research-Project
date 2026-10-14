@@ -1,0 +1,229 @@
+{
+  "capsule_root": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\paper_reproduction_20261014\\capsule-03",
+  "committed_source_byte_boundary": {
+    "files": {
+      "evaluation/local_reproduction_capsule.py": {
+        "equal_after_CRLF_to_LF_only": true,
+        "exact_equal": false,
+        "git_blob_sha256": "895cb9acc117e233d31f979117a3b2758ee062290b010a3c6d39d358c21f7e15",
+        "tested_raw_sha256": "e700bef2f3e5cb9148ef4d6188913dde4dc45116762e5040ab2932537c4f91dd"
+      },
+      "evaluation/tests/test_local_reproduction_capsule.py": {
+        "equal_after_CRLF_to_LF_only": true,
+        "exact_equal": false,
+        "git_blob_sha256": "89bc4ced3321f7c739ac29e7983cc7d7e29d32660b4d791c47b0212e55863f64",
+        "tested_raw_sha256": "3693a0d347ff8dab86a32ee53dc94987235890e0b0fa534af2519301d7f3a3cd"
+      }
+    },
+    "interpretation": "Git normalized CRLF working/source-capsule bytes to LF blobs; exact executed controller/test bytes remain immutable in the sealed capsule. Content differs only by CRLF-to-LF normalization."
+  },
+  "dependency_environment": {
+    "frozen_named_dependencies_matching": 11,
+    "full_distribution_versions": 74,
+    "new_cleanroom_installation": false,
+    "python": "3.11.9",
+    "reused_maintained_host_environment": true,
+    "wheel_hash_lock_complete": false
+  },
+  "exact_user_request": "Can you now get data and rewrite the sections of the paper for all the unfinished work that you can get yourself? First plan out an implementation that utilises the workflows effectively and then act on that implementation.",
+  "focused_host_tests": 8,
+  "freeze_runtime_source_files": 158,
+  "full_source_sha256": "85646a5ca16d2bd9532af60ece67868968446507d0947874573b3b9a20e2b818",
+  "historical_freeze_sha256": "655798df22d0dd817873b0554d5b4de084dec669354ae2c616f7dd06eaceda00",
+  "historical_probe_sha256": "a7fb790f0c30d8db2e125ccd07d778c1098e521916e2041d48c0f905d77ecab7",
+  "host_executable": "D:/Git Repositories/Privoke-Research-Project/evaluation/.venv-v1-v3-pipeline/Scripts/python.exe",
+  "limitations": [
+    "Local ignored capsule; public Git checkout does not contain original model assets.",
+    "Dependency versions retained without cached wheel or package hash completeness.",
+    "Four invented prompts per package establish bounded output replay, not accuracy, safety, generalization, or latency parity.",
+    "No training, tuning, promotion, protected final data, or redistribution/license completeness."
+  ],
+  "manifest_pin_count": 195,
+  "model_asset_pins": {
+    "models/ORIGINAL/v1-balanced/privoke-balanced.json": "dcacb490bf19cf771fe4084e7f3484d83daee040609c496c1aef04f0da779b51",
+    "models/ORIGINAL/v1-efficient/privoke-efficient.json": "c8992bda8a75f5ee7165a3debabaef1a229c4f661be2f5792de65c0aefcf9a5b",
+    "models/ORIGINAL/v1-quality/privoke-quality.json": "c3126ae0ae238d3967226b6c616491fb90e9b766a3fbb6e066203cb92f2ed8c8",
+    "models/ORIGINAL/v3-balanced/config.json": "ba873b4875d069697fa5bab011ea9e3f63b7f8186701bdf5356b4d8622d8f5c1",
+    "models/ORIGINAL/v3-balanced/evidence.json": "c82d2e8e760d21c09a7ef1321281d0e5cbcc812c6c73d91f96440eeb420d3cae",
+    "models/ORIGINAL/v3-balanced/manifest.json": "99b36171056bb0398584a0b0556d9d7ff2640d0acac4b124a126327451a80589",
+    "models/ORIGINAL/v3-balanced/model.safetensors": "e48e7c1aa46310b3b7b1f6422f7aa8902c70cf6ff861f7540a7c4be151de4df2",
+    "models/ORIGINAL/v3-balanced/vocab.txt": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+    "models/ORIGINAL/v3-efficient/config.json": "191ec8105cc6eb8ce2d64c117f7c5830f6028c06da4d7a0d3672414f2c77ad98",
+    "models/ORIGINAL/v3-efficient/evidence.json": "d306abbd1bd8031092be91b4da2a31ea3d37220d3a7e0d94b6c6407565a0ce9e",
+    "models/ORIGINAL/v3-efficient/manifest.json": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+    "models/ORIGINAL/v3-efficient/model.safetensors": "dc623640400b268a2a490c214dad872de49d047c01b4d5cd1e361f70741d93c2",
+    "models/ORIGINAL/v3-efficient/vocab.txt": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+    "models/ORIGINAL/v3-quality/config.json": "9efa18e50a359c542d79f9c00a23049c2d78aa07c1fd11827c6e2487b3333cd7",
+    "models/ORIGINAL/v3-quality/evidence.json": "0d6803b05dacebef87e18e751bdacf2fba588dff122d490b7b46303b284fd8b7",
+    "models/ORIGINAL/v3-quality/manifest.json": "bb17d355fe1ad13c7052e922fb6de607d82cdafb1f4440fee1a47f35d42caf39",
+    "models/ORIGINAL/v3-quality/model.safetensors": "f9d64c3436b44488c8d94233355a12afb1da56c719b3e000e6580ab9e578c26d",
+    "models/ORIGINAL/v3-quality/vocab.txt": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3"
+  },
+  "no_protected_final_data_access": true,
+  "no_publication": true,
+  "no_training_tuning_or_promotion": true,
+  "original_model_assets": 18,
+  "original_model_bytes": 130676181,
+  "package_identities": {
+    "v1-balanced": {
+      "artifact_checksum": "8390b96871c6edd00916e3a6126da1b09c19f9fdbdda8214ebe667a893e5ee2c",
+      "model_id": "privoke-balanced",
+      "model_version": "v0.3.0",
+      "parameter_fingerprint": "fec1a27b2252e01f659b5b856e5bdb124ef79b72f28995c7b3599f5ce0bd44c6"
+    },
+    "v1-efficient": {
+      "artifact_checksum": "a78e4fc8837a50e3fc1e70044f71a1490f7524454f84e86e6a82531f4c8059fe",
+      "model_id": "privoke-efficient",
+      "model_version": "v0.3.0",
+      "parameter_fingerprint": "f12b8fcdaa3d123fd4bc6dd56dbb87d985aae4009bdefac92d04efb596fc551a"
+    },
+    "v1-quality": {
+      "artifact_checksum": "76bc059fee0d7d6dd2df02b05d8fee9f05ef0ddb949f74e69a0a38064bc644ab",
+      "model_id": "privoke-quality",
+      "model_version": "v0.3.0",
+      "parameter_fingerprint": "dae7f43f48c8197543b89d66349aca5f4fec2981d7a4145e9f6500b5aa287dea"
+    },
+    "v3-balanced": {
+      "architecture": "privoke_pretrained_bert_v3",
+      "artifact_checksum": "99b36171056bb0398584a0b0556d9d7ff2640d0acac4b124a126327451a80589",
+      "backbone_sha256": "67b710645b099510dba08b7605a60859fff59714628e1d9d1ffa9e0956b51783",
+      "model_id": "privoke-v3-balanced",
+      "model_version": "99b36171056bb0398584a0b0556d9d7ff2640d0acac4b124a126327451a80589",
+      "parameter_count": "9596180",
+      "parameter_fingerprint": "e48e7c1aa46310b3b7b1f6422f7aa8902c70cf6ff861f7540a7c4be151de4df2",
+      "tokenizer_sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3"
+    },
+    "v3-efficient": {
+      "architecture": "privoke_pretrained_bert_v3",
+      "artifact_checksum": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+      "backbone_sha256": "2e37a60f99c30c244da3a2ada3653faf378689783c5b6500d7291acc2516e199",
+      "model_id": "privoke-v3-efficient",
+      "model_version": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+      "parameter_count": "4785044",
+      "parameter_fingerprint": "dc623640400b268a2a490c214dad872de49d047c01b4d5cd1e361f70741d93c2",
+      "tokenizer_sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3"
+    },
+    "v3-quality": {
+      "architecture": "privoke_pretrained_bert_v3",
+      "artifact_checksum": "bb17d355fe1ad13c7052e922fb6de607d82cdafb1f4440fee1a47f35d42caf39",
+      "backbone_sha256": "1be1c8c6a57894a139fdf526fb8435f6acb6ea01600569a4ac3cfd405dc5f875",
+      "model_id": "privoke-v3-quality",
+      "model_version": "bb17d355fe1ad13c7052e922fb6de607d82cdafb1f4440fee1a47f35d42caf39",
+      "parameter_count": "17493780",
+      "parameter_fingerprint": "f9d64c3436b44488c8d94233355a12afb1da56c719b3e000e6580ab9e578c26d",
+      "tokenizer_sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3"
+    }
+  },
+  "preserved_history": [
+    {
+      "capsule": "capsule-01",
+      "diagnosis_correction": "preflight-diagnosis-correction.json",
+      "rpc_count": 0,
+      "status": "preflight_failed_lazy_getattr_manufactured_Torch_file_origins"
+    },
+    {
+      "capsule": "capsule-02",
+      "rpc_count": 0,
+      "status": "preflight_passed_unrun_superseded_after_raw_failure_retention_review"
+    },
+    {
+      "capsule": "capsule-03",
+      "rpc_count": 24,
+      "status": "passed_source_models_and_outputs_replay"
+    }
+  ],
+  "question": "Do frozen source bytes and all six copied original model bundles reproduce the historical four invented semantic-only probe outputs from an isolated source copy?",
+  "receipt_archive": {
+    "bytes_excluding_seal": 132754206,
+    "files_excluding_seal": 234,
+    "inventory_sha256": "34170c3b40b61e3eb5282151461ea973ab25af065cbe6eb60022d2ddf84dd96f"
+  },
+  "receipts": {
+    "analysis": {
+      "path": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\paper_reproduction_20261014\\capsule-03\\attempts\\synthetic-replay-01\\analysis.json",
+      "sha256": "2a4b817d5147551337a25a2adc51178fd38b35d53ae521c647aa0cf3a5982d41"
+    },
+    "cleanup": {
+      "path": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\paper_reproduction_20261014\\capsule-03\\process-cleanup.json",
+      "sha256": "b82b70294840cab901cd4faa9410252efa347ab3bfc9ff0543b55cccd54edb35"
+    },
+    "environment_comparison": {
+      "path": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\paper_reproduction_20261014\\capsule-03\\environment\\frozen-host-comparison.json",
+      "sha256": "c417ec03a05d9c52be466643550f45c151a52189c5dea443881e766b844fcc86"
+    },
+    "manifest": {
+      "path": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\paper_reproduction_20261014\\capsule-03\\manifest.json",
+      "sha256": "10925240bdf7e7b6337a40a17c826b80cf30bbd015ec6700e7e7bc02cf2dc127"
+    },
+    "preflight": {
+      "path": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\paper_reproduction_20261014\\capsule-03\\preflight-attestation.json",
+      "sha256": "549b33315c8b9bd0b2d5c5da6c00f3088a8eb89dca8dcb46beaa61d37ac7e95b"
+    },
+    "root_release": {
+      "path": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\paper_reproduction_20261014\\capsule-03\\release.json",
+      "sha256": "439a98df162076464ee3163424c0da583a688d4f95866df7644384bb0e2b2c6e"
+    },
+    "seal": {
+      "path": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\paper_reproduction_20261014\\capsule-03\\seal.json",
+      "sha256": "e201cf0dfe791596f06ad278ea29b197a17bbb956194f5ebfd56ce5d1b56355a"
+    },
+    "tests": {
+      "path": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\paper_reproduction_20261014\\capsule-03\\focused-tests.log",
+      "sha256": "dd57f57ebb0ba076c2b920783d5576172e49aad664fff32ec10462ec541a749a"
+    }
+  },
+  "record_id": "RP14-local-reproduction-20261014",
+  "results": {
+    "comparison": "classification categories/sensitivity/visibility, action, sole actual layer, four model identity fields; excludes latency/wire timestamps",
+    "independent_review": "R2 independently reconstructed all24 original/replay request+response pairs, classification protobuf bytes/action equality, sole[4]success/requestIDs/fouridentityfields; rehashed195pins and12 ready/stopped source attestations; sixexit0/cleanup checked.",
+    "normalized_matches": 24,
+    "per_package": {
+      "v1-balanced": {
+        "all_match": true,
+        "matches": 4,
+        "raw_sha256": "3786350090d4087286fc5b1eda68df348fb563a56bf57f6c1a6c036f21125f8b",
+        "rows": 4
+      },
+      "v1-efficient": {
+        "all_match": true,
+        "matches": 4,
+        "raw_sha256": "ef4463e7a6b2ab615782f5b6827c613e476b186bdc35dc20c5e80ba5f0c36158",
+        "rows": 4
+      },
+      "v1-quality": {
+        "all_match": true,
+        "matches": 4,
+        "raw_sha256": "b5fc2359859ef5edcea74eb15bf6b71d76f0fcb8c214855c4c6d12d8e9c99038",
+        "rows": 4
+      },
+      "v3-balanced": {
+        "all_match": true,
+        "matches": 4,
+        "raw_sha256": "8414388598459d4fe7e2b3003b04941ce8261bc455955022cf299b29b315daa7",
+        "rows": 4
+      },
+      "v3-efficient": {
+        "all_match": true,
+        "matches": 4,
+        "raw_sha256": "c640880054f852ab93dc36385e5071b9fdf99a187a9db589cceaa6817d6b1ab7",
+        "rows": 4
+      },
+      "v3-quality": {
+        "all_match": true,
+        "matches": 4,
+        "raw_sha256": "22735c7dcb1ae1acfeb6f7a34dc41e3dc636584f1190e33b7adc30b516a13864",
+        "rows": 4
+      }
+    },
+    "postrun_manifest_pins_verified": 195,
+    "requested_actual_layers": [
+      4
+    ],
+    "rpc_count": 24,
+    "runtime_errors": 0
+  },
+  "schema": 1,
+  "source_bytes": 1626364,
+  "source_files": 168,
+  "status": "passed_independently_reviewed_ready_for_root_acceptance"
+}
