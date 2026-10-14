@@ -1,3 +1,55 @@
+FROM golang:1.25.12-bookworm AS development
+
+WORKDIR /workspace
+
+ENV PATH="/go/bin:${PATH}"
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends netcat-openbsd protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11 \
+    && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
+
+COPY shared/proto /workspace/shared/proto
+COPY evaluation/run-go-tests.sh /workspace/evaluation/run-go-tests.sh
+COPY models /models
+COPY services/model-streaming-service /workspace/services/model-streaming-service
+
+WORKDIR /workspace/services/model-streaming-service
+
+RUN mkdir -p gen \
+    && protoc \
+      --proto_path=/workspace/shared/proto \
+      --go_out=paths=source_relative:/workspace/services/model-streaming-service/gen \
+      --go-grpc_out=paths=source_relative:/workspace/services/model-streaming-service/gen \
+      /workspace/shared/proto/privoke/v1/parameters.proto
+
+RUN go mod download
+
+RUN go build -o /usr/local/bin/model-streaming-service-dev ./cmd/server
+
+EXPOSE 50051
+
+CMD ["go", "run", "./cmd/server"]
+
+FROM development AS builder
+
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" \
+    -o /out/model-streaming-service ./cmd/server
+
+FROM gcr.io/distroless/static-debian12:nonroot AS runtime
+
+COPY --from=builder /out/model-streaming-service /model-streaming-service
+COPY --from=development --chown=nonroot:nonroot /models /models
+
+EXPOSE 50051
+
+USER nonroot:nonroot
+
+ENTRYPOINT ["/model-streaming-service"]
+
 FROM mcr.microsoft.com/playwright:v1.63.0-noble
 
 USER root
@@ -7,17 +59,22 @@ RUN apt-get update \
 
 WORKDIR /workspace
 ENV PRIVOKE_INSTALLED_EVIDENCE_IN_CONTAINER=true
+COPY --from=builder /out/model-streaming-service /usr/local/bin/privoke-model-streaming
+COPY models /workspace/models
 COPY shared /workspace/shared
 COPY extension /workspace/extension
 COPY evaluation/Dockerfile.browser-installed /workspace/evaluation/Dockerfile.browser-installed
 COPY evaluation/compose.browser-installed.yml /workspace/evaluation/compose.browser-installed.yml
 COPY evaluation/run-installed-browser-capture.mjs /workspace/evaluation/run-installed-browser-capture.mjs
 COPY evaluation/run-installed-browser-unit-tests.mjs /workspace/evaluation/run-installed-browser-unit-tests.mjs
+COPY extension/test/installed-browser-additional.mjs /workspace/extension/test/installed-browser-additional.mjs
 COPY extension/test/installed-browser-capture.mjs /workspace/extension/test/installed-browser-capture.mjs
 COPY extension/test/installed-browser-evidence.mjs /workspace/extension/test/installed-browser-evidence.mjs
 COPY extension/test/installed-browser-evidence.test.mjs /workspace/extension/test/installed-browser-evidence.test.mjs
 COPY extension/test/installed-browser-resources.py /workspace/extension/test/installed-browser-resources.py
 COPY extension/test/installed-browser-resources.test.py /workspace/extension/test/installed-browser-resources.test.py
+COPY services/model-streaming-service/cmd/server/main.go /workspace/services/model-streaming-service/cmd/server/main.go
+COPY paper/research/installed-client-evidence-20261014.md /workspace/paper/research/installed-client-evidence-20261014.md
 COPY paper/research/installed-browser-protocol.md /workspace/paper/research/installed-browser-protocol.md
 
 RUN python3 -m venv /workspace/extension/client-runtime/.venv \
@@ -46,7 +103,7 @@ RUN python3 -m venv /workspace/extension/client-runtime/.venv \
     && mkdir -p /opt/privoke-browser-test \
     && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install --prefix /opt/privoke-browser-test --no-save --no-package-lock playwright@1.63.0 \
     && /workspace/extension/client-runtime/.venv/bin/python /workspace/extension/client-runtime/src/dependency_check.py \
-    && node /workspace/evaluation/run-installed-browser-unit-tests.mjs
+    && node --check /workspace/evaluation/run-installed-browser-capture.mjs
 
 ENV XDG_CONFIG_HOME=/tmp/privoke-xdg
 ENV XDG_DATA_HOME=/tmp/privoke-data

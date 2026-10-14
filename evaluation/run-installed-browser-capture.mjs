@@ -54,6 +54,8 @@ import {
   summarizeResourceCpuWindows,
 } from "../extension/test/installed-browser-evidence.mjs";
 
+import { runAdditionalMatrix } from "../extension/test/installed-browser-additional.mjs";
+
 const execFileAsync = promisify(execFile);
 const require = createRequire("/opt/privoke-browser-test/package.json");
 const playwrightRoot = "/opt/privoke-browser-test/node_modules/playwright";
@@ -62,7 +64,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const EXTENSION_ID = "hmlhjfklebbbhpjdjodegbjnbamlkonp";
 const NATIVE_HOST_NAME = "org.privoke.runtime_launcher";
 const PORTS = [8080, 50056, 50057];
-const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v4";
+const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v5";
 const RATE_REPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_REPS, 30);
 const WARMUPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_WARMUPS, 5);
 const COLD_SESSIONS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_SESSIONS, 12);
@@ -84,6 +86,10 @@ const SOURCE_FILES = [
   "evaluation/compose.browser-installed.yml",
   "evaluation/run-installed-browser-capture.mjs",
   "extension/test/installed-browser-capture.mjs",
+  "extension/test/installed-browser-additional.mjs",
+  "paper/research/installed-client-evidence-20261014.md",
+  "models/privoke-balanced.json",
+  "services/model-streaming-service/cmd/server/main.go",
   "extension/test/installed-browser-evidence.mjs",
   "extension/test/installed-browser-evidence.test.mjs",
   "evaluation/run-installed-browser-unit-tests.mjs",
@@ -149,6 +155,7 @@ let popup;
 let testPage;
 let profilePath;
 let fixtureRequestAttempted = false;
+let receiverSpkiSha256;
 let currentResourceWindow;
 let finalizeCurrentResourceWindow;
 
@@ -172,7 +179,7 @@ try {
   await assertPortsClosed("before-native-registration");
   await installNativeHost();
   const { tls, fixtureUrl } = await startProviderFixture();
-  receipt.fakeProvider = { origin: new URL(fixtureUrl).origin, certificateSha256: tls.certificateSha256 };
+  receipt.fakeProvider = { origin: new URL(fixtureUrl).origin, ...tls };
   const fixtureTargets = await import("../extension/src/generated/runtime.js");
   const protobuf = fixtureTargets.privoke.v1;
   const extensionTree = await hashTree(EXTENSION_ROOT);
@@ -202,6 +209,15 @@ try {
       if (index === 0) {
         const matrix = await runEnforcementMatrix({ fixtureUrl, protobuf });
         receipt.enforcementMatrix = matrix;
+        receipt.additionalMatrix = await runAdditionalMatrix({
+          page: testPage, popup, cdp, providerCaptures, rpcEvents,
+          fixtureUrl, output: OUTPUT, sendExtensionMessage, runtimeStatus,
+          processIdentity, verifyOwnedSupervisor,
+          expectedSupervisor: () => [...startedProcesses.values()].find((identity) =>
+            identity.command.includes("extension/runtime-supervisor/src/main.py")),
+          signal: (identity, name) => signalVerified(identity, name, "additional_matrix_fault"),
+          restoreRuntimeAndObserve,
+        });
       }
     });
     await finishSession();
@@ -485,7 +501,10 @@ async function startProviderFixture() {
   const keyPath = join(certificateDirectory, "key.pem");
   const certPath = join(certificateDirectory, "cert.pem");
   execFileSync("openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "2",
-    "-subj", "/CN=chatgpt.com", "-keyout", keyPath, "-out", certPath], { stdio: "ignore" });
+    "-subj", "/CN=chatgpt.com", "-addext", "subjectAltName=DNS:chatgpt.com", "-keyout", keyPath, "-out", certPath], { stdio: "ignore" });
+  const publicPem = execFileSync("openssl", ["x509", "-in", certPath, "-pubkey", "-noout"]);
+  const publicDer = execFileSync("openssl", ["pkey", "-pubin", "-outform", "DER"], { input: publicPem });
+  receiverSpkiSha256 = createHash("sha256").update(publicDer).digest("base64");
   const key = await readFile(keyPath);
   const certificate = await readFile(certPath);
   server = createServer({ key, cert: certificate }, async (request, response) => {
@@ -517,7 +536,7 @@ async function startProviderFixture() {
   });
   const port = server.address().port;
   return {
-    tls: { certificateSha256: sha256(certificate) },
+    tls: { certificateSha256: sha256(certificate), spkiSha256: receiverSpkiSha256, authentication: "Chromium certificate SPKI exception pinned to this generated receiver key; HTTPS verification otherwise enabled" },
     fixtureUrl: `https://chatgpt.com:${port}`,
     certDir: certificateDirectory,
   };
@@ -570,12 +589,13 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   browserContext = await chromium.launchPersistentContext(profilePath, {
     channel: "chromium",
     headless: false,
-    ignoreHTTPSErrors: true,
+    ignoreHTTPSErrors: false,
     args: [
       `--disable-extensions-except=${EXTENSION_ROOT}`,
       `--load-extension=${EXTENSION_ROOT}`,
       "--remote-debugging-port=9333",
       "--no-proxy-server",
+      `--ignore-certificate-errors-spki-list=${receiverSpkiSha256}`,
       "--host-resolver-rules=MAP chatgpt.com 127.0.0.1,EXCLUDE localhost",
       "--disable-background-networking",
       "--disable-component-update",
