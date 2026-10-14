@@ -1153,6 +1153,7 @@ class CdpObserver {
         url: params.request.url,
         request: params.request,
         requestWallTime: params.wallTime,
+        requestObservedAtMonotonicMs: performance.now(),
         loadingFailure: null,
       });
     } else if (message.method === "Network.loadingFailed") {
@@ -1237,6 +1238,9 @@ class CdpObserver {
       responseBodyBase64: record.responseBytes?.toString("base64") ?? null,
       responseBytesPresent: Buffer.isBuffer(record.responseBytes),
       requestWallTime: record.requestWallTime,
+      networkRequestId: id,
+      requestObservedAtMonotonicMs: record.requestObservedAtMonotonicMs,
+      terminalObservedAtMonotonicMs: performance.now(),
     };
     this.events.push(out);
     rpcEvents.push(out);

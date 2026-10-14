@@ -4,6 +4,7 @@ import { spawn, execFile } from "node:child_process";
 import { open, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { performance } from "node:perf_hooks";
 
 const exec = promisify(execFile);
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -49,6 +50,20 @@ export async function runAdditionalMatrix(api) {
     sendExtensionMessage, runtimeStatus, processIdentity, verifyOwnedSupervisor,
     expectedSupervisor, signal, restoreRuntimeAndObserve } = api;
   const records = [];
+  const runtimeIds = new Set();
+  const networkIds = new Set();
+  const waitQuiescence = async () => {
+    const deadline = Date.now() + 8_000;
+    let quietSince = null;
+    while (Date.now() < deadline) {
+      if (cdp.network.size === 0) {
+        quietSince ??= Date.now();
+        if (Date.now() - quietSince >= 150) return performance.now();
+      } else quietSince = null;
+      await delay(25);
+    }
+    throw new Error("runtime RPC observer did not reach bounded terminal quiescence");
+  };
   let model;
   let modelLog;
   let pausedSupervisor;
@@ -58,6 +73,7 @@ export async function runAdditionalMatrix(api) {
   }, null, 2));
   const probe = async (transport, id, operation = "normal") => {
     const caseId = `additional-${transport}-${id}`;
+    const preProbeQuiescentAtMonotonicMs = await waitQuiescence();
     const beforeRpc = rpcEvents.length;
     const url = `${fixtureUrl}/backend-api/conversation?case_id=${encodeURIComponent(caseId)}`;
     const record = await page.evaluate(async ({ transport, caseId, url, operation, prompt }) => {
@@ -88,6 +104,7 @@ export async function runAdditionalMatrix(api) {
       return { caseId, transport, operation, url, body, outcome, totalMs: performance.now() - started,
         analyses: window.__privokeAnalyses.filter((entry) => entry.caseId === caseId) };
     }, { transport, caseId, url, operation, prompt: PROMPT });
+    record.preProbeQuiescentAtMonotonicMs = preProbeQuiescentAtMonotonicMs;
     return { record, beforeRpc };
   };
   const complete = async (pending, options) => {
@@ -95,10 +112,22 @@ export async function runAdditionalMatrix(api) {
     if (options.expectedLayers) {
       while (rpcEvents.length <= pending.beforeRpc && Date.now() < deadline) await delay(25);
     }
+    pending.record.postProbeQuiescentAtMonotonicMs = await waitQuiescence();
     pending.record.analyses = await page.evaluate((id) => window.__privokeAnalyses.filter((entry) => entry.caseId === id), pending.record.caseId);
     const captures = providerCaptures.filter((entry) => new URL(`https://fixture${entry.path}`).searchParams.get("case_id") === pending.record.caseId);
     const rpcs = rpcEvents.slice(pending.beforeRpc).filter((entry) => entry.method === "AnalyzePrompt");
-    if (options.expectedLayers) assert.equal(rpcs.length, 1, "one decoded actual runtime RPC is required");
+    if (options.expectedLayers) {
+      assert.equal(rpcs.length, 1, "one decoded actual runtime RPC is required");
+      const rpc = rpcs[0];
+      assert.ok(rpc.request?.requestId && !runtimeIds.has(rpc.request.requestId), "runtime request ID must be unique");
+      assert.ok(rpc.networkRequestId && !networkIds.has(rpc.networkRequestId), "browser network request ID must be unique");
+      assert.ok(rpc.requestObservedAtMonotonicMs >= pending.record.preProbeQuiescentAtMonotonicMs,
+        "runtime request was observed before this probe's quiescence barrier");
+      assert.ok(rpc.terminalObservedAtMonotonicMs >= rpc.requestObservedAtMonotonicMs
+        && rpc.terminalObservedAtMonotonicMs <= pending.record.postProbeQuiescentAtMonotonicMs,
+        "runtime terminal event is outside this probe's sequential interval");
+      runtimeIds.add(rpc.request.requestId); networkIds.add(rpc.networkRequestId);
+    }
     pending.record.receiverCaptures = captures;
     pending.record.runtimeRpc = rpcs[0] ?? null;
     pending.record.declared = options;
@@ -210,8 +239,10 @@ export async function runAdditionalMatrix(api) {
       await complete(result, { expectedLayers: FULL, expectedForwarded: action !== "BLOCK", requireSuccess: true });
     }
     assert.equal(records.length, 19, "frozen additional matrix count changed");
-    assert.equal(cdp.network.size, 0, "late runtime requests must reach observed terminal quiescence");
+    await waitQuiescence();
     await delay(500);
+    await waitQuiescence();
+    assert.equal(cdp.network.size, 0, "late runtime requests must reach observed terminal quiescence");
     for (const record of records) {
       const captures = providerCaptures.filter((entry) => new URL(`https://fixture${entry.path}`).searchParams.get("case_id") === record.caseId);
       assertAdditionalProbe({ record, captures, rpc: record.runtimeRpc, ...record.declared });
