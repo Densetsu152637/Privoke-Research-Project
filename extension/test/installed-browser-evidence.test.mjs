@@ -9,6 +9,8 @@ import test from "node:test";
 import vm from "node:vm";
 import {
   assertNativeParentBinding,
+  validateNativeBootstrapEvents,
+  costObservationQualification,
   assertNativeLauncherExecutableMount,
   assertCompleteResourceEvidence,
   buildStartupIdentityDiagnostic,
@@ -1042,4 +1044,44 @@ test("browser root candidates retain only closed cached identity and command has
   assert.throws(() => validateSamplerTerminalDiagnostic(plaintext), /candidate/);
   const oversized = structuredClone(value); oversized.browser_candidates = Array(17).fill(value.browser_candidates[0]);
   assert.throws(() => validateSamplerTerminalDiagnostic(oversized), /candidate/);
+});
+
+
+test("native one-shot disappearance requires direct binding and functional bootstrap completion", () => {
+  const native = { role: "native_host", pid: 22, start_ticks: 220, command_sha256: "a".repeat(64),
+    ppid: 21, parent_start_ticks: 210, start_time_epoch_seconds: 22 };
+  const browser = { role: "chromium", pid: 21, start_ticks: 210 };
+  const supervisor = { role: "supervisor_bridge", pid: 23, start_ticks: 230, command_sha256: "b".repeat(64),
+    ppid: 22, parent_start_ticks: 220 };
+  const event = { schema_version: 1, type: "native_helper_disappearance", ...native,
+    observed_at_ns: 300, termination_observation: "confirmed_absence", observed_state: null,
+    bootstrap_completion: "pending_runner_validation" };
+  delete event.role;
+  const samples = [{ sample_monotonic_ns: 250, roles: [native, browser, supervisor] },
+    { sample_monotonic_ns: 310, roles: [browser], native_bootstrap_events: [event] }];
+  const completion = { status: "verified_before_first_request", runtimeStatus: "RUNNING", verifiedAtMonotonicNs: 400,
+    supervisor: { pid: 23, startTicks: 230, commandSha256: "b".repeat(64) },
+    detector: { pid: 24, startTicks: 240, commandSha256: "c".repeat(64), parentPid: 23, parentStartTicks: 230 },
+    listenerOwnership: { 8080: [{ pid: 23 }], 50056: [{ pid: 23 }], 50057: [{ pid: 24 }] } };
+  assert.equal(validateNativeBootstrapEvents(samples, completion).count, 1);
+  for (const change of [undefined, { ...completion, runtimeStatus: "STOPPED" },
+    { ...completion, listenerOwnership: { ...completion.listenerOwnership, 8080: [] } },
+    { ...completion, detector: { ...completion.detector, parentStartTicks: 999 } },
+    { ...completion, supervisor: { ...completion.supervisor, startTicks: 999 } }]) {
+    assert.throws(() => validateNativeBootstrapEvents(samples, change));
+  }
+  assert.throws(() => validateNativeBootstrapEvents([{ ...samples[0], roles: [native, supervisor] }, samples[1]], completion), /direct sampled browser binding/);
+  assert.throws(() => validateNativeBootstrapEvents([{ ...samples[0], roles: [native, browser] }, samples[1]], completion), /supervisor child binding/);
+  for (const change of [{ observed_state: "R" }, { command: "secret" }, { start_ticks: 999 }, { observed_at_ns: 999 }]) {
+    assert.throws(() => validateNativeBootstrapEvents([samples[0], { ...samples[1], native_bootstrap_events: [{ ...event, ...change }] }], completion));
+  }
+});
+
+test("cost qualification reports actual partial and complete profile clusters", () => {
+  const partial = Array.from({ length: 30 }, () => ({ sessionId: "one" }));
+  const complete = [...partial, ...Array.from({ length: 30 }, () => ({ sessionId: "two" }))];
+  assert.deepEqual([costObservationQualification(partial).observations, costObservationQualification(partial).sessionClusters], [30, 1]);
+  assert.deepEqual([costObservationQualification(complete).observations, costObservationQualification(complete).sessionClusters], [60, 2]);
+  assert.match(costObservationQualification(partial).p99Qualification, /^30 observations across 1 fresh/);
+  assert.throws(() => costObservationQualification([{}]), /session identity/);
 });

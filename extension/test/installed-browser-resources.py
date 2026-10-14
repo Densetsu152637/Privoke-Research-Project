@@ -393,7 +393,65 @@ def _confirm_dispatched_predecessor_exit(transition, pid, before, expected_comma
     return False
 
 
-def _processes(transition=None, bound_browser_roots=None, browser_candidates=None) -> tuple[list[dict[str, object]], dict[str, int]]:
+class NativeBootstrapTracker:
+    """Provisional termination evidence for sampled, browser-parent-bound one-shot helpers."""
+
+    def __init__(self):
+        self.identities = {}
+        self.events = []
+
+    def observe(self, rows):
+        browser = {(row["pid"], row["start_ticks"]): row for row in rows if row["role"] == "chromium"}
+        for row in rows:
+            if row["role"] != "native_host":
+                continue
+            parent = (row["ppid"], row["parent_start_ticks"])
+            if parent not in browser:
+                raise RuntimeError("native helper lacks a freshly sampled Chromium parent")
+            identity = {key: row[key] for key in ("pid", "start_ticks", "command_sha256",
+                        "ppid", "parent_start_ticks", "start_time_epoch_seconds")}
+            old = self.identities.get(row["pid"])
+            if old is not None and old != identity:
+                raise RuntimeError("native helper identity changed")
+            if len(self.identities) >= 8 and old is None:
+                raise RuntimeError("native helper identity bound exceeded")
+            self.identities[row["pid"]] = identity
+
+    def retire(self, role, pid, state, enumeration=None):
+        if role != "native_host" or pid not in self.identities:
+            return False
+        expected = self.identities[pid]
+        if enumeration is not None:
+            command_hash = hashlib.sha256(" ".join(enumeration.get("cmdline") or []).encode()).hexdigest()
+            if (command_hash != expected["command_sha256"]
+                    or enumeration.get("create_time") != expected["start_time_epoch_seconds"]
+                    or enumeration.get("ppid") != expected["ppid"]):
+                return False
+        if state is not None and (state[1] != expected["start_ticks"] or state[0] not in {"Z", "X", "x"}):
+            return False
+        parent = _process_stat_identity(expected["ppid"])
+        if parent is None or parent[1] != expected["parent_start_ticks"] or parent[0] in {"Z", "X", "x"}:
+            return False
+        if any(event["pid"] == pid for event in self.events):
+            return True
+        self.events.append({"schema_version": 1, "type": "native_helper_disappearance",
+                            **expected, "observed_at_ns": time.monotonic_ns(),
+                            "termination_observation": "confirmed_absence" if state is None else "same_identity_terminal_state",
+                            "observed_state": None if state is None else state[0],
+                            "bootstrap_completion": "pending_runner_validation"})
+        return True
+
+    def missing(self, rows):
+        present = {row["pid"] for row in rows if row["role"] == "native_host"}
+        retired = {event["pid"] for event in self.events}
+        for pid in self.identities.keys() - present - retired:
+            state = _process_stat_identity(pid)
+            if not self.retire("native_host", pid, state):
+                raise ProcessIdentityFailure("native_host", "process_vanished_during_fresh_reads",
+                                             None, pid, "idle", observed_state=state)
+
+
+def _processes(transition=None, bound_browser_roots=None, browser_candidates=None, native_bootstrap=None) -> tuple[list[dict[str, object]], dict[str, int]]:
     rows: list[dict[str, object]] = []
     identity_races: dict[str, int] = {}
     processes = list(psutil.process_iter(("pid", "ppid", "cmdline", "create_time", "memory_info", "cpu_times")))
@@ -401,6 +459,11 @@ def _processes(transition=None, bound_browser_roots=None, browser_candidates=Non
     if bound_browser_roots is not None:
         chromium_root_ids.update(bound_browser_roots)
         chromium_ids.update(bound_browser_roots)
+    def termination(role, profile_root, detail, *, transition=None, pid=None, identity=None):
+        if native_bootstrap is not None and native_bootstrap.retire(role, pid, identity, process.info):
+            return True
+        return _termination_disposition(role, profile_root, detail, transition=transition, pid=pid, identity=identity)
+
     for process in processes:
         try:
             info = process.info
@@ -416,7 +479,7 @@ def _processes(transition=None, bound_browser_roots=None, browser_candidates=Non
                 raise RuntimeError(f"{role_hint} process lacks enumeration-time creation identity")
             before = _process_stat_identity(pid)
             if before is None:
-                authorized = _termination_disposition(role_hint, profile_root, "PID exited before stat snapshot",
+                authorized = termination(role_hint, profile_root, "PID exited before stat snapshot",
                                                        transition=transition, pid=pid, identity=None)
                 if not authorized:
                     identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
@@ -426,14 +489,14 @@ def _processes(transition=None, bound_browser_roots=None, browser_candidates=Non
             if not math.isfinite(fresh_create_time):
                 raise RuntimeError(f"{role_hint} process creation identity is invalid")
             if fresh_create_time != expected_create_time:
-                authorized = _termination_disposition(role_hint, profile_root, "PID was reused after process enumeration",
+                authorized = termination(role_hint, profile_root, "PID was reused after process enumeration",
                                                        transition=transition, pid=pid, identity=before)
                 if not authorized:
                     identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
                 continue
             if not fresh.is_running():
                 terminal_identity = _process_stat_identity(pid)
-                authorized = _termination_disposition(role_hint, profile_root, "process exited before fresh metrics",
+                authorized = termination(role_hint, profile_root, "process exited before fresh metrics",
                                                        transition=transition, pid=pid, identity=terminal_identity)
                 if not authorized:
                     identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
@@ -445,7 +508,7 @@ def _processes(transition=None, bound_browser_roots=None, browser_candidates=Non
                 terminal_identity = _process_stat_identity(pid)
                 if (terminal_identity is None or terminal_identity[1] != before[1]
                         or terminal_identity[0] in {"Z", "X", "x"}):
-                    authorized = _termination_disposition(
+                    authorized = termination(
                         role_hint, profile_root, "process exited before fresh metrics",
                         transition=transition, pid=pid, identity=terminal_identity)
                     if not authorized:
@@ -477,7 +540,7 @@ def _processes(transition=None, bound_browser_roots=None, browser_candidates=Non
             pss_bytes = _pss_bytes(pid)
             after = _process_stat_identity(pid)
             if after is None or after[1] != before[1]:
-                authorized = _termination_disposition(role, profile_root, "PID exited or changed start ticks during metrics",
+                authorized = termination(role, profile_root, "PID exited or changed start ticks during metrics",
                                                        transition=transition, pid=pid, identity=after)
                 if not authorized:
                     identity_races[role] = identity_races.get(role, 0) + 1
@@ -516,12 +579,15 @@ def _processes(transition=None, bound_browser_roots=None, browser_candidates=Non
             if role_hint is None:
                 continue
             before = _process_stat_identity(pid)
-            authorized = _termination_disposition(role_hint, pid in chromium_root_ids, "process vanished during fresh reads",
+            authorized = termination(role_hint, pid in chromium_root_ids, "process vanished during fresh reads",
                                                    transition=transition, pid=pid, identity=before)
             if not authorized:
                 identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
     if bound_browser_roots is not None:
         _verify_bound_browser_roots(rows, bound_browser_roots, transition.phase if transition is not None else "idle")
+    if native_bootstrap is not None:
+        native_bootstrap.observe(rows)
+        native_bootstrap.missing(rows)
     return rows, identity_races
 
 
@@ -934,13 +1000,14 @@ def sample(output: Path, interval_ms: int, progress: dict | None = None,
     samples_written = 0
     transition = StartupTransition(source_revision, protocol_sha256)
     bound_browser_roots = {}
+    native_bootstrap = NativeBootstrapTracker()
     with output.open("x", encoding="utf-8", buffering=1) as stream:
         while not stop:
             now = time.monotonic()
             transition._read_controls()
             browser_candidates = []
             try:
-                roles, identity_races = _processes(transition, bound_browser_roots, browser_candidates)
+                roles, identity_races = _processes(transition, bound_browser_roots, browser_candidates, native_bootstrap)
             except ProcessIdentityFailure as error:
                 error.browser_candidates = _validate_browser_candidates(browser_candidates)
                 raise
@@ -950,6 +1017,7 @@ def sample(output: Path, interval_ms: int, progress: dict | None = None,
                 "roles": roles,
                 "browser_root_candidates": browser_candidates,
                 "startup_transition_events": transition_events,
+                "native_bootstrap_events": native_bootstrap.events,
                 "process_identity_races": identity_races,
                 "cgroup": _cgroup_sample(),
             }, separators=(",", ":")) + "\n")

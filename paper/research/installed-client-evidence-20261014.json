@@ -1,0 +1,921 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": "installed-browser-enforcement-cost-v5",
+  "resultStatus": "bounded_correctness_complete_cost_incomplete",
+  "updatedAt": "2026-10-14T01:37:26.598Z",
+  "evidenceBase": "D:/Git Repositories/Privoke-Research-Project/evaluation/results/installed-client-evidence-20261014",
+  "attempts": [
+    {
+      "attempt": 1,
+      "runId": "run-2026-10-14T00-34-40-347Z-c8bdb1d9",
+      "sourceRevision": "e3726e7595b0f925bde77b3b23ea033447e868e4",
+      "imageId": "sha256:da57aa167f106d601fa43657bddf82f5c500cbd79282e21b74cf0710c579a7a4",
+      "status": "failed",
+      "coldSessionsCompleted": 2,
+      "warmMeasuredRequests": 60,
+      "originalProbes": 14,
+      "additionalProbes": 19,
+      "correctnessReceiverSends": 18,
+      "correctnessZeroSendCases": 15,
+      "failure": {
+        "type": "StartupTransitionSamplerExited",
+        "message": "resource sampler exited during startup transition"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": false,
+        "certificateDirectoryRemoved": false
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-14T00-34-40-347Z-c8bdb1d9/receipt.json",
+        "sha256": "46b471259c5dcb00d137b61090c916a417fff4de97b71f8a4c73fffc1c868a9b"
+      },
+      "relocation": {
+        "path": "relocation-attempt-1.json",
+        "sha256": "3cf73e5ad47d76b8e7e23c678a6827451fea28e2d07a19473e54197c8d241c6b"
+      }
+    },
+    {
+      "attempt": 2,
+      "runId": "run-2026-10-14T00-49-28-374Z-6c2f79d0",
+      "sourceRevision": "93f1012bd6c60454e83ce66966dbe04091ccf1ff",
+      "imageId": "sha256:462e769379066170c1c5765b28aaee30203e63a39b50a00f105ac80f3e11ec02",
+      "status": "failed",
+      "coldSessionsCompleted": 2,
+      "warmMeasuredRequests": 60,
+      "originalProbes": 14,
+      "additionalProbes": 19,
+      "correctnessReceiverSends": 18,
+      "correctnessZeroSendCases": 15,
+      "failure": {
+        "type": "StartupTransitionSamplerExited",
+        "message": "resource sampler exited during startup transition"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": false,
+        "certificateDirectoryRemoved": false
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-14T00-49-28-374Z-6c2f79d0/receipt.json",
+        "sha256": "94330fc30107ff9c32c8ce3f4b38b366317cb68eb78d8bb95d39e71d584c393c"
+      },
+      "relocation": {
+        "path": "relocation-attempt-2.json",
+        "sha256": "8b738e366571eaf076e345a08a8b5f96c17d67d921fca557736394d3a9ee7bcf"
+      }
+    },
+    {
+      "attempt": 3,
+      "runId": "run-2026-10-14T01-03-30-620Z-0c655dba",
+      "sourceRevision": "295e5f5043a3dcea70505555975dd8e19d46e669",
+      "imageId": "sha256:68897041090090cbe10466118726eb916f89bf787ceef7c57c089b400d65d484",
+      "status": "failed",
+      "coldSessionsCompleted": 0,
+      "warmMeasuredRequests": 0,
+      "originalProbes": 0,
+      "additionalProbes": 0,
+      "correctnessReceiverSends": 0,
+      "correctnessZeroSendCases": 0,
+      "failure": {
+        "type": "StartupTransitionSamplerExited",
+        "message": "resource sampler exited during startup transition"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": true,
+        "certificateDirectoryRemoved": true
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-14T01-03-30-620Z-0c655dba/receipt.json",
+        "sha256": "76687ae54ec94382668683044e930c7d5a76ab7f16e85aa4a22f57c04a24c455"
+      },
+      "relocation": {
+        "path": "relocation-attempt-3.json",
+        "sha256": "75131ded719c27de34798da58fa0353722edbb66e54b53ab747d02ac1dab2be7"
+      }
+    },
+    {
+      "attempt": 4,
+      "runId": "run-2026-10-14T01-27-55-743Z-f364f9d3",
+      "sourceRevision": "e6007d1f023701816c0bba17f8278b583da04d22",
+      "imageId": "sha256:100c64ff87a265bb3051a69d4f07de5da69fe138ab2b24ca705cd61422af22cd",
+      "status": "failed",
+      "coldSessionsCompleted": 2,
+      "warmMeasuredRequests": 60,
+      "originalProbes": 14,
+      "additionalProbes": 19,
+      "correctnessReceiverSends": 18,
+      "correctnessZeroSendCases": 15,
+      "failure": {
+        "type": "StartupTransitionSamplerExited",
+        "message": "resource sampler exited during startup transition"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": true,
+        "certificateDirectoryRemoved": true
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-14T01-27-55-743Z-f364f9d3/receipt.json",
+        "sha256": "3d96d3eea838e21ebc62daae32c8155a5e55b2df63780fda30e7d8c5e4da8c2b"
+      },
+      "relocation": {
+        "path": "relocation-attempt-4.json",
+        "sha256": "2f07ea5c2e931255d29cf2328dc1c223cab47d3f5e4661e79e2c637412b22e29"
+      }
+    }
+  ],
+  "selectedCorrectnessAttempt": 4,
+  "selectedCorrectness": {
+    "originalCases": 14,
+    "additionalCases": 19,
+    "totalCases": 33,
+    "unchangedBodySends": 18,
+    "zeroSendCases": 15,
+    "fullMatrixPassed": true,
+    "cases": [
+      {
+        "caseId": "matrix-fetch-allow",
+        "transport": "fetch",
+        "declaredAction": "ALLOW",
+        "receiverSends": 1,
+        "bodySha256": "ae98650d50fd5eb9d43cad6224bac7145ee413709e16b15681fc5d178d88da01",
+        "rawCapture": "captures/00031-matrix-fetch-allow.json",
+        "rawCaptureSha256": "701b6d518e159ea509c2646238774bbbb0a2985c8711de6d74fdb36088280da8"
+      },
+      {
+        "caseId": "matrix-fetch-warn",
+        "transport": "fetch",
+        "declaredAction": "WARN",
+        "receiverSends": 1,
+        "bodySha256": "64c9ec13617e4eaf458fbc4c2692f4c3b7d1fa9cce51544a4a1b9e66c36e824c",
+        "rawCapture": "captures/00031-matrix-fetch-warn.json",
+        "rawCaptureSha256": "41f16afaee4e537555eee1935f7937332da7eb1a4c32d3b8f2c04a79d1f5dfe0"
+      },
+      {
+        "caseId": "matrix-fetch-block",
+        "transport": "fetch",
+        "declaredAction": "BLOCK",
+        "receiverSends": 0,
+        "bodySha256": null,
+        "rawCapture": "captures/00031-matrix-fetch-block.json",
+        "rawCaptureSha256": "10a91fb6ccacbae95bc263a28b38bdd983e1f1198d2c532cf980a970fed4b453"
+      },
+      {
+        "caseId": "matrix-fetch-detector-outage",
+        "transport": "fetch",
+        "declaredAction": "BLOCK",
+        "receiverSends": 0,
+        "bodySha256": null,
+        "rawCapture": "captures/00031-matrix-fetch-detector-outage.json",
+        "rawCaptureSha256": "1d022a80d719c63c7438000e5142f404fb0b37029b3388d8c9944c6723137e89"
+      },
+      {
+        "caseId": "matrix-fetch-bridge-supervisor-outage",
+        "transport": "fetch",
+        "declaredAction": "BLOCK",
+        "receiverSends": 0,
+        "bodySha256": null,
+        "rawCapture": "captures/00031-matrix-fetch-bridge-supervisor-outage.json",
+        "rawCaptureSha256": "a51c70f60335aebe672817f6084b5a881804abf824f6ecaf527f5e8fddad54b0"
+      },
+      {
+        "caseId": "matrix-fetch-master-off",
+        "transport": "fetch",
+        "declaredAction": "ALLOW",
+        "receiverSends": 1,
+        "bodySha256": "ae98650d50fd5eb9d43cad6224bac7145ee413709e16b15681fc5d178d88da01",
+        "rawCapture": "captures/00031-matrix-fetch-master-off.json",
+        "rawCaptureSha256": "9453b2f2fcf9346b5707296a1daba69a6ebaf2bf8c00ffc15729b117d7a7844c"
+      },
+      {
+        "caseId": "matrix-fetch-all-layers-off",
+        "transport": "fetch",
+        "declaredAction": "ALLOW",
+        "receiverSends": 1,
+        "bodySha256": "ae98650d50fd5eb9d43cad6224bac7145ee413709e16b15681fc5d178d88da01",
+        "rawCapture": "captures/00031-matrix-fetch-all-layers-off.json",
+        "rawCaptureSha256": "203ccaece9e30278a7b9975fac26ae4012fde726d0cd58c5204778e4b9d30603"
+      },
+      {
+        "caseId": "matrix-xhr-allow",
+        "transport": "xhr",
+        "declaredAction": "ALLOW",
+        "receiverSends": 1,
+        "bodySha256": "ae98650d50fd5eb9d43cad6224bac7145ee413709e16b15681fc5d178d88da01",
+        "rawCapture": "captures/00031-matrix-xhr-allow.json",
+        "rawCaptureSha256": "b334895f3c277a437abf970ceb9aaf5cffe9d32478e2180fb5de1bc9c5c2ccb0"
+      },
+      {
+        "caseId": "matrix-xhr-warn",
+        "transport": "xhr",
+        "declaredAction": "WARN",
+        "receiverSends": 1,
+        "bodySha256": "64c9ec13617e4eaf458fbc4c2692f4c3b7d1fa9cce51544a4a1b9e66c36e824c",
+        "rawCapture": "captures/00031-matrix-xhr-warn.json",
+        "rawCaptureSha256": "77663d52c3fda10b51e5126e0e28bef0fb4a9953c1f16ef021dcf2e3c22f1fdd"
+      },
+      {
+        "caseId": "matrix-xhr-block",
+        "transport": "xhr",
+        "declaredAction": "BLOCK",
+        "receiverSends": 0,
+        "bodySha256": null,
+        "rawCapture": "captures/00031-matrix-xhr-block.json",
+        "rawCaptureSha256": "146ef96f92750c384337f4a95f6bb22f3af9e4e3eae3caa4c10e70bee689476d"
+      },
+      {
+        "caseId": "matrix-xhr-detector-outage",
+        "transport": "xhr",
+        "declaredAction": "BLOCK",
+        "receiverSends": 0,
+        "bodySha256": null,
+        "rawCapture": "captures/00031-matrix-xhr-detector-outage.json",
+        "rawCaptureSha256": "b68065f590244a66733aaff60e13aa8fd79fe903da26fd93f3acfd44e284f8c8"
+      },
+      {
+        "caseId": "matrix-xhr-bridge-supervisor-outage",
+        "transport": "xhr",
+        "declaredAction": "BLOCK",
+        "receiverSends": 0,
+        "bodySha256": null,
+        "rawCapture": "captures/00031-matrix-xhr-bridge-supervisor-outage.json",
+        "rawCaptureSha256": "cdcac2a35a4a30a6dd7376d9d6b8b66f45f39c422313c3de186f4ca935d0ce64"
+      },
+      {
+        "caseId": "matrix-xhr-master-off",
+        "transport": "xhr",
+        "declaredAction": "ALLOW",
+        "receiverSends": 1,
+        "bodySha256": "ae98650d50fd5eb9d43cad6224bac7145ee413709e16b15681fc5d178d88da01",
+        "rawCapture": "captures/00031-matrix-xhr-master-off.json",
+        "rawCaptureSha256": "ec038ff01a26c103f8fa502cb4360deb52c8e42b60fe0f4717f40034c5155d6b"
+      },
+      {
+        "caseId": "matrix-xhr-all-layers-off",
+        "transport": "xhr",
+        "declaredAction": "ALLOW",
+        "receiverSends": 1,
+        "bodySha256": "ae98650d50fd5eb9d43cad6224bac7145ee413709e16b15681fc5d178d88da01",
+        "rawCapture": "captures/00031-matrix-xhr-all-layers-off.json",
+        "rawCaptureSha256": "74182abe475d8be2c063449055a8eff898a1968ccc34f64bedc1c51c54919ecb"
+      },
+      {
+        "caseId": "additional-fetch-bridge-silent-rpc-timeout",
+        "transport": "fetch",
+        "operation": "normal",
+        "actualPageAction": "BLOCK",
+        "requestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "actualRuntimeLayers": [],
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestId": "7fb3c315-bd20-46c2-8256-5e43e88ee4e8",
+        "networkRequestId": "202.103",
+        "clientOutcome": {
+          "errorName": "TypeError"
+        }
+      },
+      {
+        "caseId": "additional-fetch-cancel",
+        "transport": "fetch",
+        "operation": "cancel",
+        "actualPageAction": "ALLOW",
+        "requestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok"
+          }
+        ],
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestId": "08375e97-bf37-418b-b0a7-237fc23b0522",
+        "networkRequestId": "202.108",
+        "clientOutcome": {
+          "errorName": "AbortError"
+        }
+      },
+      {
+        "caseId": "additional-fetch-missing-analysis-worker-paused",
+        "transport": "fetch",
+        "operation": "normal",
+        "actualPageAction": "ALLOW",
+        "requestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok"
+          }
+        ],
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestId": "89ed654f-8863-4ded-ae54-1f45a8748c10",
+        "networkRequestId": "202.111",
+        "clientOutcome": {
+          "errorName": "TypeError"
+        }
+      },
+      {
+        "caseId": "additional-fetch-post-fault-recovery",
+        "transport": "fetch",
+        "operation": "normal",
+        "actualPageAction": "ALLOW",
+        "requestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok"
+          }
+        ],
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestId": "716c930d-83e4-49c7-9e82-5c81f103d125",
+        "networkRequestId": "202.112",
+        "clientOutcome": {
+          "status": 200
+        }
+      },
+      {
+        "caseId": "additional-xhr-bridge-silent-rpc-timeout",
+        "transport": "xhr",
+        "operation": "normal",
+        "actualPageAction": "BLOCK",
+        "requestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "actualRuntimeLayers": [],
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestId": "796a1fa9-7c54-4a04-8925-35b927493c29",
+        "networkRequestId": "202.115",
+        "clientOutcome": {
+          "status": 0,
+          "readyState": 4,
+          "events": [
+            "readystatechange",
+            "readystatechange",
+            "error",
+            "loadend"
+          ]
+        }
+      },
+      {
+        "caseId": "additional-xhr-cancel",
+        "transport": "xhr",
+        "operation": "cancel",
+        "actualPageAction": "ALLOW",
+        "requestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok"
+          }
+        ],
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestId": "361ef91e-52b4-4c54-b079-40a37806bd5c",
+        "networkRequestId": "202.120",
+        "clientOutcome": {
+          "status": 0,
+          "readyState": 4,
+          "events": [
+            "readystatechange",
+            "readystatechange",
+            "abort",
+            "loadend"
+          ]
+        }
+      },
+      {
+        "caseId": "additional-xhr-xhr-timeout",
+        "transport": "xhr",
+        "operation": "xhr-timeout",
+        "actualPageAction": "ALLOW",
+        "requestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok"
+          }
+        ],
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestId": "58784759-9d9c-455e-b28c-624c5cb153a1",
+        "networkRequestId": "202.125",
+        "clientOutcome": {
+          "status": 0,
+          "readyState": 4,
+          "events": [
+            "readystatechange",
+            "readystatechange",
+            "timeout",
+            "loadend"
+          ]
+        }
+      },
+      {
+        "caseId": "additional-xhr-missing-analysis-worker-paused",
+        "transport": "xhr",
+        "operation": "normal",
+        "actualPageAction": "ALLOW",
+        "requestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok"
+          }
+        ],
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestId": "4db4b951-15a5-4ab9-a5f9-baca372e0071",
+        "networkRequestId": "202.128",
+        "clientOutcome": {
+          "status": 0,
+          "readyState": 4,
+          "events": [
+            "readystatechange",
+            "readystatechange",
+            "error",
+            "loadend"
+          ]
+        }
+      },
+      {
+        "caseId": "additional-xhr-post-fault-recovery",
+        "transport": "xhr",
+        "operation": "normal",
+        "actualPageAction": "ALLOW",
+        "requestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok"
+          }
+        ],
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestId": "dcdb8d5a-df12-4b34-b360-2b94bfa1bc7e",
+        "networkRequestId": "202.129",
+        "clientOutcome": {
+          "status": 200,
+          "readyState": 4,
+          "events": [
+            "readystatechange",
+            "readystatechange",
+            "readystatechange",
+            "readystatechange",
+            "load",
+            "loadend"
+          ]
+        }
+      },
+      {
+        "caseId": "additional-fetch-full",
+        "transport": "fetch",
+        "operation": "normal",
+        "actualPageAction": "ALLOW",
+        "requestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER",
+          "DETECTION_LAYER_SEMANTIC"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_SEMANTIC",
+            "status": "ok"
+          }
+        ],
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestId": "b723e3b3-36a9-4e40-af29-4b4db181534a",
+        "networkRequestId": "202.131",
+        "clientOutcome": {
+          "status": 200
+        }
+      },
+      {
+        "caseId": "additional-xhr-full",
+        "transport": "xhr",
+        "operation": "normal",
+        "actualPageAction": "ALLOW",
+        "requestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER",
+          "DETECTION_LAYER_SEMANTIC"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_SEMANTIC",
+            "status": "ok"
+          }
+        ],
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestId": "079502c8-ceb2-4e1a-8543-636513b6c565",
+        "networkRequestId": "202.132",
+        "clientOutcome": {
+          "status": 200,
+          "readyState": 4,
+          "events": [
+            "readystatechange",
+            "readystatechange",
+            "readystatechange",
+            "readystatechange",
+            "load",
+            "loadend"
+          ]
+        }
+      },
+      {
+        "caseId": "additional-fetch-semantic-only",
+        "transport": "fetch",
+        "operation": "normal",
+        "actualPageAction": "ALLOW",
+        "requestedLayers": [
+          "DETECTION_LAYER_SEMANTIC"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_SEMANTIC",
+            "status": "ok"
+          }
+        ],
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestId": "66119f79-9d00-49fa-8b5b-ccf8bbdbe457",
+        "networkRequestId": "202.134",
+        "clientOutcome": {
+          "status": 200
+        }
+      },
+      {
+        "caseId": "additional-xhr-semantic-only",
+        "transport": "xhr",
+        "operation": "normal",
+        "actualPageAction": "ALLOW",
+        "requestedLayers": [
+          "DETECTION_LAYER_SEMANTIC"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_SEMANTIC",
+            "status": "ok"
+          }
+        ],
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestId": "463765f2-76e1-4148-9f73-21b8d4a48946",
+        "networkRequestId": "202.135",
+        "clientOutcome": {
+          "status": 200,
+          "readyState": 4,
+          "events": [
+            "readystatechange",
+            "readystatechange",
+            "readystatechange",
+            "readystatechange",
+            "load",
+            "loadend"
+          ]
+        }
+      },
+      {
+        "caseId": "additional-fetch-semantic-stream-unavailable",
+        "transport": "fetch",
+        "operation": "normal",
+        "actualPageAction": "BLOCK",
+        "requestedLayers": [
+          "DETECTION_LAYER_SEMANTIC"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_SEMANTIC",
+            "status": "error"
+          }
+        ],
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestId": "cf470abf-27c5-4e92-91c7-97ce89562728",
+        "networkRequestId": "202.137",
+        "clientOutcome": {
+          "errorName": "TypeError"
+        }
+      },
+      {
+        "caseId": "additional-xhr-semantic-stream-unavailable",
+        "transport": "xhr",
+        "operation": "normal",
+        "actualPageAction": "BLOCK",
+        "requestedLayers": [
+          "DETECTION_LAYER_SEMANTIC"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_SEMANTIC",
+            "status": "error"
+          }
+        ],
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestId": "0f170fa3-06c1-4fd7-90ff-0e05ee55f18f",
+        "networkRequestId": "202.138",
+        "clientOutcome": {
+          "status": 0,
+          "readyState": 4,
+          "events": [
+            "readystatechange",
+            "readystatechange",
+            "error",
+            "loadend"
+          ]
+        }
+      },
+      {
+        "caseId": "additional-fetch-full-stream-unavailable-fallback",
+        "transport": "fetch",
+        "operation": "normal",
+        "actualPageAction": "ALLOW",
+        "requestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok"
+          }
+        ],
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestId": "ab41b998-4799-4450-9523-8f6af9a4686c",
+        "networkRequestId": "202.140",
+        "clientOutcome": {
+          "status": 200
+        }
+      },
+      {
+        "caseId": "additional-xhr-full-stream-unavailable-fallback",
+        "transport": "xhr",
+        "operation": "normal",
+        "actualPageAction": "ALLOW",
+        "requestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok"
+          }
+        ],
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestId": "ca22cdf3-eeb3-4ac4-a784-41f07c2a5c8d",
+        "networkRequestId": "202.141",
+        "clientOutcome": {
+          "status": 200,
+          "readyState": 4,
+          "events": [
+            "readystatechange",
+            "readystatechange",
+            "readystatechange",
+            "readystatechange",
+            "load",
+            "loadend"
+          ]
+        }
+      },
+      {
+        "caseId": "additional-fetch-stream-recovery-full",
+        "transport": "fetch",
+        "operation": "normal",
+        "actualPageAction": "ALLOW",
+        "requestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER",
+          "DETECTION_LAYER_SEMANTIC"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_SEMANTIC",
+            "status": "ok"
+          }
+        ],
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestId": "e64ef4bb-4740-4164-8f72-87598e598155",
+        "networkRequestId": "202.143",
+        "clientOutcome": {
+          "status": 200
+        }
+      },
+      {
+        "caseId": "additional-xhr-stream-recovery-full",
+        "transport": "xhr",
+        "operation": "normal",
+        "actualPageAction": "ALLOW",
+        "requestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER",
+          "DETECTION_LAYER_SEMANTIC"
+        ],
+        "actualRuntimeLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok"
+          },
+          {
+            "layer": "DETECTION_LAYER_SEMANTIC",
+            "status": "ok"
+          }
+        ],
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestId": "8c811adc-671c-4994-931c-23ccea309988",
+        "networkRequestId": "202.144",
+        "clientOutcome": {
+          "status": 200,
+          "readyState": 4,
+          "events": [
+            "readystatechange",
+            "readystatechange",
+            "readystatechange",
+            "readystatechange",
+            "load",
+            "loadend"
+          ]
+        }
+      }
+    ]
+  },
+  "completeCostStudy": {
+    "status": "not_complete",
+    "requiredColdSessions": 12,
+    "requiredMeasuredWarmRequests": 360,
+    "latestColdSessionsCompleted": 2,
+    "latestMeasuredWarmRequests": 60,
+    "publishFailedPartialPercentiles": false,
+    "reason": "Strict process identity sampler failed on native-host disappearance in third cold startup. Resource completeness and internal process/listener cleanup gates failed; independent container exit is separate evidence."
+  },
+  "environment": {
+    "versions": {
+      "chromium": "153.0.8010.12",
+      "playwright": "1.63.0",
+      "node": "v24.20.0",
+      "python": "3.12.3",
+      "pythonPackages": {
+        "spacy": "3.7.5",
+        "en-core-web-sm": "3.7.1",
+        "presidio-analyzer": "2.2.363",
+        "grpcio": "1.82.1",
+        "protobuf": "7.35.1",
+        "psutil": "7.2.2"
+      },
+      "spaCyModel": {
+        "name": "en_core_web_sm",
+        "version": "3.7.1"
+      },
+      "inferenceDevice": "cpu",
+      "telemetryEnabled": false
+    },
+    "extension": "hmlhjfklebbbhpjdjodegbjnbamlkonp",
+    "inferenceDevice": "cpu",
+    "telemetryEnabled": false,
+    "networkMode": "none",
+    "receiverAuthentication": "Chromium certificate SPKI exception pinned to this generated receiver key; HTTPS verification otherwise enabled",
+    "nativeHostCapture": {
+      "registeredManifestSha256": "fc97be98b3d89f24951a259bb8b092d3cfb051577922e3ad4cddf840a759eaa7",
+      "launcherSha256": "065595147756beac609859286d85bd75b2e75c344003cdb34fbac907c4ed8a7b",
+      "installedHostSha256": "65e735a9e24332eb1692753c5321853a4a4ae392d3928f27afd3f82e80942833",
+      "observedSampleCount": 27,
+      "sampledProcessIdentities": [
+        "263/1791941286.57",
+        "1336/1791941479.95",
+        "1839/1791941493.79"
+      ],
+      "status": "observed by 100ms process sampler"
+    },
+    "sourceFiles": 36,
+    "sourceFreeze": "installed-browser-results/source-freeze-e6007d1.json",
+    "preflight": "installed-browser-results/preflight-e6007d1.json",
+    "sourceBytesMatched": true,
+    "finalSourceBytesUnchanged": true
+  },
+  "cessation": {
+    "container": "privoke-paper-browser-capture-e6007d1",
+    "naturalExitCode": 1,
+    "hostPid": 0,
+    "oomKilled": false,
+    "receipt": "browser-evidence-20261014/attempt-4-snapshot/container-after-attempt-4.json"
+  },
+  "hostValidation": {
+    "python": "41 passed",
+    "node": "46 passed, 1 skipped (host generated protobuf dependencies unavailable)",
+    "sourceRevision": "e6007d1f023701816c0bba17f8278b583da04d22"
+  },
+  "qualifications": [
+    "Synthetic Linux Chromium/ChatGPT-shaped JSON loopback receiver only; real native messaging host, supervisor, bridge and runtime.",
+    "ALLOW/WARN forward unchanged bytes; BLOCK/no analysis/cancel/timeout must yield no sends, including late receiver recheck.",
+    "Healthy full [2,3,4] and semantic-only [4] probes test enforcement on one safe prompt and original V1 model; they are not semantic accuracy or V3 inference measurements.",
+    "Full-mode stream outage falls back to actual [2,3] and is reduced coverage; semantic-only [4] outage fails closed.",
+    "Attempts1,2,4 each completed33 cases; do not pool them as independent semantic or compatibility evidence.",
+    "No full cost distribution or incremental overhead claim. Failed warmCosts fixed60/two-profile text is inapplicable and excluded.",
+    "Independent exited-container/PID-zero cessation does not rewrite failed internal cleanup.",
+    "Windows, Opera, Edge, Firefox, real providers, attachments, workers and usability remain unverified.",
+    "Attempt3 PID62 ancestry is unproven; source counterexample establishes a root-classification defect independently."
+  ]
+}

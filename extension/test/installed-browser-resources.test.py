@@ -2,6 +2,8 @@
 """Focused tests for race-safe process identity sampling."""
 
 import importlib.util
+import inspect
+import os
 import hashlib
 import io
 import json
@@ -15,7 +17,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 
-SOURCE = Path(__file__).with_name("installed-browser-resources.py")
+SOURCE = Path(os.environ.get("PRIVOKE_RESOURCE_TEST_SOURCE", str(Path(__file__).with_name("installed-browser-resources.py"))))
 SPEC = importlib.util.spec_from_file_location("installed_browser_resources", SOURCE)
 assert SPEC and SPEC.loader
 try:
@@ -519,6 +521,78 @@ class ProcessSamplingTests(unittest.TestCase):
             with self.subTest(change=change):
                 with self.assertRaises(RESOURCES.ProcessIdentityFailure):
                     RESOURCES._verify_bound_browser_roots([{**rows[0], **change}], bindings)
+
+
+class NativeBootstrapTests(unittest.TestCase):
+    def identities(self):
+        command = "/python /workspace/extension/runtime-supervisor/src/native_messaging_host.py"
+        native = {"role": "native_host", "pid": 22, "start_ticks": 220,
+                  "command_sha256": hashlib.sha256(command.encode()).hexdigest(),
+                  "ppid": 21, "parent_start_ticks": 210, "start_time_epoch_seconds": 22.0}
+        browser = {"role": "chromium", "pid": 21, "start_ticks": 210}
+        return command, native, browser
+
+    def test_actual_producer_bound_native_eof_disappearance_is_provisional(self):
+        command, native, browser = self.identities()
+        tracker = RESOURCES.NativeBootstrapTracker() if hasattr(RESOURCES, "NativeBootstrapTracker") else None
+        if tracker is not None:
+            tracker.observe([native, browser])
+        process = SimpleNamespace(pid=22, info={"pid": 22, "ppid": 21, "cmdline": command.split(), "create_time": 22.0})
+        kwargs = {"native_bootstrap": tracker} if "native_bootstrap" in inspect.signature(RESOURCES._processes).parameters else {}
+        with patch.object(RESOURCES.psutil, "process_iter", return_value=[process]), \
+             patch.object(RESOURCES, "_browser_process_ids", return_value=(set(), set())), \
+             patch.object(RESOURCES, "_process_stat_identity", side_effect=[None, ("S", 210)]):
+            rows, races = RESOURCES._processes(**kwargs)
+        self.assertEqual((rows, races), ([], {}))
+        self.assertEqual(tracker.events[0]["termination_observation"], "confirmed_absence")
+        self.assertEqual(tracker.events[0]["bootstrap_completion"], "pending_runner_validation")
+
+    def test_bound_native_same_identity_terminal_only_and_rejection_controls(self):
+        command, native, browser = self.identities()
+        enumeration = {"ppid": 21, "cmdline": command.split(), "create_time": 22.0}
+        for state, parent, change, allowed in [
+            (("Z", 220), ("S", 210), {}, True),
+            (("X", 220), ("S", 210), {}, True),
+            (("S", 220), ("S", 210), {}, False),
+            (("Z", 221), ("S", 210), {}, False),
+            (None, ("S", 211), {}, False),
+            (None, None, {}, False),
+            (None, ("Z", 210), {}, False),
+            (None, ("S", 210), {"ppid": 99}, False),
+            (None, ("S", 210), {"cmdline": ["foreign"]}, False),
+            (None, ("S", 210), {"create_time": 23.0}, False),
+        ]:
+            with self.subTest(state=state, parent=parent, change=change):
+                tracker = RESOURCES.NativeBootstrapTracker()
+                tracker.observe([native, browser])
+                with patch.object(RESOURCES, "_process_stat_identity", return_value=parent):
+                    result = tracker.retire("native_host", 22, state, {**enumeration, **change})
+                self.assertEqual(result, allowed)
+                self.assertEqual(bool(tracker.events), allowed)
+
+    def test_unbound_native_and_other_controller_roles_remain_fatal(self):
+        command, native, browser = self.identities()
+        tracker = RESOURCES.NativeBootstrapTracker()
+        with self.assertRaisesRegex(RuntimeError, "freshly sampled Chromium parent"):
+            tracker.observe([native])
+        tracker.observe([native, browser])
+        for role in ["xvfb", "supervisor_bridge", "detector", "chromium"]:
+            self.assertFalse(tracker.retire(role, 22, None))
+            with self.assertRaises(RESOURCES.ProcessIdentityFailure):
+                RESOURCES._termination_disposition(role, True, "PID exited before stat snapshot", pid=22, identity=None)
+        self.assertFalse(tracker.retire("native_host", 99, None))
+
+    def test_missing_native_checks_live_identity_and_unreadable_is_fatal(self):
+        _, native, browser = self.identities()
+        for state in [("S", 220), ("Z", 221)]:
+            tracker = RESOURCES.NativeBootstrapTracker()
+            tracker.observe([native, browser])
+            with patch.object(RESOURCES, "_process_stat_identity", return_value=state), self.assertRaises(RESOURCES.ProcessIdentityFailure):
+                tracker.missing([])
+        tracker = RESOURCES.NativeBootstrapTracker()
+        tracker.observe([native, browser])
+        with patch.object(RESOURCES, "_process_stat_identity", side_effect=PermissionError("unreadable")), self.assertRaises(PermissionError):
+            tracker.missing([])
 
 
 class StartupTransitionTests(unittest.TestCase):

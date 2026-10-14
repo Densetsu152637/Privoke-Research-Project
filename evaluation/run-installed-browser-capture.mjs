@@ -27,6 +27,8 @@ import {
 } from "../extension/test/installed-browser-capture.mjs";
 import {
   assertNativeParentBinding,
+  validateNativeBootstrapEvents,
+  costObservationQualification,
   assertPreservedControlSupervisor,
   assertCompleteResourceEvidence,
   assertNativeLauncherExecutableMount,
@@ -68,7 +70,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const EXTENSION_ID = "hmlhjfklebbbhpjdjodegbjnbamlkonp";
 const NATIVE_HOST_NAME = "org.privoke.runtime_launcher";
 const PORTS = [8080, 50056, 50057];
-const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v5";
+const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v6";
 const RATE_REPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_REPS, 30);
 const WARMUPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_WARMUPS, 5);
 const COLD_SESSIONS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_SESSIONS, 12);
@@ -589,6 +591,8 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
     const finalRows = parseJsonl(await readFile(windowSamplePath, "utf8"));
     currentResourceWindow.startupTransition.samplerEvidence =
       validateStartupTransitionWindow(finalRows, currentResourceWindow.startupTransition);
+    currentResourceWindow.nativeBootstrapEvidence =
+      validateNativeBootstrapEvents(finalRows, currentResourceWindow.nativeBootstrapCompletion);
     currentResourceWindow.finalized = true;
   });
 
@@ -748,6 +752,26 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   cold.detectorProcessBirthOffsetFromSupervisorBirthMs =
     transition.currentSamples.get(detectorPid).startedAtEpochMs - transition.currentSamples.get(supervisorPid).startedAtEpochMs;
   cold.detectorProcessBirthOffsetFromContextMs = transition.currentSamples.get(detectorPid).startedAtEpochMs - launchWall;
+
+  const finalSupervisor = await processIdentity(supervisorPid);
+  const finalDetector = await processIdentity(detectorPid);
+  assert.equal(finalSupervisor.startTicks, supervisorIdentity.startTicks);
+  assert.equal(finalSupervisor.commandSha256, supervisorIdentity.commandSha256);
+  assert.equal(finalDetector.startTicks, detectorIdentity.startTicks);
+  assert.equal(finalDetector.commandSha256, detectorIdentity.commandSha256);
+  assert.equal(finalDetector.parentPid, supervisorPid);
+  cold.nativeBootstrapCompletion = {
+    status: "verified_before_first_request", runtimeStatus: status.status,
+    verifiedAtMonotonicNs: Number(process.hrtime.bigint()),
+    supervisor: { pid: finalSupervisor.pid, startTicks: finalSupervisor.startTicks,
+      commandSha256: finalSupervisor.commandSha256 },
+    detector: { pid: finalDetector.pid, startTicks: finalDetector.startTicks,
+      commandSha256: finalDetector.commandSha256, parentPid: finalDetector.parentPid,
+      parentStartTicks: finalSupervisor.startTicks },
+    listenerOwnership: await assertOwnedListeners(supervisorPid, detectorPid),
+  };
+  validateNativeBootstrapEvents(parseJsonl(await readFile(windowSamplePath, "utf8")), cold.nativeBootstrapCompletion);
+  currentResourceWindow.nativeBootstrapCompletion = cold.nativeBootstrapCompletion;
 
   const coldDecision = await performAndValidate({
     transport: cell.transport,
@@ -1962,11 +1986,10 @@ function summariseCosts(records) {
     groups.set(key, values);
   }
   return Object.fromEntries([...groups].map(([key, rows]) => [key, {
-    observations: rows.length,
+    ...costObservationQualification(rows),
     decisionMs: summarize(rows.map((row) => row.decisionMs)),
     browserObservedTotalMs: summarize(rows.map((row) => row.browserObservedTotalMs)),
     runtimeElapsedMs: summarize(rows.map((row) => row.runtimeElapsedMs).filter(Number.isFinite)),
-    p99Qualification: "60 observations across two fresh profiles; empirical order statistic, not a stable tail guarantee",
   }]));
 }
 
@@ -1991,6 +2014,7 @@ async function resourceSummary(files) {
       requestedEndMonotonicNs: file.requestedEndMonotonicNs,
       phaseRequestCounts: file.phaseRequestCounts,
       startupTransition: file.startupTransition || null,
+      nativeBootstrapEvidence: file.nativeBootstrapEvidence || null,
       samples });
     for (const sample of samples) {
       for (const [role, count] of Object.entries(sample.process_identity_races || {})) {

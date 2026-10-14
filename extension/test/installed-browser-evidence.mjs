@@ -366,6 +366,73 @@ export function assertNativeParentBinding(nativeSamples, browserSamples) {
   return nativeSamples.some((native) => browser.has(`${native.ppid}/${native.parent_start_ticks}`));
 }
 
+export function validateNativeBootstrapEvents(samples, completion) {
+  const events = new Map();
+  const nativeSamples = [];
+  const supervisorSamples = [];
+  for (const sample of samples) {
+    for (const row of sample.roles || []) {
+      if (row.role === "native_host" && (sample.roles || []).some((parent) =>
+        parent.role === "chromium" && parent.pid === row.ppid && parent.start_ticks === row.parent_start_ticks)) {
+        nativeSamples.push({ ...row, sampleMonotonicNs: sample.sample_monotonic_ns });
+      }
+      if (row.role === "supervisor_bridge") supervisorSamples.push({ ...row, sampleMonotonicNs: sample.sample_monotonic_ns });
+    }
+    for (const event of sample.native_bootstrap_events || []) {
+      assert.deepEqual(Object.keys(event).sort(), ["schema_version", "type", "pid", "start_ticks", "command_sha256",
+        "ppid", "parent_start_ticks", "start_time_epoch_seconds", "observed_at_ns", "termination_observation",
+        "observed_state", "bootstrap_completion"].sort(), "native helper event schema is closed");
+      assert.equal(event.schema_version, 1);
+      assert.equal(event.type, "native_helper_disappearance");
+      assert.equal(event.bootstrap_completion, "pending_runner_validation");
+      for (const key of ["pid", "start_ticks", "ppid", "parent_start_ticks", "observed_at_ns"]) {
+        assert.ok(Number.isSafeInteger(event[key]) && event[key] > 0, "native helper identity is invalid");
+      }
+      assert.ok(Number.isFinite(event.start_time_epoch_seconds) && event.start_time_epoch_seconds >= 0);
+      assert.match(event.command_sha256, /^[a-f0-9]{64}$/);
+      assert.ok(event.observed_at_ns <= sample.sample_monotonic_ns, "native helper event is from the future");
+      assert.ok((event.termination_observation === "confirmed_absence" && event.observed_state === null)
+        || (event.termination_observation === "same_identity_terminal_state" && ["Z", "X", "x"].includes(event.observed_state)),
+      "native helper event does not confirm absence or terminal identity");
+      const key = `${event.pid}/${event.start_ticks}`;
+      if (events.has(key)) assert.deepEqual(events.get(key), event, "native helper event identity changed");
+      events.set(key, event);
+      assert.ok(events.size <= 8, "native helper event bound exceeded");
+    }
+  }
+  if (!events.size) return { count: 0, events: [] };
+  assert.equal(completion?.status, "verified_before_first_request", "native helper bootstrap completion is missing");
+  assert.equal(completion.runtimeStatus, "RUNNING", "native helper bootstrap did not reach RUNNING");
+  assert.ok(Number.isSafeInteger(completion.verifiedAtMonotonicNs) && completion.verifiedAtMonotonicNs > 0);
+  const { supervisor, detector, listenerOwnership } = completion;
+  for (const identity of [supervisor, detector]) {
+    assert.ok(Number.isSafeInteger(identity?.pid) && identity.pid > 1);
+    assert.ok(Number.isSafeInteger(identity.startTicks) && identity.startTicks > 0);
+    assert.match(identity.commandSha256, /^[a-f0-9]{64}$/);
+  }
+  assert.equal(detector.parentPid, supervisor.pid, "bootstrap detector parent differs");
+  assert.equal(detector.parentStartTicks, supervisor.startTicks, "bootstrap detector parent identity differs");
+  for (const [port, pid] of [[8080, supervisor.pid], [50056, supervisor.pid], [50057, detector.pid]]) {
+    assert.deepEqual(listenerOwnership?.[port]?.map((item) => item.pid), [pid], "bootstrap owned listener differs");
+  }
+  for (const event of events.values()) {
+    assert.ok(nativeSamples.some((row) => ["pid", "start_ticks", "command_sha256", "ppid", "parent_start_ticks",
+      "start_time_epoch_seconds"].every((key) => row[key] === event[key]) && row.sampleMonotonicNs < event.observed_at_ns), "native helper lacks direct sampled browser binding");
+    assert.ok(supervisorSamples.some((row) => row.pid === supervisor.pid && row.start_ticks === supervisor.startTicks
+      && row.command_sha256 === supervisor.commandSha256 && row.ppid === event.pid
+      && row.parent_start_ticks === event.start_ticks && row.sampleMonotonicNs < event.observed_at_ns), "native helper lacks sampled supervisor child binding");
+  }
+  return { count: events.size, events: [...events.values()], completion,
+    qualification: "Confirmed helper disappearance/terminal state, not proof of clean EOF or exit code; functional bootstrap completion verified separately." };
+}
+
+export function costObservationQualification(rows) {
+  const profiles = new Set(rows.map((row) => row.sessionId));
+  assert.ok(!profiles.has(undefined), "cost observation lacks session identity");
+  return { observations: rows.length, sessionClusters: profiles.size,
+    p99Qualification: `${rows.length} observations across ${profiles.size} fresh profile session clusters; descriptive empirical order statistic, no independent-sample tail confidence interval` };
+}
+
 export function assertPreservedControlSupervisor(expected, actual, openPorts) {
   assert.equal(actual.pid, expected.pid, "control supervisor PID changed during master-off");
   assert.equal(actual.startTicks, expected.startTicks, "control supervisor PID was reused during master-off");
@@ -1090,6 +1157,7 @@ export function summarizeResourceCpuWindows(windows) {
         ? { requestedEndMonotonicNs: window.requestedEndMonotonicNs } : {}),
       ...(window.phaseRequestCounts ? { phaseRequestCounts: { ...window.phaseRequestCounts } } : {}),
       ...(window.startupTransition ? { startupTransition: window.startupTransition } : {}),
+      ...(window.nativeBootstrapEvidence ? { nativeBootstrapEvidence: window.nativeBootstrapEvidence } : {}),
       sampleCount: window.samples.length,
       firstSampleMonotonicNs: window.samples[0].sample_monotonic_ns,
       lastSampleMonotonicNs: previousSampleMonotonicNs,
