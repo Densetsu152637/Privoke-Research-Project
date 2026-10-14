@@ -710,7 +710,7 @@ class StartupTransitionTests(unittest.TestCase):
         predecessor = {**base_predecessor, "command_sha256": hashlib.sha256(command.encode()).hexdigest()}
         process = SimpleNamespace(info={"pid": 321, "ppid": 123, "cmdline": command.split(),
             "create_time": 1.0, "memory_info": None, "cpu_times": None})
-        fresh = SimpleNamespace(create_time=lambda: 1.0, is_running=lambda: True, cmdline=lambda: [])
+        fresh = SimpleNamespace(create_time=lambda: 1.0, is_running=lambda: True, cmdline=lambda: [], ppid=lambda: 123)
         cases = (("terminal", "dispatched", 321, 300, 123, 200, True),
                  ("absent", "dispatched", 321, 300, 123, 200, True),
                  ("live", "dispatched", 321, 300, 123, 200, False),

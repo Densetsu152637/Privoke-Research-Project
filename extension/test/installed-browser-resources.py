@@ -302,7 +302,7 @@ def _termination_disposition(role: str, profile_root: bool, detail: str, *, tran
     raise ProcessIdentityFailure(role, reason, expected, pid, state, detail=detail, observed_state=identity)
 
 
-def _confirm_dispatched_predecessor_exit(transition, pid, before, expected_command, enumeration_parent):
+def _confirm_dispatched_predecessor_exit(transition, pid, before, expected_command, enumeration_parent, observed_parent):
     """Wait at most 50 ms for a bound retiring predecessor's empty argv to become terminal."""
     if transition is None or transition.phase != "dispatched" or not transition.record:
         return False
@@ -312,7 +312,7 @@ def _confirm_dispatched_predecessor_exit(transition, pid, before, expected_comma
     if (pid != predecessor["pid"] or before[1] != predecessor["start_ticks"]
             or hashlib.sha256(expected_command.encode()).hexdigest() != predecessor["command_sha256"]
             or enumeration_parent != predecessor["parent_pid"]
-            or enumeration_parent != supervisor["pid"]):
+            or enumeration_parent != supervisor["pid"] or observed_parent != enumeration_parent):
         return False
     started = time.monotonic_ns()
     deadline = min(started + 50_000_000, record.get("expires_at_ns", 0))
@@ -324,6 +324,8 @@ def _confirm_dispatched_predecessor_exit(transition, pid, before, expected_comma
         return False
     while time.monotonic_ns() < deadline:
         identity = _process_stat_identity(pid)
+        if time.monotonic_ns() >= deadline:
+            return False
         if identity is None or (identity[1] == predecessor["start_ticks"] and identity[0] in {"Z", "X", "x"}):
             return transition.allow_predecessor_retirement("detector", pid, identity, "confirmed empty-argv exit")
         if identity[1] != predecessor["start_ticks"]:
@@ -393,7 +395,7 @@ def _processes(transition=None) -> tuple[list[dict[str, object]], dict[str, int]
                     continue
                 if (role_hint == "detector" and not command
                         and _confirm_dispatched_predecessor_exit(
-                            transition, pid, before, expected_command, int(info.get("ppid") or 0))):
+                            transition, pid, before, expected_command, int(info.get("ppid") or 0), fresh.ppid())):
                     continue
                 failure = ProcessIdentityFailure(
                     role_hint, "role_changed_between_enumeration_and_sampling",
