@@ -528,18 +528,32 @@ export function validateSamplerTerminalDiagnostic(value) {
 function validateProcessFailureDiagnostic(value) {
   const keys = ["schema_version", "role", "reason", "requested_identity", "observed_identity",
     "transition_state", "observed_at_ns"];
+  if (value && Object.hasOwn(value, "role_change")) keys.push("role_change");
   const roles = ["xvfb", "native_host", "supervisor_bridge", "detector", "chromium"];
   const reasons = ["pid_exited_before_stat_snapshot", "pid_reused_after_enumeration",
     "process_exited_before_fresh_metrics", "pid_changed_during_metrics", "process_vanished_during_fresh_reads",
     "predecessor_absent_before_dispatch", "predecessor_terminal_before_dispatch",
     "predecessor_identity_changed_before_dispatch", "predecessor_identity_unreadable_before_dispatch",
-    "predecessor_identity_changed_during_transition", "supervisor_identity_changed_during_transition"];
+    "predecessor_identity_changed_during_transition", "supervisor_identity_changed_during_transition",
+    "role_changed_between_enumeration_and_sampling"];
   if (!value || typeof value !== "object" || Array.isArray(value)
       || Object.keys(value).sort().join("\0") !== [...keys].sort().join("\0")
       || value.schema_version !== 1 || !roles.includes(value.role) || !reasons.includes(value.reason)
       || !["idle", "prepared", "dispatched", "committed"].includes(value.transition_state)
       || typeof value.observed_at_ns !== "string" || !/^\d{1,20}$/.test(value.observed_at_ns)) {
     throw new TypeError("sampler process failure diagnostic is invalid");
+  }
+  if (Object.hasOwn(value, "role_change")) {
+    const change = value.role_change;
+    const changeKeys = ["observed_role", "enumeration_create_time", "observed_create_time",
+      "enumeration_command_sha256", "observed_command_sha256"];
+    if (value.reason !== "role_changed_between_enumeration_and_sampling" || !change || typeof change !== "object"
+        || Object.keys(change).sort().join("\0") !== changeKeys.sort().join("\0")
+        || ![...roles, "unclassified"].includes(change.observed_role)
+        || !["enumeration_create_time", "observed_create_time"].every((key) => Number.isFinite(change[key]) && change[key] >= 0)
+        || !["enumeration_command_sha256", "observed_command_sha256"].every((key) => /^[0-9a-f]{64}$/.test(change[key]))) {
+      throw new TypeError("sampler process role-change diagnostic is invalid");
+    }
   }
   const identityKeys = ["pid", "state", "start_ticks", "command_sha256", "parent_pid", "parent_start_ticks"];
   for (const field of ["requested_identity", "observed_identity"]) {

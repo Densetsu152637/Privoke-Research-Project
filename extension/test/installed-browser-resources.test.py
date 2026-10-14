@@ -203,6 +203,30 @@ class ProcessSamplingTests(unittest.TestCase):
         )
         return old, fresh
 
+    def test_live_role_change_fails_with_closed_hash_only_process_diagnostic(self):
+        old, fresh = self.processes(321)
+        fresh.cmdline = lambda: ["python", "/runtime/extension/runtime-supervisor/src/main.py"]
+        with patch.object(RESOURCES.psutil, "process_iter", return_value=[old]), \
+             patch.object(RESOURCES.psutil, "Process", return_value=fresh), \
+             patch.object(RESOURCES, "_browser_process_ids", return_value=(set(), set())), \
+             patch.object(RESOURCES, "_process_stat_identity", return_value=("S", 75)):
+            with self.assertRaises(RESOURCES.ProcessIdentityFailure) as raised:
+                RESOURCES._processes()
+        payload = RESOURCES._terminal_diagnostic_payload("error", 3, raised.exception)
+        failure = payload["process_failure"]
+        self.assertEqual(failure["reason"], "role_changed_between_enumeration_and_sampling")
+        self.assertEqual(failure["role"], "detector")
+        self.assertEqual(failure["observed_identity"]["pid"], 321)
+        self.assertEqual(failure["observed_identity"]["start_ticks"], 75)
+        self.assertEqual(failure["role_change"]["observed_role"], "supervisor_bridge")
+        self.assertEqual(failure["role_change"]["enumeration_create_time"], 1.0)
+        self.assertEqual(failure["role_change"]["observed_create_time"], 1.0)
+        self.assertNotIn("/runtime/", json.dumps(payload))
+        invalid = json.loads(json.dumps(failure))
+        invalid["role_change"]["command_text"] = "not allowed"
+        with self.assertRaises(ValueError):
+            RESOURCES._validate_process_failure(invalid)
+
     def test_rows_use_fresh_metrics_between_matching_stat_identities(self):
         old, fresh = self.processes(321)
         with patch.object(RESOURCES.psutil, "process_iter", return_value=[old]), \

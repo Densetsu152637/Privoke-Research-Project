@@ -33,6 +33,7 @@ PROCESS_FAILURE_REASONS = {
     "predecessor_terminal_before_dispatch", "predecessor_identity_changed_before_dispatch",
     "predecessor_identity_unreadable_before_dispatch",
     "predecessor_identity_changed_during_transition", "supervisor_identity_changed_during_transition",
+    "role_changed_between_enumeration_and_sampling",
 }
 _UNKNOWN_OBSERVED_STATE = object()
 
@@ -89,7 +90,7 @@ class ProcessIdentityFailure(RuntimeError):
 def _validate_process_failure(value):
     keys = {"schema_version", "role", "reason", "requested_identity", "observed_identity",
             "transition_state", "observed_at_ns"}
-    if not isinstance(value, dict) or set(value) != keys or type(value.get("schema_version")) is not int \
+    if not isinstance(value, dict) or set(value) not in (keys, keys | {"role_change"}) or type(value.get("schema_version")) is not int \
             or value["schema_version"] != 1:
         raise ValueError("invalid process failure evidence schema")
     if value["role"] not in {*PATTERNS, "chromium"} or value["reason"] not in PROCESS_FAILURE_REASONS:
@@ -99,6 +100,18 @@ def _validate_process_failure(value):
     if not isinstance(value["observed_at_ns"], str) or not value["observed_at_ns"].isascii() \
             or not value["observed_at_ns"].isdigit() or len(value["observed_at_ns"]) > 20:
         raise ValueError("invalid process failure observation time")
+    if "role_change" in value:
+        change = value["role_change"]
+        change_keys = {"observed_role", "enumeration_create_time", "observed_create_time",
+                       "enumeration_command_sha256", "observed_command_sha256"}
+        if (value["reason"] != "role_changed_between_enumeration_and_sampling"
+                or not isinstance(change, dict) or set(change) != change_keys
+                or change["observed_role"] not in {*PATTERNS, "chromium", "unclassified"}
+                or any(type(change[key]) not in (int, float) or not math.isfinite(change[key]) or change[key] < 0
+                       for key in ("enumeration_create_time", "observed_create_time"))
+                or any(not re_full_sha(change[key]) for key in
+                       ("enumeration_command_sha256", "observed_command_sha256"))):
+            raise ValueError("invalid process role-change diagnostic")
     identity_keys = {"pid", "state", "start_ticks", "command_sha256", "parent_pid", "parent_start_ticks"}
     for field in ("requested_identity", "observed_identity"):
         identity = value[field]
@@ -344,7 +357,19 @@ def _processes(transition=None) -> tuple[list[dict[str, object]], dict[str, int]
                     if not authorized:
                         identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
                     continue
-                raise RuntimeError(f"{role_hint} process role changed between enumeration and sampling")
+                failure = ProcessIdentityFailure(
+                    role_hint, "role_changed_between_enumeration_and_sampling",
+                    {"pid": pid, "start_ticks": before[1],
+                     "command_sha256": hashlib.sha256(expected_command.encode()).hexdigest(),
+                     "parent_pid": int(info.get("ppid") or 0), "parent_start_ticks": None},
+                    pid, transition.phase if transition is not None else "idle", observed_state=terminal_identity)
+                failure.process_failure["role_change"] = {
+                    "observed_role": role or "unclassified", "enumeration_create_time": expected_create_time,
+                    "observed_create_time": fresh_create_time,
+                    "enumeration_command_sha256": hashlib.sha256(expected_command.encode()).hexdigest(),
+                    "observed_command_sha256": hashlib.sha256(command.encode()).hexdigest()}
+                _validate_process_failure(failure.process_failure)
+                raise failure
             if profile_root and not _browser_match(fresh.cmdline()):
                 raise RuntimeError("Chromium profile root no longer matches the sampled process command")
             parent_pid = fresh.ppid()
