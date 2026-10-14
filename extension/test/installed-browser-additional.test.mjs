@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
-import { assertAdditionalProbe } from "./installed-browser-additional.mjs";
+import { assertAdditionalProbe, assertSequentialRpc } from "./installed-browser-additional.mjs";
 const layers = ["DETECTION_LAYER_REGEX", "DETECTION_LAYER_NER", "DETECTION_LAYER_SEMANTIC"];
 const text = "Please explain the steps in this process.";
 const body = JSON.stringify({ messages: [{ role: "user", content: text }] });
@@ -32,4 +32,16 @@ test("zero forwarding assertion rejects a delayed post-cancellation receiver sen
   assertAdditionalProbe(cancelled);
   cancelled.captures = fixture().captures;
   assert.throws(() => assertAdditionalProbe(cancelled), /receiver count/);
+});
+
+test("sequential probe binding rejects earlier, pending and reused actual RPC identities", () => {
+  const record = { preProbeQuiescentAtMonotonicMs: 10, postProbeQuiescentAtMonotonicMs: 30 };
+  const rpc = { request: { requestId: "runtime-1" }, networkRequestId: "network-1",
+    requestObservedAtMonotonicMs: 12, terminalObservedAtMonotonicMs: 20 };
+  const runtimeIds = new Set(); const networkIds = new Set();
+  assertSequentialRpc(rpc, record, runtimeIds, networkIds);
+  assert.throws(() => assertSequentialRpc(rpc, record, runtimeIds, networkIds), /unique/);
+  assert.throws(() => assertSequentialRpc({ ...rpc, requestObservedAtMonotonicMs: 9 }, record, new Set(), new Set()), /before/);
+  assert.throws(() => assertSequentialRpc({ ...rpc, terminalObservedAtMonotonicMs: 31 }, record, new Set(), new Set()), /outside/);
+  assert.throws(() => assertSequentialRpc({ ...rpc, terminalObservedAtMonotonicMs: 11 }, record, new Set(), new Set()), /outside/);
 });

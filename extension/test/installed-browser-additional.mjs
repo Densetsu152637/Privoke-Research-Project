@@ -13,6 +13,18 @@ const FULL = [...REGEX_NER, "DETECTION_LAYER_SEMANTIC"];
 const SEMANTIC = ["DETECTION_LAYER_SEMANTIC"];
 const PROMPT = "Please explain the steps in this process.";
 
+export function assertSequentialRpc(rpc, record, runtimeIds, networkIds) {
+  assert.ok(rpc.request?.requestId && !runtimeIds.has(rpc.request.requestId), "runtime request ID must be unique");
+  assert.ok(rpc.networkRequestId && !networkIds.has(rpc.networkRequestId), "browser network request ID must be unique");
+  assert.ok(rpc.requestObservedAtMonotonicMs >= record.preProbeQuiescentAtMonotonicMs,
+    "runtime request was observed before this probe's quiescence barrier");
+  assert.ok(rpc.terminalObservedAtMonotonicMs >= rpc.requestObservedAtMonotonicMs
+    && rpc.terminalObservedAtMonotonicMs <= record.postProbeQuiescentAtMonotonicMs,
+    "runtime terminal event is outside this probe's sequential interval");
+  runtimeIds.add(rpc.request.requestId);
+  networkIds.add(rpc.networkRequestId);
+}
+
 export function assertAdditionalProbe({ record, captures, rpc, expectedLayers, expectedForwarded,
   requireSuccess = false, expectedAction }) {
   assert.equal(captures.length, Number(expectedForwarded), `${record.caseId} receiver count`);
@@ -118,15 +130,7 @@ export async function runAdditionalMatrix(api) {
     const rpcs = rpcEvents.slice(pending.beforeRpc).filter((entry) => entry.method === "AnalyzePrompt");
     if (options.expectedLayers) {
       assert.equal(rpcs.length, 1, "one decoded actual runtime RPC is required");
-      const rpc = rpcs[0];
-      assert.ok(rpc.request?.requestId && !runtimeIds.has(rpc.request.requestId), "runtime request ID must be unique");
-      assert.ok(rpc.networkRequestId && !networkIds.has(rpc.networkRequestId), "browser network request ID must be unique");
-      assert.ok(rpc.requestObservedAtMonotonicMs >= pending.record.preProbeQuiescentAtMonotonicMs,
-        "runtime request was observed before this probe's quiescence barrier");
-      assert.ok(rpc.terminalObservedAtMonotonicMs >= rpc.requestObservedAtMonotonicMs
-        && rpc.terminalObservedAtMonotonicMs <= pending.record.postProbeQuiescentAtMonotonicMs,
-        "runtime terminal event is outside this probe's sequential interval");
-      runtimeIds.add(rpc.request.requestId); networkIds.add(rpc.networkRequestId);
+      assertSequentialRpc(rpcs[0], pending.record, runtimeIds, networkIds);
     }
     pending.record.receiverCaptures = captures;
     pending.record.runtimeRpc = rpcs[0] ?? null;
