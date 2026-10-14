@@ -495,8 +495,10 @@ export function buildStartupIdentityDiagnostic(identities, samples) {
 export function validateSamplerTerminalDiagnostic(value) {
   const keys = ["schema_version", "status", "samples_written", "exception_type", "frames"];
   const failureKeys = [...keys, "process_failure"];
+  const candidateKeys = [...keys, "browser_candidates"];
+  const combinedKeys = [...failureKeys, "browser_candidates"];
   if (!value || typeof value !== "object" || Array.isArray(value)
-      || ![keys, failureKeys].some((expected) => Object.keys(value).sort().join("\0") === [...expected].sort().join("\0"))
+      || ![keys, failureKeys, candidateKeys, combinedKeys].some((expected) => Object.keys(value).sort().join("\0") === [...expected].sort().join("\0"))
       || value.schema_version !== 1
       || !["stopped", "error"].includes(value.status)
       || !Number.isSafeInteger(value.samples_written) || value.samples_written < 0
@@ -522,6 +524,17 @@ export function validateSamplerTerminalDiagnostic(value) {
     }
   }
   if (Object.hasOwn(value, "process_failure")) validateProcessFailureDiagnostic(value.process_failure);
+  if (Object.hasOwn(value, "browser_candidates")) {
+    const candidateKeys = ["pid", "parent_pid", "create_time", "command_sha256", "profile_sha256", "disposition"].sort().join("\0");
+    if (!Array.isArray(value.browser_candidates) || value.browser_candidates.length > 16) throw new TypeError("browser candidate diagnostic bound is invalid");
+    for (const item of value.browser_candidates) {
+      if (!item || Object.keys(item).sort().join("\0") !== candidateKeys || !Number.isSafeInteger(item.pid) || item.pid <= 1
+          || (item.parent_pid !== null && (!Number.isSafeInteger(item.parent_pid) || item.parent_pid < 0))
+          || (item.create_time !== null && (!Number.isFinite(item.create_time) || item.create_time < 0))
+          || !/^[0-9a-f]{64}$/.test(item.command_sha256) || !/^[0-9a-f]{64}$/.test(item.profile_sha256)
+          || !["root_candidate", "descendant_candidate"].includes(item.disposition)) throw new TypeError("browser candidate diagnostic is invalid");
+    }
+  }
   return value;
 }
 
@@ -535,7 +548,7 @@ function validateProcessFailureDiagnostic(value) {
     "predecessor_absent_before_dispatch", "predecessor_terminal_before_dispatch",
     "predecessor_identity_changed_before_dispatch", "predecessor_identity_unreadable_before_dispatch",
     "predecessor_identity_changed_during_transition", "supervisor_identity_changed_during_transition",
-    "role_changed_between_enumeration_and_sampling"];
+    "role_changed_between_enumeration_and_sampling", "bound_browser_root_missing", "bound_browser_root_identity_changed"];
   if (!value || typeof value !== "object" || Array.isArray(value)
       || Object.keys(value).sort().join("\0") !== [...keys].sort().join("\0")
       || value.schema_version !== 1 || !roles.includes(value.role) || !reasons.includes(value.reason)

@@ -34,6 +34,7 @@ PROCESS_FAILURE_REASONS = {
     "predecessor_identity_unreadable_before_dispatch",
     "predecessor_identity_changed_during_transition", "supervisor_identity_changed_during_transition",
     "role_changed_between_enumeration_and_sampling",
+    "bound_browser_root_missing", "bound_browser_root_identity_changed",
 }
 _UNKNOWN_OBSERVED_STATE = object()
 
@@ -166,21 +167,54 @@ def _browser_match(argv: list[str]) -> bool:
     return any(user_data_dirs[0] == str(profile) for profile in _browser_profiles())
 
 
-def _browser_process_ids(processes: list[psutil.Process]) -> tuple[set[int], set[int]]:
-    """Include the complete Chromium process tree rooted at each run profile."""
-    root_processes: list[psutil.Process] = []
+def _browser_profile_key(argv):
+    for index, argument in enumerate(argv):
+        if argument.startswith("--user-data-dir="):
+            return argument.split("=", 1)[1]
+        if argument == "--user-data-dir" and index + 1 < len(argv):
+            return argv[index + 1]
+    return None
+
+
+def _validate_browser_candidates(values):
+    keys = {"pid", "parent_pid", "create_time", "command_sha256", "profile_sha256", "disposition"}
+    if not isinstance(values, list) or len(values) > 16:
+        raise ValueError("invalid browser candidate diagnostic bound")
+    for value in values:
+        if (not isinstance(value, dict) or set(value) != keys
+                or type(value["pid"]) is not int or value["pid"] <= 1 or value["pid"] > 2**53 - 1
+                or (value["parent_pid"] is not None and (type(value["parent_pid"]) is not int
+                    or value["parent_pid"] < 0 or value["parent_pid"] > 2**53 - 1))
+                or (value["create_time"] is not None and (type(value["create_time"]) not in (int, float)
+                    or not math.isfinite(value["create_time"]) or value["create_time"] < 0))
+                or not re_full_sha(value["command_sha256"]) or not re_full_sha(value["profile_sha256"])
+                or value["disposition"] not in {"root_candidate", "descendant_candidate"}):
+            raise ValueError("invalid browser candidate diagnostic")
+    return values
+
+
+def _browser_process_ids(processes: list[psutil.Process], diagnostics=None) -> tuple[set[int], set[int]]:
+    """Classify the minimal matching profile ancestors, retaining their complete process trees."""
+    candidates = []
     for process in processes:
-        try:
-            # Classify roots from process_iter's cached command line. A fresh
-            # cmdline read here can race process exit and erase a required root
-            # before _processes applies its strict identity checks.
-            argv = process.info.get("cmdline") or []
-            if _browser_match(argv):
-                root_processes.append(process)
-        except (psutil.Error, OSError):
-            continue
-    root_ids = {root.pid for root in root_processes}
-    included: set[int] = set()
+        argv = process.info.get("cmdline") or []
+        if _browser_match(argv):
+            candidates.append(process)
+    profiles = {process.pid: _browser_profile_key(process.info.get("cmdline") or []) for process in candidates}
+    root_processes = [process for process in candidates
+        if profiles.get(process.info.get("ppid")) != profiles[process.pid]]
+    if candidates and not root_processes:
+        raise RuntimeError("browser candidate ancestry contains no minimal profile root")
+    root_ids = {process.pid for process in root_processes}
+    if diagnostics is not None:
+        for process in candidates:
+            diagnostics.append({"pid": process.pid, "parent_pid": process.info.get("ppid"),
+                "create_time": process.info.get("create_time"),
+                "command_sha256": hashlib.sha256(" ".join(process.info.get("cmdline") or []).encode()).hexdigest(),
+                "profile_sha256": hashlib.sha256(profiles[process.pid].encode()).hexdigest(),
+                "disposition": "root_candidate" if process.pid in root_ids else "descendant_candidate"})
+        _validate_browser_candidates(diagnostics)
+    included = {process.pid for process in candidates}
     for root in root_processes:
         try:
             included.add(root.pid)
@@ -188,6 +222,27 @@ def _browser_process_ids(processes: list[psutil.Process]) -> tuple[set[int], set
         except (psutil.Error, OSError):
             continue
     return root_ids, included
+
+
+def _verify_bound_browser_roots(rows, bindings, transition_state="idle"):
+    observed = {row["pid"]: row for row in rows if row.get("browser_profile_root")}
+    for pid, expected in bindings.items():
+        row = observed.get(pid)
+        if row is None:
+            state = _process_stat_identity(pid)
+            raise ProcessIdentityFailure("chromium", "bound_browser_root_missing", expected, pid, transition_state,
+                                         observed_state=state)
+        identity = {"pid": pid, "start_ticks": row["start_ticks"], "command_sha256": row["command_sha256"],
+                    "parent_pid": row["ppid"], "parent_start_ticks": row["parent_start_ticks"]}
+        if identity != expected:
+            raise ProcessIdentityFailure("chromium", "bound_browser_root_identity_changed", expected, pid, transition_state,
+                                         observed_state=(None, row["start_ticks"]))
+    for pid, row in observed.items():
+        if row["parent_start_ticks"] is None:
+            raise RuntimeError("browser root parent identity is unreadable")
+        bindings.setdefault(pid, {"pid": pid, "start_ticks": row["start_ticks"],
+            "command_sha256": row["command_sha256"], "parent_pid": row["ppid"],
+            "parent_start_ticks": row["parent_start_ticks"]})
 
 
 def _pss_bytes(pid: int) -> int | None:
@@ -338,11 +393,14 @@ def _confirm_dispatched_predecessor_exit(transition, pid, before, expected_comma
     return False
 
 
-def _processes(transition=None) -> tuple[list[dict[str, object]], dict[str, int]]:
+def _processes(transition=None, bound_browser_roots=None, browser_candidates=None) -> tuple[list[dict[str, object]], dict[str, int]]:
     rows: list[dict[str, object]] = []
     identity_races: dict[str, int] = {}
     processes = list(psutil.process_iter(("pid", "ppid", "cmdline", "create_time", "memory_info", "cpu_times")))
-    chromium_root_ids, chromium_ids = _browser_process_ids(processes)
+    chromium_root_ids, chromium_ids = _browser_process_ids(processes, browser_candidates)
+    if bound_browser_roots is not None:
+        chromium_root_ids.update(bound_browser_roots)
+        chromium_ids.update(bound_browser_roots)
     for process in processes:
         try:
             info = process.info
@@ -462,6 +520,8 @@ def _processes(transition=None) -> tuple[list[dict[str, object]], dict[str, int]
                                                    transition=transition, pid=pid, identity=before)
             if not authorized:
                 identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
+    if bound_browser_roots is not None:
+        _verify_bound_browser_roots(rows, bound_browser_roots, transition.phase if transition is not None else "idle")
     return rows, identity_races
 
 
@@ -836,6 +896,9 @@ def _terminal_diagnostic_payload(status: str, samples_written: int, error: Excep
     process_failure = getattr(error, "process_failure", None) if error is not None else None
     if process_failure is not None:
         payload["process_failure"] = _validate_process_failure(process_failure)
+    candidates = getattr(error, "browser_candidates", None) if error is not None else None
+    if candidates is not None:
+        payload["browser_candidates"] = _validate_browser_candidates(candidates)
     return payload
 
 
@@ -870,15 +933,22 @@ def sample(output: Path, interval_ms: int, progress: dict | None = None,
     next_sample = time.monotonic()
     samples_written = 0
     transition = StartupTransition(source_revision, protocol_sha256)
+    bound_browser_roots = {}
     with output.open("x", encoding="utf-8", buffering=1) as stream:
         while not stop:
             now = time.monotonic()
             transition._read_controls()
-            roles, identity_races = _processes(transition)
+            browser_candidates = []
+            try:
+                roles, identity_races = _processes(transition, bound_browser_roots, browser_candidates)
+            except ProcessIdentityFailure as error:
+                error.browser_candidates = _validate_browser_candidates(browser_candidates)
+                raise
             transition_events = transition.observe(roles)
             stream.write(json.dumps({
                 "sample_monotonic_ns": time.monotonic_ns(),
                 "roles": roles,
+                "browser_root_candidates": browser_candidates,
                 "startup_transition_events": transition_events,
                 "process_identity_races": identity_races,
                 "cgroup": _cgroup_sample(),

@@ -67,6 +67,7 @@ COPY evaluation/Dockerfile.browser-installed /workspace/evaluation/Dockerfile.br
 COPY evaluation/compose.browser-installed.yml /workspace/evaluation/compose.browser-installed.yml
 COPY evaluation/run-installed-browser-capture.mjs /workspace/evaluation/run-installed-browser-capture.mjs
 COPY evaluation/run-installed-browser-unit-tests.mjs /workspace/evaluation/run-installed-browser-unit-tests.mjs
+COPY extension/test/installed-browser-launch-log.mjs /workspace/extension/test/installed-browser-launch-log.mjs
 COPY extension/test/installed-browser-additional.mjs /workspace/extension/test/installed-browser-additional.mjs
 COPY extension/test/installed-browser-capture.mjs /workspace/extension/test/installed-browser-capture.mjs
 COPY extension/test/installed-browser-evidence.mjs /workspace/extension/test/installed-browser-evidence.mjs

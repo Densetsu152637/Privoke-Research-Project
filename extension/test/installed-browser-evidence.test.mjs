@@ -1032,3 +1032,14 @@ test("strict role-change diagnostics accept only typed creation times and hashed
   const badRole = structuredClone(value); badRole.process_failure.role_change.observed_role = "unrecognized";
   assert.throws(() => validateSamplerTerminalDiagnostic(badRole), /role-change/);
 });
+
+test("browser root candidates retain only closed cached identity and command hashes", () => {
+  const value = { schema_version: 1, status: "error", samples_written: 1, exception_type: "ProcessIdentityFailure",
+    frames: [], browser_candidates: [{ pid: 62, parent_pid: 61, create_time: 1.0, command_sha256: "a".repeat(64),
+      profile_sha256: "b".repeat(64), disposition: "descendant_candidate" }] };
+  assert.equal(validateSamplerTerminalDiagnostic(value).browser_candidates[0].parent_pid, 61);
+  const plaintext = structuredClone(value); plaintext.browser_candidates[0].command_text = "secret";
+  assert.throws(() => validateSamplerTerminalDiagnostic(plaintext), /candidate/);
+  const oversized = structuredClone(value); oversized.browser_candidates = Array(17).fill(value.browser_candidates[0]);
+  assert.throws(() => validateSamplerTerminalDiagnostic(oversized), /candidate/);
+});

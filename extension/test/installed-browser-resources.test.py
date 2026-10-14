@@ -475,6 +475,52 @@ class ProcessSamplingTests(unittest.TestCase):
                 RESOURCES._processes()
 
 
+    def test_inherited_profile_argv_child_is_not_a_root_but_remains_tracked(self):
+        from pathlib import PurePosixPath
+        root = SimpleNamespace(pid=61, info={"pid": 61, "ppid": 20, "create_time": 1.0,
+            "cmdline": ["chrome", "--user-data-dir=/tmp/profile-1"]})
+        child = SimpleNamespace(pid=62, info={"pid": 62, "ppid": 61, "create_time": 1.1,
+            "cmdline": ["chrome", "--user-data-dir=/tmp/profile-1"]})
+        unrelated = SimpleNamespace(pid=63, info={"pid": 63, "ppid": 20, "create_time": 1.2,
+            "cmdline": ["chrome", "--user-data-dir=/tmp/profile-2"]})
+        root.children = lambda recursive: []  # Child can vanish after the cached snapshot.
+        child.children = lambda recursive: []
+        unrelated.children = lambda recursive: []
+        diagnostics = []
+        with patch.object(RESOURCES, "_browser_profiles", return_value=[
+                PurePosixPath("/tmp/profile-1"), PurePosixPath("/tmp/profile-2")]):
+            roots, included = RESOURCES._browser_process_ids([root, child, unrelated], diagnostics)
+        self.assertEqual(roots, {61, 63})
+        self.assertEqual(included, {61, 62, 63})
+        self.assertEqual(diagnostics[1]["disposition"], "descendant_candidate")
+        self.assertEqual(diagnostics[1]["parent_pid"], 61)
+        self.assertNotIn("/tmp/profile", json.dumps(diagnostics))
+        with self.assertRaises(ValueError):
+            RESOURCES._validate_browser_candidates([{**diagnostics[0], "command_text": "forbidden"}])
+
+    def test_actual_producer_keeps_bound_root_required_after_enumeration_disappearance(self):
+        old, fresh = self.processes(321, root=True)
+        bindings = {}
+        with patch.object(RESOURCES.psutil, "process_iter", return_value=[old]), \
+             patch.object(RESOURCES.psutil, "Process", return_value=fresh), \
+             patch.object(RESOURCES, "_browser_process_ids", return_value=({321}, {321})), \
+             patch.object(RESOURCES, "_browser_match", return_value=True), \
+             patch.object(RESOURCES, "_process_stat_identity", side_effect=[("S", 75), ("S", 4), ("S", 75), ("S", 4)]), \
+             patch.object(RESOURCES, "_pss_bytes", return_value=None):
+            rows, _ = RESOURCES._processes(bound_browser_roots=bindings)
+        self.assertIn(321, bindings)
+        with patch.object(RESOURCES.psutil, "process_iter", return_value=[]), \
+             patch.object(RESOURCES, "_browser_process_ids", return_value=(set(), set())), \
+             patch.object(RESOURCES, "_process_stat_identity", return_value=None):
+            with self.assertRaises(RESOURCES.ProcessIdentityFailure) as raised:
+                RESOURCES._processes(bound_browser_roots=bindings)
+        self.assertEqual(raised.exception.process_failure["reason"], "bound_browser_root_missing")
+        for change in ({"start_ticks": 76}, {"ppid": 2}, {"parent_start_ticks": 5}, {"command_sha256": "f" * 64}):
+            with self.subTest(change=change):
+                with self.assertRaises(RESOURCES.ProcessIdentityFailure):
+                    RESOURCES._verify_bound_browser_roots([{**rows[0], **change}], bindings)
+
+
 class StartupTransitionTests(unittest.TestCase):
     def identities(self):
         supervisor = {"pid": 123, "start_ticks": 200, "command_sha256": "a" * 64}

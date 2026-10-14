@@ -54,9 +54,13 @@ import {
   summarizeResourceCpuWindows,
 } from "../extension/test/installed-browser-evidence.mjs";
 
+import { installBrowserLaunchLog } from "../extension/test/installed-browser-launch-log.mjs";
+
 import { runAdditionalMatrix } from "../extension/test/installed-browser-additional.mjs";
 
 const execFileAsync = promisify(execFile);
+process.env.DEBUG = "pw:browser";
+process.env.DEBUG_COLORS = "0";
 const require = createRequire("/opt/privoke-browser-test/package.json");
 const playwrightRoot = "/opt/privoke-browser-test/node_modules/playwright";
 const { chromium } = require(playwrightRoot);
@@ -87,6 +91,7 @@ const SOURCE_FILES = [
   "evaluation/run-installed-browser-capture.mjs",
   "extension/test/installed-browser-capture.mjs",
   "extension/test/installed-browser-additional.mjs",
+  "extension/test/installed-browser-launch-log.mjs",
   "paper/research/installed-client-evidence-20261014.md",
   "models/privoke-balanced.json",
   "services/model-streaming-service/cmd/server/main.go",
@@ -156,6 +161,7 @@ let testPage;
 let profilePath;
 let fixtureRequestAttempted = false;
 let receiverSpkiSha256;
+let restoreBrowserLaunchLog;
 let currentResourceWindow;
 let finalizeCurrentResourceWindow;
 
@@ -170,6 +176,7 @@ try {
   await mkdir(OUTPUT_PARENT, { recursive: true });
   await mkdir(OUTPUT, { recursive: false });
   await mkdir(join(OUTPUT, "captures"), { recursive: false });
+  restoreBrowserLaunchLog = installBrowserLaunchLog(join(OUTPUT, "browser-launch-debug.jsonl"));
   await writeFile(join(OUTPUT, "status.json"), JSON.stringify({ status: "running", runId }, null, 2), { flag: "wx" });
   await mkdir(dirname(process.env.PRIVOKE_ENV_FILE || "/tmp/privoke-client-config/.env"), { recursive: true });
   await writeFile(process.env.PRIVOKE_ENV_FILE || "/tmp/privoke-client-config/.env",
@@ -322,6 +329,8 @@ try {
       providerFixtureClosed: server === null,
       certificateDirectoryRemoved,
     };
+    restoreBrowserLaunchLog?.();
+    receipt.browserLaunchLog = { file: "browser-launch-debug.jsonl", sha256: await hashFile(join(OUTPUT, "browser-launch-debug.jsonl")).catch(() => null), commandTextRedacted: true };
     receipt.completedAt = new Date().toISOString();
     await finalize().catch((error) => {
       console.error(`Failed to write final receipt (${safeError(error).type}).`);
