@@ -1085,3 +1085,35 @@ test("cost qualification reports actual partial and complete profile clusters", 
   assert.match(costObservationQualification(partial).p99Qualification, /^30 observations across 1 fresh/);
   assert.throws(() => costObservationQualification([{}]), /session identity/);
 });
+
+
+test("production bootstrap validation call executes in its actual enclosing scope", async () => {
+  const source = await readFile(process.env.PRIVOKE_RUNNER_TEST_SOURCE
+    || new URL("../../evaluation/run-installed-browser-capture.mjs", import.meta.url), "utf8");
+  const call = source.split("\n").find((line) => line.trim().startsWith("validateNativeBootstrapEvents(parseJsonl("));
+  assert.ok(call, "production pre-first bootstrap call is missing");
+  const samplerPath = join(tmpdir(), `privoke-bootstrap-scope-${process.pid}-${Date.now()}.jsonl`);
+  const native = { role: "native_host", pid: 22, start_ticks: 220, command_sha256: "a".repeat(64),
+    ppid: 21, parent_start_ticks: 210, start_time_epoch_seconds: 22 };
+  const event = { schema_version: 1, type: "native_helper_disappearance", ...native, observed_at_ns: 300,
+    termination_observation: "confirmed_absence", observed_state: null, bootstrap_completion: "pending_runner_validation" };
+  delete event.role;
+  const rows = [{ sample_monotonic_ns: 250, roles: [native, { role: "chromium", pid: 21, start_ticks: 210 },
+    { role: "supervisor_bridge", pid: 23, start_ticks: 230, command_sha256: "b".repeat(64), ppid: 22, parent_start_ticks: 220 }] },
+    { sample_monotonic_ns: 310, roles: [], native_bootstrap_events: [event] }];
+  const completion = { status: "verified_before_first_request", runtimeStatus: "RUNNING", verifiedAtMonotonicNs: 400,
+    supervisor: { pid: 23, startTicks: 230, commandSha256: "b".repeat(64) },
+    detector: { pid: 24, startTicks: 240, commandSha256: "c".repeat(64), parentPid: 23, parentStartTicks: 230 },
+    listenerOwnership: { 8080: [{ pid: 23 }], 50056: [{ pid: 23 }], 50057: [{ pid: 24 }] } };
+  await writeFile(samplerPath, rows.map((row) => JSON.stringify(row)).join("\n") + "\n", { flag: "wx" });
+  const execute = (nativeBootstrapCompletion) => new vm.Script(`(async () => { ${call} })()`).runInNewContext({
+    samplerPath, readFile, parseJsonl: (text) => text.trim().split("\n").map(JSON.parse),
+    validateNativeBootstrapEvents, cold: { nativeBootstrapCompletion },
+  });
+  try {
+    await execute(completion);
+    await assert.rejects(execute(undefined), /bootstrap completion is missing/);
+    await assert.rejects(execute({ ...completion, runtimeStatus: "STOPPED" }), /did not reach RUNNING/);
+    await assert.rejects(execute({ ...completion, listenerOwnership: {} }), /owned listener differs/);
+  } finally { await rm(samplerPath); }
+});

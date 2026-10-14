@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "protocolVersion": "installed-browser-enforcement-cost-v5",
   "resultStatus": "bounded_correctness_complete_cost_incomplete",
-  "updatedAt": "2026-10-14T01:37:26.598Z",
+  "updatedAt": "2026-10-14T01:54:26.389Z",
   "evidenceBase": "D:/Git Repositories/Privoke-Research-Project/evaluation/results/installed-client-evidence-20261014",
   "attempts": [
     {
@@ -127,6 +127,37 @@
       "relocation": {
         "path": "relocation-attempt-4.json",
         "sha256": "2f07ea5c2e931255d29cf2328dc1c223cab47d3f5e4661e79e2c637412b22e29"
+      }
+    },
+    {
+      "attempt": 5,
+      "runId": "run-2026-10-14T01-49-52-377Z-2def6f9a",
+      "sourceRevision": "b1315509d86cbfa86c95f72b014764513cd7b6b0",
+      "imageId": "sha256:9e3a278a7c75e6f3128f3f391bacb2aa9b3a4a1afc1331c8f96af735dd6e57f0",
+      "status": "failed",
+      "coldSessionsCompleted": 0,
+      "warmMeasuredRequests": 0,
+      "originalProbes": 0,
+      "additionalProbes": 0,
+      "correctnessReceiverSends": 0,
+      "correctnessZeroSendCases": 0,
+      "failure": {
+        "type": "ReferenceError",
+        "message": "windowSamplePath is not defined"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": true,
+        "certificateDirectoryRemoved": true
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-14T01-49-52-377Z-2def6f9a/receipt.json",
+        "sha256": "bd245b6c63b96fe236027688a183c10c42089205029e8419ee7bc8899a9b7952"
+      },
+      "relocation": {
+        "path": "relocation-attempt-5.json",
+        "sha256": "93bab212ccd97bf33af5d72c3b8e0f9d44aed8f33c8c11680317afd9b08388c5"
       }
     }
   ],
@@ -916,6 +947,7 @@
     "No full cost distribution or incremental overhead claim. Failed warmCosts fixed60/two-profile text is inapplicable and excluded.",
     "Independent exited-container/PID-zero cessation does not rewrite failed internal cleanup.",
     "Windows, Opera, Edge, Firefox, real providers, attachments, workers and usability remain unverified.",
-    "Attempt3 PID62 ancestry is unproven; source counterexample establishes a root-classification defect independently."
+    "Attempt3 PID62 ancestry is unproven; source counterexample establishes a root-classification defect independently.",
+    "Attempt5 is a preserved pre-request harness ReferenceError. Implementation and review missed the windowSamplePath scope; prospective correction uses active samplerPath and executes the actual production callsite regression."
   ]
 }

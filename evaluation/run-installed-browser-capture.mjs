@@ -770,7 +770,7 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
       parentStartTicks: finalSupervisor.startTicks },
     listenerOwnership: await assertOwnedListeners(supervisorPid, detectorPid),
   };
-  validateNativeBootstrapEvents(parseJsonl(await readFile(windowSamplePath, "utf8")), cold.nativeBootstrapCompletion);
+  validateNativeBootstrapEvents(parseJsonl(await readFile(samplerPath, "utf8")), cold.nativeBootstrapCompletion);
   currentResourceWindow.nativeBootstrapCompletion = cold.nativeBootstrapCompletion;
 
   const coldDecision = await performAndValidate({
