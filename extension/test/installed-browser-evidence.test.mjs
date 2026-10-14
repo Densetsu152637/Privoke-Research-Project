@@ -1012,3 +1012,23 @@ test("generated runtime protobuf exposes the actual camelCase request and respon
     api.RuntimeControlStatus.decode(api.RuntimeControlStatus.encode(control).finish()), { defaults: true });
   assert.equal(decodedControl.processId, 42);
 });
+
+test("strict role-change diagnostics accept only typed creation times and hashed commands", () => {
+  const identity = { pid: 321, state: "S", start_ticks: 75, command_sha256: "a".repeat(64),
+    parent_pid: 123, parent_start_ticks: 10 };
+  const value = { schema_version: 1, status: "error", samples_written: 3,
+    exception_type: "ProcessIdentityFailure", frames: [], process_failure: {
+      schema_version: 1, role: "native_host", reason: "role_changed_between_enumeration_and_sampling",
+      requested_identity: identity, observed_identity: { ...identity, command_sha256: "b".repeat(64) },
+      transition_state: "idle", observed_at_ns: "123456", role_change: {
+        observed_role: "supervisor_bridge", enumeration_create_time: 1.0, observed_create_time: 1.0,
+        enumeration_command_sha256: "a".repeat(64), observed_command_sha256: "b".repeat(64),
+      } } };
+  assert.equal(validateSamplerTerminalDiagnostic(value).status, "error");
+  const unbounded = structuredClone(value); unbounded.process_failure.role_change.command_text = "private data";
+  assert.throws(() => validateSamplerTerminalDiagnostic(unbounded), /role-change/);
+  const nonfinite = structuredClone(value); nonfinite.process_failure.role_change.observed_create_time = NaN;
+  assert.throws(() => validateSamplerTerminalDiagnostic(nonfinite), /role-change/);
+  const badRole = structuredClone(value); badRole.process_failure.role_change.observed_role = "unrecognized";
+  assert.throws(() => validateSamplerTerminalDiagnostic(badRole), /role-change/);
+});
