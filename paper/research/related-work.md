@@ -42,3 +42,11 @@ adds the distinct `CasperPreprintV12024` key without changing `paper/ref.bib`.
 This checkpoint extends the 4 October record with supplied-PDF evidence; it does
 not replace its published-version access limits, audit background papers, rerun
 systems, modify the manuscript or establish whole-paper readiness.
+
+## Manuscript revision checkpoint — 15 October 2026
+
+[literature-revision-execution-20261015.md](literature-revision-execution-20261015.md)
+records the bounded manuscript changes mapped to LBR-20261015, including the
+contribution scope, interaction comparison, version and metric boundaries, and
+unmeasured practical-utility questions. New response fields or acknowledgements
+remain pending their separate code contract and later manuscript alignment.
