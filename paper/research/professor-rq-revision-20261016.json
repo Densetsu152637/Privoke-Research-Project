@@ -1,6 +1,6 @@
 {
   "record_id": "PROF-RQ-20261016",
-  "status": "Abstract-style revision compiled; writer reviewed changed pages 1-2; root visual review pending.",
+  "status": "Root accepted abstract-style revision and inspected changed pages 1-2; pages 3-15 pixel-identical to prior accepted revision at 125 dpi.",
   "input_commit": "dacc7c5d8d6a1bf6fa0bb0f22e226355c2d820ba",
   "branch": "docs/paper",
   "artifacts": {
@@ -43,7 +43,10 @@
       1,
       2
     ],
-    "root_independent_visual_review_pages": [],
+    "root_independent_visual_review_pages": [
+      1,
+      2
+    ],
     "visual_defects_found": [],
     "citation_keys": [
       "Athey2017",
@@ -74,29 +77,50 @@
     "protected_data_access_or_rescore": false,
     "new_experiments": false,
     "source_bibliography_changed": false,
-    "staged_whitespace_command": "git -c diff.astextplain.binary=true diff --cached --check"
+    "staged_whitespace_command": "git -c diff.astextplain.binary=true diff --cached --check",
+    "root_pixel_equivalence_pages": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "visual_comparison": {
+      "method": "PIL ImageChops comparison against evaluation/results/professor_rq_revision_20261016/page-*.png",
+      "dpi": 125,
+      "pages_1_2": "changed and independently reviewed by root; pass",
+      "pages_3_15": "pixel-identical"
+    }
   },
   "rendered_pages": {
-    "page-01.png": "cb274f80aa5255eba6eeb9212ae9de3168523dc4486ab99d36516fb25e450703",
-    "page-02.png": "318a4631869611cb853820c76d0c4ce9d91a6e71cf81aeef4222b1604486467c",
-    "page-03.png": "cfd10b3a80dd1136b9ef4ad1661f6d50539718a7b48c792ef98cadf200f0ac10",
-    "page-04.png": "eac6d06c1a03461517de5aca96f27e029645fbc2da4faea22f5bcaa7a93e4f3d",
-    "page-05.png": "2f321aaf7cace8c7ba1c9be2c823cdbdecdce6dfe2550354281c4286a5620f3a",
-    "page-06.png": "1a913579338d6e9b7870e60caf4f872f787b4f9606a519e44d5edafe156d6cac",
-    "page-07.png": "ba7b48c32a7f8524abc39a3bb4bcaeed5571e3a4a85c84bd6f4f29aa1f871847",
-    "page-08.png": "6b887d1893e4f65097703e0d8b022536111d96dba3c98b020afb8fa1b4e39d9f",
-    "page-09.png": "ddd62aa65df17e66bd1586917b6751b748ad98f747a46383369bcb87dc291b45",
-    "page-10.png": "6b0a06102f2b5259379626add193c16174f092ea2543a52edf9e3470e87ef952",
-    "page-11.png": "3dffed3b9fd68e4ee7c76f4aecaf90d8c0fd25dc85b421912ad7888f5d998bb2",
-    "page-12.png": "f162a2a4c0fb520f363baa6cf8053e94ee713317a773f547a5b42994ba34805a",
-    "page-13.png": "b4db33a9d2a4d7a74f1475ed166d27fb465667cf0b7f37ab757254bf040a4dbc",
-    "page-14.png": "fe6bc54e09e9bb75693244bcfe644440715780a5f55827bf3562fe573d287801",
-    "page-15.png": "e4d2635e53dfd82855e94a48357649e93b48e7ffaea4ce1d164093dff6bb640e"
+    "evaluation/results/abstract_style_20261016/final-render/page-01.png": "cb274f80aa5255eba6eeb9212ae9de3168523dc4486ab99d36516fb25e450703",
+    "evaluation/results/abstract_style_20261016/final-render/page-02.png": "318a4631869611cb853820c76d0c4ce9d91a6e71cf81aeef4222b1604486467c",
+    "evaluation/results/abstract_style_20261016/final-render/page-03.png": "cfd10b3a80dd1136b9ef4ad1661f6d50539718a7b48c792ef98cadf200f0ac10",
+    "evaluation/results/abstract_style_20261016/final-render/page-04.png": "eac6d06c1a03461517de5aca96f27e029645fbc2da4faea22f5bcaa7a93e4f3d",
+    "evaluation/results/abstract_style_20261016/final-render/page-05.png": "2f321aaf7cace8c7ba1c9be2c823cdbdecdce6dfe2550354281c4286a5620f3a",
+    "evaluation/results/abstract_style_20261016/final-render/page-06.png": "1a913579338d6e9b7870e60caf4f872f787b4f9606a519e44d5edafe156d6cac",
+    "evaluation/results/abstract_style_20261016/final-render/page-07.png": "ba7b48c32a7f8524abc39a3bb4bcaeed5571e3a4a85c84bd6f4f29aa1f871847",
+    "evaluation/results/abstract_style_20261016/final-render/page-08.png": "6b887d1893e4f65097703e0d8b022536111d96dba3c98b020afb8fa1b4e39d9f",
+    "evaluation/results/abstract_style_20261016/final-render/page-09.png": "ddd62aa65df17e66bd1586917b6751b748ad98f747a46383369bcb87dc291b45",
+    "evaluation/results/abstract_style_20261016/final-render/page-10.png": "6b0a06102f2b5259379626add193c16174f092ea2543a52edf9e3470e87ef952",
+    "evaluation/results/abstract_style_20261016/final-render/page-11.png": "3dffed3b9fd68e4ee7c76f4aecaf90d8c0fd25dc85b421912ad7888f5d998bb2",
+    "evaluation/results/abstract_style_20261016/final-render/page-12.png": "f162a2a4c0fb520f363baa6cf8053e94ee713317a773f547a5b42994ba34805a",
+    "evaluation/results/abstract_style_20261016/final-render/page-13.png": "b4db33a9d2a4d7a74f1475ed166d27fb465667cf0b7f37ab757254bf040a4dbc",
+    "evaluation/results/abstract_style_20261016/final-render/page-14.png": "fe6bc54e09e9bb75693244bcfe644440715780a5f55827bf3562fe573d287801",
+    "evaluation/results/abstract_style_20261016/final-render/page-15.png": "e4d2635e53dfd82855e94a48357649e93b48e7ffaea4ce1d164093dff6bb640e"
   },
   "logs": [
     "evaluation/results/abstract_style_20261016/build/main.log",
     "MiKTeX pdflatex/BibTeX console outputs",
-    "evaluation/results/abstract_style_20261016/page-01.png through page-15.png"
+    "evaluation/results/abstract_style_20261016/final-render/page-01.png through page-15.png"
   ],
   "limitations": [
     "Contextual targets remain assistant-provisional, with no independent adjudication.",
@@ -135,9 +159,10 @@
     "scope": "Abstract wording and style only; all other manuscript source lines unchanged.",
     "style_reference": "Previous abstract in dacc7c5d8d6a1bf6fa0bb0f22e226355c2d820ba:paper/main.tex.",
     "evidence_boundary": "No new results, experiments, protected-data access, or bibliography changes.",
-    "page_delta": "Only pages 1-2 differ from the prior accepted PDF; pages 3-15 render byte-identically.",
-    "visual_review": "Writer inspected pages 1-2; no clipping or overlap observed. Root review pending.",
+    "page_delta": "Pages 1-2 differ from the prior accepted PDF. Pages 3-15 are pixel-identical to the prior accepted PDF at 125 dpi; PNG file bytes may differ.",
+    "visual_review": "Writer and root reviewed pages 1-2; pass. Root independently compared pages 3-15 pixel-for-pixel at 125 dpi; identical.",
     "pdf_sha256": "bf7805f47f9de9d8aa98f49f986f63bcd15bfbbf38547259e87d709ededeba3d",
-    "source_sha256": "886ba821c531c0f3496350ee622a9305779276b72f700c75049d0d1f5a38c3f1"
+    "source_sha256": "886ba821c531c0f3496350ee622a9305779276b72f700c75049d0d1f5a38c3f1",
+    "root_acceptance": "Accepted after root reviewed current PDF pages 1-2 and confirmed pixel equivalence for pages 3-15."
   }
 }
