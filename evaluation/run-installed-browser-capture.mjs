@@ -30,6 +30,7 @@ import {
   validateNativeBootstrapEvents,
   costObservationQualification,
   summarizeSamplerObservation,
+  validateInitialNativeClassifications,
   assertPreservedControlSupervisor,
   assertCompleteResourceEvidence,
   assertNativeLauncherExecutableMount,
@@ -71,7 +72,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const EXTENSION_ID = "hmlhjfklebbbhpjdjodegbjnbamlkonp";
 const NATIVE_HOST_NAME = "org.privoke.runtime_launcher";
 const PORTS = [8080, 50056, 50057];
-const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v7";
+const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v8";
 const RATE_REPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_REPS, 30);
 const WARMUPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_WARMUPS, 5);
 const COLD_SESSIONS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_SESSIONS, 12);
@@ -592,6 +593,8 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
     const finalRows = parseJsonl(await readFile(windowSamplePath, "utf8"));
     currentResourceWindow.startupTransition.samplerEvidence =
       validateStartupTransitionWindow(finalRows, currentResourceWindow.startupTransition);
+    currentResourceWindow.initialNativeClassifications = validateInitialNativeClassifications(finalRows,
+      sha256(`${join(ROOT, "extension/client-runtime/.venv/bin/python")} ${join(XDG_DATA_HOME, "privoke/native-host/native_messaging_host.py")}`));
     currentResourceWindow.samplerObservation = summarizeSamplerObservation(finalRows);
     currentResourceWindow.nativeBootstrapEvidence =
       validateNativeBootstrapEvents(finalRows, currentResourceWindow.nativeBootstrapCompletion);
@@ -772,6 +775,8 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
       parentStartTicks: finalSupervisor.startTicks },
     listenerOwnership: await assertOwnedListeners(supervisorPid, detectorPid),
   };
+  validateInitialNativeClassifications(parseJsonl(await readFile(samplerPath, "utf8")),
+    sha256(`${join(ROOT, "extension/client-runtime/.venv/bin/python")} ${join(XDG_DATA_HOME, "privoke/native-host/native_messaging_host.py")}`));
   validateNativeBootstrapEvents(parseJsonl(await readFile(samplerPath, "utf8")), cold.nativeBootstrapCompletion);
   currentResourceWindow.nativeBootstrapCompletion = cold.nativeBootstrapCompletion;
 
@@ -2018,6 +2023,7 @@ async function resourceSummary(files) {
       startupTransition: file.startupTransition || null,
       nativeBootstrapEvidence: file.nativeBootstrapEvidence || null,
       samplerObservation: file.samplerObservation || null,
+      initialNativeClassifications: file.initialNativeClassifications || null,
       samples });
     for (const sample of samples) {
       for (const [role, count] of Object.entries(sample.process_identity_races || {})) {

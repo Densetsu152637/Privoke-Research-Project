@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "protocolVersion": "installed-browser-enforcement-cost-v5",
   "resultStatus": "bounded_correctness_complete_cost_incomplete",
-  "updatedAt": "2026-10-15T06:25:16.008Z",
+  "updatedAt": "2026-10-15T06:50:36.798Z",
   "evidenceBase": "D:/Git Repositories/Privoke-Research-Project/evaluation/results/installed-client-evidence-20261014",
   "attempts": [
     {
@@ -216,6 +216,65 @@
           "sessionClusters": 1
         }
       }
+    },
+    {
+      "attempt": 7,
+      "runId": "run-2026-10-15T06-33-37-977Z-a07e3f10",
+      "sourceRevision": "0584b46c3dfcd9d5c49d0fe88e3fc9a68dd9db43",
+      "imageId": "sha256:22c938165b4b357e6060102845881c00af1ab09c3ad0043b82a95ef85b81ba78",
+      "status": "failed",
+      "coldSessionsCompleted": 6,
+      "warmMeasuredRequests": 180,
+      "originalProbes": 14,
+      "additionalProbes": 19,
+      "correctnessReceiverSends": 18,
+      "correctnessZeroSendCases": 15,
+      "failure": {
+        "type": "StartupTransitionSamplerExited",
+        "message": "resource sampler exited during startup transition"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": true,
+        "certificateDirectoryRemoved": true
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-15T06-33-37-977Z-a07e3f10/receipt.json",
+        "sha256": "2d6a0e4410ede63f1e62fe37fbf1ba2196dbdac1b96513df901341bc5e98cd0b"
+      },
+      "relocation": {
+        "path": "relocation-attempt-7.json",
+        "sha256": "1eb86f3cfc5f8dd3726d0d961805b856a529353461fcb8cb4aed0c3b49969086"
+      },
+      "actualPartialDenominators": {
+        "fetch/ALLOW": {
+          "observations": 30,
+          "sessionClusters": 1
+        },
+        "fetch/WARN": {
+          "observations": 30,
+          "sessionClusters": 1
+        },
+        "fetch/BLOCK": {
+          "observations": 30,
+          "sessionClusters": 1
+        },
+        "xhr/ALLOW": {
+          "observations": 30,
+          "sessionClusters": 1
+        },
+        "xhr/WARN": {
+          "observations": 30,
+          "sessionClusters": 1
+        },
+        "xhr/BLOCK": {
+          "observations": 30,
+          "sessionClusters": 1
+        }
+      },
+      "samplerObserverMeasuredWindows": 6,
+      "samplerObserverCpuSampledDeltaSeconds": 18.293232532
     }
   ],
   "selectedCorrectnessAttempt": 4,
@@ -934,10 +993,11 @@
     "status": "not_complete",
     "requiredColdSessions": 12,
     "requiredMeasuredWarmRequests": 360,
-    "latestColdSessionsCompleted": 2,
-    "latestMeasuredWarmRequests": 60,
+    "latestColdSessionsCompleted": 6,
+    "latestMeasuredWarmRequests": 180,
     "publishFailedPartialPercentiles": false,
-    "reason": "Strict process identity sampler failed on native-host disappearance in third cold startup. Resource completeness and internal process/listener cleanup gates failed; independent container exit is separate evidence."
+    "reason": "Seventh run failed a strict initial owned-descendant command classification check in window7 before its first request; full12window/resource/cleanup gates remain incomplete.",
+    "latestAttempt": 7
   },
   "environment": {
     "versions": {
@@ -1006,6 +1066,7 @@
     "Windows, Opera, Edge, Firefox, real providers, attachments, workers and usability remain unverified.",
     "Attempt3 PID62 ancestry is unproven; source counterexample establishes a root-classification defect independently.",
     "Attempt5 is a preserved pre-request harness ReferenceError. Implementation and review missed the windowSamplePath scope; prospective correction uses active samplerPath and executes the actual production callsite regression.",
-    "Attempt6 completed10cold/300warm and33correctness cases, then failed the strict native-to-supervisor sampled child-binding gate in window11 before its first request. It remains failed and cannot supply a complete cost result."
+    "Attempt6 completed10cold/300warm and33correctness cases, then failed the strict native-to-supervisor sampled child-binding gate in window11 before its first request. It remains failed and cannot supply a complete cost result.",
+    "Attempt7 completed6cold/180warm and33correctness cases, then failed initial blank-owned-child versus fresh native-host classification. Its dense-startup observer CPU and sample data are retained, but no complete cost or causal overhead claim follows."
   ]
 }

@@ -426,6 +426,49 @@ export function validateNativeBootstrapEvents(samples, completion) {
     qualification: "Confirmed helper disappearance/terminal state, not proof of clean EOF or exit code; functional bootstrap completion verified separately." };
 }
 
+export function validateInitialNativeClassifications(samples, expectedCommandSha256) {
+  const events = new Map();
+  const priorPositive = new Set();
+  const emptyHash = createHash("sha256").update("").digest("hex");
+  for (const sample of samples) {
+    for (const event of sample.initial_native_classifications || []) {
+      assert.deepEqual(Object.keys(event).sort(), ["schema_version", "type", "pid", "start_ticks", "parent_pid",
+        "parent_start_ticks", "create_time", "enumeration_command_sha256", "observed_command_sha256",
+        "prior_classification", "observed_role", "observed_at_ns"].sort(), "initial native classification schema is closed");
+      assert.equal(event.schema_version, 1);
+      assert.equal(event.type, "initial_native_classification");
+      assert.equal(event.prior_classification, "unclassified_owned_descendant");
+      assert.equal(event.observed_role, "native_host");
+      assert.equal(event.enumeration_command_sha256, emptyHash, "classification had a positive cached command");
+      assert.match(expectedCommandSha256 || "", /^[a-f0-9]{64}$/);
+      assert.equal(event.observed_command_sha256, expectedCommandSha256, "classification command differs from standard installer");
+      for (const key of ["pid", "start_ticks", "parent_pid", "parent_start_ticks", "observed_at_ns"]) {
+        assert.ok(Number.isSafeInteger(event[key]) && event[key] > 0);
+      }
+      assert.ok(Number.isFinite(event.create_time) && event.create_time >= 0);
+      assert.ok(event.observed_at_ns <= sample.sample_monotonic_ns);
+      const key = `${event.pid}/${event.start_ticks}`;
+      if (events.has(key)) { assert.deepEqual(event, events.get(key)); continue; }
+      assert.ok(!priorPositive.has(key), "classification had a previously positive sampled identity");
+      const row = sample.roles?.find((item) => item.pid === event.pid && item.start_ticks === event.start_ticks);
+      assert.equal(row?.role, "native_host");
+      assert.equal(row.command_sha256, expectedCommandSha256);
+      assert.equal(row.start_time_epoch_seconds, event.create_time);
+      assert.equal(row.ppid, event.parent_pid);
+      assert.equal(row.parent_start_ticks, event.parent_start_ticks);
+      assert.ok(Number.isSafeInteger(row.rss_bytes) && row.rss_bytes >= 0, "classified native RSS is missing");
+      assert.ok(Number.isFinite(row.cpu_seconds) && row.cpu_seconds >= 0, "classified native CPU is missing");
+      assert.ok(sample.roles.some((parent) => parent.role === "chromium" && parent.browser_profile_root === true
+        && parent.pid === event.parent_pid && parent.start_ticks === event.parent_start_ticks),
+      "classified native lacks fresh actual profile-root binding");
+      events.set(key, event);
+      assert.ok(events.size <= 8, "initial native classification bound exceeded");
+    }
+    for (const row of sample.roles || []) priorPositive.add(`${row.pid}/${row.start_ticks}`);
+  }
+  return { count: events.size, events: [...events.values()] };
+}
+
 export function summarizeSamplerObservation(samples) {
   assert.ok(samples.length >= 2, "sampler observation needs at least two samples");
   let previous = null;
@@ -1199,6 +1242,7 @@ export function summarizeResourceCpuWindows(windows) {
       ...(window.startupTransition ? { startupTransition: window.startupTransition } : {}),
       ...(window.nativeBootstrapEvidence ? { nativeBootstrapEvidence: window.nativeBootstrapEvidence } : {}),
       ...(window.samplerObservation ? { samplerObservation: window.samplerObservation } : {}),
+      ...(window.initialNativeClassifications ? { initialNativeClassifications: window.initialNativeClassifications } : {}),
       sampleCount: window.samples.length,
       firstSampleMonotonicNs: window.samples[0].sample_monotonic_ns,
       lastSampleMonotonicNs: previousSampleMonotonicNs,

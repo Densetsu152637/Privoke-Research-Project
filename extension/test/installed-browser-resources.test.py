@@ -605,7 +605,7 @@ class BootstrapCadenceTests(unittest.TestCase):
         supervisor = {"role": "supervisor_bridge", "pid": 23, "start_ticks": 230,
                       "command_sha256": "b" * 64, "ppid": 22, "parent_start_ticks": 220}
 
-        def process_rows(_transition, _roots, _candidates, tracker):
+        def process_rows(_transition, _roots, _candidates, tracker, *_history):
             now = clock["now"]
             rows = [browser]
             if 0.030 <= now < 0.090:
@@ -705,6 +705,88 @@ class BootstrapCadenceTests(unittest.TestCase):
     def test_overdue_sample_does_not_create_catchup_burst(self):
         self.assertAlmostEqual(RESOURCES._next_sample_deadline(0.0, 5, 0.100), 0.105)
         self.assertAlmostEqual(RESOURCES._next_sample_deadline(0.100, 5, 0.101), 0.105)
+
+
+class InitialNativeClassificationTests(unittest.TestCase):
+    def collect(self, mode="valid"):
+        native_argv = ["/workspace/extension/client-runtime/.venv/bin/python",
+                       "/tmp/privoke-data/privoke/native-host/native_messaging_host.py"]
+        root_argv = ["/usr/bin/chromium", f"--user-data-dir={Path('/tmp/profile-1')}"]
+        cached_argv = root_argv if mode == "positive_cached_chromium" else []
+        if mode == "positive_supervisor":
+            cached_argv = ["/python", "/workspace/extension/runtime-supervisor/src/main.py"]
+        if mode == "positive_detector":
+            cached_argv = ["/python", "/workspace/extension/client-runtime/src/grpc_main.py"]
+        if mode == "positive_native_command":
+            cached_argv = native_argv
+        fresh_argv = ["/bin/echo", "foreign"] if mode == "unknown" else ([] if mode == "empty" else native_argv)
+        if mode in {"noncanonical_native", "positive_native_command"}:
+            fresh_argv = native_argv + ["--foreign"]
+        native_parent = 99 if mode == "foreign_parent" else 21
+        root = SimpleNamespace(pid=21, info={"pid": 21, "ppid": 1, "cmdline": root_argv, "create_time": 21.0})
+        native = SimpleNamespace(pid=22, info={"pid": 22, "ppid": 21, "cmdline": cached_argv, "create_time": 22.0})
+        def fresh(pid):
+            is_native = pid == 22
+            return SimpleNamespace(create_time=lambda: (23.0 if mode == "reused_creation" and is_native else float(pid)),
+                is_running=lambda: True, cmdline=lambda: fresh_argv if is_native else root_argv,
+                ppid=lambda: native_parent if is_native else 1,
+                memory_info=lambda: None if mode == "missing_rss" and is_native else SimpleNamespace(rss=222 if is_native else 111),
+                cpu_times=lambda: SimpleNamespace(user=0.4 if is_native else 0.1, system=0.2))
+        reads = {22: 0}
+        def stat(pid):
+            if pid == 22:
+                reads[22] += 1
+                return ("R", 221 if mode == "reused_ticks" and reads[22] > 1 else 220)
+            return ("S", {21: 210, 1: 10, 99: 990}[pid])
+        history = {(22, 220): {"role": "chromium", "command_sha256": "b" * 64}} if mode == "positive_history" else {}
+        if mode == "positive_native_command":
+            history[(22, 220)] = {"role": "native_host", "command_sha256": hashlib.sha256(" ".join(native_argv).encode()).hexdigest()}
+        events = []
+        kwargs = {"positive_history": history, "classification_events": events} if "positive_history" in inspect.signature(RESOURCES._processes).parameters else {}
+        roots = {21, 22} if mode == "required_root" else {21}
+        processes = [native] if mode == "missing_root_sample" else [root, native]
+        with patch.dict(RESOURCES.os.environ, {"XDG_DATA_HOME": "/tmp/privoke-data"}), \
+             patch.object(RESOURCES, "_browser_profiles", return_value=[Path("/tmp/profile-1")]), \
+             patch.object(RESOURCES.psutil, "process_iter", return_value=processes), \
+             patch.object(RESOURCES, "_browser_process_ids", return_value=(roots, {21, 22})), \
+             patch.object(RESOURCES.psutil, "Process", side_effect=fresh), \
+             patch.object(RESOURCES, "_process_stat_identity", side_effect=stat), \
+             patch.object(RESOURCES, "_pss_bytes", return_value=33):
+            rows, races = RESOURCES._processes(**kwargs)
+        return rows, races, events, history
+
+    def test_actual_producer_initial_blank_native_is_freshly_accounted(self):
+        rows, races, events, history = self.collect()
+        native = next(row for row in rows if row["pid"] == 22)
+        self.assertEqual(native["role"], "native_host")
+        self.assertEqual((native["rss_bytes"], native["pss_bytes"]), (222, 33))
+        self.assertAlmostEqual(native["cpu_seconds"], 0.6)
+        self.assertEqual(races, {})
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["prior_classification"], "unclassified_owned_descendant")
+        self.assertEqual(events[0]["enumeration_command_sha256"], hashlib.sha256(b"").hexdigest())
+        self.assertEqual(history[(22, 220)]["role"], "native_host")
+
+    def test_only_initial_blank_canonical_native_under_fresh_root_can_be_classified(self):
+        for mode in ["positive_history", "positive_cached_chromium", "reused_creation", "reused_ticks",
+                     "foreign_parent", "missing_root_sample", "unknown", "empty", "required_root", "missing_rss",
+                     "noncanonical_native", "positive_native_command", "positive_supervisor", "positive_detector"]:
+            with self.subTest(mode=mode), self.assertRaises((RuntimeError, RESOURCES.ProcessIdentityFailure)):
+                self.collect(mode)
+
+    def test_ownership_fallback_is_not_positive_chromium_command_proof(self):
+        self.assertIsNone(RESOURCES._role_for_command("", True))
+        self.assertIsNone(RESOURCES._role_for_command("/bin/foreign", True))
+        self.assertEqual(RESOURCES._role_for_command("/usr/bin/chromium --type=renderer", True), "chromium")
+        for command in [
+            "/ms-playwright/chromium-1243/chrome-linux64/chrome --type=renderer",
+            "/ms-playwright/chromium-1243/chrome-linux64/chrome --type=gpu-process",
+            "/ms-playwright/chromium-1243/chrome-linux64/chrome --type=utility",
+            "/ms-playwright/chromium-1243/chrome-linux64/chrome --type=zygote",
+            "/ms-playwright/chromium-1243/chrome-linux64/chrome_crashpad_handler --monitor-self",
+        ]:
+            self.assertEqual(RESOURCES._role_for_command(command, True), "chromium")
+            self.assertIsNone(RESOURCES._role_for_command(command, False))
 
 
 class StartupTransitionTests(unittest.TestCase):

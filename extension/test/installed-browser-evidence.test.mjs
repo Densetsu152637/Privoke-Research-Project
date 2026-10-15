@@ -12,6 +12,7 @@ import {
   validateNativeBootstrapEvents,
   costObservationQualification,
   summarizeSamplerObservation,
+  validateInitialNativeClassifications,
   assertNativeLauncherExecutableMount,
   assertCompleteResourceEvidence,
   buildStartupIdentityDiagnostic,
@@ -1136,4 +1137,28 @@ test("sampler startup observation retains actual gaps and its own CPU with stric
   }
   assert.throws(() => summarizeSamplerObservation([samples[0], samples[2], { ...samples[1], sample_monotonic_ns: 200_000_001, sampler_process_cpu_ns: 3_000_005 }]), /reverted/);
   assert.throws(() => summarizeSamplerObservation(samples.slice(0, 2)), /startup or steady/);
+});
+
+
+test("initial native classification retains resource and positive-role history guards", () => {
+  const commandSha = "a".repeat(64);
+  const root = { role: "chromium", browser_profile_root: true, pid: 21, start_ticks: 210 };
+  const native = { role: "native_host", pid: 22, start_ticks: 220, command_sha256: commandSha,
+    ppid: 21, parent_start_ticks: 210, start_time_epoch_seconds: 22, rss_bytes: 123, pss_bytes: null, cpu_seconds: 0.1 };
+  const event = { schema_version: 1, type: "initial_native_classification", pid: 22, start_ticks: 220,
+    parent_pid: 21, parent_start_ticks: 210, create_time: 22,
+    enumeration_command_sha256: createHash("sha256").update("").digest("hex"), observed_command_sha256: commandSha,
+    prior_classification: "unclassified_owned_descendant", observed_role: "native_host", observed_at_ns: 300 };
+  const sample = { sample_monotonic_ns: 310, roles: [root, native], initial_native_classifications: [event] };
+  assert.equal(validateInitialNativeClassifications([sample], commandSha).count, 1);
+  assert.throws(() => validateInitialNativeClassifications([{ sample_monotonic_ns: 200, roles: [{ ...native, role: "chromium" }] }, sample], commandSha), /previously positive/);
+  for (const change of [{ command: "secret" }, { prior_classification: "chromium" },
+    { enumeration_command_sha256: "b".repeat(64) }, { parent_start_ticks: 999 }, { create_time: 99 }]) {
+    assert.throws(() => validateInitialNativeClassifications([{ ...sample, initial_native_classifications: [{ ...event, ...change }] }], commandSha));
+  }
+  assert.throws(() => validateInitialNativeClassifications([sample], "b".repeat(64)), /standard installer/);
+  for (const change of [{ rss_bytes: null }, { cpu_seconds: null }, { ppid: 99 }, { command_sha256: "b".repeat(64) }]) {
+    assert.throws(() => validateInitialNativeClassifications([{ ...sample, roles: [root, { ...native, ...change }] }], commandSha));
+  }
+  assert.throws(() => validateInitialNativeClassifications([{ ...sample, roles: [native] }], commandSha), /profile-root/);
 });

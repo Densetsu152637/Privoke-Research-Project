@@ -8,7 +8,7 @@ import json
 import math
 import hashlib
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import select
 import signal
@@ -315,7 +315,19 @@ def _cgroup_sample() -> dict[str, int | None]:
 
 
 def _role_for_command(command: str, included_chromium: bool) -> str | None:
-    return next((name for name in PATTERNS if _matches(name, command)), "chromium" if included_chromium else None)
+    known = next((name for name in PATTERNS if _matches(name, command)), None)
+    if known is not None:
+        return known
+    executable = PurePosixPath(command.split(" ", 1)[0]).name if command else ""
+    return "chromium" if included_chromium and executable in {
+        "chrome", "chromium", "chromium-browser", "chrome_crashpad_handler"} else None
+
+
+def _standard_native_argv():
+    root = PurePosixPath(ROOT.as_posix())
+    data = PurePosixPath(os.environ.get("XDG_DATA_HOME", "/tmp/privoke-data"))
+    return [str(root / "extension/client-runtime/.venv/bin/python"),
+            str(data / "privoke/native-host/native_messaging_host.py")]
 
 
 def _termination_disposition(role: str, profile_root: bool, detail: str, *, transition=None, pid=None,
@@ -457,9 +469,12 @@ class NativeBootstrapTracker:
                                              None, pid, "idle", observed_state=state)
 
 
-def _processes(transition=None, bound_browser_roots=None, browser_candidates=None, native_bootstrap=None) -> tuple[list[dict[str, object]], dict[str, int]]:
+def _processes(transition=None, bound_browser_roots=None, browser_candidates=None, native_bootstrap=None,
+               positive_history=None, classification_events=None) -> tuple[list[dict[str, object]], dict[str, int]]:
     rows: list[dict[str, object]] = []
     identity_races: dict[str, int] = {}
+    pending_classifications = []
+    initially_unclassified = False
     processes = list(psutil.process_iter(("pid", "ppid", "cmdline", "create_time", "memory_info", "cpu_times")))
     chromium_root_ids, chromium_ids = _browser_process_ids(processes, browser_candidates)
     if bound_browser_roots is not None:
@@ -468,7 +483,7 @@ def _processes(transition=None, bound_browser_roots=None, browser_candidates=Non
     def termination(role, profile_root, detail, *, transition=None, pid=None, identity=None):
         if native_bootstrap is not None and native_bootstrap.retire(role, pid, identity, process.info):
             return True
-        return _termination_disposition(role, profile_root, detail, transition=transition, pid=pid, identity=identity)
+        return _termination_disposition(role, profile_root or initially_unclassified, detail, transition=transition, pid=pid, identity=identity)
 
     for process in processes:
         try:
@@ -478,8 +493,14 @@ def _processes(transition=None, bound_browser_roots=None, browser_candidates=Non
             included_chromium = pid in chromium_ids
             expected_command = " ".join(info.get("cmdline") or [])
             role_hint = _role_for_command(expected_command, included_chromium)
+            initially_unclassified = role_hint is None and included_chromium and not profile_root and not expected_command
             if role_hint is None:
-                continue
+                if not initially_unclassified:
+                    if included_chromium:
+                        raise RuntimeError("owned browser descendant lacks positive command classification")
+                    continue
+                # This is an ownership scope for failure reporting, not a positive prior role.
+                role_hint = "chromium"
             expected_create_time = info.get("create_time")
             if not isinstance(expected_create_time, (int, float)) or not math.isfinite(expected_create_time):
                 raise RuntimeError(f"{role_hint} process lacks enumeration-time creation identity")
@@ -507,8 +528,17 @@ def _processes(transition=None, bound_browser_roots=None, browser_candidates=Non
                 if not authorized:
                     identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
                 continue
-            command = " ".join(fresh.cmdline())
+            fresh_argv = fresh.cmdline()
+            command = " ".join(fresh_argv)
             role = _role_for_command(command, included_chromium)
+            adopt_native = (initially_unclassified and role == "native_host" and fresh_argv == _standard_native_argv()
+                            and positive_history is not None and classification_events is not None
+                            and (pid, before[1]) not in positive_history)
+            if initially_unclassified and not adopt_native:
+                raise ProcessIdentityFailure("chromium", "role_changed_between_enumeration_and_sampling",
+                                             None, pid, transition.phase if transition else "idle", observed_state=before)
+            if adopt_native:
+                role_hint = role
             if role is None or role != role_hint:
                 # Zombies can remain is_running() while losing their command line.
                 terminal_identity = _process_stat_identity(pid)
@@ -559,6 +589,22 @@ def _processes(transition=None, bound_browser_roots=None, browser_candidates=Non
                 and parent_after is not None
                 and parent_before[1] == parent_after[1]
             )
+            if adopt_native:
+                if (memory is None or type(memory.rss) is not int or memory.rss < 0 or cpu is None
+                        or not math.isfinite(cpu.user + cpu.system) or cpu.user + cpu.system < 0):
+                    raise RuntimeError("initial native classification lacks fresh resource metrics")
+                if (not parent_identity_stable or parent_pid != int(info.get("ppid") or 0)
+                        or parent_pid not in chromium_root_ids):
+                    raise RuntimeError("initial native classification lacks stable actual profile-root parent")
+                pending_classifications.append({
+                    "schema_version": 1, "type": "initial_native_classification",
+                    "pid": pid, "start_ticks": before[1], "parent_pid": parent_pid,
+                    "parent_start_ticks": parent_before[1], "create_time": fresh_create_time,
+                    "enumeration_command_sha256": hashlib.sha256(expected_command.encode()).hexdigest(),
+                    "observed_command_sha256": hashlib.sha256(command.encode()).hexdigest(),
+                    "prior_classification": "unclassified_owned_descendant", "observed_role": "native_host",
+                    "observed_at_ns": time.monotonic_ns(),
+                })
             if not fresh.is_running():
                 # A same-identity process can exit after its metrics were read; these
                 # metrics remain bound by matching stat ticks around the reads.
@@ -591,6 +637,24 @@ def _processes(transition=None, bound_browser_roots=None, browser_candidates=Non
                 identity_races[role_hint] = identity_races.get(role_hint, 0) + 1
     if bound_browser_roots is not None:
         _verify_bound_browser_roots(rows, bound_browser_roots, transition.phase if transition is not None else "idle")
+    for event in pending_classifications:
+        if not any(row["role"] == "chromium" and row["browser_profile_root"]
+                   and row["pid"] == event["parent_pid"] and row["start_ticks"] == event["parent_start_ticks"]
+                   for row in rows):
+            raise RuntimeError("initial native classification parent was not freshly verified")
+        if len(classification_events) >= 8:
+            raise RuntimeError("initial native classification event bound exceeded")
+        classification_events.append(event)
+    if positive_history is not None:
+        for row in rows:
+            key = (row["pid"], row["start_ticks"])
+            prior = positive_history.get(key)
+            if prior is not None and (prior["role"] != row["role"]
+                    or row["role"] != "chromium" and prior["command_sha256"] != row["command_sha256"]):
+                raise RuntimeError("previously positive process role or command changed")
+            if len(positive_history) >= 4096 and key not in positive_history:
+                raise RuntimeError("positive process identity history bound exceeded")
+            positive_history[key] = {"role": row["role"], "command_sha256": row["command_sha256"]}
     if native_bootstrap is not None:
         native_bootstrap.observe(rows)
         native_bootstrap.missing(rows)
@@ -1028,6 +1092,8 @@ def sample(output: Path, interval_ms: int, progress: dict | None = None,
     transition = StartupTransition(source_revision, protocol_sha256)
     bound_browser_roots = {}
     native_bootstrap = NativeBootstrapTracker()
+    positive_history = {}
+    classification_events = []
     with output.open("x", encoding="utf-8", buffering=1) as stream:
         while not stop:
             transition._read_controls()
@@ -1035,7 +1101,7 @@ def sample(output: Path, interval_ms: int, progress: dict | None = None,
             requested_interval_ms, sampling_phase = _sampling_cadence_ms(now - started, transition, native_bootstrap, interval_ms)
             browser_candidates = []
             try:
-                roles, identity_races = _processes(transition, bound_browser_roots, browser_candidates, native_bootstrap)
+                roles, identity_races = _processes(transition, bound_browser_roots, browser_candidates, native_bootstrap, positive_history, classification_events)
             except ProcessIdentityFailure as error:
                 error.browser_candidates = _validate_browser_candidates(browser_candidates)
                 raise
@@ -1051,6 +1117,7 @@ def sample(output: Path, interval_ms: int, progress: dict | None = None,
                 "browser_root_candidates": browser_candidates,
                 "startup_transition_events": transition_events,
                 "native_bootstrap_events": native_bootstrap.events,
+                "initial_native_classifications": classification_events,
                 "process_identity_races": identity_races,
                 "cgroup": _cgroup_sample(),
             }, separators=(",", ":")) + "\n")
