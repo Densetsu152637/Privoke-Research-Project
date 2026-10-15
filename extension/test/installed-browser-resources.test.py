@@ -682,6 +682,26 @@ class BootstrapCadenceTests(unittest.TestCase):
             with self.assertRaises(RESOURCES.BootstrapSamplingDeadlineExceeded):
                 RESOURCES._sampling_cadence_ms(30.001, transition, tracker, 100)
 
+    def test_control_processing_crossing_deadline_emits_no_overdue_sample(self):
+        clock = {"now": 0.0}
+        def controls(transition):
+            clock["now"] = 30.001
+            transition.phase = "prepared"
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(RESOURCES.signal, "signal"), \
+             patch.object(RESOURCES.time, "monotonic", side_effect=lambda: clock["now"]), \
+             patch.object(RESOURCES.time, "monotonic_ns", side_effect=lambda: round(clock["now"] * 1e9)), \
+             patch.object(RESOURCES.time, "sleep", side_effect=StopIteration("unexpected overdue sampling")), \
+             patch.object(RESOURCES.StartupTransition, "_read_controls", controls), \
+             patch.object(RESOURCES.StartupTransition, "observe", return_value=[]), \
+             patch.object(RESOURCES, "_processes", return_value=([], {})) as processes, \
+             patch.object(RESOURCES, "_cgroup_sample", return_value={}):
+            output = Path(directory) / "sample.jsonl"
+            with self.assertRaises(RESOURCES.BootstrapSamplingDeadlineExceeded):
+                RESOURCES.sample(output, 100)
+            processes.assert_not_called()
+            self.assertEqual(output.read_text(), "")
+
     def test_overdue_sample_does_not_create_catchup_burst(self):
         self.assertAlmostEqual(RESOURCES._next_sample_deadline(0.0, 5, 0.100), 0.105)
         self.assertAlmostEqual(RESOURCES._next_sample_deadline(0.100, 5, 0.101), 0.105)

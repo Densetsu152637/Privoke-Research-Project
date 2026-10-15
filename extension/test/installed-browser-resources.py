@@ -1030,8 +1030,8 @@ def sample(output: Path, interval_ms: int, progress: dict | None = None,
     native_bootstrap = NativeBootstrapTracker()
     with output.open("x", encoding="utf-8", buffering=1) as stream:
         while not stop:
-            now = time.monotonic()
             transition._read_controls()
+            now = time.monotonic()
             requested_interval_ms, sampling_phase = _sampling_cadence_ms(now - started, transition, native_bootstrap, interval_ms)
             browser_candidates = []
             try:
