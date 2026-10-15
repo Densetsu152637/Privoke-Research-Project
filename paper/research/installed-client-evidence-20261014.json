@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "protocolVersion": "installed-browser-enforcement-cost-v5",
   "resultStatus": "bounded_correctness_complete_cost_incomplete",
-  "updatedAt": "2026-10-14T01:54:26.389Z",
+  "updatedAt": "2026-10-15T06:25:16.008Z",
   "evidenceBase": "D:/Git Repositories/Privoke-Research-Project/evaluation/results/installed-client-evidence-20261014",
   "attempts": [
     {
@@ -158,6 +158,63 @@
       "relocation": {
         "path": "relocation-attempt-5.json",
         "sha256": "93bab212ccd97bf33af5d72c3b8e0f9d44aed8f33c8c11680317afd9b08388c5"
+      }
+    },
+    {
+      "attempt": 6,
+      "runId": "run-2026-10-14T01-57-51-791Z-078e9989",
+      "sourceRevision": "b8dbc72f00c3caab1df443aa8ccea5d9d3a18a31",
+      "imageId": "sha256:f42aa06c5c31ace6664b3dba3409a9624c2b819e49c3d3093a1d660f1d4c8dbc",
+      "status": "failed",
+      "coldSessionsCompleted": 10,
+      "warmMeasuredRequests": 300,
+      "originalProbes": 14,
+      "additionalProbes": 19,
+      "correctnessReceiverSends": 18,
+      "correctnessZeroSendCases": 15,
+      "failure": {
+        "type": "AssertionError",
+        "message": "native helper lacks sampled supervisor child binding"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": true,
+        "certificateDirectoryRemoved": true
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-14T01-57-51-791Z-078e9989/receipt.json",
+        "sha256": "fa3b88c55cd151b3009962c18438283c7fa007c005be4f9ca26fda8d01123d55"
+      },
+      "relocation": {
+        "path": "relocation-attempt-6.json",
+        "sha256": "7a1b40ba8feabff8c04809162971dbbe38be2c3cd65727e85e058550c76e39d4"
+      },
+      "actualPartialDenominators": {
+        "fetch/ALLOW": {
+          "observations": 60,
+          "sessionClusters": 2
+        },
+        "fetch/WARN": {
+          "observations": 60,
+          "sessionClusters": 2
+        },
+        "fetch/BLOCK": {
+          "observations": 60,
+          "sessionClusters": 2
+        },
+        "xhr/ALLOW": {
+          "observations": 60,
+          "sessionClusters": 2
+        },
+        "xhr/WARN": {
+          "observations": 30,
+          "sessionClusters": 1
+        },
+        "xhr/BLOCK": {
+          "observations": 30,
+          "sessionClusters": 1
+        }
       }
     }
   ],
@@ -948,6 +1005,7 @@
     "Independent exited-container/PID-zero cessation does not rewrite failed internal cleanup.",
     "Windows, Opera, Edge, Firefox, real providers, attachments, workers and usability remain unverified.",
     "Attempt3 PID62 ancestry is unproven; source counterexample establishes a root-classification defect independently.",
-    "Attempt5 is a preserved pre-request harness ReferenceError. Implementation and review missed the windowSamplePath scope; prospective correction uses active samplerPath and executes the actual production callsite regression."
+    "Attempt5 is a preserved pre-request harness ReferenceError. Implementation and review missed the windowSamplePath scope; prospective correction uses active samplerPath and executes the actual production callsite regression.",
+    "Attempt6 completed10cold/300warm and33correctness cases, then failed the strict native-to-supervisor sampled child-binding gate in window11 before its first request. It remains failed and cannot supply a complete cost result."
   ]
 }

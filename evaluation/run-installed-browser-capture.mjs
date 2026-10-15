@@ -29,6 +29,7 @@ import {
   assertNativeParentBinding,
   validateNativeBootstrapEvents,
   costObservationQualification,
+  summarizeSamplerObservation,
   assertPreservedControlSupervisor,
   assertCompleteResourceEvidence,
   assertNativeLauncherExecutableMount,
@@ -70,7 +71,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const EXTENSION_ID = "hmlhjfklebbbhpjdjodegbjnbamlkonp";
 const NATIVE_HOST_NAME = "org.privoke.runtime_launcher";
 const PORTS = [8080, 50056, 50057];
-const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v6";
+const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v7";
 const RATE_REPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_REPS, 30);
 const WARMUPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_WARMUPS, 5);
 const COLD_SESSIONS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_SESSIONS, 12);
@@ -591,6 +592,7 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
     const finalRows = parseJsonl(await readFile(windowSamplePath, "utf8"));
     currentResourceWindow.startupTransition.samplerEvidence =
       validateStartupTransitionWindow(finalRows, currentResourceWindow.startupTransition);
+    currentResourceWindow.samplerObservation = summarizeSamplerObservation(finalRows);
     currentResourceWindow.nativeBootstrapEvidence =
       validateNativeBootstrapEvents(finalRows, currentResourceWindow.nativeBootstrapCompletion);
     currentResourceWindow.finalized = true;
@@ -2015,6 +2017,7 @@ async function resourceSummary(files) {
       phaseRequestCounts: file.phaseRequestCounts,
       startupTransition: file.startupTransition || null,
       nativeBootstrapEvidence: file.nativeBootstrapEvidence || null,
+      samplerObservation: file.samplerObservation || null,
       samples });
     for (const sample of samples) {
       for (const [role, count] of Object.entries(sample.process_identity_races || {})) {
@@ -2065,7 +2068,11 @@ async function resourceSummary(files) {
     };
   });
   return {
-    intervalMs: 100,
+    steadyIntervalMs: 100,
+    cadence: { bootstrapRequestedMs: 5, bootstrapMaximumMs: 30000, steadyRequestedMs: 100 },
+    samplerObserverMeasuredWindowCount: files.filter((file) => file.samplerObservation).length,
+    samplerObserverCpuSampledDeltaSeconds: files.reduce((total, file) =>
+      total + (file.samplerObservation?.processCpuSampledDeltaSeconds || 0), 0),
     cgroupMemorySampledPeakBytes: cpuSummary.cgroupMemorySampledPeakBytes,
     cgroupCpuSampledDeltaUsec: cpuSummary.cgroupCpuSampledDeltaUsec,
     cgroupMemoryMissingSamples: cpuSummary.cgroupMemoryMissingSamples,

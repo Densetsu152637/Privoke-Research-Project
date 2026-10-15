@@ -11,6 +11,7 @@ import {
   assertNativeParentBinding,
   validateNativeBootstrapEvents,
   costObservationQualification,
+  summarizeSamplerObservation,
   assertNativeLauncherExecutableMount,
   assertCompleteResourceEvidence,
   buildStartupIdentityDiagnostic,
@@ -1116,4 +1117,23 @@ test("production bootstrap validation call executes in its actual enclosing scop
     await assert.rejects(execute({ ...completion, runtimeStatus: "STOPPED" }), /did not reach RUNNING/);
     await assert.rejects(execute({ ...completion, listenerOwnership: {} }), /owned listener differs/);
   } finally { await rm(samplerPath); }
+});
+
+
+test("sampler startup observation retains actual gaps and its own CPU with strict phases", () => {
+  const samples = [
+    { sample_monotonic_ns: 1, sampler_process_cpu_ns: 5, requested_interval_ms: 5, sampling_phase: "bootstrap" },
+    { sample_monotonic_ns: 8_000_001, sampler_process_cpu_ns: 1_000_005, requested_interval_ms: 5, sampling_phase: "bootstrap" },
+    { sample_monotonic_ns: 108_000_001, sampler_process_cpu_ns: 2_000_005, requested_interval_ms: 100, sampling_phase: "steady" },
+  ];
+  const summary = summarizeSamplerObservation(samples);
+  assert.equal(summary.processCpuSampledDeltaSeconds, 0.002);
+  assert.equal(summary.phases.bootstrap.observedMaximumGapNs, 8_000_000);
+  assert.equal(summary.phases.steady.observedMaximumGapNs, 100_000_000);
+  for (const change of [{ sampler_process_cpu_ns: undefined }, { sampler_process_cpu_ns: -1 },
+    { requested_interval_ms: 100 }, { sampling_phase: "foreign" }]) {
+    assert.throws(() => summarizeSamplerObservation([samples[0], { ...samples[1], ...change }, samples[2]]));
+  }
+  assert.throws(() => summarizeSamplerObservation([samples[0], samples[2], { ...samples[1], sample_monotonic_ns: 200_000_001, sampler_process_cpu_ns: 3_000_005 }]), /reverted/);
+  assert.throws(() => summarizeSamplerObservation(samples.slice(0, 2)), /startup or steady/);
 });

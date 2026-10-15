@@ -595,6 +595,76 @@ class NativeBootstrapTests(unittest.TestCase):
             tracker.missing([])
 
 
+class BootstrapCadenceTests(unittest.TestCase):
+    def test_actual_sampler_loop_retains_short_bootstrap_child_edge(self):
+        clock = {"now": 0.0, "sleeps": 0}
+        handlers = {}
+        native = {"role": "native_host", "pid": 22, "start_ticks": 220, "command_sha256": "a" * 64,
+                  "ppid": 21, "parent_start_ticks": 210, "start_time_epoch_seconds": 22.0}
+        browser = {"role": "chromium", "pid": 21, "start_ticks": 210}
+        supervisor = {"role": "supervisor_bridge", "pid": 23, "start_ticks": 230,
+                      "command_sha256": "b" * 64, "ppid": 22, "parent_start_ticks": 220}
+
+        def process_rows(_transition, _roots, _candidates, tracker):
+            now = clock["now"]
+            rows = [browser]
+            if 0.030 <= now < 0.090:
+                rows.append(native)
+            if now >= 0.045:
+                rows.append(supervisor if now < 0.090 else {**supervisor, "ppid": 1, "parent_start_ticks": 10})
+            tracker.observe(rows)
+            return rows, {}
+
+        def controls(transition):
+            if clock["now"] >= 0.080:
+                transition.phase = "prepared"
+
+        def sleep(seconds):
+            clock["sleeps"] += 1
+            self.assertLess(clock["sleeps"], 1000, "sampler failed to advance")
+            clock["now"] += max(seconds, 0.000001)
+            if clock["now"] >= 0.200:
+                handlers[RESOURCES.signal.SIGTERM](None, None)
+
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(RESOURCES.signal, "signal", side_effect=lambda signum, handler: handlers.__setitem__(signum, handler)), \
+             patch.object(RESOURCES.time, "monotonic", side_effect=lambda: clock["now"]), \
+             patch.object(RESOURCES.time, "monotonic_ns", side_effect=lambda: round(clock["now"] * 1e9)), \
+             patch.object(RESOURCES.time, "process_time_ns", side_effect=lambda: round(clock["now"] * 1e8)), \
+             patch.object(RESOURCES.time, "sleep", side_effect=sleep), \
+             patch.object(RESOURCES.StartupTransition, "_read_controls", controls), \
+             patch.object(RESOURCES.StartupTransition, "observe", return_value=[]), \
+             patch.object(RESOURCES, "_processes", side_effect=process_rows), \
+             patch.object(RESOURCES, "_cgroup_sample", return_value={"memory_current_bytes": 1, "cpu_usage_usec": 1}):
+            output = Path(directory) / "sample.jsonl"
+            RESOURCES.sample(output, 100)
+            samples = [json.loads(line) for line in output.read_text().splitlines()]
+        direct = [row for sample in samples for row in sample["roles"]
+                  if row["role"] == "supervisor_bridge" and row["ppid"] == 22 and row["parent_start_ticks"] == 220]
+        self.assertTrue(direct, "actual sampler cadence missed the short bootstrap parent edge")
+        self.assertTrue(any(sample.get("requested_interval_ms") == 5 for sample in samples))
+        self.assertTrue(any(sample.get("requested_interval_ms") == 100 for sample in samples))
+        self.assertTrue(all("sampler_process_cpu_ns" in sample for sample in samples))
+
+    def test_only_direct_child_binding_and_prepared_readiness_release_fast_cadence(self):
+        for edge, phase, expected in [(False, "idle", 5), (False, "prepared", 5),
+                                      (True, "idle", 5), (True, "prepared", 100),
+                                      (True, "dispatched", 100), (True, "committed", 100)]:
+            tracker = SimpleNamespace(has_supervisor_child_binding=edge)
+            transition = SimpleNamespace(phase=phase)
+            self.assertEqual(RESOURCES._sampling_cadence_ms(1, transition, tracker, 100)[0], expected)
+        for edge, phase in [(False, "prepared"), (True, "idle"), (False, "idle")]:
+            with self.assertRaises(RESOURCES.BootstrapSamplingDeadlineExceeded):
+                RESOURCES._sampling_cadence_ms(30, SimpleNamespace(phase=phase),
+                                              SimpleNamespace(has_supervisor_child_binding=edge), 100)
+        self.assertEqual(RESOURCES._sampling_cadence_ms(30, SimpleNamespace(phase="committed"),
+                         SimpleNamespace(has_supervisor_child_binding=True), 100), (100, "steady"))
+
+    def test_overdue_sample_does_not_create_catchup_burst(self):
+        self.assertAlmostEqual(RESOURCES._next_sample_deadline(0.0, 5, 0.100), 0.105)
+        self.assertAlmostEqual(RESOURCES._next_sample_deadline(0.100, 5, 0.101), 0.105)
+
+
 class StartupTransitionTests(unittest.TestCase):
     def identities(self):
         supervisor = {"pid": 123, "start_ticks": 200, "command_sha256": "a" * 64}

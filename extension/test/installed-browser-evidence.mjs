@@ -426,6 +426,37 @@ export function validateNativeBootstrapEvents(samples, completion) {
     qualification: "Confirmed helper disappearance/terminal state, not proof of clean EOF or exit code; functional bootstrap completion verified separately." };
 }
 
+export function summarizeSamplerObservation(samples) {
+  assert.ok(samples.length >= 2, "sampler observation needs at least two samples");
+  let previous = null;
+  let previousCpu = null;
+  let steadySeen = false;
+  const phases = { bootstrap: { requestedIntervalMs: 5, samples: 0, observedMaximumGapNs: 0 },
+    steady: { requestedIntervalMs: 100, samples: 0, observedMaximumGapNs: 0 } };
+  for (const sample of samples) {
+    assert.ok(Number.isSafeInteger(sample.sample_monotonic_ns) && sample.sample_monotonic_ns >= 0);
+    assert.ok(Number.isSafeInteger(sample.sampler_process_cpu_ns) && sample.sampler_process_cpu_ns >= 0,
+      "sampler observer CPU is unavailable");
+    assert.ok(previousCpu === null || sample.sampler_process_cpu_ns >= previousCpu, "sampler observer CPU decreased");
+    assert.ok(Object.hasOwn(phases, sample.sampling_phase), "sampler observation phase is invalid");
+    assert.equal(sample.requested_interval_ms, phases[sample.sampling_phase].requestedIntervalMs,
+      "sampler requested cadence differs from protocol");
+    if (sample.sampling_phase === "steady") steadySeen = true;
+    else assert.equal(steadySeen, false, "sampler reverted to bootstrap after readiness");
+    const phase = phases[sample.sampling_phase];
+    phase.samples += 1;
+    if (previous !== null) {
+      assert.ok(sample.sample_monotonic_ns > previous, "sampler observation times did not increase");
+      phase.observedMaximumGapNs = Math.max(phase.observedMaximumGapNs, sample.sample_monotonic_ns - previous);
+    }
+    previous = sample.sample_monotonic_ns;
+    previousCpu = sample.sampler_process_cpu_ns;
+  }
+  assert.ok(phases.bootstrap.samples > 0 && phases.steady.samples > 0, "sampler lacks startup or steady observation");
+  return { processCpuSampledDeltaSeconds: (samples.at(-1).sampler_process_cpu_ns - samples[0].sampler_process_cpu_ns) / 1e9,
+    phases, qualification: "Requested 5ms bootstrap cadence until direct child binding and runner PREPARE readiness, bounded30s, then100ms. Actual gaps and observer CPU are sampled; the cgroup includes observer overhead." };
+}
+
 export function costObservationQualification(rows) {
   const profiles = new Set(rows.map((row) => row.sessionId));
   assert.ok(!profiles.has(undefined), "cost observation lacks session identity");
@@ -1158,6 +1189,7 @@ export function summarizeResourceCpuWindows(windows) {
       ...(window.phaseRequestCounts ? { phaseRequestCounts: { ...window.phaseRequestCounts } } : {}),
       ...(window.startupTransition ? { startupTransition: window.startupTransition } : {}),
       ...(window.nativeBootstrapEvidence ? { nativeBootstrapEvidence: window.nativeBootstrapEvidence } : {}),
+      ...(window.samplerObservation ? { samplerObservation: window.samplerObservation } : {}),
       sampleCount: window.samples.length,
       firstSampleMonotonicNs: window.samples[0].sample_monotonic_ns,
       lastSampleMonotonicNs: previousSampleMonotonicNs,

@@ -399,6 +399,7 @@ class NativeBootstrapTracker:
     def __init__(self):
         self.identities = {}
         self.events = []
+        self.has_supervisor_child_binding = False
 
     def observe(self, rows):
         browser = {(row["pid"], row["start_ticks"]): row for row in rows if row["role"] == "chromium"}
@@ -416,6 +417,10 @@ class NativeBootstrapTracker:
             if len(self.identities) >= 8 and old is None:
                 raise RuntimeError("native helper identity bound exceeded")
             self.identities[row["pid"]] = identity
+        native_ids = {(row["pid"], row["start_ticks"]) for row in rows if row["role"] == "native_host"}
+        if any(row["role"] == "supervisor_bridge" and (row["ppid"], row["parent_start_ticks"]) in native_ids
+               for row in rows):
+            self.has_supervisor_child_binding = True
 
     def retire(self, role, pid, state, enumeration=None):
         if role != "native_host" or pid not in self.identities:
@@ -985,6 +990,24 @@ def _write_terminal_diagnostic(path: Path, payload: dict) -> None:
         stream.write("\n")
 
 
+class BootstrapSamplingDeadlineExceeded(RuntimeError):
+    pass
+
+
+def _sampling_cadence_ms(elapsed_seconds, transition, native_bootstrap, regular_interval_ms):
+    if native_bootstrap.has_supervisor_child_binding and transition.phase in {"prepared", "dispatched", "committed"}:
+        return regular_interval_ms, "steady"
+    if elapsed_seconds >= 30.0:
+        raise BootstrapSamplingDeadlineExceeded("bootstrap ancestry/readiness sampling exceeded 30 seconds")
+    return 5, "bootstrap"
+
+
+def _next_sample_deadline(previous_deadline, interval_ms, now):
+    # Never repay a slow sample with a burst of overdue iterations.
+    scheduled = previous_deadline + interval_ms / 1000
+    return scheduled if scheduled > now else now + interval_ms / 1000
+
+
 def sample(output: Path, interval_ms: int, progress: dict | None = None,
            source_revision: str | None = None, protocol_sha256: str | None = None) -> None:
     stop = False
@@ -995,8 +1018,8 @@ def sample(output: Path, interval_ms: int, progress: dict | None = None,
 
     signal.signal(signal.SIGTERM, stop_sampling)
     signal.signal(signal.SIGINT, stop_sampling)
-    interval = interval_ms / 1000
-    next_sample = time.monotonic()
+    started = time.monotonic()
+    next_sample = started
     samples_written = 0
     transition = StartupTransition(source_revision, protocol_sha256)
     bound_browser_roots = {}
@@ -1005,6 +1028,7 @@ def sample(output: Path, interval_ms: int, progress: dict | None = None,
         while not stop:
             now = time.monotonic()
             transition._read_controls()
+            requested_interval_ms, sampling_phase = _sampling_cadence_ms(now - started, transition, native_bootstrap, interval_ms)
             browser_candidates = []
             try:
                 roles, identity_races = _processes(transition, bound_browser_roots, browser_candidates, native_bootstrap)
@@ -1014,6 +1038,9 @@ def sample(output: Path, interval_ms: int, progress: dict | None = None,
             transition_events = transition.observe(roles)
             stream.write(json.dumps({
                 "sample_monotonic_ns": time.monotonic_ns(),
+                "sampler_process_cpu_ns": time.process_time_ns(),
+                "requested_interval_ms": requested_interval_ms,
+                "sampling_phase": sampling_phase,
                 "roles": roles,
                 "browser_root_candidates": browser_candidates,
                 "startup_transition_events": transition_events,
@@ -1024,7 +1051,7 @@ def sample(output: Path, interval_ms: int, progress: dict | None = None,
             samples_written += 1
             if progress is not None:
                 progress["samples_written"] = samples_written
-            next_sample += interval
+            next_sample = _next_sample_deadline(next_sample, requested_interval_ms, time.monotonic())
             time.sleep(max(0.0, next_sample - time.monotonic()))
 
 
