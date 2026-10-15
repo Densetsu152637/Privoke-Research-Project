@@ -55,7 +55,11 @@ preserve the pre-existing paper/ref.bib changes; add the review bibliography
 file to the manuscript's bibliography list; locally reduce interaction-table
 column padding; and run whitespace/citation-reference checks.
 
-Pending for the integrated manuscript: final compilation and validation with a
-new output path, plus the requested machine-readable validation record. Existing
-PDF evidence and all earlier result history remain unchanged. Final compilation,
-document review and commit integration remain with the coordinating agent.
+Final integrated acceptance: four compiler passes succeeded, all 13 rendered
+pages passed both worker and coordinating-agent visual review, and all 22 font
+entries are embedded without Type 3 fonts. The new PDF and its source, code,
+test and rendering bindings are recorded in
+[literature-revision-validation-20261015.json](literature-revision-validation-20261015.json).
+The 53 focused host tests and extension build passed; no installed-browser,
+performance or user-utility remeasurement was performed. Existing PDF evidence
+and all earlier result history remain unchanged.
