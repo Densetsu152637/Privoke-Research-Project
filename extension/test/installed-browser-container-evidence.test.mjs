@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
-import { summarizeContainerWindow, summarizeContainerStudy, assertStableBoundary, runDirectStartupTransition } from "./installed-browser-container-evidence.mjs";
+import { summarizeContainerWindow, summarizeContainerStudy, assertStableBoundary, runDirectStartupTransition, validateContainerTerminalDiagnostic } from "./installed-browser-container-evidence.mjs";
 const binding = { sourceRevision: "a".repeat(40), protocolSha256: "b".repeat(64) };
 const identity = { membership_sha256: "c".repeat(64), mount_sha256: "d".repeat(64), namespace_inode: 100, files: [1,2,3].map((inode) => ({ device: 1, inode })) };
-const row = (index = 0) => ({ schema_version: 1, sample_monotonic_ns: 1_000_000_000 + index * 100_000_000,
+const row = (index = 0) => ({ schema_version: 1, read_started_monotonic_ns: 999_999_999 + index * 100_000_000, final_observation: false, sample_monotonic_ns: 1_000_000_000 + index * 100_000_000,
   observer_cpu_ns: 1_000 + index * 100, requested_interval_ms: 100,
   source_revision: binding.sourceRevision, protocol_sha256: binding.protocolSha256, cgroup_identity: structuredClone(identity),
   cpu_usage_usec: 10_000 + index * 2_000, memory_current_bytes: 400 + index * 100 });
@@ -26,7 +26,7 @@ test("whole-container consumer retains CPU units, charged-memory max and actual 
 test("closed container consumer rejects incomplete, corrupted, foreign and reset rows", () => {
   assert.throws(() => summarizeContainerWindow([row()], binding));
   for (const change of [{ roles: [] }, { cpu_usage_usec: -1 }, { cpu_usage_usec: 1 }, { observer_cpu_ns: 0 },
-    { sample_monotonic_ns: 1_000_000_000 }, { sample_monotonic_ns: 1_500_000_001 }, { memory_current_bytes: null },
+    { sample_monotonic_ns: 1_000_000_000 }, { memory_current_bytes: null },
     { requested_interval_ms: 5 }, { schema_version: 2 }, { source_revision: "f".repeat(40) }, { protocol_sha256: "e".repeat(64) },
     { cgroup_identity: { ...identity, membership_sha256: "e".repeat(64) } },
     { cgroup_identity: { ...identity, files: [{ device: 0, inode: 1 }] } }]) {
@@ -37,9 +37,10 @@ test("closed container consumer rejects incomplete, corrupted, foreign and reset
 function windows() {
   return Array.from({ length: 12 }, (_, index) => ({ sessionId: `session${index}`, finalized: true, terminalValidated: true,
     sha256: "f".repeat(64), phaseRequestCounts: { firstDecision: 1, warmup: 5, measured: 30 },
-    startBoundary: { ...boundary(true), verifiedAtMonotonicNs: row(index * 3).sample_monotonic_ns }, endBoundary: { ...boundary(true), verifiedAtMonotonicNs: row(index * 3 + 1).sample_monotonic_ns }, requestedStartMonotonicNs: String(row(index * 3).sample_monotonic_ns),
+    browserLaunchRequestedMonotonicNs: row(index * 3).sample_monotonic_ns, stopRequestedMonotonicNs: row(index * 3).sample_monotonic_ns + 2,
+    startBoundary: { ...boundary(true), verifiedAtMonotonicNs: row(index * 3).sample_monotonic_ns }, endBoundary: { ...boundary(true), verifiedAtMonotonicNs: row(index * 3).sample_monotonic_ns + 1 }, requestedStartMonotonicNs: String(row(index * 3).read_started_monotonic_ns),
     requestedEndMonotonicNs: String(row(index * 3 + 1).sample_monotonic_ns),
-    containerObservation: summarizeContainerWindow([row(index * 3), row(index * 3 + 1)], binding) }));
+    containerObservation: summarizeContainerWindow([row(index * 3), { ...row(index * 3 + 1), final_observation: true }], binding) }));
 }
 test("twelve-window aggregate excludes gaps and requires finalized complete phase counts", () => {
   const full = windows();
@@ -131,4 +132,41 @@ test("actual production known-PID boundary checks reject changed executables, pa
     await assert.rejects(execute(mutate));
   }
   await assert.rejects(execute(() => {}, true), /listener/);
+});
+
+
+test("all positive gaps retained with descriptive tails and threshold counts", () => {
+  const rows = [row(), { ...row(1), sample_monotonic_ns: 1_300_000_000, read_started_monotonic_ns: 1_299_999_999 },
+    { ...row(2), sample_monotonic_ns: 1_900_000_000, read_started_monotonic_ns: 1_899_999_999 },
+    { ...row(3), sample_monotonic_ns: 4_000_000_000, read_started_monotonic_ns: 3_999_999_999, final_observation: true }];
+  const summary = summarizeContainerWindow(rows, binding);
+  assert.equal(summary.maximumObservedGapMs, 2100);
+  assert.equal(summary.observedGapP50Ms, 600);
+  assert.equal(summary.observedGapP99Ms, 2100);
+  assert.deepEqual([summary.gapsOver200Ms, summary.gapsOver500Ms, summary.gapsOver1000Ms], [3, 2, 1]);
+  assert.equal(summary.cpuUsageSeconds, 0.006);
+});
+
+test("coverage requires a stop-triggered final read starting after last request boundary", () => {
+  const full = windows();
+  for (const change of [{ finalObservation: false }, { lastReadStartedMonotonicNs: full[0].endBoundary.verifiedAtMonotonicNs },
+    { lastReadStartedMonotonicNs: full[0].endBoundary.verifiedAtMonotonicNs - 1 }]) {
+    const altered = structuredClone(full); Object.assign(altered[0].containerObservation, change);
+    assert.throws(() => summarizeContainerStudy(altered));
+  }
+  const reversedRead = [{ ...row(), read_started_monotonic_ns: row().sample_monotonic_ns + 1 }, row(1)];
+  assert.throws(() => summarizeContainerWindow(reversedRead, binding), /read time reversed/);
+  assert.throws(() => summarizeContainerWindow([row(), { ...row(1), read_started_monotonic_ns: row().sample_monotonic_ns }], binding), /nonpositive/);
+});
+
+test("closed failure diagnostic retains rejected counters and excludes command text", () => {
+  const point = { read_started_monotonic_ns: 1, sample_monotonic_ns: 2, observer_cpu_ns: 3, cpu_usage_usec: 4, cgroup_identity_sha256: "f".repeat(64) };
+  const value = { schema_version: 1, status: "error", samples_written: 2, exception_type: "ObservationFailure", frames: [],
+    observation_failure: { reason: "counter_decreased", previous: point, current: { ...point, cpu_usage_usec: 3 } } };
+  assert.equal(validateContainerTerminalDiagnostic(value), value);
+  for (const changed of [{ ...value, command: "secret" }, { ...value, status: "stopped", exception_type: null },
+    { ...value, observation_failure: { ...value.observation_failure, reason: "foreign" } },
+    { ...value, observation_failure: { ...value.observation_failure, current: { ...point, command: "secret" } } }]) {
+    assert.throws(() => validateContainerTerminalDiagnostic(changed));
+  }
 });

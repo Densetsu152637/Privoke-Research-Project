@@ -1,4 +1,4 @@
-"""Prospective v9 whole-cgroup collector; independent of process enumeration."""
+"""Prospective v10 whole-cgroup collector; independent of process enumeration."""
 import argparse
 import hashlib
 import json
@@ -56,33 +56,49 @@ def read_cgroup(root=Path("/sys/fs/cgroup"), membership=Path("/proc/self/cgroup"
     return before, usage, memory
 
 
+class ObservationFailure(RuntimeError):
+    def __init__(self, reason, previous, current):
+        super().__init__(reason)
+        def closed(row):
+            return {key: row[key] for key in ("read_started_monotonic_ns", "sample_monotonic_ns", "observer_cpu_ns", "cpu_usage_usec")} | {
+                "cgroup_identity_sha256": hashlib.sha256(json.dumps(row["cgroup_identity"], sort_keys=True).encode()).hexdigest()}
+        self.observation_failure = {"reason": reason, "previous": closed(previous), "current": closed(current)}
+
+
 def collect(output, source_revision, protocol_sha256, progress, *, read=read_cgroup,
             clock=time.monotonic_ns, cpu_clock=time.process_time_ns, sleep=time.sleep,
             stopped=lambda: False):
     prior = None
     with output.open("x", encoding="utf-8", buffering=1) as stream:
-        while not stopped():
+        while True:
+            final_observation = stopped()
+            read_started = clock()
             identity, usage, memory = read()
             now = clock()
             cpu = cpu_clock()
-            for value in (now, cpu, usage, memory):
+            for value in (read_started, now, cpu, usage, memory):
                 if type(value) is not int or not 0 <= value <= MAX_SAFE_INTEGER:
                     raise ValueError("invalid sampled counter")
-            if prior:
-                if identity != prior["cgroup_identity"]:
-                    raise RuntimeError("cgroup identity changed")
-                gap = now - prior["sample_monotonic_ns"]
-                if not 0 < gap <= 500_000_000:
-                    raise RuntimeError("observed cadence invalid")
-                if usage < prior["cpu_usage_usec"] or cpu < prior["observer_cpu_ns"]:
-                    raise RuntimeError("counter decreased")
-            row = {"schema_version": 1, "sample_monotonic_ns": now,
+            row = {"schema_version": 1, "read_started_monotonic_ns": read_started,
+                   "sample_monotonic_ns": now, "final_observation": final_observation,
                    "observer_cpu_ns": cpu, "requested_interval_ms": 100,
                    "source_revision": source_revision, "protocol_sha256": protocol_sha256,
                    "cgroup_identity": identity, "cpu_usage_usec": usage,
                    "memory_current_bytes": memory}
+            # Retain complete observations before cross-observation guards can reject them.
             stream.write(json.dumps(row, separators=(",", ":")) + "\n")
             progress["samples_written"] += 1
+            if now < read_started:
+                raise ObservationFailure("read_time_reversed", prior or row, row)
+            if prior:
+                if identity != prior["cgroup_identity"]:
+                    raise ObservationFailure("cgroup_identity_changed", prior, row)
+                if now <= prior["sample_monotonic_ns"] or read_started <= prior["sample_monotonic_ns"]:
+                    raise ObservationFailure("nonpositive_sample_time", prior, row)
+                if usage < prior["cpu_usage_usec"] or cpu < prior["observer_cpu_ns"]:
+                    raise ObservationFailure("counter_decreased", prior, row)
+            if final_observation:
+                return
             prior = row
             # Schedule from completion. Never burst to catch up after a delayed read.
             sleep(0.1)
@@ -92,8 +108,11 @@ def terminal(status, count, error=None):
     frames = [] if error is None else [{"file": Path(f.filename).name,
              "function": f.name, "line": f.lineno}
              for f in traceback.extract_tb(error.__traceback__)[-12:]]
-    return {"schema_version": 1, "status": status, "samples_written": count,
-            "exception_type": None if error is None else type(error).__name__, "frames": frames}
+    payload = {"schema_version": 1, "status": status, "samples_written": count,
+               "exception_type": None if error is None else type(error).__name__, "frames": frames}
+    if isinstance(error, ObservationFailure):
+        payload["observation_failure"] = error.observation_failure
+    return payload
 
 
 def main():

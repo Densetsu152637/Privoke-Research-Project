@@ -58,7 +58,7 @@ import {
   summarizeResourceCpuWindows,
 } from "../extension/test/installed-browser-evidence.mjs";
 
-import { summarizeContainerWindow, summarizeContainerStudy, assertStableBoundary, runDirectStartupTransition } from "../extension/test/installed-browser-container-evidence.mjs";
+import { summarizeContainerWindow, summarizeContainerStudy, assertStableBoundary, runDirectStartupTransition, validateContainerTerminalDiagnostic } from "../extension/test/installed-browser-container-evidence.mjs";
 
 import { installBrowserLaunchLog } from "../extension/test/installed-browser-launch-log.mjs";
 
@@ -74,7 +74,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const EXTENSION_ID = "hmlhjfklebbbhpjdjodegbjnbamlkonp";
 const NATIVE_HOST_NAME = "org.privoke.runtime_launcher";
 const PORTS = [8080, 50056, 50057];
-const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v9";
+const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v10";
 const RATE_REPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_REPS, 30);
 const WARMUPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_WARMUPS, 5);
 const COLD_SESSIONS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_SESSIONS, 12);
@@ -601,6 +601,7 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   const times = {};
   const launchWall = Date.now();
   const launchMonotonic = performance.now();
+  currentResourceWindow.browserLaunchRequestedMonotonicNs = Number(process.hrtime.bigint());
   browserContext = await chromium.launchPersistentContext(profilePath, {
     channel: "chromium",
     headless: false,
@@ -1423,7 +1424,10 @@ async function stopSamplerOnce() {
     samplerStartupTransitionClient = null;
   }
   try {
-    if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
+    if (child.exitCode === null && child.signalCode === null) {
+      if (currentResourceWindow) currentResourceWindow.stopRequestedMonotonicNs = Number(process.hrtime.bigint());
+      child.kill("SIGTERM");
+    }
   } catch {
     if (!sampleEndFailure) sampleEndFailure = new Error("resource sampler graceful termination request failed");
   }
@@ -1474,7 +1478,7 @@ async function stopSamplerOnce() {
   let terminalDiagnostic = null;
   let terminalSha256 = null;
   try {
-    const sidecar = await readSamplerTerminalSidecar(finishedDiagnosticPath);
+    const sidecar = await readSamplerTerminalSidecar(finishedDiagnosticPath, { validate: validateContainerTerminalDiagnostic });
     if (!sidecar) throw new Error("sampler terminal sidecar is missing");
     terminalSha256 = sidecar.sha256;
     terminalDiagnostic = sidecar.diagnostic;

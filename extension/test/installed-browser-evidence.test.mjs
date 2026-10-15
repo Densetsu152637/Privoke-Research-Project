@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import test from "node:test";
 import vm from "node:vm";
+import { validateContainerTerminalDiagnostic } from "./installed-browser-container-evidence.mjs";
 import {
   assertNativeParentBinding,
   validateNativeBootstrapEvents,
@@ -358,6 +359,7 @@ test("unknown sampler quiescence blocks actual runner cleanup until an inert clo
   const samplerClosed = new Promise((resolvePromise) => { resolveClose = resolvePromise; });
   const child = { exitCode: null, signalCode: null, kill(signal) { events.push(`signal:${signal}`); } };
   const context = vm.createContext({
+    process, validateContainerTerminalDiagnostic,
     sampler: child,
     samplerClosed,
     samplerStopPromise: null,
@@ -427,6 +429,7 @@ test("late sampler close is reaped before monitored cleanup and preserves timeou
     if (signal === "SIGKILL") queueMicrotask(() => closeResolve({ code: null, signal: "SIGKILL" }));
   } };
   const context = vm.createContext({
+    process, validateContainerTerminalDiagnostic,
     sampler: child, samplerClosed: closed, samplerStopPromise: null,
     samplerPath: "resources/session.jsonl", samplerTerminalPath: "resources/session.jsonl.terminal.json",
     samplerSpawnError: null, samplerCloseState: "running", samplerClosureUnknown: false,

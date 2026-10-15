@@ -66,7 +66,7 @@ function assertUniqueJsonObjectKeys(text) {
   assert.equal(offset, text.length, "sampler sidecar has trailing JSON data");
 }
 
-export async function readSamplerTerminalSidecar(path) {
+export async function readSamplerTerminalSidecar(path, { validate = validateSamplerTerminalDiagnostic } = {}) {
   let handle;
   try {
     const pathInfo = await lstat(path);
@@ -92,7 +92,7 @@ export async function readSamplerTerminalSidecar(path) {
     let value;
     try { value = JSON.parse(text); }
     catch { throw new Error("sampler terminal sidecar is invalid JSON"); }
-    const diagnostic = validateSamplerTerminalDiagnostic(value);
+    const diagnostic = validate(value);
     return { diagnostic, byteLength: raw.length, sha256: createHash("sha256").update(raw).digest("hex") };
   } catch (error) {
     if (error?.code === "ENOENT") return null;

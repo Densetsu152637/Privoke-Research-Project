@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { validateSamplerTerminalDiagnostic } from "./installed-browser-evidence.mjs";
 
 const exact = (value, keys, label) => assert.deepEqual(Object.keys(value).sort(), [...keys].sort(), `${label} schema is closed`);
 const natural = (value) => assert.ok(Number.isSafeInteger(value) && value >= 0, "invalid nonnegative exact counter");
@@ -8,12 +9,15 @@ export function summarizeContainerWindow(rows, { sourceRevision, protocolSha256 
   let prior;
   const gaps = [];
   for (const row of rows) {
-    exact(row, ["schema_version", "sample_monotonic_ns", "observer_cpu_ns", "requested_interval_ms", "source_revision", "protocol_sha256", "cgroup_identity", "cpu_usage_usec", "memory_current_bytes"], "container row");
+    exact(row, ["schema_version", "read_started_monotonic_ns", "final_observation", "sample_monotonic_ns", "observer_cpu_ns", "requested_interval_ms", "source_revision", "protocol_sha256", "cgroup_identity", "cpu_usage_usec", "memory_current_bytes"], "container row");
     assert.equal(row.schema_version, 1);
     assert.equal(row.requested_interval_ms, 100);
     assert.equal(row.source_revision, sourceRevision);
     assert.equal(row.protocol_sha256, protocolSha256);
-    for (const key of ["sample_monotonic_ns", "observer_cpu_ns", "cpu_usage_usec", "memory_current_bytes"]) natural(row[key]);
+    for (const key of ["read_started_monotonic_ns", "sample_monotonic_ns", "observer_cpu_ns", "cpu_usage_usec", "memory_current_bytes"]) natural(row[key]);
+    assert.equal(typeof row.final_observation, "boolean");
+    assert.ok(row.sample_monotonic_ns >= row.read_started_monotonic_ns, "sample read time reversed");
+    if (row.final_observation) assert.equal(row, rows.at(-1), "terminal observation must be last");
     const identity = row.cgroup_identity;
     exact(identity, ["membership_sha256", "mount_sha256", "namespace_inode", "files"], "cgroup identity");
     assert.match(identity.membership_sha256, /^[a-f0-9]{64}$/);
@@ -26,7 +30,7 @@ export function summarizeContainerWindow(rows, { sourceRevision, protocolSha256 
     if (prior) {
       assert.deepEqual(identity, prior.cgroup_identity, "cgroup identity changed");
       const gap = row.sample_monotonic_ns - prior.sample_monotonic_ns;
-      assert.ok(gap > 0 && gap <= 500_000_000, "observed cadence invalid");
+      assert.ok(gap > 0 && row.read_started_monotonic_ns > prior.sample_monotonic_ns, "nonpositive sample time");
       assert.ok(row.cpu_usage_usec >= prior.cpu_usage_usec, "cgroup CPU reset");
       assert.ok(row.observer_cpu_ns >= prior.observer_cpu_ns, "observer CPU reset");
       gaps.push(gap);
@@ -34,8 +38,15 @@ export function summarizeContainerWindow(rows, { sourceRevision, protocolSha256 
     prior = row;
   }
   const first = rows[0], last = rows.at(-1);
+  const sortedGaps = [...gaps].sort((a, b) => a - b);
+  const quantile = (p) => sortedGaps[Math.max(0, Math.ceil(p * sortedGaps.length) - 1)] / 1e6;
   return { sampleCount: rows.length, requestedIntervalMs: 100,
-    firstObservedMonotonicNs: first.sample_monotonic_ns, lastObservedMonotonicNs: last.sample_monotonic_ns,
+    finalObservation: last.final_observation, lastReadStartedMonotonicNs: last.read_started_monotonic_ns,
+    observedGapP50Ms: quantile(0.5), observedGapP95Ms: quantile(0.95), observedGapP99Ms: quantile(0.99),
+    gapsOver200Ms: gaps.filter((gap) => gap > 200e6).length,
+    gapsOver500Ms: gaps.filter((gap) => gap > 500e6).length,
+    gapsOver1000Ms: gaps.filter((gap) => gap > 1000e6).length,
+    firstReadStartedMonotonicNs: first.read_started_monotonic_ns, firstObservedMonotonicNs: first.sample_monotonic_ns, lastObservedMonotonicNs: last.sample_monotonic_ns,
     observedSpanMs: (last.sample_monotonic_ns - first.sample_monotonic_ns) / 1e6,
     minimumObservedGapMs: Math.min(...gaps) / 1e6, maximumObservedGapMs: Math.max(...gaps) / 1e6,
     meanObservedGapMs: gaps.reduce((a, b) => a + b, 0) / gaps.length / 1e6,
@@ -67,8 +78,15 @@ export function summarizeContainerStudy(windows) {
     assert.ok(summary && summary.sampleCount >= 2);
     for (const key of ["observedSpanMs", "minimumObservedGapMs", "maximumObservedGapMs", "meanObservedGapMs", "cpuUsageSeconds", "observerCpuSeconds", "sampledMaximumChargedMemoryBytes"])
       assert.ok(Number.isFinite(summary[key]) && summary[key] >= 0);
-    assert.ok(summary.maximumObservedGapMs <= 500 && summary.minimumObservedGapMs > 0);
-    assert.ok(Number(window.requestedStartMonotonicNs) <= summary.firstObservedMonotonicNs);
+    assert.ok(summary.minimumObservedGapMs > 0);
+    assert.equal(summary.finalObservation, true, "fresh stop-triggered terminal observation required");
+    natural(window.stopRequestedMonotonicNs); natural(window.browserLaunchRequestedMonotonicNs);
+    assert.ok(window.stopRequestedMonotonicNs > window.endBoundary.verifiedAtMonotonicNs);
+    assert.ok(summary.lastReadStartedMonotonicNs >= window.stopRequestedMonotonicNs);
+    assert.ok(summary.firstObservedMonotonicNs <= window.browserLaunchRequestedMonotonicNs, "first observation must precede browser launch");
+    assert.ok(summary.lastReadStartedMonotonicNs > window.endBoundary.verifiedAtMonotonicNs,
+      "terminal resource read must start after last measured request and final boundary");
+    assert.ok(Number(window.requestedStartMonotonicNs) <= summary.firstReadStartedMonotonicNs);
     assert.ok(Number(window.requestedEndMonotonicNs) >= summary.lastObservedMonotonicNs);
     if (prior) {
       assert.deepEqual(summary.cgroupIdentity, prior.cgroupIdentity);
@@ -82,7 +100,7 @@ export function summarizeContainerStudy(windows) {
     observerCpuSecondsWithinObservedWindows: windows.reduce((sum, w) => sum + w.containerObservation.observerCpuSeconds, 0),
     sampledMaximumChargedMemoryBytes: Math.max(...windows.map((w) => w.containerObservation.sampledMaximumChargedMemoryBytes)),
     windows: windows.map((w) => ({ sessionId: w.sessionId, ...w.containerObservation })),
-    interpretation: "Whole cgroup and descendants, including browser, runtime, receiver, display, harness and observer. CPU sums only within-window counter deltas. memory.current is charged memory, not RSS/PSS or memory.peak. No incremental protection overhead or continuous per-process attribution." };
+    interpretation: "Whole cgroup and descendants, including browser, runtime, receiver, display, harness and observer. CPU sums only within-window counter deltas. memory.current is charged memory, not RSS/PSS or memory.peak. All positive sampling gaps retained/reported; sampled maximum may miss spikes. No incremental protection overhead or continuous per-process attribution." };
 }
 
 export function validateDirectBoundary(boundary) {
@@ -163,4 +181,22 @@ export async function runDirectStartupTransition({ getSettings, waitReady, captu
     if (dispatched && !committed) { error.startupLifecycleUnknown = true; error.preventMonitoredTeardown = true; }
     throw error;
   }
+}
+
+
+export function validateContainerTerminalDiagnostic(value) {
+  const { observation_failure: failure, ...base } = value;
+  exact(base, ["schema_version", "status", "samples_written", "exception_type", "frames"], "container terminal");
+  validateSamplerTerminalDiagnostic(base);
+  if (failure !== undefined) {
+    assert.equal(base.status, "error");
+    exact(failure, ["reason", "previous", "current"], "observation failure");
+    assert.ok(["read_time_reversed", "cgroup_identity_changed", "nonpositive_sample_time", "counter_decreased"].includes(failure.reason));
+    for (const row of [failure.previous, failure.current]) {
+      exact(row, ["read_started_monotonic_ns", "sample_monotonic_ns", "observer_cpu_ns", "cpu_usage_usec", "cgroup_identity_sha256"], "failed observation");
+      for (const key of ["read_started_monotonic_ns", "sample_monotonic_ns", "observer_cpu_ns", "cpu_usage_usec"]) natural(row[key]);
+      assert.match(row.cgroup_identity_sha256, /^[0-9a-f]{64}$/);
+    }
+  }
+  return value;
 }
