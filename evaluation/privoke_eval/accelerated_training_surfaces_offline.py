@@ -134,7 +134,7 @@ def _audit(before, after, allowed, scope):
     changed = sorted(n for n in before if not np.array_equal(before[n], after[n]))
     if set(changed) - set(allowed):
         raise ValueError("Fit changed tensors outside declared scope.")
-    encoder_changed = any(not n.startswith("head.") for n in changed)
+    encoder_changed = any(not n.startswith(("head.", "readout.")) for n in changed)
     if scope == "full_encoder" and not encoder_changed:
         raise ValueError("Full encoder fit did not change encoder tensors.")
     return {"allowed_names": sorted(allowed), "changed_names": changed,
@@ -143,10 +143,11 @@ def _audit(before, after, allowed, scope):
 
 def _replace_artifact(base, arrays, cell):
     from privoke_model.artifact import artifact_checksum, validate_artifact
+    from privoke_model.contextual_training import contextual_output_trainable_names
     result = copy.deepcopy(base)
     for name, value in arrays.items():
         result["parameters"][name]["values"] = value.ravel().tolist()
-        result["parameters"][name]["trainable"] = cell["scope"] == "full_encoder" or name.startswith("head.")
+        result["parameters"][name]["trainable"] = cell["scope"] == "full_encoder" or name in contextual_output_trainable_names(result["config"])
     from privoke_model.contextual_training import STRATEGY_KEY, FULL_ENCODER_STRATEGY, OPTIMIZER_KEY, OBJECTIVE_KEY
     metadata = result.setdefault("metadata", {})
     for key in (STRATEGY_KEY, OPTIMIZER_KEY, OBJECTIVE_KEY):

@@ -66,19 +66,20 @@ def contextual_output_trainable_names(config: Mapping) -> frozenset[str]:
 
 
 def contextual_trainable_names(config: Mapping, strategy: str | None = None) -> frozenset[str]:
+    outputs = contextual_output_trainable_names(config)
     if strategy is None:
-        return HEAD_NAMES
+        return outputs
     if strategy not in (LAST_BLOCK_STRATEGY, FULL_ENCODER_STRATEGY):
         raise ModelArtifactError("Unsupported contextual training strategy.")
     layers = config.get("num_layers", 1)
     if type(layers) is not int or not 1 <= layers <= 512:
         raise ModelArtifactError("Contextual encoder layer count is invalid.")
     if strategy == FULL_ENCODER_STRATEGY:
-        return HEAD_NAMES | {"token_embedding", "position_embedding"} | frozenset(
+        return outputs | {"token_embedding", "position_embedding"} | frozenset(
             ("" if layers == 1 else f"layers.{i}.") + name
             for i in range(layers) for name in BLOCK_NAMES)
     prefix = "" if layers == 1 else f"layers.{layers - 1}."
-    return HEAD_NAMES | frozenset(prefix + name for name in BLOCK_NAMES)
+    return outputs | frozenset(prefix + name for name in BLOCK_NAMES)
 
 
 def validate_contextual_training_objective(metadata) -> str | None:
@@ -453,7 +454,9 @@ def validate_contextual_training_contract(config, parameters, shapes, flags, met
     if STRATEGY_KEY in metadata and (type(strategy) is not str or not strategy):
         raise ModelArtifactError("Contextual training strategy must be a nonempty string.")
     expected = contextual_trainable_names(config, strategy)
-    if strategy == FULL_ENCODER_STRATEGY:
+    if not query_readout(config) and QUERY_NAMES.intersection(parameters):
+        raise ModelArtifactError("Legacy Tiny artifacts cannot contain query readouts.")
+    if strategy == FULL_ENCODER_STRATEGY or query_readout(config):
         exact_shapes = full_encoder_tensor_shapes(config)
         if set(shapes) != set(exact_shapes) or any(tuple(shapes[name]) != shape for name, shape in exact_shapes.items()):
             raise ModelArtifactError("Full encoder tensor shapes do not match the configuration.")
@@ -467,7 +470,7 @@ def validate_contextual_training_contract(config, parameters, shapes, flags, met
     if strategy is not None:
         # All model tensors must be supported, even when marked frozen.
         layers = config.get("num_layers", 1)
-        allowed = HEAD_NAMES | {"token_embedding", "position_embedding"} | {
+        allowed = contextual_output_trainable_names(config) | {"token_embedding", "position_embedding"} | {
             ("" if layers == 1 else f"layers.{i}.") + name
             for i in range(layers) for name in BLOCK_NAMES}
         if set(parameters) != allowed:
@@ -486,6 +489,8 @@ def validate_contextual_training_contract(config, parameters, shapes, flags, met
 
 def full_encoder_tensor_shapes(config):
     """Exact Tiny full-training inventory; bound allocations before construction."""
+    if query_readout(config):
+        validate_query_config(config)
     dimensions = [config.get(name) for name in ("vocab_size", "hidden_size", "intermediate_size", "max_tokens")]
     if any(type(value) is not int or not 1 <= value <= 65_536 for value in dimensions):
         raise ModelArtifactError("Full encoder configuration dimensions are invalid.")
@@ -493,6 +498,8 @@ def full_encoder_tensor_shapes(config):
     if context > 512 or vocab < 2:
         raise ModelArtifactError("Full encoder context/vocabulary exceeds its contract.")
     result = {"token_embedding": (vocab, hidden), "position_embedding": (context, hidden)}
+    if query_readout(config):
+        result.update({name: (hidden,) for name in QUERY_NAMES})
     for task in ("sensitivity", "visibility", "category"):
         labels = config.get(task + "_labels")
         if not isinstance(labels, (list, tuple)) or not labels:
@@ -512,11 +519,50 @@ def full_encoder_tensor_shapes(config):
     return result
 
 
+def prepare_task_query_artifact(artifact, *, version, generated_at_unix, source_revision, strategy=None):
+    """Explicit independent zero-query migration; no fitting or installation."""
+    import re
+    from .artifact import validate_artifact
+    validate_artifact(artifact)
+    if artifact["architecture"] != ARCHITECTURE_NAME:
+        raise ModelArtifactError("Task-query migration requires a legacy Tiny artifact.")
+    if "last_update_receipt" in artifact.get("metadata", {}):
+        raise ModelArtifactError("Checkpoint the recovery receipt before migration.")
+    if (not isinstance(version, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+_-]{0,127}", version)
+            or version == artifact["version"] or type(generated_at_unix) is not int or generated_at_unix <= 0
+            or not isinstance(source_revision, str) or not re.fullmatch(r"[0-9a-f]{40}", source_revision)):
+        raise ModelArtifactError("Task-query preparation requires a distinct release, timestamp and exact commit.")
+    # Optimizer/admission evidence binds the old parameter inventory and must be prepared anew.
+    if any(key in artifact.get("metadata", {}) for key in (OPTIMIZER_KEY, BACKTRACKING_KEY)):
+        raise ModelArtifactError("Prepare query readouts before binding an optimizer or admission policy.")
+    result = copy.deepcopy(artifact)
+    result["architecture"] = TASK_QUERY_ARCHITECTURE
+    result["config"]["readout"] = TASK_QUERY_READOUT
+    hidden = result["config"]["hidden_size"]
+    for name in QUERY_NAMES:
+        result["parameters"][name] = {"shape": [hidden], "values": [0.0] * hidden, "trainable": True}
+    names = contextual_trainable_names(result["config"], strategy)
+    for name, tensor in result["parameters"].items():
+        tensor["trainable"] = name in names
+    metadata = result.setdefault("metadata", {})
+    metadata.pop(STRATEGY_KEY, None)
+    if strategy is not None:
+        metadata[STRATEGY_KEY] = strategy
+    result.update(version=version, generated_at_unix=generated_at_unix)
+    metadata.update(release_version=version, training_revision="0", preparation_source_revision=source_revision,
+        preparation_base_version=artifact["version"], preparation_base_checksum=artifact["checksum"],
+        preparation_readout_initialization="zero_float32_v1",
+        preparation_purpose="explicit_task_query_preparation_no_training_or_quality_promotion")
+    result["checksum"] = artifact_checksum({k: v for k, v in result.items() if k != "checksum"})
+    validate_artifact(result)
+    return result
+
+
 def prepare_contextual_training_artifact(artifact, strategy=LAST_BLOCK_STRATEGY, *, objective=None):
     """Return independent opt-in release bytes; do not install or change weights/version."""
     from .artifact import validate_artifact
     validate_artifact(artifact)
-    if artifact["architecture"] != ARCHITECTURE_NAME:
+    if artifact["architecture"] not in (ARCHITECTURE_NAME, TASK_QUERY_ARCHITECTURE):
         raise ModelArtifactError("Contextual adaptation requires a contextual transformer.")
     result = copy.deepcopy(artifact)
     names = contextual_trainable_names(result["config"], strategy)
@@ -589,7 +635,7 @@ def prepare_training_objective_artifact(artifact, objective=None):
     """Set or remove the objective without changing weights, version or trainable flags."""
     from .artifact import validate_artifact
     validate_artifact(artifact)
-    if artifact["architecture"] != ARCHITECTURE_NAME:
+    if artifact["architecture"] not in (ARCHITECTURE_NAME, TASK_QUERY_ARCHITECTURE):
         raise ModelArtifactError("Contextual objectives require a contextual transformer.")
     result = copy.deepcopy(artifact)
     metadata = result.setdefault("metadata", {})
@@ -607,7 +653,7 @@ def prepare_training_optimizer_artifact(artifact, optimizer=None):
     """Set/remove local SGD independently; preserve weights, release and trainability."""
     from .artifact import validate_artifact
     validate_artifact(artifact)
-    if artifact["architecture"] != ARCHITECTURE_NAME:
+    if artifact["architecture"] not in (ARCHITECTURE_NAME, TASK_QUERY_ARCHITECTURE):
         raise ModelArtifactError("Contextual optimizers require a contextual transformer.")
     result = copy.deepcopy(artifact)
     metadata = result.setdefault("metadata", {})

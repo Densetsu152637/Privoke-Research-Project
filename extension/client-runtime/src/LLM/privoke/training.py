@@ -9,11 +9,19 @@ from privoke_model.artifact import float32, updated_parameter_values
 from privoke_model.pretrained_context import PRETRAINED_CONTEXT_MODEL_ID
 from privoke_model.training_data import training_text_key
 from privoke_model.fingerprint import parameter_fingerprint
-from privoke_model.contextual_training import (STRATEGY_KEY, LAST_BLOCK_STRATEGY, FULL_ENCODER_STRATEGY, HEAD_NAMES,
+from privoke_model.contextual_training import (STRATEGY_KEY, LAST_BLOCK_STRATEGY, FULL_ENCODER_STRATEGY, HEAD_NAMES, contextual_output_trainable_names,
+    LEGACY_OBJECTIVE, DIAGNOSTICS_POLICY_KEY, DIAGNOSTICS_KEY, EXECUTED_OBJECTIVE_KEY,
+    validate_training_diagnostics_policy,
+    DIAGNOSTIC_LOSS_COLUMNS, DIAGNOSTIC_ACCURACY_COLUMNS, DIAGNOSTIC_UPDATE_COLUMNS,
+    validate_training_diagnostics,
     OBJECTIVE_KEY, CLASS_BALANCED_OBJECTIVES, CLASS_BALANCED_MEAN_CATEGORY_OBJECTIVE,
-    CLASS_BALANCED_DECISION_MARGIN_OBJECTIVE, MEAN_CATEGORY_OBJECTIVES, validate_decision_margin_config,
+    CLASS_BALANCED_DECISION_MARGIN_OBJECTIVE, CLASS_BALANCED_SUM_CATEGORY_DECISION_MARGIN_OBJECTIVE,
+    DECISION_MARGIN_OBJECTIVES, MEAN_CATEGORY_OBJECTIVES, training_loss_contract, validate_decision_margin_config,
     validate_contextual_training_contract, OPTIMIZER_KEY, LOCAL_SGD_STEPS,
     validate_contextual_training_optimizer)
+from privoke_model.contextual_training import (BACKTRACKING_KEY, BACKTRACKING_POLICY, BACKTRACKING_PREPARATION_KEY,
+    BACKTRACKING_TRACE_KEY, BACKTRACKING_TRIALS_KEY, BACKTRACKING_REJECTION, BACKTRACKING_SCALES,
+    BACKTRACKING_DECREASE, validate_backtracking_policy, validate_backtracking_trace)
 from ...classification import Classification
 from ...detection.preprocessing import normalize_text
 from ...model import ModelConfig, TinyTransformerModel
@@ -37,6 +45,7 @@ class SemanticGradientBatch:
     metrics: dict[str, float]
     metadata: dict[str, str]
     executions: tuple[tuple[str, int], ...] = ()
+    error: str = ""
 
 
 def compute_semantic_gradients(
@@ -46,20 +55,21 @@ def compute_semantic_gradients(
     learning_rate: float,
     max_gradient: float,
     heldout_examples: Sequence[SemanticTrainingExample] = (),
+    admission=None,
 ) -> SemanticGradientBatch:
     """Legacy/head endpoint; full-capable artifacts restrict this path to heads."""
     return _compute_training_gradients(examples, model_id=model_id, learning_rate=learning_rate,
-        max_gradient=max_gradient, heldout_examples=heldout_examples, full_encoder=False)
+        max_gradient=max_gradient, heldout_examples=heldout_examples, full_encoder=False, admission=admission)
 
 
-def compute_underlying_model_gradients(examples, *, model_id, learning_rate, max_gradient, heldout_examples=()):
+def compute_underlying_model_gradients(examples, *, model_id, learning_rate, max_gradient, heldout_examples=(), admission=None, cancel_check=None):
     """Train all Tiny encoder and head tensors on an explicitly capable artifact."""
     return _compute_training_gradients(examples, model_id=model_id, learning_rate=learning_rate,
-        max_gradient=max_gradient, heldout_examples=heldout_examples, full_encoder=True)
+        max_gradient=max_gradient, heldout_examples=heldout_examples, full_encoder=True, admission=admission, cancel_check=cancel_check)
 
 
 def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradient,
-                                heldout_examples, full_encoder):
+                                heldout_examples, full_encoder, admission=None, cancel_check=None):
     """Compute a bounded update with optional transported-state local SGD."""
     if model_id == PRETRAINED_CONTEXT_MODEL_ID:
         raise ValueError("Pretrained contextual online training is unsupported; use offline head fitting.")
@@ -71,6 +81,29 @@ def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradie
         raise ValueError("max_gradient must be finite and greater than zero.")
     if any(not math.isfinite(item.weight) or item.weight <= 0 for item in examples):
         raise ValueError("Training example weights must be finite and positive.")
+    from privoke_model import window_training as window_contract
+    if admission is not None and admission.get("expected_optimizer") == window_contract.POLICY:
+        if not full_encoder:
+            raise ValueError("Frozen window/checkpoint training is FULL-only.")
+        from .window_training import compute
+        return compute(examples, model_id=model_id, learning_rate=learning_rate, max_gradient=max_gradient,
+            heldout_examples=heldout_examples, admission=admission, cancel_check=cancel_check)
+    from privoke_model import sensitive_retention as retention_contract
+    retention_release = None
+    if admission is not None and admission.get("expected_optimizer") in retention_contract.POLICIES:
+        if not full_encoder:
+            raise ValueError("ORIGINAL retention is an opt-in FULL-only route.")
+        from .sensitive_retention_training import load_runtime_release
+        retention_release = load_runtime_release(admission, model_id)
+    if admission is not None and "expected_optimizer" in admission:
+        from privoke_model.full_adam import CONFIG
+        if admission.get("expected_training_scope") != ("full_encoder" if full_encoder else "heads"):
+            raise ValueError("FULL Adam header scope differs from the executed endpoint.")
+        if full_encoder and (learning_rate != CONFIG["eta"] or max_gradient != CONFIG["delta_cap"]):
+            raise ValueError("FULL Adam fixed request config differs before model access.")
+        if full_encoder:
+            from .full_adam_training import preflight
+            preflight()
     # Serving canonicalizes prompt text before the semantic layer. Candidate
     # gradients and their held-out guard must evaluate that same representation.
     examples = tuple(replace(item, text=normalize_text(item.text)) for item in examples)
@@ -82,6 +115,35 @@ def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradie
     streamer = ModelParameterStreamer(model_id=model_id)
     runtime_model = GLOBAL_STREAMED_MODEL_CACHE.model_for_training(streamer)
     snapshot = runtime_model.snapshot
+    from privoke_model.full_adam import validate_admission, POLICY as ADAM_POLICY, CONFIG as ADAM_CONFIG
+    adam_artifact = validate_admission(admission, snapshot.metadata)
+    if retention_release is not None:
+        retention_contract.validate_admission(admission, snapshot.metadata)
+        retention_contract.validate_release(retention_release, model_id=model_id,
+            expected_sha256=snapshot.metadata[retention_contract.MANIFEST_KEY])
+        from .sensitive_retention_training import validate_current_config
+        validate_current_config(snapshot.metadata.get("model_config"), retention_release.manifest["teacher"]["config"])
+        if len(examples) != 64 or len(heldout_examples) != 16:
+            raise ValueError("Retention CURRENT config/main64/guard16 differs from fixed reference contract.")
+    if adam_artifact and full_encoder and (learning_rate != ADAM_CONFIG["eta"] or max_gradient != ADAM_CONFIG["delta_cap"]):
+        raise ValueError("FULL Adam request must match its fixed eta and cumulative delta cap.")
+    preparation = validate_backtracking_policy(snapshot.metadata)
+    backtracking = bool(full_encoder and preparation is not None)
+    if admission is not None:
+        if (admission.get("expected_objective") != snapshot.metadata.get(OBJECTIVE_KEY, LEGACY_OBJECTIVE)
+                or admission.get("expected_diagnostics_policy") != snapshot.metadata.get(DIAGNOSTICS_POLICY_KEY)):
+            raise ValueError("Actual artifact differs from pre-gradient objective admission.")
+        if backtracking or "expected_backtracking_policy" in admission:
+            if (not backtracking or admission.get("expected_backtracking_policy") != BACKTRACKING_POLICY
+                    or admission.get("expected_backtracking_preparation_sha256") != preparation):
+                raise ValueError("Actual artifact differs from pre-gradient backtracking admission.")
+    elif backtracking:
+        raise ValueError("FULL backtracking requires explicit matching pre-gradient admission.")
+    elif snapshot.metadata.get(OBJECTIVE_KEY) == CLASS_BALANCED_SUM_CATEGORY_DECISION_MARGIN_OBJECTIVE:
+        raise ValueError("Summed-category decision-margin training requires explicit objective admission.")
+    if (snapshot.metadata.get(OBJECTIVE_KEY) == CLASS_BALANCED_SUM_CATEGORY_DECISION_MARGIN_OBJECTIVE
+            and any(item.target is None for item in examples)):
+        raise ValueError("Summed-category decision-margin training requires explicit targets.")
     trainable_names = {
         name
         for name in snapshot.metadata.get("trainable_parameters", "").split(",")
@@ -112,7 +174,7 @@ def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradie
         if strategy != FULL_ENCODER_STRATEGY:
             raise ValueError("Underlying training requires the full Tiny encoder artifact strategy.")
     elif strategy == FULL_ENCODER_STRATEGY:
-        trainable_names = set(HEAD_NAMES)
+        trainable_names = set(contextual_output_trainable_names(runtime_model.model.config.__dict__))
         strategy = None
     local_steps = validate_contextual_training_optimizer(snapshot.metadata)
     if local_steps is not None and any(item.target is None for item in examples):
@@ -125,13 +187,25 @@ def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradie
         raise ValueError("The model trainable parameter manifest is inconsistent.")
 
     objective = snapshot.metadata.get(OBJECTIVE_KEY)
+    diagnostics_policy = validate_training_diagnostics_policy(snapshot.metadata)
+    if diagnostics_policy and any(item.target is None for item in examples):
+        raise ValueError("TRAIN diagnostics require explicit contextual targets for every row.")
+    if diagnostics_policy:
+        if local_steps is not None or objective in MEAN_CATEGORY_OBJECTIVES:
+            raise ValueError("TRAIN process diagnostics require one legacy update with summed category BCE.")
+        if {item.target.is_sensitive() for item in examples} != {False, True}:
+            raise ValueError("TRAIN diagnostics require both clean and sensitive targets.")
     mean_category = objective in MEAN_CATEGORY_OBJECTIVES
-    decision_margin = objective == CLASS_BALANCED_DECISION_MARGIN_OBJECTIVE
+    decision_margin = objective in DECISION_MARGIN_OBJECTIVES
     category_count = len(runtime_model.model.config.category_labels)
     objective_metrics = {}
     weight_audit = {}
     if objective in CLASS_BALANCED_OBJECTIVES:
         examples, weight_audit = _class_balanced_examples(examples)
+
+    if adam_artifact and full_encoder:
+        return _compute_full_adam_batch(runtime_model, examples, heldout_examples, weight_audit, cancel_check,
+                                       retention_release=retention_release)
 
     gradients = {
         name: [0.0 for _ in snapshot.parameters[name]]
@@ -140,6 +214,8 @@ def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradie
     predictions = runtime_model.model.predict_many(
         tuple(example.text for example in examples)
     )
+    base_training_losses = (_local_training_losses(runtime_model.model, examples, objective, predictions=predictions)
+                            if backtracking else None)
     # Normalize the new objective before multiplication: a valid finite W can
     # still overflow intermediate loss * weight or gradient * weight sums.
     total_weight = math.fsum(item.weight for item in examples) if mean_category else 0.0
@@ -167,7 +243,7 @@ def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradie
             if name not in gradients:
                 continue
             for index, value in enumerate(values):
-                if mean_category and name.startswith("head.category."):
+                if mean_category and (name.startswith("head.category.") or name == "readout.category.query"):
                     value /= category_count
                 if auxiliary is not None:
                     value += auxiliary[name][index]
@@ -198,7 +274,7 @@ def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradie
             raise ValueError("Contextual supervised objective must remain finite.") from exc
     if strategy in (LAST_BLOCK_STRATEGY, FULL_ENCODER_STRATEGY):
         from .supervised_training import supervised_last_block_deltas
-        if mean_category:
+        if mean_category or objective == CLASS_BALANCED_SUM_CATEGORY_DECISION_MARGIN_OBJECTIVE:
             gradients, supervised_loss = supervised_last_block_deltas(
                 runtime_model.model, examples, trainable_names, objective=objective,
                 diagnostics=objective_metrics)
@@ -216,7 +292,17 @@ def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradie
                        for values in gradients.values() for value in values)):
             raise ValueError("Contextual normalized gradients, task losses and objective must remain finite.")
     optimizer_trace = None
-    if local_steps is None:
+    backtracking_result = None
+    no_improvement = False
+    effective_rate = learning_rate
+    if backtracking:
+        backtracking_result = _backtracking_trials(runtime_model, examples, gradients, gradient_denominator,
+            learning_rate, max_gradient, objective, base_training_losses)
+        scaled = backtracking_result["scaled"]
+        effective_rate = backtracking_result["effective_rate"]
+        no_improvement = backtracking_result["selected"] is None
+        transport_cap = _inward_float32_bound(max_gradient)
+    elif local_steps is None:
         # Full-capable scopes obey the original double request bound after
         # float32 transport; rounding the real bound outwards would exceed it.
         transport_cap = _inward_float32_bound(max_gradient) if artifact_strategy == FULL_ENCODER_STRATEGY else max_gradient
@@ -236,7 +322,7 @@ def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradie
             runtime_model.model, snapshot.parameters, snapshot.shapes, examples,
             trainable_names, strategy, objective, snapshot.metadata[OPTIMIZER_KEY],
             learning_rate, max_gradient, gradients, gradient_denominator)
-    heldout_metrics = _heldout_metrics(
+    heldout_metrics = {} if no_improvement else _heldout_metrics(
         runtime_model,
         snapshot.parameters,
         heldout_examples,
@@ -246,10 +332,11 @@ def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradie
         if name in scaled else tuple(float32(value) for value in values)
         for name, values in snapshot.parameters.items()
     }
-    if full_encoder and not any(candidate_parameters[name] != tuple(float32(value) for value in snapshot.parameters[name])
-                                for name in trainable_names - HEAD_NAMES):
+    if full_encoder and not no_improvement and not any(candidate_parameters[name] != tuple(float32(value) for value in snapshot.parameters[name])
+                                for name in trainable_names - contextual_output_trainable_names(runtime_model.model.config.__dict__)):
         raise ValueError("Underlying training produced no transported encoder weight update.")
-    heldout_metrics.update(
+    if not no_improvement:
+        heldout_metrics.update(
         {
             f"candidate_{key}": value
             for key, value in _heldout_metrics(
@@ -260,6 +347,16 @@ def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradie
             ).items()
         }
     )
+    diagnostics = None
+    if diagnostics_policy and not no_improvement:
+        if local_steps is not None or objective in MEAN_CATEGORY_OBJECTIVES:
+            raise ValueError("TRAIN process diagnostics require one legacy update with summed category BCE.")
+        raw = [(value / gradient_denominator) * effective_rate
+               for values in gradients.values() for value in values]
+        diagnostics = _training_diagnostics(runtime_model, examples, candidate_parameters,
+            objective, raw, scaled, transport_cap,
+            predictions=(predictions, backtracking_result["predictions"]) if backtracking else None)
+    inventory = gradients if backtracking else scaled
     return SemanticGradientBatch(
         model_id=snapshot.model_id,
         base_version=snapshot.version,
@@ -274,21 +371,36 @@ def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradie
             **weight_audit,
             **objective_metrics,
             **({"supervised_objective_loss": supervised_loss} if supervised_loss is not None else {}),
+            **({"gradient_fits": 1.0, "backtracking_trials": float(len(backtracking_result["trials"])),
+                "backtracking_semantic_examples": float(sum(row[8] for row in backtracking_result["trials"])),
+                "backtracking_forward_attempts": float(sum(row[10] > 0 for row in backtracking_result["trials"])),
+                "backtracking_attempted_semantic_examples": float(sum(row[10] for row in backtracking_result["trials"]))}
+               if backtracking else {}),
         },
         metadata={
+            **({OPTIMIZER_KEY: ADAM_POLICY, "executed_contextual_training_optimizer": "dormant_head_v1",
+                "full_projected_adam_config_v1": snapshot.metadata["full_projected_adam_config_v1"]}
+               if adam_artifact else {}),
+            EXECUTED_OBJECTIVE_KEY: objective or LEGACY_OBJECTIVE,
+            **({DIAGNOSTICS_POLICY_KEY: diagnostics_policy} if diagnostics_policy else {}),
+            **({DIAGNOSTICS_KEY: diagnostics} if diagnostics is not None else {}),
+            **({BACKTRACKING_KEY: BACKTRACKING_POLICY, BACKTRACKING_PREPARATION_KEY: preparation,
+                BACKTRACKING_TRACE_KEY: backtracking_result["trace"], BACKTRACKING_TRIALS_KEY: backtracking_result["trial_json"],
+                **({"effective_learning_rate": str(effective_rate)} if not no_improvement else {})} if backtracking else {}),
             **({"contextual_optimizer_trace": optimizer_trace} if optimizer_trace is not None else {}),
             "strategy": strategy or "transformer_classification_head_finetune",
             "artifact_training_strategy": artifact_strategy or "transformer_classification_head_finetune",
             "underlying_training_available": "true" if artifact_strategy == FULL_ENCODER_STRATEGY else "false",
             "training_scope": "full_encoder" if full_encoder else ("last_block" if strategy == LAST_BLOCK_STRATEGY else "heads"),
-            "trained_parameter_names": json.dumps(sorted(scaled), separators=(",", ":")),
+            "trained_parameter_names": json.dumps(sorted(inventory), separators=(",", ":")),
             "trained_parameter_inventory_fingerprint": parameter_fingerprint(
-                {name: () for name in scaled}, {name: snapshot.shapes[name] for name in scaled}),
+                {name: () for name in inventory}, {name: snapshot.shapes[name] for name in inventory}),
             "artifact_checksum": snapshot.metadata.get("artifact_checksum", ""),
-            "model_config": json.dumps(runtime_model.model.config.__dict__,
+            "architecture": snapshot.metadata.get("architecture", "privoke_tiny_transformer_v1"),
+            "model_config": json.dumps(runtime_model.model.config.to_mapping(),
                                        sort_keys=True, separators=(",", ":"), allow_nan=False),
             "base_parameter_fingerprint": _parameter_fingerprint(snapshot.parameters),
-            "updated_parameter_fingerprint": _parameter_fingerprint(candidate_parameters),
+            **({"updated_parameter_fingerprint": _parameter_fingerprint(candidate_parameters)} if not no_improvement else {}),
             "learning_rate": str(learning_rate),
             "max_gradient": str(max_gradient),
             "model_cache_key": snapshot.cache_key,
@@ -303,8 +415,188 @@ def _compute_training_gradients(examples, *, model_id, learning_rate, max_gradie
                 "supervised_objective_loss": str(supervised_loss)} if mean_category else {}),
         },
         executions=(("training", len(examples)),) +
-            ((("base_heldout", len(heldout_examples)), ("candidate_heldout", len(heldout_examples))) if heldout_examples else ()),
+            ((("base_heldout", len(heldout_examples)), ("candidate_heldout", len(heldout_examples))) if heldout_examples and not no_improvement else ()),
+        error=BACKTRACKING_REJECTION if no_improvement else "",
     )
+
+
+def _compute_full_adam_batch(runtime_model, examples, heldout_examples, weight_audit, cancel_check, *, retention_release=None):
+    from .full_adam_training import fit, preflight, observe_numpy, FullAdamFailure
+    from privoke_model.full_adam import POLICY, CONFIG, OBJECTIVE, TRACE_KEY, canonical
+    preflight()
+    snapshot = runtime_model.snapshot
+    from privoke_model import sensitive_retention as retention_contract
+    retention_policy = snapshot.metadata.get(OPTIMIZER_KEY) if retention_release is not None else None
+    auxiliary = ()
+    retention_fit = None
+    if retention_release is not None:
+        from .sensitive_retention_training import auxiliary_examples
+        auxiliary = auxiliary_examples(retention_release)
+        if retention_policy == retention_contract.HINGE_POLICY:
+            retention_fit = (auxiliary, tuple(r["margin"] for _, r in retention_release.eligible),
+                             retention_release.manifest["teacher"]["parameter_fingerprint"])
+    work = {"schema": 1, "device": "cpu", "backend": "numpy", "phases": {},
+            "partial_counts_are_observed_lower_bounds": True, "internal_completion_work_unknown": False,
+            "capability_backwards": 1, "objective_attempted": 0, "objective_completed": 0}
+    audit = {}
+    base_safety = None
+    try:
+        # Untouched original BASE, explicitly isolated from serving device/tensors.
+        base_model = observe_numpy(TinyTransformerModel(runtime_model.model.config, snapshot.parameters,
+            snapshot.shapes, device="cpu", reject_overlength=runtime_model.model.reject_overlength), work, "base_train")
+        base_predictions = base_model.predict_many(tuple(item.text for item in examples))
+        base_exact = sum(_classification_from_prediction(p).pack() == e.target.pack()
+                         for e, p in zip(examples, base_predictions)) / len(examples)
+        base_safety = None
+        if retention_release is not None:
+            from .sensitive_retention_training import safety_rows
+            observe_numpy(base_model, work, "base_original_train_safety")
+            base_safety = safety_rows(retention_release, base_model.predict_many(tuple(item.text for item in auxiliary)), base_model)
+        scaled, candidate, model, audit = fit(base_model, snapshot.parameters, snapshot.shapes, examples,
+            cancel_check=cancel_check, **({"retention": retention_fit} if retention_fit is not None else {}))
+        if not any(candidate[n] != tuple(float32(v) for v in snapshot.parameters[n]) for n in set(candidate) - contextual_output_trainable_names(runtime_model.model.config.__dict__)):
+            raise ValueError("FULL Adam produced no transported encoder change.")
+        observe_numpy(model, work, "candidate_train")
+        final_predictions = model.predict_many(tuple(item.text for item in examples))
+        candidate_exact = sum(_classification_from_prediction(p).pack() == e.target.pack()
+                              for e, p in zip(examples, final_predictions)) / len(examples)
+        work["objective_attempted"] += 1
+        base_loss = _local_training_losses(base_model, examples, OBJECTIVE, predictions=base_predictions)[-1]
+        work["objective_completed"] += 1
+        work["objective_attempted"] += 1
+        final_loss = _local_training_losses(model, examples, OBJECTIVE, predictions=final_predictions)[-1]
+        work["objective_completed"] += 1
+        guard = _heldout_metrics(runtime_model, snapshot.parameters, heldout_examples, device="cpu", numpy_work=work)
+        guard.update({"candidate_"+k: v for k,v in _heldout_metrics(runtime_model, candidate, heldout_examples,
+                     reference_parameters=snapshot.parameters, device="cpu", numpy_work=work).items()})
+        if retention_release is not None:
+            if cancel_check is not None and not cancel_check():
+                raise ValueError("ORIGINAL retention cancelled before final safety execution.")
+            from .sensitive_retention_training import safety_rows, finish_audit
+            observe_numpy(model, work, "original_train_safety")
+            safety = safety_rows(retention_release, model.predict_many(tuple(item.text for item in auxiliary)), model)
+            finish_audit(audit, retention_release, retention_policy, base_safety, safety)
+    except Exception as exc:
+        # A raising opaque batch/loss may have done internal work beyond observed boundaries.
+        work["internal_completion_work_unknown"] = True
+        if isinstance(exc, FullAdamFailure):
+            failure = exc
+        else:
+            trace = json.loads(audit[TRACE_KEY]) if TRACE_KEY in audit else {
+                "schema": 1, "policy": POLICY, "config": CONFIG,
+                "base": parameter_fingerprint(snapshot.parameters, snapshot.shapes), "final": None,
+                "delta": None, "steps": [], "counts": {"directions_attempted": 0, "directions_completed": 0},
+                "train": len(examples)}
+            failure = FullAdamFailure(str(exc), trace)
+            failure.training_metadata.update(audit)
+            failure.training_metadata["full_adam_status"] = "postfit_error" if audit else "prefit_error"
+        failure.training_metadata["full_adam_numpy_work_v1"] = canonical(work)
+        if retention_release is not None:
+            failure.training_metadata.update({OPTIMIZER_KEY: retention_policy,
+                "executed_contextual_training_optimizer": retention_policy,
+                retention_contract.MANIFEST_KEY: retention_release.sha256,
+                "original_train_retention_partial_trace_v1": canonical({
+                    "policy": retention_policy, "manifest_sha256": retention_release.sha256,
+                    "work": work, "base_safety": base_safety,
+                    "auxiliary": failure.training_metadata.get("original_train_retention_partial_work_v1"),
+                    "completed_audit": audit})})
+        if failure is exc:
+            raise
+        raise failure from exc
+    metadata = {OPTIMIZER_KEY: POLICY, EXECUTED_OBJECTIVE_KEY: OBJECTIVE, **audit,
+        "strategy": FULL_ENCODER_STRATEGY, "artifact_training_strategy": FULL_ENCODER_STRATEGY,
+        "underlying_training_available": "true", "training_scope": "full_encoder",
+        "trained_parameter_names": json.dumps(sorted(scaled), separators=(",", ":")),
+        "trained_parameter_inventory_fingerprint": parameter_fingerprint({n: () for n in scaled}, snapshot.shapes),
+        "artifact_checksum": snapshot.metadata["artifact_checksum"],
+        "architecture": snapshot.metadata.get("architecture", "privoke_tiny_transformer_v1"),
+            "model_config": json.dumps(runtime_model.model.config.to_mapping(), sort_keys=True, separators=(",", ":"), allow_nan=False),
+        "base_parameter_fingerprint": parameter_fingerprint(snapshot.parameters, snapshot.shapes),
+        "updated_parameter_fingerprint": parameter_fingerprint(candidate, snapshot.shapes),
+        "learning_rate": str(CONFIG["eta"]), "max_gradient": str(CONFIG["delta_cap"]),
+        "model_cache_key": snapshot.cache_key, "text_preprocessing": "canonical_detector_normalize_text",
+        "full_adam_numpy_work_v1": canonical(work)}
+    if retention_release is not None:
+        metadata[EXECUTED_OBJECTIVE_KEY] = retention_contract.OBJECTIVES[retention_policy]
+        metadata["contextual_training_objective"] = retention_contract.OBJECTIVES[retention_policy]
+        metadata["contextual_training_strategy"] = FULL_ENCODER_STRATEGY
+    return SemanticGradientBatch(snapshot.model_id, snapshot.version, scaled, snapshot.shapes,
+        {"examples": float(len(examples)), "exact_match_rate": base_exact,
+         "candidate_train_exact_match_rate": candidate_exact, "base_train_objective_loss": base_loss,
+         "candidate_train_objective_loss": final_loss, "total_weight": math.fsum(e.weight for e in examples),
+         **guard, **weight_audit}, metadata,
+        (("training", len(examples)), ("base_heldout", len(heldout_examples)), ("candidate_heldout", len(heldout_examples)))
+        + (tuple(retention_contract.execution_phases(metadata)) if retention_release is not None else ()))
+
+
+def _backtracking_trials(runtime_model, examples, gradients, denominator, rate, bound, objective, baseline):
+    """One immutable original direction; each trial reconstructs before clipping."""
+    from privoke_model.artifact import ModelArtifactError
+    snapshot = runtime_model.snapshot
+    cap = _inward_float32_bound(bound)
+    normalized = [v / denominator for values in gradients.values() for v in values]
+    if any(not math.isfinite(v) for v in normalized):
+        raise ValueError("Backtracking original direction must remain finite.")
+    schema, columns = training_loss_contract(objective or LEGACY_OBJECTIVE)
+    header = {"schema": schema, "policy": BACKTRACKING_POLICY, "objective": objective or LEGACY_OBJECTIVE,
+        "base": [_parameter_fingerprint(snapshot.parameters), baseline],
+        "raw": [parameter_fingerprint(gradients, snapshot.shapes),
+                parameter_fingerprint({n: () for n in gradients}, {n: snapshot.shapes[n] for n in gradients}),
+                len(normalized), math.hypot(*normalized), max(map(abs, normalized))],
+        "selected": None, "gradient_fits": 1}
+    if schema == 2:
+        header["loss_columns"] = columns
+    trials = []; selected_delta = {}; selected_predictions = None; selected_rate = None
+    for index, scale in enumerate(BACKTRACKING_SCALES):
+        actual_rate = rate * scale
+        row = [actual_rate, None, None, None, None, None, None, "invalid_numeric", 0, False, 0]
+        raw = [(value / denominator) * actual_rate for values in gradients.values() for value in values]
+        if all(math.isfinite(value) for value in raw):
+            delta = {name: tuple(float32(_clamp((v / denominator) * actual_rate, -cap, cap)) for v in values)
+                     for name, values in gradients.items()}
+            row[2:6] = [sum(abs(v) > cap for v in raw), max(map(abs, raw)),
+                        max(abs(v) for values in delta.values() for v in values), parameter_fingerprint(delta, snapshot.shapes)]
+            try:
+                candidate = _transport_local_parameters(snapshot.parameters, delta)
+                row[6] = _parameter_fingerprint(candidate)
+                row[9] = any(candidate[n] != snapshot.parameters[n] for n in gradients.keys() - contextual_output_trainable_names(runtime_model.model.config.__dict__))
+                model = TinyTransformerModel(runtime_model.model.config, candidate, snapshot.shapes,
+                    device=runtime_model.model.compute_device, reject_overlength=runtime_model.model.reject_overlength)
+                row[10] = len(examples)
+                predictions = model.predict_many(tuple(item.text for item in examples))
+                if len(predictions) != len(examples):
+                    raise ValueError("Backtracking semantic forward returned incomplete rows.")
+                row[8] = len(examples)
+                losses = _local_training_losses(model, examples, objective, predictions=predictions)
+            except (OverflowError, FloatingPointError):
+                losses = None
+            except ModelArtifactError as exc:
+                if str(exc) not in ("Parameter is outside finite float32 range.", "Parameter must be finite."):
+                    raise
+                losses = None
+            except ValueError as exc:
+                if str(exc) not in ("Contextual supervised task losses must be finite and nonnegative.",
+                                    "Local SGD task losses must remain finite and nonnegative."):
+                    raise
+                losses = None
+            if losses is not None:
+                row[1], row[7] = losses, "ok"
+                if baseline[-1] - losses[-1] > BACKTRACKING_DECREASE and row[9]:
+                    header["selected"] = index
+                    selected_delta, selected_predictions, selected_rate = delta, predictions, actual_rate
+        trials.append(row)
+        if header["selected"] is not None:
+            break
+    trace = json.dumps(header, separators=(",", ":"), allow_nan=False)
+    trial_json = json.dumps(trials, separators=(",", ":"), allow_nan=False)
+    metadata = {BACKTRACKING_TRACE_KEY: trace, BACKTRACKING_TRIALS_KEY: trial_json,
+        EXECUTED_OBJECTIVE_KEY: objective or LEGACY_OBJECTIVE, "base_parameter_fingerprint": header["base"][0],
+        "trained_parameter_inventory_fingerprint": header["raw"][1]}
+    if selected_rate is not None:
+        metadata.update(effective_learning_rate=str(selected_rate), updated_parameter_fingerprint=trials[-1][6])
+    validate_backtracking_trace(metadata, examples=len(examples), requested_rate=rate, rejected=selected_rate is None)
+    return {"scaled": selected_delta, "predictions": selected_predictions, "effective_rate": selected_rate,
+            "selected": header["selected"], "trace": trace, "trials": trials, "trial_json": trial_json}
 
 
 def _inward_float32_bound(bound):
@@ -324,7 +616,7 @@ def _transport_local_parameters(base, deltas):
             for name, values in base.items()}
 
 
-def _local_training_losses(model, examples, objective):
+def _local_training_losses(model, examples, objective, *, predictions=None):
     """Evaluate true weighted task losses at this exact transported runtime state."""
     try:
         total = math.fsum(item.weight for item in examples)
@@ -334,10 +626,11 @@ def _local_training_losses(model, examples, objective):
         raise ValueError("Local SGD total weight must remain finite and positive.")
     losses = {"sensitivity": 0.0, "visibility": 0.0, "category": 0.0}
     count = len(model.config.category_labels)
-    decision_margin = objective == CLASS_BALANCED_DECISION_MARGIN_OBJECTIVE
+    decision_margin = objective in DECISION_MARGIN_OBJECTIVES
     if decision_margin:
         losses["decision_margin"] = 0.0
-    predictions = model.predict_many(tuple(item.text for item in examples))
+    if predictions is None:
+        predictions = model.predict_many(tuple(item.text for item in examples))
     for item, prediction in zip(examples, predictions):
         values = _mean_category_loss_components(model, prediction, item.target)
         if objective not in MEAN_CATEGORY_OBJECTIVES:
@@ -358,6 +651,47 @@ def _local_training_losses(model, examples, objective):
     return result
 
 
+def _training_diagnostics(runtime_model, examples, candidate_parameters, objective, raw, scaled, cap, *, predictions=None):
+    """Passive scoring of immutable base and actual transported candidate TRAIN states."""
+    clean = sum(not item.target.is_sensitive() for item in examples)
+    sensitive = len(examples) - clean
+    if not clean or not sensitive:
+        raise ValueError("TRAIN diagnostics require both clean and sensitive targets.")
+    if any(not math.isfinite(value) for value in raw):
+        raise ValueError("TRAIN diagnostic raw deltas must remain finite.")
+    models = (runtime_model.model, TinyTransformerModel(runtime_model.model.config, candidate_parameters,
+        runtime_model.snapshot.shapes, device=runtime_model.model.compute_device,
+        reject_overlength=runtime_model.model.reject_overlength))
+    losses, accuracy = [], []
+    for index, model in enumerate(models):
+        state_predictions = predictions[index] if predictions is not None else None
+        losses.append(_local_training_losses(model, examples, objective, predictions=state_predictions))
+        state_predictions = state_predictions if state_predictions is not None else model.predict_many(tuple(item.text for item in examples))
+        hits = [0] * 6
+        for item, prediction in zip(examples, state_predictions):
+            target, predicted = item.target, _classification_from_prediction(prediction)
+            hits[0] += target.pack() == predicted.pack()
+            hits[1] += target.sensitivity() == predicted.sensitivity()
+            hits[2] += target.visibility() == predicted.visibility()
+            hits[3] += set(target.categories()) == set(predicted.categories())
+            hits[4] += not target.is_sensitive() and not predicted.is_sensitive()
+            hits[5] += target.is_sensitive() and predicted.is_sensitive()
+        accuracy.append([value / denominator for value, denominator in zip(hits, [len(examples)] * 4 + [clean, sensitive])])
+    fingerprints = [_parameter_fingerprint(runtime_model.snapshot.parameters), _parameter_fingerprint(candidate_parameters)]
+    schema, columns = training_loss_contract(objective or LEGACY_OBJECTIVE)
+    record = {"schema": schema, "objective": objective or LEGACY_OBJECTIVE, "fingerprints": fingerprints,
+        "phases": [["base_training", "semantic", "ok", len(examples)], ["candidate_training", "semantic", "ok", len(examples)]],
+        "counts": [len(examples), clean, sensitive], "loss_columns": columns, "loss": losses,
+        "accuracy_columns": DIAGNOSTIC_ACCURACY_COLUMNS, "accuracy": accuracy,
+        "update_columns": DIAGNOSTIC_UPDATE_COLUMNS,
+        "update": [len(raw), sum(abs(value) > cap for value in raw), max(map(abs, raw)),
+                   max(abs(value) for values in scaled.values() for value in values)]}
+    raw_record = json.dumps(record, separators=(",", ":"), allow_nan=False)
+    validate_training_diagnostics(raw_record, objective=record["objective"], examples=len(examples),
+        base_fingerprint=fingerprints[0], candidate_fingerprint=fingerprints[1])
+    return raw_record
+
+
 def _local_sgd_direction(model, examples, names, strategy, objective):
     """Recompute the current direction, preserving each objective's operation order."""
     if strategy in (LAST_BLOCK_STRATEGY, FULL_ENCODER_STRATEGY):
@@ -373,13 +707,13 @@ def _local_sgd_direction(model, examples, names, strategy, objective):
             sensitivity=item.target.sensitivity().name, visibility=item.target.visibility().name,
             categories=[category.name for category in item.target.categories()])
         auxiliary = (_decision_margin_loss_and_head_deltas(model, prediction, item.target)[1]
-                     if objective == CLASS_BALANCED_DECISION_MARGIN_OBJECTIVE else None)
+                     if objective in DECISION_MARGIN_OBJECTIVES else None)
         weight = item.weight / total if mean_category else item.weight
         for name, direction in values.items():
             if name not in gradients:
                 continue
             for index, value in enumerate(direction):
-                if mean_category and name.startswith("head.category."):
+                if mean_category and (name.startswith("head.category.") or name == "readout.category.query"):
                     value /= count
                 if auxiliary is not None:
                     value += auxiliary[name][index]
@@ -503,9 +837,7 @@ def _mean_category_loss_components(model, prediction, target):
     """True CE/BCE task losses from runtime logits; distance loss stays separate."""
     import numpy as np
 
-    pooled = np.asarray(prediction.pooled, dtype=np.float32)
-    logits = {task: pooled @ model.parameters[f"head.{task}.weight"]
-              + model.parameters[f"head.{task}.bias"]
+    logits = {task: model.prediction_logits(prediction, task)
               for task in ("sensitivity", "visibility", "category")}
 
     def cross_entropy(values, index):
@@ -539,9 +871,7 @@ def _decision_margin_loss_and_head_deltas(model, prediction, target):
     validate_decision_margin_config(model.config.__dict__)
     if target is None:
         raise ValueError("Decision-margin training requires explicit contextual targets.")
-    pooled = np.asarray(prediction.pooled, dtype=np.float32)
-    logits = {head: pooled @ model.parameters[f"head.{head}.weight"]
-              + model.parameters[f"head.{head}.bias"] for head in ("sensitivity", "category")}
+    logits = {head: model.prediction_logits(prediction, head) for head in ("sensitivity", "category")}
     if any(not np.isfinite(value).all() for value in logits.values()):
         raise ValueError("Decision-margin logits must remain finite.")
     s0 = model.config.sensitivity_labels.index("S0")
@@ -570,10 +900,7 @@ def _decision_margin_loss_and_head_deltas(model, prediction, target):
         errors["sensitivity"][s0] = -negative_error
     else:
         errors["category"][winner - len(alternatives)] = negative_error
-    return loss, {name: tuple(float(value) for value in values.ravel())
-                  for head, error in errors.items()
-                  for name, values in ((f"head.{head}.weight", np.outer(pooled, error)),
-                                       (f"head.{head}.bias", error))}
+    return loss, model.output_deltas_from_errors(prediction, errors)
 
 
 def _classification_from_prediction(prediction) -> Classification:
@@ -589,7 +916,7 @@ def _classification_from_prediction(prediction) -> Classification:
     )
 
 
-def _heldout_metrics(runtime_model, parameters, examples, *, reference_parameters=None):
+def _heldout_metrics(runtime_model, parameters, examples, *, reference_parameters=None, device=None, numpy_work=None):
     if not examples:
         return {}
     model = TinyTransformerModel(
@@ -597,7 +924,11 @@ def _heldout_metrics(runtime_model, parameters, examples, *, reference_parameter
         parameters,
         runtime_model.snapshot.shapes,
         reject_overlength=runtime_model.model.reject_overlength,
+        device=device,
     )
+    if numpy_work is not None:
+        from .full_adam_training import observe_numpy
+        observe_numpy(model, numpy_work, "candidate_heldout" if reference_parameters is not None else "base_heldout")
     predictions = model.predict_many(tuple(example.text for example in examples))
     exact = 0
     sensitive = 0
@@ -626,12 +957,16 @@ def _heldout_metrics(runtime_model, parameters, examples, *, reference_parameter
         "heldout_clean_specificity": clean_correct / clean if clean else 1.0,
     }
     if reference_parameters is not None:
-        reference = TinyTransformerModel(
+        reference_model = TinyTransformerModel(
             ModelConfig.from_metadata(runtime_model.snapshot.metadata),
             reference_parameters,
             runtime_model.snapshot.shapes,
             reject_overlength=runtime_model.model.reject_overlength,
-        ).predict_many(tuple(example.text for example in examples))
+            device=device,
+        )
+        if numpy_work is not None:
+            observe_numpy(reference_model, numpy_work, "reference_heldout")
+        reference = reference_model.predict_many(tuple(example.text for example in examples))
         metrics["heldout_safety_regression_rate"] = _safety_regression_rate(
             [example.target for example in examples],
             [_classification_from_prediction(item) for item in reference],

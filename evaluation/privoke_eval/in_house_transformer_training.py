@@ -17,6 +17,8 @@ from torch.nn import functional as F
 
 from src.detection.preprocessing import normalize_text
 from src.model import ModelConfig, TinyTransformerModel
+from src.task_readout import torch_readout
+from privoke_model.contextual_training import contextual_output_trainable_names
 
 MAX_BATCH_SIZE = 32
 
@@ -67,7 +69,7 @@ class InHouseTransformerTrainer:
         self._tokenizer = runtime
         self._parameters = {
             name: torch.nn.Parameter(torch.tensor(value.copy(), dtype=torch.float32, device="cpu"),
-                                     requires_grad=options.mode == "end_to_end" or name.startswith("head."))
+                                     requires_grad=options.mode == "end_to_end" or name in contextual_output_trainable_names(config.__dict__))
             for name, value in runtime.parameters.items()
         }
         self._trainable = [value for value in self._parameters.values() if value.requires_grad]
@@ -131,10 +133,8 @@ class InHouseTransformerTrainer:
             intermediate = F.gelu(hidden @ p[prefix + "ffn.input.weight"] + p[prefix + "ffn.input.bias"], approximate="tanh")
             hidden = F.layer_norm(hidden + intermediate @ p[prefix + "ffn.output.weight"]
                                   + p[prefix + "ffn.output.bias"], (c.hidden_size,), eps=1e-5)
-        real = mask.unsqueeze(-1)
-        pooled = hidden[:, 0] * 0.5 + (hidden * real).sum(1) / real.sum(1).clamp_min(1) * 0.5
-        return MappingProxyType({head: pooled @ p[f"head.{head}.weight"] + p[f"head.{head}.bias"]
-                                 for head in ("sensitivity", "visibility", "category")})
+        _, _, logits = torch_readout(hidden, mask, c, p, torch)
+        return MappingProxyType(logits)
 
     def loss(self, ids: torch.Tensor, mask: torch.Tensor,
              targets: Sequence[ContextualTarget]) -> torch.Tensor:

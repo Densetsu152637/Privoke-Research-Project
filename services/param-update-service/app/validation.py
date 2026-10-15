@@ -42,6 +42,8 @@ def validate_parameter_update(
         if artifact.get("metadata", {}).get(STRATEGY_KEY) == FULL_ENCODER_STRATEGY:
             maximum = FULL_ENCODER_MAX_TENSOR_VALUES
         validate_gradient_shapes_against_artifact(request, artifact)
+        from privoke_model.window_training import validate_publication
+        validate_publication(request,artifact)
     _validate_gradients(request.gradients, max_abs_gradient, maximum)
     _validate_metadata(request.metadata)
 

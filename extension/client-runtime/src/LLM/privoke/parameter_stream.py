@@ -57,6 +57,13 @@ class ParameterSnapshot:
         # Preserve the exact legacy cache identity when this opt-in is absent.
         if "contextual_training_optimizer" in self.metadata:
             fields["contextual_training_optimizer"] = self.metadata["contextual_training_optimizer"]
+        if "contextual_training_diagnostics_policy" in self.metadata:
+            fields["contextual_training_diagnostics_policy"] = self.metadata["contextual_training_diagnostics_policy"]
+        for name in ("contextual_training_backtracking_policy", "contextual_training_backtracking_preparation",
+                     "contextual_candidate_eligibility", "full_projected_adam_config_v1", "original_train_retention_manifest_sha256",
+                     "train_window_config_v1", "train_window_manifest_sha256", "original_train_component_manifest_sha256"):
+            if name in self.metadata:
+                fields[name] = self.metadata[name]
         contract = json.dumps(fields, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         contract_hash = hashlib.sha256(contract.encode("utf-8")).hexdigest()
         return f"{self.model_id}:{self.version}:{self.fingerprint}:{contract_hash}"

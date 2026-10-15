@@ -7,6 +7,15 @@ sparse annotation-presence artifacts. It reloads the selected artifact for every
 request, so an atomically published fuzzer update becomes visible without
 restarting this service or the client runtime.
 
+The opt-in `privoke_tiny_transformer_v2` architecture streams the same schema-1
+tensor protocol with explicit `residual_task_query_v1` readout configuration and
+three task query vectors. The service validates the architecture/config pair,
+exact tensor shapes and scope-dependent trainable flags before streaming.
+Clients reconstruct task-specific features and logits; head updates include the
+queries and full updates publish the complete candidate atomically. Existing v1
+artifacts remain supported. See [the artifact contract](model-artifacts.md#opt-in-tiny-task-query-readouts)
+for migration and parameter counts; support does not change the release channel.
+
 ## Separate experimental v3 checkpoint service
 
 The [pretrained v3 stack](../pretrained-v3-study.md#isolated-services-and-binary-publication)
@@ -83,3 +92,16 @@ Runtime model configuration rejects tensor layouts above 65,536 values before
 allocation. Contextual transformer context remains capped at 512 tokens; presence
 uses normalized full text under the runtime request text bound, with its separate
 bounded vocabulary/config manifest.
+
+The experimental `full_projected_adam64_v1` artifact policy requires the full
+encoder strategy, `class_balanced_contextual_sum_category_decision_margin_v1`,
+`candidate_train_exact_eligibility_v1`, and the exact canonical supported Adam
+configuration shared with the Python runtime. Missing, unsupported or mixed
+diagnostics/backtracking policies fail catalog validation. The summed-category
+decision-margin objective uses the same S0/non-S0 label and category-threshold
+checks as the earlier decision-margin objective. Existing tensor shape,
+trainability and size checks still apply. Serving this metadata permits artifact
+transport; it does not establish training qualification or measured quality.
+# Frozen-window policy identity
+
+Go admission recognizes the separate `full_projected_adam64_window_checkpoint_v1` optimizer, exact canonical frozen-window configuration, `candidate_window_exact_component_retention_v1` eligibility and both window/component manifest pins. It rejects orphan pins, policy mixtures and changed configuration, while preserving earlier Adam/retention contracts. Existing full tensor validation applies to both legacy and v2 task-query shapes. Stream cache identity includes all new policy/config/pin fields, preventing reuse of a snapshot under changed window semantics. No study result or default artifact is replaced by this opt-in capability.

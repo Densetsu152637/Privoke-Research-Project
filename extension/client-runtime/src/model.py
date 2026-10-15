@@ -13,6 +13,8 @@ import numpy as np
 from .transformer_encoder import (
     TOKEN_PATTERN, numpy_encoder_block, token_ids as encoder_token_ids,
 )
+from .task_readout import numpy_readout, torch_readout
+from privoke_model.readout import TASKS, QUERY_NAMES, TASK_QUERY_READOUT, validate_readout_identity, query_readout
 
 ARCHITECTURE_NAME = "privoke_tiny_transformer_v1"
 
@@ -34,6 +36,13 @@ class ModelConfig:
     category_threshold: float = 0.5
     num_layers: int = 1
     num_attention_heads: int = 1
+    readout: str = "legacy_pool_v1"
+
+    def to_mapping(self) -> dict:
+        value = dict(self.__dict__)
+        if self.readout == "legacy_pool_v1":
+            value.pop("readout")
+        return value
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, object]) -> "ModelConfig":
@@ -53,6 +62,7 @@ class ModelConfig:
             if len(labels) != len(enum) or set(labels) != set(enum.__members__):
                 raise ModelArtifactError(f"{name} must contain every supported label exactly once.")
         threshold = value.get("category_threshold", 0.5)
+        query_readout(value)
         if isinstance(threshold, bool) or not isinstance(threshold, (int, float)):
             raise ModelArtifactError("category_threshold must be numeric.")
         try:
@@ -67,6 +77,7 @@ class ModelConfig:
                 category_threshold=float(value.get("category_threshold", 0.5)),
                 num_layers=int(value.get("num_layers", 1)),
                 num_attention_heads=int(value.get("num_attention_heads", 1)),
+                readout=value.get("readout", "legacy_pool_v1"),
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise ModelArtifactError(f"Invalid transformer config: {exc}") from exc
@@ -104,6 +115,7 @@ class ModelConfig:
                 + 2 * hidden + self.intermediate_size
             )
         )
+        expected_values += 3 * hidden if self.readout == TASK_QUERY_READOUT else 0
         if expected_values > MAX_PARAMETER_VALUES:
             raise ModelArtifactError("Transformer configuration exceeds the parameter budget.")
         if self.max_tokens > 512:
@@ -111,14 +123,13 @@ class ModelConfig:
 
     @classmethod
     def from_metadata(cls, metadata: Mapping[str, str]) -> "ModelConfig":
-        if metadata.get("architecture") != ARCHITECTURE_NAME:
-            raise ModelArtifactError("Streamed snapshot is not a supported PriVoke transformer.")
         try:
             value = json.loads(metadata["model_config"])
         except (KeyError, json.JSONDecodeError) as exc:
             raise ModelArtifactError("Streamed snapshot has no valid model_config.") from exc
         if not isinstance(value, dict):
             raise ModelArtifactError("model_config must be a JSON object.")
+        validate_readout_identity(metadata.get("architecture"), value)
         return cls.from_mapping(value)
 
 
@@ -131,6 +142,9 @@ class ModelPrediction:
     visibility_probabilities: tuple[float, ...]
     category_probabilities: tuple[float, ...]
     pooled: tuple[float, ...]
+    task_features: tuple[tuple[float, ...], ...] = ()
+    task_logits: tuple[tuple[float, ...], ...] = ()
+    token_states: tuple[tuple[float, ...], ...] = ()
 
     @property
     def confidence(self) -> float:
@@ -173,9 +187,12 @@ class TinyTransformerModel:
         device: str | None = None,
         *, reject_overlength: bool = False,
     ):
+        query_readout(config.__dict__)
         config.validate_capacity()
         self.config = config
         self.reject_overlength = reject_overlength
+        if set(parameters) != set(shapes):
+            raise ModelArtifactError("Tiny parameter and shape manifests differ.")
         self.parameters = {
             name: np.asarray(values, dtype=np.float32).reshape(tuple(shapes[name]))
             for name, values in parameters.items()
@@ -185,6 +202,8 @@ class TinyTransformerModel:
         if missing:
             raise ModelArtifactError(f"Model is missing tensor {missing[0]!r}.")
         self._validate_shapes()
+        if set(self.parameters) != set(self._required_tensors()):
+            raise ModelArtifactError("Tiny tensor manifest has unknown tensors.")
         self.compute_device, self._torch = _resolve_compute_device(device)
         self._torch_parameters = (
             {
@@ -201,6 +220,9 @@ class TinyTransformerModel:
         parameter_value = payload.get("parameters")
         if not isinstance(config_value, Mapping) or not isinstance(parameter_value, Mapping):
             raise ModelArtifactError("Artifact config and parameters must be objects.")
+        # Legacy mechanics callers historically supplied config/parameters only.
+        # A query config still requires an explicit v2 declaration.
+        validate_readout_identity(payload.get("architecture", ARCHITECTURE_NAME), config_value)
         parameters = {}
         shapes = {}
         for name, tensor in parameter_value.items():
@@ -224,19 +246,11 @@ class TinyTransformerModel:
         return tuple(self._predict_numpy(text) for text in texts)
 
     def _predict_numpy(self, text: str) -> ModelPrediction:
-        pooled = self.encode(text)
-        sensitivity_probs = _softmax(
-            pooled @ self.parameters["head.sensitivity.weight"]
-            + self.parameters["head.sensitivity.bias"]
-        )
-        visibility_probs = _softmax(
-            pooled @ self.parameters["head.visibility.weight"]
-            + self.parameters["head.visibility.bias"]
-        )
-        category_probs = _sigmoid(
-            pooled @ self.parameters["head.category.weight"]
-            + self.parameters["head.category.bias"]
-        )
+        hidden = self.encode_hidden(text)
+        pooled, features, logits, _ = numpy_readout(hidden, self.config, self.parameters)
+        sensitivity_probs = _softmax(logits["sensitivity"])
+        visibility_probs = _softmax(logits["visibility"])
+        category_probs = _sigmoid(logits["category"])
         sensitivity_index = int(np.argmax(sensitivity_probs))
         visibility_index = int(np.argmax(visibility_probs))
         categories = tuple(
@@ -252,6 +266,9 @@ class TinyTransformerModel:
             visibility_probabilities=tuple(float(value) for value in visibility_probs),
             category_probabilities=tuple(float(value) for value in category_probs),
             pooled=tuple(float(value) for value in pooled),
+            task_features=tuple(tuple(float(v) for v in features[t]) for t in TASKS),
+            task_logits=tuple(tuple(float(v) for v in logits[t]) for t in TASKS),
+            token_states=tuple(tuple(float(v) for v in row) for row in hidden) if self.config.readout == TASK_QUERY_READOUT else (),
         )
 
     def _predict_many_torch(
@@ -298,37 +315,25 @@ class TinyTransformerModel:
                     torch,
                     parameters,
                 )
-            mask = token_mask.unsqueeze(-1)
-            pooled = hidden[:, 0] * 0.5 + (
-                (hidden * mask).sum(dim=1)
-                / mask.sum(dim=1).clamp_min(1)
-            ) * 0.5
-            sensitivity = torch.softmax(
-                pooled @ parameters["head.sensitivity.weight"]
-                + parameters["head.sensitivity.bias"],
-                dim=-1,
-            )
-            visibility = torch.softmax(
-                pooled @ parameters["head.visibility.weight"]
-                + parameters["head.visibility.bias"],
-                dim=-1,
-            )
-            categories = torch.sigmoid(
-                pooled @ parameters["head.category.weight"]
-                + parameters["head.category.bias"]
-            )
+            pooled, features, logits = torch_readout(hidden, token_mask, self.config, parameters, torch)
+            sensitivity = torch.softmax(logits["sensitivity"], dim=-1)
+            visibility = torch.softmax(logits["visibility"], dim=-1)
+            categories = torch.sigmoid(logits["category"])
 
         pooled_rows = pooled.cpu().tolist()
         sensitivity_rows = sensitivity.cpu().tolist()
         visibility_rows = visibility.cpu().tolist()
         category_rows = categories.cpu().tolist()
+        feature_rows = {t: features[t].cpu().tolist() for t in TASKS}
+        logit_rows = {t: logits[t].cpu().tolist() for t in TASKS}
+        hidden_rows = hidden.cpu().tolist() if self.config.readout == TASK_QUERY_READOUT else None
         predictions = []
-        for pooled_row, sensitivity_row, visibility_row, category_row in zip(
+        for row_index, (pooled_row, sensitivity_row, visibility_row, category_row) in enumerate(zip(
             pooled_rows,
             sensitivity_rows,
             visibility_rows,
             category_rows,
-        ):
+        )):
             predictions.append(
                 ModelPrediction(
                     sensitivity=self.config.sensitivity_labels[
@@ -349,6 +354,9 @@ class TinyTransformerModel:
                     visibility_probabilities=tuple(float(value) for value in visibility_row),
                     category_probabilities=tuple(float(value) for value in category_row),
                     pooled=tuple(float(value) for value in pooled_row),
+                    task_features=tuple(tuple(feature_rows[t][row_index]) for t in TASKS),
+                    task_logits=tuple(tuple(logit_rows[t][row_index]) for t in TASKS),
+                    token_states=tuple(tuple(row) for row in hidden_rows[row_index][:len(token_rows[row_index])]) if hidden_rows is not None else (),
                 )
             )
         return tuple(predictions)
@@ -392,18 +400,48 @@ class TinyTransformerModel:
             dtype=np.float32,
         )
 
-        # These are update deltas (negative loss gradients), ready to be bounded
-        # and applied atomically by param-update-service.
-        return {
-            "head.sensitivity.weight": tuple(float(value) for value in -np.outer(pooled, sensitivity_error).ravel()),
-            "head.sensitivity.bias": tuple(float(value) for value in -sensitivity_error.ravel()),
-            "head.visibility.weight": tuple(float(value) for value in -np.outer(pooled, visibility_error).ravel()),
-            "head.visibility.bias": tuple(float(value) for value in -visibility_error.ravel()),
-            "head.category.weight": tuple(float(value) for value in -np.outer(pooled, category_error).ravel()),
-            "head.category.bias": tuple(float(value) for value in -category_error.ravel()),
-        }
+        return self.output_deltas_from_errors(prediction, {
+            "sensitivity": -sensitivity_error, "visibility": -visibility_error, "category": -category_error})
+
+    def prediction_features(self, prediction, task):
+        if prediction.task_features:
+            return np.asarray(prediction.task_features[TASKS.index(task)], dtype=np.float32)
+        if self.config.readout == TASK_QUERY_READOUT:
+            raise ModelArtifactError("Query prediction is missing task features.")
+        return np.asarray(prediction.pooled, dtype=np.float32)
+
+    def prediction_logits(self, prediction, task):
+        if prediction.task_logits:
+            return np.asarray(prediction.task_logits[TASKS.index(task)], dtype=np.float32)
+        if self.config.readout == TASK_QUERY_READOUT:
+            raise ModelArtifactError("Query prediction is missing true logits.")
+        return self.prediction_features(prediction, task) @ self.parameters[f"head.{task}.weight"] + self.parameters[f"head.{task}.bias"]
+
+    def output_deltas_from_errors(self, prediction, errors):
+        """Differentiate task outputs for caller-provided negative logit gradients."""
+        result = {}
+        for task, error in errors.items():
+            feature = self.prediction_features(prediction, task)
+            result[f"head.{task}.weight"] = tuple(float(v) for v in np.outer(feature, error).ravel())
+            result[f"head.{task}.bias"] = tuple(float(v) for v in error.ravel())
+            if self.config.readout == TASK_QUERY_READOUT:
+                hidden = np.asarray(prediction.token_states, dtype=np.float32)
+                if hidden.ndim != 2 or hidden.shape[1] != self.config.hidden_size or not len(hidden):
+                    raise ModelArtifactError("Query gradients require the prediction token states.")
+                scores = hidden @ self.parameters[f"readout.{task}.query"] / math.sqrt(self.config.hidden_size)
+                alpha = _softmax(scores)
+                attended = alpha @ hidden
+                upstream = self.parameters[f"head.{task}.weight"] @ error
+                beta = alpha * ((hidden - attended) @ upstream)
+                gradient = hidden.T @ beta / math.sqrt(self.config.hidden_size)
+                result[f"readout.{task}.query"] = tuple(float(v) for v in gradient)
+        return result
 
     def encode(self, text: str) -> np.ndarray:
+        hidden = self.encode_hidden(text)
+        return (hidden[0] * 0.5 + hidden.mean(axis=0) * 0.5).astype(np.float32)
+
+    def encode_hidden(self, text: str) -> np.ndarray:
         token_ids = self.token_ids(text)
         token_embedding = self.parameters["token_embedding"][token_ids]
         positions = self.parameters["position_embedding"][: len(token_ids)]
@@ -414,7 +452,7 @@ class TinyTransformerModel:
                 hidden,
                 self._layer_prefix(layer_index),
             )
-        return (hidden[0] * 0.5 + hidden.mean(axis=0) * 0.5).astype(np.float32)
+        return hidden
 
     def _numpy_encoder_block(self, hidden: np.ndarray, prefix: str) -> np.ndarray:
         return numpy_encoder_block(self.config, self.parameters, hidden, prefix)
@@ -487,6 +525,8 @@ class TinyTransformerModel:
             "head.category.weight": (hidden, len(self.config.category_labels)),
             "head.category.bias": (len(self.config.category_labels),),
         }
+        if self.config.readout == TASK_QUERY_READOUT:
+            expected.update({name: (hidden,) for name in QUERY_NAMES})
         block_shapes = {
             "attention.query.weight": (hidden, hidden),
             "attention.key.weight": (hidden, hidden),
@@ -513,7 +553,7 @@ class TinyTransformerModel:
                 )
 
     def _required_tensors(self) -> tuple[str, ...]:
-        return self.SHARED_TENSORS + tuple(
+        return self.SHARED_TENSORS + (tuple(sorted(QUERY_NAMES)) if self.config.readout == TASK_QUERY_READOUT else ()) + tuple(
             f"{self._layer_prefix(layer_index)}{name}"
             for layer_index in range(self.config.num_layers)
             for name in self.BLOCK_TENSORS

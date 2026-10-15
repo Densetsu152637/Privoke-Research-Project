@@ -35,6 +35,28 @@ def runtime(config, arrays):
 
 
 class InHouseTransformerTests(unittest.TestCase):
+    def test_query_head_optimizer_and_export_use_true_task_features(self):
+        from privoke_model.readout import TASK_QUERY_READOUT, QUERY_NAMES
+        from privoke_model.contextual_training import contextual_output_trainable_names
+        config, _ = fixture()
+        config = replace(config, readout=TASK_QUERY_READOUT)
+        arrays = initial_parameters(config, np.random.default_rng(73))
+        for task in ("sensitivity", "visibility", "category"):
+            arrays[f"head.{task}.weight"][:] = .1 * np.random.default_rng(9).normal(size=arrays[f"head.{task}.weight"].shape)
+        trainer = InHouseTransformerTrainer(config, arrays, TrainingOptions(mode="head_only"))
+        self.assertEqual({n for n, p in trainer.parameters.items() if p.requires_grad}, contextual_output_trainable_names(config.__dict__))
+        trainer.step(TEXTS, TARGETS)
+        exported = trainer.export_parameters()
+        self.assertTrue(any(not np.array_equal(arrays[n], exported[n]) for n in QUERY_NAMES))
+        for name in set(arrays) - contextual_output_trainable_names(config.__dict__):
+            np.testing.assert_array_equal(arrays[name], exported[name])
+        reference = runtime(config, exported)
+        actual = trainer.logits(*trainer.tensor_batch(TEXTS))
+        for i, text in enumerate(TEXTS):
+            prediction = reference.predict(normalize_text(text))
+            for task in ("sensitivity", "visibility", "category"):
+                np.testing.assert_allclose(actual[task][i].detach().numpy(), reference.prediction_logits(prediction, task), atol=3e-6, rtol=3e-5)
+
     @classmethod
     def setUpClass(cls):
         torch.set_num_threads(1)

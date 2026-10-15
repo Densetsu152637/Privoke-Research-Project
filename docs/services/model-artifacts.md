@@ -15,6 +15,34 @@ quality metadata, and checksum in one Git-friendly JSON file.
 
 `privoke-baseline.json` remains available for backward compatibility. The model streaming service resolves `latest` to the current release-channel artifact (`privoke-balanced` by default), so clients can receive new trained revisions without changing settings.
 
+## Opt-in Tiny task-query readouts
+
+`privoke_tiny_transformer_v2` retains schema 1 and requires config
+`readout: residual_task_query_v1`. It adds exactly three float32 vectors,
+`readout.{sensitivity,visibility,category}.query`, each shaped `[hidden_size]`.
+Head adaptation trains these queries together with the six affine head tensors;
+last-block and full-encoder scopes include them too. Python, Go and streamed
+runtime validation reject missing, extra, malformed or silently frozen queries,
+and architecture/config mismatches. Existing parameter and context limits apply.
+
+For real token states `H`, including the initial token, `m = mean(H)` and
+`p = 0.5 H[0] + 0.5 m`. Task `t` uses
+`z_t = p + (softmax(H q_t / sqrt(D)) H - m)` before its existing affine head.
+Padding is excluded from both reductions. Labels, tokenizer, category threshold,
+decoding and action rules are unchanged. Three queries add `3D` values: 96 for
+Balanced, giving 36,852 parameters at the original 96-token capacity and 756
+output trainables. Historical counts and scores describe v1.
+
+`evaluation/prepare-task-query.py` requires a source, new output path, distinct
+release version, timestamp, exact source commit and explicit training scope. It
+preserves existing weight coordinates and initializes queries to zero, records
+provenance and checksums, and performs no fitting or installation. Zero queries
+recover legacy pooling in exact arithmetic; float32 reductions can differ slightly.
+Prepare queries before binding optimizer/admission policies, then use the existing
+full-encoder and training-policy preparation tools. Default model files and
+`latest` are unchanged. Preparation and synthetic mechanics tests establish no
+quality improvement or promotion.
+
 ## Experimental pretrained v3 artifacts
 
 The [v3 family](../pretrained-v3-study.md#family-and-initialization) uses complete

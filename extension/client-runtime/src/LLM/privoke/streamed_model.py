@@ -28,8 +28,9 @@ from privoke_model.pretrained_context import (
 class StreamedTransformerPrivacyModel:
     """Executable transformer reconstructed entirely from a streamed snapshot."""
 
-    def __init__(self, snapshot: ParameterSnapshot):
+    def __init__(self, snapshot: ParameterSnapshot, *, prediction_observer=None):
         self.snapshot = snapshot
+        self.prediction_observer = prediction_observer
         self.model = TinyTransformerModel(
             ModelConfig.from_metadata(snapshot.metadata),
             snapshot.parameters,
@@ -39,6 +40,8 @@ class StreamedTransformerPrivacyModel:
 
     def classify(self, text: str) -> List[ClassificationResult]:
         prediction = self.model.predict(text)
+        if self.prediction_observer is not None:
+            self.prediction_observer(prediction)
         sensitivity = Sensitivity[prediction.sensitivity]
         visibility = Visibility[prediction.visibility]
         categories = [

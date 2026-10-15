@@ -18,6 +18,7 @@ import (
 const (
 	expectedSchema         = 1
 	expectedArchitecture   = "privoke_tiny_transformer_v1"
+	taskQueryArchitecture  = "privoke_tiny_transformer_v2"
 	maxArtifactBytes       = 8 * 1024 * 1024
 	maxParameterValues     = 65536
 	presenceArchitecture   = "privoke_sparse_presence_v1"
@@ -74,7 +75,7 @@ func loadModelArtifactBytes(raw []byte, expectedModelID string) (*loadedArtifact
 	if err := json.Unmarshal(raw, &artifact); err != nil {
 		return nil, fmt.Errorf("decode artifact: %w", err)
 	}
-	if artifact.Architecture == presenceArchitecture || artifact.Architecture == expectedArchitecture {
+	if artifact.Architecture == presenceArchitecture || artifact.Architecture == expectedArchitecture || artifact.Architecture == taskQueryArchitecture {
 		if err := validatePresenceRawTensorFlags(raw); err != nil {
 			return nil, err
 		}
@@ -146,7 +147,7 @@ func validateModelArtifact(artifact *modelArtifact, expectedModelID string) erro
 	if artifact.SchemaVersion != expectedSchema {
 		return fmt.Errorf("unsupported artifact schema %d", artifact.SchemaVersion)
 	}
-	if artifact.Architecture != expectedArchitecture && artifact.Architecture != presenceArchitecture && artifact.Architecture != scratchPresenceArchitecture && artifact.Architecture != pretrainedContextArchitecture {
+	if artifact.Architecture != expectedArchitecture && artifact.Architecture != taskQueryArchitecture && artifact.Architecture != presenceArchitecture && artifact.Architecture != scratchPresenceArchitecture && artifact.Architecture != pretrainedContextArchitecture {
 		return fmt.Errorf("unsupported artifact architecture %q", artifact.Architecture)
 	}
 	if expectedModelID != "" && artifact.ModelID != expectedModelID {

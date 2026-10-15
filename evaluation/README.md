@@ -749,6 +749,21 @@ for the 168-cell matrix, native offline budget exceptions, mandatory semantic
 execution assertions, config/approval schemas and commands. This entrypoint
 never invokes legacy product-pipeline studies or protected-final input.
 
+`prepare-training-policy.py --optimizer full_projected_adam64_v1` prepares the
+fixed experimental FULL Adam policy only with
+`--objective class_balanced_contextual_sum_category_decision_margin_v1
+--diagnostics off`, a source artifact and a frozen `--protocol`. Supply distinct
+new `--output` and `--provenance` paths. Preparation preserves tensor coordinates
+and grants no fitting authority; existing optimizer/backtracking mixtures fail.
+Runtime admission must explicitly bind optimizer, candidate eligibility, exact
+config and scope. Experimental workers require startup `OMP_NUM_THREADS=1` and
+`MKL_NUM_THREADS=1`, actual Torch threads one, and durable
+`PRIVOKE_FUZZER_DUMP_DIR`. FULL uses the 180-second experimental deadline, while
+defaults retain ten seconds. See [runtime](../docs/runtime/client-runtime.md)
+and [fuzzer](../docs/services/fuzzer.md) for trace, strict gate, accounting and
+publication contracts. Stored-gradient arithmetic replay is distinct from model
+execution, fitting or quality evaluation.
+
 The completed 10 October study covers 111 online and 57 offline trajectories.
 Its record reports every configuration: none of 56 qualified under the frozen
 gain/harm rules. Six scratch configurations lacked specificity gain headroom;
@@ -757,3 +772,8 @@ overlength errors remain visible. These results do not promote a model or test
 a conversational-prompt effect. Matching maintained audit/report outputs and
 independent count reconciliation passed. The [public aggregate package](../docs/evidence/all-surfaces-20261010/README.md)
 binds the accepted raw inputs and supplies reproducible projections.
+# Frozen TRAIN window preparation
+
+`prepare-train-window.py` freezes eight BC01 blocks with all 20 permanent TRAIN families, their actual transformed wire rows and unchanged 16-row guard. Its deterministic seed search is bounded at 64 candidates. `prepare-component-retention.py` authenticates already-produced full ORIGINAL task logits; it performs no teacher inference and requires an independently accepted teacher-file SHA. Both emit `fit_release: false`. `prepare-training-policy.py` accepts the separate window optimizer with explicit accepted window/component manifest pins. `compose.train-window.yml` provides opt-in fuzzer/runtime environment and read-only sidecar mounts against an explicitly prepared research model store.
+
+Checkpoint selection uses TRAIN window and authenticated ORIGINAL TRAIN references only; development/final inputs are never available to this route. BASE/steps8…64, 64 gradient directions, main/auxiliary row work and selected-versus-terminal fingerprints are recorded separately. Only one selected nonBASE candidate receives the unchanged guard comparison; failure produces known no-update. Synthetic mechanics tests cannot establish efficacy, and all historical combined-detector scores retain their historical interpretation.

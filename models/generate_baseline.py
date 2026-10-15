@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -19,6 +19,8 @@ for source_root in (SHARED_ROOT, CLIENT_RUNTIME_ROOT):
 
 from privoke_model.artifact import ARCHITECTURE_NAME, artifact_checksum, write_artifact_atomic
 from src.model import ModelConfig, TinyTransformerModel
+from privoke_model.readout import TASK_QUERY_READOUT, TASK_QUERY_ARCHITECTURE, QUERY_NAMES
+from privoke_model.contextual_training import contextual_output_trainable_names
 
 
 MODEL_DIRECTORY = Path(__file__).parent
@@ -83,11 +85,18 @@ MODEL_PROFILES = (
 
 
 def main() -> None:
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--task-query", action="store_true")
+    parser.add_argument("--output-directory", type=Path)
+    args = parser.parse_args()
+    if args.task_query and args.output_directory is None:
+        parser.error("Task-query generation requires a separate output directory.")
     for profile in MODEL_PROFILES:
-        write_profile(profile)
+        write_profile(profile, task_query=args.task_query, output_directory=args.output_directory)
 
 
-def write_profile(profile: ModelProfile) -> None:
+def write_profile(profile: ModelProfile, *, task_query=False, output_directory=None) -> None:
     rng = np.random.default_rng(profile.seed)
     config = ModelConfig(
         vocab_size=profile.vocab_size,
@@ -101,6 +110,8 @@ def write_profile(profile: ModelProfile) -> None:
         num_layers=profile.num_layers,
         num_attention_heads=profile.num_attention_heads,
     )
+    if task_query:
+        config = replace(config, readout=TASK_QUERY_READOUT)
     arrays = initial_parameters(config, rng)
     bootstrap_heads(config, arrays, rng, profile.training_epochs)
     payload = {
@@ -108,7 +119,7 @@ def write_profile(profile: ModelProfile) -> None:
         "model_id": profile.model_id,
         "version": "v0.3.0",
         "generated_at_unix": GENERATED_AT_UNIX,
-        "architecture": ARCHITECTURE_NAME,
+        "architecture": TASK_QUERY_ARCHITECTURE if task_query else ARCHITECTURE_NAME,
         "config": {
             "vocab_size": config.vocab_size,
             "hidden_size": config.hidden_size,
@@ -124,7 +135,7 @@ def write_profile(profile: ModelProfile) -> None:
         "parameters": {
             name: {
                 "shape": list(array.shape),
-                "trainable": name in TRAINABLE,
+                "trainable": name in contextual_output_trainable_names(config.__dict__),
                 "values": [round(float(value), 8) for value in array.ravel()],
             }
             for name, array in sorted(arrays.items())
@@ -138,9 +149,16 @@ def write_profile(profile: ModelProfile) -> None:
             "weight_format": "json-float32",
         },
     }
+    if task_query:
+        payload["config"]["readout"] = TASK_QUERY_READOUT
+        payload["version"] = "v0.4.0"
+        payload["metadata"].update(release_version="v0.4.0", training_strategy="deterministic_bootstrap_head_and_query_finetune")
     payload["checksum"] = artifact_checksum(payload)
-    write_artifact_atomic(profile.output_path, payload)
-    print(f"wrote {profile.output_path} ({profile.output_path.stat().st_size} bytes)")
+    output = profile.output_path if output_directory is None else output_directory / profile.output_path.name
+    if task_query and output.resolve() == profile.output_path.resolve():
+        raise ValueError("Task-query generation must preserve the historical artifact.")
+    write_artifact_atomic(output, payload)
+    print(f"wrote {output} ({output.stat().st_size} bytes)")
 
 
 def initial_parameters(config: ModelConfig, rng: np.random.Generator) -> dict[str, np.ndarray]:
@@ -175,6 +193,8 @@ def initial_parameters(config: ModelConfig, rng: np.random.Generator) -> dict[st
                 f"{prefix}ffn.output.bias": np.zeros(hidden, dtype=np.float32),
             }
         )
+    if config.readout == TASK_QUERY_READOUT:
+        parameters.update({name: np.zeros(hidden, dtype=np.float32) for name in QUERY_NAMES})
     return parameters
 
 

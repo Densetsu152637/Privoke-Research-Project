@@ -36,6 +36,17 @@ the script's small synthetic phrase curriculum; encoder tensors remain fixed at 
 initialization. This is head-only bootstrap fine-tuning, not end-to-end encoder
 training or language-model pretraining.
 
+An explicit v2 generator option, `--task-query --output-directory <separate-directory>`,
+bootstraps the three residual query readouts together with the affine heads while
+keeping encoder weights fixed. Default generation retains historical v1 output.
+`evaluation/prepare-task-query.py` instead converts an existing v1 artifact into
+a separately versioned zero-query candidate without fitting. Online analytic
+head adaptation, last-block/full CPU autograd and the offline fitter all train
+queries in their output scope. Serving uses common NumPy/Torch readout equations,
+including the CUDA inference path; CPU synthetic checks do not verify CUDA.
+See [the v2 artifact contract](services/model-artifacts.md#opt-in-tiny-task-query-readouts).
+Neither preparation nor this implementation establishes an accuracy gain.
+
 The generator's three named source configurations are:
 
 | Profile   | Model ID            | Vocabulary | Hidden | Intermediate | Context tokens | Encoder layers | Attention heads |

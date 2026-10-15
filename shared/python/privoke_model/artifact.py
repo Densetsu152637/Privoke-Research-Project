@@ -13,6 +13,7 @@ from typing import Any, Mapping, Sequence
 
 
 ARCHITECTURE_NAME = "privoke_tiny_transformer_v1"
+from .readout import TASK_QUERY_ARCHITECTURE, validate_readout_identity
 SCHEMA_VERSION = 1
 MAX_PARAMETER_VALUES = 65_536
 MAX_ARTIFACT_BYTES = 8 * 1024 * 1024
@@ -72,7 +73,7 @@ def validate_artifact(payload: object) -> None:
     if payload.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE or payload.get("model_id") == PRETRAINED_CONTEXT_MODEL_ID:
         validate_pretrained_artifact(payload)
 
-    if payload.get("architecture") not in (ARCHITECTURE_NAME, PRESENCE_ARCHITECTURE, SCRATCH_PRESENCE_ARCHITECTURE, PRETRAINED_CONTEXT_ARCHITECTURE):
+    if payload.get("architecture") not in (ARCHITECTURE_NAME, TASK_QUERY_ARCHITECTURE, PRESENCE_ARCHITECTURE, SCRATCH_PRESENCE_ARCHITECTURE, PRETRAINED_CONTEXT_ARCHITECTURE):
         raise ModelArtifactError(f"Unsupported model architecture: {payload.get('architecture')!r}.")
     for field in ("model_id", "version"):
         value = payload.get(field)
@@ -115,6 +116,8 @@ def validate_artifact(payload: object) -> None:
             for value in values
         ):
             raise ModelArtifactError(f"Parameter {name!r} contains a non-finite value.")
+        if payload["architecture"] == TASK_QUERY_ARCHITECTURE and any(abs(value) > 3.4028234663852886e38 for value in values):
+            raise ModelArtifactError(f"Parameter {name!r} is not finite in float32 transport.")
         total_values += len(values)
     if total_values > MAX_PARAMETER_VALUES:
         raise ModelArtifactError(
@@ -131,7 +134,8 @@ def validate_artifact(payload: object) -> None:
             raise ModelArtifactError("Presence model ID does not match its profile.")
         if len(json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")) > MAX_ARTIFACT_BYTES:
             raise ModelArtifactError("Presence artifact exceeds the 8 MiB budget.")
-    if payload["architecture"] == ARCHITECTURE_NAME:
+    if payload["architecture"] in (ARCHITECTURE_NAME, TASK_QUERY_ARCHITECTURE):
+        validate_readout_identity(payload["architecture"], config)
         from .contextual_training import validate_contextual_training_contract
         validate_contextual_training_contract(
             config, {n: t["values"] for n, t in parameters.items()},

@@ -167,7 +167,22 @@ class TaxonomyCoverageTests(unittest.TestCase):
         request = parameters_pb2.FuzzerTrainingRequest(request_id="legacy", source_id="test", prompt_count=32)
         self.assertEqual(_training_request_fingerprint(request), hashlib.sha256(request.SerializeToString(deterministic=True)).hexdigest())
 
-    def test_preparation_requires_pinned_historical_train(self):
+    def test_preparation_checks_opaque_memberships_and_requires_pinned_inputs(self):
+        root = SERVICE.parents[1]
+        sys.path.insert(0, str(root / "evaluation"))
+        spec = importlib.util.spec_from_file_location("taxonomy_preparation", root / "evaluation/prepare-taxonomy-coverage.py")
+        preparation = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(preparation)
+        row = self.release["rows"][0]
+        counts = {"ids": 1, "groups": 1, "texts": 1}
+        unrelated = {kind: ["a" * 64] for kind in counts}
+        self.assertEqual(preparation.opaque_overlap([row], unrelated, counts), {kind: 0 for kind in counts})
+        for kind, domain, value in (("ids", "id", row["id"]), ("groups", "group", row["metadata"]["group_id"]),
+                                    ("texts", "text_key", preparation.training_text_key(row["text"]))):
+            keys = copy.deepcopy(unrelated)
+            keys[kind] = [preparation.opaque_key(domain, value)]
+            with self.subTest(kind=kind), self.assertRaisesRegex(ValueError, "overlaps"):
+                preparation.opaque_overlap([row], keys, counts)
         with self.assertRaisesRegex(ValueError, "pinned historical TRAIN"):
             taxonomy.prepare_release(b"not authorized TRAIN", b"renderer", {})
 

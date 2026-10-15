@@ -93,6 +93,24 @@ Example response:
 
 ## Pipeline
 
+The experimental `full_projected_adam64_v1` artifact policy admits only matching
+optimizer/config/eligibility/scope headers. FULL performs 64 cold CPU encoder and
+head Adam steps with the summed category decision-margin objective, learning
+rate 0.003, beta values 0.9/0.999, epsilon 1e-8 and float64 moments. Each step
+reconstructs the exact transported candidate from the immutable original base
+and the cumulative inward-float32 delta capped at 0.05. The response returns that
+cumulative delta once. HEAD reports `dormant_head_v1` and preserves its prior
+numerical behavior. Serving parameters and graphs are isolated from both paths.
+
+Start experimental FULL workers with `OMP_NUM_THREADS=1` and
+`MKL_NUM_THREADS=1`; actual Torch thread count must also be one. FULL rejects
+incorrect startup threading before model access and explicitly uses CPU NumPy
+for original BASE, final TRAIN and held-out evaluations. Detailed optimization
+trace and observed row/block/objective attempts/completions survive evaluation
+errors; failed opaque work is reported as unknown with lower-bound counts.
+Cancellation is checked between fixed steps. This policy requires the CPU
+training dependency and does not change inference device selection.
+
 The current pipeline is in `src/pipeline.py`:
 
 ```text
@@ -307,3 +325,8 @@ Useful smoke checks:
 - `username: alex` or other structured identity fields should usually return `WARN`.
 - pure safe text should return `ALLOW`.
 - visibility-only cues remain visible in hosted classification, and private visibility can combine with identifier evidence to produce `WARN`.
+# Opt-in frozen TRAIN checkpoint route
+
+The FULL-only `full_projected_adam64_window_checkpoint_v1` route requires schema-5 admission, `PRIVOKE_WINDOW_PATH`/`PRIVOKE_WINDOW_MANIFEST_SHA256`, and `PRIVOKE_COMPONENT_{BANK_PATH,REFERENCE_PATH,MANIFEST_PATH,MANIFEST_SHA256,TEACHER_PATH,TEACHER_SHA256}`. The two manifest pins and independent raw ORIGINAL teacher-file pin are authenticated before streamed model/cache access. Startup requires `OMP_NUM_THREADS=1`, `MKL_NUM_THREADS=1` and actual Torch thread count one. `evaluation/compose.train-window.yml` wires these explicitly.
+
+The 512-row frozen request is optimized through eight 64-row blocks over eight epochs, with whole-window class weights and a fixed denominator correction. Every step also differentiates the independently normalized component auxiliary loss using true task-specific logits/readout, including v2 task queries. BASE and steps 8…64 evaluate TRAIN only. The chosen state is the exact float32 transported/clipped parameter state, with cold local Adam moments and immutable serving/BASE tensors. Detailed traces distinguish terminal state, selected state, main/auxiliary backwards, checkpoint NumPy work and selected guard work. The preserved FULL encoder-change requirement rejects head/query-only transport without executing the guard. The configured strict TRAIN floor keeps packed-label exact semantics, with action correctness independently gated/ranked. BASE/no-update responses carry no gradients and no fabricated guard phases. Cancellation/errors preserve observed partial work as lower bounds and cannot authorize publication.

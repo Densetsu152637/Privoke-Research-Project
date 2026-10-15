@@ -154,6 +154,11 @@ def analyse_text(
     semantic_model_id: str | None = None,
     semantic_presence_gate: SemanticPresenceGateRequest | None = None,
 ) -> PipelineAnalysis:
+    from .LLM.privoke.reference_preparation import current_binding
+    reference_binding = current_binding()
+    if reference_binding is not None:
+        # Capture on caller thread: ContextVars do not propagate through pool.map.
+        reference_binding.validate_request(layers, semantic_model_id, semantic_presence_gate)
     requested_layers = _normalise_layers(layers)
     if semantic_presence_gate is not None:
         if SEMANTIC_LAYER not in requested_layers:
@@ -229,6 +234,7 @@ def analyse_text(
             semantic_presence_gate=(
                 semantic_presence_gate if layer == SEMANTIC_LAYER else None
             ),
+            **({"reference_binding": reference_binding} if reference_binding is not None else {}),
         ),
         pending_layers,
     )
@@ -242,7 +248,15 @@ def _execute_layer(
     text: str,
     semantic_model_id: str | None = None,
     semantic_presence_gate: SemanticPresenceGateRequest | None = None,
+    reference_binding=None,
 ) -> LayerExecution:
+    if reference_binding is not None:
+        try:
+            reference_binding.validate_request((layer,), semantic_model_id, semantic_presence_gate)
+            model = reference_binding.model
+            return LayerExecution(layer, "ok", tuple(model.classify(text)), semantic_model_identity=_semantic_snapshot_identity(model))
+        except Exception as exc:
+            return LayerExecution(layer, "error", error=_error_message(exc))
     if layer == SEMANTIC_LAYER and semantic_presence_gate is not None:
         return _execute_semantic_with_presence_gate(
             text, semantic_model_id, semantic_presence_gate

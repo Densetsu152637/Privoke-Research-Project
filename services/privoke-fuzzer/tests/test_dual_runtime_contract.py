@@ -41,6 +41,30 @@ def contract(scope="heads"):
 
 
 class DualRuntimeContractTests(unittest.TestCase):
+    def test_query_output_inventory_requires_all_three_queries_and_identity(self):
+        from privoke_model.contextual_training import prepare_task_query_artifact, contextual_output_trainable_names
+        from privoke_model.readout import TASK_QUERY_ARCHITECTURE
+        source = json.loads((ROOT / "shared/python/tests/fixtures/contextual-last-block.json").read_text())
+        artifact = prepare_task_query_artifact(source, version="v2", generated_at_unix=2, source_revision="a" * 40)
+        for scope in ("heads", "full_encoder"):
+            request, response = contract(scope)
+            tensors = {n: t for n, t in artifact["parameters"].items()
+                       if scope == "full_encoder" or n in contextual_output_trainable_names(artifact["config"])}
+            del response.gradients[:]
+            response.gradients.extend(pb.RuntimeParameterDelta(name=n, shape=t["shape"], values=[0.] * len(t["values"]))
+                                      for n, t in sorted(tensors.items()))
+            response.metadata.update(architecture=TASK_QUERY_ARCHITECTURE, model_config=json.dumps(artifact["config"]),
+                trained_parameter_names=json.dumps(sorted(tensors)),
+                trained_parameter_inventory_fingerprint=parameter_fingerprint({n: () for n in tensors}, {n: t["shape"] for n, t in tensors.items()}))
+            validate_training_response(request, response, scope, .05, require_full_capability=True)
+            malformed = copy.deepcopy(response)
+            malformed.metadata["architecture"] = "privoke_tiny_transformer_v1"
+            with self.assertRaises(RuntimeAnalysisError):
+                validate_training_response(request, malformed, scope, .05, require_full_capability=True)
+            query = next(i for i, p in enumerate(response.gradients) if p.name == "readout.category.query")
+            del response.gradients[query]
+            with self.assertRaises(RuntimeAnalysisError):
+                validate_training_response(request, response, scope, .05, require_full_capability=True)
 
     def test_legacy_float32_clip_bound_remains_admitted_but_full_capability_is_strict(self):
         from privoke_model.artifact import float32

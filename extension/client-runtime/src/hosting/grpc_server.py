@@ -92,13 +92,17 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
             )
 
     def ComputeSemanticGradients(self, request, context):
-        return self._compute_training_gradients(request, compute_semantic_gradients)
+        return self._compute_training_gradients(request, compute_semantic_gradients, context)
 
     def ComputeUnderlyingModelGradients(self, request, context):
-        return self._compute_training_gradients(request, compute_underlying_model_gradients)
+        return self._compute_training_gradients(request, compute_underlying_model_gradients, context)
 
-    def _compute_training_gradients(self, request, trainer):
+    def _compute_training_gradients(self, request, trainer, context=None):
         try:
+            from privoke_model.contextual_training import parse_training_admission_metadata
+            admission = parse_training_admission_metadata(context.invocation_metadata() if context is not None else ())
+            if admission is not None and "expected_backtracking_policy" in admission and trainer is not compute_underlying_model_gradients:
+                raise ValueError("Backtracking admission is FULL-only.")
             if not request.model_id.strip():
                 raise ValueError("model_id is required.")
             if not request.examples:
@@ -144,6 +148,9 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
                 learning_rate=float(request.learning_rate),
                 max_gradient=float(request.max_gradient),
                 heldout_examples=converted[len(request.examples):],
+                **({"admission": admission} if admission is not None else {}),
+                **({"cancel_check": context.is_active} if admission is not None and "expected_optimizer" in admission
+                   and trainer is compute_underlying_model_gradients and context is not None else {}),
             )
             return runtime_pb2.ComputeSemanticGradientsResponse(
                 request_id=request.request_id,
@@ -159,6 +166,7 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
                 ],
                 metrics=batch.metrics,
                 metadata=batch.metadata,
+                error=batch.error,
                 executions=[runtime_pb2.SemanticTrainingExecution(phase=phase,
                     layer=runtime_pb2.DETECTION_LAYER_SEMANTIC, status="ok", examples=count)
                     for phase, count in batch.executions],
@@ -167,6 +175,7 @@ class PrivokeRuntimeService(runtime_pb2_grpc.PrivokeRuntimeServiceServicer):
             return runtime_pb2.ComputeSemanticGradientsResponse(
                 request_id=request.request_id,
                 error=_error_message(exc),
+                metadata=getattr(exc, "training_metadata", {}),
             )
 
     def DetectAnnotationPresence(self, request, context):
@@ -297,6 +306,7 @@ def create_grpc_server(
     max_message_bytes: int = DEFAULT_MAX_GRPC_MESSAGE_BYTES,
     max_response_bytes: int = DEFAULT_MAX_GRPC_RESPONSE_BYTES,
     telemetry_reporter: TelemetryReporter | None = None,
+    servicer=None,
 ):
     server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=max_workers),
@@ -306,7 +316,7 @@ def create_grpc_server(
         ),
     )
     runtime_pb2_grpc.add_PrivokeRuntimeServiceServicer_to_server(
-        PrivokeRuntimeService(
+        servicer if servicer is not None else PrivokeRuntimeService(
             max_text_chars=max_text_chars,
             telemetry_reporter=telemetry_reporter,
         ),

@@ -55,6 +55,39 @@ class ContextualTrainingContractTests(unittest.TestCase):
             metadata[BACKTRACKING_TRIALS_KEY]=json.dumps(changed,separators=(",",":"))
             with self.assertRaises(ValueError): validate_backtracking_trace(metadata,examples=64,requested_rate=.003,rejected=True)
 
+    def test_controlled_policy_preparation_preserves_model_and_binds_provenance(self):
+        import importlib.util
+        import tempfile
+        from privoke_model.contextual_training import (prepare_training_policy_artifact, LEGACY_OBJECTIVE,
+            CLASS_BALANCED_OBJECTIVE, TRAIN_DIAGNOSTICS_POLICY, DIAGNOSTICS_POLICY_KEY)
+        base = self.original()
+        spec = importlib.util.spec_from_file_location("prepare_training_policy", ROOT / "evaluation/prepare-training-policy.py")
+        preparation = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(preparation)
+        for objective in (LEGACY_OBJECTIVE, CLASS_BALANCED_OBJECTIVE):
+            prepared = prepare_training_policy_artifact(base, objective=objective, diagnostics=TRAIN_DIAGNOSTICS_POLICY)
+            for key in base.keys() - {"checksum", "metadata"}:
+                self.assertEqual(prepared[key], base[key])
+            expected = {**base.get("metadata", {}), DIAGNOSTICS_POLICY_KEY: TRAIN_DIAGNOSTICS_POLICY}
+            if objective == CLASS_BALANCED_OBJECTIVE:
+                expected[OBJECTIVE_KEY] = objective
+            else:
+                expected.pop(OBJECTIVE_KEY, None)
+            self.assertEqual(prepared["metadata"], expected)
+            self.assertNotIn(OPTIMIZER_KEY, prepared["metadata"])
+            self.assertEqual(prepare_training_policy_artifact(prepared), base)
+            with tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "source.json"
+                path.write_text(json.dumps(base))
+                actual, provenance = preparation.prepare(path, objective=objective, diagnostics=TRAIN_DIAGNOSTICS_POLICY,
+                    protocol_bytes=b'{"dataset_sha256":"synthetic","training_settings":{}}')
+                self.assertEqual(actual, prepared)
+                self.assertEqual(provenance["prepared_artifact_checksum"], actual["checksum"])
+                self.assertFalse(provenance["fit_release"])
+                self.assertEqual(provenance["optimizer"], "absent")
+        for invalid in ("unknown", 1, ""):
+            with self.assertRaises(ModelArtifactError):
+                prepare_training_policy_artifact(base, diagnostics=invalid)
 
     def test_context_extension_preserves_prefix_and_other_weights_without_clamping(self):
         for profile in ("baseline", "efficient", "balanced", "quality"):
