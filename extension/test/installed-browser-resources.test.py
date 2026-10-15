@@ -650,15 +650,37 @@ class BootstrapCadenceTests(unittest.TestCase):
         for edge, phase, expected in [(False, "idle", 5), (False, "prepared", 5),
                                       (True, "idle", 5), (True, "prepared", 100),
                                       (True, "dispatched", 100), (True, "committed", 100)]:
-            tracker = SimpleNamespace(has_supervisor_child_binding=edge)
+            tracker = SimpleNamespace(has_supervisor_child_binding=edge, bootstrap_released_at_seconds=None)
             transition = SimpleNamespace(phase=phase)
             self.assertEqual(RESOURCES._sampling_cadence_ms(1, transition, tracker, 100)[0], expected)
-        for edge, phase in [(False, "prepared"), (True, "idle"), (False, "idle")]:
+        for edge, phase in [(False, "prepared"), (True, "idle"), (False, "idle"), (True, "prepared"), (True, "committed")]:
             with self.assertRaises(RESOURCES.BootstrapSamplingDeadlineExceeded):
                 RESOURCES._sampling_cadence_ms(30, SimpleNamespace(phase=phase),
-                                              SimpleNamespace(has_supervisor_child_binding=edge), 100)
+                                              SimpleNamespace(has_supervisor_child_binding=edge, bootstrap_released_at_seconds=None), 100)
         self.assertEqual(RESOURCES._sampling_cadence_ms(30, SimpleNamespace(phase="committed"),
-                         SimpleNamespace(has_supervisor_child_binding=True), 100), (100, "steady"))
+                         SimpleNamespace(has_supervisor_child_binding=True, bootstrap_released_at_seconds=1.0), 100), (100, "steady"))
+
+    def test_first_readiness_release_is_latched_strictly_before_deadline(self):
+        for elapsed in [29.999, 30.0, 30.001]:
+            tracker = SimpleNamespace(has_supervisor_child_binding=True, bootstrap_released_at_seconds=None)
+            transition = SimpleNamespace(phase="prepared")
+            if elapsed >= 30:
+                with self.assertRaises(RESOURCES.BootstrapSamplingDeadlineExceeded):
+                    RESOURCES._sampling_cadence_ms(elapsed, transition, tracker, 100)
+                self.assertIsNone(tracker.bootstrap_released_at_seconds)
+            else:
+                self.assertEqual(RESOURCES._sampling_cadence_ms(elapsed, transition, tracker, 100), (100, "steady"))
+                self.assertEqual(tracker.bootstrap_released_at_seconds, elapsed)
+                self.assertEqual(RESOURCES._sampling_cadence_ms(90, transition, tracker, 100), (100, "steady"))
+                self.assertEqual(tracker.bootstrap_released_at_seconds, elapsed)
+        for edge, phase in [(False, "prepared"), (True, "idle")]:
+            tracker = SimpleNamespace(has_supervisor_child_binding=edge, bootstrap_released_at_seconds=None)
+            transition = SimpleNamespace(phase=phase)
+            self.assertEqual(RESOURCES._sampling_cadence_ms(29.999, transition, tracker, 100), (5, "bootstrap"))
+            tracker.has_supervisor_child_binding = True
+            transition.phase = "prepared"
+            with self.assertRaises(RESOURCES.BootstrapSamplingDeadlineExceeded):
+                RESOURCES._sampling_cadence_ms(30.001, transition, tracker, 100)
 
     def test_overdue_sample_does_not_create_catchup_burst(self):
         self.assertAlmostEqual(RESOURCES._next_sample_deadline(0.0, 5, 0.100), 0.105)

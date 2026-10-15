@@ -431,6 +431,7 @@ export function summarizeSamplerObservation(samples) {
   let previous = null;
   let previousCpu = null;
   let steadySeen = false;
+  let bootstrapReleaseElapsedNs = null;
   const phases = { bootstrap: { requestedIntervalMs: 5, samples: 0, observedMaximumGapNs: 0 },
     steady: { requestedIntervalMs: 100, samples: 0, observedMaximumGapNs: 0 } };
   for (const sample of samples) {
@@ -441,8 +442,16 @@ export function summarizeSamplerObservation(samples) {
     assert.ok(Object.hasOwn(phases, sample.sampling_phase), "sampler observation phase is invalid");
     assert.equal(sample.requested_interval_ms, phases[sample.sampling_phase].requestedIntervalMs,
       "sampler requested cadence differs from protocol");
-    if (sample.sampling_phase === "steady") steadySeen = true;
-    else assert.equal(steadySeen, false, "sampler reverted to bootstrap after readiness");
+    if (sample.sampling_phase === "steady") {
+      assert.ok(Number.isSafeInteger(sample.bootstrap_release_elapsed_ns) && sample.bootstrap_release_elapsed_ns >= 0
+        && sample.bootstrap_release_elapsed_ns < 30_000_000_000, "sampler first readiness release missed its deadline");
+      bootstrapReleaseElapsedNs ??= sample.bootstrap_release_elapsed_ns;
+      assert.equal(sample.bootstrap_release_elapsed_ns, bootstrapReleaseElapsedNs, "sampler readiness release latch changed");
+      steadySeen = true;
+    } else {
+      assert.equal(steadySeen, false, "sampler reverted to bootstrap after readiness");
+      assert.equal(sample.bootstrap_release_elapsed_ns, null, "bootstrap phase has a premature readiness release");
+    }
     const phase = phases[sample.sampling_phase];
     phase.samples += 1;
     if (previous !== null) {
@@ -453,7 +462,7 @@ export function summarizeSamplerObservation(samples) {
     previousCpu = sample.sampler_process_cpu_ns;
   }
   assert.ok(phases.bootstrap.samples > 0 && phases.steady.samples > 0, "sampler lacks startup or steady observation");
-  return { processCpuSampledDeltaSeconds: (samples.at(-1).sampler_process_cpu_ns - samples[0].sampler_process_cpu_ns) / 1e9,
+  return { bootstrapReleaseElapsedNs, processCpuSampledDeltaSeconds: (samples.at(-1).sampler_process_cpu_ns - samples[0].sampler_process_cpu_ns) / 1e9,
     phases, qualification: "Requested 5ms bootstrap cadence until direct child binding and runner PREPARE readiness, bounded30s, then100ms. Actual gaps and observer CPU are sampled; the cgroup includes observer overhead." };
 }
 

@@ -400,6 +400,7 @@ class NativeBootstrapTracker:
         self.identities = {}
         self.events = []
         self.has_supervisor_child_binding = False
+        self.bootstrap_released_at_seconds = None
 
     def observe(self, rows):
         browser = {(row["pid"], row["start_ticks"]): row for row in rows if row["role"] == "chromium"}
@@ -995,10 +996,13 @@ class BootstrapSamplingDeadlineExceeded(RuntimeError):
 
 
 def _sampling_cadence_ms(elapsed_seconds, transition, native_bootstrap, regular_interval_ms):
-    if native_bootstrap.has_supervisor_child_binding and transition.phase in {"prepared", "dispatched", "committed"}:
+    if native_bootstrap.bootstrap_released_at_seconds is not None:
         return regular_interval_ms, "steady"
     if elapsed_seconds >= 30.0:
         raise BootstrapSamplingDeadlineExceeded("bootstrap ancestry/readiness sampling exceeded 30 seconds")
+    if native_bootstrap.has_supervisor_child_binding and transition.phase in {"prepared", "dispatched", "committed"}:
+        native_bootstrap.bootstrap_released_at_seconds = elapsed_seconds
+        return regular_interval_ms, "steady"
     return 5, "bootstrap"
 
 
@@ -1041,6 +1045,8 @@ def sample(output: Path, interval_ms: int, progress: dict | None = None,
                 "sampler_process_cpu_ns": time.process_time_ns(),
                 "requested_interval_ms": requested_interval_ms,
                 "sampling_phase": sampling_phase,
+                "bootstrap_release_elapsed_ns": (None if native_bootstrap.bootstrap_released_at_seconds is None
+                    else int(native_bootstrap.bootstrap_released_at_seconds * 1_000_000_000)),
                 "roles": roles,
                 "browser_root_candidates": browser_candidates,
                 "startup_transition_events": transition_events,
