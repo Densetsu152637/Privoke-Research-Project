@@ -1,11 +1,11 @@
 {
   "record_id": "PROF-RQ-20261016",
-  "status": "Root accepted full-paper style revision after independently reviewing all changed prose and all fifteen current page PNGs; no scientific or visual defects.",
-  "input_commit": "938ed74613af1870fa89ebafbd5f41226482b3ee",
+  "status": "Root accepted Astra whole-manuscript rewrite after independent scientific/style/tense review and all sixteen actual page PNGs; no defects requiring repair. Local publication only; remote push remains blocked.",
+  "input_commit": "da4df79fe25b439ced4fc2331b9f7ba79db0fc7c",
   "branch": "docs/paper",
   "artifacts": {
-    "paper/main.tex": "787a894cd797530908c5be2af839f6958e6f65b1ac4fc33e87be65eb6dd49d1a",
-    "paper/main.pdf": "2caf07a07302d3976aa9037126a24ee8fdd78fcc8587585748f9457297323a95",
+    "paper/main.tex": "d22feab98758443857071090ad73aa319c43196e6144d5ce17967ebab7c538c6",
+    "paper/main.pdf": "d9ee4bd5ba74b28853c3cf7fffdf5a715f71c5e5f218800d178e08de4fd26027",
     "paper/ref.bib": "6a113e2abfb20e45d26bde6a961a0cec9a23a5264cd9db360f15eb372c1c03f7",
     "paper/research/paper-completion-sources-20261014.bib": "e5ff78f57c9852410fe6643f071888679d3c99edc93cf6ae1461dfbc39fbea87",
     "paper/manuscript-completion-sources-20261014.bib": "ba866866c94bd3be393a75602a84a7a519d5c76f89e9f899693715d07eda76d9",
@@ -17,22 +17,22 @@
     "paper/figures/results-pipeline-presidio-reference.pdf": "c556a1fa086755b77b780e2c9a2f2b61d227d2307306a16c5ccc752c2ad294fb"
   },
   "pages": {
-    "total": 15,
+    "total": 16,
     "main": [
       1,
-      8
+      9
     ],
     "appendices": [
-      9,
-      14
+      10,
+      15
     ],
     "references": [
-      15,
-      15
+      16,
+      16
     ]
   },
   "checks": {
-    "compilation": "passed; fresh pdflatex, BibTeX, cross-reference passes and final wording pass; exit 0",
+    "compilation": "passed; pdflatex/BibTeX and resolving passes, then one bounded layout repair and two final passes; exit 0",
     "undefined_citations_or_references": false,
     "duplicate_labels": false,
     "overfull_boxes": false,
@@ -55,7 +55,8 @@
       12,
       13,
       14,
-      15
+      15,
+      16
     ],
     "root_independent_visual_review_pages": [
       1,
@@ -72,7 +73,8 @@
       12,
       13,
       14,
-      15
+      15,
+      16
     ],
     "visual_defects_found": [],
     "citation_keys": [
@@ -106,36 +108,39 @@
     "source_bibliography_changed": false,
     "staged_whitespace_command": "git -c diff.astextplain.binary=true diff --cached --check",
     "visual_comparison": {
-      "method": "Writer and root independently inspected all fifteen current page PNGs; pass. No pixel-equivalence claim for the full-paper rewrite.",
+      "method": "Writer and root independently inspected all sixteen current final-page PNGs; pass. No pixel-equivalence claim for the Astra rewrite.",
       "dpi": 125
     }
   },
   "rendered_pages": {
-    "evaluation/results/full_paper_style_20261016/page-01.png": "6dd84bf55dac5f66035e184be4818fe360336858232e44508aa2a5e559c377f2",
-    "evaluation/results/full_paper_style_20261016/page-02.png": "040afeca052c5b10ca445d50631744fee5eedf42e25b55e92210c29f9e6e6747",
-    "evaluation/results/full_paper_style_20261016/page-03.png": "98b5577734eb1117bfeff6aea8dbc2b384423039700a290d761fdf97773183cf",
-    "evaluation/results/full_paper_style_20261016/page-04.png": "7621ea76961d832cd37bc972a861e744069c1a740d2443402119f9a42c97dbc4",
-    "evaluation/results/full_paper_style_20261016/page-05.png": "109538e9a0cee1dfd0bfbbfe5b0c3a3e837af34d00f233fe421067e43275c3ab",
-    "evaluation/results/full_paper_style_20261016/page-06.png": "aa082c5807a57d208c3f5fac11d26a79eb48ea0891301dfc7b658e8a770752c8",
-    "evaluation/results/full_paper_style_20261016/page-07.png": "cfa593fb6379c255420a6f3191638851d39c35a053a9724d83298005f2a07936",
-    "evaluation/results/full_paper_style_20261016/page-08.png": "7365ae9b739746dee8a3e48981f4487e75295ab04c832e8ced4761c7b3a25450",
-    "evaluation/results/full_paper_style_20261016/page-09.png": "5979d51764f2abd5c639f76681686ce0b8b51720062dfedafb10ade79e685770",
-    "evaluation/results/full_paper_style_20261016/page-10.png": "970a323af2e3ee59babbb20ea33450b7af8d288bb36f5c9fb17c3e39159a5cc7",
-    "evaluation/results/full_paper_style_20261016/page-11.png": "d40c141955c33ef07e3b23a09fc1830209a17710aa7e8f6fbb1e588a3afe057f",
-    "evaluation/results/full_paper_style_20261016/page-12.png": "0452234999ee5401af902f73723d49f13650bec4bafcd1fb04e1db148613097b",
-    "evaluation/results/full_paper_style_20261016/page-13.png": "6780a9b891c9ab3f3cfbb28d7c4d5e7de12e2569fe324e5c8cec604703ca12ec",
-    "evaluation/results/full_paper_style_20261016/page-14.png": "f07d58858fe1dde580e53db67bc3919c457ec626e9c83cd431a49f67c3759c5f",
-    "evaluation/results/full_paper_style_20261016/page-15.png": "e4d2635e53dfd82855e94a48357649e93b48e7ffaea4ce1d164093dff6bb640e"
+    "evaluation/results/astra_paper_style_20261016/final-page-01.png": "115159b5454676d1cf719bb2acfac5d41257754926e63c78d34239313384f965",
+    "evaluation/results/astra_paper_style_20261016/final-page-02.png": "64174781d7f749a8cdc27b96d2e9d1c836bd0a113d75a41fe834135d8989ea29",
+    "evaluation/results/astra_paper_style_20261016/final-page-03.png": "c58cd72e080c9f8433bbd3f74cd3091feb10224d34fd235d6ab6d06f23f88386",
+    "evaluation/results/astra_paper_style_20261016/final-page-04.png": "f401937f825cc38e02cc702d8e9dcd2f78d87fb716412279e4446a952260984b",
+    "evaluation/results/astra_paper_style_20261016/final-page-05.png": "320e0f300837798c8f70c59b41976bfca8b32168a0ab98b1c32c891b23d6a764",
+    "evaluation/results/astra_paper_style_20261016/final-page-06.png": "2bcbf3e86a8346ec3ba2b5800ddbb0c6cbf5e04cd5f91a0d3f2e1b2b19854dcf",
+    "evaluation/results/astra_paper_style_20261016/final-page-07.png": "295065ff4dee8f9aa8e11e0312d71f8924bc6901672a404010bcafe6ad1e063a",
+    "evaluation/results/astra_paper_style_20261016/final-page-08.png": "bce2a51b41021d94e6ae9bad5b4728a237f1d221477f5d2568820fe6754a21c9",
+    "evaluation/results/astra_paper_style_20261016/final-page-09.png": "84ae21e96b63af742f004d23519d3d1be872c0560ffd225dad76dff8e8c93e54",
+    "evaluation/results/astra_paper_style_20261016/final-page-10.png": "d0971712b2665ff2f15289ce0f34d1f3f56893a8f5c636cad0e12b9122de64f1",
+    "evaluation/results/astra_paper_style_20261016/final-page-11.png": "999acf9344ae9e1b9312dfa23bb3acc1d0962c258aba617933026f65f75a9307",
+    "evaluation/results/astra_paper_style_20261016/final-page-12.png": "fda00d92b7fd79439b80ca3eca1bd39121238d1881a1b92cc5e1d9cc6c204c23",
+    "evaluation/results/astra_paper_style_20261016/final-page-13.png": "8a9b7c44ad13969918c6ed8958960ffcbddf66987ccf3d0716a15be91527a125",
+    "evaluation/results/astra_paper_style_20261016/final-page-14.png": "8e4d9b4e5b564217a40425a72a37b8d81f4735c564f3c5a530388d56bcc52ae9",
+    "evaluation/results/astra_paper_style_20261016/final-page-15.png": "ba8d0f0622ec11b8eef27391ab53fd1ffc1dcae97d9c42741d7fa616a26b5e58",
+    "evaluation/results/astra_paper_style_20261016/final-page-16.png": "e4d2635e53dfd82855e94a48357649e93b48e7ffaea4ce1d164093dff6bb640e"
   },
   "logs": [
-    "evaluation/results/full_paper_style_20261016/main.log",
-    "evaluation/results/full_paper_style_20261016/compile-1.txt",
-    "evaluation/results/full_paper_style_20261016/bibtex.txt",
-    "evaluation/results/full_paper_style_20261016/compile-2.txt",
-    "evaluation/results/full_paper_style_20261016/compile-3.txt",
-    "evaluation/results/full_paper_style_20261016/compile-final.txt",
-    "evaluation/results/full_paper_style_20261016/fonts.txt",
-    "evaluation/results/full_paper_style_20261016/invariants.json"
+    "evaluation/results/astra_paper_style_20261016/main.log",
+    "evaluation/results/astra_paper_style_20261016/compile1.txt",
+    "evaluation/results/astra_paper_style_20261016/bibtex.txt",
+    "evaluation/results/astra_paper_style_20261016/compile2.txt",
+    "evaluation/results/astra_paper_style_20261016/compile3.txt",
+    "evaluation/results/astra_paper_style_20261016/compile-repair1a.txt",
+    "evaluation/results/astra_paper_style_20261016/compile-repair1b.txt",
+    "evaluation/results/astra_paper_style_20261016/fonts.txt",
+    "evaluation/results/astra_paper_style_20261016/validation.json",
+    "evaluation/results/astra_paper_style_20261016/source-review-capsules.md"
   ],
   "limitations": [
     "Contextual targets remain assistant-provisional, with no independent adjudication.",
@@ -145,7 +150,8 @@
     "No human utility or deployed telemetry monitoring accuracy established."
   ],
   "disposable_cleanup": [
-    "Removed only full_paper_style_20261016/main.pdf after SHA-256 matched paper/main.pdf; retained build logs, PNGs and invariant audit."
+    "Disposable build main.pdf removed only after byte hash matched colocated paper/main.pdf.",
+    "Three authoring replacement scripts and finalization helper removed after verified result; final PNGs, source-review capsules, compile logs and invariant checker retained."
   ],
   "previous_accepted_revision": {
     "source_sha256": "39c1ff39e19c9695b1f368e4d6b15c63cd834bbe29e4327845e759cfaa7f8a60",
@@ -582,5 +588,453 @@
       "source_pdf_hashes_match": true
     },
     "current_bindings_verified": "All current artifact/input and fifteen rendered-page hashes rechecked from actual file bytes before acceptance-record commit."
+  },
+  "historical_pre_astra_acceptance": {
+    "status": "Root accepted full-paper style revision after independently reviewing all changed prose and all fifteen current page PNGs; no scientific or visual defects.",
+    "input_commit": "938ed74613af1870fa89ebafbd5f41226482b3ee",
+    "artifacts": {
+      "paper/main.tex": "787a894cd797530908c5be2af839f6958e6f65b1ac4fc33e87be65eb6dd49d1a",
+      "paper/main.pdf": "2caf07a07302d3976aa9037126a24ee8fdd78fcc8587585748f9457297323a95",
+      "paper/ref.bib": "6a113e2abfb20e45d26bde6a961a0cec9a23a5264cd9db360f15eb372c1c03f7",
+      "paper/research/paper-completion-sources-20261014.bib": "e5ff78f57c9852410fe6643f071888679d3c99edc93cf6ae1461dfbc39fbea87",
+      "paper/manuscript-completion-sources-20261014.bib": "ba866866c94bd3be393a75602a84a7a519d5c76f89e9f899693715d07eda76d9",
+      "paper/research/literature-baseline-sources-20261015.bib": "7324e78d264c150565dc63c6391084577a97dc8c02506f1ee41a36f609960fb4",
+      "paper/figures/architecture-overview.pdf": "fe69cfbf9a403b01d5095801250385649ac233b865ffc84b1cd06ebdd7d894bc",
+      "paper/figures/architecture-enforcement.pdf": "6e48c17288de1b1a02c617e430b4cafb6e30e0f4e631750ce6e307f93d050593",
+      "paper/figures/architecture-updates.pdf": "8839f121f0f42823b0a18280f2b203bdb6d4c75695133ee763722d93862d8b7e",
+      "paper/figures/results-pipeline-v1-v3.pdf": "0d38be5fc0a8a383e5c5dfa264441722b91f2733a9e7d3547e48d4a15ae0dd15",
+      "paper/figures/results-pipeline-presidio-reference.pdf": "c556a1fa086755b77b780e2c9a2f2b61d227d2307306a16c5ccc752c2ad294fb"
+    },
+    "pages": {
+      "total": 15,
+      "main": [
+        1,
+        8
+      ],
+      "appendices": [
+        9,
+        14
+      ],
+      "references": [
+        15,
+        15
+      ]
+    },
+    "checks": {
+      "compilation": "passed; fresh pdflatex, BibTeX, cross-reference passes and final wording pass; exit 0",
+      "undefined_citations_or_references": false,
+      "duplicate_labels": false,
+      "overfull_boxes": false,
+      "missing_glyphs": false,
+      "embedded_fonts": "all 22 embedded",
+      "type3_fonts": false,
+      "render_dpi": 125,
+      "author_visual_review_pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "root_independent_visual_review_pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "visual_defects_found": [],
+      "citation_keys": [
+        "Athey2017",
+        "Casper2024",
+        "CasperAbstract2026",
+        "CasperPreprintV12024",
+        "GoogleWarns2023",
+        "Gupta2024",
+        "HaS2024",
+        "King2025",
+        "LIANG2025101366",
+        "LinuxCgroupV2Interfaces2026",
+        "PIIMBPinned2026",
+        "PresidioNlpConfiguration2026",
+        "ProSan2024",
+        "PromptShield2025",
+        "PromptShieldAbstract2026",
+        "SamsungBans2023",
+        "SpacyLarge371Release2026",
+        "arpaly2026advpiibench",
+        "barbera2025ai",
+        "googleBertL12H256A4",
+        "googleBertL2H256A4",
+        "googleBertL4H128A2",
+        "koraag2025comparing",
+        "turc2019WellReadStudents"
+      ],
+      "protected_data_access_or_rescore": false,
+      "new_experiments": false,
+      "source_bibliography_changed": false,
+      "staged_whitespace_command": "git -c diff.astextplain.binary=true diff --cached --check",
+      "visual_comparison": {
+        "method": "Writer and root independently inspected all fifteen current page PNGs; pass. No pixel-equivalence claim for the full-paper rewrite.",
+        "dpi": 125
+      }
+    },
+    "rendered_pages": {
+      "evaluation/results/full_paper_style_20261016/page-01.png": "6dd84bf55dac5f66035e184be4818fe360336858232e44508aa2a5e559c377f2",
+      "evaluation/results/full_paper_style_20261016/page-02.png": "040afeca052c5b10ca445d50631744fee5eedf42e25b55e92210c29f9e6e6747",
+      "evaluation/results/full_paper_style_20261016/page-03.png": "98b5577734eb1117bfeff6aea8dbc2b384423039700a290d761fdf97773183cf",
+      "evaluation/results/full_paper_style_20261016/page-04.png": "7621ea76961d832cd37bc972a861e744069c1a740d2443402119f9a42c97dbc4",
+      "evaluation/results/full_paper_style_20261016/page-05.png": "109538e9a0cee1dfd0bfbbfe5b0c3a3e837af34d00f233fe421067e43275c3ab",
+      "evaluation/results/full_paper_style_20261016/page-06.png": "aa082c5807a57d208c3f5fac11d26a79eb48ea0891301dfc7b658e8a770752c8",
+      "evaluation/results/full_paper_style_20261016/page-07.png": "cfa593fb6379c255420a6f3191638851d39c35a053a9724d83298005f2a07936",
+      "evaluation/results/full_paper_style_20261016/page-08.png": "7365ae9b739746dee8a3e48981f4487e75295ab04c832e8ced4761c7b3a25450",
+      "evaluation/results/full_paper_style_20261016/page-09.png": "5979d51764f2abd5c639f76681686ce0b8b51720062dfedafb10ade79e685770",
+      "evaluation/results/full_paper_style_20261016/page-10.png": "970a323af2e3ee59babbb20ea33450b7af8d288bb36f5c9fb17c3e39159a5cc7",
+      "evaluation/results/full_paper_style_20261016/page-11.png": "d40c141955c33ef07e3b23a09fc1830209a17710aa7e8f6fbb1e588a3afe057f",
+      "evaluation/results/full_paper_style_20261016/page-12.png": "0452234999ee5401af902f73723d49f13650bec4bafcd1fb04e1db148613097b",
+      "evaluation/results/full_paper_style_20261016/page-13.png": "6780a9b891c9ab3f3cfbb28d7c4d5e7de12e2569fe324e5c8cec604703ca12ec",
+      "evaluation/results/full_paper_style_20261016/page-14.png": "f07d58858fe1dde580e53db67bc3919c457ec626e9c83cd431a49f67c3759c5f",
+      "evaluation/results/full_paper_style_20261016/page-15.png": "e4d2635e53dfd82855e94a48357649e93b48e7ffaea4ce1d164093dff6bb640e"
+    },
+    "logs": [
+      "evaluation/results/full_paper_style_20261016/main.log",
+      "evaluation/results/full_paper_style_20261016/compile-1.txt",
+      "evaluation/results/full_paper_style_20261016/bibtex.txt",
+      "evaluation/results/full_paper_style_20261016/compile-2.txt",
+      "evaluation/results/full_paper_style_20261016/compile-3.txt",
+      "evaluation/results/full_paper_style_20261016/compile-final.txt",
+      "evaluation/results/full_paper_style_20261016/fonts.txt",
+      "evaluation/results/full_paper_style_20261016/invariants.json"
+    ],
+    "disposable_cleanup": [
+      "Removed only full_paper_style_20261016/main.pdf after SHA-256 matched paper/main.pdf; retained build logs, PNGs and invariant audit."
+    ]
+  },
+  "astra_whole_manuscript_revision_20261016": {
+    "exact_user_request": "Many of the sentences are very concise still, and use future tense for implementation. Use an astra agent to rewrite the whole paper, referencing the paper in its state before you made modifications from this session to point it to how language is structured, and what content is in each section, with the content revisions made in this section.",
+    "additional_user_request": "also get it to reference the relavent research papers, or enquire subagents to do that with parts of the paper that are relavent to certain research sections to prevent context bloat",
+    "author_model": "User-selected gpt-6-astra, high effort, explicitly configured fresh-context dispatch.",
+    "source_workers": [
+      {
+        "name": "casper_reference",
+        "model": "gpt-6.1-sol",
+        "effort": "medium",
+        "scope": "Decisive Casper source pages, read-only."
+      },
+      {
+        "name": "has_prosan_reference",
+        "model": "gpt-6.1-sol",
+        "effort": "medium",
+        "scope": "Decisive HaS and ProSan source pages, read-only."
+      }
+    ],
+    "style_references": [
+      {
+        "commit": "2b5cf75149d146d73a8ba1227c936c444b75c9f9",
+        "path": "paper/main.tex",
+        "read_scope": "Entire manuscript",
+        "reason": "Immediately before the Oct15 condensation; full pre-session section-content reference with fuller introduction and latest earlier evidence boundaries."
+      },
+      {
+        "commit": "d72075b35240b96a16cd062d5d3d91b0189d6f74",
+        "path": "paper/main.tex",
+        "read_scope": "Introduction, Background, Categorization, Threat Model and detailed Architecture passages",
+        "reason": "Before Oct14 compression; restores explanatory paragraph structure and causal mechanism descriptions, without restoring obsolete results or TODOs."
+      }
+    ],
+    "reference_selection_note": "dacc7c5d was already concise and was not the sole writing reference. The earlier whole-paper reference was actually read, not inferred from its abstract. No unrelated personal-writing search.",
+    "coverage": [
+      {
+        "level": "section",
+        "title": "Introduction",
+        "changed": true
+      },
+      {
+        "level": "section",
+        "title": "Related Work and Contribution",
+        "changed": true
+      },
+      {
+        "level": "section",
+        "title": "System Design and Privacy Boundary",
+        "changed": false
+      },
+      {
+        "level": "subsection",
+        "title": "Scope and Trust",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "Local Inspection and Request Enforcement",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "Guarded Detector Updates",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "Separate Randomized Telemetry",
+        "changed": true
+      },
+      {
+        "level": "section",
+        "title": "Evaluation Method",
+        "changed": false
+      },
+      {
+        "level": "subsection",
+        "title": "Questions and Evidence Units",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "Comparison and Retention Protocols",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "Enforcement, Cost and Telemetry Protocols",
+        "changed": true
+      },
+      {
+        "level": "section",
+        "title": "RQ1: Detection and Enforcement",
+        "changed": false
+      },
+      {
+        "level": "subsection",
+        "title": "Contextual Policy Agreement",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "What Transfers Beyond the Authored Cases?",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "Does a Decision Control Transmission?",
+        "changed": true
+      },
+      {
+        "level": "section",
+        "title": "RQ2: Updates and Previously Protected Behavior",
+        "changed": false
+      },
+      {
+        "level": "subsection",
+        "title": "Mechanism Versus Useful Adaptation",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "Matched Continuation and Guard Decisions",
+        "changed": true
+      },
+      {
+        "level": "section",
+        "title": "RQ3: Systems and Privacy Overhead",
+        "changed": false
+      },
+      {
+        "level": "subsection",
+        "title": "Measured Systems Cost",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "Privacy Cost and Telemetry Utility",
+        "changed": true
+      },
+      {
+        "level": "section",
+        "title": "Discussion and Limitations",
+        "changed": false
+      },
+      {
+        "level": "subsection",
+        "title": "What the System Evidence Supports",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "Ground Truth and Generalization Remain Open",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "Retention, Availability and Practical Utility",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "Measurement and Reproduction Boundaries",
+        "changed": true
+      },
+      {
+        "level": "section",
+        "title": "Conclusion",
+        "changed": true
+      },
+      {
+        "level": "section",
+        "title": "Exact Policy Representation",
+        "changed": true
+      },
+      {
+        "level": "section",
+        "title": "Detailed Comparison Protocols and Terminology",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "Training Lineage and Selection",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "Matched Pretrained Continuation",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "Product and External-Reference Protocol",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "External Official-Category Reference",
+        "changed": true
+      },
+      {
+        "level": "section",
+        "title": "Retained Update and Reference Detail",
+        "changed": true
+      },
+      {
+        "level": "section",
+        "title": "Related-System Interaction Detail",
+        "changed": false
+      },
+      {
+        "level": "section",
+        "title": "Selected Training Lineage",
+        "changed": true
+      },
+      {
+        "level": "section",
+        "title": "Installed-Browser Cost Protocol",
+        "changed": true
+      },
+      {
+        "level": "section",
+        "title": "Descriptive Product Cost",
+        "changed": true
+      },
+      {
+        "level": "section",
+        "title": "Installed-Browser Cost Outcomes",
+        "changed": true
+      },
+      {
+        "level": "section",
+        "title": "Telemetry and Local Reconstruction Details",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "Local Source/Model Reconstruction",
+        "changed": true
+      },
+      {
+        "level": "subsection",
+        "title": "Implemented Finite Kernel",
+        "changed": true
+      }
+    ],
+    "abstract_rewritten": true,
+    "substantive_paragraphs_rewritten": 92,
+    "unchanged_material": "Data tables, equations, headings, citations, references, figures and all numerical facts. The table-dominated interaction appendix retains suitable prose; six parent headings introduce rewritten subsections.",
+    "invariants": {
+      "tables": {
+        "unchanged": true,
+        "before_count": 9,
+        "after_count": 9
+      },
+      "equations": {
+        "unchanged": true,
+        "before_count": 2,
+        "after_count": 2
+      },
+      "headings": {
+        "unchanged": true,
+        "before_count": 42,
+        "after_count": 42
+      },
+      "citations": {
+        "unchanged": true,
+        "before_count": 27,
+        "after_count": 27
+      },
+      "labels": {
+        "unchanged": true,
+        "before_count": 43,
+        "after_count": 43
+      },
+      "references": {
+        "unchanged": true,
+        "before_count": 25,
+        "after_count": 25
+      },
+      "figures": {
+        "unchanged": true,
+        "before_count": 5,
+        "after_count": 5
+      },
+      "numeric_tokens": {
+        "before_count": 653,
+        "after_count": 654,
+        "same_multiset": false,
+        "added": [
+          "0",
+          "0"
+        ],
+        "removed": [
+          "7,560"
+        ]
+      },
+      "log_findings": []
+    },
+    "numeric_delta_explanation": "Writer regex653->654: one repeated7,560 removed from the same paragraph, two trailing0 tokens added by expanded p50 labels. Root broader regex identifies the latter as two50 tokens. No numerical fact changed; values were not artificially repeated to force token equality.",
+    "tense_audit": "Implemented runtime, enforcement, version/CAS/replay/publication, client identity verification/refresh and telemetry use present tense. Completed fitting, probes and audits use past tense. Remaining would clauses refer to hypothetical unpublished guard mappings, unimplemented sanitization/evaluation or utility thresholds.",
+    "source_grounding": "Casper PDF pp5-9 (layers/configurability, user-triggered analysis/restoration and acknowledgement); HaS pp2-6 (trained generative versus NER label variant and whole-text metric); ProSan pp5-12 (importance/privacy proxies, trained local sanitizer, privacy-item metric). Detailed verified locators in source-review-capsules.md. Existing bibliography keys retained.",
+    "author_review": "Inspected all16 final125dpi PNGs individually, including architecture, tables, figures, equations and references. No clipping, collisions, missing glyphs or unreadable content.",
+    "root_review": "Accepted frozen source d22feab98758443857071090ad73aa319c43196e6144d5ce17967ebab7c538c6 and PDF d9ee4bd5ba74b28853c3cf7fffdf5a715f71c5e5f218800d178e08de4fd26027 after all current prose and all16 actual PNGs. No repair requested.",
+    "layout_repair": "One repair removed redundant roadmap, discussion recap and conclusion phrasing to eliminate a ten-line spill on an otherwise empty tenth main page. No mechanism, method or result explanation was compressed; finalmain9 pages.",
+    "build_limitations": "Initial appendix-script invocation used the wrong working directory and made no edit; corrected with absolute path. Initial sandbox MiKTeX/font profile reads failed, then approved narrow profile access succeeded with installation disabled. Validation default-encoding read was corrected to UTF-8. Bundled pdffonts was absent; installed utility succeeded. These did not run experiments or alter source inputs.",
+    "publication": "No push attempted. Prior automatic-review rejection of publishing private research to origin/docs/paper remains effective; no workaround."
   }
 }
