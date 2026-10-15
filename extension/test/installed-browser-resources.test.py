@@ -727,10 +727,18 @@ class InitialNativeClassificationTests(unittest.TestCase):
         native = SimpleNamespace(pid=22, info={"pid": 22, "ppid": 21, "cmdline": cached_argv, "create_time": 22.0})
         def fresh(pid):
             is_native = pid == 22
+            def command():
+                if is_native and mode == "vanished_cmdline":
+                    raise RESOURCES.psutil.NoSuchProcess(pid)
+                return fresh_argv if is_native else root_argv
+            def memory():
+                if is_native and mode == "vanished_metrics":
+                    raise RESOURCES.psutil.NoSuchProcess(pid)
+                return None if mode == "missing_rss" and is_native else SimpleNamespace(rss=222 if is_native else 111)
             return SimpleNamespace(create_time=lambda: (23.0 if mode == "reused_creation" and is_native else float(pid)),
-                is_running=lambda: True, cmdline=lambda: fresh_argv if is_native else root_argv,
+                is_running=lambda: True, cmdline=command,
                 ppid=lambda: native_parent if is_native else 1,
-                memory_info=lambda: None if mode == "missing_rss" and is_native else SimpleNamespace(rss=222 if is_native else 111),
+                memory_info=memory,
                 cpu_times=lambda: SimpleNamespace(user=0.4 if is_native else 0.1, system=0.2))
         reads = {22: 0}
         def stat(pid):
@@ -773,6 +781,16 @@ class InitialNativeClassificationTests(unittest.TestCase):
                      "noncanonical_native", "positive_native_command", "positive_supervisor", "positive_detector"]:
             with self.subTest(mode=mode), self.assertRaises((RuntimeError, RESOURCES.ProcessIdentityFailure)):
                 self.collect(mode)
+
+    def test_unknown_owned_child_vanishing_during_fresh_reads_is_fatal_with_identity(self):
+        for mode in ["vanished_cmdline", "vanished_metrics"]:
+            with self.subTest(mode=mode), self.assertRaises(RESOURCES.ProcessIdentityFailure) as caught:
+                self.collect(mode)
+            diagnostic = caught.exception.process_failure
+            self.assertEqual(diagnostic["reason"], "process_vanished_during_fresh_reads")
+            self.assertEqual(diagnostic["requested_identity"]["pid"], 22)
+            self.assertEqual(diagnostic["requested_identity"]["command_sha256"], hashlib.sha256(b"").hexdigest())
+            self.assertEqual(diagnostic["requested_identity"]["parent_pid"], 21)
 
     def test_ownership_fallback_is_not_positive_chromium_command_proof(self):
         self.assertIsNone(RESOURCES._role_for_command("", True))

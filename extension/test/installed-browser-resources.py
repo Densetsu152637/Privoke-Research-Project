@@ -486,6 +486,7 @@ def _processes(transition=None, bound_browser_roots=None, browser_candidates=Non
         return _termination_disposition(role, profile_root or initially_unclassified, detail, transition=transition, pid=pid, identity=identity)
 
     for process in processes:
+        initially_unclassified = False
         try:
             info = process.info
             pid = int(info["pid"])
@@ -629,6 +630,14 @@ def _processes(transition=None, bound_browser_roots=None, browser_candidates=Non
             included_chromium = pid in chromium_ids
             role_hint = _role_for_command(expected_command, included_chromium)
             if role_hint is None:
+                if included_chromium:
+                    # An owned but unclassified child has no authority to be omitted.
+                    before = _process_stat_identity(pid)
+                    requested = {"pid": pid, "start_ticks": before[1] if before else None,
+                                 "command_sha256": hashlib.sha256(expected_command.encode()).hexdigest(),
+                                 "parent_pid": int(info.get("ppid") or 0), "parent_start_ticks": None}
+                    raise ProcessIdentityFailure("chromium", "process_vanished_during_fresh_reads", requested,
+                                                 pid, transition.phase if transition else "idle", observed_state=before)
                 continue
             before = _process_stat_identity(pid)
             authorized = termination(role_hint, pid in chromium_root_ids, "process vanished during fresh reads",
