@@ -1,0 +1,184 @@
+{
+  "id": "CONCISE-20261015",
+  "status": "accepted_by_root",
+  "date": "2026-10-15",
+  "exact_user_request": "Can you make the paper more concise so that it reaches 10 pages (not including appendices and references)?",
+  "base_commit": "fdc7440eebd33a2331cd72b96e50a071894b8c6b",
+  "branch": "feat/dev-testing",
+  "scope": "Editorial and layout work only; no code edits, research or experiments.",
+  "keep_move_shorten": {
+    "keep": [
+      "Decisive contextual/product/final/external metrics and figures",
+      "V3 final specificity13.36--21.76%; same artifacts with changed fixtures/targets",
+      "All FULL candidates guard-rejected;139 corrected restrictions versus18 lost correct actions",
+      "Source-qualified Casper2024v1,HaS2023v1,ProSan2024v1 metrics and non-rankability",
+      "WARN original-body forwarding without awaited acknowledgement",
+      "Unmeasured utility/comprehension; client observations postdate B10 and costs exclude their overhead",
+      "Existing discussion and limitations"
+    ],
+    "move": [
+      "Interaction table to appendixA",
+      "Training recipes/doses/lineage table to appendixB",
+      "Installed cost protocol to appendixC",
+      "Product cost table to appendixD",
+      "Installed cost outcomes/table to appendixE",
+      "Telemetry numerics and reconstruction provenance to appendixF"
+    ],
+    "shorten": [
+      "Introduction motivation/incidents and repeated contributions",
+      "Client-observation contract narrative",
+      "Main cost/telemetry/reconstruction summaries with crossrefs",
+      "Extensions"
+    ]
+  },
+  "formatting": {
+    "class": "IEEEtran conference10pt",
+    "preamble_unchanged": true,
+    "font_margin_spacing_hacks": false,
+    "blank_filler": false,
+    "appendix_table_position": "H using existing float package; headings before tables"
+  },
+  "layout_iterations": 2,
+  "physical_pages": {
+    "main": [
+      1,
+      10
+    ],
+    "appendices": [
+      11,
+      12
+    ],
+    "references": [
+      13,
+      13
+    ],
+    "main_count": 10,
+    "appendix_count": 2,
+    "reference_count": 1,
+    "total": 13
+  },
+  "boundary_proof": {
+    "source": "clearpage before appendices and before bibliography",
+    "text": "Conclusion on10; APPENDIXA begins11; REFERENCES begins13",
+    "section_start_pages": {
+      "sec:introduction": 1,
+      "sec:literature_review": 1,
+      "sec:threat_model": 2,
+      "sec:pii_categorisation": 2,
+      "sec:system_architecture": 2,
+      "sec:telemetry_mechanism": 3,
+      "sec:methodology": 3,
+      "sec:pipeline_comparison_methods": 4,
+      "sec:results": 5,
+      "sec:pipeline_comparison_results": 6,
+      "sec:detector_ablation": 6,
+      "sec:external_comparison": 6,
+      "sec:final_annotation": 7,
+      "sec:telemetry_results": 8,
+      "sec:discussion": 9,
+      "sec:limitations": 9,
+      "sec:extensions": 10,
+      "sec:conclusion": 10,
+      "app:interaction": 11,
+      "app:lineage": 11,
+      "app:browser_protocol": 11,
+      "app:product_cost": 11,
+      "app:browser_cost": 11,
+      "app:telemetry_reconstruction": 12
+    }
+  },
+  "compile": {
+    "engine": "pdfTeX3.141592653-2.6-1.40.29 MiKTeX26.5",
+    "command": "pdflatex --disable-installer -interaction=nonstopmode -halt-on-error -output-directory=<build1> -jobname=privoke-concise-20261015 main.tex",
+    "working_directory": "paper",
+    "sequence": "pdflatex; bibtex full-job-path; pdflatex twice; final corrections pdflatex twice",
+    "exit_status": 0,
+    "bibtex_exit_status": 0,
+    "log": "evaluation/results/paper_concision_20261015/build1/privoke-concise-20261015.log",
+    "undefined_refs_or_cites": 0,
+    "overfull": 0,
+    "missing_glyphs": 0,
+    "underfull_hboxes": 14,
+    "notice": "Existing MiKTeX unchecked-updates notice; no packages installed"
+  },
+  "fonts": {
+    "report": "evaluation/results/paper_concision_20261015/fonts.txt",
+    "entries": 22,
+    "all_embedded": true,
+    "type3": false
+  },
+  "visual_qa": {
+    "dpi": 125,
+    "author_pages_reviewed": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "final_changed_pages_reinspected": [
+      8,
+      11,
+      12
+    ],
+    "result": "pass",
+    "findings": "Legible text/tables/figures; no clipping/overlap. Natural IEEE last-page whitespace,no filler. Appendix headings precede tables. Underfull paragraphs visually acceptable.",
+    "png_pattern": "evaluation/results/paper_concision_20261015/page-01.png through page-13.png",
+    "page_png_sha256": {
+      "1": "aa083a4b9ca82bdecb631978459db4a991f8429390f7482a962f4ecf7f81789b",
+      "2": "0274da9f551b978ccf0e2c6584d1a656286b9e6be4a2ac10c0fd5bf1c4932347",
+      "3": "bc969efb9dd1dfdc5052160d7ce36c25ec2c6cba22b2316e85f0f70c446c5f3f",
+      "4": "37400dc7350ca39ba76f658127e2b7f9d3ffd0b5de513ebd9ff706a8f5f7ce7b",
+      "5": "58c2e8cd3f313a5f564f8c60f5362fb8cb9d817c02a06d596c13fed509a59327",
+      "6": "ff158738ed8e2be110a8bbe4aa40f53fb15fbbc333e1c4ceed2e5f79776b4b66",
+      "7": "2241d47949f9f607abef4263dfd6c7eca89114d02b44550b083d8ee6066e4bd7",
+      "8": "ac601a19870a56272ed75a671fa121cff55f3cac0d52f84709ce205ade8a7b24",
+      "9": "0ed9c5aa295dc1f7ba02dfd8c082048ff422f423c567d22798d144bb43bf39a7",
+      "10": "1317ad7087fa9081def844dbd038bfd06d45fd262f0d9319e7bcf8167c2ea89b",
+      "11": "408f5344b25ecfe8a4d9ae05756c97c7dd13c7c0dd635fc1f0ca2ac2ab18a782",
+      "12": "07c1a1b3bda82ad452ed564362f0f36289551a2de4b2e64cdf25be15327cbae9",
+      "13": "6d309a8643362b4b2bd56b5888f8cb102dbb0a2bff86cf4320864873bce3cc5a"
+    },
+    "root_independent_review": "Root inspected all13 final frozen pages and passed visual acceptance; adverse results/limitations preserved; no further source/layout changes requested."
+  },
+  "source_sha256": {
+    "paper/main.tex": "6001af34b8ef0240baa2a0c9508ea900cfed5ca5c62d09faa6770e432cdd6460",
+    "paper/ref.bib": "84769bf62dbf21c15edcdc213d31a0bcea4ed08d593c1a77d3a789313cfd986e",
+    "paper/research/paper-completion-sources-20261014.bib": "e5ff78f57c9852410fe6643f071888679d3c99edc93cf6ae1461dfbc39fbea87",
+    "paper/manuscript-completion-sources-20261014.bib": "ba866866c94bd3be393a75602a84a7a519d5c76f89e9f899693715d07eda76d9",
+    "paper/research/literature-baseline-sources-20261015.bib": "f199916c3553a7d3b3361300165fe9eda070b5d7dfaec832863b75301836cce1",
+    "paper/figures/results-pipeline-v1-v3.pdf": "0d38be5fc0a8a383e5c5dfa264441722b91f2733a9e7d3547e48d4a15ae0dd15",
+    "paper/figures/results-pipeline-presidio-reference.pdf": "c556a1fa086755b77b780e2c9a2f2b61d227d2307306a16c5ccc752c2ad294fb"
+  },
+  "pdf": {
+    "path": "output\\pdf\\privoke-concise-20261015.pdf",
+    "sha256": "e2451887cd1e47705bce0ecad4b3767666db08dc2b5f4e6a46a6b31600073ddc"
+  },
+  "prior_output_preserved": {
+    "path": "output/pdf/privoke-literature-revision-20261015.pdf",
+    "sha256": "313d92556e472728deed360297984b988ab045aac89dfe402ae0202455f1f5f9"
+  },
+  "limitations": [
+    "Editorial/layout validation is not new experimental or broader paper-readiness evidence.",
+    "Dirty ref.bib used unchanged and excluded from commit.",
+    "Writing-style connector unavailable; supplied manuscript style and preferences used."
+  ],
+  "git_checks": {
+    "full_staged_diff_check": "Executed; Git astextplain PDF attribute exposes binary PDF stream/xref trailing spaces as whitespace findings. PDF bytes intentionally preserved.",
+    "prose_staged_diff_check": "Passed for main.tex, validation JSON and related-work.md; root approved binary-format distinction.",
+    "owned_paths": [
+      "paper/main.tex",
+      "paper/research/related-work.md",
+      "paper/research/paper-concision-validation-20261015.json",
+      "output/pdf/privoke-concise-20261015.pdf"
+    ]
+  }
+}

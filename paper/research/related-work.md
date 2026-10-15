@@ -51,3 +51,13 @@ contribution scope, interaction comparison, version and metric boundaries, and
 unmeasured practical-utility questions. The later tested client-observation
 contract is reflected in the Methods text; its limits and the remaining human
 utility-evidence gaps are recorded there.
+
+## Manuscript concision checkpoint - 15 October 2026
+
+[CONCISE-20261015: manuscript concision validation](paper-concision-validation-20261015.json)
+records the exact request, keep/move/shorten decisions, source/output hashes,
+compilation, font and rendered-page checks. Main text occupies physical pages
+1-10, appendices 11-12 and references 13, with explicit page breaks. Secondary
+protocol, lineage, cost and telemetry detail is retained in appendices; decisive
+results and adverse findings remain in the main paper. No new experimental or
+usability evidence is claimed.
