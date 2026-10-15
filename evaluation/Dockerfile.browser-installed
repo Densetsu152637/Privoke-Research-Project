@@ -72,6 +72,8 @@ COPY extension/test/installed-browser-additional.mjs /workspace/extension/test/i
 COPY extension/test/installed-browser-capture.mjs /workspace/extension/test/installed-browser-capture.mjs
 COPY extension/test/installed-browser-evidence.mjs /workspace/extension/test/installed-browser-evidence.mjs
 COPY extension/test/installed-browser-evidence.test.mjs /workspace/extension/test/installed-browser-evidence.test.mjs
+COPY extension/test/installed-browser-container-resources.py /workspace/extension/test/installed-browser-container-resources.py
+COPY extension/test/installed-browser-container-evidence.mjs /workspace/extension/test/installed-browser-container-evidence.mjs
 COPY extension/test/installed-browser-resources.py /workspace/extension/test/installed-browser-resources.py
 COPY extension/test/installed-browser-resources.test.py /workspace/extension/test/installed-browser-resources.test.py
 COPY services/model-streaming-service/cmd/server/main.go /workspace/services/model-streaming-service/cmd/server/main.go

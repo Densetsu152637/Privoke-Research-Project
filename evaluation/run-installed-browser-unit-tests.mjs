@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const testFile = fileURLToPath(new URL("../extension/test/installed-browser-evidence.test.mjs", import.meta.url));
-const result = spawnSync(process.execPath, ["--test", testFile], {
+const result = spawnSync(process.execPath, ["--test", testFile, fileURLToPath(new URL("../extension/test/installed-browser-container-evidence.test.mjs", import.meta.url))], {
   stdio: "inherit",
   env: process.env,
 });
@@ -21,3 +21,9 @@ const pythonResult = spawnSync(python, [pythonTest], { stdio: "inherit", env: pr
 if (pythonResult.error) throw pythonResult.error;
 if (pythonResult.signal) throw new Error(`installed browser resource tests terminated by ${pythonResult.signal}`);
 if (pythonResult.status !== 0) process.exitCode = pythonResult.status ?? 1;
+
+const containerPythonTest = fileURLToPath(new URL("../extension/test/installed-browser-container-resources.test.py", import.meta.url));
+const containerPythonResult = spawnSync(python, ["-B", containerPythonTest], { stdio: "inherit", env: process.env });
+if (containerPythonResult.error) throw containerPythonResult.error;
+if (containerPythonResult.signal) throw new Error(`container resource tests terminated by ${containerPythonResult.signal}`);
+if (containerPythonResult.status !== 0) process.exitCode = containerPythonResult.status ?? 1;

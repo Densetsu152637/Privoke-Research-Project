@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "protocolVersion": "installed-browser-enforcement-cost-v5",
   "resultStatus": "bounded_correctness_complete_cost_incomplete",
-  "updatedAt": "2026-10-15T06:50:36.798Z",
+  "updatedAt": "2026-10-15T07:19:25.153550+00:00",
   "evidenceBase": "D:/Git Repositories/Privoke-Research-Project/evaluation/results/installed-client-evidence-20261014",
   "attempts": [
     {
@@ -275,6 +275,36 @@
       },
       "samplerObserverMeasuredWindows": 6,
       "samplerObserverCpuSampledDeltaSeconds": 18.293232532
+    },
+    {
+      "attempt": 8,
+      "runId": "run-2026-10-15T06-59-11-866Z-3b18d875",
+      "sourceRevision": "effacf7e24e471bbc854aff6ed4a153e26e7cc33",
+      "imageId": "sha256:931de34d8e1d8517100f81355d82bd7b8ac1bb462bf00d76971e0ba91d9953a7",
+      "status": "failed",
+      "coldSessionsCompleted": 0,
+      "warmMeasuredRequests": 0,
+      "originalProbes": 0,
+      "additionalProbes": 0,
+      "failure": {
+        "type": "StartupTransitionSamplerExited",
+        "message": "resource sampler exited during startup transition"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": true,
+        "certificateDirectoryRemoved": true
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-15T06-59-11-866Z-3b18d875/receipt.json",
+        "sha256": "d31ada580acbeeceb18507577a2baf09f8c8550f7fd4d91dafe13349b4aa995b"
+      },
+      "relocation": {
+        "path": "relocation-attempt-8.json",
+        "sha256": "2fce00c36a30d778b28cb83d862fb6f69a3ddb3597a02e4c6754f19477d46979"
+      },
+      "diagnosticLimit": "Unknown-owned guard raised without offending PID/hash; actual role/harmlessness unproven."
     }
   ],
   "selectedCorrectnessAttempt": 4,
@@ -993,11 +1023,11 @@
     "status": "not_complete",
     "requiredColdSessions": 12,
     "requiredMeasuredWarmRequests": 360,
-    "latestColdSessionsCompleted": 6,
-    "latestMeasuredWarmRequests": 180,
+    "latestColdSessionsCompleted": 0,
+    "latestMeasuredWarmRequests": 0,
     "publishFailedPartialPercentiles": false,
-    "reason": "Seventh run failed a strict initial owned-descendant command classification check in window7 before its first request; full12window/resource/cleanup gates remain incomplete.",
-    "latestAttempt": 7
+    "reason": "Eighth capture failed before first request in strict process classification; all eight histories remain failed. Prospective v9 independent whole-container cost revision not yet executed.",
+    "latestAttempt": 8
   },
   "environment": {
     "versions": {
@@ -1068,5 +1098,30 @@
     "Attempt5 is a preserved pre-request harness ReferenceError. Implementation and review missed the windowSamplePath scope; prospective correction uses active samplerPath and executes the actual production callsite regression.",
     "Attempt6 completed10cold/300warm and33correctness cases, then failed the strict native-to-supervisor sampled child-binding gate in window11 before its first request. It remains failed and cannot supply a complete cost result.",
     "Attempt7 completed6cold/180warm and33correctness cases, then failed initial blank-owned-child versus fresh native-host classification. Its dense-startup observer CPU and sample data are retained, but no complete cost or causal overhead claim follows."
-  ]
+  ],
+  "prospectiveCostProtocol": {
+    "protocolVersion": "installed-browser-enforcement-cost-v9",
+    "status": "implementation_pending_independent_review_no_ninth_capture",
+    "scope": "instrumented_whole_container",
+    "requestedIntervalMs": 100,
+    "requiredWindows": 12,
+    "requiredMeasuredRequests": 360,
+    "correctnessProbesOutsideCostWindows": 33,
+    "processAttribution": "Known browser/supervisor/detector boundary checks only; no continuous per-process resource attribution.",
+    "observerIncluded": true,
+    "unprotectedBaseline": false,
+    "previousEightFailedRunsPooled": false,
+    "hostValidation": {
+      "pythonTestsPassed": 63,
+      "nodeTestsPassed": 58,
+      "nodeTestsSkipped": 1,
+      "skipReason": "Generated runtime protobuf codec dependencies omitted from isolated source checkout; primary integrated validation must execute this test.",
+      "pythonCommands": [
+        "C:/Python313/python.exe -B extension/test/installed-browser-resources.test.py",
+        "C:/Python313/python.exe -B extension/test/installed-browser-container-resources.test.py"
+      ],
+      "nodeCommand": "node --test extension/test/installed-browser-evidence.test.mjs extension/test/installed-browser-additional.test.mjs extension/test/installed-browser-launch-log.test.mjs extension/test/installed-browser-container-evidence.test.mjs",
+      "scope": "Host-only synthetic producer/consumer/lifecycle regressions; no browser, runtime, model service or capture launched."
+    }
+  }
 }

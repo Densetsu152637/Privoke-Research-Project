@@ -58,6 +58,8 @@ import {
   summarizeResourceCpuWindows,
 } from "../extension/test/installed-browser-evidence.mjs";
 
+import { summarizeContainerWindow, summarizeContainerStudy, assertStableBoundary, runDirectStartupTransition } from "../extension/test/installed-browser-container-evidence.mjs";
+
 import { installBrowserLaunchLog } from "../extension/test/installed-browser-launch-log.mjs";
 
 import { runAdditionalMatrix } from "../extension/test/installed-browser-additional.mjs";
@@ -72,7 +74,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const EXTENSION_ID = "hmlhjfklebbbhpjdjodegbjnbamlkonp";
 const NATIVE_HOST_NAME = "org.privoke.runtime_launcher";
 const PORTS = [8080, 50056, 50057];
-const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v8";
+const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v9";
 const RATE_REPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_REPS, 30);
 const WARMUPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_WARMUPS, 5);
 const COLD_SESSIONS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_SESSIONS, 12);
@@ -88,8 +90,12 @@ const XDG_CONFIG_HOME = process.env.XDG_CONFIG_HOME || "/tmp/privoke-xdg";
 const XDG_DATA_HOME = process.env.XDG_DATA_HOME || "/tmp/privoke-data";
 const BROWSER_CONFIG_ROOT = join(XDG_CONFIG_HOME, "chromium");
 const EXTENSION_ROOT = join(ROOT, "extension", "dist");
-const RESOURCE_SAMPLER = join(ROOT, "extension", "test", "installed-browser-resources.py");
+const RESOURCE_SAMPLER = join(ROOT, "extension", "test", "installed-browser-container-resources.py");
 const SOURCE_FILES = [
+  "extension/test/installed-browser-container-resources.py",
+  "extension/test/installed-browser-container-resources.test.py",
+  "extension/test/installed-browser-container-evidence.mjs",
+  "extension/test/installed-browser-container-evidence.test.mjs",
   "evaluation/Dockerfile.browser-installed",
   "evaluation/compose.browser-installed.yml",
   "evaluation/run-installed-browser-capture.mjs",
@@ -301,25 +307,21 @@ try {
     receipt.startupLifecycle = { state: startupLifecycleUnknown ? "unknown" : "verified_or_not_started",
       monitoredCleanupBlocked: startupLifecycleUnknown };
     try {
-      receipt.resourceSampling = await resourceSummary(resourceFiles);
-      assert.equal(resourceFiles.length, COLD_SESSIONS, "one resource sample file is required per cold session");
-      assert.ok(resourceFiles.every((item) => item.sha256), "every resource sample must have a finalized digest");
-      assert.ok(resourceFiles.every((item) => item.finalized && item.sampleCount > 0),
-        "every resource window must be stopped, reaped, hashed, and terminal-validated before teardown");
-      assert.ok(receipt.resourceSampling.processes.length > 0, "resource samples contain no tracked processes");
-      assertCompleteResourceEvidence(receipt.resourceSampling);
+      receipt.containerResourceSampling = await containerResourceSummary(resourceFiles);
     } catch (error) {
       const detail = safeError(error);
       evidenceFailures.push(detail);
-      receipt.resourceSampling = preserveResourceEvidenceFailure(receipt.resourceSampling, detail);
+      receipt.containerResourceSampling = { status: "incomplete", failure: detail,
+        scope: "instrumented_whole_container", publishCost: false };
     }
-    if (hostRegistration) {
-      try { receipt.nativeHostCapture = await nativeHostEvidence(resourceFiles, hostRegistration); }
-      catch (error) {
-        evidenceFailures.push(safeError(error));
-        receipt.nativeHostCapture = { error: safeError(error) };
-      }
-    } else receipt.nativeHostCapture = null;
+    receipt.nativeHostCapture = hostRegistration ? {
+      evidenceMode: "fresh_profile_registered_native_launcher_extension_triggered_lifecycle",
+      registeredManifestSha256: hostRegistration.manifestSha256,
+      launcherSha256: hostRegistration.launcherSha256,
+      hostSha256: hostRegistration.hostSha256,
+      shortLivedHelperProcessSampling: "not_part_of_v9_cost_protocol",
+      inferenceLimit: "Fresh profile registration and extension-triggered live runtime attest the installed path; no continuous native-helper ancestry or clean-exit claim.",
+    } : null;
     if (cleanupFailures.length || evidenceFailures.length) {
       receipt.status = "failed";
       receipt.cleanupFailures = cleanupFailures;
@@ -567,7 +569,7 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   const resourceFile = { file: relative(OUTPUT, samplerPath), sha256: null,
     sessionId, requestedStartMonotonicNs: process.hrtime.bigint().toString(),
     requestedEndMonotonicNs: null, phaseRequestCounts: { firstDecision: 0, warmup: 0, measured: 0 },
-    sampledBrowserIdentities: [] };
+    knownBrowserIdentities: [] };
   resourceFiles.push(resourceFile);
   currentResourceWindow = resourceFile;
   samplerCloseState = "running";
@@ -579,28 +581,23 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   finalizeCurrentResourceWindow = createResourceWindowFinalizer(async () => {
     if (!currentResourceWindow) return;
     const windowSamplePath = samplerPath;
-    currentResourceWindow.requestedEndMonotonicNs = process.hrtime.bigint().toString();
-    let identityError;
-    try { currentResourceWindow.sampledBrowserIdentities = await sampledBrowserIdentities(samplerPath); }
-    catch (error) { identityError = error; }
     await stopSampler();
+    currentResourceWindow.requestedEndMonotonicNs = process.hrtime.bigint().toString();
     assertStartupLifecycleKnown(startupLifecycleUnknown);
-    if (identityError) throw identityError;
     if (sampleEndFailure) throw new Error("resource capture window did not finalize cleanly");
-    const expected = { firstDecision: 1, warmup: WARMUPS, measured: RATE_REPS };
-    assert.deepEqual(currentResourceWindow.phaseRequestCounts, expected,
-      "resource window did not contain the requested startup, first decision, warmups, and measured requests");
+    assert.deepEqual(currentResourceWindow.phaseRequestCounts,
+      { firstDecision: 1, warmup: WARMUPS, measured: RATE_REPS });
+    assert.ok(currentResourceWindow.endBoundary, "final direct runtime boundary missing");
     const finalRows = parseJsonl(await readFile(windowSamplePath, "utf8"));
-    currentResourceWindow.startupTransition.samplerEvidence =
-      validateStartupTransitionWindow(finalRows, currentResourceWindow.startupTransition);
-    currentResourceWindow.initialNativeClassifications = validateInitialNativeClassifications(finalRows,
-      sha256(`${join(ROOT, "extension/client-runtime/.venv/bin/python")} ${join(XDG_DATA_HOME, "privoke/native-host/native_messaging_host.py")}`));
-    currentResourceWindow.samplerObservation = summarizeSamplerObservation(finalRows);
-    currentResourceWindow.nativeBootstrapEvidence =
-      validateNativeBootstrapEvents(finalRows, currentResourceWindow.nativeBootstrapCompletion);
+    currentResourceWindow.containerObservation = summarizeContainerWindow(finalRows,
+      { sourceRevision: SOURCE_REVISION, protocolSha256 });
     currentResourceWindow.finalized = true;
   });
 
+  await waitForCondition(async () => {
+    const rows = parseJsonl(await readFile(samplerPath, "utf8").catch(() => ""));
+    return rows.length >= 1;
+  }, 5_000, "container collector first observation", samplerClosed);
   const times = {};
   const launchWall = Date.now();
   const launchMonotonic = performance.now();
@@ -635,81 +632,48 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   await cdp.attach(protobuf);
   popup = await browserContext.newPage();
   await popup.goto(`chrome-extension://${EXTENSION_ID}/popup.html`);
-  const transitionStart = performance.now();
+  const browserCdp = await browserContext.browser().newBrowserCDPSession();
+  const browserProcesses = await browserCdp.send("SystemInfo.getProcessInfo");
+  await browserCdp.detach();
+  const roots = browserProcesses.processInfo.filter((item) => item.type === "browser");
+  assert.equal(roots.length, 1, "CDP must identify exactly one actual browser root");
+  const actualBrowser = await processIdentity(Number(roots[0].id));
+  const browserArgv = (await readFile(join("/proc", String(actualBrowser.pid), "cmdline"), "utf8")).split("\0").filter(Boolean);
+  assert.equal(browserArgv[0], chromium.executablePath());
+  assert.ok(browserArgv.includes(`--user-data-dir=${profilePath}`));
+  assert.equal(actualBrowser.parentPid, process.pid, "actual browser must be the driver's direct child");
+  const driver = await processIdentity(process.pid);
+  actualBrowser.parentStartTicks = driver.startTicks;
+  currentResourceWindow.knownBrowserIdentities = [{ pid: actualBrowser.pid, startTicks: actualBrowser.startTicks, commandSha256: actualBrowser.commandSha256 }];
   let transition;
-  try { transition = await runBoundedStartupTransition({
-    sessionId,
-    sourceRevision: SOURCE_REVISION,
-    protocolSha256,
-    exchange: (record) => samplerStartupTransitionClient.exchange(record),
+  try { transition = await runDirectStartupTransition({
     getSettings: (timeoutMs) => sendExtensionMessage(popup, { type: "GET_SETTINGS" }, { timeoutMs }),
     waitReady: (timeoutMs) => waitRuntimeReady(popup, { timeoutMs }),
-    captureRuntime: async (status) => {
-      const detectorPid = Number(status.processId);
-      assert.ok(detectorPid > 1, "supervisor status must expose the detector child PID");
-      const detectorIdentity = await processIdentity(detectorPid);
-      assert.ok(detectorIdentity.command.includes("extension/client-runtime/src/grpc_main.py"),
-        "runtime status PID is not the expected detector executable");
-      const supervisorIdentity = await processIdentity(detectorIdentity.parentPid);
-      assert.ok(supervisorIdentity.command.includes("extension/runtime-supervisor/src/main.py"),
-        "detector parent is not the expected supervisor entry point");
-      const listenerOwnership = await assertOwnedListeners(supervisorIdentity.pid, detectorIdentity.pid);
-      return {
-        status,
-        detector: { ...detectorIdentity, parentStartTicks: supervisorIdentity.startTicks },
-        supervisor: supervisorIdentity,
-        listeners: listenerOwnership,
-      };
-    },
-    waitSampled: (identities) => sampledProcessTimes(samplerPath, identities),
+    captureRuntime: (status) => captureDirectBoundary(status, actualBrowser),
     waitPredecessorReaped: (identity) => waitStartupPredecessorReaped(identity, 5_000),
     updateSettings: (timeoutMs) => sendExtensionMessage(popup, {
       type: "UPDATE_SETTINGS",
       patch: { useLocalStack: true, enabled: true, layers: { regex: true, ner: true, llm: false }, waitForRegex: true },
     }, { timeoutMs }),
-    samplerClosed,
+    collectorClosed: samplerClosed,
   }); } catch (error) {
     if (error?.startupLifecycleUnknown === true) startupLifecycleUnknown = true;
     throw error;
   }
-  times.startupTransitionElapsedMs = transition.totalElapsedMs;
-  times.settingsUpdateElapsedMs = transition.settingsUpdateElapsedMs;
-  times.runtimeStatusProbeElapsedBeforeTransitionMs = transition.priorStatusElapsedMs;
-  times.runtimeStatusProbeElapsedAfterTransitionMs = transition.finalStatusElapsedMs;
-  times.startupTransitionControlElapsedMs = transition.prepareAckElapsedMs
-    + transition.dispatchAckElapsedMs + transition.commitAckElapsedMs;
+  Object.assign(times, transition.timings);
   const status = transition.status;
   const detectorIdentity = transition.current.detector;
   const supervisorIdentity = transition.current.supervisor;
   const detectorPid = detectorIdentity.pid;
   const supervisorPid = supervisorIdentity.pid;
-  const listenerOwnership = transition.listeners;
+  const listenerOwnership = transition.current.listeners;
   const readyWall = Date.now();
   startedProcesses = new Map([[supervisorPid, supervisorIdentity], [detectorPid, detectorIdentity]]);
-  const startupTransition = {
-    status: "committed",
-    transitionId: transition.transitionId,
-    sourceRevision: SOURCE_REVISION,
-    protocolSha256,
-    predecessor: transition.predecessor,
-    successor: transition.successor,
-    supervisor: transition.supervisor,
-    dispatchStartedAtNs: transition.dispatchStartedAtNs,
-    controlAcknowledgements: [transition.prepareAck, transition.dispatchAck, transition.commitAck].map((ack) => ({
-      sequence: ack.sequence, requestSha256: ack.request_sha256, observedAtNs: ack.observed_at_ns,
-    })),
-  };
+  const startupTransition = { status: "verified_direct_boundaries", totalElapsedMs: transition.totalElapsedMs,
+    predecessor: publicBoundary(transition.prior), successor: publicBoundary(transition.current),
+    observationScope: "Fresh known-PID checks at boundaries; no continuous per-process or helper ancestry coverage." };
+  currentResourceWindow.startBoundary = publicBoundary(transition.current);
   currentResourceWindow.startupTransition = startupTransition;
-  times.initialSettingsReadElapsedMs = transition.settingsReadElapsedMs;
-  times.predecessorListenerAndIdentityElapsedMs = transition.predecessorCaptureElapsedMs;
-  times.predecessorSamplingWaitElapsedMs = transition.predecessorSamplingWaitElapsedMs;
-  times.predecessorReapElapsedMs = transition.predecessorReapElapsedMs;
-  times.successorSamplingWaitElapsedMs = transition.successorSamplingWaitElapsedMs;
-  times.successorListenerAndIdentityElapsedMs = transition.finalIdentityAndListenersElapsedMs;
-  const nativeEvidence = await waitForNativeHostSample(samplerPath, 2_000);
-  const extensionManifest = JSON.parse(await readFile(join(EXTENSION_ROOT, "manifest.json"), "utf8"));
-  assert.equal(extensionManifest.background.service_worker, "background.js");
-
   testPage = await browserContext.newPage();
   await installPageObserver(testPage);
   await testPage.goto(`${fixtureUrl}/?session=${encodeURIComponent(sessionId)}`, { waitUntil: "domcontentloaded" });
@@ -726,59 +690,28 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
     browserVersion,
     browserLaunchToContextMs: times.browserLaunchToContextMs,
     browserLaunchToExtensionWorkerObservationMs: workerMonotonic - launchMonotonic,
-    settingsUpdateElapsedMs: times.settingsUpdateElapsedMs,
-    runtimeStatusProbeElapsedAfterSettingsMs: transition.finalStatusElapsedMs,
-    runtimeStatusProbeElapsedBeforeSettingsMs: transition.priorStatusElapsedMs,
+    settingsUpdateElapsedMs: times.settingsUpdateMs,
+    runtimeStatusProbeElapsedAfterSettingsMs: times.finalStatusMs,
+    runtimeStatusProbeElapsedBeforeSettingsMs: times.priorStatusMs,
     startupTransitionElapsedMs: transition.totalElapsedMs,
     startupTransitionTimingsMs: times,
-    supervisorProcessBirthOffsetFromWorkerReadyMs: null,
-    detectorProcessBirthOffsetFromSupervisorBirthMs: null,
-    detectorProcessBirthOffsetFromContextMs: null,
-    processBirthOffsetBasis: "psutil create_time wall clock minus Date.now event timestamps; signed; not readiness",
-    processBirthOffsetsAreNotReadinessIntervals: true,
     startupTransition,
     detectorPid: detectorIdentity.pid,
     detectorStartTicks: detectorIdentity.startTicks,
     supervisorPid: supervisorIdentity.pid,
     supervisorStartTicks: supervisorIdentity.startTicks,
-    nativeHostLaunchAttestation: nativeLaunchAttestation({
-      nativeEvidence,
-      activeNativeRegistration,
-      supervisorIdentity,
-      detectorIdentity,
-      sessionId,
-    }),
+    nativeHostLaunchAttestation: { evidenceMode: "inferred_from_fresh_registered_profile_and_extension_triggered_runtime",
+      nativeRegistration: activeNativeRegistration, browserSessionId: sessionId,
+      inferenceBasis: ["ports and owned runtime processes absent before fresh profile launch", "standard installer manifest bytes bound to this profile", "real extension worker/settings lifecycle starts runtime; harness does not directly launch supervisor"],
+      helperAncestryOrExitClaim: false },
     listenerOwnership,
     startedAtWall: new Date(launchWall).toISOString(),
     readyAtWall: new Date(readyWall).toISOString(),
   };
 
-  cold.supervisorProcessBirthOffsetFromWorkerReadyMs = transition.currentSamples.get(supervisorPid).startedAtEpochMs - workerWall;
-  cold.detectorProcessBirthOffsetFromSupervisorBirthMs =
-    transition.currentSamples.get(detectorPid).startedAtEpochMs - transition.currentSamples.get(supervisorPid).startedAtEpochMs;
-  cold.detectorProcessBirthOffsetFromContextMs = transition.currentSamples.get(detectorPid).startedAtEpochMs - launchWall;
-
-  const finalSupervisor = await processIdentity(supervisorPid);
-  const finalDetector = await processIdentity(detectorPid);
-  assert.equal(finalSupervisor.startTicks, supervisorIdentity.startTicks);
-  assert.equal(finalSupervisor.commandSha256, supervisorIdentity.commandSha256);
-  assert.equal(finalDetector.startTicks, detectorIdentity.startTicks);
-  assert.equal(finalDetector.commandSha256, detectorIdentity.commandSha256);
-  assert.equal(finalDetector.parentPid, supervisorPid);
-  cold.nativeBootstrapCompletion = {
-    status: "verified_before_first_request", runtimeStatus: status.status,
-    verifiedAtMonotonicNs: Number(process.hrtime.bigint()),
-    supervisor: { pid: finalSupervisor.pid, startTicks: finalSupervisor.startTicks,
-      commandSha256: finalSupervisor.commandSha256 },
-    detector: { pid: finalDetector.pid, startTicks: finalDetector.startTicks,
-      commandSha256: finalDetector.commandSha256, parentPid: finalDetector.parentPid,
-      parentStartTicks: finalSupervisor.startTicks },
-    listenerOwnership: await assertOwnedListeners(supervisorPid, detectorPid),
-  };
-  validateInitialNativeClassifications(parseJsonl(await readFile(samplerPath, "utf8")),
-    sha256(`${join(ROOT, "extension/client-runtime/.venv/bin/python")} ${join(XDG_DATA_HOME, "privoke/native-host/native_messaging_host.py")}`));
-  validateNativeBootstrapEvents(parseJsonl(await readFile(samplerPath, "utf8")), cold.nativeBootstrapCompletion);
-  currentResourceWindow.nativeBootstrapCompletion = cold.nativeBootstrapCompletion;
+  const firstBoundary = await captureDirectBoundary(await waitRuntimeReady(popup), actualBrowser);
+  assertStableBoundary(firstBoundary, transition.current);
+  currentResourceWindow.startBoundary = publicBoundary(firstBoundary);
 
   const coldDecision = await performAndValidate({
     transport: cell.transport,
@@ -797,6 +730,9 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
 
   await runWarmCell({ sessionId, cell, fixtureUrl, replicates: WARMUPS, phase: "warmup" });
   const measured = await runWarmCell({ sessionId, cell, fixtureUrl, replicates: RATE_REPS, phase: "measured" });
+  const finalBoundary = await captureDirectBoundary(await waitRuntimeReady(popup), actualBrowser);
+  assertStableBoundary(finalBoundary, firstBoundary);
+  currentResourceWindow.endBoundary = publicBoundary(finalBoundary);
   caseRecords.push(...measured);
   receipt = receipt || {};
   return { cold, measured };
@@ -1429,7 +1365,7 @@ async function finishSession() {
     finalizeCurrentResourceWindow || (async () => {}),
     async () => {
       let cleanupError;
-      const browserIdentities = currentResourceWindow?.sampledBrowserIdentities || [];
+      const browserIdentities = currentResourceWindow?.knownBrowserIdentities || [];
       if (popup && browserContext) {
         const response = await sendExtensionMessage(popup, { type: "SET_MASTER_ENABLED", enabled: false })
           .catch((error) => ({ ok: false, error: error.message }));
@@ -1592,6 +1528,56 @@ async function waitForSamplerClose(timeoutMs) {
       resolvePromise(closed);
     });
   });
+}
+
+function publicBoundary(boundary) {
+  const publicIdentity = ({ pid, parentPid, startTicks, commandSha256, parentStartTicks }) =>
+    ({ pid, parentPid, startTicks, commandSha256, parentStartTicks });
+  return { verifiedAtMonotonicNs: boundary.verifiedAtMonotonicNs, runtimeStatus: boundary.runtimeStatus,
+    browser: publicIdentity(boundary.browser), supervisor: publicIdentity(boundary.supervisor),
+    detector: publicIdentity(boundary.detector), listeners: boundary.listeners };
+}
+
+async function captureDirectBoundary(status, expectedBrowser) {
+  assert.equal(status.status, "RUNNING"); assert.equal(status.enabled, true);
+  const browser = await processIdentity(expectedBrowser.pid);
+  const driver = await processIdentity(process.pid);
+  browser.parentStartTicks = driver.startTicks;
+  for (const key of ["pid", "startTicks", "commandSha256", "parentPid", "parentStartTicks"])
+    assert.equal(browser[key], expectedBrowser[key], `browser root identity changed: ${key}`);
+  assert.equal(browser.parentPid, process.pid);
+  const detector = await processIdentity(Number(status.processId));
+  const supervisor = await processIdentity(detector.parentPid);
+  const init = await processIdentity(1);
+  supervisor.parentStartTicks = init.startTicks;
+  assert.equal(supervisor.parentPid, 1, "detached supervisor must be parented by this container's init");
+  const detectorArgv = (await readFile(join("/proc", String(detector.pid), "cmdline"), "utf8")).split("\0").filter(Boolean);
+  const supervisorArgv = (await readFile(join("/proc", String(supervisor.pid), "cmdline"), "utf8")).split("\0").filter(Boolean);
+  assert.equal(detectorArgv[0], join(ROOT, "extension/client-runtime/.venv/bin/python"));
+  assert.deepEqual(detectorArgv, [join(ROOT, "extension/client-runtime/.venv/bin/python"), join(ROOT, "extension/client-runtime/src/grpc_main.py")]);
+  assert.equal(supervisorArgv[0], join(ROOT, "extension/client-runtime/.venv/bin/python"));
+  assert.deepEqual(supervisorArgv, [join(ROOT, "extension/client-runtime/.venv/bin/python"), join(ROOT, "extension/runtime-supervisor/src/main.py")]);
+  assert.equal(sha256(detectorArgv.join(" ")), detector.commandSha256);
+  assert.equal(sha256(supervisorArgv.join(" ")), supervisor.commandSha256);
+  detector.parentStartTicks = supervisor.startTicks;
+  const listeners = await assertOwnedListeners(supervisor.pid, detector.pid);
+  for (const identity of [browser, supervisor, detector]) {
+    const fresh = await processIdentity(identity.pid);
+    for (const key of ["startTicks", "commandSha256", "parentPid"])
+      assert.equal(fresh[key], identity[key], `boundary identity changed during read: ${key}`);
+  }
+  return { browser, supervisor, detector, listeners, runtimeStatus: status.status,
+    verifiedAtMonotonicNs: Number(process.hrtime.bigint()) };
+}
+
+async function waitForCondition(check, timeoutMs, description, closed) {
+  const deadline = Date.now() + timeoutMs;
+  const terminated = closed.then(() => { throw new Error(`${description}: collector exited`); });
+  while (Date.now() < deadline) {
+    if (await Promise.race([check(), terminated])) return;
+    await Promise.race([delay(20), terminated]);
+  }
+  throw new Error(`${description}: timed out`);
 }
 
 async function runtimeStatus(page, { timeoutMs = 90_000 } = {}) {
@@ -2007,6 +1993,18 @@ function summarize(values) {
   return { n: sorted.length, p50: quantile(0.50), p95: quantile(0.95), p99: quantile(0.99) };
 }
 
+async function containerResourceSummary(files) {
+  const protocolSha256 = await hashFile(join(ROOT, "paper/research/installed-browser-protocol.md"));
+  for (const file of files) {
+    const path = join(OUTPUT, file.file);
+    assert.equal(await hashFile(path), file.sha256, "finalized cgroup file digest changed");
+    const observed = summarizeContainerWindow(parseJsonl(await readFile(path, "utf8")),
+      { sourceRevision: SOURCE_REVISION, protocolSha256 });
+    assert.deepEqual(observed, file.containerObservation, "finalized container observation changed");
+  }
+  return summarizeContainerStudy(files);
+}
+
 async function resourceSummary(files) {
   const byRole = new Map();
   const windows = [];
@@ -2158,8 +2156,8 @@ function spawnSampler(outputPath, { sourceRevision, protocolSha256 }) {
     RESOURCE_SAMPLER, "--output", outputPath, "--interval-ms", "100",
     "--terminal-diagnostic", terminalPath,
     "--source-revision", sourceRevision, "--protocol-sha256", protocolSha256,
-  ], { cwd: ROOT, env: process.env, stdio: ["pipe", "pipe", "ignore"] });
-  samplerStartupTransitionClient = createSamplerStartupTransitionClient(child);
+  ], { cwd: ROOT, env: process.env, stdio: ["ignore", "ignore", "ignore"] });
+  // Independent collector has no startup control pipe or process-enumeration dependency.
   samplerClosed = new Promise((resolvePromise) => {
     child.once("error", (error) => { samplerSpawnError = error; });
     child.once("close", (code, signal) => resolvePromise({ code, signal, error: samplerSpawnError }));
