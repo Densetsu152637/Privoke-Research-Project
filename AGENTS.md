@@ -1,6 +1,6 @@
 # Custom workflow
 
-Read [AGENT-INSTRUCTIONS](C:/Users/Nicholas/.codex/custom-workflow/AGENTS.md) and assume its configuration.
+Read [AGENT-INSTRUCTIONS](D:/Git Repositories/Agent-Custom-WorkflowAGENTS.md) and assume its configuration.
 
 Resolve companion links relative to the instruction file that contains them.
 
