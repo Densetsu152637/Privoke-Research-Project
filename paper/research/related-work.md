@@ -61,3 +61,11 @@ compilation, font and rendered-page checks. Main text occupies physical pages
 protocol, lineage, cost and telemetry detail is retained in appendices; decisive
 results and adverse findings remain in the main paper. No new experimental or
 usability evidence is claimed.
+
+## Manuscript output location - 15 October 2026
+
+The sole current compiled manuscript is [paper/main.pdf](../main.pdf), beside
+`paper/main.tex`. Its accepted bytes and 10-page main text are unchanged. Older
+task-generated manuscript PDFs and disposable build copies were removed; source
+papers, figures, user archives, logs and rendered QA remain. The concision
+validation record above retains the cleanup inventory and historical hashes.

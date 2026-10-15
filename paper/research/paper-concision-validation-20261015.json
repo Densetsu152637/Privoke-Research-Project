@@ -180,5 +180,90 @@
       "paper/research/paper-concision-validation-20261015.json",
       "output/pdf/privoke-concise-20261015.pdf"
     ]
+  },
+  "artifact_organization_20261015": {
+    "exact_user_request": "can you now just organise it so that only 1 compiled PDF exists from the main.tex folder, and that it lives with it?",
+    "current_authoritative_pdf": {
+      "path": "paper/main.pdf",
+      "sha256": "e2451887cd1e47705bce0ecad4b3767666db08dc2b5f4e6a46a6b31600073ddc",
+      "pages": {
+        "main": 10,
+        "appendices": 2,
+        "references": 1
+      }
+    },
+    "operation": "Copied accepted PDF bytes beside main.tex; removed confirmed task-generated manuscript outputs and disposable build copies. No recompilation or manuscript edit. Earlier record paths/hashes remain historical.",
+    "removed_compiled_manuscript_pdfs": [
+      {
+        "path": "output/pdf/privoke-completion-20261014.pdf",
+        "sha256": "6518dfd91c2336c89a37eff43e321e4350f88c13aea217ca56c05f1963794154"
+      },
+      {
+        "path": "output/pdf/privoke-literature-revision-20261015.pdf",
+        "sha256": "313d92556e472728deed360297984b988ab045aac89dfe402ae0202455f1f5f9"
+      },
+      {
+        "path": "output/pdf/privoke-concise-20261015.pdf",
+        "sha256": "e2451887cd1e47705bce0ecad4b3767666db08dc2b5f4e6a46a6b31600073ddc"
+      },
+      {
+        "path": "evaluation/results/literature_revision_20261015/final-primary-01/build/privoke-literature-revision-20261015.pdf",
+        "sha256": "313d92556e472728deed360297984b988ab045aac89dfe402ae0202455f1f5f9"
+      },
+      {
+        "path": "evaluation/results/manuscript_completion_20261014/worktree-pilot-01/main.pdf",
+        "sha256": "84995792b529347661e4d5f21b67707cdd6325e20a3e94ee00dd88bb89e34f69"
+      },
+      {
+        "path": "evaluation/results/manuscript_completion_20261014/worktree-pilot-02/main.pdf",
+        "sha256": "e2cf35c736ea64c8a44559537476e51120c0de21108338294a3a6a4f9638e5c3"
+      },
+      {
+        "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/build/privoke-completion-20261014.pdf",
+        "sha256": "6518dfd91c2336c89a37eff43e321e4350f88c13aea217ca56c05f1963794154"
+      },
+      {
+        "path": "evaluation/results/manuscript_completion_20261014/primary-preflight-02/build/privoke-diagnostic-20261015.pdf",
+        "sha256": "8c623f37ae97e2d1d68995fcbf1f05f7118c140e971b260b1c0d01f18f89ecaf"
+      },
+      {
+        "path": "evaluation/results/paper_concision_20261015/build1/privoke-concise-20261015.pdf",
+        "sha256": "e2451887cd1e47705bce0ecad4b3767666db08dc2b5f4e6a46a6b31600073ddc"
+      },
+      {
+        "path": "evaluation/results/paper_condense_20261014/build/main.pdf",
+        "sha256": "88e7192be36b279234130b264bf32302c2816c276173cf3585ced4994cb2dab4"
+      },
+      {
+        "path": "evaluation/results/paper_expand_20261014/build/main.pdf",
+        "sha256": "b108cdb504a253b939fe80c9c13302db444a84ef6d811709217df75704dfa8e7"
+      },
+      {
+        "path": "evaluation/results/paper_revision_20261014/build/manuscript/main.pdf",
+        "sha256": "ebb994f91996edb96f63c1f796d50f0476e91c7dea205b0c5699f8e05e711703"
+      },
+      {
+        "path": "evaluation/results/paper_revision_20261014/build/staged-paper/main.pdf",
+        "sha256": "28965658fbfdd95906448b40af8d5ca07a7b4254e4c7af8c262855eba67b748e"
+      }
+    ],
+    "retained": {
+      "protected_asset_files_verified_unchanged": 41,
+      "protected_directories": [
+        "paper/sources",
+        "paper/figures",
+        "paper/old"
+      ],
+      "other_assets": "Figures copied into old staged build and smoke.pdf retained because they are figure/diagnostic assets, not compiled manuscript outputs. All logs, PNG QA and scientific evidence retained."
+    },
+    "checks": {
+      "main_tex_sha256_unchanged": "6001af34b8ef0240baa2a0c9508ea900cfed5ca5c62d09faa6770e432cdd6460",
+      "authoritative_pdf_byte_identical": true,
+      "all_explicit_removal_paths_absent": true,
+      "root_paper_pdf_inventory": [
+        "paper/main.pdf"
+      ],
+      "output_pdf_manuscript_inventory": []
+    }
   }
 }
