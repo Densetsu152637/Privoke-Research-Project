@@ -34,8 +34,6 @@ extension/dist-firefox/
 # IDE
 .vscode/
 .idea/
-agents.md
-agents.*.md
 
 # cache and local files
 /dumps
