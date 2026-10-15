@@ -12,6 +12,7 @@ window.addEventListener("message", (event) => {
     || data?.channel !== CHANNEL
     || data?.type !== "ANALYZE_PROMPT"
     || typeof data.text !== "string"
+    || !validRequestId(data.requestId)
   ) return;
 
   Promise.resolve().then(() => sendRuntimeMessage({
@@ -21,24 +22,32 @@ window.addEventListener("message", (event) => {
     targetApp: data.targetApp,
   })).then((result) => {
     const response = result?.ok ? result.response : runtimeFailureResponse();
-    const action = response?.action?.toUpperCase();
+    const action = normalizeAction(response?.action);
+    let noticeStatus = "NOT_REQUESTED";
     try {
       updateSemanticAvailability(response);
-      if (action === "WARN" || action === "BLOCK") {
-        showNotice(action, data.text, response);
-      }
     } catch {
-      // A rendering failure must not turn a BLOCK decision into ALLOW.
+      // Availability rendering does not change the analysis decision or notice status.
     }
-    postResult(data.requestId, action ?? "BLOCK");
+    if (action === "WARN" || action === "BLOCK") {
+      try {
+        showNotice(action, data.text, response);
+        noticeStatus = "RENDERED";
+      } catch {
+        noticeStatus = "FAILED";
+      }
+    }
+    postResult(data.requestId, action, noticeStatus);
   }).catch(() => {
     const response = runtimeFailureResponse();
+    let noticeStatus = "UNKNOWN";
     try {
       showNotice("BLOCK", data.text, response);
+      noticeStatus = "RENDERED";
     } catch {
-      // Rendering must not prevent delivery of the failure decision.
+      noticeStatus = "FAILED";
     }
-    postResult(data.requestId, response.action);
+    postResult(data.requestId, "BLOCK", noticeStatus);
   });
 });
 
@@ -65,13 +74,27 @@ function updateSemanticAvailability(response) {
   if (!existing) (document.documentElement || document).append(notice);
 }
 
-function postResult(requestId, action) {
+function postResult(requestId, action, noticeStatus) {
   window.postMessage({
     channel: CHANNEL,
     type: "ANALYZE_RESULT",
     requestId,
     action,
+    observation: {
+      schema_version: 1,
+      notice_status: noticeStatus,
+    },
   }, "*");
+}
+
+function validRequestId(value) {
+  return typeof value === "string" && value.length > 0 && value.length <= 64
+    && !/[\u0000-\u001f\u007f]/.test(value);
+}
+
+function normalizeAction(value) {
+  const action = typeof value === "string" ? value.toUpperCase() : "";
+  return ["ALLOW", "WARN", "BLOCK"].includes(action) ? action : "BLOCK";
 }
 
 function showNotice(action, text, response) {

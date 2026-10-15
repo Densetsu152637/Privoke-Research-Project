@@ -7,7 +7,7 @@ const source = (await readFile(new URL("../src/content-script.js", import.meta.u
   .replace(/^import .*;\r?\n/gm, "");
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
-function relay(sendRuntimeMessage) {
+function relay(sendRuntimeMessage, document = { getElementById() { throw new Error("notice rendering failed"); } }) {
   let listener;
   const results = [];
   const window = {
@@ -16,7 +16,7 @@ function relay(sendRuntimeMessage) {
   };
   vm.runInNewContext(source, {
     runtimeFailureResponse: () => ({ action: "BLOCK" }), window, sendRuntimeMessage,
-    document: { getElementById() { throw new Error("notice rendering failed"); } },
+    document,
   });
   listener({ source: window, data: {
     channel: "privoke-extension-v1", type: "ANALYZE_PROMPT",
@@ -32,8 +32,38 @@ for (const action of ["BLOCK", "WARN"]) {
     assert.equal(results.length, 1);
     assert.equal(results[0].action, action);
     assert.equal(results[0].requestId, "request-1");
+    assert.equal(results[0].observation.schema_version, 1);
+    assert.equal(results[0].observation.notice_status, "FAILED");
+    assert.equal(JSON.stringify(results[0]).includes("My private prompt"), false);
   });
 }
+
+function workingDocument() {
+  const root = { append() {} };
+  return {
+    documentElement: root,
+    getElementById() { return null; },
+    createElement() {
+      return {
+        style: {},
+        setAttribute() {},
+        append() {},
+        attachShadow() { return { append() {} }; },
+        addEventListener() {},
+      };
+    },
+  };
+}
+
+test("notice status reflects an actual append and ALLOW needs no notice", async () => {
+  const warned = relay(async () => ({ ok: true, response: { action: "WARN" } }), workingDocument());
+  await flush();
+  assert.equal(warned[0].observation.notice_status, "RENDERED");
+
+  const allowed = relay(async () => ({ ok: true, response: { action: "ALLOW" } }), workingDocument());
+  await flush();
+  assert.equal(allowed[0].observation.notice_status, "NOT_REQUESTED");
+});
 
 for (const mode of ["sync", "async", "response"]) {
   test(`${mode} runtime failure still delivers a block decision when notice rendering fails`, async () => {
