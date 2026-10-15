@@ -1,0 +1,253 @@
+{
+  "schema_version": 1,
+  "study_id": "privoke-long-20261009",
+  "supervisor_status": "complete",
+  "supervisor_started_at": "2026-10-09T04:30:35.048881+00:00",
+  "supervisor_finished_at": "2026-10-09T10:34:36.655131+00:00",
+  "source_hashes": {
+    "summary_sha256": "de8bb37328b17cd0795eddcd4b21a7ea8a7d49cb1145cda325919bd416b51ecd",
+    "independent_audit_sha256": "1f3d8b78c6fa5a3f3e648dfa2c255bd482bad8f285fe77cf706820bdff88ab2c",
+    "protocol_sha256": "1d5a564ae47c5058316f4c15b94d77402732ff24bc085afc17ce6ac40baa343a",
+    "curriculum_manifest_sha256": "e0ba3edd3b69d42668e426f30212ca8930ee5ffd86839a2135d0324e05d9652b"
+  },
+  "protocol": {
+    "duration_seconds_per_profile": 7200,
+    "checkpoint_interval_seconds": 1200,
+    "round_pause_seconds": 15,
+    "prompt_count": 256,
+    "new_rows": 192,
+    "replay_rows": 64,
+    "bootstrap_iterations": 2000,
+    "learning_rate": 0.003,
+    "replay_weight": 0.35,
+    "transforms": 0,
+    "heldout_count": 16,
+    "seed_start": 1337
+  },
+  "serving_image_ids": {
+    "privoke-long-20261009-fuzzer": "sha256:be4b75505cbbe10d02e1588f7a67313aa054808cd50554fc6f543279903271a7",
+    "privoke-long-20261009-updater": "sha256:daf1128c8e684aa6468fa2b5cdbf29e5b291dfe71f54eb88e7ac32440f4ec3e6",
+    "privoke-long-20261009-runtime": "sha256:e65bf3038a4007eafd1c5a9f0f77afecdfa52db2067887ddcd08dba2ece3bbf0",
+    "privoke-long-20261009-model": "sha256:9a07239866337806700acef1f30087aa5be7d57ab0b9f21c20c1cb99acb4d132",
+    "privoke-long-20261009-telemetry": "sha256:8a156700ead1b4253dcb939d50a5c2841c92ce3040ff051605a53eee56e6a111"
+  },
+  "profiles": {
+    "efficient": {
+      "model_id": "privoke-efficient",
+      "run_started_at": "2026-10-09T04:31:06.269261+00:00",
+      "run_finished_at": "2026-10-09T06:31:50.611821+00:00",
+      "window_started_unix": 1791520288.521414,
+      "window_finished_unix": 1791527488.521702,
+      "timed_training_seconds": 7200.000285387039,
+      "attempts": 399,
+      "accepted_updates": 317,
+      "rejected_attempts": 82,
+      "unique_train_rows": 672,
+      "unique_replay_rows": 64,
+      "row_exposures_by_role": {
+        "grammar": 25536,
+        "teacher": 25536,
+        "evolved": 25536,
+        "replay": 25536
+      },
+      "run_manifest_sha256": "aae06745d1b703c8ba7896bcd1ccd8443b361fd6504b872a2ea475b87caa6b63",
+      "operations_sha256": "a5baef8dbf0f4d98162fde8497210aa6eacc856b14ca9effea808102febfdc75",
+      "checkpoints": {
+        "0": {
+          "measured_at": "2026-10-09T04:31:28.508169+00:00",
+          "checkpoint_sha256": "2ba42aea3f309bf5ff8e52b982ccd2c7f97ed3f071e351e6d0594b649885ed10"
+        },
+        "67": {
+          "measured_at": "2026-10-09T04:51:56.179234+00:00",
+          "checkpoint_sha256": "5720d0e8602c287ff69221e156ab5061dec2ad9c429c655ebf59acfe363e365c"
+        },
+        "132": {
+          "measured_at": "2026-10-09T05:12:22.463154+00:00",
+          "checkpoint_sha256": "ef9202a97eb4df80a5331ea02436fdd243272f758035c8eadf7d1b0f96222718"
+        },
+        "199": {
+          "measured_at": "2026-10-09T05:32:54.264227+00:00",
+          "checkpoint_sha256": "99b83cababb52e9ac37bee66aac4d3fe91238a3d664a3f34867a67bcbb599418"
+        },
+        "266": {
+          "measured_at": "2026-10-09T05:53:37.620494+00:00",
+          "checkpoint_sha256": "c93563c83ac9fa443db72d4d0c76a9cda8ecca6fede4c47e254b9a81e44cac1d"
+        },
+        "335": {
+          "measured_at": "2026-10-09T06:14:09.411998+00:00",
+          "checkpoint_sha256": "211a64667503f2163eb7dee0994b65d1877d160c9c0727c736fa48b3e9f30c3f"
+        },
+        "399": {
+          "measured_at": "2026-10-09T06:31:50.595048+00:00",
+          "checkpoint_sha256": "196dad75990c997bb679df6672a6e1ed13d36d0b91aca384fea97eefce20d5aa"
+        }
+      },
+      "last_accepted_update_cycle": 397,
+      "last_accepted_guard": {
+        "total_examples": 16,
+        "sensitive_examples": 8,
+        "sensitive_true_positives": 6,
+        "clean_examples": 8,
+        "clean_true_negatives": 6,
+        "gate_ids_sha256": "5ce552785d307c73724b08a858d0442f807dc21c566eeaaf3f64cdc2c57f75b6"
+      },
+      "allocation_database_sha256": "69e4a9e3eebbdf8d253fb2d400096614d9f122eea80a20edef99c4a27fcc755b"
+    },
+    "balanced": {
+      "model_id": "privoke-balanced",
+      "run_started_at": "2026-10-09T06:32:14.414367+00:00",
+      "run_finished_at": "2026-10-09T08:33:11.774365+00:00",
+      "window_started_unix": 1791527568.6826806,
+      "window_finished_unix": 1791534768.6828642,
+      "timed_training_seconds": 7200.000180482864,
+      "attempts": 385,
+      "accepted_updates": 340,
+      "rejected_attempts": 45,
+      "unique_train_rows": 672,
+      "unique_replay_rows": 64,
+      "row_exposures_by_role": {
+        "grammar": 24640,
+        "teacher": 24640,
+        "evolved": 24640,
+        "replay": 24640
+      },
+      "run_manifest_sha256": "fd43e6dff2f993733ce8c646600481629a1028092510d5b5de93acc2eaed2c4b",
+      "operations_sha256": "e90ba78a7dc06ae690aabb07f755316e3487026a7fb34af2cf88ca098cc5e8cc",
+      "checkpoints": {
+        "0": {
+          "measured_at": "2026-10-09T06:32:48.588453+00:00",
+          "checkpoint_sha256": "49d113e7f28b7cf7458321a4325436696e28aaa70acd45ff17f600665c9e3ee5"
+        },
+        "63": {
+          "measured_at": "2026-10-09T06:53:22.599602+00:00",
+          "checkpoint_sha256": "6738507d746be86e27a8cc68f7345cafa7ded996c614650815b0522e43720847"
+        },
+        "127": {
+          "measured_at": "2026-10-09T07:13:58.256520+00:00",
+          "checkpoint_sha256": "401cb3a9a0338f39438da8391cea2acc6838f4eb4f3367692e1b6b79270575ae"
+        },
+        "193": {
+          "measured_at": "2026-10-09T07:34:40.306393+00:00",
+          "checkpoint_sha256": "9383f4efac0a33505e704bd97762272bbe1d5d96d75bad5bd0bf8899665d8d32"
+        },
+        "259": {
+          "measured_at": "2026-10-09T07:55:21.373105+00:00",
+          "checkpoint_sha256": "4c289a856dfcb6902238a0008af0305e3c365c39383d56a6bed16ccc691bab0f"
+        },
+        "325": {
+          "measured_at": "2026-10-09T08:15:50.427604+00:00",
+          "checkpoint_sha256": "ab0457b93cf7f97f79a1484a630643582d807e33c6451b5f4768efdcb0d36b4c"
+        },
+        "385": {
+          "measured_at": "2026-10-09T08:33:11.756854+00:00",
+          "checkpoint_sha256": "80535c01321d3677d6d243a17aeb774607fce55c4c7bbe09de56d55a75226168"
+        }
+      },
+      "last_accepted_update_cycle": 384,
+      "last_accepted_guard": {
+        "total_examples": 16,
+        "sensitive_examples": 8,
+        "sensitive_true_positives": 7,
+        "clean_examples": 8,
+        "clean_true_negatives": 7,
+        "gate_ids_sha256": "5ce552785d307c73724b08a858d0442f807dc21c566eeaaf3f64cdc2c57f75b6"
+      },
+      "allocation_database_sha256": "8013c9dc0cfd37a3dc55c35b1505b1937e7482c6a9c61faca07494c63a26120b"
+    },
+    "quality": {
+      "model_id": "privoke-quality",
+      "run_started_at": "2026-10-09T08:33:31.636930+00:00",
+      "run_finished_at": "2026-10-09T10:34:31.061191+00:00",
+      "window_started_unix": 1791534840.709349,
+      "window_finished_unix": 1791542040.709411,
+      "timed_training_seconds": 7200.000060081482,
+      "attempts": 436,
+      "accepted_updates": 1,
+      "rejected_attempts": 435,
+      "unique_train_rows": 672,
+      "unique_replay_rows": 64,
+      "row_exposures_by_role": {
+        "grammar": 27904,
+        "teacher": 27904,
+        "evolved": 27904,
+        "replay": 27904
+      },
+      "run_manifest_sha256": "b4b21db9a7e14b94fe39801bbbfdb38b2da4811a1321948e150394e0b57f47b7",
+      "operations_sha256": "823be01511c10986d781bb17522f0c2d25142ad6c6f13d9cea7e12791a463d60",
+      "checkpoints": {
+        "0": {
+          "measured_at": "2026-10-09T08:34:00.702030+00:00",
+          "checkpoint_sha256": "886611514fd55f33ea350fb653540b2ce4fde203827e5028200c6050730dcab7"
+        },
+        "75": {
+          "measured_at": "2026-10-09T08:54:32.208924+00:00",
+          "checkpoint_sha256": "f517f279adc8a4c41fc94f84aeddac71e4ee07c6489daef445cfc2e3be3f7fd8"
+        },
+        "150": {
+          "measured_at": "2026-10-09T09:15:14.891602+00:00",
+          "checkpoint_sha256": "b47a95c7c1bc73bc4109798f4a8875f2feacdd4e8631fa92f6ea1201d73f41d7"
+        },
+        "225": {
+          "measured_at": "2026-10-09T09:35:57.618732+00:00",
+          "checkpoint_sha256": "a96dfd49c4770b143b35a2684f8725d786b319960efb0d1252bf8962e9cd68f8"
+        },
+        "300": {
+          "measured_at": "2026-10-09T09:56:39.479341+00:00",
+          "checkpoint_sha256": "362a177db61477130d0910db0b3407c762723038d6d35a0e6e0ea27adebcbe48"
+        },
+        "375": {
+          "measured_at": "2026-10-09T10:17:20.937185+00:00",
+          "checkpoint_sha256": "d46328ca6679be1a3ba88d7eb68f3900b8c3abef024527e0157b7f9b5e697d5a"
+        },
+        "436": {
+          "measured_at": "2026-10-09T10:34:31.047823+00:00",
+          "checkpoint_sha256": "0e04b381bec3c5791166d8cc11593f472445692317c4b5ddbccfb620ef57d02b"
+        }
+      },
+      "last_accepted_update_cycle": 1,
+      "last_accepted_guard": {
+        "total_examples": 16,
+        "sensitive_examples": 8,
+        "sensitive_true_positives": 8,
+        "clean_examples": 8,
+        "clean_true_negatives": 2,
+        "gate_ids_sha256": "5ce552785d307c73724b08a858d0442f807dc21c566eeaaf3f64cdc2c57f75b6"
+      },
+      "allocation_database_sha256": "00e4b924bdee4983fa5c03f9829af40622f84ffb61307fac251af607a77866fb"
+    }
+  },
+  "privacy_note": "Aggregate metadata only; no prompts, row IDs, predictions, model weights, or secret values.",
+  "publication_guard": {
+    "rows": 16,
+    "sensitive_rows": 8,
+    "clean_rows": 8,
+    "same_gate_hash_all_profiles": true
+  },
+  "allocation_reconciliation": {
+    "method": "Read-only SQLite batches allocation audit against the archived hash-bound curriculum split metadata",
+    "attempts": 1220,
+    "train_ids_per_allocation": 192,
+    "replay_ids_per_allocation": 64,
+    "distinct_train_ids_each_allocation": true,
+    "distinct_replay_ids_each_allocation": true,
+    "train_replay_disjoint_each_allocation": true,
+    "split_membership_verified": true,
+    "profiles": {
+      "efficient": {
+        "attempts": 399,
+        "allocations_checked": 399,
+        "invalid_allocations": 0
+      },
+      "balanced": {
+        "attempts": 385,
+        "allocations_checked": 385,
+        "invalid_allocations": 0
+      },
+      "quality": {
+        "attempts": 436,
+        "allocations_checked": 436,
+        "invalid_allocations": 0
+      }
+    }
+  }
+}

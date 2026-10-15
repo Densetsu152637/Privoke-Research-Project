@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import json
+from collections.abc import Mapping
 from pathlib import Path
-from typing import List, Mapping
 
+from json_records import first_value, load_json_records, string_metadata
 from training.classifications import classification_from_mapping
 
 from .defaults import default_prompt_dataset
@@ -12,43 +12,24 @@ from .types import PromptSeed
 
 def load_prompt_dataset(
     dataset_path: str | Path | None = None,
-) -> List[PromptSeed]:
+) -> list[PromptSeed]:
     if dataset_path is None:
         return list(default_prompt_dataset())
 
-    path = Path(dataset_path)
-    if not path.exists():
-        raise FileNotFoundError(f"Prompt dataset does not exist: {path}")
-
-    if path.suffix.lower() == ".jsonl":
-        items = [
-            json.loads(line)
-            for line in path.read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
-    else:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        if isinstance(payload, Mapping):
-            items = (
-                payload.get("prompts")
-                or payload.get("examples")
-                or payload.get("data")
-                or []
-            )
-        else:
-            items = payload
-
-    if not isinstance(items, list):
-        raise ValueError("Prompt dataset must be a JSON array or JSONL file.")
-
+    items = load_json_records(
+        dataset_path,
+        collection_keys=("prompts", "examples", "data"),
+        missing_message="Prompt dataset does not exist",
+        shape_message="Prompt dataset must be a JSON array or JSONL file.",
+    )
     return [prompt_seed_from_mapping(item) for item in items]
 
 
 def prompt_seed_from_mapping(item: object) -> PromptSeed:
     if not isinstance(item, Mapping):
-        raise ValueError("Prompt dataset entries must be objects.")
+        raise ValueError("Prompt dataset entries must be objects.")  # noqa: TRY004
 
-    template = item.get("template") or item.get("text") or item.get("prompt")
+    template = first_value(item, "template", "text", "prompt")
     if not isinstance(template, str) or not template.strip():
         raise ValueError("Prompt dataset entries need template/text/prompt.")
 
@@ -63,9 +44,3 @@ def prompt_seed_from_mapping(item: object) -> PromptSeed:
         classification=classification,
         metadata=string_metadata(item.get("metadata", {})),
     )
-
-
-def string_metadata(raw_metadata: object) -> dict[str, str]:
-    if not isinstance(raw_metadata, Mapping):
-        return {}
-    return {str(key): str(value) for key, value in raw_metadata.items()}

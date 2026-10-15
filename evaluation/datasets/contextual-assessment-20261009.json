@@ -1,0 +1,1888 @@
+{
+  "schema_version": 1,
+  "assessment_id": "contextual_assessment_20261009_v1",
+  "label_status": "assistant_provisional",
+  "origin": "Codex assistant authored before any revised curriculum scoring",
+  "purpose": "Separate contextual disclosure assessment; never a publication gate, training pool or mining source.",
+  "limitations": [
+    "Assistant provisional labels; no human adjudication or inter-annotator agreement.",
+    "Thirty two authored situation families are a small regression pilot, not a population sample.",
+    "Controls use S0 and empty categories for absence of personal disclosure; topic category detection is not scored as contextual truth.",
+    "Policy-derived allowed actions use S3 BLOCK and S2 WARN with the explicit stated visibility; output uncertainty must be retained separately."
+  ],
+  "rows": [
+    {
+      "id": "contextual-assessment-v1/insurance_exclusion/control",
+      "group_id": "contextual-assessment-v1/insurance_exclusion",
+      "text": "The public insurance policy explains exclusions for multiple sclerosis without identifying a policyholder.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "P0",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/insurance_exclusion",
+        "family_id": "contextual-assessment-v1/insurance_exclusion",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_record_vs_public_policy",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/insurance_exclusion/disclosure",
+      "group_id": "contextual-assessment-v1/insurance_exclusion",
+      "text": "In the authenticated portal, my protected insurance letter excludes cover because I have multiple sclerosis.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P2",
+        "categories": [
+          "HEALTH"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/insurance_exclusion",
+        "family_id": "contextual-assessment-v1/insurance_exclusion",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_record_vs_public_policy",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/fertility_lab/control",
+      "group_id": "contextual-assessment-v1/fertility_lab",
+      "text": "Suppose an imaginary fertility report showed a low sperm count; what would the result mean?",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/fertility_lab",
+        "family_id": "contextual-assessment-v1/fertility_lab",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_hypothetical",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/fertility_lab/disclosure",
+      "group_id": "contextual-assessment-v1/fertility_lab",
+      "text": "My logged in fertility lab report says my sperm count is low.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P2",
+        "categories": [
+          "HEALTH",
+          "SEXUAL"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/fertility_lab",
+        "family_id": "contextual-assessment-v1/fertility_lab",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_hypothetical",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/rehabilitation/control",
+      "group_id": "contextual-assessment-v1/rehabilitation",
+      "text": "Explain available treatments for opioid addiction without describing any patient.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/rehabilitation",
+        "family_id": "contextual-assessment-v1/rehabilitation",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "disclosure_vs_discussion",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/rehabilitation/disclosure",
+      "group_id": "contextual-assessment-v1/rehabilitation",
+      "text": "Explain addiction treatments generally. Also, I told our private support group that I am being treated for opioid addiction.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P3",
+        "categories": [
+          "HEALTH"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/rehabilitation",
+        "family_id": "contextual-assessment-v1/rehabilitation",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "mixed_discussion_actual_disclosure_vs_discussion",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/therapy_booking/control",
+      "group_id": "contextual-assessment-v1/therapy_booking",
+      "text": "The public clinic page advertises trauma therapy appointments on Tuesdays without naming clients.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "P0",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/therapy_booking",
+        "family_id": "contextual-assessment-v1/therapy_booking",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_record_vs_public_services",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/therapy_booking/disclosure",
+      "group_id": "contextual-assessment-v1/therapy_booking",
+      "text": "In the authenticated portal, the protected booking page shows my aunt attends trauma therapy every Tuesday.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P2",
+        "categories": [
+          "HEALTH",
+          "THIRD_PARTY"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/therapy_booking",
+        "family_id": "contextual-assessment-v1/therapy_booking",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_record_vs_public_services",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/genetic_result/control",
+      "group_id": "contextual-assessment-v1/genetic_result",
+      "text": "The fictional script quotes an invented twin saying that her test found a BRCA mutation.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/genetic_result",
+        "family_id": "contextual-assessment-v1/genetic_result",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_quotation",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/genetic_result/disclosure",
+      "group_id": "contextual-assessment-v1/genetic_result",
+      "text": "I quote my actual twin's message: \"My genetic test found a BRCA mutation.\" She confirmed this is her own result.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "PU",
+        "categories": [
+          "HEALTH",
+          "THIRD_PARTY"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/genetic_result",
+        "family_id": "contextual-assessment-v1/genetic_result",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "quoted_actual_fact_vs_fictional_quote",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/disability_claim/control",
+      "group_id": "contextual-assessment-v1/disability_claim",
+      "text": "The public benefit guide explains eligibility for people unable to work after spinal injury.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "P0",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/disability_claim",
+        "family_id": "contextual-assessment-v1/disability_claim",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_claim_vs_public_eligibility",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/disability_claim/disclosure",
+      "group_id": "contextual-assessment-v1/disability_claim",
+      "text": "In the authenticated portal, my protected benefit claim states that my spinal injury prevents me working.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P2",
+        "categories": [
+          "HEALTH",
+          "FINANCIAL"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/disability_claim",
+        "family_id": "contextual-assessment-v1/disability_claim",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_claim_vs_public_eligibility",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/infection_notification/control",
+      "group_id": "contextual-assessment-v1/infection_notification",
+      "text": "For a hypothetical health exercise, imagine an HIV test returning positive yesterday.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/infection_notification",
+        "family_id": "contextual-assessment-v1/infection_notification",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_hypothetical",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/infection_notification/disclosure",
+      "group_id": "contextual-assessment-v1/infection_notification",
+      "text": "On my public blog, visible to anyone, I disclosed that I tested positive for HIV yesterday.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P0",
+        "categories": [
+          "HEALTH"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/infection_notification",
+        "family_id": "contextual-assessment-v1/infection_notification",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "public_actual_disclosure_vs_hypothetical",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/eating_disorder/control",
+      "group_id": "contextual-assessment-v1/eating_disorder",
+      "text": "I am asking about anorexia generally; I am not saying my niece or anyone else has it.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/eating_disorder",
+        "family_id": "contextual-assessment-v1/eating_disorder",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_negated_attribution",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/eating_disorder/disclosure",
+      "group_id": "contextual-assessment-v1/eating_disorder",
+      "text": "My niece revealed her anorexia diagnosis in our closed family group.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P3",
+        "categories": [
+          "HEALTH",
+          "THIRD_PARTY"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/eating_disorder",
+        "family_id": "contextual-assessment-v1/eating_disorder",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_negated_attribution",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/union_affiliation/control",
+      "group_id": "contextual-assessment-v1/union_affiliation",
+      "text": "Explain how campaign committees work in the Socialist Alliance without identifying members.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/union_affiliation",
+        "family_id": "contextual-assessment-v1/union_affiliation",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "affiliation_vs_discussion",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/union_affiliation/disclosure",
+      "group_id": "contextual-assessment-v1/union_affiliation",
+      "text": "I belong to a political campaign committee working for the Socialist Alliance.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "PU",
+        "categories": [
+          "POLITICS"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/union_affiliation",
+        "family_id": "contextual-assessment-v1/union_affiliation",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "affiliation_vs_discussion",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/referendum_preference/control",
+      "group_id": "contextual-assessment-v1/referendum_preference",
+      "text": "If an imaginary voter opposed a constitutional referendum, what reasons might they give?",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/referendum_preference",
+        "family_id": "contextual-assessment-v1/referendum_preference",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_hypothetical",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/referendum_preference/disclosure",
+      "group_id": "contextual-assessment-v1/referendum_preference",
+      "text": "Our closed residents group heard that I voted against the constitutional referendum.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P3",
+        "categories": [
+          "POLITICS"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/referendum_preference",
+        "family_id": "contextual-assessment-v1/referendum_preference",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_hypothetical",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/petition_signature/control",
+      "group_id": "contextual-assessment-v1/petition_signature",
+      "text": "The public petition page explains its campaign against the military bill without showing signers.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "P0",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/petition_signature",
+        "family_id": "contextual-assessment-v1/petition_signature",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_signup_vs_public_petition",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/petition_signature/disclosure",
+      "group_id": "contextual-assessment-v1/petition_signature",
+      "text": "In the authenticated portal, the restricted petition account shows my spouse signed a campaign against the military bill.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P2",
+        "categories": [
+          "POLITICS",
+          "THIRD_PARTY"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/petition_signature",
+        "family_id": "contextual-assessment-v1/petition_signature",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_signup_vs_public_petition",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/political_draft/control",
+      "group_id": "contextual-assessment-v1/political_draft",
+      "text": "The novel quotes its invented narrator saying, \"I am a committed anarchist.\"",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/political_draft",
+        "family_id": "contextual-assessment-v1/political_draft",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_quotation",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/political_draft/disclosure",
+      "group_id": "contextual-assessment-v1/political_draft",
+      "text": "My unsent local journal says I am a committed anarchist. This note has never been shared.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P4",
+        "categories": [
+          "POLITICS"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/political_draft",
+        "family_id": "contextual-assessment-v1/political_draft",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_quotation",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/dietary_observance/control",
+      "group_id": "contextual-assessment-v1/dietary_observance",
+      "text": "The public catering guide explains kosher meals without attributing a faith to any diner.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "P0",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/dietary_observance",
+        "family_id": "contextual-assessment-v1/dietary_observance",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "belief_vs_public_information",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/dietary_observance/disclosure",
+      "group_id": "contextual-assessment-v1/dietary_observance",
+      "text": "I told everyone at the workplace meeting that I keep kosher as part of my Jewish faith.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "PU",
+        "categories": [
+          "RELIGION"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/dietary_observance",
+        "family_id": "contextual-assessment-v1/dietary_observance",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "belief_vs_public_information",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/funeral_rites/control",
+      "group_id": "contextual-assessment-v1/funeral_rites",
+      "text": "Imagine a fictional family arranging Muslim burial rites; what planning steps might apply?",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/funeral_rites",
+        "family_id": "contextual-assessment-v1/funeral_rites",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_hypothetical",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/funeral_rites/disclosure",
+      "group_id": "contextual-assessment-v1/funeral_rites",
+      "text": "My grandmother told our closed family group that her own faith requires Muslim burial rites.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P3",
+        "categories": [
+          "RELIGION",
+          "THIRD_PARTY"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/funeral_rites",
+        "family_id": "contextual-assessment-v1/funeral_rites",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_hypothetical",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/congregation_signup/control",
+      "group_id": "contextual-assessment-v1/congregation_signup",
+      "text": "The public church website advertises Pentecostal service times without listing members.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "P0",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/congregation_signup",
+        "family_id": "contextual-assessment-v1/congregation_signup",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_membership_vs_public_schedule",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/congregation_signup/disclosure",
+      "group_id": "contextual-assessment-v1/congregation_signup",
+      "text": "In the authenticated portal, my protected congregation account records my membership in a Pentecostal church.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P2",
+        "categories": [
+          "RELIGION"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/congregation_signup",
+        "family_id": "contextual-assessment-v1/congregation_signup",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_membership_vs_public_schedule",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/conscientious_objection/control",
+      "group_id": "contextual-assessment-v1/conscientious_objection",
+      "text": "Discuss Quaker arguments about military service without stating anyone's personal belief.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/conscientious_objection",
+        "family_id": "contextual-assessment-v1/conscientious_objection",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "belief_vs_discussion",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/conscientious_objection/disclosure",
+      "group_id": "contextual-assessment-v1/conscientious_objection",
+      "text": "I am a Quaker and my own religious belief forbids military service.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "PU",
+        "categories": [
+          "RELIGION"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/conscientious_objection",
+        "family_id": "contextual-assessment-v1/conscientious_objection",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "belief_vs_discussion",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/probation_visit/control",
+      "group_id": "contextual-assessment-v1/probation_visit",
+      "text": "The public justice guide explains reporting requirements after a robbery conviction without naming anyone.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "P0",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/probation_visit",
+        "family_id": "contextual-assessment-v1/probation_visit",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_supervision_vs_public_procedure",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/probation_visit/disclosure",
+      "group_id": "contextual-assessment-v1/probation_visit",
+      "text": "In the authenticated portal, my protected probation portal says I must report following my robbery conviction.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P2",
+        "categories": [
+          "CRIMINAL"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/probation_visit",
+        "family_id": "contextual-assessment-v1/probation_visit",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_supervision_vs_public_procedure",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/police_interview/control",
+      "group_id": "contextual-assessment-v1/police_interview",
+      "text": "A crime novel quotes an invented sister saying police interviewed her as a theft suspect.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/police_interview",
+        "family_id": "contextual-assessment-v1/police_interview",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_quotation",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/police_interview/disclosure",
+      "group_id": "contextual-assessment-v1/police_interview",
+      "text": "My sister admitted to our closed chat that police interviewed her as a suspect in a theft.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P3",
+        "categories": [
+          "CRIMINAL",
+          "THIRD_PARTY"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/police_interview",
+        "family_id": "contextual-assessment-v1/police_interview",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_quotation",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/bail_condition/control",
+      "group_id": "contextual-assessment-v1/bail_condition",
+      "text": "Imagine a fictional defendant on bail for drug possession; what conditions might be imposed?",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/bail_condition",
+        "family_id": "contextual-assessment-v1/bail_condition",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_hypothetical",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/bail_condition/disclosure",
+      "group_id": "contextual-assessment-v1/bail_condition",
+      "text": "My local unsent note records that I am on bail for drug possession. This note has never been shared.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P4",
+        "categories": [
+          "CRIMINAL"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/bail_condition",
+        "family_id": "contextual-assessment-v1/bail_condition",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_hypothetical",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/expungement/control",
+      "group_id": "contextual-assessment-v1/expungement",
+      "text": "Explain expungement rules for dangerous driving without assuming the questioner has a conviction.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/expungement",
+        "family_id": "contextual-assessment-v1/expungement",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "record_vs_discussion",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/expungement/disclosure",
+      "group_id": "contextual-assessment-v1/expungement",
+      "text": "I am applying to erase my actual conviction for dangerous driving.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "PU",
+        "categories": [
+          "CRIMINAL"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/expungement",
+        "family_id": "contextual-assessment-v1/expungement",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "record_vs_discussion",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/tax_refund/control",
+      "group_id": "contextual-assessment-v1/tax_refund",
+      "text": "The public tax example calculates a fictional refund of 2860 dollars without describing a taxpayer.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "P0",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/tax_refund",
+        "family_id": "contextual-assessment-v1/tax_refund",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_tax_vs_public_example",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/tax_refund/disclosure",
+      "group_id": "contextual-assessment-v1/tax_refund",
+      "text": "In the authenticated portal, my protected tax account shows that my refund is 2860 dollars.",
+      "classification": {
+        "sensitivity": "S2",
+        "visibility": "P2",
+        "categories": [
+          "FINANCIAL"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "WARN"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/tax_refund",
+        "family_id": "contextual-assessment-v1/tax_refund",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_tax_vs_public_example",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/mortgage_refusal/control",
+      "group_id": "contextual-assessment-v1/mortgage_refusal",
+      "text": "Suppose an imaginary mortgage applicant had a credit score of 410; what might affect approval?",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/mortgage_refusal",
+        "family_id": "contextual-assessment-v1/mortgage_refusal",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_hypothetical",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/mortgage_refusal/disclosure",
+      "group_id": "contextual-assessment-v1/mortgage_refusal",
+      "text": "My cousin told our closed group his mortgage was refused because his credit score is 410.",
+      "classification": {
+        "sensitivity": "S2",
+        "visibility": "P3",
+        "categories": [
+          "FINANCIAL",
+          "THIRD_PARTY"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "WARN"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/mortgage_refusal",
+        "family_id": "contextual-assessment-v1/mortgage_refusal",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_hypothetical",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/pension_payment/control",
+      "group_id": "contextual-assessment-v1/pension_payment",
+      "text": "The public pension calculator illustrates an invented monthly payment of 1740 dollars.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "P0",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/pension_payment",
+        "family_id": "contextual-assessment-v1/pension_payment",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_payment_vs_public_schedule",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/pension_payment/disclosure",
+      "group_id": "contextual-assessment-v1/pension_payment",
+      "text": "In the authenticated portal, my protected pension account records my monthly payment as 1740 dollars.",
+      "classification": {
+        "sensitivity": "S2",
+        "visibility": "P2",
+        "categories": [
+          "FINANCIAL"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "WARN"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/pension_payment",
+        "family_id": "contextual-assessment-v1/pension_payment",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_payment_vs_public_schedule",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/bankruptcy/control",
+      "group_id": "contextual-assessment-v1/bankruptcy",
+      "text": "A fictional memoir quotes an invented narrator declared bankrupt with debts of 93000 dollars.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/bankruptcy",
+        "family_id": "contextual-assessment-v1/bankruptcy",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_quotation",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/bankruptcy/disclosure",
+      "group_id": "contextual-assessment-v1/bankruptcy",
+      "text": "I was declared bankrupt last month with debts of 93000 dollars.",
+      "classification": {
+        "sensitivity": "S2",
+        "visibility": "PU",
+        "categories": [
+          "FINANCIAL"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "WARN"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/bankruptcy",
+        "family_id": "contextual-assessment-v1/bankruptcy",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_quotation",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/dating_preference/control",
+      "group_id": "contextual-assessment-v1/dating_preference",
+      "text": "Explain what pansexual means without attributing an orientation to any person.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/dating_preference",
+        "family_id": "contextual-assessment-v1/dating_preference",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_discussion",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/dating_preference/disclosure",
+      "group_id": "contextual-assessment-v1/dating_preference",
+      "text": "I told our closed friends group that I am pansexual.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P3",
+        "categories": [
+          "SEXUAL"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/dating_preference",
+        "family_id": "contextual-assessment-v1/dating_preference",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_discussion",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/contraception_visit/control",
+      "group_id": "contextual-assessment-v1/contraception_visit",
+      "text": "The public clinic information page explains emergency contraception without describing a patient.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "P0",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/contraception_visit",
+        "family_id": "contextual-assessment-v1/contraception_visit",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_care_vs_public_information",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/contraception_visit/disclosure",
+      "group_id": "contextual-assessment-v1/contraception_visit",
+      "text": "In the authenticated portal, my girlfriend's protected clinic record says she requested emergency contraception yesterday.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P2",
+        "categories": [
+          "SEXUAL",
+          "HEALTH",
+          "THIRD_PARTY"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/contraception_visit",
+        "family_id": "contextual-assessment-v1/contraception_visit",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_care_vs_public_information",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/child_custody/control",
+      "group_id": "contextual-assessment-v1/child_custody",
+      "text": "Imagine a fictional custody order giving a child alternate weekends with one parent; discuss its wording.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/child_custody",
+        "family_id": "contextual-assessment-v1/child_custody",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_order_vs_hypothetical",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/child_custody/disclosure",
+      "group_id": "contextual-assessment-v1/child_custody",
+      "text": "In the authenticated portal, the protected custody order says my eight year old daughter stays with me on alternate weekends.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P2",
+        "categories": [
+          "CHILD",
+          "THIRD_PARTY",
+          "IDENTITY"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/child_custody",
+        "family_id": "contextual-assessment-v1/child_custody",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_order_vs_hypothetical",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/child_therapy/control",
+      "group_id": "contextual-assessment-v1/child_therapy",
+      "text": "The fictional school play quotes an invented guardian saying a nephew receives speech therapy.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/child_therapy",
+        "family_id": "contextual-assessment-v1/child_therapy",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_quotation",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/child_therapy/disclosure",
+      "group_id": "contextual-assessment-v1/child_therapy",
+      "text": "My nephew's guardian told our closed group that he receives speech therapy.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P3",
+        "categories": [
+          "CHILD",
+          "HEALTH",
+          "THIRD_PARTY"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/child_therapy",
+        "family_id": "contextual-assessment-v1/child_therapy",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "asserted_vs_quotation",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/shelter_location/control",
+      "group_id": "contextual-assessment-v1/shelter_location",
+      "text": "The public charity directory lists Demo Refuge on North Street without identifying residents.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "P0",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/shelter_location",
+        "family_id": "contextual-assessment-v1/shelter_location",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_whereabouts_vs_public_facility",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/shelter_location/disclosure",
+      "group_id": "contextual-assessment-v1/shelter_location",
+      "text": "My friend privately told our closed chat that she is staying tonight at Demo Refuge on North Street.",
+      "classification": {
+        "sensitivity": "S2",
+        "visibility": "P3",
+        "categories": [
+          "LOCATION",
+          "THIRD_PARTY"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "WARN"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/shelter_location",
+        "family_id": "contextual-assessment-v1/shelter_location",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_whereabouts_vs_public_facility",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/travel_checkin/control",
+      "group_id": "contextual-assessment-v1/travel_checkin",
+      "text": "Imagine an invented traveler assigned room 208 at Sample Inn; draft a fictional scene.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/travel_checkin",
+        "family_id": "contextual-assessment-v1/travel_checkin",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_itinerary_vs_hypothetical",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/travel_checkin/disclosure",
+      "group_id": "contextual-assessment-v1/travel_checkin",
+      "text": "In the authenticated portal, imagine a holiday story, but use my real itinerary: my protected booking says I am in room 208 at Sample Inn tonight.",
+      "classification": {
+        "sensitivity": "S2",
+        "visibility": "P2",
+        "categories": [
+          "LOCATION"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "WARN"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/travel_checkin",
+        "family_id": "contextual-assessment-v1/travel_checkin",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "hypothetical_frame_actual_fact_vs_invented_fact",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/biometric_unlock/control",
+      "group_id": "contextual-assessment-v1/biometric_unlock",
+      "text": "The public test instructions show DEMO-9472 as an invalid recovery code that unlocks nothing.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "P0",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/biometric_unlock",
+        "family_id": "contextual-assessment-v1/biometric_unlock",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "credential_vs_public_test",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/biometric_unlock/disclosure",
+      "group_id": "contextual-assessment-v1/biometric_unlock",
+      "text": "In the authenticated portal, my protected device enrollment page gives my active recovery code as DEMO-9472.",
+      "classification": {
+        "sensitivity": "S3",
+        "visibility": "P2",
+        "categories": [
+          "IDENTITY"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "BLOCK"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/biometric_unlock",
+        "family_id": "contextual-assessment-v1/biometric_unlock",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "credential_vs_public_test",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/immigration_status/control",
+      "group_id": "contextual-assessment-v1/immigration_status",
+      "text": "Explain what an expired residence permit means generally without describing any immigrant.",
+      "classification": {
+        "sensitivity": "S0",
+        "visibility": "PU",
+        "categories": []
+      },
+      "required_sensitive": false,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "ALLOW"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/immigration_status",
+        "family_id": "contextual-assessment-v1/immigration_status",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_record_vs_discussion",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    },
+    {
+      "id": "contextual-assessment-v1/immigration_status/disclosure",
+      "group_id": "contextual-assessment-v1/immigration_status",
+      "text": "In the authenticated portal, my spouse's protected immigration account states that their residence permit expired yesterday.",
+      "classification": {
+        "sensitivity": "S2",
+        "visibility": "P2",
+        "categories": [
+          "IDENTITY",
+          "THIRD_PARTY"
+        ]
+      },
+      "required_sensitive": true,
+      "context_truth_eligible": true,
+      "action_accuracy_eligible": true,
+      "allowed_actions": [
+        "WARN"
+      ],
+      "metadata": {
+        "group_id": "contextual-assessment-v1/immigration_status",
+        "family_id": "contextual-assessment-v1/immigration_status",
+        "label_status": "assistant_provisional",
+        "generator": "contextual_assessment_v1",
+        "contrast": "private_record_vs_discussion",
+        "curriculum_role": "assessment",
+        "parent_id": "",
+        "teacher_origin": "Codex assistant authored offline assessment scenarios",
+        "teacher_model": "Codex assistant runtime identity unavailable",
+        "rubric": "paper/research/contextual-cascade-rubric.md"
+      }
+    }
+  ]
+}

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import math
+import json
+import shutil
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 
@@ -14,6 +17,9 @@ for path in (SERVICE_ROOT / "app", SERVICE_ROOT / "generated"):
         sys.path.insert(0, str(path))
 
 from privoke.v1 import parameters_pb2
+from privoke_model.artifact import load_artifact, write_artifact_atomic, ModelArtifactError
+from privoke_model.contextual_training import prepare_full_encoder_artifact
+from fuzzer_requests import FuzzerRequestConfig, request_fuzzer_loop
 from server import (
     ParamUpdateService,
     storage_is_writable,
@@ -27,13 +33,76 @@ def valid_request():
         model_id="privoke-baseline",
         base_version="v1",
         gradients=[
-            parameters_pb2.Parameter(name="classifier.bias", values=[0.01])
+            parameters_pb2.Parameter(
+                name="head.sensitivity.bias",
+                shape=[4],
+                values=[0.0, 0.0, 0.0, 0.01],
+            )
         ],
         metadata={"request_id": "test-1"},
     )
 
 
+class AbortContext:
+    def abort(self, code, message):
+        raise AssertionError(f"Unexpected abort {code}: {message}")
+
+
 class ParameterUpdateValidationTests(unittest.TestCase):
+    def test_large_embedding_requires_validated_full_artifact_and_exact_shape(self):
+        source = load_artifact(SERVICE_ROOT.parents[1] / "models/privoke-balanced.json")
+        full = prepare_full_encoder_artifact(source, version="v0.4.0+test", generated_at_unix=1, source_revision="a" * 40)
+        tensor = full["parameters"]["token_embedding"]
+        request = valid_request()
+        request.model_id = full["model_id"]
+        request.base_version = full["version"]
+        request.ClearField("gradients")
+        request.gradients.add(name="token_embedding", shape=tensor["shape"], values=[.0001] * len(tensor["values"]))
+        with self.assertRaises(ValueError):
+            validate_parameter_update(request, expected_model_id=full["model_id"], max_abs_gradient=1.)
+        with self.assertRaises(ValueError):
+            validate_parameter_update(request, expected_model_id=full["model_id"], max_abs_gradient=1., artifact=source)
+        validate_parameter_update(request, expected_model_id=full["model_id"], max_abs_gradient=1., artifact=full)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "model.json"
+            write_artifact_atomic(path, full)
+            service = ParamUpdateService(Path(directory) / "updates.jsonl", full["model_id"], model_artifact_path=path)
+            ack = service.SubmitParameterUpdate(request, AbortContext())
+            stored = load_artifact(path)
+            self.assertEqual(stored["version"], ack.applied_version)
+            self.assertNotEqual(stored["parameters"]["token_embedding"]["values"], tensor["values"])
+        request.gradients[0].shape[:] = [1, len(tensor["values"])]
+        with self.assertRaises(ModelArtifactError):
+            validate_parameter_update(request, expected_model_id=full["model_id"], max_abs_gradient=1., artifact=full)
+
+    def test_applies_update_to_versioned_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            artifact_path = Path(directory) / "privoke-baseline.json"
+            source_artifact = SERVICE_ROOT.parents[1] / "models/privoke-baseline.json"
+            shutil.copyfile(source_artifact, artifact_path)
+            service = ParamUpdateService(
+                Path(directory) / "updates.jsonl",
+                expected_model_id="privoke-baseline",
+                model_artifact_path=artifact_path,
+            )
+            request = valid_request()
+            initial = json.loads(artifact_path.read_text(encoding="utf-8"))
+            request.base_version = initial["version"]
+            response = service.SubmitParameterUpdate(request, AbortContext())
+            stored = json.loads(artifact_path.read_text(encoding="utf-8"))
+
+        expected_revision = int(initial["metadata"]["training_revision"]) + 1
+        self.assertEqual(
+            response.applied_version,
+            f"{initial['metadata']['release_version']}+train.{expected_revision}",
+        )
+        self.assertEqual(stored["version"], response.applied_version)
+        self.assertEqual(
+            stored["metadata"]["training_revision"],
+            str(expected_revision),
+        )
+        self.assertTrue(stored["checksum"])
+
     def test_health_is_not_serving_when_storage_is_unwritable(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             service = ParamUpdateService(
@@ -77,6 +146,44 @@ class ParameterUpdateValidationTests(unittest.TestCase):
                 max_abs_gradient=1.0,
             )
 
+    def test_rejects_gradient_shape_mismatch(self) -> None:
+        request = valid_request()
+        request.gradients[0].shape[:] = [2]
+        with self.assertRaisesRegex(ValueError, "shape"):
+            validate_parameter_update(
+                request,
+                expected_model_id="privoke-baseline",
+                max_abs_gradient=1.0,
+            )
+
+    def test_rejects_missing_gradient_shape(self) -> None:
+        request = valid_request()
+        request.gradients[0].shape[:] = []
+        with self.assertRaisesRegex(ValueError, "no shape"):
+            validate_parameter_update(
+                request,
+                expected_model_id="privoke-baseline",
+                max_abs_gradient=1.0,
+            )
+
+    def test_rejects_same_size_but_wrong_artifact_shape(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            artifact_path = Path(directory) / "privoke-baseline.json"
+            source_artifact = SERVICE_ROOT.parents[1] / "models/privoke-baseline.json"
+            shutil.copyfile(source_artifact, artifact_path)
+            artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+            service = ParamUpdateService(
+                Path(directory) / "updates.jsonl",
+                expected_model_id="privoke-baseline",
+                model_artifact_path=artifact_path,
+            )
+            request = valid_request()
+            request.base_version = artifact["version"]
+            request.gradients[0].shape[:] = [1, 4]
+
+            with self.assertRaisesRegex(AssertionError, "shape mismatch"):
+                service.SubmitParameterUpdate(request, AbortContext())
+
     def test_rejects_log_control_characters(self) -> None:
         request = valid_request()
         request.source_id = "attacker\nforged-log"
@@ -86,6 +193,48 @@ class ParameterUpdateValidationTests(unittest.TestCase):
                 expected_model_id="privoke-baseline",
                 max_abs_gradient=1.0,
             )
+
+    def test_fuzzer_retry_reuses_the_cycle_request_id(self) -> None:
+        import tempfile
+        from privoke.v1 import parameters_pb2
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        config = FuzzerRequestConfig(
+            target="fuzzer:50053",
+            prompt_count=1,
+            model_id="privoke-baseline",
+            source_id="param-update-service",
+            timeout_seconds=1.0,
+            interval_seconds=0.0,
+            initial_delay_seconds=0.0,
+            retry_seconds=0.0,
+            max_attempts=2,
+            seed=1337,
+            train_underlying=False,
+            state_path=str(Path(temporary.name) / "cycles.sqlite3"),
+        )
+        response = parameters_pb2.FuzzerTrainingResponse(
+            base_version="v1",
+            accepted=True,
+            model_id="privoke-baseline",
+            applied_version="v1+train.1",
+            prompts_generated=1,
+        )
+        with (
+            patch(
+                "fuzzer_requests.request_fuzzer_training",
+                side_effect=(RuntimeError("transient"), response),
+            ) as request_training,
+            patch("fuzzer_requests.time.sleep"),
+        ):
+            request_fuzzer_loop(config)
+
+        request_ids = [
+            call.kwargs["training_request_id"]
+            for call in request_training.call_args_list
+        ]
+        self.assertEqual(len(request_ids), 2)
+        self.assertEqual(request_ids[0], request_ids[1])
 
 
 if __name__ == "__main__":

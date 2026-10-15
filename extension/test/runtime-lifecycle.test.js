@@ -54,3 +54,15 @@ test("rejects a supervisor response that leaves the runtime stopped", async () =
     /dependency failed/,
   );
 });
+
+test("restores the persisted stack choice on every runtime start", async () => {
+  for (const useLocalStack of [true, false]) {
+    await restoreConfiguredRuntime({
+      async setRuntimeEnabled(enabled, options) {
+        assert.equal(enabled, true);
+        assert.equal(options.useLocalStack, useLocalStack);
+        return { enabled: true };
+      },
+    }, { enabled: true, useLocalStack }, { ensureSupervisor: async () => {} });
+  }
+});

@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 import atexit
-import json
 import os
-import subprocess
-from pathlib import Path
 
 from .types import DetectionOutcome
 
 
-DEFAULT_RUNTIME_TARGET = "client-runtime:50054"
-_bridge: subprocess.Popen[str] | None = None
+DEFAULT_RUNTIME_TARGET = "127.0.0.1:50054"
+_client = None
 
 
 def runtime_url() -> str:
@@ -30,13 +27,15 @@ def configure_backend(backend: str) -> None:
     configured = os.getenv("PRIVOKE_LLM_CHOICE", "streamed")
     if backend != configured:
         raise RuntimeError(
-            f"The running Docker client-runtime uses backend {configured!r}; "
+            f"The running client-runtime uses backend {configured!r}; "
             f"restart it with PRIVOKE_LLM_CHOICE={backend} to evaluate that backend."
         )
 
 
-def run_pipeline(text: str, backend: str | None, layer: str = "pipeline") -> DetectionOutcome:
-    if layer == "pipeline":
+def run_pipeline(text: str, backend: str | None, layer: str = "semantic") -> DetectionOutcome:
+    if layer not in {"semantic", "pipeline", "runtime", "regex", "ner", "regex-ner"}:
+        raise ValueError(f"Unsupported evaluation layer: {layer}")
+    if layer in {"semantic", "pipeline", "runtime"}:
         configure_backend(backend or os.getenv("PRIVOKE_LLM_CHOICE", "streamed"))
     payload = _request_grpc(
         {
@@ -64,6 +63,11 @@ def run_pipeline(text: str, backend: str | None, layer: str = "pipeline") -> Det
     action = str(payload.get("action", ""))
     if action not in {"ALLOW", "WARN", "BLOCK"}:
         raise RuntimeError(f"Client runtime returned an invalid action: {action!r}")
+    if layer == "semantic":
+        executions = payload.get("layers", [])
+        if (len(executions) != 1 or executions[0].get("layer") != "DETECTION_LAYER_SEMANTIC"
+                or executions[0].get("status") != "ok" or executions[0].get("error")):
+            raise RuntimeError("Semantic-only evaluation requires exactly one successful semantic layer execution.")
 
     confidence = payload.get("confidence")
     elapsed_ms = payload.get("elapsed_ms")
@@ -72,6 +76,7 @@ def run_pipeline(text: str, backend: str | None, layer: str = "pipeline") -> Det
         categories=tuple(categories),
         confidence=float(confidence) if isinstance(confidence, (int, float)) else None,
         elapsed_ms=float(elapsed_ms) if isinstance(elapsed_ms, (int, float)) else 0.0,
+        layer_records=tuple(payload.get("layers", [])),
         sensitivity=sensitivity,
         visibility=str(classification.get("visibility", "PU")),
         masked_text=str(payload["masked_text"]) if payload.get("masked_text") else None,
@@ -79,71 +84,31 @@ def run_pipeline(text: str, backend: str | None, layer: str = "pipeline") -> Det
 
 
 def _request_grpc(request: dict) -> dict:
-    process = _bridge_process()
-    assert process.stdin is not None
-    assert process.stdout is not None
-    process.stdin.write(json.dumps(request, ensure_ascii=False) + "\n")
-    process.stdin.flush()
-    line = process.stdout.readline()
-    if not line:
-        detail = process.stderr.read().strip() if process.stderr is not None else ""
-        _close_bridge()
-        raise RuntimeError(
-            "The Docker gRPC evaluation client stopped unexpectedly"
-            + (f": {detail}" if detail else ".")
-        )
-    response = json.loads(line)
-    if response.get("error"):
-        raise RuntimeError(f"Client runtime analysis failed: {response['error']}")
-    return response
-
-
-def _bridge_process() -> subprocess.Popen[str]:
-    global _bridge
-    if _bridge is not None and _bridge.poll() is None:
-        return _bridge
-
-    repository_root = Path(__file__).resolve().parents[2]
-    bridge_source = (repository_root / "evaluation" / "grpc_runtime_client.py").read_text()
-    compose_file = repository_root / "docker-compose.yml"
     try:
-        _bridge = subprocess.Popen(
-            [
-                "docker",
-                "compose",
-                "-f",
-                str(compose_file),
-                "exec",
-                "-T",
-                "client-runtime",
-                "/opt/venv/bin/python",
-                "-u",
-                "-c",
-                bridge_source,
-            ],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
-        )
-    except OSError as exc:
+        from grpc_runtime_client import grpc, handle, runtime_pb2_grpc
+    except ImportError as exc:
         raise RuntimeError(
-            "Could not start the Docker gRPC evaluation client. Ensure Docker Compose is running."
+            "Install evaluation/requirements-host.txt and run python evaluation/setup-host.py "
+            "with the same Python interpreter before evaluating."
         ) from exc
-    return _bridge
+
+    global _client
+    target = os.getenv("PRIVOKE_RUNTIME_TARGET", DEFAULT_RUNTIME_TARGET)
+    if _client is None or _client[0] != target:
+        _close_client()
+        channel = grpc.insecure_channel(target)
+        _client = (target, channel, runtime_pb2_grpc.PrivokeRuntimeServiceStub(channel))
+    try:
+        return handle(_client[2], request)
+    except grpc.RpcError as exc:
+        raise RuntimeError(f"Runtime RPC to {target} failed ({exc.code().name}): {exc.details()}") from exc
 
 
-def _close_bridge() -> None:
-    global _bridge
-    if _bridge is not None:
-        if _bridge.stdin is not None:
-            _bridge.stdin.close()
-        try:
-            _bridge.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            _bridge.terminate()
-        _bridge = None
+def _close_client() -> None:
+    global _client
+    if _client is not None:
+        _client[1].close()
+        _client = None
 
 
-atexit.register(_close_bridge)
+atexit.register(_close_client)

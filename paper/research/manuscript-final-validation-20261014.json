@@ -1,0 +1,444 @@
+{
+  "schema_version": 1,
+  "status": "final_source_compiled_all_pages_visually_accepted",
+  "validated_at_utc": "2026-10-15T08:02:05.662224+00:00",
+  "scope": "Revised research manuscript; bounded measured evidence and explicit remaining human/deployment limits. Root owns final artifact commit/push.",
+  "primary_source_head": "4a3123d43c840cdadd5e0b2cd97393031cb81b39",
+  "manuscript_worker_source_commits": [
+    "023251a082afc128cdfd966111fdd647ea76c8cc",
+    "0c06de66063383a8948180fdfad5d07df1b74e3e"
+  ],
+  "main_git_blob_oid": "92d17af24d87a231f4b0082049466ea503270829",
+  "main_raw_sha256": "09bfbcd21bc416aa70bf407ad5a7e47aca7c1283284574f2a1c825ebbd8a3763",
+  "main_lf_canonical_sha256": "6cc8a6a6be6388bcbee657a44c4b03cc3621cbc0cb163b7b68dddd2610c6a362",
+  "preserved_user_dirty_bibliography": {
+    "path": "paper/ref.bib",
+    "sha256": "84769bf62dbf21c15edcdc213d31a0bcea4ed08d593c1a77d3a789313cfd986e",
+    "preserved": true,
+    "not_overwritten_or_staged_by_worker": true
+  },
+  "inputs": [
+    {
+      "path": "paper/main.tex",
+      "bytes": 66740,
+      "sha256": "09bfbcd21bc416aa70bf407ad5a7e47aca7c1283284574f2a1c825ebbd8a3763",
+      "lf_canonical_sha256": "6cc8a6a6be6388bcbee657a44c4b03cc3621cbc0cb163b7b68dddd2610c6a362"
+    },
+    {
+      "path": "paper/ref.bib",
+      "bytes": 24990,
+      "sha256": "84769bf62dbf21c15edcdc213d31a0bcea4ed08d593c1a77d3a789313cfd986e",
+      "lf_canonical_sha256": "84769bf62dbf21c15edcdc213d31a0bcea4ed08d593c1a77d3a789313cfd986e"
+    },
+    {
+      "path": "paper/research/paper-completion-sources-20261014.bib",
+      "bytes": 338,
+      "sha256": "e5ff78f57c9852410fe6643f071888679d3c99edc93cf6ae1461dfbc39fbea87",
+      "lf_canonical_sha256": "6eed7c9d5ef94165066067164b8cf121f4469bbf1db029eea379ccdeb7a94678"
+    },
+    {
+      "path": "paper/manuscript-completion-sources-20261014.bib",
+      "bytes": 1079,
+      "sha256": "ba866866c94bd3be393a75602a84a7a519d5c76f89e9f899693715d07eda76d9",
+      "lf_canonical_sha256": "0c86d897fa98911f3ae9e76ee72f887e69dd740de72dd949dd4f7396090e3d7f"
+    },
+    {
+      "path": "paper/figures/results-pipeline-v1-v3.pdf",
+      "bytes": 25516,
+      "sha256": "0d38be5fc0a8a383e5c5dfa264441722b91f2733a9e7d3547e48d4a15ae0dd15"
+    },
+    {
+      "path": "paper/figures/results-pipeline-presidio-reference.pdf",
+      "bytes": 22108,
+      "sha256": "c556a1fa086755b77b780e2c9a2f2b61d227d2307306a16c5ccc752c2ad294fb"
+    }
+  ],
+  "input_binding": "Main matches root-authorized SHA and committed blob; all bibliography/figure bytes match successful actual-primary preflight; inputs unchanged during render.",
+  "compile_commands": [
+    {
+      "argv": [
+        "C:\\Users\\Nicholas\\AppData\\Local\\Programs\\MiKTeX\\miktex\\bin\\x64\\pdflatex.EXE",
+        "--disable-installer",
+        "-interaction=nonstopmode",
+        "-halt-on-error",
+        "-output-directory=D:\\Git Repositories\\Privoke-Research-Project\\evaluation\\results\\manuscript_completion_20261014\\final-primary-01\\build",
+        "-jobname=privoke-completion-20261014",
+        "main.tex"
+      ],
+      "cwd": "paper",
+      "exit_code": 0,
+      "evidence": "Original orchestration checked each exit before entering metadata; per-step stdout/stderr retained."
+    },
+    {
+      "argv": [
+        "C:\\Users\\Nicholas\\AppData\\Local\\Programs\\MiKTeX\\miktex\\bin\\x64\\bibtex.EXE",
+        "D:\\Git Repositories\\Privoke-Research-Project\\evaluation\\results\\manuscript_completion_20261014\\final-primary-01\\build\\privoke-completion-20261014"
+      ],
+      "cwd": "paper",
+      "exit_code": 0,
+      "evidence": "Original orchestration checked each exit before entering metadata; per-step stdout/stderr retained."
+    },
+    {
+      "argv": [
+        "C:\\Users\\Nicholas\\AppData\\Local\\Programs\\MiKTeX\\miktex\\bin\\x64\\pdflatex.EXE",
+        "--disable-installer",
+        "-interaction=nonstopmode",
+        "-halt-on-error",
+        "-output-directory=D:\\Git Repositories\\Privoke-Research-Project\\evaluation\\results\\manuscript_completion_20261014\\final-primary-01\\build",
+        "-jobname=privoke-completion-20261014",
+        "main.tex"
+      ],
+      "cwd": "paper",
+      "exit_code": 0,
+      "evidence": "Original orchestration checked each exit before entering metadata; per-step stdout/stderr retained."
+    },
+    {
+      "argv": [
+        "C:\\Users\\Nicholas\\AppData\\Local\\Programs\\MiKTeX\\miktex\\bin\\x64\\pdflatex.EXE",
+        "--disable-installer",
+        "-interaction=nonstopmode",
+        "-halt-on-error",
+        "-output-directory=D:\\Git Repositories\\Privoke-Research-Project\\evaluation\\results\\manuscript_completion_20261014\\final-primary-01\\build",
+        "-jobname=privoke-completion-20261014",
+        "main.tex"
+      ],
+      "cwd": "paper",
+      "exit_code": 0,
+      "evidence": "Original orchestration checked each exit before entering metadata; per-step stdout/stderr retained."
+    }
+  ],
+  "compiler_diagnostics": {
+    "problems": [],
+    "bibtex_warnings": [],
+    "font_rows": 22,
+    "all_fonts_embedded": true,
+    "type3_fonts": false,
+    "engine_log": "evaluation/results/manuscript_completion_20261014/final-primary-01/build/privoke-completion-20261014.log"
+  },
+  "output": {
+    "path": "output/pdf/privoke-completion-20261014.pdf",
+    "bytes": 357236,
+    "sha256": "6518dfd91c2336c89a37eff43e321e4350f88c13aea217ca56c05f1963794154",
+    "pages": 12,
+    "geometry": "612 x 792 pt (letter)"
+  },
+  "render": {
+    "argv": [
+      "C:\\Users\\Nicholas\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\poppler\\Library\\bin\\pdftoppm.EXE",
+      "-r",
+      "125",
+      "-png",
+      "D:\\Git Repositories\\Privoke-Research-Project\\evaluation\\results\\manuscript_completion_20261014\\final-primary-01\\build\\privoke-completion-20261014.pdf",
+      "D:\\Git Repositories\\Privoke-Research-Project\\evaluation\\results\\manuscript_completion_20261014\\final-primary-01\\pages\\page"
+    ],
+    "exit_code": 0,
+    "dpi": 125,
+    "pages": [
+      {
+        "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/pages/page-01.png",
+        "sha256": "7b8c435606001f00bf78380474a3bd4870c5faea509fb1502a247fb16d8e8040",
+        "bytes": 509306
+      },
+      {
+        "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/pages/page-02.png",
+        "sha256": "0b24852c1efe32d23c96152ff8f4f59212f69305605965a32bc18d0fe7104d3e",
+        "bytes": 479066
+      },
+      {
+        "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/pages/page-03.png",
+        "sha256": "b017c64d12ff453b54ca47a54e0e420c6da0032ebd480d571cde740bfcc6a269",
+        "bytes": 494595
+      },
+      {
+        "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/pages/page-04.png",
+        "sha256": "27c9b450abe4498f61e9f4bd467742ba7f33dbaeacca32d61d47e1202e2a3caf",
+        "bytes": 486148
+      },
+      {
+        "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/pages/page-05.png",
+        "sha256": "a8fa612f4571c9ba6bf7dcda4dc488e49d27eaf9e674e7caee9b2d221f1a8b95",
+        "bytes": 501856
+      },
+      {
+        "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/pages/page-06.png",
+        "sha256": "57235eaad1e3484b123b1ca5a4ecb2cb4e7f4aa1be7eac3622af6a89275ede97",
+        "bytes": 516433
+      },
+      {
+        "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/pages/page-07.png",
+        "sha256": "4bdd33334d3d4dc8eff701d0e7adb80eb14e24221e928e89be7064b6c6e5ee46",
+        "bytes": 504454
+      },
+      {
+        "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/pages/page-08.png",
+        "sha256": "97dfd3a6eb5ee04c503301277ae25a3203143a440cad43cc0d8f7a8176b1c43d",
+        "bytes": 293182
+      },
+      {
+        "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/pages/page-09.png",
+        "sha256": "dd102df8c453d03b94bad893bcca346997999bd953aaad58f4e4cea6f26a6cc3",
+        "bytes": 350767
+      },
+      {
+        "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/pages/page-10.png",
+        "sha256": "078d8aad17bcb5a21c2f06684961b281b2cb5483e62136aee69d4e2c542a000c",
+        "bytes": 504218
+      },
+      {
+        "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/pages/page-11.png",
+        "sha256": "755f69bb962c80d88532e45ecc93cff90e6ef7a81435ae3c30fda9c6ba021de6",
+        "bytes": 493608
+      },
+      {
+        "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/pages/page-12.png",
+        "sha256": "cd74ad2541ef23bb23411e36100fde891a8c2d0363e7a6759a957fae729a6881",
+        "bytes": 624134
+      }
+    ]
+  },
+  "visual_review": {
+    "reviewer": "manuscript worker",
+    "method": "Opened all twelve actual 125-dpi PNGs with image viewer after final source integration.",
+    "pdf_sha256": "6518dfd91c2336c89a37eff43e321e4350f88c13aea217ca56c05f1963794154",
+    "page_count": 12,
+    "pages": [
+      {
+        "page": 1,
+        "verdict": "pass",
+        "inspection": "Title/authors/abstract/footnotes and introductory columns legible."
+      },
+      {
+        "page": 2,
+        "verdict": "pass",
+        "inspection": "Introduction/related work/scope columns and lists legible."
+      },
+      {
+        "page": 3,
+        "verdict": "pass",
+        "inspection": "Table I, representation, architecture and ideal telemetry equation legible."
+      },
+      {
+        "page": 4,
+        "verdict": "pass",
+        "inspection": "Finite sampler equation, Table II and methodology/lineage text legible."
+      },
+      {
+        "page": 5,
+        "verdict": "pass",
+        "inspection": "Matched/product/recognizer/external methods and statistical qualifications legible."
+      },
+      {
+        "page": 6,
+        "verdict": "pass",
+        "inspection": "Installed-browser Methods and early adaptation outcomes legible."
+      },
+      {
+        "page": 7,
+        "verdict": "pass",
+        "inspection": "Tables III/IV and matched/product/ablation/recognizer outcomes legible."
+      },
+      {
+        "page": 8,
+        "verdict": "pass",
+        "inspection": "Four-panel Figure 1, Table V and final/external outcome text legible."
+      },
+      {
+        "page": 9,
+        "verdict": "pass",
+        "inspection": "Two-panel Figure 2, Tables VI/VII and browser/resource text legible."
+      },
+      {
+        "page": 10,
+        "verdict": "pass",
+        "inspection": "Table VIII, telemetry equations/numbers, reproduction and discussion legible."
+      },
+      {
+        "page": 11,
+        "verdict": "pass",
+        "inspection": "Limitations/Extensions and continued columns legible."
+      },
+      {
+        "page": 12,
+        "verdict": "pass",
+        "inspection": "Conclusion and all remaining bibliography entries legible."
+      }
+    ],
+    "issues": [],
+    "completed_at_utc": "2026-10-15T08:02:05.652649+00:00",
+    "independent_root_review": {
+      "pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "pdf_sha256": "6518dfd91c2336c89a37eff43e321e4350f88c13aea217ca56c05f1963794154",
+      "verdict": "pass",
+      "scope": "Root independently viewed all twelve complete page images, first critical pages 1/6/9/10/12 then remaining 2/3/4/5/7/8/11. All readable, unclipped, without overlaps, missing glyphs, broken tables or figure defects; no changes requested."
+    }
+  },
+  "scientific_review": {
+    "reviewer": "independent research reviewer R2",
+    "status": "accepted",
+    "final_primary_main_raw_sha256": "09bfbcd21bc416aa70bf407ad5a7e47aca7c1283284574f2a1c825ebbd8a3763",
+    "scope": "All sealed scientific streams and final B10 table/resource/quantile/projection wording; cold statistic explicitly nearest-rank p50."
+  },
+  "validation_provenance": {
+    "affected_v10_checks": {
+      "source_head": "c8f1a414f8ade54c5550c8f4f89ff9f03120bf4c",
+      "python": 12,
+      "node": 62,
+      "skipped": 0,
+      "receipt_sha256": "739f5e9ec6f7120d7db188b169e704d7d2c40776546fecf2475697188e285ff4"
+    },
+    "legacy_python_checks": {
+      "count": 54,
+      "accepted_source": "4b460a6f0fc5e8fcb75b076991571ba6af2be9c6",
+      "rerun_at_final_document_head": false
+    },
+    "scientific_checks": {
+      "count": 35,
+      "figure_validators": 2,
+      "accepted_source": "ec0897094b76154ac4d1968a00b3b2f257d304fd",
+      "rerun_at_final_document_head": false
+    },
+    "statement": "Per-revision accepted evidence; no same-head global-suite rerun is claimed."
+  },
+  "artifact_operation_marker": "Completed once before first pilot authoring in this task; not repeated. Current PDF skill refreshed at version 26.1013.11914.",
+  "recoveries_retained": [
+    "primary-preflight-01: sandbox MiKTeX registry/profile denial; narrow existing-runtime retry primary-preflight-02 succeeded.",
+    "final-primary-01: metadata pdftotext UTF-8 was initially decoded as cp1252; explicit UTF-8 metadata/render recovery used the unchanged compiled PDF without recompilation."
+  ],
+  "remaining_limits": [
+    "Independent human contextual adjudication, disclosure authorization and usability.",
+    "Authenticated real-provider, Windows, broader transport/attachment and V3 installed coverage.",
+    "Public fresh-dependency reproduction, licensed ignored model/source asset distribution.",
+    "Deployed entropy/accounting and real monitoring utility.",
+    "Browser body masking and compression/pruning as separate future features."
+  ],
+  "qa_files": [
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/build/privoke-completion-20261014.aux",
+      "bytes": 13879,
+      "sha256": "79b1662bcd798f99daf7f960869fd1bfced9b97f65ff30c140927a12d03f0291"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/build/privoke-completion-20261014.bbl",
+      "bytes": 7634,
+      "sha256": "6d6c5470927a32312094fdfd676cda9840b9f2f7dceca9250e4c37b7a13cc3a7"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/build/privoke-completion-20261014.blg",
+      "bytes": 1414,
+      "sha256": "d836e566c9c3da89729d2a30b64f387f609f404ddb09aae3c80e01e1868031f1"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/build/privoke-completion-20261014.log",
+      "bytes": 28930,
+      "sha256": "6115bec26eb009ba940c14d2be30c878f731478256fbcb1ac90fc77dd6314a25"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/build/privoke-completion-20261014.out",
+      "bytes": 5863,
+      "sha256": "8106bc33890768d947ed085625ae776680f3248ad369432157e6f25b9971822f"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/build-validation.json",
+      "bytes": 8454,
+      "sha256": "065e5931a1074e97ff299a57ffced94f6e0e7e3e855d0a5dc9047fa2fb58006b"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/command-01.stderr.log",
+      "bytes": 73,
+      "sha256": "49f853203483e5a3b14ec9e1c21f3e8121a2b9270fc54c72b312711434035538"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/command-01.stdout.log",
+      "bytes": 15598,
+      "sha256": "1e8f7bcc7b83e11cf59c6b870b1686459fac2366f0d70239b2c225077e05afcd"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/command-02.stderr.log",
+      "bytes": 71,
+      "sha256": "70f537688d5a73847390b216e0031a91110afcceb7902b6cb68d6e52fd7762e0"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/command-02.stdout.log",
+      "bytes": 409,
+      "sha256": "e2e075ac0c21377420ad156a802db96485548b37909527c24003c3fd252fb5b2"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/command-03.stderr.log",
+      "bytes": 73,
+      "sha256": "49f853203483e5a3b14ec9e1c21f3e8121a2b9270fc54c72b312711434035538"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/command-03.stdout.log",
+      "bytes": 15639,
+      "sha256": "fee22790527bde53143a0ac773363161b3157210a23e6ad49af7d0475437dc6c"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/command-04.stderr.log",
+      "bytes": 73,
+      "sha256": "49f853203483e5a3b14ec9e1c21f3e8121a2b9270fc54c72b312711434035538"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/command-04.stdout.log",
+      "bytes": 11970,
+      "sha256": "d061ec324bb8df911a4d5135020c070a5c6c27a443945c206b79c7fd48f10fc1"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/final-visual-review.json",
+      "bytes": 2706,
+      "sha256": "30cda2d506a7ca0d32759fff40867007213f767a6c77b757e812e59786f0539c"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/pdffonts.txt",
+      "bytes": 2304,
+      "sha256": "dc73167be8a5f2c2b0f68cce595c0317b02f4db2a7eae7d7e6046facdc9e6e44"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/pdfinfo.txt",
+      "bytes": 637,
+      "sha256": "aada9e94f41b09ea2893d5ee882c3ea12b0d3a6583cac4b01c9c2011f02c500d"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/pdftotext.txt",
+      "bytes": 88391,
+      "sha256": "d09fbf6e38d59304375e591b56cfdd1658ad01f6fd8fa7a9142985d04d1e34c7"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/postprocess-attempt-01-failure.txt",
+      "bytes": 327,
+      "sha256": "375549ddaa92bb4c85eb52ca02754a3e2e1376749a28f2a646c737fa89a8aecc"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/render.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "evaluation/results/manuscript_completion_20261014/final-primary-01/render.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "cessation": {
+    "compiler_and_render_commands_completed": true,
+    "background_processes_started_by_manuscript_worker": false,
+    "existing_primary_manuscript_inputs_modified_by_worker": false,
+    "primary_git_mutations_by_worker": false,
+    "authorized_new_primary_files": [
+      "output/pdf/privoke-completion-20261014.pdf",
+      "paper/research/manuscript-final-validation-20261014.json"
+    ]
+  }
+}

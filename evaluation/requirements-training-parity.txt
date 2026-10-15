@@ -1,0 +1,6 @@
+# Dependencies for the isolated generated-protobuf/runtime-wrapper parity gate.
+-r requirements-training.txt
+grpcio==1.82.1
+grpcio-tools==1.82.1
+protobuf==7.35.1
+python-dotenv==1.1.1

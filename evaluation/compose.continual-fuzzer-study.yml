@@ -1,0 +1,55 @@
+# Isolated, manually driven study. Use with the base and compose.tests.yml.
+services:
+  storage-permissions:
+    image: privoke-research-project-param-update-service
+  model-streaming-service:
+    image: privoke-research-project-model-streaming-service
+    container_name: ${CONTINUAL_STUDY_ID:?Set a unique study ID}-model
+  param-update-service:
+    image: privoke-research-project-param-update-service
+    container_name: ${CONTINUAL_STUDY_ID}-updater
+    environment:
+      FUZZER_PROMPT_COUNT: 0
+      MODEL_ID: ${CONTINUAL_STUDY_MODEL_ID:-privoke-balanced}
+      MODEL_ARTIFACT_PATH: /models/${CONTINUAL_STUDY_MODEL_ID:-privoke-balanced}.json
+  client-runtime:
+    image: privoke-research-project-client-runtime
+    container_name: ${CONTINUAL_STUDY_ID}-runtime
+    environment:
+      PRIVOKE_MODEL_DEVICE: cpu
+      MODEL_STREAMING_CACHE_TTL_SECONDS: 1
+      OMP_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+      TELEMETRY_ENABLED: "false"
+  privoke-fuzzer:
+    image: privoke-research-project-privoke-fuzzer
+    container_name: ${CONTINUAL_STUDY_ID}-fuzzer
+    environment:
+      MODEL_ID: ${CONTINUAL_STUDY_MODEL_ID:-privoke-balanced}
+      FUZZ_TIMEOUT_SECONDS: 300
+      FUZZ_TRAINING_LEARNING_RATE: 0.003
+      FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE: 0
+      FUZZ_HELDOUT_PROMPT_COUNT: 16
+      FUZZ_CURRICULUM_MANIFEST_PATH: /curriculum/manifest.json
+      FUZZ_CURRICULUM_STATE_PATH: /workspace/dumps/privoke-fuzzer/curriculum.sqlite3
+      FUZZ_CURRICULUM_REPLAY_FRACTION: 0.25
+    volumes:
+      - type: bind
+        source: ${CONTINUAL_STUDY_CURRICULUM:?Set prepared curriculum directory}
+        target: /curriculum
+        read_only: true
+        bind: {create_host_path: false}
+  telemetry-service:
+    image: privoke-research-project-telemetry-service
+    container_name: ${CONTINUAL_STUDY_ID}-telemetry
+volumes:
+  model-data:
+    name: ${CONTINUAL_STUDY_ID}-model-data
+  param-update-data:
+    name: ${CONTINUAL_STUDY_ID}-update-data
+  telemetry-data:
+    name: ${CONTINUAL_STUDY_ID}-telemetry-data
+  telemetry-client-state:
+    name: ${CONTINUAL_STUDY_ID}-client-state
+  fuzzer-dumps:
+    name: ${CONTINUAL_STUDY_ID}-fuzzer-dumps

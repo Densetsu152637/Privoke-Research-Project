@@ -1,0 +1,50 @@
+# Explicit opt-in prepared TRAIN-only window. No artifact is generated or promoted.
+# Compose with docker-compose.yml only against a separately prepared research model store.
+services:
+  client-runtime:
+    environment:
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      PRIVOKE_WINDOW_PATH: /training-window/window.json
+      PRIVOKE_WINDOW_MANIFEST_SHA256: ${TRAIN_WINDOW_MANIFEST_SHA256:?accepted frozen window SHA required}
+      PRIVOKE_COMPONENT_BANK_PATH: /training-window/bank.json
+      PRIVOKE_COMPONENT_REFERENCE_PATH: /training-window/references-v2.json
+      PRIVOKE_COMPONENT_MANIFEST_PATH: /training-window/component-manifest-v2.json
+      PRIVOKE_COMPONENT_MANIFEST_SHA256: ${TRAIN_COMPONENT_MANIFEST_SHA256:?accepted component manifest SHA required}
+      PRIVOKE_COMPONENT_TEACHER_PATH: /training-window/original.json
+      PRIVOKE_COMPONENT_TEACHER_SHA256: ${TRAIN_ORIGINAL_TEACHER_SHA256:?independently accepted ORIGINAL raw-file SHA required}
+    volumes:
+      - type: bind
+        source: ${TRAIN_WINDOW_DIRECTORY:?prepared read-only TRAIN release directory required}
+        target: /training-window
+        read_only: true
+        bind: {create_host_path: false}
+  privoke-fuzzer:
+    environment:
+      FUZZ_MAX_PROMPT_COUNT: "256"
+      FUZZ_TRAINING_LEARNING_RATE: "0.003"
+      FUZZ_UNDERLYING_TRAINING_LEARNING_RATE: "0.003"
+      FUZZ_TRAINING_MAX_GRADIENT: "0.05"
+      FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE: "1"
+      FUZZ_HELDOUT_PROMPT_COUNT: "16"
+      FUZZ_PROMPT_DATASET_PATH: /training-window/taxonomy.json
+      FUZZ_BENIGN_POOL_PATH: /training-window/benign-pool.json
+      FUZZ_BENIGN_MANIFEST_PATH: /training-window/benign-manifest.json
+      FUZZ_BENIGN_EXCLUSION_PROOF_PATH: /training-window/benign-proof.json
+      FUZZ_WINDOW_PATH: /training-window/window.json
+      FUZZ_WINDOW_MANIFEST_SHA256: ${TRAIN_WINDOW_MANIFEST_SHA256:?accepted frozen window SHA required}
+      FUZZ_COMPONENT_BANK_PATH: /training-window/bank.json
+      FUZZ_COMPONENT_REFERENCE_PATH: /training-window/references-v2.json
+      FUZZ_COMPONENT_MANIFEST_PATH: /training-window/component-manifest-v2.json
+      FUZZ_COMPONENT_MANIFEST_SHA256: ${TRAIN_COMPONENT_MANIFEST_SHA256:?accepted component manifest SHA required}
+      FUZZ_COMPONENT_TEACHER_PATH: /training-window/original.json
+      FUZZ_COMPONENT_TEACHER_SHA256: ${TRAIN_ORIGINAL_TEACHER_SHA256:?independently accepted ORIGINAL raw-file SHA required}
+    volumes:
+      - type: bind
+        source: ${TRAIN_WINDOW_DIRECTORY:?prepared read-only TRAIN release directory required}
+        target: /training-window
+        read_only: true
+        bind: {create_host_path: false}
+  param-update-service:
+    environment:
+      FUZZER_PROMPT_COUNT: "0"

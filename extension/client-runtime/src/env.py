@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
+
+from privoke_service.stack_connection import load_runtime_environment
+
+load_runtime_environment(Path(__file__).resolve().parents[1])
 
 
 def env_optional_str(name: str) -> str | None:

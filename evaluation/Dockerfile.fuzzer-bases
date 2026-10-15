@@ -1,0 +1,13 @@
+# Study-only source overlays on the verified preflight service images.
+# The runner records immutable parent image IDs; never use these to replace
+# a normal production build. Runtime dependency additions are a separate stage.
+ARG PRIVOKE_RUNTIME_IMAGE
+ARG PRIVOKE_UPDATER_IMAGE
+
+FROM ${PRIVOKE_RUNTIME_IMAGE} AS contextual-runtime-base
+COPY shared/python /workspace/shared/python
+COPY extension/client-runtime/src /workspace/extension/client-runtime/src
+COPY extension/client-runtime/test /workspace/extension/client-runtime/test
+
+FROM ${PRIVOKE_UPDATER_IMAGE} AS contextual-updater
+COPY shared/python /workspace/shared/python

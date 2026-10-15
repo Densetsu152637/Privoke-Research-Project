@@ -1,0 +1,7 @@
+# Study-only sampler overlay on a previously verified fuzzer image.
+# No dependency installation, model download or production image replacement.
+ARG PRIVOKE_FUZZER_IMAGE
+FROM ${PRIVOKE_FUZZER_IMAGE} AS contextual-sampling-fuzzer
+COPY shared/python /workspace/shared/python
+COPY services/privoke-fuzzer/src /workspace/services/privoke-fuzzer/src
+COPY services/privoke-fuzzer/tests /workspace/services/privoke-fuzzer/tests

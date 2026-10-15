@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from privoke_eval.cli import build_parser, evaluate_run, main
+from privoke_eval.cli import build_parser, evaluate_run, main, _resolve_backends
 from privoke_eval.reporting import print_summary
 from privoke_eval.types import (
     DatasetLoadResult,
@@ -19,6 +19,15 @@ from privoke_eval.types import (
 
 
 class CliTests(unittest.TestCase):
+    def test_default_layer_is_semantic(self):
+        self.assertEqual(build_parser().parse_args(["--dataset", "piimb"]).layer, "semantic")
+        args = build_parser().parse_args(["--dataset", "piimb", "--backend", "streamed"])
+        self.assertEqual(_resolve_backends(args), ["streamed"])
+    def test_parser_supports_matched_layer_ablations(self):
+        for layer in ("pipeline", "regex", "ner", "semantic", "regex-ner"):
+            args = build_parser().parse_args(["--dataset", "piimb", "--layer", layer])
+            self.assertEqual(args.layer, layer)
+
     def test_parser_accepts_english_only(self) -> None:
         args = build_parser().parse_args(
             ["--dataset", "piimb", "--english-only"]
@@ -59,7 +68,8 @@ class CliTests(unittest.TestCase):
             )
         )
 
-        def fake_run_pipeline(_text: str, _backend: str | None) -> DetectionOutcome:
+        def fake_run_pipeline(_text: str, _backend: str | None, *, layer: str) -> DetectionOutcome:
+            self.assertEqual(layer, "pipeline")
             return next(outcomes)
 
         load_result = DatasetLoadResult(
@@ -105,6 +115,9 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["metrics"]["balanced_accuracy"], 0.5)
         self.assertEqual(payload["metadata"]["sampling"]["selected_label_counts"], {"pii": 2, "clean": 2})
         self.assertEqual(len(payload["metadata"]["sampling"]["selected_example_ids"]), 4)
+        predictions = payload["metadata"]["predictions"]
+        self.assertEqual([item["example_id"] for item in predictions], ["one", "two", "three", "four"])
+        self.assertEqual([item["detected_sensitive"] for item in predictions], [True, False, True, False])
         self.assertEqual(payload["metadata"]["language_filter"], "all")
         self.assertEqual(
             payload["metadata"]["prediction_diagnostics"]["sensitivity_counts"],
@@ -134,7 +147,8 @@ class CliTests(unittest.TestCase):
             )
         )
 
-        def fake_run_pipeline(_text: str, _backend: str | None) -> DetectionOutcome:
+        def fake_run_pipeline(_text: str, _backend: str | None, *, layer: str) -> DetectionOutcome:
+            self.assertEqual(layer, "pipeline")
             return next(outcomes)
 
         load_result = DatasetLoadResult(

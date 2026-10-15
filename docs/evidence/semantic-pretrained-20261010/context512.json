@@ -1,0 +1,77 @@
+{
+  "source_revision": "fd0b507ddddd82ee88fb45e1249711738cc8f0c2",
+  "actual_requests": 9,
+  "successful_semantic_requests": 7,
+  "expected_semantic_errors": 2,
+  "records": [
+    {
+      "profile": 256,
+      "id": "contextual-head-20261010/health_insulin/00",
+      "tokens": 18,
+      "status": "ok",
+      "expected_error": false
+    },
+    {
+      "profile": 256,
+      "id": "synthetic257",
+      "tokens": 257,
+      "status": "error",
+      "expected_error": true
+    },
+    {
+      "profile": 512,
+      "id": "contextual-head-20261010/health_insulin/00",
+      "tokens": 18,
+      "status": "ok",
+      "expected_error": false
+    },
+    {
+      "profile": 512,
+      "id": "piimb:privy:2468_s0",
+      "tokens": 381,
+      "status": "ok",
+      "expected_error": false
+    },
+    {
+      "profile": 512,
+      "id": "piimb:privy:3520_s0",
+      "tokens": 286,
+      "status": "ok",
+      "expected_error": false
+    },
+    {
+      "profile": 512,
+      "id": "synthetic256",
+      "tokens": 256,
+      "status": "ok",
+      "expected_error": false
+    },
+    {
+      "profile": 512,
+      "id": "synthetic257",
+      "tokens": 257,
+      "status": "ok",
+      "expected_error": false
+    },
+    {
+      "profile": 512,
+      "id": "synthetic512",
+      "tokens": 512,
+      "status": "ok",
+      "expected_error": false
+    },
+    {
+      "profile": 512,
+      "id": "synthetic513",
+      "tokens": 513,
+      "status": "error",
+      "expected_error": true
+    }
+  ],
+  "short_train_parity": true,
+  "previous_error_coverage": "2/2 previously observed public development failures now execute successfully; not fresh heldout evidence",
+  "quality_claim": false,
+  "latency_qualification": false,
+  "training": false,
+  "promotion": false
+}

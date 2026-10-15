@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict
 
 from privoke_contracts.classification import Classification
 
@@ -10,7 +9,7 @@ from privoke_contracts.classification import Classification
 class PromptSeed:
     template: str
     classification: Classification
-    metadata: Dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, str] = field(default_factory=dict)
 
     @property
     def packed_classification(self) -> int:

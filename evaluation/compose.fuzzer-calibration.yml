@@ -1,0 +1,9 @@
+# Compare with ordinary-example controls: same LR0.03 and no transforms; change curriculum.
+services:
+  privoke-fuzzer:
+    environment:
+      FUZZ_PROMPT_DATASET_PATH: /workspace/evaluation/datasets/fuzzer-calibration.json
+      FUZZ_TRAINING_LEARNING_RATE: 0.03
+      FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE: 0
+    volumes:
+      - ./evaluation/datasets/fuzzer-calibration.json:/workspace/evaluation/datasets/fuzzer-calibration.json:ro

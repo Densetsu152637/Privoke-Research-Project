@@ -1,0 +1,1004 @@
+{
+  "schema_version": 1,
+  "origin": "Codex assistant authored offline contextual situation contrasts",
+  "teacher_model": "Codex assistant runtime identity unavailable",
+  "label_status": "assistant_provisional",
+  "rubric": "paper/research/contextual-cascade-rubric.md",
+  "template_revision": "20261009_v2",
+  "limitations": [
+    "Assistant review only; professor and independent human adjudication pending.",
+    "Reserved example.invalid identifiers are fictional artifacts asserted as real within synthetic scenarios.",
+    "Public controls are directly authored contextual facts; no public dataset annotation is converted to truth.",
+    "Independently authored situations remain assistant provisional; assistant critic review is not human adjudication.",
+    "Clean targets operationalize absence of personal disclosure as S0 with empty categories; topic-only category targets are outside this controlled curriculum.",
+    "Guard and replay anchors are inherited unchanged from v1; the primary contrast changes only training situations."
+  ],
+  "heldout": [
+    {
+      "text": "A public hospital leaflet explains vaccine storage without any patient records.",
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": [],
+      "domain": "medical"
+    },
+    {
+      "text": "The blank payroll worksheet has headings and no completed employee fields.",
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": [],
+      "domain": "employment"
+    },
+    {
+      "text": "An imaginary detective discusses invented suspects in a fictional play.",
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": [],
+      "domain": "legal"
+    },
+    {
+      "text": "A public atlas labels mountain trails without personal routes.",
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": [],
+      "domain": "travel"
+    },
+    {
+      "text": "The fictional theology dialogue uses imaginary speakers and no actual beliefs.",
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": [],
+      "domain": "beliefs"
+    },
+    {
+      "text": "A public guide explains election procedures without individual voting records.",
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": [],
+      "domain": "civic"
+    },
+    {
+      "text": "The blank school registration sheet contains no student information.",
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": [],
+      "domain": "school"
+    },
+    {
+      "text": "The fictional romance script describes imaginary adults without real personal disclosures.",
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": [],
+      "domain": "relationships"
+    },
+    {
+      "text": "My actual hospital discharge note says I had pneumonia.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ],
+      "domain": "medical"
+    },
+    {
+      "text": "Behind login, my pension statement shows my savings of 9600 dollars.",
+      "sensitivity": "S2",
+      "visibility": "P2",
+      "categories": [
+        "FINANCIAL"
+      ],
+      "domain": "banking"
+    },
+    {
+      "text": "My passport number on my personal document is XY90261.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "IDENTITY"
+      ],
+      "domain": "travel"
+    },
+    {
+      "text": "In our private group chat, my aunt reveals her cancer treatment.",
+      "sensitivity": "S3",
+      "visibility": "P3",
+      "categories": [
+        "HEALTH",
+        "THIRD_PARTY"
+      ],
+      "domain": "family"
+    },
+    {
+      "text": "My diary for my eyes only states I joined the Silver political party.",
+      "sensitivity": "S3",
+      "visibility": "P4",
+      "categories": [
+        "POLITICS"
+      ],
+      "domain": "civic"
+    },
+    {
+      "text": "I personally attend the local mosque and practice Islam.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "RELIGION"
+      ],
+      "domain": "beliefs"
+    },
+    {
+      "text": "My child personal school file reports their home address at 72 Pine Lane.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "CHILD",
+        "LOCATION",
+        "THIRD_PARTY"
+      ],
+      "domain": "school"
+    },
+    {
+      "text": "My personal court file records my recent driving conviction.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "CRIMINAL"
+      ],
+      "domain": "legal"
+    }
+  ],
+  "replay": [
+    {
+      "text": "This was posted publicly for everyone.",
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": [],
+      "domain": "general"
+    },
+    {
+      "text": "Discussion in a public community forum.",
+      "sensitivity": "S0",
+      "visibility": "P1",
+      "categories": [],
+      "domain": "general"
+    },
+    {
+      "text": "The page is restricted behind login.",
+      "sensitivity": "S0",
+      "visibility": "P2",
+      "categories": [],
+      "domain": "general"
+    },
+    {
+      "text": "I sent this in a private group chat.",
+      "sensitivity": "S0",
+      "visibility": "P3",
+      "categories": [],
+      "domain": "general"
+    },
+    {
+      "text": "This is a private diary for my eyes only.",
+      "sensitivity": "S0",
+      "visibility": "P4",
+      "categories": [],
+      "domain": "general"
+    },
+    {
+      "text": "Explain privacy using imaginary placeholders.",
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": [],
+      "domain": "general"
+    },
+    {
+      "text": "Write a friendly email about tomorrow meeting.",
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": [],
+      "domain": "general"
+    },
+    {
+      "text": "Summarise this public product documentation.",
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": [],
+      "domain": "general"
+    },
+    {
+      "text": "My diagnosis is cancer.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ],
+      "domain": "medical"
+    },
+    {
+      "text": "My therapist prescribed medication.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ],
+      "domain": "medical"
+    },
+    {
+      "text": "I am pregnant and have anxiety.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ],
+      "domain": "medical"
+    },
+    {
+      "text": "My bank account and mortgage debt.",
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "FINANCIAL"
+      ],
+      "domain": "banking"
+    },
+    {
+      "text": "My salary and credit score.",
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "FINANCIAL"
+      ],
+      "domain": "employment"
+    },
+    {
+      "text": "I filed a tax return.",
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "FINANCIAL"
+      ],
+      "domain": "banking"
+    },
+    {
+      "text": "My own religion and political affiliation are personal details.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "RELIGION",
+        "POLITICS"
+      ],
+      "domain": "beliefs"
+    },
+    {
+      "text": "My brother personal record lists a fraud conviction.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "CRIMINAL",
+        "THIRD_PARTY"
+      ],
+      "domain": "legal"
+    }
+  ],
+  "generator_version": "contextual_situations_v2",
+  "families": [
+    {
+      "family_id": "clinic_result",
+      "domain": "medical",
+      "categories": [
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P2",
+      "clean_visibility": "PU",
+      "contrast": "disclosure_vs_discussion",
+      "control_fact": "generic medical question",
+      "private": "In the authenticated portal, my patient account says my test confirmed {value}.",
+      "clean": "What does a test for {value} measure in general?",
+      "teacher_private": "The result in my logged in clinic account confirms I have {value}.",
+      "teacher_clean": "Explain how doctors generally test for {value}, without discussing anyone specific.",
+      "evolved_private": "In the authenticated portal, i opened my patient account and learned that I tested positive for {value}.",
+      "evolved_clean": "For a medical lesson, compare testing methods for {value}; no patient is described.",
+      "values": [
+        "hepatitis",
+        "lupus",
+        "celiac disease",
+        "sleep apnea"
+      ],
+      "subject_relationship": "self"
+    },
+    {
+      "family_id": "care_handover",
+      "domain": "care",
+      "categories": [
+        "HEALTH",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P3",
+      "clean_visibility": "PU",
+      "contrast": "asserted_vs_quotation",
+      "control_fact": "quoted fictional dialogue",
+      "private": "Our family group heard from my uncle that he has {value}.",
+      "clean": "The screenplay dialogue reads, \"My uncle has {value}\"; the uncle is invented.",
+      "teacher_private": "My uncle disclosed his {value} to our private family chat.",
+      "teacher_clean": "An invented uncle says he has {value} in a screenplay quotation.",
+      "evolved_private": "In our private chat, I passed along my uncle's confirmed {value}.",
+      "evolved_clean": "A drama class studies the fictional line about an uncle with {value}.",
+      "values": [
+        "Parkinson disease",
+        "kidney disease",
+        "bipolar disorder",
+        "pneumonia"
+      ],
+      "subject_relationship": "third_party"
+    },
+    {
+      "family_id": "work_adjustment",
+      "domain": "employment",
+      "categories": [
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P3",
+      "clean_visibility": "PU",
+      "contrast": "asserted_vs_hypothetical",
+      "control_fact": "conditional policy discussion",
+      "private": "In our staff meeting I disclosed my {value} to request an adjustment. This was a closed private staff group.",
+      "clean": "If an employee had {value}, what adjustment might be possible? No employee is identified.",
+      "teacher_private": "I told everyone in the company meeting that my {value} needs workplace support. Only our private staff group was present.",
+      "teacher_clean": "Consider a hypothetical worker with {value} when designing an adjustment policy.",
+      "evolved_private": "My employer's staff meeting heard my explanation that I have {value}. The meeting was in our private staff workspace.",
+      "evolved_clean": "A policy exercise asks what support someone with {value} could need, without asserting a case.",
+      "values": [
+        "chronic fatigue",
+        "hearing loss",
+        "chronic pain",
+        "dyslexia"
+      ],
+      "subject_relationship": "self"
+    },
+    {
+      "family_id": "school_care",
+      "domain": "school",
+      "categories": [
+        "HEALTH",
+        "CHILD",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P2",
+      "clean_visibility": "P0",
+      "contrast": "private_record_vs_public_guidance",
+      "control_fact": "public school guidance",
+      "private": "In the authenticated portal, my child's protected school record says they have {value}.",
+      "clean": "The public school guide explains support available for {value}.",
+      "teacher_private": "I logged in to my child's school record and found their diagnosis of {value}.",
+      "teacher_clean": "Public school guidance describes {value} without naming a pupil.",
+      "evolved_private": "In the authenticated portal, the school portal entry for my child records {value} as their diagnosis.",
+      "evolved_clean": "At the public school information session, the handout describes {value} in general.",
+      "values": [
+        "autism",
+        "ADHD",
+        "dyspraxia",
+        "dyscalculia"
+      ],
+      "subject_relationship": "third_party"
+    },
+    {
+      "family_id": "ballot_choice",
+      "domain": "politics",
+      "categories": [
+        "POLITICS"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P3",
+      "clean_visibility": "PU",
+      "contrast": "choice_vs_analysis",
+      "control_fact": "analysis without personal preference",
+      "private": "I told our closed discussion group I voted for {value}.",
+      "clean": "Compare the published policies of {value} without assuming anyone supports them.",
+      "teacher_private": "Our private group now knows that my ballot choice was {value}.",
+      "teacher_clean": "Analyze the platform of {value}; this does not state a voter preference.",
+      "evolved_private": "I shared my actual vote for {value} with our members only chat.",
+      "evolved_clean": "A civics exercise examines arguments made by {value} without identifying a supporter.",
+      "values": [
+        "the Green Party",
+        "the Labor Party",
+        "the Liberal Party",
+        "an independent candidate"
+      ],
+      "subject_relationship": "self"
+    },
+    {
+      "family_id": "campaign_record",
+      "domain": "politics",
+      "categories": [
+        "POLITICS",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P2",
+      "clean_visibility": "P0",
+      "contrast": "private_record_vs_public_guidance",
+      "control_fact": "public blank form",
+      "private": "In the authenticated portal, my brother's restricted campaign account records his donation to {value}.",
+      "clean": "A public blank campaign form lists {value} as an example recipient; no donor is entered.",
+      "teacher_private": "In the authenticated portal, the protected campaign page shows my brother actually donated to {value}.",
+      "teacher_clean": "The public form demonstrates how a donation to {value} would be recorded, with no donor data.",
+      "evolved_private": "After login I saw that my brother's campaign donation went to {value}.",
+      "evolved_clean": "A public campaign training sheet uses {value} in an empty sample field.",
+      "values": [
+        "Candidate River",
+        "Candidate Grove",
+        "Candidate Hill",
+        "Candidate Brook"
+      ],
+      "subject_relationship": "third_party"
+    },
+    {
+      "family_id": "faith_practice",
+      "domain": "religion",
+      "categories": [
+        "RELIGION"
+      ],
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "clean_visibility": "PU",
+      "contrast": "belief_vs_discussion",
+      "control_fact": "historical discussion",
+      "private": "I practice {value} and attend its weekly services.",
+      "clean": "Explain the historical development of {value}; no one's belief is stated.",
+      "teacher_private": "My religious practice is {value}, including regular services.",
+      "teacher_clean": "A history question asks when {value} developed, without attributing a belief.",
+      "evolved_private": "I follow {value} as my own religion and take part in its services.",
+      "evolved_clean": "Discuss traditions within {value} for a comparative religion class.",
+      "values": [
+        "Buddhism",
+        "Judaism",
+        "Christianity",
+        "Islam"
+      ],
+      "subject_relationship": "self"
+    },
+    {
+      "family_id": "faith_confidence",
+      "domain": "religion",
+      "categories": [
+        "RELIGION",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P3",
+      "clean_visibility": "PU",
+      "contrast": "asserted_vs_quotation",
+      "control_fact": "fictional quotation",
+      "private": "My cousin told our private group that she converted to {value}.",
+      "clean": "A fictional character says, \"My cousin converted to {value}\" in a novel.",
+      "teacher_private": "Our family chat learned of my cousin's actual conversion to {value}.",
+      "teacher_clean": "The novel quotes an invented cousin's conversion to {value}.",
+      "evolved_private": "I repeated my cousin's disclosure that her new religion is {value} in our closed chat.",
+      "evolved_clean": "A literature question examines the invented conversion to {value}, not a real person.",
+      "values": [
+        "Sikhism",
+        "Hinduism",
+        "Taoism",
+        "Bahai faith"
+      ],
+      "subject_relationship": "third_party"
+    },
+    {
+      "family_id": "case_statement",
+      "domain": "legal",
+      "categories": [
+        "CRIMINAL"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P2",
+      "clean_visibility": "PU",
+      "contrast": "asserted_vs_hypothetical",
+      "control_fact": "conditional legal example",
+      "private": "In the authenticated portal, my restricted legal case file records my conviction for {value}.",
+      "clean": "If a fictional defendant were convicted of {value}, what sentencing rules might apply?",
+      "teacher_private": "In the authenticated portal, i accessed my protected case record showing I was convicted of {value}.",
+      "teacher_clean": "Discuss sentencing for a hypothetical conviction for {value}, without asserting a real case.",
+      "evolved_private": "The case record behind login confirms that my conviction was for {value}.",
+      "evolved_clean": "A legal classroom example imagines a conviction for {value}; it names no real defendant.",
+      "values": [
+        "burglary",
+        "fraud",
+        "arson",
+        "assault"
+      ],
+      "subject_relationship": "self"
+    },
+    {
+      "family_id": "legal_confidence",
+      "domain": "legal",
+      "categories": [
+        "CRIMINAL",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P3",
+      "clean_visibility": "P0",
+      "contrast": "private_disclosure_vs_public_procedure",
+      "control_fact": "public procedural guidance",
+      "private": "In our closed chat, my neighbor admitted being charged with {value}.",
+      "clean": "The public court website explains the procedure after a charge of {value}.",
+      "teacher_private": "My neighbor privately told our chat that he faces a charge of {value}.",
+      "teacher_clean": "Public court guidance describes {value} charges without giving a defendant's details.",
+      "evolved_private": "Our private group heard my neighbor reveal his pending {value} charge.",
+      "evolved_clean": "A public information leaflet explains hearings for {value}, without alleging anyone did it.",
+      "values": [
+        "tax evasion",
+        "money laundering",
+        "shoplifting",
+        "vandalism"
+      ],
+      "subject_relationship": "third_party"
+    },
+    {
+      "family_id": "account_balance",
+      "domain": "financial",
+      "categories": [
+        "FINANCIAL"
+      ],
+      "sensitivity": "S2",
+      "visibility": "P2",
+      "clean_visibility": "P0",
+      "contrast": "private_account_vs_public_calculator",
+      "control_fact": "public calculator input",
+      "private": "My logged in bank account shows my balance is {value}.",
+      "clean": "The public savings calculator uses {value} as a hypothetical balance.",
+      "teacher_private": "In the authenticated portal, i checked my protected bank statement: I have {value} in the account.",
+      "teacher_clean": "A public calculator demonstrates interest on an assumed balance of {value}.",
+      "evolved_private": "The banking app behind my login reports that my available funds are {value}.",
+      "evolved_clean": "Try {value} in the public calculator as an invented example, not someone's funds.",
+      "values": [
+        "1200 dollars",
+        "4700 dollars",
+        "8300 dollars",
+        "15600 dollars"
+      ],
+      "subject_relationship": "self"
+    },
+    {
+      "family_id": "arrears_call",
+      "domain": "financial",
+      "categories": [
+        "FINANCIAL",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S2",
+      "visibility": "P3",
+      "clean_visibility": "PU",
+      "contrast": "asserted_vs_hypothetical",
+      "control_fact": "conditional budget exercise",
+      "private": "My roommate told our private chat that his overdue debt is {value}.",
+      "clean": "Suppose an imaginary household owed {value}; how could it plan a budget?",
+      "teacher_private": "Our closed group learned my roommate actually owes {value} in overdue bills.",
+      "teacher_clean": "A budget exercise assumes {value} of debt for a made up household.",
+      "evolved_private": "I shared my roommate's disclosed arrears of {value} with our private group.",
+      "evolved_clean": "Calculate a repayment schedule for a hypothetical debt of {value}; no borrower is described.",
+      "values": [
+        "900 dollars",
+        "2300 dollars",
+        "6100 dollars",
+        "12400 dollars"
+      ],
+      "subject_relationship": "third_party"
+    },
+    {
+      "family_id": "credential_copy",
+      "domain": "security",
+      "categories": [
+        "IDENTITY",
+        "FINANCIAL"
+      ],
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "clean_visibility": "P0",
+      "contrast": "credential_vs_format_example",
+      "control_fact": "public invalid example credential",
+      "private": "My banking login uses {value} as its current password.",
+      "clean": "The public security lesson uses {value} as a deliberately invalid example password.",
+      "teacher_private": "The password that currently opens my bank account is {value}.",
+      "teacher_clean": "A public password tutorial displays {value}; it cannot authenticate any account.",
+      "evolved_private": "I copied my active banking password here: {value}.",
+      "evolved_clean": "For the public security workshop, {value} is a dummy string with no account attached.",
+      "values": [
+        "DummyRiver71",
+        "DummyGrove82",
+        "DummyHill93",
+        "DummyBrook64"
+      ],
+      "subject_relationship": "self"
+    },
+    {
+      "family_id": "intimate_disclosure",
+      "domain": "sexual",
+      "categories": [
+        "SEXUAL"
+      ],
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "clean_visibility": "PU",
+      "contrast": "asserted_vs_quotation",
+      "control_fact": "quoted invented speaker",
+      "private": "I identify as {value} in my personal relationships.",
+      "clean": "An invented narrator says, \"I identify as {value}\" in a writing exercise.",
+      "teacher_private": "My own sexual orientation is {value}.",
+      "teacher_clean": "The fictional narrator describes their orientation as {value}, without describing a real speaker.",
+      "evolved_private": "I am disclosing that I am {value}.",
+      "evolved_clean": "Analyze the fictional line about being {value}; the quotation has no real subject.",
+      "values": [
+        "bisexual",
+        "gay",
+        "lesbian",
+        "asexual"
+      ],
+      "subject_relationship": "self"
+    },
+    {
+      "family_id": "counselling_intake",
+      "domain": "sexual",
+      "categories": [
+        "SEXUAL",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P2",
+      "clean_visibility": "P0",
+      "contrast": "private_intake_vs_public_service",
+      "control_fact": "public service description",
+      "private": "In the authenticated portal, my partner's protected counselling intake records {value}.",
+      "clean": "The public counselling brochure discusses support for {value} in general.",
+      "teacher_private": "I read my partner's logged in intake form describing their {value}.",
+      "teacher_clean": "Public counselling guidance covers {value} without identifying a client.",
+      "evolved_private": "In the authenticated portal, the private portal for my partner's counselling lists {value} as their concern.",
+      "evolved_clean": "At the public service page, the explanation of {value} describes no client.",
+      "values": [
+        "sexual trauma",
+        "sexual dysfunction",
+        "intimate relationship difficulties",
+        "sexual health concerns"
+      ],
+      "subject_relationship": "third_party"
+    },
+    {
+      "family_id": "child_roster",
+      "domain": "childcare",
+      "categories": [
+        "CHILD",
+        "IDENTITY",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P2",
+      "clean_visibility": "P0",
+      "contrast": "private_roster_vs_public_example",
+      "control_fact": "public unfilled example roster",
+      "private": "In the authenticated portal, my daughter's protected nursery roster lists her assigned cubby as {value}.",
+      "clean": "The public nursery form shows {value} as a sample cubby label, with the child field blank.",
+      "teacher_private": "After login, the nursery record links my daughter to cubby {value}.",
+      "teacher_clean": "A public empty nursery roster illustrates a cubby labelled {value}; no child is linked.",
+      "evolved_private": "In the authenticated portal, the protected nursery app identifies {value} as my daughter's cubby.",
+      "evolved_clean": "The public registration guide shows {value} on a dummy roster with no child names.",
+      "values": [
+        "Acorn Seven",
+        "Birch Nine",
+        "Cedar Four",
+        "Elm Six"
+      ],
+      "subject_relationship": "third_party"
+    },
+    {
+      "family_id": "child_arrangements",
+      "domain": "childcare",
+      "categories": [
+        "CHILD",
+        "LOCATION",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P3",
+      "clean_visibility": "PU",
+      "contrast": "asserted_vs_hypothetical",
+      "control_fact": "hypothetical collection plan",
+      "private": "Our private carers chat says my son waits at {value} after school.",
+      "clean": "For a hypothetical collection plan, imagine a child waiting at {value}.",
+      "teacher_private": "I told the closed carers group that my son's actual pickup point is {value}.",
+      "teacher_clean": "A planning exercise uses {value} as an invented child pickup point.",
+      "evolved_private": "My son's real after school waiting place, shared in our carers chat, is {value}.",
+      "evolved_clean": "Discuss supervision if an imaginary child waited at {value}; no real arrangement is stated.",
+      "values": [
+        "the west shelter",
+        "the side gate",
+        "the music foyer",
+        "the library steps"
+      ],
+      "subject_relationship": "third_party"
+    },
+    {
+      "family_id": "home_delivery",
+      "domain": "location",
+      "categories": [
+        "LOCATION",
+        "IDENTITY"
+      ],
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "clean_visibility": "PU",
+      "contrast": "residence_vs_quotation",
+      "control_fact": "quoted fictional address",
+      "private": "I live at {value}; send my parcel there.",
+      "clean": "A fictional letter reads, \"I live at {value}\"; the address belongs to no real character outside the story.",
+      "teacher_private": "My residential address for this delivery is {value}.",
+      "teacher_clean": "The novel's invented speaker gives {value} as a made up residential address.",
+      "evolved_private": "Please deliver to my home, which is {value}.",
+      "evolved_clean": "A creative writing exercise quotes the imaginary home address {value}.",
+      "values": [
+        "14 Demo Lane",
+        "27 Sample Close",
+        "38 Example Road",
+        "49 Fiction Way"
+      ],
+      "subject_relationship": "self"
+    },
+    {
+      "family_id": "live_itinerary",
+      "domain": "location",
+      "categories": [
+        "LOCATION"
+      ],
+      "sensitivity": "S2",
+      "visibility": "P3",
+      "clean_visibility": "P0",
+      "contrast": "private_whereabouts_vs_public_timetable",
+      "control_fact": "public transit service",
+      "private": "I told our private chat I will be at {value} at midnight tonight.",
+      "clean": "The public timetable lists its last service through {value} at midnight.",
+      "teacher_private": "Our closed group knows my actual location tonight will be {value}.",
+      "teacher_clean": "Public transit guidance names {value} as a service stop, not anyone's whereabouts.",
+      "evolved_private": "In our private message group I shared that I am spending tonight at {value}.",
+      "evolved_clean": "The public transport map shows {value}; no traveler's itinerary is provided.",
+      "values": [
+        "Harbor Station",
+        "Meadow Terminal",
+        "Quarry Stop",
+        "Valley Junction"
+      ],
+      "subject_relationship": "self"
+    },
+    {
+      "family_id": "identity_number",
+      "domain": "identity",
+      "categories": [
+        "IDENTITY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P2",
+      "clean_visibility": "P0",
+      "contrast": "personal_identifier_vs_schema",
+      "control_fact": "public invalid schema example",
+      "private": "In the authenticated portal, my protected government account gives my personal reference as {value}.",
+      "clean": "The public schema guide shows {value} as an invalid dummy reference.",
+      "teacher_private": "In the authenticated portal, when I log in to the government portal, my assigned identifier is {value}.",
+      "teacher_clean": "Public API documentation uses {value} as a placeholder, not an assigned identifier.",
+      "evolved_private": "The account page behind login links me to reference {value}.",
+      "evolved_clean": "In the public schema example, {value} is a test value that identifies nobody.",
+      "values": [
+        "TEST-731",
+        "TEST-842",
+        "TEST-953",
+        "TEST-164"
+      ],
+      "subject_relationship": "self"
+    },
+    {
+      "family_id": "contact_detail",
+      "domain": "identity",
+      "categories": [
+        "IDENTITY",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P3",
+      "clean_visibility": "P0",
+      "contrast": "private_contact_vs_public_placeholder",
+      "control_fact": "reserved public placeholder",
+      "private": "My colleague told our private team that her personal email is {value}.",
+      "clean": "The public email manual uses {value} as a reserved example address.",
+      "teacher_private": "Our closed team chat contains my colleague's disclosed personal address {value}.",
+      "teacher_clean": "Public documentation demonstrates an address using {value}, with no real mailbox owner.",
+      "evolved_private": "I passed my colleague's personal contact {value} to our members only group.",
+      "evolved_clean": "The public tutorial displays {value} as a fictional contact placeholder.",
+      "values": [
+        "river@example.invalid",
+        "grove@example.invalid",
+        "hill@example.invalid",
+        "brook@example.invalid"
+      ],
+      "subject_relationship": "third_party"
+    },
+    {
+      "family_id": "employment_record",
+      "domain": "employment",
+      "categories": [
+        "IDENTITY",
+        "FINANCIAL",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S2",
+      "visibility": "P2",
+      "clean_visibility": "P0",
+      "contrast": "private_payroll_vs_public_job_scale",
+      "control_fact": "public advertised pay scale",
+      "private": "In the authenticated portal, my colleague's restricted payroll record shows her salary is {value}.",
+      "clean": "The public job advertisement states the role's salary range starts at {value}.",
+      "teacher_private": "Behind login, the payroll entry links my colleague to annual pay of {value}.",
+      "teacher_clean": "A public recruitment notice advertises {value} for an unfilled role.",
+      "evolved_private": "In the authenticated portal, the protected payroll portal records {value} as my colleague's current yearly salary.",
+      "evolved_clean": "The public vacancy page offers {value}; it does not reveal any employee's actual pay.",
+      "values": [
+        "52000 dollars",
+        "64000 dollars",
+        "76000 dollars",
+        "88000 dollars"
+      ],
+      "subject_relationship": "third_party"
+    },
+    {
+      "family_id": "community_secret",
+      "domain": "community",
+      "categories": [
+        "THIRD_PARTY",
+        "FINANCIAL"
+      ],
+      "sensitivity": "S2",
+      "visibility": "P3",
+      "clean_visibility": "PU",
+      "contrast": "asserted_vs_quotation",
+      "control_fact": "invented dialogue about debt",
+      "private": "My friend admitted in our closed group that her rent arrears are {value}.",
+      "clean": "A play quotes, \"My friend owes {value} in rent\"; both speakers are fictional.",
+      "teacher_private": "Our private chat learned that my friend actually has rent debt of {value}.",
+      "teacher_clean": "The fictional play gives its invented friend rent debt of {value}.",
+      "evolved_private": "I repeated my friend's disclosure of {value} in unpaid rent to our closed group.",
+      "evolved_clean": "A drama workshop discusses the invented rent debt of {value} without asserting a real case.",
+      "values": [
+        "700 dollars",
+        "1900 dollars",
+        "3100 dollars",
+        "4300 dollars"
+      ],
+      "subject_relationship": "third_party"
+    },
+    {
+      "family_id": "medical_absence",
+      "domain": "medical",
+      "categories": [
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P3",
+      "clean_visibility": "PU",
+      "contrast": "asserted_vs_negated_attribution",
+      "control_fact": "explicit lack of personal attribution",
+      "private": "I announced at the company meeting that my absence was caused by {value}. This was a closed private staff group.",
+      "clean": "I am researching {value}; I am not saying that I or anyone I know has it.",
+      "teacher_private": "My company meeting heard that I missed work because I have {value}. Only our private staff group was present.",
+      "teacher_clean": "Explain {value} for research; this request does not describe a patient.",
+      "evolved_private": "At the staff meeting I disclosed that my diagnosed {value} caused my leave. The meeting was in our private staff workspace.",
+      "evolved_clean": "I want a definition of {value}, with no assertion about any real person's health.",
+      "values": [
+        "shingles",
+        "tuberculosis",
+        "meningitis",
+        "glandular fever"
+      ],
+      "subject_relationship": "self"
+    },
+    {
+      "family_id": "private_belief",
+      "domain": "religion",
+      "categories": [
+        "RELIGION"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P4",
+      "clean_visibility": "P0",
+      "contrast": "personal_draft_vs_public_event",
+      "control_fact": "public event information",
+      "private": "In my unsent personal draft I wrote that I now follow {value}. This remains unshared on my own device.",
+      "clean": "The public museum calendar announces a lecture explaining {value}.",
+      "teacher_private": "My local private journal records my conversion to {value}. This remains unshared on my own device.",
+      "teacher_clean": "A public event listing offers an introductory talk about {value}, without identifying believers.",
+      "evolved_private": "I saved a draft on my own device disclosing that my religion is {value}. This remains unshared on my own device.",
+      "evolved_clean": "The public lecture description covers {value} as a topic, not anyone's belief.",
+      "values": [
+        "Jainism",
+        "Shinto",
+        "Zoroastrianism",
+        "Unitarianism"
+      ],
+      "subject_relationship": "self"
+    },
+    {
+      "family_id": "private_conviction",
+      "domain": "legal",
+      "categories": [
+        "CRIMINAL"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P4",
+      "clean_visibility": "PU",
+      "contrast": "personal_draft_vs_hypothetical",
+      "control_fact": "hypothetical legal argument",
+      "private": "My unsent journal admits that I was convicted of {value}. This remains unshared on my own device.",
+      "clean": "Imagine a fictional appeal involving {value}; what legal argument could be made?",
+      "teacher_private": "In a draft stored only on my device I recorded my actual {value} conviction. This remains unshared on my own device.",
+      "teacher_clean": "A hypothetical appeal for {value} is proposed for discussion; no real case is asserted.",
+      "evolved_private": "I saved a private local note disclosing my conviction for {value}. This remains unshared on my own device.",
+      "evolved_clean": "For moot court, consider an invented conviction for {value} and discuss possible appeals.",
+      "values": [
+        "perjury",
+        "bribery",
+        "embezzlement",
+        "forgery"
+      ],
+      "subject_relationship": "self"
+    },
+    {
+      "family_id": "family_background",
+      "domain": "identity",
+      "categories": [
+        "IDENTITY",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "clean_visibility": "PU",
+      "contrast": "asserted_vs_discussion",
+      "control_fact": "generic administrative question",
+      "private": "My father's birth certificate records his birthplace as {value}.",
+      "clean": "How would a blank form record {value} as an example birthplace?",
+      "teacher_private": "The birthplace on my father's actual identity record is {value}.",
+      "teacher_clean": "Explain how an empty registration form would display an example such as {value}.",
+      "evolved_private": "I am sharing that my father's official birthplace is {value}.",
+      "evolved_clean": "A form design exercise places {value} in a dummy birthplace field without linking a person.",
+      "values": [
+        "Demo Harbor",
+        "Sample Valley",
+        "Example Ridge",
+        "Fiction Bay"
+      ],
+      "subject_relationship": "third_party"
+    },
+    {
+      "family_id": "medical_permission",
+      "domain": "medical",
+      "categories": [
+        "HEALTH",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P2",
+      "clean_visibility": "P0",
+      "contrast": "private_treatment_vs_public_guideline",
+      "control_fact": "public clinical guideline",
+      "private": "In the authenticated portal, my mother's protected treatment record says she is receiving {value}.",
+      "clean": "The public clinical guideline explains when {value} is considered.",
+      "teacher_private": "The logged in patient page shows my mother's ongoing treatment is {value}.",
+      "teacher_clean": "A public medical guideline describes {value} without describing a patient.",
+      "evolved_private": "In the authenticated portal, i opened my mother's protected care record and found that she receives {value}.",
+      "evolved_clean": "The public hospital website explains the treatment {value} in general terms.",
+      "values": [
+        "dialysis",
+        "radiotherapy",
+        "chemotherapy",
+        "immunotherapy"
+      ],
+      "subject_relationship": "third_party"
+    }
+  ]
+}

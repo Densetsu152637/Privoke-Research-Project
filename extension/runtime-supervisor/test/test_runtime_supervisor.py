@@ -4,6 +4,7 @@ import unittest
 from subprocess import CompletedProcess
 from pathlib import Path
 import sys
+from unittest.mock import patch
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +37,27 @@ class FakeProcess:
 
 
 class RuntimeProcessSupervisorTests(unittest.TestCase):
+    def test_switching_stack_restarts_owned_child_and_preserves_loopback(self) -> None:
+        processes = []
+        def factory(*args, **kwargs):
+            process = FakeProcess(len(processes) + 1)
+            processes.append((process, dict(kwargs["env"])))
+            return process
+
+        supervisor = RuntimeProcessSupervisor(command=["test-runtime"], environment={}, process_factory=factory)
+        with patch.object(supervisor, "_runtime_port_is_open", return_value=False), patch.object(supervisor, "_wait_until_ready", return_value=True):
+            supervisor.set_enabled(True, False)
+            supervisor.set_enabled(True, True)
+            self.assertTrue(processes[0][0].terminated)
+            self.assertEqual(processes[1][1]["PRIVOKE_USE_LOCAL_STACK"], "true")
+            self.assertEqual(processes[1][1]["PRIVOKE_GRPC_HOST"], "127.0.0.1")
+            self.assertEqual(processes[1][1]["PRIVOKE_GRPC_PORT"], "50057")
+            supervisor.set_enabled(True, True)
+            self.assertEqual(len(processes), 2)
+            supervisor.set_enabled(False, False)
+            self.assertTrue(processes[1][0].terminated)
+            self.assertEqual(supervisor.environment["PRIVOKE_USE_LOCAL_STACK"], "false")
+
     def test_default_child_is_the_sibling_client_runtime(self) -> None:
         supervisor = RuntimeProcessSupervisor(environment={})
 

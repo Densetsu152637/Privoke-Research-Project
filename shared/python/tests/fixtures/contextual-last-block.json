@@ -1,0 +1,437 @@
+{
+  "architecture": "privoke_tiny_transformer_v1",
+  "checksum": "00fac1a389f161e6598497a2bf5db44b44e6abb1c295064533b3b79dee7c5a62",
+  "config": {
+    "category_labels": [
+      "HEALTH",
+      "POLITICS",
+      "RELIGION",
+      "CRIMINAL",
+      "FINANCIAL",
+      "SEXUAL",
+      "CHILD",
+      "LOCATION",
+      "IDENTITY",
+      "THIRD_PARTY"
+    ],
+    "category_threshold": 0.38,
+    "hidden_size": 2,
+    "intermediate_size": 4,
+    "max_tokens": 8,
+    "num_attention_heads": 1,
+    "num_layers": 2,
+    "sensitivity_labels": [
+      "S0",
+      "S1",
+      "S2",
+      "S3"
+    ],
+    "visibility_labels": [
+      "P0",
+      "P1",
+      "P2",
+      "P3",
+      "P4",
+      "PU"
+    ],
+    "vocab_size": 4
+  },
+  "generated_at_unix": 1,
+  "metadata": {
+    "contextual_training_strategy": "contextual_last_block_sgd_v1"
+  },
+  "model_id": "contextual-training-fixture",
+  "parameters": {
+    "head.category.bias": {
+      "shape": [
+        10
+      ],
+      "trainable": true,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "head.category.weight": {
+      "shape": [
+        2,
+        10
+      ],
+      "trainable": true,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "head.sensitivity.bias": {
+      "shape": [
+        4
+      ],
+      "trainable": true,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "head.sensitivity.weight": {
+      "shape": [
+        2,
+        4
+      ],
+      "trainable": true,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "head.visibility.bias": {
+      "shape": [
+        6
+      ],
+      "trainable": true,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "head.visibility.weight": {
+      "shape": [
+        2,
+        6
+      ],
+      "trainable": true,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "layers.0.attention.key.weight": {
+      "shape": [
+        2,
+        2
+      ],
+      "trainable": false,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "layers.0.attention.output.bias": {
+      "shape": [
+        2
+      ],
+      "trainable": false,
+      "values": [
+        0.01,
+        0.01
+      ]
+    },
+    "layers.0.attention.output.weight": {
+      "shape": [
+        2,
+        2
+      ],
+      "trainable": false,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "layers.0.attention.query.weight": {
+      "shape": [
+        2,
+        2
+      ],
+      "trainable": false,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "layers.0.attention.value.weight": {
+      "shape": [
+        2,
+        2
+      ],
+      "trainable": false,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "layers.0.ffn.input.bias": {
+      "shape": [
+        4
+      ],
+      "trainable": false,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "layers.0.ffn.input.weight": {
+      "shape": [
+        2,
+        4
+      ],
+      "trainable": false,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "layers.0.ffn.output.bias": {
+      "shape": [
+        2
+      ],
+      "trainable": false,
+      "values": [
+        0.01,
+        0.01
+      ]
+    },
+    "layers.0.ffn.output.weight": {
+      "shape": [
+        4,
+        2
+      ],
+      "trainable": false,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "layers.1.attention.key.weight": {
+      "shape": [
+        2,
+        2
+      ],
+      "trainable": true,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "layers.1.attention.output.bias": {
+      "shape": [
+        2
+      ],
+      "trainable": true,
+      "values": [
+        0.01,
+        0.01
+      ]
+    },
+    "layers.1.attention.output.weight": {
+      "shape": [
+        2,
+        2
+      ],
+      "trainable": true,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "layers.1.attention.query.weight": {
+      "shape": [
+        2,
+        2
+      ],
+      "trainable": true,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "layers.1.attention.value.weight": {
+      "shape": [
+        2,
+        2
+      ],
+      "trainable": true,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "layers.1.ffn.input.bias": {
+      "shape": [
+        4
+      ],
+      "trainable": true,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "layers.1.ffn.input.weight": {
+      "shape": [
+        2,
+        4
+      ],
+      "trainable": true,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "layers.1.ffn.output.bias": {
+      "shape": [
+        2
+      ],
+      "trainable": true,
+      "values": [
+        0.01,
+        0.01
+      ]
+    },
+    "layers.1.ffn.output.weight": {
+      "shape": [
+        4,
+        2
+      ],
+      "trainable": true,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "position_embedding": {
+      "shape": [
+        8,
+        2
+      ],
+      "trainable": false,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    "token_embedding": {
+      "shape": [
+        4,
+        2
+      ],
+      "trainable": false,
+      "values": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    }
+  },
+  "schema_version": 1,
+  "version": "v1"
+}

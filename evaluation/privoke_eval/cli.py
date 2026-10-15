@@ -37,7 +37,7 @@ def _software_versions() -> dict[str, str]:
 
 
 def _resolve_backends(args) -> list[str | None]:
-    if args.layer != "pipeline":
+    if args.layer not in {"pipeline", "semantic"}:
         return [None]
     if args.all_backends:
         return list(DEFAULT_BACKENDS)
@@ -82,8 +82,8 @@ def evaluate_run(
     run_name: str | None = None,
     english_only: bool = False,
 ) -> EvaluationSummary:
-    active_backend = backend if layer == "pipeline" else None
-    if layer == "pipeline" and active_backend is None:
+    active_backend = backend if layer in {"pipeline", "semantic"} else None
+    if layer in {"pipeline", "semantic"} and active_backend is None:
         active_backend = os.getenv("PRIVOKE_LLM_CHOICE", "streamed")
 
     y_true: list[int] = []
@@ -98,17 +98,19 @@ def evaluate_run(
     sensitivity_counts: Counter[str] = Counter()
     returned_category_counts: Counter[str] = Counter()
     elapsed_ms_values: list[float] = []
+    prediction_records: list[dict] = []
 
     iterator = tqdm(examples, desc=f"Evaluating {dataset_name} / {layer}") if not quiet else examples
     for index, example in enumerate(iterator):
         try:
-            outcome = (
-                run_pipeline(example.text, active_backend)
-                if layer == "pipeline"
-                else run_pipeline(example.text, active_backend, layer=layer)
-            )
+            outcome = run_pipeline(example.text, active_backend, layer=layer)
         except Exception as exc:  # noqa: BLE001
             errors += 1
+            prediction_records.append({
+                "example_id": str(example.metadata.get("example_id", index)),
+                "expected_has_pii": example.expected_has_pii,
+                "status": "error", "error": str(exc),
+            })
             error_truths.append(int(example.expected_has_pii))
             failures.append(
                 EvaluationFailure(
@@ -127,6 +129,16 @@ def evaluate_run(
             continue
 
         detected_sensitive = outcome.detected_sensitive
+        prediction_records.append({
+            "example_id": str(example.metadata.get("example_id", index)),
+            "group_id": str(example.metadata.get("group_id") or example.metadata.get("example_id", index)),
+            "expected_has_pii": example.expected_has_pii,
+            "detected_sensitive": detected_sensitive,
+            "sensitivity": outcome.sensitivity, "visibility": outcome.visibility,
+            "categories": list(outcome.categories), "action": outcome.action,
+            "confidence": outcome.confidence, "elapsed_ms": outcome.elapsed_ms,
+            "status": "ok", "layers": list(outcome.layer_records),
+        })
         elapsed_ms_values.append(outcome.elapsed_ms)
         action_counts[outcome.action] += 1
         sensitivity_counts[outcome.sensitivity] += 1
@@ -213,6 +225,7 @@ def evaluate_run(
             "dataset_revision": spec.revision,
             "language_filter": "english" if english_only else "all",
             "software_versions": _software_versions(),
+            "predictions": prediction_records,
             "prediction_diagnostics": {
                 "action_counts": dict(sorted(action_counts.items())),
                 "sensitivity_counts": dict(sorted(sensitivity_counts.items())),
@@ -293,19 +306,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--layer",
-        choices=("pipeline", "regex"),
-        default="pipeline",
-        help="Detector layer to evaluate.",
+        choices=("pipeline", "regex", "ner", "semantic", "regex-ner"),
+        default="semantic",
+        help="Detector layer to evaluate; semantic only by default. Select pipeline explicitly for product end-to-end tests.",
     )
     parser.add_argument(
         "--backend",
         choices=DEFAULT_BACKENDS,
-        help="Semantic backend for --layer pipeline. Defaults to the runtime environment.",
+        help="Semantic backend for --layer semantic or pipeline. Defaults to the runtime environment.",
     )
     parser.add_argument(
         "--all-backends",
         action="store_true",
-        help="Run pipeline evaluations for streamed and OpenAI backends.",
+        help="Evaluate the selected semantic or pipeline layer with streamed and OpenAI backends.",
     )
     parser.add_argument(
         "--samples",
@@ -404,8 +417,7 @@ def main() -> None:
         raise SystemExit(str(exc)) from exc
 
     print(
-        "Evaluation calls the Docker client-runtime AnalyzePrompt gRPC API and therefore "
-        "measures the complete regex + NER + semantic pipeline."
+        f"Evaluation calls client-runtime AnalyzePrompt with the explicit {args.layer} layer selection."
     )
     print(
         f"Dataset role={spec.research_role}; mode={spec.evaluation_mode}; "
@@ -426,7 +438,7 @@ def main() -> None:
     summaries: list[EvaluationSummary] = []
 
     for layer in layers:
-        layer_backends = backends if layer == "pipeline" else [None]
+        layer_backends = backends if layer in {"pipeline", "semantic"} else [None]
         for backend in layer_backends:
             summary = evaluate_run(
                 dataset_name=args.dataset,

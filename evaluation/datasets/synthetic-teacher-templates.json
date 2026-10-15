@@ -1,0 +1,878 @@
+{
+  "schema_version": 1,
+  "origin": "Codex assistant authored offline fact-preserving teacher templates",
+  "teacher_model": "Codex assistant runtime identity unavailable",
+  "label_status": "assistant_provisional",
+  "rubric": "paper/research/contextual-cascade-rubric.md",
+  "template_revision": "20261009_v1",
+  "limitations": [
+    "Assistant review only; professor and independent human adjudication pending.",
+    "Reserved example.invalid identifiers are fictional artifacts asserted as real within synthetic scenarios.",
+    "Public controls are directly authored contextual facts; no public dataset annotation is converted to truth."
+  ],
+  "families": [
+    {
+      "family_id": "health_diagnosis",
+      "domain": "medical",
+      "categories": [
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "private": "My doctor diagnosed me with {value}.",
+      "clean": "A fictional patient in a story has {value}.",
+      "teacher_private": "I received a diagnosis of {value} from my doctor.",
+      "teacher_clean": "The fictional story gives its imaginary patient {value}.",
+      "values": [
+        "asthma",
+        "diabetes",
+        "epilepsy",
+        "arthritis"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "health_prescription",
+      "domain": "medical",
+      "categories": [
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P2",
+      "private": "Behind login, my prescription is {value}.",
+      "clean": "A public brochure describes the medication {value}.",
+      "teacher_private": "My logged in patient portal lists {value} as my prescription.",
+      "teacher_clean": "The public medicine guide explains uses of {value}.",
+      "values": [
+        "insulin",
+        "sertraline",
+        "amoxicillin",
+        "metformin"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "P0"
+    },
+    {
+      "family_id": "health_relative",
+      "domain": "care",
+      "categories": [
+        "HEALTH",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P3",
+      "private": "In our private group chat, my sister reports {value}.",
+      "clean": "A fictional sister reports {value} in a novel.",
+      "teacher_private": "My sister told our private group that she has {value}.",
+      "teacher_clean": "The novel has a fictional sister who says she has {value}.",
+      "values": [
+        "anxiety",
+        "depression",
+        "migraine",
+        "cancer"
+      ],
+      "subject_relationship": "third_party",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "health_child",
+      "domain": "school",
+      "categories": [
+        "HEALTH",
+        "CHILD",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P4",
+      "private": "My diary for my eyes only records my child has {value}.",
+      "clean": "A fictional child has {value} in a screenplay.",
+      "teacher_private": "For my eyes only, my diary describes my child having {value}.",
+      "teacher_clean": "The screenplay describes a fictional child with {value}.",
+      "values": [
+        "eczema",
+        "allergies",
+        "autism",
+        "asthma"
+      ],
+      "subject_relationship": "third_party",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "finance_balance",
+      "domain": "banking",
+      "categories": [
+        "FINANCIAL"
+      ],
+      "sensitivity": "S2",
+      "visibility": "P2",
+      "private": "Behind login, my bank balance is {value} dollars.",
+      "clean": "A fictional bank balance is {value} dollars in an example.",
+      "teacher_private": "My logged in banking page shows I have {value} dollars.",
+      "teacher_clean": "The fictional banking example uses a balance of {value} dollars.",
+      "values": [
+        "1450",
+        "2860",
+        "3920",
+        "4170"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "finance_debt",
+      "domain": "housing",
+      "categories": [
+        "FINANCIAL"
+      ],
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "private": "I personally owe {value} dollars on an overdue mortgage.",
+      "clean": "A fictional borrower owes {value} dollars in a worked example.",
+      "teacher_private": "My overdue home loan debt totals {value} dollars.",
+      "teacher_clean": "A worked example gives its fictional borrower a debt of {value} dollars.",
+      "values": [
+        "18200",
+        "27300",
+        "36400",
+        "45500"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "finance_salary",
+      "domain": "employment",
+      "categories": [
+        "FINANCIAL"
+      ],
+      "sensitivity": "S2",
+      "visibility": "P3",
+      "private": "I told our private group chat my salary is {value} dollars.",
+      "clean": "A fictional salary example uses {value} dollars.",
+      "teacher_private": "In our private group, I disclosed that I earn {value} dollars.",
+      "teacher_clean": "The fictional payroll calculation assumes earnings of {value} dollars.",
+      "values": [
+        "51000",
+        "62000",
+        "73000",
+        "84000"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "finance_credit",
+      "domain": "banking",
+      "categories": [
+        "FINANCIAL"
+      ],
+      "sensitivity": "S2",
+      "visibility": "P4",
+      "private": "My diary for my eyes only says my credit score is {value}.",
+      "clean": "A fictional credit score in a sample is {value}.",
+      "teacher_private": "For my eyes only, I recorded my credit score of {value}.",
+      "teacher_clean": "The sample uses {value} as a fictional credit score.",
+      "values": [
+        "430",
+        "540",
+        "650",
+        "760"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "identity_contact",
+      "domain": "communication",
+      "categories": [
+        "IDENTITY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "private": "My actual contact email is {value}.",
+      "clean": "A fictional character uses {value} as a placeholder email.",
+      "teacher_private": "You can contact me at my own email, {value}.",
+      "teacher_clean": "The fictional character is assigned the placeholder address {value}.",
+      "values": [
+        "mira@example.invalid",
+        "noel@example.invalid",
+        "lena@example.invalid",
+        "omar@example.invalid"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "identity_name",
+      "domain": "employment",
+      "categories": [
+        "IDENTITY"
+      ],
+      "sensitivity": "S2",
+      "visibility": "P2",
+      "private": "Behind login, my employee number is {value}.",
+      "clean": "A fictional employee number is {value} in a sample.",
+      "teacher_private": "My logged in staff profile identifies me by employee number {value}.",
+      "teacher_clean": "The sample gives its fictional employee the number {value}.",
+      "values": [
+        "AC173",
+        "BD284",
+        "CE395",
+        "DF406"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "identity_credential",
+      "domain": "security",
+      "categories": [
+        "IDENTITY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "private": "My active password is {value}.",
+      "clean": "The fictional password {value} is an inert tutorial placeholder.",
+      "teacher_private": "I use {value} as my current account password.",
+      "teacher_clean": "The tutorial demonstrates a fictional inert password, {value}.",
+      "values": [
+        "sampleAmber7",
+        "sampleBirch8",
+        "sampleCoral9",
+        "sampleDune6"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "location_home",
+      "domain": "housing",
+      "categories": [
+        "LOCATION"
+      ],
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "private": "My home is at {value}.",
+      "clean": "A fictional home is at {value} in a novel.",
+      "teacher_private": "I live at {value}; this is my residential address.",
+      "teacher_clean": "The novel places its fictional home at {value}.",
+      "values": [
+        "17 Cedar Road",
+        "28 Willow Road",
+        "39 Elm Road",
+        "46 Birch Road"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "location_route",
+      "domain": "travel",
+      "categories": [
+        "LOCATION"
+      ],
+      "sensitivity": "S2",
+      "visibility": "P3",
+      "private": "In our private group chat, I share my daily route through {value}.",
+      "clean": "A public walking guide describes a route through {value}.",
+      "teacher_private": "My private group knows I commute daily through {value}.",
+      "teacher_clean": "The public guide suggests visitors walk through {value}.",
+      "values": [
+        "Cedar Square",
+        "Willow Park",
+        "Elm Terrace",
+        "Birch Plaza"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "P0"
+    },
+    {
+      "family_id": "location_child",
+      "domain": "school",
+      "categories": [
+        "CHILD",
+        "LOCATION",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "private": "My child waits alone after school at {value}.",
+      "clean": "A fictional child waits at {value} in a story.",
+      "teacher_private": "After school, my child is alone at {value}.",
+      "teacher_clean": "In the fictional story, an imaginary child waits at {value}.",
+      "values": [
+        "Cedar Gate",
+        "Willow Gate",
+        "Elm Gate",
+        "Birch Gate"
+      ],
+      "subject_relationship": "third_party",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "politics_vote",
+      "domain": "civic",
+      "categories": [
+        "POLITICS"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P4",
+      "private": "My diary for my eyes only records my vote for {value}.",
+      "clean": "A fictional voter chooses {value} in a story.",
+      "teacher_private": "For my eyes only, I recorded that I voted for {value}.",
+      "teacher_clean": "The story has its fictional voter choose {value}.",
+      "values": [
+        "Party Amber",
+        "Party Birch",
+        "Party Coral",
+        "Party Dune"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "politics_membership",
+      "domain": "civic",
+      "categories": [
+        "POLITICS"
+      ],
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "private": "I personally belong to the political group {value}.",
+      "clean": "A public encyclopedia explains the political group {value}.",
+      "teacher_private": "My own political membership is with {value}.",
+      "teacher_clean": "The public encyclopedia describes {value} as a political group.",
+      "values": [
+        "Amber Union",
+        "Birch Union",
+        "Coral Union",
+        "Dune Union"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "P0"
+    },
+    {
+      "family_id": "religion_belief",
+      "domain": "beliefs",
+      "categories": [
+        "RELIGION"
+      ],
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "private": "My own religion is {value}.",
+      "clean": "A public textbook explains {value} without personal disclosures.",
+      "teacher_private": "I personally follow {value} as my religion.",
+      "teacher_clean": "The public textbook gives an overview of {value}.",
+      "values": [
+        "Buddhism",
+        "Christianity",
+        "Hinduism",
+        "Judaism"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "P0"
+    },
+    {
+      "family_id": "religion_conversion",
+      "domain": "beliefs",
+      "categories": [
+        "RELIGION"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P3",
+      "private": "In our private group chat, I said I converted to {value}.",
+      "clean": "A fictional character converts to {value} in a story.",
+      "teacher_private": "I told my private group about my conversion to {value}.",
+      "teacher_clean": "The story describes a fictional conversion to {value}.",
+      "values": [
+        "Buddhism",
+        "Christianity",
+        "Hinduism",
+        "Judaism"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "religion_relative",
+      "domain": "family",
+      "categories": [
+        "RELIGION",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P4",
+      "private": "My diary for my eyes only says my brother follows {value}.",
+      "clean": "A fictional brother follows {value} in a novel.",
+      "teacher_private": "For my eyes only, I wrote about my brother practicing {value}.",
+      "teacher_clean": "The novel gives its fictional brother a belief in {value}.",
+      "values": [
+        "Buddhism",
+        "Christianity",
+        "Hinduism",
+        "Judaism"
+      ],
+      "subject_relationship": "third_party",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "criminal_charge",
+      "domain": "legal",
+      "categories": [
+        "CRIMINAL"
+      ],
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "private": "I have personally been charged with {value}.",
+      "clean": "A fictional suspect faces a charge of {value} in a story.",
+      "teacher_private": "The charge currently against me is {value}.",
+      "teacher_clean": "The fictional crime story charges its imaginary suspect with {value}.",
+      "values": [
+        "theft",
+        "fraud",
+        "assault",
+        "burglary"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "criminal_relative",
+      "domain": "legal",
+      "categories": [
+        "CRIMINAL",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P3",
+      "private": "In our private group chat, my brother admits a {value} conviction.",
+      "clean": "A fictional brother has a {value} conviction in a novel.",
+      "teacher_private": "My brother told our private group he was convicted of {value}.",
+      "teacher_clean": "The novel gives its fictional brother a conviction for {value}.",
+      "values": [
+        "theft",
+        "fraud",
+        "assault",
+        "burglary"
+      ],
+      "subject_relationship": "third_party",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "criminal_record",
+      "domain": "legal",
+      "categories": [
+        "CRIMINAL"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P2",
+      "private": "Behind login, my criminal record lists {value}.",
+      "clean": "A blank legal training example has a fictional entry for {value}.",
+      "teacher_private": "My logged in legal portal shows {value} on my criminal record.",
+      "teacher_clean": "The blank legal training example discusses a fictional entry for {value}.",
+      "values": [
+        "theft",
+        "fraud",
+        "assault",
+        "burglary"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "sexual_orientation",
+      "domain": "relationships",
+      "categories": [
+        "SEXUAL"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P4",
+      "private": "My diary for my eyes only records that I am {value}.",
+      "clean": "A fictional character describes being {value} in a story.",
+      "teacher_private": "For my eyes only, I wrote that my sexual orientation is {value}.",
+      "teacher_clean": "The story describes its fictional character as {value}.",
+      "values": [
+        "bisexual",
+        "gay",
+        "lesbian",
+        "asexual"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "sexual_relationship",
+      "domain": "relationships",
+      "categories": [
+        "SEXUAL"
+      ],
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "private": "My own intimate relationship is {value}.",
+      "clean": "A fictional intimate relationship is {value} in a script.",
+      "teacher_private": "I describe my personal intimate relationship as {value}.",
+      "teacher_clean": "The script describes a fictional intimate relationship as {value}.",
+      "values": [
+        "monogamous",
+        "polyamorous",
+        "long distance",
+        "same sex"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "child_birth",
+      "domain": "family",
+      "categories": [
+        "CHILD",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P2",
+      "private": "Behind login, my child birth record gives the date {value}.",
+      "clean": "A fictional child birth record uses the date {value}.",
+      "teacher_private": "My logged in family portal lists my child birth date as {value}.",
+      "teacher_clean": "A fictional family example assigns its imaginary child the birth date {value}.",
+      "values": [
+        "12 March 2017",
+        "23 April 2018",
+        "14 May 2019",
+        "25 June 2020"
+      ],
+      "subject_relationship": "third_party",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "third_party_contact",
+      "domain": "communication",
+      "categories": [
+        "IDENTITY",
+        "THIRD_PARTY"
+      ],
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "private": "My coworker gave me their actual email {value}.",
+      "clean": "A fictional coworker has the placeholder email {value}.",
+      "teacher_private": "This is my coworker personal email: {value}.",
+      "teacher_clean": "The example assigns a fictional coworker the placeholder address {value}.",
+      "values": [
+        "sara@example.invalid",
+        "tariq@example.invalid",
+        "uma@example.invalid",
+        "vera@example.invalid"
+      ],
+      "subject_relationship": "third_party",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "mixed_work_health",
+      "domain": "employment",
+      "categories": [
+        "IDENTITY",
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "private": "I am the only Cedar office clerk and my diagnosis is {value}.",
+      "clean": "A fictional Cedar office clerk has {value} in a story.",
+      "teacher_private": "My diagnosis is {value}; I am the sole clerk at Cedar office.",
+      "teacher_clean": "The story gives its fictional Cedar office clerk {value}.",
+      "values": [
+        "asthma",
+        "diabetes",
+        "epilepsy",
+        "arthritis"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "PU"
+    },
+    {
+      "family_id": "mixed_public_private",
+      "domain": "medical",
+      "categories": [
+        "HEALTH"
+      ],
+      "sensitivity": "S3",
+      "visibility": "P0",
+      "private": "This is posted publicly for everyone: my actual diagnosis is {value}.",
+      "clean": "This public brochure describes {value} without patient information.",
+      "teacher_private": "I publicly disclosed my own diagnosis of {value} for everyone to read.",
+      "teacher_clean": "The public brochure explains {value} using no patient information.",
+      "values": [
+        "asthma",
+        "diabetes",
+        "epilepsy",
+        "arthritis"
+      ],
+      "subject_relationship": "self",
+      "clean_visibility": "P0"
+    }
+  ],
+  "heldout": [
+    {
+      "text": "A public hospital leaflet explains vaccine storage without any patient records.",
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": [],
+      "domain": "medical"
+    },
+    {
+      "text": "The blank payroll worksheet has headings and no completed employee fields.",
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": [],
+      "domain": "employment"
+    },
+    {
+      "text": "An imaginary detective discusses invented suspects in a fictional play.",
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": [],
+      "domain": "legal"
+    },
+    {
+      "text": "A public atlas labels mountain trails without personal routes.",
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": [],
+      "domain": "travel"
+    },
+    {
+      "text": "The fictional theology dialogue uses imaginary speakers and no actual beliefs.",
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": [],
+      "domain": "beliefs"
+    },
+    {
+      "text": "A public guide explains election procedures without individual voting records.",
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": [],
+      "domain": "civic"
+    },
+    {
+      "text": "The blank school registration sheet contains no student information.",
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": [],
+      "domain": "school"
+    },
+    {
+      "text": "The fictional romance script describes imaginary adults without real personal disclosures.",
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": [],
+      "domain": "relationships"
+    },
+    {
+      "text": "My actual hospital discharge note says I had pneumonia.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ],
+      "domain": "medical"
+    },
+    {
+      "text": "Behind login, my pension statement shows my savings of 9600 dollars.",
+      "sensitivity": "S2",
+      "visibility": "P2",
+      "categories": [
+        "FINANCIAL"
+      ],
+      "domain": "banking"
+    },
+    {
+      "text": "My passport number on my personal document is XY90261.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "IDENTITY"
+      ],
+      "domain": "travel"
+    },
+    {
+      "text": "In our private group chat, my aunt reveals her cancer treatment.",
+      "sensitivity": "S3",
+      "visibility": "P3",
+      "categories": [
+        "HEALTH",
+        "THIRD_PARTY"
+      ],
+      "domain": "family"
+    },
+    {
+      "text": "My diary for my eyes only states I joined the Silver political party.",
+      "sensitivity": "S3",
+      "visibility": "P4",
+      "categories": [
+        "POLITICS"
+      ],
+      "domain": "civic"
+    },
+    {
+      "text": "I personally attend the local mosque and practice Islam.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "RELIGION"
+      ],
+      "domain": "beliefs"
+    },
+    {
+      "text": "My child personal school file reports their home address at 72 Pine Lane.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "CHILD",
+        "LOCATION",
+        "THIRD_PARTY"
+      ],
+      "domain": "school"
+    },
+    {
+      "text": "My personal court file records my recent driving conviction.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "CRIMINAL"
+      ],
+      "domain": "legal"
+    }
+  ],
+  "replay": [
+    {
+      "text": "This was posted publicly for everyone.",
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": [],
+      "domain": "general"
+    },
+    {
+      "text": "Discussion in a public community forum.",
+      "sensitivity": "S0",
+      "visibility": "P1",
+      "categories": [],
+      "domain": "general"
+    },
+    {
+      "text": "The page is restricted behind login.",
+      "sensitivity": "S0",
+      "visibility": "P2",
+      "categories": [],
+      "domain": "general"
+    },
+    {
+      "text": "I sent this in a private group chat.",
+      "sensitivity": "S0",
+      "visibility": "P3",
+      "categories": [],
+      "domain": "general"
+    },
+    {
+      "text": "This is a private diary for my eyes only.",
+      "sensitivity": "S0",
+      "visibility": "P4",
+      "categories": [],
+      "domain": "general"
+    },
+    {
+      "text": "Explain privacy using imaginary placeholders.",
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": [],
+      "domain": "general"
+    },
+    {
+      "text": "Write a friendly email about tomorrow meeting.",
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": [],
+      "domain": "general"
+    },
+    {
+      "text": "Summarise this public product documentation.",
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": [],
+      "domain": "general"
+    },
+    {
+      "text": "My diagnosis is cancer.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ],
+      "domain": "medical"
+    },
+    {
+      "text": "My therapist prescribed medication.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ],
+      "domain": "medical"
+    },
+    {
+      "text": "I am pregnant and have anxiety.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ],
+      "domain": "medical"
+    },
+    {
+      "text": "My bank account and mortgage debt.",
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "FINANCIAL"
+      ],
+      "domain": "banking"
+    },
+    {
+      "text": "My salary and credit score.",
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "FINANCIAL"
+      ],
+      "domain": "employment"
+    },
+    {
+      "text": "I filed a tax return.",
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "FINANCIAL"
+      ],
+      "domain": "banking"
+    },
+    {
+      "text": "My own religion and political affiliation are personal details.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "RELIGION",
+        "POLITICS"
+      ],
+      "domain": "beliefs"
+    },
+    {
+      "text": "My brother personal record lists a fraud conviction.",
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "CRIMINAL",
+        "THIRD_PARTY"
+      ],
+      "domain": "legal"
+    }
+  ]
+}

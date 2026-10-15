@@ -1,0 +1,11 @@
+{
+  "checked_cells": 168,
+  "checked_configurations": 56,
+  "checked_endpoint_pairs": 600,
+  "checker_sha256": "a93df6f75511052a2615b0e86cf1d6821c8cc6ac106d99e822fc2f69dc580f45",
+  "checks": "fixed doses, 600 primary/secondary endpoint pairs and disclosure subsets, rate numerators, stable pairs, casewise harms, subgroup gains, vetoes, configuration/global decisions, controlled contrasts",
+  "method": "independent standard-library count arithmetic",
+  "protocol_sha256": "aadcef30cd3fabb595cf076ce8beeb9c9bbc9159bfd44899dd0ede0fbc76e797",
+  "status": "passed",
+  "summary_sha256": "ec530e92d01f5f1f6747549c84a7315db521cf8fdcb99be794ea311f0abe9b63"
+}

@@ -1,420 +1,779 @@
-# PriVoke Evaluation
+# Evaluation and test suites
 
-This folder evaluates whether PriVoke detects privacy-sensitive information. It sends every selected dataset prompt directly to the running Docker `client-runtime` gRPC service, so the tested system is the complete regex/rules + NER + selected LLM pipeline.
+Test invocation and orchestration live here. Test cases remain with their original
+components; evaluator tests remain in `tests/`. The fuzzer training loop remains
+in `services/privoke-fuzzer`; evaluation calls its existing CLI or endpoint.
+Each Python suite runs in a separate process to isolate component imports.
 
-The evaluator does not import runtime modules, train another classifier, use SMOTE, or use the fuzzer.
+Run evaluation and integration checks as host Python scripts. Use Python 3.11 or
+3.12 for the broad NumPy/Torch suites. For lightweight TW01 mechanics and RPC
+clients, prepare a host environment with the maintained protobuf pins:
 
-```text
-dataset prompt
-  -> Docker exec gRPC client -> client-runtime:50054 AnalyzePrompt
-  -> regex/rules + NER + selected LLM backend
-  -> privacy classification and ALLOW/WARN/BLOCK action
-  -> score the privacy classification only
+```powershell
+py -3.13 -m venv evaluation/.venv
+evaluation/.venv/Scripts/python.exe -m pip install -r extension/runtime-supervisor/requirements.txt
+evaluation/.venv/Scripts/python.exe evaluation/setup-host.py
 ```
 
-## What counts as detected?
+The TW01 mechanics suite needs no model construction:
 
-```text
-PriVoke returns S1, S2, or S3, or any privacy category -> detected sensitive
-PriVoke returns S0 with no privacy categories           -> not detected
+```powershell
+evaluation/.venv/Scripts/python.exe -m unittest discover -s evaluation/tests -p test_task_query_window_study.py
 ```
 
-This matches the client runtime's `Classification.is_sensitive()` rule. `ALLOW`, `WARN`, and `BLOCK` are saved for diagnosis but do not decide the detection score.
+For the broader suites, use a separate Python 3.11/3.12 host environment from the
+repository root, install the host dependencies and generate protobuf clients. The
+broader synthetic evaluator mechanics tests need Torch, but do not fit a study
+dataset, publish weights or download pretrained models.
 
-For binary ground truth:
-
-```text
-Valid PII annotation -> actually sensitive
-No PII annotation    -> actually non-sensitive
+```powershell
+py -3.12 -m venv evaluation/.venv-broad
+evaluation/.venv-broad/Scripts/Activate.ps1
+python -m pip install -r evaluation/requirements-host.txt
+python evaluation/setup-host.py
+python evaluation/run-component-tests.py evaluator
+python evaluation/run-component-tests.py supervisor
+python evaluation/run-component-tests.py shared
 ```
 
-This is prompt-level detection. It does not measure exact span extraction, category-name agreement, masking quality, or action quality.
+On Linux/macOS use `python3.11 -m venv evaluation/.venv-broad` and
+`source evaluation/.venv-broad/bin/activate`. Use the same interpreter for setup and
+all checks; regenerate clients after protobuf changes. The current local Python
+3.13 environment has grpcio 1.82.1
+and protobuf 7.36.2, while the maintained supervisor pin specifies protobuf
+7.35.1. The TW01 host-v2 run proved this 3.13 environment can exchange 400
+semantic-only `AnalyzePrompt` requests and responses with the current v1/v2
+teacher servers, with matching generated descriptor hashes and identity checks.
+That observation does not establish training-wire compatibility. Component
+Python suites can also run through `run-component-tests.py` on the host after
+installing that component's requirements. Existing Python, JavaScript and Go
+unit tests retain their original frameworks. Service image packaging is a
+separate validation task.
 
-### Ground-truth limitation
+TW01 component-reference preparation and post-fit evidence audit call NumPy on
+the host. In this checkout, `evaluation/.venv-fuzzer-study/Scripts/python.exe`
+provides Python 3.11.9, NumPy 1.26.4, grpcio 1.82.1 and protobuf 7.35.1; its
+generated runtime and parameters descriptors import and match the RPC-only host
+environment. Use that interpreter for `prepare-component-retention.py` and the
+TW01 `prepare-cells`/`execute` controller. Its Torch package is absent, so this
+does not make the broader Torch suites available.
 
-The datasets label PII spans. They do not reliably state whether every date, city, organization, or name is harmful in its particular context. The evaluator does not remove categories that PriVoke misses, because changing ground truth to agree with the detector would unfairly increase its score.
+The frozen TW01 window precompute check needs that NumPy-enabled Python 3.11
+environment and the private `host-v2` releases. It validates all six window
+requests through the production reservation boundary without starting a server
+or fitting a model:
 
-Use `prompt_detection_recall_by_source_category` in the JSON report to see which source labels occur in prompts PriVoke catches or misses. This is still prompt-level: if a prompt contains several labels and PriVoke detects the prompt, every source label on that prompt is counted as caught.
-
-### Runtime API limitation
-
-`AnalyzePrompt` returns the classification selected by the client-runtime pipeline, not every raw result separately produced by regex, NER, and the LLM. An internal result that remains at `ALLOW` level may not be exposed. The evaluator measures the strongest action-independent detection signal available from the existing API, without changing the runtime.
-
-## Setup after the root README
-
-Start the normal production-style Docker stack once and leave it running in the background:
-
-```bash
-docker compose up -d --build
-docker compose ps
+```powershell
+evaluation/.venv-fuzzer-study/Scripts/python.exe -m unittest evaluation.tests.test_task_query_window_precompute -v
 ```
 
-Continue when the five services are running and healthy. The evaluator uses `docker compose exec` to run a small generated-protobuf gRPC client inside the existing `client-runtime` container. It does not start another runtime, expose another port, use the fuzzer, or import detector implementation modules.
+The protected research-file suites require a Linux host with their documented
+POSIX ownership/descriptor prerequisites; Windows supports the localhost RPC
+scripts, but does not supply those protections. Linux-only protected-file
+checks are skipped on Windows. These are separate from transport tests, which can
+be selected with `python evaluation/run-component-tests.py evaluator -p test_host_scripts.py`
+and `python evaluation/run-component-tests.py evaluator -p test_runners.py`.
 
-Then run the evaluation from the host:
+Docker Compose starts server services for live integration; Python test drivers
+stay on the host. Historical Compose test-service recipes remain in Git history
+for image-packaging investigations.
 
-```bash
-source evaluation/.venv/bin/activate
-cd evaluation
+The Go runner invokes the original service tests with the race detector.
+Browser tests run without network access. The deployment smoke runner invokes
+`deploy/gce/tests/smoke.py` and requires its documented Docker/TLS prerequisites.
 
-python evaluate.py \
-  --dataset piimb \
-  --samples 500 \
-  --sampling balanced \
-  --english-only \
-  --seed 42 \
-  --bootstrap-iterations 2000 \
-  --run-name english_balanced_seed42 \
-  --backend streamed
+For live measurements, start the five server services and their storage
+initializer. The research override publishes all five gRPC ports on `127.0.0.1`;
+the development override also publishes the fuzzer on `50053`. No test
+container is needed for these checks:
+
+```powershell
+docker compose -f docker-compose.yml -f evaluation/compose.tests.yml up -d --wait --wait-timeout 240 model-streaming-service telemetry-service client-runtime privoke-fuzzer param-update-service
+python evaluation/run-fuzzer-tests.py health
+python evaluation/run-component-tests.py stack-smoke --skip-training
+python evaluation/evaluate.py --dataset piimb --samples 500 --sampling balanced --english-only --seed 42 --backend streamed --run-name pilot
+python evaluation/run-fuzzer-tests.py test-prompts --layer semantic --prompt "My email is alex@example.com"
 ```
 
-This is the recommended English-only main experiment.
+The evaluator sends gRPC directly to `127.0.0.1:50054` and writes reports under
+`evaluation/results`. `PRIVOKE_RUNTIME_TARGET` overrides the runtime address;
+`FUZZER_TARGET` or `run-fuzzer-tests.py --target` overrides `127.0.0.1:50053`.
+The fuzzer serves health and training RPCs; prompt analysis uses the runtime RPC.
+Prompt-probe dumps go to `dumps/privoke-fuzzer` on the host.
 
-## Personalized Synthetic Dataset
+For controlled TW01 runs, execute `evaluation/run-task-query-window-study.py`
+with host Python. The `teacher` phase requires `--target 127.0.0.1:PORT`,
+`--bank`, `--teacher`, `--teacher-sha256`, `--architecture`, `--capture-directory`,
+`--worker-output`, `--release`, and `--output`. Its authenticated study runtime
+must mount that same ORIGINAL teacher and capture directory. The `execute` and
+`score-models` phases take `--release` and `--output`, start server containers,
+and issue fit, audit, and scoring calls from host Python. Every LLM test request
+sets `layers=[4]` and verifies the returned sole semantic execution. Reusable
+weights and provenance pins belong under
+`models/experiments/task_query_window_20261012/`; disposable service logs remain
+in the run output. The study Compose network uses a named bridge: Docker Desktop
+did not publish localhost ports from the earlier internal network. Verify the
+effective `127.0.0.1` port binding and host gRPC channel readiness before a live
+client call. Server-to-server RPC still uses the private Compose DNS names.
 
-The repository includes a local generator for a PriVoke-specific prompt-level
-dataset. It creates realistic user prompts with explicit binary labels, so clean
-rows are known clean instead of inferred from missing public span annotations.
+The frozen TW01 `host-v2` evidence has 400 authenticated semantic-only TRAIN
+teacher responses, three native windows, schema-2 component releases and an
+accepted 12-cell pin map. The user approved all twelve physical fits and
+development scoring. All fits reached known terminal outcomes, but scoring
+stopped early after a frozen seed-42 safety regression. See the
+[partial TW01 study record](../docs/task-query-window-20261012.md) and the
+run's `early-termination.json`; do not treat it as a complete fourteen-candidate
+result. Its first
+fit canary was rejected by automatic approval review before process creation;
+`evaluation/results/task_query_window_20261012/host-v2/fit-approval-rejection.json`
+records the exact held phase and confirms no reservation or server startup.
+Do not infer a model improvement from the preparation evidence.
 
-Generate the default 2,000-row dataset:
+Evaluation and prompt tests default to the semantic layer only, and verify the
+returned execution so regex/NER cannot affect an LLM-only result. Requests always
+declare a nonempty layer selection. `--layer pipeline` (evaluator) or `--layer runtime`
+(prompt tests) explicitly selects a product end-to-end test; regex, NER and
+regex+NER ablations also require explicit selection for that purpose. Historical
+combined-detector reports retain their original meaning and are not LLM-only scores.
+See the persistent [repository testing policy](../AGENTS.md).
 
-```bash
-python evaluation/dataset_generation/generate_privoke_synthetic.py \
-  --count 2000 \
-  --seed 42 \
-  --output evaluation/datasets/privoke_personalized_synthetic.jsonl
+Legacy combined studies require `--allow-product-pipeline` for separately
+authorized product/detector analysis: `run-contextual-fuzzer-study.py` and its
+class-balanced, mean-category, role-quota, local-SGD and decision-margin variants;
+`run-independent-updates.py`, `run-model-profile-study.py`, `run-training-curve.py`,
+`run-public-negative-study.py` and `run-public-negative-curve.py`. They refuse by
+default before study data access or work and preserve their original pipeline
+eligibility rules. For LLM-only comparisons, use the current semantic-only
+curriculum-improvement study rather than this opt-in. `run-ablations.py` and the
+named full-pipeline cascade tools serve explicit product/detector tasks.
+
+Normal deployment enables automatic training (32 prompts, hourly interval).
+Keep `evaluation/compose.tests.yml` or the study's explicit count-0 override
+for every updater in the Compose file sequence for controlled measurements.
+Some study overlays disable only their additional updater: the original
+`param-update-service` must also have count `0`. This prevents background
+requesters from changing the model between observations. The normal
+development stack can publish updates into its bind-mounted `./models`.
+
+To test a real training publication and durable replay, run
+`python evaluation/run-component-tests.py stack-smoke` without `--skip-training`.
+This changes the running model. A single training request is also available as
+`python evaluation/run-fuzzer-tests.py train --model-id privoke-balanced --prompt-count 32`.
+Rejected cycles exit with status 1. For production-image integration on the host,
+use `docker compose -f docker-compose.yml -f evaluation/compose.localhost.yml up -d --wait`;
+base production Compose continues to publish no ports. CI uses this loopback
+override for its host Python smoke checks. Internal server-to-server RPC uses
+explicit Compose service DNS targets.
+
+The user selected development targets on 3 October 2026: sensitive recall >= 90%
+and clean specificity >= 90%, together with the research completion plan's evidence
+requirements. These are development decision targets, not IEEE acceptance criteria.
+Lock source/family-disjoint final data before tuning; never train on final holdout
+failures to reach the targets. Synthetic training guard metrics do not establish
+public-benchmark generalization. Missing evidence, errors and null results must
+remain visible in the paper.
+
+## External annotated-PII training sources
+
+The current prospective expansion uses only pinned official training views: Nemotron-PII `default/train` and Meddies PII `english/train`. The metadata audit verified the pinned files' schemas and footer counts (100,000 and 47,744 rows respectively); the Nemotron README's stated 50k train size conflicts with its pinned train footer, so use the recorded manifest and preserve this discrepancy. Counts are raw source rows, not usable examples after protected-key, deduplication, grouping, and annotation checks.
+
+The target is annotated-PII presence. Added Meddies rows are positive-only, and an empty/missing annotation is not presumed clean. Neither source supplies contextual privacy-action labels. The planned cap and group/split/selection rules are documented in [the dataset expansion protocol](../paper/research/dataset-expansion-protocol.md); source scope and paper wording are in [the PII dataset analysis](../docs/PII-dataset-analysis.md) and [source audit](../paper/research/external-pii-source-audit.md). Meddies is CC-BY-NC-4.0; keep source attribution and non-commercial conditions attached to derived research artifacts.
+
+The amended v3 preparation completed at `evaluation/results/external_pii_20261004_prepared_v3/` (manifest SHA-256 `2b8a63b168d72510ce4e61e03748bf5f7858bdc33b41d15f0095780164658e1c`): 19,993 training rows (3,832 original, 13,168 Nemotron, 2,993 Meddies), unchanged 968-row validation, and source-heldout diagnostics of 1,000 Nemotron and 999 Meddies positive rows. Protected IDs/groups/text and source partitions passed manifest integrity checks. The offline fit completed all three profiles with no convergence warnings, selected C=10 per profile, and froze profile selections before development scoring. See [the dataset analysis](../docs/PII-dataset-analysis.md) and [the evidence ledger](../paper/research/data-expansion-ledger.md) for the aggregate validation/source diagnostics and limitations. Runtime attempt v1 failed before producing scores because of a missing protobuf import; its zero-score run is retained. Runtime attempt v2 completed all 18 matched runs (17,802 RPC requests) with zero errors. Its run manifest records exact restoration, no unknown admin outcome, and unchanged runtime image identities. The scorer/RPC suite for the fix passed 11 tests with no skips; the runner suite passed 9 tests. See the [verified evidence ledger](../paper/research/data-expansion-ledger.md) for the summary hashes, measured counts, paired intervals, and limits. These results do not promote or replace the current model. The earlier v1 shortfall and interrupted v2 preparation remain preserved as historical preparation attempts, not model evidence.
+To reproduce a new runtime batch, check out the committed runtime-caller revision shown in its manifest, keep the prepared data, frozen fit, matched baseline fit, and frozen protocol unchanged, and use a fresh output directory. For example, from the repository root at the v2 caller revision:
+
+```powershell
+python evaluation/run-external-pii-study.py `
+  --fit-root evaluation/results/external_pii_profiles_20261004_v1 `
+  --prepared evaluation/results/external_pii_20261004_prepared_v3 `
+  --baseline-fit-root evaluation/results/presence_profiles_20261004_v1 `
+  --protocol-file evaluation/results/external_pii_20261004_support_v3/protocol.md `
+  --protocol-sha256 962198b384aaed7fd5fb98e10c778b295ac6403c0dd1ba5ea376c28ec786eafe `
+  --source-revision 083ee0c5fb38efdfb63ade634b185eba0c67432d `
+  --fit-source-revision 85c7f475fb8ebd1529254e4135b774d98505ddb1 `
+  --output evaluation/results/external_pii_rpc_FRESH_RUN
 ```
 
-The output is balanced: half sensitive prompts and half non-sensitive prompts.
-Sensitive rows include categories such as email, phone, SSN, medical, banking,
-account recovery, credentials, travel, HR, school, and legal/tenant scenarios.
-Clean rows include both ordinary prompts and hard negatives that mention privacy
-concepts without containing actual private data.
+The runner writes a `run-manifest.json`; after it completes, summarize an existing study into a new JSON file with:
 
-Run it through the existing Docker `client-runtime` gRPC service:
-
-```bash
-cd evaluation
-source .venv/bin/activate
-
-python evaluate.py \
-  --dataset local-jsonl \
-  --dataset-file datasets/privoke_personalized_synthetic.jsonl \
-  --samples all \
-  --sampling balanced \
-  --backend streamed \
-  --run-name privoke_personalized_synthetic
+```powershell
+python evaluation/summarize-external-pii-study.py `
+  --study evaluation/results/external_pii_rpc_20261004_v2 `
+  --output evaluation/results/external_pii_summary_FRESH_RUN.json
 ```
 
-### OpenAI-assisted synthetic dataset
+Both output locations must be fresh. Do not overwrite failed attempts or reuse the same output name for a rerun.
+The completed v2 summary is `evaluation/results/external_pii_summary_20261004_v1.json` (SHA-256 `e5e138d42f0930390702fb56a745ae0b8e7f7772791d8ed473ab56d51b250c2d`); its study manifest is at `evaluation/results/external_pii_rpc_20261004_v2/run-manifest.json` (SHA-256 `62b28e0f6c2e8006915e9bdc8498462d636e44d5bb397f8704a95d96d2ab8671`). The summary records the paired source-group bootstrap method (2,000 replicates, seed 10102026) and validation-specificity changes of −9.74 pp (efficient), +0.81 pp (balanced), and −2.03 pp (quality). The balanced 95% interval is [−1.46, +3.08] pp and includes zero; see the ledger for all intervals and raw counts. These are conditional development comparisons after validation selection.
 
-For more natural writing style variation, use the OpenAI-assisted generator. It
-still keeps labels controlled locally: sensitive rows must include exact fake
-markers inserted by the script, and clean rows are rejected if they contain
-common sensitive patterns such as emails, phone numbers, SSNs, cards, API keys,
-passwords, or IP addresses.
+## Controlled research runs
 
-The generator's fine-grained PII categories are based on three reference
-families:
+The override forces CPU execution and `FUZZER_PROMPT_COUNT=0`, disabling the
+updater's inherited startup-training setting. Keep the same override for every
+startup, restart, measurement and explicit update. Services use isolated research
+containers and named volumes. Do not change a model during a matched batch.
 
-- NIST SP 800-122 / NIST CSRC glossary for the broad definition of PII as data
-  that can distinguish or trace identity, including linked or linkable medical,
-  educational, financial, and employment information.
-- Microsoft Presidio supported entities, which also matches the repo's runtime
-  direction because PriVoke imports Presidio-style regex recognizers.
-- Microsoft Azure AI Language PII/PHI entity categories for additional practical
-  coverage such as passwords, VINs, geolocation, passport numbers, driver
-  license numbers, bank account numbers, and Medicare beneficiary IDs.
-
-Each generated sensitive row stores both `fine_pii_categories` and PriVoke's
-broader `expected_categories` such as `IDENTITY`, `FINANCIAL`, `HEALTH`,
-`LOCATION`, `POLITICS`, `RELIGION`, `CRIMINAL`, `SEXUAL`, and `CHILD`.
-
-Install the optional SDK once:
-
-```bash
-source evaluation/.venv/bin/activate
-pip install openai
+```powershell
+# After restoring v0.3.0 and clearing runtime/model caches:
+python evaluation/run-ablations.py --dataset-file evaluation/results/locked-public/development.jsonl --run-name UNIQUE_RUN_NAME --model-artifact evaluation/results/original-v0.3.0-model.json
+# Invoke actual fuzzer cycles through their existing service, then paired measurements:
+python evaluation/run-independent-updates.py --experiment-id UNIQUE_EXPERIMENT_ID
+# Native Chromium page hook and local receiver, with controlled broker decisions:
+node evaluation/run-browser-capture.mjs
 ```
 
-Set your API key in the same terminal:
+`run-ablations.py` refuses to overwrite a run directory and fails when returned
+semantic model versions differ from the archived artifact. It checks all raw
+reports for runtime errors. A manifest records dataset/model/report hashes.
+The update driver restores the same checked-in original artifact between seeds
+42, 1337 and 2026, uses unique request IDs and archives exact update responses and
+model snapshots. The actual training loop remains in the fuzzer service.
 
-```bash
-export OPENAI_API_KEY="your_api_key_here"
+The native capture fixture exercises the shipped page-hook source in headless
+Chromium with a real HTTPS loopback receiver and fake markers. It supplies
+ALLOW/WARN/BLOCK or no decision through a fixture broker. It does not test installed
+extension registration, provider pages, native messaging, the supervisor bridge,
+or detector quality. Its reported decision durations are fixture durations and
+must not be labeled full runtime or end-to-end deployment latency.
+
+See `paper/research/protocol.md` for metric and split definitions and
+`paper/research/review-requests.md` for professor confirmation requirements.
+Raw generated data are ignored under `results/`; preserve them in a deliberate
+local artifact package with a hash manifest before publication figures are made.
+
+## Learning-rate and false-positive development
+
+The deterministic template fuzzer has no generation-temperature parameter. Its
+existing learning-rate setting is `FUZZ_TRAINING_LEARNING_RATE` (default0.03).
+The checked-in overlays test0.01 and0.003. Do not rebuild the serving image during
+a matched run: source-image changes can confound a training comparison even when
+the returned model version and artifact checksum are correct.
+
+`compose.original-runtime.yml` uses an immutable source extraction from the tested
+commit712ed7212c261e01e12db8c8f3fe7aede8831534, at
+`results/original-runtime-source`. Prepare this directory from `git archive` of that
+exact revision with Python's safe tar data filter, then build the selected runtime
+with that overlay. This source copy is ignored generated data. The original model
+for each seed remains the checked-in `models/privoke-balanced.json`; source/model
+version and Docker image identity are distinct.
+
+```powershell
+docker compose -f docker-compose.yml -f evaluation/compose.tests.yml -f evaluation/compose.original-runtime.yml -f evaluation/compose.learning-rate-001.yml build client-runtime
+docker compose -f docker-compose.yml -f evaluation/compose.tests.yml -f evaluation/compose.original-runtime.yml -f evaluation/compose.learning-rate-001.yml up -d --no-deps --force-recreate --wait privoke-fuzzer
+python evaluation/run-independent-updates.py --experiment-id UNIQUE_LR_RUN --compose-override evaluation/compose.original-runtime.yml --compose-override evaluation/compose.learning-rate-001.yml
 ```
 
-Start with a small smoke dataset:
+Multiple `--compose-override` arguments preserve their order. The driver records
+allowlisted fuzzer settings and override hashes, restores the original before
+every seed, retains rejected RPC details, and measures only accepted candidates.
+Failed seeds must remain in the reported experiment denominator; a zero process
+exit after independent rejections does not mean every update succeeded.
 
-```bash
-python3 evaluation/dataset_generation/generate_privoke_openai_synthetic.py \
-  --count 20 \
-  --seed 42 \
-  --output evaluation/datasets/privoke_openai_synthetic_smoke.jsonl
+The fictional clean-topic curriculum and optional existing bootstrap anchors are
+generated by `prepare-fuzzer-calibration.py`. Their labels are provisional training
+inputs, not independently annotated contextual ground truth. Disable transformations
+for these controls because redacting the sole identifier can change a training label.
+Compare against the disclosed ordinary-example control and retain all safety gates.
+
+`diagnose-semantic-calibration.py` checks normalized offline original-model binary
+outputs against every archived live semantic prediction before reporting a gate
+grid. `diagnose-rule-false-positives.py` runs revised rules in a one-off container
+and combines them with archived original NER/semantic binary outputs. These are
+development diagnostics, not live enforcement, latency or final-test measurements.
+
+`run-training-curve.py` calls at most two more cycles from the selected anchored
+0.003 seed42 checkpoint. It stops at a class-rate regression in either semantic
+or pipeline and restores the best eligible artifact in a `finally` block.
+This driver encodes this particular development protocol; it is not a general
+production training loop. `diagnose-ner-casing.py` checks raw-case versus canonical
+NER predictions without deploying a normalizer change.
+
+Completed attempts and current selected artifact are recorded in
+[false-positive experiments](../paper/research/false-positive-experiments.md).
+The preceding extension's integrated live result is 93.56% recall and 22.69%
+specificity. The subsequent public-negative coverage study is described below;
+final remains unscored and the specificity development target remains unmet.
+
+## Local evidence preservation
+
+After experiments stop and reviewed source/tooling is committed, use a fresh name
+and external manifest path:
+
+```powershell
+python evaluation/archive-research-artifacts.py --name research-20261003-development --manifest paper/research/artifact-manifest.json
 ```
 
-Then generate a larger dataset:
+The helper includes the exact committed source tar, generated results, local
+validation logs and research records. It verifies every archived file against its
+SHA-256 and checks ZIP integrity. Both output paths refuse overwrites. The external
+manifest records archive hash and source commit; generated ZIP files are ignored
+under `evaluation/artifacts/`. This is local preservation. Raw benchmark source
+licenses must be audited before redistribution, and no upload is performed.
 
-```bash
-python3 evaluation/dataset_generation/generate_privoke_openai_synthetic.py \
-  --count 1000 \
-  --seed 42 \
-  --model gpt-4o-mini \
-  --output evaluation/datasets/privoke_openai_synthetic.jsonl
+## Prospective public-negative coverage study
+
+Read [the prospective protocol](../paper/research/public-negative-protocol.md)
+before execution. It defines a custom within-corpus training study, source/text
+exclusions, provisional negative-policy labels and a full-pipeline recall floor.
+It must not be presented as untouched official PIIMB benchmark-test evaluation.
+
+```powershell
+python evaluation/prepare-public-negatives.py
+docker compose -f docker-compose.yml -f evaluation/compose.tests.yml -f evaluation/compose.public-negatives.yml build client-runtime privoke-fuzzer
+python evaluation/run-public-negative-study.py
 ```
 
-Evaluate it:
+Preparation refuses existing output, checks locked dataset hashes, scans the
+pinned revision, excludes all protected groups/IDs/shared training keys and
+normalized conflicts, then records the selected curriculum hash and provenance.
+It preserves literal braces through the template renderer and adds the existing
+bootstrap samples without regenerating model weights. The grouped fuzzer excludes
+all held-out source siblings; runtime gradient/held-out execution uses canonical
+serving normalization.
 
-```bash
-cd evaluation
-source .venv/bin/activate
+The study driver measures the original with revised rules, then calls the existing
+independent-update driver for three seeds at each predefined learning rate. It
+records rejected attempts, reports semantic and pipeline results, and restores the
+selected eligible artifact in `finally`. A partial study or failed restoration is
+marked explicitly. Additional cycles require the recorded prospective trigger.
+Do not reuse these fixed request/run IDs to restart an interrupted study.
+For a corrected launch, pass a fresh `--experiment-prefix` (up to40 characters);
+the original launch and its model-restoration record remain preserved. Container
+artifact paths use forward slashes regardless of the host operating system.
 
-python evaluate.py \
-  --dataset local-jsonl \
-  --dataset-file datasets/privoke_openai_synthetic.jsonl \
-  --samples all \
-  --sampling balanced \
-  --backend streamed \
-  --run-name privoke_openai_synthetic
+When the completed study meets its extension trigger, call the selected profile
+for at most two additional cycles without rebuilding serving images:
+
+```powershell
+python evaluation/run-public-negative-curve.py --study-manifest evaluation/results/STUDY_PREFIX/selection.json --experiment-id UNIQUE_CURVE_ID
 ```
 
-### One-time Python setup
+This caller independently validates the scored reports against locked ID/label/
+group keys and recomputed confusion counts before replaying the prospective
+ranking. It rejects a changed selected artifact or an unmet trigger, preserves
+accepted-but-unscored failures, and restores the best eligible checkpoint after
+errors. It stops at rejection, pipeline recall below90%, or no strict specificity
+improvement. These criteria belong to this study; the older `run-training-curve.py`
+retains its earlier, stricter no-regression criteria.
 
-Only run this if `evaluation/.venv` does not exist or packages are missing:
+Completed [public-negative results](../paper/research/public-negative-results.md)
+record all nine independent attempts and the stopped second cycle. The restored
+first-cycle model has90.53% development recall and29.41% specificity; the final
+partition remains unscored. Test invocation remains centralized here, while the
+training loop remains in the fuzzer service.
 
-```bash
-python3 -m venv evaluation/.venv
-source evaluation/.venv/bin/activate
-pip install -r evaluation/requirements.txt
+## Released model profiles
+
+Read [the model-profile protocol](../paper/research/model-profile-protocol.md)
+before comparing original efficient, balanced and quality artifacts:
+
+```powershell
+python evaluation/run-model-profile-study.py --run-prefix UNIQUE_PROFILE_RUN
 ```
 
-The evaluator environment only needs dataset and reporting dependencies. The gRPC client runs inside the existing Docker `client-runtime`, which already contains gRPC and generated service-contract bindings.
+The caller measures semantic and pipeline outputs on the locked development set,
+requests each artifact's explicit model ID, verifies matched rows/raw counts,
+records runtime-duration distributions and restores the prior trained balanced
+payload in `finally`. It refuses reused outputs and does not rebuild serving
+images. `run-ablations.py` sets the evaluator's MODEL_ID from the supplied artifact
+and checks returned IDs as well as versions/checksums. A shared version string
+does not establish that the requested profile was evaluated.
 
-## English-only evaluation
+Runtime elapsed_ms excludes browser/bridge overhead. These profiles also differ
+in vocabulary, random initialization and bootstrap epochs; a score difference
+does not isolate the causal effect of parameter count. Model-size inference
+comparisons do not establish that larger-model training/update gates were tested.
 
-Add `--english-only` to filter before duplicate removal, class counting, balancing, and random sampling.
+The measured original-profile comparison is documented in
+[model-profile results](../paper/research/model-profile-results.md): quality has
+higher semantic recall, while the original balanced profile has better measured
+pipeline recall and specificity than quality. These results do not justify
+prioritizing quality-profile training. Fuzzer update experiments so far use the
+balanced profile; they do not test larger-profile training.
 
-```bash
-python evaluate.py \
-  --dataset piimb \
-  --samples 500 \
-  --sampling balanced \
-  --english-only \
-  --seed 42 \
-  --backend streamed
+## Frozen-representation diagnostic
+
+Read the [prospective protocol](../paper/research/representation-protocol.md)
+before running the offline frozen-encoder probe. The completed custom
+development diagnostic is documented in
+[representation results](../paper/research/representation-results.md); its
+specificity remains below the selected90% development target, and final remains
+unscored.
+
+Use the existing `client-runtime` stack and the same Compose overrides as the
+research runner. The public-negative override supplies a read-only bind mount of
+`models/generate_baseline.py` to the evaluation container for bootstrap exclusion
+checks. The caller loads the checked-in original balanced artifact in memory to
+export features; it does not train through the fuzzer, change the serving model,
+or publish weights. It expects the runtime and evaluation images to be available
+and verifies their IDs before and after execution.
+
+```powershell
+docker compose -f docker-compose.yml -f evaluation/compose.tests.yml -f evaluation/compose.public-negatives.yml up -d --wait --wait-timeout 240 client-runtime
+python evaluation/run-representation-diagnostic.py --output FRESH_RESULTS_CHILD
 ```
 
-Dataset behavior:
+`FRESH_RESULTS_CHILD` is a unique child name under `evaluation/results`; do not
+reuse failed or completed attempt paths. The caller owns preparation, UTF-8
+feature transport, fitting, output hashes and phase logs. It protects development
+and final IDs/groups/text keys and does not score final examples. The probe is an
+annotation-presence diagnostic, not a contextual privacy policy or a fuzzer-
+trained replacement. Results are development-only and do not establish deployment
+readiness.
 
-| Dataset | English-only behavior |
-|---|---|
-| PIIMB | Keeps rows whose language is `en`. |
-| AI4Privacy | Keeps rows labelled `English`. |
-| Gretel Finance | Keeps rows labelled `English`. |
-| Nemotron-PII | Keeps the dataset because its official dataset definition is English-only; it has locale rather than per-row language. |
-| Meddies PII | Already uses the published `english` configuration. |
-| `local-jsonl` | Keeps rows whose metadata contains `"language": "en"` or `"English"`; rows without a language are excluded. |
+## Sparse annotation-presence profiles
 
-The report records `metadata.language_filter` and `metadata.sampling.exclusions.non_english_language_rows`. State clearly in the paper that these results apply to English prompts only.
+Read the [prospective model-refactor protocol](../paper/research/model-refactor-protocol.md)
+before fitting or scoring. The fitter validates the pinned prepared partitions,
+exports the three fixed sparse profiles and validation-selected C/threshold
+artifacts, and freezes all profile selections before any development inference.
+It exports only the train partition as the separate fuzzer curriculum. It does
+not score development or read final examples; the locked final file is checked by
+SHA-256 only. The scorer makes typed `DetectAnnotationPresence` RPCs directly
+from a host Python process and requires the returned model ID, version,
+checksum, parameter fingerprint, threshold, enum, and probability to match the
+frozen artifact and shared arithmetic.
 
-Without `--english-only`, all available languages are eligible.
+Use fresh result-directory names. Fit and standalone scoring commands run on the
+host after the setup above; standalone scoring defaults to `127.0.0.1:50054`.
+The matched study controllers still manage Docker images, model volumes and
+isolated evidence jobs to preserve their recorded execution identities. Use the
+four Compose files in order when starting their server stack:
 
-The pinned live-data check found 107,488 eligible English PIIMB rows, 7,037 eligible English AI4Privacy positive rows, and 2,760 eligible English Gretel positive rows after validation, duplicate handling, and the positive-only rules. Nemotron and the selected Meddies configuration are already English.
-
-## Recommended experiments
-
-### Connection test
-
-```bash
-python evaluate.py --dataset piimb --samples 20 --sampling sequential --english-only --backend streamed
+```powershell
+$ComposeFiles = @('-f','docker-compose.yml','-f','evaluation/compose.tests.yml','-f','evaluation/compose.public-negatives.yml','-f','evaluation/compose.presence.yml')
+$FitSourceSha = (git rev-parse HEAD).Trim()
+$ProtocolSha = (Get-FileHash paper/research/model-refactor-protocol.md -Algorithm SHA256).Hash.ToLowerInvariant()
+python evaluation/fit-presence-profiles.py --prepared evaluation/results/representation_20261004_v3/prepared --locked-root evaluation/results/locked-public --bootstrap-source models/generate_baseline.py --output evaluation/results/FRESHFIT --source-revision $FitSourceSha --protocol-sha256 $ProtocolSha
+$ExecutionSha = (git rev-parse HEAD).Trim()
+$FitSourceSha = (Get-Content evaluation/results/FRESHFIT/run-manifest.json -Raw | ConvertFrom-Json).source_revision
+python evaluation/evaluate-presence.py --artifact evaluation/results/FRESHFIT/profiles/balanced/artifact.json --selection evaluation/results/FRESHFIT/profiles/balanced/selection.json --fit-manifest evaluation/results/FRESHFIT/run-manifest.json --dataset-file evaluation/results/locked-public/development.jsonl --output evaluation/results/FRESH_BASE_SCORE --target 127.0.0.1:50054 --source-revision $ExecutionSha --fit-source-revision $FitSourceSha --protocol-sha256 $ProtocolSha
 ```
 
-Use this only to check the setup. It is too small for a paper result.
+The study owner must first have the four-file Compose stack and images ready,
+with all three presence artifacts in the model catalog and the update-volume
+permissions initialized. Keep automatic startup training disabled (`FUZZER_PROMPT_COUNT=0`);
+the study runner checks this. Do not build or rebuild serving images as part of
+the matched study. The standalone scorer requires `client-runtime` already
+running with the exact selected profile artifact installed; it never installs
+or restores models itself. Use new names instead of reusing `FRESHFIT` or
+`FRESH_BASE_SCORE`, including after a failed attempt.
 
-### Main binary experiment
+The profile fitter writes each C candidate artifact and validation predictions,
+plus a train-only `curriculum/prompts.jsonl`. The scorer emits row IDs, labels,
+groups, binary probabilities/predictions, returned identities, elapsed times and
+errors without emitting prompt text. Runtime errors or any identity/parity mismatch
+make a profile score ineligible; failed evidence is retained in that fresh
+output directory. This is a binary annotation-presence signal and does not replace
+or suppress contextual classification, severity, categories, or policy actions.
 
-```bash
-python evaluate.py --dataset piimb --samples 500 --sampling balanced --english-only --seed 42 --bootstrap-iterations 2000 --run-name english_balanced_seed42 --backend streamed
+The fit manifest guard checks all three frozen profile selections and their
+selected artifacts before scoring. The additive `evaluate-presence-update.py`
+measures one fixed validation or development endpoint without recalibrating a
+threshold. Changed candidates require the committed update response and durable
+receipt evidence; development additionally requires a persisted validation
+retention decision. These scoring callers do not run fuzzer updates or modify
+model volumes.
+
+The host-side study runner invokes the real fuzzer and updater through the
+four-file Compose stack. After the prerequisites above are satisfied, run it
+from the committed repository checkout with a new output path and both source
+revisions bound to the fit manifest and executing checkout:
+
+```powershell
+$ExecutionSha = (git rev-parse HEAD).Trim()
+$FitSourceSha = (Get-Content evaluation/results/FRESHFIT/run-manifest.json -Raw | ConvertFrom-Json).source_revision
+$ProtocolSha = (Get-FileHash paper/research/model-refactor-protocol.md -Algorithm SHA256).Hash.ToLowerInvariant()
+python evaluation/run-presence-update-study.py --fit-root evaluation/results/FRESHFIT --output evaluation/results/FRESHSTUDY --source-revision $ExecutionSha --fit-source-revision $FitSourceSha --protocol-sha256 $ProtocolSha
 ```
 
-This selects 250 sensitive and 250 non-sensitive English prompts when enough rows exist. It does not duplicate, modify, or synthesize prompts.
+This caller uses fixed seeds 42, 43, and 44 for each of the three fitted
+profiles. Validation retention requires recall at least 90% and strictly higher
+specificity than that profile's fitted base; eligible candidates rank by
+specificity, recall, then lower seed. If none qualifies, the fitted base is
+retained. It does not add C values or update cycles in response to these
+measurements. Preserve every complete or failed run under its original fresh
+path; the runner records restoration and protected-input checks. It does not
+read final examples or change the contextual policy task.
 
-### Supporting positive-only experiments
+In the completed v1 run, all nine update requests were accepted, but none met
+the frozen validation retention gate because no candidate improved specificity;
+all three fitted bases were retained. The independent 59,214-check evidence
+audit and per-seed counts are recorded in the
+[results report](../docs/presence-model-improvements.md). This observed result
+is not a reason to add C values, change thresholds, or repeat update cycles on
+the same development evidence; any next experiment needs a new prospective
+question and frozen protocol.
 
-```bash
-python evaluate.py --dataset ai4privacy --samples 500 --sampling random --english-only --seed 42 --bootstrap-iterations 2000 --run-name english_recall_seed42 --backend streamed
-python evaluate.py --dataset nemotron-pii --samples 500 --sampling random --english-only --seed 42 --bootstrap-iterations 2000 --run-name english_recall_seed42 --backend streamed
-python evaluate.py --dataset gretel-finance --samples 500 --sampling random --english-only --seed 42 --bootstrap-iterations 2000 --run-name english_recall_seed42 --backend streamed
-python evaluate.py --dataset meddies-pii --samples 500 --sampling random --english-only --seed 42 --bootstrap-iterations 2000 --run-name english_recall_seed42 --backend streamed
+## Continual synthetic fuzzer study
+
+The prospective curriculum comparison is controlled by
+`run-curriculum-improvement-study.py` with explicit `prepare`, `execute`, and
+`audit` phases. Its specification and provisional-label limitations are in
+[`docs/fuzzer-curriculum-improvement-process-20261009.md`](../docs/fuzzer-curriculum-improvement-process-20261009.md).
+The amended semantic-only v2 matrix contains 45 live cells (900 attempted cycles)
+and a separate 18-cell offline matched-Adam mechanics comparison. Fifteen completed
+v1 efficient live cells contribute read-only isolated semantic views; 48 cells
+are prospective. The original combined-detector measurements remain historical. It never promotes a model.
+Preparation requires committed computation sources, reviewed resource hashes,
+and an images JSON mapping the five serving service names plus
+`offline-training` to full immutable `sha256:` image IDs. Source-only service
+overlays and the CPU training target are in `Dockerfile.curriculum-improvement`.
+The existing service parent tags must be inspected and their resolved IDs
+retained in the build logs; ordinary service images are not overwritten.
+
+```powershell
+python evaluation/run-curriculum-improvement-study.py prepare --study-id privoke-improve-UNIQUE-v2 --output evaluation/results/curriculum_improvement_20261009_v2 --images evaluation/results/curriculum_improvement_20261009_amendment/images.json --import-semantic-from evaluation/results/curriculum_improvement_20261009_v1
+python evaluation/run-curriculum-improvement-study.py execute --output evaluation/results/curriculum_improvement_20261009_v2 --cell efficient-head-only-42
+python evaluation/run-curriculum-improvement-study.py execute --output evaluation/results/curriculum_improvement_20261009_v2
+python evaluation/run-curriculum-improvement-study.py audit --output evaluation/results/curriculum_improvement_20261009_v2
 ```
 
-### Why these four datasets are positive-only
+Replace `UNIQUE` with a unique lowercase identifier. The first full cell provides
+an elapsed-cost benchmark. Every prospective cell owns a unique Compose project and five
+named volumes; cells run sequentially on ports 50051–50055. An interrupted
+`execute` resumes saved state, retained storage and the controller's exact pending
+request ID. It never resets a model or retries a known rejection as a new attempt.
+Interrupted offline fits require an audited repair; partial output is preserved.
+The v1 supervisor is never resumed: its explicit interruption checkpoint remains
+outside immutable archives. V2 binds imported archive hashes and each original
+execution protocol, unchanged prepared inputs, new source/images, and the user
+instruction. Its semantic primary/qualification criterion changed after fifteen
+observed cells; the study is exploratory rather than untouched confirmation.
+All fresh requests explicitly select semantic only and validate actual execution.
+Reports contain semantic metrics only, with casewise fixture harms and no pooled
+runtime or latency comparison between imported and prospective observations.
+Services stop after each cell. Preserve task volumes until all raw archives and
+durable receipts pass audit; subsequent cleanup must use only the recorded task
+project names. The unrelated builder and existing projects remain outside scope.
+`summary.json` and `audit.json` contain aggregate evidence; raw checkpoints,
+predictions, parameters, IDs and databases remain in ignored results storage.
 
-AI4Privacy, Nemotron, Gretel, and Meddies were mainly created for finding or masking PII inside text. Their labels work like this:
+For ordinary periodic training, the updater accepts
+`FUZZER_CURRICULUM_SAMPLER_POLICY=seeded_family_v1` and a stable unsigned
+`FUZZER_CURRICULUM_SAMPLER_SEED` (for example 42). Base Compose forwards both
+variables and `FUZZ_TRAINING_REPLAY_WEIGHT` to their consuming services. Defaults
+retain `deterministic_v1`, seed 0, and replay weight 0.35. The stable sampler seed
+does not increment with the periodic trainer seed. Seeded sampling also requires
+the existing prepared curriculum manifest/state configuration and a sufficient
+prompt budget; this configuration does not change the ordinary model or gate.
 
-```text
-At least one PII label -> we know the prompt contains PII
-No PII label          -> we do not know for certain that the whole prompt is clean
+`prepare-synthetic-curriculum.py` creates fresh, deterministic grammar, offline
+teacher, and evolved pools. Its required opaque exclusion index is checked before
+output; optional development examples require their exact SHA-256. All contextual
+targets are assistant provisional, and lexical siblings share permanent families.
+
+Use `--teacher-templates evaluation/datasets/synthetic-teacher-templates-v2.json`
+for the versioned revised situation resource at the original 672-row budget.
+Optional `--assessment-resource evaluation/datasets/contextual-assessment-20261009.json`
+freezes a separate 64-row contextual endpoint in `manifest.assessment`, outside
+the training, replay and gate splits. It must also be checked against both
+curriculum versions before matrix execution. The controller accepts
+`--curriculum-sampler-policy seeded_family_v1 --curriculum-sampler-seed 42`;
+the stable allocation seed is distinct from its changing trainer cycle seed.
+The original deterministic sampler remains the default. See the
+[improvement protocol](../docs/fuzzer-curriculum-improvement-process-20261009.md)
+for the controlled matrix and limits on causal and generalization claims.
+
+`compose.continual-fuzzer-study.yml` adds isolated storage and manual training to
+the base plus `compose.tests.yml`. Set a unique `CONTINUAL_STUDY_ID`, the absolute
+prepared directory in `CONTINUAL_STUDY_CURRICULUM`, and
+`CONTINUAL_STUDY_MODEL_ID` to the model being trained. Start the stack with those
+three Compose files and a unique `--project-name`; it exposes ports 50051–50055.
+Automatic startup requests are disabled for this experiment. RPC timeouts remain
+positive; zero would cancel a call rather than accelerate training.
+
+Run the host Python controller against the already running stack:
+
+```powershell
+python evaluation/run-continual-fuzzer-study.py --model-id privoke-balanced --cycles 20 --prompt-count 256 --checkpoints 0,5,10,20 --dataset-file evaluation/results/locked-public/development.jsonl --curriculum-manifest evaluation/results/FRESH/curriculum/manifest.json --output evaluation/results/FRESH/balanced
 ```
 
-A missing label can mean the row is genuinely clean, but it can also mean that the dataset did not label every privacy concern PriVoke understands. If we automatically called every empty row clean, a correct PriVoke detection could be counted as a false positive.
+Switch the fuzzer and updater's configured model together before each profile,
+keeping the isolated model catalog and per-model cursor. Use a fresh output
+directory for each run. `--resume` verifies inputs, archived evidence and live
+identity, and retries only an ambiguous pending request under its exact ID.
+Known gate rejections count as attempts, not accepted updates. Mining examines
+only TRAIN rows, never endpoint examples. Checkpoints archive parameter values,
+row predictions, RPC errors, confusion counts, paired changes and group bootstrap
+intervals for semantic and pipeline detection. Development labels measure binary
+annotation presence, which is not identical to contextual privacy. The controller
+does not promote a model or access final examples. Fixed synthetic guard results
+alone do not establish generalization.
 
-The evaluator therefore uses the reliable part of the ground truth:
+For reproducible live runs, pass `--operational-manifest` pointing to a frozen JSON
+record with `containers` mapping each serving container name to its `image_id`
+and selected `environment` key/value map. The controller uses read-only Docker
+inspection before starting and before every training request; changed images,
+settings, stopped services or changed manifest bytes abort the run. Preserve the
+prospective protocol and source hashes alongside this record. An RPC-only run
+without this argument does not establish that server configuration stayed fixed.
 
-- rows with explicit PII labels are included as sensitive prompts;
-- rows without verified PII labels are excluded and counted in the report;
-- recall shows how many labelled-sensitive prompts PriVoke detected;
-- miss rate shows how many labelled-sensitive prompts PriVoke missed;
-- clean-prompt metrics are `null` because these datasets have no trusted clean comparison class.
+The completed 9 October study made 60 attempts across the three profiles, with
+41 accepted updates. Balanced gained pipeline specificity while losing recall;
+efficient had one semantic correction with no pipeline change; quality retained
+one update with no endpoint prediction changes. See the
+[results and limitations](../docs/continual-fuzzer-results-20261009.md).
+`summarize-continual-fuzzer-study.py --study-root PATH` independently reconciles
+archived predictions, float32 exports, hashes and durable batch allocations;
+it does not read datasets or issue service RPCs.
 
-This does not mean the excluded rows are sensitive. It means their negative label is not strong enough for a fair binary score. These four datasets are supporting recall tests. PIIMB is the main dataset for testing both sensitive and non-sensitive detection.
+The completed six-hour study is reported in
+[`docs/long-fuzzer-results-20261009.md`](../docs/long-fuzzer-results-20261009.md).
+Its tracked safe evidence copies are
+[`summary.json`](../docs/evidence/long-fuzzer-20261009/summary.json),
+[`independent-audit.json`](../docs/evidence/long-fuzzer-20261009/independent-audit.json),
+[`protocol.json`](../docs/evidence/long-fuzzer-20261009/protocol.json) and
+[`provenance.json`](../docs/evidence/long-fuzzer-20261009/provenance.json).
+The independent six-hour audit passed for all three profiles: 1,220 attempts
+and 72 paired metric checks per profile. The summary and audit copies preserve
+their original SHA-256 commitments. The provenance sidecar adds only safe
+aggregate timestamps, source hashes, role-exposure totals and serving image
+IDs; it contains no prompts, row IDs, predictions or model weights.
 
-Do not average different datasets into one score. Some share source material, and each tests different text and PII distributions.
+For a new sustained run, use fresh isolated volumes and a new output path and
+study ID.
 
-## Command options
+New sustained runs use protocol schema 3, `evaluation_layers=["semantic"]`
+and the `sustained-semantic-v1` results contract. The wrapper accepts only
+semantic checkpoint results. Archived combined-detector runs keep their
+original protocol and scores; this change does not reinterpret those archives.
 
-| Option | Simple meaning |
-|---|---|
-| `--dataset piimb` | Choose the dataset. Replace `piimb` with another listed dataset name. |
-| `--samples 500` | Test 500 prompts. |
-| `--samples all` | Test every usable prompt. This can take a long time. |
-| `--sampling balanced` | Choose the same number of sensitive and non-sensitive prompts. Use for PIIMB. |
-| `--sampling random` | Randomly choose prompts. Use for the four positive-only datasets. |
-| `--sampling stratified` | Choose a smaller sample while keeping the original sensitive/clean ratio. |
-| `--sampling sequential` | Use the first prompts found. Use only for a quick setup check. |
-| `--english-only` | Remove non-English prompts before selecting the sample. |
-| `--seed 42` | Make random selection repeatable. The same command and seed choose the same prompts. |
-| `--bootstrap-iterations 2000` | Estimate score uncertainty. Keep `2000` for paper results; use `0` only for quick testing. |
-| `--run-name my_run` | Add `my_run` to the result filename so runs do not overwrite each other. |
-| `--backend streamed` | Use PriVoke's model-streaming backend. |
-| `--backend openai` | Use PriVoke's OpenAI backend. This may cost money. |
+From PowerShell, create a unique lowercase ID and run:
 
-For example:
-
-```bash
-python evaluate.py --dataset piimb --samples 500 --sampling balanced --english-only --seed 42 --backend streamed
+```powershell
+$studyId = "privoke-long-" + [guid]::NewGuid().ToString("N")
+$studyOutput = "evaluation/results/long_fuzzer_$studyId"
+python evaluation/run-long-fuzzer-study.py --output $studyOutput --study-id $studyId
 ```
 
-means: test 500 English PIIMB prompts, choose equal sensitive and clean counts, make the selection repeatable with seed 42, and send the prompts through the streamed PriVoke pipeline.
+The supervisor runs each profile for two hours, pauses 15 seconds between
+requests, measures approximately every 20 minutes, and exports the final
+results. `supervisor.json` records the process and profile status; `results.md`
+and `summary.json` are produced only after all profiles finish. Preserve
+interrupted directories and volumes. The controller's duration mode uses
+`--cycles` as a safety cap, which fails if reached early. An expired deadline
+still resolves an ambiguous pending request under the same ID on `--resume`;
+deadlines are preserved rather than reset. Full parameter snapshots may be
+restricted to checkpoints with `--checkpoint-only-snapshots`, while every
+round still verifies published values.
 
-## Retained datasets
+Elapsed windows include inter-request pauses, mining and checkpoint work;
+reported duration is not GPU compute time. An interrupted window is not
+evidence of uninterrupted training. After a future run completes, execute
+`python evaluation/audit-long-fuzzer-study.py --study-root $studyOutput`.
+The audit requires six hours across profiles by default and independently
+recomputes paired bootstrap intervals with grouped count vectors and inclusive
+quantiles. It also checks archived round/response files, publication identity
+chains, settings and elapsed windows. It reads only study outputs.
+`--minimum-hours 0` is reserved for testing the auditor on the brief integration
+run; it cannot establish the six-hour goal.
 
-| Dataset | Supported use |
-|---|---|
-| [`piimb`](https://huggingface.co/datasets/piimb/pii-masking-benchmark) | Main binary sensitive/non-sensitive sentence benchmark. |
-| [`ai4privacy`](https://huggingface.co/datasets/ai4privacy/pii-masking-300k) | Supporting positive-only general PII recall. |
-| [`nemotron-pii`](https://huggingface.co/datasets/nvidia/Nemotron-PII) | Supporting positive-only English PII/PHI recall. |
-| [`gretel-finance`](https://huggingface.co/datasets/gretelai/synthetic_pii_finance_multilingual) | Supporting positive-only financial PII recall. |
-| [`meddies-pii`](https://huggingface.co/datasets/Meddies/meddies-pii) | Supporting positive-only English healthcare PII recall. It uses an English training split, which must be reported as a limitation. |
-| `local-jsonl` | Optional binary benchmark with explicit user-provided labels. |
+## AdvPIIBench clean-data preflight
 
-Public datasets are pinned to fixed Hugging Face commits. Each result records `metadata.dataset_revision` and Python/library versions so a paper run can be reproduced.
+The pinned AdvPIIBench Parquet was downloaded and its complete 4,258,476 bytes verified against the recorded LFS SHA-256. A count-only structural scan covered 104,728 rows, found unique UIDs throughout, and recorded 24,958 components and 14,496 few-shot exclusions. The local protected-key union was also built from the opaque prior selection, reference/bootstrap rows, and existing Nemotron/Meddies partitions. These checks establish source integrity and structural exclusion coverage only: native labels have not received the required blinded whole-prompt review, and no new train/validation/test partitions, model fit, or score have been produced. See the [dataset analysis](../docs/PII-dataset-analysis.md) and [evidence ledger](../paper/research/data-expansion-ledger.md); the frozen protocol and rubric remain the authority for any later access or fitting.
 
-## Metrics
+## Frozen pretrained contextual head study
 
-For PIIMB, look first at balanced accuracy, sensitive recall, and non-sensitive specificity. F1 and F2 are supporting summaries.
+`run-pretrained-context-study.py` provides separate prepare/freeze/fit/evaluate/operational/secondary/report phases for the fixed 60-family, 640/160/160-row frozen-encoder comparison. Preparation stops before fitting. An accepted concrete resource/protocol review and committed-source freeze with exact byte inventory are mandatory before fit; all six validation selections precede assessment scoring. See the [completed study and frozen procedure](../docs/semantic-pretrained-context-study-20261010.md) for exact settings, exclusions, target conventions, gates and limitations.
 
-For positive-only datasets, only sensitive recall and miss rate are supported.
+Recreate a dedicated Python 3.13.2 environment from `extension/client-runtime/requirements-pretrained-context.txt` before a local rerun; the ignored study environment is disposable and is not a distributed dependency. The recorded runs used `evaluation/results/semantic_improvement_20261010_assets/.venv/Scripts/python.exe`. Then set `PRIVOKE_MODEL_DEVICE=cpu`, and keep TEMP/TMP under that asset directory's `tmp/`. The admitted NumPy 2.2.6 / ONNXRuntime 1.23.2 / tokenizers 0.22.1 environment is separate from ordinary host evaluation dependencies. The tool never starts services, publishes artifacts or promotes a model. Actual runtime phases require an isolated server attestation and explicit semantic-only responses, including used-model identity for pretrained clean empty results.
 
-| Metric or field | Meaning |
-|---|---|
-| Balanced accuracy | Average of recall and specificity. It gives sensitive and non-sensitive prompts equal importance and is the main binary score. |
-| Sensitive recall | Percentage of sensitive prompts PriVoke detected. Higher is better. |
-| Miss rate / false-negative rate | Percentage of sensitive prompts PriVoke missed. It equals `1 - recall`. Lower is better. |
-| Non-sensitive specificity | Percentage of non-sensitive prompts PriVoke correctly did not detect. Higher is better. |
-| False-positive rate | Percentage of non-sensitive prompts incorrectly detected as sensitive. It equals `1 - specificity`. Lower is better. |
-| Precision | Of all prompts detected as sensitive, the percentage actually labelled sensitive. |
-| Negative predictive value | Of all prompts not detected, the percentage actually labelled non-sensitive. It depends on class balance. |
-| F1 | Combines precision and recall with equal weight. |
-| F2 | Combines precision and recall while giving recall more weight. This is useful when missed PII matters more than extra detections. |
-| Accuracy | Percentage of all predictions that were correct. It is saved but is not the main score because imbalance can make it misleading. |
-| Ground-truth sensitive rate | Percentage of evaluated prompts labelled sensitive. This shows the evaluated class balance. |
-| Predicted sensitive rate | Percentage of evaluated prompts PriVoke classified as sensitive. A large difference from the ground-truth rate can reveal over- or under-detection. |
-| Prompt detection recall by source category | Prompt-level recall grouped by dataset source labels. It does not prove exact category or span detection. |
-| Successful-analysis coverage | Percentage of selected prompts that received a valid runtime response. A paper run should have 100% coverage. |
-| Runtime error rate | Percentage of requests that failed. A run with errors is marked unsuitable for paper reporting. |
-| 95% confidence interval | Uncertainty range around a sample score. It is not another performance score. Narrower is more precise. |
+The corrected preparation is `evaluation/results/semantic_pretrained_20261010/prepared-v3/`; preceding preparations are preserved in the parent and `prepared-v2/` directories. All six primary assessments and operational runs completed; synthetic gains passed the fixed gain criteria, but one repeated child-care action regression failed qualification. The seven amended secondary comparisons retained six explicit overlength errors and a distinct repeated credential-action regression. No model was promoted. Original primary inputs, results and the failed secondary attempt remain immutable. The later 512-token extension has nine functional RPC checks, not a new quality evaluation. [Public projections and the standard-library reproducer](../docs/evidence/semantic-pretrained-20261010/README.md) recompute arithmetic without a model environment or private prompt text. Historical fixture topic-category labels differ from the new asserted-personal-disclosure target convention; reused development and fixture guards remain separate secondary evidence.
 
-### TP, TN, FP, and FN
+## Existing v1/v2/v3 host comparison
 
-| Count | Meaning |
-|---|---|
-| True positive (`TP`) | Sensitive prompt detected correctly. |
-| False negative (`FN`) | Sensitive prompt not detected. |
-| True negative (`TN`) | Non-sensitive prompt correctly not detected. |
-| False positive (`FP`) | Non-sensitive prompt incorrectly detected as sensitive. |
+[The completed comparison](../docs/model-generation-comparison-20261013.md) reports all 14 snapshots in the predeclared comparison inventory, including its six v2 effective terminals and the distinct raw-rejected quality v3/control pair; v2 efficient/quality are unavailable. The maintained host entry point is `run-v123-comparison.py`: `prepare`, `smoke`, then accepted `run --model <frozen-name>` commands and `analyze`. The completed immutable paths under `results/v123_comparison_20261013/` must not be overwritten by a blind rerun. Reproduction needs fresh assigned paths and its own protocol/preflight acceptance.
 
-Example:
+Host Python drives every raw RPC and dataset loop; `compose.v123-comparison.yml` hosts only isolated CPU servers. Explicit semantic `[4]` and returned execution/identity checks isolate the layer. Three fresh processes per artifact provide fixed-workload p50/p95 ranges and PID1 lifetime memory; only replicate one scores the four reused DEVELOPMENT/support fixtures. All 13,076 accuracy requests were retained, with 12,978 eligible and 77 native over-cap v2 runtime errors counted incorrect. Accepted cleanup released the project containers/network and ports; image/assets/evidence remain retained. This comparison fits no models and promotes none; native windows/backends/hints and artifact histories prevent causal generation rankings.
 
-```text
-TP = 36, FN = 14 -> recall = 36/50 = 72%
-TN = 40, FP = 10 -> specificity = 40/50 = 80%
-Balanced accuracy = (72% + 80%) / 2 = 76%
-```
+## Full-encoder privacy fine-tuning
 
-`76% (95% CI 67%-84%)` means the measured score is 76%, with an estimated uncertainty range of 67% to 84%. Keep the default 2,000 bootstrap iterations for reported experiments. The evaluator uses Wilson intervals for simple rates such as recall and specificity, so even an observed 100% score retains honest uncertainty. It uses source-document bootstrap groups for related PIIMB sentences and bootstrap intervals for composite scores such as balanced accuracy and F-scores.
+[The EN3 record](../docs/privacy-encoder-training-v3.md) documents the fixed continuation from all three PH3 selected packages. Host `run-privacy-encoder-v3.py` jointly updates encoder, pooler and task heads on the same 6,240 TRAIN rows, selecting among trained epochs with 1,560 validation rows. All three serial CPU fits completed: 24/19, 19/14 and 9/4 new joint epochs completed/selected for efficient, balanced and quality. All 52 checkpoints and six selected/terminal exports passed independent audit; every encoder, pooler and head tensor changed. A direct six-asset PyTorch 2.12-to-2.11 native parity supplement matched logits/classifications/confidence/actions exactly on 16 validation rows per asset. The earlier PH3 fresh fixture is now reused DEVELOPMENT and did not select EN3 checkpoints. Exact case/target pairing and explicit requested/actual semantic layer `[4]` with native identity yielded zero errors across 4,680 new accuracy RPCs. Joint correctness rose from 358/396/360 to 858/889/888 of 1,560, with 38/66/32 same-case joint regressions still visible. Full per-category, action-harm and provenance details are in the linked record. These synthetic results do not establish fresh generalization, latency speedup or production safety.
 
-`evaluated_samples` counts valid predictions. Runtime failures are recorded separately as `runtime_errors`, `sensitive_runtime_errors`, and `non_sensitive_runtime_errors`. `paper_result_valid` is true only when runtime errors are zero.
+## Audience coverage and fresh V3 continuation comparison
 
-`metadata.prediction_diagnostics` records returned sensitivity, category, and action counts. These are debugging distributions rather than additional performance scores. They help explain results such as 100% recall by showing what PriVoke actually returned across successful prompts.
+[The AU3 record](../docs/audience-v3-training.md) documents the normal automatic TRAIN-only audience sampler and all-three continuation from current EN3 selected packages. The [data guide](../docs/audience-v3-data.md) covers pinned source/guard packaging, explicit legacy compatibility and deterministic replay/source fingerprints. Actual normal HEADS/FULL network pilots passed; separate bounded V3 HEADS/FULL fits were guard-rejected rather than promoted. Host `run-audience-v3.py` owns the separately admitted full-model study; `audience-v3-server.py` hosts native semantic-only packages.
 
-## Handling class imbalance
+Efficient/balanced/quality completed/selected 16/11, 11/6 and 9/4 new joint epochs on TRAIN 9,360 with NEW validation 1,560. All six selected/terminal exports and direct Torch 2.12 CPU versus 2.11 native VAL 16 captures passed bounded audit. After all package seals, the six selected before/after models were newly scored on the same fresh 1,560 cases, with explicit requested/actual sole `[4]`, native identities, empty hints and errors counted incorrect. The 9,360 new accuracy RPCs had zero errors; 24 warmups are separate. Independent raw/paired/294-interval reconciliation passed. Joint correctness rises 262→922, 267→972 and 429→1,209 of 1,560; visibility rises 660→1,265, 718→1,269 and 712→1,445. Same-case joint regressions remain 20/27/12. Efficient sensitive recall falls 794→791/810 and CHILD F1 falls; efficient/balanced S3 recall falls. Under-restriction rises 10→31 and17→30 cases, with 24/20 paired worsenings; quality has zero observed policy-action distance but retains category/contextual regressions. The report includes full component/category, paired harm, separate family/expression interval, epoch and provenance tables. Assistant-provisional labels and dependent synthetic groups limit generalization; no causal architecture claim or production promotion follows. Reproduction needs fresh assigned paths, protocol-bound acceptances and captured working-source bytes.
 
-Class imbalance means one class has many more prompts than the other. For example:
+## Privacy-head training and fresh V1 comparison
 
-```text
-950 sensitive prompts
- 50 clean prompts
-```
+[The PH3 record](../docs/privacy-head-training-v3.md) separates base/encoder/head histories, actual completed/selected epochs and admitted exports from the earlier V3 FULL42 study. `prepare-privacy-heads-v3.py` and the maintained fuzzer adapter produced the immutable R3 6,240/1,560/1,560-row TRAIN/validation/fresh release. Host `run-privacy-heads-v3.py` owns protocol, TRAIN/validation caches, fixed heads-only fits, export audit and the sealed six-model comparison; no Python test or dataset loop runs in a driver container. New runs require fresh assigned paths and protocol-bound acceptance.
 
-A detector that always says “sensitive” would have 95% ordinary accuracy on that dataset, even though it never identifies a clean prompt correctly.
+All three fits completed 32/30/30 epochs, selecting 12/7/4, with zero new encoder/pooler updates. The original export check falsely compared classification object identities; the separately bound `finalize-privacy-heads-v3-exports.py` corrects value-parity validation without refitting or changing the frozen training source. All selected/terminal exports passed independent audit. Fresh selected-V3 versus unchanged-V1 RPCs require explicit/actual `[4]` and model identities, empty hints, retained raw evidence and error-inclusive denominators. Independent raw-response reconciliation passed all 9,360 fresh RPCs with zero errors. Joint correctness improves from 51/105/22 to 358/396/360 of 1,560 for efficient/balanced/quality; category-bearing joint correctness improves from zero to 64/77/48 of 720. Balanced clean specificity declines from 674 to 520 of 750, and quality sensitive recall declines from 709 to 663 of 810. Full per-category, confusion, action-harm, paired and descriptive latency tables are retained in the linked record; assistant-provisional synthetic labels do not establish production safety.
 
-We handle this without changing or retraining PriVoke:
+## Experimental pretrained v3 host study
 
-1. The main PIIMB command uses `--sampling balanced`, selecting equal sensitive and non-sensitive counts.
-2. Balanced accuracy gives sensitive recall and clean specificity equal importance.
-3. Recall and specificity are also shown separately, so good performance on one class cannot hide poor performance on the other.
-4. The report saves both the original and selected class counts, making the sampling visible.
-5. A full-dataset run can be reported separately to show performance under the original class distribution.
+[The v3 study record](../docs/pretrained-v3-study.md) documents
+`run-pretrained-v3-study.py` and `prepare-pretrained-v3.py`. Use the dedicated
+`evaluation/.venv-v3-study` Python 3.11 host environment and `evaluation/setup-host.py`
+for protobuf bindings; raw tests, controllers, scoring and dataset loops run on
+the host. `compose.pretrained-v3-study.yml` hosts only isolated servers.
+The selected environments use Torch 2.11.0 CPU on the host and 2.11.0+cu128
+on the GPU server, with Transformers 4.57.6. Three accepted resource pilots
+selected 256 steps for the frozen 18-cell HEADS/FULL matrix. All 18 fits completed;
+all 21 snapshots completed with 19,614 requested cases, 19,467 eligible cases and
+zero errors. Paired descriptive analysis, fixed FULL seed-42 exports and project
+cleanup were accepted on 13 October 2026 (Sydney). The
+linked study record preserves failed starts and the explicit host-only post-fit
+readiness/audit amendment; score/analyze/export require its `--audit-amendment`
+path, while training/default validation retain the original strict closure.
+All requests explicitly select
+and verify semantic execution; immutable reservations/status recovery prevent
+replacement fits after unknown outcomes. Reused context320/context64 DEVELOPMENT
+and separate binary/hazard endpoints are not protected-final evaluation.
 
-Balanced sampling does not create, duplicate, or rewrite prompts. It only selects the same number from each class.
+## Full Tiny online training mechanics
 
-## OpenAI backend
+`prepare-underlying-training-model.py` prepares a separate versioned artifact without fitting or installing it. Supply a validated Tiny `--input`, new `--output`, distinct `--version`, positive `--generated-at-unix` and exact 40-character `--source-revision`. The CLI defaults `--max-tokens` to 256 total tokens: at most 255 content tokens plus one start token. It preserves the original position prefix and every other weight coordinate, appending deterministic SHA-256-initialized position rows when needed. It refuses output overwrite and artifacts carrying an uncleared recovery receipt; live receipt migration belongs to the locked deployment bootstrap, not this offline CLI.
 
-The standard Docker stack starts `client-runtime` with the streamed backend, so use `--backend streamed`. The evaluator deliberately does not reconfigure the running service. An OpenAI comparison requires restarting `client-runtime` with its OpenAI backend and credentials configured; do not pass `--backend openai` to a streamed runtime.
+The explicit full-Tiny strategy enables `RunUnderlyingTrainingCycle` / `ComputeUnderlyingModelGradients`; the head endpoint remains separate. Both runtime requests must explicitly select only the semantic layer and return verified training/base-heldout/candidate-heldout phase records. Empty or mixed layer lists are errors. The automatic requester sequences the two independently guarded publications with durable stage IDs and a fresh acknowledged base. This is supervised contextual task training, not general language pretraining or evidence of quality improvement. See the [implementation/evidence record](../docs/fuzzer-underlying-training-20261010.md) for the accepted source, validation status and limits. Preserve historical study artifacts and disable automatic training during controlled comparisons.
 
-## Automatic data checks
+The accepted local four-service smoke completed two publications (HEAD then FULL), actual semantic-only phase checks, a nine-request context boundary matrix, replay/admission checks, all-service restart and a fresh strict-negative guard. It is a fixed synthetic mechanics test, not a quality benchmark; failed attempts and S1 reconstruction limits are retained in the linked record. The maintained [CI workflow](../.github/workflows/service-stack-ci.yml) runs its dedicated `semantic-training` job by default on push/PR. The separate full-product `docker-stack` job runs only with explicit `allow_product_pipeline=true`; dispatch/call defaults are false, while deployment calls opt in for their separate product-integration purpose. [hosted run 38032520611](https://github.com/Densetsu152637/Privoke-Research-Project/actions/runs/38032520611) passed on tested implementation revision `2ce3879c60c78fbc1c396b351043ccc880bbcc90`: five active jobs succeeded and the product job was skipped. The first hosted attempt failed validation before jobs because of unsupported job-level `runner.temp`; the three-line workflow correction and full chronology are retained in the implementation record. Hosted results are separate from the local smoke counts above and do not claim later documentation revisions were tested.
 
-The evaluator:
+Use the record's Linux container helper recipe with UID/GID `10001:10001`, task state mounted at `/state`, model seeds mounted read-only at `/workspace/models`, and internal service DNS targets. Keep live SQLite access inside the Linux storage boundary. Reproduce into fresh isolated state; do not overwrite retained studies or enable the product-pipeline flag for LLM-only testing.
 
-- validates labels, PII span types, category names, and character offsets;
-- excludes malformed public-source rows and records their counts;
-- excludes unverified empty annotations from positive-only datasets;
-- filters language before duplicate removal and sampling;
-- normalizes outer whitespace exactly as `AnalyzePrompt` does;
-- removes duplicate effective prompts;
-- excludes public prompts with conflicting duplicate labels;
-- pins public dataset revisions;
-- records selected IDs, source-document groups, exclusions, class counts, seed, and a selection digest;
-- validates runtime classification values before scoring;
-- reports errors rather than treating them as predictions;
-- records software versions and category-grouped prompt recall.
+## Accelerated training across model surfaces
 
-These checks prevent known loading and scoring loopholes. They cannot prove that every published annotation is contextually perfect.
+`run-accelerated-training-surfaces-study.py` owns the frozen all-surface
+protocol. Its `plan`, `render-assessment`, `prepare` and `preflight` operations do
+not fit models. `freeze` requires an internal root acceptance receipt bound to
+source, images, assessment and review hashes. `execute --cell CELL_ID` runs one
+fixed-budget isolated trajectory; `execute --cell all` uses prospectively
+accepted hardware concurrency. `audit` and `report` independently reconcile
+raw evidence and fixed-final paired comparisons, writing `audit.json` and
+`summary.json` respectively; their contents must agree.
 
-## Results and tests
+See [the complete study protocol](../docs/accelerated-training-surfaces-study-20261010.md)
+for the 168-cell matrix, native offline budget exceptions, mandatory semantic
+execution assertions, config/approval schemas and commands. This entrypoint
+never invokes legacy product-pipeline studies or protected-final input.
 
-Results are saved as:
+`prepare-training-policy.py --optimizer full_projected_adam64_v1` prepares the
+fixed experimental FULL Adam policy only with
+`--objective class_balanced_contextual_sum_category_decision_margin_v1
+--diagnostics off`, a source artifact and a frozen `--protocol`. Supply distinct
+new `--output` and `--provenance` paths. Preparation preserves tensor coordinates
+and grants no fitting authority; existing optimizer/backtracking mixtures fail.
+Runtime admission must explicitly bind optimizer, candidate eligibility, exact
+config and scope. Experimental workers require startup `OMP_NUM_THREADS=1` and
+`MKL_NUM_THREADS=1`, actual Torch threads one, and durable
+`PRIVOKE_FUZZER_DUMP_DIR`. FULL uses the 180-second experimental deadline, while
+defaults retain ten seconds. See [runtime](../docs/runtime/client-runtime.md)
+and [fuzzer](../docs/services/fuzzer.md) for trace, strict gate, accounting and
+publication contracts. Stored-gradient arithmetic replay is distinct from model
+execution, fitting or quality evaluation.
 
-```text
-results/<dataset>_pipeline_<backend>_<run-name>_results.json
-```
+The completed 10 October study covers 111 online and 57 offline trajectories.
+Its record reports every configuration: none of 56 qualified under the frozen
+gain/harm rules. Six scratch configurations lacked specificity gain headroom;
+overall contextual joint gains mostly came from clean controls. Reused-secondary
+overlength errors remain visible. These results do not promote a model or test
+a conversational-prompt effect. Matching maintained audit/report outputs and
+independent count reconciliation passed. The [public aggregate package](../docs/evidence/all-surfaces-20261010/README.md)
+binds the accepted raw inputs and supplies reproducible projections.
+# Frozen TRAIN window preparation
 
-Run tests from the repository root:
+`prepare-train-window.py` freezes eight BC01 blocks with all 20 permanent TRAIN families, their actual transformed wire rows and unchanged 16-row guard. Its deterministic seed search is bounded at 64 candidates. `prepare-component-retention.py` authenticates already-produced full ORIGINAL task logits; it performs no teacher inference and requires an independently accepted teacher-file SHA. Both emit `fit_release: false`. `prepare-training-policy.py` accepts the separate window optimizer with explicit accepted window/component manifest pins. `compose.train-window.yml` provides opt-in fuzzer/runtime environment and read-only sidecar mounts against an explicitly prepared research model store.
 
-```bash
-PYTHONPATH=evaluation evaluation/.venv/bin/python -m unittest discover -s evaluation/tests -v
-```
-
-Keep the `tests/` folder in the repository. It is not loaded during an evaluation run, but it verifies dataset schemas, language filtering, sampling, duplicate handling, metric calculations, runtime-response validation, and report generation. This is important evidence that changes to the evaluator have not silently changed the research results.
-
-The `results/` folder contains generated experiment output rather than source code. Keep results needed for the paper locally or archive them with the paper artifacts; new JSON reports are ignored by Git to prevent accidental commits.
+Checkpoint selection uses TRAIN window and authenticated ORIGINAL TRAIN references only; development/final inputs are never available to this route. BASE/steps8…64, 64 gradient directions, main/auxiliary row work and selected-versus-terminal fingerprints are recorded separately. Only one selected nonBASE candidate receives the unchanged guard comparison; failure produces known no-update. Synthetic mechanics tests cannot establish efficacy, and all historical combined-detector scores retain their historical interpretation.

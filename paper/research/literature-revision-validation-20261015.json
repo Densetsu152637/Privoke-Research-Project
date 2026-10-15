@@ -1,0 +1,483 @@
+{
+  "status": "compiled_and_visually_reviewed",
+  "output_pdf": {
+    "bytes": 366174,
+    "identical_to_build": true,
+    "pypdf_audit": {
+      "page_count": 13,
+      "text_characters": 72425,
+      "replacement_characters": 0,
+      "has_interaction_table_caption": true,
+      "has_notice_observation_discussion": true,
+      "has_prosan_qualification": true,
+      "metadata": {
+        "title": "None",
+        "author": ""
+      }
+    },
+    "sha256": "313d92556e472728deed360297984b988ab045aac89dfe402ae0202455f1f5f9",
+    "path": "output/pdf/privoke-literature-revision-20261015.pdf",
+    "pdfinfo": "Title:           \r\nSubject:         \r\nKeywords:        \r\nAuthor:          \r\nCreator:         LaTeX with hyperref\r\nProducer:        MiKTeX pdfTeX-1.40.29\r\nCreationDate:    Thu Oct 15 19:59:32 2026 AUS Eastern Summer Time\r\nModDate:         Thu Oct 15 19:59:32 2026 AUS Eastern Summer Time\r\nCustom Metadata: yes\r\nMetadata Stream: no\r\nTagged:          no\r\nUserProperties:  no\r\nSuspects:        no\r\nForm:            none\r\nJavaScript:      no\r\nPages:           13\r\nEncrypted:       no\r\nPage size:       612 x 792 pts (letter)\r\nPage rot:        0\r\nFile size:       366174 bytes\r\nOptimized:       no\r\nPDF version:     1.5",
+    "build_copy_sha256": "313d92556e472728deed360297984b988ab045aac89dfe402ae0202455f1f5f9"
+  },
+  "schema_version": 1,
+  "source_commit": "2b5cf75149d146d73a8ba1227c936c444b75c9f9",
+  "validated_at_utc": "2026-10-15T09:03:45.7343430Z",
+  "preserved_user_dirty_bibliography": {
+    "not_overwritten_or_staged_by_worker": true,
+    "path": "paper/ref.bib",
+    "preserved": true,
+    "sha256": "84769bf62dbf21c15edcdc213d31a0bcea4ed08d593c1a77d3a789313cfd986e"
+  },
+  "main_git_blob_oid": "c79178e609855e75f08ef88b300f460119c0ccbf",
+  "evidence_files": [
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/command-01.stderr.log",
+      "bytes": 73,
+      "sha256": "49f853203483e5a3b14ec9e1c21f3e8121a2b9270fc54c72b312711434035538"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/command-01.stdout.log",
+      "bytes": 17294,
+      "sha256": "3c5062e43ab0edc2ffe458945705d4acf29d04ba430a53655f50e06382f6374c"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/command-02.stderr.log",
+      "bytes": 71,
+      "sha256": "70f537688d5a73847390b216e0031a91110afcceb7902b6cb68d6e52fd7762e0"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/command-02.stdout.log",
+      "bytes": 485,
+      "sha256": "f9354a96dfc23f8de0cba3befccc98a61182114271b7d5f455a6a63d74e9d9cc"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/command-03.stderr.log",
+      "bytes": 73,
+      "sha256": "49f853203483e5a3b14ec9e1c21f3e8121a2b9270fc54c72b312711434035538"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/command-03.stdout.log",
+      "bytes": 17113,
+      "sha256": "5cd165b137c8f22a0d65fcbb18709f14fa0b79f6ccb18d2aeb7064cd31a64c2d"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/command-04.stderr.log",
+      "bytes": 73,
+      "sha256": "49f853203483e5a3b14ec9e1c21f3e8121a2b9270fc54c72b312711434035538"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/command-04.stdout.log",
+      "bytes": 13091,
+      "sha256": "7d299886dee30764340c845cf70b77f8f80a53c105df1eff7c932fc5d1b51c97"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/pdffonts.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/pdffonts.txt",
+      "bytes": 2280,
+      "sha256": "948d5776883e904bfc23654f310d1b53a34fbd8a38e7f0d31fb4f381d0ee7ce1"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/pdfinfo.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/pdfinfo.txt",
+      "bytes": 615,
+      "sha256": "3569f7d490ea53685f8b01d67a9a5e37e45a3d514bc783670b00a96f07fdec9e"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/pypdf-audit.json",
+      "bytes": 234,
+      "sha256": "7214629859a2a7e84ebf8d801afa5c7c55a0c15b2be93d298f6a04aac5b9a1a5"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/render.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/render.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/build/privoke-literature-revision-20261015.aux",
+      "bytes": 14488,
+      "sha256": "729c70bab2aa70b0876b5e9ca6ec8be90b0d61277249ddaadbfdc8a1b2f2a64b"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/build/privoke-literature-revision-20261015.bbl",
+      "bytes": 7924,
+      "sha256": "3f08e2ce30298b7bc4f4bcbe8a565adebd522585ab17f7cd197b276d016a6889"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/build/privoke-literature-revision-20261015.blg",
+      "bytes": 1547,
+      "sha256": "16d8a2ef9a775f96c3fd227b41db0c8823308ef1beb48f35421258155f112753"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/build/privoke-literature-revision-20261015.log",
+      "bytes": 30079,
+      "sha256": "13a1e25e3200f759b9422bad8c0c16de62155a4058516958cbcd1f8a042e4b0a"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/build/privoke-literature-revision-20261015.out",
+      "bytes": 5865,
+      "sha256": "ba6d2bcfc11a732dc7af48e771c88c50cde67a9b1894a8ecc68fb23e4b477c4c"
+    },
+    {
+      "path": "evaluation/results/literature_revision_20261015/final-primary-01/build/privoke-literature-revision-20261015.pdf",
+      "bytes": 366174,
+      "sha256": "313d92556e472728deed360297984b988ab045aac89dfe402ae0202455f1f5f9"
+    }
+  ],
+  "visual_review": {
+    "issues": [],
+    "independent_root_review": {
+      "method": "Independently inspected all 13 complete PNGs; reported no clipping, overlap, missing glyph, figure or table defects; Tables I/II, page 7 instrumentation and page 12 utility gap readable.",
+      "verdict": "pass",
+      "reviewer": "Root",
+      "pages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    },
+    "method": "Opened and inspected all 13 actual 125-dpi page PNGs at full page resolution.",
+    "reviewer": "Manuscript worker",
+    "verdict": "pass"
+  },
+  "cessation": {
+    "compiler_and_render_commands_completed": true,
+    "background_processes_started": false,
+    "authorized_outputs": [
+      "output/pdf/privoke-literature-revision-20261015.pdf",
+      "paper/research/literature-revision-validation-20261015.json"
+    ],
+    "existing_primary_source_modified_during_pdf_phase": false,
+    "old_pdf_overwritten": false,
+    "primary_git_mutations_by_worker": false
+  },
+  "compile": {
+    "installer_disabled": true,
+    "packages_installed": false,
+    "diagnostics": {
+      "notes": "MiKTeX logged its update-check notice to stderr. No installer or package operation occurred. The 22 underfull hbox notices were visually reviewed; no overfull boxes, unresolved references/citations, missing glyphs or LaTeX errors.",
+      "underfull_hboxes": 22,
+      "missing_glyphs": false,
+      "latex_errors": false,
+      "undefined_citations": false,
+      "bibtex_warning_count": 0,
+      "overfull_hboxes": 0,
+      "undefined_references": false
+    },
+    "engine": "MiKTeX pdfTeX 1.40.29",
+    "commands": [
+      {
+        "exit_code": 0,
+        "stdout": "evaluation/results/literature_revision_20261015/final-primary-01/command-01.stdout.log",
+        "cwd": "paper",
+        "program": "C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/miktex/bin/x64/pdflatex.EXE",
+        "stderr": "evaluation/results/literature_revision_20261015/final-primary-01/command-01.stderr.log",
+        "arguments": [
+          "--disable-installer",
+          "-interaction=nonstopmode",
+          "-halt-on-error",
+          "-output-directory=<build>",
+          "-jobname=privoke-literature-revision-20261015",
+          "main.tex"
+        ],
+        "step": 1
+      },
+      {
+        "exit_code": 0,
+        "stdout": "evaluation/results/literature_revision_20261015/final-primary-01/command-02.stdout.log",
+        "cwd": "paper",
+        "program": "C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/miktex/bin/x64/bibtex.EXE",
+        "stderr": "evaluation/results/literature_revision_20261015/final-primary-01/command-02.stderr.log",
+        "arguments": [
+          "<build>/privoke-literature-revision-20261015"
+        ],
+        "step": 2
+      },
+      {
+        "exit_code": 0,
+        "stdout": "evaluation/results/literature_revision_20261015/final-primary-01/command-03.stdout.log",
+        "cwd": "paper",
+        "program": "C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/miktex/bin/x64/pdflatex.EXE",
+        "stderr": "evaluation/results/literature_revision_20261015/final-primary-01/command-03.stderr.log",
+        "arguments": [
+          "--disable-installer",
+          "-interaction=nonstopmode",
+          "-halt-on-error",
+          "-output-directory=<build>",
+          "-jobname=privoke-literature-revision-20261015",
+          "main.tex"
+        ],
+        "step": 3
+      },
+      {
+        "exit_code": 0,
+        "stdout": "evaluation/results/literature_revision_20261015/final-primary-01/command-04.stdout.log",
+        "cwd": "paper",
+        "program": "C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/miktex/bin/x64/pdflatex.EXE",
+        "stderr": "evaluation/results/literature_revision_20261015/final-primary-01/command-04.stderr.log",
+        "arguments": [
+          "--disable-installer",
+          "-interaction=nonstopmode",
+          "-halt-on-error",
+          "-output-directory=<build>",
+          "-jobname=privoke-literature-revision-20261015",
+          "main.tex"
+        ],
+        "step": 4
+      }
+    ]
+  },
+  "artifact_operation_marker": {
+    "success": true,
+    "skill_version": "26.1013.11914",
+    "run_count": 1,
+    "operation_kind": "create",
+    "expected_output_count": 1,
+    "output_format": "pdf",
+    "script": "C:/Users/Nicholas/.cache/codex-runtimes/codex-primary-runtime/plugins/openai-primary-runtime/plugins/pdf/skills/pdf/container_tools/mark_artifact_operation_started.mjs"
+  },
+  "code_alignment": {
+    "tests": {
+      "evidence": "Root-reported scoped host synthetic contract tests; not a browser study or full suite.",
+      "source_revision": "1aefd62ef6197d39a7475964576804eb4fd2103c",
+      "failed": 0,
+      "command": "node --test extension/test/content-script.test.js extension/test/page-interceptor.test.js",
+      "skipped": 0,
+      "exit_code": 0,
+      "passed": 53
+    },
+    "files": [
+      {
+        "path": "docs/runtime/utility-observations.md",
+        "bytes": 4831,
+        "sha256": "6b70b39d219d5e74d134156176cee03ee02b43f2619c1ea90e23feff045e329d"
+      },
+      {
+        "path": "extension/src/page-interceptor.js",
+        "bytes": 13722,
+        "sha256": "ad8f52611631b6b039aeb06ca9d00f09e6a03e3acba3813beaba8de1589e8376"
+      },
+      {
+        "path": "extension/src/content-script.js",
+        "bytes": 7949,
+        "sha256": "8e242bc959fb837436e88dd0edd465cbb2025a9ea8a8a3d745966f38dae97f52"
+      },
+      {
+        "path": "extension/dist/page-interceptor.js",
+        "bytes": 18705,
+        "sha256": "9c3c826289b86ddd2426199eef1bd3003141e5185018cdf747a184c93bd77528"
+      },
+      {
+        "path": "extension/dist/content-script.js",
+        "bytes": 8643,
+        "sha256": "4f11c2ad6293a8763ddd91e1358c0b5e07fec4698b7003d3b72d210df62c8733"
+      },
+      {
+        "path": "extension/test/page-interceptor.test.js",
+        "bytes": 21684,
+        "sha256": "8b73f986234c73a2eb203718f7173125e70c9eb6f80731c0967b71df4f651f7c"
+      },
+      {
+        "path": "extension/test/content-script.test.js",
+        "bytes": 6725,
+        "sha256": "e681b997a2b7aa6296d968fcdd3376319cacc1df80916f861ef3da8168739d88"
+      },
+      {
+        "path": "extension/scripts/build.mjs",
+        "bytes": 2592,
+        "sha256": "f55f5dd0deaac522b32dedf3cc031959eef80bf39aa32327c1511375fe8eb1dd"
+      }
+    ],
+    "build": {
+      "command": "node extension/scripts/build.mjs",
+      "exit_code": 0,
+      "evidence": "Implementation worker reported build exit zero; only task-regenerated extension/src/generated/runtime.js was restored to HEAD because the protobuf schema was unchanged. Ignored dist bundles retain the new observations and are hash-bound below.",
+      "source_revision": "1aefd62ef6197d39a7475964576804eb4fd2103c"
+    },
+    "code_commit": "1aefd62ef6197d39a7475964576804eb4fd2103c"
+  },
+  "main_raw_sha256": "6c683d08571fa4d61db5f1d9d0d19f87f037338b13a8b3aed5d55d7435b9abf6",
+  "fonts": {
+    "file": "evaluation/results/literature_revision_20261015/final-primary-01/pdffonts.txt",
+    "command": "MiKTeX pdffonts.EXE",
+    "output_sha256": "948d5776883e904bfc23654f310d1b53a34fbd8a38e7f0d31fb4f381d0ee7ce1",
+    "all_embedded": true,
+    "exit_code": 0,
+    "type3_present": false,
+    "entry_count": 22
+  },
+  "scope": "Literature-informed manuscript revision with tested client-observation protocol alignment; artifact compiled to a new output path, all pages inspected; no new user-utility result claimed.",
+  "source_inputs": [
+    {
+      "path": "paper/main.tex",
+      "bytes": 71525,
+      "sha256": "6c683d08571fa4d61db5f1d9d0d19f87f037338b13a8b3aed5d55d7435b9abf6"
+    },
+    {
+      "path": "paper/ref.bib",
+      "bytes": 24990,
+      "sha256": "84769bf62dbf21c15edcdc213d31a0bcea4ed08d593c1a77d3a789313cfd986e"
+    },
+    {
+      "path": "paper/research/paper-completion-sources-20261014.bib",
+      "bytes": 338,
+      "sha256": "e5ff78f57c9852410fe6643f071888679d3c99edc93cf6ae1461dfbc39fbea87"
+    },
+    {
+      "path": "paper/manuscript-completion-sources-20261014.bib",
+      "bytes": 1079,
+      "sha256": "ba866866c94bd3be393a75602a84a7a519d5c76f89e9f899693715d07eda76d9"
+    },
+    {
+      "path": "paper/research/literature-baseline-sources-20261015.bib",
+      "bytes": 761,
+      "sha256": "f199916c3553a7d3b3361300165fe9eda070b5d7dfaec832863b75301836cce1"
+    },
+    {
+      "path": "paper/figures/results-pipeline-v1-v3.pdf",
+      "bytes": 25516,
+      "sha256": "0d38be5fc0a8a383e5c5dfa264441722b91f2733a9e7d3547e48d4a15ae0dd15"
+    },
+    {
+      "path": "paper/figures/results-pipeline-presidio-reference.pdf",
+      "bytes": 22108,
+      "sha256": "c556a1fa086755b77b780e2c9a2f2b61d227d2307306a16c5ccc752c2ad294fb"
+    }
+  ],
+  "render": {
+    "program": "Poppler pdftoppm.EXE",
+    "dpi": 125,
+    "exit_code": 0,
+    "pages": [
+      {
+        "bytes": 509306,
+        "sha256": "7b8c435606001f00bf78380474a3bd4870c5faea509fb1502a247fb16d8e8040",
+        "verdict": "pass",
+        "inspection": "Title, authors, abstract and introduction; legible.",
+        "path": "evaluation/results/literature_revision_20261015/final-primary-01/pages/page-01.png",
+        "page": 1
+      },
+      {
+        "bytes": 483155,
+        "sha256": "181970816b3246dfe64ec8192e568b990006a7bce85aaefdcb4906240232dd09",
+        "verdict": "pass",
+        "inspection": "Introduction, contribution bullets, related work and transition; legible.",
+        "path": "evaluation/results/literature_revision_20261015/final-primary-01/pages/page-02.png",
+        "page": 2
+      },
+      {
+        "bytes": 417176,
+        "sha256": "953736726cfc60ffa2721a05a06bf13c08f190c31758e7c36c2d6cf94c9e68f7",
+        "verdict": "pass",
+        "inspection": "Functional and metric tables, scope and architecture; no clipping.",
+        "path": "evaluation/results/literature_revision_20261015/final-primary-01/pages/page-03.png",
+        "page": 3
+      },
+      {
+        "bytes": 489799,
+        "sha256": "01ac36790567ba729df90f0da89f78c061a0be016a3b9058cb0365c70d149c50",
+        "verdict": "pass",
+        "inspection": "Architecture, training, telemetry equations and methodology; legible.",
+        "path": "evaluation/results/literature_revision_20261015/final-primary-01/pages/page-04.png",
+        "page": 4
+      },
+      {
+        "bytes": 520103,
+        "sha256": "433e4cf33620291fd925806d748c3bfa522586787d4745603e7f7082e75b4efd",
+        "verdict": "pass",
+        "inspection": "V3 lineage table, data and training protocol; legible.",
+        "path": "evaluation/results/literature_revision_20261015/final-primary-01/pages/page-05.png",
+        "page": 5
+      },
+      {
+        "bytes": 511642,
+        "sha256": "3669c47d8c62b1fa0bcc99505a2efb479912490a9f507d1a68dfc2e20318c13e",
+        "verdict": "pass",
+        "inspection": "External reference and installed-browser methods; legible.",
+        "path": "evaluation/results/literature_revision_20261015/final-primary-01/pages/page-06.png",
+        "page": 6
+      },
+      {
+        "bytes": 500364,
+        "sha256": "734b5bf3f334bd88081086c8576d0f8eec94cfd3050e94b5d5acfbb97a475834",
+        "verdict": "pass",
+        "inspection": "Client observation methods and Results transition; legible.",
+        "path": "evaluation/results/literature_revision_20261015/final-primary-01/pages/page-07.png",
+        "page": 7
+      },
+      {
+        "bytes": 303701,
+        "sha256": "ce6ff6f2686ed9394209643bfa8eb3eb72a941f40965f00cf00a1732eb6f4e65",
+        "verdict": "pass",
+        "inspection": "Results figures, captions and table; legible.",
+        "path": "evaluation/results/literature_revision_20261015/final-primary-01/pages/page-08.png",
+        "page": 8
+      },
+      {
+        "bytes": 498500,
+        "sha256": "e18580b84978768d0b0b908529b65b8d38e1b9b749d088bb5db8eba220659b77",
+        "verdict": "pass",
+        "inspection": "Recognizer/final endpoint and browser results tables; legible.",
+        "path": "evaluation/results/literature_revision_20261015/final-primary-01/pages/page-09.png",
+        "page": 9
+      },
+      {
+        "bytes": 343416,
+        "sha256": "8eaf7723555d1d30cdcc01e14c834c2a1c1cbe56263f871d6a723ec54212574b",
+        "verdict": "pass",
+        "inspection": "Comparison figure, cost/latency tables and results; legible.",
+        "path": "evaluation/results/literature_revision_20261015/final-primary-01/pages/page-10.png",
+        "page": 10
+      },
+      {
+        "bytes": 478108,
+        "sha256": "141c6a152f661bb62b754d73244528cb34f5fce70455e21905753854c63e7626",
+        "verdict": "pass",
+        "inspection": "Telemetry results, discussion and limitations; legible.",
+        "path": "evaluation/results/literature_revision_20261015/final-primary-01/pages/page-11.png",
+        "page": 11
+      },
+      {
+        "bytes": 508351,
+        "sha256": "2e3ca535a8a5377e0db0c6d180dd2685364e46a510884d6d1f58cb83f95201c2",
+        "verdict": "pass",
+        "inspection": "Limitations and extensions, including utility gaps; legible.",
+        "path": "evaluation/results/literature_revision_20261015/final-primary-01/pages/page-12.png",
+        "page": 12
+      },
+      {
+        "bytes": 542262,
+        "sha256": "406200b4eb4cc65315361a25b0f832e54649dd3dec8351117da13c5ae76e901e",
+        "verdict": "pass",
+        "inspection": "Conclusion and bibliography; legible.",
+        "path": "evaluation/results/literature_revision_20261015/final-primary-01/pages/page-13.png",
+        "page": 13
+      }
+    ]
+  },
+  "main_lf_canonical_sha256": "e5a88358c1585df1b7cf283267a7903fb4a12aed21a976bb68530d202c0cfa62",
+  "paper_source_commit": "2b5cf75149d146d73a8ba1227c936c444b75c9f9"
+}

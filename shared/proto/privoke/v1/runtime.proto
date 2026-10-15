@@ -11,6 +11,7 @@ message RuntimeHealthResponse {
 
 message SetRuntimeEnabledRequest {
   bool enabled = 1;
+  optional bool use_local_stack = 2;
 }
 
 message RuntimeControlStatus {
@@ -34,6 +35,12 @@ enum RegexExecutionOrder {
   REGEX_EXECUTION_ORDER_PARALLEL = 2;
 }
 
+message SemanticPresenceGate {
+  string model_id = 1;
+  // Omit to use the selected presence artifact's threshold.
+  optional double threshold = 2;
+}
+
 message AnalyzePromptRequest {
   string text = 1;
   string source = 2;
@@ -44,6 +51,7 @@ message AnalyzePromptRequest {
   repeated DetectionLayer layers = 7;
   RegexExecutionOrder regex_execution_order = 8;
   string semantic_model_id = 9;
+  SemanticPresenceGate semantic_presence_gate = 10;
 }
 
 message RuntimeLayerExecution {
@@ -51,6 +59,7 @@ message RuntimeLayerExecution {
   string status = 2;
   repeated RuntimeDetectionResult results = 3;
   string error = 4;
+  SemanticPresenceGateTrace semantic_presence_gate = 5;
 }
 
 message RuntimeClassification {
@@ -88,9 +97,140 @@ message AnalyzePromptResponse {
   string error = 12;
 }
 
+message RuntimeTrainingExample {
+  string text = 1;
+  RuntimeClassification target = 2;
+  bool has_target = 3;
+  double weight = 4;
+}
+
+message ComputeSemanticGradientsRequest {
+  string request_id = 1;
+  string model_id = 2;
+  repeated RuntimeTrainingExample examples = 3;
+  double learning_rate = 4;
+  double max_gradient = 5;
+  repeated RuntimeTrainingExample heldout_examples = 6;
+  // Mandatory explicit semantic-only selection; empty is rejected at this RPC.
+  repeated DetectionLayer layers = 7;
+}
+
+// Direct Tiny model execution, not an AnalyzePrompt/product-pipeline trace.
+message SemanticTrainingExecution {
+  string phase = 1; // training, base_heldout, candidate_heldout
+  DetectionLayer layer = 2;
+  string status = 3;
+  uint32 examples = 4;
+  string error = 5;
+}
+
+message RuntimeParameterDelta {
+  string name = 1;
+  repeated float values = 2;
+  repeated uint32 shape = 3;
+}
+
+message ComputeSemanticGradientsResponse {
+  string request_id = 1;
+  string model_id = 2;
+  string base_version = 3;
+  repeated RuntimeParameterDelta gradients = 4;
+  map<string, double> metrics = 5;
+  map<string, string> metadata = 6;
+  string error = 7;
+  repeated SemanticTrainingExecution executions = 8;
+}
+
 service PrivokeRuntimeService {
   rpc AnalyzePrompt(AnalyzePromptRequest) returns (AnalyzePromptResponse);
+  rpc ComputeSemanticGradients(ComputeSemanticGradientsRequest) returns (ComputeSemanticGradientsResponse);
+  rpc ComputeUnderlyingModelGradients(ComputeSemanticGradientsRequest) returns (ComputeSemanticGradientsResponse);
+  rpc DetectAnnotationPresence(DetectAnnotationPresenceRequest) returns (DetectAnnotationPresenceResponse);
+  rpc ComputePresenceGradients(ComputePresenceGradientsRequest) returns (ComputePresenceGradientsResponse);
   rpc Health(RuntimeHealthRequest) returns (RuntimeHealthResponse);
+}
+
+// Annotation presence is independent of contextual severity, visibility and policy.
+enum AnnotationPresenceLabel {
+  ANNOTATION_PRESENCE_UNSPECIFIED = 0;
+  ANNOTATION_PRESENCE_ABSENT = 1;
+  ANNOTATION_PRESENCE_PRESENT = 2;
+}
+
+enum SemanticPresenceGateStatus {
+  SEMANTIC_PRESENCE_GATE_STATUS_UNSPECIFIED = 0;
+  SEMANTIC_PRESENCE_GATE_STATUS_NOT_RUN = 1;
+  SEMANTIC_PRESENCE_GATE_STATUS_APPLIED = 2;
+  SEMANTIC_PRESENCE_GATE_STATUS_ERROR = 3;
+}
+
+message SemanticPresenceGateTrace {
+  SemanticPresenceGateStatus status = 1;
+  string model_id = 2;
+  string model_version = 3;
+  string artifact_checksum = 4;
+  string parameter_fingerprint = 5;
+  optional double probability = 6;
+  optional double model_threshold = 7;
+  optional double decision_threshold = 8;
+  AnnotationPresenceLabel predicted_label = 9;
+  repeated RuntimeDetectionResult semantic_results = 10;
+  string error = 11;
+  string contextual_model_id = 12;
+  string contextual_model_version = 13;
+  string contextual_artifact_checksum = 14;
+  string contextual_parameter_fingerprint = 15;
+}
+
+message DetectAnnotationPresenceRequest {
+  string request_id = 1;
+  string text = 2;
+  string model_id = 3;
+  // Exactly SEMANTIC; empty or mixed selections are rejected.
+  repeated DetectionLayer layers = 4;
+}
+
+message DetectAnnotationPresenceResponse {
+  string request_id = 1;
+  string model_id = 2;
+  string model_version = 3;
+  double probability = 4;
+  double threshold = 5;
+  AnnotationPresenceLabel predicted_label = 6;
+  string artifact_checksum = 7;
+  string parameter_fingerprint = 8;
+  double elapsed_ms = 9;
+  // On error, predicted_label is UNSPECIFIED; numeric defaults are not predictions.
+  string error = 10;
+  repeated RuntimeLayerExecution executions = 11;
+}
+
+message PresenceTrainingExample {
+  string text = 1;
+  AnnotationPresenceLabel target = 2;
+  double weight = 3;
+  string group_id = 4;
+}
+
+message ComputePresenceGradientsRequest {
+  string request_id = 1;
+  string model_id = 2;
+  repeated PresenceTrainingExample examples = 3;
+  double learning_rate = 4;
+  double max_gradient = 5;
+  repeated PresenceTrainingExample heldout_examples = 6;
+  repeated DetectionLayer layers = 7;
+}
+
+message ComputePresenceGradientsResponse {
+  string request_id = 1;
+  string model_id = 2;
+  string base_version = 3;
+  repeated RuntimeParameterDelta gradients = 4;
+  map<string, double> metrics = 5;
+  map<string, string> metadata = 6;
+  string error = 7;
+  repeated SemanticTrainingExecution executions = 8;
 }
 
 service PrivokeRuntimeControlService {

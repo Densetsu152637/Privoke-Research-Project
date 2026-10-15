@@ -1,4 +1,13 @@
 .git
+**/.env
+**/.env.*
+**/secrets
+**/*.key
+**/*.pem
+**/*.p12
+gha-creds-*.json
+documents
+.tmp
 .idea
 **/__pycache__
 **/.pytest_cache
@@ -9,6 +18,7 @@
 **/.DS_Store
 **/venv
 **/.venv
+**/.venv-*
 **/node_modules
 **/tmp
 **/build
@@ -16,8 +26,11 @@
 **/bin
 **/pkg
 dumps
+evaluation/*.log
+evaluation/results
 services/*/generated
 services/model-streaming-service/gen
 extension/client-runtime/generated
 extension/runtime-supervisor/generated
 shared/generated
+models/experiments

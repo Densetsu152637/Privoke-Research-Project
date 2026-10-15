@@ -1,0 +1,5 @@
+# Explicit AU3 source route; the base v3 study retains its frozen BC01 default.
+services:
+  fuzzer:
+    environment:
+      V3_SAMPLING_STRATEGY: audience_common_frozen_stream_v1

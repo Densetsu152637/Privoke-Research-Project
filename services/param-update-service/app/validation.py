@@ -1,0 +1,122 @@
+"""Validation for incoming parameter updates."""
+
+from __future__ import annotations
+
+import math
+
+from privoke_model import ModelArtifactError
+from privoke_service import validate_text
+
+MAX_GRADIENTS = 256
+MAX_GRADIENT_VALUES = 4_096
+MAX_UPDATE_VALUES = 65_536
+MAX_METADATA_ENTRIES = 64
+
+
+def validate_parameter_update(
+    request,
+    *,
+    expected_model_id: str,
+    max_abs_gradient: float,
+    artifact=None,
+) -> None:
+    validate_text(request.source_id, "source_id", required=True)
+    validate_text(request.model_id, "model_id", required=True)
+    validate_text(request.base_version, "base_version", required=True)
+    if request.model_id != expected_model_id:
+        raise ValueError(f"model_id must be {expected_model_id!r}.")
+    if not request.gradients:
+        raise ValueError("At least one gradient is required.")
+    if len(request.gradients) > MAX_GRADIENTS:
+        raise ValueError(
+            f"A parameter update may contain at most {MAX_GRADIENTS} gradients."
+        )
+
+    maximum = MAX_GRADIENT_VALUES
+    if artifact is not None:
+        from privoke_model.artifact import validate_artifact
+        from privoke_model.contextual_training import STRATEGY_KEY, FULL_ENCODER_STRATEGY, FULL_ENCODER_MAX_TENSOR_VALUES
+        validate_artifact(artifact)
+        if artifact["model_id"] != request.model_id:
+            raise ValueError("Parameter update does not match the validated artifact model ID.")
+        if artifact.get("metadata", {}).get(STRATEGY_KEY) == FULL_ENCODER_STRATEGY:
+            maximum = FULL_ENCODER_MAX_TENSOR_VALUES
+        validate_gradient_shapes_against_artifact(request, artifact)
+        from privoke_model.window_training import validate_publication
+        validate_publication(request,artifact)
+    _validate_gradients(request.gradients, max_abs_gradient, maximum)
+    _validate_metadata(request.metadata)
+
+
+def _validate_gradients(gradients, max_abs_gradient: float, maximum=MAX_GRADIENT_VALUES) -> None:
+    names: set[str] = set()
+    total_values = 0
+
+    for gradient in gradients:
+        validate_text(gradient.name, "gradient name", required=True, limit=256)
+        if gradient.name in names:
+            raise ValueError(f"Duplicate gradient name: {gradient.name!r}.")
+        names.add(gradient.name)
+
+        _validate_gradient_shape(gradient, maximum)
+        _validate_gradient_values(gradient, max_abs_gradient)
+        total_values += len(gradient.values)
+
+    if total_values > MAX_UPDATE_VALUES:
+        raise ValueError(
+            f"A parameter update may contain at most {MAX_UPDATE_VALUES} values."
+        )
+
+
+def _validate_gradient_shape(gradient, maximum=MAX_GRADIENT_VALUES) -> None:
+    if not gradient.values:
+        raise ValueError(f"Gradient {gradient.name!r} has no values.")
+    if len(gradient.values) > maximum:
+        raise ValueError(
+            f"Gradient {gradient.name!r} exceeds {maximum} values."
+        )
+    if not gradient.shape:
+        raise ValueError(f"Gradient {gradient.name!r} has no shape.")
+    if any(dimension <= 0 for dimension in gradient.shape):
+        raise ValueError(f"Gradient {gradient.name!r} has an invalid shape.")
+
+    expected_values = math.prod(int(dimension) for dimension in gradient.shape)
+    if expected_values != len(gradient.values):
+        raise ValueError(f"Gradient {gradient.name!r} shape does not match its values.")
+
+
+def _validate_gradient_values(gradient, max_abs_gradient: float) -> None:
+    if any(
+        not math.isfinite(value) or abs(value) > max_abs_gradient
+        for value in gradient.values
+    ):
+        raise ValueError(
+            f"Gradient {gradient.name!r} contains a non-finite or out-of-range value."
+        )
+
+
+def _validate_metadata(metadata) -> None:
+    if len(metadata) > MAX_METADATA_ENTRIES:
+        raise ValueError(
+            f"metadata may contain at most {MAX_METADATA_ENTRIES} entries."
+        )
+    for key, value in metadata.items():
+        validate_text(key, "metadata key", required=True, limit=128)
+        validate_text(value, "metadata value", required=False, limit=2_048)
+    if "generated_prompt_count" in metadata:
+        try:
+            count = int(metadata["generated_prompt_count"])
+        except ValueError as exc:
+            raise ValueError("generated_prompt_count must be an integer.") from exc
+        if not 0 <= count <= 1_024:
+            raise ValueError("generated_prompt_count must be between 0 and 1024.")
+
+
+def validate_gradient_shapes_against_artifact(request, artifact) -> None:
+    parameters = artifact["parameters"]
+    for gradient in request.gradients:
+        tensor = parameters.get(gradient.name)
+        if tensor is None:
+            continue
+        if tuple(int(size) for size in gradient.shape) != tuple(tensor["shape"]):
+            raise ModelArtifactError(f"Parameter shape mismatch for {gradient.name!r}.")

@@ -11,7 +11,11 @@ from ..classification import (
     initialise_unpacked,
 )
 from ..classification.classification_policy import strongest_visibility
-from ..pipeline import PipelineAnalysis, analyse_text
+from ..pipeline import (
+    PipelineAnalysis,
+    SemanticPresenceGateRequest,
+    analyse_text,
+)
 from .models import PromptInspectionRequest
 from .serialization import serialize_analysis_response
 
@@ -25,12 +29,17 @@ class PromptAnalysis:
     elapsed_ms: float
 
     def response(self) -> Dict:
-        return serialize_analysis_response(
+        response = serialize_analysis_response(
             self.request,
             self.result,
             self.action,
             self.elapsed_ms,
         )
+        if self.execution.errors:
+            if self.action == PriVokeAction.BLOCK:
+                response["reason"] = "PriVoke could not complete analysis safely."
+            response["errors"] = list(self.execution.errors)
+        return response
 
 
 def analyse_prompt_request(request: PromptInspectionRequest) -> Dict:
@@ -54,6 +63,7 @@ def analyse_prompt(
     layers: Sequence[str] | None = None,
     regex_first: bool | None = None,
     semantic_model_id: str | None = None,
+    semantic_presence_gate: SemanticPresenceGateRequest | None = None,
 ) -> PromptAnalysis:
     started = perf_counter()
     analysis = analyse_text(
@@ -61,6 +71,7 @@ def analyse_prompt(
         layers=layers,
         regex_first=regex_first,
         semantic_model_id=semantic_model_id,
+        semantic_presence_gate=semantic_presence_gate,
     )
     result, action = analysis.result, analysis.action
     result, action = _apply_visibility_hint(
@@ -102,4 +113,4 @@ def _apply_visibility_hint(
             "visibility_hint": visibility_hint.name,
         },
     )
-    return hinted_result, hinted_result.action()
+    return hinted_result, max((action, hinted_result.action()), key=lambda value: value.value)

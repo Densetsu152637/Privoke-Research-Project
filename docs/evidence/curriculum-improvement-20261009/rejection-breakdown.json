@@ -1,0 +1,1047 @@
+{
+  "analysis": "all45 live cells, exact archived response reasons; unchanged thresholds and fixed attempted budget",
+  "source_revision": "7c0322d6872e7b99ed88d1bc5bd67f2d0b9623a4",
+  "protocol_sha256": "f631c6078c439f9f7ff616e29f9c3d09ad36e22f079d2cdeed16a7fb459fc602",
+  "summary_sha256": "b191e660f3e792a53047282c352e57089ff1f1bf05698a1c3c0d40b0c72867c2",
+  "attempts": 900,
+  "accepted": 615,
+  "rejected": 285,
+  "limitations": "Rejected wrappers have zero prompts_generated and empty metadata, but reservations consumed256 presentations. Attested source ordering supports candidate computation before heldout rejection and before submission. Rejected candidate tensors, numeric gate values and specific failed gate components were not independently retained. Allocations/consumed exposure and durable accepted publications are separate.",
+  "cells": [
+    {
+      "id": "efficient-a-42",
+      "profile": "efficient",
+      "arm": "A",
+      "seed": 42,
+      "manifest_sha256": "d4b3a963aa1899e81826af04845f4300cbef40ef2d412804736ff55357f691b3",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "efficient-a-43",
+      "profile": "efficient",
+      "arm": "A",
+      "seed": 43,
+      "manifest_sha256": "8988acc792d16fdc656e8f555e1f3086441784772507377e83dd213742c366e0",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "efficient-a-44",
+      "profile": "efficient",
+      "arm": "A",
+      "seed": 44,
+      "manifest_sha256": "a9e7c79cc3d0beca04084fae69106d2c2e57bd3e8600a8c10762f881bfc29d91",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "efficient-b-42",
+      "profile": "efficient",
+      "arm": "B",
+      "seed": 42,
+      "manifest_sha256": "4fdf3b55e61f6569fd2b2637a97f49605f73fb88789d499b52d707926f92ec54",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "efficient-b-43",
+      "profile": "efficient",
+      "arm": "B",
+      "seed": 43,
+      "manifest_sha256": "8ad681de923a2fafddda71fe3fe419afc139a2399879108a9619667eaed03eca",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "efficient-b-44",
+      "profile": "efficient",
+      "arm": "B",
+      "seed": 44,
+      "manifest_sha256": "9cf6e8bd61ba0e6f07b487020fdd00861ea2eede81b3705c0891af2a95491612",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "efficient-c-42",
+      "profile": "efficient",
+      "arm": "C",
+      "seed": 42,
+      "manifest_sha256": "8ed5e48b6635d3567c14d2be689e12d08183719554706d0792880d8a95446bb5",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "efficient-c-43",
+      "profile": "efficient",
+      "arm": "C",
+      "seed": 43,
+      "manifest_sha256": "2da96138aaf0bb15dc7ffa3df3e98a40f77589c6874cec3bb558ff60506e34e2",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "efficient-c-44",
+      "profile": "efficient",
+      "arm": "C",
+      "seed": 44,
+      "manifest_sha256": "b1b65f84ff1ce9f59b3fabf25754a12877d17fb9f3c71a1da6c0745208a834ec",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "efficient-d-42",
+      "profile": "efficient",
+      "arm": "D",
+      "seed": 42,
+      "manifest_sha256": "cce18431b3d8fc7d870658b146fc66c7c231d4f964dc37a61d203c658b6c9c00",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "efficient-d-43",
+      "profile": "efficient",
+      "arm": "D",
+      "seed": 43,
+      "manifest_sha256": "d6374978088debad3880a04ce5bacde5dc0292300087c4a4cdcece825d609ae1",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "efficient-d-44",
+      "profile": "efficient",
+      "arm": "D",
+      "seed": 44,
+      "manifest_sha256": "caaa987b5636cbf9ade6f2b5ce7b47ece719a157936342b2e258f9e7e157924c",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "efficient-e-42",
+      "profile": "efficient",
+      "arm": "E",
+      "seed": 42,
+      "manifest_sha256": "d1903c1507d212ceb388d5806f42454e13c272d9e054818eb73d75d34ad213ae",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "efficient-e-43",
+      "profile": "efficient",
+      "arm": "E",
+      "seed": 43,
+      "manifest_sha256": "494c008e440ffe976a004ce6b62083a849c3fb16ffdb49807620a7825f63ef40",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "efficient-e-44",
+      "profile": "efficient",
+      "arm": "E",
+      "seed": 44,
+      "manifest_sha256": "cbdaf4fe884068cd790100fee10c7d09725b3fc8136900380b78a45c9c2884eb",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "balanced-a-42",
+      "profile": "balanced",
+      "arm": "A",
+      "seed": 42,
+      "manifest_sha256": "bf32405107cc366f5ca39610171be5c4c5af5ea0ef537639d97b075a7cd88525",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "balanced-a-43",
+      "profile": "balanced",
+      "arm": "A",
+      "seed": 43,
+      "manifest_sha256": "270225cef06604c6162bf8cef2a4c4c401fae01f7addec1ffedcc2019821ac38",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "balanced-a-44",
+      "profile": "balanced",
+      "arm": "A",
+      "seed": 44,
+      "manifest_sha256": "c43a80cdfc7094a5b791b72ce571a4f96c09198f30635cb66bc29325abeaef11",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "balanced-b-42",
+      "profile": "balanced",
+      "arm": "B",
+      "seed": 42,
+      "manifest_sha256": "9b6cab047d8f82466877d9af9ecc2a55e4635c0510b18fb0776048bda5eaa8e2",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "balanced-b-43",
+      "profile": "balanced",
+      "arm": "B",
+      "seed": 43,
+      "manifest_sha256": "ab9f8eddd30d6b78d5ec248002ef97e9f7f7c365f09289b8f08bf68e4769cdb0",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "balanced-b-44",
+      "profile": "balanced",
+      "arm": "B",
+      "seed": 44,
+      "manifest_sha256": "c98e092c5c158953416baf1cdb36346f53bdf8e56eeff2e982e06f9a1362acde",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "balanced-c-42",
+      "profile": "balanced",
+      "arm": "C",
+      "seed": 42,
+      "manifest_sha256": "6a1e6a92b4564e7152454856836dad9ab772e2ba16715d3a2888f19f67acf9a7",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "balanced-c-43",
+      "profile": "balanced",
+      "arm": "C",
+      "seed": 43,
+      "manifest_sha256": "ca57ebd007f43796b20e407c0c5380e4000e33fa84c1761378660aa16f2741c5",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "balanced-c-44",
+      "profile": "balanced",
+      "arm": "C",
+      "seed": 44,
+      "manifest_sha256": "a4a5d142072d577e1acc60ded478ba048255a1ca331d808803b9aea234a60086",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "balanced-d-42",
+      "profile": "balanced",
+      "arm": "D",
+      "seed": 42,
+      "manifest_sha256": "c32be4cdb46587514a582c2b06d9577aa0ecff18ab23cc2984540efef242e7de",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "balanced-d-43",
+      "profile": "balanced",
+      "arm": "D",
+      "seed": 43,
+      "manifest_sha256": "e76bcee520ef1aff3c14b66eb082be4b007b2f40695d10a843a3d46b41afbeed",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "balanced-d-44",
+      "profile": "balanced",
+      "arm": "D",
+      "seed": 44,
+      "manifest_sha256": "14f4e79ff7eee2c8416b2c2ac835f4a118226ba3b2686108854c3d4dadd12914",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "balanced-e-42",
+      "profile": "balanced",
+      "arm": "E",
+      "seed": 42,
+      "manifest_sha256": "4eec121880a9f604e74010763c0f07a7b18380040e3cbd21e6839d0c6d424303",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "balanced-e-43",
+      "profile": "balanced",
+      "arm": "E",
+      "seed": 43,
+      "manifest_sha256": "2c848ddfacc72b2aaf2e91ff73c85b79a23e8f8b772445ff89342680c39301b2",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "balanced-e-44",
+      "profile": "balanced",
+      "arm": "E",
+      "seed": 44,
+      "manifest_sha256": "0171de45a6fda399b4ed7eec835c08ae3dbb0d639df32ff81b3d4ec168970aed",
+      "attempts": 20,
+      "accepted": 20,
+      "rejected": 0,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 20,
+        "durable_receipts": 20,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": []
+    },
+    {
+      "id": "quality-a-42",
+      "profile": "quality",
+      "arm": "A",
+      "seed": 42,
+      "manifest_sha256": "5ea528077dc1afc8e6f89ffb4c5e4bc71f7dd209b637a7a6a5cfb1209eaf49dc",
+      "attempts": 20,
+      "accepted": 1,
+      "rejected": 19,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 1,
+        "durable_receipts": 1,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": [
+        {
+          "code": "FAILED_PRECONDITION",
+          "message": "Candidate model is worse on the held-out evaluation set.",
+          "count": 19
+        }
+      ]
+    },
+    {
+      "id": "quality-a-43",
+      "profile": "quality",
+      "arm": "A",
+      "seed": 43,
+      "manifest_sha256": "c48eaedd5442f1f64a7806faec0de95e9f0280cc81d186c240f97782836eddfb",
+      "attempts": 20,
+      "accepted": 1,
+      "rejected": 19,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 1,
+        "durable_receipts": 1,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": [
+        {
+          "code": "FAILED_PRECONDITION",
+          "message": "Candidate model is worse on the held-out evaluation set.",
+          "count": 19
+        }
+      ]
+    },
+    {
+      "id": "quality-a-44",
+      "profile": "quality",
+      "arm": "A",
+      "seed": 44,
+      "manifest_sha256": "774e7ea6ac101072a0f63805e7e9c4ce03f1da4957095467437d748a64326cc3",
+      "attempts": 20,
+      "accepted": 1,
+      "rejected": 19,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 1,
+        "durable_receipts": 1,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": [
+        {
+          "code": "FAILED_PRECONDITION",
+          "message": "Candidate model is worse on the held-out evaluation set.",
+          "count": 19
+        }
+      ]
+    },
+    {
+      "id": "quality-b-42",
+      "profile": "quality",
+      "arm": "B",
+      "seed": 42,
+      "manifest_sha256": "c185daf3f137cbe383dc62e248a18cf9266a82beae9984b99783e49ed1d95f6e",
+      "attempts": 20,
+      "accepted": 1,
+      "rejected": 19,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 1,
+        "durable_receipts": 1,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": [
+        {
+          "code": "FAILED_PRECONDITION",
+          "message": "Candidate model is worse on the held-out evaluation set.",
+          "count": 19
+        }
+      ]
+    },
+    {
+      "id": "quality-b-43",
+      "profile": "quality",
+      "arm": "B",
+      "seed": 43,
+      "manifest_sha256": "19ea6afe59c6a0ba7c7c00918dcc27ff2a93bec918b712655c50d0cf35e302cf",
+      "attempts": 20,
+      "accepted": 1,
+      "rejected": 19,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 1,
+        "durable_receipts": 1,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": [
+        {
+          "code": "FAILED_PRECONDITION",
+          "message": "Candidate model is worse on the held-out evaluation set.",
+          "count": 19
+        }
+      ]
+    },
+    {
+      "id": "quality-b-44",
+      "profile": "quality",
+      "arm": "B",
+      "seed": 44,
+      "manifest_sha256": "de9312993ab24756e3a7f26e710c225e81e445257b7a51d03c09e22ef3bc202d",
+      "attempts": 20,
+      "accepted": 1,
+      "rejected": 19,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 1,
+        "durable_receipts": 1,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": [
+        {
+          "code": "FAILED_PRECONDITION",
+          "message": "Candidate model is worse on the held-out evaluation set.",
+          "count": 19
+        }
+      ]
+    },
+    {
+      "id": "quality-c-42",
+      "profile": "quality",
+      "arm": "C",
+      "seed": 42,
+      "manifest_sha256": "861a3454d8e1d946d560a5bf38af6897dc652b003c991b2163402dae9117eaed",
+      "attempts": 20,
+      "accepted": 1,
+      "rejected": 19,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 1,
+        "durable_receipts": 1,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": [
+        {
+          "code": "FAILED_PRECONDITION",
+          "message": "Candidate model is worse on the held-out evaluation set.",
+          "count": 19
+        }
+      ]
+    },
+    {
+      "id": "quality-c-43",
+      "profile": "quality",
+      "arm": "C",
+      "seed": 43,
+      "manifest_sha256": "6152b4b06c6e7a1960c6d6b3cede54f90299c2e5fe473b634c62527d8825d6c8",
+      "attempts": 20,
+      "accepted": 1,
+      "rejected": 19,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 1,
+        "durable_receipts": 1,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": [
+        {
+          "code": "FAILED_PRECONDITION",
+          "message": "Candidate model is worse on the held-out evaluation set.",
+          "count": 19
+        }
+      ]
+    },
+    {
+      "id": "quality-c-44",
+      "profile": "quality",
+      "arm": "C",
+      "seed": 44,
+      "manifest_sha256": "5b515f3e7db603f8aa06e65119b790a64e49d613bfd460f65f6645dd6b12d75f",
+      "attempts": 20,
+      "accepted": 1,
+      "rejected": 19,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 1,
+        "durable_receipts": 1,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": [
+        {
+          "code": "FAILED_PRECONDITION",
+          "message": "Candidate model is worse on the held-out evaluation set.",
+          "count": 19
+        }
+      ]
+    },
+    {
+      "id": "quality-d-42",
+      "profile": "quality",
+      "arm": "D",
+      "seed": 42,
+      "manifest_sha256": "51063eb21bd91eed4db6bbe3410c4247337cd7a42b8e54dbe62baa2e4cdc4ae8",
+      "attempts": 20,
+      "accepted": 1,
+      "rejected": 19,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 1,
+        "durable_receipts": 1,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": [
+        {
+          "code": "FAILED_PRECONDITION",
+          "message": "Candidate model is worse on the held-out evaluation set.",
+          "count": 19
+        }
+      ]
+    },
+    {
+      "id": "quality-d-43",
+      "profile": "quality",
+      "arm": "D",
+      "seed": 43,
+      "manifest_sha256": "fc4f744802771cba9adff7dbfdb51392bf63f19aa61a9bee254cf92ef4bcfd66",
+      "attempts": 20,
+      "accepted": 1,
+      "rejected": 19,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 1,
+        "durable_receipts": 1,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": [
+        {
+          "code": "FAILED_PRECONDITION",
+          "message": "Candidate model is worse on the held-out evaluation set.",
+          "count": 19
+        }
+      ]
+    },
+    {
+      "id": "quality-d-44",
+      "profile": "quality",
+      "arm": "D",
+      "seed": 44,
+      "manifest_sha256": "568e7fe6adfb11cfd7e046dba3de30c2bb4d3f20cd9e9e48e2b937a44accff9c",
+      "attempts": 20,
+      "accepted": 1,
+      "rejected": 19,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 1,
+        "durable_receipts": 1,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": [
+        {
+          "code": "FAILED_PRECONDITION",
+          "message": "Candidate model is worse on the held-out evaluation set.",
+          "count": 19
+        }
+      ]
+    },
+    {
+      "id": "quality-e-42",
+      "profile": "quality",
+      "arm": "E",
+      "seed": 42,
+      "manifest_sha256": "552c181b59ff55c3032473b739fab5de6d72de0f217c6d049c1bf3eed95cf6fe",
+      "attempts": 20,
+      "accepted": 1,
+      "rejected": 19,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 1,
+        "durable_receipts": 1,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": [
+        {
+          "code": "FAILED_PRECONDITION",
+          "message": "Candidate model is worse on the held-out evaluation set.",
+          "count": 19
+        }
+      ]
+    },
+    {
+      "id": "quality-e-43",
+      "profile": "quality",
+      "arm": "E",
+      "seed": 43,
+      "manifest_sha256": "ed43a80b23957f1b5aaecacc90aeb7d0795695a36e155db7db53a3b9876f8050",
+      "attempts": 20,
+      "accepted": 1,
+      "rejected": 19,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 1,
+        "durable_receipts": 1,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": [
+        {
+          "code": "FAILED_PRECONDITION",
+          "message": "Candidate model is worse on the held-out evaluation set.",
+          "count": 19
+        }
+      ]
+    },
+    {
+      "id": "quality-e-44",
+      "profile": "quality",
+      "arm": "E",
+      "seed": 44,
+      "manifest_sha256": "f8a3f1015ef2e99483e69f3b8d5f63e6b04faf9582e0f843b8b1eab9af48c97c",
+      "attempts": 20,
+      "accepted": 1,
+      "rejected": 19,
+      "exposure": {
+        "reservations": 20,
+        "presentations": 5120,
+        "unique_rows": 736,
+        "unique_families": 44,
+        "maximum_row_exposures": 20,
+        "durable_publications": 1,
+        "durable_receipts": 1,
+        "replayed_acknowledgments_reconciled_from_durable_metadata": 0
+      },
+      "reasons": [
+        {
+          "code": "FAILED_PRECONDITION",
+          "message": "Candidate model is worse on the held-out evaluation set.",
+          "count": 19
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+# Use after docker-compose.yml and evaluation/compose.tests.yml, in the same project.
+# The controller binds exact sha256 image IDs and a fresh task receipt volume.
+services:
+  client-runtime:
+    image: ${CONTEXTUAL_STUDY_RUNTIME_IMAGE:-privoke-research-project-client-runtime}
+    environment:
+      OMP_NUM_THREADS: 1
+      MKL_NUM_THREADS: 1
+      OPENBLAS_NUM_THREADS: 1
+  model-streaming-service:
+    image: ${CONTEXTUAL_STUDY_STREAMER_IMAGE:-privoke-research-project-model-streaming-service}
+  contextual-study-storage:
+    image: ${CONTEXTUAL_STUDY_UPDATER_IMAGE:-privoke-research-project-param-update-service}
+    user: "0:0"
+    read_only: true
+    network_mode: none
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE]
+    security_opt: [no-new-privileges:true]
+    entrypoint: [python, -c]
+    command: ["import os;os.chown('/receipts',10001,10001)"]
+    volumes:
+      - contextual-study-receipts:/receipts
+  contextual-study-updater:
+    image: ${CONTEXTUAL_STUDY_UPDATER_IMAGE:-privoke-research-project-param-update-service}
+    init: true
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:rw,noexec,nosuid,nodev,size=64m"]
+    environment:
+      PARAM_UPDATE_PORT: 50052
+      PARAM_UPDATE_STORAGE_PATH: /tmp/updates/updates.jsonl
+      MODEL_ARTIFACT_PATH: /models/${CONTEXTUAL_STUDY_MODEL_ID:-privoke-balanced}.json
+      MODEL_ID: ${CONTEXTUAL_STUDY_MODEL_ID:-privoke-balanced}
+      FUZZER_TARGET: contextual-study-fuzzer:50053
+      FUZZER_PROMPT_COUNT: 0
+      PYTHONPATH: /workspace/shared/python
+    volumes:
+      - model-data:/models
+      - contextual-study-receipts:/tmp/updates
+    healthcheck:
+      test: [CMD, python, /workspace/shared/python/grpc_healthcheck.py, param-update-service, "127.0.0.1:50052", /workspace/services/param-update-service/generated]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  contextual-study-fuzzer:
+    image: ${CONTEXTUAL_STUDY_FUZZER_IMAGE:-privoke-research-project-privoke-fuzzer}
+    init: true
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:rw,noexec,nosuid,nodev,size=64m"]
+    environment:
+      PRIVOKE_RUNTIME_TARGET: client-runtime:50054
+      PARAM_UPDATE_TARGET: contextual-study-updater:50052
+      MODEL_ID: ${CONTEXTUAL_STUDY_MODEL_ID:-privoke-balanced}
+      FUZZER_ID: contextual-study-fuzzer
+      FUZZER_PORT: 50053
+      FUZZ_TIMEOUT_SECONDS: 300
+      FUZZ_MAX_CONCURRENT_CYCLES: 1
+      FUZZ_MAX_PROMPT_COUNT: 256
+      FUZZ_HELDOUT_PROMPT_COUNT: 16
+      FUZZ_TRAINING_LEARNING_RATE: ${CONTEXTUAL_STUDY_RATE:-0.003}
+      FUZZ_TRAINING_MAX_GRADIENT: 0.05
+      FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE: 0
+      FUZZ_MIN_EXACT_MATCH_RATE: 0.0
+      FUZZ_PROMPT_DATASET_PATH: /curriculum/prompts.jsonl
+      PRIVOKE_FUZZER_DUMP_DIR: /tmp
+      PYTHONPATH: /workspace/shared/python:/workspace/services/privoke-fuzzer/src:/workspace/services/privoke-fuzzer/generated
+    volumes:
+      - type: bind
+        source: ${CONTEXTUAL_STUDY_CURRICULUM}
+        target: /curriculum/prompts.jsonl
+        read_only: true
+        bind: {create_host_path: false}
+    healthcheck:
+      test: [CMD, python, /workspace/shared/python/grpc_healthcheck.py, privoke-fuzzer, "127.0.0.1:50053", /workspace/services/privoke-fuzzer/generated]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+volumes:
+  contextual-study-receipts:
+    name: ${CONTEXTUAL_STUDY_ID:-contextual-fuzzer-study}-receipts

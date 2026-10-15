@@ -1,6 +1,8 @@
 import argparse
 import json
 import sys
+import time
+import uuid
 from pathlib import Path
 
 GENERATED_DIR = Path(__file__).resolve().parents[1] / "generated"
@@ -9,48 +11,80 @@ if str(GENERATED_DIR) not in sys.path:
 
 from prompt_testing import add_test_prompt_args, run_prompt_tests
 
-def fetch_parameters(args) -> None:
-    import grpc
 
+def run_training_cycle(args) -> None:
+    import grpc
     from privoke.v1 import parameters_pb2, parameters_pb2_grpc
 
+    request_id = (
+        args.request_id or f"privoke-cli-{int(time.time())}-{uuid.uuid4().hex[:8]}"
+    )
+    metadata={"initiator":"privoke-fuzzer-cli"}
+    if args.training_policy is not None:
+        from privoke_model import window_training as window
+        if not args.window_manifest_sha256 or not args.component_manifest_sha256:
+            raise ValueError("Window policy requires both explicit prepared manifest pins.")
+        metadata.update(contextual_sampling_strategy=window.SAMPLER,
+            expected_contextual_training_optimizer=window.POLICY,expected_contextual_training_objective=window.OBJECTIVE,
+            expected_contextual_candidate_eligibility=window.ELIGIBILITY,expected_contextual_training_scope="full_encoder")
+        metadata.update({"expected_"+window.CONFIG_KEY:window.canonical(window.CONFIG),
+            "expected_"+window.WINDOW_KEY:args.window_manifest_sha256,"expected_"+window.REFERENCE_KEY:args.component_manifest_sha256})
+        window.expectations(metadata)
+    elif args.window_manifest_sha256 or args.component_manifest_sha256:
+        raise ValueError("Manifest pins require an explicit window training policy.")
     with grpc.insecure_channel(args.target) as channel:
-        client = parameters_pb2_grpc.ModelStreamingServiceStub(channel)
-        snapshot = client.GetModelParameters(
-            parameters_pb2.ModelParametersRequest(
-                consumer_id=args.consumer_id,
+        stub=parameters_pb2_grpc.FuzzerServiceStub(channel)
+        method=stub.RunUnderlyingTrainingCycle if args.training_policy or args.underlying else stub.RunTrainingCycle
+        response = method(
+            parameters_pb2.FuzzerTrainingRequest(
+                request_id=request_id,
+                source_id=args.source_id,
                 model_id=args.model_id,
+                prompt_count=args.prompt_count if args.prompt_count is not None else (256 if args.training_policy else 8),
+                seed=args.seed,
+                metadata=metadata,
             ),
-            timeout=args.timeout,
+            timeout=args.timeout if args.timeout is not None else (1800. if args.training_policy else 60.),
         )
-
-    payload = {
-        "model_id": snapshot.model_id,
-        "version": snapshot.version,
-        "generated_at_unix": snapshot.generated_at_unix,
-        "parameter_count": len(snapshot.parameters),
-        "parameters": [
-            {"name": parameter.name, "values": list(parameter.values)}
-            for parameter in snapshot.parameters
-        ],
-        "metadata": dict(snapshot.metadata),
-    }
-    print(json.dumps(payload, indent=2))
+    print(
+        json.dumps(
+            {
+                "accepted": response.accepted,
+                "model_id": response.model_id,
+                "base_version": response.base_version,
+                "applied_version": response.applied_version,
+                "prompts_generated": response.prompts_generated,
+                "message": response.message,
+                "metadata": dict(response.metadata),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    if not response.accepted:
+        raise SystemExit(1)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="PriVoke fuzzer CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    params_parser = subparsers.add_parser(
-        "fetch-params",
-        help="Fetch model parameters from the model-streaming-service over gRPC.",
+    train_parser = subparsers.add_parser(
+        "train",
+        help="Request a fuzzer training cycle and persist the resulting model version.",
     )
-    params_parser.add_argument("--target", default="model-streaming-service:50051")
-    params_parser.add_argument("--consumer-id", default="privoke-fuzzer")
-    params_parser.add_argument("--model-id", default="privoke-baseline")
-    params_parser.add_argument("--timeout", type=int, default=10)
-    params_parser.set_defaults(handler=fetch_parameters)
+    train_parser.add_argument("--target", default="privoke-fuzzer:50053")
+    train_parser.add_argument("--model-id", default="privoke-baseline")
+    train_parser.add_argument("--source-id", default="privoke-fuzzer-cli")
+    train_parser.add_argument("--request-id")
+    train_parser.add_argument("--prompt-count", type=int, default=None)
+    train_parser.add_argument("--training-policy",choices=("full_projected_adam64_window_checkpoint_v1",))
+    train_parser.add_argument("--underlying",action="store_true",help="Use the FULL underlying-model endpoint.")
+    train_parser.add_argument("--window-manifest-sha256")
+    train_parser.add_argument("--component-manifest-sha256")
+    train_parser.add_argument("--seed", type=int, default=1337)
+    train_parser.add_argument("--timeout", type=float, default=None)
+    train_parser.set_defaults(handler=run_training_cycle)
 
     test_parser = subparsers.add_parser(
         "test-prompts",

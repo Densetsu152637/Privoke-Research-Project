@@ -1,0 +1,71 @@
+# Closest-work verification record
+
+Search/access checkpoint: 4 October 2026. This scoped record covers Casper,
+Hide and Seek (HaS), ProSan, and PromptShield, the nearest works named in the
+completion plan. It is not an exhaustive literature review or proof that a
+feature is absent elsewhere. Primary preprint HTML and institutional or
+publisher metadata were checked where available. Published full texts were not
+available for Casper or ProSan in this check. Do not treat results from their
+different datasets and tasks as PriVoke benchmarks.
+
+| Work and version | Method and overlap | Task mismatch and limit |
+| --- | --- | --- |
+| **Casper, 2025 conference paper** ([NJIT publication record](https://researchwith.njit.edu/en/publications/casper-prompt-sanitization-for-protecting-user-privacy-in-web-bas/); DOI [10.1109/CSCloud66326.2025.00027](https://doi.org/10.1109/CSCloud66326.2025.00027)); related **arXiv v1** (13 August 2024, [full text §§5–7](https://arxiv.org/html/2408.07004v1)). | The preprint describes a client-side browser extension combining rules, ML-based NER, and a browser-local WebGPU topic identifier. It substitutes identifiers and restores them in responses; sensitive-topic warnings prompt user review. This layered client-side design is direct prior work. | Casper sanitizes and restores text and warns about topics; PriVoke currently warns or blocks the original request without substitution. Its reported detection, sanitization, and response-similarity outcomes are not matched to PriVoke's binary presence and request-action measures. The published abstract has a different sample description from arXiv v1; detailed comparisons require the published full text, which was not accessible. `Casper2024` remains the bibliography key for compatibility with manuscript citations, although its entry now describes the verified 2025 proceedings record. |
+| **Hide and Seek (HaS), arXiv v1** (submitted 6 September 2023; [version history](https://arxiv.org/abs/2309.03057); [full text §§3–4](https://arxiv.org/html/2309.03057v1); [DBLP CoRR record](https://dblp.org/rec/journals/corr/abs-2309-03057.html)). | HaS hides private entities using generative or label-based anonymization, then uses a small local “Seek” model to recover hidden entities in responses. It evaluates adversarial privacy protection and translation/classification utility. | Its task is reversible anonymization plus response de-anonymization, not standalone prompt-level presence detection or request interception. The scoped search verified the 2023 arXiv version and a CoRR record, not a definitive absence of later publication. `HaS2024` is retained as the key used by the manuscript, but the cited arXiv record year is corrected to 2023. |
+| **ProSan, arXiv v1** (“The Fire Thief Is Also the Keeper: Balancing Usability and Privacy in Prompts,” 20 June 2024; [full text §§IV–VI](https://arxiv.org/html/2406.14318v1)). An IEEE indexed record lists a related 2026 journal publication, “ProSan: Utility-Based Prompt Privacy Sanitizer,” *IEEE Transactions on Information Forensics and Security*, 21, 1198–1212, DOI [10.1109/TIFS.2026.3654397](https://ieeexplore.ieee.org/document/11352994/). | The preprint estimates word-level task importance and contextual privacy risk, then selectively replaces text to balance privacy and utility. It shares prompt-level protection and pre-disclosure transformation goals. | ProSan transforms prompts and evaluates privacy and downstream utility; it is not a binary PII-presence detector. The current bibliography remains the 2024 preprint citation because the Xplore page yielded sparse metadata and its published full text was not retrieved; do not attribute preprint method details to the journal version without checking it. |
+| **PromptShield conference paper** — Ezgi Keles and Serif Bahtiyar, UBMK 2025, pp. 1537–1542, DOI [10.1109/UBMK67458.2025.11206862](https://doi.org/10.1109/UBMK67458.2025.11206862); [Istanbul Technical University publication record](https://research.itu.edu.tr/en/publications/promptshield-policy-aware-dlp-framework-for-generative-al-prompts/). | The institutional record describes contextual prompt classification, role-based policy enforcement, and optional human-in-the-loop redaction. It reports 900 labeled synthetic training prompts and an independent 435-prompt test set. Its DLP and policy/action layer overlap with prompt privacy controls. | Its enterprise-role classification and synthetic test are not equivalent to PriVoke's detector, browser interception, or split protocol. Keep claims tied to the institutional record; no matched-rate comparison is warranted. |
+| **PromptShield master's thesis** — Ezgi Durmazpınar Keleş, Istanbul Technical University, 2026. The supervisor's [completed MS theses listing](https://web.itu.edu.tr/bahtiyars/SB-Students.html) gives the exact title, author, and year; [ITU Akademi](https://akademi.itu.edu.tr/en/bahtiyars/Thesis) also lists a completed postgraduate thesis. | The thesis is a separate institutional record in addition to the 2025 conference paper. | The exact completion month, repository record, full text, and relationship to the conference paper were not verified. The bibliography preserves the thesis citation under its existing key; do not merge it with the conference entry or assume identical content. |
+| **Presidio recognizer configuration** ([project documentation](https://github.com/data-privacy-stack/presidio/blob/main/docs/analyzer/customizing_nlp_models.md)). | Presidio supports configured NLP engines and recognizers; its documentation describes the spaCy-based default. This is relevant to the independent recognizer baseline. | The baseline should report its actual unchanged recognizers, `en_core_web_sm` configuration, and threshold. It excludes PriVoke rule imports and runtime aggregation; underlying NLP and rule technology can still overlap. |
+
+The nearest architectural overlap is Casper's client-side layered inspection. The
+PromptShield records also support discussing contextual policy enforcement and
+redaction, but the 2025 paper and 2026 thesis must remain distinct until their
+relationship is checked from the thesis itself. HaS and ProSan principally study
+prompt transformation and response utility, not a matched binary detector.
+
+These works make broad claims that prior prompt-privacy systems are uniformly
+static, ineffective, or unable to adapt too strong for this bounded search. A
+defensible contribution claim should be limited to PriVoke's measured controlled
+updates under its declared task and split, plus measured browser request
+prevention and error conditions. Those are empirical questions, not novelty or
+success findings established by this related-work record. Attribute each method
+to its own paper and version; do not compare unlike datasets, labels, or metrics.
+
+## Uploaded-source review checkpoint — 15 October 2026
+
+[LBR-20261015: uploaded literature baseline review](literature-baseline-review-20261015.md)
+records the exact user prompt, pinned manuscript/source hashes, full-paper review
+findings for the supplied Casper, HaS and ProSan preprints, metric denominators,
+functional differences, prioritized manuscript recommendations and a proposed
+fair comparison protocol. Its [source bibliography](literature-baseline-sources-20261015.bib)
+adds the distinct `CasperPreprintV12024` key without changing `paper/ref.bib`.
+This checkpoint extends the 4 October record with supplied-PDF evidence; it does
+not replace its published-version access limits, audit background papers, rerun
+systems, modify the manuscript or establish whole-paper readiness.
+
+## Manuscript revision checkpoint — 15 October 2026
+
+[literature-revision-execution-20261015.md](literature-revision-execution-20261015.md)
+records the bounded manuscript changes mapped to LBR-20261015, including the
+contribution scope, interaction comparison, version and metric boundaries, and
+unmeasured practical-utility questions. The later tested client-observation
+contract is reflected in the Methods text; its limits and the remaining human
+utility-evidence gaps are recorded there.
+
+## Manuscript concision checkpoint - 15 October 2026
+
+[CONCISE-20261015: manuscript concision validation](paper-concision-validation-20261015.json)
+records the exact request, keep/move/shorten decisions, source/output hashes,
+compilation, font and rendered-page checks. Main text occupies physical pages
+1-10, appendices 11-12 and references 13, with explicit page breaks. Secondary
+protocol, lineage, cost and telemetry detail is retained in appendices; decisive
+results and adverse findings remain in the main paper. No new experimental or
+usability evidence is claimed.
+
+## Manuscript output location - 15 October 2026
+
+The sole current compiled manuscript is [paper/main.pdf](../main.pdf), beside
+`paper/main.tex`. Its accepted bytes and 10-page main text are unchanged. Older
+task-generated manuscript PDFs and disposable build copies were removed; source
+papers, figures, user archives, logs and rendered QA remain. The concision
+validation record above retains the cleanup inventory and historical hashes.

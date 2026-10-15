@@ -5,15 +5,13 @@ import re
 
 
 def random_pii_transform(text: str, rng: random.Random | None = None) -> str:
+    """Conservative invariance augmentation; directional redaction needs new targets."""
     # Research-data variation only; cryptographic randomness is not required.
     rng = rng or random.Random()  # nosec B311
     transforms = (
         lambda value: value,
         lambda value: f"Please review this prompt: {value}",
-        redact_common_name,
         synthetic_common_name,
-        redact_email,
-        synthetic_phone,
     )
     return rng.choice(transforms)(text)
 

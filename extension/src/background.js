@@ -1,12 +1,20 @@
 import { RuntimeClient } from "./runtime-client.js";
 import { restoreConfiguredRuntime } from "./runtime-lifecycle.js";
-import { detectionLayers, loadSettings, updateSettings } from "./settings.js";
+import {
+  detectionLayers,
+  loadSettings,
+  mergeSettings,
+  semanticModelId,
+  updateSettings,
+} from "./settings.js";
 import {
   addRuntimeLifecycleListeners,
   addRuntimeMessageListener,
 } from "./webextension-api.js";
+import { SemanticAvailability } from "./semantic-availability.js";
 
 const client = new RuntimeClient();
+const semanticAvailability = new SemanticAvailability(checkStreamingHealth);
 let runtimeControlTail = Promise.resolve();
 
 addRuntimeMessageListener(handleMessage);
@@ -20,7 +28,7 @@ async function handleMessage(message, sender) {
     case "GET_SETTINGS":
       return { ok: true, settings: await loadSettings() };
     case "UPDATE_SETTINGS":
-      return { ok: true, settings: await updateSettings(message.patch ?? {}) };
+      return enqueueRuntimeControl(() => applySettings(message.patch ?? {}));
     case "SET_MASTER_ENABLED":
       return enqueueRuntimeControl(() => setMasterEnabled(Boolean(message.enabled)));
     case "GET_RUNTIME_STATUS":
@@ -54,6 +62,21 @@ async function checkStreamingHealth() {
   }
 }
 
+async function applySettings(patch) {
+  const current = await loadSettings();
+  const next = mergeSettings(current, patch);
+  if (next.useLocalStack !== current.useLocalStack && current.enabled) {
+    try {
+      await restoreConfiguredRuntime(client, next);
+    } catch (error) {
+      // Restore the old destination if restarting with the new profile failed.
+      await restoreConfiguredRuntime(client, current).catch(() => {});
+      return { ok: false, settings: current, error: errorMessage(error) };
+    }
+  }
+  return { ok: true, settings: await updateSettings(patch) };
+}
+
 async function setMasterEnabled(enabled) {
   if (!enabled) {
     const settings = await updateSettings({ enabled: false });
@@ -73,7 +96,7 @@ async function setMasterEnabled(enabled) {
   }
 
   try {
-    const runtime = await restoreConfiguredRuntime(client, { enabled: true });
+    const runtime = await restoreConfiguredRuntime(client, { ...await loadSettings(), enabled: true });
     const settings = await updateSettings({ enabled: true });
     return { ok: true, settings, runtime };
   } catch (error) {
@@ -137,10 +160,11 @@ async function analyzePrompt(message, sender) {
     }).catch(() => {});
     return { ok: true, response: disabledExtensionResponse() };
   }
-  const layers = detectionLayers(settings);
-  if (layers.length === 0) {
+  const configuredLayers = detectionLayers(settings);
+  if (configuredLayers.length === 0) {
     return { ok: true, response: disabledLayersResponse() };
   }
+  const semanticStatus = await semanticAvailability.selectLayers(configuredLayers);
 
   const targetApp = cleanText(message.targetApp, 80)
     || appFromUrl(sender?.url)
@@ -150,11 +174,11 @@ async function analyzePrompt(message, sender) {
     source: message.source === "manual" ? "extension_popup" : "browser_interceptor",
     targetApp,
     requestId: crypto.randomUUID(),
-    layers,
+    layers: semanticStatus.layers,
     regexExecutionOrder: settings.waitForRegex
       ? "REGEX_EXECUTION_ORDER_FIRST"
       : "REGEX_EXECUTION_ORDER_PARALLEL",
-    semanticModelId: settings.modelId,
+    semanticModelId: semanticModelId(settings),
     metadata: {
       client: "privoke-local-extension",
       client_version: "0.1.0",
@@ -162,7 +186,16 @@ async function analyzePrompt(message, sender) {
     },
   }, { signal: AbortSignal.timeout(30_000) });
 
-  return { ok: true, response };
+  return {
+    ok: true,
+    response: {
+      ...response,
+      semanticUnavailable: semanticStatus.unavailable,
+      semanticStateTransition: semanticStatus.transition,
+      semanticFallbackLayers: semanticStatus.fallbackLayers,
+      semanticFailClosedOnly: semanticStatus.failClosedOnly,
+    },
+  };
 }
 
 function disabledExtensionResponse() {

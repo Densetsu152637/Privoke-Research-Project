@@ -1,0 +1,455 @@
+\documentclass[conference]{IEEEtran}
+% packages
+\usepackage[T1]{fontenc}
+\usepackage{cite}
+\usepackage{url}
+\usepackage[hidelinks,hypertexnames=false]{hyperref}
+\usepackage{comment}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{comment}
+\usepackage{listings}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xspace}
+\graphicspath{{figures/}{paper/figures/}}
+
+% custom commands
+\newcommand{\privoke}{\textsc{PriVoke}\xspace}
+
+% default setting overrides
+\IEEEoverridecommandlockouts
+
+%
+\begin{document}
+
+\title{\privoke: A Client-Side Semantic Privacy Firewall for User Prompts in Web-Hosted LLMs}
+
+\author{
+\IEEEauthorblockN{Nicholas Bisset\IEEEauthorrefmark{1}}
+\IEEEauthorblockA{Monash University Clayton, Australia\\
+nbis0006@student.monash.edu}
+\and
+\IEEEauthorblockN{Manpreet Sahadevan, Nixon Ngai, and Sanoop Mallissery}
+\IEEEauthorblockA{Monash University Malaysia, Malaysia\\
+\{msah0018, nnga0004\}@student.monash.edu, sanoop.mallissery@monash.edu}
+
+\thanks{\IEEEauthorrefmark{1}Corresponding author: Nicholas Bisset.}
+\thanks{\href{https://github.com/Densetsu152637/Privoke-Research-Project}{GitHub Repository Link}}
+}
+
+\maketitle
+%----------------------------------------------------------------------%
+\begin{abstract}
+Web-hosted Large Language Models (LLMs) can receive sensitive information through outgoing prompts. We present \privoke, a client-side firewall combining rules, NER and semantic classification with bounded cloud training and guarded parameter redistribution. In the tested local-inference configuration, user-text inspection remains local; training uses supplied labeled examples. We separate contextual labels, annotation presence, actions, request enforcement and telemetry. On a reused 1,560-case assistant-provisional contextual workload, V3 product joint correctness improved by 27.37--41.86 percentage points over V1, while retaining 139 shared over-enforced cases and three/six new efficient/balanced action failures. Balanced regex removal corrected those 139 cases but lost eighteen previously correct actions. Matched FULL continuation improved aggregate joint agreement over HEADS, yet every FULL candidate failed the retention guard. On a once-only 498-case annotation-presence final, the same V3 artifacts yielded recall 80.51--93.64\% and specificity 13.36--21.76\%, versus 98.40--99.87\% clean specificity on the authored semantic fixture. An external official-category reference and native Presidio configurations exposed further tradeoffs under explicit task/proxy mismatches. A complete instrumented Linux Chromium capture observed declared receiver behavior and 360 regex/NER decisions; whole-container resources include infrastructure and observer. Conditional host telemetry auditing found a tiny excess over nominal privacy budgets and substantial clipping error on synthetic workloads. These results establish auditable mechanics and bounded package gains, while leaving independent contextual truth, usability and deployment generalization unestablished.
+\end{abstract}
+%----------------------------------------------------------------------%
+\begin{IEEEkeywords}
+Local Differential Privacy, Large Language Models, Named Entity Recognition, Personally Identifiable Information, Adaptive Privacy Detection.
+\end{IEEEkeywords}
+%----------------------------------------------------------------------%
+\section{Introduction}
+\label{sec:introduction}
+
+Web-hosted LLMs support writing, coding and analysis~\cite{Gupta2024,LIANG2025101366,koraag2025comparing}, but outgoing prompts can disclose personal or organizational information before provider controls apply~\cite{Athey2017,barbera2025ai,King2025}. Reported workplace disclosures, including Samsung's source code and meeting information, motivate intervention before transmission~\cite{SamsungBans2023,GoogleWarns2023}. Provider-side history exposure and exfiltration illustrate additional downstream risks that prompt interception cannot generally prevent~\cite{BBCChatGPTHistoryBug2023,ClaudeDay2026}.
+
+\privoke inspects supported outgoing prompts locally and combines regex, NER and semantic classification with sensitivity, visibility and category policy. ALLOW and WARN forward the original body; BLOCK cancels supported requests. WARN is not an awaited acknowledgement, and returned masked spans do not rewrite browser traffic. Cloud-side training uses supplied labeled examples, separately from local user-text inspection.
+
+Local layered inspection has precedent in Casper~\cite{Casper2024}; HaS and ProSan also train local protection models~\cite{HaS2024,ProSan2024}. Our contribution is a measured, version-bound update lifecycle: server-side computation, guarded artifact publication and client parameter refresh without an application release. We test whether updates improve agreement while preserving previous coverage, distinguish semantic from product outcomes, and observe request enforcement. Paired gains and regressions make adaptation conditional rather than inherently beneficial. Independently randomized telemetry supports a separate, explicitly bounded monitoring path; it supplies no training labels.
+
+%----------------------------------------------------------------------%
+\section{Related Work}
+\label{sec:literature_review}
+Client-side prompt inspection has direct precedent in Casper~\cite{Casper2024}, which combines entity and topic detection with substitution, recovery and warnings. Hide and Seek (HaS)~\cite{HaS2024} studies reversible hiding and adversarial recovery; ProSan~\cite{ProSan2024} balances privacy hiding with task utility. PromptShield~\cite{PromptShield2025} considers enterprise role/policy classification. These works motivate pre-disclosure protection but evaluate different outputs. \privoke investigates a guarded training/publication path for a locally executed classifier and measures whether updates preserve existing coverage; it does not assume that prior systems are uniformly static or ineffective.
+
+The interaction boundary differs across these systems. Casper substitutes identifiers and offers response restoration and an acknowledged topic warning. HaS locally recovers hidden response entities, while ProSan selectively rewrites prompt content and measures downstream task proxies. In the reviewed versions, neither describes PriVoke's browser request-action interface. PriVoke's WARN is a notice attached to a decision, not an awaited acknowledgement: ALLOW and WARN forward the original body, whereas BLOCK cancels supported requests. Returned masked spans are evidence and do not rewrite that body.
+
+Appendix~\ref{app:interaction} gives the version-qualified interaction comparison.
+
+Table~\ref{tab:related_results} records selected author-reported outcomes in their own units and versions. Casper's 2025 published abstract and supplied 2024 v1 preprint are separate rows; the latter's detailed counts are available in the reviewed version, while the published full text was unavailable. HaS and ProSan refer to verified v1 preprints. These systems were not rerun under our protocol. Different tasks, populations and metric definitions prevent a shared accuracy ranking. Our locally measured external references are Presidio with disclosed small and large English NLP configurations~\cite{PresidioNlpConfiguration2026}.
+
+\begin{table}[t]
+\centering
+\caption{External reported outcomes on different tasks; no cross-study ranking or local reproduction.}
+\label{tab:related_results}
+\small
+\begin{tabular}{>{\raggedright\arraybackslash}p{.23\columnwidth}>{\raggedright\arraybackslash}p{.29\columnwidth}>{\raggedright\arraybackslash}p{.33\columnwidth}}
+\toprule
+Work & Selected reported outcome & Population / boundary \\
+\midrule
+Casper v1 (2024)~\cite{CasperPreprintV12024} & NER recall 98.5\%, specificity 86.7\% & Two GPT-4-Turbo-generated 2,000-prompt workloads; NER support is 1,000 positive / 1,000 negative. \\
+Casper 2025~\cite{CasperAbstract2026} & PII accuracy 92.6\% & Published abstract: 4,500 synthetic/2,000 real-world prompts; metric support unavailable. Separate from v1. \\
+HaS v1 (2023)~\cite{HaS2024} & Black-box label-based protection 0.4070 & 19,703-example train/test corpus, 80/20; 1.7B black-box attacker; one minus whole-text recovery similarity, not entity protection; exact test support unspecified. \\
+ProSan v1 (2024)~\cite{ProSan2024} & Local-star privacy hiding rate 99.8\% & MedQA, SAMSum and CodeAlpaca, 1,000 test prompts each; item-replacement proxy, exact item count unspecified. \\
+PromptShield 2025~\cite{PromptShieldAbstract2026} & Policy accuracy 72.92\% & Independent 435-prompt test; full model/class supports unavailable. \\
+\bottomrule
+\end{tabular}
+\end{table}
+For ProSan's occupation, race and orientation items, the reviewed v1 further
+requires WordNet similarity below 0.9; this criterion does not make its item
+replacement rate a prompt-level privacy metric.
+
+\section{Scope and Privacy Representation}
+\label{sec:threat_model}
+We protect supported outgoing prompt requests from inadvertent personal, third-party or organizational disclosure. The workstation, enabled extension, local runtime/supervisor and authenticated model publisher are trusted. Compromised clients, malicious publishers, deliberately replaced hooks and provider-held historical information are outside this boundary. Coverage is limited to recognized prompt POST formats through page \texttt{fetch} and asynchronous \texttt{XMLHttpRequest}; worker traffic, unsupported transports, attachments and endpoint changes require separate validation. Disabling protection bypasses inspection. Optional hosted inference changes the disclosure boundary and is excluded from local-inference measurements.
+
+\label{sec:pii_categorisation}
+Classifications retain three dimensions: sensitivity S0--S3, visibility P0--P4/PU, and a multilabel category set. S0 means no identified risk, S1 low-risk personal context, S2 potentially harmful personal information and S3 highly sensitive/identifying details or secrets. P0--P4 denote public, semi-public, authentication-restricted, group-private and personal-private context; PU denotes unspecified visibility. The ten categories are HEALTH, POLITICS, RELIGION, CRIMINAL, FINANCIAL, SEXUAL, CHILD, LOCATION, IDENTITY and THIRD\_PARTY. These policy labels do not independently establish disclosure authorization.
+
+The deterministic policy maps S3 to BLOCK and S2 to WARN. S0/S1 remain ALLOW unless IDENTITY and LOCATION coexist, or either occurs with P2--P4 visibility. Returned confidence below 0.5 moderates S3 to WARN and S2 without IDENTITY/LOCATION to ALLOW; other low-confidence classifications map to ALLOW. Confidence is not established as calibrated probability. Aggregation preserves individual enforcement decisions, unions categories and takes the strongest sensitivity/known visibility. Entity presence, contextual labels and appropriate action are therefore distinct targets.
+
+\section{Architecture and Update Path}
+\label{sec:system_architecture}
+\subsection{Local Inspection and Enforcement}
+A browser page hook extracts supported prompt text and sends it through the WebExtension background process and loopback gRPC-Web bridge to a workstation-local Python runtime. A native-messaging supervisor manages bridge/runtime lifecycle. User inference does not fall back to the server-side training runtime. ALLOW and WARN forward the original body; BLOCK cancels it. A returned masked span is evidence rather than automatically substituted browser content. Unavailable analysis blocks supported requests; a streaming outage may retain other enabled layers, reducing semantic coverage rather than guaranteeing it.
+
+The runtime normalizes Unicode, case, separators, digit spacing and whitespace while retaining offsets for original-text evidence. Regex runs first by default; regex BLOCK skips later requested detectors. Otherwise enabled regex, spaCy NER and semantic findings are aggregated. A failed requested layer blocks an otherwise ALLOW response; valid non-ALLOW findings remain visible. Semantic-only experiments explicitly select layer 4 and verify actual sole-layer execution. Product experiments explicitly select [2,3,4] and retain legitimate skip/error records. An empty list implicitly selects the complete pipeline and cannot establish semantic-only evidence.
+
+Historical V1 profiles are repository-owned transformers with seeded-bootstrap encoders. Balanced has 36,756 parameters, two blocks, hidden size 32, vocabulary 512 and a 96-token window; head-only training changes 660 parameters. Later V3 profiles retain complete pretrained Google BERT encoders/poolers~\cite{googleBertL4H128A2,googleBertL2H256A4,googleBertL12H256A4,turc2019WellReadStudents}. They remain classifiers rather than conversational generators. Native tokenizer, capacity, threshold and training-history differences are preserved in package comparisons.
+
+\subsection{Guarded Cloud Training and Redistribution}
+The fuzzer constructs bounded labeled TRAIN and held-out batches, excludes protected rows/text/groups, and requests head or admitted full-model gradients from a separate server runtime. That runtime performs model fetching, execution and differentiation, returning model-bound deltas and candidate metrics. The fuzzer submits eligible updates to an updater that validates exact base identity, trainable tensor inventory/shapes, finite values, magnitude limits and publication guards. Checksums or accepted receipts alone are not efficacy evidence.
+
+The updater atomically publishes each validated artifact revision using compare-and-swap base checks and durable replay receipts. Conflicting/stale bases fail; identical retries do not apply twice. Head and underlying stages are separate publications, so an accepted head revision may remain if the later full stage rejects. Streaming serves versioned parameters and clients refresh cached weights without an application release. The path is labeled examples $\rightarrow$ server computation $\rightarrow$ guarded publication $\rightarrow$ streamed parameters, separate from local user-text inspection. This is centralized training, not federated learning, user-gradient collection or a demonstrated cloud deployment. Experimental retention objectives, samplers and optimizer variants remain documented engineering treatments rather than assumed sources of quality gain.
+
+\subsection{Telemetry Boundary}
+\label{sec:telemetry_mechanism}
+Telemetry is independent of training. Randomized packets contain action, a coarse action/sensitivity risk bucket, one precedence-selected category, bounded release label and four-hour UTC time-of-day bin without date; they exclude raw prompts, identifiers, exact scores and per-layer findings. For public event budget $\varepsilon$, five independently randomized fields receive $\varepsilon_i=\varepsilon/5$. A field with domain size $K_i$ returns its true value with probability
+\begin{equation}
+p_i=\frac{e^{\varepsilon_i}}{e^{\varepsilon_i}+K_i-1},\qquad
+q_i=\frac{1}{e^{\varepsilon_i}+K_i-1}
+\end{equation}
+for each alternative. Ideal product sampling bounds the event-tuple likelihood ratio by $e^{\sum_i\varepsilon_i}=e^\varepsilon$ under common public configuration. Actual binary64 thresholds differ from that ideal mechanism. Let $\widetilde p_i$ denote the implemented host binary64 threshold. In the audited CPython sampler, a fresh uniform 53-bit integer $J$ selects truth when $J/2^{53}<\widetilde p_i$, giving
+\begin{equation}
+\begin{aligned}
+P_i&=\frac{\lceil 2^{53}\widetilde p_i\rceil}{2^{53}},\qquad Q_i=\frac{1-P_i}{K_i-1},\\
+\varepsilon_{\mathrm{finite}}&=\sum_i\log\max\{P_i/Q_i,Q_i/P_i\}.
+\end{aligned}
+\end{equation}
+Alternative selection uses rejection sampling. This conditional finite-kernel calculation assumes independent uniform OS bits; it does not certify OS entropy or deployed builds. A persistent installation-local ledger reserves nominal budget before construction, defaults to event epsilon 1 and total epsilon 8 per UTC day, and does not refund failures. Report presence, accepted counts, delivery selection and network metadata are excluded; retained state and a trusted clock are required. The collector inverts nominal response probabilities and independently clips each marginal to $[0,n]$, so estimates need not form a coherent histogram.
+
+\section{Evaluation Methodology}
+\label{sec:methodology}
+\subsection{Questions, Data and Measurement Units}
+We ask whether controlled updates improve classifier behavior while preserving coverage, how semantic and product decisions differ, and whether supported enforcement matches policy. Per-prompt annotation presence, contextual label exactness, allowed-action correctness and receiver-observed prevention remain separate. A contextual binary positive means non-S0 sensitivity or any category; joint semantic classification requires exact sensitivity, audience and category set, while product joint additionally requires an allowed action. Errors are incorrect in full accuracy/class denominators, with coverage and successful confusion reported separately.
+
+Historical English PIIMB experiments use revision \texttt{4a13e9f}, exact-text/conflict exclusion and source-document grouping. The selected 1,000 rows comprise development 502 (264 positive/238 negative) and protected final 498 (236/262); additional reused validation has 968 rows (475/493). Source annotations define binary presence, not contextual privacy or action truth. This custom prompt-level annotation-presence projection differs from the PIIMB zero-shot character masking/F2 benchmark~\cite{PIIMBPinned2026}. Custom within-corpus fitting and threshold selection do not establish untouched official benchmark results. Positive-only source-heldout studies cannot estimate specificity. A once-only final endpoint evaluated all six fixed V1/AU3 packages after executable/model/source freezes, synthetic sole-layer probes and independent release. Each request selected and verified only semantic layer [4]; no tuning, reselection or promotion followed. The 498 rows span 464 observed source-namespaced groups (431 singletons, 32 pairs, one triple), with no missing namespace or cross-source key collision. These keys are grouping conventions, not certified template independence. The frozen historical source-group-key analysis uses 2,000 paired draws, seed 42, with unadjusted descriptive ranges; a separate namespaced-key sensitivity is retained.
+
+Authored contextual targets are assistant-provisional rather than human-adjudicated. PH3 initially sealed 1,560 comparison rows after fitting; EN3 reused them as development. AU3 separately sealed a new 1,560-row FRESH workload after all fit/export/native checks. Its 35 scenario families and 24 audience-expression groups introduce dependence. PIPE3 and Presidio reuse that already opened AU3 workload: 810 sensitive/750 clean cases and 260 per audience P0--P4/PU. Repetition or a later prospective protocol does not make reused cases independent confirmation.
+
+\subsection{Training Lineage and Selection}
+Historical online studies bind artifacts, curricula, trainable tensors, seeds, budgets and safety/retention predicates before assessment, retaining accepted and rejected attempts separately. Later paired semantic-only HEADS/FULL and representation studies use explicit execution scopes; publication does not imply qualification. Full specifications and unsuccessful attempts remain in repository research records.
+
+PH3 fits task heads over frozen pretrained encoders; EN3 jointly continues encoder, pooler and heads; AU3 adds audience supervision with rehearsal. Validation alone selects checkpoints, without sealed-comparison tuning. Native V1 and V3 differ in capacity, tokenizer, threshold and history; selected task epochs exclude unknown upstream pretraining. Appendix~\ref{app:lineage} retains recipes, selected doses and parameter counts.
+
+\subsection{Matched Pretrained Continuation}
+A separate fixed-base host experiment compares HEADS and FULL continuation for balanced seeds 42/43/44. Each starts from byte-identical intact official pretrained encoder/pooler and zero task heads, distinct from both original V1 and AU3-selected packages. Complete TRAIN/guard group and normalized-text exclusions remove 480 AU3 validation rows before fitting, leaving 1,080 reused provisional cases (570 sensitive/510 clean) in 25 families. Each treatment receives the same ordered 4,096 TRAIN exposures over 64 steps, sensitivity/audience/category objective and dropout-off execution. AdamW head/encoder rates are $10^{-3}/2\times10^{-5}$, weight decay zero, clip norm one and microbatch 4/effective batch 64; FULL alone enables encoder gradients and its optimizer group, including consequent joint-gradient-clipping differences. The two-step pilot establishes execution/resource readiness only.
+
+All six terminal candidates and one unchanged ORIGINAL are assessed through native in-process handler requests with explicit successful sole [4] and immutable identities. In this continuation study, joint correctness also requires an allowed action in addition to exact sensitivity, audience and category set; executed layers remain semantic-only. These are 1,080 cases assessed seven times, not 7,560 independent situations or network RPC evidence. No assessment selects a checkpoint. The maintained 16-case guard requires joint improvement and zero action harms against one derived target action; assessment instead permits its declared allowed-action sets on 1,080 different cases. Guard candidate/ORIGINAL mappings are hypothetical, with no publication. A bounded guard pass does not certify broader policy safety. Three seeds share one weak zero-head control and the same cases.
+\subsection{Product and External-Reference Protocol}
+\label{sec:pipeline_comparison_methods}
+PIPE3 compares original V1 and AU3-selected V3 efficient/balanced/quality packages through the native regex-first handler and a narrow inference-only V3 adapter. Requests explicitly select [2,3,4], no audience hints and no presence gate; identities, actual layer status and errors are checked. Real installed regex/spaCy detectors are used. First-pass same-case accuracy is primary. Three passes/package yield 28,080 accuracy RPCs plus 24 separate warmups; later identical passes measure repeatability and do not increase independent sample size.
+
+A separate product-scoped ablation fixes the AU3 balanced package, rules, NER, policy and all 1,560 reused cases. Seven explicit configurations request regex [2], NER [3], semantic [4], nonsemantic [2,3], no NER [2,4], no regex [3,4] and full [2,3,4]. Actual execution, legitimate regex skips, identities and errors are checked for every request. This is a matched detector-removal comparison for one package, separate from semantic-only model evaluation.
+Native V1 windows 64/96/128 and category threshold 0.38 are retained; V3 uses 512 WordPieces and threshold 0.5. Three rows exceed V1 efficient's cap: one regex-skips semantic and two use native truncation; none is removed. Windows, tokenizers, capacities, thresholds and histories prevent causal architecture/pretraining attribution. The CPU host uses Python 3.11.9, Torch 2.11.0, NumPy 1.26.4, spaCy 3.7.5 and \texttt{en\_core\_web\_sm} 3.7.1 with four model threads. V3 runs before V1 in fixed tier order, one loaded process at a time. Host RPC includes product/transport overhead; peak RSS covers the server process. Fixed order, backends, warming and regex shortcuts make cost descriptive.
+
+Independent Presidio 2.2.363 uses the same ordered texts, spaCy 3.7.5, native recognizers and threshold 0.5~\cite{PresidioNlpConfiguration2026}. Separate fixed configurations use \texttt{en\_core\_web\_sm} 3.7.1 and \texttt{en\_core\_web\_lg} 3.7.1~\cite{SpacyLarge371Release2026}; the larger-model follow-up was frozen before its predictions. Any finding predicts positive. Only text/language enter inference: no target hints, PriVoke rules, mapping, tuning or exclusions. Its entity task deliberately differs from contextual binary truth. Severity, audience, category exactness, joint and actions remain unmeasured. Raw same-ID pairing uses existing PIPE3 first passes without rerunning them. The larger-reference freeze omitted an imported analysis-helper hash; independent raw confusion/pairing checks address the reported counts without retrospectively completing that freeze. Direct analyzer timing is not compared with product RPC latency.
+
+Source closures, package/data/recognizer hashes, raw journals and independent audits bind the studies. The tracked compact aggregate/generator reproduce figures without prompts or weights; inference reproduction additionally requires ignored pinned assets, including historical dirty source bytes. A post-hoc raw audit reconciled all 154 declared source files and eighteen model assets to their pinned historical bytes. Relative to clean commit \texttt{65a7c78}, 73 source files match exactly, 55 differ only in line endings, eleven differ beyond line endings and fifteen are missing; a byte-exact local archive preserves the required closure. Binary recall, specificity and accuracy use 2,000 paired whole-cluster draws, seed 42 and linear 95\% percentile ranges separately by family or audience expression; these describe dependence sensitivity rather than crossed-cluster independence or population coverage. Ten fixed equal-width bins compare returned semantic confidence with observed sensitivity/category exactness where exactly one scored semantic finding was emitted. This outcome-selected subset excludes regex skips and semantic executions without an emitted finding. The scalar takes the maximum sensitivity/category-head probability; it is neither presence nor full-correctness probability, so ECE/Brier calibration metrics are not inferred.
+
+\subsection{External Official-Category Reference}
+A prospective AdvPIIBench reference~\cite{arpaly2026advpiibench} freezes revision \texttt{02741d9f} and 1,000 injected positives, 750 ordinary negatives and 250 hard negatives. The source is English machine-generated single-turn data without human annotation; only the attacked identifier is labelled, so it does not establish exhaustive five-type or broad privacy-clean negatives. The target is agreement with official CATEGORY, distinct from contextual privacy. Preparation builds whole-source closure over parent IDs, exact/normalized text and typed original injected values before exclusions, then selects globally one row per component, excluding few-shot-safe and protected/conflicting components. All quotas and protected TRAIN/validation/bootstrap exclusions passed before inference; the 2,000 selected components are not certified independent templates.
+
+For this reference alone, any returned semantic finding predicts positive, including WARN; this response proxy differs from the non-S0-or-category projection above. Balanced V1/V3 use explicit successful sole [4] and unchanged native settings. V1 truncates 477 inputs at its 96-token bound; V3 has no over-cap input at 512, precluding training-only attribution. Presidio lg is separately restricted to credit card, phone, IBAN, email and US SSN at threshold 0.0, unlike the earlier all-recognizer threshold 0.5 reference. Paired component resampling uses 2,000 draws, seed 20261014; one row per component makes it row resampling here. Neither finding presence nor CATEGORY agreement measures attacked-span recovery or human privacy accuracy.
+\subsection{Installed Browser Protocol}
+A confined Linux Chromium study loads the built extension into fresh profiles and uses the standard native-host installer, Chrome native messaging API, detached supervisor, bridge and V1 balanced detector. An HTTPS ChatGPT-shaped synthetic receiver records original bodies and late sends; it is no authenticated provider. Thirty-three declared fetch/XHR correctness probes cover forwarding, blocking, faults, cancellation and recovery, with sequential runtime RPC correlation. Healthy full and sole-semantic probes verify actual execution separately from cost measurements.
+
+The cost protocol measures 360 regex/NER [2,3] decisions across twelve fresh profiles; correctness/fault probes are outside its resource windows. Page-observed decision latency excludes receiver response. Whole-container CPU and sampled charged memory include resident infrastructure/cache and observer, with no unprotected baseline or incremental client attribution (Appendix~\ref{app:browser_protocol}).
+
+Later client instrumentation adds ephemeral, prompt-free observations of notice rendering and local request disposition to the page-visible channel. Rendering does not establish that a person saw or understood a notice; native fetch/XHR handoff does not prove receipt. Missing outcomes remain unknown, and page scripts can forge or suppress these diagnostic events. The events are neither persisted nor telemetry. Independent expected actions/authorization and joined task or user outcomes are still needed to measure unnecessary restrictions, completion, reformulation or comprehension. These fields postdate the reported B10 capture: 53 host synthetic tests validate their contract, but no installed-browser, cost or utility remeasurement measures their overhead.
+
+\section{Results}
+\label{sec:results}
+\subsection{Update Mechanics and Adaptation Limits}
+Audited runtime computation, bounded publication and client refresh demonstrate that the path can change served parameters, not sustained improvement. Six early contextual grids completed 126 attempts with no retained qualifier. A later semantic-only curriculum/representation comparison completed 900 live attempts and 360 offline steps without qualification. An accelerated normal-batch study completed 2,016 attempts; none of nine revised realizations met its promising criterion. Recall/specificity tradeoffs and casewise harms remained, including zero disclosure joint correctness throughout that accelerated experiment. A frozen pretrained MiniLM package improved provisional disclosure agreement but failed its serious-action veto. These bounded negative results are preserved rather than replaced by later gains.
+
+Supervised PH3/EN3 packages subsequently improved task coverage with component regressions retained. On sealed AU3 semantic-only FRESH, EN3-to-AU3 joint classification rose 262/267/429 to 922/972/1209 of 1,560. Joint improvements/regressions were 680/20, 732/27 and 792/12. Selected AU3 clean specificity was 738/740/749 of 750 (98.40/98.67/99.87\%) on this semantic-only workload. FN14 below uses these same three AU3 artifacts and the same non-S0-or-category response projection, but different inputs and annotation targets. The balanced sole-semantic ablation also retained 740/750 clean matches on AU3. Thus the contrast is not evidence of an intervening model change; its causes remain unisolated. Quality had no observed action distance but retained classification regressions; efficient/balanced had new under-restriction harms. These provisional synthetic package outcomes do not establish automatic online-training benefit. PIPE3 below reuses AU3 cases and adds cascade and allowed action to its joint measure.
+
+\subsection{Matched Continuation Outcomes}
+All six 64-step fits and 7,560 native handler assessments completed with finite parameters and zero assessment errors. HEADS preserved every encoder tensor; FULL changed 39 encoder tensors and exposed nonzero later encoder gradients. Table~\ref{tab:matched_continuation} reports all terminal candidates. FULL-minus-HEADS joint improvements/regressions were 79/14, 69/26 and 90/20 for seeds 42/43/44; action improvements/regressions were 123/38, 124/41 and 110/19. Under-enforcement distance increased on 33/37/15 cases and over-enforcement on 17/13/17; these directional counts are not a mutually exclusive harm union.
+
+\begin{table}[t]
+\centering
+\caption{Fixed-base continuation on 1,080 reused provisional cases. Entries are HEADS/FULL; unchanged zero-head ORIGINAL has zero joint and 480 allowed-action matches. Guard harms use sixteen guard cases, separate from the 1,080 assessment cases.}
+\label{tab:matched_continuation}
+\small
+\begin{tabular}{lrrr}
+\toprule
+Seed & Joint correct & Allowed action & Guard harms \\
+\midrule
+42 &192/257 &908/993 &0/1 \\
+43 &204/247 &906/989 &1/1 \\
+44 &198/268 &912/1003 &0/1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Every FULL candidate fails the fixed guard due to one action harm and would map to ORIGINAL; HEADS seeds 42/44 pass while seed 43 fails. No candidate was published or promoted. The stronger aggregate FULL outcomes thus support a bounded optimizer-treatment contrast, while providing no retained FULL update under this rule. Fixed execution order, cold kernels and allocated CUDA tensor peaks do not establish a training-speed ratio or whole-process memory requirement. This study isolates neither pretraining nor architecture and does not establish useful automatic cloud adaptation.
+\subsection{Native V1/V3 Product Comparison}
+\label{sec:pipeline_comparison_results}
+All six PIPE3 runs completed with zero failed accuracy RPCs/layer errors. Table~\ref{tab:pipeline_v1_v3} and Figure~\ref{fig:pipeline_v1_v3} retain correctness and action burdens. V3-minus-V1 joint gains were 427/557/653 cases (27.37/35.71/41.86 percentage points). Paired joint improvements/regressions were 484/57, 573/16 and 671/18; action improvements/regressions were 389/3, 389/6 and 348/0. Quality therefore retained eighteen joint regressions despite no action regression. All repeat passes matched classifications, actions, evidence and traces, establishing fixed-input repeatability.
+
+\begin{table}[t]
+\centering
+\caption{PIPE3 on reused AU3 cases. Entries are V1/V3 counts: joint J and allowed action A of 1,560; sensitive recall R of 810 and clean specificity S of 750.}
+\label{tab:pipeline_v1_v3}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrr}
+\toprule
+Tier & J & A & R & S \\
+\midrule
+Efficient &266/693 &1029/1415 &544/808 &494/629 \\
+Balanced &160/717 &1026/1409 &771/802 &318/631 \\
+Quality &226/879 &1073/1421 &598/810 &468/641 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{results-pipeline-v1-v3.pdf}
+\caption{Native product correctness and action burdens on 1,560 reused, assistant-provisional cases. Blue circles denote V1; orange triangles V3. Panels(c,d) count under/over-enforced cases on different scales, not ordinal distance. Regex-first execution skips NER/semantic on 289 cases/package/pass. Native packages differ in history, capacity, tokenizer and threshold; connected points do not isolate architecture or detector effects.}
+\label{fig:pipeline_v1_v3}
+\end{figure*}
+
+Post-hoc family resampling gave V3-minus-V1 binary-accuracy ranges of 21.64--29.37, 18.28--25.69 and 19.90--29.37 percentage points for efficient/balanced/quality. Audience-expression ranges were 23.40--28.08, 19.17--24.81 and 22.44--26.92. Balanced recall-gain ranges differed more: 1.73--6.13 by family versus 0.25--8.13 by expression. These conditional sensitivity analyses retain paired improvements and losses and do not establish independent generalization.
+V3 audience exactness was 1089/1092/1217 of 1,560, category exactness 885/914/979 and category macro F1 .664/.703/.761. Category-bearing joint remained 138/149/237 of 720 and multilabel joint 51/69/125 of 456. Correct PU audience labels decreased by 56/65/21 versus V1; efficient PU joint fell 102 to 98 of 260. Observed tier ordering is workload-specific rather than universal.
+
+Regex ran on all 1,560 cases and early-BLOCKed 289. NER/semantic each ran on 1,271 and skipped 289 without errors. Loaded spaCy produced zero converted PriVoke NER findings after supported-label filtering, which does not imply zero raw entities or inactive NER. These are merged product scores, not isolated semantic results.
+
+V3 under-enforcement affected 6/12/0 cases versus V1's 234/129/236. All V3 packages over-enforced the same 139 IDs, totaling 248 ordinal distance units: 109 S0/ALLOW controls received regex BLOCK and skipped later layers, while thirty S1/ALLOW controls received regex WARN. An individual regex finding supplied the maximum final action on each shared case. This trace provenance is distinct from the matched balanced detector removal below. Three efficient and six balanced cases acquired newly incorrect, less restrictive actions. No package was promoted.
+
+\subsection{Controlled Balanced Detector Ablation}
+\label{sec:detector_ablation}
+All 10,920 product-ablation requests completed with valid execution records. The full balanced configuration reproduced 1,409 allowed-action and 717 joint matches; removing regex yielded 1,530 and 972. Removal corrected all 139 shared over-enforced cases but lost eighteen previously correct actions: under-enforced cases rose from twelve to thirty. Paired joint improvements/regressions were 260/5. Thus 121 net action gains coexist with additional lost protection under the provisional policy labels. The no-regex and semantic-only configurations were identical; removing NER instead left full-pipeline outputs unchanged. Zero converted NER findings on this fixture explain that local result and do not show that NER is generally dispensable.
+\subsection{Matched Recognizer Reference}
+\label{sec:external_comparison}
+Presidio completed 1,560 cases without errors: TP/TN/FP/FN 367/539/211/443, contextual-sensitive recall 45.31\% and clean specificity 71.87\%. Figure~\ref{fig:pipeline_presidio_reference} compares all six product packages under those targets. Presidio specificity exceeded all V1 packages. V3 efficient/balanced/quality recall was 99.75/99.01/100.00\% and specificity 83.87/84.13/85.47\%. Paired binary improvements/regressions versus Presidio were 612/81, 607/80 and 613/68; aggregate gains did not preserve every reference-correct case.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{results-pipeline-presidio-reference.pdf}
+\caption{Shared-case binary reference: recall among 810 contextual-sensitive and specificity among 750 clean targets. Counts label each point; all have zero-error coverage. The dark diamond is configured small-English Presidio with native recognizers/threshold 0.5. Entity ontology differs from contextual disclosure truth; this reused PriVoke-developed workload is not independent external validation. Unsupported audience/category/action/joint predictions are not inferred.}
+\label{fig:pipeline_presidio_reference}
+\end{figure*}
+
+The larger fixed English Presidio configuration also completed all 1,560 cases without error, returning TP/TN/FP/FN 240/666/84/570. Relative to the small model, specificity rose from 71.87\% to 88.80\% while recall fell from 45.31\% to 29.63\%; both classified 906 cases correctly. Paired correctness improved on 192 cases and regressed on 192 others. Larger model size therefore changed the tradeoff rather than uniformly improving this contextual comparison. The plotted diamond retains the original small-model reference.
+A recognizer can legitimately flag entities that contextual labels call safe; this is not a strongest-baseline or general privacy ranking. Historical 502-row annotation presence showed a different tradeoff: original v0.3.0 product recall/specificity 93.56/19.75\%, versus configured Presidio 78.79/79.41\%. That earlier target and rule/model snapshot are not pooled with current contextual results. Published sanitization/utility outcomes in Table~\ref{tab:related_results} remain separate tasks and data.
+
+\subsection{Frozen Final Annotation-Presence Endpoint}
+\label{sec:final_annotation}
+All 2,988 final RPCs completed without errors and executed only the requested semantic layer. Table~\ref{tab:final_presence} preserves full confusion counts. V3 efficient/balanced/quality recall was 92.37/93.64/80.51\%, versus V1 59.32/59.75/70.76\%; specificity was 17.18/13.36/21.76\%, versus 23.28/24.81/19.47\%. Paired binary correctness gains/losses were 117/55, 103/53 and 91/62. Frozen source-group resampling ranges for net accuracy gains were 7.41--17.37, 5.35--15.03 and 1.02--10.71 percentage points. Improved recall therefore coexists with poor clean-label discrimination; efficient/balanced specificity decreased and quality's small point gain was uncertain. Annotation presence and provisional contextual classification remain different targets; these scores cannot be pooled or treated as a common privacy-accuracy measure.
+
+\begin{table}[t]
+\centering
+\caption{Once-only final semantic annotation presence: 236 positive/262 negative rows. Entries are V1/V3 counts; all six arms have zero errors.}
+\label{tab:final_presence}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Tier & TP & TN & FP & FN \\
+\midrule
+Efficient &140/218 &61/45 &201/217 &96/18 \\
+Balanced &141/221 &65/35 &197/227 &95/15 \\
+Quality &167/190 &51/57 &211/205 &69/46 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\subsection{External Source-Category Outcomes}
+All 4,000 semantic RPCs and 2,000 direct Presidio analyses completed without errors. Table~\ref{tab:external_category} preserves positive and both zero-category strata. V1/V3 source-positive recall was 63.0/92.9\%, while source-negative specificity was 48.6/0.5\%. Paired V3-minus-V1 ranges were +26.56--33.16 percentage points for recall and -51.13 to -45.21 for specificity, with every resample class-defined. Presidio's 99.1\% source-negative specificity accompanied only 3.9\% source-positive recall. These are tradeoffs against source categories: a semantic finding can concern unannotated broader content, so 0.5\% specificity is not an established 99.5\% privacy false-alarm rate. No threshold, package or row was changed afterward.
+
+\begin{table}[t]
+\centering
+\caption{AdvPIIBench CATEGORY proxy: TP of 1,000 injected positives; TN of 1,000 source negatives, split into ordinary $\mathrm{TN}_O$/750 and hard $\mathrm{TN}_H$/250. These are source-label counts, not broad privacy truth.}
+\label{tab:external_category}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Arm & TP & TN & $\mathrm{TN}_O$ & $\mathrm{TN}_H$ \\
+\midrule
+V1 balanced &630 &486 &321 &165 \\
+V3 balanced &929 &5 &5 &0 \\
+Presidio, five types &39 &991 &750 &241 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\subsection{Descriptive Cost and Request Enforcement}
+V3 had lower observed first-pass host RPC medians but larger process peak RSS. Fixed V3-first order, backend differences, warming and cascade shortcuts preclude a controlled speedup or model-only claim (Appendix~\ref{app:product_cost}).
+
+The final Linux Chromium 153.0.8010.12 capture used the built extension loaded into fresh profiles, standard native-host installer, Chrome native messaging API and V1 balanced detector. The HTTPS synthetic receiver observed eighteen unchanged original-body sends and fifteen zero-send outcomes across thirty-three declared correctness probes, including outage, timeout, cancellation, missing-result and recovery paths. Runtime RPC correlation and late receiver checks supported those outcomes; no decision broker was used. Disabled protection/layers forwarded by design. Healthy full/sole-semantic probes verified actual layers; stream outage blocked sole [4], while configured full-mode fallback executed [2,3] and forwarded. Restart restored full execution. WARN forwards original content. Five earlier captures repeated the same matrix; nine earlier overall captures failed and remain unpooled. These observations establish bounded configured paths rather than independent scenarios, provider compatibility, V3 accuracy, Windows deployment or usability.
+
+The completed cost protocol yielded twelve fresh-profile windows and 360 decisions, with regex/NER [2,3] requested. Page-observed decision p50 ranged 27.9--35.0 ms across transport/action cells; p99 is each cell's observed maximum. Summed windows covered 126.40 s and 193.29 s aggregate container CPU, including 0.69 s observer CPU; maximum sampled charged memory was 1,267.91 MiB. The largest sampling gap was 622.84 ms, so memory spikes can be missed. Cleanup and final-read coverage passed. Appendix~\ref{app:browser_cost} retains startup intervals, tails and sampling details; these instrumented totals do not isolate client overhead or support comparison with host RPC timings.
+
+\subsection{Finite Telemetry Privacy and Synthetic Utility}
+\label{sec:telemetry_results}
+The fingerprinted CPython audit enumerated exact finite kernels for five domains. Maximum event loss exceeds nominal $\varepsilon=0.5,1,2$ by approximately $(1.294,1.503,1.226)\times10^{-15}$; the exact nominal bound therefore fails despite the tiny excess. Eight default reservations compose to approximately $8+1.202\times10^{-14}$ under independent uniform entropy assumptions. Other builds/configurations remain uncertified.
+
+Synthetic fixed-contributor simulations found substantial clipping bias, RMSE and incoherent marginal totals. Real ledger checks enforced eight default daily reservations, persistence, rollback/corruption failure and concurrent caps; failed construction/delivery still consumed budget. Reversing a constructed event sequence changed first-eight BLOCK participation from 100\% to 0\%, showing contribution-selection bias. These checks establish neither population monitoring utility nor corrected contextual labels (Appendix~\ref{app:telemetry_reconstruction}).
+
+A sealed local source/model capsule replayed 24 invented sole-semantic requests across six packages with matching actions, classifications and identities. This is bounded local reconstruction using existing host dependencies, not a public Git-only/fresh-environment installation, accuracy test or protected-final rerun (Appendix~\ref{app:telemetry_reconstruction}).
+
+\section{Discussion}
+\label{sec:discussion}
+The evidence distinguishes enabling adaptation from demonstrating a useful revision. Early guarded updates changed parameters without satisfying retention criteria; later supervised pretrained packages improved contextual agreement while retaining errors and action harms. Neither publication nor a better average guarantees protection for a previously covered case. Fixed-base component metrics and paired regressions are necessary acceptance evidence.
+
+The balanced detector counterfactual demonstrates a concrete enforcement tradeoff: removing regex resolves 139 unnecessary restrictions but introduces eighteen additional action failures. Improved semantic classification cannot remove a regex-first BLOCK within the ordinary cascade. Unchanged outputs after NER removal are specific to this fixture and label filtering. AU3 semantic-only, PIPE3 product and detector-removal results answer different questions despite shared text; actual execution must be labeled where other layers recover or prevent semantic decisions.
+
+The frozen final annotation-presence endpoint and external source-category reference expose recall/specificity tradeoffs beyond the authored contextual grid. The AU3-to-final contrast holds artifacts and the non-S0-or-category response projection fixed while changing inputs and target labels; the external reference additionally changes the response proxy. These differences do not isolate a cause or explain away poor agreement on the new endpoints. High AU3 clean-control agreement does not establish broader generalization. Different targets prevent a shared privacy-accuracy ranking; neither new endpoint supplies independently reviewed contextual truth. The same-case Presidio reference shows larger V3 binary agreement here, not universal recognizer superiority. Entity detection, contextual disclosure, sanitization and downstream utility require different truth and measurements. PriVoke-authored synthetic cases and native-package differences matter even when IDs match. WARN's original-content forwarding communicates risk but does not itself prevent disclosure or establish informed consent. Sanitization needs distinct implementation and utility evidence.
+
+\section{Limitations}
+\label{sec:limitations}
+\textit{Label validity and task alignment.} Contextual sensitivity, audience, categories and allowed actions remain assistant-provisional, without independent adjudication or disclosure authorization. PIIMB annotations instead identify entities; our custom prompt-level annotation-presence projection is neither contextual truth nor its official character-masking metric. AdvPIIBench CATEGORY describes injected identifiers and source-negative constructions, with incomplete prompt annotation and no human labels. Broader semantic findings can disagree without establishing privacy errors. Its any-finding proxy and five-type recognizer differ from the other studies' projections/configurations. Small/large native Presidio settings expose tradeoffs rather than an optimized strongest baseline. Published sanitization/utility outcomes supply no common privacy-accuracy ranking.
+
+\textit{Dependence and selection.} AU3 cases were authored for PriVoke and opened before PIPE3: 35 families and 24 expression groups generate dependent observations, while repeat passes provide repeatability. Reused validation/development informed exploratory work; later freezing cannot retrospectively make them untouched confirmation. Final scoring used 464 observed source-group keys, not certified independent templates, and was source-imbalanced (308 Nemotron, 89 AI4privacy, 80 Gretel, twenty Privy, one MAPA row). External lexical components exclude declared links, not unknown templates, punctuated identifier variants, paraphrases or upstream pretraining. Separate cluster sensitivities are descriptive and unadjusted; they do not establish crossed independence, human-label uncertainty or population prevalence. English synthetic/machine-generated sources do not represent broader languages and organizational policies.
+
+\textit{Attribution and retention.} Native packages differ in capacity, tokenizer, threshold, window, initialization, backend and training history; selected task epochs exclude unknown upstream pretraining. PH3/EN3/AU3 also change supervision and exposure. Matched HEADS/FULL fixes data/order and head settings, but FULL includes encoder optimization and joint-gradient clipping; its zero-head ORIGINAL is a weak task baseline, and three seeds reuse one control and assessment. Guard-rejected candidates are observations, not served gains. Package comparisons and offline continuation do not establish useful automatic fuzzer updates, a universal tier ordering or preserved casewise protection. Aggregate gains coexist with category/audience errors and new action failures.
+
+\textit{Policy, confidence and enforcement.} Allowed-action agreement does not establish consent or appropriate warning/blocking costs. Confidence diagnostics cover only 443--1,207 outcome-selected emitted findings per package. In V3's $[0.9,1]$ bin, sensitivity exactness is about 97--99\% versus category exactness 78--85\%, despite mean scores near 0.99; this heuristic is no calibrated presence or joint-correctness probability. Installed Linux probes cover the declared V1 Chromium/native receiver paths, with supported-hook trust and enabled settings assumed. Real providers, Windows, V3 installation, attachments/workers and unsupported transports remain unverified. WARN forwards original content and does not establish prevented disclosure or an awaited, informed acknowledgement; stream fallback can reduce actual layers. The completed regex/NER [2,3] cost protocol cannot establish semantic-pipeline latency. Instrumented whole-container totals include resident infrastructure/cache and observer, with sampled memory gaps and no unprotected baseline or per-role attribution. Fail-closed behavior also imposes availability costs; invented probes do not measure usability. Practical utility remains open: authorized task completion, unnecessary restrictions, warning comprehension and reformulation effort were not measured.
+
+\textit{Telemetry and reproduction.} Finite-kernel bounds assume independent uniform OS bits and fingerprinted host arithmetic, not certified deployed entropy. Participation, delivery selection and transport metadata remain excluded; clock and retained installation budget state are trusted. Synthetic estimator error is conditional on fixed contributors, without deployment population sampling or an application-usefulness threshold. Telemetry is independent of training and provides no corrected contextual labels. Byte audits and the isolated capsule support local invented-input replay using existing dependencies; public Git-only/fresh-environment reproduction and deployed performance remain unestablished. Ignored model/source assets are still required. Dataset/model licenses and attribution constrain redistribution; no real-user consent or warning-frequency evidence was collected.
+\section{Extensions}
+\label{sec:extensions}
+Prioritize independently adjudicated contextual sensitivity, audience, category sets and allowed actions, including difficult clean controls, sensitive disclosures and casewise required-BLOCK harms. Freeze source/template exclusions and analysis before fitting; the opened final 498 endpoint needs a new protected successor rather than further tuning.
+
+Adaptation studies should use common pinned bases, matched exposure, multiple realizations and broader independent retention guards, preserving rejected/effective artifacts and original/parent comparisons. Keep semantic-only evaluation separate from product ablation; the balanced regex tradeoff motivates targeted rule/policy review rather than unconditional removal.
+
+Extend installed receiver tests to authenticated providers, Windows and further transports. Repeat semantic-pipeline cost measurements with an unprotected baseline, and measure authorized completion, unnecessary restrictions, comprehension and reformulation with users. Request-body sanitization requires separate span reconstruction, original-secret prevention and downstream utility evidence. Deployed telemetry needs finite-sampler/entropy verification, coherent estimation and contribution-selection analysis. Fresh dependency-locked reproduction and licensed artifact access remain separate from local replay. These are prospective directions, not demonstrated improvements.
+
+\section{Conclusion}
+\label{sec:conclusion}
+\privoke implements bounded cloud-side training and guarded redistribution with local prompt inspection. Reused contextual product gains coexist with paired action failures; balanced detector removal exchanges 139 corrected restrictions for eighteen lost correct actions. Matched FULL fits improve aggregate agreement but all fail their retention guard. The same V3 artifacts yield 98.40--99.87\% clean specificity on the authored semantic fixture but 13.36--21.76\% against final annotation absence; this changed-data/target contrast leaves its causes unisolated. External source-category/recognizer comparisons likewise reveal different recall/specificity tradeoffs rather than a common privacy ranking. Installed Linux probes and a 24-request local capsule replay provide bounded enforcement/reconstruction evidence; instrumented regex/NER cost scope and existing dependencies limit those conclusions. The telemetry audit discloses a tiny nominal-budget excess and synthetic clipping error. The contribution is an auditable adaptation mechanism with measured gains and failures, without established safe automatic improvement. Independent contextual adjudication, human usability, broader provider/Windows coverage and deployment monitoring remain necessary.
+\clearpage
+\appendices
+\section{Related-System Interaction Detail}
+\label{app:interaction}
+\begin{table}[H]
+\centering
+\caption{Interaction functions reported in the reviewed versions. “Not described” is limited to the cited version and review scope.}
+\label{tab:related_functions}
+\small
+\begingroup
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{>{\raggedright\arraybackslash}p{.18\columnwidth}>{\raggedright\arraybackslash}p{.39\columnwidth}>{\raggedright\arraybackslash}p{.35\columnwidth}}
+\toprule
+System & Prompt and response handling & Warning, acknowledgement and request effect \\
+\midrule
+Casper v1~\cite{CasperPreprintV12024} & Replaces identifiers and restores them in responses. & Topic warning has an acknowledgement control; user can inspect or restore. \\
+HaS v1~\cite{HaS2024} & Hides entities and locally restores response entities. & Browser warning acknowledgement and request blocking not described. \\
+ProSan v1~\cite{ProSan2024} & Selectively rewrites prompt words; evaluates downstream utility proxies. & Browser warning acknowledgement and request blocking not described. \\
+PriVoke & ALLOW/WARN forward original body; returned masked spans are not substituted. & WARN notice is not awaited; BLOCK cancels supported requests. \\
+\bottomrule
+\end{tabular}
+\endgroup
+\end{table}
+
+
+
+\section{Selected Training Lineage}
+\label{app:lineage}
+PH3 fits affine privacy heads over frozen pretrained encoders/poolers using 6,240 TRAIN and 1,560 validation rows, AdamW rate 0.001 and validation-selected checkpoints. EN3 continues each selected parent by jointly fitting encoder/pooler/heads on the same data. AU3 (repository protocol \texttt{ba7f3990}) adds 3,120 audience rows to unchanged 6,240-row PH3 rehearsal and uses new 1,560-row validation. EN3/AU3 CPU-four-thread float32 recipes use encoder/pooler rate $2\times10^{-5}$, head rate $10^{-4}$, weight decay 0.01, dropout 0.1 and microbatch 16/effective batch 64. The final incomplete batch uses its actual loss denominator. AU3 warms up 147 updates, allows 5--30 epochs and stops after five validation epochs without strict $10^{-4}$ loss improvement. Only validation selects trained checkpoints; sealed comparisons select no model, threshold or recipe.
+
+Table~\ref{tab:lineage} gives selected PIPE3 ancestry. AU3 completed 16/11/9 epochs but selected 11/6/4; discarded work is excluded. Cumulative selected encoder/pooler epochs are 30/20/8 and heads 42/27/12. V1 encoders have zero optimizer-trained epochs and bootstrap heads 220/360/520. These doses are not equivalent to unknown upstream linguistic-pretraining counts.
+
+\begin{table}[H]
+\centering
+\caption{Selected V3 ancestry. Parameters are V1/V3 millions; PH3 is head-only, EN3/AU3 jointly train encoder, pooler and heads.}
+\label{tab:lineage}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Tier & Parameters(M) & PH3 & EN3 & AU3 \\
+\midrule
+Efficient &.019/4.785 &12 &19 &11 \\
+Balanced &.037/9.596 &7 &14 &6 \\
+Quality &.054/17.494 &4 &4 &4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+\section{Installed-Browser Cost Protocol}
+\label{app:browser_protocol}
+The completed cost protocol uses twelve fresh profiles, two per transport/action cell, each with one first decision, five warmups and thirty measured requests selecting regex/NER [2,3]; regex BLOCK can skip NER. All thirty-three correctness/fault probes lie outside resource windows. One container exposes 24 processors without CPU/memory quotas and reuses resident fixture/driver/Go infrastructure. Windows begin before browser launch and end after request/readiness checks, before profile teardown. Thus CPU excludes infrastructure startup before a window, while memory includes resident services/cache. These are instrumented fresh-profile/native-startup measurements, with no unprotected baseline.
+
+Decision latency spans page-observed analysis-request to analysis-result messages, excluding receiver response. Pooled nearest-rank percentiles describe two session clusters; p99 is the observed maximum, without an independent tail interval. The collector requests 100-ms intervals and retains every positive actual gap. CPU-counter differences cover first-to-last observations, with a final read beginning after the last request, boundary checks and stop request. Aggregate cgroup CPU includes descendants; sampled charged memory includes cache/kernel charges rather than RSS/PSS~\cite{LinuxCgroupV2Interfaces2026}. Totals include Chromium, runtime, Go services, fixture, driver and observer, whose own CPU is retained without subtraction. Known browser/supervisor/detector identities, parent links, running status and listeners are checked at boundaries; continuous process attribution/native ancestry and incremental firewall overhead are unmeasured. Cleanup is required. Nine failed earlier captures remain separate and unpooled.
+
+
+
+\section{Descriptive Product Cost}
+\label{app:product_cost}
+Table~\ref{tab:cost} reports lower observed V3 first-pass host RPC medians alongside larger process peak RSS. Fixed V3-first ordering, different NumPy/Torch backends, warming and cascade shortcuts preclude controlled speedup or model-only cost claims. Historical service timers and Linux lifetime memory use different scopes.
+
+\begin{table}[H]
+\centering
+\caption{PIPE3 descriptive cost: V1/V3 host RPC median(p95) ms and server-process peak RSS MiB. Excludes browser operation.}
+\label{tab:cost}
+\small
+\begin{tabular}{lll}
+\toprule
+Tier & Median(p95), V1/V3 & RSS, V1/V3 \\
+\midrule
+Efficient &55.20(70.08)/43.71(50.12) &389.4/466.8 \\
+Balanced &65.87(85.65)/42.73(47.82) &389.8/506.4 \\
+Quality &59.58(90.08)/50.02(59.48) &391.8/523.4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+\section{Installed-Browser Cost Outcomes}
+\label{app:browser_cost}
+The completed protocol yielded twelve fresh-profile windows and 360 measured decisions (Table~\ref{tab:browser_cost}). All 240 ALLOW/WARN measurements executed regex and NER; all 120 BLOCK measurements executed regex and legitimately skipped NER. Nearest-rank p50 values were 1.30 s (range 1.28--9.70) for fresh-profile browser-context creation, 4.37 s (4.21--12.21) for configuration/readiness transition, and 66.4 ms (53.6--75.2) for the first post-readiness decision. These are separate instrumented intervals, not cold-machine or model-only startup.
+
+\begin{table}[H]
+\centering
+\caption{Instrumented page-observed decision latency in ms for three fixed synthetic cases, requested regex/NER [2,3]. Each cell has sixty measurements in two fresh profiles; p99 is the observed maximum. Excludes receiver response and semantic-layer cost.}
+\label{tab:browser_cost}
+\small
+\begin{tabular}{llrrr}
+\toprule
+Transport & Action & p50 & p95 & p99 \\
+\midrule
+fetch &ALLOW &35.0 &62.5 &73.6 \\
+fetch &WARN &31.9 &36.1 &59.4 \\
+fetch &BLOCK &27.9 &31.6 &33.2 \\
+XHR &ALLOW &30.8 &35.8 &57.7 \\
+XHR &WARN &31.3 &34.6 &59.2 \\
+XHR &BLOCK &28.5 &32.2 &34.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Across the twelve observed windows (126.40 s summed spans), aggregate container CPU was 193.29 s, including 0.69 s sampled observer CPU. Maximum sampled cgroup charged memory was 1,267.91 MiB, including resident services/cache. The 1,236 samples produced 1,224 within-window gaps: median/p95/maximum 101.21/102.38/622.84 ms, with one over 500 ms. Cumulative CPU and sampled charged-memory maxima differ from wall time and process RSS/PSS; gaps can hide memory spikes. Final-read coverage and process/listener cleanup passed, with natural container exit zero. Whole-container/instrumented scope does not isolate client overhead or support speed comparisons with Table~\ref{tab:cost}.
+
+
+
+\section{Telemetry and Local Reconstruction Details}
+\label{app:telemetry_reconstruction}
+A fingerprinted Windows CPython 3.11.9 audit enumerated exact rational finite kernels for the actual five domains, $K=3,4,11,2,6$. Outward 100-digit logarithm enclosures place maximum event loss above nominal $\varepsilon=0.5,1,2$ by approximately $1.294\times10^{-15}$, $1.503\times10^{-15}$ and $1.226\times10^{-15}$, respectively. Thus the exact nominal bound fails in these settings, despite the tiny excess. Eight default reservations compose to approximately $8+1.202\times10^{-14}$ under the same entropy assumptions. Other configurations and deployed builds remain uncertified.
+
+Across 180 fixed-truth simulation cells and 10,000 repetitions per cell, inversion and clipping produced substantial conditional error. For balanced integer category counts with $K=11$, event $\varepsilon=1$ and $n=80/8000$ contributing reports, first-category true counts were $7/727$, clipped bias $+22.84/+237.50$ and RMSE $42.32/1028.47$ counts. Clipping occurred in $85.62/28.32\%$ of trials; independently estimated marginals failed to sum to $n$ in $99.99/99.78\%$. Larger $n$ pools installation-days, each capped at eight default reservations. These are errors around realized contributor counts, excluding population sampling; simulator probabilities are binary64 approximations of the exact finite kernel. Numerical moment/collector checks support implementation consistency, not a deployment-usefulness threshold.
+
+Real isolated ledger checks accepted eight reservations and denied the ninth, preserved the cap across process reopen, reset next UTC day, failed closed on rollback/corruption and accepted sixteen of forty concurrent epsilon-0.5 requests. Build, queue and delivery failures consumed reservations. A constructed 32-event sequence with 25\% BLOCK yielded 100\% versus 0\% BLOCK among first-eight contributors when event order reversed. Randomization therefore does not remove contribution-selection bias; no real deployment monitoring accuracy was measured.
+\subsection{Local Source/Model Reconstruction}
+A separately sealed 195-pin local capsule copies the 158 runtime files actually listed in the later FN14 freeze, additional helpers, six frozen V1/AU3 model bundles and prior invented probe receipts. This inventory is distinct from the 154-file historical clean-checkout comparison. Six fresh isolated-source host servers replayed the same four invented sole-semantic requests per package: all 24 classifications/actions and four package identity fields matched, with zero errors. Independent post-run checks verified all pins, import origins and process cessation. This closes a bounded local reconstruction gap using the maintained Python environment; it is not a public Git-only installation, new dependency environment, accuracy test or protected-final rerun.
+
+\clearpage
+\bibliographystyle{ieeetr}
+\bibliography{ref,research/paper-completion-sources-20261014,manuscript-completion-sources-20261014,research/literature-baseline-sources-20261015}
+\end{document}

@@ -1,0 +1,332 @@
+# PriVoke Client Runtime
+
+For current cloud credentials and the hidden local-stack switch, see [Client configuration](client-configuration.md). Cloud is now the workstation default.
+
+> Source area: `extension/client-runtime`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
+
+The client runtime is PriVoke's reusable prompt inspection service. It runs detector layers, returns an action (`ALLOW`, `WARN`, or `BLOCK`), and includes aggregate and per-layer evidence/errors in its gRPC response.
+
+This package is the only component currently in the prompt classification path. The parameter-streaming service is used only when the semantic backend is set to `streamed`.
+
+## Deployment modes
+
+This package is instantiated in two independent contexts:
+
+| Context | Owner | Binding | Consumer |
+| --- | --- | --- | --- |
+| Server simulation | Docker Compose | `[::]:50054` inside Compose; the development override also publishes `127.0.0.1:50054` | Host Python fuzzer and evaluator clients, and server services |
+| Browser extension | `../runtime-supervisor` | `127.0.0.1:50057` | Supervisor-owned bridge for the WebExtension |
+
+The contexts share source code only. The extension never calls the Compose instance, and the fuzzer never calls the extension instance. The supervisor also exposes its separate control service on `127.0.0.1:50056` and its gRPC-Web bridge on `127.0.0.1:8080`.
+
+## Local HTTP Harness
+
+The optional local server is implemented with Python's standard `http.server` stack. It is a client-side development and integration harness, not part of the Docker Compose server deployment.
+
+Default binding:
+
+- host: `127.0.0.1`
+- port: `8765`
+- non-loopback binds require `PRIVOKE_ALLOW_NON_LOOPBACK_BIND=true`
+
+Endpoints:
+
+- `GET /` returns a small service index.
+- `GET /health` return health metadata.
+- `POST /analyze` inspect prompt text.
+- `GET /config/llm` returns the current semantic backend config with API keys redacted.
+- `POST /config/llm` update the live semantic backend config.
+- `OPTIONS` returns CORS headers.
+
+Analyze requests must be JSON objects. The prompt can be supplied as `text` or `prompt`.
+
+```json
+{
+  "text": "My email is alex@example.com",
+  "source": "browser_extension",
+  "visibility_hint": "P3",
+  "request_id": "req-123",
+  "metadata": {
+    "client": "example"
+  }
+}
+```
+
+Validation behavior:
+
+- `Content-Length` is required.
+- `Content-Type`, when present, must include `application/json`.
+- `text`/`prompt` must be a non-empty string after trimming.
+- `metadata`, when present, must be an object.
+- `visibility_hint`, when present, must be one of `P0`, `P1`, `P2`, `P3`, `P4`, or `PU`.
+- `PRIVOKE_MAX_PROMPT_CHARS` controls the text length limit and defaults to `20000`.
+
+Example response:
+
+```json
+{
+  "request_id": "req-123",
+  "action": "BLOCK",
+  "classification": {
+    "sensitivity": "S3",
+    "visibility": "PU",
+    "categories": ["IDENTITY"]
+  },
+  "evidence": {
+    "section_of_text": "alex@example.com",
+    "span": [12, 28],
+    "reasoning": "Matched rule 'email'",
+    "confidence": 0.95,    
+    "metadata": {
+      "rule_name": "email"
+    }
+  },  
+  "metadata": {
+    "source": "browser_extension",
+    "elapsed_ms": 8.2,
+    "detector": "client-runtime.runtime"
+  }
+}
+```
+
+`masked_text` is only populated for `WARN` responses when the selected result has a valid span. It replaces that one span with `[PRIVOKE_MASKED]`.
+
+## Pipeline
+
+The experimental `full_projected_adam64_v1` artifact policy admits only matching
+optimizer/config/eligibility/scope headers. FULL performs 64 cold CPU encoder and
+head Adam steps with the summed category decision-margin objective, learning
+rate 0.003, beta values 0.9/0.999, epsilon 1e-8 and float64 moments. Each step
+reconstructs the exact transported candidate from the immutable original base
+and the cumulative inward-float32 delta capped at 0.05. The response returns that
+cumulative delta once. HEAD reports `dormant_head_v1` and preserves its prior
+numerical behavior. Serving parameters and graphs are isolated from both paths.
+
+Start experimental FULL workers with `OMP_NUM_THREADS=1` and
+`MKL_NUM_THREADS=1`; actual Torch thread count must also be one. FULL rejects
+incorrect startup threading before model access and explicitly uses CPU NumPy
+for original BASE, final TRAIN and held-out evaluations. Detailed optimization
+trace and observed row/block/objective attempts/completions survive evaluation
+errors; failed opaque work is reported as unknown with lower-bound counts.
+Cancellation is checked between fixed steps. This policy requires the CPU
+training dependency and does not change inference device selection.
+
+The current pipeline is in `src/pipeline.py`:
+
+```text
+raw prompt
+  -> detection.normalize_text
+  -> RuleDetector
+  -> EntityNERDetector
+  -> configured semantic classifier
+  -> strongest_result
+```
+
+Important behavior:
+
+- Normalization lowercases text, applies Unicode NFKC, replaces `[at]` and `(at)` with `@`, removes spaces between adjacent digits, collapses horizontal whitespace, and preserves newlines.
+- `PRIVOKE_WAIT_FOR_REGEX` defaults to true. In that mode regex runs first and a regex `BLOCK` short-circuits NER and semantic detection.
+- gRPC callers can request any subset of `regex`, `ner`, and `semantic`, and can override regex-first versus parallel scheduling per request.
+- gRPC callers can set `semantic_model_id` per request to select a streamed PriVoke model without mutating global runtime configuration.
+- `ComputeSemanticGradients` accepts at most 1,024 weighted examples and 200,000 total text characters, executes the cached streamed transformer locally, and returns bounded head deltas tied to the exact snapshot version used.
+- `DetectAnnotationPresence` and `ComputePresenceGradients` remain separate binary-task RPCs. They require an explicit `privoke-presence-*` model ID and never load that artifact as a semantic transformer. Presence output itself means only PRESENT or ABSENT; it carries no severity, visibility, category, or action.
+
+Both dedicated presence RPCs require exactly `layers=[DETECTION_LAYER_SEMANTIC]`; omitted, mixed or duplicate selections fail before model access. Inference returns exactly one successful semantic `RuntimeLayerExecution`. Training requires a nonempty disjoint binary guard and returns actual `training`, `base_heldout` and `candidate_heldout` `SemanticTrainingExecution` records with exact nonzero example counts. Callers reject missing or failed traces before accepting predictions or publishing updates. These records identify semantic computation of the binary task, not contextual classifications. Regenerate protobuf bindings for this stricter admission contract; older responses without execution evidence are rejected. Historical measurements are unchanged.
+
+- `AnalyzePromptRequest.semantic_presence_gate` is an opt-in research request field. Omit it for the existing pipeline behavior. To apply it, callers must explicitly request the streamed contextual model `privoke-balanced`, include the semantic layer, and name one of `privoke-presence-efficient`, `privoke-presence-balanced`, or `privoke-presence-quality`. A finite threshold override in `[0, 1]` is optional; it is a per-request decision threshold and does not change the stored artifact threshold or model.
+- With the gate enabled, the runtime runs contextual and presence inference when the semantic layer is reached, locally on the client; model streaming supplies weights, not request text. PRESENT retains the original semantic results. ABSENT removes only those semantic results before the existing fusion step; regex and NER results and their independent enforcement remain intact. This can remove a valid private semantic-only finding, so the option is not validated for safety and is not a deployment recommendation. A presence prediction does not create a clean classification, set severity/category, or establish that text is safe. The research protocol describes known evaluation limits and does not promote the gate to a default.
+- The semantic layer includes a typed `semantic_presence_gate` trace with status, presence and contextual model identities, probability, artifact and decision thresholds, binary label, and remapped raw contextual results. This trace also preserves contextual model identity when its classifier returns an empty S0 result. A semantic failure records NOT_RUN. A presence failure retains the contextual results and reports an error; the existing failure policy turns an otherwise ALLOW outcome into BLOCK and preserves any stronger non-ALLOW outcome.
+- The gate request and response fields are additive. Older generated callers can omit the request field; an older server may ignore an unknown field, so an opt-in caller must verify an APPLIED trace before treating the gate as executed. Regenerate the affected protobuf bindings and rebuild the runtime with the repository's Docker workflow before using the field.
+- Read the [prospective semantic presence-cascade protocol](../../paper/research/contextual-cascade-protocol.md) before interpreting this research-only option.
+- Presence detection's `elapsed_ms` includes request validation, model snapshot fetch/cache lookup, and local inference; it excludes the caller's network and browser round trip.
+- `ComputePresenceGradients` accepts at most 1,024 training plus held-out examples and 200,000 total text characters. It validates explicit binary labels, distinct normalized texts, nonempty group IDs, disjoint training/held-out groups, and both labels in each supplied partition. Only `head.presence.*` tensors are returned as deltas; vocabulary and IDF parameters stay frozen. Candidate metrics evaluate the exact float32-rounded parameters that the updater would publish. The RPC computes deltas only and does not update the artifact.
+- The streamed client rejects a snapshot whose returned model ID differs from an explicitly requested model. The special `latest` alias accepts the server's resolved release-channel model ID.
+- Every requested layer returns `ok`, `error`, or `skipped`; one layer failure does not erase successful results from other layers.
+- When regex does not block, NER and semantic classification run through `GLOBAL_CONFIG.threadpool`.
+- `strongest_result` retains `ALLOW` evidence and combines the strongest sensitivity and known visibility with the union of categories. One deterministic primary evidence span is retained; all findings remain available in layer results.
+- Aggregate confidence comes from the most sensitive contributors, preserving low-confidence moderation; aggregation never weakens individual enforcement decisions. Visibility hints can promote retained identity/location evidence to `WARN` and cannot lower an existing `BLOCK`.
+- Normalized detector spans are mapped to the original request for both layer and aggregate evidence. Warning masking replaces the mapped primary span only when its original text matches the evidence.
+- A failed requested layer blocks an otherwise `ALLOW` decision and remains visible in response errors. A valid clean result or no successful detector matches remains `ALLOW` when no layer failed.
+
+## Classification Contract
+
+Shared classification primitives live in `src/classification`.
+
+- `Classification` is a 16-bit packed value with sensitivity, visibility, and category bits.
+- `ClassificationResult` adds `section_of_text`, `reasoning`, optional `span`, optional `confidence`, and metadata.
+- `classification_policy.py` derives `PriVokeAction` from each result.
+
+Action policy:
+
+- `S3` -> `BLOCK`.
+- Low-confidence `S3` -> `WARN`.
+- `S2` -> `WARN`.
+- Low-confidence non-identifying `S2` -> `ALLOW`.
+- `IDENTITY`/`LOCATION` combinations can warn when visibility is restricted/private or both categories are present.
+- `S0`/`S1` without an action rule -> `ALLOW`.
+
+`ClassificationResult.__post_init__` drops reserved metadata keys named `signal`, `signals`, and `source`.
+
+## Detector Layers
+
+Regex rules are in `src/regex`. `RuleDetector.analyze(text)` returns one `ClassificationResult` per regex or heuristic hit. Rules are grouped by visibility, identity, location, health, financial, sensitive category, and context modules.
+
+NER is in `src/NER`. `EntityNERDetector` uses spaCy `en_core_web_sm` and maps `PERSON`, `GPE`, `LOC`, `FAC`, and `ORG` labels into PriVoke classifications. spaCy and the model are install-time dependencies from `requirements.txt`; missing packages or model data fail during import or detector initialization.
+
+Semantic classifiers are in `src/LLM`:
+
+- `PriVokeClassifier` validates streamed tensor chunks, reconstructs the client-runtime-owned transformer, caches the newest model version/fingerprint, and runs neural inference locally.
+- `LocalClassifier` calls an OpenAI-compatible local API such as LM Studio.
+- `OpenClassifier` calls the OpenAI SDK.
+
+## Experimental pretrained v3 runtime
+
+The [v3 study runtime](../pretrained-v3-study.md) is an isolated Python server
+using existing `AnalyzePrompt` messages with explicit `privoke-v3-{efficient,balanced,quality}`
+IDs and exactly `layers=[4]`. Consumers verify actual successful semantic execution
+and checkpoint/backbone/tokenizer identities, including clean responses. Native
+uncased WordPiece inputs have a 512-token total bound; overlength inputs fail
+without truncation. The adapter reuses production classification/action and masking
+helpers. This experimental route does not establish browser/native streaming
+integration or alter the ordinary backend configuration below.
+
+## Live Semantic Backend Config
+
+The startup backend is controlled by `--llm-choice` or `PRIVOKE_LLM_CHOICE`.
+
+Supported aliases:
+
+- streamed: `streamed`, `privoke`, `model-streaming`, `model_streaming`
+- local: `local`, `lm-studio`, `lm_studio`, `lmstudio`
+- openai: `open`, `openai`
+
+Examples:
+
+```bash
+curl -X POST http://127.0.0.1:8765/config/llm \
+  -H "Content-Type: application/json" \
+  -d '{"choice":"streamed","streamed":{"target":"127.0.0.1:50051","model_id":"latest"}}'
+
+curl -X POST http://127.0.0.1:8765/config/llm \
+  -H "Content-Type: application/json" \
+  -d '{"choice":"local","local":{"base_url":"http://localhost:1234/v1","model":"your-lm-studio-model"}}'
+
+curl -X POST http://127.0.0.1:8765/config/llm \
+  -H "Content-Type: application/json" \
+  -d '{"choice":"openai","openai":{"api_key":"sk-...","model":"gpt-4o-mini"}}'
+```
+
+Environment variables:
+
+- `PRIVOKE_HOST`, `PRIVOKE_PORT` for the optional HTTP harness
+- `PRIVOKE_GRPC_HOST`, Python default `127.0.0.1`; the server image sets `0.0.0.0`, Compose sets `[::]`, and the workstation supervisor forces `127.0.0.1`
+- `PRIVOKE_GRPC_PORT`, direct/server default `50054`; the workstation supervisor sets it to `50057` for its child
+- `PRIVOKE_LLM_CHOICE`
+- `PRIVOKE_WAIT_FOR_REGEX`
+- `PRIVOKE_MAX_PROMPT_CHARS`
+- `PRIVOKE_MAX_GRPC_MESSAGE_BYTES`, default `262144`
+- `PRIVOKE_MAX_GRPC_RESPONSE_BYTES`, default `1048576`
+- `PRIVOKE_CORS_ORIGIN`, disabled by default; when enabled it must be one exact `http`, `https`, or supported WebExtension origin and cannot be `*`
+- `PRIVOKE_ALLOW_NON_LOOPBACK_BIND`
+- `PRIVOKE_CLOUD_TARGET` for workstations; hidden local mode selects `127.0.0.1:50051`. Internal Compose mode uses `MODEL_STREAMING_TARGET=model-streaming-service:50051`
+- `MODEL_ID`, default `latest`; `MODEL_STREAMING_CONSUMER_ID`; `MODEL_STREAMING_TIMEOUT_SECONDS`
+- `MODEL_STREAMING_CACHE_TTL_SECONDS`, default `1.0`; coalesces concurrent
+  classifications onto one immutable streamed snapshot before checking for a new version
+- `PRIVOKE_MODEL_DEVICE`, default `auto`; uses CUDA or Apple MPS through PyTorch when
+  available and otherwise keeps inference on the NumPy CPU backend
+- `LM_STUDIO_BASE_URL`, `LM_STUDIO_MODEL`, `LM_STUDIO_API_KEY`, `LM_STUDIO_TIMEOUT_SECONDS`, `LM_STUDIO_TEMPERATURE`, `LM_STUDIO_MAX_TOKENS`, `LM_STUDIO_RESPONSE_FORMAT`
+- `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_TEMPERATURE`, `OPENAI_MAX_TOKENS`
+- `TELEMETRY_ENABLED`, default `false` outside Compose
+- `PRIVOKE_CLOUD_TARGET` for workstations; hidden local mode selects `127.0.0.1:50055`. Internal Compose mode uses `TELEMETRY_TARGET=telemetry-service:50055`
+- `TELEMETRY_LDP_EPSILON`, default `1`, allowed range `0.5` to `2`
+- `TELEMETRY_LDP_DAILY_EPSILON`, default `8`, must be at least the event epsilon and no more than `8`
+- `TELEMETRY_PRIVACY_LEDGER_PATH`, optional persistent client-side daily budget ledger path
+- `TELEMETRY_TIMEOUT_SECONDS`, default `1.0`
+- `TELEMETRY_QUEUE_SIZE`, default `1024`
+
+`PRIVOKE_DEV_LOG_PROMPTS=true` logs raw prompt text only for requests whose `source` contains `fuzzer`. Keep it off outside local debugging.
+
+To expose an NVIDIA GPU to the container, use the opt-in override on a host with
+the NVIDIA Container Toolkit installed:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+```
+
+The normal Compose files do not request a GPU and remain portable to CPU-only hosts.
+The override also installs `requirements-gpu.txt`; the base image omits PyTorch and
+therefore avoids carrying CUDA libraries when only CPU inference is needed.
+
+## Telemetry
+
+The gRPC runtime uses `StructuredEventEmitter` and a bounded background `TelemetryReporter` when `TELEMETRY_ENABLED=true`. Prompt decisions never wait for telemetry delivery. Queue overflow or collector failure drops the packet; telemetry errors are logged without event identifiers or field values.
+
+Before enqueueing, the emitter applies generalized randomized response to a fixed-domain action, risk bucket, primary category, model release and randomized four-hour time-of-day bucket. It reserves a per-installation daily epsilon budget in a durable local SQLite ledger first. Packets exclude prompts, identifiers, target-app names, exact timestamps/scores, text length and layer timings. Compose enables reporting to `telemetry-service`, which retains only epsilon-stratified marginal counts. See [Telemetry service](../services/telemetry.md) for the event-level guarantee, accounting limits and aggregate API behavior.
+
+## Local Setup
+
+```bash
+cd extension/client-runtime
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+pip install ../../shared/python
+mkdir generated  # omit this line when the directory already exists
+python -m grpc_tools.protoc \
+  -I ../../shared/proto \
+  --python_out=generated \
+  --grpc_python_out=generated \
+  ../../shared/proto/privoke/v1/parameters.proto \
+  ../../shared/proto/privoke/v1/runtime.proto \
+  ../../shared/proto/privoke/v1/telemetry.proto
+```
+
+For GPU-backed streamed-transformer inference in the workstation process used by the
+browser extension, install PyTorch into this same environment:
+
+```bash
+pip install -r requirements-gpu.txt
+```
+
+With `PRIVOKE_MODEL_DEVICE=auto` (the default), CUDA is preferred, then Apple MPS, with
+an automatic NumPy CPU fallback. This affects only the streamed transformer; regex and
+spaCy NER continue to execute on CPU. The `docker-compose.gpu.yml` override configures a
+different, server-side runtime and does not accelerate requests made by the extension.
+Each streamed-transformer result includes `compute_device` metadata (`cuda`, `mps`, or
+`cpu`) for verification.
+
+Workstations default to the configured cloud endpoint with client-certificate TLS. Enable the hidden developer setting for local Compose streaming on `127.0.0.1:50051`. Docker Compose supplies its own internal DNS target.
+
+Run a standalone gRPC runtime (direct default port `50054`):
+
+```bash
+python src/grpc_main.py
+```
+
+For extension-controlled startup and shutdown, run the sibling [`runtime-supervisor`](supervisor.md) package instead of starting this server directly. The supervisor forces its child to `127.0.0.1:50057`; it does not connect to an already-running service on `50054`.
+
+Run the optional local server:
+
+```bash
+python src/main.py --port 8765 --llm-choice streamed
+```
+
+## Verification
+
+Compile check:
+
+```bash
+python -m compileall extension\client-runtime
+```
+
+Useful smoke checks:
+
+- email or credit card input should return `BLOCK`.
+- `username: alex` or other structured identity fields should usually return `WARN`.
+- pure safe text should return `ALLOW`.
+- visibility-only cues remain visible in hosted classification, and private visibility can combine with identifier evidence to produce `WARN`.
+# Opt-in frozen TRAIN checkpoint route
+
+The FULL-only `full_projected_adam64_window_checkpoint_v1` route requires schema-5 admission, `PRIVOKE_WINDOW_PATH`/`PRIVOKE_WINDOW_MANIFEST_SHA256`, and `PRIVOKE_COMPONENT_{BANK_PATH,REFERENCE_PATH,MANIFEST_PATH,MANIFEST_SHA256,TEACHER_PATH,TEACHER_SHA256}`. The two manifest pins and independent raw ORIGINAL teacher-file pin are authenticated before streamed model/cache access. Startup requires `OMP_NUM_THREADS=1`, `MKL_NUM_THREADS=1` and actual Torch thread count one. `evaluation/compose.train-window.yml` wires these explicitly.
+
+The 512-row frozen request is optimized through eight 64-row blocks over eight epochs, with whole-window class weights and a fixed denominator correction. Every step also differentiates the independently normalized component auxiliary loss using true task-specific logits/readout, including v2 task queries. BASE and steps 8…64 evaluate TRAIN only. The chosen state is the exact float32 transported/clipped parameter state, with cold local Adam moments and immutable serving/BASE tensors. Detailed traces distinguish terminal state, selected state, main/auxiliary backwards, checkpoint NumPy work and selected guard work. The preserved FULL encoder-change requirement rejects head/query-only transport without executing the guard. The configured strict TRAIN floor keeps packed-label exact semantics, with action correctness independently gated/ranked. BASE/no-update responses carry no gradients and no fabricated guard phases. Cancellation/errors preserve observed partial work as lower bounds and cannot authorize publication.

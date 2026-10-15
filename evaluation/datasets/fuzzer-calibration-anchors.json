@@ -1,0 +1,1697 @@
+[
+  {
+    "template": "The public schedule describes maintenance windows and service availability. It is intended for general reference.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_0",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public schedule describes maintenance windows and service availability. It contains no completed identifying information.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_0",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public schedule describes maintenance windows and service availability. The material describes a general process rather than an individual record.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_0",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public schedule describes maintenance windows and service availability. Only general instructions and aggregate descriptions are included.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_0",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public schedule describes maintenance windows and service availability. No person's contact, account or residence details are supplied.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_0",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public schedule describes maintenance windows and service availability. The text explains terminology without disclosing an individual's circumstances.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_0",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The general handbook explains how salary bands and tax brackets work. It is intended for general reference.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_1",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The general handbook explains how salary bands and tax brackets work. It contains no completed identifying information.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_1",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The general handbook explains how salary bands and tax brackets work. The material describes a general process rather than an individual record.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_1",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The general handbook explains how salary bands and tax brackets work. Only general instructions and aggregate descriptions are included.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_1",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The general handbook explains how salary bands and tax brackets work. No person's contact, account or residence details are supplied.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_1",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The general handbook explains how salary bands and tax brackets work. The text explains terminology without disclosing an individual's circumstances.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_1",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The standard contract describes aggregate spending and reporting procedures. It is intended for general reference.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_2",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The standard contract describes aggregate spending and reporting procedures. It contains no completed identifying information.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_2",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The standard contract describes aggregate spending and reporting procedures. The material describes a general process rather than an individual record.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_2",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The standard contract describes aggregate spending and reporting procedures. Only general instructions and aggregate descriptions are included.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_2",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The standard contract describes aggregate spending and reporting procedures. No person's contact, account or residence details are supplied.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_2",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The standard contract describes aggregate spending and reporting procedures. The text explains terminology without disclosing an individual's circumstances.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_2",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public product list gives a suggested price of {amount}. It is intended for general reference.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_3",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public product list gives a suggested price of {amount}. It contains no completed identifying information.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_3",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public product list gives a suggested price of {amount}. The material describes a general process rather than an individual record.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_3",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public product list gives a suggested price of {amount}. Only general instructions and aggregate descriptions are included.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_3",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public product list gives a suggested price of {amount}. No person's contact, account or residence details are supplied.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_3",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public product list gives a suggested price of {amount}. The text explains terminology without disclosing an individual's circumstances.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_3",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The location guide explains how distance and route planning are calculated. It is intended for general reference.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_4",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The location guide explains how distance and route planning are calculated. It contains no completed identifying information.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_4",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The location guide explains how distance and route planning are calculated. The material describes a general process rather than an individual record.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_4",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The location guide explains how distance and route planning are calculated. Only general instructions and aggregate descriptions are included.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_4",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The location guide explains how distance and route planning are calculated. No person's contact, account or residence details are supplied.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_4",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The location guide explains how distance and route planning are calculated. The text explains terminology without disclosing an individual's circumstances.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_4",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The blank application template contains no completed personal fields. It is intended for general reference.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_5",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The blank application template contains no completed personal fields. It contains no completed identifying information.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_5",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The blank application template contains no completed personal fields. The material describes a general process rather than an individual record.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_5",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The blank application template contains no completed personal fields. Only general instructions and aggregate descriptions are included.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_5",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The blank application template contains no completed personal fields. No person's contact, account or residence details are supplied.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_5",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The blank application template contains no completed personal fields. The text explains terminology without disclosing an individual's circumstances.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_5",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The committee reviews general compliance procedures for the next reporting period. It is intended for general reference.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_6",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The committee reviews general compliance procedures for the next reporting period. It contains no completed identifying information.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_6",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The committee reviews general compliance procedures for the next reporting period. The material describes a general process rather than an individual record.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_6",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The committee reviews general compliance procedures for the next reporting period. Only general instructions and aggregate descriptions are included.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_6",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The committee reviews general compliance procedures for the next reporting period. No person's contact, account or residence details are supplied.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_6",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The committee reviews general compliance procedures for the next reporting period. The text explains terminology without disclosing an individual's circumstances.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_6",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "A public health brochure explains {condition} without patient details. It is intended for general reference.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_7",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "A public health brochure explains {condition} without patient details. It contains no completed identifying information.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_7",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "A public health brochure explains {condition} without patient details. The material describes a general process rather than an individual record.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_7",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "A public health brochure explains {condition} without patient details. Only general instructions and aggregate descriptions are included.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_7",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "A public health brochure explains {condition} without patient details. No person's contact, account or residence details are supplied.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_7",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "A public health brochure explains {condition} without patient details. The text explains terminology without disclosing an individual's circumstances.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_7",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "Explain public banking fees and interest calculations using generic examples. It is intended for general reference.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_8",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "Explain public banking fees and interest calculations using generic examples. It contains no completed identifying information.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_8",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "Explain public banking fees and interest calculations using generic examples. The material describes a general process rather than an individual record.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_8",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "Explain public banking fees and interest calculations using generic examples. Only general instructions and aggregate descriptions are included.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_8",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "Explain public banking fees and interest calculations using generic examples. No person's contact, account or residence details are supplied.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_8",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "Explain public banking fees and interest calculations using generic examples. The text explains terminology without disclosing an individual's circumstances.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_8",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The blank legal form has headings without client details or a case record. It is intended for general reference.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_9",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The blank legal form has headings without client details or a case record. It contains no completed identifying information.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_9",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The blank legal form has headings without client details or a case record. The material describes a general process rather than an individual record.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_9",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The blank legal form has headings without client details or a case record. Only general instructions and aggregate descriptions are included.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_9",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The blank legal form has headings without client details or a case record. No person's contact, account or residence details are supplied.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_9",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The blank legal form has headings without client details or a case record. The text explains terminology without disclosing an individual's circumstances.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_9",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The technical summary describes aggregate accuracy and error rates. It is intended for general reference.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_10",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The technical summary describes aggregate accuracy and error rates. It contains no completed identifying information.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_10",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The technical summary describes aggregate accuracy and error rates. The material describes a general process rather than an individual record.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_10",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The technical summary describes aggregate accuracy and error rates. Only general instructions and aggregate descriptions are included.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_10",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The technical summary describes aggregate accuracy and error rates. No person's contact, account or residence details are supplied.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_10",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The technical summary describes aggregate accuracy and error rates. The text explains terminology without disclosing an individual's circumstances.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_10",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public instruction manual explains how to format a document and its headings. It is intended for general reference.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_11",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public instruction manual explains how to format a document and its headings. It contains no completed identifying information.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_11",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public instruction manual explains how to format a document and its headings. The material describes a general process rather than an individual record.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_11",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public instruction manual explains how to format a document and its headings. Only general instructions and aggregate descriptions are included.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_11",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public instruction manual explains how to format a document and its headings. No person's contact, account or residence details are supplied.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_11",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "The public instruction manual explains how to format a document and its headings. The text explains terminology without disclosing an individual's circumstances.",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "clean_11",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My {account} at {bank} shows a balance of {amount}. Please help me understand this information.",
+    "classification": {
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "FINANCIAL"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_0",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My {account} at {bank} shows a balance of {amount}. Please summarize the details accurately.",
+    "classification": {
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "FINANCIAL"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_0",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My {account} at {bank} shows a balance of {amount}. Please explain the practical implications of these details.",
+    "classification": {
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "FINANCIAL"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_0",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My salary is {amount} and my mortgage debt is overdue. Please help me understand this information.",
+    "classification": {
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "FINANCIAL"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_1",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My salary is {amount} and my mortgage debt is overdue. Please summarize the details accurately.",
+    "classification": {
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "FINANCIAL"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_1",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My salary is {amount} and my mortgage debt is overdue. Please explain the practical implications of these details.",
+    "classification": {
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "FINANCIAL"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_1",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My doctor prescribed {medication} after my {condition} diagnosis. Please help me understand this information.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_2",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My doctor prescribed {medication} after my {condition} diagnosis. Please summarize the details accurately.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_2",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My doctor prescribed {medication} after my {condition} diagnosis. Please explain the practical implications of these details.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_2",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My diagnosis is {condition} and I am taking {medication}. Please help me understand this information.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_3",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My diagnosis is {condition} and I am taking {medication}. Please summarize the details accurately.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_3",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My diagnosis is {condition} and I am taking {medication}. Please explain the practical implications of these details.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_3",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My home address is in {city} near my workplace. Please help me understand this information.",
+    "classification": {
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "LOCATION"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_4",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My home address is in {city} near my workplace. Please summarize the details accurately.",
+    "classification": {
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "LOCATION"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_4",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My home address is in {city} near my workplace. Please explain the practical implications of these details.",
+    "classification": {
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "LOCATION"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_4",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "I work at {employer} and I am the only person in my role in {city}. Please help me understand this information.",
+    "classification": {
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "IDENTITY",
+        "LOCATION"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_5",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "I work at {employer} and I am the only person in my role in {city}. Please summarize the details accurately.",
+    "classification": {
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "IDENTITY",
+        "LOCATION"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_5",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "I work at {employer} and I am the only person in my role in {city}. Please explain the practical implications of these details.",
+    "classification": {
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "IDENTITY",
+        "LOCATION"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_5",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My contact email is fictional.person@example.invalid. Please help me understand this information.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "IDENTITY"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_6",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My contact email is fictional.person@example.invalid. Please summarize the details accurately.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "IDENTITY"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_6",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My contact email is fictional.person@example.invalid. Please explain the practical implications of these details.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "IDENTITY"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_6",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My phone number is +61 400 000 000. Please help me understand this information.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "IDENTITY"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_7",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My phone number is +61 400 000 000. Please summarize the details accurately.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "IDENTITY"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_7",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My phone number is +61 400 000 000. Please explain the practical implications of these details.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "IDENTITY"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_7",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "In a {group}, {name} said their {relative} was diagnosed with {condition}. Please help me understand this information.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "P3",
+      "categories": [
+        "HEALTH",
+        "THIRD_PARTY"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_8",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "In a {group}, {name} said their {relative} was diagnosed with {condition}. Please summarize the details accurately.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "P3",
+      "categories": [
+        "HEALTH",
+        "THIRD_PARTY"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_8",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "In a {group}, {name} said their {relative} was diagnosed with {condition}. Please explain the practical implications of these details.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "P3",
+      "categories": [
+        "HEALTH",
+        "THIRD_PARTY"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_8",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My private diary says I voted for a political party and left my religion. Please help me understand this information.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "P4",
+      "categories": [
+        "POLITICS",
+        "RELIGION"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_9",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My private diary says I voted for a political party and left my religion. Please summarize the details accurately.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "P4",
+      "categories": [
+        "POLITICS",
+        "RELIGION"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_9",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My private diary says I voted for a political party and left my religion. Please explain the practical implications of these details.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "P4",
+      "categories": [
+        "POLITICS",
+        "RELIGION"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_9",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My {relative} has a court date after a DUI charge. Please help me understand this information.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "CRIMINAL",
+        "THIRD_PARTY"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_10",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My {relative} has a court date after a DUI charge. Please summarize the details accurately.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "CRIMINAL",
+        "THIRD_PARTY"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_10",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My {relative} has a court date after a DUI charge. Please explain the practical implications of these details.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "CRIMINAL",
+        "THIRD_PARTY"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_10",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My {relative}'s private medical record describes their {condition} diagnosis. Please help me understand this information.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH",
+        "THIRD_PARTY"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_11",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My {relative}'s private medical record describes their {condition} diagnosis. Please summarize the details accurately.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH",
+        "THIRD_PARTY"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_11",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "My {relative}'s private medical record describes their {condition} diagnosis. Please explain the practical implications of these details.",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH",
+        "THIRD_PARTY"
+      ]
+    },
+    "metadata": {
+      "dataset": "agent_authored_fictional_calibration",
+      "family": "private_11",
+      "label_status": "provisional"
+    }
+  },
+  {
+    "template": "this was posted publicly for everyone",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "existing_bootstrap_calibration_anchor",
+      "label_status": "existing_internal_training_label"
+    }
+  },
+  {
+    "template": "discussion in a public community forum",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P1",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "existing_bootstrap_calibration_anchor",
+      "label_status": "existing_internal_training_label"
+    }
+  },
+  {
+    "template": "the page is restricted behind login",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P2",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "existing_bootstrap_calibration_anchor",
+      "label_status": "existing_internal_training_label"
+    }
+  },
+  {
+    "template": "I sent this in a private group chat",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P3",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "existing_bootstrap_calibration_anchor",
+      "label_status": "existing_internal_training_label"
+    }
+  },
+  {
+    "template": "this is a private diary for my eyes only",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P4",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "existing_bootstrap_calibration_anchor",
+      "label_status": "existing_internal_training_label"
+    }
+  },
+  {
+    "template": "explain privacy using imaginary placeholders",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "existing_bootstrap_calibration_anchor",
+      "label_status": "existing_internal_training_label"
+    }
+  },
+  {
+    "template": "write a friendly email about tomorrow's meeting",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "existing_bootstrap_calibration_anchor",
+      "label_status": "existing_internal_training_label"
+    }
+  },
+  {
+    "template": "summarise this public product documentation",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "P0",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "existing_bootstrap_calibration_anchor",
+      "label_status": "existing_internal_training_label"
+    }
+  },
+  {
+    "template": "what is the weather forecast",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "existing_bootstrap_calibration_anchor",
+      "label_status": "existing_internal_training_label"
+    }
+  },
+  {
+    "template": "help me format a generic travel checklist",
+    "classification": {
+      "sensitivity": "S0",
+      "visibility": "PU",
+      "categories": []
+    },
+    "metadata": {
+      "dataset": "existing_bootstrap_calibration_anchor",
+      "label_status": "existing_internal_training_label"
+    }
+  },
+  {
+    "template": "my diagnosis is cancer",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ]
+    },
+    "metadata": {
+      "dataset": "existing_bootstrap_calibration_anchor",
+      "label_status": "existing_internal_training_label"
+    }
+  },
+  {
+    "template": "my therapist prescribed medication",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ]
+    },
+    "metadata": {
+      "dataset": "existing_bootstrap_calibration_anchor",
+      "label_status": "existing_internal_training_label"
+    }
+  },
+  {
+    "template": "I am pregnant and have anxiety",
+    "classification": {
+      "sensitivity": "S3",
+      "visibility": "PU",
+      "categories": [
+        "HEALTH"
+      ]
+    },
+    "metadata": {
+      "dataset": "existing_bootstrap_calibration_anchor",
+      "label_status": "existing_internal_training_label"
+    }
+  },
+  {
+    "template": "my bank account and mortgage debt",
+    "classification": {
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "FINANCIAL"
+      ]
+    },
+    "metadata": {
+      "dataset": "existing_bootstrap_calibration_anchor",
+      "label_status": "existing_internal_training_label"
+    }
+  },
+  {
+    "template": "my salary and credit score",
+    "classification": {
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "FINANCIAL"
+      ]
+    },
+    "metadata": {
+      "dataset": "existing_bootstrap_calibration_anchor",
+      "label_status": "existing_internal_training_label"
+    }
+  },
+  {
+    "template": "I filed a tax return",
+    "classification": {
+      "sensitivity": "S2",
+      "visibility": "PU",
+      "categories": [
+        "FINANCIAL"
+      ]
+    },
+    "metadata": {
+      "dataset": "existing_bootstrap_calibration_anchor",
+      "label_status": "existing_internal_training_label"
+    }
+  }
+]

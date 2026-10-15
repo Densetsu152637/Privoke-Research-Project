@@ -1,0 +1,12 @@
+# Source-disjoint negative coverage; preserve every existing update safety gate.
+services:
+  evaluation-tests:
+    volumes:
+      - ./models/generate_baseline.py:/workspace/models/generate_baseline.py:ro
+  privoke-fuzzer:
+    environment:
+      FUZZ_PROMPT_DATASET_PATH: /workspace/evaluation/results/public-negative-curriculum/prompts.jsonl
+      FUZZ_TRAINING_LEARNING_RATE: 0.03
+      FUZZ_TRAINING_TRANSFORMS_PER_EXAMPLE: 0
+    volumes:
+      - ./evaluation/results/public-negative-curriculum:/workspace/evaluation/results/public-negative-curriculum:ro

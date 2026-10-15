@@ -1,0 +1,8 @@
+# Prepare results/original-runtime-source from commit 712ed72 before building.
+# This immutable source context keeps rule edits out of learning-rate comparisons.
+services:
+  client-runtime:
+    image: privoke-research-original-runtime:20261003
+    build:
+      context: ./evaluation/results/original-runtime-source
+      dockerfile: extension/client-runtime/Dockerfile

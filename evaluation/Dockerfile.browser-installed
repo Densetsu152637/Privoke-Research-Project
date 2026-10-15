@@ -1,0 +1,120 @@
+FROM golang:1.25.12-bookworm AS development
+
+WORKDIR /workspace
+
+ENV PATH="/go/bin:${PATH}"
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends netcat-openbsd protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11 \
+    && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
+
+COPY shared/proto /workspace/shared/proto
+COPY evaluation/run-go-tests.sh /workspace/evaluation/run-go-tests.sh
+COPY models /models
+COPY services/model-streaming-service /workspace/services/model-streaming-service
+
+WORKDIR /workspace/services/model-streaming-service
+
+RUN mkdir -p gen \
+    && protoc \
+      --proto_path=/workspace/shared/proto \
+      --go_out=paths=source_relative:/workspace/services/model-streaming-service/gen \
+      --go-grpc_out=paths=source_relative:/workspace/services/model-streaming-service/gen \
+      /workspace/shared/proto/privoke/v1/parameters.proto
+
+RUN go mod download
+
+RUN go build -o /usr/local/bin/model-streaming-service-dev ./cmd/server
+
+EXPOSE 50051
+
+CMD ["go", "run", "./cmd/server"]
+
+FROM development AS builder
+
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" \
+    -o /out/model-streaming-service ./cmd/server
+
+FROM gcr.io/distroless/static-debian12:nonroot AS runtime
+
+COPY --from=builder /out/model-streaming-service /model-streaming-service
+COPY --from=development --chown=nonroot:nonroot /models /models
+
+EXPOSE 50051
+
+USER nonroot:nonroot
+
+ENTRYPOINT ["/model-streaming-service"]
+
+FROM mcr.microsoft.com/playwright:v1.63.0-noble
+
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 python3-venv python3-pip openssl procps xvfb xauth \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+ENV PRIVOKE_INSTALLED_EVIDENCE_IN_CONTAINER=true
+COPY --from=builder /out/model-streaming-service /usr/local/bin/privoke-model-streaming
+COPY models /workspace/models
+COPY shared /workspace/shared
+COPY extension /workspace/extension
+COPY evaluation/Dockerfile.browser-installed /workspace/evaluation/Dockerfile.browser-installed
+COPY evaluation/compose.browser-installed.yml /workspace/evaluation/compose.browser-installed.yml
+COPY evaluation/run-installed-browser-capture.mjs /workspace/evaluation/run-installed-browser-capture.mjs
+COPY evaluation/run-installed-browser-unit-tests.mjs /workspace/evaluation/run-installed-browser-unit-tests.mjs
+COPY extension/test/installed-browser-launch-log.mjs /workspace/extension/test/installed-browser-launch-log.mjs
+COPY extension/test/installed-browser-additional.mjs /workspace/extension/test/installed-browser-additional.mjs
+COPY extension/test/installed-browser-capture.mjs /workspace/extension/test/installed-browser-capture.mjs
+COPY extension/test/installed-browser-evidence.mjs /workspace/extension/test/installed-browser-evidence.mjs
+COPY extension/test/installed-browser-evidence.test.mjs /workspace/extension/test/installed-browser-evidence.test.mjs
+COPY extension/test/installed-browser-container-resources.py /workspace/extension/test/installed-browser-container-resources.py
+COPY extension/test/installed-browser-container-evidence.mjs /workspace/extension/test/installed-browser-container-evidence.mjs
+COPY extension/test/installed-browser-resources.py /workspace/extension/test/installed-browser-resources.py
+COPY extension/test/installed-browser-resources.test.py /workspace/extension/test/installed-browser-resources.test.py
+COPY services/model-streaming-service/cmd/server/main.go /workspace/services/model-streaming-service/cmd/server/main.go
+COPY paper/research/installed-client-evidence-20261014.md /workspace/paper/research/installed-client-evidence-20261014.md
+COPY paper/research/installed-browser-protocol.md /workspace/paper/research/installed-browser-protocol.md
+
+RUN python3 -m venv /workspace/extension/client-runtime/.venv \
+    && /workspace/extension/client-runtime/.venv/bin/pip install --no-cache-dir \
+      -r /workspace/extension/client-runtime/requirements.txt \
+      -r /workspace/extension/runtime-supervisor/requirements.txt \
+      /workspace/shared/python psutil \
+    && mkdir -p /workspace/extension/client-runtime/generated /workspace/extension/runtime-supervisor/generated \
+    && /workspace/extension/client-runtime/.venv/bin/python -m grpc_tools.protoc \
+      -I /workspace/shared/proto \
+      --python_out=/workspace/extension/client-runtime/generated \
+      --grpc_python_out=/workspace/extension/client-runtime/generated \
+      /workspace/shared/proto/privoke/v1/runtime.proto \
+      /workspace/shared/proto/privoke/v1/parameters.proto \
+      /workspace/shared/proto/privoke/v1/telemetry.proto \
+    && /workspace/extension/client-runtime/.venv/bin/python -m grpc_tools.protoc \
+      -I /workspace/shared/proto \
+      --python_out=/workspace/extension/runtime-supervisor/generated \
+      --grpc_python_out=/workspace/extension/runtime-supervisor/generated \
+      /workspace/shared/proto/privoke/v1/runtime.proto \
+      /workspace/shared/proto/privoke/v1/parameters.proto \
+    && cd /workspace/extension \
+    && npm ci \
+    && npm run build \
+    && command -v xvfb-run \
+    && mkdir -p /opt/privoke-browser-test \
+    && PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install --prefix /opt/privoke-browser-test --no-save --no-package-lock playwright@1.63.0 \
+    && /workspace/extension/client-runtime/.venv/bin/python /workspace/extension/client-runtime/src/dependency_check.py \
+    && node --check /workspace/evaluation/run-installed-browser-capture.mjs
+
+ENV XDG_CONFIG_HOME=/tmp/privoke-xdg
+ENV XDG_DATA_HOME=/tmp/privoke-data
+ENV PRIVOKE_ENV_FILE=/tmp/privoke-client-config/.env
+ENV PRIVOKE_MODEL_DEVICE=cpu
+ENV TELEMETRY_ENABLED=false
+ENV PRIVOKE_RUNTIME_START_ENABLED=false
+ENV PRIVOKE_DEV_LOG_PROMPTS=false
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+WORKDIR /workspace
+CMD ["xvfb-run", "-a", "node", "/workspace/evaluation/run-installed-browser-capture.mjs"]

@@ -1,11 +1,21 @@
+# Personal agents files
+agents.*.md
+.agents/
+
 # Environment variables
 .env
 .env.local
 .env*.local
 .env.*
+!.env.example
+gha-creds-*.json
+*.key
+*.pem
+*.p12
 
 # Virtual environment
 .venv/
+.venv-*/
 .venv-broken-backup/
 venv/
 env/
@@ -13,7 +23,6 @@ __pycache__/
 *.pyc
 
 # Local Docker/test output/build files
-dumps/
 services/*/generated/
 services/model-streaming-service/gen/
 extension/client-runtime/generated/
@@ -25,3 +34,15 @@ extension/dist-firefox/
 # IDE
 .vscode/
 .idea/
+agents.md
+agents.*.md
+
+# cache and local files
+/dumps
+/.tmp
+/.ruff_cache
+/.secrets
+
+# Shared repository policy is versioned; personal agent files remain ignored.
+!/AGENTS.md
+/models/experiments/

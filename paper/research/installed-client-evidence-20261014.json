@@ -1,0 +1,1738 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": "installed-browser-enforcement-cost-v10",
+  "resultStatus": "complete_bounded_enforcement_and_instrumented_whole_container_cost",
+  "updatedAt": "2026-10-15T07:54:35.199412+00:00",
+  "evidenceBase": "D:/Git Repositories/Privoke-Research-Project/evaluation/results/installed-client-evidence-20261014",
+  "attempts": [
+    {
+      "attempt": 1,
+      "runId": "run-2026-10-14T00-34-40-347Z-c8bdb1d9",
+      "sourceRevision": "e3726e7595b0f925bde77b3b23ea033447e868e4",
+      "imageId": "sha256:da57aa167f106d601fa43657bddf82f5c500cbd79282e21b74cf0710c579a7a4",
+      "status": "failed",
+      "coldSessionsCompleted": 2,
+      "warmMeasuredRequests": 60,
+      "originalProbes": 14,
+      "additionalProbes": 19,
+      "correctnessReceiverSends": 18,
+      "correctnessZeroSendCases": 15,
+      "failure": {
+        "type": "StartupTransitionSamplerExited",
+        "message": "resource sampler exited during startup transition"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": false,
+        "certificateDirectoryRemoved": false
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-14T00-34-40-347Z-c8bdb1d9/receipt.json",
+        "sha256": "46b471259c5dcb00d137b61090c916a417fff4de97b71f8a4c73fffc1c868a9b"
+      },
+      "relocation": {
+        "path": "relocation-attempt-1.json",
+        "sha256": "3cf73e5ad47d76b8e7e23c678a6827451fea28e2d07a19473e54197c8d241c6b"
+      }
+    },
+    {
+      "attempt": 2,
+      "runId": "run-2026-10-14T00-49-28-374Z-6c2f79d0",
+      "sourceRevision": "93f1012bd6c60454e83ce66966dbe04091ccf1ff",
+      "imageId": "sha256:462e769379066170c1c5765b28aaee30203e63a39b50a00f105ac80f3e11ec02",
+      "status": "failed",
+      "coldSessionsCompleted": 2,
+      "warmMeasuredRequests": 60,
+      "originalProbes": 14,
+      "additionalProbes": 19,
+      "correctnessReceiverSends": 18,
+      "correctnessZeroSendCases": 15,
+      "failure": {
+        "type": "StartupTransitionSamplerExited",
+        "message": "resource sampler exited during startup transition"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": false,
+        "certificateDirectoryRemoved": false
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-14T00-49-28-374Z-6c2f79d0/receipt.json",
+        "sha256": "94330fc30107ff9c32c8ce3f4b38b366317cb68eb78d8bb95d39e71d584c393c"
+      },
+      "relocation": {
+        "path": "relocation-attempt-2.json",
+        "sha256": "8b738e366571eaf076e345a08a8b5f96c17d67d921fca557736394d3a9ee7bcf"
+      }
+    },
+    {
+      "attempt": 3,
+      "runId": "run-2026-10-14T01-03-30-620Z-0c655dba",
+      "sourceRevision": "295e5f5043a3dcea70505555975dd8e19d46e669",
+      "imageId": "sha256:68897041090090cbe10466118726eb916f89bf787ceef7c57c089b400d65d484",
+      "status": "failed",
+      "coldSessionsCompleted": 0,
+      "warmMeasuredRequests": 0,
+      "originalProbes": 0,
+      "additionalProbes": 0,
+      "correctnessReceiverSends": 0,
+      "correctnessZeroSendCases": 0,
+      "failure": {
+        "type": "StartupTransitionSamplerExited",
+        "message": "resource sampler exited during startup transition"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": true,
+        "certificateDirectoryRemoved": true
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-14T01-03-30-620Z-0c655dba/receipt.json",
+        "sha256": "76687ae54ec94382668683044e930c7d5a76ab7f16e85aa4a22f57c04a24c455"
+      },
+      "relocation": {
+        "path": "relocation-attempt-3.json",
+        "sha256": "75131ded719c27de34798da58fa0353722edbb66e54b53ab747d02ac1dab2be7"
+      }
+    },
+    {
+      "attempt": 4,
+      "runId": "run-2026-10-14T01-27-55-743Z-f364f9d3",
+      "sourceRevision": "e6007d1f023701816c0bba17f8278b583da04d22",
+      "imageId": "sha256:100c64ff87a265bb3051a69d4f07de5da69fe138ab2b24ca705cd61422af22cd",
+      "status": "failed",
+      "coldSessionsCompleted": 2,
+      "warmMeasuredRequests": 60,
+      "originalProbes": 14,
+      "additionalProbes": 19,
+      "correctnessReceiverSends": 18,
+      "correctnessZeroSendCases": 15,
+      "failure": {
+        "type": "StartupTransitionSamplerExited",
+        "message": "resource sampler exited during startup transition"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": true,
+        "certificateDirectoryRemoved": true
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-14T01-27-55-743Z-f364f9d3/receipt.json",
+        "sha256": "3d96d3eea838e21ebc62daae32c8155a5e55b2df63780fda30e7d8c5e4da8c2b"
+      },
+      "relocation": {
+        "path": "relocation-attempt-4.json",
+        "sha256": "2f07ea5c2e931255d29cf2328dc1c223cab47d3f5e4661e79e2c637412b22e29"
+      }
+    },
+    {
+      "attempt": 5,
+      "runId": "run-2026-10-14T01-49-52-377Z-2def6f9a",
+      "sourceRevision": "b1315509d86cbfa86c95f72b014764513cd7b6b0",
+      "imageId": "sha256:9e3a278a7c75e6f3128f3f391bacb2aa9b3a4a1afc1331c8f96af735dd6e57f0",
+      "status": "failed",
+      "coldSessionsCompleted": 0,
+      "warmMeasuredRequests": 0,
+      "originalProbes": 0,
+      "additionalProbes": 0,
+      "correctnessReceiverSends": 0,
+      "correctnessZeroSendCases": 0,
+      "failure": {
+        "type": "ReferenceError",
+        "message": "windowSamplePath is not defined"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": true,
+        "certificateDirectoryRemoved": true
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-14T01-49-52-377Z-2def6f9a/receipt.json",
+        "sha256": "bd245b6c63b96fe236027688a183c10c42089205029e8419ee7bc8899a9b7952"
+      },
+      "relocation": {
+        "path": "relocation-attempt-5.json",
+        "sha256": "93bab212ccd97bf33af5d72c3b8e0f9d44aed8f33c8c11680317afd9b08388c5"
+      }
+    },
+    {
+      "attempt": 6,
+      "runId": "run-2026-10-14T01-57-51-791Z-078e9989",
+      "sourceRevision": "b8dbc72f00c3caab1df443aa8ccea5d9d3a18a31",
+      "imageId": "sha256:f42aa06c5c31ace6664b3dba3409a9624c2b819e49c3d3093a1d660f1d4c8dbc",
+      "status": "failed",
+      "coldSessionsCompleted": 10,
+      "warmMeasuredRequests": 300,
+      "originalProbes": 14,
+      "additionalProbes": 19,
+      "correctnessReceiverSends": 18,
+      "correctnessZeroSendCases": 15,
+      "failure": {
+        "type": "AssertionError",
+        "message": "native helper lacks sampled supervisor child binding"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": true,
+        "certificateDirectoryRemoved": true
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-14T01-57-51-791Z-078e9989/receipt.json",
+        "sha256": "fa3b88c55cd151b3009962c18438283c7fa007c005be4f9ca26fda8d01123d55"
+      },
+      "relocation": {
+        "path": "relocation-attempt-6.json",
+        "sha256": "7a1b40ba8feabff8c04809162971dbbe38be2c3cd65727e85e058550c76e39d4"
+      },
+      "actualPartialDenominators": {
+        "fetch/ALLOW": {
+          "observations": 60,
+          "sessionClusters": 2
+        },
+        "fetch/WARN": {
+          "observations": 60,
+          "sessionClusters": 2
+        },
+        "fetch/BLOCK": {
+          "observations": 60,
+          "sessionClusters": 2
+        },
+        "xhr/ALLOW": {
+          "observations": 60,
+          "sessionClusters": 2
+        },
+        "xhr/WARN": {
+          "observations": 30,
+          "sessionClusters": 1
+        },
+        "xhr/BLOCK": {
+          "observations": 30,
+          "sessionClusters": 1
+        }
+      }
+    },
+    {
+      "attempt": 7,
+      "runId": "run-2026-10-15T06-33-37-977Z-a07e3f10",
+      "sourceRevision": "0584b46c3dfcd9d5c49d0fe88e3fc9a68dd9db43",
+      "imageId": "sha256:22c938165b4b357e6060102845881c00af1ab09c3ad0043b82a95ef85b81ba78",
+      "status": "failed",
+      "coldSessionsCompleted": 6,
+      "warmMeasuredRequests": 180,
+      "originalProbes": 14,
+      "additionalProbes": 19,
+      "correctnessReceiverSends": 18,
+      "correctnessZeroSendCases": 15,
+      "failure": {
+        "type": "StartupTransitionSamplerExited",
+        "message": "resource sampler exited during startup transition"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": true,
+        "certificateDirectoryRemoved": true
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-15T06-33-37-977Z-a07e3f10/receipt.json",
+        "sha256": "2d6a0e4410ede63f1e62fe37fbf1ba2196dbdac1b96513df901341bc5e98cd0b"
+      },
+      "relocation": {
+        "path": "relocation-attempt-7.json",
+        "sha256": "1eb86f3cfc5f8dd3726d0d961805b856a529353461fcb8cb4aed0c3b49969086"
+      },
+      "actualPartialDenominators": {
+        "fetch/ALLOW": {
+          "observations": 30,
+          "sessionClusters": 1
+        },
+        "fetch/WARN": {
+          "observations": 30,
+          "sessionClusters": 1
+        },
+        "fetch/BLOCK": {
+          "observations": 30,
+          "sessionClusters": 1
+        },
+        "xhr/ALLOW": {
+          "observations": 30,
+          "sessionClusters": 1
+        },
+        "xhr/WARN": {
+          "observations": 30,
+          "sessionClusters": 1
+        },
+        "xhr/BLOCK": {
+          "observations": 30,
+          "sessionClusters": 1
+        }
+      },
+      "samplerObserverMeasuredWindows": 6,
+      "samplerObserverCpuSampledDeltaSeconds": 18.293232532
+    },
+    {
+      "attempt": 8,
+      "runId": "run-2026-10-15T06-59-11-866Z-3b18d875",
+      "sourceRevision": "effacf7e24e471bbc854aff6ed4a153e26e7cc33",
+      "imageId": "sha256:931de34d8e1d8517100f81355d82bd7b8ac1bb462bf00d76971e0ba91d9953a7",
+      "status": "failed",
+      "coldSessionsCompleted": 0,
+      "warmMeasuredRequests": 0,
+      "originalProbes": 0,
+      "additionalProbes": 0,
+      "failure": {
+        "type": "StartupTransitionSamplerExited",
+        "message": "resource sampler exited during startup transition"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": true,
+        "certificateDirectoryRemoved": true
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-15T06-59-11-866Z-3b18d875/receipt.json",
+        "sha256": "d31ada580acbeeceb18507577a2baf09f8c8550f7fd4d91dafe13349b4aa995b"
+      },
+      "relocation": {
+        "path": "relocation-attempt-8.json",
+        "sha256": "2fce00c36a30d778b28cb83d862fb6f69a3ddb3597a02e4c6754f19477d46979"
+      },
+      "diagnosticLimit": "Unknown-owned guard raised without offending PID/hash; actual role/harmlessness unproven."
+    },
+    {
+      "attempt": 9,
+      "runId": "run-2026-10-15T07-29-12-895Z-3c3260c5",
+      "sourceRevision": "76d9907651727944366010603a5c7d2dbd58a708",
+      "imageId": "sha256:7444914eac7a610341efa91eee8cc685021b206e7fb02c5c95888e49f49c8bf5",
+      "status": "failed",
+      "coldSessionsCompleted": 0,
+      "warmMeasuredRequests": 0,
+      "originalProbes": 0,
+      "additionalProbes": 0,
+      "failure": {
+        "type": "Error",
+        "message": "container collector exited during startup"
+      },
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": false,
+        "externalRequests": 0,
+        "providerFixtureClosed": true,
+        "certificateDirectoryRemoved": true
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-15T07-29-12-895Z-3c3260c5/receipt.json",
+        "sha256": "e8cffdc7b4c6428d2ab415f0817ed83ba90f94a756d61eee7bc0157bb005e6a6"
+      },
+      "relocation": {
+        "path": "relocation-attempt-9.json",
+        "sha256": "d658eafd91ee98666c7c1891820e9e587f05796bb35e8662ae107d7f19fae42e"
+      },
+      "diagnosticLimit": "Cadence guard rejected after119rows; exact triggering observation/gap and scheduling cause not retained."
+    },
+    {
+      "attempt": 10,
+      "runId": "run-2026-10-15T07-43-01-701Z-24d8d377",
+      "sourceRevision": "9a0c9cb32060988f10c106dbe98ef4f3aa13a73b",
+      "imageId": "sha256:2c3cc16ceb9c994e4db702f39a1bf5981920285c4fe03516e71d4c088fd727b7",
+      "status": "complete",
+      "coldSessionsCompleted": 12,
+      "warmMeasuredRequests": 360,
+      "originalProbes": 14,
+      "additionalProbes": 19,
+      "correctnessReceiverSends": 18,
+      "correctnessZeroSendCases": 15,
+      "internalCleanup": {
+        "sessionProcessesAndListenersVerified": true,
+        "externalRequests": 0,
+        "providerFixtureClosed": true,
+        "certificateDirectoryRemoved": true
+      },
+      "receipt": {
+        "path": "installed-browser-results/run-2026-10-15T07-43-01-701Z-24d8d377/receipt.json",
+        "sha256": "1a32e73589cca2c08447146d200e4a1d3b7fdbcf86285b0c9deac2e607354f39"
+      },
+      "relocation": {
+        "path": "relocation-attempt-10.json",
+        "sha256": "af3b1446e3f13baf990afeee1d8a37ef3ea22d3618157a25f1ceb6c8e6860ca1"
+      },
+      "externalCessation": {
+        "path": "browser-evidence-20261014/attempt-10-snapshot/container-after-attempt-10.json",
+        "sha256": "c36eb4d00abf520e1da9f88594554609340bb9b468d5c83ea06e0162e4cc9831",
+        "exitCode": 0,
+        "hostPid": 0,
+        "oomKilled": false
+      }
+    }
+  ],
+  "selectedCorrectnessAttempt": 10,
+  "selectedCorrectness": {
+    "originalCases": 14,
+    "additionalCases": 19,
+    "totalCases": 33,
+    "unchangedBodySends": 18,
+    "zeroSendCases": 15,
+    "fullMatrixPassed": true,
+    "actualAnalyzeWires": 29,
+    "costWindowScope": "excluded",
+    "cases": [
+      {
+        "caseId": "matrix-fetch-allow",
+        "transport": "fetch",
+        "expectedAction": "ALLOW",
+        "expectedForwarded": true,
+        "receiverSends": 1,
+        "captureFile": "captures/00031-matrix-fetch-allow.json",
+        "captureSha256": "13293474c56030d78489cafd6fe062bb776c9502ca6a53353f8b3ee982e988f2"
+      },
+      {
+        "caseId": "matrix-fetch-warn",
+        "transport": "fetch",
+        "expectedAction": "WARN",
+        "expectedForwarded": true,
+        "receiverSends": 1,
+        "captureFile": "captures/00031-matrix-fetch-warn.json",
+        "captureSha256": "76b26a8b078ef497b9ed514df2db202b9804d34bd298f26e777245a7ab8f75f8"
+      },
+      {
+        "caseId": "matrix-fetch-block",
+        "transport": "fetch",
+        "expectedAction": "BLOCK",
+        "expectedForwarded": false,
+        "receiverSends": 0,
+        "captureFile": "captures/00031-matrix-fetch-block.json",
+        "captureSha256": "1802491dcbf3a074ff947993ca8769f35b6b41e1ba805cfdbcd02ef00011c4d8"
+      },
+      {
+        "caseId": "matrix-fetch-detector-outage",
+        "transport": "fetch",
+        "expectedAction": "BLOCK",
+        "expectedForwarded": false,
+        "receiverSends": 0,
+        "captureFile": "captures/00031-matrix-fetch-detector-outage.json",
+        "captureSha256": "0f9e0798fd8d4af6f78f5d812a52d9031c1de06d2e512e29d82ed3abfa9d7dd3"
+      },
+      {
+        "caseId": "matrix-fetch-bridge-supervisor-outage",
+        "transport": "fetch",
+        "expectedAction": "BLOCK",
+        "expectedForwarded": false,
+        "receiverSends": 0,
+        "captureFile": "captures/00031-matrix-fetch-bridge-supervisor-outage.json",
+        "captureSha256": "c9796a8dbe8f24fbb707c007b9a329258fe7aee7d5d18804b729906edc09724f"
+      },
+      {
+        "caseId": "matrix-fetch-master-off",
+        "transport": "fetch",
+        "expectedAction": "ALLOW",
+        "expectedForwarded": true,
+        "receiverSends": 1,
+        "captureFile": "captures/00031-matrix-fetch-master-off.json",
+        "captureSha256": "cd57cd764f38e2a531a508572852aa08e3d5fa293a3f067df35c296625de575b"
+      },
+      {
+        "caseId": "matrix-fetch-all-layers-off",
+        "transport": "fetch",
+        "expectedAction": "ALLOW",
+        "expectedForwarded": true,
+        "receiverSends": 1,
+        "captureFile": "captures/00031-matrix-fetch-all-layers-off.json",
+        "captureSha256": "071964c479071718c8b89d87cc271d10333bf0b4d2762e9ab46fbf7b4fd54efe"
+      },
+      {
+        "caseId": "matrix-xhr-allow",
+        "transport": "xhr",
+        "expectedAction": "ALLOW",
+        "expectedForwarded": true,
+        "receiverSends": 1,
+        "captureFile": "captures/00031-matrix-xhr-allow.json",
+        "captureSha256": "770cca3069958433298dfae9928049f2b82229848f6ba38fcace9950d18ad6fc"
+      },
+      {
+        "caseId": "matrix-xhr-warn",
+        "transport": "xhr",
+        "expectedAction": "WARN",
+        "expectedForwarded": true,
+        "receiverSends": 1,
+        "captureFile": "captures/00031-matrix-xhr-warn.json",
+        "captureSha256": "34158a6a782b4f8d2e86b21b2dfc172d9ca2e8ec77c5769a950fead2002c369c"
+      },
+      {
+        "caseId": "matrix-xhr-block",
+        "transport": "xhr",
+        "expectedAction": "BLOCK",
+        "expectedForwarded": false,
+        "receiverSends": 0,
+        "captureFile": "captures/00031-matrix-xhr-block.json",
+        "captureSha256": "40b56f1b936c15354429b59714e0eb45087296ba9ff7c4489a637a1e2ff7543d"
+      },
+      {
+        "caseId": "matrix-xhr-detector-outage",
+        "transport": "xhr",
+        "expectedAction": "BLOCK",
+        "expectedForwarded": false,
+        "receiverSends": 0,
+        "captureFile": "captures/00031-matrix-xhr-detector-outage.json",
+        "captureSha256": "3c4f0854ae9740188ce688f0c7279e137d7711dc0793898e266f81f1eb2a2375"
+      },
+      {
+        "caseId": "matrix-xhr-bridge-supervisor-outage",
+        "transport": "xhr",
+        "expectedAction": "BLOCK",
+        "expectedForwarded": false,
+        "receiverSends": 0,
+        "captureFile": "captures/00031-matrix-xhr-bridge-supervisor-outage.json",
+        "captureSha256": "2c6103fd0afc820f57fae833ecd122397a379c45d63b85df5c403bd1a42133d1"
+      },
+      {
+        "caseId": "matrix-xhr-master-off",
+        "transport": "xhr",
+        "expectedAction": "ALLOW",
+        "expectedForwarded": true,
+        "receiverSends": 1,
+        "captureFile": "captures/00031-matrix-xhr-master-off.json",
+        "captureSha256": "fced3f9e3bd2817d4e59986fe87d0b4e810159e1f0c57215f255b543b163321f"
+      },
+      {
+        "caseId": "matrix-xhr-all-layers-off",
+        "transport": "xhr",
+        "expectedAction": "ALLOW",
+        "expectedForwarded": true,
+        "receiverSends": 1,
+        "captureFile": "captures/00031-matrix-xhr-all-layers-off.json",
+        "captureSha256": "5fa45922bac431a73738cbbcece26aa045754cd5e684f6dee037b2aac90ef9e8"
+      },
+      {
+        "caseId": "additional-fetch-bridge-silent-rpc-timeout",
+        "transport": "fetch",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_REGEX",
+            "DETECTION_LAYER_NER"
+          ],
+          "expectedForwarded": false,
+          "expectedAction": "BLOCK"
+        },
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "runtimeReturnedLayers": []
+      },
+      {
+        "caseId": "additional-fetch-cancel",
+        "transport": "fetch",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_REGEX",
+            "DETECTION_LAYER_NER"
+          ],
+          "expectedForwarded": false
+        },
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      {
+        "caseId": "additional-fetch-missing-analysis-worker-paused",
+        "transport": "fetch",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_REGEX",
+            "DETECTION_LAYER_NER"
+          ],
+          "expectedForwarded": false
+        },
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      {
+        "caseId": "additional-fetch-post-fault-recovery",
+        "transport": "fetch",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_REGEX",
+            "DETECTION_LAYER_NER"
+          ],
+          "expectedForwarded": true,
+          "expectedAction": "ALLOW",
+          "requireSuccess": true
+        },
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      {
+        "caseId": "additional-xhr-bridge-silent-rpc-timeout",
+        "transport": "xhr",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_REGEX",
+            "DETECTION_LAYER_NER"
+          ],
+          "expectedForwarded": false,
+          "expectedAction": "BLOCK"
+        },
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "runtimeReturnedLayers": []
+      },
+      {
+        "caseId": "additional-xhr-cancel",
+        "transport": "xhr",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_REGEX",
+            "DETECTION_LAYER_NER"
+          ],
+          "expectedForwarded": false
+        },
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      {
+        "caseId": "additional-xhr-xhr-timeout",
+        "transport": "xhr",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_REGEX",
+            "DETECTION_LAYER_NER"
+          ],
+          "expectedForwarded": false
+        },
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      {
+        "caseId": "additional-xhr-missing-analysis-worker-paused",
+        "transport": "xhr",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_REGEX",
+            "DETECTION_LAYER_NER"
+          ],
+          "expectedForwarded": false
+        },
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      {
+        "caseId": "additional-xhr-post-fault-recovery",
+        "transport": "xhr",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_REGEX",
+            "DETECTION_LAYER_NER"
+          ],
+          "expectedForwarded": true,
+          "expectedAction": "ALLOW",
+          "requireSuccess": true
+        },
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      {
+        "caseId": "additional-fetch-full",
+        "transport": "fetch",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_REGEX",
+            "DETECTION_LAYER_NER",
+            "DETECTION_LAYER_SEMANTIC"
+          ],
+          "expectedForwarded": true,
+          "requireSuccess": true,
+          "policy": "predeclared decision-driven forwarding; no semantic accuracy score"
+        },
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER",
+          "DETECTION_LAYER_SEMANTIC"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_SEMANTIC",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      {
+        "caseId": "additional-xhr-full",
+        "transport": "xhr",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_REGEX",
+            "DETECTION_LAYER_NER",
+            "DETECTION_LAYER_SEMANTIC"
+          ],
+          "expectedForwarded": true,
+          "requireSuccess": true,
+          "policy": "predeclared decision-driven forwarding; no semantic accuracy score"
+        },
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER",
+          "DETECTION_LAYER_SEMANTIC"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_SEMANTIC",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      {
+        "caseId": "additional-fetch-semantic-only",
+        "transport": "fetch",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_SEMANTIC"
+          ],
+          "expectedForwarded": true,
+          "requireSuccess": true,
+          "policy": "predeclared decision-driven forwarding; no semantic accuracy score"
+        },
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_SEMANTIC"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_SEMANTIC",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      {
+        "caseId": "additional-xhr-semantic-only",
+        "transport": "xhr",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_SEMANTIC"
+          ],
+          "expectedForwarded": true,
+          "requireSuccess": true,
+          "policy": "predeclared decision-driven forwarding; no semantic accuracy score"
+        },
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_SEMANTIC"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_SEMANTIC",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      {
+        "caseId": "additional-fetch-semantic-stream-unavailable",
+        "transport": "fetch",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_SEMANTIC"
+          ],
+          "expectedForwarded": false,
+          "expectedAction": "BLOCK"
+        },
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_SEMANTIC"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_SEMANTIC",
+            "status": "error",
+            "error": "<_MultiThreadedRendezvous of RPC that terminated with:\n\tstatus = StatusCode.UNAVAILABLE\n\tdetails = \"failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:50051: Failed to connect to remote host: Connection refused\"\n\tdebug_error_string = \"UNAVAILABLE:failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:50051: Failed to connect to remote host: Connection refused\"\n>"
+          }
+        ]
+      },
+      {
+        "caseId": "additional-xhr-semantic-stream-unavailable",
+        "transport": "xhr",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_SEMANTIC"
+          ],
+          "expectedForwarded": false,
+          "expectedAction": "BLOCK"
+        },
+        "receiverSends": 0,
+        "lateReceiverCount": 0,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_SEMANTIC"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_SEMANTIC",
+            "status": "error",
+            "error": "<_MultiThreadedRendezvous of RPC that terminated with:\n\tstatus = StatusCode.UNAVAILABLE\n\tdetails = \"failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:50051: Failed to connect to remote host: Connection refused\"\n\tdebug_error_string = \"UNAVAILABLE:failed to connect to all addresses; last error: UNKNOWN: ipv4:127.0.0.1:50051: Failed to connect to remote host: Connection refused\"\n>"
+          }
+        ]
+      },
+      {
+        "caseId": "additional-fetch-full-stream-unavailable-fallback",
+        "transport": "fetch",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_REGEX",
+            "DETECTION_LAYER_NER"
+          ],
+          "expectedForwarded": true,
+          "expectedAction": "ALLOW",
+          "requireSuccess": true
+        },
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      {
+        "caseId": "additional-xhr-full-stream-unavailable-fallback",
+        "transport": "xhr",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_REGEX",
+            "DETECTION_LAYER_NER"
+          ],
+          "expectedForwarded": true,
+          "expectedAction": "ALLOW",
+          "requireSuccess": true
+        },
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      {
+        "caseId": "additional-fetch-stream-recovery-full",
+        "transport": "fetch",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_REGEX",
+            "DETECTION_LAYER_NER",
+            "DETECTION_LAYER_SEMANTIC"
+          ],
+          "expectedForwarded": true,
+          "requireSuccess": true
+        },
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER",
+          "DETECTION_LAYER_SEMANTIC"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_SEMANTIC",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      {
+        "caseId": "additional-xhr-stream-recovery-full",
+        "transport": "xhr",
+        "declared": {
+          "expectedLayers": [
+            "DETECTION_LAYER_REGEX",
+            "DETECTION_LAYER_NER",
+            "DETECTION_LAYER_SEMANTIC"
+          ],
+          "expectedForwarded": true,
+          "requireSuccess": true
+        },
+        "receiverSends": 1,
+        "lateReceiverCount": 1,
+        "runtimeRequestedLayers": [
+          "DETECTION_LAYER_REGEX",
+          "DETECTION_LAYER_NER",
+          "DETECTION_LAYER_SEMANTIC"
+        ],
+        "runtimeReturnedLayers": [
+          {
+            "layer": "DETECTION_LAYER_REGEX",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_NER",
+            "status": "ok",
+            "error": ""
+          },
+          {
+            "layer": "DETECTION_LAYER_SEMANTIC",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      }
+    ]
+  },
+  "completeCostStudy": {
+    "status": "complete",
+    "attempt": 10,
+    "runId": "run-2026-10-15T07-43-01-701Z-24d8d377",
+    "captureSourceRevision": "9a0c9cb32060988f10c106dbe98ef4f3aa13a73b",
+    "imageId": "sha256:2c3cc16ceb9c994e4db702f39a1bf5981920285c4fe03516e71d4c088fd727b7",
+    "requiredColdSessions": 12,
+    "completedColdSessions": 12,
+    "requiredMeasuredWarmRequests": 360,
+    "completedMeasuredWarmRequests": 360,
+    "firstDecisionRequests": 12,
+    "warmupRequests": 60,
+    "allPageRequests": 465,
+    "actualAnalyzeWires": 461,
+    "allReceiverSends": 306,
+    "warmCosts": {
+      "fetch/ALLOW": {
+        "observations": 60,
+        "sessionClusters": 2,
+        "p99Qualification": "60 observations across 2 fresh profile session clusters; descriptive empirical order statistic, no independent-sample tail confidence interval",
+        "decisionMs": {
+          "n": 60,
+          "p50": 35,
+          "p95": 62.5,
+          "p99": 73.5999999998603
+        },
+        "browserObservedTotalMs": {
+          "n": 60,
+          "p50": 37.300000000046566,
+          "p95": 65.39999999990687,
+          "p99": 77.0999999998603
+        },
+        "runtimeElapsedMs": {
+          "n": 60,
+          "p50": 28.287323000085962,
+          "p95": 55.16527700001461,
+          "p99": 65.18415899995489
+        }
+      },
+      "fetch/WARN": {
+        "observations": 60,
+        "sessionClusters": 2,
+        "p99Qualification": "60 observations across 2 fresh profile session clusters; descriptive empirical order statistic, no independent-sample tail confidence interval",
+        "decisionMs": {
+          "n": 60,
+          "p50": 31.899999999906868,
+          "p95": 36.10000000009313,
+          "p99": 59.39999999990687
+        },
+        "browserObservedTotalMs": {
+          "n": 60,
+          "p50": 34.300000000046566,
+          "p95": 38.800000000046566,
+          "p99": 61.4000000001397
+        },
+        "runtimeElapsedMs": {
+          "n": 60,
+          "p50": 25.6885589999456,
+          "p95": 29.451498999833348,
+          "p99": 54.35188499996002
+        }
+      },
+      "fetch/BLOCK": {
+        "observations": 60,
+        "sessionClusters": 2,
+        "p99Qualification": "60 observations across 2 fresh profile session clusters; descriptive empirical order statistic, no independent-sample tail confidence interval",
+        "decisionMs": {
+          "n": 60,
+          "p50": 27.899999999906868,
+          "p95": 31.5999999998603,
+          "p99": 33.199999999953434
+        },
+        "browserObservedTotalMs": {
+          "n": 60,
+          "p50": 28.100000000093132,
+          "p95": 31.800000000046566,
+          "p99": 33.4000000001397
+        },
+        "runtimeElapsedMs": {
+          "n": 60,
+          "p50": 21.568865000062942,
+          "p95": 24.631142000089312,
+          "p99": 25.78501600009986
+        }
+      },
+      "xhr/ALLOW": {
+        "observations": 60,
+        "sessionClusters": 2,
+        "p99Qualification": "60 observations across 2 fresh profile session clusters; descriptive empirical order statistic, no independent-sample tail confidence interval",
+        "decisionMs": {
+          "n": 60,
+          "p50": 30.799999999813735,
+          "p95": 35.800000000046566,
+          "p99": 57.699999999953434
+        },
+        "browserObservedTotalMs": {
+          "n": 60,
+          "p50": 32.9000000001397,
+          "p95": 38.39999999990687,
+          "p99": 59.60000000009313
+        },
+        "runtimeElapsedMs": {
+          "n": 60,
+          "p50": 24.967246999949566,
+          "p95": 29.427685999962705,
+          "p99": 51.867547000028935
+        }
+      },
+      "xhr/WARN": {
+        "observations": 60,
+        "sessionClusters": 2,
+        "p99Qualification": "60 observations across 2 fresh profile session clusters; descriptive empirical order statistic, no independent-sample tail confidence interval",
+        "decisionMs": {
+          "n": 60,
+          "p50": 31.299999999813735,
+          "p95": 34.60000000009313,
+          "p99": 59.200000000186265
+        },
+        "browserObservedTotalMs": {
+          "n": 60,
+          "p50": 33.89999999990687,
+          "p95": 37.300000000046566,
+          "p99": 61.5
+        },
+        "runtimeElapsedMs": {
+          "n": 60,
+          "p50": 24.854745999846273,
+          "p95": 29.163831999994727,
+          "p99": 51.57189100009418
+        }
+      },
+      "xhr/BLOCK": {
+        "observations": 60,
+        "sessionClusters": 2,
+        "p99Qualification": "60 observations across 2 fresh profile session clusters; descriptive empirical order statistic, no independent-sample tail confidence interval",
+        "decisionMs": {
+          "n": 60,
+          "p50": 28.5,
+          "p95": 32.199999999953434,
+          "p99": 34.0999999998603
+        },
+        "browserObservedTotalMs": {
+          "n": 60,
+          "p50": 28.699999999953434,
+          "p95": 32.39999999990687,
+          "p99": 34.300000000046566
+        },
+        "runtimeElapsedMs": {
+          "n": 60,
+          "p50": 21.820396999828517,
+          "p95": 25.19758199991884,
+          "p99": 27.543606999870462
+        }
+      }
+    },
+    "coldSummaryMs": {
+      "browserLaunchToContextMs": {
+        "n": 12,
+        "min": 1279.5127470000007,
+        "p50": 1300.2596379999886,
+        "max": 9704.48424
+      },
+      "browserLaunchToExtensionWorkerObservationMs": {
+        "n": 12,
+        "min": 1279.7059890000091,
+        "p50": 1300.3657179999864,
+        "max": 9704.878261
+      },
+      "startupTransitionElapsedMs": {
+        "n": 12,
+        "min": 4209.363938000024,
+        "p50": 4367.161103999999,
+        "max": 12209.276134000014
+      },
+      "firstRequestDecisionMs": {
+        "n": 12,
+        "min": 53.60000000009313,
+        "p50": 66.39999999990687,
+        "max": 75.19999999995343
+      }
+    },
+    "measuredLayerSignatures": {
+      "fetch/ALLOW": {
+        "DETECTION_LAYER_REGEX:ok:;DETECTION_LAYER_NER:ok:": 60
+      },
+      "fetch/WARN": {
+        "DETECTION_LAYER_REGEX:ok:;DETECTION_LAYER_NER:ok:": 60
+      },
+      "fetch/BLOCK": {
+        "DETECTION_LAYER_REGEX:ok:;DETECTION_LAYER_NER:skipped:Skipped after regex returned BLOCK.": 60
+      },
+      "xhr/ALLOW": {
+        "DETECTION_LAYER_REGEX:ok:;DETECTION_LAYER_NER:ok:": 60
+      },
+      "xhr/WARN": {
+        "DETECTION_LAYER_REGEX:ok:;DETECTION_LAYER_NER:ok:": 60
+      },
+      "xhr/BLOCK": {
+        "DETECTION_LAYER_REGEX:ok:;DETECTION_LAYER_NER:skipped:Skipped after regex returned BLOCK.": 60
+      }
+    },
+    "containerResources": {
+      "scope": "instrumented_whole_container",
+      "sampleCount": 1236,
+      "gapCount": 1224,
+      "cpuUsageSecondsWithinObservedWindows": 193.28628500000002,
+      "observerCpuSecondsWithinObservedWindows": 0.6906091280000001,
+      "sampledMaximumChargedMemoryBytes": 1329500160,
+      "sampledMaximumChargedMemoryMiB": 1267.91015625,
+      "observedSpanSecondsSum": 126.39568622099999,
+      "gapsMs": {
+        "min": 100.856221,
+        "mean": 103.26444952696077,
+        "p50": 101.212965,
+        "p95": 102.375477,
+        "p99": 118.135489,
+        "max": 622.840907,
+        "over200": 6,
+        "over500": 1,
+        "over1000": 0
+      }
+    },
+    "terminalReadCoverage": [
+      {
+        "sessionId": "01-fetch-allow-r1",
+        "endBoundaryNs": 1334923828846,
+        "stopRequestNs": 1334924235443,
+        "finalReadStartNs": 1334927307246,
+        "finalCompletedNs": 1334927708333,
+        "rows": 223
+      },
+      {
+        "sessionId": "02-fetch-warn-r1",
+        "endBoundaryNs": 1539675133786,
+        "stopRequestNs": 1539675184110,
+        "finalReadStartNs": 1539747459163,
+        "finalCompletedNs": 1539748288117,
+        "rows": 195
+      },
+      {
+        "sessionId": "03-fetch-block-r1",
+        "endBoundaryNs": 1549037276837,
+        "stopRequestNs": 1549037328486,
+        "finalReadStartNs": 1549076262716,
+        "finalCompletedNs": 1549076628277,
+        "rows": 83
+      },
+      {
+        "sessionId": "04-xhr-allow-r1",
+        "endBoundaryNs": 1557804299548,
+        "stopRequestNs": 1557804333687,
+        "finalReadStartNs": 1557835161442,
+        "finalCompletedNs": 1557835740045,
+        "rows": 80
+      },
+      {
+        "sessionId": "05-xhr-warn-r1",
+        "endBoundaryNs": 1566649244973,
+        "stopRequestNs": 1566649279013,
+        "finalReadStartNs": 1566665002002,
+        "finalCompletedNs": 1566665532823,
+        "rows": 81
+      },
+      {
+        "sessionId": "06-xhr-block-r1",
+        "endBoundaryNs": 1575945245158,
+        "stopRequestNs": 1575945279857,
+        "finalReadStartNs": 1575951282083,
+        "finalCompletedNs": 1575951619181,
+        "rows": 82
+      },
+      {
+        "sessionId": "07-fetch-allow-r2",
+        "endBoundaryNs": 1584998493454,
+        "stopRequestNs": 1584998530313,
+        "finalReadStartNs": 1585028543043,
+        "finalCompletedNs": 1585029111049,
+        "rows": 83
+      },
+      {
+        "sessionId": "08-fetch-warn-r2",
+        "endBoundaryNs": 1594628815634,
+        "stopRequestNs": 1594628865191,
+        "finalReadStartNs": 1594632951889,
+        "finalCompletedNs": 1594633601190,
+        "rows": 80
+      },
+      {
+        "sessionId": "09-fetch-block-r2",
+        "endBoundaryNs": 1603972791359,
+        "stopRequestNs": 1603972909987,
+        "finalReadStartNs": 1603984684732,
+        "finalCompletedNs": 1603985406276,
+        "rows": 86
+      },
+      {
+        "sessionId": "10-xhr-allow-r2",
+        "endBoundaryNs": 1613006366449,
+        "stopRequestNs": 1613006450335,
+        "finalReadStartNs": 1613010397947,
+        "finalCompletedNs": 1613010819190,
+        "rows": 82
+      },
+      {
+        "sessionId": "11-xhr-warn-r2",
+        "endBoundaryNs": 1622208163251,
+        "stopRequestNs": 1622208195938,
+        "finalReadStartNs": 1622257405772,
+        "finalCompletedNs": 1622258000769,
+        "rows": 77
+      },
+      {
+        "sessionId": "12-xhr-block-r2",
+        "endBoundaryNs": 1631605820543,
+        "stopRequestNs": 1631605849793,
+        "finalReadStartNs": 1631658047317,
+        "finalCompletedNs": 1631658378917,
+        "rows": 84
+      }
+    ],
+    "resourceSampleFiles": [
+      {
+        "sessionId": "01-fetch-allow-r1",
+        "file": "resources-01-fetch-allow-r1.jsonl",
+        "sha256": "61f003934516c53f8279d4ba7f64ff79917a322fa1f31e4d8579a93937a1dbc7",
+        "phaseRequestCounts": {
+          "firstDecision": 1,
+          "warmup": 5,
+          "measured": 30
+        }
+      },
+      {
+        "sessionId": "02-fetch-warn-r1",
+        "file": "resources-02-fetch-warn-r1.jsonl",
+        "sha256": "9484769f83bf7a31aa59c81ff21ac7ed497d8ded2faee43791486e936b96fb18",
+        "phaseRequestCounts": {
+          "firstDecision": 1,
+          "warmup": 5,
+          "measured": 30
+        }
+      },
+      {
+        "sessionId": "03-fetch-block-r1",
+        "file": "resources-03-fetch-block-r1.jsonl",
+        "sha256": "af49b3de274d0317ee339bab3bfaea072c310aa72b539f0e7f892f10a1284e12",
+        "phaseRequestCounts": {
+          "firstDecision": 1,
+          "warmup": 5,
+          "measured": 30
+        }
+      },
+      {
+        "sessionId": "04-xhr-allow-r1",
+        "file": "resources-04-xhr-allow-r1.jsonl",
+        "sha256": "c7ae9f0fe4fa4b2943cf705ba281d2905664984d1832e0437d63dbe92dceee61",
+        "phaseRequestCounts": {
+          "firstDecision": 1,
+          "warmup": 5,
+          "measured": 30
+        }
+      },
+      {
+        "sessionId": "05-xhr-warn-r1",
+        "file": "resources-05-xhr-warn-r1.jsonl",
+        "sha256": "0a59ea904af6138854e9c41c60d01d281e224919c737d149d6ba44b9d6e835f1",
+        "phaseRequestCounts": {
+          "firstDecision": 1,
+          "warmup": 5,
+          "measured": 30
+        }
+      },
+      {
+        "sessionId": "06-xhr-block-r1",
+        "file": "resources-06-xhr-block-r1.jsonl",
+        "sha256": "97d343a860439bcd7d483856c431cdad4f2c2665010b5db6b00d432eec878f54",
+        "phaseRequestCounts": {
+          "firstDecision": 1,
+          "warmup": 5,
+          "measured": 30
+        }
+      },
+      {
+        "sessionId": "07-fetch-allow-r2",
+        "file": "resources-07-fetch-allow-r2.jsonl",
+        "sha256": "c28c56568a0ed59a7eba70d422602b34a9de5f74c7608e8e22e39bc031af3779",
+        "phaseRequestCounts": {
+          "firstDecision": 1,
+          "warmup": 5,
+          "measured": 30
+        }
+      },
+      {
+        "sessionId": "08-fetch-warn-r2",
+        "file": "resources-08-fetch-warn-r2.jsonl",
+        "sha256": "ff3826cc36075afaeb5b370db38b28de59c9a0582ac9fac2c7a6087925c6b059",
+        "phaseRequestCounts": {
+          "firstDecision": 1,
+          "warmup": 5,
+          "measured": 30
+        }
+      },
+      {
+        "sessionId": "09-fetch-block-r2",
+        "file": "resources-09-fetch-block-r2.jsonl",
+        "sha256": "b2f38fa7defedbabff8edcee70d26a13b06b93f76d5412c70dfc4b75a875e2f3",
+        "phaseRequestCounts": {
+          "firstDecision": 1,
+          "warmup": 5,
+          "measured": 30
+        }
+      },
+      {
+        "sessionId": "10-xhr-allow-r2",
+        "file": "resources-10-xhr-allow-r2.jsonl",
+        "sha256": "bb008af655dd65dad650a371754d7e5668adbf7787838bc43e5697f8a8fc9fc8",
+        "phaseRequestCounts": {
+          "firstDecision": 1,
+          "warmup": 5,
+          "measured": 30
+        }
+      },
+      {
+        "sessionId": "11-xhr-warn-r2",
+        "file": "resources-11-xhr-warn-r2.jsonl",
+        "sha256": "eda26c85b4948937bce39d43ea25392b7e238e2a80182b5cfbd284c1f308bb0a",
+        "phaseRequestCounts": {
+          "firstDecision": 1,
+          "warmup": 5,
+          "measured": 30
+        }
+      },
+      {
+        "sessionId": "12-xhr-block-r2",
+        "file": "resources-12-xhr-block-r2.jsonl",
+        "sha256": "ae14905d80c7cf7d2eff7ac2995b04cdd7dce099b8553324737c7d95ae2a3a0b",
+        "phaseRequestCounts": {
+          "firstDecision": 1,
+          "warmup": 5,
+          "measured": 30
+        }
+      }
+    ],
+    "analysis": {
+      "path": "browser-evidence-20261014/attempt-10-snapshot/analysis-attempt-10.json",
+      "sha256": "775d63a5c9e251055c8c81388b1718fe72e8d58d3dd12dc00d2643be484a7a1a"
+    },
+    "independentAudit": "accepted_by_independent_research_reviewer_and_root_after_raw_receiver_wire_resource_boundary_clock_and_cessation_reconciliation",
+    "priorFailedAttemptsPooled": false,
+    "costLayerExecutionCounts": {
+      "allCostRequests": 432,
+      "allRegexExecuted": 432,
+      "allNerExecuted": 288,
+      "allNerSkippedAfterRegexBlock": 144,
+      "measuredRequests": 360,
+      "measuredRegexExecuted": 360,
+      "measuredNerExecuted": 240,
+      "measuredNerSkippedAfterRegexBlock": 120
+    }
+  },
+  "environment": {
+    "versions": {
+      "chromium": "153.0.8010.12",
+      "playwright": "1.63.0",
+      "node": "v24.20.0",
+      "python": "3.12.3",
+      "pythonPackages": {
+        "spacy": "3.7.5",
+        "en-core-web-sm": "3.7.1",
+        "presidio-analyzer": "2.2.363",
+        "grpcio": "1.82.1",
+        "protobuf": "7.35.1",
+        "psutil": "7.2.2"
+      },
+      "spaCyModel": {
+        "name": "en_core_web_sm",
+        "version": "3.7.1"
+      },
+      "inferenceDevice": "cpu",
+      "telemetryEnabled": false
+    },
+    "extension": "hmlhjfklebbbhpjdjodegbjnbamlkonp",
+    "inferenceDevice": "cpu",
+    "telemetryEnabled": false,
+    "networkMode": "none",
+    "receiverAuthentication": "Chromium certificate SPKI exception pinned to this generated receiver key; HTTPS verification otherwise enabled",
+    "nativeHostCapture": {
+      "evidenceMode": "fresh_profile_registered_native_launcher_extension_triggered_lifecycle",
+      "registeredManifestSha256": "fc97be98b3d89f24951a259bb8b092d3cfb051577922e3ad4cddf840a759eaa7",
+      "launcherSha256": "065595147756beac609859286d85bd75b2e75c344003cdb34fbac907c4ed8a7b",
+      "hostSha256": "65e735a9e24332eb1692753c5321853a4a4ae392d3928f27afd3f82e80942833",
+      "shortLivedHelperProcessSampling": "not_part_of_v9_cost_protocol",
+      "inferenceLimit": "Fresh profile registration and extension-triggered live runtime attest the installed path; no continuous native-helper ancestry or clean-exit claim."
+    },
+    "sourceFiles": {
+      "extension/test/installed-browser-container-resources.py": "b611ba5719e97278beb39dc03033e0cf477524648f1c9586437be8ff505449d6",
+      "extension/test/installed-browser-container-resources.test.py": "dce121caeaff380e65c21085fd10f04125938625fb8f494d97c82c64e11a6399",
+      "extension/test/installed-browser-container-evidence.mjs": "b3cbda061a46cdc6ce93bcdc8c90b73d67c10b296aac35ed34e8a415fed55af4",
+      "extension/test/installed-browser-container-evidence.test.mjs": "c29eb8fcfd01aa5abc946a377ca82db3ff35f214119f2ab9401f9331c76e4580",
+      "evaluation/Dockerfile.browser-installed": "e9eb467fd1cdd14633b61fc94e7e160dd9e02f012dfbb39473f1b4a62ce06ebc",
+      "evaluation/compose.browser-installed.yml": "1275f93773b15dfb24ec7c619578065c139e28b38f79e42f55823e2028763eb9",
+      "evaluation/run-installed-browser-capture.mjs": "3d55e99d6ddc67ecc9c2c94611d693f172aa459181d3752cbd971491eeed638e",
+      "extension/test/installed-browser-capture.mjs": "f5fbced8c76bd760949ef654a9dedd04a857159c583c3d1141b344bfb654d8f0",
+      "extension/test/installed-browser-additional.mjs": "a2718a5b601aac4584b3ae45e0eaaf874f35bd3b0da4694c8f56e1902aece2e6",
+      "extension/test/installed-browser-launch-log.mjs": "21ba45044401e41c38d031d4e84c9e2d967d4ba996e9c1d938eeb7eb1034efaf",
+      "paper/research/installed-client-evidence-20261014.md": "6bed5dcb7c4fe3f4dffac55a5657a658d0c0a5f146cdc253c395718f8679a881",
+      "models/privoke-balanced.json": "dcacb490bf19cf771fe4084e7f3484d83daee040609c496c1aef04f0da779b51",
+      "services/model-streaming-service/cmd/server/main.go": "2ef2157b2a64f37c80382680a0ab92e1a646a9a4677c5ddebfcc381df62cfcad",
+      "extension/test/installed-browser-evidence.mjs": "33a4d7f2b6489a6fb393960f2ed7d17b6a6e7d67878a97b42fea9fe272486ad6",
+      "extension/test/installed-browser-evidence.test.mjs": "6ea976fe105fcca65e10e2d11a40c007682ad469b8f85e53966cc16513791ee6",
+      "evaluation/run-installed-browser-unit-tests.mjs": "60738ec12d24a491478f1a864cfe0bc3eac8ddf40f6dd39788be4b3be5cc3850",
+      "extension/test/installed-browser-resources.py": "1c5f741ba88cb7690127de0f2408e7054b16ceda642e8443f2eddee142508185",
+      "extension/test/installed-browser-resources.test.py": "57e3a0ad0fea08147f2887a21a99f36955cb63f08fd9c9ace499bb4ecadd864a",
+      "extension/package.json": "c8e99307a57f6ac8c17db79bcea9040d71b7d7339cc93b6cef4ff24df0082ac8",
+      "extension/package-lock.json": "89e9f62c0578cfb361bde17f141947dc6b6acc08c4cddad55c9a8ec82af349f8",
+      "extension/manifest.json": "ef168e44dafa2a14b6ccc066b816a309b7efba2e8788ed8d4e52d55b5f733dc2",
+      "extension/extension-identities.json": "2e9ea0f04e9e9f57e3c3d9533930515a2403c2323e488776f1c3054e9d71f0bb",
+      "extension/src/background.js": "db2aa76835f8b4d88008716e2a0caf7e7123276f46f3cad7518ed0b44ceeaad4",
+      "extension/src/settings.js": "4b77f88b61384c5e96dab3ea9d0a661c06b38f573388a42555c794eb74a67c83",
+      "extension/src/runtime-client.js": "cb59722f601800130c79a2e04a79aaeec469ae33d5d82a5a0bf6aa147062c977",
+      "extension/src/runtime-lifecycle.js": "41d0a5c1fcbc125c7d1ce04541937b9f7f10b5c2f819753dd8c3c94a48ba787a",
+      "extension/src/supervisor-launcher.js": "ca79ed864a6bbb10c811b5b457da4201588b00f5d753da5648a31ad7674ff1f3",
+      "extension/src/page-interceptor.js": "8368aedeea26106ac0467cb1f854c31153b6b1c74f4a7c8e5362b843576cfcf6",
+      "extension/src/content-script.js": "2fd5940aa436a0be530dd0a87f23ad343e6429a97b776117898613fedb67c729",
+      "extension/runtime-supervisor/scripts/install-native-host.sh": "6baa27f2bbe10fc8897db7d40a03c1f6d6314d4d8c652c8a9f72e960215e23af",
+      "extension/runtime-supervisor/src/native_messaging_host.py": "65e735a9e24332eb1692753c5321853a4a4ae392d3928f27afd3f82e80942833",
+      "extension/runtime-supervisor/src/main.py": "cef43fb4d5c77a8ccb0d16fb11c424c3dc3950cad7082b12d7bf1f45fb2347f2",
+      "extension/runtime-supervisor/src/runtime_supervisor.py": "d509ab005277b05b3f7be1ce78ae498072a7ac6e9616d996a75f523363f383aa",
+      "extension/runtime-supervisor/src/grpc_web_bridge.py": "36edafb8aa89e6399ac65f257ac69e3671511681b05a93ce54117710d3a7ec49",
+      "extension/client-runtime/src/grpc_main.py": "3d3b7cd53450bbc81015e64d0873241d29c2021a6e5952442f45a830ba00006f",
+      "extension/client-runtime/src/hosting/grpc_server.py": "ce5a6c123753932d446868a5e0d61e1bf71fa37e9a221304f6f14b5f85e06af9",
+      "extension/client-runtime/src/pipeline.py": "e8b5326c8a8cbe0b9eea27b655888bf80597be572147a935adc2fe67820ba14b",
+      "extension/client-runtime/src/regex/rules_identity.py": "c9d07d3b75c5dd4258b00af6539d65aaaf2a6530608874fa3fc1b78a89359fd7",
+      "shared/proto/privoke/v1/runtime.proto": "bcc7266873ead7df7a1b428131ef1c0944ed0e7bac82a6fe888130e20de61bd9",
+      "paper/research/installed-browser-protocol.md": "b760fc541c3d690e634951976553bf9d4ffdd949b6e8b3386dd4fcda7a986259"
+    },
+    "sourceFreeze": "installed-browser-results/source-freeze-9a0c9cb32060988f10c106dbe98ef4f3aa13a73b.json",
+    "preflight": "installed-browser-results/preflight-9a0c9cb.json",
+    "sourceBytesMatched": true,
+    "finalSourceBytesUnchanged": true
+  },
+  "cessation": {
+    "container": "privoke-paper-browser-capture-9a0c9cb",
+    "naturalExitCode": 0,
+    "hostPid": 0,
+    "oomKilled": false,
+    "receipt": "browser-evidence-20261014/attempt-10-snapshot/container-after-attempt-10.json",
+    "sha256": "c36eb4d00abf520e1da9f88594554609340bb9b468d5c83ea06e0162e4cc9831",
+    "internalCleanup": {
+      "sessionProcessesAndListenersVerified": true,
+      "externalRequests": 0,
+      "providerFixtureClosed": true,
+      "certificateDirectoryRemoved": true
+    }
+  },
+  "hostValidation": {
+    "python": "41 passed",
+    "node": "46 passed, 1 skipped (host generated protobuf dependencies unavailable)",
+    "sourceRevision": "e6007d1f023701816c0bba17f8278b583da04d22"
+  },
+  "qualifications": [
+    "Synthetic Linux Chromium/ChatGPT-shaped JSON loopback receiver only; real native messaging host, supervisor, bridge and runtime.",
+    "ALLOW/WARN forward unchanged bytes; BLOCK/no analysis/cancel/timeout must yield no sends, including late receiver recheck.",
+    "Healthy full [2,3,4] and semantic-only [4] probes test enforcement on one safe prompt and original V1 model; they are not semantic accuracy or V3 inference measurements.",
+    "Full-mode stream outage falls back to actual [2,3] and is reduced coverage; semantic-only [4] outage fails closed.",
+    "Attempts1,2,4 each completed33 cases; do not pool them as independent semantic or compatibility evidence.",
+    "Failed attempts supply no complete cost distribution; their fixed60/two-profile labels remain excluded. Attempt10 alone supplies complete scoped cost. No incremental overhead claim.",
+    "Independent exited-container/PID-zero cessation does not rewrite failed internal cleanup.",
+    "Windows, Opera, Edge, Firefox, real providers, attachments, workers and usability remain unverified.",
+    "Attempt3 PID62 ancestry is unproven; source counterexample establishes a root-classification defect independently.",
+    "Attempt5 is a preserved pre-request harness ReferenceError. Implementation and review missed the windowSamplePath scope; prospective correction uses active samplerPath and executes the actual production callsite regression.",
+    "Attempt6 completed10cold/300warm and33correctness cases, then failed the strict native-to-supervisor sampled child-binding gate in window11 before its first request. It remains failed and cannot supply a complete cost result.",
+    "Attempt7 completed6cold/180warm and33correctness cases, then failed initial blank-owned-child versus fresh native-host classification. Its dense-startup observer CPU and sample data are retained, but no complete cost or causal overhead claim follows.",
+    "Attempt9 remains failed before first request; triggering cadence observation was not retained, so exact gap/scheduling cause unknown. Prospective v10 retains all positive gaps with final-read coverage and strict nonpositive/reset/identity gates.",
+    "Attempt10 completed all twelve fresh profiles,360measured requests,33correctness cases,source/image bindings,resource finalization and cleanup. Earlier nine failures are immutable and unpooled.",
+    "Measured ALLOW/WARN requests execute regex+NER; all120measured BLOCK requests report regexok and NERskipped with exact documentedreason.",
+    "Attempt10 resource scope is instrumented whole-container CPU/chargedmemory, including resident actors/cache/observer. Positivegaps are retained; maximum622.841ms. No per-role/RSS/PSS/nativehelperpeak/incrementaloverhead claim.",
+    "Nativebootstrap attestation in attempt10 is lifecycleinferred from freshregisteredprofile andextensiontriggeredruntime; actualknownbrowser/supervisor/detector identities/commands/parents/listeners are checked atboundaries. No continuoushelperancestry or cleanEOF proof."
+  ],
+  "prospectiveCostProtocol": {
+    "protocolVersion": "installed-browser-enforcement-cost-v10",
+    "status": "executed_complete_attempt10_independently_accepted",
+    "scope": "instrumented_whole_container",
+    "requestedIntervalMs": 100,
+    "requiredWindows": 12,
+    "requiredMeasuredRequests": 360,
+    "correctnessProbesOutsideCostWindows": 33,
+    "processAttribution": "Known browser/supervisor/detector boundary checks only; no continuous per-process resource attribution.",
+    "observerIncluded": true,
+    "unprotectedBaseline": false,
+    "hostValidation": {
+      "pythonTestsPassed": 12,
+      "nodeTestsPassed": 61,
+      "nodeTestsSkipped": 1,
+      "skipReason": "Generated runtime protobuf codec dependencies omitted from isolated source checkout; primary integrated validation must execute this test.",
+      "pythonCommands": [
+        "C:/Python313/python.exe -B extension/test/installed-browser-container-resources.test.py"
+      ],
+      "nodeCommand": "node --test extension/test/installed-browser-evidence.test.mjs extension/test/installed-browser-additional.test.mjs extension/test/installed-browser-launch-log.test.mjs extension/test/installed-browser-container-evidence.test.mjs",
+      "scope": "Final v10 affected host12Python and62Node tests; unchanged legacy54Python previously accepted at v9; no browser/runtime/model services launched.",
+      "unchangedLegacyPythonPriorPass": 54,
+      "rootIntegratedValidation": {
+        "sourceRevision": "c8f1a414f8ade54c5550c8f4f89ff9f03120bf4c",
+        "newPythonTestsPassed": 12,
+        "nodeTestsPassed": 62,
+        "nodeTestsSkipped": 0,
+        "stableSourceBindings": 19,
+        "receiptSha256": "739f5e9ec6f7120d7db188b169e704d7d2c40776546fecf2475697188e285ff4"
+      }
+    },
+    "previousNineFailedRunsPooled": false,
+    "positiveGapUpperCutoff": null,
+    "reportedGapExceedanceThresholdsMs": [
+      200,
+      500,
+      1000
+    ],
+    "terminalCoverage": "Stop flag observed before final read; endBoundary<stopRequest<=finalReadStart; firstsample<=browserlaunch; matched Node/Python monotonic clocks."
+  },
+  "historicalBoundedCorrectnessSubsets": [
+    {
+      "attempt": 1,
+      "cases": 33,
+      "unchangedBodySends": 18,
+      "zeroSendCases": 15,
+      "completeCostStudy": false,
+      "pooledIntoAttempt10": false
+    },
+    {
+      "attempt": 2,
+      "cases": 33,
+      "unchangedBodySends": 18,
+      "zeroSendCases": 15,
+      "completeCostStudy": false,
+      "pooledIntoAttempt10": false
+    },
+    {
+      "attempt": 4,
+      "cases": 33,
+      "unchangedBodySends": 18,
+      "zeroSendCases": 15,
+      "completeCostStudy": false,
+      "pooledIntoAttempt10": false
+    },
+    {
+      "attempt": 6,
+      "cases": 33,
+      "unchangedBodySends": 18,
+      "zeroSendCases": 15,
+      "completeCostStudy": false,
+      "pooledIntoAttempt10": false
+    },
+    {
+      "attempt": 7,
+      "cases": 33,
+      "unchangedBodySends": 18,
+      "zeroSendCases": 15,
+      "completeCostStudy": false,
+      "pooledIntoAttempt10": false
+    }
+  ],
+  "independentAcceptance": {
+    "reviewer": "independent research reviewer R2 and root",
+    "status": "accepted",
+    "reconciled": [
+      "465cases446individualcapturefiles+19additionalrecords",
+      "461uniquewires432successfulcostresponses",
+      "306byte-exactsends159zerooutcomes",
+      "33functionalcases18sends15zeroandalllatechecks",
+      "12window1236rows1224gaps/counteridentity/sourceclock/finalreadjoins",
+      "54warmquantilesandlegitNERskips",
+      "internalcleanuptrue/naturalexternalexit0PID0OOMfalse/networknone"
+    ],
+    "priorNineFailuresPooled": false
+  }
+}

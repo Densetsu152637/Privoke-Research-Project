@@ -1,0 +1,27 @@
+{
+  "reproduction_script_sha256": "28a39912f626dea6a84347a4a4c3c76f23404e028645fa348c848f9c8e7b8ce3",
+  "published_sha256": {
+    "audit.json": "10c58eef05a5f9d90cd3a6419e6f080aa151f2e219bdaf3508a8a801ae00476f",
+    "protocol.json": "1b5447d0d95f9783b975f3684dd0f950dd2149c4f5cc479fa2e8ef5af2b175ee",
+    "provenance.json": "d553312f7138a287e25deb0d9069072caeb053fc79fe638ce0abf6abc536e2a4",
+    "summary.json": "1a2607d18325868393e7007f850decf4e555881a23ab9df6dd9c74bebdaba187"
+  },
+  "raw_to_published": {
+    "protocol.json": {
+      "raw_sha256": "39cbf3f7d88ed3b0260f97b41ebe3c41bd8b0e09376bf3e1488dba600da0aef3",
+      "published_sha256": "1b5447d0d95f9783b975f3684dd0f950dd2149c4f5cc479fa2e8ef5af2b175ee",
+      "identical_bytes": false
+    },
+    "summary.json": {
+      "raw_sha256": "66c419b4e3f755242ee7ac42dde5df84d40e5f5ce5ab1f255a1b0d2510716fc8",
+      "published_sha256": "1a2607d18325868393e7007f850decf4e555881a23ab9df6dd9c74bebdaba187",
+      "identical_bytes": false
+    },
+    "audit.json": {
+      "raw_sha256": "10c58eef05a5f9d90cd3a6419e6f080aa151f2e219bdaf3508a8a801ae00476f",
+      "published_sha256": "10c58eef05a5f9d90cd3a6419e6f080aa151f2e219bdaf3508a8a801ae00476f",
+      "identical_bytes": true
+    }
+  },
+  "projection": "Explicit field allowlists preserve numeric metrics, counts, predicates, decisions, controlled contrasts and intervals without rounding. Omit changed_ids everywhere, per-attempt base_version and parameter fingerprints, project storage names and local input paths. Image source names are repository-relative. The raw audit binds the raw summary; the publication manifest separately binds public bytes."
+}

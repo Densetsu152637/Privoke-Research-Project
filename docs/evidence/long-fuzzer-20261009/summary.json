@@ -1,0 +1,2977 @@
+{
+  "schema_version": 1,
+  "protocol_sha256": "1d5a564ae47c5058316f4c15b94d77402732ff24bc085afc17ce6ac40baa343a",
+  "same_images_across_profiles": true,
+  "profiles": {
+    "efficient": {
+      "attempts": 399,
+      "final_cycle": 399,
+      "timed_training_seconds": 7200.000285387039,
+      "accepted_updates": 317,
+      "rejected_attempts": 82,
+      "checkpoints": {
+        "0": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 158,
+              "true_negatives": 61,
+              "false_positives": 177,
+              "false_negatives": 106,
+              "recall": 0.5984848484848485,
+              "specificity": 0.25630252100840334,
+              "precision": 0.4716417910447761,
+              "f1": 0.5275459098497496,
+              "accuracy": 0.4362549800796813,
+              "balanced_accuracy": 0.4273936847466259
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": null
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 236,
+              "true_negatives": 60,
+              "false_positives": 178,
+              "false_negatives": 28,
+              "recall": 0.8939393939393939,
+              "specificity": 0.25210084033613445,
+              "precision": 0.5700483091787439,
+              "f1": 0.696165191740413,
+              "accuracy": 0.5896414342629482,
+              "balanced_accuracy": 0.5730201171377642
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": null
+          }
+        },
+        "67": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 157,
+              "true_negatives": 65,
+              "false_positives": 173,
+              "false_negatives": 107,
+              "recall": 0.5946969696969697,
+              "specificity": 0.27310924369747897,
+              "precision": 0.47575757575757577,
+              "f1": 0.5286195286195287,
+              "accuracy": 0.44223107569721115,
+              "balanced_accuracy": 0.4339031066972243
+            },
+            "binary_prediction_changes": 5,
+            "contextual_classification_changes": 15,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 4,
+              "deteriorated": 1,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.0037878787878787845,
+                  "interval_95": [
+                    -0.011812190719243188,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.016806722689075626,
+                  "interval_95": [
+                    0.0040000000000000036,
+                    0.03419170243204575
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.004115784712799664,
+                  "interval_95": [
+                    -0.0017055696422317217,
+                    0.010786726053673782
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.0010736187697790722,
+                  "interval_95": [
+                    -0.005282449623083973,
+                    0.0064309979119074314
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.005976095617529875,
+                  "interval_95": [
+                    -0.002004008016032012,
+                    0.01547614567732127
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.006509421950598393,
+                  "interval_95": [
+                    -0.0015585817466118174,
+                    0.016000000000000014
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 236,
+              "true_negatives": 63,
+              "false_positives": 175,
+              "false_negatives": 28,
+              "recall": 0.8939393939393939,
+              "specificity": 0.2647058823529412,
+              "precision": 0.5742092457420924,
+              "f1": 0.6992592592592592,
+              "accuracy": 0.5956175298804781,
+              "balanced_accuracy": 0.5793226381461676
+            },
+            "binary_prediction_changes": 3,
+            "contextual_classification_changes": 11,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 3,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.012605042016806733,
+                  "interval_95": [
+                    0.0,
+                    0.02868852459016391
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.004160936563348483,
+                  "interval_95": [
+                    0.0,
+                    0.009581410228275931
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.003094067518846222,
+                  "interval_95": [
+                    0.0,
+                    0.007213136846773259
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.005976095617529875,
+                  "interval_95": [
+                    0.0,
+                    0.013944223107569709
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.006302521008403339,
+                  "interval_95": [
+                    0.0,
+                    0.0143442622950819
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        },
+        "132": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 156,
+              "true_negatives": 66,
+              "false_positives": 172,
+              "false_negatives": 108,
+              "recall": 0.5909090909090909,
+              "specificity": 0.2773109243697479,
+              "precision": 0.47560975609756095,
+              "f1": 0.527027027027027,
+              "accuracy": 0.44223107569721115,
+              "balanced_accuracy": 0.4341100076394194
+            },
+            "binary_prediction_changes": 7,
+            "contextual_classification_changes": 28,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 5,
+              "deteriorated": 2,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.007575757575757569,
+                  "interval_95": [
+                    -0.019379844961240345,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.021008403361344574,
+                  "interval_95": [
+                    0.004329004329004321,
+                    0.04018217165898615
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.00396796505278485,
+                  "interval_95": [
+                    -0.003143047938419942,
+                    0.011664196984951691
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": -0.0005188828227226105,
+                  "interval_95": [
+                    -0.008868109539691998,
+                    0.00657741440565867
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.005976095617529875,
+                  "interval_95": [
+                    -0.003976143141153077,
+                    0.016097390796391296
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.006716322892793503,
+                  "interval_95": [
+                    -0.003095900649436406,
+                    0.017398448716782807
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 236,
+              "true_negatives": 64,
+              "false_positives": 174,
+              "false_negatives": 28,
+              "recall": 0.8939393939393939,
+              "specificity": 0.2689075630252101,
+              "precision": 0.5756097560975609,
+              "f1": 0.7002967359050445,
+              "accuracy": 0.5976095617529881,
+              "balanced_accuracy": 0.581423478482302
+            },
+            "binary_prediction_changes": 4,
+            "contextual_classification_changes": 21,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 4,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.016806722689075626,
+                  "interval_95": [
+                    0.0039840637450199706,
+                    0.03474987409770017
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.005561446918816992,
+                  "interval_95": [
+                    0.0013128101363395484,
+                    0.011503861150581081
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.004131544164631462,
+                  "interval_95": [
+                    0.001005766363594804,
+                    0.008456637573921523
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.007968127490039834,
+                  "interval_95": [
+                    0.0019646365422396617,
+                    0.01619433198380571
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.008403361344537785,
+                  "interval_95": [
+                    0.0019920318725099584,
+                    0.017374937048850056
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        },
+        "199": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 156,
+              "true_negatives": 66,
+              "false_positives": 172,
+              "false_negatives": 108,
+              "recall": 0.5909090909090909,
+              "specificity": 0.2773109243697479,
+              "precision": 0.47560975609756095,
+              "f1": 0.527027027027027,
+              "accuracy": 0.44223107569721115,
+              "balanced_accuracy": 0.4341100076394194
+            },
+            "binary_prediction_changes": 7,
+            "contextual_classification_changes": 36,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 5,
+              "deteriorated": 2,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.007575757575757569,
+                  "interval_95": [
+                    -0.019379844961240345,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.021008403361344574,
+                  "interval_95": [
+                    0.004329004329004321,
+                    0.04018217165898615
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.00396796505278485,
+                  "interval_95": [
+                    -0.003143047938419942,
+                    0.011664196984951691
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": -0.0005188828227226105,
+                  "interval_95": [
+                    -0.008868109539691998,
+                    0.00657741440565867
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.005976095617529875,
+                  "interval_95": [
+                    -0.003976143141153077,
+                    0.016097390796391296
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.006716322892793503,
+                  "interval_95": [
+                    -0.003095900649436406,
+                    0.017398448716782807
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 236,
+              "true_negatives": 64,
+              "false_positives": 174,
+              "false_negatives": 28,
+              "recall": 0.8939393939393939,
+              "specificity": 0.2689075630252101,
+              "precision": 0.5756097560975609,
+              "f1": 0.7002967359050445,
+              "accuracy": 0.5976095617529881,
+              "balanced_accuracy": 0.581423478482302
+            },
+            "binary_prediction_changes": 4,
+            "contextual_classification_changes": 29,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 4,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.016806722689075626,
+                  "interval_95": [
+                    0.0039840637450199706,
+                    0.03474987409770017
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.005561446918816992,
+                  "interval_95": [
+                    0.0013128101363395484,
+                    0.011503861150581081
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.004131544164631462,
+                  "interval_95": [
+                    0.001005766363594804,
+                    0.008456637573921523
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.007968127490039834,
+                  "interval_95": [
+                    0.0019646365422396617,
+                    0.01619433198380571
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.008403361344537785,
+                  "interval_95": [
+                    0.0019920318725099584,
+                    0.017374937048850056
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        },
+        "266": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 154,
+              "true_negatives": 67,
+              "false_positives": 171,
+              "false_negatives": 110,
+              "recall": 0.5833333333333334,
+              "specificity": 0.2815126050420168,
+              "precision": 0.47384615384615386,
+              "f1": 0.5229202037351444,
+              "accuracy": 0.4402390438247012,
+              "balanced_accuracy": 0.4324229691876751
+            },
+            "binary_prediction_changes": 10,
+            "contextual_classification_changes": 46,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 6,
+              "deteriorated": 4,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.015151515151515138,
+                  "interval_95": [
+                    -0.033339552238806074,
+                    -0.0036493032514929766
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.025210084033613467,
+                  "interval_95": [
+                    0.008264462809917328,
+                    0.04609612981332493
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.002204362801377757,
+                  "interval_95": [
+                    -0.006487000586469449,
+                    0.011554902298777382
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": -0.004625706114605221,
+                  "interval_95": [
+                    -0.01657904247253028,
+                    0.0048666454102580395
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.003984063745019917,
+                  "interval_95": [
+                    -0.007889546351084853,
+                    0.01603206412825653
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.005029284441049164,
+                  "interval_95": [
+                    -0.006459278771581598,
+                    0.017665202169699964
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 236,
+              "true_negatives": 65,
+              "false_positives": 173,
+              "false_negatives": 28,
+              "recall": 0.8939393939393939,
+              "specificity": 0.27310924369747897,
+              "precision": 0.5770171149144254,
+              "f1": 0.7013372956909361,
+              "accuracy": 0.599601593625498,
+              "balanced_accuracy": 0.5835243188184365
+            },
+            "binary_prediction_changes": 5,
+            "contextual_classification_changes": 36,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 5,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.02100840336134452,
+                  "interval_95": [
+                    0.004385486095150553,
+                    0.040543287189628664
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.0069688057356814825,
+                  "interval_95": [
+                    0.0014261453181150991,
+                    0.01350169378716136
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.005172103950523033,
+                  "interval_95": [
+                    0.00104133238510776,
+                    0.010035283656919934
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.009960159362549792,
+                  "interval_95": [
+                    0.002008032128514081,
+                    0.019724840377014382
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.010504201680672232,
+                  "interval_95": [
+                    0.002192743047575221,
+                    0.020271643594814332
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        },
+        "335": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 154,
+              "true_negatives": 67,
+              "false_positives": 171,
+              "false_negatives": 110,
+              "recall": 0.5833333333333334,
+              "specificity": 0.2815126050420168,
+              "precision": 0.47384615384615386,
+              "f1": 0.5229202037351444,
+              "accuracy": 0.4402390438247012,
+              "balanced_accuracy": 0.4324229691876751
+            },
+            "binary_prediction_changes": 10,
+            "contextual_classification_changes": 50,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 6,
+              "deteriorated": 4,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.015151515151515138,
+                  "interval_95": [
+                    -0.033339552238806074,
+                    -0.0036493032514929766
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.025210084033613467,
+                  "interval_95": [
+                    0.008264462809917328,
+                    0.04609612981332493
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.002204362801377757,
+                  "interval_95": [
+                    -0.006487000586469449,
+                    0.011554902298777382
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": -0.004625706114605221,
+                  "interval_95": [
+                    -0.01657904247253028,
+                    0.0048666454102580395
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.003984063745019917,
+                  "interval_95": [
+                    -0.007889546351084853,
+                    0.01603206412825653
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.005029284441049164,
+                  "interval_95": [
+                    -0.006459278771581598,
+                    0.017665202169699964
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 236,
+              "true_negatives": 65,
+              "false_positives": 173,
+              "false_negatives": 28,
+              "recall": 0.8939393939393939,
+              "specificity": 0.27310924369747897,
+              "precision": 0.5770171149144254,
+              "f1": 0.7013372956909361,
+              "accuracy": 0.599601593625498,
+              "balanced_accuracy": 0.5835243188184365
+            },
+            "binary_prediction_changes": 5,
+            "contextual_classification_changes": 38,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 5,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.02100840336134452,
+                  "interval_95": [
+                    0.004385486095150553,
+                    0.040543287189628664
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.0069688057356814825,
+                  "interval_95": [
+                    0.0014261453181150991,
+                    0.01350169378716136
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.005172103950523033,
+                  "interval_95": [
+                    0.00104133238510776,
+                    0.010035283656919934
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.009960159362549792,
+                  "interval_95": [
+                    0.002008032128514081,
+                    0.019724840377014382
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.010504201680672232,
+                  "interval_95": [
+                    0.002192743047575221,
+                    0.020271643594814332
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        },
+        "399": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 154,
+              "true_negatives": 67,
+              "false_positives": 171,
+              "false_negatives": 110,
+              "recall": 0.5833333333333334,
+              "specificity": 0.2815126050420168,
+              "precision": 0.47384615384615386,
+              "f1": 0.5229202037351444,
+              "accuracy": 0.4402390438247012,
+              "balanced_accuracy": 0.4324229691876751
+            },
+            "binary_prediction_changes": 10,
+            "contextual_classification_changes": 51,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 6,
+              "deteriorated": 4,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.015151515151515138,
+                  "interval_95": [
+                    -0.033339552238806074,
+                    -0.0036493032514929766
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.025210084033613467,
+                  "interval_95": [
+                    0.008264462809917328,
+                    0.04609612981332493
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.002204362801377757,
+                  "interval_95": [
+                    -0.006487000586469449,
+                    0.011554902298777382
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": -0.004625706114605221,
+                  "interval_95": [
+                    -0.01657904247253028,
+                    0.0048666454102580395
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.003984063745019917,
+                  "interval_95": [
+                    -0.007889546351084853,
+                    0.01603206412825653
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.005029284441049164,
+                  "interval_95": [
+                    -0.006459278771581598,
+                    0.017665202169699964
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 236,
+              "true_negatives": 65,
+              "false_positives": 173,
+              "false_negatives": 28,
+              "recall": 0.8939393939393939,
+              "specificity": 0.27310924369747897,
+              "precision": 0.5770171149144254,
+              "f1": 0.7013372956909361,
+              "accuracy": 0.599601593625498,
+              "balanced_accuracy": 0.5835243188184365
+            },
+            "binary_prediction_changes": 5,
+            "contextual_classification_changes": 39,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 5,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.02100840336134452,
+                  "interval_95": [
+                    0.004385486095150553,
+                    0.040543287189628664
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.0069688057356814825,
+                  "interval_95": [
+                    0.0014261453181150991,
+                    0.01350169378716136
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.005172103950523033,
+                  "interval_95": [
+                    0.00104133238510776,
+                    0.010035283656919934
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.009960159362549792,
+                  "interval_95": [
+                    0.002008032128514081,
+                    0.019724840377014382
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.010504201680672232,
+                  "interval_95": [
+                    0.002192743047575221,
+                    0.020271643594814332
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        }
+      },
+      "changed_head_max_abs_delta": {
+        "head.category.bias": 0.06727409362792969,
+        "head.category.weight": 0.10934937000274658,
+        "head.sensitivity.bias": 0.048553526401519775,
+        "head.sensitivity.weight": 0.08239436149597168,
+        "head.visibility.bias": 0.030413687229156494,
+        "head.visibility.weight": 0.05342507362365723
+      },
+      "encoder_unchanged": true,
+      "unique_train_rows": 672,
+      "unique_replay_rows": 64,
+      "row_exposures_by_role": {
+        "grammar": 25536,
+        "teacher": 25536,
+        "evolved": 25536,
+        "replay": 25536
+      },
+      "started_at": "2026-10-09T04:31:06.269261+00:00",
+      "finished_at": "2026-10-09T06:31:50.611821+00:00"
+    },
+    "balanced": {
+      "attempts": 385,
+      "final_cycle": 385,
+      "timed_training_seconds": 7200.000180482864,
+      "accepted_updates": 340,
+      "rejected_attempts": 45,
+      "checkpoints": {
+        "0": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 169,
+              "true_negatives": 60,
+              "false_positives": 178,
+              "false_negatives": 95,
+              "recall": 0.6401515151515151,
+              "specificity": 0.25210084033613445,
+              "precision": 0.48703170028818443,
+              "f1": 0.5531914893617021,
+              "accuracy": 0.45617529880478086,
+              "balanced_accuracy": 0.4461261777438248
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": null
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 247,
+              "true_negatives": 53,
+              "false_positives": 185,
+              "false_negatives": 17,
+              "recall": 0.9356060606060606,
+              "specificity": 0.22268907563025211,
+              "precision": 0.5717592592592593,
+              "f1": 0.7097701149425287,
+              "accuracy": 0.5976095617529881,
+              "balanced_accuracy": 0.5791475681181564
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": null
+          }
+        },
+        "63": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 137,
+              "true_negatives": 80,
+              "false_positives": 158,
+              "false_negatives": 127,
+              "recall": 0.5189393939393939,
+              "specificity": 0.33613445378151263,
+              "precision": 0.46440677966101696,
+              "f1": 0.49016100178890876,
+              "accuracy": 0.43227091633466136,
+              "balanced_accuracy": 0.4275369238604533
+            },
+            "binary_prediction_changes": 54,
+            "contextual_classification_changes": 117,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 21,
+              "deteriorated": 33,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.12121212121212122,
+                  "interval_95": [
+                    -0.15969581749049427,
+                    -0.08301808502309557
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.08403361344537819,
+                  "interval_95": [
+                    0.04694835680751175,
+                    0.12273448773448771
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": -0.022624920627167477,
+                  "interval_95": [
+                    -0.044005177703421154,
+                    -0.000491703061226425
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": -0.06303048757279339,
+                  "interval_95": [
+                    -0.0910737357561836,
+                    -0.0361561425952529
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": -0.0239043824701195,
+                  "interval_95": [
+                    -0.051792828685258974,
+                    0.003992415969663871
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": -0.018589253883371515,
+                  "interval_95": [
+                    -0.0442619311653298,
+                    0.007252809028208466
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 240,
+              "true_negatives": 74,
+              "false_positives": 164,
+              "false_negatives": 24,
+              "recall": 0.9090909090909091,
+              "specificity": 0.31092436974789917,
+              "precision": 0.594059405940594,
+              "f1": 0.718562874251497,
+              "accuracy": 0.6254980079681275,
+              "balanced_accuracy": 0.6100076394194041
+            },
+            "binary_prediction_changes": 28,
+            "contextual_classification_changes": 90,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 21,
+              "deteriorated": 7,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.02651515151515149,
+                  "interval_95": [
+                    -0.04781280780935295,
+                    -0.007751937984496138
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.08823529411764705,
+                  "interval_95": [
+                    0.053396440129449815,
+                    0.12658366038361615
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.02230014668133473,
+                  "interval_95": [
+                    0.008840350532632709,
+                    0.035781553370921176
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.008792759308968279,
+                  "interval_95": [
+                    -0.005389083121128454,
+                    0.022277534451447503
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.027888446215139417,
+                  "interval_95": [
+                    0.007952286282306154,
+                    0.04858299595141702
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.030860071301247682,
+                  "interval_95": [
+                    0.010385106382978787,
+                    0.05143702818861294
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        },
+        "127": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 120,
+              "true_negatives": 91,
+              "false_positives": 147,
+              "false_negatives": 144,
+              "recall": 0.45454545454545453,
+              "specificity": 0.38235294117647056,
+              "precision": 0.449438202247191,
+              "f1": 0.4519774011299435,
+              "accuracy": 0.4203187250996016,
+              "balanced_accuracy": 0.4184491978609626
+            },
+            "binary_prediction_changes": 82,
+            "contextual_classification_changes": 178,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 32,
+              "deteriorated": 50,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.1856060606060606,
+                  "interval_95": [
+                    -0.23321849234393402,
+                    -0.1376518218623482
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.13025210084033612,
+                  "interval_95": [
+                    0.0877047390259882,
+                    0.17460490746516946
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": -0.037593498040993434,
+                  "interval_95": [
+                    -0.06632991340693235,
+                    -0.007490106597994231
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": -0.10121408823175865,
+                  "interval_95": [
+                    -0.13824113370924304,
+                    -0.06584361010489057
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": -0.03585657370517925,
+                  "interval_95": [
+                    -0.06944657464212677,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": -0.027676979882862218,
+                  "interval_95": [
+                    -0.05879284781720815,
+                    0.004422049001204237
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 234,
+              "true_negatives": 84,
+              "false_positives": 154,
+              "false_negatives": 30,
+              "recall": 0.8863636363636364,
+              "specificity": 0.35294117647058826,
+              "precision": 0.6030927835051546,
+              "f1": 0.7177914110429447,
+              "accuracy": 0.6334661354581673,
+              "balanced_accuracy": 0.6196524064171123
+            },
+            "binary_prediction_changes": 44,
+            "contextual_classification_changes": 140,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 31,
+              "deteriorated": 13,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.0492424242424242,
+                  "interval_95": [
+                    -0.07663572060123783,
+                    -0.02517985611510798
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.13025210084033614,
+                  "interval_95": [
+                    0.08859504823509731,
+                    0.17410714285714282
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.031333524245895306,
+                  "interval_95": [
+                    0.015228550276178468,
+                    0.049200249990357235
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.00802129610041602,
+                  "interval_95": [
+                    -0.008933987929844074,
+                    0.02594813799042473
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.03585657370517925,
+                  "interval_95": [
+                    0.01190417256011322,
+                    0.06175298804780871
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.0405048382989559,
+                  "interval_95": [
+                    0.016226194256459027,
+                    0.06651691105277087
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        },
+        "193": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 110,
+              "true_negatives": 98,
+              "false_positives": 140,
+              "false_negatives": 154,
+              "recall": 0.4166666666666667,
+              "specificity": 0.4117647058823529,
+              "precision": 0.44,
+              "f1": 0.4280155642023346,
+              "accuracy": 0.41434262948207173,
+              "balanced_accuracy": 0.4142156862745098
+            },
+            "binary_prediction_changes": 99,
+            "contextual_classification_changes": 216,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 39,
+              "deteriorated": 60,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.22348484848484845,
+                  "interval_95": [
+                    -0.27306273062730624,
+                    -0.17423859035701145
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.15966386554621848,
+                  "interval_95": [
+                    0.1121066568733571,
+                    0.20851063829787236
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": -0.04703170028818443,
+                  "interval_95": [
+                    -0.08093544703358917,
+                    -0.013936748081083503
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": -0.12517592515936754,
+                  "interval_95": [
+                    -0.1648042522726413,
+                    -0.0856983207694469
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": -0.041832669322709126,
+                  "interval_95": [
+                    -0.08000803212851401,
+                    -0.0020161290322580627
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": -0.03191049146931502,
+                  "interval_95": [
+                    -0.06467815491589789,
+                    0.0038525163976496145
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 232,
+              "true_negatives": 91,
+              "false_positives": 147,
+              "false_negatives": 32,
+              "recall": 0.8787878787878788,
+              "specificity": 0.38235294117647056,
+              "precision": 0.6121372031662269,
+              "f1": 0.7216174183514774,
+              "accuracy": 0.6434262948207171,
+              "balanced_accuracy": 0.6305704099821747
+            },
+            "binary_prediction_changes": 53,
+            "contextual_classification_changes": 167,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 38,
+              "deteriorated": 15,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.05681818181818177,
+                  "interval_95": [
+                    -0.08614703742623878,
+                    -0.030188679245283012
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.15966386554621845,
+                  "interval_95": [
+                    0.11402263847391407,
+                    0.2068965517241379
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.040377943906967584,
+                  "interval_95": [
+                    0.021515335564888164,
+                    0.06052578916637022
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.011847303408948684,
+                  "interval_95": [
+                    -0.0073219801307078305,
+                    0.03178812391470475
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.04581673306772904,
+                  "interval_95": [
+                    0.018036072144288595,
+                    0.07436763746594525
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.051422841864018354,
+                  "interval_95": [
+                    0.024959640872716814,
+                    0.07860612405219534
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        },
+        "259": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 105,
+              "true_negatives": 96,
+              "false_positives": 142,
+              "false_negatives": 159,
+              "recall": 0.3977272727272727,
+              "specificity": 0.40336134453781514,
+              "precision": 0.4251012145748988,
+              "f1": 0.410958904109589,
+              "accuracy": 0.40039840637450197,
+              "balanced_accuracy": 0.4005443086325439
+            },
+            "binary_prediction_changes": 104,
+            "contextual_classification_changes": 239,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 38,
+              "deteriorated": 66,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.24242424242424243,
+                  "interval_95": [
+                    -0.2921842355175689,
+                    -0.1899175016086037
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.1512605042016807,
+                  "interval_95": [
+                    0.10267570970695973,
+                    0.19918699186991867
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": -0.06193048571328563,
+                  "interval_95": [
+                    -0.09473533875382387,
+                    -0.02690520555353091
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": -0.14223258525211313,
+                  "interval_95": [
+                    -0.1820297900237644,
+                    -0.10136157792772099
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": -0.05577689243027889,
+                  "interval_95": [
+                    -0.09344077809565375,
+                    -0.0157775426930633
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": -0.04558186911128087,
+                  "interval_95": [
+                    -0.08042790356059942,
+                    -0.009588606638927693
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 231,
+              "true_negatives": 89,
+              "false_positives": 149,
+              "false_negatives": 33,
+              "recall": 0.875,
+              "specificity": 0.3739495798319328,
+              "precision": 0.6078947368421053,
+              "f1": 0.717391304347826,
+              "accuracy": 0.6374501992031872,
+              "balanced_accuracy": 0.6244747899159664
+            },
+            "binary_prediction_changes": 54,
+            "contextual_classification_changes": 180,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 37,
+              "deteriorated": 17,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.06060606060606055,
+                  "interval_95": [
+                    -0.09124160004634452,
+                    -0.032653061224489854
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.15126050420168066,
+                  "interval_95": [
+                    0.10483280469699013,
+                    0.19748272826917326
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.036135477582845965,
+                  "interval_95": [
+                    0.017229926857654405,
+                    0.056133506377550386
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.007621189405297324,
+                  "interval_95": [
+                    -0.012004718325768928,
+                    0.027540823040928537
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.03984063745019917,
+                  "interval_95": [
+                    0.011975451487463304,
+                    0.0684139108846628
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.04532722179781001,
+                  "interval_95": [
+                    0.017843109418557556,
+                    0.07283367661732164
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        },
+        "325": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 105,
+              "true_negatives": 94,
+              "false_positives": 144,
+              "false_negatives": 159,
+              "recall": 0.3977272727272727,
+              "specificity": 0.3949579831932773,
+              "precision": 0.42168674698795183,
+              "f1": 0.4093567251461988,
+              "accuracy": 0.39641434262948205,
+              "balanced_accuracy": 0.396342627960275
+            },
+            "binary_prediction_changes": 106,
+            "contextual_classification_changes": 253,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 38,
+              "deteriorated": 68,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.24242424242424243,
+                  "interval_95": [
+                    -0.2943589814405656,
+                    -0.18927798087739042
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.14285714285714285,
+                  "interval_95": [
+                    0.09236149619398099,
+                    0.1908713692946058
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": -0.0653449533002326,
+                  "interval_95": [
+                    -0.0991192250567928,
+                    -0.031066306923404882
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": -0.14383476421550334,
+                  "interval_95": [
+                    -0.1838754907016761,
+                    -0.1024275279348311
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": -0.05976095617529881,
+                  "interval_95": [
+                    -0.09879092024735435,
+                    -0.019919328649616236
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": -0.04978354978354982,
+                  "interval_95": [
+                    -0.08593882188761705,
+                    -0.01418178210227646
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 231,
+              "true_negatives": 87,
+              "false_positives": 151,
+              "false_negatives": 33,
+              "recall": 0.875,
+              "specificity": 0.36554621848739494,
+              "precision": 0.6047120418848168,
+              "f1": 0.7151702786377709,
+              "accuracy": 0.6334661354581673,
+              "balanced_accuracy": 0.6202731092436975
+            },
+            "binary_prediction_changes": 54,
+            "contextual_classification_changes": 190,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 36,
+              "deteriorated": 18,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.06060606060606055,
+                  "interval_95": [
+                    -0.09124160004634452,
+                    -0.032653061224489854
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.14285714285714282,
+                  "interval_95": [
+                    0.09386112071947425,
+                    0.18943846539898504
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.03295278262555745,
+                  "interval_95": [
+                    0.013797968009403434,
+                    0.052533394868570484
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.0054001636952422105,
+                  "interval_95": [
+                    -0.014931926754695037,
+                    0.02457216968567834
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.03585657370517925,
+                  "interval_95": [
+                    0.00602349397590358,
+                    0.0638754491017964
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.04112554112554112,
+                  "interval_95": [
+                    0.012614106731281669,
+                    0.06841538329056451
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        },
+        "385": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 103,
+              "true_negatives": 94,
+              "false_positives": 144,
+              "false_negatives": 161,
+              "recall": 0.39015151515151514,
+              "specificity": 0.3949579831932773,
+              "precision": 0.41700404858299595,
+              "f1": 0.40313111545988256,
+              "accuracy": 0.39243027888446214,
+              "balanced_accuracy": 0.3925547491723962
+            },
+            "binary_prediction_changes": 108,
+            "contextual_classification_changes": 256,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 38,
+              "deteriorated": 70,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.25,
+                  "interval_95": [
+                    -0.30120894537052323,
+                    -0.19776012995857217
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.14285714285714285,
+                  "interval_95": [
+                    0.09236149619398099,
+                    0.1908713692946058
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": -0.07002765170518849,
+                  "interval_95": [
+                    -0.10420637167395891,
+                    -0.03617572707094281
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": -0.1500603739018196,
+                  "interval_95": [
+                    -0.191203140912289,
+                    -0.10826330694666521
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": -0.06374501992031872,
+                  "interval_95": [
+                    -0.10366002816094695,
+                    -0.023662860576923118
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": -0.0535714285714286,
+                  "interval_95": [
+                    -0.08907769299060235,
+                    -0.017178973819518845
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 231,
+              "true_negatives": 87,
+              "false_positives": 151,
+              "false_negatives": 33,
+              "recall": 0.875,
+              "specificity": 0.36554621848739494,
+              "precision": 0.6047120418848168,
+              "f1": 0.7151702786377709,
+              "accuracy": 0.6334661354581673,
+              "balanced_accuracy": 0.6202731092436975
+            },
+            "binary_prediction_changes": 54,
+            "contextual_classification_changes": 190,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 36,
+              "deteriorated": 18,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": -0.06060606060606055,
+                  "interval_95": [
+                    -0.09124160004634452,
+                    -0.032653061224489854
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.14285714285714282,
+                  "interval_95": [
+                    0.09386112071947425,
+                    0.18943846539898504
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.03295278262555745,
+                  "interval_95": [
+                    0.013797968009403434,
+                    0.052533394868570484
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.0054001636952422105,
+                  "interval_95": [
+                    -0.014931926754695037,
+                    0.02457216968567834
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.03585657370517925,
+                  "interval_95": [
+                    0.00602349397590358,
+                    0.0638754491017964
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.04112554112554112,
+                  "interval_95": [
+                    0.012614106731281669,
+                    0.06841538329056451
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        }
+      },
+      "changed_head_max_abs_delta": {
+        "head.category.bias": 0.08342176675796509,
+        "head.category.weight": 0.09846973419189453,
+        "head.sensitivity.bias": 0.09528768062591553,
+        "head.sensitivity.weight": 0.10817956924438477,
+        "head.visibility.bias": 0.13694965839385986,
+        "head.visibility.weight": 0.15867400169372559
+      },
+      "encoder_unchanged": true,
+      "unique_train_rows": 672,
+      "unique_replay_rows": 64,
+      "row_exposures_by_role": {
+        "grammar": 24640,
+        "teacher": 24640,
+        "evolved": 24640,
+        "replay": 24640
+      },
+      "started_at": "2026-10-09T06:32:14.414367+00:00",
+      "finished_at": "2026-10-09T08:33:11.774365+00:00"
+    },
+    "quality": {
+      "attempts": 436,
+      "final_cycle": 436,
+      "timed_training_seconds": 7200.000060081482,
+      "accepted_updates": 1,
+      "rejected_attempts": 435,
+      "checkpoints": {
+        "0": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 190,
+              "true_negatives": 48,
+              "false_positives": 190,
+              "false_negatives": 74,
+              "recall": 0.7196969696969697,
+              "specificity": 0.20168067226890757,
+              "precision": 0.5,
+              "f1": 0.5900621118012422,
+              "accuracy": 0.47410358565737054,
+              "balanced_accuracy": 0.4606888209829386
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": null
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 241,
+              "true_negatives": 45,
+              "false_positives": 193,
+              "false_negatives": 23,
+              "recall": 0.9128787878787878,
+              "specificity": 0.18907563025210083,
+              "precision": 0.5552995391705069,
+              "f1": 0.6905444126074498,
+              "accuracy": 0.5697211155378487,
+              "balanced_accuracy": 0.5509772090654443
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": null
+          }
+        },
+        "75": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 190,
+              "true_negatives": 48,
+              "false_positives": 190,
+              "false_negatives": 74,
+              "recall": 0.7196969696969697,
+              "specificity": 0.20168067226890757,
+              "precision": 0.5,
+              "f1": 0.5900621118012422,
+              "accuracy": 0.47410358565737054,
+              "balanced_accuracy": 0.4606888209829386
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 0,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 241,
+              "true_negatives": 45,
+              "false_positives": 193,
+              "false_negatives": 23,
+              "recall": 0.9128787878787878,
+              "specificity": 0.18907563025210083,
+              "precision": 0.5552995391705069,
+              "f1": 0.6905444126074498,
+              "accuracy": 0.5697211155378487,
+              "balanced_accuracy": 0.5509772090654443
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 0,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        },
+        "150": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 190,
+              "true_negatives": 48,
+              "false_positives": 190,
+              "false_negatives": 74,
+              "recall": 0.7196969696969697,
+              "specificity": 0.20168067226890757,
+              "precision": 0.5,
+              "f1": 0.5900621118012422,
+              "accuracy": 0.47410358565737054,
+              "balanced_accuracy": 0.4606888209829386
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 0,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 241,
+              "true_negatives": 45,
+              "false_positives": 193,
+              "false_negatives": 23,
+              "recall": 0.9128787878787878,
+              "specificity": 0.18907563025210083,
+              "precision": 0.5552995391705069,
+              "f1": 0.6905444126074498,
+              "accuracy": 0.5697211155378487,
+              "balanced_accuracy": 0.5509772090654443
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 0,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        },
+        "225": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 190,
+              "true_negatives": 48,
+              "false_positives": 190,
+              "false_negatives": 74,
+              "recall": 0.7196969696969697,
+              "specificity": 0.20168067226890757,
+              "precision": 0.5,
+              "f1": 0.5900621118012422,
+              "accuracy": 0.47410358565737054,
+              "balanced_accuracy": 0.4606888209829386
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 0,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 241,
+              "true_negatives": 45,
+              "false_positives": 193,
+              "false_negatives": 23,
+              "recall": 0.9128787878787878,
+              "specificity": 0.18907563025210083,
+              "precision": 0.5552995391705069,
+              "f1": 0.6905444126074498,
+              "accuracy": 0.5697211155378487,
+              "balanced_accuracy": 0.5509772090654443
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 0,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        },
+        "300": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 190,
+              "true_negatives": 48,
+              "false_positives": 190,
+              "false_negatives": 74,
+              "recall": 0.7196969696969697,
+              "specificity": 0.20168067226890757,
+              "precision": 0.5,
+              "f1": 0.5900621118012422,
+              "accuracy": 0.47410358565737054,
+              "balanced_accuracy": 0.4606888209829386
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 0,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 241,
+              "true_negatives": 45,
+              "false_positives": 193,
+              "false_negatives": 23,
+              "recall": 0.9128787878787878,
+              "specificity": 0.18907563025210083,
+              "precision": 0.5552995391705069,
+              "f1": 0.6905444126074498,
+              "accuracy": 0.5697211155378487,
+              "balanced_accuracy": 0.5509772090654443
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 0,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        },
+        "375": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 190,
+              "true_negatives": 48,
+              "false_positives": 190,
+              "false_negatives": 74,
+              "recall": 0.7196969696969697,
+              "specificity": 0.20168067226890757,
+              "precision": 0.5,
+              "f1": 0.5900621118012422,
+              "accuracy": 0.47410358565737054,
+              "balanced_accuracy": 0.4606888209829386
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 0,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 241,
+              "true_negatives": 45,
+              "false_positives": 193,
+              "false_negatives": 23,
+              "recall": 0.9128787878787878,
+              "specificity": 0.18907563025210083,
+              "precision": 0.5552995391705069,
+              "f1": 0.6905444126074498,
+              "accuracy": 0.5697211155378487,
+              "balanced_accuracy": 0.5509772090654443
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 0,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        },
+        "436": {
+          "semantic": {
+            "metrics": {
+              "true_positives": 190,
+              "true_negatives": 48,
+              "false_positives": 190,
+              "false_negatives": 74,
+              "recall": 0.7196969696969697,
+              "specificity": 0.20168067226890757,
+              "precision": 0.5,
+              "f1": 0.5900621118012422,
+              "accuracy": 0.47410358565737054,
+              "balanced_accuracy": 0.4606888209829386
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 0,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          },
+          "pipeline": {
+            "metrics": {
+              "true_positives": 241,
+              "true_negatives": 45,
+              "false_positives": 193,
+              "false_negatives": 23,
+              "recall": 0.9128787878787878,
+              "specificity": 0.18907563025210083,
+              "precision": 0.5552995391705069,
+              "f1": 0.6905444126074498,
+              "accuracy": 0.5697211155378487,
+              "balanced_accuracy": 0.5509772090654443
+            },
+            "binary_prediction_changes": 0,
+            "contextual_classification_changes": 0,
+            "paired_vs_baseline": {
+              "valid": true,
+              "rows": 502,
+              "groups": 465,
+              "improved": 0,
+              "deteriorated": 0,
+              "method": "paired group percentile bootstrap",
+              "iterations": 2000,
+              "seed": 1337,
+              "changes": {
+                "recall": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "specificity": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "precision": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "f1": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                },
+                "balanced_accuracy": {
+                  "estimate": 0.0,
+                  "interval_95": [
+                    0.0,
+                    0.0
+                  ],
+                  "defined_replicates": 2000
+                }
+              }
+            }
+          }
+        }
+      },
+      "changed_head_max_abs_delta": {
+        "head.category.bias": 0.0003676414489746094,
+        "head.category.weight": 0.0004832744598388672,
+        "head.sensitivity.bias": 0.001449868083000183,
+        "head.sensitivity.weight": 0.002003192901611328,
+        "head.visibility.bias": 0.000858306884765625,
+        "head.visibility.weight": 0.0011170804500579834
+      },
+      "encoder_unchanged": true,
+      "unique_train_rows": 672,
+      "unique_replay_rows": 64,
+      "row_exposures_by_role": {
+        "grammar": 27904,
+        "teacher": 27904,
+        "evolved": 27904,
+        "replay": 27904
+      },
+      "started_at": "2026-10-09T08:33:31.636930+00:00",
+      "finished_at": "2026-10-09T10:34:31.061191+00:00"
+    }
+  },
+  "endpoint_rows": 502,
+  "endpoint_positive": 264,
+  "endpoint_negative": 238,
+  "source_groups": 465,
+  "rounds": 1220,
+  "independent_arithmetic_verified": true
+}

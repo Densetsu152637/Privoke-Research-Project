@@ -1,0 +1,5 @@
+# Host evaluation, smoke tests and synthetic evaluator unit tests (Python 3.11/3.12).
+-r requirements.txt
+-r ../extension/runtime-supervisor/requirements.txt
+# Training mechanics; tests use CPU and need no pretrained weights.
+torch==2.10.0

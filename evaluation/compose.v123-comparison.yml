@@ -1,0 +1,57 @@
+services:
+  checkpoint:
+    image: sha256:4a5624eda0c0cd7dfb3da2366e3d18e720eda4a82797bf4e92320fa0987e9bd1
+    pull_policy: never
+    command: [python, services/pretrained-v3/src/checkpoint_server.py]
+    environment:
+      V3_STORE: /catalog
+      V3_PORT: '50273'
+    ports: ['127.0.0.1:50273:50273']
+    volumes:
+      - type: bind
+        source: ${V123_ASSETS}/checkpoint
+        target: /catalog
+        bind: {create_host_path: false}
+  runtime:
+    image: sha256:4a5624eda0c0cd7dfb3da2366e3d18e720eda4a82797bf4e92320fa0987e9bd1
+    pull_policy: never
+    command: [python, /comparison/v123-comparison-server.py]
+    environment:
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      NUMEXPR_NUM_THREADS: '1'
+      BLIS_NUM_THREADS: '1'
+      V3_DEVICE: cpu
+      V3_TORCH_THREADS: '1'
+      PRIVOKE_MODEL_DEVICE: cpu
+      MODEL_STREAMING_CACHE_TTL_SECONDS: '604800'
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+      TOKENIZERS_PARALLELISM: 'false'
+    ports: ['127.0.0.1:50271:50271']
+    volumes:
+      - type: bind
+        source: ${V123_STATE}
+        target: /state
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${V123_ASSETS}
+        target: /assets
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${V123_HELPER}
+        target: /comparison/v123-comparison-server.py
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${V123_TELEMETRY}/telemetry_pb2.py
+        target: /app/extension/client-runtime/generated/privoke/v1/telemetry_pb2.py
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${V123_TELEMETRY}/telemetry_pb2_grpc.py
+        target: /app/extension/client-runtime/generated/privoke/v1/telemetry_pb2_grpc.py
+        read_only: true
+        bind: {create_host_path: false}

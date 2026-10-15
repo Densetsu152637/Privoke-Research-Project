@@ -1,280 +1,328 @@
 from __future__ import annotations
 
 import math
+import os
 import threading
+import time
 from dataclasses import dataclass
-from typing import Dict, Iterable, List
+from typing import Dict, List
 
 from ...classification import (
     Category,
     ClassificationResult,
     Sensitivity,
     Visibility,
-    dedupe_categories,
     initialise_unpacked,
 )
+from ...model import ModelConfig, TinyTransformerModel
 from .parameter_stream import ModelParameterStreamer, ParameterSnapshot
-from .semantic_features import (
-    SemanticSignal,
-    extract_semantic_signals,
-    signal_excerpt,
-    signal_span,
-    strongest_sensitivity,
-    strongest_visibility,
-    visibility_rank,
+from .presence_model import StreamedPresenceModel
+from .scratch_presence_model import StreamedScratchPresenceModel
+from privoke_model.scratch_presence import SCRATCH_PRESENCE_MODEL_IDS
+from privoke_model.pretrained_context import (
+    PRETRAINED_CONTEXT_ARCHITECTURE, PRETRAINED_CONTEXT_MODEL_ID, validate_pretrained_stream,
+    validate_pretrained_release_identity,
 )
 
 
-@dataclass(frozen=True)
-class StreamedCalibration:
-    bias: float
-    strength: float
-    s1_threshold: float
-    s2_threshold: float
-    s3_threshold: float
-    category_weights: Dict[Category, float]
+class StreamedTransformerPrivacyModel:
+    """Executable transformer reconstructed entirely from a streamed snapshot."""
 
-    @classmethod
-    def from_snapshot(cls, snapshot: ParameterSnapshot) -> "StreamedCalibration":
-        values = snapshot.flat_values()
-        if not values:
-            values = (0.0,)
-
-        mean = sum(values) / len(values)
-        mean_abs = sum(abs(value) for value in values) / len(values)
-        bias_values = [
-            value
-            for name, parameter_values in snapshot.parameters.items()
-            if "bias" in name.lower()
-            for value in parameter_values
-        ]
-        raw_bias = sum(bias_values) / len(bias_values) if bias_values else mean
-        bias = _clamp(math.tanh(raw_bias), -0.35, 0.35)
-        strength = _clamp(mean_abs, 0.0, 2.0)
-
-        return cls(
-            bias=bias,
-            strength=strength,
-            s1_threshold=_clamp(0.65 + bias * 0.10 - strength * 0.03, 0.45, 0.85),
-            s2_threshold=_clamp(1.05 + bias * 0.12 - strength * 0.04, 0.75, 1.30),
-            s3_threshold=_clamp(1.55 + bias * 0.16 - strength * 0.05, 1.10, 1.90),
-            category_weights=_category_weights(values),
-        )
-
-
-class ParameterBackedPrivacyModel:
-    """
-    Executable semantic classifier calibrated by streamed parameter snapshots.
-
-    The current streaming proto carries named float vectors, but not tensor
-    shapes or tokenizer/model metadata. Until the service exposes a full model
-    artifact contract, this model uses the streamed vectors as calibration for
-    the semantic feature space used by the PriVoke runtime.
-    """
-
-    def __init__(self, snapshot: ParameterSnapshot):
+    def __init__(self, snapshot: ParameterSnapshot, *, prediction_observer=None):
         self.snapshot = snapshot
-        self.calibration = StreamedCalibration.from_snapshot(snapshot)
+        self.prediction_observer = prediction_observer
+        self.model = TinyTransformerModel(
+            ModelConfig.from_metadata(snapshot.metadata),
+            snapshot.parameters,
+            snapshot.shapes,
+            reject_overlength=snapshot.metadata.get("contextual_training_strategy") == "contextual_full_encoder_sgd_v1",
+        )
 
     def classify(self, text: str) -> List[ClassificationResult]:
-        signals = extract_semantic_signals(text)
-        if not signals:
-            return []
-
-        category_signals = [signal for signal in signals if signal.category is not None]
-        visibility = strongest_visibility(signals)
-
-        if not category_signals and visibility == Visibility.PU:
-            return []
-
-        categories = dedupe_categories(
-            signal.category for signal in category_signals if signal.category is not None
-        )
-        sensitivity = self._sensitivity(category_signals, categories, visibility)
+        prediction = self.model.predict(text)
+        if self.prediction_observer is not None:
+            self.prediction_observer(prediction)
+        sensitivity = Sensitivity[prediction.sensitivity]
+        visibility = Visibility[prediction.visibility]
+        categories = [
+            Category.__members__[name]
+            for name in prediction.categories
+        ]
 
         if sensitivity == Sensitivity.S0 and not categories and visibility == Visibility.PU:
             return []
 
+        category_probabilities = {
+            label: round(probability, 4)
+            for label, probability in zip(
+                (self.model.config["category_labels"] if self.snapshot.metadata.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE
+                 else self.model.config.category_labels),
+                prediction.category_probabilities,
+            )
+        }
         classification = initialise_unpacked(sensitivity, visibility, categories)
         return [
             ClassificationResult(
                 classification=classification,
-                section_of_text=signal_excerpt(signals, text),
-                reasoning=self._reasoning(signals, sensitivity, visibility),
-                span=signal_span(signals, text),
-                confidence=self._confidence(category_signals, visibility),
+                section_of_text=text,
+                reasoning=(
+                    f"Streamed transformer {self.snapshot.model_id} "
+                    f"{self.snapshot.version} predicted "
+                    f"{sensitivity.name}/{visibility.name}."
+                ),
+                span=(0, len(text)) if text else None,
+                confidence=round(min(max(prediction.confidence, 0.0), 0.999), 3),
                 metadata={
-                    "classifier": "privoke_streamed",
+                    "classifier": "privoke_streamed_transformer",
+                    "architecture": self.snapshot.metadata.get("architecture", "unknown"),
                     "model_id": self.snapshot.model_id,
                     "model_version": self.snapshot.version,
                     "parameter_count": self.snapshot.parameter_count,
                     "parameter_fingerprint": self.snapshot.fingerprint,
-                    "semantic_signal_count": len(signals),
-                    "semantic_signal_reasons": _unique_reasons(signals),
+                    "artifact_checksum": self.snapshot.metadata.get(
+                        "artifact_checksum",
+                        "unknown",
+                    ),
+                    "compute_device": self.model.compute_device,
+                    "category_probabilities": category_probabilities,
                 },
             )
         ]
 
-    def _sensitivity(
-        self,
-        signals: Iterable[SemanticSignal],
-        categories: List[Category],
-        visibility: Visibility,
-    ) -> Sensitivity:
-        category_signals = list(signals)
-        if not category_signals:
-            return Sensitivity.S0
 
-        score = self._risk_score(category_signals, categories, visibility)
-        score_sensitivity = _sensitivity_from_score(score, self.calibration)
-        signal_sensitivity = strongest_sensitivity(category_signals)
-        return max(
-            [score_sensitivity, signal_sensitivity],
-            key=lambda item: item.value,
-        )
+@dataclass(frozen=True)
+class _CachedModel:
+    cache_key: str
+    model: StreamedTransformerPrivacyModel
+    refreshed_at: float
 
-    def _risk_score(
-        self,
-        signals: Iterable[SemanticSignal],
-        categories: List[Category],
-        visibility: Visibility,
-    ) -> float:
-        score_by_category: Dict[Category, float] = {}
 
-        for signal in signals:
-            if signal.category is None:
-                continue
-            weighted_score = (
-                signal.weight
-                * self.calibration.category_weights.get(signal.category, 1.0)
-            )
-            score_by_category[signal.category] = max(
-                score_by_category.get(signal.category, 0.0),
-                weighted_score,
-            )
+@dataclass(frozen=True)
+class _CachedPresenceModel:
+    cache_key: str
+    model: StreamedPresenceModel
+    refreshed_at: float
 
-        score = sum(score_by_category.values()) + self.calibration.bias
-        category_set = set(categories)
 
-        if Category.THIRD_PARTY in category_set and len(category_set) > 1:
-            score += 0.35
-        if {Category.IDENTITY, Category.LOCATION}.issubset(category_set):
-            score += 0.25
-        if visibility_rank(visibility) >= visibility_rank(Visibility.P2):
-            score += 0.20
-        if visibility == Visibility.P4:
-            score += 0.15
-
-        return max(0.0, score)
-
-    def _confidence(
-        self,
-        signals: Iterable[SemanticSignal],
-        visibility: Visibility,
-    ) -> float:
-        category_signals = list(signals)
-        score = self._risk_score(
-            category_signals,
-            dedupe_categories(
-                signal.category
-                for signal in category_signals
-                if signal.category is not None
-            ),
-            visibility,
-        )
-        confidence = (
-            0.50
-            + min(score / 4.0, 0.32)
-            + min(len(category_signals), 4) * 0.035
-            + min(self.calibration.strength, 1.0) * 0.04
-        )
-        return round(_clamp(confidence, 0.0, 0.99), 3)
-
-    def _reasoning(
-        self,
-        signals: Iterable[SemanticSignal],
-        sensitivity: Sensitivity,
-        visibility: Visibility,
-    ) -> str:
-        reasons = _unique_reasons(signals)
-        if not reasons:
-            reasons = ["Visibility context was detected."]
-
-        reason_text = "; ".join(reasons[:3])
-        return (
-            f"{reason_text} Streamed model {self.snapshot.model_id} "
-            f"{self.snapshot.version} classified this as "
-            f"{sensitivity.name}/{visibility.name}."
-        )
+@dataclass(frozen=True)
+class _CachedScratchPresenceModel:
+    cache_key: str
+    model: StreamedScratchPresenceModel
+    refreshed_at: float
 
 
 class StreamedModelCache:
-    """Global streamed-model cache shared across PriVokeClassifier instances."""
+    """Thread-safe cache that retains only the latest version of each model."""
 
-    def __init__(self):
+    def __init__(self, refresh_interval_seconds: float | None = None):
         self._lock = threading.RLock()
-        self._models: Dict[str, ParameterBackedPrivacyModel] = {}
+        self._models: Dict[
+            tuple[str, str],
+            _CachedModel,
+        ] = {}
+        # Presence models have a distinct type/task namespace and can never be
+        # returned by the semantic transformer cache.
+        self._presence_models: Dict[tuple[str, str], _CachedPresenceModel] = {}
+        self._scratch_presence_models: Dict[tuple[str, str], _CachedScratchPresenceModel] = {}
+        self._pretrained_encoders = {}
+        self.refresh_interval_seconds = (
+            refresh_interval_seconds
+            if refresh_interval_seconds is not None
+            else float(os.getenv("MODEL_STREAMING_CACHE_TTL_SECONDS", "1.0"))
+        )
+        if (
+            not math.isfinite(self.refresh_interval_seconds)
+            or self.refresh_interval_seconds < 0
+        ):
+            raise ValueError(
+                "MODEL_STREAMING_CACHE_TTL_SECONDS must be finite and non-negative."
+            )
 
     def classify(
         self,
         text: str,
         streamer: ModelParameterStreamer,
     ) -> List[ClassificationResult]:
-        snapshot = streamer.fetch()
-        model = self._model_for_snapshot(snapshot)
+        model = self._model_for_streamer(streamer)
         return model.classify(text)
+
+    def model_for_training(
+        self,
+        streamer: ModelParameterStreamer,
+    ) -> StreamedTransformerPrivacyModel:
+        """Return the cached, versioned model used for one atomic training batch."""
+        if streamer.model_id == PRETRAINED_CONTEXT_MODEL_ID:
+            raise ValueError("Pretrained contextual online training is unsupported; use offline head fitting.")
+        model = self._model_for_streamer(streamer, force_refresh=True)
+        if model.snapshot.metadata.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE:
+            raise ValueError("Pretrained contextual online training is unsupported; use offline head fitting.")
+        return model
+
+    def semantic_model_for_streamer(
+        self,
+        streamer: ModelParameterStreamer,
+    ) -> StreamedTransformerPrivacyModel:
+        """Return the current immutable semantic snapshot for trace metadata."""
+        return self._model_for_streamer(streamer)
+
+    def presence_model_for_streamer(
+        self,
+        streamer: ModelParameterStreamer,
+        *,
+        force_refresh: bool = False,
+    ) -> StreamedPresenceModel:
+        """Fetch/cache only the explicitly requested sparse presence model."""
+        identity = (streamer.target, streamer.model_id)
+        with self._lock:
+            now = time.monotonic()
+            cached = self._presence_models.get(identity)
+            if (
+                not force_refresh
+                and cached is not None
+                and now - cached.refreshed_at < self.refresh_interval_seconds
+            ):
+                return cached.model
+
+            snapshot = streamer.fetch()
+            if snapshot.model_id != streamer.model_id:
+                raise RuntimeError(
+                    "Model parameter stream returned a different presence model ID."
+                )
+            # Presence responses publish the artifact checksum, so provenance-only
+            # artifact changes must replace the wrapper even when model math matches.
+            same_artifact_identity = (
+                cached is not None
+                and cached.cache_key == snapshot.cache_key
+                and cached.model.snapshot.metadata.get("artifact_checksum")
+                == snapshot.metadata.get("artifact_checksum")
+            )
+            if same_artifact_identity:
+                model = cached.model
+            else:
+                model = StreamedPresenceModel(snapshot)
+            self._presence_models[identity] = _CachedPresenceModel(
+                cache_key=snapshot.cache_key,
+                model=model,
+                refreshed_at=time.monotonic(),
+            )
+            return model
+
+    def annotation_presence_model_for_streamer(
+        self,
+        streamer: ModelParameterStreamer,
+        *,
+        force_refresh: bool = False,
+    ) -> StreamedPresenceModel | StreamedScratchPresenceModel:
+        """Dispatch inference only; sparse training keeps its separate entry point."""
+        if streamer.model_id not in SCRATCH_PRESENCE_MODEL_IDS:
+            if force_refresh:
+                return self.presence_model_for_streamer(streamer, force_refresh=True)
+            return self.presence_model_for_streamer(streamer)
+        identity = (streamer.target, streamer.model_id)
+        with self._lock:
+            cached = self._scratch_presence_models.get(identity)
+            if (not force_refresh and cached is not None
+                    and time.monotonic() - cached.refreshed_at < self.refresh_interval_seconds):
+                return cached.model
+            snapshot = streamer.fetch()
+            if snapshot.model_id != streamer.model_id:
+                raise RuntimeError("Scratch stream returned a different explicitly requested model ID.")
+            # Validate even an unchanged fingerprint: invalid/provenance-only
+            # declarations must not reuse an old wrapper before validation.
+            candidate = StreamedScratchPresenceModel(snapshot)
+            key = candidate.snapshot.cache_key + ":" + candidate.snapshot.metadata["artifact_checksum"]
+            model = cached.model if cached is not None and cached.cache_key == key else candidate
+            self._scratch_presence_models[identity] = _CachedScratchPresenceModel(
+                cache_key=key, model=model, refreshed_at=time.monotonic(),
+            )
+            return model
+
+    def presence_model_for_training(
+        self,
+        streamer: ModelParameterStreamer,
+    ) -> StreamedPresenceModel:
+        """Use a freshly fetched presence snapshot for one bounded update."""
+        return self.presence_model_for_streamer(streamer, force_refresh=True)
+
+    def _model_for_streamer(
+        self,
+        streamer: ModelParameterStreamer,
+        force_refresh: bool = False,
+    ) -> StreamedTransformerPrivacyModel:
+        identity = (streamer.target, streamer.model_id)
+        with self._lock:
+            now = time.monotonic()
+            cached = self._models.get(identity)
+            if (
+                not force_refresh
+                and cached is not None
+                and now - cached.refreshed_at < self.refresh_interval_seconds
+            ):
+                return cached.model
+
+            snapshot = streamer.fetch()
+            if (
+                streamer.model_id != ModelParameterStreamer.DEFAULT_MODEL_ID
+                and snapshot.model_id != streamer.model_id
+            ):
+                raise RuntimeError(
+                    "Model parameter stream returned a different model ID."
+                )
+            if snapshot.metadata.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE and streamer.model_id != PRETRAINED_CONTEXT_MODEL_ID:
+                raise ValueError("Pretrained contextual inference requires its explicit model ID; latest is prohibited.")
+            key = self._semantic_cache_key(snapshot)
+            if cached is not None and cached.cache_key == key:
+                model = cached.model
+            else:
+                model = self._semantic_model(snapshot)
+            self._models[identity] = _CachedModel(
+                cache_key=key,
+                model=model,
+                refreshed_at=time.monotonic(),
+            )
+            return model
 
     def _model_for_snapshot(
         self,
         snapshot: ParameterSnapshot,
-    ) -> ParameterBackedPrivacyModel:
+    ) -> StreamedTransformerPrivacyModel:
         with self._lock:
-            model = self._models.get(snapshot.cache_key)
-            if model is None:
-                model = ParameterBackedPrivacyModel(snapshot)
-                self._models[snapshot.cache_key] = model
+            identity = ("", snapshot.model_id)
+            cached = self._models.get(identity)
+            key = self._semantic_cache_key(snapshot)
+            if cached is not None and cached.cache_key == key:
+                return cached.model
+            model = self._semantic_model(snapshot)
+            self._models[identity] = _CachedModel(
+                cache_key=key,
+                model=model,
+                refreshed_at=time.monotonic(),
+            )
             return model
+
+    def _semantic_cache_key(self, snapshot):
+        if (snapshot.metadata.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE
+                or snapshot.model_id == PRETRAINED_CONTEXT_MODEL_ID):
+            config = validate_pretrained_stream(snapshot.model_id, snapshot.metadata)
+            validate_pretrained_release_identity(snapshot.version, snapshot.generated_at_unix)
+            return snapshot.cache_key + ":" + snapshot.metadata["artifact_checksum"] + ":" + str(config["max_tokens"])
+        return snapshot.cache_key
+
+    def _semantic_model(self, snapshot):
+        if snapshot.metadata.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE:
+            from .pretrained_context_model import StreamedPretrainedContextModel
+            max_tokens = validate_pretrained_stream(snapshot.model_id, snapshot.metadata)["max_tokens"]
+            model = StreamedPretrainedContextModel(snapshot, self._pretrained_encoders.get(max_tokens))
+            self._pretrained_encoders[max_tokens] = model.model.encoder
+            return model
+        return StreamedTransformerPrivacyModel(snapshot)
 
     def clear(self) -> None:
         with self._lock:
             self._models.clear()
-
-
-def _category_weights(values: Iterable[float]) -> Dict[Category, float]:
-    value_list = list(values) or [0.0]
-    weights = {}
-    for index, category in enumerate(Category):
-        value = value_list[index % len(value_list)]
-        weights[category] = _clamp(1.0 + math.tanh(value) * 0.18, 0.80, 1.20)
-    return weights
-
-
-def _sensitivity_from_score(
-    score: float,
-    calibration: StreamedCalibration,
-) -> Sensitivity:
-    if score >= calibration.s3_threshold:
-        return Sensitivity.S3
-    if score >= calibration.s2_threshold:
-        return Sensitivity.S2
-    if score >= calibration.s1_threshold:
-        return Sensitivity.S1
-    return Sensitivity.S0
-
-
-def _unique_reasons(signals: Iterable[SemanticSignal]) -> List[str]:
-    reasons = []
-    seen = set()
-    for signal in signals:
-        if signal.reason in seen:
-            continue
-        seen.add(signal.reason)
-        reasons.append(signal.reason)
-    return reasons
-
-
-def _clamp(value: float, lower: float, upper: float) -> float:
-    return max(lower, min(upper, value))
+            self._presence_models.clear()
+            self._scratch_presence_models.clear()
+            self._pretrained_encoders.clear()
 
 
 GLOBAL_STREAMED_MODEL_CACHE = StreamedModelCache()

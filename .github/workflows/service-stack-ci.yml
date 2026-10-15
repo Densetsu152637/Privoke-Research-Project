@@ -10,6 +10,17 @@ on:
       - main
       - feat/dev-testing
   workflow_dispatch:
+    inputs:
+      allow_product_pipeline:
+        description: Run separate full product/detector integration checks
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      allow_product_pipeline:
+        description: Run separate full product/deployment integration checks
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -38,7 +49,9 @@ jobs:
         run: npm test
       - name: Build unpacked extension
         working-directory: extension
-        run: npm run build
+        run: |
+          npm run build
+          npm run build:firefox
 
   model-tests:
     name: Model streaming Go tests
@@ -66,7 +79,7 @@ jobs:
             --go-grpc_out=paths=source_relative:gen \
             ../../shared/proto/privoke/v1/parameters.proto
       - name: Test model service with race detection
-        run: go test -race ./...
+        run: bash ../../evaluation/run-go-tests.sh
 
   supervisor-tests:
     name: Runtime supervisor tests
@@ -94,21 +107,143 @@ jobs:
             ../../shared/proto/privoke/v1/parameters.proto \
             ../../shared/proto/privoke/v1/runtime.proto
       - name: Test runtime supervisor
-        run: python -m unittest discover -s test -v
+        run: python ../../evaluation/run-component-tests.py supervisor
+      - name: Test stack selection and credential loading
+        run: python ../../evaluation/run-component-tests.py shared
+
+  deployment-config:
+    name: Deployment configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate cloud Compose and deployment scripts
+        env:
+          IMAGE_PREFIX: australia-southeast1-docker.pkg.dev/example/privoke
+          IMAGE_TAG: "0000000000000000000000000000000000000000"
+          SECRETS_DIR: /tmp/privoke-ci-secrets
+        run: |
+          docker compose -f deploy/gce/compose.yml config --quiet
+          bash -n deploy/gce/bootstrap.sh deploy/gce/deploy.sh
+          shellcheck deploy/gce/bootstrap.sh deploy/gce/deploy.sh
+
+  semantic-training:
+    name: Semantic-only automatic HEAD and FULL training
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      COMPOSE_PROJECT_NAME: privoke-semantic-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      COMPOSE_FILE: evaluation/compose.underlying-training-smoke.yml
+      CI_STATE_ROOT: /tmp/privoke-semantic-training-${{ github.run_id }}-${{ github.run_attempt }}
+      FT5_STATE_DIR: /tmp/privoke-semantic-training-${{ github.run_id }}-${{ github.run_attempt }}/positive
+    steps:
+      - uses: actions/checkout@v6
+      - name: Prepare isolated state and semantic-only client command
+        shell: bash
+        run: |
+          mkdir -p "$CI_STATE_ROOT"
+          mkdir -p "$RUNNER_TEMP/semantic-diagnostics"
+          sudo chown 10001:10001 "$CI_STATE_ROOT"
+          cat > "$RUNNER_TEMP/semantic-smoke" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          docker compose run --rm --no-deps --user 10001:10001 \
+            --entrypoint python \
+            -v "${FT5_STATE_DIR}:/state" \
+            -v "$GITHUB_WORKSPACE/models:/workspace/models:ro" \
+            -e MODEL_STREAMING_TARGET=model-streaming-service:50051 \
+            -e PARAM_UPDATE_TARGET=param-update-service:50052 \
+            -e FUZZER_TARGET=privoke-fuzzer:50053 \
+            -e PRIVOKE_RUNTIME_TARGET=client-runtime:50054 \
+            client-runtime /workspace/evaluation/run-component-tests.py stack-smoke \
+            --semantic-training-only --training-state-dir /state "$@" \
+            2>&1 | tee -a "$RUNNER_TEMP/semantic-diagnostics/harness.log"
+          SH
+          chmod +x "$RUNNER_TEMP/semantic-smoke"
+          docker compose config --quiet
+      - name: Build current four-service CPU training images
+        run: docker compose build --pull
+      - name: Check installed CPU autograd dependency
+        run: |
+          FT5_STATE_DIR="$CI_STATE_ROOT" docker compose run --rm --no-deps \
+            --user 10001:10001 --entrypoint python client-runtime -c \
+            'import torch; assert torch.__version__.split("+")[0] == "2.10.0"; x=torch.tensor([1.0],requires_grad=True); (x*x).sum().backward(); assert x.grad.item()==2.0; print(torch.__version__)'
+      - name: Prepare fixed fixture and capture S0 before automatic scheduling
+        run: |
+          FT5_STATE_DIR="$CI_STATE_ROOT" "$RUNNER_TEMP/semantic-smoke" \
+            --training-action prepare --training-state-dir /state/positive \
+            --training-source-revision "$GITHUB_SHA"
+          docker compose up -d --wait --wait-timeout 180 model-streaming-service client-runtime
+          "$RUNNER_TEMP/semantic-smoke" --training-action capture --training-output /state/captured-s0.json
+      - name: Verify automatic semantic HEAD then FULL and publication guards
+        run: |
+          docker compose up -d --wait --wait-timeout 180
+          for action in verify replay admission boundaries; do
+            "$RUNNER_TEMP/semantic-smoke" --training-action "$action" \
+              --training-wait-seconds 180 --training-output "/state/$action.json"
+          done
+      - name: Verify durable stage replay after all four services restart
+        run: |
+          docker compose restart
+          docker compose up -d --wait --wait-timeout 180
+          "$RUNNER_TEMP/semantic-smoke" --training-action restart --training-output /state/restart.json
+      - name: Verify strict negative guard on a separate fresh fixture
+        env:
+          FT5_MIN_EXACT_MATCH_RATE: "1"
+        run: |
+          docker compose logs --no-color --timestamps > "$RUNNER_TEMP/semantic-diagnostics/positive-services.log"
+          docker compose down --timeout 20
+          export FT5_STATE_DIR="$CI_STATE_ROOT/negative"
+          FT5_STATE_DIR="$CI_STATE_ROOT" "$RUNNER_TEMP/semantic-smoke" \
+            --training-action prepare --training-state-dir /state/negative \
+            --training-source-revision "$GITHUB_SHA"
+          docker compose up -d --wait --wait-timeout 180 model-streaming-service client-runtime
+          "$RUNNER_TEMP/semantic-smoke" --training-action capture --training-output /state/captured-s0.json
+          docker compose up -d --wait --wait-timeout 180
+          "$RUNNER_TEMP/semantic-smoke" --training-action negative \
+            --training-wait-seconds 180 --training-output /state/negative.json
+      - name: Retain state and service diagnostics, then stop this CI project
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/semantic-diagnostics"
+          docker compose ps --all > "$RUNNER_TEMP/semantic-diagnostics/services.txt" 2>&1 || true
+          docker compose logs --no-color --timestamps > "$RUNNER_TEMP/semantic-diagnostics/services.log" 2>&1 || true
+          docker compose down --timeout 20
+          sudo chown -R "$(id -u):$(id -g)" "$CI_STATE_ROOT"
+      - name: Upload semantic-only requests, executions, receipts and failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semantic-training-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.CI_STATE_ROOT }}
+            ${{ runner.temp }}/semantic-diagnostics
+          if-no-files-found: warn
 
   docker-stack:
-    name: Production Docker stack
+    name: Explicit product pipeline and deployment integration
+    if: ${{ inputs.allow_product_pipeline == true }}
     needs:
       - extension-tests
       - model-tests
       - supervisor-tests
+      - deployment-config
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
       COMPOSE_PROJECT_NAME: privoke-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      COMPOSE_FILE: docker-compose.yml:evaluation/compose.localhost.yml
       FUZZER_PROMPT_COUNT: "0"
     steps:
       - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Prepare host gRPC test clients
+        run: |
+          pip install -r extension/runtime-supervisor/requirements.txt
+          python evaluation/setup-host.py
 
       - name: Validate production and development Compose configurations
         run: |
@@ -121,13 +256,13 @@ jobs:
       - name: Run Python unit tests in the built service images
         run: |
           docker compose run --rm --no-deps --entrypoint python client-runtime \
-            -m unittest discover -s test -v
+            /workspace/evaluation/run-component-tests.py client-runtime
           docker compose run --rm --no-deps --entrypoint python param-update-service \
-            -m unittest discover -s tests -v
+            /workspace/evaluation/run-component-tests.py param-update
           docker compose run --rm --no-deps --entrypoint python telemetry-service \
-            -m unittest discover -s tests -v
+            /workspace/evaluation/run-component-tests.py telemetry
           docker compose run --rm --no-deps --entrypoint python privoke-fuzzer \
-            -m unittest discover -s tests -v
+            /workspace/evaluation/run-component-tests.py fuzzer
 
       - name: Start the production stack and wait for health checks
         run: docker compose up -d --wait --wait-timeout 240
@@ -142,21 +277,35 @@ jobs:
               (.HostConfig.CapDrop | index("ALL") != null) and
               (.HostConfig.SecurityOpt | index("no-new-privileges:true") != null) and
               (.Config.User != "" and .Config.User != "root" and .Config.User != "0") and
-              (.HostConfig.PortBindings == {})' >/dev/null
+              (.HostConfig.PortBindings | to_entries | all(.value | all(.HostIp == "127.0.0.1")))' >/dev/null
           done
 
       - name: Exercise all live gRPC service paths
-        run: docker compose exec -T client-runtime python test/stack_smoke.py
+        run: python evaluation/run-component-tests.py stack-smoke --training-request-id ci-production-training
+
+      - name: Verify durable training replay after service restart
+        run: |
+          docker compose restart param-update-service privoke-fuzzer
+          docker compose up -d --wait --wait-timeout 120 param-update-service privoke-fuzzer
+          python evaluation/run-component-tests.py stack-smoke \
+            --training-request-id ci-production-training --replay-training
 
       - name: Verify recovery after a model-service restart
         run: |
           docker compose restart model-streaming-service
           docker compose up -d --wait --wait-timeout 120 model-streaming-service
-          docker compose exec -T client-runtime \
-            python test/stack_smoke.py --skip-training
+          python evaluation/run-component-tests.py stack-smoke --skip-training
 
       - name: Stop the production stack before development integration
         run: docker compose down --remove-orphans --timeout 20
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Test cloud deployment and TLS ingress
+        run: |
+          pip install -r extension/runtime-supervisor/requirements.txt
+          python evaluation/run-component-tests.py deployment-smoke
 
       - name: Start the development stack and wait for gRPC health checks
         run: |
@@ -165,13 +314,15 @@ jobs:
 
       - name: Exercise all development gRPC service paths
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.dev.yml \
-            exec -T client-runtime python test/stack_smoke.py
+          python evaluation/run-component-tests.py stack-smoke
 
       - name: Show stack state and logs after a failure
         if: failure()
         run: |
           docker compose ps --all || true
+          for container_id in $(docker compose ps --all -q); do
+            docker inspect --format '{{.Name}} {{json .State.Health}}' "$container_id" || true
+          done
           docker compose logs --no-color --timestamps || true
 
       - name: Stop the stack and remove CI volumes

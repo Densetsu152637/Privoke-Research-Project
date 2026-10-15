@@ -9,10 +9,18 @@ SRC_DIR = Path(__file__).resolve().parents[1] / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from prompt_testing import _summary
+from prompt_testing import _summary, _normalise_layers
 
 
 class PromptTestingSummaryTests(unittest.TestCase):
+    def test_default_semantic_explicit_product_layers_and_invalid_empty_selection(self):
+        self.assertEqual(_normalise_layers(None), ["semantic"])
+        self.assertEqual(_normalise_layers(["runtime"]), ["runtime"])
+        self.assertEqual(_normalise_layers(["regex", "ner", "semantic"]), ["regex", "ner", "semantic"])
+        for layers in ([], [""], ["unknown"]):
+            with self.subTest(layers=layers), self.assertRaises(ValueError):
+                _normalise_layers(layers)
+
     def test_skipped_layer_is_not_a_failed_run(self) -> None:
         summary = _summary(
             [

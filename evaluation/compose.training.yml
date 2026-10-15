@@ -1,0 +1,19 @@
+# Standalone: docker compose -f evaluation/compose.training.yml ...
+# Contains no serving services, data/result mounts or writable catalog volume.
+services:
+  in-house-training-tests:
+    build:
+      context: ..
+      dockerfile: evaluation/Dockerfile.training
+    platform: linux/amd64
+    network_mode: none
+    read_only: true
+    cpus: 4.0
+    mem_limit: 4g
+    pids_limit: 128
+    shm_size: 64mb
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true

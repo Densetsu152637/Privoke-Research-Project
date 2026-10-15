@@ -49,6 +49,7 @@ class DetectionOutcome:
     sensitivity: str = "S0"
     visibility: str = "PU"
     masked_text: str | None = None
+    layer_records: tuple[dict[str, Any], ...] = ()
 
     @property
     def detected_sensitive(self) -> bool:

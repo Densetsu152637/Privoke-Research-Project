@@ -1,0 +1,40 @@
+{
+  "status": "reviewed",
+  "case_file": "evaluation/datasets/contextual-cascade-regressions.jsonl",
+  "case_file_sha256": "d6c7d5d87235cd6b0f9d24eac43b30c3ace9f0bf4f421ef5d5d812de79827a17",
+  "rubric_file": "paper/research/contextual-cascade-rubric.md",
+  "rubric_sha256": "30ce98dbac3de4943839123d9e8de41c6c5190124399c6e5821cfe5f391e6d56",
+  "reviewer": "assistant independent review",
+  "label_review_sha256": "92294fd252e2880fec82dc21930d86b01e9a05a461c011fa0cc4a0a276b01bdb",
+  "label_review_note_sha256": "572ab796213cd7f39bac98ba305b788a3455f9916dbb67c2bdff38e361b7b9d6",
+  "source_draft_cases_sha256": "ea198d70c02114b06a0dcd5e6e54ec0e5a3043a8d37f22c781684c505d238319",
+  "source_draft_rubric_sha256": "ee7fed347b1c1ac8c12e08407e95d964ab67aca45db427e5dd74dcfad20e638b",
+  "source_draft_builder_sha256": "4d1e28cee4d80d06edac246084cb2f9de35a3ef69a725cf6d6110b2010ad98c1",
+  "professor_confirmation": "pending",
+  "source_revision": "d291f3c544f0cc1d8d2b9ecdcf2e05deedb8819d",
+  "case_counts": {
+    "total": 48,
+    "families": 12,
+    "controls": 24,
+    "disclosure_candidates": 17,
+    "ambiguous_excluded": 7,
+    "context_truth_eligible": 41,
+    "action_accuracy_eligible": 41,
+    "visibility_hints": 4
+  },
+  "normalized_text_collision_check": {
+    "normalizer": "shared/python/privoke_model/training_data.py:training_text_key",
+    "partitions": {
+      "train": 3832,
+      "validation": 968,
+      "development": 502
+    },
+    "fixture_unique_keys": 48,
+    "collisions": {
+      "train": 0,
+      "validation": 0,
+      "development": 0
+    },
+    "final": "not opened"
+  }
+}

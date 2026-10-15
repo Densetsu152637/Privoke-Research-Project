@@ -1,0 +1,1660 @@
+{
+  "ablation": {
+    "configs": {
+      "ner": [
+        3
+      ],
+      "no_ner": [
+        2,
+        4
+      ],
+      "no_regex": [
+        3,
+        4
+      ],
+      "nonsemantic": [
+        2,
+        3
+      ],
+      "product": [
+        2,
+        3,
+        4
+      ],
+      "regex": [
+        2
+      ],
+      "semantic": [
+        4
+      ]
+    },
+    "configurations": {
+      "ner": {
+        "correct": {
+          "action": 840,
+          "binary": 750,
+          "joint": 125
+        },
+        "layer_statuses": {
+          "3:ok": 1560
+        },
+        "statuses": {
+          "ok": 1560
+        },
+        "under_over": {
+          "over": 0,
+          "under": 720
+        }
+      },
+      "no_ner": {
+        "correct": {
+          "action": 1409,
+          "binary": 1433,
+          "joint": 717
+        },
+        "layer_statuses": {
+          "2:ok": 1560,
+          "4:ok": 1271,
+          "4:skipped": 289
+        },
+        "statuses": {
+          "ok": 1560
+        },
+        "under_over": {
+          "over": 139,
+          "under": 12
+        }
+      },
+      "no_regex": {
+        "correct": {
+          "action": 1530,
+          "binary": 1534,
+          "joint": 972
+        },
+        "layer_statuses": {
+          "3:ok": 1560,
+          "4:ok": 1560
+        },
+        "statuses": {
+          "ok": 1560
+        },
+        "under_over": {
+          "over": 0,
+          "under": 30
+        }
+      },
+      "nonsemantic": {
+        "correct": {
+          "action": 1031,
+          "binary": 1001,
+          "joint": 295
+        },
+        "layer_statuses": {
+          "2:ok": 1560,
+          "3:ok": 1271,
+          "3:skipped": 289
+        },
+        "statuses": {
+          "ok": 1560
+        },
+        "under_over": {
+          "over": 139,
+          "under": 390
+        }
+      },
+      "product": {
+        "correct": {
+          "action": 1409,
+          "binary": 1433,
+          "joint": 717
+        },
+        "layer_statuses": {
+          "2:ok": 1560,
+          "3:ok": 1271,
+          "3:skipped": 289,
+          "4:ok": 1271,
+          "4:skipped": 289
+        },
+        "statuses": {
+          "ok": 1560
+        },
+        "under_over": {
+          "over": 139,
+          "under": 12
+        }
+      },
+      "regex": {
+        "correct": {
+          "action": 1031,
+          "binary": 1001,
+          "joint": 295
+        },
+        "layer_statuses": {
+          "2:ok": 1560
+        },
+        "statuses": {
+          "ok": 1560
+        },
+        "under_over": {
+          "over": 139,
+          "under": 390
+        }
+      },
+      "semantic": {
+        "correct": {
+          "action": 1530,
+          "binary": 1534,
+          "joint": 972
+        },
+        "layer_statuses": {
+          "4:ok": 1560
+        },
+        "statuses": {
+          "ok": 1560
+        },
+        "under_over": {
+          "over": 0,
+          "under": 30
+        }
+      }
+    },
+    "contrasts_to_product": {
+      "ner": {
+        "action_distance": {
+          "gained_correct_actions": 139,
+          "lost_correct_actions": 708,
+          "over_increased": 0,
+          "over_reduced": 139,
+          "paired_success": 1560,
+          "product_over_enforced": 139,
+          "product_over_enforced_resolved": 139,
+          "under_increased": 708
+        },
+        "metrics": {
+          "action": {
+            "candidate_correct": 840,
+            "improved": 139,
+            "net": -569,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": -0.2964916325136614,
+                "low": -0.42341692927170865
+              },
+              "group_id": {
+                "groups": 24,
+                "high": -0.35128205128205126,
+                "low": -0.3769230769230769
+              }
+            },
+            "reference_correct": 1409,
+            "regressed": 708
+          },
+          "binary": {
+            "candidate_correct": 750,
+            "improved": 119,
+            "net": -683,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": -0.3890880310457517,
+                "low": -0.4834656084656085
+              },
+              "group_id": {
+                "groups": 24,
+                "high": -0.42628205128205127,
+                "low": -0.44871794871794873
+              }
+            },
+            "reference_correct": 1433,
+            "regressed": 802
+          },
+          "joint": {
+            "candidate_correct": 125,
+            "improved": 63,
+            "net": -592,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": -0.3196465588723052,
+                "low": -0.43784181948689455
+              },
+              "group_id": {
+                "groups": 24,
+                "high": -0.2743589743589744,
+                "low": -0.47435897435897434
+              }
+            },
+            "reference_correct": 717,
+            "regressed": 655
+          }
+        },
+        "n": 1560
+      },
+      "no_ner": {
+        "action_distance": {
+          "gained_correct_actions": 0,
+          "lost_correct_actions": 0,
+          "over_increased": 0,
+          "over_reduced": 0,
+          "paired_success": 1560,
+          "product_over_enforced": 139,
+          "product_over_enforced_resolved": 0,
+          "under_increased": 0
+        },
+        "metrics": {
+          "action": {
+            "candidate_correct": 1409,
+            "improved": 0,
+            "net": 0,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": 0.0,
+                "low": 0.0
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.0,
+                "low": 0.0
+              }
+            },
+            "reference_correct": 1409,
+            "regressed": 0
+          },
+          "binary": {
+            "candidate_correct": 1433,
+            "improved": 0,
+            "net": 0,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": 0.0,
+                "low": 0.0
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.0,
+                "low": 0.0
+              }
+            },
+            "reference_correct": 1433,
+            "regressed": 0
+          },
+          "joint": {
+            "candidate_correct": 717,
+            "improved": 0,
+            "net": 0,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": 0.0,
+                "low": 0.0
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.0,
+                "low": 0.0
+              }
+            },
+            "reference_correct": 717,
+            "regressed": 0
+          }
+        },
+        "n": 1560
+      },
+      "no_regex": {
+        "action_distance": {
+          "gained_correct_actions": 139,
+          "lost_correct_actions": 18,
+          "over_increased": 0,
+          "over_reduced": 139,
+          "paired_success": 1560,
+          "product_over_enforced": 139,
+          "product_over_enforced_resolved": 139,
+          "under_increased": 18
+        },
+        "metrics": {
+          "action": {
+            "candidate_correct": 1530,
+            "improved": 139,
+            "net": 121,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": 0.1269555263831967,
+                "low": 0.034610507246376813
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.09230769230769231,
+                "low": 0.05961538461538462
+              }
+            },
+            "reference_correct": 1409,
+            "regressed": 18
+          },
+          "binary": {
+            "candidate_correct": 1534,
+            "improved": 109,
+            "net": 101,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": 0.11381751281471424,
+                "low": 0.022786458333333332
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.07435897435897436,
+                "low": 0.0532051282051282
+              }
+            },
+            "reference_correct": 1433,
+            "regressed": 8
+          },
+          "joint": {
+            "candidate_correct": 972,
+            "improved": 260,
+            "net": 255,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": 0.2159213098729227,
+                "low": 0.12036850358422939
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.18719551282051272,
+                "low": 0.1391025641025641
+              }
+            },
+            "reference_correct": 717,
+            "regressed": 5
+          }
+        },
+        "n": 1560
+      },
+      "nonsemantic": {
+        "action_distance": {
+          "gained_correct_actions": 0,
+          "lost_correct_actions": 378,
+          "over_increased": 0,
+          "over_reduced": 0,
+          "paired_success": 1560,
+          "product_over_enforced": 139,
+          "product_over_enforced_resolved": 0,
+          "under_increased": 378
+        },
+        "metrics": {
+          "action": {
+            "candidate_correct": 1031,
+            "improved": 0,
+            "net": -378,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": -0.18622887529137533,
+                "low": -0.2935323383084577
+              },
+              "group_id": {
+                "groups": 24,
+                "high": -0.22692307692307692,
+                "low": -0.25448717948717947
+              }
+            },
+            "reference_correct": 1409,
+            "regressed": 378
+          },
+          "binary": {
+            "candidate_correct": 1001,
+            "improved": 10,
+            "net": -432,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": -0.22450148451291926,
+                "low": -0.32795912271718725
+              },
+              "group_id": {
+                "groups": 24,
+                "high": -0.2653846153846154,
+                "low": -0.2865384615384615
+              }
+            },
+            "reference_correct": 1433,
+            "regressed": 442
+          },
+          "joint": {
+            "candidate_correct": 295,
+            "improved": 68,
+            "net": -422,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": -0.227051562837984,
+                "low": -0.31819098240469207
+              },
+              "group_id": {
+                "groups": 24,
+                "high": -0.17177884615384625,
+                "low": -0.3782051282051282
+              }
+            },
+            "reference_correct": 717,
+            "regressed": 490
+          }
+        },
+        "n": 1560
+      },
+      "regex": {
+        "action_distance": {
+          "gained_correct_actions": 0,
+          "lost_correct_actions": 378,
+          "over_increased": 0,
+          "over_reduced": 0,
+          "paired_success": 1560,
+          "product_over_enforced": 139,
+          "product_over_enforced_resolved": 0,
+          "under_increased": 378
+        },
+        "metrics": {
+          "action": {
+            "candidate_correct": 1031,
+            "improved": 0,
+            "net": -378,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": -0.18622887529137533,
+                "low": -0.2935323383084577
+              },
+              "group_id": {
+                "groups": 24,
+                "high": -0.22692307692307692,
+                "low": -0.25448717948717947
+              }
+            },
+            "reference_correct": 1409,
+            "regressed": 378
+          },
+          "binary": {
+            "candidate_correct": 1001,
+            "improved": 10,
+            "net": -432,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": -0.22450148451291926,
+                "low": -0.32795912271718725
+              },
+              "group_id": {
+                "groups": 24,
+                "high": -0.2653846153846154,
+                "low": -0.2865384615384615
+              }
+            },
+            "reference_correct": 1433,
+            "regressed": 442
+          },
+          "joint": {
+            "candidate_correct": 295,
+            "improved": 68,
+            "net": -422,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": -0.227051562837984,
+                "low": -0.31819098240469207
+              },
+              "group_id": {
+                "groups": 24,
+                "high": -0.17177884615384625,
+                "low": -0.3782051282051282
+              }
+            },
+            "reference_correct": 717,
+            "regressed": 490
+          }
+        },
+        "n": 1560
+      },
+      "semantic": {
+        "action_distance": {
+          "gained_correct_actions": 139,
+          "lost_correct_actions": 18,
+          "over_increased": 0,
+          "over_reduced": 139,
+          "paired_success": 1560,
+          "product_over_enforced": 139,
+          "product_over_enforced_resolved": 139,
+          "under_increased": 18
+        },
+        "metrics": {
+          "action": {
+            "candidate_correct": 1530,
+            "improved": 139,
+            "net": 121,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": 0.1269555263831967,
+                "low": 0.034610507246376813
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.09230769230769231,
+                "low": 0.05961538461538462
+              }
+            },
+            "reference_correct": 1409,
+            "regressed": 18
+          },
+          "binary": {
+            "candidate_correct": 1534,
+            "improved": 109,
+            "net": 101,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": 0.11381751281471424,
+                "low": 0.022786458333333332
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.07435897435897436,
+                "low": 0.0532051282051282
+              }
+            },
+            "reference_correct": 1433,
+            "regressed": 8
+          },
+          "joint": {
+            "candidate_correct": 972,
+            "improved": 260,
+            "net": 255,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 35,
+                "high": 0.2159213098729227,
+                "low": 0.12036850358422939
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.18719551282051272,
+                "low": 0.1391025641025641
+              }
+            },
+            "reference_correct": 717,
+            "regressed": 5
+          }
+        },
+        "n": 1560
+      }
+    },
+    "execution_mode": "host gRPC over dedicated loopback server",
+    "group_reconciliation": {
+      "actual_expression_groups": 24,
+      "family_groups": 35,
+      "interpretation": "Post-hoc correction of duplicate family interval field; separate family/expression dependence sensitivities, not crossed independence",
+      "original_group_id_equals_family_id": true
+    },
+    "hashes": {
+      "analysis.json": "640a7da4a92e3657f2a9c2c52ee2032d8a44a781c05d8ad671bbc65f9bf5511d",
+      "group-reconciled-analysis.json": "f6bba29b524a4e261c990ae13f6e9ec00ff31800ad9caa1e329cba3f8bf1f67a",
+      "protocol.json": "d3badb10c83254dfb2eb7b6aac256296ca459b81f57091053b5d99d4ca5c420b",
+      "server-cessation.json": "7a155d161fe988cc220d5a33e8a6bc6e10a548ca64e04f47fa06d7b544d4f112"
+    },
+    "historical_balanced_repeatability": {
+      "action": 0,
+      "classification": 0,
+      "status": 0
+    },
+    "historical_shared139": {
+      "current_configuration_counts": {
+        "ner": {
+          "allowed_action": 139,
+          "errors": 0,
+          "over_enforced": 0,
+          "under_enforced": 0
+        },
+        "no_ner": {
+          "allowed_action": 0,
+          "errors": 0,
+          "over_enforced": 139,
+          "under_enforced": 0
+        },
+        "no_regex": {
+          "allowed_action": 139,
+          "errors": 0,
+          "over_enforced": 0,
+          "under_enforced": 0
+        },
+        "nonsemantic": {
+          "allowed_action": 0,
+          "errors": 0,
+          "over_enforced": 139,
+          "under_enforced": 0
+        },
+        "product": {
+          "allowed_action": 0,
+          "errors": 0,
+          "over_enforced": 139,
+          "under_enforced": 0
+        },
+        "regex": {
+          "allowed_action": 0,
+          "errors": 0,
+          "over_enforced": 139,
+          "under_enforced": 0
+        },
+        "semantic": {
+          "allowed_action": 139,
+          "errors": 0,
+          "over_enforced": 0,
+          "under_enforced": 0
+        }
+      },
+      "historical_journal_hashes": {
+        "v3-balanced": "40a3474812655dc3a2f93ed469f5bb91faa9e2698fd9a2d297174b2f5fd2ce95",
+        "v3-efficient": "01432de65a6675e0681dc463cacbf0fd02c562caaabab3a77dd5d9d31f15103d",
+        "v3-quality": "db7cad3c051251cbdf1a711337197930ad7c7190e6c96444847337eed29b5795"
+      },
+      "ids_sha256": "0c4a067f7e7ad936e9bfa33c311d647acf56c96b957ef55eddd2c08384069d5c",
+      "rows": 139
+    },
+    "package_identity": {
+      "architecture": "privoke_pretrained_bert_v3",
+      "artifact_checksum": "99b36171056bb0398584a0b0556d9d7ff2640d0acac4b124a126327451a80589",
+      "backbone_sha256": "67b710645b099510dba08b7605a60859fff59714628e1d9d1ffa9e0956b51783",
+      "model_id": "privoke-v3-balanced",
+      "model_version": "99b36171056bb0398584a0b0556d9d7ff2640d0acac4b124a126327451a80589",
+      "parameter_count": "9596180",
+      "parameter_fingerprint": "e48e7c1aa46310b3b7b1f6422f7aa8902c70cf6ff861f7540a7c4be151de4df2",
+      "tokenizer_sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3"
+    },
+    "requests": 10920,
+    "rows": 1560,
+    "scope": "separately authorized product detector ablation",
+    "source_closure": "bf022fc18b16aebfdbcc75e68ef92e28ffb4f4765015c74fc56e95e1047864fa"
+  },
+  "adaptation": {
+    "assessment_exclusion": {
+      "excluded_rows": 480,
+      "ids_sha256": "c6a25d4333332bace8d8756c02c488050d67abe177c20a73ad109ecd6201c11c",
+      "method": "complete TRAIN and guard group union across all predeclared seeds, then normalized text union, before prediction",
+      "original_rows": 1560
+    },
+    "assessment_execution_mode": "in-process host CUDA native protobuf handler; serialized request/response audit; no gRPC transport",
+    "assessment_rows": 1080,
+    "base_blob": "bfb59899774b9858292010b4cddc4e79cc4010e61b3c0216b896482c70626d15",
+    "base_manifest_sha256": "81b3d20e1c695b81a159ec23b3b06567e548a84909f5de21fe8936966ec13fff",
+    "candidate_minus_original": {
+      "steps64-full_encoder-42": {
+        "action_distance": {
+          "gained_correct_actions": 563,
+          "lost_correct_actions": 50,
+          "over_increased": 15,
+          "over_reduced": 563,
+          "paired_success": 1080,
+          "product_over_enforced": 600,
+          "product_over_enforced_resolved": 563,
+          "under_increased": 50
+        },
+        "metrics": {
+          "action": {
+            "candidate_correct": 993,
+            "improved": 563,
+            "net": 513,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.5172764227642277,
+                "low": 0.4418402777777778
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.5,
+                "low": 0.4471990740740741
+              }
+            },
+            "reference_correct": 480,
+            "regressed": 50
+          },
+          "binary": {
+            "candidate_correct": 1014,
+            "improved": 498,
+            "net": 444,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.4409722222222222,
+                "low": 0.3730146631823461
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.44351851851851853,
+                "low": 0.37407407407407406
+              }
+            },
+            "reference_correct": 570,
+            "regressed": 54
+          },
+          "joint": {
+            "candidate_correct": 257,
+            "improved": 257,
+            "net": 257,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.2574116161616162,
+                "low": 0.22101238624873612
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.3037268518518517,
+                "low": 0.16944444444444445
+              }
+            },
+            "reference_correct": 0,
+            "regressed": 0
+          }
+        },
+        "n": 1080
+      },
+      "steps64-full_encoder-43": {
+        "action_distance": {
+          "gained_correct_actions": 566,
+          "lost_correct_actions": 57,
+          "over_increased": 9,
+          "over_reduced": 566,
+          "paired_success": 1080,
+          "product_over_enforced": 600,
+          "product_over_enforced_resolved": 566,
+          "under_increased": 57
+        },
+        "metrics": {
+          "action": {
+            "candidate_correct": 989,
+            "improved": 566,
+            "net": 509,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.518295637171488,
+                "low": 0.43452380952380953
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.5,
+                "low": 0.4388888888888889
+              }
+            },
+            "reference_correct": 480,
+            "regressed": 57
+          },
+          "binary": {
+            "candidate_correct": 995,
+            "improved": 502,
+            "net": 425,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.4288194444444444,
+                "low": 0.3516260162601626
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.42962962962962964,
+                "low": 0.3537037037037037
+              }
+            },
+            "reference_correct": 570,
+            "regressed": 77
+          },
+          "joint": {
+            "candidate_correct": 247,
+            "improved": 247,
+            "net": 247,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.24526778198653199,
+                "low": 0.21401199494949497
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.3037037037037037,
+                "low": 0.15185185185185185
+              }
+            },
+            "reference_correct": 0,
+            "regressed": 0
+          }
+        },
+        "n": 1080
+      },
+      "steps64-full_encoder-44": {
+        "action_distance": {
+          "gained_correct_actions": 556,
+          "lost_correct_actions": 33,
+          "over_increased": 15,
+          "over_reduced": 556,
+          "paired_success": 1080,
+          "product_over_enforced": 600,
+          "product_over_enforced_resolved": 556,
+          "under_increased": 33
+        },
+        "metrics": {
+          "action": {
+            "candidate_correct": 1003,
+            "improved": 556,
+            "net": 523,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.5149572649572649,
+                "low": 0.4592013888888889
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.5083333333333333,
+                "low": 0.45555555555555555
+              }
+            },
+            "reference_correct": 480,
+            "regressed": 33
+          },
+          "binary": {
+            "candidate_correct": 1027,
+            "improved": 505,
+            "net": 457,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.4547890809692671,
+                "low": 0.3831252419667054
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.45002314814814803,
+                "low": 0.3851851851851852
+              }
+            },
+            "reference_correct": 570,
+            "regressed": 48
+          },
+          "joint": {
+            "candidate_correct": 268,
+            "improved": 268,
+            "net": 268,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.2625968992248062,
+                "low": 0.23511904761904762
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.31574074074074077,
+                "low": 0.17407407407407408
+              }
+            },
+            "reference_correct": 0,
+            "regressed": 0
+          }
+        },
+        "n": 1080
+      },
+      "steps64-heads-42": {
+        "action_distance": {
+          "gained_correct_actions": 462,
+          "lost_correct_actions": 34,
+          "over_increased": 1,
+          "over_reduced": 462,
+          "paired_success": 1080,
+          "product_over_enforced": 600,
+          "product_over_enforced_resolved": 462,
+          "under_increased": 34
+        },
+        "metrics": {
+          "action": {
+            "candidate_correct": 908,
+            "improved": 462,
+            "net": 428,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.4255952380952381,
+                "low": 0.3653032313784968
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.4287037037037037,
+                "low": 0.36293981481481485
+              }
+            },
+            "reference_correct": 480,
+            "regressed": 34
+          },
+          "binary": {
+            "candidate_correct": 947,
+            "improved": 435,
+            "net": 377,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.38741809281529443,
+                "low": 0.30357142857142855
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.37777777777777777,
+                "low": 0.3175925925925926
+              }
+            },
+            "reference_correct": 570,
+            "regressed": 58
+          },
+          "joint": {
+            "candidate_correct": 192,
+            "improved": 192,
+            "net": 192,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.1914937943262411,
+                "low": 0.16382410588442564
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.2490972222222221,
+                "low": 0.10925925925925926
+              }
+            },
+            "reference_correct": 0,
+            "regressed": 0
+          }
+        },
+        "n": 1080
+      },
+      "steps64-heads-43": {
+        "action_distance": {
+          "gained_correct_actions": 454,
+          "lost_correct_actions": 28,
+          "over_increased": 6,
+          "over_reduced": 454,
+          "paired_success": 1080,
+          "product_over_enforced": 600,
+          "product_over_enforced_resolved": 454,
+          "under_increased": 28
+        },
+        "metrics": {
+          "action": {
+            "candidate_correct": 906,
+            "improved": 454,
+            "net": 426,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.4223552489177489,
+                "low": 0.3656433596165739
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.43148148148148147,
+                "low": 0.3509259259259259
+              }
+            },
+            "reference_correct": 480,
+            "regressed": 28
+          },
+          "binary": {
+            "candidate_correct": 939,
+            "improved": 425,
+            "net": 369,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.3803349797365754,
+                "low": 0.2906746031746032
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.375,
+                "low": 0.30277777777777776
+              }
+            },
+            "reference_correct": 570,
+            "regressed": 56
+          },
+          "joint": {
+            "candidate_correct": 204,
+            "improved": 204,
+            "net": 204,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.20578231292517007,
+                "low": 0.17054263565891473
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.25743055555555544,
+                "low": 0.1194212962962963
+              }
+            },
+            "reference_correct": 0,
+            "regressed": 0
+          }
+        },
+        "n": 1080
+      },
+      "steps64-heads-44": {
+        "action_distance": {
+          "gained_correct_actions": 460,
+          "lost_correct_actions": 28,
+          "over_increased": 2,
+          "over_reduced": 460,
+          "paired_success": 1080,
+          "product_over_enforced": 600,
+          "product_over_enforced_resolved": 460,
+          "under_increased": 28
+        },
+        "metrics": {
+          "action": {
+            "candidate_correct": 912,
+            "improved": 460,
+            "net": 432,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.4255984730848861,
+                "low": 0.3712962962962963
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.43428240740740726,
+                "low": 0.362962962962963
+              }
+            },
+            "reference_correct": 480,
+            "regressed": 28
+          },
+          "binary": {
+            "candidate_correct": 966,
+            "improved": 442,
+            "net": 396,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.4027777777777778,
+                "low": 0.3246072120708749
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.39814814814814814,
+                "low": 0.3305324074074074
+              }
+            },
+            "reference_correct": 570,
+            "regressed": 46
+          },
+          "joint": {
+            "candidate_correct": 198,
+            "improved": 198,
+            "net": 198,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.20018549568300953,
+                "low": 0.16489059477756285
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.25462962962962965,
+                "low": 0.11479166666666667
+              }
+            },
+            "reference_correct": 0,
+            "regressed": 0
+          }
+        },
+        "n": 1080
+      }
+    },
+    "effective_outcomes": {
+      "steps64-full_encoder-42": {
+        "correct": {
+          "action": 480,
+          "binary": 570,
+          "joint": 0
+        },
+        "encoder_changes": 39,
+        "guard_mapping": {
+          "blob_sha256": "bfb59899774b9858292010b4cddc4e79cc4010e61b3c0216b896482c70626d15",
+          "effective_source": "original",
+          "evidence_sha256": "60b6510a298c7f9af18884bd83228181e90f79880824e8762997aaa38fa8b970",
+          "guard_pass": false,
+          "independent_original_preserved": true,
+          "kind": "hypothetical existing guard mapping; no publication or promotion",
+          "manifest_path": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\controlled_studies_20261014\\adaptation-02\\original\\manifest.json",
+          "manifest_sha256": "81b3d20e1c695b81a159ec23b3b06567e548a84909f5de21fe8936966ec13fff",
+          "raw_candidate_preserved": true
+        },
+        "raw_cuda_peak_allocated_bytes": 292005376,
+        "raw_fit_seconds": 9.187999999994645,
+        "train_counts": {
+          "encoder_block_backward": 2048,
+          "encoder_block_forward": 2048,
+          "microbatch_backward": 1024,
+          "microbatch_forward": 1024,
+          "optimizer_steps": 64,
+          "train_rows": 4096
+        }
+      },
+      "steps64-full_encoder-43": {
+        "correct": {
+          "action": 480,
+          "binary": 570,
+          "joint": 0
+        },
+        "encoder_changes": 39,
+        "guard_mapping": {
+          "blob_sha256": "bfb59899774b9858292010b4cddc4e79cc4010e61b3c0216b896482c70626d15",
+          "effective_source": "original",
+          "evidence_sha256": "2fb407b3a59d3bb0781d7c716d060a0f8f709a9b70f155c63241537e8fe9d347",
+          "guard_pass": false,
+          "independent_original_preserved": true,
+          "kind": "hypothetical existing guard mapping; no publication or promotion",
+          "manifest_path": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\controlled_studies_20261014\\adaptation-02\\original\\manifest.json",
+          "manifest_sha256": "81b3d20e1c695b81a159ec23b3b06567e548a84909f5de21fe8936966ec13fff",
+          "raw_candidate_preserved": true
+        },
+        "raw_cuda_peak_allocated_bytes": 292005376,
+        "raw_fit_seconds": 8.60899999999674,
+        "train_counts": {
+          "encoder_block_backward": 2048,
+          "encoder_block_forward": 2048,
+          "microbatch_backward": 1024,
+          "microbatch_forward": 1024,
+          "optimizer_steps": 64,
+          "train_rows": 4096
+        }
+      },
+      "steps64-full_encoder-44": {
+        "correct": {
+          "action": 480,
+          "binary": 570,
+          "joint": 0
+        },
+        "encoder_changes": 39,
+        "guard_mapping": {
+          "blob_sha256": "bfb59899774b9858292010b4cddc4e79cc4010e61b3c0216b896482c70626d15",
+          "effective_source": "original",
+          "evidence_sha256": "42006f65ccf699ea6e6bdc3e7e63a8f9d055d2ef2c4be5e446b809edb4ab9cde",
+          "guard_pass": false,
+          "independent_original_preserved": true,
+          "kind": "hypothetical existing guard mapping; no publication or promotion",
+          "manifest_path": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\controlled_studies_20261014\\adaptation-02\\original\\manifest.json",
+          "manifest_sha256": "81b3d20e1c695b81a159ec23b3b06567e548a84909f5de21fe8936966ec13fff",
+          "raw_candidate_preserved": true
+        },
+        "raw_cuda_peak_allocated_bytes": 292005376,
+        "raw_fit_seconds": 12.375,
+        "train_counts": {
+          "encoder_block_backward": 2048,
+          "encoder_block_forward": 2048,
+          "microbatch_backward": 1024,
+          "microbatch_forward": 1024,
+          "optimizer_steps": 64,
+          "train_rows": 4096
+        }
+      },
+      "steps64-heads-42": {
+        "correct": {
+          "action": 908,
+          "binary": 947,
+          "joint": 192
+        },
+        "encoder_changes": 0,
+        "guard_mapping": {
+          "blob_sha256": "b2cabcaaf3aefb54c409373c68f23cd6016b41bc38d3b034229d692aa15aa793",
+          "effective_source": "steps64-heads-42",
+          "evidence_sha256": "c89021e98069427eab9395ad87bafdeff0aeebd8df4fcb6f5c0ac9ec124e16f4",
+          "guard_pass": true,
+          "independent_original_preserved": true,
+          "kind": "hypothetical existing guard mapping; no publication or promotion",
+          "manifest_path": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\controlled_studies_20261014\\adaptation-02\\steps64-heads-42\\manifest.json",
+          "manifest_sha256": "c4777ad84bdf7a375a0eda48da35df5ba2e7f1421b84010d17b3f17fca4b6812",
+          "raw_candidate_preserved": true
+        },
+        "raw_cuda_peak_allocated_bytes": 160674304,
+        "raw_fit_seconds": 17.96899999998277,
+        "train_counts": {
+          "encoder_block_backward": 0,
+          "encoder_block_forward": 2048,
+          "microbatch_backward": 1024,
+          "microbatch_forward": 1024,
+          "optimizer_steps": 64,
+          "train_rows": 4096
+        }
+      },
+      "steps64-heads-43": {
+        "correct": {
+          "action": 480,
+          "binary": 570,
+          "joint": 0
+        },
+        "encoder_changes": 0,
+        "guard_mapping": {
+          "blob_sha256": "bfb59899774b9858292010b4cddc4e79cc4010e61b3c0216b896482c70626d15",
+          "effective_source": "original",
+          "evidence_sha256": "37c04275a55c849a5686e586a7bdcbed90b91462f9318937b7dcdb2aeb66df15",
+          "guard_pass": false,
+          "independent_original_preserved": true,
+          "kind": "hypothetical existing guard mapping; no publication or promotion",
+          "manifest_path": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\controlled_studies_20261014\\adaptation-02\\original\\manifest.json",
+          "manifest_sha256": "81b3d20e1c695b81a159ec23b3b06567e548a84909f5de21fe8936966ec13fff",
+          "raw_candidate_preserved": true
+        },
+        "raw_cuda_peak_allocated_bytes": 160674304,
+        "raw_fit_seconds": 4.76600000000326,
+        "train_counts": {
+          "encoder_block_backward": 0,
+          "encoder_block_forward": 2048,
+          "microbatch_backward": 1024,
+          "microbatch_forward": 1024,
+          "optimizer_steps": 64,
+          "train_rows": 4096
+        }
+      },
+      "steps64-heads-44": {
+        "correct": {
+          "action": 912,
+          "binary": 966,
+          "joint": 198
+        },
+        "encoder_changes": 0,
+        "guard_mapping": {
+          "blob_sha256": "5bcec68f388bbf918bd388d0c0628e23f13953f06f9bcb3fee1ed2f99eb4ad6f",
+          "effective_source": "steps64-heads-44",
+          "evidence_sha256": "474f4d6e6d000dec5268bb2a979a62a5b65814bbbc9bdbea33ae247857063720",
+          "guard_pass": true,
+          "independent_original_preserved": true,
+          "kind": "hypothetical existing guard mapping; no publication or promotion",
+          "manifest_path": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\controlled_studies_20261014\\adaptation-02\\steps64-heads-44\\manifest.json",
+          "manifest_sha256": "4d3e4cfbaf1bf3d5fd6a1f5b74493a7bfe6da5935e0124caf989a0c6a94cde41",
+          "raw_candidate_preserved": true
+        },
+        "raw_cuda_peak_allocated_bytes": 160674304,
+        "raw_fit_seconds": 5.687999999994645,
+        "train_counts": {
+          "encoder_block_backward": 0,
+          "encoder_block_forward": 2048,
+          "microbatch_backward": 1024,
+          "microbatch_forward": 1024,
+          "optimizer_steps": 64,
+          "train_rows": 4096
+        }
+      }
+    },
+    "fit_execution_mode": "direct host Torch semantic training primitive",
+    "full_minus_heads": {
+      "42": {
+        "action_distance": {
+          "gained_correct_actions": 123,
+          "lost_correct_actions": 38,
+          "over_increased": 17,
+          "over_reduced": 106,
+          "paired_success": 1080,
+          "product_over_enforced": 138,
+          "product_over_enforced_resolved": 106,
+          "under_increased": 33
+        },
+        "metrics": {
+          "action": {
+            "candidate_correct": 993,
+            "improved": 123,
+            "net": 85,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.11918934989429174,
+                "low": 0.043366496598639455
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.11574074074074074,
+                "low": 0.041666666666666664
+              }
+            },
+            "reference_correct": 908,
+            "regressed": 38
+          },
+          "binary": {
+            "candidate_correct": 1014,
+            "improved": 93,
+            "net": 67,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.08695853462157808,
+                "low": 0.03900564677767499
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.09722222222222222,
+                "low": 0.02775462962962963
+              }
+            },
+            "reference_correct": 947,
+            "regressed": 26
+          },
+          "joint": {
+            "candidate_correct": 257,
+            "improved": 79,
+            "net": 65,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.08430232558139535,
+                "low": 0.0425531914893617
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.09722222222222222,
+                "low": 0.028703703703703703
+              }
+            },
+            "reference_correct": 192,
+            "regressed": 14
+          }
+        },
+        "n": 1080
+      },
+      "43": {
+        "action_distance": {
+          "gained_correct_actions": 124,
+          "lost_correct_actions": 41,
+          "over_increased": 13,
+          "over_reduced": 117,
+          "paired_success": 1080,
+          "product_over_enforced": 146,
+          "product_over_enforced_resolved": 116,
+          "under_increased": 37
+        },
+        "metrics": {
+          "action": {
+            "candidate_correct": 989,
+            "improved": 124,
+            "net": 83,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.11807672764227631,
+                "low": 0.03906111480496454
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.12685185185185185,
+                "low": 0.03148148148148148
+              }
+            },
+            "reference_correct": 906,
+            "regressed": 41
+          },
+          "binary": {
+            "candidate_correct": 995,
+            "improved": 99,
+            "net": 56,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.08426151761517614,
+                "low": 0.02304964539007092
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.1,
+                "low": 0.009259259259259259
+              }
+            },
+            "reference_correct": 939,
+            "regressed": 43
+          },
+          "joint": {
+            "candidate_correct": 247,
+            "improved": 69,
+            "net": 43,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.06945251937984492,
+                "low": 0.014756944444444444
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.06944444444444445,
+                "low": 0.009259259259259259
+              }
+            },
+            "reference_correct": 204,
+            "regressed": 26
+          }
+        },
+        "n": 1080
+      },
+      "44": {
+        "action_distance": {
+          "gained_correct_actions": 110,
+          "lost_correct_actions": 19,
+          "over_increased": 17,
+          "over_reduced": 100,
+          "paired_success": 1080,
+          "product_over_enforced": 140,
+          "product_over_enforced_resolved": 100,
+          "under_increased": 15
+        },
+        "metrics": {
+          "action": {
+            "candidate_correct": 1003,
+            "improved": 110,
+            "net": 91,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.11789041327913277,
+                "low": 0.05672973921394799
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.12685185185185185,
+                "low": 0.04351851851851852
+              }
+            },
+            "reference_correct": 912,
+            "regressed": 19
+          },
+          "binary": {
+            "candidate_correct": 1027,
+            "improved": 80,
+            "net": 61,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.08143939393939394,
+                "low": 0.03556640287147552
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.09351851851851851,
+                "low": 0.020370370370370372
+              }
+            },
+            "reference_correct": 966,
+            "regressed": 19
+          },
+          "joint": {
+            "candidate_correct": 268,
+            "improved": 90,
+            "net": 70,
+            "paired_rate_intervals": {
+              "family_id": {
+                "groups": 25,
+                "high": 0.08818117847914358,
+                "low": 0.046004730017006806
+              },
+              "group_id": {
+                "groups": 24,
+                "high": 0.10833333333333334,
+                "low": 0.022222222222222223
+              }
+            },
+            "reference_correct": 198,
+            "regressed": 20
+          }
+        },
+        "n": 1080
+      }
+    },
+    "group_reconciliation": {
+      "actual_expression_groups": 24,
+      "family_groups": 25,
+      "interpretation": "Post-hoc correction of duplicate family interval field; separate family/expression dependence sensitivities, not crossed independence",
+      "original_group_id_equals_family_id": true
+    },
+    "hashes": {
+      "analysis.json": "a1b5f1091b859d4b5460e59987b1c3a364eb724c213a00f15ed4c937d8d32af1",
+      "group-reconciled-analysis.json": "ad1e172bca18f97f9edf31e9a8688e183d884c126826cbd1f8e2ee5606df5823",
+      "main-results.json": "e89de4d719d2eabc70c58270cd7b162d470a7b448785f6dc5c6e495c147d31b3",
+      "pilot-accepted.json": "7492dc3b94c644b6f68fe0b4553eafe86463c77ec2e8f9c297f0bf1199480aea",
+      "pilot-results.json": "d246dd0e38003c179c5a6912074031e184865c29aaf2454d1083360ff6d87882",
+      "protocol.json": "98c1d0fbd8c1342c99e993d5257d75c99f8918510c0719ba363f43f8d147afe3"
+    },
+    "main": {
+      "no_tuning": true,
+      "scopes": [
+        "heads",
+        "full_encoder"
+      ],
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "steps": 64,
+      "terminal_only": true,
+      "unchanged_control": true
+    },
+    "policy": {
+      "batch_rows": 64,
+      "betas": [
+        0.9,
+        0.999
+      ],
+      "category_threshold": 0.5,
+      "checkpoint_selection": "final_only",
+      "clip_norm": 1.0,
+      "dropout": false,
+      "encoder_lr": 2e-05,
+      "epochs": 8,
+      "eps": 1e-08,
+      "guard_rows": 16,
+      "head_lr": 0.001,
+      "max_tokens": 512,
+      "microbatch": 4,
+      "objective": "sensitivity_ce+visibility_ce+category_mean_bce",
+      "optimizer": "adamw",
+      "publication": "joint_improve_action_harm_zero_v1",
+      "schema": 1,
+      "steps": 64,
+      "weight_decay": 0.0,
+      "window_batches": 8
+    },
+    "scope": "semantic-only fixed-base matched adaptation; raw terminal candidates plus unchanged control",
+    "source_closure": "302ddc423abe7897e7c23c37d2d330d1d41c9f2a09f372dd65c256eb0a8819d7",
+    "summaries": {
+      "original": {
+        "correct": {
+          "action": 480,
+          "binary": 570,
+          "joint": 0
+        },
+        "statuses": {
+          "ok": 1080
+        }
+      },
+      "steps64-full_encoder-42": {
+        "correct": {
+          "action": 993,
+          "binary": 1014,
+          "joint": 257
+        },
+        "statuses": {
+          "ok": 1080
+        }
+      },
+      "steps64-full_encoder-43": {
+        "correct": {
+          "action": 989,
+          "binary": 995,
+          "joint": 247
+        },
+        "statuses": {
+          "ok": 1080
+        }
+      },
+      "steps64-full_encoder-44": {
+        "correct": {
+          "action": 1003,
+          "binary": 1027,
+          "joint": 268
+        },
+        "statuses": {
+          "ok": 1080
+        }
+      },
+      "steps64-heads-42": {
+        "correct": {
+          "action": 908,
+          "binary": 947,
+          "joint": 192
+        },
+        "statuses": {
+          "ok": 1080
+        }
+      },
+      "steps64-heads-43": {
+        "correct": {
+          "action": 906,
+          "binary": 939,
+          "joint": 204
+        },
+        "statuses": {
+          "ok": 1080
+        }
+      },
+      "steps64-heads-44": {
+        "correct": {
+          "action": 912,
+          "binary": 966,
+          "joint": 198
+        },
+        "statuses": {
+          "ok": 1080
+        }
+      }
+    }
+  },
+  "limitations": [
+    "Reused assistant-provisional synthetic labels; no protected final access or promotion",
+    "Separate family/expression dependence sensitivities are not crossed independent intervals",
+    "Group-label correction is explicitly post-hoc; original frozen scorer repeated family identities",
+    "Unchanged zero-head ORIGINAL is a weak task baseline",
+    "Seed realizations reuse assessment identities; no pooled independent sample claim",
+    "Fixed host/order/resource observations do not establish deployment or pretraining causality"
+  ],
+  "schema": 1,
+  "study_id": "controlled_studies_20261014"
+}

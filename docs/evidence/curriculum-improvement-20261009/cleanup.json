@@ -1,0 +1,79 @@
+{
+  "status": "complete; ready for root cleanup acceptance",
+  "authority": "EX8 following accepted full raw archive audit",
+  "execution_source_revision": "7c0322d6872e7b99ed88d1bc5bd67f2d0b9623a4",
+  "execution_protocol_sha256": "f631c6078c439f9f7ff616e29f9c3d09ad36e22f079d2cdeed16a7fb459fc602",
+  "started_at": "2026-10-09T15:51:16.301460+00:00",
+  "finished_at": "2026-10-09T15:57:18.390932+00:00",
+  "detailed_local_receipt_sha256": "a80adb87cfb7ddcbdb56f611e4d258ae8f62cca5f86538784a9e51c872de1289",
+  "preflight_sha256": "2004cc966154101522a3ab258a4637c9798fd77cef2ed562bed5a39f12a2b5e2",
+  "removed_counts": {
+    "containers": 378,
+    "volumes": 315,
+    "networks": 15,
+    "images": 5
+  },
+  "remaining_scoped": {
+    "containers": 0,
+    "volumes": 0,
+    "networks": 0,
+    "images": 0
+  },
+  "images_removed": [
+    {
+      "id": "sha256:563444d97eb8ab3e967cb547d056dbb71c035be150c0ace7b927f400ff8f02e2",
+      "tags": [
+        "privoke-improvement-updater:20261009"
+      ]
+    },
+    {
+      "id": "sha256:6b7f2260fff312d8e584633e4c2b242ef23063fde783b061ecafc54036a53fc1",
+      "tags": [
+        "privoke-improvement-runtime:20261009-v2"
+      ]
+    },
+    {
+      "id": "sha256:a6ae31e259bcfe180ddac6a677797835bae076215a2f72042e92de2cca30ec84",
+      "tags": [
+        "privoke-improvement-fuzzer:20261009-v2"
+      ]
+    },
+    {
+      "id": "sha256:b2b54de166907a1ebfa7dce93f209dd9679875aa9237ea71bb355092a2c32a5f",
+      "tags": [
+        "privoke-improvement-fuzzer:20261009"
+      ]
+    },
+    {
+      "id": "sha256:7601800787a86ea5d6e30c960f468203297d133c8203a928731cc6351f96baab",
+      "tags": [
+        "privoke-improvement-offline:20261009"
+      ]
+    }
+  ],
+  "preserved_unrelated": {
+    "containers": 27,
+    "volumes": 135,
+    "networks": 11,
+    "image_rows": 14
+  },
+  "archive_files_reverified_after": 63,
+  "accepted_raw_sha256_unchanged": {
+    "protocol.json": "f631c6078c439f9f7ff616e29f9c3d09ad36e22f079d2cdeed16a7fb459fc602",
+    "semantic-imports.json": "8d43fd5d0fda1a6e73b7796cfc0b2585c09ef2d8080c5973b0e23a70f06c5bfa",
+    "summary.json": "b191e660f3e792a53047282c352e57089ff1f1bf05698a1c3c0d40b0c72867c2",
+    "audit.json": "e7b54de530239e39d0b7974c9ccd675152ca76bc2e13af507c16f3564ad43bd4",
+    "post-observation-contextual-subgroups.json": "944b71e7d5df0e21ddaf8fb76843d6f9c533440ff8e0a0edc9c7ffe086cf63a8",
+    "rejection-breakdown.json": "964652044466bfa1b45662327906fb9d5f8d91b58d3206f1cacc97a1de92fde2",
+    "final-resource-inventory.json": "239ebf8f30b7eecedba0ce851d2bab98761aac2e245b83d1d47be8cf8ddbabfc",
+    "final-handoff.json": "cae6957bc737defc03e3118457a8f9fb3612d43d767e0795f0246c422122e980",
+    "worker-checkpoint.json": "c4d5a575f20ba60b04b6ceed80d674a9b2d736a50e1321cbe938afa616c4f82d",
+    "network-recovery.json": "f9daf5660405e5a649ef36ee0c6c2b23897fd982b44d67296b377511e5be7b45",
+    "completed-cell-network-retirements.json": "a3d9b4532e18144784529433df9e7ac163eedf0cea9699b1a89246a31793fa49"
+  },
+  "method": "Exact-ID project batches: immediate container identity/label/stopped checks, volume identity/owner/no-consumer checks, network identity/labels/empty endpoints, image exclusive task tags/no consumers; no force, global prune, broad down-v or daemon changes. Every removal has command return/absence proof in detailed ignored receipt.",
+  "historical_network_retirements": 48,
+  "publication_manifest_sha256_unchanged": "11e2903fc33b58d666a03c511a587cec155533d90c3e4ce8244039e7447fd35d",
+  "scope": "378 containers,315 named volumes,15 remaining empty networks across63 exact projects and5 exclusively tagged unused task images; shared/parent images and buildx preserved. Complete local raw archives, optimizer/model chains and superseded inventory proofs retained.",
+  "process_exit_code": 0
+}

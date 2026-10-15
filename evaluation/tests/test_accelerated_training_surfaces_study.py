@@ -1,0 +1,655 @@
+"""Behavior tests for complete plans, strict gates and resumable stage controls."""
+from __future__ import annotations
+import copy
+import json
+from pathlib import Path
+import sys
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest.mock import patch
+from privoke_eval import accelerated_training_surfaces_study as study
+from privoke_eval import accelerated_training_surfaces_report as report
+from privoke_eval.accelerated_training_surfaces_presence import validate_presence_execution
+
+
+class StudyTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.path=Path(self.temp.name)
+
+    def test_complete_matrix_and_realized_budget_exceptions(self):
+        cells=study.matrix('privoke-all-surfaces-test')
+        self.assertEqual((len(cells),sum(c['kind']=='online' for c in cells)),(168,111))
+        self.assertEqual(len({c['project'] for c in cells if c['project']}),111)
+        self.assertEqual(sum(c['stage_slots'] for c in cells if c['kind']=='online'),10656)
+        scratch=[c for c in cells if c['surface']=='scratch_presence']
+        self.assertEqual(len(scratch),18);self.assertTrue(all(c['batch_size']==16 for c in scratch))
+        sparse=[c for c in cells if c['surface']=='sparse_presence' and c['kind']=='offline']
+        self.assertTrue(all(c['optimizer_steps'] is None and c['solver_budget']['solver']=='lbfgs' for c in sparse))
+        self.assertEqual(sum(c['optimizer_steps']*c['batch_size'] for c in cells if c['kind']=='offline' and c['optimizer_steps']),119808)
+
+    def test_initial_stream_admission_uses_exact_wire_coordinates_not_decimal_json(self):
+        artifact={'parameters':{'head.weight':{'shape':[1],'values':[.1]}}}
+        snapshot=self.snapshot();snapshot['parameters']=study.wire_parameters(artifact)
+        client=SimpleNamespace(snapshot=lambda _:snapshot)
+        # Stop at the first checkpoint, before scoring or requester setup.
+        with patch.object(study,'checkpoint',side_effect=RuntimeError('admitted')):
+            with self.assertRaisesRegex(RuntimeError,'admitted'):
+                study.run_online(client,{}, {'model_id':'m'},self.path/'exact',artifact)
+        changed=copy.deepcopy(snapshot)
+        changed['parameters']['head.weight']['values'][0]+=1e-7
+        client.snapshot=lambda _:changed
+        with self.assertRaisesRegex(ValueError,'Fresh serving base differs'):
+            study.run_online(client,{}, {'model_id':'m'},self.path/'changed',artifact)
+        extra=copy.deepcopy(snapshot);extra['parameters']['unexpected']={'shape':[1],'values':[0.]}
+        client.snapshot=lambda _:extra
+        with self.assertRaisesRegex(ValueError,'Fresh serving base differs'):
+            study.run_online(client,{}, {'model_id':'m'},self.path/'extra',artifact)
+
+    def test_saved_clean_trace_uses_server_identity_and_rejects_tampering(self):
+        identity={'model_id':'m','model_version':'v','artifact_checksum':'a','parameter_fingerprint':'f'}
+        raw={'layers':[{'layer':'DETECTION_LAYER_SEMANTIC','status':'ok'}],
+             'metadata':{'privoke.semantic.'+k:v for k,v in identity.items()},
+             'classification':{'sensitivity':'S0','visibility':'PU'},'action':'ALLOW'}
+        row={'status':'ok','raw':raw,'identities':[identity],'classification':raw['classification'],'action':'ALLOW'}
+        observation={'slot':0,'identity':identity,'execution_mode':'network_protobuf_v1','endpoints':{'primary':{'layers':{'semantic':{'predictions':[row]}}}}}
+        study.write(self.path/'snapshot-000.json',{'identity':identity})
+        report.audit_saved_inference(observation,{'kind':'online','surface':'tiny'},self.path)
+        for field in identity:
+            altered=copy.deepcopy(observation)
+            del altered['endpoints']['primary']['layers']['semantic']['predictions'][0]['raw']['metadata']['privoke.semantic.'+field]
+            with self.assertRaisesRegex(ValueError,'identity differs'):
+                report.audit_saved_inference(altered,{'kind':'online','surface':'tiny'},self.path)
+        altered=copy.deepcopy(observation)
+        altered['endpoints']['primary']['layers']['semantic']['predictions'][0]['action']='BLOCK'
+        with self.assertRaisesRegex(ValueError,'action differs'):
+            report.audit_saved_inference(altered,{'kind':'online','surface':'tiny'},self.path)
+
+    def test_dual_plan_has48cycles_and_does_not_claim96independentseeds(self):
+        cell=next(c for c in study.matrix('privoke-all-surfaces-test') if c['scope']=='dual')
+        self.assertEqual(cell['cycles'],48)
+        self.assertEqual(cell['stage_seed_plan_sha256'],study.digest([42+i//2 for i in range(96)]))
+
+    def test_qualification_treats_omitted_protobuf_categories_as_empty(self):
+        rows=[]
+        for i in range(320):
+            sensitivity='S0' if i<160 else 'S1' if i<200 else 'S2'
+            classification={'sensitivity':sensitivity,'visibility':'PU','categories':[]}
+            action='ALLOW' if sensitivity=='S0' else 'WARN' if sensitivity=='S1' else 'BLOCK'
+            rows.append({'id':str(i),'group_id':str(i),'status':'ok','classification':classification,
+                         'target':copy.deepcopy(classification),'action':action,'allowed_actions':[action]})
+        explicit=report.qualification_rule(rows,rows,'context',{})
+        omitted=copy.deepcopy(rows)
+        for row in omitted:del row['classification']['categories']
+        self.assertEqual(report.qualification_rule(omitted,omitted,'context',{}),explicit)
+
+    def test_candidate_audit_matches_durable_rounding_and_rejects_tampering(self):
+        import base64
+        from privoke.v1 import runtime_pb2 as R
+        from privoke_model.artifact import float32
+        from privoke_model.fingerprint import parameter_fingerprint
+        base={'head.weight':[float32(.001)],'embedding':[float32(.2)]}
+        shapes={'head.weight':[1],'embedding':[1]}
+        candidate=copy.deepcopy(base)
+        delta=float32(.000000003)
+        candidate['head.weight']=[float32(round(base['head.weight'][0]+delta,8))]
+        unrounded=copy.deepcopy(base)
+        unrounded['head.weight']=[float32(base['head.weight'][0]+delta)]
+        self.assertNotEqual(candidate,unrounded)
+        for presence in (False,True):
+            with self.subTest(presence=presence):
+                request_type=R.ComputePresenceGradientsRequest if presence else R.ComputeSemanticGradientsRequest
+                response_type=R.ComputePresenceGradientsResponse if presence else R.ComputeSemanticGradientsResponse
+                request=request_type(request_id='r',model_id='m',max_gradient=.05,layers=[R.DETECTION_LAYER_SEMANTIC])
+                request.examples.add();request.heldout_examples.add()
+                fingerprint=lambda values:parameter_fingerprint(values,shapes) if presence else parameter_fingerprint(values)
+                response=response_type(request_id='r',model_id='m',base_version='v0')
+                response.gradients.add(name='head.weight',shape=[1],values=[delta])
+                for phase in ('training','base_heldout','candidate_heldout'):
+                    response.executions.add(phase=phase,examples=1,layer=R.DETECTION_LAYER_SEMANTIC,status='ok')
+                response.metadata.update(base_parameter_fingerprint=fingerprint(base),updated_parameter_fingerprint=fingerprint(candidate))
+                evidence={'execution_evidence':{'request_protobuf_base64':base64.b64encode(request.SerializeToString()).decode()}}
+                def bind_response():
+                    evidence['execution_evidence']['response_protobuf_base64']=base64.b64encode(response.SerializeToString()).decode()
+                bind_response()
+                pending={'base':{'identity':{'model_id':'m','model_version':'v0'},'parameters':{n:{'shape':shapes[n],'values':v} for n,v in base.items()}}}
+                stage={'state':'accepted','snapshot':{'parameters':{n:{'shape':shapes[n],'values':v} for n,v in candidate.items()}}}
+                self.assertEqual(report.audit_runtime_evidence(evidence,stage,pending,presence=presence)['candidate_parameter_fingerprint'],fingerprint(candidate))
+                altered=copy.deepcopy(stage);altered['snapshot']['parameters']['embedding']['values'][0]+=1.
+                with self.assertRaisesRegex(ValueError,'Published tensors differ'):
+                    report.audit_runtime_evidence(evidence,altered,pending,presence=presence)
+                response.metadata['updated_parameter_fingerprint']=fingerprint(unrounded);bind_response()
+                with self.assertRaisesRegex(ValueError,'Candidate commitment differs'):
+                    report.audit_runtime_evidence(evidence,stage,pending,presence=presence)
+                # Legacy heads transport a rounded float32 cap; full-capable
+                # artifacts retain their stricter inward double request bound.
+                response.gradients[0].values[0]=float32(.05)
+                capped=copy.deepcopy(base)
+                capped['head.weight']=[float32(round(base['head.weight'][0]+float32(.05),8))]
+                response.metadata['updated_parameter_fingerprint']=fingerprint(capped);bind_response()
+                capped_stage={'state':'accepted','snapshot':{'parameters':{n:{'shape':shapes[n],'values':v} for n,v in capped.items()}}}
+                report.audit_runtime_evidence(evidence,capped_stage,pending,presence=presence)
+                from privoke_model.contextual_training import FULL_ENCODER_STRATEGY
+                response.metadata['artifact_training_strategy']=FULL_ENCODER_STRATEGY;bind_response()
+                with self.assertRaisesRegex(ValueError,'frozen clamp'):
+                    report.audit_runtime_evidence(evidence,capped_stage,pending,presence=presence)
+                del response.metadata['artifact_training_strategy']
+                bind_response()
+                full_base=copy.deepcopy(pending);full_base['base']['metadata']={'contextual_training_strategy':FULL_ENCODER_STRATEGY}
+                with self.assertRaisesRegex(ValueError,'frozen clamp'):
+                    report.audit_runtime_evidence(evidence,capped_stage,full_base,presence=presence)
+                response.gradients[0].values[0]=float32(.050000004);bind_response()
+                with self.assertRaisesRegex(ValueError,'frozen clamp'):
+                    report.audit_runtime_evidence(evidence,capped_stage,pending,presence=presence)
+
+    def test_audit_source_amendment_preserves_fitting_and_qualification_code(self):
+        path='evaluation/privoke_eval/accelerated_training_surfaces_report.py'
+        destination=self.path/path;destination.parent.mkdir(parents=True)
+        original='def audit_runtime_evidence():\n    return 1\n\ndef qualification_rule():\n    return 2\n'
+        revised=original.replace('return 1','return 3');destination.write_text(revised)
+        frozen={path:'original','models/trainer.py':'unchanged'}
+        current={path:study.sha(destination),'models/trainer.py':'unchanged'}
+        protocol={'source_files':frozen,'source_revision':'a'*40}
+        study.write(self.path/'protocol.json',protocol)
+        receipt={'status':'accepted','scope':'audit_only','protocol_sha256':study.sha(self.path/'protocol.json'),
+                 'frozen_source_revision':'a'*40,'source_revision':'b'*40,'source_files':current}
+        def bind():study.write(self.path/'audit-source-amendment.json',receipt)
+        bind()
+        with patch.object(study,'ROOT',self.path),patch.object(study,'source_inventory',return_value=current),patch.object(study,'revision',return_value='b'*40),patch.object(study,'command',return_value=original):
+            study.verify_frozen_sources(self.path,protocol)
+            destination.write_text(revised.replace('return 2','return 4'));current[path]=study.sha(destination);bind()
+            with self.assertRaisesRegex(ValueError,'protected computation'):
+                study.verify_frozen_sources(self.path,protocol)
+            destination.write_text(revised);current[path]=study.sha(destination)
+            current['models/trainer.py']='changed';bind()
+            with self.assertRaisesRegex(ValueError,'fitting or unapproved'):
+                study.verify_frozen_sources(self.path,protocol)
+            current['models/trainer.py']='unchanged';receipt['protocol_sha256']='wrong';bind()
+            with self.assertRaisesRegex(ValueError,'amendment differs'):
+                study.verify_frozen_sources(self.path,protocol)
+
+    def test_environment_amendment_preserves_fitter_budget_and_original_audit_receipt(self):
+        supervisor='evaluation/privoke_eval/accelerated_training_surfaces_study.py'
+        recipe='evaluation/Dockerfile.accelerated-training-surfaces-worker'
+        auditor='evaluation/privoke_eval/accelerated_training_surfaces_report.py'
+        pythonpath='/study/evaluation:/study/shared/python:/study/extension/client-runtime:/study/extension/client-runtime/generated'
+        argv='["docker","run","--rm","--network","none","--read-only","--tmpfs","/tmp:rw,nosuid,size=1g",*mounts]'
+        original={supervisor:'def verify_frozen_sources():\n    pass\ndef offline_worker():\n    args='+argv+'\n    return 96\n',
+                  recipe:'ENV PYTHONPATH='+pythonpath+'\nENV PYTHONPATH='+pythonpath.replace('/study/','/workspace/')+'\n',
+                  auditor:'def audit_runtime_evidence():\n    return 1\ndef qualify():\n    return 2\ndef report():\n    for cell in protocol["cells"]:\n        reference=ledger[cell["id"]]["comparator"]\n        if reference=="own_baseline":continue\n        controlled[cell["id"]]=reference\n'}
+        audited=dict(original);audited[auditor]=original[auditor].replace('return 1','return 3')
+        revised=dict(audited)
+        revised[supervisor]=audited[supervisor].replace(',*mounts]',',"--env","PYTHONPATH='+pythonpath+':/study/models",*mounts]')
+        revised[recipe]=audited[recipe].replace(pythonpath,pythonpath+':/study/models').replace(pythonpath.replace('/study/','/workspace/'),pythonpath.replace('/study/','/workspace/')+':/workspace/models')
+        def inventory(texts):
+            import hashlib
+            return {p:hashlib.sha256(t.encode()).hexdigest() for p,t in texts.items()}|{'models/trainer.py':'unchanged'}
+        frozen_files=inventory(original);audited_files=inventory(audited);current=inventory(revised)
+        protocol={'source_revision':'a'*40,'source_files':frozen_files,'offline_worker_image':'sha256:'+'d'*64}
+        study.write(self.path/'protocol.json',protocol)
+        audit={'status':'accepted','scope':'audit_only','protocol_sha256':study.sha(self.path/'protocol.json'),
+               'frozen_source_revision':'a'*40,'source_revision':'b'*40,'source_files':audited_files}
+        study.write(self.path/'audit-source-amendment.json',audit)
+        audit_sha=study.sha(self.path/'audit-source-amendment.json')
+        environment={'status':'accepted','scope':'worker_environment_only','protocol_sha256':study.sha(self.path/'protocol.json'),
+                     'audit_amendment_sha256':audit_sha,'prior_source_revision':'b'*40,'prior_source_files':audited_files,
+                     'source_revision':'c'*40,'source_files':current,'offline_worker_image':protocol['offline_worker_image'],
+                     'pythonpath_before':pythonpath,'pythonpath_after':pythonpath+':/study/models'}
+        def bind(texts):
+            current.clear();current.update(inventory(texts))
+            for path,text in texts.items():
+                destination=self.path/path;destination.parent.mkdir(parents=True,exist_ok=True);destination.write_text(text)
+            study.write(self.path/'worker-environment-amendment.json',environment)
+        bind(revised)
+        def git_show(args):return (original if args[2].startswith('a'*40) else audited)[args[2].split(':',1)[1]]
+        with patch.object(study,'ROOT',self.path),patch.object(study,'source_inventory',return_value=current),patch.object(study,'revision',return_value='c'*40),patch.object(study,'command',side_effect=git_show):
+            study.verify_frozen_sources(self.path,protocol)
+            for path,before,after in ((supervisor,'return 96','return 97'),(supervisor,'size=1g','size=2g'),
+                                      (supervisor,':/study/models',':/study/models:/unreviewed'),
+                                      (recipe,':/study/models',':/study/models:/unreviewed'),
+                                      (auditor,'return 2','return 4')):
+                with self.subTest(path=path,before=before):
+                    changed=dict(revised);changed[path]=changed[path].replace(before,after);bind(changed)
+                    with self.assertRaises(ValueError):study.verify_frozen_sources(self.path,protocol)
+            bind(revised)
+            for key in ('audit_amendment_sha256','protocol_sha256','prior_source_revision','source_revision','offline_worker_image','pythonpath_after'):
+                saved=environment[key];environment[key]='wrong';bind(revised)
+                with self.subTest(commitment=key),self.assertRaises(ValueError):study.verify_frozen_sources(self.path,protocol)
+                environment[key]=saved
+            bind(revised);current['models/trainer.py']='changed'
+            study.write(self.path/'worker-environment-amendment.json',environment)
+            with self.assertRaisesRegex(ValueError,'fitting or unapproved'):study.verify_frozen_sources(self.path,protocol)
+        self.assertEqual(study.sha(self.path/'audit-source-amendment.json'),audit_sha)
+
+        # A second, scoring-only amendment must preserve the original chain.
+        import inspect
+        prior=inventory(revised)
+        environment['source_files']=prior
+        study.write(self.path/'worker-environment-amendment.json',environment)
+        repaired=dict(revised)
+        repaired[supervisor]=repaired[supervisor].replace('    args=',
+            '    mounts.extend(score_dependency_mounts(inputs,directory,cell,operation))\n    args=')+'\n'+inspect.getsource(study.score_dependency_mounts)
+        score={'status':'accepted','scope':'score_dependency_mount_only','protocol_sha256':study.sha(self.path/'protocol.json'),
+               'environment_amendment_sha256':study.sha(self.path/'worker-environment-amendment.json'),
+               'prior_source_revision':'c'*40,'prior_source_files':prior,'source_revision':'e'*40,
+               'source_files':inventory(repaired),'offline_worker_image':protocol['offline_worker_image']}
+        def score_bind(texts):
+            current.clear();current.update(inventory(texts))
+            for path,text in texts.items():(self.path/path).write_text(text)
+            study.write(self.path/'score-dependency-amendment.json',score)
+        def score_show(args):return {'a':original,'b':audited,'c':revised}[args[2][0]][args[2].split(':',1)[1]]
+        score_bind(repaired)
+        with patch.object(study,'ROOT',self.path),patch.object(study,'source_inventory',return_value=current),patch.object(study,'revision',return_value='e'*40),patch.object(study,'command',side_effect=score_show):
+            study.verify_frozen_sources(self.path,protocol)
+            for before,after in (('return 96','return 97'),('readonly','readwrite'),('size=1g','size=2g'),('mounts.extend(score_dependency_mounts','mounts.append(score_dependency_mounts')):
+                changed=dict(repaired);changed[supervisor]=changed[supervisor].replace(before,after)
+                score['source_files']=inventory(changed);score_bind(changed)
+                with self.subTest(score_change=before),self.assertRaises(ValueError):study.verify_frozen_sources(self.path,protocol)
+            score['source_files']=inventory(repaired);score_bind(repaired)
+            for key in ('environment_amendment_sha256','protocol_sha256','prior_source_revision','source_revision','offline_worker_image'):
+                saved=score[key];score[key]='wrong';score_bind(repaired)
+                with self.subTest(score_commitment=key),self.assertRaises(ValueError):study.verify_frozen_sources(self.path,protocol)
+                score[key]=saved
+        self.assertEqual(study.sha(self.path/'audit-source-amendment.json'),audit_sha)
+        score_bind(repaired)
+        prior_reporting=inventory(repaired)
+        reporting_text=dict(repaired)
+        reporting_text[supervisor]=reporting_text[supervisor].replace('    pass','    return 0')
+        reporting_text[auditor]=reporting_text[auditor].replace('reference=ledger[cell["id"]]["comparator"]',
+            'reference=report_comparator(ledger[cell["id"]]["comparator"],cell)').replace('if reference=="own_baseline":continue','if reference is None:continue')+'\n'+inspect.getsource(report.report_comparator)
+        reporting={'status':'accepted','scope':'report_comparator_schema_only','protocol_sha256':study.sha(self.path/'protocol.json'),
+                   'scoring_amendment_sha256':study.sha(self.path/'score-dependency-amendment.json'),
+                   'prior_source_revision':'e'*40,'prior_source_files':prior_reporting,'source_revision':'f'*40,
+                   'source_files':inventory(reporting_text),'offline_worker_image':protocol['offline_worker_image']}
+        def report_bind(texts):
+            current.clear();current.update(inventory(texts))
+            for path,text in texts.items():(self.path/path).write_text(text)
+            study.write(self.path/'report-ledger-amendment.json',reporting)
+        def report_show(args):return {'a':original,'b':audited,'c':revised,'e':repaired}[args[2][0]][args[2].split(':',1)[1]]
+        report_bind(reporting_text)
+        with patch.object(study,'ROOT',self.path),patch.object(study,'source_inventory',return_value=current),patch.object(study,'revision',return_value='f'*40),patch.object(study,'command',side_effect=report_show):
+            study.verify_frozen_sources(self.path,protocol)
+            for path,before,after in ((supervisor,'return 96','return 97'),(auditor,'return 2','return 4'),(auditor,'return None','return "own_baseline"'),(auditor,'if reference is None:continue','if reference is not None:continue')):
+                changed=dict(reporting_text);changed[path]=changed[path].replace(before,after);reporting['source_files']=inventory(changed);report_bind(changed)
+                with self.subTest(report_change=before),self.assertRaises(ValueError):study.verify_frozen_sources(self.path,protocol)
+            reporting['source_files']=inventory(reporting_text);report_bind(reporting_text)
+            for key in ('scoring_amendment_sha256','protocol_sha256','prior_source_revision','source_revision','offline_worker_image'):
+                saved=reporting[key];reporting[key]='wrong';report_bind(reporting_text)
+                with self.subTest(report_commitment=key),self.assertRaises(ValueError):study.verify_frozen_sources(self.path,protocol)
+                reporting[key]=saved
+
+    def test_score_dependency_mount_is_committed_readonly_and_absent_from_fits(self):
+        cell={'surface':'random_control','id':'control'}
+        base=self.path/'prepared-base.json';study.write(base,{'weights':[1]})
+        reference={'path':'/inputs/1/prepared-base.json','sha256':study.sha(base)}
+        study.write(self.path/'worker-fit/request.json',{'operation':'fit','cell':cell,'inputs':{'base_artifact':reference}})
+        snapshot=self.path/'snapshot.json';study.write(snapshot,{'schema_version':'accelerated-random-control-v1','base_artifact':reference})
+        inputs={'snapshot':{'path':str(snapshot),'sha256':study.sha(snapshot)}}
+        self.assertEqual(study.score_dependency_mounts({},self.path,cell,'fit'),[])
+        self.assertEqual(study.score_dependency_mounts({},self.path,{'surface':'minilm'},'score-000-primary'),[])
+        self.assertEqual(study.score_dependency_mounts(inputs,self.path,cell,'score-000-primary'),
+                         ['--mount',f'type=bind,source={base.resolve()},target=/inputs/1/prepared-base.json,readonly'])
+        study.write(base,{'weights':[2]})
+        with self.assertRaisesRegex(ValueError,'base artifact changed'):study.score_dependency_mounts(inputs,self.path,cell,'score-096-primary')
+        study.write(base,{'weights':[1]})
+        for target in ('/etc/passwd','/inputs/../prepared-base.json','/inputs/1/other.json'):
+            changed=reference|{'path':target}
+            study.write(snapshot,{'schema_version':'accelerated-random-control-v1','base_artifact':changed})
+            study.write(self.path/'worker-fit/request.json',{'operation':'fit','cell':cell,'inputs':{'base_artifact':changed}})
+            inputs['snapshot']['sha256']=study.sha(snapshot)
+            with self.subTest(target=target),self.assertRaisesRegex(ValueError,'base reference'):study.score_dependency_mounts(inputs,self.path,cell,'score-000-primary')
+
+    def test_report_comparator_accepts_frozen_endpoint_descriptors_and_rejects_other_checkpoints(self):
+        kinds={'tiny':'offline_fixed_final_Adam_step96','sparse_presence':'offline_fixed_LBFGS_final',
+               'scratch_presence':'offline_fixed_final_Adam_step96','minilm':'fixed_final_head_Adam_step96','random_control':'fixed_final_head_Adam_step96'}
+        for cell in study.matrix('test'):
+            kind='actual_streamed_snapshot_slot96' if cell['kind']=='online' else kinds[cell['surface']]
+            self.assertIsNone(report.report_comparator({'kind':kind},cell))
+            self.assertIsNone(report.report_comparator('own_baseline',cell))
+            self.assertEqual(report.report_comparator('another-cell',cell),'another-cell')
+            for value in ({'kind':'snapshot32'},{'kind':kind,'cell_id':'unplanned'},[],None):
+                with self.subTest(cell=cell['id'],value=value),self.assertRaises(ValueError):report.report_comparator(value,cell)
+        scratch=next(c for c in study.matrix('test') if c['surface']=='scratch_presence' and c['profile']=='efficient')
+        with self.assertRaisesRegex(ValueError,'native context'):report.report_comparator({'kind':kinds['scratch_presence'],'native_context':256},scratch)
+
+    def test_report_assembles_own_baseline_dictionary_ledger_without_cross_cell_contrasts(self):
+        cells=[c for c in study.matrix('test') if c['id'].startswith('main-balanced-heads-')]
+        ledger=self.path/'ledger.json';study.write(ledger,{'routes':{c['id']:{'comparator':{'kind':'actual_streamed_snapshot_slot96'}} for c in cells}})
+        protocol={'cells':cells,'inputs':{'endpoint_ledger':{'path':str(ledger)}}};study.write(self.path/'protocol.json',protocol)
+        receipt={'assessment':{},'qualification':{'eligible':True,'passes':False,'veto':False}}
+        for c in cells:study.write(self.path/'cells'/c['id']/'complete.json',receipt)
+        with patch.object(report,'verify_protocol',return_value=(protocol,{})),patch.object(report,'audit_cell',return_value=receipt):
+            result=report.report(self.path)
+        self.assertEqual(len(result['cells']),3);self.assertEqual(len(result['group_decisions']),1)
+        self.assertEqual(result['controlled_contrasts'],{});self.assertFalse(result['all_eligible_configurations_qualify'])
+
+    def snapshot(self,version='v0',head=0.,encoder=0.):
+        return {'identity':{'model_id':'m','model_version':version,'artifact_checksum':'a','parameter_fingerprint':'f'},
+            'parameters':{'head.weight':{'shape':[1],'values':[head]},'embedding':{'shape':[1],'values':[encoder]}}}
+
+    def test_scope_rejects_encoder_mutation_during_head_training(self):
+        with self.assertRaisesRegex(ValueError,'frozen'):
+            study.validate_tensor_transition(self.snapshot(),self.snapshot('v1',1.,1.),['head.weight'],accepted=True)
+        self.assertEqual(study.validate_tensor_transition(self.snapshot(),self.snapshot('v1',1.,1.),['head.weight','embedding'],accepted=True),['head.weight','embedding'])
+
+    def test_rejection_requires_identical_version_and_weights(self):
+        for changed in (self.snapshot('v1'),self.snapshot('v0',1.)):
+            with self.assertRaises(ValueError):study.validate_tensor_transition(self.snapshot(),changed,['head.weight'],accepted=False)
+        self.assertEqual(study.validate_tensor_transition(self.snapshot(),self.snapshot(),['head.weight'],accepted=False),[])
+
+    def test_nonfinite_and_wrongshape_fail_closed(self):
+        bad=self.snapshot('v1',float('nan'))
+        with self.assertRaises(ValueError):study.validate_tensor_transition(self.snapshot(),bad,['head.weight'],accepted=True)
+        bad=self.snapshot('v1',1.);bad['parameters']['head.weight']['shape']=[2]
+        with self.assertRaises(ValueError):study.validate_tensor_transition(self.snapshot(),bad,['head.weight'],accepted=True)
+
+    def test_immutable_receipt_cannot_be_overwritten(self):
+        path=self.path/'evidence.json';study.write(path,{'a':1},immutable=True)
+        with self.assertRaises(ValueError):study.write(path,{'a':2},immutable=True)
+        self.assertEqual(study.read(path),{'a':1})
+
+    def test_strict_json_rejects_duplicate_keys_and_nan(self):
+        path=self.path/'bad.json'
+        for raw in ('{"x":1,"x":2}','{"x":NaN}'):
+            path.write_text(raw)
+            with self.assertRaises(ValueError):study.read(path)
+
+    def test_frozen_input_change_fails(self):
+        path=self.path/'train.jsonl';path.write_text('{}\n');ref=study.file_commitment(path)
+        path.write_text('{"changed":true}\n')
+        with self.assertRaises(ValueError):study.verify_files({'train':ref})
+
+    def test_protected_final_input_rejected_before_read(self):
+        path=self.path/'protected-final';path.mkdir();(path/'rows.json').write_text('{}')
+        with self.assertRaises(ValueError):study.file_commitment(path/'rows.json')
+
+    def test_presence_execution_rejects_ner_and_missing_trace(self):
+        identity=dict(model_id='m',model_version='v',artifact_checksum='a',parameter_fingerprint='p')
+        response=SimpleNamespace(**identity,error='',probability=.5,threshold=.5,
+            executions=[SimpleNamespace(layer=4,status='ok',error='',results=[])])
+        self.assertEqual(validate_presence_execution(response,identity,4),identity)
+        response.executions[0].layer=3
+        with self.assertRaises(ValueError):validate_presence_execution(response,identity,4)
+        response.executions=[]
+        with self.assertRaises(ValueError):validate_presence_execution(response,identity,4)
+
+    def test_context_client_uses_server_identity_when_clean_prediction_has_no_finding(self):
+        from privoke_eval.continual_fuzzer_study import RpcClient, RP
+        identity=dict(model_id='m',model_version='v',artifact_checksum='a',parameter_fingerprint='p')
+        response=RP.AnalyzePromptResponse(request_id='r',action='ALLOW',
+            classification=RP.RuntimeClassification(sensitivity='S0',visibility='PU'),
+            layers=[RP.RuntimeLayerExecution(layer=RP.DETECTION_LAYER_SEMANTIC,status='ok')],
+            metadata={'privoke.semantic.'+k:v for k,v in identity.items()})
+        client=RpcClient.__new__(RpcClient)
+        client.runtime=SimpleNamespace(AnalyzePrompt=lambda *a,**k:response)
+        actual=client.analyze({'text':'synthetic'},'m','semantic','r')
+        self.assertEqual(actual['identities'],[identity])
+        del response.metadata['privoke.semantic.artifact_checksum']
+        self.assertEqual(client.analyze({'text':'synthetic'},'m','semantic','r')['identities'],[])
+
+    def test_paired_errors_remain_in_fixed_denominator_and_veto(self):
+        before=[{'id':'a','group_id':'g','target':True,'predicted_present':False,'status':'ok'},
+                {'id':'b','group_id':'g','target':False,'predicted_present':True,'status':'ok'}]
+        after=copy.deepcopy(before);after[0]['predicted_present']=True;after[1]={'id':'b','group_id':'g','target':False,'status':'error'}
+        result=report.paired_metrics(before,after,task='presence')
+        self.assertEqual(result['after']['rows'],2);self.assertEqual(result['after']['accuracy'],.5)
+        self.assertFalse(result['qualifies']);self.assertEqual(result['error_observations'],1)
+
+    def test_canceling_prediction_changes_are_reported(self):
+        before=[{'id':'a','group_id':'g','target':True,'predicted_present':False,'status':'ok'},
+                {'id':'b','group_id':'g','target':True,'predicted_present':True,'status':'ok'}]
+        after=copy.deepcopy(before)
+        for r in after:r['predicted_present']=not r['predicted_present']
+        result=report.paired_metrics(before,after,task='presence')
+        self.assertEqual(result['changes']['recall'],0);self.assertEqual(result['exact_prediction_change_count'],2)
+
+    def test_offline_budget_validation_does_not_accept_fake_sparse_steps(self):
+        path=self.path/'snapshot.json';path.write_text('{}')
+        ref={'path':str(path),'sha256':study.sha(path)}
+        cell={'id':'x','surface':'sparse_presence','scope':'heads'}
+        result={'schema_version':'accelerated-offline-fit-v1','status':'complete','cell_id':'x','baseline_artifact':ref,'final_artifact':ref,
+            'dose':{'optimizer_steps':96,'solver_budget':{}},'tensor_audit':{'encoder_unchanged':True}}
+        with self.assertRaises(ValueError):study.validate_offline(result,cell)
+
+    def test_offline_normalization_rejects_unexecuted_or_changed_snapshot(self):
+        row={'id':'x','group_id':'g','present':True};snapshot={'sha256':'a'}
+        record={'id':'x','status':'complete','present':True,'snapshot_sha256':'a','snapshot_checksum':None,'parameter_fingerprint':'f',
+            'requested_model_id':'m','used_model_id':'m','requested_version':'v','used_version':'v','executed_layers':['DETECTION_LAYER_SEMANTIC'],
+            'execution_mode':'offline_learned_forward_v1','executions':[{'layer':'DETECTION_LAYER_SEMANTIC','status':'complete','forward_count':1}]}
+        self.assertTrue(study.normalize_offline([record],[row],snapshot,'presence')['predictions'][0]['predicted_present'])
+        record['snapshot_sha256']='b'
+        with self.assertRaises(ValueError):study.normalize_offline([record],[row],snapshot,'presence')
+        record['snapshot_sha256']='a';record['executed_layers']=[]
+        with self.assertRaises(ValueError):study.normalize_offline([record],[row],snapshot,'presence')
+
+    def test_ontology_and_length_gates_require_exact_source_and_entire_matrix(self):
+        receipt=self.path/'gate.json';study.write(receipt,{'status':'accepted'})
+        protocol={'source_files':{},'cells':study.matrix('privoke-all-surfaces-test'),
+            'inputs':{key:{'path':str(receipt),'sha256':study.sha(receipt)} for key in ('ontology_manifest','length_admissibility','endpoint_ledger')}}
+        with self.assertRaisesRegex(ValueError,'commitments'):study.verify_review_gates(protocol)
+
+    def test_offline_adapter_never_receives_assessment_paths(self):
+        protocol={'source_revision':'a'*40,'inputs':{'offline':{'tiny':{'train':{},'assets':{},'assessment':{}}}}}
+        with self.assertRaises(ValueError):study.offline_inputs(protocol,{'surface':'tiny','profile':'balanced'})
+
+
+class AutomationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.module=study.automation_module()
+        from privoke.v1 import parameters_pb2
+        cls.P=parameters_pb2
+
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.path=Path(self.temp.name)
+        self.config=self.module.FuzzerRequestConfig('unused',32,'m','s',1,0,0,0,1,42,state_path=str(self.path/'journal.sqlite3'))
+
+    def response(self,accepted=True,base='v0',applied='v1'):
+        return self.P.FuzzerTrainingResponse(accepted=accepted,model_id='m',base_version=base,applied_version=applied)
+
+    def test_actual_dual_observes_head_before_full_and_retains_partial(self):
+        events=[]
+        def send(config,**kwargs):
+            events.append(('rpc',kwargs['training_scope'],kwargs.get('expected_base_version')))
+            return self.response() if kwargs['training_scope']=='heads' else self.response(False)
+        with patch.object(self.module,'request_fuzzer_training',side_effect=send):
+            self.module.request_fuzzer_loop(self.config,cycles=1,stage_observer=lambda c,s,e:events.append(('observe',s,e)))
+        self.assertLess(events.index(('observe','heads','accepted')),events.index(('rpc','full_encoder','v1')))
+        self.assertIn(('observe','full_encoder','rejected'),events)
+
+    def test_head_rejection_skips_full_but_consumes_fixed_cycles(self):
+        calls=[]
+        with patch.object(self.module,'request_fuzzer_training',side_effect=lambda c,**k:(calls.append((c.seed,k['training_scope'])) or self.response(False))):
+            self.module.request_fuzzer_loop(self.config,cycles=3)
+        self.assertEqual(calls,[(42,'heads'),(43,'heads'),(44,'heads')])
+
+    def test_observer_failure_stops_before_full_and_resume_reuses_accepted_head(self):
+        calls=[]
+        def send(config,**kwargs):
+            calls.append(kwargs['training_scope']);return self.response(base='v0' if kwargs['training_scope']=='heads' else 'v1',applied='v1' if kwargs['training_scope']=='heads' else 'v2')
+        def observe(c,s,e):
+            if e=='accepted':raise RuntimeError('capture unavailable')
+        with patch.object(self.module,'request_fuzzer_training',side_effect=send):
+            with self.assertRaisesRegex(RuntimeError,'capture unavailable'):
+                self.module.request_fuzzer_loop(self.config,cycles=1,stage_observer=observe)
+            self.module.request_fuzzer_loop(self.config,cycles=1)
+        self.assertEqual(calls,['heads','full_encoder'])
+
+    def test_unknown_transport_keeps_exact_pending_request_and_protocol_change_fails(self):
+        import grpc
+        class Unknown(grpc.RpcError):
+            def code(self):return grpc.StatusCode.UNAVAILABLE
+        with patch.object(self.module,'request_fuzzer_training',side_effect=Unknown()):
+            with self.assertRaisesRegex(RuntimeError,'pending'):
+                self.module.request_fuzzer_loop(self.config,cycles=1,request_metadata={'study_gate_diagnostics':'v1'})
+        with self.assertRaisesRegex(ValueError,'different'):
+            self.module.request_fuzzer_loop(self.config,cycles=2,request_metadata={'study_gate_diagnostics':'v1'})
+
+    def test_bounded_retry_budget_is_not_reset_by_resume(self):
+        import grpc
+        class Unknown(grpc.RpcError):
+            def code(self):return grpc.StatusCode.UNAVAILABLE
+        with patch.object(self.module,'request_fuzzer_training',side_effect=Unknown()) as rpc:
+            with self.assertRaises(RuntimeError):self.module.request_fuzzer_loop(self.config,cycles=1)
+            with self.assertRaisesRegex(RuntimeError,'exhausted'):self.module.request_fuzzer_loop(self.config,cycles=1)
+            self.assertEqual(rpc.call_count,1)
+
+    def test_legacy_oneshot_still_executes_one_dual_cycle(self):
+        calls=[]
+        with patch.object(self.module,'request_fuzzer_training',side_effect=lambda c,**k:(calls.append(k['training_scope']) or self.response(base='v0' if k['training_scope']=='heads' else 'v1'))):
+            self.module.request_fuzzer_loop(self.config)
+        self.assertEqual(calls,['heads','full_encoder'])
+
+    def test_full_only_public_control_does_not_insert_a_head(self):
+        calls=[]
+        with patch.object(self.module,'request_fuzzer_training',side_effect=lambda c,**k:(calls.append(k['training_scope']) or self.response())):
+            self.module.request_fuzzer_loop(self.config,cycles=1,stages=('full_encoder',))
+        self.assertEqual(calls,['full_encoder'])
+
+
+
+class ReviewClosureTests(unittest.TestCase):
+    def test_midpoint_retains_snapshot_without_scoring(self):
+        with tempfile.TemporaryDirectory() as temp:
+            snapshot={"identity":{"model_version":"v32"},"parameters":{}}
+            with patch.object(study,'endpoint_specs',side_effect=AssertionError('must not score')):
+                study.checkpoint(None,{}, {},Path(temp),32,snapshot)
+            self.assertTrue((Path(temp)/'snapshot-032.json').exists())
+            self.assertFalse((Path(temp)/'assessment-032.json').exists())
+
+    def test_worker_rejects_assessment_fit_before_docker_run(self):
+        with tempfile.TemporaryDirectory() as temp:
+            protocol={"offline_worker_image":"sha256:"+'a'*64,"source_revision":"revision","source_files":{"evaluation/privoke_eval/accelerated_training_surfaces_offline.py":"b"*64}}
+            with patch.object(study,'command',return_value=protocol['offline_worker_image']),patch.object(study.subprocess,'run',side_effect=AssertionError('fit must not run')):
+                with self.assertRaisesRegex(ValueError,'assessment'):
+                    study.offline_worker(protocol,{}, {'rows':[]},Path(temp),'fit')
+
+    def test_presence_qualification_requires_eight_specificity_and144recall(self):
+        def row(i,pred):return {'id':str(i),'group_id':str(i),'target':i<160,'predicted_present':pred,'status':'ok'}
+        before=[row(i,i<160 or i<200) for i in range(320)]
+        after=[row(i,i<160 or i<192) for i in range(320)]
+        self.assertTrue(report.qualification_rule(before,after,'presence',{})['passes'])
+        after[143]['predicted_present']=False
+        self.assertFalse(report.qualification_rule(before,after,'presence',{})['passes'])
+
+    def test_contextual_overall_gain_cannot_replace_both_subgroup_thresholds(self):
+        before=[];after=[]
+        for i in range(320):
+            target={'sensitivity':'S0' if i<160 else 'S2' if i<280 else 'S1','visibility':'P0','categories':[]}
+            row={'id':str(i),'group_id':str(i),'target':target,'classification':{'sensitivity':'S0','visibility':'P0','categories':[]},'action':'ALLOW','allowed_actions':['ALLOW'],'status':'ok'}
+            before.append(copy.deepcopy(row));after.append(copy.deepcopy(row))
+            if 160<=i<171:after[-1]['classification']=target
+        self.assertFalse(report.qualification_rule(before,after,'context',{})['passes'])
+        for i in range(171,176):after[i]['classification']=after[i]['target']
+        self.assertTrue(report.qualification_rule(before,after,'context',{})['passes'])
+
+    def test_saved_offline_trace_audit_rejects_changed_identity(self):
+        identity={'model_id':'m','model_version':'v','artifact_checksum':'s','parameter_fingerprint':'f'}
+        row={'status':'ok','snapshot_sha256':'s','snapshot_checksum':'s','executed_layers':['DETECTION_LAYER_SEMANTIC'],'executions':[{'layer':'DETECTION_LAYER_SEMANTIC','forward_count':1,'status':'complete'}],'used_model_id':'wrong','requested_model_id':'m','used_version':'v','requested_version':'v','parameter_fingerprint':'f'}
+        observation={'identity':identity,'execution_mode':'offline_learned_forward_v1','snapshot_sha256':'s','endpoints':{'primary':{'layers':{'semantic':{'predictions':[row]}}}}}
+        with self.assertRaisesRegex(ValueError,'identity'):
+            report.audit_saved_inference(observation,{'kind':'offline'},Path('.'))
+
+    def test_presence_runtime_fingerprint_includes_shapes(self):
+        from privoke_model.fingerprint import parameter_fingerprint
+        values={'head.presence.bias':[0.]}
+        self.assertNotEqual(parameter_fingerprint(values),parameter_fingerprint(values,{'head.presence.bias':[1]}))
+
+    def test_presence_canonical_evidence_excludes_physical_attempt_records(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)/'training-cycles'/'cycle';(root/'attempts').mkdir(parents=True)
+            (root/'base.json').write_text('{}');(root/'attempts'/'1.json').write_text('{}')
+            self.assertEqual(len(list((Path(temp)/'training-cycles').glob('*/*.json'))),1)
+
+    def test_error_coverage_separates_assigned_and_success_only_rates(self):
+        rows=[{'id':'a','group_id':'g','target':True,'predicted_present':True,'status':'ok'},{'id':'b','group_id':'g','target':True,'status':'error'}]
+        m=report.paired_metrics(rows,rows,task='presence',iterations=0)
+        self.assertEqual(m['before']['recall'],.5);self.assertEqual(m['success_only']['before']['recall'],1.)
+        self.assertEqual(m['coverage']['before'],.5)
+
+
+class SecondReviewClosureTests(unittest.TestCase):
+    def test_native_parity_compares_all_labels_and_action_across_transport_shapes(self):
+        direct={'classification':{'sensitivity':'S2','visibility':'P3','categories':['HEALTH','FINANCIAL']},'action':'WARN'}
+        network=copy.deepcopy(direct)
+        network['classification'].update(packed=562,categories=['FINANCIAL','HEALTH'])
+        self.assertEqual(study.contextual_prediction_key(direct),study.contextual_prediction_key(network))
+        for key,value in (('sensitivity','S1'),('visibility','P1'),('categories',['HEALTH'])):
+            changed=copy.deepcopy(network);changed['classification'][key]=value
+            self.assertNotEqual(study.contextual_prediction_key(direct),study.contextual_prediction_key(changed))
+        network['action']='ALLOW'
+        self.assertNotEqual(study.contextual_prediction_key(direct),study.contextual_prediction_key(network))
+
+    def test_real_compose_construction_all_declared_branches(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            protocol={'images':{service:'sha256:'+'a'*64 for service in study.SERVICES},'ports':{'model':52551,'updater':52552,'fuzzer':52553,'runtime':52554},'inputs':{'curriculum':{'path':str(root/'curriculum/manifest.json')},'presence_train':{'path':str(root/'presence.jsonl')}}}
+            base={'id':'cell','project':'privoke-all-surfaces-test','model_id':'privoke-balanced','surface':'tiny','sampling':'procedural'}
+            for branch,changes in (('procedural',{}),('curriculum',{'sampling':'curriculum'}),('sparse',{'surface':'sparse_presence'}),('minilm',{'surface':'minilm'}),('scratch',{'surface':'scratch_presence'})):
+                directory=root/branch;directory.mkdir()
+                assets={'assets':{'model.onnx':{'path':str(root/'assets/model.onnx')}}}
+                with patch.object(study,'offline_inputs',return_value=assets):
+                    args,env=study.compose_command(protocol,base|changes,directory)
+                self.assertEqual(args[:2],['docker','compose'])
+                self.assertEqual(args[5],str(study.ROOT/'evaluation/compose.accelerated-training-surfaces.yml'))
+                self.assertEqual(args[7],str(directory/'compose.json'))
+                override=study.read(directory/'compose.json')
+                if branch=='curriculum':self.assertEqual(override['services']['privoke-fuzzer']['environment']['FUZZ_CURRICULUM_MANIFEST_PATH'],'/curriculum/manifest.json')
+                if branch=='sparse':
+                    fuzzer=override['services']['privoke-fuzzer']
+                    self.assertEqual(fuzzer['environment']['FUZZ_PRESENCE_DATASET_PATH'],'/training/presence.jsonl')
+                    self.assertTrue(fuzzer['volumes'][0]['read_only'])
+                if branch=='minilm':self.assertEqual(override['services']['client-runtime']['environment']['PRIVOKE_PRETRAINED_CONTEXT_DIR'],'/assets')
+                if branch in ('minilm','scratch'):
+                    self.assertEqual(override['services']['model-streaming-service']['environment']['MODEL_LATEST_ID'],'privoke-balanced')
+                    self.assertEqual(env['AS_MODEL_ID'],base['model_id'])
+
+    def _configuration(self,surface,seed):
+        return {'id':f'{surface}-{seed}','seed':seed,'kind':'offline','group':'offline-representation','surface':surface,'profile':'balanced','scope':'heads','sampling':'procedural','objective':'contextual','optimizer':'adam'}
+
+    def test_minilm_and_random_control_are_distinct_three_seed_groups(self):
+        manifest=[self._configuration(surface,seed) for surface in ('minilm','random_control') for seed in (42,43,44)]
+        results={c['id']:{'qualification':{'passes':c['seed']==42,'veto':False,'eligible':True}} for c in manifest}
+        decisions=report.configuration_decisions(manifest,results)
+        self.assertEqual(len(decisions),2)
+        self.assertTrue(all(d['passing_seeds']==1 and not d['qualifies'] for d in decisions.values()))
+
+    def test_configuration_rejects_duplicated_nominal_seed(self):
+        manifest=[self._configuration('minilm',seed) for seed in (42,43,43)]
+        results={c['id']:{'qualification':{'passes':True,'veto':False,'eligible':True}} for c in manifest}
+        with self.assertRaisesRegex(ValueError,'unique seeds'):report.configuration_decisions(manifest,results)
+
+    def test_configuration_decision_does_not_require_third_seed_gain(self):
+        manifest=[self._configuration('minilm',seed) for seed in (42,43,44)]
+        results={c['id']:{'qualification':{'passes':c['seed']!=44,'veto':False,'eligible':True}} for c in manifest}
+        self.assertTrue(next(iter(report.configuration_decisions(manifest,results).values()))['qualifies'])
+        results['minilm-44']['qualification']['veto']=True
+        self.assertFalse(next(iter(report.configuration_decisions(manifest,results).values()))['qualifies'])
+
+    def test_third_seed_without_gain_headroom_does_not_veto_configuration(self):
+        manifest=[self._configuration('minilm',seed) for seed in (42,43,44)]
+        results={c['id']:{'qualification':{'passes':c['seed']!=44,'veto':False,'eligible':c['seed']!=44}} for c in manifest}
+        decision=next(iter(report.configuration_decisions(manifest,results).values()))
+        self.assertTrue(decision['eligible']);self.assertTrue(decision['qualifies'])
+        self.assertEqual(decision['passing_seeds'],2)
+        results['minilm-44']['qualification']['veto']=True
+        self.assertFalse(next(iter(report.configuration_decisions(manifest,results).values()))['qualifies'])
+
+    def test_context_secondary_recall_veto_is_historical502_only(self):
+        before=[];after=[]
+        for i in range(320):
+            target={'sensitivity':'S0' if i<160 else 'S2' if i<280 else 'S1','visibility':'P0','categories':[]}
+            row={'id':str(i),'group_id':str(i),'target':target,'classification':{'sensitivity':'S0','visibility':'P0','categories':[]},'action':'ALLOW','allowed_actions':['ALLOW'],'status':'ok'}
+            before.append(copy.deepcopy(row));after.append(copy.deepcopy(row))
+            if 160<=i<176:after[-1]['classification']=target
+        decline={'error_observations':0,'new_or_worsened_case_harms':0,'changes':{'recall':-.5}}
+        self.assertTrue(report.qualification_rule(before,after,'context',{'annotation_transfer':decline})['passes'])
+        self.assertFalse(report.qualification_rule(before,after,'context',{'historical_annotation':decline})['passes'])
+
+    def test_deterministic_sparse_repetitions_do_not_use_two_of_three_rule(self):
+        manifest=[self._configuration('sparse_presence',seed) for seed in (42,43,44)]
+        results={c['id']:{'qualification':{'passes':c['seed']!=44,'veto':False,'eligible':True}} for c in manifest}
+        decision=next(iter(report.configuration_decisions(manifest,results).values()))
+        self.assertFalse(decision['qualifies']);self.assertFalse(decision['stochastic_seed_corroboration'])
+
+if __name__=='__main__':unittest.main()

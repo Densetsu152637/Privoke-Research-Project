@@ -1,0 +1,5 @@
+# Add after compose.tests.yml. Independent lower-step comparator from the original model.
+services:
+  privoke-fuzzer:
+    environment:
+      FUZZ_TRAINING_LEARNING_RATE: 0.003

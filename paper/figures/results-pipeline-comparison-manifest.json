@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "data_path": "paper/research/pipeline-comparison-20261014.json",
+  "data_sha256": "7671188a89e6319571339ff51bff9b386f21d2f2a1988d8fb5cb9f9c561f227d",
+  "generator_sha256": "ff2adc4f2a70aca7ed96bca4864b676c13757b347298da3075032464627a9e40",
+  "matplotlib_version": "3.10.9",
+  "numpy_version": "2.4.1",
+  "command": "python paper/scripts/plot_pipeline_comparison.py --overwrite",
+  "scope": "Reused assistant-provisional AU3 contextual product workload; first pass only; no promotion",
+  "outputs": {
+    "results-pipeline-v1-v3.png": "5086514222fd1ab179f2632ae6bb99fceb57250ed03a3a02a2151ad4de593e86",
+    "results-pipeline-v1-v3.svg": "9f59180d8615cd160cf57a1699b3e084ae9fbd948526216b0a6ca9442ff220ff",
+    "results-pipeline-v1-v3.pdf": "0d38be5fc0a8a383e5c5dfa264441722b91f2733a9e7d3547e48d4a15ae0dd15",
+    "results-pipeline-v1-v3-cost.png": "26324adbf6eea07101df0b2c744c59cac48d39398eed432e4e7c622b7c4279b2",
+    "results-pipeline-v1-v3-cost.svg": "aaacce8da543a19334157187033f9149b9d942041b4afee7e0c08cb2d6408983",
+    "results-pipeline-v1-v3-cost.pdf": "f920d9320aa149e238cb86d9bbbdc56d716097b0a73669946d140f3d17c8a2dc",
+    "results-pipeline-presidio-reference.png": "d597938bbf9f2e9f4ae005b58d6e3276185ded6f0f7bda1f6981ca1cd09cf22a",
+    "results-pipeline-presidio-reference.svg": "0d2803fa575a96ebec28973ac4a8030999946f797d5b757cdc6878ab02409a17",
+    "results-pipeline-presidio-reference.pdf": "c556a1fa086755b77b780e2c9a2f2b61d227d2307306a16c5ccc752c2ad294fb"
+  },
+  "presidio_reference_present": true
+}

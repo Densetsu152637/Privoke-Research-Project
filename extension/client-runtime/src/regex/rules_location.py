@@ -27,7 +27,14 @@ def location_rules() -> List[RuleDefinition]:
         ),
         RuleDefinition(
             "location_keyword",
-            r"\b(live|lives|living|located|from|address|hometown|residence|staying|alone tonight)\s*(?:in|at|near)?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?",
+            r"\b(?:(?:(?:i|we|he|she|they)\s+(?:(?:am|are|is)\s+)?"
+            r"|(?:i['’]m|we['’]re|he['’]s|she['’]s|they['’]re)\s+)(?:currently\s+)?"
+            r"(?:live|lives|living|located|from|(?:come|comes)\s+from|stay|staying|alone\s+tonight)"
+            r"\s+(?:in\s+|at\s+|near\s+)?"
+            r"|(?:my|our|his|her|their)\s+(?:home\s+)?(?:address|hometown|residence|location)"
+            r"\s*(?:is\s+|was\s+|[:=]\s*)?"
+            r"|(?:home\s+)?(?:address|hometown|residence)\s*[:=]\s*)"
+            r"[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?",
             initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.LOCATION]),
             "location",
         ),

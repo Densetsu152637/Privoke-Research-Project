@@ -1,0 +1,34 @@
+# Source-only overlays. Parents must be independently inspected immutable IDs.
+ARG RUNTIME_IMAGE
+ARG FUZZER_IMAGE
+ARG UPDATER_IMAGE
+ARG PROTO_IMAGE
+# Immutable development/toolchain image must provide the maintained grpcio-tools
+# version. Regenerate from current source; never inherit stale parent bindings.
+FROM ${PROTO_IMAGE} AS study-protos
+COPY shared/proto /study-proto
+RUN mkdir /study-generated && python -m grpc_tools.protoc -I /study-proto \
+    --python_out=/study-generated --grpc_python_out=/study-generated \
+    /study-proto/privoke/v1/parameters.proto /study-proto/privoke/v1/runtime.proto \
+    /study-proto/privoke/v1/telemetry.proto
+
+FROM ${RUNTIME_IMAGE} AS study-runtime
+COPY shared/python /workspace/shared/python
+COPY extension/client-runtime/src /workspace/extension/client-runtime/src
+COPY services/privoke-fuzzer/src /workspace/services/privoke-fuzzer/src
+COPY evaluation/privoke_eval/task_query_window_server.py /workspace/evaluation/privoke_eval/task_query_window_server.py
+COPY --from=study-protos /study-generated /workspace/extension/client-runtime/generated
+ENV PYTHONPATH=/workspace/shared/python:/workspace/evaluation:/workspace/extension/client-runtime/generated
+
+FROM ${FUZZER_IMAGE} AS study-fuzzer
+COPY shared/python /workspace/shared/python
+COPY services/privoke-fuzzer/src /workspace/services/privoke-fuzzer/src
+COPY services/param-update-service/app/receipts.py /workspace/services/param-update-service/app/receipts.py
+COPY --from=study-protos /study-generated /workspace/services/privoke-fuzzer/generated
+ENV PYTHONPATH=/workspace/shared/python:/workspace/evaluation:/workspace/services/privoke-fuzzer/generated
+RUN python -c "import numpy; assert numpy.__version__ == '1.26.4'"
+
+FROM ${UPDATER_IMAGE} AS study-updater
+COPY shared/python /workspace/shared/python
+COPY services/param-update-service/app /workspace/services/param-update-service/app
+COPY --from=study-protos /study-generated /workspace/services/param-update-service/generated

@@ -1,0 +1,14 @@
+# Source-only overlays on the previously validated Go and serving images.
+ARG PRIVOKE_GO_IMAGE
+ARG PRIVOKE_STREAMER_IMAGE
+
+FROM ${PRIVOKE_GO_IMAGE} AS development
+COPY services/model-streaming-service/cmd/server /workspace/services/model-streaming-service/cmd/server
+WORKDIR /workspace/services/model-streaming-service
+
+FROM development AS builder
+RUN CGO_ENABLED=0 GOTOOLCHAIN=local go build -trimpath -ldflags="-s -w" \
+    -o /out/model-streaming-service ./cmd/server
+
+FROM ${PRIVOKE_STREAMER_IMAGE} AS runtime
+COPY --from=builder /out/model-streaming-service /model-streaming-service

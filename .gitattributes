@@ -1,2 +1,25 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+*.sh text eol=lf
+*.yml text eol=lf
+*.conf text eol=lf
+evaluation/datasets/synthetic-teacher-templates.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+evaluation/datasets/synthetic-teacher-templates-v2.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+evaluation/datasets/contextual-assessment-20261009.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+evaluation/datasets/contextual-head-study-20261010.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# Preserve byte-pinned audit evidence and generated vector artifacts exactly in Git.
+docs/evidence/long-fuzzer-20261009/*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+docs/evidence/curriculum-improvement-20261009/*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+docs/evidence/curriculum-improvement-20261009/reproduce.py text eol=lf
+docs/evidence/accelerated-fuzzer-20261010/*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+docs/evidence/accelerated-fuzzer-20261010/reproduce.py text eol=lf
+paper/figures/results-long-fuzzer-trajectories.svg -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+paper/figures/results-long-fuzzer-trajectories-manifest.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+paper/scripts/plot_long_fuzzer_trajectories.py text eol=lf
+
+docs/evidence/semantic-pretrained-20261010/*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+docs/evidence/semantic-pretrained-20261010/reproduce.py text eol=lf
+
+docs/evidence/all-surfaces-20261010/*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+docs/evidence/all-surfaces-20261010/*.py text eol=lf

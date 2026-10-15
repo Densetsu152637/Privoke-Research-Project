@@ -1,0 +1,43 @@
+syntax = "proto3";
+package privoke.experimental.v3;
+import "privoke/v1/runtime.proto";
+import "privoke/v1/parameters.proto";
+
+// Experimental binary snapshots. No change to v1 numeric tensor limits.
+message Ref { string sha256 = 1; }
+message Model { string model_id = 1; }
+message Chunk { string sha256 = 1; uint64 offset = 2; uint64 total_bytes = 3; bytes data = 4; bytes manifest_json = 5; }
+message Commit { string request_id = 1; string model_id = 2; string expected_base = 3; string candidate = 4; string evidence = 5; }
+message StatusRequest { string request_id = 1; }
+message Receipt { string status = 1; string request_id = 2; string model_id = 3; string base = 4; string candidate = 5; string reason = 6; }
+message HealthRequest {}
+message HealthResponse { bool ready = 1; string role = 2; map<string,string> capabilities = 3; }
+enum Scope { SCOPE_UNSPECIFIED = 0; HEADS = 1; FULL_ENCODER = 2; }
+message FitRequest {
+  string request_id = 1; string model_id = 2; string base = 3; Scope scope = 4;
+  repeated privoke.v1.DetectionLayer layers = 5;
+  repeated privoke.v1.RuntimeTrainingExample train = 6;
+  repeated privoke.v1.RuntimeTrainingExample guard = 7;
+  bytes policy_json = 8; string source_commitment = 9;
+  // Canonical pinned source/ordered sidecars, independently verified before fit.
+  bytes source_json = 10;
+}
+message FitResponse { string candidate = 1; string evidence = 2; bytes evidence_json = 3; }
+service CheckpointService {
+  rpc ResolveCurrent(Model) returns (Ref);
+  rpc FetchBlob(Ref) returns (stream Chunk);
+  rpc StageCheckpoint(stream Chunk) returns (Ref);
+  rpc CommitCandidate(Commit) returns (Receipt);
+  rpc GetCommitStatus(StatusRequest) returns (Receipt);
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+service TrainingService {
+  rpc FitCandidate(FitRequest) returns (FitResponse);
+  rpc GetFitStatus(StatusRequest) returns (Receipt);
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+service V3FuzzerService {
+  rpc RunTrainingCycle(privoke.v1.FuzzerTrainingRequest) returns (privoke.v1.FuzzerTrainingResponse);
+  rpc RunUnderlyingTrainingCycle(privoke.v1.FuzzerTrainingRequest) returns (privoke.v1.FuzzerTrainingResponse);
+  rpc Health(HealthRequest) returns (HealthResponse);
+}

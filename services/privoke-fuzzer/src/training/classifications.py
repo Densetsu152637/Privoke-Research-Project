@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Iterable, Mapping, Sequence, TypeVar
+from collections.abc import Iterable, Mapping, Sequence
+from typing import TypeVar
 
 from privoke_contracts.classification import (
     Category,
@@ -9,7 +10,6 @@ from privoke_contracts.classification import (
     Visibility,
     initialise_unpacked,
 )
-
 
 EnumValue = TypeVar("EnumValue")
 JsonObject = Mapping[str, object]
