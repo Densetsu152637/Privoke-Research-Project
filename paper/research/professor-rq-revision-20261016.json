@@ -1,6 +1,6 @@
 {
   "record_id": "PROF-RQ-20261016",
-  "status": "Full-paper style revision ready for root review; writer inspected all fifteen current pages.",
+  "status": "Root accepted full-paper style revision after independently reviewing all changed prose and all fifteen current page PNGs; no scientific or visual defects.",
   "input_commit": "938ed74613af1870fa89ebafbd5f41226482b3ee",
   "branch": "docs/paper",
   "artifacts": {
@@ -57,7 +57,23 @@
       14,
       15
     ],
-    "root_independent_visual_review_pages": [],
+    "root_independent_visual_review_pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
     "visual_defects_found": [],
     "citation_keys": [
       "Athey2017",
@@ -89,9 +105,8 @@
     "new_experiments": false,
     "source_bibliography_changed": false,
     "staged_whitespace_command": "git -c diff.astextplain.binary=true diff --cached --check",
-    "root_pixel_equivalence_pages": [],
     "visual_comparison": {
-      "method": "All current page PNGs individually inspected by writer; root independent QA pending.",
+      "method": "Writer and root independently inspected all fifteen current page PNGs; pass. No pixel-equivalence claim for the full-paper rewrite.",
       "dpi": 125
     }
   },
@@ -195,7 +210,7 @@
       ]
     },
     "checks": {
-      "compilation": "passed; fresh pdflatex, BibTeX, cross-reference passes and final wording pass; exit 0",
+      "compilation": "passed; pdflatex, BibTeX and two final pdflatex cross-reference passes; exit 0",
       "undefined_citations_or_references": false,
       "duplicate_labels": false,
       "overfull_boxes": false,
@@ -205,22 +220,12 @@
       "render_dpi": 125,
       "author_visual_review_pages": [
         1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12,
-        13,
-        14,
-        15
+        2
       ],
-      "root_independent_visual_review_pages": [],
+      "root_independent_visual_review_pages": [
+        1,
+        2
+      ],
       "visual_defects_found": [],
       "citation_keys": [
         "Athey2017",
@@ -252,10 +257,26 @@
       "new_experiments": false,
       "source_bibliography_changed": false,
       "staged_whitespace_command": "git -c diff.astextplain.binary=true diff --cached --check",
-      "root_pixel_equivalence_pages": [],
+      "root_pixel_equivalence_pages": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
       "visual_comparison": {
-        "method": "All current page PNGs individually inspected by writer; root independent QA pending.",
-        "dpi": 125
+        "method": "PIL ImageChops comparison against evaluation/results/professor_rq_revision_20261016/page-*.png",
+        "dpi": 125,
+        "pages_1_2": "changed and independently reviewed by root; pass",
+        "pages_3_15": "pixel-identical"
       }
     },
     "rendered_pages": {
@@ -541,7 +562,25 @@
     },
     "evidence_boundary": "Editorial only; no experiment, code/data/model/source-paper/bibliography/figure edit or protected-data access.",
     "author_review": "All fifteen actual page PNGs reviewed; no clipping, overlap, unreadable table/figure or missing content found.",
-    "root_review": "Pending",
-    "changes_to_claims": "No intended substantive change; exact artifact identity verification remains explicit; per-artifact replay scope clarified consistently with existing separate-publication caption."
+    "root_review": "Accepted: root independently reviewed all changed main and appendix prose and inspected current rendered pages 1-15; no scientific or visual defects.",
+    "changes_to_claims": "No intended substantive change; exact artifact identity verification remains explicit; per-artifact replay scope clarified consistently with existing separate-publication caption.",
+    "accepted_manuscript_commit": "bcc4233e4862d6f99f77f7baf407feaa3a10361f",
+    "root_invariants": {
+      "abstract_unchanged": true,
+      "numeric_sequence": {
+        "unchanged": true,
+        "before_count": 781,
+        "after_count": 781,
+        "method": "Root broader numeric regex; separate from writer 653-token regex."
+      },
+      "citations": 27,
+      "labels": 43,
+      "references": 25,
+      "equations": 2,
+      "tables": 9,
+      "headings": 42,
+      "source_pdf_hashes_match": true
+    },
+    "current_bindings_verified": "All current artifact/input and fifteen rendered-page hashes rechecked from actual file bytes before acceptance-record commit."
   }
 }
