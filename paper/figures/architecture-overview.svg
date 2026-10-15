@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="510pt" height="244pt" viewBox="0 0 510 244">
+<rect width="100%" height="100%" fill="white"/>
+<rect x="5" y="13" width="354" height="223" rx="5" fill="#f6f9fb" stroke="#6f8796" stroke-width=".8"/>
+<text x="16" y="28" text-anchor="start" font-family="Arial,sans-serif" font-size="10" font-weight="700" fill="#172e40">TRUSTED WORKSTATION</text>
+<text x="436" y="28" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" font-weight="700" fill="#172e40">REMOTE SERVICES</text>
+<rect x="16" y="49" width="91" height="45" rx="5" fill="#eaf1f6" stroke="#3f6075" stroke-width=".8"/>
+<text x="61.5" y="68.30000000000001" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" font-weight="400" fill="#172e40">Supported prompt</text>
+<text x="61.5" y="81.30000000000001" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" font-weight="400" fill="#172e40">page hook</text>
+<rect x="128" y="49" width="91" height="45" rx="5" fill="#eaf1f6" stroke="#3f6075" stroke-width=".8"/>
+<text x="173.5" y="68.30000000000001" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" font-weight="400" fill="#172e40">Extension</text>
+<text x="173.5" y="81.30000000000001" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" font-weight="400" fill="#172e40">background</text>
+<rect x="240" y="49" width="107" height="45" rx="5" fill="#eaf1f6" stroke="#3f6075" stroke-width=".8"/>
+<text x="293.5" y="68.47" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">Local runtime</text>
+<text x="293.5" y="80.47" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">rules / NER / model</text>
+<polyline points="107,70 128,70" fill="none" stroke="#3f6075" stroke-width=".9"/>
+<polygon points="128,70 124.48966975243852,68.08229784558318 124.48966975243852,71.91770215441682" fill="#3f6075"/>
+<polyline points="219,70 240,70" fill="none" stroke="#3f6075" stroke-width=".9"/>
+<polygon points="240,70 236.48966975243852,68.08229784558318 236.48966975243852,71.91770215441682" fill="#3f6075"/>
+<text x="228" y="43" text-anchor="middle" font-family="Arial,sans-serif" font-size="8" font-weight="400" fill="#172e40">loopback gRPC-Web</text>
+<rect x="128" y="118" width="91" height="39" rx="5" fill="#ffffff" stroke="#3f6075" stroke-width=".8"/>
+<text x="173.5" y="134.47" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">Native-messaging</text>
+<text x="173.5" y="146.47" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">supervisor</text>
+<polyline points="172,118 172,96" fill="none" stroke="#3f6075" stroke-width=".9" stroke-dasharray="3 2"/>
+<polygon points="172,96 170.08229784558318,99.51033024756148 173.91770215441682,99.51033024756148" fill="#3f6075"/>
+<polyline points="219,138 293,138 293,96" fill="none" stroke="#3f6075" stroke-width=".9" stroke-dasharray="3 2"/>
+<polygon points="293,96 291.0822978455832,99.51033024756148 294.9177021544168,99.51033024756148" fill="#3f6075"/>
+<text x="231" y="165" text-anchor="middle" font-family="Arial,sans-serif" font-size="8" font-weight="400" fill="#172e40">manages bridge / runtime</text>
+<rect x="382" y="49" width="121" height="45" rx="5" fill="#fff2df" stroke="#997435" stroke-width=".8"/>
+<text x="442.5" y="68.47" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">Web-hosted LLM</text>
+<text x="442.5" y="80.47" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">receives original body</text>
+<polyline points="62,94 62,108 372,108 372,70 382,70" fill="none" stroke="#997435" stroke-width=".9"/>
+<polygon points="382,70 378.4896697524385,68.08229784558318 378.4896697524385,71.91770215441682" fill="#997435"/>
+<text x="164" y="106" text-anchor="middle" font-family="Arial,sans-serif" font-size="8" font-weight="400" fill="#77591e">ALLOW / WARN only; BLOCK stops the request</text>
+<rect x="382" y="118" width="121" height="44" rx="5" fill="#eaf4ed" stroke="#4d7657" stroke-width=".8"/>
+<text x="442.5" y="136.97" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">Guarded update service</text>
+<text x="442.5" y="148.97" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">and parameter stream</text>
+<polyline points="382,139 352,139 352,87 347,87" fill="none" stroke="#4d7657" stroke-width=".9"/>
+<polygon points="347,87 350.5103302475615,88.91770215441682 350.5103302475615,85.08229784558318" fill="#4d7657"/>
+<text x="371" y="172" text-anchor="middle" font-family="Arial,sans-serif" font-size="8" font-weight="400" fill="#3b6748">versioned weights</text>
+<rect x="16" y="180" width="130" height="39" rx="5" fill="#f2edf7" stroke="#78618d" stroke-width=".8"/>
+<text x="81.0" y="196.47" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">Local budget ledger</text>
+<text x="81.0" y="208.47" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">and randomized report</text>
+<polyline points="253,94 253,170 81,170 81,180" fill="none" stroke="#78618d" stroke-width=".9"/>
+<polygon points="81,180 82.91770215441682,176.48966975243852 79.08229784558318,176.48966975243852" fill="#78618d"/>
+<rect x="382" y="180" width="121" height="39" rx="5" fill="#f2edf7" stroke="#78618d" stroke-width=".8"/>
+<text x="442.5" y="196.47" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">Telemetry collector</text>
+<text x="442.5" y="208.47" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">aggregate estimates</text>
+<polyline points="146,200 382,200" fill="none" stroke="#78618d" stroke-width=".9"/>
+<polygon points="382,200 378.4896697524385,198.08229784558318 378.4896697524385,201.91770215441682" fill="#78618d"/>
+<text x="263" y="196" text-anchor="middle" font-family="Arial,sans-serif" font-size="8" font-weight="400" fill="#67517b">randomized fields; no prompt text</text>
+<text x="264" y="215" text-anchor="middle" font-family="Arial,sans-serif" font-size="8" font-weight="700" fill="#67517b">no telemetry-to-training path</text>
+</svg>

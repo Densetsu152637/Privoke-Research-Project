@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="245pt" height="188pt" viewBox="0 0 245 188">
+<rect width="100%" height="100%" fill="white"/>
+<rect x="46" y="6" width="153" height="31" rx="5" fill="#eaf1f6" stroke="#3f6075" stroke-width=".8"/>
+<text x="122.5" y="24.80000000000001" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" font-weight="400" fill="#172e40">Recognized outgoing prompt</text>
+<rect x="46" y="54" width="153" height="31" rx="5" fill="#eaf1f6" stroke="#3f6075" stroke-width=".8"/>
+<text x="122.5" y="72.8" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" font-weight="400" fill="#172e40">Local analysis and policy</text>
+<polyline points="122,37 122,54" fill="none" stroke="#3f6075" stroke-width=".9"/>
+<polygon points="122,54 123.91770215441682,50.489669752438516 120.08229784558318,50.489669752438516" fill="#3f6075"/>
+<rect x="5" y="103" width="108" height="38" rx="5" fill="#faeeee" stroke="#925353" stroke-width=".8"/>
+<text x="59.0" y="119.055" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="400" fill="#172e40">BLOCK / analysis failure</text>
+<text x="59.0" y="130.555" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="400" fill="#172e40">Cancel supported request</text>
+<rect x="132" y="103" width="108" height="38" rx="5" fill="#fff2df" stroke="#997435" stroke-width=".8"/>
+<text x="186.0" y="118.97" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">ALLOW / WARN</text>
+<text x="186.0" y="130.97" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">Forward original body</text>
+<polyline points="85,85 59,103" fill="none" stroke="#925353" stroke-width=".9"/>
+<polygon points="59,103 62.97774132235446,102.57860473135808 60.7945909169176,99.42516525683818" fill="#925353"/>
+<polyline points="160,85 185,103" fill="none" stroke="#997435" stroke-width=".9"/>
+<polygon points="185,103 183.27176888585694,99.39261629208815 181.0307240226789,102.50517860205767" fill="#997435"/>
+<text x="122" y="160" text-anchor="middle" font-family="Arial,sans-serif" font-size="7.8" font-weight="400" fill="#172e40">WARN attempts a notice; acknowledgement is not awaited.</text>
+<text x="122" y="175" text-anchor="middle" font-family="Arial,sans-serif" font-size="7.7" font-weight="400" fill="#172e40">Stream fallback may use remaining layers; coverage can shrink.</text>
+</svg>

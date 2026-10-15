@@ -69,3 +69,8 @@ The sole current compiled manuscript is [paper/main.pdf](../main.pdf), beside
 task-generated manuscript PDFs and disposable build copies were removed; source
 papers, figures, user archives, logs and rendered QA remain. The concision
 validation record above retains the cleanup inventory and historical hashes.
+
+
+## Professor feedback revision - 16 October 2026
+
+[PROF-RQ-20261016](professor-rq-revision-20261016.md) records the exact request, three-question evidence map, literature presentation lessons, implementation-bound architecture figures and accepted all-page QA. [Validation](professor-rq-revision-20261016.json) binds the source/PDF/figure hashes. The main paper now occupies pages 1-8, appendices 9-14 and references 15. Existing adverse findings and missing contextual ground truth/generalization remain explicit; no new experiments or protected-data rescoring were performed. The sole compiled manuscript remains [paper/main.pdf](../main.pdf).

@@ -1,0 +1,142 @@
+{
+  "record_id": "PROF-RQ-20261016",
+  "status": "root accepted source/PDF/scientific and all-page visual review",
+  "input_commit": "dacc7c5d8d6a1bf6fa0bb0f22e226355c2d820ba",
+  "branch": "docs/paper",
+  "artifacts": {
+    "paper/main.tex": "39c1ff39e19c9695b1f368e4d6b15c63cd834bbe29e4327845e759cfaa7f8a60",
+    "paper/main.pdf": "ad39dc1319d6c1e49f092c386fd0073ddc12fa7f8df6791dcf020aa724d50bf7",
+    "paper/ref.bib": "6a113e2abfb20e45d26bde6a961a0cec9a23a5264cd9db360f15eb372c1c03f7",
+    "paper/figures/architecture-enforcement.pdf": "6e48c17288de1b1a02c617e430b4cafb6e30e0f4e631750ce6e307f93d050593",
+    "paper/figures/architecture-enforcement.svg": "526dff76accf1ef1a98281cf5b8aae0fc4961376be014c6781af213398584a6a",
+    "paper/figures/architecture-overview.pdf": "fe69cfbf9a403b01d5095801250385649ac233b865ffc84b1cd06ebdd7d894bc",
+    "paper/figures/architecture-overview.svg": "e49137342e03ec792994282884d106ad4bac54150406338dfa6caeb763d2ea48",
+    "paper/figures/architecture-updates.pdf": "8839f121f0f42823b0a18280f2b203bdb6d4c75695133ee763722d93862d8b7e",
+    "paper/figures/architecture-updates.svg": "4d97093011719a2adde1617a03faabdecbdc84a0b44696fb459b083852e1c4f7",
+    "paper/figures/create_architecture.py": "3adfbf0cbb7573f97c2bdcc48d5c6d6ff4e49f5107e6c262e0f6d1d581d0fd1d"
+  },
+  "pages": {
+    "total": 15,
+    "main": [
+      1,
+      8
+    ],
+    "appendices": [
+      9,
+      14
+    ],
+    "references": [
+      15,
+      15
+    ]
+  },
+  "checks": {
+    "compilation": "passed; pdflatex/bibtex/pdflatex cross-reference passes, final accepted passes exit0",
+    "undefined_citations_or_references": false,
+    "duplicate_labels": false,
+    "overfull_boxes": false,
+    "missing_glyphs": false,
+    "embedded_fonts": "all",
+    "type3_fonts": false,
+    "render_dpi": 125,
+    "author_visual_review_pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "root_independent_visual_review_pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "visual_defects_found": [],
+    "citation_keys": [
+      "Athey2017",
+      "Casper2024",
+      "CasperAbstract2026",
+      "CasperPreprintV12024",
+      "GoogleWarns2023",
+      "Gupta2024",
+      "HaS2024",
+      "King2025",
+      "LIANG2025101366",
+      "LinuxCgroupV2Interfaces2026",
+      "PIIMBPinned2026",
+      "PresidioNlpConfiguration2026",
+      "ProSan2024",
+      "PromptShield2025",
+      "PromptShieldAbstract2026",
+      "SamsungBans2023",
+      "SpacyLarge371Release2026",
+      "arpaly2026advpiibench",
+      "barbera2025ai",
+      "googleBertL12H256A4",
+      "googleBertL2H256A4",
+      "googleBertL4H128A2",
+      "koraag2025comparing",
+      "turc2019WellReadStudents"
+    ],
+    "protected_data_access_or_rescore": false,
+    "new_experiments": false,
+    "source_bibliography_changed": false,
+    "staged_whitespace_command": "git -c diff.astextplain.binary=true diff --cached --check"
+  },
+  "rendered_pages": {
+    "page-01.png": "63d79bd41a969fc02ad7454f4ae3223b8a07236b89c01fc464b720e03285cc6b",
+    "page-02.png": "31a269c620543cc879a09ea9c7d78323f489f9be87346e9cf52c052e0009982d",
+    "page-03.png": "cfd10b3a80dd1136b9ef4ad1661f6d50539718a7b48c792ef98cadf200f0ac10",
+    "page-04.png": "eac6d06c1a03461517de5aca96f27e029645fbc2da4faea22f5bcaa7a93e4f3d",
+    "page-05.png": "2f321aaf7cace8c7ba1c9be2c823cdbdecdce6dfe2550354281c4286a5620f3a",
+    "page-06.png": "1a913579338d6e9b7870e60caf4f872f787b4f9606a519e44d5edafe156d6cac",
+    "page-07.png": "ba7b48c32a7f8524abc39a3bb4bcaeed5571e3a4a85c84bd6f4f29aa1f871847",
+    "page-08.png": "6b887d1893e4f65097703e0d8b022536111d96dba3c98b020afb8fa1b4e39d9f",
+    "page-09.png": "ddd62aa65df17e66bd1586917b6751b748ad98f747a46383369bcb87dc291b45",
+    "page-10.png": "6b0a06102f2b5259379626add193c16174f092ea2543a52edf9e3470e87ef952",
+    "page-11.png": "3dffed3b9fd68e4ee7c76f4aecaf90d8c0fd25dc85b421912ad7888f5d998bb2",
+    "page-12.png": "f162a2a4c0fb520f363baa6cf8053e94ee713317a773f547a5b42994ba34805a",
+    "page-13.png": "b4db33a9d2a4d7a74f1475ed166d27fb465667cf0b7f37ab757254bf040a4dbc",
+    "page-14.png": "fe6bc54e09e9bb75693244bcfe644440715780a5f55827bf3562fe573d287801",
+    "page-15.png": "e4d2635e53dfd82855e94a48357649e93b48e7ffaea4ce1d164093dff6bb640e"
+  },
+  "logs": [
+    "main.log",
+    "fonts.txt",
+    "compile-accepted1.txt",
+    "compile-accepted2.txt"
+  ],
+  "limitations": [
+    "Contextual targets remain assistant-provisional, with no independent adjudication.",
+    "Final/source-category proxies differ from contextual privacy; poor specificity remains visible.",
+    "All matched full-model candidates were guard-rejected; no useful automatic update guarantee.",
+    "Browser/cost measurements are bounded Linux historical-detector evidence; rules/NER cost is not semantic/incremental overhead.",
+    "No human utility or deployed telemetry monitoring accuracy established."
+  ],
+  "disposable_cleanup": [
+    "build main.pdf removed only after matching final output hash",
+    "retained-methods.tex, retained-related.tex, retained-appendix.tex removed after source assembly and verification"
+  ]
+}

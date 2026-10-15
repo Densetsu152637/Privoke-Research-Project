@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="245pt" height="235pt" viewBox="0 0 245 235">
+<rect width="100%" height="100%" fill="white"/>
+<rect x="28" y="9" width="189" height="32" rx="5" fill="#eaf4ed" stroke="#4d7657" stroke-width=".8"/>
+<text x="122.5" y="27.97" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">Supplied labelled training examples</text>
+<rect x="28" y="59" width="189" height="32" rx="5" fill="#eaf4ed" stroke="#4d7657" stroke-width=".8"/>
+<text x="122.5" y="77.97" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">Server computes candidate for exact base</text>
+<polyline points="122,41 122,59" fill="none" stroke="#4d7657" stroke-width=".9"/>
+<polygon points="122,59 123.91770215441682,55.489669752438516 120.08229784558318,55.489669752438516" fill="#4d7657"/>
+<rect x="28" y="108" width="189" height="43" rx="5" fill="#eaf4ed" stroke="#4d7657" stroke-width=".8"/>
+<text x="122.5" y="126.47" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">Validate tensor / version contract</text>
+<text x="122.5" y="138.47" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">Apply strategy-configured guard</text>
+<polyline points="122,91 122,108" fill="none" stroke="#4d7657" stroke-width=".9"/>
+<polygon points="122,108 123.91770215441682,104.48966975243852 120.08229784558318,104.48966975243852" fill="#4d7657"/>
+<rect x="5" y="176" width="109" height="45" rx="5" fill="#faeeee" stroke="#925353" stroke-width=".8"/>
+<text x="59.5" y="195.555" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="400" fill="#172e40">Reject: retain base</text>
+<text x="59.5" y="207.055" text-anchor="middle" font-family="Arial,sans-serif" font-size="8.5" font-weight="400" fill="#172e40">Record rejection</text>
+<rect x="132" y="176" width="108" height="45" rx="5" fill="#eaf4ed" stroke="#4d7657" stroke-width=".8"/>
+<text x="186.0" y="195.47" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">Publish atomically</text>
+<text x="186.0" y="207.47" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="400" fill="#172e40">Stream new weights</text>
+<polyline points="86,151 59,176" fill="none" stroke="#925353" stroke-width=".9"/>
+<polygon points="59,176 62.87864453420947,175.02218786198625 60.272840042744704,172.20791901120432" fill="#925353"/>
+<polyline points="162,151 186,176" fill="none" stroke="#4d7657" stroke-width=".9"/>
+<polygon points="186,176 184.9523905958166,172.13962248785606 182.18557855639656,174.79576204569932" fill="#4d7657"/>
+<text x="122" y="166" text-anchor="middle" font-family="Arial,sans-serif" font-size="8" font-weight="400" fill="#172e40">guard + exact-base checks</text>
+<text x="122" y="232" text-anchor="middle" font-family="Arial,sans-serif" font-size="7.6" font-weight="400" fill="#172e40">Publication uses compare-and-swap and durable replay receipts.</text>
+</svg>
