@@ -30,3 +30,15 @@ updates under its declared task and split, plus measured browser request
 prevention and error conditions. Those are empirical questions, not novelty or
 success findings established by this related-work record. Attribute each method
 to its own paper and version; do not compare unlike datasets, labels, or metrics.
+
+## Uploaded-source review checkpoint — 15 October 2026
+
+[LBR-20261015: uploaded literature baseline review](literature-baseline-review-20261015.md)
+records the exact user prompt, pinned manuscript/source hashes, full-paper review
+findings for the supplied Casper, HaS and ProSan preprints, metric denominators,
+functional differences, prioritized manuscript recommendations and a proposed
+fair comparison protocol. Its [source bibliography](literature-baseline-sources-20261015.bib)
+adds the distinct `CasperPreprintV12024` key without changing `paper/ref.bib`.
+This checkpoint extends the 4 October record with supplied-PDF evidence; it does
+not replace its published-version access limits, audit background papers, rerun
+systems, modify the manuscript or establish whole-paper readiness.
