@@ -80,3 +80,7 @@ Main physical pages **1–8**, appendices **9–14**, references **15**, with ex
 - Machine-readable build/page/font bindings: [validation](professor-rq-revision-20261016.json).
 
 Root independently reconciled decisive claims, verified both final wording repairs and the source/PDF/bibliography hashes, and inspected all fifteen final rendered pages. Root accepted the artifact on 16 October 2026. Root publication remains separate from the writer's scoped commit. Scientific limitations remain missing adjudicated contextual privacy truth, weak broader specificity, uncertain useful adaptation, bounded installed coverage, no human utility evidence and conditional telemetry utility/privacy assumptions. Editorial completion does not resolve them or establish venue/submission readiness.
+
+### Abstract style revision, 16 October 2026
+
+At the user's request, the abstract now follows the previous version's fuller connected academic prose and transitions while retaining the current revision's scope, results and limitations. No results, citations or other manuscript sections changed. The rebuilt `paper/main.pdf` remains 15 pages; only rendered pages 1–2 differ from the previously accepted PDF. The writer inspected those pages without finding clipping or overlap; root review of this revision is pending. Current source/PDF hashes and this revision's exact QA scope are recorded in [validation](professor-rq-revision-20261016.json); the earlier all-page acceptance is retained there as historical evidence for its original source/PDF bytes.

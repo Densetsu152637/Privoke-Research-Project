@@ -1,11 +1,11 @@
 {
   "record_id": "PROF-RQ-20261016",
-  "status": "root accepted source/PDF/scientific and all-page visual review",
+  "status": "Abstract-style revision compiled; writer reviewed changed pages 1-2; root visual review pending.",
   "input_commit": "dacc7c5d8d6a1bf6fa0bb0f22e226355c2d820ba",
   "branch": "docs/paper",
   "artifacts": {
-    "paper/main.tex": "39c1ff39e19c9695b1f368e4d6b15c63cd834bbe29e4327845e759cfaa7f8a60",
-    "paper/main.pdf": "ad39dc1319d6c1e49f092c386fd0073ddc12fa7f8df6791dcf020aa724d50bf7",
+    "paper/main.tex": "886ba821c531c0f3496350ee622a9305779276b72f700c75049d0d1f5a38c3f1",
+    "paper/main.pdf": "bf7805f47f9de9d8aa98f49f986f63bcd15bfbbf38547259e87d709ededeba3d",
     "paper/ref.bib": "6a113e2abfb20e45d26bde6a961a0cec9a23a5264cd9db360f15eb372c1c03f7",
     "paper/figures/architecture-enforcement.pdf": "6e48c17288de1b1a02c617e430b4cafb6e30e0f4e631750ce6e307f93d050593",
     "paper/figures/architecture-enforcement.svg": "526dff76accf1ef1a98281cf5b8aae0fc4961376be014c6781af213398584a6a",
@@ -31,48 +31,19 @@
     ]
   },
   "checks": {
-    "compilation": "passed; pdflatex/bibtex/pdflatex cross-reference passes, final accepted passes exit0",
+    "compilation": "passed; pdflatex, BibTeX and two final pdflatex cross-reference passes; exit 0",
     "undefined_citations_or_references": false,
     "duplicate_labels": false,
     "overfull_boxes": false,
     "missing_glyphs": false,
-    "embedded_fonts": "all",
+    "embedded_fonts": "all 22 embedded",
     "type3_fonts": false,
     "render_dpi": 125,
     "author_visual_review_pages": [
       1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9,
-      10,
-      11,
-      12,
-      13,
-      14,
-      15
+      2
     ],
-    "root_independent_visual_review_pages": [
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9,
-      10,
-      11,
-      12,
-      13,
-      14,
-      15
-    ],
+    "root_independent_visual_review_pages": [],
     "visual_defects_found": [],
     "citation_keys": [
       "Athey2017",
@@ -106,8 +77,8 @@
     "staged_whitespace_command": "git -c diff.astextplain.binary=true diff --cached --check"
   },
   "rendered_pages": {
-    "page-01.png": "63d79bd41a969fc02ad7454f4ae3223b8a07236b89c01fc464b720e03285cc6b",
-    "page-02.png": "31a269c620543cc879a09ea9c7d78323f489f9be87346e9cf52c052e0009982d",
+    "page-01.png": "cb274f80aa5255eba6eeb9212ae9de3168523dc4486ab99d36516fb25e450703",
+    "page-02.png": "318a4631869611cb853820c76d0c4ce9d91a6e71cf81aeef4222b1604486467c",
     "page-03.png": "cfd10b3a80dd1136b9ef4ad1661f6d50539718a7b48c792ef98cadf200f0ac10",
     "page-04.png": "eac6d06c1a03461517de5aca96f27e029645fbc2da4faea22f5bcaa7a93e4f3d",
     "page-05.png": "2f321aaf7cace8c7ba1c9be2c823cdbdecdce6dfe2550354281c4286a5620f3a",
@@ -123,10 +94,9 @@
     "page-15.png": "e4d2635e53dfd82855e94a48357649e93b48e7ffaea4ce1d164093dff6bb640e"
   },
   "logs": [
-    "main.log",
-    "fonts.txt",
-    "compile-accepted1.txt",
-    "compile-accepted2.txt"
+    "evaluation/results/abstract_style_20261016/build/main.log",
+    "MiKTeX pdflatex/BibTeX console outputs",
+    "evaluation/results/abstract_style_20261016/page-01.png through page-15.png"
   ],
   "limitations": [
     "Contextual targets remain assistant-provisional, with no independent adjudication.",
@@ -138,5 +108,36 @@
   "disposable_cleanup": [
     "build main.pdf removed only after matching final output hash",
     "retained-methods.tex, retained-related.tex, retained-appendix.tex removed after source assembly and verification"
-  ]
+  ],
+  "previous_accepted_revision": {
+    "source_sha256": "39c1ff39e19c9695b1f368e4d6b15c63cd834bbe29e4327845e759cfaa7f8a60",
+    "pdf_sha256": "ad39dc1319d6c1e49f092c386fd0073ddc12fa7f8df6791dcf020aa724d50bf7",
+    "root_independent_visual_review_pages": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "status": "Root acceptance and all-page visual review apply to this prior abstract revision."
+  },
+  "abstract_style_revision_20261016": {
+    "scope": "Abstract wording and style only; all other manuscript source lines unchanged.",
+    "style_reference": "Previous abstract in dacc7c5d8d6a1bf6fa0bb0f22e226355c2d820ba:paper/main.tex.",
+    "evidence_boundary": "No new results, experiments, protected-data access, or bibliography changes.",
+    "page_delta": "Only pages 1-2 differ from the prior accepted PDF; pages 3-15 render byte-identically.",
+    "visual_review": "Writer inspected pages 1-2; no clipping or overlap observed. Root review pending.",
+    "pdf_sha256": "bf7805f47f9de9d8aa98f49f986f63bcd15bfbbf38547259e87d709ededeba3d",
+    "source_sha256": "886ba821c531c0f3496350ee622a9305779276b72f700c75049d0d1f5a38c3f1"
+  }
 }
