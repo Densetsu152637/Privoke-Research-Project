@@ -2,13 +2,18 @@
 
 ## Goal and scope
 
-Goal: revise the current manuscript using the accepted literature review to
-(1) sharpen the contribution around guarded version-bound updates, publication,
-client refresh and measured gains/regressions; (2) compare sanitization,
-response recovery, acknowledged warnings, original forwarding and blocking;
-(3) qualify literature versions, metrics and evaluated populations; and
-(4) state the practical-utility gap. This is a source-grounded editorial revision,
-not a new study, reproduction or claim of new response fields.
+User-selected scope: “Paper revisions plus response additions.” The original
+request set a light ceiling for one goal:
+
+> Can you make these revisions then (using a light ceiling for this one goal):
+>
+> 1. Sharpen the contribution statement. Emphasize version-bound updates, publication guards, client refresh and measured gains/regressions. Avoid implying that training elsewhere and running locally is itself new.
+> 2. Expand the functional comparison. Distinguish sanitization, response recovery, acknowledged warnings, original-body forwarding and blocking. A correct WARN is not a prevented disclosure.
+> 3. Qualify the literature table. Identify variants, metric definitions and evaluated populations.
+> 4. Make practical utility an explicit gap. PriVoke still needs evidence about task completion, unnecessary restrictions, warning comprehension and reformulation effort. Detection and action agreement alone cannot establish usefulness. (these can be derived from additions to the responses that the PriVoke pipelines can make)
+
+This is source-grounded manuscript work, not a new study or user-utility
+experiment.
 
 Authoritative input: [literature-baseline-review-20261015.md](literature-baseline-review-20261015.md),
 record LBR-20261015, including its source locators and bibliography. Manuscript
@@ -28,23 +33,29 @@ added to the primary bibliography.
 | Name missing practical evidence. | Limitations state that authorized task completion, unnecessary restrictions, warning comprehension and reformulation effort were not measured. Extensions call for measuring them with users and distinguish task-essential from authorized content. |
 
 The 2025 Casper abstract row remains separate from the v1 preprint row.
-No paper source was rerun, no result was added, and no new method or implementation
-behavior is claimed. A separate code phase is planned to report ephemeral
+No paper source was rerun, no literature result was added, and no user-utility
+outcome is claimed. A separate implementation now reports ephemeral
 client-observation notice status and request disposition, with a correlated local
-outcome event where available. Those fields are not yet implemented or validated,
-and cannot establish provider delivery, task completion, warning comprehension
-or consent. Any later manuscript wording must follow the tested contract and keep
-those limits explicit.
+outcome event. The Methods description follows the tested contract while stating
+that it cannot establish provider receipt, task completion, warning comprehension
+or consent.
 
 ## Validation and handoff
 
-Completed: inspect the accepted review and pinned source boundaries; check the
-changed manuscript passages against that review; preserve the pre-existing
-paper/ref.bib changes; add the review bibliography file to the manuscript's
-bibliography list; locally reduce interaction-table column padding; and run
-whitespace/citation-reference checks.
+Implementation alignment: code commit
+1aefd62ef6197d39a7475964576804eb4fd2103c adds the client observation schema and
+its contract at [utility-observations.md](../../docs/runtime/utility-observations.md).
+The extension build passed. The scoped page-interceptor and content-script tests
+passed 53/53 with exit code zero. These checks validate mechanics, not user
+utility or a new browser study.
 
-Pending for the integrated manuscript: response-code contract alignment and
-final compilation after that code is tested. No PDF was generated or overwritten
-in this revision phase. Final validation, commit integration and publication
-decisions remain with the coordinating agent.
+Completed: inspect the accepted review and pinned source boundaries; check the
+changed manuscript passages against that review and the implemented contract;
+preserve the pre-existing paper/ref.bib changes; add the review bibliography
+file to the manuscript's bibliography list; locally reduce interaction-table
+column padding; and run whitespace/citation-reference checks.
+
+Pending for the integrated manuscript: final compilation and validation with a
+new output path, plus the requested machine-readable validation record. Existing
+PDF evidence and all earlier result history remain unchanged. Final compilation,
+document review and commit integration remain with the coordinating agent.

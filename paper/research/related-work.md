@@ -48,5 +48,6 @@ systems, modify the manuscript or establish whole-paper readiness.
 [literature-revision-execution-20261015.md](literature-revision-execution-20261015.md)
 records the bounded manuscript changes mapped to LBR-20261015, including the
 contribution scope, interaction comparison, version and metric boundaries, and
-unmeasured practical-utility questions. New response fields or acknowledgements
-remain pending their separate code contract and later manuscript alignment.
+unmeasured practical-utility questions. The later tested client-observation
+contract is reflected in the Methods text; its limits and the remaining human
+utility-evidence gaps are recorded there.
