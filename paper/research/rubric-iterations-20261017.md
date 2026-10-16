@@ -218,3 +218,54 @@ A whole-source comparison confirms the **only manuscript-source delta is release
 | After full descriptor and section reassessment | 76% | 24% |
 
 These are shared account snapshots; no per-agent token total is inferred. Warning/stop thresholds remain 79%/80% used. The writer returns this stable iteration for root's review rather than beginning another cycle. Six owned files are the source/PDF, both approved bibliographies, current rubric review and this ledger. The user template remains unchanged/untracked; no Git mutation, push, active process or disposable scratch is pending. The final rubric audit identifies no additional material within-scope remedy, but root remains responsible for accepting the completion evidence and deciding the next step.
+
+
+## Iteration 5 — HD-specific critical comparison and connected interpretation
+
+**Follow-up objective:** the user required continued iteration toward **all sections justifiably meeting HD**, rather than stopping at D/possible-HD readiness. The assignment required scrutiny of the actual fifteen HD dimensions and all twenty-five section groups, material remedies where warranted, and candid identification of any descriptor that remained unsupported. It explicitly prohibited simply renaming the prior verdicts or manufacturing successful evidence. The shared quota stop remains 80% used/20% remaining.
+
+**Input:** `docs/paper` at `7409d97ba34ea061456add2c390d05b899fce7ca`, tracked clean, template unchanged/untracked; preflight 76% used/24% remaining. Existing complete owner reads and the unchanged four-page rubric were reused. Same Astra writer, no descendants or Git mutations. Six paths were available for coordinated ownership, but this iteration changes only the manuscript source/PDF, current review and this ledger; the two bibliography files remain unchanged.
+
+### HD-specific critique and repairs
+
+The full dimension/section evidence remained available from iteration 4. The stricter critique found three arguments that could better satisfy critical analysis, insightful discussion and demonstrated original engineering findings:
+
+1. **Section II, closing comparison:** previously emphasized incompatible numerical measures more than the underlying decisions. It now explains how sanitization/recovery, negative flips and randomization assess different outcomes, then connects RQ1/RQ2/RQ3 to the acceptance evidence each requires. The implemented lifecycle makes those decisions inspectable together without transferring a predecessor's utility or privacy result to PriVoke.
+2. **VIII-A, second paragraph:** previously largely listed task-continuation features. It now explains the control choice: Casper's acknowledgement permits a user decision, while PriVoke's WARN proceeds without one and BLOCK leaves task completion open. HaS/ProSan's transformations are distinguished from PriVoke's unchanged-body contract. Receiver compliance does not establish desirability; task completion, warning comprehension and reformulation effort remain unmeasured.
+3. **VIII-D, closing paragraph:** previously ended with a generic evidence-needs list. It now connects observed barriers across the three questions: early restrictions persist despite later model changes, improved candidates can remain ineligible, and admitted reports can remain unrepresentative. Separate acceptance evidence is the implication, expressly not validation of a remedy. Contextual adjudication, broader receiver/retention checks, matched costs and user/task evidence remain needed; the protected-successor condition remains in VIII-B.
+
+Root accepted this three-passage focus and reviewed the complete final diff. A final antecedent clarification names **PriVoke** explicitly as the system that neither masks prompts nor restores responses. Conditional “can remain” wording avoids generalizing every improved candidate or admitted report. Existing citations and previously verified interpretations were reused; no external lookup, new source, bibliography change, protected-row access, inference, fitting, scoring or resampling occurred. The net change is **25 fewer whitespace-counted words** than input, confined to those three paragraphs.
+
+### Build and artifact acceptance
+
+The PDF marker ran exactly once for one edited output. Installed MiKTeX/BibTeX compiled in the new ignored `evaluation/results/rubric_iteration_20261017/iteration-05`, with installation and shell escape disabled and narrow configuration access approved. The initial developed replacements added 90 words and produced eleven pages. Tightening only those new passages restored ten pages; a final antecedent/conditional clarification was then rebuilt. All nine LaTeX invocations and BibTeX exited successfully. Final **pass9** contains ten complete pages with references, normal journal typography and no layout reduction.
+
+All ten final pages were rendered at 110 dpi and visually inspected anew; intervening page reflow was included, not assumed unchanged. The seven tables, overview, two equations, title/author block and twenty references remain readable without clipping/overlap. All twenty font resources are embedded. There are no overfull, undefined/multiply-defined reference or missing-glyph diagnostics. Existing underfull boxes and the disabled-shell-escape warning remain visually non-blocking. All local references and citation keys resolve; no prohibited document dependency occurs in source or extracted text.
+
+Against the input, all seven complete tables, both equations, the overview, labels, citation-key sequences and RQs are identical. **System Design through the end of Results and Conclusion through the end of the manuscript are unchanged.** All bibliography bytes and the user template are unchanged. Thus no quantitative result, arm, metric, method or adverse outcome was altered to improve the assessment. The final PDF was copied to the deliverable and is byte-identical to the build. Final extraction, renders, logs and `source-and-pdf-checks.json` are retained in the ignored iteration directory.
+
+| Final artifact | SHA-256 |
+| --- | --- |
+| `paper/main.tex` | `5db019d4133f7adadb88a83bff5a84be9ada0077366d27f3359ebbbfa53754f9` |
+| `paper/main.pdf` | `9f4dc6f124a2a1fe701f596c038baa35df89a4c14c6913414bbc42a8ea126a0e` |
+| Unchanged user `paper/template.tex` | `e4ea281c35acf1028e726f0777f2b75817478824a6b6fa723bd8b85ae8d9c056` |
+
+Root independently accepted the final three-paragraph diff and visually inspected final pages **2, 9, 10**, confirming readable journal fit and no overlap. The writer separately inspected all ten pages. Root's final review of the HD assessment/bindings remains the next acceptance step.
+
+### Reassessment against HD and stopping state
+
+The review was updated only after the completed artifact. Its fifteen-dimension and twenty-five-section matrices now judge **HD descriptor support**, rather than using “possible HD” as the stopping standard. This is not an automatic label change: B3/S4/S5 have new explicit argumentative support, while each unchanged dimension retains its already documented HD evidence. A separate category table considers the strongest counterarguments: literature breadth, significance of integration, bounded methods, alternative visual preferences and the limits of proofreading. It distinguishes observed descriptor fulfillment from a guarantee that a marker will award the band.
+
+The current judgment is HD-supported for the scoped R&D paper across all dimensions/sections. No specific unmet substantive descriptor is identified after these remedies. This does not certify exhaustive source coverage, perfect typo-freedom or an institution-specific form that has not been required or supplied. Those are assurance limits, not invented blockers. Most importantly, the paper still does not establish independent contextual truth, useful adaptation without lost protection, incremental semantic overhead or deployment/user benefit. The rubric permits original design/findings and explicitly values honest informative failures; no stronger empirical claim was introduced to obtain an HD judgment.
+
+| Checkpoint | Weekly used | Remaining |
+| --- | --- | --- |
+| Iteration-5 preflight | 76% | 24% |
+| After initial three source edits | 77% | 23% |
+| After final compilation | 77% | 23% |
+| Root checkpoint during HD reassessment | 78% | 22% |
+| After completed HD reassessment and final binding/document checks | 78% | 22% |
+
+Snapshots are shared-account quota, not agent token costs. The writer returns this stable iteration for root's independent review and does not begin another cycle. No active process, disposable scratch, Git mutation or push is pending; ignored build evidence is preserved. The template remains unchanged and untracked.
+
+Root subsequently read and accepted the HD-specific fifteen-dimension/category counterargument audit and the three passage changes against the actual rubric. Root found no newly identified substantive gap and accepted the distinction between descriptor fulfillment and an awarded grade. Final independent hash/section-coverage checks and Git finalization remain with root. The writer has ceased writes.
