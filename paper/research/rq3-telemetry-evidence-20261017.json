@@ -1,0 +1,456 @@
+{
+  "protocol_sha256": "8d54d9f677b51f3a828845c1ba64fe453b647f0aa603f6273e23c5a00b143b48",
+  "experiment_source_commit": "bf24b1835a25e370cdd64dd26110c7786d59f0aa",
+  "windows_launcher_repair": "uncommitted during A2/C; exact source closures below bind same-base-interpreter/direct-PID repair and active venv module paths",
+  "scope": "controlled prototype mechanics and instrumented synthetic request cost; no real-user monitoring utility or accuracy result",
+  "source_closures": {
+    "telemetry_attempt_2": {
+      "files": 22,
+      "sha256": "88a429906ad5e4126cd550489b4ebe161736a6d18eb176ce411df1e396c60dd2"
+    },
+    "installed_browser": {
+      "files": 42,
+      "sha256": "a1a699473f8030acdef8ca420584d24057f820f1b4b614777cc9fc89cd198d00"
+    },
+    "au3_component": {
+      "files": 158,
+      "sha256": "2ef06e7274d67729d91b7f131448dfc10bb6797ed1fffff11b1014c0340e87da"
+    }
+  },
+  "telemetry": {
+    "status": "complete",
+    "opportunities": 308,
+    "ledger_fixtures": 23,
+    "reserved_epsilon_1_reports": 184,
+    "accepted_reports": 168,
+    "failed_submissions": 16,
+    "suppressed_before_queue": 124,
+    "timings": {
+      "report_call_ms": {
+        "n": 308,
+        "p50": 56.15690001286566,
+        "p95": 143.35559998289682,
+        "max": 189.32400000630878
+      },
+      "summary_rpc_ms": {
+        "n": 9,
+        "p50": 2.522299997508526,
+        "p95": 3.8446999969892204,
+        "max": 3.8446999969892204
+      },
+      "health_rpc_ms": {
+        "n": 3,
+        "p50": 3.5923999967053533,
+        "p95": 503.0191999976523,
+        "max": 503.0191999976523
+      },
+      "batch_drain_ms": {
+        "n": 6,
+        "p50": 664.3596999929287,
+        "p95": 6877.485599979991,
+        "max": 6877.485599979991
+      }
+    },
+    "stop_to_unavailable_ms": 506.3446999993175,
+    "restart_to_serving_ms": 489.71299998811446,
+    "failed_attempt_1": {
+      "status": "failed",
+      "opportunities": 0,
+      "failure": {
+        "type": "AssertionError",
+        "message": "Collector PID does not match owned child"
+      }
+    },
+    "admission_order": {
+      "offered": {
+        "ALLOW": 80,
+        "BLOCK": 80
+      },
+      "protocol_derived_reserved_inputs": {
+        "ALLOW": 80,
+        "BLOCK": 0
+      }
+    }
+  },
+  "installed_browser": {
+    "status": "complete",
+    "image": "sha256:e0570937442d2a12fd3186d81bd97a1a5736e3a0b62fe144f235f43cd0b26a1f",
+    "versions": {
+      "chromium": "153.0.8010.12",
+      "playwright": "1.63.0",
+      "node": "v24.20.0",
+      "python": "3.12.3",
+      "pythonPackages": {
+        "spacy": "3.7.5",
+        "en-core-web-sm": "3.7.1",
+        "presidio-analyzer": "2.2.363",
+        "grpcio": "1.82.1",
+        "protobuf": "7.35.1",
+        "psutil": "7.2.2"
+      },
+      "spaCyModel": {
+        "name": "en_core_web_sm",
+        "version": "3.7.1"
+      },
+      "inferenceDevice": "cpu",
+      "telemetryEnabled": false
+    },
+    "resources": {
+      "visibleProcessorCount": 24,
+      "cpuMax": "max 100000",
+      "memoryMaxBytes": "max"
+    },
+    "profiles": 4,
+    "fixture_requests": 704,
+    "new_measured": 480,
+    "new_warmups": 80,
+    "startup_scaffolding": 144,
+    "analyze_wires": 564,
+    "forwarded_unchanged": 704,
+    "external_attempts": 0,
+    "cells": [
+      {
+        "transport": "fetch",
+        "arm": "detectors-off",
+        "profiles": 2,
+        "receiver_completion_ms": {
+          "n": 60,
+          "p50_ms": 3.600000001490116,
+          "p95_ms": 4.699999995529652,
+          "max_ms": 5.399999998509884
+        },
+        "decision_ms": {
+          "n": 60,
+          "p50_ms": 1.2000000029802322,
+          "p95_ms": 2,
+          "max_ms": 2.100000001490116
+        },
+        "actions": {
+          "ALLOW": 60
+        }
+      },
+      {
+        "transport": "fetch",
+        "arm": "regex-ner",
+        "profiles": 2,
+        "receiver_completion_ms": {
+          "n": 60,
+          "p50_ms": 31.100000001490116,
+          "p95_ms": 41.5,
+          "max_ms": 71
+        },
+        "decision_ms": {
+          "n": 60,
+          "p50_ms": 28.80000000447035,
+          "p95_ms": 38.30000000447035,
+          "max_ms": 68.10000000149012
+        },
+        "actions": {
+          "ALLOW": 60
+        }
+      },
+      {
+        "transport": "fetch",
+        "arm": "semantic",
+        "profiles": 2,
+        "receiver_completion_ms": {
+          "n": 60,
+          "p50_ms": 20.5,
+          "p95_ms": 106.70000000298023,
+          "max_ms": 154.60000000149012
+        },
+        "decision_ms": {
+          "n": 60,
+          "p50_ms": 17.599999994039536,
+          "p95_ms": 103.89999999850988,
+          "max_ms": 152.19999999552965
+        },
+        "actions": {
+          "ALLOW": 60
+        }
+      },
+      {
+        "transport": "fetch",
+        "arm": "full",
+        "profiles": 2,
+        "receiver_completion_ms": {
+          "n": 60,
+          "p50_ms": 45.70000000298023,
+          "p95_ms": 134.30000000447035,
+          "max_ms": 141.69999999552965
+        },
+        "decision_ms": {
+          "n": 60,
+          "p50_ms": 43.5,
+          "p95_ms": 132,
+          "max_ms": 139.5
+        },
+        "actions": {
+          "ALLOW": 60
+        }
+      },
+      {
+        "transport": "xhr",
+        "arm": "detectors-off",
+        "profiles": 2,
+        "receiver_completion_ms": {
+          "n": 60,
+          "p50_ms": 3.4000000059604645,
+          "p95_ms": 4.4000000059604645,
+          "max_ms": 4.600000001490116
+        },
+        "decision_ms": {
+          "n": 60,
+          "p50_ms": 1.1999999955296516,
+          "p95_ms": 1.8999999985098839,
+          "max_ms": 2
+        },
+        "actions": {
+          "ALLOW": 60
+        }
+      },
+      {
+        "transport": "xhr",
+        "arm": "regex-ner",
+        "profiles": 2,
+        "receiver_completion_ms": {
+          "n": 60,
+          "p50_ms": 31.599999994039536,
+          "p95_ms": 39.400000005960464,
+          "max_ms": 57.399999998509884
+        },
+        "decision_ms": {
+          "n": 60,
+          "p50_ms": 29.399999998509884,
+          "p95_ms": 36.79999999701977,
+          "max_ms": 55.399999998509884
+        },
+        "actions": {
+          "ALLOW": 60
+        }
+      },
+      {
+        "transport": "xhr",
+        "arm": "semantic",
+        "profiles": 2,
+        "receiver_completion_ms": {
+          "n": 60,
+          "p50_ms": 20.100000001490116,
+          "p95_ms": 145.10000000149012,
+          "max_ms": 160.5
+        },
+        "decision_ms": {
+          "n": 60,
+          "p50_ms": 17.69999999552965,
+          "p95_ms": 143.10000000149012,
+          "max_ms": 157.79999999701977
+        },
+        "actions": {
+          "ALLOW": 60
+        }
+      },
+      {
+        "transport": "xhr",
+        "arm": "full",
+        "profiles": 2,
+        "receiver_completion_ms": {
+          "n": 60,
+          "p50_ms": 45.69999999552965,
+          "p95_ms": 128.69999999552965,
+          "max_ms": 134.09999999403954
+        },
+        "decision_ms": {
+          "n": 60,
+          "p50_ms": 44,
+          "p95_ms": 125.80000000447035,
+          "max_ms": 131.80000000447035
+        },
+        "actions": {
+          "ALLOW": 60
+        }
+      }
+    ],
+    "paired_profile_deltas": [
+      {
+        "profile": "01-fetch-allow-r1",
+        "transport": "fetch",
+        "arm": "regex-ner",
+        "median_delta_ms": 27.899999998509884
+      },
+      {
+        "profile": "01-fetch-allow-r1",
+        "transport": "fetch",
+        "arm": "semantic",
+        "median_delta_ms": 16.899999998509884
+      },
+      {
+        "profile": "01-fetch-allow-r1",
+        "transport": "fetch",
+        "arm": "full",
+        "median_delta_ms": 42.5
+      },
+      {
+        "profile": "02-xhr-allow-r1",
+        "transport": "xhr",
+        "arm": "regex-ner",
+        "median_delta_ms": 28.200000002980232
+      },
+      {
+        "profile": "02-xhr-allow-r1",
+        "transport": "xhr",
+        "arm": "semantic",
+        "median_delta_ms": 16.80000000447035
+      },
+      {
+        "profile": "02-xhr-allow-r1",
+        "transport": "xhr",
+        "arm": "full",
+        "median_delta_ms": 44.0
+      },
+      {
+        "profile": "03-fetch-allow-r2",
+        "transport": "fetch",
+        "arm": "regex-ner",
+        "median_delta_ms": 26.900000005960464
+      },
+      {
+        "profile": "03-fetch-allow-r2",
+        "transport": "fetch",
+        "arm": "semantic",
+        "median_delta_ms": 16.600000001490116
+      },
+      {
+        "profile": "03-fetch-allow-r2",
+        "transport": "fetch",
+        "arm": "full",
+        "median_delta_ms": 40.50000000745058
+      },
+      {
+        "profile": "04-xhr-allow-r2",
+        "transport": "xhr",
+        "arm": "regex-ner",
+        "median_delta_ms": 28.200000002980232
+      },
+      {
+        "profile": "04-xhr-allow-r2",
+        "transport": "xhr",
+        "arm": "semantic",
+        "median_delta_ms": 16.19999999552965
+      },
+      {
+        "profile": "04-xhr-allow-r2",
+        "transport": "xhr",
+        "arm": "full",
+        "median_delta_ms": 41.20000000298023
+      }
+    ]
+  },
+  "au3_component": {
+    "status": "complete",
+    "model_manifest_sha256": "99b36171056bb0398584a0b0556d9d7ff2640d0acac4b124a126327451a80589",
+    "model_blob": "e48e7c1aa46310b3b7b1f6422f7aa8902c70cf6ff861f7540a7c4be151de4df2",
+    "calls": 70,
+    "measured": 60,
+    "warmups": 10,
+    "errors": 0,
+    "sessions": [
+      {
+        "session": 1,
+        "host_rpc_ms": {
+          "n": 30,
+          "p50_ms": 2.683500002603978,
+          "p95_ms": 4.3806000030599535,
+          "max_ms": 4.429699998581782
+        },
+        "native_elapsed_ms": {
+          "n": 30,
+          "p50_ms": 0.0,
+          "p95_ms": 15.999999974155799,
+          "max_ms": 16.00000000325963
+        },
+        "native_zero_elapsed_count": 27
+      },
+      {
+        "session": 2,
+        "host_rpc_ms": {
+          "n": 30,
+          "p50_ms": 2.6063000259455293,
+          "p95_ms": 4.137900017667562,
+          "max_ms": 4.292800003895536
+        },
+        "native_elapsed_ms": {
+          "n": 30,
+          "p50_ms": 0.0,
+          "p95_ms": 14.999999984866008,
+          "max_ms": 16.00000000325963
+        },
+        "native_zero_elapsed_count": 28
+      }
+    ],
+    "clock_diagnostic": {
+      "kind": "post_run_clock_diagnostic_not_preregistered_criterion",
+      "recorded_at": "2026-10-16T21:59:46.273049+00:00",
+      "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+      "executable": "C:\\Users\\Nicholas\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "clocks": {
+        "monotonic": {
+          "implementation": "GetTickCount64()",
+          "monotonic": true,
+          "adjustable": false,
+          "resolution": 0.015625
+        },
+        "perf_counter": {
+          "implementation": "QueryPerformanceCounter()",
+          "monotonic": true,
+          "adjustable": false,
+          "resolution": 1e-07
+        }
+      }
+    }
+  },
+  "capability_findings": [
+    "Accepted report counts are exact but are not analysis opportunities or unique users.",
+    "Five lifetime randomized marginal domains do not supply latency/error/layer/target/receipt-date fields or interval queries.",
+    "Default caps, lost reservations and first-arrival admission limit usage/action-mix interpretation.",
+    "Collector Health and controlled client timing are separate operational observations, not new event-channel fields.",
+    "Real deployment monitoring usefulness remains unmeasured; current AU3 installed/full-pipeline integration cost remains unmeasured."
+  ],
+  "checks": {
+    "telemetry_service": 11,
+    "client_telemetry": 14,
+    "finite_audit": 6,
+    "new_operational_integrity": 4,
+    "browser_node_existing": 57,
+    "browser_old_sampler_host_python": 54,
+    "browser_container_sampler_host_python313": 12,
+    "new_browser_integrity": 2,
+    "new_aggregate_reconciliation": "passed"
+  },
+  "cleanup": {
+    "host_collector_reaped": true,
+    "host_reporter_threads_stopped": true,
+    "component_children_reaped": true,
+    "browser_container_exit": 0,
+    "browser_container_pid": 0,
+    "browser_container_removed": true,
+    "owned_image_removed_after_root_raw_acceptance": "sha256:e0570937442d2a12fd3186d81bd97a1a5736e3a0b62fe144f235f43cd0b26a1f"
+  },
+  "root_independent_raw_acceptance": [
+    "A opportunity/acceptance/failure counts, exact restart marginal equality, child/thread cleanup and artifact/current-source hashes",
+    "B profile/record/request/wire counts, unchanged receiver bytes, matched forwarding, per-profile quantiles, image/isolation and exit-zero closure",
+    "C all seventy decoded wire pairs, explicit actual semantic layer, exact model/checkpoint/fingerprint/request identity and successful status"
+  ],
+  "artifact_sha256": {
+    "evaluation/results/rq3-telemetry-20261017/telemetry-attempt-1/manifest.json": "e1ebe544941ca505e8bf66795a9984b77395dd54043aaf616e03c13eb480de9e",
+    "evaluation/results/rq3-telemetry-20261017/telemetry-attempt-2/manifest.json": "07b0c430e65aa3a498b3b69cc28a6659e06b0d651f2935fc39e481a853f10977",
+    "evaluation/results/rq3-telemetry-20261017/browser-capture/run-2026-10-16T22-02-42-592Z-49e0514b/receipt.json": "4338547079f500a944838481806564830531970d426638567efe36806f51996b",
+    "evaluation/results/rq3-telemetry-20261017/au3-component-attempt-1/receipt.json": "702b72d478e9c44be8de78521ef3c0dd9b243fcc27c068094e7d5957e2d0c515",
+    "evaluation/results/rq3-telemetry-20261017/browser-preflight.json": "94332ee6f3a636eecb03418cf765faba1480694c709d8bd033a2eb289469f8ef",
+    "evaluation/results/rq3-telemetry-20261017/browser-container-closure.json": "cf4fd16b874a86051ef2592a9a1ad6c2e7567ece4b1a71b7fea1b9540c43897d",
+    "evaluation/results/rq3-telemetry-20261017/browser-after-cleanup.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "evaluation/results/rq3-telemetry-20261017/browser-build.log": "957864ede74ddeee705b6813801942ffbd7188d2d0bdf805d5de346144ba06e0",
+    "evaluation/results/rq3-telemetry-20261017/browser-image-cleanup.json": "d5a3c6529aead239d145ba726a23cc2f6a32d7b2048baa15ac58cd51411ac497",
+    "evaluation/results/rq3-telemetry-20261017/au3-component-clock-diagnostic.json": "d6f7593c6e21255ad555d53ff07a9fc532e5ace3bb400baef32b2da3dbe76434",
+    "evaluation/results/rq3-telemetry-20261017/computation-sources/summarize.py": "484bec7fe435381847bb783b674ce161eb0f9ea4e43e2a4a93d3ace4050751e8"
+  }
+}

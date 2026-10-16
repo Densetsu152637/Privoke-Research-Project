@@ -22,6 +22,7 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "evaluation"))
 from host_environment import configure_imports, python_environment
+from host_owned_service import owned_python, attest_dependencies, verify_dependencies
 configure_imports()
 sys.path.insert(0, str(ROOT / "extension/client-runtime"))
 
@@ -31,7 +32,7 @@ from src.telemetry.privacy import DOMAINS
 
 PROTOCOL = "telemetry-operational-controlled-v1"
 SOURCE_FILES = (
-    "evaluation/run-telemetry-operational-study.py", "evaluation/host_environment.py",
+    "evaluation/run-telemetry-operational-study.py", "evaluation/host_environment.py", "evaluation/host_owned_service.py",
     "extension/client-runtime/src/telemetry/event_emitter.py",
     "extension/client-runtime/src/telemetry/privacy.py",
     "services/telemetry-service/app/server.py", "services/telemetry-service/app/storage.py",
@@ -85,7 +86,8 @@ def serve(args):
     if not port:
         raise RuntimeError("Owned collector could not bind loopback")
     server.start()
-    save(args.ready, {"target": f"127.0.0.1:{port}", "pid": os.getpid(), "database": str(args.database)})
+    save(args.ready, {"target": f"127.0.0.1:{port}", "pid": os.getpid(), "database": str(args.database),
+                      "host_environment": attest_dependencies(("grpc", "google.protobuf"))})
     server.wait_for_termination()
 
 
@@ -102,10 +104,11 @@ class OwnedCollector:
         self.generation += 1
         ready = self.output / f"collector-ready-{self.generation}.json"
         self.log = (self.output / f"collector-{self.generation}.log").open("xb")
+        executable, environment = owned_python()
         self.process = subprocess.Popen([
-            sys.executable, str(Path(__file__).resolve()), "--serve", "--database",
+            executable, str(Path(__file__).resolve()), "--serve", "--database",
             str(self.output / "collector.sqlite3"), "--ready", str(ready), "--port", str(self.port),
-        ], cwd=ROOT, env=python_environment(), stdout=self.log, stderr=subprocess.STDOUT)
+        ], cwd=ROOT, env=environment, stdout=self.log, stderr=subprocess.STDOUT)
         deadline = time.monotonic() + 10
         while not ready.exists():
             if self.process.poll() is not None or time.monotonic() >= deadline:
@@ -114,6 +117,7 @@ class OwnedCollector:
         row = json.loads(ready.read_text(encoding="utf-8"))
         if row["pid"] != self.process.pid:
             raise AssertionError("Collector PID does not match owned child")
+        verify_dependencies(row["host_environment"], ("grpc", "google.protobuf"))
         self.port = int(row["target"].rsplit(":", 1)[1])
         self.lifecycle.append({"event": "started", "generation": self.generation, **row})
         return row["target"]

@@ -16,6 +16,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "evaluation"))
 from host_environment import configure_imports, python_environment
+from host_owned_service import owned_python, attest_dependencies, verify_dependencies
 configure_imports()
 import grpc
 from privoke.v1 import runtime_pb2 as pb, runtime_pb2_grpc as rpc
@@ -75,6 +76,7 @@ def serve(args):
         raise RuntimeError("Native semantic server failed loopback bind")
     server.start()
     save(args.ready, {"target": f"127.0.0.1:{port}", "pid": os.getpid(), "capabilities": capabilities,
+                      "host_environment": attest_dependencies(("grpc", "google.protobuf", "torch", "transformers", "numpy")),
                       "manifest_sha256": PIN, "training_service_registered": False})
     server.wait_for_termination()
 
@@ -90,7 +92,7 @@ def run(args):
     args.output.mkdir(parents=True, exist_ok=False)
     (args.output / "protocol.md").write_bytes(args.protocol.read_bytes())
     manifest = assets()
-    sources = [Path(__file__).resolve()]
+    sources = [Path(__file__).resolve(), ROOT / "evaluation/host_owned_service.py", ROOT / "evaluation/host_environment.py"]
     for prefix in ("shared/python", "shared/proto", "extension/client-runtime/src",
                    "extension/client-runtime/generated", "services/pretrained-v3/src", "services/privoke-fuzzer/src"):
         sources.extend(path for path in (ROOT / prefix).rglob("*") if path.is_file()
@@ -107,8 +109,9 @@ def run(args):
             ready = args.output / f"ready-{session}.json"
             log = (args.output / f"server-{session}.log").open("xb")
             with log:
-                child = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--serve", "--ready", str(ready)],
-                                         cwd=ROOT, env=python_environment(), stdout=log, stderr=subprocess.STDOUT)
+                executable, environment = owned_python()
+                child = subprocess.Popen([executable, str(Path(__file__).resolve()), "--serve", "--ready", str(ready)],
+                                         cwd=ROOT, env=environment, stdout=log, stderr=subprocess.STDOUT)
                 deadline = time.monotonic() + 90
                 while not ready.exists():
                     if child.poll() is not None or time.monotonic() >= deadline:
@@ -117,6 +120,7 @@ def run(args):
                 readiness = json.loads(ready.read_bytes())
                 if readiness["pid"] != child.pid:
                     raise AssertionError("Native AU3 service PID mismatch")
+                verify_dependencies(readiness["host_environment"], ("grpc", "google.protobuf", "torch", "transformers", "numpy"))
                 state = {"session": session, "readiness": readiness, "records": []}
                 receipt["sessions"].append(state)
                 with grpc.insecure_channel(readiness["target"]) as channel:
