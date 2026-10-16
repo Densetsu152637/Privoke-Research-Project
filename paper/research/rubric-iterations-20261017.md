@@ -102,3 +102,55 @@ The review was reassessed after this final artifact. Priorities 2 and 3 moved to
 | After final PDF validation and rubric update | 72% | 28% |
 
 These are account-wide 10,080-minute-window snapshots, not per-agent token costs. The stop threshold has not been reached. Root independently read the complete source diff and AB14 aggregate rows and accepted the hypothetical traversal, table values and scope. Root independently inspected final iteration-02 pages 3, 4, 7, 8 and 10 and accepted their fit/readability and the complete source diff. Final binding/record acceptance remains root's next step. The writer stops at this stable iteration-2 milestone; iteration 3 requires root's next assignment. No pending process, disposable scratch, Git mutation or push remains; the four owned files are the source/PDF, current review and this ledger.
+
+
+## Iteration 3 — Artifact availability and mitigation–residual synthesis
+
+**Input:** `docs/paper` at `d085e97b8ef881a6b4f356734649950b583fa613`, root's accepted iteration-2 commit. Tracked files were clean; the user template remained unchanged and untracked. Only former **Priority 4** (precise reproducibility/artifact availability) and **Priority 6** (bias–mitigation–residual synthesis) were assigned. The four-file ownership, template, seven-unit scope and quota controls above remain binding.
+
+### Changes and provenance
+
+IV-B now records the historical matched-fit environment: Python 3.11, Torch 2.12/CUDA 13.0, Transformers 4.57.6 and RTX 5080. IV-C adds a compact availability paragraph distinguishing tracked recipes and dated aggregate/provenance records from run-specific checkpoints and raw artifacts that remain local and ignored. It names the product/ablation, matched continuation, final semantics, pinned Linux client and telemetry configuration boundaries without an unexplained hash catalogue. It explicitly acknowledges historical uncommitted dependencies, rejects Git-only exact reproduction and leaves public distribution of pinned assets unestablished.
+
+Only existing non-protected records were read:
+
+| Existing record | Used evidence |
+| --- | --- |
+| [pipeline-comparison-20261014.json](pipeline-comparison-20261014.json) and [pipeline-comparison-20261014.md](pipeline-comparison-20261014.md) | PIPE3 product source/protocol/data fingerprints and compact aggregate availability. Source closure `bf022fc18b16aebfdbcc75e68ef92e28ffb4f4765015c74fc56e95e1047864fa`. |
+| [controlled-studies-20261014.md](controlled-studies-20261014.md) | AB14 historical uncommitted-dependency closure; AD14 historical fit environment and matched configuration. AD14 protocol `98c1d0fbd8c1342c99e993d5257d75c99f8918510c0719ba363f43f8d147afe3`, source closure `302ddc423abe7897e7c23c37d2d330d1d41c9f2a09f372dd65c256eb0a8819d7`. |
+| [final-semantic-evidence-20261014.json](final-semantic-evidence-20261014.json) and [final-semantic-audit-20261014.json](final-semantic-audit-20261014.json) | Frozen endpoint, aggregate scope and audit provenance, without opening protected rows. Freeze hash `655798df22d0dd817873b0554d5b4de084dec669354ae2c616f7dd06eaceda00`. |
+| [installed-client-evidence-20261014.md](installed-client-evidence-20261014.md) | Pinned historical Linux client capture and local raw-receipt boundary. |
+| [telemetry-evidence-20261014.md](telemetry-evidence-20261014.md) | Existing protocol/environment receipts, compact tracked summaries and local raw-array boundary. |
+
+Tracked-file and ignore-rule inspection confirmed recipes/aggregates are tracked while experiment weights and run results are ignored. No inference, fitting, scoring, resampling, protected raw access, external research, asset redistribution or new reproduction study was performed. These provenance statements identify the historical evidence; they do not certify current dependency compatibility or complete public availability.
+
+VIII-B/C/D replaces repeated caveats with connected explanations: endpoint freezing limits post-selection on its distinct target; exclusions/clustering address declared grouping without proving template/pretraining independence; fixed-base continuation limits its configuration confounding without isolating the earlier package comparison; request/window records bound whole-container measurement without supplying an unprotected or semantic baseline. Telemetry accounting still cannot remove estimator error or admission selection. All residual target, source, weak-base/small-guard and deployment/utility limitations remain. The first opening of the frozen endpoint is stated explicitly, avoiding ambiguity with product release.
+
+### Build and preservation checks
+
+The PDF marker ran once for one edited PDF. Installed MiKTeX/BibTeX compiled into the new ignored directory `evaluation/results/rubric_iteration_20261017/iteration-03`, with package installation and shell escape disabled and narrowly approved configuration access. All seven LaTeX passes and BibTeX completed successfully. Early complete builds reached eleven pages; tightening only the newly revised availability/discussion prose and its repetition restored **ten pages** in pass6 and final **pass7**, without typography reduction or removal of findings.
+
+All ten final pass7 pages were rendered with Poppler at 120 dpi and visually inspected anew. The final paper retains seven tables, two displayed equations, one overview and twenty references, with normal readable typography and no clipping or overlap. All twenty font resources are embedded. No overfull, undefined/multiply-defined reference or missing-glyph diagnostics occur; existing underfull boxes and the disabled-shell-escape warning are visually non-blocking. No appendix/supplement/supporting-detail dependency occurs in source or extracted PDF.
+
+Against the input commit, **all seven complete table environments, both equations, the overview, all 25 label occurrences, citation-key sequences and all three RQs are identical**. All Results sections and Conclusion through the end are unchanged. All local references and twenty citation keys resolve. The new version/hardware numerals describe the verified historical environment, not new outcome measurements. The delivered PDF was copied from pass7 and is byte-identical to the build. Logs, extraction, renders and `source-and-pdf-checks.json` remain in the new ignored directory.
+
+| Final artifact | SHA-256 |
+| --- | --- |
+| `paper/main.tex` | `0442c8b03e243ee095cf560f53897d3d3b1c3c924e0b19094ac56de83b078acf` |
+| `paper/main.pdf` | `f795578809c633414b1734b2338f979347df9530e2dfd2a956f2ccd92477caf0` |
+| `paper/template.tex`, unchanged user input | `e4ea281c35acf1028e726f0777f2b75817478824a6b6fa723bd8b85ae8d9c056` |
+
+### Reassessment, quota and handoff
+
+The current rubric review was updated after the completed PDF. Priorities 4 and 6 moved to resolved with their actual page/section evidence. **All six initial editorial recommendations are now addressed.** No further material editorial defect was identified in this bounded reassessment; this is not exhaustive certification or an automatic HD. Existing category judgments remain candid: improved transparency does not supply independent contextual truth, remove dependence/package confounding, strengthen the weak base/guard, measure incremental semantic cost or establish public reproduction, human benefit or useful deployment. No new study is recommended as an automatic scope expansion, and quota consumption is not a reason to invent further edits.
+
+| Checkpoint | Weekly used | Remaining |
+| --- | --- | --- |
+| Iteration-3 preflight | 72% | 28% |
+| After source edits | 73% | 27% |
+| After initial and final compilation | 73% | 27% |
+| After final PDF validation and completed rubric reassessment | 74% | 26% |
+
+These are shared account snapshots, not per-agent token accounting. Neither warning nor stop threshold was reached. Root independently reviewed the complete source diff, spot-verified PIPE3's historical closure and AD14's fit versions, and accepted the final wording. Root independently inspected final pages **5, 6, 9 and 10** and accepted normal readable layout, availability text and all references; the writer's separate visual inspection covers all ten pages. Final source/PDF/build hash bindings, local document links, six-priority coverage and whitespace checks pass; the template remains byte-identical and untracked. Final independent binding/document acceptance remains root's next step.
+
+The writer stops at the stable iteration-3 milestone and awaits root's decision. Only the manuscript source/PDF, current rubric review and this ledger are owned changes. No active process or disposable scratch is pending; ignored build evidence is retained. The user template remains unchanged and untracked. No Git mutation or push was performed.
