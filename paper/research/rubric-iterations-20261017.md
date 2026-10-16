@@ -154,3 +154,67 @@ The current rubric review was updated after the completed PDF. Priorities 4 and 
 These are shared account snapshots, not per-agent token accounting. Neither warning nor stop threshold was reached. Root independently reviewed the complete source diff, spot-verified PIPE3's historical closure and AD14's fit versions, and accepted the final wording. Root independently inspected final pages **5, 6, 9 and 10** and accepted normal readable layout, availability text and all references; the writer's separate visual inspection covers all ten pages. Final source/PDF/build hash bindings, local document links, six-priority coverage and whitespace checks pass; the template remains byte-identical and untracked. Final independent binding/document acceptance remains root's next step.
 
 The writer stops at the stable iteration-3 milestone and awaits root's decision. Only the manuscript source/PDF, current rubric review and this ledger are owned changes. No active process or disposable scratch is pending; ignored build evidence is retained. The user template remains unchanged and untracked. No Git mutation or push was performed.
+
+
+## Iteration 4 — Full descriptor and section audit, with reference corrections
+
+**Follow-up objective:** root conveyed the user's stronger completion standard: continue iterating toward a supported D or possible HD assessment for every section, still stopping at 20% weekly allowance remaining. A guaranteed grade is not attainable from an assistant review; the operational goal is an evidence-based audit against the actual descriptors, with concrete remaining defects repaired. Root explicitly warned that completing six recommendations did not prove completion of all rubric dimensions.
+
+**Input:** `docs/paper` at `15318ea31e6da731c0cae26b0fd2b349b9deac22`, tracked clean, template unchanged/untracked; quota 74% used/26% remaining. The assignment was to reread the actual rubric and current paper, build a matrix for all fifteen dimensions and every section, repair warranted gaps without changing the seven studies, and return one stable iteration. No descendants, experiments, inference, fitting, protected raw access or resampling were authorized. Root retained Git ownership.
+
+### Audit method and substantive conclusion
+
+The complete four-page rubric and current manuscript were reread. Its dimensions divide **4/5/3/3** across the **30/50/10/10%** categories. D explicitly exceeds all Acceptable criteria and meets most HD criteria; it is a category descriptor, not a numeric cutoff or formal section grade. The updated review tests each P-to-HD distinction against concrete current evidence and separately covers **25 section/subsection groups**, with page locators, relevant rubric IDs, readiness and residual boundaries.
+
+The audit examined literature relevance/critical synthesis, originality, appropriateness of the bounded methods, paired and uncertainty-aware interpretation, usefulness of failed outcomes, all Discussion connections, structure, every visual, wording and references. It did not classify weak labels, a weak base or negative outcomes as automatic rubric failures. Instead, it checked whether their limits are explicit and the claims are appropriate. Integration and original empirical findings can satisfy the stated originality descriptor without inventing new primitives. Current/seminal coverage is judged for concise relevance, not against an unstated exhaustive-search requirement.
+
+The resulting judgment supports **D readiness / possible HD in all four categories**, with no identified under-supported dimension after the corrections below. Literature selection and the weight given to the engineering advancement remain judgment-dependent; perfect typo-freedom and an unavailable institutional declaration format cannot be guaranteed. This is a fuller evidence basis than iteration 3's shorthand verdict, not a claim that a few bibliography edits automatically improved scientific performance. All scientific limits remain.
+
+### Concrete findings and bounded repairs
+
+- **IV-A endpoint wording:** replaced “frozen before release” with “frozen before opening,” consistent with VIII-B and the final endpoint's provenance. No protocol changed.
+- **Rendered references:** protected LLMs, ChatGPT, AI, HaS, PromptShield/DLP/AI and CPU capitalization in the affected existing entries. IEEEtran had lowercased these proper acronyms, including the visible “cPU” defect.
+- **Gupta2024 metadata:** replaced the repeated `109215-109215` range with the single article identifier `109215`. Publisher-deposited DOI metadata also showed that Akshat Gaurav and Wadee Alhalabi had reversed given/family names and that the journal publication month was May 2024, not February; those fields were corrected.
+
+Root approved expanding the four owned paths to include only the affected entries in [ref.bib](../ref.bib) and [manuscript-completion-sources-20261014.bib](../manuscript-completion-sources-20261014.bib), then separately approved the verified author/month corrections. No citation key or scientific source was added or removed. Other entries were untouched. IEEEtran.bst's `format.pages` has no article-eid handling and prints a single value as `p. 109215`; the identifier is retained without fabricating a page extent or modifying the style.
+
+### Narrow source-verification record: ITER04-REF1
+
+**Question:** verify the existing Gupta2024 article identifier and the bibliography style's rendering, not investigate new scientific claims. Existing key `Gupta2024` remains the source's BibTeX record.
+
+Exact web search queries were:
+
+1. `site.sciencedirect.com/science/article/pii/S0045790624001435 109215 confidentiality`
+2. `site.doi.org 10.1016/j.compeleceng.2024.109215`
+3. `"Enhancing user prompt confidentiality" "109215"`
+
+Direct opens of the [publisher article](https://www.sciencedirect.com/science/article/pii/S0045790624001435), its DOI and the indexed publisher URL with `?dgcid=rss_sd_all` failed/returned HTTP 403. The first searches were not useful for the article; the third returned the indexed publisher title, volume 116, May 2024 and 109215, treated as a lead rather than sufficient opened-source evidence. Other returned sources were not used for claims.
+
+An unauthenticated request to the [Crossref DOI metadata endpoint](https://api.crossref.org/works/10.1016/j.compeleceng.2024.109215) succeeded. The publisher-deposited result identifies Elsevier, volume 116, page/article-number 109215, publication date `[2024,5]`, and author pairs `(Brij B., Gupta)`, `(Akshat, Gaurav)`, `(Varsha, Arya)`, `(Wadee, Alhalabi)`, `(Dheyaaldin, Alsalman)`, `(P., Vijayakumar)`. This authoritative metadata, not an unseen article body or a secondary paraphrase, supports the corrections. The exact response is retained at `evaluation/results/rubric_iteration_20261017/iteration-04/gupta-crossref-metadata.json`, SHA-256 `08b08ee2a95f8ca327fec4cca1dcb61a609b85e3991429bab905821ed3874a46`. Installed `IEEEtran.bst`, `format.pages`, was read to verify its single-value behavior. No scientific interpretation of the Gupta paper was added.
+
+### Artifact validation and bindings
+
+The PDF skill marker ran exactly once for one edited output. Installed MiKTeX/BibTeX built in the new ignored `evaluation/results/rubric_iteration_20261017/iteration-04`, with installation and shell escape disabled and narrow configuration access approved. Three LaTeX passes and BibTeX exited successfully; final **pass3** is ten complete pages including references. No page-fit prose cuts, font/margin reductions or scope changes were needed.
+
+All ten final pages were rendered at 110 dpi with Poppler and visually inspected anew. All twenty font resources are embedded; seven tables, two equations, one overview and twenty references are retained. No overfull, undefined/multiply-defined reference or missing-glyph diagnostics occur. Source/PDF contain no appendix/supplement/supporting-detail dependency. Root independently inspected changed pages **5 and 10**, accepted the complete source/bibliography diff, and verified the deposited metadata corrections.
+
+A whole-source comparison confirms the **only manuscript-source delta is release→opening** in the named sentence. Thus every numerical finding, table, equation, figure, RQ, citation-key sequence, label and Results paragraph is preserved. Bibliography changes are confined to seven existing entries in ref.bib and one existing entry in manuscript-completion-sources-20261014.bib, eight entries in total across the two approved files. The final PDF was copied to the deliverable and is byte-identical to the build. `source-and-pdf-checks.json`, the exact metadata response, compile logs, extracted text and all renders remain in the ignored iteration directory.
+
+| Final artifact | SHA-256 |
+| --- | --- |
+| `paper/main.tex` | `5deaa4009f792771ec20ba432729073f594f3e811dc7307902a6875aef9aa3d4` |
+| `paper/main.pdf` | `5bab5f0212047bff2daeb4d888695ad4ec901561fb2222a9b6e7175d2c786617` |
+| `paper/ref.bib` | `dca09ce2dca7ed4183275661782032cb3066d2d435951f7befd8356d22aa7e4c` |
+| `paper/manuscript-completion-sources-20261014.bib` | `ee089293ce8d3a9fd9317e068952de807844bad03b34482249940b0bb18e847b` |
+| Unchanged user `paper/template.tex` | `e4ea281c35acf1028e726f0777f2b75817478824a6b6fa723bd8b85ae8d9c056` |
+
+### Quota and handoff
+
+| Checkpoint | Weekly used | Remaining |
+| --- | --- | --- |
+| Iteration-4 preflight | 74% | 26% |
+| After source/bibliography edits | 75% | 25% |
+| After final compilation and all-page QA | 75% | 25% |
+| After full descriptor and section reassessment | 76% | 24% |
+
+These are shared account snapshots; no per-agent token total is inferred. Warning/stop thresholds remain 79%/80% used. The writer returns this stable iteration for root's review rather than beginning another cycle. Six owned files are the source/PDF, both approved bibliographies, current rubric review and this ledger. The user template remains unchanged/untracked; no Git mutation, push, active process or disposable scratch is pending. The final rubric audit identifies no additional material within-scope remedy, but root remains responsible for accepting the completion evidence and deciding the next step.
