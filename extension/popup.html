@@ -83,12 +83,15 @@
             <input id="wait-regex" type="checkbox">
           </label>
           <label class="model-setting" for="model-quality">
-            <span><strong>Model quality</strong><small>Higher quality uses more memory and CPU</small></span>
+            <span><strong>Model profile</strong><small>V3 is standard; older V1 models remain available</small></span>
             <select id="model-quality">
-              <option value="latest" selected>Latest (recommended)</option>
-              <option value="efficient">Efficient</option>
-              <option value="balanced">Balanced</option>
-              <option value="quality">Quality</option>
+              <option value="latest" selected>Latest V3 (balanced)</option>
+              <option value="v3-efficient">V3 efficient</option>
+              <option value="v3-balanced">V3 balanced</option>
+              <option value="v3-quality">V3 quality</option>
+              <option value="legacy-efficient">V1 efficient (older)</option>
+              <option value="legacy-balanced">V1 balanced (older)</option>
+              <option value="legacy-quality">V1 quality (older)</option>
             </select>
           </label>
         </div>

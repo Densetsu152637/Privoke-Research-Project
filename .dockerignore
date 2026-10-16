@@ -34,3 +34,4 @@ extension/client-runtime/generated
 extension/runtime-supervisor/generated
 shared/generated
 models/experiments
+models/standard-releases

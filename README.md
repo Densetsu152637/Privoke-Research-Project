@@ -7,13 +7,22 @@ Start with the [documentation index](docs/README.md), the [project architecture]
 ## Local development
 
 ```bash
+python models/prepare_standard_releases.py
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
+
+The standard `latest` profile is the selected AU3 V3 balanced package. Preparation
+verifies existing local exports and copies their original bytes into an ignored,
+read-only distribution store; it does not train or download models. All three V3
+tiers use native CPU inference. Explicit older V1 profiles remain available.
+Fuzzer/updater training requires the opt-in `legacy-training` Compose profile and
+operates only on legacy model IDs. See [model streaming](docs/services/model-streaming.md)
+for package pins, missing-asset behavior, cache and deployment staging requirements.
 
 Follow the [browser extension setup](docs/runtime/browser-extension.md) and [client configuration guide](docs/runtime/client-configuration.md). The extension's supervisor owns its local detector on `127.0.0.1:50057` and bridge on `127.0.0.1:8080`. In the popup, **Ctrl+Shift+D** reveals the hidden **Use local development servers** setting; it switches model and telemetry connections and restarts the workstation runtime.
 
 Evaluation and integration tests run as [host Python scripts](evaluation/README.md).
-The development stack publishes the fuzzer on `127.0.0.1:50053` and the server
+With the explicit legacy training profile, the development stack publishes the fuzzer on `127.0.0.1:50053`; the server
 runtime on `127.0.0.1:50054` for those scripts.
 
 ## Compute Engine deployment

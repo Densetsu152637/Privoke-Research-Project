@@ -33,6 +33,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("load model catalog: %v", err)
 	}
+	if isStandardV3(config.latestModelID) {
+		catalog.releases, err = openStandardReleases(config.releaseDir)
+		if err != nil {
+			log.Fatalf("load standard V3 packages: %v", err)
+		}
+	}
 	listener, err := net.Listen("tcp", ":"+strconv.Itoa(config.port))
 	if err != nil {
 		log.Fatalf("listen failed: %v", err)

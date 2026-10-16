@@ -1,0 +1,13 @@
+# Explicit historical V1 integration coverage, without ignored external AU3 assets.
+# Use with --profile legacy-training; this is not V3 installed verification.
+services:
+  model-streaming-service:
+    environment:
+      MODEL_LATEST_ID: privoke-balanced
+    volumes:
+      - legacy-ci-unused-packages:/model-releases:ro
+  client-runtime:
+    environment:
+      MODEL_ID: privoke-balanced
+volumes:
+  legacy-ci-unused-packages:

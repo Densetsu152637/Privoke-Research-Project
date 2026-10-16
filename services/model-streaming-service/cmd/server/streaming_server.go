@@ -28,6 +28,13 @@ func (s *streamingServer) GetModelParameters(
 	if err := s.validateRequest(req); err != nil {
 		return nil, err
 	}
+	id := req.GetModelId()
+	if id == "" || id == latestModelAlias {
+		id = s.catalog.latestModelID
+	}
+	if isStandardV3(id) {
+		return nil, status.Error(codes.FailedPrecondition, "V3 models require the binary package RPCs; legacy float tensor limits are unchanged")
+	}
 	artifact, err := s.catalog.load(req.GetModelId())
 	if err != nil {
 		if !s.catalog.contains(req.GetModelId()) {

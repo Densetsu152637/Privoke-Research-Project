@@ -14,6 +14,7 @@ class StreamedPretrainedContextModel(StreamedTransformerPrivacyModel):
     """Reuse the semantic finding contract while replacing only model execution."""
 
     def __init__(self, snapshot: ParameterSnapshot, encoder=None):
+        self.prediction_observer = None
         config = validate_pretrained_stream(snapshot.model_id, snapshot.metadata)
         validate_pretrained_release_identity(snapshot.version, snapshot.generated_at_unix)
         validate_pretrained_parameters(snapshot.parameters, snapshot.shapes, {name: False for name in snapshot.parameters})

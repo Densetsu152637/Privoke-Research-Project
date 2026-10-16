@@ -122,6 +122,7 @@ jobs:
           IMAGE_PREFIX: australia-southeast1-docker.pkg.dev/example/privoke
           IMAGE_TAG: "0000000000000000000000000000000000000000"
           SECRETS_DIR: /tmp/privoke-ci-secrets
+          MODEL_RELEASE_DIR: /tmp/privoke-ci-unmounted-releases
         run: |
           docker compose -f deploy/gce/compose.yml config --quiet
           bash -n deploy/gce/bootstrap.sh deploy/gce/deploy.sh
@@ -221,7 +222,7 @@ jobs:
           if-no-files-found: warn
 
   docker-stack:
-    name: Explicit product pipeline and deployment integration
+    name: Explicit legacy V1 product pipeline and deployment integration
     if: ${{ inputs.allow_product_pipeline == true }}
     needs:
       - extension-tests
@@ -232,7 +233,8 @@ jobs:
     timeout-minutes: 40
     env:
       COMPOSE_PROJECT_NAME: privoke-ci-${{ github.run_id }}-${{ github.run_attempt }}
-      COMPOSE_FILE: docker-compose.yml:evaluation/compose.localhost.yml
+      COMPOSE_FILE: docker-compose.yml:evaluation/compose.localhost.yml:evaluation/compose.legacy-ci.yml
+      COMPOSE_PROFILES: legacy-training
       FUZZER_PROMPT_COUNT: "0"
     steps:
       - uses: actions/checkout@v6
@@ -248,7 +250,7 @@ jobs:
       - name: Validate production and development Compose configurations
         run: |
           docker compose config --quiet
-          docker compose -f docker-compose.yml -f docker-compose.dev.yml config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml -f evaluation/compose.legacy-ci.yml config --quiet
 
       - name: Build every production microservice image
         run: docker compose build --pull
@@ -309,7 +311,7 @@ jobs:
 
       - name: Start the development stack and wait for gRPC health checks
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.dev.yml \
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml -f evaluation/compose.legacy-ci.yml \
             up -d --build --wait --wait-timeout 240
 
       - name: Exercise all development gRPC service paths

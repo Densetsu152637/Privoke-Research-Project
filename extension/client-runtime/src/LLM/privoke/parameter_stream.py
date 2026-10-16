@@ -177,6 +177,12 @@ class ModelParameterStreamer:
             options=(("grpc.max_receive_message_length", 8 * 1024 * 1024),),
         ) as channel:
             client = parameters_pb2_grpc.ModelStreamingServiceStub(channel)
+            if self.model_id == self.DEFAULT_MODEL_ID or self.model_id.startswith("privoke-v3-"):
+                from .v3_package import fetch_package
+                package = fetch_package(client, parameters_pb2.ModelParametersRequest(
+                    consumer_id=self.consumer_id, model_id=self.model_id), target=self.target, timeout=self.timeout_seconds)
+                if package is not None:
+                    return package
             chunks = client.StreamModelParameters(
                 parameters_pb2.ModelParametersRequest(
                     consumer_id=self.consumer_id,

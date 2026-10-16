@@ -179,6 +179,24 @@ Semantic classifiers are in `src/LLM`:
 - `LocalClassifier` calls an OpenAI-compatible local API such as LM Studio.
 - `OpenClassifier` calls the OpenAI SDK.
 
+## Standard pretrained V3 runtime
+
+The ordinary streamed backend loads the pinned selected AU3 packages through the
+maintained binary service and native disk cache. `latest` is V3 balanced; explicit
+`privoke-v3-{efficient,balanced,quality}` select each tier. The complete pretrained
+encoder/pooler and fitted heads load strictly, with no random initialization or
+Tiny fallback. Size/hash/order/manifest failures reject loading. V3 uses verified
+CPU inference; explicit CUDA/MPS requests reject clearly.
+
+`MODEL_PACKAGE_CACHE_DIR` selects the private cache (otherwise the workstation
+private cache directory). `MODEL_PACKAGE_TIMEOUT_SECONDS` defaults to 120 seconds
+per initial asset download. TTL refresh checks only the small manifest, not all
+weights. Both clean and finding responses include architecture, exact manifest
+checksum, blob fingerprint, backbone and tokenizer identity. Legacy gradient APIs
+reject V3; the legacy presence gate remains limited to explicit V1 balanced.
+
+The research runtime below remains a separate route.
+
 ## Experimental pretrained v3 runtime
 
 The [v3 study runtime](../pretrained-v3-study.md) is an isolated Python server
@@ -232,8 +250,8 @@ Environment variables:
 - `MODEL_ID`, default `latest`; `MODEL_STREAMING_CONSUMER_ID`; `MODEL_STREAMING_TIMEOUT_SECONDS`
 - `MODEL_STREAMING_CACHE_TTL_SECONDS`, default `1.0`; coalesces concurrent
   classifications onto one immutable streamed snapshot before checking for a new version
-- `PRIVOKE_MODEL_DEVICE`, default `auto`; uses CUDA or Apple MPS through PyTorch when
-  available and otherwise keeps inference on the NumPy CPU backend
+- `PRIVOKE_MODEL_DEVICE`, default `auto`; V3 uses verified Torch CPU. Explicit legacy
+  V1 can use CUDA/MPS through PyTorch or the NumPy CPU backend
 - `LM_STUDIO_BASE_URL`, `LM_STUDIO_MODEL`, `LM_STUDIO_API_KEY`, `LM_STUDIO_TIMEOUT_SECONDS`, `LM_STUDIO_TEMPERATURE`, `LM_STUDIO_MAX_TOKENS`, `LM_STUDIO_RESPONSE_FORMAT`
 - `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `OPENAI_API_BASE`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_TEMPERATURE`, `OPENAI_MAX_TOKENS`
 - `TELEMETRY_ENABLED`, default `false` outside Compose
@@ -254,8 +272,8 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
 ```
 
 The normal Compose files do not request a GPU and remain portable to CPU-only hosts.
-The override also installs `requirements-gpu.txt`; the base image omits PyTorch and
-therefore avoids carrying CUDA libraries when only CPU inference is needed.
+The override also installs `requirements-gpu.txt`; the base image installs the
+pinned CPU Torch inference dependency. Standard V3 currently supports CPU only.
 
 ## Telemetry
 
@@ -270,6 +288,7 @@ cd extension/client-runtime
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
+pip install -r requirements-inference-cpu.txt --index-url https://download.pytorch.org/whl/cpu
 pip install ../../shared/python
 mkdir generated  # omit this line when the directory already exists
 python -m grpc_tools.protoc \
@@ -288,7 +307,7 @@ browser extension, install PyTorch into this same environment:
 pip install -r requirements-gpu.txt
 ```
 
-With `PRIVOKE_MODEL_DEVICE=auto` (the default), CUDA is preferred, then Apple MPS, with
+For explicit legacy V1 models, `PRIVOKE_MODEL_DEVICE=auto` prefers CUDA, then Apple MPS, with
 an automatic NumPy CPU fallback. This affects only the streamed transformer; regex and
 spaCy NER continue to execute on CPU. The `docker-compose.gpu.yml` override configures a
 different, server-side runtime and does not accelerate requests made by the extension.

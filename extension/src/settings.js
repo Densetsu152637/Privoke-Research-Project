@@ -2,17 +2,23 @@ import { localStorageArea, storageGet, storageSet } from "./webextension-api.js"
 
 export const MODEL_QUALITY = Object.freeze({
   LATEST: "latest",
-  EFFICIENT: "efficient",
-  BALANCED: "balanced",
-  QUALITY: "quality",
+  EFFICIENT: "v3-efficient",
+  BALANCED: "v3-balanced",
+  QUALITY: "v3-quality",
+  LEGACY_EFFICIENT: "legacy-efficient",
+  LEGACY_BALANCED: "legacy-balanced",
+  LEGACY_QUALITY: "legacy-quality",
 });
 
 const MODEL_IDS = Object.freeze({
   // Empty means "do not pin"; the runtime follows its configured latest channel.
   [MODEL_QUALITY.LATEST]: "",
-  [MODEL_QUALITY.EFFICIENT]: "privoke-efficient",
-  [MODEL_QUALITY.BALANCED]: "privoke-balanced",
-  [MODEL_QUALITY.QUALITY]: "privoke-quality",
+  [MODEL_QUALITY.EFFICIENT]: "privoke-v3-efficient",
+  [MODEL_QUALITY.BALANCED]: "privoke-v3-balanced",
+  [MODEL_QUALITY.QUALITY]: "privoke-v3-quality",
+  [MODEL_QUALITY.LEGACY_EFFICIENT]: "privoke-efficient",
+  [MODEL_QUALITY.LEGACY_BALANCED]: "privoke-balanced",
+  [MODEL_QUALITY.LEGACY_QUALITY]: "privoke-quality",
 });
 
 export const DEFAULT_SETTINGS = Object.freeze({
@@ -84,6 +90,9 @@ function booleanOrDefault(value, fallback) {
 
 function normaliseModelQuality(value) {
   if (MODEL_QUALITIES.has(value.modelQuality)) return value.modelQuality;
+  // Explicit selections saved by the V1 extension retain their old family.
+  if (["efficient", "balanced", "quality"].includes(value.modelQuality))
+    return `legacy-${value.modelQuality}`;
 
   // Migrate settings saved before model quality profiles were introduced.
   const legacyModelId = typeof value.modelId === "string" ? value.modelId.trim() : "";

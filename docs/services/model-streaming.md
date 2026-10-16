@@ -16,6 +16,32 @@ queries and full updates publish the complete candidate atomically. Existing v1
 artifacts remain supported. See [the artifact contract](model-artifacts.md#opt-in-tiny-task-query-readouts)
 for migration and parameter counts; support does not change the release channel.
 
+## Standard V3 binary packages
+
+`latest` resolves to `privoke-v3-balanced`. The maintained Go service serves the
+three exact selected AU3 inference packages through `GetModelPackage` and
+`StreamModelAsset`. Run `python models/prepare_standard_releases.py` from the
+repository root before starting Compose. This verifies and copies the immutable
+local AU3 exports into ignored `models/standard-releases`; it performs no fitting.
+Compose mounts this store read-only and refuses an absent store. Deployments must
+stage that prepared directory separately and set `MODEL_RELEASE_DIR`; weights are
+excluded from Git and image build contexts. This task does not deploy them.
+
+Canonical model IDs, manifest SHA-256 pins and four asset names are allowlisted.
+Ordered binary chunks are bounded to 1 MiB, assets to 80 MiB, and manifests to
+256 KiB. Startup verifies all asset hashes; streams recheck hashes and manifest
+identity and fail on mutation. Health and client refresh check small manifests
+and file identities, rather than repeatedly loading model weights. The native
+product cache verifies size/hash/order and exact manifest identity before loading
+the complete BERT encoder, pooler and fitted heads. No Tiny fallback is used.
+
+Explicit `privoke-efficient`, `privoke-balanced`, `privoke-quality` and
+`privoke-baseline` retain the older V1 float RPCs and their original bounds. A
+server configured with an explicit legacy `MODEL_LATEST_ID` remains a legacy-only
+server; it does not admit V3 packages. The separate MiniLM family remains explicit
+only. Mutable legacy JSON updates cannot change the configured V3 alias or the
+read-only pinned release store.
+
 ## Separate experimental v3 checkpoint service
 
 The [pretrained v3 stack](../pretrained-v3-study.md#isolated-services-and-binary-publication)
@@ -24,7 +50,7 @@ It validates pinned manifests and complete safetensors before atomic publication
 staged/rejected candidates do not change the serving pointer. Its 80 MiB blob,
 1 MiB chunk and 256 KiB manifest bounds are independent of this Go service.
 The JSON/tensor transport and 65,536-value limits below describe legacy families.
-V3 does not become `latest` or establish browser/native consumer integration.
+That research server remains separate from the maintained product package route above.
 
 ## Artifact
 
@@ -51,7 +77,7 @@ the existing 65,536 numeric-value and 8 MiB artifact limits remain in force.
 
 The six allowlisted `privoke-scratch-presence-{efficient,balanced,quality}-{head-only,full-encoder}` IDs use their exact `<model-id>.json` filenames. The service checks those files on each explicit request, so an atomically installed artifact is available without restarting the service. It reads through the directory handle captured at startup, binds the inspected regular file to the opened descriptor, and validates the bounded bytes read from that descriptor. Removing a file returns `NOT_FOUND`; a present but invalid file returns `UNAVAILABLE`. Missing optional scratch files leave baseline health unchanged, while an invalid present file makes health `NOT_SERVING`. Unknown scratch IDs are never turned into filenames or discovered by a rescan, and scratch IDs cannot become `latest`.
 
-The default `latest` alias still resolves to `privoke-balanced`; installing a
+The default `latest` alias resolves to `privoke-v3-balanced`; installing a
 presence artifact does not change that release channel. Presence is a separate
 binary task, with no inferred contextual severity or privacy action. See
 [model artifacts](model-artifacts.md) and the
@@ -61,8 +87,10 @@ binary task, with no inferred contextual severity or privacy action. See
 
 Defined in `shared/proto/privoke/v1/parameters.proto`:
 
-- `StreamModelParameters(ModelParametersRequest) -> stream ModelParameterChunk` is the primary runtime-consumer API. Tensor values are sent in ordered chunks with offsets and shapes; the fuzzer calls the runtime rather than this service.
+- `StreamModelParameters(ModelParametersRequest) -> stream ModelParameterChunk` is the legacy runtime-consumer API. Tensor values are sent in ordered chunks with offsets and shapes; the fuzzer calls the runtime rather than this service.
 - `GetModelParameters(ModelParametersRequest) -> ModelParametersResponse` remains as a unary compatibility and inspection API.
+- `GetModelPackage` returns the pinned manifest and asset size/hash declarations.
+- `StreamModelAsset` streams one explicitly pinned, allowlisted binary asset.
 - `Health(HealthRequest) -> HealthResponse` returns `SERVING` only while the configured artifact can be loaded and validated.
 
 Each stream is pinned to one artifact version. The service verifies the canonical
@@ -83,8 +111,9 @@ consumers retain the contextual path.
 Environment variables:
 
 - `MODEL_STREAMING_PORT`, default `50051`
-- `MODEL_LATEST_ID`, default `privoke-balanced`
-- `MODEL_ARTIFACT_DIR`, default `/models`
+- `MODEL_LATEST_ID`, default `privoke-v3-balanced`
+- `MODEL_ARTIFACT_DIR`, default `/models` (legacy JSON)
+- `MODEL_RELEASE_DIR`, default `/model-releases` (prepared pinned V3 packages)
 
 Production Compose and Compute Engine use the persistent `model-data` volume: this service mounts it read-only, and the update service mounts it read-write. The initializer seeds artifacts while preserving existing trained contents. The development override replaces these model mounts with repository `./models` binds, read-only here and read-write in the updater. An atomically published revision is loaded on the next streaming request; the client cache refreshes after its configured interval rather than on every prompt.
 
@@ -105,3 +134,9 @@ transport; it does not establish training qualification or measured quality.
 # Frozen-window policy identity
 
 Go admission recognizes the separate `full_projected_adam64_window_checkpoint_v1` optimizer, exact canonical frozen-window configuration, `candidate_window_exact_component_retention_v1` eligibility and both window/component manifest pins. It rejects orphan pins, policy mixtures and changed configuration, while preserving earlier Adam/retention contracts. Existing full tensor validation applies to both legacy and v2 task-query shapes. Stream cache identity includes all new policy/config/pin fields, preventing reuse of a snapshot under changed window semantics. No study result or default artifact is replaced by this opt-in capability.
+
+Normal startup seeds existing legacy JSON without training. Fuzzer and updater
+services require the explicit `legacy-training` Compose profile; their bootstrap
+and gradient/update paths remain legacy-only. Standard V3 is inference/refresh
+only: legacy gradient requests reject it explicitly. Selecting V3 reflects bounded
+AU3 research results, not universal superiority or a retention guarantee.

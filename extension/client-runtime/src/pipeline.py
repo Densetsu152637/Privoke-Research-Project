@@ -408,9 +408,14 @@ def _execute_semantic_with_presence_gate(
 
 def _semantic_snapshot_identity(model):
     snapshot = model.snapshot
-    return {"model_id": snapshot.model_id, "model_version": snapshot.version,
+    identity = {"model_id": snapshot.model_id, "model_version": snapshot.version,
             "artifact_checksum": snapshot.metadata["artifact_checksum"],
-            "parameter_fingerprint": snapshot.fingerprint}
+            "parameter_fingerprint": snapshot.fingerprint,
+            "architecture": snapshot.metadata.get("architecture", "unknown")}
+    for name in ("backbone_sha256", "tokenizer_sha256"):
+        if name in snapshot.metadata:
+            identity[name] = snapshot.metadata[name]
+    return identity
 
 
 def _streamed_model_for_semantic_detector(semantic_detector):

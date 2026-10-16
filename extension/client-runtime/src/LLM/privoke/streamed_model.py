@@ -154,6 +154,8 @@ class StreamedModelCache:
         if streamer.model_id == PRETRAINED_CONTEXT_MODEL_ID:
             raise ValueError("Pretrained contextual online training is unsupported; use offline head fitting.")
         model = self._model_for_streamer(streamer, force_refresh=True)
+        if model.snapshot.metadata.get("architecture") == "privoke_pretrained_bert_v3":
+            raise ValueError("Standard V3 inference packages do not support legacy gradient/update APIs.")
         if model.snapshot.metadata.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE:
             raise ValueError("Pretrained contextual online training is unsupported; use offline head fitting.")
         return model
@@ -301,6 +303,8 @@ class StreamedModelCache:
             return model
 
     def _semantic_cache_key(self, snapshot):
+        if snapshot.metadata.get("architecture") == "privoke_pretrained_bert_v3":
+            return snapshot.cache_key
         if (snapshot.metadata.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE
                 or snapshot.model_id == PRETRAINED_CONTEXT_MODEL_ID):
             config = validate_pretrained_stream(snapshot.model_id, snapshot.metadata)
@@ -309,6 +313,11 @@ class StreamedModelCache:
         return snapshot.cache_key
 
     def _semantic_model(self, snapshot):
+        if snapshot.metadata.get("architecture") == "privoke_pretrained_bert_v3":
+            from .v3_package import NativeV3PrivacyModel, NativeV3Package
+            if not isinstance(snapshot, NativeV3Package):
+                raise ValueError("V3 requires the distinct validated binary package contract")
+            return NativeV3PrivacyModel(snapshot)
         if snapshot.metadata.get("architecture") == PRETRAINED_CONTEXT_ARCHITECTURE:
             from .pretrained_context_model import StreamedPretrainedContextModel
             max_tokens = validate_pretrained_stream(snapshot.model_id, snapshot.metadata)["max_tokens"]

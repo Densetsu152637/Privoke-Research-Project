@@ -17,6 +17,7 @@ var errScratchArtifactAbsent = errors.New("scratch artifact is absent")
 // Requests never become file paths directly, which prevents path traversal.
 type modelCatalog struct {
 	latestModelID string
+	releases      *standardReleases
 	directory     string
 	directoryRoot *os.Root
 	directoryInfo os.FileInfo
@@ -105,7 +106,7 @@ func loadModelCatalog(directory, latestModelID string) (*modelCatalog, error) {
 	if len(catalog.paths) == 0 {
 		return nil, fmt.Errorf("model artifact directory contains no models")
 	}
-	if _, exists := catalog.paths[latestModelID]; !exists {
+	if _, exists := catalog.paths[latestModelID]; !exists && !isStandardV3(latestModelID) {
 		return nil, fmt.Errorf("latest model %q is not in the catalog", latestModelID)
 	}
 	keepDirectoryRoot = true
@@ -245,6 +246,9 @@ func (c *modelCatalog) openScratch(name string) (*os.File, error) {
 }
 
 func (c *modelCatalog) contains(requestedModelID string) bool {
+	if isStandardV3(requestedModelID) {
+		return c.releases != nil
+	}
 	if requestedModelID == "" || requestedModelID == latestModelAlias {
 		return true
 	}
@@ -274,6 +278,11 @@ func (c *modelCatalog) modelIDs() []string {
 			}
 		}
 	}
+	if c.releases != nil {
+		for id := range standardV3Pins {
+			modelIDs = append(modelIDs, id)
+		}
+	}
 	sort.Strings(modelIDs)
 	return modelIDs
 }
@@ -289,6 +298,14 @@ func scratchModelIDs() map[string]struct{} {
 }
 
 func (c *modelCatalog) validate() error {
+	if isStandardV3(c.latestModelID) {
+		if c.releases == nil {
+			return fmt.Errorf("standard V3 releases unavailable")
+		}
+		if err := c.releases.validate(); err != nil {
+			return err
+		}
+	}
 	if isScratchModelID(c.latestModelID) {
 		return fmt.Errorf("scratch presence cannot be the latest model")
 	}

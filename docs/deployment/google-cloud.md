@@ -168,14 +168,23 @@ GitHub **Settings → Environments → production** must contain these secrets, 
 
 These values are stored as GitHub secrets in the `production` environment. Restrict the environment to the `main` branch and protect `main` with required CI/review checks. Leave required environment reviewers unset for automatic deployment; enabling them intentionally introduces an approval gate. `.env` files are not uploaded to GitHub automatically.
 
-Automatic training defaults to 32 prompts at startup and an hourly interval.
+Standard startup serves V3 balanced without training. Stage the locally prepared
+`models/standard-releases` directory separately on the VM, retain its provenance,
+and set `MODEL_RELEASE_DIR` to that existing absolute directory in the operator
+`.env`. These weights are excluded from release images; deploy.sh does not fetch
+them and refuses a missing staging directory. `MODEL_LATEST_ID` defaults to
+`privoke-v3-balanced`; the path and alias are saved into release.env for rollback.
+No deployment or V3 GPU support is implied by local validation.
+
+Legacy V1 training requires the explicit `legacy-training` Compose profile.
+Within that opt-in profile, requests default to 32 prompts at startup and hourly.
 `FUZZER_PROMPT_COUNT=0` in the VM `.env` disables it. Accepted model updates write
 persistent state. Workstation OpenAI/LM Studio keys are unrelated to these
 deployment identities and are never required for the streamed server stack.
 
 ### Training cycles and telemetry boundary
 
-The fuzzer and parameter-update service request repeated supervised Tiny training by default. Each automatic cycle performs head training followed by full encoder-and-head training on the same selected model ID. The maintained Compose file sets `FUZZER_TRAIN_UNDERLYING=true`; a reviewed Compose override setting it to `false` selects the head stage only (this value is not one of the release `.env` substitutions below). Each stage has an independent quality gate and atomic publication: if the second fails, an accepted first update remains. Both use explicit semantic-only runtime execution; regex and NER are not part of these training/guard phases.
+The fuzzer and parameter-update service request supervised Tiny training only in the explicit legacy profile. Each automatic cycle performs head training followed by full encoder-and-head training on the same selected model ID. The maintained Compose file sets `FUZZER_TRAIN_UNDERLYING=true`; a reviewed Compose override setting it to `false` selects the head stage only (this value is not one of the release `.env` substitutions below). Each stage has an independent quality gate and atomic publication: if the second fails, an accepted first update remains. Both use explicit semantic-only runtime execution; regex and NER are not part of these training/guard phases.
 Configure `FUZZER_PROMPT_COUNT`, `FUZZER_REQUEST_INTERVAL_SECONDS` and
 `FUZZER_REQUEST_SEED` in the VM `.env`; defaults are `32`, `3600` and `1337`.
 Count `0` disables training, while interval `0` requests one startup cycle.
@@ -184,16 +193,16 @@ cycles exhaust their bounded retries before waiting for the next interval.
 All three values are saved into each release's `release.env`; changing the VM
 `.env` affects a later deployment, not an already running release. The service
 writes update history to `param-update-data` and the resulting model to
-`model-data`. The durable `FUZZER_CYCLE_STATE_PATH=/data/training-cycles.sqlite3` journal resumes uncertain stages with the same IDs and seed, skips acknowledged stages and preserves completed one-shot status across restarts. Definite rejection records a partial/rejected cycle; the next periodic cycle uses a new seed. The second stage requires the first stage's committed base, so an intervening update is rejected rather than overwritten. The maintained runtime image includes CPU Torch 2.10.0 and checks autograd readiness before training. Disable automatic training before a controlled research study. Source and local-test validation do not imply these changes have been deployed to a VM.
+`model-data`. The durable `FUZZER_CYCLE_STATE_PATH=/data/training-cycles.sqlite3` journal resumes uncertain stages with the same IDs and seed, skips acknowledged stages and preserves completed one-shot status across restarts. Definite rejection records a partial/rejected cycle; the next periodic cycle uses a new seed. The second stage requires the first stage's committed base, so an intervening update is rejected rather than overwritten. The maintained runtime image includes CPU Torch 2.11.0; legacy training configuration can require its autograd readiness probe. Disable automatic training before a controlled research study. Source and local-test validation do not imply these changes have been deployed to a VM.
 
 This stack does not train on browser-extension traffic. With the checked-in Compose settings, the server-side `client-runtime` sends locally randomized categorical telemetry to `telemetry-service`; workstation telemetry is disabled by default and can be enabled separately. Each report contains randomized action, risk bucket, primary category, fixed model release, and randomized four-hour time-of-day bucket. It excludes prompts, identifiers, target app names, exact timestamps, exact scores, text length, and layer timings. The event-level local-DP guarantee, daily installation-local budget, exact aggregate sample count, transport metadata limits, and legacy database handling are documented in [Telemetry service](../services/telemetry.md). This is not user-level or event-existence privacy: report presence, timing, IP address and operational logs remain outside the guarantee.
 
 To run one deliberate cycle, first back up the model and update volumes, then
-deploy with a reviewed `.env` containing (for example) `FUZZER_PROMPT_COUNT=8`
+configure the explicit legacy training profile with a reviewed `.env` containing (for example) `FUZZER_PROMPT_COUNT=8`
 and `FUZZER_REQUEST_INTERVAL_SECONDS=0`. Verify the fuzzer and parameter-update
 logs, inspect the update artifact, and record the resulting model ID/fingerprint.
-Set count to `0` and redeploy to keep training disabled afterward, or restore the
-hourly settings for automatic operation. Do not delete `model-data` to force an
+Stop the legacy profile services to disable training afterward; setting count to
+`0` disables its request scheduler. The standard V3 serving path is inference-only. Do not delete `model-data` to force an
 update; that removes the persistent model and causes the one-time seed copy to
 run again.
 
@@ -201,7 +210,11 @@ run again.
 
 Push the prepared repository changes to `main` or run **Actions → Deploy Compute Engine → Run workflow** on `main`. The workflow verifies the complete stack, builds all five images, authenticates with the `GCP_SA_KEY` secret, publishes them, transfers just deployment files through IAP, then runs the VM deployment script.
 
-The script validates inputs, locks deployment, fetches TLS secrets, pulls images, validates nginx, and runs `docker compose up --wait`. Model seeds are copied from the parameter-update image only when the model volume has never been initialized. On every startup the bootstrap additionally checks the selected mutable artifact for the full-Tiny capability, including already-initialized volumes. It checkpoints recovery receipts under the writer lock and migrates current learned coordinates to a new bound version/checksum, extending position rows to at least `MODEL_TRAINING_MAX_TOKENS=256` (255 content tokens plus one start token). An already-capable artifact with sufficient context is reused unchanged. Historical tracked model files are not rewritten. Later deploys therefore preserve learned values while deliberately migrating the selected artifact contract. The successful release lives at `/opt/privoke/current`; Compose always uses the project name `privoke` so volume identities are stable. It does not automatically delete old releases or data.
+The script validates inputs, locks deployment, fetches TLS secrets, pulls images, validates nginx, and runs `docker compose up --wait`. Model seeds are copied from the parameter-update image only when the model volume has never been initialized. Normal startup does not bootstrap or migrate learned weights. Only the explicit
+legacy-training updater command runs its Tiny capability bootstrap; it preserves
+legacy learned coordinates and writes recovery receipts under its writer lock.
+It cannot update the pinned read-only V3 packages or change the configured V3 alias.
+The successful release lives at `/opt/privoke/current`; Compose always uses the project name `privoke` so volume identities are stable. It does not automatically delete old releases or data.
 
 On the VM:
 
@@ -251,7 +264,7 @@ Monitor free disk, certificate expiry, VM health, container restarts and deploym
 
 ### Persistence, cost control and teardown
 
-The checked-in deployment stores its named Docker volumes on the VM's persistent boot disk: `model-data`, `param-update-data`, `telemetry-data`, and `fuzzer-dumps`. The example VM uses a 100 GB `pd-balanced` boot disk and sets `--no-boot-disk-auto-delete`, so deleting the VM does not delete that disk. This is the repository's supported persistence arrangement; it is not a separate managed database or automatically replicated backup. If you attach a separate persistent disk, mount it before bootstrap and relocate Docker's data root using an operator-managed procedure; do not change volume paths casually because the deployment scripts assume stable Compose volume names.
+The checked-in deployment stores its named Docker volumes on the VM's persistent boot disk: `model-data`, `model-package-cache`, `param-update-data`, `telemetry-data`, and `fuzzer-dumps`. The example VM uses a 100 GB `pd-balanced` boot disk and sets `--no-boot-disk-auto-delete`, so deleting the VM does not delete that disk. This is the repository's supported persistence arrangement; it is not a separate managed database or automatically replicated backup. If you attach a separate persistent disk, mount it before bootstrap and relocate Docker's data root using an operator-managed procedure; do not change volume paths casually because the deployment scripts assume stable Compose volume names.
 
 Google Cloud bills the VM, boot disk, reserved static address, Artifact Registry storage, and Secret Manager storage while they exist. Before teardown, export and verify required backups, record the release/model metadata, and revoke client certificates or rotate the client CA. Then stop the stack and remove the VM resources when they are no longer needed:
 
@@ -276,7 +289,7 @@ The retained boot disk is intentionally not deleted by the instance command; del
 | nginx configuration fails | PEM files, matching server certificate/key, client CA and directory mount |
 | Cloud LLM health offline | DNS, server SAN/trust, client certificate expiry and private key, port 443 firewall |
 | Local development works, cloud fails | Hidden toggle state and installation `.env`; local mode bypasses cloud TLS by design |
-| Model release appears unchanged | Seeds are copied once; the selected-artifact bootstrap migrates capability while preserving learned coordinates, and reuses an already-capable release. Inspect bootstrap/update receipts; never delete the volume to force migration |
+| Model release appears unchanged | V3 uses exact pinned packages in a separate read-only store. Legacy seeds are copied once; its opt-in bootstrap preserves learned coordinates. Inspect provenance/update receipts; never delete a volume to force migration |
 
 ## 9. Configure and operate a workstation installation
 

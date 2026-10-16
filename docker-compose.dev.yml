@@ -15,7 +15,7 @@ services:
       - "127.0.0.1:50051:50051"
     environment:
       MODEL_STREAMING_PORT: 50051
-      MODEL_LATEST_ID: privoke-balanced
+      MODEL_LATEST_ID: ${MODEL_LATEST_ID:-privoke-v3-balanced}
       MODEL_ARTIFACT_DIR: /models
       GOTMPDIR: /workspace/.tmp/go-build
     healthcheck:
@@ -88,7 +88,7 @@ services:
       [
         "sh",
         "-c",
-        "mkdir -p /workspace/services/param-update-service/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/param-update-service/generated --grpc_python_out=/workspace/services/param-update-service/generated /workspace/shared/proto/privoke/v1/parameters.proto && python app/server.py",
+        "mkdir -p /workspace/services/param-update-service/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/param-update-service/generated --grpc_python_out=/workspace/services/param-update-service/generated /workspace/shared/proto/privoke/v1/parameters.proto && python app/bootstrap.py && python app/server.py",
       ]
 
   telemetry-service:

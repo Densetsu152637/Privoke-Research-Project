@@ -13,7 +13,8 @@ flock -n 9 || { echo 'Another deployment is active.' >&2; exit 1; }
 # Only root/admins can write this operator-owned configuration.
 # shellcheck source=/dev/null
 source "$root/.env"
-: "${GCP_PROJECT_ID:?}" "${TLS_CERT_SECRET:?}" "${TLS_KEY_SECRET:?}" "${CLIENT_CA_SECRET:?}"
+: "${GCP_PROJECT_ID:?}" "${TLS_CERT_SECRET:?}" "${TLS_KEY_SECRET:?}" "${CLIENT_CA_SECRET:?}" "${MODEL_RELEASE_DIR:?Stage verified V3 packages first}"
+[[ $MODEL_RELEASE_DIR = /* && -d $MODEL_RELEASE_DIR ]] || { echo 'MODEL_RELEASE_DIR must be an existing absolute directory.' >&2; exit 1; }
 source_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 release_dir=$(mktemp -d "$root/releases/${release_tag}.XXXXXX")
 install -m 0600 "$source_dir/compose.yml" "$source_dir/nginx.conf" "$release_dir/"
@@ -22,12 +23,13 @@ install -d -m 0700 "$release_dir/secrets"
 gcloud secrets versions access latest --project="$GCP_PROJECT_ID" --secret="$TLS_CERT_SECRET" > "$release_dir/secrets/server.crt"
 gcloud secrets versions access latest --project="$GCP_PROJECT_ID" --secret="$TLS_KEY_SECRET" > "$release_dir/secrets/server.key"
 gcloud secrets versions access latest --project="$GCP_PROJECT_ID" --secret="$CLIENT_CA_SECRET" > "$release_dir/secrets/client-ca.crt"
-printf 'IMAGE_PREFIX=%s\nIMAGE_TAG=%s\nSECRETS_DIR=%s\nFUZZER_PROMPT_COUNT=%s\nFUZZER_REQUEST_INTERVAL_SECONDS=%s\nFUZZER_REQUEST_SEED=%s\n' \
+printf 'IMAGE_PREFIX=%s\nIMAGE_TAG=%s\nSECRETS_DIR=%s\nMODEL_RELEASE_DIR=%s\nMODEL_LATEST_ID=%s\nFUZZER_PROMPT_COUNT=%s\nFUZZER_REQUEST_INTERVAL_SECONDS=%s\nFUZZER_REQUEST_SEED=%s\n' \
   "$image_prefix" "$release_tag" "$release_dir/secrets" \
+  "$MODEL_RELEASE_DIR" "${MODEL_LATEST_ID:-privoke-v3-balanced}" \
   "${FUZZER_PROMPT_COUNT:-32}" "${FUZZER_REQUEST_INTERVAL_SECONDS:-3600}" \
   "${FUZZER_REQUEST_SEED:-1337}" > "$release_dir/release.env"
 # Compose must use the saved release values, including during rollback.
-unset IMAGE_PREFIX IMAGE_TAG SECRETS_DIR FUZZER_PROMPT_COUNT FUZZER_REQUEST_INTERVAL_SECONDS FUZZER_REQUEST_SEED
+unset IMAGE_PREFIX IMAGE_TAG SECRETS_DIR MODEL_RELEASE_DIR MODEL_LATEST_ID FUZZER_PROMPT_COUNT FUZZER_REQUEST_INTERVAL_SECONDS FUZZER_REQUEST_SEED
 export DOCKER_CONFIG
 DOCKER_CONFIG=$(mktemp -d)
 trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT

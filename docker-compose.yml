@@ -28,8 +28,7 @@ services:
     command:
       - |
         cp -n /models/*.json /state/models/
-        python /workspace/services/param-update-service/app/bootstrap.py
-        chown -R 10001:10001 /state/models /state/parameter-updates /state/telemetry /state/telemetry-client /state/fuzzer-dumps
+        chown -R 10001:10001 /state/models /state/parameter-updates /state/telemetry /state/telemetry-client /state/fuzzer-dumps /state/model-packages
     environment:
       MODEL_ID: privoke-balanced
       MODEL_ARTIFACT_PATH: /state/models/privoke-balanced.json
@@ -37,6 +36,7 @@ services:
       MODEL_TRAINING_MAX_TOKENS: 256
     volumes:
       - model-data:/state/models
+      - model-package-cache:/state/model-packages
       - param-update-data:/state/parameter-updates
       - telemetry-data:/state/telemetry
       - telemetry-client-state:/state/telemetry-client
@@ -56,10 +56,16 @@ services:
       - "50051"
     environment:
       MODEL_STREAMING_PORT: 50051
-      MODEL_LATEST_ID: privoke-balanced
+      MODEL_LATEST_ID: ${MODEL_LATEST_ID:-privoke-v3-balanced}
       MODEL_ARTIFACT_DIR: /models
+      MODEL_RELEASE_DIR: /model-releases
     volumes:
       - model-data:/models:ro
+      - type: bind
+        source: ./models/standard-releases
+        target: /model-releases
+        read_only: true
+        bind: {create_host_path: false}
     healthcheck:
       test: ["CMD", "/model-streaming-service", "healthcheck"]
       interval: 2s
@@ -68,6 +74,8 @@ services:
       start_period: 5s
 
   param-update-service:
+    profiles: [legacy-training]
+    command: [sh, -ec, "python app/bootstrap.py && exec python app/server.py"]
     <<: *service-security
     restart: unless-stopped
     build:
@@ -154,8 +162,6 @@ services:
     build:
       context: .
       dockerfile: extension/client-runtime/Dockerfile
-      args:
-        PRIVOKE_INSTALL_TRAINING_CPU: "true"
     container_name: client-runtime
     depends_on:
       model-streaming-service:
@@ -167,7 +173,6 @@ services:
     expose:
       - "50054"
     environment:
-      PRIVOKE_REQUIRE_TRAINING_CPU: "true"
       PRIVOKE_GRPC_PORT: 50054
       PRIVOKE_GRPC_HOST: "[::]"
       PRIVOKE_LLM_CHOICE: streamed
@@ -178,6 +183,7 @@ services:
       MODEL_STREAMING_CONSUMER_ID: server-client-runtime
       MODEL_STREAMING_CACHE_TTL_SECONDS: ${MODEL_STREAMING_CACHE_TTL_SECONDS:-1}
       MODEL_ID: latest
+      MODEL_PACKAGE_CACHE_DIR: /data/model-packages
       PRIVOKE_MODEL_DEVICE: ${PRIVOKE_MODEL_DEVICE:-auto}
       PYTHONPATH: /workspace/shared/python
       TELEMETRY_ENABLED: "true"
@@ -187,6 +193,7 @@ services:
       TELEMETRY_PRIVACY_LEDGER_PATH: /data/telemetry-client/telemetry-budget.sqlite3
     volumes:
       - telemetry-client-state:/data/telemetry-client
+      - model-package-cache:/data/model-packages
     healthcheck:
       test:
         [
@@ -203,6 +210,7 @@ services:
       start_period: 5s
 
   privoke-fuzzer:
+    profiles: [legacy-training]
     <<: *service-security
     restart: unless-stopped
     build:
@@ -242,6 +250,7 @@ services:
       start_period: 5s
 
 volumes:
+  model-package-cache:
   model-data:
   param-update-data:
   telemetry-data:

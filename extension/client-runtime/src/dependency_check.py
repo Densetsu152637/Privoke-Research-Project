@@ -23,6 +23,17 @@ def check_required_detector_dependencies() -> None:
     EntityNERDetector()
 
 
+def check_standard_v3_dependencies() -> None:
+    import importlib.metadata
+    import torch
+    expected = {"transformers": "4.57.6", "numpy": "1.26.4", "tokenizers": "0.22.2", "safetensors": "0.8.0"}
+    if torch.__version__.split("+")[0] != "2.11.0" or any(importlib.metadata.version(name) != version for name, version in expected.items()):
+        raise RuntimeError("Standard V3 requires the pinned native inference dependencies; install requirements.txt and requirements-inference-cpu.txt.")
+
+
 if __name__ == "__main__":
     check_required_detector_dependencies()
+    import os
+    if os.getenv("MODEL_ID", "latest") == "latest" or os.getenv("MODEL_ID", "").startswith("privoke-v3-"):
+        check_standard_v3_dependencies()
     print("Required regex and NER dependencies are available.", flush=True)

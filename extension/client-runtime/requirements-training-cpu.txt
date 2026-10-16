@@ -1,2 +1,2 @@
-# Opt-in full Tiny encoder training; no CUDA or pretrained model assets.
-torch==2.10.0+cpu ; sys_platform == "linux"
+# Legacy Tiny training uses the same CPU runtime as standard V3 inference.
+-r requirements-inference-cpu.txt

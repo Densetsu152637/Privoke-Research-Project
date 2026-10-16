@@ -11,7 +11,7 @@ import (
 
 const (
 	defaultPort          = 50051
-	defaultLatestModelID = "privoke-balanced"
+	defaultLatestModelID = "privoke-v3-balanced"
 	defaultArtifactDir   = "/models"
 )
 
@@ -19,6 +19,7 @@ type serverConfig struct {
 	port          int
 	latestModelID string
 	artifactDir   string
+	releaseDir    string
 }
 
 func loadServerConfig() (serverConfig, error) {
@@ -30,6 +31,7 @@ func loadServerConfig() (serverConfig, error) {
 		port:          port,
 		latestModelID: envString("MODEL_LATEST_ID", defaultLatestModelID),
 		artifactDir:   envString("MODEL_ARTIFACT_DIR", defaultArtifactDir),
+		releaseDir:    envString("MODEL_RELEASE_DIR", "/model-releases"),
 	}
 	if config.port < 1 || config.port > 65535 {
 		return serverConfig{}, fmt.Errorf("MODEL_STREAMING_PORT must be between 1 and 65535")

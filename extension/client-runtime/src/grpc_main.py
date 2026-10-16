@@ -22,7 +22,7 @@ if str(GENERATED_DIR) not in sys.path:
     sys.path.insert(0, str(GENERATED_DIR))
 
 from src.config import GLOBAL_CONFIG, LLMChoice
-from src.dependency_check import check_required_detector_dependencies
+from src.dependency_check import check_required_detector_dependencies, check_standard_v3_dependencies
 from src.env import env_bool, env_positive_float, env_positive_int
 from src.hosting.grpc_server import create_grpc_server
 from src.telemetry import TelemetryReporter
@@ -38,6 +38,8 @@ def main() -> None:
     signal.signal(signal.SIGINT, _stop)
 
     check_required_detector_dependencies()
+    if os.getenv("MODEL_ID", "latest") == "latest" or os.getenv("MODEL_ID", "").startswith("privoke-v3-"):
+        check_standard_v3_dependencies()
     if env_bool("PRIVOKE_REQUIRE_TRAINING_CPU", False):
         try:
             import torch

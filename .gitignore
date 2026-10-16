@@ -44,3 +44,4 @@ extension/dist-firefox/
 # Shared repository policy is versioned; personal agent files remain ignored.
 !/AGENTS.md
 /models/experiments/
+/models/standard-releases/

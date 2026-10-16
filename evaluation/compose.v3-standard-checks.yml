@@ -1,0 +1,19 @@
+# Build/check only. Python tests run on the host, not in this service.
+services:
+  v3-model-checks:
+    image: privoke-v3-model-checks:20261017
+    build:
+      context: ..
+      dockerfile: services/model-streaming-service/Dockerfile
+      target: development
+    working_dir: /workspace/services/model-streaming-service
+    network_mode: none
+    volumes:
+      - ../services/model-streaming-service:/workspace/services/model-streaming-service
+      - ../shared/proto:/workspace/shared/proto:ro
+      - ../models/standard-releases:/model-releases:ro
+      - ../models:/workspace/models:ro
+      - ../shared/python/tests/fixtures:/workspace/shared/python/tests/fixtures:ro
+    environment:
+      V3_TEST_RELEASE_DIR: /model-releases
+    command: [sh, -ec, "mkdir -p gen && protoc --proto_path=/workspace/shared/proto --go_out=paths=source_relative:gen --go-grpc_out=paths=source_relative:gen /workspace/shared/proto/privoke/v1/parameters.proto && go test -race ./..."]

@@ -28,8 +28,7 @@ services:
           cp -a /models/. /state/models/
           touch /state/models/.initialized
         fi
-        python /workspace/services/param-update-service/app/bootstrap.py
-        chown -R 10001:10001 /state/models /state/parameter-updates /state/telemetry /state/telemetry-client /state/fuzzer-dumps
+        chown -R 10001:10001 /state/models /state/parameter-updates /state/telemetry /state/telemetry-client /state/fuzzer-dumps /state/model-packages
     environment:
       MODEL_ID: privoke-balanced
       MODEL_ARTIFACT_PATH: /state/models/privoke-balanced.json
@@ -37,6 +36,7 @@ services:
       MODEL_TRAINING_MAX_TOKENS: 256
     volumes:
       - model-data:/state/models
+      - model-package-cache:/state/model-packages
       - param-update-data:/state/parameter-updates
       - telemetry-data:/state/telemetry
       - telemetry-client-state:/state/telemetry-client
@@ -49,9 +49,16 @@ services:
       storage-permissions: {condition: service_completed_successfully}
     environment:
       MODEL_STREAMING_PORT: 50051
-      MODEL_LATEST_ID: privoke-balanced
+      MODEL_LATEST_ID: ${MODEL_LATEST_ID:-privoke-v3-balanced}
       MODEL_ARTIFACT_DIR: /models
-    volumes: [model-data:/models:ro]
+      MODEL_RELEASE_DIR: /model-releases
+    volumes:
+      - model-data:/models:ro
+      - type: bind
+        source: ${MODEL_RELEASE_DIR:?Set MODEL_RELEASE_DIR to prepared standard releases}
+        target: /model-releases
+        read_only: true
+        bind: {create_host_path: false}
     healthcheck:
       test: [CMD, /model-streaming-service, healthcheck]
       interval: 5s
@@ -81,7 +88,6 @@ services:
       telemetry-service: {condition: service_healthy}
       storage-permissions: {condition: service_completed_successfully}
     environment:
-      PRIVOKE_REQUIRE_TRAINING_CPU: "true"
       PRIVOKE_GRPC_HOST: "[::]"
       PRIVOKE_GRPC_PORT: 50054
       PRIVOKE_STACK_MODE: internal
@@ -90,13 +96,14 @@ services:
       MODEL_STREAMING_TARGET: model-streaming-service:50051
       MODEL_STREAMING_CONSUMER_ID: server-client-runtime
       MODEL_ID: latest
+      MODEL_PACKAGE_CACHE_DIR: /data/model-packages
       TELEMETRY_ENABLED: "true"
       TELEMETRY_TARGET: telemetry-service:50055
       TELEMETRY_LDP_EPSILON: ${TELEMETRY_LDP_EPSILON:-1}
       TELEMETRY_LDP_DAILY_EPSILON: ${TELEMETRY_LDP_DAILY_EPSILON:-8}
       TELEMETRY_PRIVACY_LEDGER_PATH: /data/telemetry-client/telemetry-budget.sqlite3
       PYTHONPATH: /workspace/shared/python
-    volumes: [telemetry-client-state:/data/telemetry-client]
+    volumes: [telemetry-client-state:/data/telemetry-client, model-package-cache:/data/model-packages]
     healthcheck:
       test: [CMD, python, /workspace/shared/python/grpc_healthcheck.py, client-runtime, "127.0.0.1:50054", /workspace/extension/client-runtime/generated]
       interval: 5s
@@ -105,6 +112,7 @@ services:
       start_period: 30s
 
   privoke-fuzzer:
+    profiles: [legacy-training]
     <<: *security
     image: ${IMAGE_PREFIX}/privoke-fuzzer:${IMAGE_TAG}
     depends_on:
@@ -127,6 +135,8 @@ services:
       retries: 30
 
   param-update-service:
+    profiles: [legacy-training]
+    command: [sh, -ec, "python app/bootstrap.py && exec python app/server.py"]
     <<: *security
     image: ${IMAGE_PREFIX}/param-update-service:${IMAGE_TAG}
     depends_on:
@@ -173,6 +183,7 @@ services:
       retries: 12
 
 volumes:
+  model-package-cache:
   model-data:
   param-update-data:
   telemetry-data:

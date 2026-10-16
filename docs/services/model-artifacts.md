@@ -2,18 +2,19 @@
 
 > Source area: `models`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
 
-PriVoke ships a family of compact contextual transformer classifiers and supports
+PriVoke uses the pinned selected AU3 V3 family by default, retains older V1
+compact contextual transformer classifiers, and supports
 a separate learned sparse annotation-presence family. Each artifact contains its
 architecture configuration, tensor shapes, float32-compatible weights, version,
-quality metadata, and checksum in one Git-friendly JSON file.
+quality metadata, and checksum. Older V1 models use one Git-friendly JSON file.
 
 | Quality | Artifact | Encoder blocks | Hidden size | Context | Intended use |
 | --- | --- | ---: | ---: | ---: | --- |
 | Efficient | `privoke-efficient.json` | 1 | 24 | 64 | Lowest CPU and memory use |
-| Balanced | `privoke-balanced.json` | 2 | 32 | 96 | Default release channel |
+| Balanced (older V1) | `privoke-balanced.json` | 2 | 32 | 96 | Explicit legacy selection |
 | Quality | `privoke-quality.json` | 3 | 32 | 128 | More contextual processing |
 
-`privoke-baseline.json` remains available for backward compatibility. The model streaming service resolves `latest` to the current release-channel artifact (`privoke-balanced` by default), so clients can receive new trained revisions without changing settings.
+`privoke-baseline.json` remains available for backward compatibility. The model streaming service resolves `latest` to the current release-channel artifact (`privoke-v3-balanced` by default), so clients can receive new trained revisions without changing settings.
 
 ## Opt-in Tiny task-query readouts
 
@@ -43,7 +44,7 @@ full-encoder and training-policy preparation tools. Default model files and
 `latest` are unchanged. Preparation and synthetic mechanics tests establish no
 quality improvement or promotion.
 
-## Experimental pretrained v3 artifacts
+## Standard pretrained V3 inference artifacts
 
 The [v3 family](../pretrained-v3-study.md#family-and-initialization) uses complete
 Google BERT encoder/pooler tensors with three new zero affine heads.
@@ -61,7 +62,16 @@ ORIGINALs retain every pretrained encoder/pooler value. Its dedicated binary
 protocol admits at most 80 MiB per blob, 1 MiB per ordered chunk and 256 KiB per
 manifest. These separate limits do not enlarge existing Go/Tiny contracts. Weights
 and failed attempts remain ignored under `models/experiments/pretrained_v3_20261012/`;
-fixed FULL seed-42 research exports do not promote a release or select a best seed.
+fixed FULL seed-42 research exports remain historical. The standard releases are
+the independently selected AU3 packages under
+`models/experiments/audience_v3_20261013/runs/cpu-02/exports/{tier}/selected`.
+`models/prepare_standard_releases.py` verifies the three maintained manifest pins
+and copies their original bytes with provenance to ignored
+`models/standard-releases`. It neither initializes nor fits weights. See
+[streaming setup](model-streaming.md#standard-v3-binary-packages). V3 supports
+verified CPU inference and immutable package refresh, not legacy gradient updates.
+V1 remains available through explicit IDs; its training profile cannot promote a
+V1 revision over the configured V3 standard alias.
 
 ## Sparse annotation-presence artifacts
 
@@ -92,7 +102,7 @@ the validation-selected threshold before development scoring. The prior offline
 
 These artifacts serve `DetectAnnotationPresence` and `ComputePresenceGradients`;
 they are not accepted as contextual transformer artifacts. `latest` remains the
-original balanced contextual release channel. An explicit, opt-in
+selected AU3 V3 balanced contextual release channel. An explicit, opt-in
 `AnalyzePromptRequest.semantic_presence_gate` may use one of these presence IDs to
 filter only the semantic findings from a request that explicitly selected
 `privoke-balanced`. It leaves regex and NER findings intact. A binary presence score

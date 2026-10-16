@@ -28,7 +28,7 @@ Docker is optional for the extension's regex and NER layers. It is used only whe
 - A warning allows the original web request to continue. A block cancels it before it is sent.
 - Blocked `fetch` calls reject with a `TypeError` so the site's normal failure handler can report the unsent prompt. Blocked XHR calls expose `DONE` with status `0` and emit `readystatechange`, `error`, and `loadend`, allowing the site's loading state to finish. Cancellation and XHR timeouts during the privacy check also emit their usual terminal events, and late analysis results cannot send a cancelled request.
 - Synchronous XHR prompt calls fail immediately with `NetworkError`, because the extension's privacy check requires asynchronous messaging. Unmatched requests retain their native behavior.
-- Settings persist in the standard WebExtensions local-storage API. **Wait for regex** selects first/short-circuit versus parallel execution. **Model quality** selects Efficient, Balanced, or Quality; **Latest (recommended)** follows the server's current release channel and is the default.
+- Settings persist in the standard WebExtensions local-storage API. **Wait for regex** selects first/short-circuit versus parallel execution. **Model profile** selects the three standard V3 tiers or explicit older V1 tiers; **Latest (V3 balanced)** is the default. Existing explicit V1 choices migrate to their labeled older profiles.
 - Every analysis request names the concrete enabled layers; the extension never relies on the runtime's omitted-layer default.
 
 The page-network hook currently recognises prompt POSTs for:
@@ -66,6 +66,7 @@ The extension itself is not deployed with Docker. Install its native messaging l
 1. For local LLM testing, make `model-streaming-service` reachable on workstation loopback port `50051` and enable **Use local development servers** after loading the extension (reveal it with **Ctrl+Shift+D**). Skip this step for offline regex/NER operation. For local streamed-model testing, start only that server-side dependency; do not use the Compose `client-runtime` for extension analysis:
 
 ```bash
+python models/prepare_standard_releases.py
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build model-streaming-service
 ```
 
@@ -76,8 +77,8 @@ cd extension/client-runtime
 python -m venv .venv
 source .venv/bin/activate  # Windows PowerShell: .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt ../../shared/python
-# Optional: install PyTorch in this same environment for CUDA/MPS inference.
-pip install -r requirements-gpu.txt
+# Required for standard V3 CPU inference in this same environment:
+pip install -r requirements-inference-cpu.txt --index-url https://download.pytorch.org/whl/cpu
 mkdir generated  # omit this line when the directory already exists
 python -m grpc_tools.protoc \
   -I ../../shared/proto \
@@ -97,14 +98,15 @@ python -m grpc_tools.protoc \
   ../../shared/proto/privoke/v1/runtime.proto
 ```
 
-The GPU requirements line is optional because PyTorch is comparatively large. When it is
-installed in `client-runtime/.venv`, the streamed transformer automatically uses CUDA or
-Apple MPS when available and falls back to the NumPy CPU implementation otherwise. Set
-`PRIVOKE_MODEL_DEVICE=cpu` to force the fallback, or `cuda`/`mps` to request a particular
-accelerator. Restart the browser and supervisor after changing a process-level environment
-variable, because the browser-launched native host inherits the browser's environment.
+Standard V3 requires the pinned Torch CPU runtime plus the Transformers, tokenizer,
+safetensors and NumPy versions in the maintained requirements. V3 currently uses the
+verified CPU backend (`PRIVOKE_MODEL_DEVICE=cpu` or `auto`); explicit CUDA/MPS requests
+for V3 fail clearly. The optional GPU requirements support explicit legacy V1
+acceleration. Restart the browser and supervisor after environment changes.
+The default profile follows `latest` (V3 balanced); explicit V3 tiers are available.
+Older saved V1 choices retain V1 selection and are labeled as older models.
 
-The bridge, control service, and detector are forced to loopback. The supervisor prefers `client-runtime/.venv` for the detector process (or `PRIVOKE_RUNTIME_PYTHON` when explicitly set) and refuses to start it unless Presidio and the `en_core_web_sm` spaCy model load successfully. The extension JavaScript itself does not run the model: it sends requests to this workstation Python child, so the Compose GPU override does not affect extension traffic. Only the streamed-transformer layer uses the selected accelerator; regex and spaCy NER remain on CPU. The workstation uses `PRIVOKE_CLOUD_TARGET` with TLS by default; the hidden local-development setting selects `127.0.0.1:50051`. The separate Compose detector uses the internal service name. Streaming-service health is intentionally not part of the local dependency preflight.
+The bridge, control service, and detector are forced to loopback. The supervisor prefers `client-runtime/.venv` for the detector process (or `PRIVOKE_RUNTIME_PYTHON` when explicitly set) and refuses to start it unless Presidio and the `en_core_web_sm` spaCy model load successfully. The extension JavaScript itself does not run the model: it sends requests to this workstation Python child, so the Compose GPU override does not affect extension traffic. Only explicit legacy V1 streamed-transformer models use the selected accelerator; regex and spaCy NER remain on CPU. The workstation uses `PRIVOKE_CLOUD_TARGET` with TLS by default; the hidden local-development setting selects `127.0.0.1:50051`. The separate Compose detector uses the internal service name. Streaming-service health is intentionally not part of the local dependency preflight.
 
 3. Build the portable extension:
 

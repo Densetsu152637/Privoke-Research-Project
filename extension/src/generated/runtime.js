@@ -3,7 +3,7 @@ import $protobuf from "protobufjs/minimal.js";
 
 // Common aliases
 const $Reader = $protobuf.Reader, $Writer = $protobuf.Writer, $util = $protobuf.util;
-const $Object = $util.global.Object, $undefined = $util.global.undefined, $Error = $util.global.Error, $TypeError = $util.global.TypeError, $String = $util.global.String, $Boolean = $util.global.Boolean, $Number = $util.global.Number, $Array = $util.global.Array, $isFinite = $util.global.isFinite;
+const $Object = $util.global.Object, $undefined = $util.global.undefined, $Error = $util.global.Error, $TypeError = $util.global.TypeError, $String = $util.global.String, $Boolean = $util.global.Boolean, $Number = $util.global.Number, $isFinite = $util.global.isFinite, $Array = $util.global.Array;
 
 // Exported root namespace
 const $root = $protobuf.roots["default"] || ($protobuf.roots["default"] = {});
@@ -1216,6 +1216,303 @@ export const privoke = $root.privoke = (() => {
             return values;
         })();
 
+        v1.SemanticPresenceGate = (function() {
+
+            /**
+             * Properties of a SemanticPresenceGate.
+             * @typedef {Object} privoke.v1.SemanticPresenceGate.$Properties
+             * @property {string|null} [modelId] SemanticPresenceGate modelId
+             * @property {number|null} [threshold] SemanticPresenceGate threshold
+             * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+             */
+
+            /**
+             * Properties of a SemanticPresenceGate.
+             * @memberof privoke.v1
+             * @interface ISemanticPresenceGate
+             * @augments privoke.v1.SemanticPresenceGate.$Properties
+             * @deprecated Use privoke.v1.SemanticPresenceGate.$Properties instead.
+             */
+
+            /**
+             * Shape of a SemanticPresenceGate.
+             * @typedef {privoke.v1.SemanticPresenceGate.$Properties} privoke.v1.SemanticPresenceGate.$Shape
+             */
+
+            /**
+             * Constructs a new SemanticPresenceGate.
+             * @memberof privoke.v1
+             * @classdesc Represents a SemanticPresenceGate.
+             * @constructor
+             * @param {privoke.v1.SemanticPresenceGate.$Properties=} [properties] Properties to set
+             * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+             */
+            const SemanticPresenceGate = function (properties) {
+                if (properties)
+                    for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                            this[keys[i]] = properties[keys[i]];
+            };
+
+            /**
+             * SemanticPresenceGate modelId.
+             * @member {string} modelId
+             * @memberof privoke.v1.SemanticPresenceGate
+             * @instance
+             */
+            SemanticPresenceGate.prototype.modelId = "";
+
+            /**
+             * SemanticPresenceGate threshold.
+             * @member {number|null|undefined} threshold
+             * @memberof privoke.v1.SemanticPresenceGate
+             * @instance
+             */
+            SemanticPresenceGate.prototype.threshold = null;
+
+            // OneOf field names bound to virtual getters and setters
+            let $oneOfFields;
+
+            // Virtual OneOf for proto3 optional field
+            $Object.defineProperty(SemanticPresenceGate.prototype, "_threshold", {
+                get: $util.oneOfGetter($oneOfFields = ["threshold"]),
+                set: $util.oneOfSetter($oneOfFields)
+            });
+
+            /**
+             * Creates a new SemanticPresenceGate instance using the specified properties.
+             * @function create
+             * @memberof privoke.v1.SemanticPresenceGate
+             * @static
+             * @param {privoke.v1.SemanticPresenceGate.$Properties=} [properties] Properties to set
+             * @returns {privoke.v1.SemanticPresenceGate} SemanticPresenceGate instance
+             * @type {{
+             *   (properties: privoke.v1.SemanticPresenceGate.$Shape): privoke.v1.SemanticPresenceGate & privoke.v1.SemanticPresenceGate.$Shape;
+             *   (properties?: privoke.v1.SemanticPresenceGate.$Properties): privoke.v1.SemanticPresenceGate;
+             * }}
+             */
+            SemanticPresenceGate.create = function(properties) {
+                return new SemanticPresenceGate(properties);
+            };
+
+            /**
+             * Encodes the specified SemanticPresenceGate message. Does not implicitly {@link privoke.v1.SemanticPresenceGate.verify|verify} messages.
+             * @function encode
+             * @memberof privoke.v1.SemanticPresenceGate
+             * @static
+             * @param {privoke.v1.SemanticPresenceGate.$Properties} message SemanticPresenceGate message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            SemanticPresenceGate.encode = function (message, writer, _depth) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId") && message.modelId !== "")
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.modelId);
+                if (message.threshold != null && $Object.hasOwnProperty.call(message, "threshold"))
+                    writer.uint32(/* id 2, wireType 1 =*/17).double(message.threshold);
+                if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                    for (let i = 0; i < message.$unknowns.length; ++i)
+                        writer.raw(message.$unknowns[i]);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified SemanticPresenceGate message, length delimited. Does not implicitly {@link privoke.v1.SemanticPresenceGate.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof privoke.v1.SemanticPresenceGate
+             * @static
+             * @param {privoke.v1.SemanticPresenceGate.$Properties} message SemanticPresenceGate message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            SemanticPresenceGate.encodeDelimited = function(message, writer) {
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+            };
+
+            /**
+             * Decodes a SemanticPresenceGate message from the specified reader or buffer.
+             * @function decode
+             * @memberof privoke.v1.SemanticPresenceGate
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {privoke.v1.SemanticPresenceGate & privoke.v1.SemanticPresenceGate.$Shape} SemanticPresenceGate
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            SemanticPresenceGate.decode = function (reader, length, _end, _depth, _target) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $Reader.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.privoke.v1.SemanticPresenceGate(), value;
+                while (reader.pos < end) {
+                    let start = reader.pos;
+                    let tag = reader.tag();
+                    if (tag === _end) {
+                        _end = $undefined;
+                        break;
+                    }
+                    let wireType = tag & 7;
+                    switch (tag >>>= 3) {
+                    case 1: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.modelId = value;
+                            else
+                                delete message.modelId;
+                            continue;
+                        }
+                    case 2: {
+                            if (wireType !== 1)
+                                break;
+                            message.threshold = reader.double();
+                            message._threshold = "threshold";
+                            continue;
+                        }
+                    }
+                    reader.skipType(wireType, _depth, tag);
+                    if (!reader.discardUnknown) {
+                        $util.makeProp(message, "$unknowns", false);
+                        (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                    }
+                }
+                if (_end !== $undefined)
+                    throw $Error("missing end group");
+                return message;
+            };
+
+            /**
+             * Decodes a SemanticPresenceGate message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof privoke.v1.SemanticPresenceGate
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {privoke.v1.SemanticPresenceGate & privoke.v1.SemanticPresenceGate.$Shape} SemanticPresenceGate
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            SemanticPresenceGate.decodeDelimited = function(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a SemanticPresenceGate message.
+             * @function verify
+             * @memberof privoke.v1.SemanticPresenceGate
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            SemanticPresenceGate.verify = function (message, _depth) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    return "max depth exceeded";
+                let properties = {};
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId"))
+                    if (!$util.isString(message.modelId))
+                        return "modelId: string expected";
+                if (message.threshold != null && $Object.hasOwnProperty.call(message, "threshold")) {
+                    properties._threshold = 1;
+                    if (typeof message.threshold !== "number")
+                        return "threshold: number expected";
+                }
+                return null;
+            };
+
+            /**
+             * Creates a SemanticPresenceGate message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof privoke.v1.SemanticPresenceGate
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {privoke.v1.SemanticPresenceGate} SemanticPresenceGate
+             */
+            SemanticPresenceGate.fromObject = function (object, _depth) {
+                if (object instanceof $root.privoke.v1.SemanticPresenceGate)
+                    return object;
+                if (!$util.isObject(object))
+                    throw $TypeError(".privoke.v1.SemanticPresenceGate: object expected");
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let message = new $root.privoke.v1.SemanticPresenceGate();
+                if (object.modelId != null)
+                    if (typeof object.modelId !== "string" || object.modelId.length)
+                        message.modelId = $String(object.modelId);
+                if (object.threshold != null)
+                    message.threshold = $Number(object.threshold);
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a SemanticPresenceGate message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof privoke.v1.SemanticPresenceGate
+             * @static
+             * @param {privoke.v1.SemanticPresenceGate} message SemanticPresenceGate
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            SemanticPresenceGate.toObject = function (message, options, _depth) {
+                if (!options)
+                    options = {};
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let object = {};
+                if (options.defaults)
+                    object.modelId = "";
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId"))
+                    object.modelId = message.modelId;
+                if (message.threshold != null && $Object.hasOwnProperty.call(message, "threshold"))
+                    object.threshold = options.json && !$isFinite(message.threshold) ? $String(message.threshold) : message.threshold;
+                return object;
+            };
+
+            /**
+             * Converts this SemanticPresenceGate to JSON.
+             * @function toJSON
+             * @memberof privoke.v1.SemanticPresenceGate
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            SemanticPresenceGate.prototype.toJSON = function() {
+                return SemanticPresenceGate.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            /**
+             * Gets the type url for SemanticPresenceGate
+             * @function getTypeUrl
+             * @memberof privoke.v1.SemanticPresenceGate
+             * @static
+             * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+             * @returns {string} The type url
+             */
+            SemanticPresenceGate.getTypeUrl = function(prefix) {
+                if (prefix === $undefined)
+                    prefix = "type.googleapis.com";
+                return prefix + "/privoke.v1.SemanticPresenceGate";
+            };
+
+            return SemanticPresenceGate;
+        })();
+
         v1.AnalyzePromptRequest = (function() {
 
             /**
@@ -1230,6 +1527,7 @@ export const privoke = $root.privoke = (() => {
              * @property {Array.<privoke.v1.DetectionLayer>|null} [layers] AnalyzePromptRequest layers
              * @property {privoke.v1.RegexExecutionOrder|null} [regexExecutionOrder] AnalyzePromptRequest regexExecutionOrder
              * @property {string|null} [semanticModelId] AnalyzePromptRequest semanticModelId
+             * @property {privoke.v1.SemanticPresenceGate.$Properties|null} [semanticPresenceGate] AnalyzePromptRequest semanticPresenceGate
              * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
              */
 
@@ -1336,6 +1634,14 @@ export const privoke = $root.privoke = (() => {
             AnalyzePromptRequest.prototype.semanticModelId = "";
 
             /**
+             * AnalyzePromptRequest semanticPresenceGate.
+             * @member {privoke.v1.SemanticPresenceGate.$Properties|null|undefined} semanticPresenceGate
+             * @memberof privoke.v1.AnalyzePromptRequest
+             * @instance
+             */
+            AnalyzePromptRequest.prototype.semanticPresenceGate = null;
+
+            /**
              * Creates a new AnalyzePromptRequest instance using the specified properties.
              * @function create
              * @memberof privoke.v1.AnalyzePromptRequest
@@ -1386,6 +1692,8 @@ export const privoke = $root.privoke = (() => {
                     writer.uint32(/* id 8, wireType 0 =*/64).int32(message.regexExecutionOrder);
                 if (message.semanticModelId != null && $Object.hasOwnProperty.call(message, "semanticModelId") && message.semanticModelId !== "")
                     writer.uint32(/* id 9, wireType 2 =*/74).string(message.semanticModelId);
+                if (message.semanticPresenceGate != null && $Object.hasOwnProperty.call(message, "semanticPresenceGate"))
+                    $root.privoke.v1.SemanticPresenceGate.encode(message.semanticPresenceGate, writer.uint32(/* id 10, wireType 2 =*/82).fork(), _depth + 1).ldelim();
                 if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
                     for (let i = 0; i < message.$unknowns.length; ++i)
                         writer.raw(message.$unknowns[i]);
@@ -1540,6 +1848,12 @@ export const privoke = $root.privoke = (() => {
                                 delete message.semanticModelId;
                             continue;
                         }
+                    case 10: {
+                            if (wireType !== 2)
+                                break;
+                            message.semanticPresenceGate = $root.privoke.v1.SemanticPresenceGate.decode(reader, reader.uint32(), $undefined, _depth + 1, message.semanticPresenceGate);
+                            continue;
+                        }
                     }
                     reader.skipType(wireType, _depth, tag);
                     if (!reader.discardUnknown) {
@@ -1619,6 +1933,11 @@ export const privoke = $root.privoke = (() => {
                 if (message.semanticModelId != null && $Object.hasOwnProperty.call(message, "semanticModelId"))
                     if (!$util.isString(message.semanticModelId))
                         return "semanticModelId: string expected";
+                if (message.semanticPresenceGate != null && $Object.hasOwnProperty.call(message, "semanticPresenceGate")) {
+                    let error = $root.privoke.v1.SemanticPresenceGate.verify(message.semanticPresenceGate, _depth + 1);
+                    if (error)
+                        return "semanticPresenceGate." + error;
+                }
                 return null;
             };
 
@@ -1717,6 +2036,11 @@ export const privoke = $root.privoke = (() => {
                 if (object.semanticModelId != null)
                     if (typeof object.semanticModelId !== "string" || object.semanticModelId.length)
                         message.semanticModelId = $String(object.semanticModelId);
+                if (object.semanticPresenceGate != null) {
+                    if (!$util.isObject(object.semanticPresenceGate))
+                        throw $TypeError(".privoke.v1.AnalyzePromptRequest.semanticPresenceGate: object expected");
+                    message.semanticPresenceGate = $root.privoke.v1.SemanticPresenceGate.fromObject(object.semanticPresenceGate, _depth + 1);
+                }
                 return message;
             };
 
@@ -1749,6 +2073,7 @@ export const privoke = $root.privoke = (() => {
                     object.requestId = "";
                     object.regexExecutionOrder = options.enums === $String ? "REGEX_EXECUTION_ORDER_DEFAULT" : 0;
                     object.semanticModelId = "";
+                    object.semanticPresenceGate = null;
                 }
                 if (message.text != null && $Object.hasOwnProperty.call(message, "text"))
                     object.text = message.text;
@@ -1778,6 +2103,8 @@ export const privoke = $root.privoke = (() => {
                     object.regexExecutionOrder = options.enums === $String ? $root.privoke.v1.RegexExecutionOrder[message.regexExecutionOrder] === $undefined ? message.regexExecutionOrder : $root.privoke.v1.RegexExecutionOrder[message.regexExecutionOrder] : message.regexExecutionOrder;
                 if (message.semanticModelId != null && $Object.hasOwnProperty.call(message, "semanticModelId"))
                     object.semanticModelId = message.semanticModelId;
+                if (message.semanticPresenceGate != null && $Object.hasOwnProperty.call(message, "semanticPresenceGate"))
+                    object.semanticPresenceGate = $root.privoke.v1.SemanticPresenceGate.toObject(message.semanticPresenceGate, options, _depth + 1);
                 return object;
             };
 
@@ -1818,6 +2145,7 @@ export const privoke = $root.privoke = (() => {
              * @property {string|null} [status] RuntimeLayerExecution status
              * @property {Array.<privoke.v1.RuntimeDetectionResult.$Properties>|null} [results] RuntimeLayerExecution results
              * @property {string|null} [error] RuntimeLayerExecution error
+             * @property {privoke.v1.SemanticPresenceGateTrace.$Properties|null} [semanticPresenceGate] RuntimeLayerExecution semanticPresenceGate
              * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
              */
 
@@ -1883,6 +2211,14 @@ export const privoke = $root.privoke = (() => {
             RuntimeLayerExecution.prototype.error = "";
 
             /**
+             * RuntimeLayerExecution semanticPresenceGate.
+             * @member {privoke.v1.SemanticPresenceGateTrace.$Properties|null|undefined} semanticPresenceGate
+             * @memberof privoke.v1.RuntimeLayerExecution
+             * @instance
+             */
+            RuntimeLayerExecution.prototype.semanticPresenceGate = null;
+
+            /**
              * Creates a new RuntimeLayerExecution instance using the specified properties.
              * @function create
              * @memberof privoke.v1.RuntimeLayerExecution
@@ -1923,6 +2259,8 @@ export const privoke = $root.privoke = (() => {
                         $root.privoke.v1.RuntimeDetectionResult.encode(message.results[i], writer.uint32(/* id 3, wireType 2 =*/26).fork(), _depth + 1).ldelim();
                 if (message.error != null && $Object.hasOwnProperty.call(message, "error") && message.error !== "")
                     writer.uint32(/* id 4, wireType 2 =*/34).string(message.error);
+                if (message.semanticPresenceGate != null && $Object.hasOwnProperty.call(message, "semanticPresenceGate"))
+                    $root.privoke.v1.SemanticPresenceGateTrace.encode(message.semanticPresenceGate, writer.uint32(/* id 5, wireType 2 =*/42).fork(), _depth + 1).ldelim();
                 if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
                     for (let i = 0; i < message.$unknowns.length; ++i)
                         writer.raw(message.$unknowns[i]);
@@ -2005,6 +2343,12 @@ export const privoke = $root.privoke = (() => {
                                 delete message.error;
                             continue;
                         }
+                    case 5: {
+                            if (wireType !== 2)
+                                break;
+                            message.semanticPresenceGate = $root.privoke.v1.SemanticPresenceGateTrace.decode(reader, reader.uint32(), $undefined, _depth + 1, message.semanticPresenceGate);
+                            continue;
+                        }
                     }
                     reader.skipType(wireType, _depth, tag);
                     if (!reader.discardUnknown) {
@@ -2066,6 +2410,11 @@ export const privoke = $root.privoke = (() => {
                 if (message.error != null && $Object.hasOwnProperty.call(message, "error"))
                     if (!$util.isString(message.error))
                         return "error: string expected";
+                if (message.semanticPresenceGate != null && $Object.hasOwnProperty.call(message, "semanticPresenceGate")) {
+                    let error = $root.privoke.v1.SemanticPresenceGateTrace.verify(message.semanticPresenceGate, _depth + 1);
+                    if (error)
+                        return "semanticPresenceGate." + error;
+                }
                 return null;
             };
 
@@ -2129,6 +2478,11 @@ export const privoke = $root.privoke = (() => {
                 if (object.error != null)
                     if (typeof object.error !== "string" || object.error.length)
                         message.error = $String(object.error);
+                if (object.semanticPresenceGate != null) {
+                    if (!$util.isObject(object.semanticPresenceGate))
+                        throw $TypeError(".privoke.v1.RuntimeLayerExecution.semanticPresenceGate: object expected");
+                    message.semanticPresenceGate = $root.privoke.v1.SemanticPresenceGateTrace.fromObject(object.semanticPresenceGate, _depth + 1);
+                }
                 return message;
             };
 
@@ -2155,6 +2509,7 @@ export const privoke = $root.privoke = (() => {
                     object.layer = options.enums === $String ? "DETECTION_LAYER_UNSPECIFIED" : 0;
                     object.status = "";
                     object.error = "";
+                    object.semanticPresenceGate = null;
                 }
                 if (message.layer != null && $Object.hasOwnProperty.call(message, "layer"))
                     object.layer = options.enums === $String ? $root.privoke.v1.DetectionLayer[message.layer] === $undefined ? message.layer : $root.privoke.v1.DetectionLayer[message.layer] : message.layer;
@@ -2167,6 +2522,8 @@ export const privoke = $root.privoke = (() => {
                 }
                 if (message.error != null && $Object.hasOwnProperty.call(message, "error"))
                     object.error = message.error;
+                if (message.semanticPresenceGate != null && $Object.hasOwnProperty.call(message, "semanticPresenceGate"))
+                    object.semanticPresenceGate = $root.privoke.v1.SemanticPresenceGateTrace.toObject(message.semanticPresenceGate, options, _depth + 1);
                 return object;
             };
 
@@ -4099,6 +4456,7 @@ export const privoke = $root.privoke = (() => {
              * @property {number|null} [learningRate] ComputeSemanticGradientsRequest learningRate
              * @property {number|null} [maxGradient] ComputeSemanticGradientsRequest maxGradient
              * @property {Array.<privoke.v1.RuntimeTrainingExample.$Properties>|null} [heldoutExamples] ComputeSemanticGradientsRequest heldoutExamples
+             * @property {Array.<privoke.v1.DetectionLayer>|null} [layers] ComputeSemanticGradientsRequest layers
              * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
              */
 
@@ -4126,6 +4484,7 @@ export const privoke = $root.privoke = (() => {
             const ComputeSemanticGradientsRequest = function (properties) {
                 this.examples = [];
                 this.heldoutExamples = [];
+                this.layers = [];
                 if (properties)
                     for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
                         if (properties[keys[i]] != null && keys[i] !== "__proto__")
@@ -4181,6 +4540,14 @@ export const privoke = $root.privoke = (() => {
             ComputeSemanticGradientsRequest.prototype.heldoutExamples = $util.emptyArray;
 
             /**
+             * ComputeSemanticGradientsRequest layers.
+             * @member {Array.<privoke.v1.DetectionLayer>} layers
+             * @memberof privoke.v1.ComputeSemanticGradientsRequest
+             * @instance
+             */
+            ComputeSemanticGradientsRequest.prototype.layers = $util.emptyArray;
+
+            /**
              * Creates a new ComputeSemanticGradientsRequest instance using the specified properties.
              * @function create
              * @memberof privoke.v1.ComputeSemanticGradientsRequest
@@ -4226,6 +4593,8 @@ export const privoke = $root.privoke = (() => {
                 if (message.heldoutExamples != null && message.heldoutExamples.length)
                     for (let i = 0; i < message.heldoutExamples.length; ++i)
                         $root.privoke.v1.RuntimeTrainingExample.encode(message.heldoutExamples[i], writer.uint32(/* id 6, wireType 2 =*/50).fork(), _depth + 1).ldelim();
+                if (message.layers != null && message.layers.length)
+                    writer.uint32(/* id 7, wireType 2 =*/58).int32s(message.layers);
                 if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
                     for (let i = 0; i < message.$unknowns.length; ++i)
                         writer.raw(message.$unknowns[i]);
@@ -4325,6 +4694,20 @@ export const privoke = $root.privoke = (() => {
                             message.heldoutExamples.push($root.privoke.v1.RuntimeTrainingExample.decode(reader, reader.uint32(), $undefined, _depth + 1));
                             continue;
                         }
+                    case 7: {
+                            if (wireType === 2) {
+                                if (!(message.layers && message.layers.length))
+                                    message.layers = [];
+                                reader.int32s(message.layers);
+                                continue;
+                            }
+                            if (wireType !== 0)
+                                break;
+                            if (!(message.layers && message.layers.length))
+                                message.layers = [];
+                            message.layers.push(reader.int32());
+                            continue;
+                        }
                     }
                     reader.skipType(wireType, _depth, tag);
                     if (!reader.discardUnknown) {
@@ -4398,6 +4781,13 @@ export const privoke = $root.privoke = (() => {
                             return "heldoutExamples." + error;
                     }
                 }
+                if (message.layers != null && $Object.hasOwnProperty.call(message, "layers")) {
+                    if (!$Array.isArray(message.layers))
+                        return "layers: array expected";
+                    for (let i = 0; i < message.layers.length; ++i)
+                        if (typeof message.layers[i] !== "number" || (message.layers[i] | 0) !== message.layers[i])
+                            return "layers: enum value[] expected";
+                }
                 return null;
             };
 
@@ -4451,6 +4841,37 @@ export const privoke = $root.privoke = (() => {
                         message.heldoutExamples[i] = $root.privoke.v1.RuntimeTrainingExample.fromObject(object.heldoutExamples[i], _depth + 1);
                     }
                 }
+                if (object.layers) {
+                    if (!$Array.isArray(object.layers))
+                        throw $TypeError(".privoke.v1.ComputeSemanticGradientsRequest.layers: array expected");
+                    message.layers = [];
+                    for (let i = 0; i < object.layers.length; ++i)
+                        switch (object.layers[i]) {
+                        case "DETECTION_LAYER_UNSPECIFIED":
+                        case 0:
+                            message.layers[message.layers.length] = 0;
+                            break;
+                        case "DETECTION_LAYER_RUNTIME":
+                        case 1:
+                            message.layers[message.layers.length] = 1;
+                            break;
+                        case "DETECTION_LAYER_REGEX":
+                        case 2:
+                            message.layers[message.layers.length] = 2;
+                            break;
+                        case "DETECTION_LAYER_NER":
+                        case 3:
+                            message.layers[message.layers.length] = 3;
+                            break;
+                        case "DETECTION_LAYER_SEMANTIC":
+                        case 4:
+                            message.layers[message.layers.length] = 4;
+                            break;
+                        default:
+                            if (typeof object.layers[i] === "number" && (object.layers[i] | 0) === object.layers[i])
+                                message.layers[message.layers.length] = object.layers[i];
+                        }
+                }
                 return message;
             };
 
@@ -4474,6 +4895,7 @@ export const privoke = $root.privoke = (() => {
                 if (options.arrays || options.defaults) {
                     object.examples = [];
                     object.heldoutExamples = [];
+                    object.layers = [];
                 }
                 if (options.defaults) {
                     object.requestId = "";
@@ -4498,6 +4920,11 @@ export const privoke = $root.privoke = (() => {
                     object.heldoutExamples = $Array(message.heldoutExamples.length);
                     for (let j = 0; j < message.heldoutExamples.length; ++j)
                         object.heldoutExamples[j] = $root.privoke.v1.RuntimeTrainingExample.toObject(message.heldoutExamples[j], options, _depth + 1);
+                }
+                if (message.layers && message.layers.length) {
+                    object.layers = $Array(message.layers.length);
+                    for (let j = 0; j < message.layers.length; ++j)
+                        object.layers[j] = options.enums === $String ? $root.privoke.v1.DetectionLayer[message.layers[j]] === $undefined ? message.layers[j] : $root.privoke.v1.DetectionLayer[message.layers[j]] : message.layers[j];
                 }
                 return object;
             };
@@ -4528,6 +4955,406 @@ export const privoke = $root.privoke = (() => {
             };
 
             return ComputeSemanticGradientsRequest;
+        })();
+
+        v1.SemanticTrainingExecution = (function() {
+
+            /**
+             * Properties of a SemanticTrainingExecution.
+             * @typedef {Object} privoke.v1.SemanticTrainingExecution.$Properties
+             * @property {string|null} [phase] SemanticTrainingExecution phase
+             * @property {privoke.v1.DetectionLayer|null} [layer] SemanticTrainingExecution layer
+             * @property {string|null} [status] SemanticTrainingExecution status
+             * @property {number|null} [examples] SemanticTrainingExecution examples
+             * @property {string|null} [error] SemanticTrainingExecution error
+             * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+             */
+
+            /**
+             * Properties of a SemanticTrainingExecution.
+             * @memberof privoke.v1
+             * @interface ISemanticTrainingExecution
+             * @augments privoke.v1.SemanticTrainingExecution.$Properties
+             * @deprecated Use privoke.v1.SemanticTrainingExecution.$Properties instead.
+             */
+
+            /**
+             * Shape of a SemanticTrainingExecution.
+             * @typedef {privoke.v1.SemanticTrainingExecution.$Properties} privoke.v1.SemanticTrainingExecution.$Shape
+             */
+
+            /**
+             * Constructs a new SemanticTrainingExecution.
+             * @memberof privoke.v1
+             * @classdesc Represents a SemanticTrainingExecution.
+             * @constructor
+             * @param {privoke.v1.SemanticTrainingExecution.$Properties=} [properties] Properties to set
+             * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+             */
+            const SemanticTrainingExecution = function (properties) {
+                if (properties)
+                    for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                            this[keys[i]] = properties[keys[i]];
+            };
+
+            /**
+             * SemanticTrainingExecution phase.
+             * @member {string} phase
+             * @memberof privoke.v1.SemanticTrainingExecution
+             * @instance
+             */
+            SemanticTrainingExecution.prototype.phase = "";
+
+            /**
+             * SemanticTrainingExecution layer.
+             * @member {privoke.v1.DetectionLayer} layer
+             * @memberof privoke.v1.SemanticTrainingExecution
+             * @instance
+             */
+            SemanticTrainingExecution.prototype.layer = 0;
+
+            /**
+             * SemanticTrainingExecution status.
+             * @member {string} status
+             * @memberof privoke.v1.SemanticTrainingExecution
+             * @instance
+             */
+            SemanticTrainingExecution.prototype.status = "";
+
+            /**
+             * SemanticTrainingExecution examples.
+             * @member {number} examples
+             * @memberof privoke.v1.SemanticTrainingExecution
+             * @instance
+             */
+            SemanticTrainingExecution.prototype.examples = 0;
+
+            /**
+             * SemanticTrainingExecution error.
+             * @member {string} error
+             * @memberof privoke.v1.SemanticTrainingExecution
+             * @instance
+             */
+            SemanticTrainingExecution.prototype.error = "";
+
+            /**
+             * Creates a new SemanticTrainingExecution instance using the specified properties.
+             * @function create
+             * @memberof privoke.v1.SemanticTrainingExecution
+             * @static
+             * @param {privoke.v1.SemanticTrainingExecution.$Properties=} [properties] Properties to set
+             * @returns {privoke.v1.SemanticTrainingExecution} SemanticTrainingExecution instance
+             * @type {{
+             *   (properties: privoke.v1.SemanticTrainingExecution.$Shape): privoke.v1.SemanticTrainingExecution & privoke.v1.SemanticTrainingExecution.$Shape;
+             *   (properties?: privoke.v1.SemanticTrainingExecution.$Properties): privoke.v1.SemanticTrainingExecution;
+             * }}
+             */
+            SemanticTrainingExecution.create = function(properties) {
+                return new SemanticTrainingExecution(properties);
+            };
+
+            /**
+             * Encodes the specified SemanticTrainingExecution message. Does not implicitly {@link privoke.v1.SemanticTrainingExecution.verify|verify} messages.
+             * @function encode
+             * @memberof privoke.v1.SemanticTrainingExecution
+             * @static
+             * @param {privoke.v1.SemanticTrainingExecution.$Properties} message SemanticTrainingExecution message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            SemanticTrainingExecution.encode = function (message, writer, _depth) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                if (message.phase != null && $Object.hasOwnProperty.call(message, "phase") && message.phase !== "")
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.phase);
+                if (message.layer != null && $Object.hasOwnProperty.call(message, "layer") && message.layer !== 0)
+                    writer.uint32(/* id 2, wireType 0 =*/16).int32(message.layer);
+                if (message.status != null && $Object.hasOwnProperty.call(message, "status") && message.status !== "")
+                    writer.uint32(/* id 3, wireType 2 =*/26).string(message.status);
+                if (message.examples != null && $Object.hasOwnProperty.call(message, "examples") && message.examples !== 0)
+                    writer.uint32(/* id 4, wireType 0 =*/32).uint32(message.examples);
+                if (message.error != null && $Object.hasOwnProperty.call(message, "error") && message.error !== "")
+                    writer.uint32(/* id 5, wireType 2 =*/42).string(message.error);
+                if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                    for (let i = 0; i < message.$unknowns.length; ++i)
+                        writer.raw(message.$unknowns[i]);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified SemanticTrainingExecution message, length delimited. Does not implicitly {@link privoke.v1.SemanticTrainingExecution.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof privoke.v1.SemanticTrainingExecution
+             * @static
+             * @param {privoke.v1.SemanticTrainingExecution.$Properties} message SemanticTrainingExecution message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            SemanticTrainingExecution.encodeDelimited = function(message, writer) {
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+            };
+
+            /**
+             * Decodes a SemanticTrainingExecution message from the specified reader or buffer.
+             * @function decode
+             * @memberof privoke.v1.SemanticTrainingExecution
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {privoke.v1.SemanticTrainingExecution & privoke.v1.SemanticTrainingExecution.$Shape} SemanticTrainingExecution
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            SemanticTrainingExecution.decode = function (reader, length, _end, _depth, _target) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $Reader.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.privoke.v1.SemanticTrainingExecution(), value;
+                while (reader.pos < end) {
+                    let start = reader.pos;
+                    let tag = reader.tag();
+                    if (tag === _end) {
+                        _end = $undefined;
+                        break;
+                    }
+                    let wireType = tag & 7;
+                    switch (tag >>>= 3) {
+                    case 1: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.phase = value;
+                            else
+                                delete message.phase;
+                            continue;
+                        }
+                    case 2: {
+                            if (wireType !== 0)
+                                break;
+                            if (value = reader.int32())
+                                message.layer = value;
+                            else
+                                delete message.layer;
+                            continue;
+                        }
+                    case 3: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.status = value;
+                            else
+                                delete message.status;
+                            continue;
+                        }
+                    case 4: {
+                            if (wireType !== 0)
+                                break;
+                            if (value = reader.uint32())
+                                message.examples = value;
+                            else
+                                delete message.examples;
+                            continue;
+                        }
+                    case 5: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.error = value;
+                            else
+                                delete message.error;
+                            continue;
+                        }
+                    }
+                    reader.skipType(wireType, _depth, tag);
+                    if (!reader.discardUnknown) {
+                        $util.makeProp(message, "$unknowns", false);
+                        (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                    }
+                }
+                if (_end !== $undefined)
+                    throw $Error("missing end group");
+                return message;
+            };
+
+            /**
+             * Decodes a SemanticTrainingExecution message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof privoke.v1.SemanticTrainingExecution
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {privoke.v1.SemanticTrainingExecution & privoke.v1.SemanticTrainingExecution.$Shape} SemanticTrainingExecution
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            SemanticTrainingExecution.decodeDelimited = function(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a SemanticTrainingExecution message.
+             * @function verify
+             * @memberof privoke.v1.SemanticTrainingExecution
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            SemanticTrainingExecution.verify = function (message, _depth) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    return "max depth exceeded";
+                if (message.phase != null && $Object.hasOwnProperty.call(message, "phase"))
+                    if (!$util.isString(message.phase))
+                        return "phase: string expected";
+                if (message.layer != null && $Object.hasOwnProperty.call(message, "layer"))
+                    if (typeof message.layer !== "number" || (message.layer | 0) !== message.layer)
+                        return "layer: enum value expected";
+                if (message.status != null && $Object.hasOwnProperty.call(message, "status"))
+                    if (!$util.isString(message.status))
+                        return "status: string expected";
+                if (message.examples != null && $Object.hasOwnProperty.call(message, "examples"))
+                    if (!$util.isInteger(message.examples))
+                        return "examples: integer expected";
+                if (message.error != null && $Object.hasOwnProperty.call(message, "error"))
+                    if (!$util.isString(message.error))
+                        return "error: string expected";
+                return null;
+            };
+
+            /**
+             * Creates a SemanticTrainingExecution message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof privoke.v1.SemanticTrainingExecution
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {privoke.v1.SemanticTrainingExecution} SemanticTrainingExecution
+             */
+            SemanticTrainingExecution.fromObject = function (object, _depth) {
+                if (object instanceof $root.privoke.v1.SemanticTrainingExecution)
+                    return object;
+                if (!$util.isObject(object))
+                    throw $TypeError(".privoke.v1.SemanticTrainingExecution: object expected");
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let message = new $root.privoke.v1.SemanticTrainingExecution();
+                if (object.phase != null)
+                    if (typeof object.phase !== "string" || object.phase.length)
+                        message.phase = $String(object.phase);
+                if (object.layer !== 0 && (typeof object.layer !== "string" || $root.privoke.v1.DetectionLayer[object.layer] !== 0))
+                    switch (object.layer) {
+                    case "DETECTION_LAYER_UNSPECIFIED":
+                    case 0:
+                        message.layer = 0;
+                        break;
+                    case "DETECTION_LAYER_RUNTIME":
+                    case 1:
+                        message.layer = 1;
+                        break;
+                    case "DETECTION_LAYER_REGEX":
+                    case 2:
+                        message.layer = 2;
+                        break;
+                    case "DETECTION_LAYER_NER":
+                    case 3:
+                        message.layer = 3;
+                        break;
+                    case "DETECTION_LAYER_SEMANTIC":
+                    case 4:
+                        message.layer = 4;
+                        break;
+                    default:
+                        if (typeof object.layer === "number" && (object.layer | 0) === object.layer)
+                            message.layer = object.layer;
+                    }
+                if (object.status != null)
+                    if (typeof object.status !== "string" || object.status.length)
+                        message.status = $String(object.status);
+                if (object.examples != null)
+                    if ($Number(object.examples) !== 0)
+                        message.examples = object.examples >>> 0;
+                if (object.error != null)
+                    if (typeof object.error !== "string" || object.error.length)
+                        message.error = $String(object.error);
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a SemanticTrainingExecution message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof privoke.v1.SemanticTrainingExecution
+             * @static
+             * @param {privoke.v1.SemanticTrainingExecution} message SemanticTrainingExecution
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            SemanticTrainingExecution.toObject = function (message, options, _depth) {
+                if (!options)
+                    options = {};
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let object = {};
+                if (options.defaults) {
+                    object.phase = "";
+                    object.layer = options.enums === $String ? "DETECTION_LAYER_UNSPECIFIED" : 0;
+                    object.status = "";
+                    object.examples = 0;
+                    object.error = "";
+                }
+                if (message.phase != null && $Object.hasOwnProperty.call(message, "phase"))
+                    object.phase = message.phase;
+                if (message.layer != null && $Object.hasOwnProperty.call(message, "layer"))
+                    object.layer = options.enums === $String ? $root.privoke.v1.DetectionLayer[message.layer] === $undefined ? message.layer : $root.privoke.v1.DetectionLayer[message.layer] : message.layer;
+                if (message.status != null && $Object.hasOwnProperty.call(message, "status"))
+                    object.status = message.status;
+                if (message.examples != null && $Object.hasOwnProperty.call(message, "examples"))
+                    object.examples = message.examples;
+                if (message.error != null && $Object.hasOwnProperty.call(message, "error"))
+                    object.error = message.error;
+                return object;
+            };
+
+            /**
+             * Converts this SemanticTrainingExecution to JSON.
+             * @function toJSON
+             * @memberof privoke.v1.SemanticTrainingExecution
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            SemanticTrainingExecution.prototype.toJSON = function() {
+                return SemanticTrainingExecution.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            /**
+             * Gets the type url for SemanticTrainingExecution
+             * @function getTypeUrl
+             * @memberof privoke.v1.SemanticTrainingExecution
+             * @static
+             * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+             * @returns {string} The type url
+             */
+            SemanticTrainingExecution.getTypeUrl = function(prefix) {
+                if (prefix === $undefined)
+                    prefix = "type.googleapis.com";
+                return prefix + "/privoke.v1.SemanticTrainingExecution";
+            };
+
+            return SemanticTrainingExecution;
         })();
 
         v1.RuntimeParameterDelta = (function() {
@@ -4896,6 +5723,7 @@ export const privoke = $root.privoke = (() => {
              * @property {Object.<string,number>|null} [metrics] ComputeSemanticGradientsResponse metrics
              * @property {Object.<string,string>|null} [metadata] ComputeSemanticGradientsResponse metadata
              * @property {string|null} [error] ComputeSemanticGradientsResponse error
+             * @property {Array.<privoke.v1.SemanticTrainingExecution.$Properties>|null} [executions] ComputeSemanticGradientsResponse executions
              * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
              */
 
@@ -4924,6 +5752,7 @@ export const privoke = $root.privoke = (() => {
                 this.gradients = [];
                 this.metrics = {};
                 this.metadata = {};
+                this.executions = [];
                 if (properties)
                     for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
                         if (properties[keys[i]] != null && keys[i] !== "__proto__")
@@ -4987,6 +5816,14 @@ export const privoke = $root.privoke = (() => {
             ComputeSemanticGradientsResponse.prototype.error = "";
 
             /**
+             * ComputeSemanticGradientsResponse executions.
+             * @member {Array.<privoke.v1.SemanticTrainingExecution.$Properties>} executions
+             * @memberof privoke.v1.ComputeSemanticGradientsResponse
+             * @instance
+             */
+            ComputeSemanticGradientsResponse.prototype.executions = $util.emptyArray;
+
+            /**
              * Creates a new ComputeSemanticGradientsResponse instance using the specified properties.
              * @function create
              * @memberof privoke.v1.ComputeSemanticGradientsResponse
@@ -5035,6 +5872,9 @@ export const privoke = $root.privoke = (() => {
                         writer.uint32(/* id 6, wireType 2 =*/50).fork().uint32(/* id 1, wireType 2 =*/10).string(keys[i]).uint32(/* id 2, wireType 2 =*/18).string(message.metadata[keys[i]]).ldelim();
                 if (message.error != null && $Object.hasOwnProperty.call(message, "error") && message.error !== "")
                     writer.uint32(/* id 7, wireType 2 =*/58).string(message.error);
+                if (message.executions != null && message.executions.length)
+                    for (let i = 0; i < message.executions.length; ++i)
+                        $root.privoke.v1.SemanticTrainingExecution.encode(message.executions[i], writer.uint32(/* id 8, wireType 2 =*/66).fork(), _depth + 1).ldelim();
                 if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
                     for (let i = 0; i < message.$unknowns.length; ++i)
                         writer.raw(message.$unknowns[i]);
@@ -5186,6 +6026,14 @@ export const privoke = $root.privoke = (() => {
                                 delete message.error;
                             continue;
                         }
+                    case 8: {
+                            if (wireType !== 2)
+                                break;
+                            if (!(message.executions && message.executions.length))
+                                message.executions = [];
+                            message.executions.push($root.privoke.v1.SemanticTrainingExecution.decode(reader, reader.uint32(), $undefined, _depth + 1));
+                            continue;
+                        }
                     }
                     reader.skipType(wireType, _depth, tag);
                     if (!reader.discardUnknown) {
@@ -5266,6 +6114,15 @@ export const privoke = $root.privoke = (() => {
                 if (message.error != null && $Object.hasOwnProperty.call(message, "error"))
                     if (!$util.isString(message.error))
                         return "error: string expected";
+                if (message.executions != null && $Object.hasOwnProperty.call(message, "executions")) {
+                    if (!$Array.isArray(message.executions))
+                        return "executions: array expected";
+                    for (let i = 0; i < message.executions.length; ++i) {
+                        let error = $root.privoke.v1.SemanticTrainingExecution.verify(message.executions[i], _depth + 1);
+                        if (error)
+                            return "executions." + error;
+                    }
+                }
                 return null;
             };
 
@@ -5329,6 +6186,16 @@ export const privoke = $root.privoke = (() => {
                 if (object.error != null)
                     if (typeof object.error !== "string" || object.error.length)
                         message.error = $String(object.error);
+                if (object.executions) {
+                    if (!$Array.isArray(object.executions))
+                        throw $TypeError(".privoke.v1.ComputeSemanticGradientsResponse.executions: array expected");
+                    message.executions = $Array(object.executions.length);
+                    for (let i = 0; i < object.executions.length; ++i) {
+                        if (!$util.isObject(object.executions[i]))
+                            throw $TypeError(".privoke.v1.ComputeSemanticGradientsResponse.executions: object expected");
+                        message.executions[i] = $root.privoke.v1.SemanticTrainingExecution.fromObject(object.executions[i], _depth + 1);
+                    }
+                }
                 return message;
             };
 
@@ -5349,8 +6216,10 @@ export const privoke = $root.privoke = (() => {
                 if (_depth > $util.recursionLimit)
                     throw $Error("max depth exceeded");
                 let object = {};
-                if (options.arrays || options.defaults)
+                if (options.arrays || options.defaults) {
                     object.gradients = [];
+                    object.executions = [];
+                }
                 if (options.objects || options.defaults) {
                     object.metrics = {};
                     object.metadata = {};
@@ -5391,6 +6260,11 @@ export const privoke = $root.privoke = (() => {
                 }
                 if (message.error != null && $Object.hasOwnProperty.call(message, "error"))
                     object.error = message.error;
+                if (message.executions && message.executions.length) {
+                    object.executions = $Array(message.executions.length);
+                    for (let j = 0; j < message.executions.length; ++j)
+                        object.executions[j] = $root.privoke.v1.SemanticTrainingExecution.toObject(message.executions[j], options, _depth + 1);
+                }
                 return object;
             };
 
@@ -5537,6 +6411,129 @@ export const privoke = $root.privoke = (() => {
             });
 
             /**
+             * Callback as used by {@link privoke.v1.PrivokeRuntimeService#computeUnderlyingModelGradients}.
+             * @memberof privoke.v1.PrivokeRuntimeService
+             * @typedef ComputeUnderlyingModelGradientsCallback
+             * @type {function}
+             * @param {Error|null} error Error, if any
+             * @param {privoke.v1.ComputeSemanticGradientsResponse} [response] ComputeSemanticGradientsResponse
+             */
+
+            /**
+             * Calls ComputeUnderlyingModelGradients.
+             * @memberof privoke.v1.PrivokeRuntimeService
+             * @typedef ComputeUnderlyingModelGradients
+             * @type {{
+             *   (request: privoke.v1.IComputeSemanticGradientsRequest, callback: privoke.v1.PrivokeRuntimeService.ComputeUnderlyingModelGradientsCallback): void;
+             *   (request: privoke.v1.IComputeSemanticGradientsRequest): Promise<privoke.v1.ComputeSemanticGradientsResponse>;
+             *   readonly name: "ComputeUnderlyingModelGradients";
+             *   readonly path: "/privoke.v1.PrivokeRuntimeService/ComputeUnderlyingModelGradients";
+             *   readonly requestType: "ComputeSemanticGradientsRequest";
+             *   readonly responseType: "ComputeSemanticGradientsResponse";
+             *   readonly requestStream: undefined;
+             *   readonly responseStream: undefined;
+             * }}
+             */
+
+            /**
+             * Calls ComputeUnderlyingModelGradients.
+             * @name privoke.v1.PrivokeRuntimeService#computeUnderlyingModelGradients
+             * @type {privoke.v1.PrivokeRuntimeService.ComputeUnderlyingModelGradients}
+             */
+            $Object.defineProperties(PrivokeRuntimeService.prototype.computeUnderlyingModelGradients = function(request, callback) {
+                return $protobuf.rpc.Service.prototype.rpcCall.call(this, PrivokeRuntimeService.prototype.computeUnderlyingModelGradients, $root.privoke.v1.ComputeSemanticGradientsRequest, $root.privoke.v1.ComputeSemanticGradientsResponse, request, callback);
+            }, {
+                name: { value: "ComputeUnderlyingModelGradients" },
+                path: { value: "/privoke.v1.PrivokeRuntimeService/ComputeUnderlyingModelGradients" },
+                requestType: { value: "ComputeSemanticGradientsRequest" },
+                responseType: { value: "ComputeSemanticGradientsResponse" },
+                requestStream: { value: $undefined },
+                responseStream: { value: $undefined }
+            });
+
+            /**
+             * Callback as used by {@link privoke.v1.PrivokeRuntimeService#detectAnnotationPresence}.
+             * @memberof privoke.v1.PrivokeRuntimeService
+             * @typedef DetectAnnotationPresenceCallback
+             * @type {function}
+             * @param {Error|null} error Error, if any
+             * @param {privoke.v1.DetectAnnotationPresenceResponse} [response] DetectAnnotationPresenceResponse
+             */
+
+            /**
+             * Calls DetectAnnotationPresence.
+             * @memberof privoke.v1.PrivokeRuntimeService
+             * @typedef DetectAnnotationPresence
+             * @type {{
+             *   (request: privoke.v1.IDetectAnnotationPresenceRequest, callback: privoke.v1.PrivokeRuntimeService.DetectAnnotationPresenceCallback): void;
+             *   (request: privoke.v1.IDetectAnnotationPresenceRequest): Promise<privoke.v1.DetectAnnotationPresenceResponse>;
+             *   readonly name: "DetectAnnotationPresence";
+             *   readonly path: "/privoke.v1.PrivokeRuntimeService/DetectAnnotationPresence";
+             *   readonly requestType: "DetectAnnotationPresenceRequest";
+             *   readonly responseType: "DetectAnnotationPresenceResponse";
+             *   readonly requestStream: undefined;
+             *   readonly responseStream: undefined;
+             * }}
+             */
+
+            /**
+             * Calls DetectAnnotationPresence.
+             * @name privoke.v1.PrivokeRuntimeService#detectAnnotationPresence
+             * @type {privoke.v1.PrivokeRuntimeService.DetectAnnotationPresence}
+             */
+            $Object.defineProperties(PrivokeRuntimeService.prototype.detectAnnotationPresence = function(request, callback) {
+                return $protobuf.rpc.Service.prototype.rpcCall.call(this, PrivokeRuntimeService.prototype.detectAnnotationPresence, $root.privoke.v1.DetectAnnotationPresenceRequest, $root.privoke.v1.DetectAnnotationPresenceResponse, request, callback);
+            }, {
+                name: { value: "DetectAnnotationPresence" },
+                path: { value: "/privoke.v1.PrivokeRuntimeService/DetectAnnotationPresence" },
+                requestType: { value: "DetectAnnotationPresenceRequest" },
+                responseType: { value: "DetectAnnotationPresenceResponse" },
+                requestStream: { value: $undefined },
+                responseStream: { value: $undefined }
+            });
+
+            /**
+             * Callback as used by {@link privoke.v1.PrivokeRuntimeService#computePresenceGradients}.
+             * @memberof privoke.v1.PrivokeRuntimeService
+             * @typedef ComputePresenceGradientsCallback
+             * @type {function}
+             * @param {Error|null} error Error, if any
+             * @param {privoke.v1.ComputePresenceGradientsResponse} [response] ComputePresenceGradientsResponse
+             */
+
+            /**
+             * Calls ComputePresenceGradients.
+             * @memberof privoke.v1.PrivokeRuntimeService
+             * @typedef ComputePresenceGradients
+             * @type {{
+             *   (request: privoke.v1.IComputePresenceGradientsRequest, callback: privoke.v1.PrivokeRuntimeService.ComputePresenceGradientsCallback): void;
+             *   (request: privoke.v1.IComputePresenceGradientsRequest): Promise<privoke.v1.ComputePresenceGradientsResponse>;
+             *   readonly name: "ComputePresenceGradients";
+             *   readonly path: "/privoke.v1.PrivokeRuntimeService/ComputePresenceGradients";
+             *   readonly requestType: "ComputePresenceGradientsRequest";
+             *   readonly responseType: "ComputePresenceGradientsResponse";
+             *   readonly requestStream: undefined;
+             *   readonly responseStream: undefined;
+             * }}
+             */
+
+            /**
+             * Calls ComputePresenceGradients.
+             * @name privoke.v1.PrivokeRuntimeService#computePresenceGradients
+             * @type {privoke.v1.PrivokeRuntimeService.ComputePresenceGradients}
+             */
+            $Object.defineProperties(PrivokeRuntimeService.prototype.computePresenceGradients = function(request, callback) {
+                return $protobuf.rpc.Service.prototype.rpcCall.call(this, PrivokeRuntimeService.prototype.computePresenceGradients, $root.privoke.v1.ComputePresenceGradientsRequest, $root.privoke.v1.ComputePresenceGradientsResponse, request, callback);
+            }, {
+                name: { value: "ComputePresenceGradients" },
+                path: { value: "/privoke.v1.PrivokeRuntimeService/ComputePresenceGradients" },
+                requestType: { value: "ComputePresenceGradientsRequest" },
+                responseType: { value: "ComputePresenceGradientsResponse" },
+                requestStream: { value: $undefined },
+                responseStream: { value: $undefined }
+            });
+
+            /**
              * Callback as used by {@link privoke.v1.PrivokeRuntimeService#health}.
              * @memberof privoke.v1.PrivokeRuntimeService
              * @typedef HealthCallback
@@ -5578,6 +6575,3209 @@ export const privoke = $root.privoke = (() => {
             });
 
             return PrivokeRuntimeService;
+        })();
+
+        /**
+         * AnnotationPresenceLabel enum.
+         * @name privoke.v1.AnnotationPresenceLabel
+         * @enum {number}
+         * @property {number} ANNOTATION_PRESENCE_UNSPECIFIED=0 ANNOTATION_PRESENCE_UNSPECIFIED value
+         * @property {number} ANNOTATION_PRESENCE_ABSENT=1 ANNOTATION_PRESENCE_ABSENT value
+         * @property {number} ANNOTATION_PRESENCE_PRESENT=2 ANNOTATION_PRESENCE_PRESENT value
+         */
+        v1.AnnotationPresenceLabel = (function() {
+            const valuesById = $Object.create(null), values = $Object.create(valuesById);
+            values[valuesById[0] = "ANNOTATION_PRESENCE_UNSPECIFIED"] = 0;
+            values[valuesById[1] = "ANNOTATION_PRESENCE_ABSENT"] = 1;
+            values[valuesById[2] = "ANNOTATION_PRESENCE_PRESENT"] = 2;
+            return values;
+        })();
+
+        /**
+         * SemanticPresenceGateStatus enum.
+         * @name privoke.v1.SemanticPresenceGateStatus
+         * @enum {number}
+         * @property {number} SEMANTIC_PRESENCE_GATE_STATUS_UNSPECIFIED=0 SEMANTIC_PRESENCE_GATE_STATUS_UNSPECIFIED value
+         * @property {number} SEMANTIC_PRESENCE_GATE_STATUS_NOT_RUN=1 SEMANTIC_PRESENCE_GATE_STATUS_NOT_RUN value
+         * @property {number} SEMANTIC_PRESENCE_GATE_STATUS_APPLIED=2 SEMANTIC_PRESENCE_GATE_STATUS_APPLIED value
+         * @property {number} SEMANTIC_PRESENCE_GATE_STATUS_ERROR=3 SEMANTIC_PRESENCE_GATE_STATUS_ERROR value
+         */
+        v1.SemanticPresenceGateStatus = (function() {
+            const valuesById = $Object.create(null), values = $Object.create(valuesById);
+            values[valuesById[0] = "SEMANTIC_PRESENCE_GATE_STATUS_UNSPECIFIED"] = 0;
+            values[valuesById[1] = "SEMANTIC_PRESENCE_GATE_STATUS_NOT_RUN"] = 1;
+            values[valuesById[2] = "SEMANTIC_PRESENCE_GATE_STATUS_APPLIED"] = 2;
+            values[valuesById[3] = "SEMANTIC_PRESENCE_GATE_STATUS_ERROR"] = 3;
+            return values;
+        })();
+
+        v1.SemanticPresenceGateTrace = (function() {
+
+            /**
+             * Properties of a SemanticPresenceGateTrace.
+             * @typedef {Object} privoke.v1.SemanticPresenceGateTrace.$Properties
+             * @property {privoke.v1.SemanticPresenceGateStatus|null} [status] SemanticPresenceGateTrace status
+             * @property {string|null} [modelId] SemanticPresenceGateTrace modelId
+             * @property {string|null} [modelVersion] SemanticPresenceGateTrace modelVersion
+             * @property {string|null} [artifactChecksum] SemanticPresenceGateTrace artifactChecksum
+             * @property {string|null} [parameterFingerprint] SemanticPresenceGateTrace parameterFingerprint
+             * @property {number|null} [probability] SemanticPresenceGateTrace probability
+             * @property {number|null} [modelThreshold] SemanticPresenceGateTrace modelThreshold
+             * @property {number|null} [decisionThreshold] SemanticPresenceGateTrace decisionThreshold
+             * @property {privoke.v1.AnnotationPresenceLabel|null} [predictedLabel] SemanticPresenceGateTrace predictedLabel
+             * @property {Array.<privoke.v1.RuntimeDetectionResult.$Properties>|null} [semanticResults] SemanticPresenceGateTrace semanticResults
+             * @property {string|null} [error] SemanticPresenceGateTrace error
+             * @property {string|null} [contextualModelId] SemanticPresenceGateTrace contextualModelId
+             * @property {string|null} [contextualModelVersion] SemanticPresenceGateTrace contextualModelVersion
+             * @property {string|null} [contextualArtifactChecksum] SemanticPresenceGateTrace contextualArtifactChecksum
+             * @property {string|null} [contextualParameterFingerprint] SemanticPresenceGateTrace contextualParameterFingerprint
+             * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+             */
+
+            /**
+             * Properties of a SemanticPresenceGateTrace.
+             * @memberof privoke.v1
+             * @interface ISemanticPresenceGateTrace
+             * @augments privoke.v1.SemanticPresenceGateTrace.$Properties
+             * @deprecated Use privoke.v1.SemanticPresenceGateTrace.$Properties instead.
+             */
+
+            /**
+             * Shape of a SemanticPresenceGateTrace.
+             * @typedef {privoke.v1.SemanticPresenceGateTrace.$Properties} privoke.v1.SemanticPresenceGateTrace.$Shape
+             */
+
+            /**
+             * Constructs a new SemanticPresenceGateTrace.
+             * @memberof privoke.v1
+             * @classdesc Represents a SemanticPresenceGateTrace.
+             * @constructor
+             * @param {privoke.v1.SemanticPresenceGateTrace.$Properties=} [properties] Properties to set
+             * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+             */
+            const SemanticPresenceGateTrace = function (properties) {
+                this.semanticResults = [];
+                if (properties)
+                    for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                            this[keys[i]] = properties[keys[i]];
+            };
+
+            /**
+             * SemanticPresenceGateTrace status.
+             * @member {privoke.v1.SemanticPresenceGateStatus} status
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @instance
+             */
+            SemanticPresenceGateTrace.prototype.status = 0;
+
+            /**
+             * SemanticPresenceGateTrace modelId.
+             * @member {string} modelId
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @instance
+             */
+            SemanticPresenceGateTrace.prototype.modelId = "";
+
+            /**
+             * SemanticPresenceGateTrace modelVersion.
+             * @member {string} modelVersion
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @instance
+             */
+            SemanticPresenceGateTrace.prototype.modelVersion = "";
+
+            /**
+             * SemanticPresenceGateTrace artifactChecksum.
+             * @member {string} artifactChecksum
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @instance
+             */
+            SemanticPresenceGateTrace.prototype.artifactChecksum = "";
+
+            /**
+             * SemanticPresenceGateTrace parameterFingerprint.
+             * @member {string} parameterFingerprint
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @instance
+             */
+            SemanticPresenceGateTrace.prototype.parameterFingerprint = "";
+
+            /**
+             * SemanticPresenceGateTrace probability.
+             * @member {number|null|undefined} probability
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @instance
+             */
+            SemanticPresenceGateTrace.prototype.probability = null;
+
+            /**
+             * SemanticPresenceGateTrace modelThreshold.
+             * @member {number|null|undefined} modelThreshold
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @instance
+             */
+            SemanticPresenceGateTrace.prototype.modelThreshold = null;
+
+            /**
+             * SemanticPresenceGateTrace decisionThreshold.
+             * @member {number|null|undefined} decisionThreshold
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @instance
+             */
+            SemanticPresenceGateTrace.prototype.decisionThreshold = null;
+
+            /**
+             * SemanticPresenceGateTrace predictedLabel.
+             * @member {privoke.v1.AnnotationPresenceLabel} predictedLabel
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @instance
+             */
+            SemanticPresenceGateTrace.prototype.predictedLabel = 0;
+
+            /**
+             * SemanticPresenceGateTrace semanticResults.
+             * @member {Array.<privoke.v1.RuntimeDetectionResult.$Properties>} semanticResults
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @instance
+             */
+            SemanticPresenceGateTrace.prototype.semanticResults = $util.emptyArray;
+
+            /**
+             * SemanticPresenceGateTrace error.
+             * @member {string} error
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @instance
+             */
+            SemanticPresenceGateTrace.prototype.error = "";
+
+            /**
+             * SemanticPresenceGateTrace contextualModelId.
+             * @member {string} contextualModelId
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @instance
+             */
+            SemanticPresenceGateTrace.prototype.contextualModelId = "";
+
+            /**
+             * SemanticPresenceGateTrace contextualModelVersion.
+             * @member {string} contextualModelVersion
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @instance
+             */
+            SemanticPresenceGateTrace.prototype.contextualModelVersion = "";
+
+            /**
+             * SemanticPresenceGateTrace contextualArtifactChecksum.
+             * @member {string} contextualArtifactChecksum
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @instance
+             */
+            SemanticPresenceGateTrace.prototype.contextualArtifactChecksum = "";
+
+            /**
+             * SemanticPresenceGateTrace contextualParameterFingerprint.
+             * @member {string} contextualParameterFingerprint
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @instance
+             */
+            SemanticPresenceGateTrace.prototype.contextualParameterFingerprint = "";
+
+            // OneOf field names bound to virtual getters and setters
+            let $oneOfFields;
+
+            // Virtual OneOf for proto3 optional field
+            $Object.defineProperty(SemanticPresenceGateTrace.prototype, "_probability", {
+                get: $util.oneOfGetter($oneOfFields = ["probability"]),
+                set: $util.oneOfSetter($oneOfFields)
+            });
+
+            // Virtual OneOf for proto3 optional field
+            $Object.defineProperty(SemanticPresenceGateTrace.prototype, "_modelThreshold", {
+                get: $util.oneOfGetter($oneOfFields = ["modelThreshold"]),
+                set: $util.oneOfSetter($oneOfFields)
+            });
+
+            // Virtual OneOf for proto3 optional field
+            $Object.defineProperty(SemanticPresenceGateTrace.prototype, "_decisionThreshold", {
+                get: $util.oneOfGetter($oneOfFields = ["decisionThreshold"]),
+                set: $util.oneOfSetter($oneOfFields)
+            });
+
+            /**
+             * Creates a new SemanticPresenceGateTrace instance using the specified properties.
+             * @function create
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @static
+             * @param {privoke.v1.SemanticPresenceGateTrace.$Properties=} [properties] Properties to set
+             * @returns {privoke.v1.SemanticPresenceGateTrace} SemanticPresenceGateTrace instance
+             * @type {{
+             *   (properties: privoke.v1.SemanticPresenceGateTrace.$Shape): privoke.v1.SemanticPresenceGateTrace & privoke.v1.SemanticPresenceGateTrace.$Shape;
+             *   (properties?: privoke.v1.SemanticPresenceGateTrace.$Properties): privoke.v1.SemanticPresenceGateTrace;
+             * }}
+             */
+            SemanticPresenceGateTrace.create = function(properties) {
+                return new SemanticPresenceGateTrace(properties);
+            };
+
+            /**
+             * Encodes the specified SemanticPresenceGateTrace message. Does not implicitly {@link privoke.v1.SemanticPresenceGateTrace.verify|verify} messages.
+             * @function encode
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @static
+             * @param {privoke.v1.SemanticPresenceGateTrace.$Properties} message SemanticPresenceGateTrace message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            SemanticPresenceGateTrace.encode = function (message, writer, _depth) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                if (message.status != null && $Object.hasOwnProperty.call(message, "status") && message.status !== 0)
+                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.status);
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId") && message.modelId !== "")
+                    writer.uint32(/* id 2, wireType 2 =*/18).string(message.modelId);
+                if (message.modelVersion != null && $Object.hasOwnProperty.call(message, "modelVersion") && message.modelVersion !== "")
+                    writer.uint32(/* id 3, wireType 2 =*/26).string(message.modelVersion);
+                if (message.artifactChecksum != null && $Object.hasOwnProperty.call(message, "artifactChecksum") && message.artifactChecksum !== "")
+                    writer.uint32(/* id 4, wireType 2 =*/34).string(message.artifactChecksum);
+                if (message.parameterFingerprint != null && $Object.hasOwnProperty.call(message, "parameterFingerprint") && message.parameterFingerprint !== "")
+                    writer.uint32(/* id 5, wireType 2 =*/42).string(message.parameterFingerprint);
+                if (message.probability != null && $Object.hasOwnProperty.call(message, "probability"))
+                    writer.uint32(/* id 6, wireType 1 =*/49).double(message.probability);
+                if (message.modelThreshold != null && $Object.hasOwnProperty.call(message, "modelThreshold"))
+                    writer.uint32(/* id 7, wireType 1 =*/57).double(message.modelThreshold);
+                if (message.decisionThreshold != null && $Object.hasOwnProperty.call(message, "decisionThreshold"))
+                    writer.uint32(/* id 8, wireType 1 =*/65).double(message.decisionThreshold);
+                if (message.predictedLabel != null && $Object.hasOwnProperty.call(message, "predictedLabel") && message.predictedLabel !== 0)
+                    writer.uint32(/* id 9, wireType 0 =*/72).int32(message.predictedLabel);
+                if (message.semanticResults != null && message.semanticResults.length)
+                    for (let i = 0; i < message.semanticResults.length; ++i)
+                        $root.privoke.v1.RuntimeDetectionResult.encode(message.semanticResults[i], writer.uint32(/* id 10, wireType 2 =*/82).fork(), _depth + 1).ldelim();
+                if (message.error != null && $Object.hasOwnProperty.call(message, "error") && message.error !== "")
+                    writer.uint32(/* id 11, wireType 2 =*/90).string(message.error);
+                if (message.contextualModelId != null && $Object.hasOwnProperty.call(message, "contextualModelId") && message.contextualModelId !== "")
+                    writer.uint32(/* id 12, wireType 2 =*/98).string(message.contextualModelId);
+                if (message.contextualModelVersion != null && $Object.hasOwnProperty.call(message, "contextualModelVersion") && message.contextualModelVersion !== "")
+                    writer.uint32(/* id 13, wireType 2 =*/106).string(message.contextualModelVersion);
+                if (message.contextualArtifactChecksum != null && $Object.hasOwnProperty.call(message, "contextualArtifactChecksum") && message.contextualArtifactChecksum !== "")
+                    writer.uint32(/* id 14, wireType 2 =*/114).string(message.contextualArtifactChecksum);
+                if (message.contextualParameterFingerprint != null && $Object.hasOwnProperty.call(message, "contextualParameterFingerprint") && message.contextualParameterFingerprint !== "")
+                    writer.uint32(/* id 15, wireType 2 =*/122).string(message.contextualParameterFingerprint);
+                if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                    for (let i = 0; i < message.$unknowns.length; ++i)
+                        writer.raw(message.$unknowns[i]);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified SemanticPresenceGateTrace message, length delimited. Does not implicitly {@link privoke.v1.SemanticPresenceGateTrace.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @static
+             * @param {privoke.v1.SemanticPresenceGateTrace.$Properties} message SemanticPresenceGateTrace message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            SemanticPresenceGateTrace.encodeDelimited = function(message, writer) {
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+            };
+
+            /**
+             * Decodes a SemanticPresenceGateTrace message from the specified reader or buffer.
+             * @function decode
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {privoke.v1.SemanticPresenceGateTrace & privoke.v1.SemanticPresenceGateTrace.$Shape} SemanticPresenceGateTrace
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            SemanticPresenceGateTrace.decode = function (reader, length, _end, _depth, _target) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $Reader.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.privoke.v1.SemanticPresenceGateTrace(), value;
+                while (reader.pos < end) {
+                    let start = reader.pos;
+                    let tag = reader.tag();
+                    if (tag === _end) {
+                        _end = $undefined;
+                        break;
+                    }
+                    let wireType = tag & 7;
+                    switch (tag >>>= 3) {
+                    case 1: {
+                            if (wireType !== 0)
+                                break;
+                            if (value = reader.int32())
+                                message.status = value;
+                            else
+                                delete message.status;
+                            continue;
+                        }
+                    case 2: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.modelId = value;
+                            else
+                                delete message.modelId;
+                            continue;
+                        }
+                    case 3: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.modelVersion = value;
+                            else
+                                delete message.modelVersion;
+                            continue;
+                        }
+                    case 4: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.artifactChecksum = value;
+                            else
+                                delete message.artifactChecksum;
+                            continue;
+                        }
+                    case 5: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.parameterFingerprint = value;
+                            else
+                                delete message.parameterFingerprint;
+                            continue;
+                        }
+                    case 6: {
+                            if (wireType !== 1)
+                                break;
+                            message.probability = reader.double();
+                            message._probability = "probability";
+                            continue;
+                        }
+                    case 7: {
+                            if (wireType !== 1)
+                                break;
+                            message.modelThreshold = reader.double();
+                            message._modelThreshold = "modelThreshold";
+                            continue;
+                        }
+                    case 8: {
+                            if (wireType !== 1)
+                                break;
+                            message.decisionThreshold = reader.double();
+                            message._decisionThreshold = "decisionThreshold";
+                            continue;
+                        }
+                    case 9: {
+                            if (wireType !== 0)
+                                break;
+                            if (value = reader.int32())
+                                message.predictedLabel = value;
+                            else
+                                delete message.predictedLabel;
+                            continue;
+                        }
+                    case 10: {
+                            if (wireType !== 2)
+                                break;
+                            if (!(message.semanticResults && message.semanticResults.length))
+                                message.semanticResults = [];
+                            message.semanticResults.push($root.privoke.v1.RuntimeDetectionResult.decode(reader, reader.uint32(), $undefined, _depth + 1));
+                            continue;
+                        }
+                    case 11: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.error = value;
+                            else
+                                delete message.error;
+                            continue;
+                        }
+                    case 12: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.contextualModelId = value;
+                            else
+                                delete message.contextualModelId;
+                            continue;
+                        }
+                    case 13: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.contextualModelVersion = value;
+                            else
+                                delete message.contextualModelVersion;
+                            continue;
+                        }
+                    case 14: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.contextualArtifactChecksum = value;
+                            else
+                                delete message.contextualArtifactChecksum;
+                            continue;
+                        }
+                    case 15: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.contextualParameterFingerprint = value;
+                            else
+                                delete message.contextualParameterFingerprint;
+                            continue;
+                        }
+                    }
+                    reader.skipType(wireType, _depth, tag);
+                    if (!reader.discardUnknown) {
+                        $util.makeProp(message, "$unknowns", false);
+                        (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                    }
+                }
+                if (_end !== $undefined)
+                    throw $Error("missing end group");
+                return message;
+            };
+
+            /**
+             * Decodes a SemanticPresenceGateTrace message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {privoke.v1.SemanticPresenceGateTrace & privoke.v1.SemanticPresenceGateTrace.$Shape} SemanticPresenceGateTrace
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            SemanticPresenceGateTrace.decodeDelimited = function(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a SemanticPresenceGateTrace message.
+             * @function verify
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            SemanticPresenceGateTrace.verify = function (message, _depth) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    return "max depth exceeded";
+                let properties = {};
+                if (message.status != null && $Object.hasOwnProperty.call(message, "status"))
+                    if (typeof message.status !== "number" || (message.status | 0) !== message.status)
+                        return "status: enum value expected";
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId"))
+                    if (!$util.isString(message.modelId))
+                        return "modelId: string expected";
+                if (message.modelVersion != null && $Object.hasOwnProperty.call(message, "modelVersion"))
+                    if (!$util.isString(message.modelVersion))
+                        return "modelVersion: string expected";
+                if (message.artifactChecksum != null && $Object.hasOwnProperty.call(message, "artifactChecksum"))
+                    if (!$util.isString(message.artifactChecksum))
+                        return "artifactChecksum: string expected";
+                if (message.parameterFingerprint != null && $Object.hasOwnProperty.call(message, "parameterFingerprint"))
+                    if (!$util.isString(message.parameterFingerprint))
+                        return "parameterFingerprint: string expected";
+                if (message.probability != null && $Object.hasOwnProperty.call(message, "probability")) {
+                    properties._probability = 1;
+                    if (typeof message.probability !== "number")
+                        return "probability: number expected";
+                }
+                if (message.modelThreshold != null && $Object.hasOwnProperty.call(message, "modelThreshold")) {
+                    properties._modelThreshold = 1;
+                    if (typeof message.modelThreshold !== "number")
+                        return "modelThreshold: number expected";
+                }
+                if (message.decisionThreshold != null && $Object.hasOwnProperty.call(message, "decisionThreshold")) {
+                    properties._decisionThreshold = 1;
+                    if (typeof message.decisionThreshold !== "number")
+                        return "decisionThreshold: number expected";
+                }
+                if (message.predictedLabel != null && $Object.hasOwnProperty.call(message, "predictedLabel"))
+                    if (typeof message.predictedLabel !== "number" || (message.predictedLabel | 0) !== message.predictedLabel)
+                        return "predictedLabel: enum value expected";
+                if (message.semanticResults != null && $Object.hasOwnProperty.call(message, "semanticResults")) {
+                    if (!$Array.isArray(message.semanticResults))
+                        return "semanticResults: array expected";
+                    for (let i = 0; i < message.semanticResults.length; ++i) {
+                        let error = $root.privoke.v1.RuntimeDetectionResult.verify(message.semanticResults[i], _depth + 1);
+                        if (error)
+                            return "semanticResults." + error;
+                    }
+                }
+                if (message.error != null && $Object.hasOwnProperty.call(message, "error"))
+                    if (!$util.isString(message.error))
+                        return "error: string expected";
+                if (message.contextualModelId != null && $Object.hasOwnProperty.call(message, "contextualModelId"))
+                    if (!$util.isString(message.contextualModelId))
+                        return "contextualModelId: string expected";
+                if (message.contextualModelVersion != null && $Object.hasOwnProperty.call(message, "contextualModelVersion"))
+                    if (!$util.isString(message.contextualModelVersion))
+                        return "contextualModelVersion: string expected";
+                if (message.contextualArtifactChecksum != null && $Object.hasOwnProperty.call(message, "contextualArtifactChecksum"))
+                    if (!$util.isString(message.contextualArtifactChecksum))
+                        return "contextualArtifactChecksum: string expected";
+                if (message.contextualParameterFingerprint != null && $Object.hasOwnProperty.call(message, "contextualParameterFingerprint"))
+                    if (!$util.isString(message.contextualParameterFingerprint))
+                        return "contextualParameterFingerprint: string expected";
+                return null;
+            };
+
+            /**
+             * Creates a SemanticPresenceGateTrace message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {privoke.v1.SemanticPresenceGateTrace} SemanticPresenceGateTrace
+             */
+            SemanticPresenceGateTrace.fromObject = function (object, _depth) {
+                if (object instanceof $root.privoke.v1.SemanticPresenceGateTrace)
+                    return object;
+                if (!$util.isObject(object))
+                    throw $TypeError(".privoke.v1.SemanticPresenceGateTrace: object expected");
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let message = new $root.privoke.v1.SemanticPresenceGateTrace();
+                if (object.status !== 0 && (typeof object.status !== "string" || $root.privoke.v1.SemanticPresenceGateStatus[object.status] !== 0))
+                    switch (object.status) {
+                    case "SEMANTIC_PRESENCE_GATE_STATUS_UNSPECIFIED":
+                    case 0:
+                        message.status = 0;
+                        break;
+                    case "SEMANTIC_PRESENCE_GATE_STATUS_NOT_RUN":
+                    case 1:
+                        message.status = 1;
+                        break;
+                    case "SEMANTIC_PRESENCE_GATE_STATUS_APPLIED":
+                    case 2:
+                        message.status = 2;
+                        break;
+                    case "SEMANTIC_PRESENCE_GATE_STATUS_ERROR":
+                    case 3:
+                        message.status = 3;
+                        break;
+                    default:
+                        if (typeof object.status === "number" && (object.status | 0) === object.status)
+                            message.status = object.status;
+                    }
+                if (object.modelId != null)
+                    if (typeof object.modelId !== "string" || object.modelId.length)
+                        message.modelId = $String(object.modelId);
+                if (object.modelVersion != null)
+                    if (typeof object.modelVersion !== "string" || object.modelVersion.length)
+                        message.modelVersion = $String(object.modelVersion);
+                if (object.artifactChecksum != null)
+                    if (typeof object.artifactChecksum !== "string" || object.artifactChecksum.length)
+                        message.artifactChecksum = $String(object.artifactChecksum);
+                if (object.parameterFingerprint != null)
+                    if (typeof object.parameterFingerprint !== "string" || object.parameterFingerprint.length)
+                        message.parameterFingerprint = $String(object.parameterFingerprint);
+                if (object.probability != null)
+                    message.probability = $Number(object.probability);
+                if (object.modelThreshold != null)
+                    message.modelThreshold = $Number(object.modelThreshold);
+                if (object.decisionThreshold != null)
+                    message.decisionThreshold = $Number(object.decisionThreshold);
+                if (object.predictedLabel !== 0 && (typeof object.predictedLabel !== "string" || $root.privoke.v1.AnnotationPresenceLabel[object.predictedLabel] !== 0))
+                    switch (object.predictedLabel) {
+                    case "ANNOTATION_PRESENCE_UNSPECIFIED":
+                    case 0:
+                        message.predictedLabel = 0;
+                        break;
+                    case "ANNOTATION_PRESENCE_ABSENT":
+                    case 1:
+                        message.predictedLabel = 1;
+                        break;
+                    case "ANNOTATION_PRESENCE_PRESENT":
+                    case 2:
+                        message.predictedLabel = 2;
+                        break;
+                    default:
+                        if (typeof object.predictedLabel === "number" && (object.predictedLabel | 0) === object.predictedLabel)
+                            message.predictedLabel = object.predictedLabel;
+                    }
+                if (object.semanticResults) {
+                    if (!$Array.isArray(object.semanticResults))
+                        throw $TypeError(".privoke.v1.SemanticPresenceGateTrace.semanticResults: array expected");
+                    message.semanticResults = $Array(object.semanticResults.length);
+                    for (let i = 0; i < object.semanticResults.length; ++i) {
+                        if (!$util.isObject(object.semanticResults[i]))
+                            throw $TypeError(".privoke.v1.SemanticPresenceGateTrace.semanticResults: object expected");
+                        message.semanticResults[i] = $root.privoke.v1.RuntimeDetectionResult.fromObject(object.semanticResults[i], _depth + 1);
+                    }
+                }
+                if (object.error != null)
+                    if (typeof object.error !== "string" || object.error.length)
+                        message.error = $String(object.error);
+                if (object.contextualModelId != null)
+                    if (typeof object.contextualModelId !== "string" || object.contextualModelId.length)
+                        message.contextualModelId = $String(object.contextualModelId);
+                if (object.contextualModelVersion != null)
+                    if (typeof object.contextualModelVersion !== "string" || object.contextualModelVersion.length)
+                        message.contextualModelVersion = $String(object.contextualModelVersion);
+                if (object.contextualArtifactChecksum != null)
+                    if (typeof object.contextualArtifactChecksum !== "string" || object.contextualArtifactChecksum.length)
+                        message.contextualArtifactChecksum = $String(object.contextualArtifactChecksum);
+                if (object.contextualParameterFingerprint != null)
+                    if (typeof object.contextualParameterFingerprint !== "string" || object.contextualParameterFingerprint.length)
+                        message.contextualParameterFingerprint = $String(object.contextualParameterFingerprint);
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a SemanticPresenceGateTrace message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @static
+             * @param {privoke.v1.SemanticPresenceGateTrace} message SemanticPresenceGateTrace
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            SemanticPresenceGateTrace.toObject = function (message, options, _depth) {
+                if (!options)
+                    options = {};
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let object = {};
+                if (options.arrays || options.defaults)
+                    object.semanticResults = [];
+                if (options.defaults) {
+                    object.status = options.enums === $String ? "SEMANTIC_PRESENCE_GATE_STATUS_UNSPECIFIED" : 0;
+                    object.modelId = "";
+                    object.modelVersion = "";
+                    object.artifactChecksum = "";
+                    object.parameterFingerprint = "";
+                    object.predictedLabel = options.enums === $String ? "ANNOTATION_PRESENCE_UNSPECIFIED" : 0;
+                    object.error = "";
+                    object.contextualModelId = "";
+                    object.contextualModelVersion = "";
+                    object.contextualArtifactChecksum = "";
+                    object.contextualParameterFingerprint = "";
+                }
+                if (message.status != null && $Object.hasOwnProperty.call(message, "status"))
+                    object.status = options.enums === $String ? $root.privoke.v1.SemanticPresenceGateStatus[message.status] === $undefined ? message.status : $root.privoke.v1.SemanticPresenceGateStatus[message.status] : message.status;
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId"))
+                    object.modelId = message.modelId;
+                if (message.modelVersion != null && $Object.hasOwnProperty.call(message, "modelVersion"))
+                    object.modelVersion = message.modelVersion;
+                if (message.artifactChecksum != null && $Object.hasOwnProperty.call(message, "artifactChecksum"))
+                    object.artifactChecksum = message.artifactChecksum;
+                if (message.parameterFingerprint != null && $Object.hasOwnProperty.call(message, "parameterFingerprint"))
+                    object.parameterFingerprint = message.parameterFingerprint;
+                if (message.probability != null && $Object.hasOwnProperty.call(message, "probability"))
+                    object.probability = options.json && !$isFinite(message.probability) ? $String(message.probability) : message.probability;
+                if (message.modelThreshold != null && $Object.hasOwnProperty.call(message, "modelThreshold"))
+                    object.modelThreshold = options.json && !$isFinite(message.modelThreshold) ? $String(message.modelThreshold) : message.modelThreshold;
+                if (message.decisionThreshold != null && $Object.hasOwnProperty.call(message, "decisionThreshold"))
+                    object.decisionThreshold = options.json && !$isFinite(message.decisionThreshold) ? $String(message.decisionThreshold) : message.decisionThreshold;
+                if (message.predictedLabel != null && $Object.hasOwnProperty.call(message, "predictedLabel"))
+                    object.predictedLabel = options.enums === $String ? $root.privoke.v1.AnnotationPresenceLabel[message.predictedLabel] === $undefined ? message.predictedLabel : $root.privoke.v1.AnnotationPresenceLabel[message.predictedLabel] : message.predictedLabel;
+                if (message.semanticResults && message.semanticResults.length) {
+                    object.semanticResults = $Array(message.semanticResults.length);
+                    for (let j = 0; j < message.semanticResults.length; ++j)
+                        object.semanticResults[j] = $root.privoke.v1.RuntimeDetectionResult.toObject(message.semanticResults[j], options, _depth + 1);
+                }
+                if (message.error != null && $Object.hasOwnProperty.call(message, "error"))
+                    object.error = message.error;
+                if (message.contextualModelId != null && $Object.hasOwnProperty.call(message, "contextualModelId"))
+                    object.contextualModelId = message.contextualModelId;
+                if (message.contextualModelVersion != null && $Object.hasOwnProperty.call(message, "contextualModelVersion"))
+                    object.contextualModelVersion = message.contextualModelVersion;
+                if (message.contextualArtifactChecksum != null && $Object.hasOwnProperty.call(message, "contextualArtifactChecksum"))
+                    object.contextualArtifactChecksum = message.contextualArtifactChecksum;
+                if (message.contextualParameterFingerprint != null && $Object.hasOwnProperty.call(message, "contextualParameterFingerprint"))
+                    object.contextualParameterFingerprint = message.contextualParameterFingerprint;
+                return object;
+            };
+
+            /**
+             * Converts this SemanticPresenceGateTrace to JSON.
+             * @function toJSON
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            SemanticPresenceGateTrace.prototype.toJSON = function() {
+                return SemanticPresenceGateTrace.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            /**
+             * Gets the type url for SemanticPresenceGateTrace
+             * @function getTypeUrl
+             * @memberof privoke.v1.SemanticPresenceGateTrace
+             * @static
+             * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+             * @returns {string} The type url
+             */
+            SemanticPresenceGateTrace.getTypeUrl = function(prefix) {
+                if (prefix === $undefined)
+                    prefix = "type.googleapis.com";
+                return prefix + "/privoke.v1.SemanticPresenceGateTrace";
+            };
+
+            return SemanticPresenceGateTrace;
+        })();
+
+        v1.DetectAnnotationPresenceRequest = (function() {
+
+            /**
+             * Properties of a DetectAnnotationPresenceRequest.
+             * @typedef {Object} privoke.v1.DetectAnnotationPresenceRequest.$Properties
+             * @property {string|null} [requestId] DetectAnnotationPresenceRequest requestId
+             * @property {string|null} [text] DetectAnnotationPresenceRequest text
+             * @property {string|null} [modelId] DetectAnnotationPresenceRequest modelId
+             * @property {Array.<privoke.v1.DetectionLayer>|null} [layers] DetectAnnotationPresenceRequest layers
+             * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+             */
+
+            /**
+             * Properties of a DetectAnnotationPresenceRequest.
+             * @memberof privoke.v1
+             * @interface IDetectAnnotationPresenceRequest
+             * @augments privoke.v1.DetectAnnotationPresenceRequest.$Properties
+             * @deprecated Use privoke.v1.DetectAnnotationPresenceRequest.$Properties instead.
+             */
+
+            /**
+             * Shape of a DetectAnnotationPresenceRequest.
+             * @typedef {privoke.v1.DetectAnnotationPresenceRequest.$Properties} privoke.v1.DetectAnnotationPresenceRequest.$Shape
+             */
+
+            /**
+             * Constructs a new DetectAnnotationPresenceRequest.
+             * @memberof privoke.v1
+             * @classdesc Represents a DetectAnnotationPresenceRequest.
+             * @constructor
+             * @param {privoke.v1.DetectAnnotationPresenceRequest.$Properties=} [properties] Properties to set
+             * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+             */
+            const DetectAnnotationPresenceRequest = function (properties) {
+                this.layers = [];
+                if (properties)
+                    for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                            this[keys[i]] = properties[keys[i]];
+            };
+
+            /**
+             * DetectAnnotationPresenceRequest requestId.
+             * @member {string} requestId
+             * @memberof privoke.v1.DetectAnnotationPresenceRequest
+             * @instance
+             */
+            DetectAnnotationPresenceRequest.prototype.requestId = "";
+
+            /**
+             * DetectAnnotationPresenceRequest text.
+             * @member {string} text
+             * @memberof privoke.v1.DetectAnnotationPresenceRequest
+             * @instance
+             */
+            DetectAnnotationPresenceRequest.prototype.text = "";
+
+            /**
+             * DetectAnnotationPresenceRequest modelId.
+             * @member {string} modelId
+             * @memberof privoke.v1.DetectAnnotationPresenceRequest
+             * @instance
+             */
+            DetectAnnotationPresenceRequest.prototype.modelId = "";
+
+            /**
+             * DetectAnnotationPresenceRequest layers.
+             * @member {Array.<privoke.v1.DetectionLayer>} layers
+             * @memberof privoke.v1.DetectAnnotationPresenceRequest
+             * @instance
+             */
+            DetectAnnotationPresenceRequest.prototype.layers = $util.emptyArray;
+
+            /**
+             * Creates a new DetectAnnotationPresenceRequest instance using the specified properties.
+             * @function create
+             * @memberof privoke.v1.DetectAnnotationPresenceRequest
+             * @static
+             * @param {privoke.v1.DetectAnnotationPresenceRequest.$Properties=} [properties] Properties to set
+             * @returns {privoke.v1.DetectAnnotationPresenceRequest} DetectAnnotationPresenceRequest instance
+             * @type {{
+             *   (properties: privoke.v1.DetectAnnotationPresenceRequest.$Shape): privoke.v1.DetectAnnotationPresenceRequest & privoke.v1.DetectAnnotationPresenceRequest.$Shape;
+             *   (properties?: privoke.v1.DetectAnnotationPresenceRequest.$Properties): privoke.v1.DetectAnnotationPresenceRequest;
+             * }}
+             */
+            DetectAnnotationPresenceRequest.create = function(properties) {
+                return new DetectAnnotationPresenceRequest(properties);
+            };
+
+            /**
+             * Encodes the specified DetectAnnotationPresenceRequest message. Does not implicitly {@link privoke.v1.DetectAnnotationPresenceRequest.verify|verify} messages.
+             * @function encode
+             * @memberof privoke.v1.DetectAnnotationPresenceRequest
+             * @static
+             * @param {privoke.v1.DetectAnnotationPresenceRequest.$Properties} message DetectAnnotationPresenceRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DetectAnnotationPresenceRequest.encode = function (message, writer, _depth) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId") && message.requestId !== "")
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.requestId);
+                if (message.text != null && $Object.hasOwnProperty.call(message, "text") && message.text !== "")
+                    writer.uint32(/* id 2, wireType 2 =*/18).string(message.text);
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId") && message.modelId !== "")
+                    writer.uint32(/* id 3, wireType 2 =*/26).string(message.modelId);
+                if (message.layers != null && message.layers.length)
+                    writer.uint32(/* id 4, wireType 2 =*/34).int32s(message.layers);
+                if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                    for (let i = 0; i < message.$unknowns.length; ++i)
+                        writer.raw(message.$unknowns[i]);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified DetectAnnotationPresenceRequest message, length delimited. Does not implicitly {@link privoke.v1.DetectAnnotationPresenceRequest.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof privoke.v1.DetectAnnotationPresenceRequest
+             * @static
+             * @param {privoke.v1.DetectAnnotationPresenceRequest.$Properties} message DetectAnnotationPresenceRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DetectAnnotationPresenceRequest.encodeDelimited = function(message, writer) {
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+            };
+
+            /**
+             * Decodes a DetectAnnotationPresenceRequest message from the specified reader or buffer.
+             * @function decode
+             * @memberof privoke.v1.DetectAnnotationPresenceRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {privoke.v1.DetectAnnotationPresenceRequest & privoke.v1.DetectAnnotationPresenceRequest.$Shape} DetectAnnotationPresenceRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DetectAnnotationPresenceRequest.decode = function (reader, length, _end, _depth, _target) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $Reader.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.privoke.v1.DetectAnnotationPresenceRequest(), value;
+                while (reader.pos < end) {
+                    let start = reader.pos;
+                    let tag = reader.tag();
+                    if (tag === _end) {
+                        _end = $undefined;
+                        break;
+                    }
+                    let wireType = tag & 7;
+                    switch (tag >>>= 3) {
+                    case 1: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.requestId = value;
+                            else
+                                delete message.requestId;
+                            continue;
+                        }
+                    case 2: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.text = value;
+                            else
+                                delete message.text;
+                            continue;
+                        }
+                    case 3: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.modelId = value;
+                            else
+                                delete message.modelId;
+                            continue;
+                        }
+                    case 4: {
+                            if (wireType === 2) {
+                                if (!(message.layers && message.layers.length))
+                                    message.layers = [];
+                                reader.int32s(message.layers);
+                                continue;
+                            }
+                            if (wireType !== 0)
+                                break;
+                            if (!(message.layers && message.layers.length))
+                                message.layers = [];
+                            message.layers.push(reader.int32());
+                            continue;
+                        }
+                    }
+                    reader.skipType(wireType, _depth, tag);
+                    if (!reader.discardUnknown) {
+                        $util.makeProp(message, "$unknowns", false);
+                        (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                    }
+                }
+                if (_end !== $undefined)
+                    throw $Error("missing end group");
+                return message;
+            };
+
+            /**
+             * Decodes a DetectAnnotationPresenceRequest message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof privoke.v1.DetectAnnotationPresenceRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {privoke.v1.DetectAnnotationPresenceRequest & privoke.v1.DetectAnnotationPresenceRequest.$Shape} DetectAnnotationPresenceRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DetectAnnotationPresenceRequest.decodeDelimited = function(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a DetectAnnotationPresenceRequest message.
+             * @function verify
+             * @memberof privoke.v1.DetectAnnotationPresenceRequest
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            DetectAnnotationPresenceRequest.verify = function (message, _depth) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    return "max depth exceeded";
+                if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId"))
+                    if (!$util.isString(message.requestId))
+                        return "requestId: string expected";
+                if (message.text != null && $Object.hasOwnProperty.call(message, "text"))
+                    if (!$util.isString(message.text))
+                        return "text: string expected";
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId"))
+                    if (!$util.isString(message.modelId))
+                        return "modelId: string expected";
+                if (message.layers != null && $Object.hasOwnProperty.call(message, "layers")) {
+                    if (!$Array.isArray(message.layers))
+                        return "layers: array expected";
+                    for (let i = 0; i < message.layers.length; ++i)
+                        if (typeof message.layers[i] !== "number" || (message.layers[i] | 0) !== message.layers[i])
+                            return "layers: enum value[] expected";
+                }
+                return null;
+            };
+
+            /**
+             * Creates a DetectAnnotationPresenceRequest message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof privoke.v1.DetectAnnotationPresenceRequest
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {privoke.v1.DetectAnnotationPresenceRequest} DetectAnnotationPresenceRequest
+             */
+            DetectAnnotationPresenceRequest.fromObject = function (object, _depth) {
+                if (object instanceof $root.privoke.v1.DetectAnnotationPresenceRequest)
+                    return object;
+                if (!$util.isObject(object))
+                    throw $TypeError(".privoke.v1.DetectAnnotationPresenceRequest: object expected");
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let message = new $root.privoke.v1.DetectAnnotationPresenceRequest();
+                if (object.requestId != null)
+                    if (typeof object.requestId !== "string" || object.requestId.length)
+                        message.requestId = $String(object.requestId);
+                if (object.text != null)
+                    if (typeof object.text !== "string" || object.text.length)
+                        message.text = $String(object.text);
+                if (object.modelId != null)
+                    if (typeof object.modelId !== "string" || object.modelId.length)
+                        message.modelId = $String(object.modelId);
+                if (object.layers) {
+                    if (!$Array.isArray(object.layers))
+                        throw $TypeError(".privoke.v1.DetectAnnotationPresenceRequest.layers: array expected");
+                    message.layers = [];
+                    for (let i = 0; i < object.layers.length; ++i)
+                        switch (object.layers[i]) {
+                        case "DETECTION_LAYER_UNSPECIFIED":
+                        case 0:
+                            message.layers[message.layers.length] = 0;
+                            break;
+                        case "DETECTION_LAYER_RUNTIME":
+                        case 1:
+                            message.layers[message.layers.length] = 1;
+                            break;
+                        case "DETECTION_LAYER_REGEX":
+                        case 2:
+                            message.layers[message.layers.length] = 2;
+                            break;
+                        case "DETECTION_LAYER_NER":
+                        case 3:
+                            message.layers[message.layers.length] = 3;
+                            break;
+                        case "DETECTION_LAYER_SEMANTIC":
+                        case 4:
+                            message.layers[message.layers.length] = 4;
+                            break;
+                        default:
+                            if (typeof object.layers[i] === "number" && (object.layers[i] | 0) === object.layers[i])
+                                message.layers[message.layers.length] = object.layers[i];
+                        }
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a DetectAnnotationPresenceRequest message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof privoke.v1.DetectAnnotationPresenceRequest
+             * @static
+             * @param {privoke.v1.DetectAnnotationPresenceRequest} message DetectAnnotationPresenceRequest
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            DetectAnnotationPresenceRequest.toObject = function (message, options, _depth) {
+                if (!options)
+                    options = {};
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let object = {};
+                if (options.arrays || options.defaults)
+                    object.layers = [];
+                if (options.defaults) {
+                    object.requestId = "";
+                    object.text = "";
+                    object.modelId = "";
+                }
+                if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId"))
+                    object.requestId = message.requestId;
+                if (message.text != null && $Object.hasOwnProperty.call(message, "text"))
+                    object.text = message.text;
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId"))
+                    object.modelId = message.modelId;
+                if (message.layers && message.layers.length) {
+                    object.layers = $Array(message.layers.length);
+                    for (let j = 0; j < message.layers.length; ++j)
+                        object.layers[j] = options.enums === $String ? $root.privoke.v1.DetectionLayer[message.layers[j]] === $undefined ? message.layers[j] : $root.privoke.v1.DetectionLayer[message.layers[j]] : message.layers[j];
+                }
+                return object;
+            };
+
+            /**
+             * Converts this DetectAnnotationPresenceRequest to JSON.
+             * @function toJSON
+             * @memberof privoke.v1.DetectAnnotationPresenceRequest
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            DetectAnnotationPresenceRequest.prototype.toJSON = function() {
+                return DetectAnnotationPresenceRequest.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            /**
+             * Gets the type url for DetectAnnotationPresenceRequest
+             * @function getTypeUrl
+             * @memberof privoke.v1.DetectAnnotationPresenceRequest
+             * @static
+             * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+             * @returns {string} The type url
+             */
+            DetectAnnotationPresenceRequest.getTypeUrl = function(prefix) {
+                if (prefix === $undefined)
+                    prefix = "type.googleapis.com";
+                return prefix + "/privoke.v1.DetectAnnotationPresenceRequest";
+            };
+
+            return DetectAnnotationPresenceRequest;
+        })();
+
+        v1.DetectAnnotationPresenceResponse = (function() {
+
+            /**
+             * Properties of a DetectAnnotationPresenceResponse.
+             * @typedef {Object} privoke.v1.DetectAnnotationPresenceResponse.$Properties
+             * @property {string|null} [requestId] DetectAnnotationPresenceResponse requestId
+             * @property {string|null} [modelId] DetectAnnotationPresenceResponse modelId
+             * @property {string|null} [modelVersion] DetectAnnotationPresenceResponse modelVersion
+             * @property {number|null} [probability] DetectAnnotationPresenceResponse probability
+             * @property {number|null} [threshold] DetectAnnotationPresenceResponse threshold
+             * @property {privoke.v1.AnnotationPresenceLabel|null} [predictedLabel] DetectAnnotationPresenceResponse predictedLabel
+             * @property {string|null} [artifactChecksum] DetectAnnotationPresenceResponse artifactChecksum
+             * @property {string|null} [parameterFingerprint] DetectAnnotationPresenceResponse parameterFingerprint
+             * @property {number|null} [elapsedMs] DetectAnnotationPresenceResponse elapsedMs
+             * @property {string|null} [error] DetectAnnotationPresenceResponse error
+             * @property {Array.<privoke.v1.RuntimeLayerExecution.$Properties>|null} [executions] DetectAnnotationPresenceResponse executions
+             * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+             */
+
+            /**
+             * Properties of a DetectAnnotationPresenceResponse.
+             * @memberof privoke.v1
+             * @interface IDetectAnnotationPresenceResponse
+             * @augments privoke.v1.DetectAnnotationPresenceResponse.$Properties
+             * @deprecated Use privoke.v1.DetectAnnotationPresenceResponse.$Properties instead.
+             */
+
+            /**
+             * Shape of a DetectAnnotationPresenceResponse.
+             * @typedef {privoke.v1.DetectAnnotationPresenceResponse.$Properties} privoke.v1.DetectAnnotationPresenceResponse.$Shape
+             */
+
+            /**
+             * Constructs a new DetectAnnotationPresenceResponse.
+             * @memberof privoke.v1
+             * @classdesc Represents a DetectAnnotationPresenceResponse.
+             * @constructor
+             * @param {privoke.v1.DetectAnnotationPresenceResponse.$Properties=} [properties] Properties to set
+             * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+             */
+            const DetectAnnotationPresenceResponse = function (properties) {
+                this.executions = [];
+                if (properties)
+                    for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                            this[keys[i]] = properties[keys[i]];
+            };
+
+            /**
+             * DetectAnnotationPresenceResponse requestId.
+             * @member {string} requestId
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @instance
+             */
+            DetectAnnotationPresenceResponse.prototype.requestId = "";
+
+            /**
+             * DetectAnnotationPresenceResponse modelId.
+             * @member {string} modelId
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @instance
+             */
+            DetectAnnotationPresenceResponse.prototype.modelId = "";
+
+            /**
+             * DetectAnnotationPresenceResponse modelVersion.
+             * @member {string} modelVersion
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @instance
+             */
+            DetectAnnotationPresenceResponse.prototype.modelVersion = "";
+
+            /**
+             * DetectAnnotationPresenceResponse probability.
+             * @member {number} probability
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @instance
+             */
+            DetectAnnotationPresenceResponse.prototype.probability = 0;
+
+            /**
+             * DetectAnnotationPresenceResponse threshold.
+             * @member {number} threshold
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @instance
+             */
+            DetectAnnotationPresenceResponse.prototype.threshold = 0;
+
+            /**
+             * DetectAnnotationPresenceResponse predictedLabel.
+             * @member {privoke.v1.AnnotationPresenceLabel} predictedLabel
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @instance
+             */
+            DetectAnnotationPresenceResponse.prototype.predictedLabel = 0;
+
+            /**
+             * DetectAnnotationPresenceResponse artifactChecksum.
+             * @member {string} artifactChecksum
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @instance
+             */
+            DetectAnnotationPresenceResponse.prototype.artifactChecksum = "";
+
+            /**
+             * DetectAnnotationPresenceResponse parameterFingerprint.
+             * @member {string} parameterFingerprint
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @instance
+             */
+            DetectAnnotationPresenceResponse.prototype.parameterFingerprint = "";
+
+            /**
+             * DetectAnnotationPresenceResponse elapsedMs.
+             * @member {number} elapsedMs
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @instance
+             */
+            DetectAnnotationPresenceResponse.prototype.elapsedMs = 0;
+
+            /**
+             * DetectAnnotationPresenceResponse error.
+             * @member {string} error
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @instance
+             */
+            DetectAnnotationPresenceResponse.prototype.error = "";
+
+            /**
+             * DetectAnnotationPresenceResponse executions.
+             * @member {Array.<privoke.v1.RuntimeLayerExecution.$Properties>} executions
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @instance
+             */
+            DetectAnnotationPresenceResponse.prototype.executions = $util.emptyArray;
+
+            /**
+             * Creates a new DetectAnnotationPresenceResponse instance using the specified properties.
+             * @function create
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @static
+             * @param {privoke.v1.DetectAnnotationPresenceResponse.$Properties=} [properties] Properties to set
+             * @returns {privoke.v1.DetectAnnotationPresenceResponse} DetectAnnotationPresenceResponse instance
+             * @type {{
+             *   (properties: privoke.v1.DetectAnnotationPresenceResponse.$Shape): privoke.v1.DetectAnnotationPresenceResponse & privoke.v1.DetectAnnotationPresenceResponse.$Shape;
+             *   (properties?: privoke.v1.DetectAnnotationPresenceResponse.$Properties): privoke.v1.DetectAnnotationPresenceResponse;
+             * }}
+             */
+            DetectAnnotationPresenceResponse.create = function(properties) {
+                return new DetectAnnotationPresenceResponse(properties);
+            };
+
+            /**
+             * Encodes the specified DetectAnnotationPresenceResponse message. Does not implicitly {@link privoke.v1.DetectAnnotationPresenceResponse.verify|verify} messages.
+             * @function encode
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @static
+             * @param {privoke.v1.DetectAnnotationPresenceResponse.$Properties} message DetectAnnotationPresenceResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DetectAnnotationPresenceResponse.encode = function (message, writer, _depth) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId") && message.requestId !== "")
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.requestId);
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId") && message.modelId !== "")
+                    writer.uint32(/* id 2, wireType 2 =*/18).string(message.modelId);
+                if (message.modelVersion != null && $Object.hasOwnProperty.call(message, "modelVersion") && message.modelVersion !== "")
+                    writer.uint32(/* id 3, wireType 2 =*/26).string(message.modelVersion);
+                if (message.probability != null && $Object.hasOwnProperty.call(message, "probability") && !$Object.is(message.probability, 0))
+                    writer.uint32(/* id 4, wireType 1 =*/33).double(message.probability);
+                if (message.threshold != null && $Object.hasOwnProperty.call(message, "threshold") && !$Object.is(message.threshold, 0))
+                    writer.uint32(/* id 5, wireType 1 =*/41).double(message.threshold);
+                if (message.predictedLabel != null && $Object.hasOwnProperty.call(message, "predictedLabel") && message.predictedLabel !== 0)
+                    writer.uint32(/* id 6, wireType 0 =*/48).int32(message.predictedLabel);
+                if (message.artifactChecksum != null && $Object.hasOwnProperty.call(message, "artifactChecksum") && message.artifactChecksum !== "")
+                    writer.uint32(/* id 7, wireType 2 =*/58).string(message.artifactChecksum);
+                if (message.parameterFingerprint != null && $Object.hasOwnProperty.call(message, "parameterFingerprint") && message.parameterFingerprint !== "")
+                    writer.uint32(/* id 8, wireType 2 =*/66).string(message.parameterFingerprint);
+                if (message.elapsedMs != null && $Object.hasOwnProperty.call(message, "elapsedMs") && !$Object.is(message.elapsedMs, 0))
+                    writer.uint32(/* id 9, wireType 1 =*/73).double(message.elapsedMs);
+                if (message.error != null && $Object.hasOwnProperty.call(message, "error") && message.error !== "")
+                    writer.uint32(/* id 10, wireType 2 =*/82).string(message.error);
+                if (message.executions != null && message.executions.length)
+                    for (let i = 0; i < message.executions.length; ++i)
+                        $root.privoke.v1.RuntimeLayerExecution.encode(message.executions[i], writer.uint32(/* id 11, wireType 2 =*/90).fork(), _depth + 1).ldelim();
+                if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                    for (let i = 0; i < message.$unknowns.length; ++i)
+                        writer.raw(message.$unknowns[i]);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified DetectAnnotationPresenceResponse message, length delimited. Does not implicitly {@link privoke.v1.DetectAnnotationPresenceResponse.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @static
+             * @param {privoke.v1.DetectAnnotationPresenceResponse.$Properties} message DetectAnnotationPresenceResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            DetectAnnotationPresenceResponse.encodeDelimited = function(message, writer) {
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+            };
+
+            /**
+             * Decodes a DetectAnnotationPresenceResponse message from the specified reader or buffer.
+             * @function decode
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {privoke.v1.DetectAnnotationPresenceResponse & privoke.v1.DetectAnnotationPresenceResponse.$Shape} DetectAnnotationPresenceResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DetectAnnotationPresenceResponse.decode = function (reader, length, _end, _depth, _target) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $Reader.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.privoke.v1.DetectAnnotationPresenceResponse(), value;
+                while (reader.pos < end) {
+                    let start = reader.pos;
+                    let tag = reader.tag();
+                    if (tag === _end) {
+                        _end = $undefined;
+                        break;
+                    }
+                    let wireType = tag & 7;
+                    switch (tag >>>= 3) {
+                    case 1: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.requestId = value;
+                            else
+                                delete message.requestId;
+                            continue;
+                        }
+                    case 2: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.modelId = value;
+                            else
+                                delete message.modelId;
+                            continue;
+                        }
+                    case 3: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.modelVersion = value;
+                            else
+                                delete message.modelVersion;
+                            continue;
+                        }
+                    case 4: {
+                            if (wireType !== 1)
+                                break;
+                            if (!$Object.is(value = reader.double(), 0))
+                                message.probability = value;
+                            else
+                                delete message.probability;
+                            continue;
+                        }
+                    case 5: {
+                            if (wireType !== 1)
+                                break;
+                            if (!$Object.is(value = reader.double(), 0))
+                                message.threshold = value;
+                            else
+                                delete message.threshold;
+                            continue;
+                        }
+                    case 6: {
+                            if (wireType !== 0)
+                                break;
+                            if (value = reader.int32())
+                                message.predictedLabel = value;
+                            else
+                                delete message.predictedLabel;
+                            continue;
+                        }
+                    case 7: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.artifactChecksum = value;
+                            else
+                                delete message.artifactChecksum;
+                            continue;
+                        }
+                    case 8: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.parameterFingerprint = value;
+                            else
+                                delete message.parameterFingerprint;
+                            continue;
+                        }
+                    case 9: {
+                            if (wireType !== 1)
+                                break;
+                            if (!$Object.is(value = reader.double(), 0))
+                                message.elapsedMs = value;
+                            else
+                                delete message.elapsedMs;
+                            continue;
+                        }
+                    case 10: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.error = value;
+                            else
+                                delete message.error;
+                            continue;
+                        }
+                    case 11: {
+                            if (wireType !== 2)
+                                break;
+                            if (!(message.executions && message.executions.length))
+                                message.executions = [];
+                            message.executions.push($root.privoke.v1.RuntimeLayerExecution.decode(reader, reader.uint32(), $undefined, _depth + 1));
+                            continue;
+                        }
+                    }
+                    reader.skipType(wireType, _depth, tag);
+                    if (!reader.discardUnknown) {
+                        $util.makeProp(message, "$unknowns", false);
+                        (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                    }
+                }
+                if (_end !== $undefined)
+                    throw $Error("missing end group");
+                return message;
+            };
+
+            /**
+             * Decodes a DetectAnnotationPresenceResponse message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {privoke.v1.DetectAnnotationPresenceResponse & privoke.v1.DetectAnnotationPresenceResponse.$Shape} DetectAnnotationPresenceResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            DetectAnnotationPresenceResponse.decodeDelimited = function(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a DetectAnnotationPresenceResponse message.
+             * @function verify
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            DetectAnnotationPresenceResponse.verify = function (message, _depth) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    return "max depth exceeded";
+                if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId"))
+                    if (!$util.isString(message.requestId))
+                        return "requestId: string expected";
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId"))
+                    if (!$util.isString(message.modelId))
+                        return "modelId: string expected";
+                if (message.modelVersion != null && $Object.hasOwnProperty.call(message, "modelVersion"))
+                    if (!$util.isString(message.modelVersion))
+                        return "modelVersion: string expected";
+                if (message.probability != null && $Object.hasOwnProperty.call(message, "probability"))
+                    if (typeof message.probability !== "number")
+                        return "probability: number expected";
+                if (message.threshold != null && $Object.hasOwnProperty.call(message, "threshold"))
+                    if (typeof message.threshold !== "number")
+                        return "threshold: number expected";
+                if (message.predictedLabel != null && $Object.hasOwnProperty.call(message, "predictedLabel"))
+                    if (typeof message.predictedLabel !== "number" || (message.predictedLabel | 0) !== message.predictedLabel)
+                        return "predictedLabel: enum value expected";
+                if (message.artifactChecksum != null && $Object.hasOwnProperty.call(message, "artifactChecksum"))
+                    if (!$util.isString(message.artifactChecksum))
+                        return "artifactChecksum: string expected";
+                if (message.parameterFingerprint != null && $Object.hasOwnProperty.call(message, "parameterFingerprint"))
+                    if (!$util.isString(message.parameterFingerprint))
+                        return "parameterFingerprint: string expected";
+                if (message.elapsedMs != null && $Object.hasOwnProperty.call(message, "elapsedMs"))
+                    if (typeof message.elapsedMs !== "number")
+                        return "elapsedMs: number expected";
+                if (message.error != null && $Object.hasOwnProperty.call(message, "error"))
+                    if (!$util.isString(message.error))
+                        return "error: string expected";
+                if (message.executions != null && $Object.hasOwnProperty.call(message, "executions")) {
+                    if (!$Array.isArray(message.executions))
+                        return "executions: array expected";
+                    for (let i = 0; i < message.executions.length; ++i) {
+                        let error = $root.privoke.v1.RuntimeLayerExecution.verify(message.executions[i], _depth + 1);
+                        if (error)
+                            return "executions." + error;
+                    }
+                }
+                return null;
+            };
+
+            /**
+             * Creates a DetectAnnotationPresenceResponse message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {privoke.v1.DetectAnnotationPresenceResponse} DetectAnnotationPresenceResponse
+             */
+            DetectAnnotationPresenceResponse.fromObject = function (object, _depth) {
+                if (object instanceof $root.privoke.v1.DetectAnnotationPresenceResponse)
+                    return object;
+                if (!$util.isObject(object))
+                    throw $TypeError(".privoke.v1.DetectAnnotationPresenceResponse: object expected");
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let message = new $root.privoke.v1.DetectAnnotationPresenceResponse();
+                if (object.requestId != null)
+                    if (typeof object.requestId !== "string" || object.requestId.length)
+                        message.requestId = $String(object.requestId);
+                if (object.modelId != null)
+                    if (typeof object.modelId !== "string" || object.modelId.length)
+                        message.modelId = $String(object.modelId);
+                if (object.modelVersion != null)
+                    if (typeof object.modelVersion !== "string" || object.modelVersion.length)
+                        message.modelVersion = $String(object.modelVersion);
+                if (object.probability != null)
+                    if (!$Object.is($Number(object.probability), 0))
+                        message.probability = $Number(object.probability);
+                if (object.threshold != null)
+                    if (!$Object.is($Number(object.threshold), 0))
+                        message.threshold = $Number(object.threshold);
+                if (object.predictedLabel !== 0 && (typeof object.predictedLabel !== "string" || $root.privoke.v1.AnnotationPresenceLabel[object.predictedLabel] !== 0))
+                    switch (object.predictedLabel) {
+                    case "ANNOTATION_PRESENCE_UNSPECIFIED":
+                    case 0:
+                        message.predictedLabel = 0;
+                        break;
+                    case "ANNOTATION_PRESENCE_ABSENT":
+                    case 1:
+                        message.predictedLabel = 1;
+                        break;
+                    case "ANNOTATION_PRESENCE_PRESENT":
+                    case 2:
+                        message.predictedLabel = 2;
+                        break;
+                    default:
+                        if (typeof object.predictedLabel === "number" && (object.predictedLabel | 0) === object.predictedLabel)
+                            message.predictedLabel = object.predictedLabel;
+                    }
+                if (object.artifactChecksum != null)
+                    if (typeof object.artifactChecksum !== "string" || object.artifactChecksum.length)
+                        message.artifactChecksum = $String(object.artifactChecksum);
+                if (object.parameterFingerprint != null)
+                    if (typeof object.parameterFingerprint !== "string" || object.parameterFingerprint.length)
+                        message.parameterFingerprint = $String(object.parameterFingerprint);
+                if (object.elapsedMs != null)
+                    if (!$Object.is($Number(object.elapsedMs), 0))
+                        message.elapsedMs = $Number(object.elapsedMs);
+                if (object.error != null)
+                    if (typeof object.error !== "string" || object.error.length)
+                        message.error = $String(object.error);
+                if (object.executions) {
+                    if (!$Array.isArray(object.executions))
+                        throw $TypeError(".privoke.v1.DetectAnnotationPresenceResponse.executions: array expected");
+                    message.executions = $Array(object.executions.length);
+                    for (let i = 0; i < object.executions.length; ++i) {
+                        if (!$util.isObject(object.executions[i]))
+                            throw $TypeError(".privoke.v1.DetectAnnotationPresenceResponse.executions: object expected");
+                        message.executions[i] = $root.privoke.v1.RuntimeLayerExecution.fromObject(object.executions[i], _depth + 1);
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a DetectAnnotationPresenceResponse message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @static
+             * @param {privoke.v1.DetectAnnotationPresenceResponse} message DetectAnnotationPresenceResponse
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            DetectAnnotationPresenceResponse.toObject = function (message, options, _depth) {
+                if (!options)
+                    options = {};
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let object = {};
+                if (options.arrays || options.defaults)
+                    object.executions = [];
+                if (options.defaults) {
+                    object.requestId = "";
+                    object.modelId = "";
+                    object.modelVersion = "";
+                    object.probability = 0;
+                    object.threshold = 0;
+                    object.predictedLabel = options.enums === $String ? "ANNOTATION_PRESENCE_UNSPECIFIED" : 0;
+                    object.artifactChecksum = "";
+                    object.parameterFingerprint = "";
+                    object.elapsedMs = 0;
+                    object.error = "";
+                }
+                if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId"))
+                    object.requestId = message.requestId;
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId"))
+                    object.modelId = message.modelId;
+                if (message.modelVersion != null && $Object.hasOwnProperty.call(message, "modelVersion"))
+                    object.modelVersion = message.modelVersion;
+                if (message.probability != null && $Object.hasOwnProperty.call(message, "probability"))
+                    object.probability = options.json && !$isFinite(message.probability) ? $String(message.probability) : message.probability;
+                if (message.threshold != null && $Object.hasOwnProperty.call(message, "threshold"))
+                    object.threshold = options.json && !$isFinite(message.threshold) ? $String(message.threshold) : message.threshold;
+                if (message.predictedLabel != null && $Object.hasOwnProperty.call(message, "predictedLabel"))
+                    object.predictedLabel = options.enums === $String ? $root.privoke.v1.AnnotationPresenceLabel[message.predictedLabel] === $undefined ? message.predictedLabel : $root.privoke.v1.AnnotationPresenceLabel[message.predictedLabel] : message.predictedLabel;
+                if (message.artifactChecksum != null && $Object.hasOwnProperty.call(message, "artifactChecksum"))
+                    object.artifactChecksum = message.artifactChecksum;
+                if (message.parameterFingerprint != null && $Object.hasOwnProperty.call(message, "parameterFingerprint"))
+                    object.parameterFingerprint = message.parameterFingerprint;
+                if (message.elapsedMs != null && $Object.hasOwnProperty.call(message, "elapsedMs"))
+                    object.elapsedMs = options.json && !$isFinite(message.elapsedMs) ? $String(message.elapsedMs) : message.elapsedMs;
+                if (message.error != null && $Object.hasOwnProperty.call(message, "error"))
+                    object.error = message.error;
+                if (message.executions && message.executions.length) {
+                    object.executions = $Array(message.executions.length);
+                    for (let j = 0; j < message.executions.length; ++j)
+                        object.executions[j] = $root.privoke.v1.RuntimeLayerExecution.toObject(message.executions[j], options, _depth + 1);
+                }
+                return object;
+            };
+
+            /**
+             * Converts this DetectAnnotationPresenceResponse to JSON.
+             * @function toJSON
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            DetectAnnotationPresenceResponse.prototype.toJSON = function() {
+                return DetectAnnotationPresenceResponse.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            /**
+             * Gets the type url for DetectAnnotationPresenceResponse
+             * @function getTypeUrl
+             * @memberof privoke.v1.DetectAnnotationPresenceResponse
+             * @static
+             * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+             * @returns {string} The type url
+             */
+            DetectAnnotationPresenceResponse.getTypeUrl = function(prefix) {
+                if (prefix === $undefined)
+                    prefix = "type.googleapis.com";
+                return prefix + "/privoke.v1.DetectAnnotationPresenceResponse";
+            };
+
+            return DetectAnnotationPresenceResponse;
+        })();
+
+        v1.PresenceTrainingExample = (function() {
+
+            /**
+             * Properties of a PresenceTrainingExample.
+             * @typedef {Object} privoke.v1.PresenceTrainingExample.$Properties
+             * @property {string|null} [text] PresenceTrainingExample text
+             * @property {privoke.v1.AnnotationPresenceLabel|null} [target] PresenceTrainingExample target
+             * @property {number|null} [weight] PresenceTrainingExample weight
+             * @property {string|null} [groupId] PresenceTrainingExample groupId
+             * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+             */
+
+            /**
+             * Properties of a PresenceTrainingExample.
+             * @memberof privoke.v1
+             * @interface IPresenceTrainingExample
+             * @augments privoke.v1.PresenceTrainingExample.$Properties
+             * @deprecated Use privoke.v1.PresenceTrainingExample.$Properties instead.
+             */
+
+            /**
+             * Shape of a PresenceTrainingExample.
+             * @typedef {privoke.v1.PresenceTrainingExample.$Properties} privoke.v1.PresenceTrainingExample.$Shape
+             */
+
+            /**
+             * Constructs a new PresenceTrainingExample.
+             * @memberof privoke.v1
+             * @classdesc Represents a PresenceTrainingExample.
+             * @constructor
+             * @param {privoke.v1.PresenceTrainingExample.$Properties=} [properties] Properties to set
+             * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+             */
+            const PresenceTrainingExample = function (properties) {
+                if (properties)
+                    for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                            this[keys[i]] = properties[keys[i]];
+            };
+
+            /**
+             * PresenceTrainingExample text.
+             * @member {string} text
+             * @memberof privoke.v1.PresenceTrainingExample
+             * @instance
+             */
+            PresenceTrainingExample.prototype.text = "";
+
+            /**
+             * PresenceTrainingExample target.
+             * @member {privoke.v1.AnnotationPresenceLabel} target
+             * @memberof privoke.v1.PresenceTrainingExample
+             * @instance
+             */
+            PresenceTrainingExample.prototype.target = 0;
+
+            /**
+             * PresenceTrainingExample weight.
+             * @member {number} weight
+             * @memberof privoke.v1.PresenceTrainingExample
+             * @instance
+             */
+            PresenceTrainingExample.prototype.weight = 0;
+
+            /**
+             * PresenceTrainingExample groupId.
+             * @member {string} groupId
+             * @memberof privoke.v1.PresenceTrainingExample
+             * @instance
+             */
+            PresenceTrainingExample.prototype.groupId = "";
+
+            /**
+             * Creates a new PresenceTrainingExample instance using the specified properties.
+             * @function create
+             * @memberof privoke.v1.PresenceTrainingExample
+             * @static
+             * @param {privoke.v1.PresenceTrainingExample.$Properties=} [properties] Properties to set
+             * @returns {privoke.v1.PresenceTrainingExample} PresenceTrainingExample instance
+             * @type {{
+             *   (properties: privoke.v1.PresenceTrainingExample.$Shape): privoke.v1.PresenceTrainingExample & privoke.v1.PresenceTrainingExample.$Shape;
+             *   (properties?: privoke.v1.PresenceTrainingExample.$Properties): privoke.v1.PresenceTrainingExample;
+             * }}
+             */
+            PresenceTrainingExample.create = function(properties) {
+                return new PresenceTrainingExample(properties);
+            };
+
+            /**
+             * Encodes the specified PresenceTrainingExample message. Does not implicitly {@link privoke.v1.PresenceTrainingExample.verify|verify} messages.
+             * @function encode
+             * @memberof privoke.v1.PresenceTrainingExample
+             * @static
+             * @param {privoke.v1.PresenceTrainingExample.$Properties} message PresenceTrainingExample message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            PresenceTrainingExample.encode = function (message, writer, _depth) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                if (message.text != null && $Object.hasOwnProperty.call(message, "text") && message.text !== "")
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.text);
+                if (message.target != null && $Object.hasOwnProperty.call(message, "target") && message.target !== 0)
+                    writer.uint32(/* id 2, wireType 0 =*/16).int32(message.target);
+                if (message.weight != null && $Object.hasOwnProperty.call(message, "weight") && !$Object.is(message.weight, 0))
+                    writer.uint32(/* id 3, wireType 1 =*/25).double(message.weight);
+                if (message.groupId != null && $Object.hasOwnProperty.call(message, "groupId") && message.groupId !== "")
+                    writer.uint32(/* id 4, wireType 2 =*/34).string(message.groupId);
+                if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                    for (let i = 0; i < message.$unknowns.length; ++i)
+                        writer.raw(message.$unknowns[i]);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified PresenceTrainingExample message, length delimited. Does not implicitly {@link privoke.v1.PresenceTrainingExample.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof privoke.v1.PresenceTrainingExample
+             * @static
+             * @param {privoke.v1.PresenceTrainingExample.$Properties} message PresenceTrainingExample message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            PresenceTrainingExample.encodeDelimited = function(message, writer) {
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+            };
+
+            /**
+             * Decodes a PresenceTrainingExample message from the specified reader or buffer.
+             * @function decode
+             * @memberof privoke.v1.PresenceTrainingExample
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {privoke.v1.PresenceTrainingExample & privoke.v1.PresenceTrainingExample.$Shape} PresenceTrainingExample
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            PresenceTrainingExample.decode = function (reader, length, _end, _depth, _target) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $Reader.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.privoke.v1.PresenceTrainingExample(), value;
+                while (reader.pos < end) {
+                    let start = reader.pos;
+                    let tag = reader.tag();
+                    if (tag === _end) {
+                        _end = $undefined;
+                        break;
+                    }
+                    let wireType = tag & 7;
+                    switch (tag >>>= 3) {
+                    case 1: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.text = value;
+                            else
+                                delete message.text;
+                            continue;
+                        }
+                    case 2: {
+                            if (wireType !== 0)
+                                break;
+                            if (value = reader.int32())
+                                message.target = value;
+                            else
+                                delete message.target;
+                            continue;
+                        }
+                    case 3: {
+                            if (wireType !== 1)
+                                break;
+                            if (!$Object.is(value = reader.double(), 0))
+                                message.weight = value;
+                            else
+                                delete message.weight;
+                            continue;
+                        }
+                    case 4: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.groupId = value;
+                            else
+                                delete message.groupId;
+                            continue;
+                        }
+                    }
+                    reader.skipType(wireType, _depth, tag);
+                    if (!reader.discardUnknown) {
+                        $util.makeProp(message, "$unknowns", false);
+                        (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                    }
+                }
+                if (_end !== $undefined)
+                    throw $Error("missing end group");
+                return message;
+            };
+
+            /**
+             * Decodes a PresenceTrainingExample message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof privoke.v1.PresenceTrainingExample
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {privoke.v1.PresenceTrainingExample & privoke.v1.PresenceTrainingExample.$Shape} PresenceTrainingExample
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            PresenceTrainingExample.decodeDelimited = function(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a PresenceTrainingExample message.
+             * @function verify
+             * @memberof privoke.v1.PresenceTrainingExample
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            PresenceTrainingExample.verify = function (message, _depth) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    return "max depth exceeded";
+                if (message.text != null && $Object.hasOwnProperty.call(message, "text"))
+                    if (!$util.isString(message.text))
+                        return "text: string expected";
+                if (message.target != null && $Object.hasOwnProperty.call(message, "target"))
+                    if (typeof message.target !== "number" || (message.target | 0) !== message.target)
+                        return "target: enum value expected";
+                if (message.weight != null && $Object.hasOwnProperty.call(message, "weight"))
+                    if (typeof message.weight !== "number")
+                        return "weight: number expected";
+                if (message.groupId != null && $Object.hasOwnProperty.call(message, "groupId"))
+                    if (!$util.isString(message.groupId))
+                        return "groupId: string expected";
+                return null;
+            };
+
+            /**
+             * Creates a PresenceTrainingExample message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof privoke.v1.PresenceTrainingExample
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {privoke.v1.PresenceTrainingExample} PresenceTrainingExample
+             */
+            PresenceTrainingExample.fromObject = function (object, _depth) {
+                if (object instanceof $root.privoke.v1.PresenceTrainingExample)
+                    return object;
+                if (!$util.isObject(object))
+                    throw $TypeError(".privoke.v1.PresenceTrainingExample: object expected");
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let message = new $root.privoke.v1.PresenceTrainingExample();
+                if (object.text != null)
+                    if (typeof object.text !== "string" || object.text.length)
+                        message.text = $String(object.text);
+                if (object.target !== 0 && (typeof object.target !== "string" || $root.privoke.v1.AnnotationPresenceLabel[object.target] !== 0))
+                    switch (object.target) {
+                    case "ANNOTATION_PRESENCE_UNSPECIFIED":
+                    case 0:
+                        message.target = 0;
+                        break;
+                    case "ANNOTATION_PRESENCE_ABSENT":
+                    case 1:
+                        message.target = 1;
+                        break;
+                    case "ANNOTATION_PRESENCE_PRESENT":
+                    case 2:
+                        message.target = 2;
+                        break;
+                    default:
+                        if (typeof object.target === "number" && (object.target | 0) === object.target)
+                            message.target = object.target;
+                    }
+                if (object.weight != null)
+                    if (!$Object.is($Number(object.weight), 0))
+                        message.weight = $Number(object.weight);
+                if (object.groupId != null)
+                    if (typeof object.groupId !== "string" || object.groupId.length)
+                        message.groupId = $String(object.groupId);
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a PresenceTrainingExample message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof privoke.v1.PresenceTrainingExample
+             * @static
+             * @param {privoke.v1.PresenceTrainingExample} message PresenceTrainingExample
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            PresenceTrainingExample.toObject = function (message, options, _depth) {
+                if (!options)
+                    options = {};
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let object = {};
+                if (options.defaults) {
+                    object.text = "";
+                    object.target = options.enums === $String ? "ANNOTATION_PRESENCE_UNSPECIFIED" : 0;
+                    object.weight = 0;
+                    object.groupId = "";
+                }
+                if (message.text != null && $Object.hasOwnProperty.call(message, "text"))
+                    object.text = message.text;
+                if (message.target != null && $Object.hasOwnProperty.call(message, "target"))
+                    object.target = options.enums === $String ? $root.privoke.v1.AnnotationPresenceLabel[message.target] === $undefined ? message.target : $root.privoke.v1.AnnotationPresenceLabel[message.target] : message.target;
+                if (message.weight != null && $Object.hasOwnProperty.call(message, "weight"))
+                    object.weight = options.json && !$isFinite(message.weight) ? $String(message.weight) : message.weight;
+                if (message.groupId != null && $Object.hasOwnProperty.call(message, "groupId"))
+                    object.groupId = message.groupId;
+                return object;
+            };
+
+            /**
+             * Converts this PresenceTrainingExample to JSON.
+             * @function toJSON
+             * @memberof privoke.v1.PresenceTrainingExample
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            PresenceTrainingExample.prototype.toJSON = function() {
+                return PresenceTrainingExample.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            /**
+             * Gets the type url for PresenceTrainingExample
+             * @function getTypeUrl
+             * @memberof privoke.v1.PresenceTrainingExample
+             * @static
+             * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+             * @returns {string} The type url
+             */
+            PresenceTrainingExample.getTypeUrl = function(prefix) {
+                if (prefix === $undefined)
+                    prefix = "type.googleapis.com";
+                return prefix + "/privoke.v1.PresenceTrainingExample";
+            };
+
+            return PresenceTrainingExample;
+        })();
+
+        v1.ComputePresenceGradientsRequest = (function() {
+
+            /**
+             * Properties of a ComputePresenceGradientsRequest.
+             * @typedef {Object} privoke.v1.ComputePresenceGradientsRequest.$Properties
+             * @property {string|null} [requestId] ComputePresenceGradientsRequest requestId
+             * @property {string|null} [modelId] ComputePresenceGradientsRequest modelId
+             * @property {Array.<privoke.v1.PresenceTrainingExample.$Properties>|null} [examples] ComputePresenceGradientsRequest examples
+             * @property {number|null} [learningRate] ComputePresenceGradientsRequest learningRate
+             * @property {number|null} [maxGradient] ComputePresenceGradientsRequest maxGradient
+             * @property {Array.<privoke.v1.PresenceTrainingExample.$Properties>|null} [heldoutExamples] ComputePresenceGradientsRequest heldoutExamples
+             * @property {Array.<privoke.v1.DetectionLayer>|null} [layers] ComputePresenceGradientsRequest layers
+             * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+             */
+
+            /**
+             * Properties of a ComputePresenceGradientsRequest.
+             * @memberof privoke.v1
+             * @interface IComputePresenceGradientsRequest
+             * @augments privoke.v1.ComputePresenceGradientsRequest.$Properties
+             * @deprecated Use privoke.v1.ComputePresenceGradientsRequest.$Properties instead.
+             */
+
+            /**
+             * Shape of a ComputePresenceGradientsRequest.
+             * @typedef {privoke.v1.ComputePresenceGradientsRequest.$Properties} privoke.v1.ComputePresenceGradientsRequest.$Shape
+             */
+
+            /**
+             * Constructs a new ComputePresenceGradientsRequest.
+             * @memberof privoke.v1
+             * @classdesc Represents a ComputePresenceGradientsRequest.
+             * @constructor
+             * @param {privoke.v1.ComputePresenceGradientsRequest.$Properties=} [properties] Properties to set
+             * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+             */
+            const ComputePresenceGradientsRequest = function (properties) {
+                this.examples = [];
+                this.heldoutExamples = [];
+                this.layers = [];
+                if (properties)
+                    for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                            this[keys[i]] = properties[keys[i]];
+            };
+
+            /**
+             * ComputePresenceGradientsRequest requestId.
+             * @member {string} requestId
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @instance
+             */
+            ComputePresenceGradientsRequest.prototype.requestId = "";
+
+            /**
+             * ComputePresenceGradientsRequest modelId.
+             * @member {string} modelId
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @instance
+             */
+            ComputePresenceGradientsRequest.prototype.modelId = "";
+
+            /**
+             * ComputePresenceGradientsRequest examples.
+             * @member {Array.<privoke.v1.PresenceTrainingExample.$Properties>} examples
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @instance
+             */
+            ComputePresenceGradientsRequest.prototype.examples = $util.emptyArray;
+
+            /**
+             * ComputePresenceGradientsRequest learningRate.
+             * @member {number} learningRate
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @instance
+             */
+            ComputePresenceGradientsRequest.prototype.learningRate = 0;
+
+            /**
+             * ComputePresenceGradientsRequest maxGradient.
+             * @member {number} maxGradient
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @instance
+             */
+            ComputePresenceGradientsRequest.prototype.maxGradient = 0;
+
+            /**
+             * ComputePresenceGradientsRequest heldoutExamples.
+             * @member {Array.<privoke.v1.PresenceTrainingExample.$Properties>} heldoutExamples
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @instance
+             */
+            ComputePresenceGradientsRequest.prototype.heldoutExamples = $util.emptyArray;
+
+            /**
+             * ComputePresenceGradientsRequest layers.
+             * @member {Array.<privoke.v1.DetectionLayer>} layers
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @instance
+             */
+            ComputePresenceGradientsRequest.prototype.layers = $util.emptyArray;
+
+            /**
+             * Creates a new ComputePresenceGradientsRequest instance using the specified properties.
+             * @function create
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @static
+             * @param {privoke.v1.ComputePresenceGradientsRequest.$Properties=} [properties] Properties to set
+             * @returns {privoke.v1.ComputePresenceGradientsRequest} ComputePresenceGradientsRequest instance
+             * @type {{
+             *   (properties: privoke.v1.ComputePresenceGradientsRequest.$Shape): privoke.v1.ComputePresenceGradientsRequest & privoke.v1.ComputePresenceGradientsRequest.$Shape;
+             *   (properties?: privoke.v1.ComputePresenceGradientsRequest.$Properties): privoke.v1.ComputePresenceGradientsRequest;
+             * }}
+             */
+            ComputePresenceGradientsRequest.create = function(properties) {
+                return new ComputePresenceGradientsRequest(properties);
+            };
+
+            /**
+             * Encodes the specified ComputePresenceGradientsRequest message. Does not implicitly {@link privoke.v1.ComputePresenceGradientsRequest.verify|verify} messages.
+             * @function encode
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @static
+             * @param {privoke.v1.ComputePresenceGradientsRequest.$Properties} message ComputePresenceGradientsRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ComputePresenceGradientsRequest.encode = function (message, writer, _depth) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId") && message.requestId !== "")
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.requestId);
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId") && message.modelId !== "")
+                    writer.uint32(/* id 2, wireType 2 =*/18).string(message.modelId);
+                if (message.examples != null && message.examples.length)
+                    for (let i = 0; i < message.examples.length; ++i)
+                        $root.privoke.v1.PresenceTrainingExample.encode(message.examples[i], writer.uint32(/* id 3, wireType 2 =*/26).fork(), _depth + 1).ldelim();
+                if (message.learningRate != null && $Object.hasOwnProperty.call(message, "learningRate") && !$Object.is(message.learningRate, 0))
+                    writer.uint32(/* id 4, wireType 1 =*/33).double(message.learningRate);
+                if (message.maxGradient != null && $Object.hasOwnProperty.call(message, "maxGradient") && !$Object.is(message.maxGradient, 0))
+                    writer.uint32(/* id 5, wireType 1 =*/41).double(message.maxGradient);
+                if (message.heldoutExamples != null && message.heldoutExamples.length)
+                    for (let i = 0; i < message.heldoutExamples.length; ++i)
+                        $root.privoke.v1.PresenceTrainingExample.encode(message.heldoutExamples[i], writer.uint32(/* id 6, wireType 2 =*/50).fork(), _depth + 1).ldelim();
+                if (message.layers != null && message.layers.length)
+                    writer.uint32(/* id 7, wireType 2 =*/58).int32s(message.layers);
+                if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                    for (let i = 0; i < message.$unknowns.length; ++i)
+                        writer.raw(message.$unknowns[i]);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ComputePresenceGradientsRequest message, length delimited. Does not implicitly {@link privoke.v1.ComputePresenceGradientsRequest.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @static
+             * @param {privoke.v1.ComputePresenceGradientsRequest.$Properties} message ComputePresenceGradientsRequest message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ComputePresenceGradientsRequest.encodeDelimited = function(message, writer) {
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+            };
+
+            /**
+             * Decodes a ComputePresenceGradientsRequest message from the specified reader or buffer.
+             * @function decode
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {privoke.v1.ComputePresenceGradientsRequest & privoke.v1.ComputePresenceGradientsRequest.$Shape} ComputePresenceGradientsRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ComputePresenceGradientsRequest.decode = function (reader, length, _end, _depth, _target) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $Reader.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.privoke.v1.ComputePresenceGradientsRequest(), value;
+                while (reader.pos < end) {
+                    let start = reader.pos;
+                    let tag = reader.tag();
+                    if (tag === _end) {
+                        _end = $undefined;
+                        break;
+                    }
+                    let wireType = tag & 7;
+                    switch (tag >>>= 3) {
+                    case 1: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.requestId = value;
+                            else
+                                delete message.requestId;
+                            continue;
+                        }
+                    case 2: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.modelId = value;
+                            else
+                                delete message.modelId;
+                            continue;
+                        }
+                    case 3: {
+                            if (wireType !== 2)
+                                break;
+                            if (!(message.examples && message.examples.length))
+                                message.examples = [];
+                            message.examples.push($root.privoke.v1.PresenceTrainingExample.decode(reader, reader.uint32(), $undefined, _depth + 1));
+                            continue;
+                        }
+                    case 4: {
+                            if (wireType !== 1)
+                                break;
+                            if (!$Object.is(value = reader.double(), 0))
+                                message.learningRate = value;
+                            else
+                                delete message.learningRate;
+                            continue;
+                        }
+                    case 5: {
+                            if (wireType !== 1)
+                                break;
+                            if (!$Object.is(value = reader.double(), 0))
+                                message.maxGradient = value;
+                            else
+                                delete message.maxGradient;
+                            continue;
+                        }
+                    case 6: {
+                            if (wireType !== 2)
+                                break;
+                            if (!(message.heldoutExamples && message.heldoutExamples.length))
+                                message.heldoutExamples = [];
+                            message.heldoutExamples.push($root.privoke.v1.PresenceTrainingExample.decode(reader, reader.uint32(), $undefined, _depth + 1));
+                            continue;
+                        }
+                    case 7: {
+                            if (wireType === 2) {
+                                if (!(message.layers && message.layers.length))
+                                    message.layers = [];
+                                reader.int32s(message.layers);
+                                continue;
+                            }
+                            if (wireType !== 0)
+                                break;
+                            if (!(message.layers && message.layers.length))
+                                message.layers = [];
+                            message.layers.push(reader.int32());
+                            continue;
+                        }
+                    }
+                    reader.skipType(wireType, _depth, tag);
+                    if (!reader.discardUnknown) {
+                        $util.makeProp(message, "$unknowns", false);
+                        (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                    }
+                }
+                if (_end !== $undefined)
+                    throw $Error("missing end group");
+                return message;
+            };
+
+            /**
+             * Decodes a ComputePresenceGradientsRequest message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {privoke.v1.ComputePresenceGradientsRequest & privoke.v1.ComputePresenceGradientsRequest.$Shape} ComputePresenceGradientsRequest
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ComputePresenceGradientsRequest.decodeDelimited = function(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a ComputePresenceGradientsRequest message.
+             * @function verify
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ComputePresenceGradientsRequest.verify = function (message, _depth) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    return "max depth exceeded";
+                if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId"))
+                    if (!$util.isString(message.requestId))
+                        return "requestId: string expected";
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId"))
+                    if (!$util.isString(message.modelId))
+                        return "modelId: string expected";
+                if (message.examples != null && $Object.hasOwnProperty.call(message, "examples")) {
+                    if (!$Array.isArray(message.examples))
+                        return "examples: array expected";
+                    for (let i = 0; i < message.examples.length; ++i) {
+                        let error = $root.privoke.v1.PresenceTrainingExample.verify(message.examples[i], _depth + 1);
+                        if (error)
+                            return "examples." + error;
+                    }
+                }
+                if (message.learningRate != null && $Object.hasOwnProperty.call(message, "learningRate"))
+                    if (typeof message.learningRate !== "number")
+                        return "learningRate: number expected";
+                if (message.maxGradient != null && $Object.hasOwnProperty.call(message, "maxGradient"))
+                    if (typeof message.maxGradient !== "number")
+                        return "maxGradient: number expected";
+                if (message.heldoutExamples != null && $Object.hasOwnProperty.call(message, "heldoutExamples")) {
+                    if (!$Array.isArray(message.heldoutExamples))
+                        return "heldoutExamples: array expected";
+                    for (let i = 0; i < message.heldoutExamples.length; ++i) {
+                        let error = $root.privoke.v1.PresenceTrainingExample.verify(message.heldoutExamples[i], _depth + 1);
+                        if (error)
+                            return "heldoutExamples." + error;
+                    }
+                }
+                if (message.layers != null && $Object.hasOwnProperty.call(message, "layers")) {
+                    if (!$Array.isArray(message.layers))
+                        return "layers: array expected";
+                    for (let i = 0; i < message.layers.length; ++i)
+                        if (typeof message.layers[i] !== "number" || (message.layers[i] | 0) !== message.layers[i])
+                            return "layers: enum value[] expected";
+                }
+                return null;
+            };
+
+            /**
+             * Creates a ComputePresenceGradientsRequest message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {privoke.v1.ComputePresenceGradientsRequest} ComputePresenceGradientsRequest
+             */
+            ComputePresenceGradientsRequest.fromObject = function (object, _depth) {
+                if (object instanceof $root.privoke.v1.ComputePresenceGradientsRequest)
+                    return object;
+                if (!$util.isObject(object))
+                    throw $TypeError(".privoke.v1.ComputePresenceGradientsRequest: object expected");
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let message = new $root.privoke.v1.ComputePresenceGradientsRequest();
+                if (object.requestId != null)
+                    if (typeof object.requestId !== "string" || object.requestId.length)
+                        message.requestId = $String(object.requestId);
+                if (object.modelId != null)
+                    if (typeof object.modelId !== "string" || object.modelId.length)
+                        message.modelId = $String(object.modelId);
+                if (object.examples) {
+                    if (!$Array.isArray(object.examples))
+                        throw $TypeError(".privoke.v1.ComputePresenceGradientsRequest.examples: array expected");
+                    message.examples = $Array(object.examples.length);
+                    for (let i = 0; i < object.examples.length; ++i) {
+                        if (!$util.isObject(object.examples[i]))
+                            throw $TypeError(".privoke.v1.ComputePresenceGradientsRequest.examples: object expected");
+                        message.examples[i] = $root.privoke.v1.PresenceTrainingExample.fromObject(object.examples[i], _depth + 1);
+                    }
+                }
+                if (object.learningRate != null)
+                    if (!$Object.is($Number(object.learningRate), 0))
+                        message.learningRate = $Number(object.learningRate);
+                if (object.maxGradient != null)
+                    if (!$Object.is($Number(object.maxGradient), 0))
+                        message.maxGradient = $Number(object.maxGradient);
+                if (object.heldoutExamples) {
+                    if (!$Array.isArray(object.heldoutExamples))
+                        throw $TypeError(".privoke.v1.ComputePresenceGradientsRequest.heldoutExamples: array expected");
+                    message.heldoutExamples = $Array(object.heldoutExamples.length);
+                    for (let i = 0; i < object.heldoutExamples.length; ++i) {
+                        if (!$util.isObject(object.heldoutExamples[i]))
+                            throw $TypeError(".privoke.v1.ComputePresenceGradientsRequest.heldoutExamples: object expected");
+                        message.heldoutExamples[i] = $root.privoke.v1.PresenceTrainingExample.fromObject(object.heldoutExamples[i], _depth + 1);
+                    }
+                }
+                if (object.layers) {
+                    if (!$Array.isArray(object.layers))
+                        throw $TypeError(".privoke.v1.ComputePresenceGradientsRequest.layers: array expected");
+                    message.layers = [];
+                    for (let i = 0; i < object.layers.length; ++i)
+                        switch (object.layers[i]) {
+                        case "DETECTION_LAYER_UNSPECIFIED":
+                        case 0:
+                            message.layers[message.layers.length] = 0;
+                            break;
+                        case "DETECTION_LAYER_RUNTIME":
+                        case 1:
+                            message.layers[message.layers.length] = 1;
+                            break;
+                        case "DETECTION_LAYER_REGEX":
+                        case 2:
+                            message.layers[message.layers.length] = 2;
+                            break;
+                        case "DETECTION_LAYER_NER":
+                        case 3:
+                            message.layers[message.layers.length] = 3;
+                            break;
+                        case "DETECTION_LAYER_SEMANTIC":
+                        case 4:
+                            message.layers[message.layers.length] = 4;
+                            break;
+                        default:
+                            if (typeof object.layers[i] === "number" && (object.layers[i] | 0) === object.layers[i])
+                                message.layers[message.layers.length] = object.layers[i];
+                        }
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a ComputePresenceGradientsRequest message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @static
+             * @param {privoke.v1.ComputePresenceGradientsRequest} message ComputePresenceGradientsRequest
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ComputePresenceGradientsRequest.toObject = function (message, options, _depth) {
+                if (!options)
+                    options = {};
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let object = {};
+                if (options.arrays || options.defaults) {
+                    object.examples = [];
+                    object.heldoutExamples = [];
+                    object.layers = [];
+                }
+                if (options.defaults) {
+                    object.requestId = "";
+                    object.modelId = "";
+                    object.learningRate = 0;
+                    object.maxGradient = 0;
+                }
+                if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId"))
+                    object.requestId = message.requestId;
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId"))
+                    object.modelId = message.modelId;
+                if (message.examples && message.examples.length) {
+                    object.examples = $Array(message.examples.length);
+                    for (let j = 0; j < message.examples.length; ++j)
+                        object.examples[j] = $root.privoke.v1.PresenceTrainingExample.toObject(message.examples[j], options, _depth + 1);
+                }
+                if (message.learningRate != null && $Object.hasOwnProperty.call(message, "learningRate"))
+                    object.learningRate = options.json && !$isFinite(message.learningRate) ? $String(message.learningRate) : message.learningRate;
+                if (message.maxGradient != null && $Object.hasOwnProperty.call(message, "maxGradient"))
+                    object.maxGradient = options.json && !$isFinite(message.maxGradient) ? $String(message.maxGradient) : message.maxGradient;
+                if (message.heldoutExamples && message.heldoutExamples.length) {
+                    object.heldoutExamples = $Array(message.heldoutExamples.length);
+                    for (let j = 0; j < message.heldoutExamples.length; ++j)
+                        object.heldoutExamples[j] = $root.privoke.v1.PresenceTrainingExample.toObject(message.heldoutExamples[j], options, _depth + 1);
+                }
+                if (message.layers && message.layers.length) {
+                    object.layers = $Array(message.layers.length);
+                    for (let j = 0; j < message.layers.length; ++j)
+                        object.layers[j] = options.enums === $String ? $root.privoke.v1.DetectionLayer[message.layers[j]] === $undefined ? message.layers[j] : $root.privoke.v1.DetectionLayer[message.layers[j]] : message.layers[j];
+                }
+                return object;
+            };
+
+            /**
+             * Converts this ComputePresenceGradientsRequest to JSON.
+             * @function toJSON
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ComputePresenceGradientsRequest.prototype.toJSON = function() {
+                return ComputePresenceGradientsRequest.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            /**
+             * Gets the type url for ComputePresenceGradientsRequest
+             * @function getTypeUrl
+             * @memberof privoke.v1.ComputePresenceGradientsRequest
+             * @static
+             * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+             * @returns {string} The type url
+             */
+            ComputePresenceGradientsRequest.getTypeUrl = function(prefix) {
+                if (prefix === $undefined)
+                    prefix = "type.googleapis.com";
+                return prefix + "/privoke.v1.ComputePresenceGradientsRequest";
+            };
+
+            return ComputePresenceGradientsRequest;
+        })();
+
+        v1.ComputePresenceGradientsResponse = (function() {
+
+            /**
+             * Properties of a ComputePresenceGradientsResponse.
+             * @typedef {Object} privoke.v1.ComputePresenceGradientsResponse.$Properties
+             * @property {string|null} [requestId] ComputePresenceGradientsResponse requestId
+             * @property {string|null} [modelId] ComputePresenceGradientsResponse modelId
+             * @property {string|null} [baseVersion] ComputePresenceGradientsResponse baseVersion
+             * @property {Array.<privoke.v1.RuntimeParameterDelta.$Properties>|null} [gradients] ComputePresenceGradientsResponse gradients
+             * @property {Object.<string,number>|null} [metrics] ComputePresenceGradientsResponse metrics
+             * @property {Object.<string,string>|null} [metadata] ComputePresenceGradientsResponse metadata
+             * @property {string|null} [error] ComputePresenceGradientsResponse error
+             * @property {Array.<privoke.v1.SemanticTrainingExecution.$Properties>|null} [executions] ComputePresenceGradientsResponse executions
+             * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+             */
+
+            /**
+             * Properties of a ComputePresenceGradientsResponse.
+             * @memberof privoke.v1
+             * @interface IComputePresenceGradientsResponse
+             * @augments privoke.v1.ComputePresenceGradientsResponse.$Properties
+             * @deprecated Use privoke.v1.ComputePresenceGradientsResponse.$Properties instead.
+             */
+
+            /**
+             * Shape of a ComputePresenceGradientsResponse.
+             * @typedef {privoke.v1.ComputePresenceGradientsResponse.$Properties} privoke.v1.ComputePresenceGradientsResponse.$Shape
+             */
+
+            /**
+             * Constructs a new ComputePresenceGradientsResponse.
+             * @memberof privoke.v1
+             * @classdesc Represents a ComputePresenceGradientsResponse.
+             * @constructor
+             * @param {privoke.v1.ComputePresenceGradientsResponse.$Properties=} [properties] Properties to set
+             * @property {Array.<Uint8Array>} [$unknowns] Unknown fields preserved while decoding when enabled
+             */
+            const ComputePresenceGradientsResponse = function (properties) {
+                this.gradients = [];
+                this.metrics = {};
+                this.metadata = {};
+                this.executions = [];
+                if (properties)
+                    for (let keys = $Object.keys(properties), i = 0; i < keys.length; ++i)
+                        if (properties[keys[i]] != null && keys[i] !== "__proto__")
+                            this[keys[i]] = properties[keys[i]];
+            };
+
+            /**
+             * ComputePresenceGradientsResponse requestId.
+             * @member {string} requestId
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @instance
+             */
+            ComputePresenceGradientsResponse.prototype.requestId = "";
+
+            /**
+             * ComputePresenceGradientsResponse modelId.
+             * @member {string} modelId
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @instance
+             */
+            ComputePresenceGradientsResponse.prototype.modelId = "";
+
+            /**
+             * ComputePresenceGradientsResponse baseVersion.
+             * @member {string} baseVersion
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @instance
+             */
+            ComputePresenceGradientsResponse.prototype.baseVersion = "";
+
+            /**
+             * ComputePresenceGradientsResponse gradients.
+             * @member {Array.<privoke.v1.RuntimeParameterDelta.$Properties>} gradients
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @instance
+             */
+            ComputePresenceGradientsResponse.prototype.gradients = $util.emptyArray;
+
+            /**
+             * ComputePresenceGradientsResponse metrics.
+             * @member {Object.<string,number>} metrics
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @instance
+             */
+            ComputePresenceGradientsResponse.prototype.metrics = $util.emptyObject;
+
+            /**
+             * ComputePresenceGradientsResponse metadata.
+             * @member {Object.<string,string>} metadata
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @instance
+             */
+            ComputePresenceGradientsResponse.prototype.metadata = $util.emptyObject;
+
+            /**
+             * ComputePresenceGradientsResponse error.
+             * @member {string} error
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @instance
+             */
+            ComputePresenceGradientsResponse.prototype.error = "";
+
+            /**
+             * ComputePresenceGradientsResponse executions.
+             * @member {Array.<privoke.v1.SemanticTrainingExecution.$Properties>} executions
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @instance
+             */
+            ComputePresenceGradientsResponse.prototype.executions = $util.emptyArray;
+
+            /**
+             * Creates a new ComputePresenceGradientsResponse instance using the specified properties.
+             * @function create
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @static
+             * @param {privoke.v1.ComputePresenceGradientsResponse.$Properties=} [properties] Properties to set
+             * @returns {privoke.v1.ComputePresenceGradientsResponse} ComputePresenceGradientsResponse instance
+             * @type {{
+             *   (properties: privoke.v1.ComputePresenceGradientsResponse.$Shape): privoke.v1.ComputePresenceGradientsResponse & privoke.v1.ComputePresenceGradientsResponse.$Shape;
+             *   (properties?: privoke.v1.ComputePresenceGradientsResponse.$Properties): privoke.v1.ComputePresenceGradientsResponse;
+             * }}
+             */
+            ComputePresenceGradientsResponse.create = function(properties) {
+                return new ComputePresenceGradientsResponse(properties);
+            };
+
+            /**
+             * Encodes the specified ComputePresenceGradientsResponse message. Does not implicitly {@link privoke.v1.ComputePresenceGradientsResponse.verify|verify} messages.
+             * @function encode
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @static
+             * @param {privoke.v1.ComputePresenceGradientsResponse.$Properties} message ComputePresenceGradientsResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ComputePresenceGradientsResponse.encode = function (message, writer, _depth) {
+                if (!writer)
+                    writer = $Writer.create();
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId") && message.requestId !== "")
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.requestId);
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId") && message.modelId !== "")
+                    writer.uint32(/* id 2, wireType 2 =*/18).string(message.modelId);
+                if (message.baseVersion != null && $Object.hasOwnProperty.call(message, "baseVersion") && message.baseVersion !== "")
+                    writer.uint32(/* id 3, wireType 2 =*/26).string(message.baseVersion);
+                if (message.gradients != null && message.gradients.length)
+                    for (let i = 0; i < message.gradients.length; ++i)
+                        $root.privoke.v1.RuntimeParameterDelta.encode(message.gradients[i], writer.uint32(/* id 4, wireType 2 =*/34).fork(), _depth + 1).ldelim();
+                if (message.metrics != null && $Object.hasOwnProperty.call(message, "metrics"))
+                    for (let keys = $Object.keys(message.metrics), i = 0; i < keys.length; ++i)
+                        writer.uint32(/* id 5, wireType 2 =*/42).fork().uint32(/* id 1, wireType 2 =*/10).string(keys[i]).uint32(/* id 2, wireType 1 =*/17).double(message.metrics[keys[i]]).ldelim();
+                if (message.metadata != null && $Object.hasOwnProperty.call(message, "metadata"))
+                    for (let keys = $Object.keys(message.metadata), i = 0; i < keys.length; ++i)
+                        writer.uint32(/* id 6, wireType 2 =*/50).fork().uint32(/* id 1, wireType 2 =*/10).string(keys[i]).uint32(/* id 2, wireType 2 =*/18).string(message.metadata[keys[i]]).ldelim();
+                if (message.error != null && $Object.hasOwnProperty.call(message, "error") && message.error !== "")
+                    writer.uint32(/* id 7, wireType 2 =*/58).string(message.error);
+                if (message.executions != null && message.executions.length)
+                    for (let i = 0; i < message.executions.length; ++i)
+                        $root.privoke.v1.SemanticTrainingExecution.encode(message.executions[i], writer.uint32(/* id 8, wireType 2 =*/66).fork(), _depth + 1).ldelim();
+                if (message.$unknowns != null && $Object.hasOwnProperty.call(message, "$unknowns"))
+                    for (let i = 0; i < message.$unknowns.length; ++i)
+                        writer.raw(message.$unknowns[i]);
+                return writer;
+            };
+
+            /**
+             * Encodes the specified ComputePresenceGradientsResponse message, length delimited. Does not implicitly {@link privoke.v1.ComputePresenceGradientsResponse.verify|verify} messages.
+             * @function encodeDelimited
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @static
+             * @param {privoke.v1.ComputePresenceGradientsResponse.$Properties} message ComputePresenceGradientsResponse message or plain object to encode
+             * @param {$protobuf.Writer} [writer] Writer to encode to
+             * @returns {$protobuf.Writer} Writer
+             */
+            ComputePresenceGradientsResponse.encodeDelimited = function(message, writer) {
+                return this.encode(message, (writer || $Writer.create()).fork()).ldelim();
+            };
+
+            /**
+             * Decodes a ComputePresenceGradientsResponse message from the specified reader or buffer.
+             * @function decode
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @param {number} [length] Message length if known beforehand
+             * @returns {privoke.v1.ComputePresenceGradientsResponse & privoke.v1.ComputePresenceGradientsResponse.$Shape} ComputePresenceGradientsResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ComputePresenceGradientsResponse.decode = function (reader, length, _end, _depth, _target) {
+                if (!(reader instanceof $Reader))
+                    reader = $Reader.create(reader);
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $Reader.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let end = length === $undefined ? reader.len : reader.pos + length, message = _target || new $root.privoke.v1.ComputePresenceGradientsResponse(), key, value;
+                while (reader.pos < end) {
+                    let start = reader.pos;
+                    let tag = reader.tag();
+                    if (tag === _end) {
+                        _end = $undefined;
+                        break;
+                    }
+                    let wireType = tag & 7;
+                    switch (tag >>>= 3) {
+                    case 1: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.requestId = value;
+                            else
+                                delete message.requestId;
+                            continue;
+                        }
+                    case 2: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.modelId = value;
+                            else
+                                delete message.modelId;
+                            continue;
+                        }
+                    case 3: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.baseVersion = value;
+                            else
+                                delete message.baseVersion;
+                            continue;
+                        }
+                    case 4: {
+                            if (wireType !== 2)
+                                break;
+                            if (!(message.gradients && message.gradients.length))
+                                message.gradients = [];
+                            message.gradients.push($root.privoke.v1.RuntimeParameterDelta.decode(reader, reader.uint32(), $undefined, _depth + 1));
+                            continue;
+                        }
+                    case 5: {
+                            if (wireType !== 2)
+                                break;
+                            if (message.metrics === $util.emptyObject)
+                                message.metrics = {};
+                            let end2 = reader.uint32() + reader.pos;
+                            key = "";
+                            value = 0;
+                            while (reader.pos < end2) {
+                                let tag2 = reader.tag();
+                                wireType = tag2 & 7;
+                                switch (tag2 >>>= 3) {
+                                case 1:
+                                    if (wireType !== 2)
+                                        break;
+                                    key = reader.stringVerify();
+                                    continue;
+                                case 2:
+                                    if (wireType !== 1)
+                                        break;
+                                    value = reader.double();
+                                    continue;
+                                }
+                                reader.skipType(wireType, _depth, tag2);
+                            }
+                            if (key === "__proto__")
+                                $util.makeProp(message.metrics, key);
+                            message.metrics[key] = value;
+                            continue;
+                        }
+                    case 6: {
+                            if (wireType !== 2)
+                                break;
+                            if (message.metadata === $util.emptyObject)
+                                message.metadata = {};
+                            let end2 = reader.uint32() + reader.pos;
+                            key = "";
+                            value = "";
+                            while (reader.pos < end2) {
+                                let tag2 = reader.tag();
+                                wireType = tag2 & 7;
+                                switch (tag2 >>>= 3) {
+                                case 1:
+                                    if (wireType !== 2)
+                                        break;
+                                    key = reader.stringVerify();
+                                    continue;
+                                case 2:
+                                    if (wireType !== 2)
+                                        break;
+                                    value = reader.stringVerify();
+                                    continue;
+                                }
+                                reader.skipType(wireType, _depth, tag2);
+                            }
+                            if (key === "__proto__")
+                                $util.makeProp(message.metadata, key);
+                            message.metadata[key] = value;
+                            continue;
+                        }
+                    case 7: {
+                            if (wireType !== 2)
+                                break;
+                            if ((value = reader.stringVerify()).length)
+                                message.error = value;
+                            else
+                                delete message.error;
+                            continue;
+                        }
+                    case 8: {
+                            if (wireType !== 2)
+                                break;
+                            if (!(message.executions && message.executions.length))
+                                message.executions = [];
+                            message.executions.push($root.privoke.v1.SemanticTrainingExecution.decode(reader, reader.uint32(), $undefined, _depth + 1));
+                            continue;
+                        }
+                    }
+                    reader.skipType(wireType, _depth, tag);
+                    if (!reader.discardUnknown) {
+                        $util.makeProp(message, "$unknowns", false);
+                        (message.$unknowns || (message.$unknowns = [])).push(reader.raw(start, reader.pos));
+                    }
+                }
+                if (_end !== $undefined)
+                    throw $Error("missing end group");
+                return message;
+            };
+
+            /**
+             * Decodes a ComputePresenceGradientsResponse message from the specified reader or buffer, length delimited.
+             * @function decodeDelimited
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @static
+             * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+             * @returns {privoke.v1.ComputePresenceGradientsResponse & privoke.v1.ComputePresenceGradientsResponse.$Shape} ComputePresenceGradientsResponse
+             * @throws {Error} If the payload is not a reader or valid buffer
+             * @throws {$protobuf.util.ProtocolError} If required fields are missing
+             */
+            ComputePresenceGradientsResponse.decodeDelimited = function(reader) {
+                if (!(reader instanceof $Reader))
+                    reader = new $Reader(reader);
+                return this.decode(reader, reader.uint32());
+            };
+
+            /**
+             * Verifies a ComputePresenceGradientsResponse message.
+             * @function verify
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @static
+             * @param {Object.<string,*>} message Plain object to verify
+             * @returns {string|null} `null` if valid, otherwise the reason why it is not
+             */
+            ComputePresenceGradientsResponse.verify = function (message, _depth) {
+                if (typeof message !== "object" || message === null)
+                    return "object expected";
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    return "max depth exceeded";
+                if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId"))
+                    if (!$util.isString(message.requestId))
+                        return "requestId: string expected";
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId"))
+                    if (!$util.isString(message.modelId))
+                        return "modelId: string expected";
+                if (message.baseVersion != null && $Object.hasOwnProperty.call(message, "baseVersion"))
+                    if (!$util.isString(message.baseVersion))
+                        return "baseVersion: string expected";
+                if (message.gradients != null && $Object.hasOwnProperty.call(message, "gradients")) {
+                    if (!$Array.isArray(message.gradients))
+                        return "gradients: array expected";
+                    for (let i = 0; i < message.gradients.length; ++i) {
+                        let error = $root.privoke.v1.RuntimeParameterDelta.verify(message.gradients[i], _depth + 1);
+                        if (error)
+                            return "gradients." + error;
+                    }
+                }
+                if (message.metrics != null && $Object.hasOwnProperty.call(message, "metrics")) {
+                    if (!$util.isObject(message.metrics))
+                        return "metrics: object expected";
+                    let key = $Object.keys(message.metrics);
+                    for (let i = 0; i < key.length; ++i)
+                        if (typeof message.metrics[key[i]] !== "number")
+                            return "metrics: number{k:string} expected";
+                }
+                if (message.metadata != null && $Object.hasOwnProperty.call(message, "metadata")) {
+                    if (!$util.isObject(message.metadata))
+                        return "metadata: object expected";
+                    let key = $Object.keys(message.metadata);
+                    for (let i = 0; i < key.length; ++i)
+                        if (!$util.isString(message.metadata[key[i]]))
+                            return "metadata: string{k:string} expected";
+                }
+                if (message.error != null && $Object.hasOwnProperty.call(message, "error"))
+                    if (!$util.isString(message.error))
+                        return "error: string expected";
+                if (message.executions != null && $Object.hasOwnProperty.call(message, "executions")) {
+                    if (!$Array.isArray(message.executions))
+                        return "executions: array expected";
+                    for (let i = 0; i < message.executions.length; ++i) {
+                        let error = $root.privoke.v1.SemanticTrainingExecution.verify(message.executions[i], _depth + 1);
+                        if (error)
+                            return "executions." + error;
+                    }
+                }
+                return null;
+            };
+
+            /**
+             * Creates a ComputePresenceGradientsResponse message from a plain object. Also converts values to their respective internal types.
+             * @function fromObject
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @static
+             * @param {Object.<string,*>} object Plain object
+             * @returns {privoke.v1.ComputePresenceGradientsResponse} ComputePresenceGradientsResponse
+             */
+            ComputePresenceGradientsResponse.fromObject = function (object, _depth) {
+                if (object instanceof $root.privoke.v1.ComputePresenceGradientsResponse)
+                    return object;
+                if (!$util.isObject(object))
+                    throw $TypeError(".privoke.v1.ComputePresenceGradientsResponse: object expected");
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let message = new $root.privoke.v1.ComputePresenceGradientsResponse();
+                if (object.requestId != null)
+                    if (typeof object.requestId !== "string" || object.requestId.length)
+                        message.requestId = $String(object.requestId);
+                if (object.modelId != null)
+                    if (typeof object.modelId !== "string" || object.modelId.length)
+                        message.modelId = $String(object.modelId);
+                if (object.baseVersion != null)
+                    if (typeof object.baseVersion !== "string" || object.baseVersion.length)
+                        message.baseVersion = $String(object.baseVersion);
+                if (object.gradients) {
+                    if (!$Array.isArray(object.gradients))
+                        throw $TypeError(".privoke.v1.ComputePresenceGradientsResponse.gradients: array expected");
+                    message.gradients = $Array(object.gradients.length);
+                    for (let i = 0; i < object.gradients.length; ++i) {
+                        if (!$util.isObject(object.gradients[i]))
+                            throw $TypeError(".privoke.v1.ComputePresenceGradientsResponse.gradients: object expected");
+                        message.gradients[i] = $root.privoke.v1.RuntimeParameterDelta.fromObject(object.gradients[i], _depth + 1);
+                    }
+                }
+                if (object.metrics) {
+                    if (!$util.isObject(object.metrics))
+                        throw $TypeError(".privoke.v1.ComputePresenceGradientsResponse.metrics: object expected");
+                    message.metrics = {};
+                    for (let keys = $Object.keys(object.metrics), i = 0; i < keys.length; ++i) {
+                        if (keys[i] === "__proto__")
+                            $util.makeProp(message.metrics, keys[i]);
+                        message.metrics[keys[i]] = $Number(object.metrics[keys[i]]);
+                    }
+                }
+                if (object.metadata) {
+                    if (!$util.isObject(object.metadata))
+                        throw $TypeError(".privoke.v1.ComputePresenceGradientsResponse.metadata: object expected");
+                    message.metadata = {};
+                    for (let keys = $Object.keys(object.metadata), i = 0; i < keys.length; ++i) {
+                        if (keys[i] === "__proto__")
+                            $util.makeProp(message.metadata, keys[i]);
+                        message.metadata[keys[i]] = $String(object.metadata[keys[i]]);
+                    }
+                }
+                if (object.error != null)
+                    if (typeof object.error !== "string" || object.error.length)
+                        message.error = $String(object.error);
+                if (object.executions) {
+                    if (!$Array.isArray(object.executions))
+                        throw $TypeError(".privoke.v1.ComputePresenceGradientsResponse.executions: array expected");
+                    message.executions = $Array(object.executions.length);
+                    for (let i = 0; i < object.executions.length; ++i) {
+                        if (!$util.isObject(object.executions[i]))
+                            throw $TypeError(".privoke.v1.ComputePresenceGradientsResponse.executions: object expected");
+                        message.executions[i] = $root.privoke.v1.SemanticTrainingExecution.fromObject(object.executions[i], _depth + 1);
+                    }
+                }
+                return message;
+            };
+
+            /**
+             * Creates a plain object from a ComputePresenceGradientsResponse message. Also converts values to other types if specified.
+             * @function toObject
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @static
+             * @param {privoke.v1.ComputePresenceGradientsResponse} message ComputePresenceGradientsResponse
+             * @param {$protobuf.IConversionOptions} [options] Conversion options
+             * @returns {Object.<string,*>} Plain object
+             */
+            ComputePresenceGradientsResponse.toObject = function (message, options, _depth) {
+                if (!options)
+                    options = {};
+                if (_depth === $undefined)
+                    _depth = 0;
+                if (_depth > $util.recursionLimit)
+                    throw $Error("max depth exceeded");
+                let object = {};
+                if (options.arrays || options.defaults) {
+                    object.gradients = [];
+                    object.executions = [];
+                }
+                if (options.objects || options.defaults) {
+                    object.metrics = {};
+                    object.metadata = {};
+                }
+                if (options.defaults) {
+                    object.requestId = "";
+                    object.modelId = "";
+                    object.baseVersion = "";
+                    object.error = "";
+                }
+                if (message.requestId != null && $Object.hasOwnProperty.call(message, "requestId"))
+                    object.requestId = message.requestId;
+                if (message.modelId != null && $Object.hasOwnProperty.call(message, "modelId"))
+                    object.modelId = message.modelId;
+                if (message.baseVersion != null && $Object.hasOwnProperty.call(message, "baseVersion"))
+                    object.baseVersion = message.baseVersion;
+                if (message.gradients && message.gradients.length) {
+                    object.gradients = $Array(message.gradients.length);
+                    for (let j = 0; j < message.gradients.length; ++j)
+                        object.gradients[j] = $root.privoke.v1.RuntimeParameterDelta.toObject(message.gradients[j], options, _depth + 1);
+                }
+                let keys2;
+                if (message.metrics && (keys2 = $Object.keys(message.metrics)).length) {
+                    object.metrics = {};
+                    for (let j = 0; j < keys2.length; ++j) {
+                        if (keys2[j] === "__proto__")
+                            $util.makeProp(object.metrics, keys2[j]);
+                        object.metrics[keys2[j]] = options.json && !$isFinite(message.metrics[keys2[j]]) ? $String(message.metrics[keys2[j]]) : message.metrics[keys2[j]];
+                    }
+                }
+                if (message.metadata && (keys2 = $Object.keys(message.metadata)).length) {
+                    object.metadata = {};
+                    for (let j = 0; j < keys2.length; ++j) {
+                        if (keys2[j] === "__proto__")
+                            $util.makeProp(object.metadata, keys2[j]);
+                        object.metadata[keys2[j]] = message.metadata[keys2[j]];
+                    }
+                }
+                if (message.error != null && $Object.hasOwnProperty.call(message, "error"))
+                    object.error = message.error;
+                if (message.executions && message.executions.length) {
+                    object.executions = $Array(message.executions.length);
+                    for (let j = 0; j < message.executions.length; ++j)
+                        object.executions[j] = $root.privoke.v1.SemanticTrainingExecution.toObject(message.executions[j], options, _depth + 1);
+                }
+                return object;
+            };
+
+            /**
+             * Converts this ComputePresenceGradientsResponse to JSON.
+             * @function toJSON
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @instance
+             * @returns {Object.<string,*>} JSON object
+             */
+            ComputePresenceGradientsResponse.prototype.toJSON = function() {
+                return ComputePresenceGradientsResponse.toObject(this, $protobuf.util.toJSONOptions);
+            };
+
+            /**
+             * Gets the type url for ComputePresenceGradientsResponse
+             * @function getTypeUrl
+             * @memberof privoke.v1.ComputePresenceGradientsResponse
+             * @static
+             * @param {string} [prefix] Custom type url prefix, defaults to `"type.googleapis.com"`
+             * @returns {string} The type url
+             */
+            ComputePresenceGradientsResponse.getTypeUrl = function(prefix) {
+                if (prefix === $undefined)
+                    prefix = "type.googleapis.com";
+                return prefix + "/privoke.v1.ComputePresenceGradientsResponse";
+            };
+
+            return ComputePresenceGradientsResponse;
         })();
 
         v1.PrivokeRuntimeControlService = (function() {

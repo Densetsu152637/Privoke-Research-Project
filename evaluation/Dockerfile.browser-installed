@@ -88,6 +88,9 @@ RUN python3 -m venv /workspace/extension/client-runtime/.venv \
       -r /workspace/extension/client-runtime/requirements.txt \
       -r /workspace/extension/runtime-supervisor/requirements.txt \
       /workspace/shared/python psutil \
+    && /workspace/extension/client-runtime/.venv/bin/pip install --no-cache-dir \
+      --index-url https://download.pytorch.org/whl/cpu \
+      -r /workspace/extension/client-runtime/requirements-inference-cpu.txt \
     && mkdir -p /workspace/extension/client-runtime/generated /workspace/extension/runtime-supervisor/generated \
     && /workspace/extension/client-runtime/.venv/bin/python -m grpc_tools.protoc \
       -I /workspace/shared/proto \

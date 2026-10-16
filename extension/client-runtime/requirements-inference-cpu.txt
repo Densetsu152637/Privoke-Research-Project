@@ -1,0 +1,3 @@
+# Install with --index-url https://download.pytorch.org/whl/cpu.
+# Exact verified native V3 inference environment; includes CPU autograd for explicit legacy tests.
+torch==2.11.0+cpu

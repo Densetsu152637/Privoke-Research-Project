@@ -61,7 +61,7 @@ test("persists model quality and regex ordering settings", async () => {
     storage,
   );
   assert.equal(settings.waitForRegex, false);
-  assert.equal(settings.modelQuality, "quality");
+  assert.equal(settings.modelQuality, "legacy-quality");
   assert.equal(semanticModelId(settings), "privoke-quality");
   assert.deepEqual(await loadSettings(storage), settings);
 });
@@ -70,6 +70,18 @@ test("migrates the old balanced model ID and rejects unknown qualities", async (
   const migrated = await loadSettings(memoryStorage({
     privokeSettings: { modelId: "privoke-balanced", modelQuality: "unknown" },
   }));
-  assert.equal(migrated.modelQuality, "balanced");
+  assert.equal(migrated.modelQuality, "legacy-balanced");
   assert.equal(semanticModelId(migrated), "privoke-balanced");
+});
+
+test("selects each standard V3 tier and preserves all explicit older choices", async () => {
+  for (const tier of ["efficient", "balanced", "quality"]) {
+    const standard = mergeSettings({}, { modelQuality: `v3-${tier}` });
+    assert.equal(semanticModelId(standard), `privoke-v3-${tier}`);
+    const older = await loadSettings(memoryStorage({ privokeSettings: { modelQuality: tier } }));
+    assert.equal(older.modelQuality, `legacy-${tier}`);
+    assert.equal(semanticModelId(older), `privoke-${tier}`);
+    const oldId = await loadSettings(memoryStorage({ privokeSettings: { modelId: `privoke-${tier}` } }));
+    assert.equal(semanticModelId(oldId), `privoke-${tier}`);
+  }
 });

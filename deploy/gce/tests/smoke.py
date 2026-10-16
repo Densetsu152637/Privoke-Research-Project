@@ -66,8 +66,12 @@ def main():
 
         for service in ("model-streaming-service", "param-update-service", "telemetry-service", "privoke-fuzzer", "client-runtime"):
             run("docker", "tag", f"{source_project}-{service}:latest", f"{project}/{service}:test")
-        environment = {**os.environ, "IMAGE_PREFIX": project, "IMAGE_TAG": "test", "SECRETS_DIR": str(secrets), "FUZZER_PROMPT_COUNT": "0"}
-        rendered = run("docker", "compose", "-f", str(ROOT / "deploy/gce/compose.yml"), "config", "--format", "json", env=environment, capture_output=True)
+        # Historical V1 TLS/topology coverage does not require or validate AU3 weights.
+        environment = {**os.environ, "IMAGE_PREFIX": project, "IMAGE_TAG": "test", "SECRETS_DIR": str(secrets),
+                       "FUZZER_PROMPT_COUNT": "0", "MODEL_RELEASE_DIR": str(temporary), "COMPOSE_PROFILES": "legacy-training"}
+        rendered = run("docker", "compose", "-f", str(ROOT / "deploy/gce/compose.yml"), "-f",
+                       str(ROOT / "evaluation/compose.legacy-ci.yml"), "config", "--format", "json",
+                       env=environment, capture_output=True)
         config = json.loads(rendered.stdout)
         config["name"] = project
         # Keep the production routing/security, but reserve a random loopback port.

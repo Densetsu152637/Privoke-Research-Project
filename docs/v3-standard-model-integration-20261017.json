@@ -1,0 +1,237 @@
+{
+  "schema": 1,
+  "status": "focused_implementation_checkpoint_not_installed_validation",
+  "recorded_at_utc": "2026-10-16T22:42:43.014657+00:00",
+  "base_commit": "04cfa963bf9c4a54244933558bb4ddc00564641e",
+  "source_hashes": {
+    ".dockerignore": "0a0a4f30f5660b5733e5d8058e23988c9af5c5ac76e18d12cc463ddd5eed4edc",
+    ".env.example": "83212d1f7b88581108859be967b1d040205d2dbde2a3a779e0e8e919653a9c3a",
+    ".github/workflows/service-stack-ci.yml": "987d246b7d09d4c6b8cb506464704cf11b260c46fe93d79b2a967bdbe48b1a71",
+    ".gitignore": "46204b40b482eaf1eec2a5fd6790626eef8fab51f81db517cb6f68d9386c7fe0",
+    "README.md": "f39499f80fbdb1797a14b1617ab32d9159bc6dba9d468949b62f6a62168ca979",
+    "deploy/gce/.env.example": "7a9069dbdfc42efbfaf327e338840b73bd4f14718515cbdc04c1766aab105abf",
+    "deploy/gce/compose.yml": "106a0ba5b75829c5549c7626878131a3a25c75ab1ec7d0494f81a5c614b4d5d7",
+    "deploy/gce/deploy.sh": "4f7171f860908875e82eaa4675c4ce6a1a18fef8e042cca7cc1c6594e60a5cd5",
+    "deploy/gce/tests/smoke.py": "ed863b15d009e5790b3bddc848dd485acdb85c3a873284ea3d6fc2eb512bd63b",
+    "docker-compose.dev.yml": "341441992b435a27a46b95f5873ad06e24f9ffc57a10781c94873fd6d0d8b778",
+    "docker-compose.yml": "b5f95a1e039c93dacdf6a99e7dff6301cd640bcdf6cceb93be6905f4144458c8",
+    "docs/deployment/google-cloud.md": "5d19d0b8761339dcf3c546a95ff9dc62386771ee0ee1873fa4bf28eb6e8c2b53",
+    "docs/runtime/browser-extension.md": "baa7ce433c5b54942dd46ef0d7cace92b6946e723e0cd15a2a1c4cbcefaf45ef",
+    "docs/runtime/client-runtime.md": "cc7fce81e1672b9536a5869c1f3f835b8e65d30c436e44731f8c1c81113585ba",
+    "docs/services/model-artifacts.md": "fd3d0e33e16971ac5fd25674095abfe9dfff3dcb101e27f547337ba142b7f6d4",
+    "docs/services/model-streaming.md": "79ff8cb91534893952819ca60917163c7164248c1a14856d4940ebd5f89bf61d",
+    "docs/v3-standard-model-integration-20261017.md": "8862dd2ee735a028f18375c6b07356d2bbdb8cc7bf6ff538b909a029ad018b17",
+    "evaluation/Dockerfile.browser-installed": "400564689c67662ccd1704c0362b3670526bda5699b5c552f5e8ca9080dc291b",
+    "evaluation/compose.legacy-ci.yml": "0c29c0d496603fabaca5089acf8da23fe6d4b20f8757a1e9240516385ccd5e91",
+    "evaluation/compose.v3-standard-checks.yml": "63a6c4868eab8d038a9957dc4693b0593342f4e592778b873df3f92867b422ec",
+    "extension/client-runtime/.env.example": "5213580ebde9bc12fb718c6abdbebcec3d2a99da0ea37724fd4f10babfe22094",
+    "extension/client-runtime/Dockerfile": "2b3b74c104318fdef781dd1e2aa5dd7ceb0df0bef5ce2eabe3052a268b5384a2",
+    "extension/client-runtime/requirements-gpu.txt": "665b101fea26e198bcd7eecaadc3cf6612f994e55dc3d9004b5e971e50e99378",
+    "extension/client-runtime/requirements-inference-cpu.txt": "cd7cc2f34f74e7349366ae0c0ba11c984ffc5ab823f332cc767ffa1940e79d16",
+    "extension/client-runtime/requirements-training-cpu.txt": "564df3a6f0904883b891b63c89610246bcaf8ff53e48a1bd401cc6141ea86f72",
+    "extension/client-runtime/requirements.txt": "028f4aed7d13a5471d164907dea20002dc57a86020c4164944f355697501ef89",
+    "extension/client-runtime/src/LLM/privoke/parameter_stream.py": "562a934dbea3bf893519dbbece1b9d2147d74733573b2ac8735eeceb9d55d3d6",
+    "extension/client-runtime/src/LLM/privoke/pretrained_context_model.py": "9bddd6d364cb3dfea136b89f83968123a2d576909e88d5a44b96d84417891090",
+    "extension/client-runtime/src/LLM/privoke/streamed_model.py": "d7d0c1c3f81d54d249d4eeaec56a640ce64b4e83f945cbf571adc5125bbfa1a0",
+    "extension/client-runtime/src/LLM/privoke/v3_package.py": "71dbb8dbad782ba037f27fcb73a7366c6cc307815849e88dbd7392f1bb6befe0",
+    "extension/client-runtime/src/dependency_check.py": "12205f4e4ba17bbb101224c5406de415c4f443d2f7833055e09174f9fced8698",
+    "extension/client-runtime/src/grpc_main.py": "b74e550c4af03106c30e72ae77eb420cd60c84606b83efabd44272c149b525be",
+    "extension/client-runtime/src/pipeline.py": "33d094a0b793bd01d476171a6554e2d4a540203ebb1616e505f53afb29e94bf2",
+    "extension/client-runtime/test/test_standard_v3.py": "5ba2df5462ccbac71af7a2f745458ec1907aa6232f04b913cd436f990b3b38fa",
+    "extension/dist-firefox/popup.html": "516d354556a11eb7d806116e696b0c02d582f14c539c87bba38a3c7e0bbf299f",
+    "extension/popup.html": "516d354556a11eb7d806116e696b0c02d582f14c539c87bba38a3c7e0bbf299f",
+    "extension/src/generated/runtime.js": "8833ddc80ba1ace9f53d40e9d30a7f83cce50102280ef80e4fab9da94d0f859d",
+    "extension/src/settings.js": "b1ee3d4176043e3b560ca471a15a41b67991391bb0804d8fd5ad599252851e55",
+    "extension/test/settings.test.js": "d77c23dcc3c711002503cd94b5ca900d0a2dd528ae33c276bf25748cb08323df",
+    "models/prepare_standard_releases.py": "d71289fcd584626efec5f2be297f6777856b4c4191423daa2d9557dec4d33013",
+    "paper/research/v3-standard-installed-protocol-20261017.md": "47ac8175811575cc3e63f1ff3874bfedc49c7f1c3e98fae077560bb9d4338436",
+    "services/model-streaming-service/cmd/server/catalog.go": "f114e070d1daf8e8f035c39526fe24ed7ff5cb27d7404d6622ffa3a3615a2c4f",
+    "services/model-streaming-service/cmd/server/config.go": "2de3080f05f64471fd199da2ed0848bf4212de6bcfccc92032a5143c78fb3a75",
+    "services/model-streaming-service/cmd/server/main.go": "3fd758984abfb4cea0f3796caa23e507c385bd133c24853dd4daf46a90d122eb",
+    "services/model-streaming-service/cmd/server/standard_v3.go": "b6fb878cb79dde80184730b51741040648068eca54748248dc04e1aad9e43da2",
+    "services/model-streaming-service/cmd/server/standard_v3_test.go": "7755e3bf41153897508ec34708a99704d9b3f6b5eb07066e35a3b35d62e21cde",
+    "services/model-streaming-service/cmd/server/streaming_server.go": "857321373cc6b0340564d7a6ed9ac433835658ae6fa100ba811f2f4e93d1414c",
+    "shared/proto/privoke/v1/parameters.proto": "2c8f58e2aefbfa907657233b39101eadfe76fce9aa219b948ef1174351499eae",
+    "shared/python/privoke_model/standard_v3.py": "2742453f0713f0e3a78de50ffe2b467e6b3d0f644e0240a75f9a9e61cef965a5"
+  },
+  "source_closure_excludes": [
+    "this self-referential JSON",
+    "untracked user paper/template.tex",
+    "ignored generated clients/build bundles/weights"
+  ],
+  "preparation_provenance": {
+    "path": "models/standard-releases/preparation.json",
+    "sha256": "544b1a7ce2cfc23aa858b2a43763df528cef6a5fabb7245548a81ba42fe30247",
+    "records": [
+      {
+        "model_id": "privoke-v3-efficient",
+        "manifest_sha256": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        "source": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\audience_v3_20261013\\runs\\cpu-02\\exports\\efficient\\selected",
+        "source_files": {
+          "manifest.json": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+          "model.safetensors": "dc623640400b268a2a490c214dad872de49d047c01b4d5cd1e361f70741d93c2",
+          "config.json": "191ec8105cc6eb8ce2d64c117f7c5830f6028c06da4d7a0d3672414f2c77ad98",
+          "vocab.txt": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+          "evidence.json": "d306abbd1bd8031092be91b4da2a31ea3d37220d3a7e0d94b6c6407565a0ce9e"
+        }
+      },
+      {
+        "model_id": "privoke-v3-balanced",
+        "manifest_sha256": "99b36171056bb0398584a0b0556d9d7ff2640d0acac4b124a126327451a80589",
+        "source": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\audience_v3_20261013\\runs\\cpu-02\\exports\\balanced\\selected",
+        "source_files": {
+          "manifest.json": "99b36171056bb0398584a0b0556d9d7ff2640d0acac4b124a126327451a80589",
+          "model.safetensors": "e48e7c1aa46310b3b7b1f6422f7aa8902c70cf6ff861f7540a7c4be151de4df2",
+          "config.json": "ba873b4875d069697fa5bab011ea9e3f63b7f8186701bdf5356b4d8622d8f5c1",
+          "vocab.txt": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+          "evidence.json": "c82d2e8e760d21c09a7ef1321281d0e5cbcc812c6c73d91f96440eeb420d3cae"
+        }
+      },
+      {
+        "model_id": "privoke-v3-quality",
+        "manifest_sha256": "bb17d355fe1ad13c7052e922fb6de607d82cdafb1f4440fee1a47f35d42caf39",
+        "source": "D:\\Git Repositories\\Privoke-Research-Project\\models\\experiments\\audience_v3_20261013\\runs\\cpu-02\\exports\\quality\\selected",
+        "source_files": {
+          "manifest.json": "bb17d355fe1ad13c7052e922fb6de607d82cdafb1f4440fee1a47f35d42caf39",
+          "model.safetensors": "f9d64c3436b44488c8d94233355a12afb1da56c719b3e000e6580ab9e578c26d",
+          "config.json": "9efa18e50a359c542d79f9c00a23049c2d78aa07c1fd11827c6e2487b3333cd7",
+          "vocab.txt": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+          "evidence.json": "0d6803b05dacebef87e18e751bdacf2fba588dff122d490b7b46303b284fd8b7"
+        }
+      }
+    ]
+  },
+  "dependencies": {
+    "host_python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+    "torch": "2.11.0+cpu",
+    "transformers": "4.57.6",
+    "tokenizers": "0.22.2",
+    "safetensors": "0.8.0",
+    "numpy": "1.26.4"
+  },
+  "checks": [
+    {
+      "command": "evaluation/.venv-v1-v3-pipeline/Scripts/python.exe evaluation/setup-host.py",
+      "exit_code": 0
+    },
+    {
+      "command": "evaluation/.venv-v1-v3-pipeline/Scripts/python.exe models/prepare_standard_releases.py",
+      "exit_code": 0,
+      "scope": "original package verification and byte copy; no construction/training"
+    },
+    {
+      "command": "host Python 3.11: -m unittest discover -s extension/client-runtime/test -p test_standard_v3.py -v",
+      "exit_code": 0,
+      "tests": 7,
+      "passed": 6,
+      "skipped": 1,
+      "skip_reason": "Windows denied physical symlink creation; reparse-attribute rejection separately passed",
+      "native_packages_executed": [
+        "privoke-v3-efficient",
+        "privoke-v3-balanced",
+        "privoke-v3-quality"
+      ],
+      "boundary": "full state inventory + native inference parity + in-process AnalyzePrompt explicit [4] actual status/identity"
+    },
+    {
+      "command": "host Python 3.11: -m unittest discover -s extension/client-runtime/test -p test_streamed_transformer.py -v",
+      "exit_code": 0,
+      "tests": 11
+    },
+    {
+      "command": "host Python 3.11: -m unittest discover -s extension/client-runtime/test -p test_pretrained_context.py -v",
+      "exit_code": 0,
+      "tests": 9
+    },
+    {
+      "command": "host Python 3.11: -m unittest discover -s extension/client-runtime/test -p test_semantic_presence_gate.py -v",
+      "exit_code": 0,
+      "tests": 16
+    },
+    {
+      "command": "docker compose -p privoke-v3-checks-20261017 -f evaluation/compose.v3-standard-checks.yml run --rm --no-deps v3-model-checks",
+      "exit_code": 0,
+      "inner_command": "protoc then go test -race ./...",
+      "real_assets": true,
+      "python_driver_in_container": false
+    },
+    {
+      "command": "node evaluation/run-browser-tests.mjs",
+      "exit_code": 0,
+      "tests": 100
+    },
+    {
+      "command": "npm --prefix extension run build:firefox",
+      "exit_code": 0
+    },
+    {
+      "command": "npm --prefix extension run build",
+      "exit_code": 0
+    },
+    {
+      "command": "base+dev Compose config, with and without legacy-training; GCE config; base+dev+legacy-ci and GCE+legacy-ci --profile legacy-training config --quiet",
+      "exit_code": 0
+    },
+    {
+      "command": "py_compile new packager/registry/native transport + historical TLS smoke config helper",
+      "exit_code": 0
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0
+    }
+  ],
+  "preserved_failures": [
+    {
+      "gate": "first new Python parity test",
+      "result": "3 subtest failures",
+      "reason": "Classification lacks value __eq__; assertion compared distinct object addresses",
+      "repair": "compare packed classifications and confidence; retain full tensor equality; added product finding/API identity checks",
+      "question_or_criteria_changed": false
+    },
+    {
+      "gate": "first Go whole-suite run",
+      "result": "fixture path failures in historical tests",
+      "reason": "test Compose lacked /workspace/models fixture mount; actual new V3 stream test completed",
+      "repair": "add read-only existing models mount; complete -race rerun passed",
+      "question_or_criteria_changed": false
+    },
+    {
+      "gate": "existing MiniLM compatibility",
+      "result": "1 error and 1 failure of 9",
+      "reason": "pre-existing subclass omitted prediction_observer required by base classify",
+      "repair": "initialize prediction_observer=None in subclass; nine tests passed",
+      "question_or_criteria_changed": false
+    },
+    {
+      "gate": "interim Compose text review",
+      "result": "invalid misplaced profile and telemetry bootstrap insertion",
+      "reason": "overbroad initial textual replacement",
+      "repair": "removed both; all final merged configs passed",
+      "question_or_criteria_changed": false
+    }
+  ],
+  "unrun": [
+    "installed V3 browser E2E",
+    "V3 browser/RQ3 timing study",
+    "hosted CI",
+    "cloud TLS smoke",
+    "deployment",
+    "actionlint",
+    "shellcheck"
+  ],
+  "prior_evidence": "04cfa963 V1 A/B/C results and all original AU3 package weights remain unchanged",
+  "next_protocol": {
+    "path": "paper/research/v3-standard-installed-protocol-20261017.md",
+    "status": "draft_not_frozen",
+    "sha256": "47ac8175811575cc3e63f1ff3874bfedc49c7f1c3e98fae077560bb9d4338436"
+  },
+  "resources": {
+    "compose_project": "privoke-v3-checks-20261017",
+    "oneoff_containers": "removed by --rm",
+    "image": "privoke-v3-model-checks:20261017 retained for root review/follow-up; image is Go tooling and excludes standard release weights",
+    "shared_resources_removed": false,
+    "image_id": "sha256:3ff7c8daadcd8c906e7a61d10291dca4e554c43b44b77be2e8bfb2ce4c289ea3",
+    "owned_container_count_after_checks": 0
+  }
+}
