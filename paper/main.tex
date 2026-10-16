@@ -105,6 +105,8 @@ The semantic classifier represents a prompt through sensitivity, audience and in
 
 The policy normally assigns BLOCK to S3 and WARN to S2. S0/S1 normally allow, except that identity or location triggers WARN when both categories occur together or visibility is P2--P4. S0 with no categories always allows. A numeric confidence below 0.5 overrides this mapping: S3 becomes WARN, S2 remains WARN only with identity or location, and all other cases become ALLOW. Confidence summarizes sensitivity/category heads and is not a calibrated probability of joint correctness or authorized disclosure. Neither the labels nor this deterministic mapping has been independently validated as a model of contextual authorization.
 
+For illustration, assume S2, HEALTH and confidence 0.7, with no earlier restriction. The policy selects WARN and the supported request sends its original body without awaiting acknowledgement. An earlier rule BLOCK instead cancels the request before semantics runs. This hypothetical traversal applies the mapping; it is not an observed prediction, independently labelled case or additional test.
+
 The models performing this task are classifiers, not conversational response generators. The evaluation compares historical small classifiers with later packages retaining pretrained Bidirectional Encoder Representations from Transformers (BERT) encoders and poolers~\cite{googleBertL4H128A2,googleBertL2H256A4,googleBertL12H256A4,turc2019WellReadStudents}. Both generations offer efficient, balanced and quality packages. These names identify configurations rather than a guaranteed performance ordering. Tokenizers, capacities, thresholds and training histories differ as well, so the comparison measures the resulting package change rather than the isolated effect of pretraining or architecture.
 
 \subsection{Guarded Detector Updates}
@@ -208,7 +210,23 @@ Quality &226/879 &1073/1421 &598/810 &468/641 \\
 The execution records locate one important source of unnecessary restriction in the cascade. All updated packages over-restricted the same 139 cases: rules blocked 109 clean controls before later detectors could run and warned on thirty low-risk controls. Rules ran on every case and early-blocked 289 in total, leaving NER and semantics to execute on 1,271. The shared failures therefore could not be resolved simply by substituting a better semantic model behind those rules. NER contributed zero converted PriVoke findings after supported-label filtering. That observation concerns the findings admitted into the policy; it does not imply that the loaded recognizer was inactive or detected no raw entities.
 
 \label{sec:detector_ablation}
-Holding the balanced package and workload fixed allowed the detector-removal study to test this explanation. Removing rules raised allowed-action agreement from 1,409 to 1,530 and label-and-action joint agreement from 717 to 972. All 139 shared unnecessary restrictions were corrected, but eighteen previously correct actions were lost and under-restriction rose from twelve to thirty cases. The net gain of 121 actions thus came with additional missed protection under the provisional policy. Existing paired resampling placed the action-rate gain at 3.46--12.70 percentage points by family and 5.96--9.23 by audience expression. These separate descriptive ranges support the direction of the aggregate tradeoff without making the losses acceptable. Removing NER left full-product outputs unchanged, consistently with its zero converted findings on this fixture. Actual execution was verified for these contrasts; neither removal result establishes that a detector is unnecessary on other workloads.
+The fixed-package ablation tests this explanation (Table~\ref{tab:targeted_ablation}), placing agreement beside under- and over-restriction. Removing rules corrected all 139 shared unnecessary restrictions but lost eighteen previously correct actions. The net gain of 121 actions therefore came with increased missed protection under the provisional policy. Paired action-rate gain ranges were 3.46--12.70 percentage points by family and 5.96--9.23 by audience expression. These separate descriptive ranges support the direction of the aggregate tradeoff without making the losses acceptable. No-NER outputs matched the full product, consistent with zero converted findings on this fixture. Actual execution was verified; neither removal establishes that a detector is unnecessary on other workloads.
+
+\begin{table}[t]
+\centering
+\caption{Balanced-package ablation on the same 1,560 provisional cases. Brackets identify requested layers. Action and Joint count allowed-action and label-and-action joint agreement; Under and Over count actions below and above the allowed set.}
+\label{tab:targeted_ablation}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Configuration & Action & Joint & Under & Over \\
+\midrule
+Full [2,3,4] &1409 &717 &12 &139 \\
+No rules [3,4] &1530 &972 &30 &0 \\
+No NER [2,4] &1409 &717 &12 &139 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Agreement on a Separate Annotation Target}
 \label{sec:final_annotation}

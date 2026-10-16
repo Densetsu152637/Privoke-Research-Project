@@ -52,3 +52,53 @@ The category judgments remain D-defensible/plausible, with observed D–HD prese
 | After PDF validation and rubric reassessment | 70% | 30% | Same exposed weekly checkpoint; not an exact agent token measure. |
 
 Root independently read and accepted all six paragraph diffs as material, bounded improvements, with qualifications visible and no scope problem. Root also independently viewed the changed final pages 1, 2, 9 and 10 at full size and accepted their fit and readability without clipping or overlap; this is focused independent coverage, alongside the writer's complete ten-page inspection. Final hash/record acceptance remains root's next step. The writer stops here rather than starting iteration 2 without that review. Four owned paths are ready: manuscript source, delivered PDF, current rubric review and this record. No scratch cleanup or active process is pending; ignored build evidence is retained. No Git mutation or push was performed.
+
+
+## Iteration 2 — Policy traversal and targeted ablation presentation
+
+**Input:** `docs/paper` at `d1778e349cf5004f55de03cb15c2193be67c144e`, root's accepted iteration-1 commit. Root completed the preceding source, focused-render, binding/table and document checks before this iteration. Tracked files were clean; the unchanged user template remained untracked. Only former **Priority 2** (policy traversal) and **Priority 3** (ablation presentation) were assigned. The current four-file ownership and all goal constraints remain unchanged.
+
+### Changes, source and preservation
+
+Section III-B now includes a hypothetical traversal: assumed S2/HEALTH/confidence 0.7 with no prior restriction produces WARN and original-body transmission without acknowledgement; an earlier rule BLOCK cancels before semantics. It explicitly does not claim an observed model prediction, independent labelling or another test. No prompt example, protected row or additional study was introduced.
+
+Section V-A now uses **Table III** to compare the same three approved ablation configurations. The existing aggregate source is [controlled-studies-20261014.md](controlled-studies-20261014.md), **AB14 observed results**, specifically the `Full product`, `Remove regex` and `Remove NER` rows and the following paired-contrast paragraphs. That record reports executed protocol hash `d3badb10c83254dfb2eb7b6aac256296ca459b81f57091053b5d99d4ca5c420b`, frozen balanced package `99b36171056bb0398584a0b0556d9d7ff2640d0acac4b124a126327451a80589` and corrected grouping/cohort analysis hash `f6bba29b524a4e261c990ae13f6e9ec00ff31800ad9caa1e329cba3f8bf1f67a`. Only its already reported aggregates were read; no raw study rows or rerun were needed.
+
+| Contrast | Requested layers | Allowed action | Label-and-action joint | Under | Over |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Full | `[2,3,4]` | 1409 | 717 | 12 | 139 |
+| No rules | `[3,4]` | 1530 | 972 | 30 | 0 |
+| No NER | `[2,4]` | 1409 | 717 | 12 | 139 |
+
+The new table promotes **twelve existing outcome counts** and carries **seven layer-ID digits**. These mechanical token counts are not new measurements or independent cases. All configurations retain the 1,560-case denominator. Adjacent prose retains 139 corrected unnecessary restrictions, eighteen lost correct actions, net 121, family interval 3.46–12.70 percentage points and audience-expression interval 5.96–9.23. It preserves the descriptive dependence qualification, actual-execution check and fixture-specific zero-converted-finding explanation for no-NER equality. Full comparison counts were removed from that prose because the table now presents them.
+
+All six original table environments are unchanged, preserving their 109 data-row numeric tokens including the question map (99 in the five original result tables). Both equations, the overview, existing labels, citation-key sequences and exact RQs are unchanged; only the new table label/callout is added. The new table uses the same `\small` table text as the existing tables, which is larger than IEEEtran's default table text; no typography reduction or width scaling was used. No source outside the policy illustration and targeted ablation presentation was substantively changed.
+
+### Build, visual checks and reassessment
+
+The PDF marker ran once for one edit output. Installed MiKTeX/BibTeX built in `evaluation/results/rubric_iteration_20261017/iteration-02`, with package installation and shell escape disabled and narrow configuration access approved. The first complete build reached eleven pages, with only the final reference on page eleven. Tightening the newly added illustration, caption and ablation prose restored ten pages. No other section, result or caveat was cut. A final wording check distinguished policy selection from semantic labels, and the new table's font setting was matched to the existing tables.
+
+All six LaTeX pass1–pass6 invocations, the final **pass7** and BibTeX completed successfully. All pass6 pages were rendered and visually inspected. Pass7 changed only page 7; this was verified by PNG byte hashes, and page 7 was inspected again at full-page view. Pages 8–10 were also re-inspected; the other nine final images are byte-identical to inspected pass6 images. This establishes complete final-page coverage without attributing old-version acceptance to changed pixels.
+
+The delivered PDF has **ten pages including twenty references, seven tables, one overview and two equations**. Table III is the new ablation; the final semantic table is IV, matched continuation V, browser cost VI and telemetry utility VII. The policy traversal is on p. 3, ablation text on pp. 6–7/table on p. 7, and the expanded Design ends on p. 5. Tables and surrounding text are readable with no clipping or overlap. All twenty font resources are embedded; labels and all twenty citation keys resolve. The final log has no overflow, undefined/multiply-defined reference or missing-glyph diagnostics. Known underfull horizontal boxes and the disabled-shell-escape warning remain visually non-blocking. No appendix/supplement/supporting-detail dependency appears in source or extracted PDF.
+
+The final PDF was copied to the deliverable and is byte-identical to the build. New logs, extraction, final renders, preservation checks and `source-and-pdf-checks.json` remain under the iteration-02 directory. Earlier iteration evidence is preserved.
+
+| Final artifact | SHA-256 |
+| --- | --- |
+| `paper/main.tex` | `cd199b7dc129ac03957696d14c6a1f84280a6a91e37bbeedbea095a00e3b665a` |
+| `paper/main.pdf` | `3ce5612fba9fd51f0c6a476d5804934d6a3752002a03075edebc48406e934d1c` |
+| `paper/template.tex`, unchanged user input | `e4ea281c35acf1028e726f0777f2b75817478824a6b6fa723bd8b85ae8d9c056` |
+
+The review was reassessed after this final artifact. Priorities 2 and 3 moved to the resolved table with locations and acceptance evidence; only **4 (artifact availability)** and **6 (bias–mitigation–residual synthesis)** remain in the priority list. Table numbering, page locators and source/PDF bindings were updated. The table improves comparison and the example improves interpretation, but neither validates provisional labels, eliminates the observed harm or supplies new empirical evidence. Category bands remain candid rather than advancing automatically to HD. All scientific limits and the seven-unit scope remain.
+
+### Weekly quota and handoff
+
+| Checkpoint | Weekly used | Remaining |
+| --- | --- | --- |
+| Iteration-2 preflight | 71% | 29% |
+| After source edit | 71% | 29% |
+| After initial and page-fit compilation checks | 71% | 29% |
+| After final PDF validation and rubric update | 72% | 28% |
+
+These are account-wide 10,080-minute-window snapshots, not per-agent token costs. The stop threshold has not been reached. Root independently read the complete source diff and AB14 aggregate rows and accepted the hypothetical traversal, table values and scope. Root independently inspected final iteration-02 pages 3, 4, 7, 8 and 10 and accepted their fit/readability and the complete source diff. Final binding/record acceptance remains root's next step. The writer stops at this stable iteration-2 milestone; iteration 3 requires root's next assignment. No pending process, disposable scratch, Git mutation or push remains; the four owned files are the source/PDF, current review and this ledger.
