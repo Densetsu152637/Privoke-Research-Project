@@ -415,6 +415,7 @@ def _semantic_snapshot_identity(model):
     for name in ("backbone_sha256", "tokenizer_sha256"):
         if name in snapshot.metadata:
             identity[name] = snapshot.metadata[name]
+    identity.update(getattr(model, "execution_metadata", {}))
     return identity
 
 

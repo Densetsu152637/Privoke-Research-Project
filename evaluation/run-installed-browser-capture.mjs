@@ -64,6 +64,7 @@ import { installBrowserLaunchLog } from "../extension/test/installed-browser-lau
 
 import { runAdditionalMatrix } from "../extension/test/installed-browser-additional.mjs";
 import { runRq3Session, startRq3Model } from "../extension/test/rq3-browser-cost.mjs";
+import { startRq3V3Model, v3SessionOptions, verifyV3ReleaseStore, assertV3Accounting, V3_IDENTITIES } from "../extension/test/rq3-v3-browser-cost.mjs";
 
 const execFileAsync = promisify(execFile);
 process.env.DEBUG = "pw:browser";
@@ -75,9 +76,10 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const EXTENSION_ID = "hmlhjfklebbbhpjdjodegbjnbamlkonp";
 const NATIVE_HOST_NAME = "org.privoke.runtime_launcher";
 const PORTS = [8080, 50056, 50057];
-const RQ3_MODE = process.env.PRIVOKE_RQ3_COST === "true";
-const PROTOCOL_VERSION = RQ3_MODE ? "rq3-installed-cost-v1" : "installed-browser-enforcement-cost-v10";
-const PROTOCOL_PATH = RQ3_MODE ? "paper/research/rq3-telemetry-protocol-20261017.md" : "paper/research/installed-browser-protocol.md";
+const RQ3_V3_MODE = process.env.PRIVOKE_RQ3_V3_COST === "true";
+const RQ3_MODE = process.env.PRIVOKE_RQ3_COST === "true" || RQ3_V3_MODE;
+const PROTOCOL_VERSION = RQ3_V3_MODE ? "rq3-standard-v3-installed-cost-v1" : RQ3_MODE ? "rq3-installed-cost-v1" : "installed-browser-enforcement-cost-v10";
+const PROTOCOL_PATH = RQ3_V3_MODE ? "paper/research/v3-standard-installed-protocol-20261017.md" : RQ3_MODE ? "paper/research/rq3-telemetry-protocol-20261017.md" : "paper/research/installed-browser-protocol.md";
 const RATE_REPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_REPS, 30);
 const WARMUPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_WARMUPS, 5);
 const COLD_SESSIONS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_SESSIONS, 12);
@@ -137,6 +139,17 @@ const SOURCE_FILES = [
   "paper/research/installed-browser-protocol.md",
 ];
 if (RQ3_MODE) SOURCE_FILES.push("extension/test/rq3-browser-cost.mjs", PROTOCOL_PATH);
+if (RQ3_V3_MODE) SOURCE_FILES.push(
+  "extension/test/rq3-v3-browser-cost.mjs", "extension/test/rq3-v3-browser-cost.test.mjs",
+  "evaluation/compose.rq3-v3-browser.yml", "shared/proto/privoke/v1/parameters.proto",
+  "shared/python/privoke_model/standard_v3.py", "shared/python/privoke_model/v3_contract.py",
+  "models/prepare_standard_releases.py", "extension/client-runtime/src/v3/model.py",
+  "extension/client-runtime/src/LLM/privoke/v3_package.py", "extension/client-runtime/src/LLM/privoke/parameter_stream.py",
+  "extension/client-runtime/src/LLM/privoke/streamed_model.py", "extension/client-runtime/src/dependency_check.py",
+  "extension/client-runtime/requirements.txt", "extension/client-runtime/requirements-inference-cpu.txt",
+  "services/model-streaming-service/cmd/server/standard_v3.go", "services/model-streaming-service/cmd/server/catalog.go",
+  "services/model-streaming-service/cmd/server/config.go", "services/model-streaming-service/cmd/server/streaming_server.go",
+);
 
 let server;
 let browserContext;
@@ -160,6 +173,7 @@ let certificateDirectory;
 const externalRequests = [];
 const providerCaptures = [];
 const caseRecords = [];
+const startupScaffoldRecords = [];
 const rpcEvents = [];
 const coldRecords = [];
 const resourceFiles = [];
@@ -182,6 +196,7 @@ let stopRq3Model;
 
 async function runStudy() {
 try {
+  assert.ok(!(RQ3_V3_MODE && process.env.PRIVOKE_RQ3_COST === "true"), "V1 and V3 study modes are mutually exclusive");
   assert.ok(/^[0-9a-f]{40}$/i.test(SOURCE_REVISION), "a full declared source revision is required");
   assert.ok(IMAGE_ID && IMAGE_ID !== "unreported", "the root-verified image ID is required");
   assert.ok(isWithin(ALLOWED_OUTPUT_ROOT, OUTPUT_PARENT), "output must stay under the dedicated installed-browser results mount");
@@ -223,9 +238,21 @@ try {
   };
 
   if (RQ3_MODE) {
-    stopRq3Model = await startRq3Model(OUTPUT);
+    if (RQ3_V3_MODE) {
+      assert.equal(process.env.OMP_NUM_THREADS, "4"); assert.equal(process.env.MKL_NUM_THREADS, "4");
+      receipt.standardV3PackagesBefore = await verifyV3ReleaseStore("/model-releases");
+      receipt.standardV3Identities = V3_IDENTITIES;
+    }
+    stopRq3Model = await (RQ3_V3_MODE ? startRq3V3Model(OUTPUT) : startRq3Model(OUTPUT));
+    if (RQ3_V3_MODE) {
+      receipt.rq3ModelProcess = await processIdentity(stopRq3Model.processId);
+      assert.equal(receipt.rq3ModelProcess.parentPid, process.pid);
+      receipt.rq3ModelBinarySha256 = await hashFile("/usr/local/bin/privoke-model-streaming");
+    }
     receipt.rq3Sessions = [];
-    receipt.rq3Scope = "Supported installed V1 runtime; all-layers-off resident baseline; updated AU3 installation unmeasured. Startup resource windows/scaffolding are excluded from paired-arm costs.";
+    receipt.rq3Scope = RQ3_V3_MODE
+      ? "Maintained installed default V3 balanced; all-layers-off resident baseline. Post-cost tier/legacy verification and startup scaffolding are excluded from paired-arm costs."
+      : "Supported installed V1 runtime; all-layers-off resident baseline; updated AU3 installation unmeasured. Startup resource windows/scaffolding are excluded from paired-arm costs.";
   }
   for (let index = 0; index < (RQ3_MODE ? 4 : COLD_SESSIONS); index += 1) {
     const cell = RQ3_MODE ? DECISION_CELLS.find((item) => item.transport === (index % 2 ? "xhr" : "fetch") && item.example.id === "allow")
@@ -237,9 +264,16 @@ try {
       if (RQ3_MODE) {
         const result = await runRq3Session({ page: testPage, popup, cdp, providerCaptures, rpcEvents, fixtureUrl,
           output: OUTPUT, sessionId: cold.cold.sessionId, transport: cell.transport, replicate,
+          ...(RQ3_V3_MODE ? v3SessionOptions(index) : {}),
           sendExtensionMessage, verifyBoundary: async () => {
             const boundary = await captureDirectBoundary(await waitRuntimeReady(popup), cold.actualBrowser);
             assertStableBoundary(boundary, cold.boundary);
+            if (RQ3_V3_MODE) {
+              const model = await processIdentity(stopRq3Model.processId);
+              for (const key of ["pid", "startTicks", "commandSha256", "parentPid"])
+                assert.equal(model[key], receipt.rq3ModelProcess[key], `model server identity changed: ${key}`);
+              return { ...publicBoundary(boundary), modelServer: model };
+            }
             return publicBoundary(boundary);
           } });
         receipt.rq3Sessions.push(result);
@@ -263,6 +297,13 @@ try {
   }
 
   await stopRq3Model?.(); stopRq3Model = null;
+  if (RQ3_V3_MODE) {
+    receipt.standardV3PackagesAfter = await verifyV3ReleaseStore("/model-releases");
+    assert.deepEqual(receipt.standardV3PackagesAfter, receipt.standardV3PackagesBefore);
+    receipt.caseRecords = caseRecords; receipt.startupScaffoldRecords = startupScaffoldRecords;
+    receipt.rpcEvents = rpcEvents; receipt.providerCaptures = providerCaptures;
+    receipt.v3Accounting = assertV3Accounting(receipt);
+  }
 
   await assertPortsClosed("after-last-session");
     await assertNoOwnedProcesses("after-last-session");
@@ -323,6 +364,7 @@ try {
     receipt.coldStarts = coldRecords;
     receipt[RQ3_MODE ? "startupScaffoldingCostsExcludedFromRq3" : "warmCosts"] = summariseCosts(caseRecords);
     receipt.caseRecords = caseRecords;
+    if (RQ3_V3_MODE) receipt.startupScaffoldRecords = startupScaffoldRecords;
     receipt.rpcEvents = rpcEvents;
     receipt.providerCaptures = providerCaptures;
     receipt.processTerminationEvidence = processTerminationEvidence;
@@ -407,7 +449,7 @@ async function createInitialReceipt() {
     },
     sourceHashes,
     settings: { enabled: true, useLocalStack: true, layers: { regex: true, ner: true, llm: false }, waitForRegex: true },
-    expectedColdSessions: COLD_SESSIONS,
+    expectedColdSessions: RQ3_V3_MODE ? 4 : COLD_SESSIONS,
     expectedWarmMeasuredPerSession: RATE_REPS,
     expectedWarmupsPerSession: WARMUPS,
     resourceLimits,
@@ -417,7 +459,7 @@ async function createInitialReceipt() {
 async function runtimePackageVersions() {
   const code = [
     "import importlib.metadata as m, json, platform",
-    "names = ['spacy', 'en-core-web-sm', 'presidio-analyzer', 'grpcio', 'protobuf', 'psutil']",
+    `names = ${JSON.stringify(["spacy", "en-core-web-sm", "presidio-analyzer", "grpcio", "protobuf", "psutil", ...(RQ3_V3_MODE ? ["torch", "transformers", "tokenizers", "safetensors", "numpy"] : [])])}`,
     "versions = {}",
     "for name in names:",
     "  try: versions[name] = m.version(name)",
@@ -689,6 +731,10 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   }
   Object.assign(times, transition.timings);
   const status = transition.status;
+  if (RQ3_V3_MODE) {
+    const fresh = await sendExtensionMessage(popup, { type: "GET_SETTINGS" });
+    assert.equal(fresh.ok, true); assert.equal(fresh.settings.modelQuality, "latest", "fresh installed profile must use default latest");
+  }
   const detectorIdentity = transition.current.detector;
   const supervisorIdentity = transition.current.supervisor;
   const detectorPid = detectorIdentity.pid;
@@ -1998,6 +2044,7 @@ async function appendCapture(item, captures, rpc) {
   await writeFile(join(OUTPUT, "captures", filename), JSON.stringify(payload, null, 2), { flag: "wx" });
   item.captureFile = `captures/${filename}`;
   item.captureSha256 = await hashFile(join(OUTPUT, "captures", filename));
+  if (RQ3_V3_MODE) startupScaffoldRecords.push({ ...item, phase: item.phase ?? "firstDecision" });
 }
 
 function summariseCosts(records) {

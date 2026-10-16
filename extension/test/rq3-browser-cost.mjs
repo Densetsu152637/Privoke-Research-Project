@@ -32,9 +32,17 @@ export function summarizeTiming(records) {
     blocked: records.filter((r) => r.action === "BLOCK").length };
 }
 
-export async function startRq3Model(output) {
+export function assertRq3SemanticIdentity(rpc, expectedIdentity, selector) {
+  const metadata = rpc.response.decoded.metadata;
+  for (const [key, expected] of Object.entries(expectedIdentity))
+    assert.equal(metadata[`privoke.semantic.${key}`], expected, `pinned semantic identity differs: ${key}`);
+  if (selector !== undefined)
+    assert.equal(rpc.request.semanticModelId, selector, "actual popup model selector differs");
+}
+
+export async function startRq3Model(output, modelEnvironment = {}) {
   const log = await open(join(output, "rq3-model.log"), "wx");
-  const env = { ...process.env, MODEL_ARTIFACT_DIR: "/workspace/models", MODEL_LATEST_ID: "privoke-balanced", MODEL_STREAMING_PORT: "50051" };
+  const env = { ...process.env, MODEL_ARTIFACT_DIR: "/workspace/models", MODEL_LATEST_ID: "privoke-balanced", MODEL_STREAMING_PORT: "50051", ...modelEnvironment };
   const model = spawn("/usr/local/bin/privoke-model-streaming", [], { env, stdio: ["ignore", log.fd, log.fd] });
   let stopped = false;
   const stop = async () => {
@@ -47,6 +55,7 @@ export async function startRq3Model(output) {
     }
     await log.close();
   };
+  stop.processId = model.pid;
   try {
     const deadline = Date.now() + 15_000;
     while (Date.now() < deadline) {
@@ -58,7 +67,9 @@ export async function startRq3Model(output) {
 }
 
 export async function runRq3Session({ page, popup, cdp, providerCaptures, rpcEvents, fixtureUrl,
-  output, sessionId, transport, replicate, sendExtensionMessage, verifyBoundary }) {
+  output, sessionId, transport, replicate, sendExtensionMessage, verifyBoundary,
+  modelQuality = "balanced", modelIdentity = RQ3_MODEL_IDENTITY, semanticModelId,
+  verificationProfiles = [] }) {
   const records = [];
   const runtimeIds = new Set(), networkIds = new Set();
   const path = join(output, `rq3-${sessionId}.json`);
@@ -77,15 +88,16 @@ export async function runRq3Session({ page, popup, cdp, providerCaptures, rpcEve
   };
   try {
     const modes = replicate === 1 ? RQ3_MODES : [...RQ3_MODES].reverse();
-    for (const mode of modes) {
+    for (const mode of [...modes, ...verificationProfiles]) {
       const setting = await sendExtensionMessage(popup, { type: "UPDATE_SETTINGS", patch: {
-        enabled: true, useLocalStack: true, modelQuality: "balanced", waitForRegex: true, layers: mode.layers } });
+        enabled: true, useLocalStack: true, modelQuality: mode.modelQuality ?? modelQuality, waitForRegex: true, layers: mode.layers } });
       assert.equal(setting.ok, true);
       await delay(5_100); // Actual model health cache must expire before the next arm.
       state.boundaryRecords.push({ mode: mode.id, phase: "before", identity: await verifyBoundary() });
       await save();
-      for (let index = 0; index < 35; index++) {
-        const phase = index < 5 ? "warmup" : "measured";
+      for (let index = 0; index < (mode.verification ? 2 : 35); index++) {
+        const phase = mode.verification ? "verification" : index < 5 ? "warmup" : "measured";
+        const probeTransport = mode.verification ? ["fetch", "xhr"][index] : transport;
         const caseId = `rq3-${sessionId}-${mode.id}-${index}`;
         const preProbeQuiescentAtMonotonicMs = await quiet();
         const beforeRpc = rpcEvents.length;
@@ -111,7 +123,7 @@ export async function runRq3Session({ page, popup, cdp, providerCaptures, rpcEve
             });
           }
           return { caseId, url, body, transport, outcome, totalMs: performance.now() - started };
-        }, { transport, url, caseId, prompt: RQ3_PROMPT });
+        }, { transport: probeTransport, url, caseId, prompt: RQ3_PROMPT });
         Object.assign(record, { mode: mode.id, phase, index, preProbeQuiescentAtMonotonicMs });
         records.push(record); // Preserve the attempted probe even if a subsequent gate fails.
         await save();
@@ -128,9 +140,7 @@ export async function runRq3Session({ page, popup, cdp, providerCaptures, rpcEve
           assertAdditionalProbe({ record, captures: record.receiverCaptures, rpc: rpcs[0],
             expectedLayers: mode.expected, expectedForwarded: record.action !== "BLOCK", requireSuccess: true });
           if (mode.layers.llm) {
-            const metadata = rpcs[0].response.decoded.metadata;
-            for (const [key, expected] of Object.entries(RQ3_MODEL_IDENTITY))
-              assert.equal(metadata[`privoke.semantic.${key}`], expected, `pinned semantic identity differs: ${key}`);
+            assertRq3SemanticIdentity(rpcs[0], mode.modelIdentity ?? modelIdentity, mode.semanticModelId ?? semanticModelId);
           }
         } else {
           assert.equal(record.action, "ALLOW");
@@ -148,9 +158,11 @@ export async function runRq3Session({ page, popup, cdp, providerCaptures, rpcEve
       await save();
     }
     assert.equal(records.filter((r) => r.phase === "measured").length, 120);
+    assert.equal(records.filter((r) => r.phase === "verification").length, verificationProfiles.length * 2);
     state.summary = Object.fromEntries(RQ3_MODES.map((mode) => [mode.id,
       summarizeTiming(records.filter((r) => r.mode === mode.id && r.phase === "measured"))]));
-    state.matchedReceiverCompletion = records.every((r) => r.receiverCaptures?.length === 1 && r.outcome.status === 200);
+    state.matchedReceiverCompletion = records.filter((r) => r.phase !== "verification")
+      .every((r) => r.receiverCaptures?.length === 1 && r.outcome.status === 200);
     if (state.matchedReceiverCompletion) {
       state.pairedProfileMedianDeltaMs = Object.fromEntries(RQ3_MODES.slice(1).map((mode) => [mode.id,
         state.summary[mode.id].p50 - state.summary["detectors-off"].p50]));

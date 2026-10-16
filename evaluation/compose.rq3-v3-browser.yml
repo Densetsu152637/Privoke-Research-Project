@@ -1,0 +1,19 @@
+# Use after compose.browser-installed.yml, with --project-directory repository root.
+services:
+  installed-browser-evidence:
+    image: privoke-rq3-v3-browser:20261017
+    environment:
+      PRIVOKE_RQ3_COST: "false"
+      PRIVOKE_RQ3_V3_COST: "true"
+      MODEL_ID: latest
+      MODEL_PACKAGE_CACHE_DIR: /tmp/privoke-v3-model-packages
+      MODEL_PACKAGE_TIMEOUT_SECONDS: "120"
+      OMP_NUM_THREADS: "4"
+      MKL_NUM_THREADS: "4"
+    volumes:
+      - ./evaluation/results/rq3-v3-installed-20261017/browser-capture:/workspace/evaluation/results/installed-browser-results
+      - type: bind
+        source: ./models/standard-releases
+        target: /model-releases
+        read_only: true
+        bind: {create_host_path: false}

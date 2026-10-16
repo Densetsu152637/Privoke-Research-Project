@@ -161,10 +161,16 @@ class NativeV3PrivacyModel:
         for parameter in self.model.parameters():
             parameter.requires_grad_(False)
 
+    @property
+    def execution_metadata(self):
+        import torch
+        return {"compute_device": self.model.device_name, "torch_threads": str(torch.get_num_threads())}
+
     def classify(self, text):
         identity = {"model_id": self.snapshot.model_id, "model_version": self.snapshot.version,
                     "artifact_checksum": self.snapshot.version, "parameter_fingerprint": self.snapshot.fingerprint,
                     "architecture": ARCHITECTURE, "parameter_count": str(self.snapshot.parameter_count),
                     "backbone_sha256": self.snapshot.metadata["backbone_sha256"],
                     "tokenizer_sha256": self.snapshot.metadata["tokenizer_sha256"]}
+        identity.update(self.execution_metadata)
         return self.model.findings(text, identity)

@@ -66,6 +66,9 @@ COPY extension /workspace/extension
 COPY evaluation/Dockerfile.browser-installed /workspace/evaluation/Dockerfile.browser-installed
 COPY evaluation/compose.browser-installed.yml /workspace/evaluation/compose.browser-installed.yml
 COPY evaluation/compose.rq3-browser.yml /workspace/evaluation/compose.rq3-browser.yml
+COPY evaluation/compose.rq3-v3-browser.yml /workspace/evaluation/compose.rq3-v3-browser.yml
+COPY paper/research/v3-standard-installed-protocol-20261017.md /workspace/paper/research/v3-standard-installed-protocol-20261017.md
+COPY --from=builder /workspace/services/model-streaming-service/cmd/server /workspace/services/model-streaming-service/cmd/server
 COPY extension/test/rq3-browser-cost.mjs /workspace/extension/test/rq3-browser-cost.mjs
 COPY paper/research/rq3-telemetry-protocol-20261017.md /workspace/paper/research/rq3-telemetry-protocol-20261017.md
 COPY evaluation/run-installed-browser-capture.mjs /workspace/evaluation/run-installed-browser-capture.mjs

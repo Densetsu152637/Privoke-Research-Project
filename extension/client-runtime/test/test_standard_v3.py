@@ -145,6 +145,11 @@ class StandardV3NativeParityTests(unittest.TestCase):
                 clean_identity=_semantic_snapshot_identity(product)
                 self.assertEqual(clean_identity["backbone_sha256"],manifest["source"]["weights_sha256"])
                 self.assertEqual(clean_identity["tokenizer_sha256"],manifest["vocab"])
+                self.assertEqual(clean_identity["compute_device"],"cpu")
+                self.assertEqual(clean_identity["torch_threads"],"4")
+                for finding in product.classify(probes[0]):
+                    self.assertEqual(finding.metadata["torch_threads"],"4")
+                    self.assertEqual(finding.metadata["compute_device"],"cpu")
                 from privoke.v1 import runtime_pb2
                 from src.hosting.grpc_server import PrivokeRuntimeService
                 from src.LLM.privoke_classifier import PriVokeClassifier

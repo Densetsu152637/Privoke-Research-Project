@@ -1,6 +1,8 @@
 # Prospective standard V3 installed verification and cost repeat
 
-Status: **DRAFT FOR ROOT REVIEW; NOT FROZEN; NO STUDY EXECUTED.**
+Protocol: `rq3-standard-v3-installed-cost-v1`. Executable source ready for root
+review/freeze; **no study executed**. Root's local commit and source/protocol
+hash acceptance are required before the commands below start the study.
 
 This is a new product verification/cost protocol following the user's explicit
 request to make selected V3 packages standard and retain V1 as older models.
@@ -27,8 +29,10 @@ and model/runtime/native launch identities before measurements.
 
 The original packages remain immutable. Mount the separately prepared
 `models/standard-releases` store read-only; do not copy weights into images or Git.
-Use CPU inference, explicit OMP/MKL thread settings, and attest actual Torch
-threads. No CPU-heavy jobs run alongside cost measurements. A new isolated
+Use CPU inference, `OMP_NUM_THREADS=4`, `MKL_NUM_THREADS=4`, and assert actual
+`torch_threads=4`/`compute_device=cpu` returned by the loaded native V3 model on
+every semantic response, including clean responses. No CPU-heavy jobs run
+alongside cost measurements. A new isolated
 Compose project has no published ports or external network; only the newly owned
 result directory is write-mounted. No historical evidence is write-mounted.
 Python test clients/scoring run on the host. The actual installed browser/native
@@ -79,8 +83,9 @@ and must be identified separately rather than folded into semantic inference.
 ## Installed profile/legacy verification
 
 After the last measured arm, reuse that browser profile for **10 additional
-untimed integrity probes**: fetch and XHR for default `latest`, each explicit V3
-tier, and explicit older V1 balanced. This happens after all cost measurements,
+untimed integrity probes**: fetch then XHR for each explicit V3 tier in efficient,
+balanced, quality order, explicit older V1 balanced, then default `latest`.
+This happens after all cost measurements,
 so additional resident tiers cannot confound those distributions. Use the same
 fixed safe prompt, explicit semantic-only `[4]`, and the normal popup settings.
 Assert requested selection, canonical returned model, exact checksum/blob and
@@ -88,9 +93,12 @@ architecture on every response, including clean responses. Retain ALLOW/WARN/
 BLOCK and verify correct forwarding/zero-forwarding without selecting outcomes.
 Assert old V1 selection remains V1, and switching back to default returns V3
 balanced. Record actual successful `[4]` execution and all failure attempts.
-Prospective total is **714** fixture calls: 480 + 80 + 144 + 10. If the maintained
-harness requires different scaffold mechanics, root must review and freeze the
-revised exact counts before execution; do not silently alter this draft.
+Prospective total is **714** fixture calls: 480 + 80 + 144 + 10, with **574**
+AnalyzePrompt wire calls (140 detector-off calls make no runtime RPC). Keep the
+historical scaffold `caseRecords` field's 120 measured entries distinct from the
+new explicit 144-entry `startupScaffoldRecords` inventory (4 first, 20 warmup,
+120 scaffold measured). Assert unique case IDs, per-profile/per-arm counts,
+wire counts, and the exact receiver denominator implied by every retained action.
 
 ## Integrity, execution and stop conditions
 
@@ -103,8 +111,41 @@ mechanical repair/rerun attempts; preserve each failed attempt and source closur
 Changes to questions, prompt bytes, sample counts, arms or gates require review
 and a new freeze before execution.
 
-Planned maintained runner extension: a distinct V3 mode in the installed-browser
-harness and cost helper, a new isolated Compose override/output bind, and focused
-integrity unit tests. The old V1 mode and historical receipts remain explicit.
-Exact commands and final source/image identities are supplied with the executable
-runner for root review/freeze; this draft is not execution authorization.
+## Executable identity and commands
+
+The separate `PRIVOKE_RQ3_V3_COST=true` mode selects this protocol and the normal
+V3 product loader. It is mutually exclusive with historical `PRIVOKE_RQ3_COST`.
+The V1 mode, pinned V1 identity and historical receipts remain explicit. The Go
+model child is bound by PID/start ticks/command hash/parent before and after arms;
+package manifest/asset hashes and preparation provenance are checked before and
+after the run. Native/runtime/browser boundaries are checked before and after
+every arm and verification selection. There is no speed acceptance threshold.
+
+From the repository root, after root's executable-source/protocol freeze:
+
+```powershell
+$env:PRIVOKE_SOURCE_REVISION = (git rev-parse HEAD)
+docker compose --project-directory . -p privoke-rq3-v3-browser-20261017 -f evaluation/compose.browser-installed.yml -f evaluation/compose.rq3-v3-browser.yml build installed-browser-evidence
+$env:PRIVOKE_INSTALLED_IMAGE_ID = (docker image inspect privoke-rq3-v3-browser:20261017 --format '{{.Id}}')
+docker compose --project-directory . -p privoke-rq3-v3-browser-20261017 -f evaluation/compose.browser-installed.yml -f evaluation/compose.rq3-v3-browser.yml up --no-build --abort-on-container-exit --exit-code-from installed-browser-evidence installed-browser-evidence
+```
+
+Before `up`, retain the immutable image ID and sanitized resolved Compose
+identity/mounts/network/ports/environment, and verify they match this protocol.
+There is one service, network none, no published ports, read-only root, executable
+tmpfs for the normal native launcher/cache. The only write bind is
+`evaluation/results/rq3-v3-installed-20261017/browser-capture` ->
+`/workspace/evaluation/results/installed-browser-results`; each attempt creates
+an exclusive new `run-*` subdirectory. The model bind is
+`models/standard-releases` -> `/model-releases`, read-only with missing-path
+creation disabled. It replaces the historical evidence write mount by target.
+After exit, save the actual container exit/OOM state, independently reconcile raw
+counts/identities and clean up only this owned project. Preserve the image until
+root accepts evidence; preserve all evidence and model packages afterward.
+
+Focused pre-execution gates: host Python `test_standard_v3.py` with real three
+packages and actual sole `[4]` returned execution; Node
+`rq3-browser-cost.test.mjs` + `rq3-v3-browser-cost.test.mjs`; installed-browser
+evidence Node unit gates; `node --check` on the runner; sanitized merged Compose
+isolation and Git whitespace checks. These gates do not substitute for the actual
+installed-browser observations.
