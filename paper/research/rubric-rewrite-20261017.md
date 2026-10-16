@@ -328,3 +328,8 @@ Only `paper/main.tex`, `paper/main.pdf`, this revision record and deletion of th
 
 
 **Final root acceptance:** Root independently confirmed the delivered ten-page PDF includes references, matches the build bytes and the source/PDF hashes above, and has no forbidden companion pointers. Its retained-table audit includes exact browser data-row equality; local references/citations resolve, compiler diagnostics show no overflow, undefined/multiply-defined references or missing glyphs, and binary-aware diff checking passes. Root independently viewed all ten final renders. The record's 22 current local Markdown links resolve after URL decoding; removed supplement links are explicitly historical. The five owned paths are stable and accepted for root's scoped commit. Writer edits have ceased.
+
+
+## Template alignment follow-up — 17 October 2026
+
+The subsequently supplied IEEEtran journal template has now been applied while preserving the seven-study scope, custom features and ten-page limit. See the [template alignment record](template-alignment-20261017.md) for the new source/PDF bindings, complete visual checks and retained customizations. Earlier statements above about an unavailable template describe the historical revision, not the current artifact.
