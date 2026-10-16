@@ -63,6 +63,7 @@ import { summarizeContainerWindow, summarizeContainerStudy, assertStableBoundary
 import { installBrowserLaunchLog } from "../extension/test/installed-browser-launch-log.mjs";
 
 import { runAdditionalMatrix } from "../extension/test/installed-browser-additional.mjs";
+import { runRq3Session, startRq3Model } from "../extension/test/rq3-browser-cost.mjs";
 
 const execFileAsync = promisify(execFile);
 process.env.DEBUG = "pw:browser";
@@ -74,7 +75,9 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const EXTENSION_ID = "hmlhjfklebbbhpjdjodegbjnbamlkonp";
 const NATIVE_HOST_NAME = "org.privoke.runtime_launcher";
 const PORTS = [8080, 50056, 50057];
-const PROTOCOL_VERSION = "installed-browser-enforcement-cost-v10";
+const RQ3_MODE = process.env.PRIVOKE_RQ3_COST === "true";
+const PROTOCOL_VERSION = RQ3_MODE ? "rq3-installed-cost-v1" : "installed-browser-enforcement-cost-v10";
+const PROTOCOL_PATH = RQ3_MODE ? "paper/research/rq3-telemetry-protocol-20261017.md" : "paper/research/installed-browser-protocol.md";
 const RATE_REPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_REPS, 30);
 const WARMUPS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_WARMUPS, 5);
 const COLD_SESSIONS = positiveInteger(process.env.PRIVOKE_INSTALLED_EVIDENCE_SESSIONS, 12);
@@ -133,6 +136,7 @@ const SOURCE_FILES = [
   "shared/proto/privoke/v1/runtime.proto",
   "paper/research/installed-browser-protocol.md",
 ];
+if (RQ3_MODE) SOURCE_FILES.push("extension/test/rq3-browser-cost.mjs", PROTOCOL_PATH);
 
 let server;
 let browserContext;
@@ -174,6 +178,7 @@ let receiverSpkiSha256;
 let restoreBrowserLaunchLog;
 let currentResourceWindow;
 let finalizeCurrentResourceWindow;
+let stopRq3Model;
 
 async function runStudy() {
 try {
@@ -217,12 +222,29 @@ try {
     files: extensionTree.files,
   };
 
-  for (let index = 0; index < COLD_SESSIONS; index += 1) {
-    const cell = DECISION_CELLS[index % DECISION_CELLS.length];
-    const replicate = Math.floor(index / DECISION_CELLS.length) + 1;
+  if (RQ3_MODE) {
+    stopRq3Model = await startRq3Model(OUTPUT);
+    receipt.rq3Sessions = [];
+    receipt.rq3Scope = "Supported installed V1 runtime; all-layers-off resident baseline; updated AU3 installation unmeasured. Startup resource windows/scaffolding are excluded from paired-arm costs.";
+  }
+  for (let index = 0; index < (RQ3_MODE ? 4 : COLD_SESSIONS); index += 1) {
+    const cell = RQ3_MODE ? DECISION_CELLS.find((item) => item.transport === (index % 2 ? "xhr" : "fetch") && item.example.id === "allow")
+      : DECISION_CELLS[index % DECISION_CELLS.length];
+    const replicate = RQ3_MODE ? Math.floor(index / 2) + 1 : Math.floor(index / DECISION_CELLS.length) + 1;
     const cold = await runColdSession({ index, cell, replicate, fixtureUrl, protobuf });
     coldRecords.push(cold.cold);
     await runAfterResourceWindow(finalizeCurrentResourceWindow, async () => {
+      if (RQ3_MODE) {
+        const result = await runRq3Session({ page: testPage, popup, cdp, providerCaptures, rpcEvents, fixtureUrl,
+          output: OUTPUT, sessionId: cold.cold.sessionId, transport: cell.transport, replicate,
+          sendExtensionMessage, verifyBoundary: async () => {
+            const boundary = await captureDirectBoundary(await waitRuntimeReady(popup), cold.actualBrowser);
+            assertStableBoundary(boundary, cold.boundary);
+            return publicBoundary(boundary);
+          } });
+        receipt.rq3Sessions.push(result);
+        return;
+      }
       if (index === 0) {
         const matrix = await runEnforcementMatrix({ fixtureUrl, protobuf });
         receipt.enforcementMatrix = matrix;
@@ -240,12 +262,15 @@ try {
     await finishSession();
   }
 
+  await stopRq3Model?.(); stopRq3Model = null;
+
   await assertPortsClosed("after-last-session");
     await assertNoOwnedProcesses("after-last-session");
   await stopProviderFixture();
   await verifyNoExternalRequests();
   receipt.status = "complete";
-  assert.deepEqual(phaseCounts, { firstDecision: 12, warmup: 60, measured: 360, matrix: 14 },
+  assert.deepEqual(phaseCounts, RQ3_MODE ? { firstDecision: 4, warmup: 20, measured: 120, matrix: 0 }
+    : { firstDecision: 12, warmup: 60, measured: 360, matrix: 14 },
     "fixed request phase counts changed");
   receipt.completedAt = new Date().toISOString();
 } catch (error) {
@@ -270,6 +295,7 @@ try {
   process.exitCode = 1;
 } finally {
   const cleanupFailures = [];
+  try { await stopRq3Model?.(); stopRq3Model = null; } catch (error) { cleanupFailures.push(safeError(error)); }
   let certificateDirectoryRemoved = !certificateDirectory;
   try { await finishSession(); } catch (error) { cleanupFailures.push(safeError(error)); }
   if (samplerClosureUnknown || startupLifecycleUnknown) {
@@ -295,7 +321,7 @@ try {
     const sessionCleanupVerified = cleanupFailures.length === 0;
     const evidenceFailures = [];
     receipt.coldStarts = coldRecords;
-    receipt.warmCosts = summariseCosts(caseRecords);
+    receipt[RQ3_MODE ? "startupScaffoldingCostsExcludedFromRq3" : "warmCosts"] = summariseCosts(caseRecords);
     receipt.caseRecords = caseRecords;
     receipt.rpcEvents = rpcEvents;
     receipt.providerCaptures = providerCaptures;
@@ -565,7 +591,7 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   await mkdir(profilePath, { recursive: false });
   const activeNativeRegistration = await registerNativeHostForProfile(profilePath);
   samplerPath = join(OUTPUT, `resources-${sessionId}.jsonl`);
-  const protocolSha256 = await hashFile(join(ROOT, "paper/research/installed-browser-protocol.md"));
+  const protocolSha256 = await hashFile(join(ROOT, PROTOCOL_PATH));
   const resourceFile = { file: relative(OUTPUT, samplerPath), sha256: null,
     sessionId, requestedStartMonotonicNs: process.hrtime.bigint().toString(),
     requestedEndMonotonicNs: null, phaseRequestCounts: { firstDecision: 0, warmup: 0, measured: 0 },
@@ -736,7 +762,7 @@ async function runColdSession({ index, cell, replicate, fixtureUrl, protobuf }) 
   currentResourceWindow.endBoundary = publicBoundary(finalBoundary);
   caseRecords.push(...measured);
   receipt = receipt || {};
-  return { cold, measured };
+  return { cold, measured, actualBrowser, boundary: finalBoundary };
 }
 
 async function runWarmCell({ sessionId, cell, fixtureUrl, replicates, phase }) {
@@ -1998,7 +2024,7 @@ function summarize(values) {
 }
 
 async function containerResourceSummary(files) {
-  const protocolSha256 = await hashFile(join(ROOT, "paper/research/installed-browser-protocol.md"));
+  const protocolSha256 = await hashFile(join(ROOT, PROTOCOL_PATH));
   for (const file of files) {
     const path = join(OUTPUT, file.file);
     assert.equal(await hashFile(path), file.sha256, "finalized cgroup file digest changed");
@@ -2006,6 +2032,8 @@ async function containerResourceSummary(files) {
       { sourceRevision: SOURCE_REVISION, protocolSha256 });
     assert.deepEqual(observed, file.containerObservation, "finalized container observation changed");
   }
+  if (RQ3_MODE) return { scope: "startup_scaffolding_only_excluded_from_paired_arm_costs",
+    windowCount: files.length, windows: files.map((file) => file.containerObservation), publishPairedArmResources: false };
   return summarizeContainerStudy(files);
 }
 

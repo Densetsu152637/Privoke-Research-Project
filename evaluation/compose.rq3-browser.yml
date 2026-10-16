@@ -1,0 +1,7 @@
+services:
+  installed-browser-evidence:
+    image: privoke-rq3-browser:20261017
+    environment:
+      PRIVOKE_RQ3_COST: "true"
+    volumes:
+      - ./evaluation/results/rq3-telemetry-20261017/browser-capture:/workspace/evaluation/results/installed-browser-results
