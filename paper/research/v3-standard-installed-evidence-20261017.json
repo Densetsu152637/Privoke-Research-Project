@@ -1,0 +1,629 @@
+{
+  "schema": 1,
+  "status": "complete_controlled_installed_prototype",
+  "source_commit": "a77ab08d2f0935a4242a458c6c77c58aa1f929cd",
+  "image_id": "sha256:4382055242e3f4c9693a51a6f5edb20bc4349d96aa9685ca79553103bdb653a2",
+  "protocol_path": "paper/research/v3-standard-installed-protocol-20261017.md",
+  "protocol_sha256": "d486980d2f5615dfa2cfb2802e3f40d8c16194b28d42a34489153b6640d0d779",
+  "receipt": "evaluation/results/rq3-v3-installed-20261017/browser-capture/run-2026-10-16T22-55-51-377Z-eb826b13/receipt.json",
+  "receipt_sha256": "59222ee8588dd796f6f7ba76f32142296129d6f6e6ec3118be4a8cd3a9eec0dd",
+  "source_hashes": {
+    "extension/test/installed-browser-container-resources.py": "b611ba5719e97278beb39dc03033e0cf477524648f1c9586437be8ff505449d6",
+    "extension/test/installed-browser-container-resources.test.py": "dce121caeaff380e65c21085fd10f04125938625fb8f494d97c82c64e11a6399",
+    "extension/test/installed-browser-container-evidence.mjs": "b3cbda061a46cdc6ce93bcdc8c90b73d67c10b296aac35ed34e8a415fed55af4",
+    "extension/test/installed-browser-container-evidence.test.mjs": "c29eb8fcfd01aa5abc946a377ca82db3ff35f214119f2ab9401f9331c76e4580",
+    "evaluation/Dockerfile.browser-installed": "fa7ee23d1c0f58084b20b4e59588821f6d4f1af41599d9cac79c17834d111884",
+    "evaluation/compose.browser-installed.yml": "1275f93773b15dfb24ec7c619578065c139e28b38f79e42f55823e2028763eb9",
+    "evaluation/run-installed-browser-capture.mjs": "4fdc5c015c21b2f62d2b654785d08ff6d9279cf17df62f8956d7690e9a957de3",
+    "extension/test/installed-browser-capture.mjs": "f5fbced8c76bd760949ef654a9dedd04a857159c583c3d1141b344bfb654d8f0",
+    "extension/test/installed-browser-additional.mjs": "a2718a5b601aac4584b3ae45e0eaaf874f35bd3b0da4694c8f56e1902aece2e6",
+    "extension/test/installed-browser-launch-log.mjs": "f60a3e19852476b55f36a7ac6864f71b4b53b954af58367c7a1014a12414cd96",
+    "paper/research/installed-client-evidence-20261014.md": "75efd4b1c123eda9fb42671f6fe3f2742f1bfca8c136aeac7eb4ae1d4cd976bb",
+    "models/privoke-balanced.json": "dcacb490bf19cf771fe4084e7f3484d83daee040609c496c1aef04f0da779b51",
+    "services/model-streaming-service/cmd/server/main.go": "3fd758984abfb4cea0f3796caa23e507c385bd133c24853dd4daf46a90d122eb",
+    "extension/test/installed-browser-evidence.mjs": "33a4d7f2b6489a6fb393960f2ed7d17b6a6e7d67878a97b42fea9fe272486ad6",
+    "extension/test/installed-browser-evidence.test.mjs": "6ea976fe105fcca65e10e2d11a40c007682ad469b8f85e53966cc16513791ee6",
+    "evaluation/run-installed-browser-unit-tests.mjs": "60738ec12d24a491478f1a864cfe0bc3eac8ddf40f6dd39788be4b3be5cc3850",
+    "extension/test/installed-browser-resources.py": "1c5f741ba88cb7690127de0f2408e7054b16ceda642e8443f2eddee142508185",
+    "extension/test/installed-browser-resources.test.py": "57e3a0ad0fea08147f2887a21a99f36955cb63f08fd9c9ace499bb4ecadd864a",
+    "extension/package.json": "c8e99307a57f6ac8c17db79bcea9040d71b7d7339cc93b6cef4ff24df0082ac8",
+    "extension/package-lock.json": "89e9f62c0578cfb361bde17f141947dc6b6acc08c4cddad55c9a8ec82af349f8",
+    "extension/manifest.json": "ef168e44dafa2a14b6ccc066b816a309b7efba2e8788ed8d4e52d55b5f733dc2",
+    "extension/extension-identities.json": "2e9ea0f04e9e9f57e3c3d9533930515a2403c2323e488776f1c3054e9d71f0bb",
+    "extension/src/background.js": "db2aa76835f8b4d88008716e2a0caf7e7123276f46f3cad7518ed0b44ceeaad4",
+    "extension/src/settings.js": "b1ee3d4176043e3b560ca471a15a41b67991391bb0804d8fd5ad599252851e55",
+    "extension/src/runtime-client.js": "cb59722f601800130c79a2e04a79aaeec469ae33d5d82a5a0bf6aa147062c977",
+    "extension/src/runtime-lifecycle.js": "41d0a5c1fcbc125c7d1ce04541937b9f7f10b5c2f819753dd8c3c94a48ba787a",
+    "extension/src/supervisor-launcher.js": "ca79ed864a6bbb10c811b5b457da4201588b00f5d753da5648a31ad7674ff1f3",
+    "extension/src/page-interceptor.js": "428673daf298d1f5e68e5154c6f1181fc12b3453ec1add827a83c41969bdece8",
+    "extension/src/content-script.js": "8e242bc959fb837436e88dd0edd465cbb2025a9ea8a8a3d745966f38dae97f52",
+    "extension/runtime-supervisor/scripts/install-native-host.sh": "6baa27f2bbe10fc8897db7d40a03c1f6d6314d4d8c652c8a9f72e960215e23af",
+    "extension/runtime-supervisor/src/native_messaging_host.py": "65e735a9e24332eb1692753c5321853a4a4ae392d3928f27afd3f82e80942833",
+    "extension/runtime-supervisor/src/main.py": "cef43fb4d5c77a8ccb0d16fb11c424c3dc3950cad7082b12d7bf1f45fb2347f2",
+    "extension/runtime-supervisor/src/runtime_supervisor.py": "d509ab005277b05b3f7be1ce78ae498072a7ac6e9616d996a75f523363f383aa",
+    "extension/runtime-supervisor/src/grpc_web_bridge.py": "36edafb8aa89e6399ac65f257ac69e3671511681b05a93ce54117710d3a7ec49",
+    "extension/client-runtime/src/grpc_main.py": "b74e550c4af03106c30e72ae77eb420cd60c84606b83efabd44272c149b525be",
+    "extension/client-runtime/src/hosting/grpc_server.py": "584d3a7d18696739819bc0816bdc0f5e6624bada684af2ef8afd5fdc0d2486a3",
+    "extension/client-runtime/src/pipeline.py": "98abc2b577512e2a8001bbbe8c2baa74fa5e8f3c5209e232dfb2a0872696927b",
+    "extension/client-runtime/src/regex/rules_identity.py": "c9d07d3b75c5dd4258b00af6539d65aaaf2a6530608874fa3fc1b78a89359fd7",
+    "shared/proto/privoke/v1/runtime.proto": "bcc7266873ead7df7a1b428131ef1c0944ed0e7bac82a6fe888130e20de61bd9",
+    "paper/research/installed-browser-protocol.md": "b760fc541c3d690e634951976553bf9d4ffdd949b6e8b3386dd4fcda7a986259",
+    "extension/test/rq3-browser-cost.mjs": "d0aa2cbd458be2f58d1861ab16bf9f25f69073d8344c5040919f815a29fead83",
+    "paper/research/v3-standard-installed-protocol-20261017.md": "d486980d2f5615dfa2cfb2802e3f40d8c16194b28d42a34489153b6640d0d779",
+    "extension/test/rq3-v3-browser-cost.mjs": "f3b74a0d5b9e05ecafbdb17d8074ca87ba703c1c1e48be56836409364543415d",
+    "extension/test/rq3-v3-browser-cost.test.mjs": "67bcc2638fe7a786efa6f31f50d5eca7bfa73c2acfd677ac6cb97c4b11cedfa2",
+    "evaluation/compose.rq3-v3-browser.yml": "5682a16679a655a9506a7a762fd2b27a95c0c8c24da5b0d67b3e9d18820b94d4",
+    "shared/proto/privoke/v1/parameters.proto": "2c8f58e2aefbfa907657233b39101eadfe76fce9aa219b948ef1174351499eae",
+    "shared/python/privoke_model/standard_v3.py": "2742453f0713f0e3a78de50ffe2b467e6b3d0f644e0240a75f9a9e61cef965a5",
+    "shared/python/privoke_model/v3_contract.py": "be1b90721b94bdea4c75884b26bd9e434cbfa40977668a328492c339491e899c",
+    "models/prepare_standard_releases.py": "d71289fcd584626efec5f2be297f6777856b4c4191423daa2d9557dec4d33013",
+    "extension/client-runtime/src/v3/model.py": "e02e0bfaa760fe5ffd8013d2dc81f6079e6161b55a665fcf90d867d3584d9433",
+    "extension/client-runtime/src/LLM/privoke/v3_package.py": "8f9dba0e530bceeabbf3b7943bdbb688cddcad0e957fa0d62b30b9e238901ecc",
+    "extension/client-runtime/src/LLM/privoke/parameter_stream.py": "562a934dbea3bf893519dbbece1b9d2147d74733573b2ac8735eeceb9d55d3d6",
+    "extension/client-runtime/src/LLM/privoke/streamed_model.py": "d7d0c1c3f81d54d249d4eeaec56a640ce64b4e83f945cbf571adc5125bbfa1a0",
+    "extension/client-runtime/src/dependency_check.py": "12205f4e4ba17bbb101224c5406de415c4f443d2f7833055e09174f9fced8698",
+    "extension/client-runtime/requirements.txt": "028f4aed7d13a5471d164907dea20002dc57a86020c4164944f355697501ef89",
+    "extension/client-runtime/requirements-inference-cpu.txt": "cd7cc2f34f74e7349366ae0c0ba11c984ffc5ab823f332cc767ffa1940e79d16",
+    "services/model-streaming-service/cmd/server/standard_v3.go": "b6fb878cb79dde80184730b51741040648068eca54748248dc04e1aad9e43da2",
+    "services/model-streaming-service/cmd/server/catalog.go": "f114e070d1daf8e8f035c39526fe24ed7ff5cb27d7404d6622ffa3a3615a2c4f",
+    "services/model-streaming-service/cmd/server/config.go": "2de3080f05f64471fd199da2ed0848bf4212de6bcfccc92032a5143c78fb3a75",
+    "services/model-streaming-service/cmd/server/streaming_server.go": "857321373cc6b0340564d7a6ed9ac433835658ae6fa100ba811f2f4e93d1414c"
+  },
+  "artifact_manifest": "evaluation/results/rq3-v3-installed-20261017/artifact-manifest.json",
+  "artifact_manifest_sha256": "ad4532f235543004df369d313de62b9d8ea0d0bbbc05ccbb1ea6f1eb2508cfdb",
+  "artifact_count": 160,
+  "host_replay_source": "evaluation/results/rq3-v3-installed-20261017/computation-sources/summarize.py",
+  "host_replay_sha256": "cdb13b0522594cf86350e7eeaf49dd8dcdac5ab91e78b9bccb2e312c0d0fa362",
+  "attempts": 1,
+  "failed_study_attempts": 0,
+  "timed_prompt": "Please explain the steps in this process.",
+  "accounting": {
+    "totalFixtureCalls": 714,
+    "measured": 480,
+    "armWarmups": 80,
+    "scaffold": 144,
+    "postCostVerification": 10,
+    "analyzePromptWires": 574,
+    "receiverCaptures": 712
+  },
+  "raw_protobuf_layer_counts": {
+    "2,3": 284,
+    "4": 150,
+    "2,3,4": 140
+  },
+  "semantic_model_counts": {
+    "privoke-v3-balanced": 284,
+    "privoke-v3-efficient": 2,
+    "privoke-v3-quality": 2,
+    "privoke-balanced": 2
+  },
+  "timed_actions": {
+    "ALLOW": 480
+  },
+  "arm_warmup_actions": {
+    "ALLOW": 80
+  },
+  "post_cost_actions": {
+    "ALLOW": 8,
+    "BLOCK": 2
+  },
+  "raw_execution_errors": 0,
+  "external_requests": 0,
+  "versions": {
+    "chromium": "153.0.8010.12",
+    "playwright": "1.63.0",
+    "node": "v24.20.0",
+    "python": "3.12.3",
+    "pythonPackages": {
+      "spacy": "3.7.5",
+      "en-core-web-sm": "3.7.1",
+      "presidio-analyzer": "2.2.363",
+      "grpcio": "1.82.1",
+      "protobuf": "7.35.1",
+      "psutil": "7.2.2",
+      "torch": "2.11.0+cpu",
+      "transformers": "4.57.6",
+      "tokenizers": "0.22.2",
+      "safetensors": "0.8.0",
+      "numpy": "1.26.4"
+    },
+    "spaCyModel": {
+      "name": "en_core_web_sm",
+      "version": "3.7.1"
+    },
+    "inferenceDevice": "cpu",
+    "telemetryEnabled": false
+  },
+  "resource_limits": {
+    "visibleProcessorCount": 24,
+    "cpuMax": "max 100000",
+    "memoryMaxBytes": "max"
+  },
+  "packages": {
+    "privoke-v3-efficient": {
+      "manifest_sha256": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+      "blob_sha256": "dc623640400b268a2a490c214dad872de49d047c01b4d5cd1e361f70741d93c2",
+      "architecture": "privoke_pretrained_bert_v3",
+      "backbone_sha256": "2e37a60f99c30c244da3a2ada3653faf378689783c5b6500d7291acc2516e199",
+      "tokenizer_sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+      "parameter_count": 4785044
+    },
+    "privoke-v3-balanced": {
+      "manifest_sha256": "99b36171056bb0398584a0b0556d9d7ff2640d0acac4b124a126327451a80589",
+      "blob_sha256": "e48e7c1aa46310b3b7b1f6422f7aa8902c70cf6ff861f7540a7c4be151de4df2",
+      "architecture": "privoke_pretrained_bert_v3",
+      "backbone_sha256": "67b710645b099510dba08b7605a60859fff59714628e1d9d1ffa9e0956b51783",
+      "tokenizer_sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+      "parameter_count": 9596180
+    },
+    "privoke-v3-quality": {
+      "manifest_sha256": "bb17d355fe1ad13c7052e922fb6de607d82cdafb1f4440fee1a47f35d42caf39",
+      "blob_sha256": "f9d64c3436b44488c8d94233355a12afb1da56c719b3e000e6580ab9e578c26d",
+      "architecture": "privoke_pretrained_bert_v3",
+      "backbone_sha256": "1be1c8c6a57894a139fdf526fb8435f6acb6ea01600569a4ac3cfd405dc5f875",
+      "tokenizer_sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+      "parameter_count": 17493780
+    }
+  },
+  "pooled_cells": {
+    "fetch/detectors-off": {
+      "n": 60,
+      "p50_ms": 3.2000000029802322,
+      "p95_ms": 4.0,
+      "max_ms": 4.299999997019768,
+      "actions": {
+        "ALLOW": 60
+      },
+      "forwarded": 60
+    },
+    "fetch/regex-ner": {
+      "n": 60,
+      "p50_ms": 29.600000001490116,
+      "p95_ms": 33.79999999701977,
+      "max_ms": 92.39999999850988,
+      "actions": {
+        "ALLOW": 60
+      },
+      "forwarded": 60
+    },
+    "fetch/semantic": {
+      "n": 60,
+      "p50_ms": 19.69999999552965,
+      "p95_ms": 158.80000000447035,
+      "max_ms": 283.6000000014901,
+      "actions": {
+        "ALLOW": 60
+      },
+      "forwarded": 60
+    },
+    "fetch/full": {
+      "n": 60,
+      "p50_ms": 35.400000005960464,
+      "p95_ms": 172.80000000447035,
+      "max_ms": 202.10000000149012,
+      "actions": {
+        "ALLOW": 60
+      },
+      "forwarded": 60
+    },
+    "xhr/detectors-off": {
+      "n": 60,
+      "p50_ms": 3.3000000044703484,
+      "p95_ms": 5.0,
+      "max_ms": 7.399999998509884,
+      "actions": {
+        "ALLOW": 60
+      },
+      "forwarded": 60
+    },
+    "xhr/regex-ner": {
+      "n": 60,
+      "p50_ms": 29.899999998509884,
+      "p95_ms": 31.799999997019768,
+      "max_ms": 100.5,
+      "actions": {
+        "ALLOW": 60
+      },
+      "forwarded": 60
+    },
+    "xhr/semantic": {
+      "n": 60,
+      "p50_ms": 15.100000001490116,
+      "p95_ms": 162.79999999701977,
+      "max_ms": 312.70000000298023,
+      "actions": {
+        "ALLOW": 60
+      },
+      "forwarded": 60
+    },
+    "xhr/full": {
+      "n": 60,
+      "p50_ms": 35.900000005960464,
+      "p95_ms": 175.79999999701977,
+      "max_ms": 341.0,
+      "actions": {
+        "ALLOW": 60
+      },
+      "forwarded": 60
+    }
+  },
+  "profile_cells": [
+    {
+      "session_id": "01-fetch-allow-r1",
+      "transport": "fetch",
+      "replicate": 1,
+      "arms": {
+        "detectors-off": {
+          "n": 30,
+          "p50_ms": 3.1999999955296516,
+          "p95_ms": 3.899999998509884,
+          "max_ms": 4.299999997019768,
+          "actions": {
+            "ALLOW": 30
+          },
+          "forwarded": 30
+        },
+        "regex-ner": {
+          "n": 30,
+          "p50_ms": 29.30000000447035,
+          "p95_ms": 36.600000001490116,
+          "max_ms": 92.39999999850988,
+          "actions": {
+            "ALLOW": 30
+          },
+          "forwarded": 30
+        },
+        "semantic": {
+          "n": 30,
+          "p50_ms": 15.800000004470348,
+          "p95_ms": 193.29999999701977,
+          "max_ms": 283.6000000014901,
+          "actions": {
+            "ALLOW": 30
+          },
+          "forwarded": 30
+        },
+        "full": {
+          "n": 30,
+          "p50_ms": 35.100000001490116,
+          "p95_ms": 172.80000000447035,
+          "max_ms": 191.10000000149012,
+          "actions": {
+            "ALLOW": 30
+          },
+          "forwarded": 30
+        }
+      },
+      "activation_median_delta_ms": {
+        "regex-ner": 26.100000008940697,
+        "semantic": 12.600000008940697,
+        "full": 31.900000005960464
+      }
+    },
+    {
+      "session_id": "02-xhr-allow-r1",
+      "transport": "xhr",
+      "replicate": 1,
+      "arms": {
+        "detectors-off": {
+          "n": 30,
+          "p50_ms": 3.100000001490116,
+          "p95_ms": 3.5,
+          "max_ms": 3.8000000044703484,
+          "actions": {
+            "ALLOW": 30
+          },
+          "forwarded": 30
+        },
+        "regex-ner": {
+          "n": 30,
+          "p50_ms": 29.69999999552965,
+          "p95_ms": 39.100000001490116,
+          "max_ms": 100.5,
+          "actions": {
+            "ALLOW": 30
+          },
+          "forwarded": 30
+        },
+        "semantic": {
+          "n": 30,
+          "p50_ms": 16.600000001490116,
+          "p95_ms": 192.89999999850988,
+          "max_ms": 312.70000000298023,
+          "actions": {
+            "ALLOW": 30
+          },
+          "forwarded": 30
+        },
+        "full": {
+          "n": 30,
+          "p50_ms": 35.399999998509884,
+          "p95_ms": 214.0,
+          "max_ms": 341.0,
+          "actions": {
+            "ALLOW": 30
+          },
+          "forwarded": 30
+        }
+      },
+      "activation_median_delta_ms": {
+        "regex-ner": 26.599999994039536,
+        "semantic": 13.5,
+        "full": 32.29999999701977
+      }
+    },
+    {
+      "session_id": "03-fetch-allow-r2",
+      "transport": "fetch",
+      "replicate": 2,
+      "arms": {
+        "detectors-off": {
+          "n": 30,
+          "p50_ms": 3.3000000044703484,
+          "p95_ms": 4.0999999940395355,
+          "max_ms": 4.199999995529652,
+          "actions": {
+            "ALLOW": 30
+          },
+          "forwarded": 30
+        },
+        "regex-ner": {
+          "n": 30,
+          "p50_ms": 30.0,
+          "p95_ms": 33.79999999701977,
+          "max_ms": 40.100000001490116,
+          "actions": {
+            "ALLOW": 30
+          },
+          "forwarded": 30
+        },
+        "semantic": {
+          "n": 30,
+          "p50_ms": 20.30000000447035,
+          "p95_ms": 158.80000000447035,
+          "max_ms": 160.70000000298023,
+          "actions": {
+            "ALLOW": 30
+          },
+          "forwarded": 30
+        },
+        "full": {
+          "n": 30,
+          "p50_ms": 35.400000005960464,
+          "p95_ms": 181.70000000298023,
+          "max_ms": 202.10000000149012,
+          "actions": {
+            "ALLOW": 30
+          },
+          "forwarded": 30
+        }
+      },
+      "activation_median_delta_ms": {
+        "regex-ner": 26.69999999552965,
+        "semantic": 17.0,
+        "full": 32.100000001490116
+      }
+    },
+    {
+      "session_id": "04-xhr-allow-r2",
+      "transport": "xhr",
+      "replicate": 2,
+      "arms": {
+        "detectors-off": {
+          "n": 30,
+          "p50_ms": 3.7999999970197678,
+          "p95_ms": 5.0999999940395355,
+          "max_ms": 7.399999998509884,
+          "actions": {
+            "ALLOW": 30
+          },
+          "forwarded": 30
+        },
+        "regex-ner": {
+          "n": 30,
+          "p50_ms": 29.899999998509884,
+          "p95_ms": 31.799999997019768,
+          "max_ms": 31.80000000447035,
+          "actions": {
+            "ALLOW": 30
+          },
+          "forwarded": 30
+        },
+        "semantic": {
+          "n": 30,
+          "p50_ms": 13.200000002980232,
+          "p95_ms": 162.79999999701977,
+          "max_ms": 183.10000000149012,
+          "actions": {
+            "ALLOW": 30
+          },
+          "forwarded": 30
+        },
+        "full": {
+          "n": 30,
+          "p50_ms": 37.30000000447035,
+          "p95_ms": 175.79999999701977,
+          "max_ms": 217.69999999552965,
+          "actions": {
+            "ALLOW": 30
+          },
+          "forwarded": 30
+        }
+      },
+      "activation_median_delta_ms": {
+        "regex-ner": 26.100000001490116,
+        "semantic": 9.400000005960464,
+        "full": 33.50000000745058
+      }
+    }
+  ],
+  "profile_verification": [
+    {
+      "mode": "verify-privoke-v3-efficient",
+      "transport": "fetch",
+      "action": "ALLOW",
+      "receiver_count": 1,
+      "model_id": "privoke-v3-efficient"
+    },
+    {
+      "mode": "verify-privoke-v3-efficient",
+      "transport": "xhr",
+      "action": "ALLOW",
+      "receiver_count": 1,
+      "model_id": "privoke-v3-efficient"
+    },
+    {
+      "mode": "verify-privoke-v3-balanced",
+      "transport": "fetch",
+      "action": "ALLOW",
+      "receiver_count": 1,
+      "model_id": "privoke-v3-balanced"
+    },
+    {
+      "mode": "verify-privoke-v3-balanced",
+      "transport": "xhr",
+      "action": "ALLOW",
+      "receiver_count": 1,
+      "model_id": "privoke-v3-balanced"
+    },
+    {
+      "mode": "verify-privoke-v3-quality",
+      "transport": "fetch",
+      "action": "BLOCK",
+      "receiver_count": 0,
+      "model_id": "privoke-v3-quality"
+    },
+    {
+      "mode": "verify-privoke-v3-quality",
+      "transport": "xhr",
+      "action": "BLOCK",
+      "receiver_count": 0,
+      "model_id": "privoke-v3-quality"
+    },
+    {
+      "mode": "verify-older-v1-balanced",
+      "transport": "fetch",
+      "action": "ALLOW",
+      "receiver_count": 1,
+      "model_id": "privoke-balanced"
+    },
+    {
+      "mode": "verify-older-v1-balanced",
+      "transport": "xhr",
+      "action": "ALLOW",
+      "receiver_count": 1,
+      "model_id": "privoke-balanced"
+    },
+    {
+      "mode": "verify-return-to-default",
+      "transport": "fetch",
+      "action": "ALLOW",
+      "receiver_count": 1,
+      "model_id": "privoke-v3-balanced"
+    },
+    {
+      "mode": "verify-return-to-default",
+      "transport": "xhr",
+      "action": "ALLOW",
+      "receiver_count": 1,
+      "model_id": "privoke-v3-balanced"
+    }
+  ],
+  "adverse_finding": "V3 quality BLOCKED the fixed non-sensitive safe fixture twice, on fetch and XHR; both correctly forwarded zero requests. This is one content example, not an estimated false-positive rate.",
+  "cleanup": {
+    "sessionProcessesAndListenersVerified": true,
+    "externalRequests": 0,
+    "providerFixtureClosed": true,
+    "certificateDirectoryRemoved": true
+  },
+  "container_exit": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-10-16T22:55:46.803514202Z",
+    "FinishedAt": "2026-10-16T23:02:28.898104176Z"
+  },
+  "owned_project_cleanup": {
+    "project": "privoke-rq3-v3-browser-20261017",
+    "command": "docker compose --project-directory . -p privoke-rq3-v3-browser-20261017 -f evaluation/compose.browser-installed.yml -f evaluation/compose.rq3-v3-browser.yml down --timeout 20",
+    "exit_code": 0,
+    "owned_containers_remaining": 0,
+    "image_retained_at_project_cleanup_for_root_acceptance": "sha256:4382055242e3f4c9693a51a6f5edb20bc4349d96aa9685ca79553103bdb653a2",
+    "volumes_deleted": false,
+    "shared_images_or_build_cache_removed": false,
+    "evidence_and_model_packages_preserved": true
+  },
+  "owned_image_cleanup": {
+    "approval": "Root accepted the complete raw evidence and authorized only these two owned images to be removed.",
+    "command": "docker image rm --no-prune privoke-rq3-v3-browser:20261017 privoke-v3-model-checks:20261017",
+    "preconditions": "Exact image IDs matched owned tags; docker ps -a ancestor filters returned zero container consumers for each image.",
+    "exit_code": 0,
+    "removed_images": [
+      "sha256:4382055242e3f4c9693a51a6f5edb20bc4349d96aa9685ca79553103bdb653a2",
+      "sha256:3ff7c8daadcd8c906e7a61d10291dca4e554c43b44b77be2e8bfb2ce4c289ea3"
+    ],
+    "base_images_build_cache_models_and_evidence_preserved": true,
+    "pruning_or_volume_deletion": false
+  },
+  "supporting_evidence": {
+    "evaluation/results/rq3-v3-installed-20261017/attempt1-console.log": {
+      "sha256": "eb9fb003f04b196ef74f293c680783bf1c103c62903feb4848e4d716c6f63148",
+      "bytes": 92099
+    },
+    "evaluation/results/rq3-v3-installed-20261017/preflight/attempt1-container-inspect.json": {
+      "sha256": "49fe5875027c969c8d50338a01392f889470efe15def8841a26ec1ee1f7b7c1e",
+      "bytes": 10366
+    },
+    "evaluation/results/rq3-v3-installed-20261017/preflight/executable-source-closure.json": {
+      "sha256": "edc65b667ebe18293225b4388b32c7585f0604213a8550d175b6891ed07761bc",
+      "bytes": 2173
+    },
+    "evaluation/results/rq3-v3-installed-20261017/preflight/frozen-image-isolation-attestation.json": {
+      "sha256": "977086650556f9e1002e7aed9532c953c6861c2ba64ee8833688ca7cd26cdc64",
+      "bytes": 2418
+    },
+    "evaluation/results/rq3-v3-installed-20261017/preflight/image-source-hashes.json": {
+      "sha256": "0d196117194968956093616b92232a9efa322c2f689559335af59df07ac03a52",
+      "bytes": 1297
+    },
+    "evaluation/results/rq3-v3-installed-20261017/preflight/owned-image-cleanup.json": {
+      "sha256": "740158b24b1e2faebb2f8717c5b1f44301f094f763af5bc983ceefb1928719ce",
+      "bytes": 670
+    },
+    "evaluation/results/rq3-v3-installed-20261017/preflight/owned-image-cleanup.log": {
+      "sha256": "d29491b297a6e3455f9fd15d8250c9892f5078ec25a7945f04a75dd894f5a0c6",
+      "bytes": 247
+    },
+    "evaluation/results/rq3-v3-installed-20261017/preflight/owned-project-cleanup.json": {
+      "sha256": "15566e4b76272c03d255d0a5df8ff9367ac1c9bf53a2e4b41064f49a352715fb",
+      "bytes": 555
+    },
+    "evaluation/results/rq3-v3-installed-20261017/preflight/resolved-compose.json": {
+      "sha256": "2772644b969f4d36f23d4658b10852a01478dd3a0d25701032f7cff8e31e6322",
+      "bytes": 2270
+    }
+  },
+  "independent_root_review": {
+    "status": "passed",
+    "coverage": [
+      "714 unique fixture cases and forwarding bytes",
+      "all 574 raw request/response/trailer protobuf pairs",
+      "exact layer/model/CPU/thread identities",
+      "current/final source closure and unchanged package hashes",
+      "eight pooled quantile cells and twelve paired median deltas"
+    ]
+  },
+  "limits": [
+    "One fixed generated non-sensitive prompt; local containerized installed Chromium prototype, no user traffic or deployment claim.",
+    "Two fresh browser/native profile clusters per transport/arm; quantiles and deltas are descriptive, not tail reliability or confidence intervals.",
+    "Baseline is master enabled/all detectors disabled with resident native infrastructure, not extension absent or total firewall overhead.",
+    "Model download/initial load is excluded from resident measurements through fixed warmups; no combined cold package/startup cost estimate.",
+    "Historical V1 comparison changes model, product code, dependencies and image; no causal model-only speed or universal privacy/retention superiority claim."
+  ]
+}
