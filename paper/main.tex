@@ -98,8 +98,8 @@ Fig.~\ref{fig:architecture} distinguishes prompt inspection from training on sup
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=\textwidth]{output/architecture-overview.pdf}
-\caption{PriVoke's three data paths separate local prompt inspection, supplied training examples and randomized reporting. ALLOW and WARN release the original body to the hosted LLM. Native messaging manages the bridge/runtime, while analysis uses loopback gRPC-Web. Separate services supply versioned weights and collect randomized event fields. Training uses neither intercepted prompts nor telemetry; dashed lines show lifecycle control.}
+\includegraphics[width=\textwidth]{architecture-current.pdf}
+\caption{PriVoke's client, server and fuzzer paths. Local inspection returns an action: ALLOW and WARN send the original body; BLOCK cancels the request. Randomized coarse event fields pass through a separate budgeted reporting channel. Standard V3 uses pinned read-only packages. The optional legacy route trains on supplied labelled examples and publishes only after parent and configured retention checks; its dashed arrow does not update standard V3.}
 \label{fig:architecture}
 \end{figure*}
 
