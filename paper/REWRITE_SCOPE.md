@@ -46,6 +46,12 @@ Do not reintroduce these omitted families as experiments, result catalogues, ext
 
 Underlying research records, aggregates, reusable assets and Git history remain preserved for provenance. Their availability does **not** make the omitted studies reportable in the paper. Exclude both favourable and unfavourable results from those families; never use omission to imply superiority or suppress adverse outcomes within a retained unit.
 
+## Bibliography source-pool preservation
+
+On 17 October 2026, the user clarified: **“Restore the sources only to the bibtex document, so that future rewrites can reference the previous sources. Also document that rewrites of the paper should not remove sources from the source pool”.**
+
+Future paper rewrites must preserve every existing source record in the BibTeX source pool, including sources no longer cited by the current manuscript. Keep stable citation keys and retain verified metadata corrections. Removing an in-text citation may remove that item from the generated reference list, but must not delete its source-pool record. Do not replace the catalog with only the currently cited subset. The [bibliography audit](research/bibliography-audit-20261017.md) records the preserved 81-key catalog and its verification limits. This requirement preserves sources for future use; it does not authorize restoring excluded empirical studies or adding uncited sources to the printed bibliography.
+
 ## Requirements for every rewrite
 
 ### Authorized formatting exception, 17 October 2026

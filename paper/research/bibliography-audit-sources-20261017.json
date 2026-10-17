@@ -1,0 +1,2484 @@
+{
+  "record_id": "BIBREST19",
+  "accessed": "2026-10-17",
+  "base_commit": "249aa0a90040b1d02f31ed15d5a1ab5acbe1caeb",
+  "receipts": [
+    {
+      "key": "PIIMBPinned2026",
+      "file": "paper\\manuscript-completion-sources-20261014.bib",
+      "url": "https://huggingface.co/datasets/piimb/pii-masking-benchmark/blob/4a13e9ffe6fd0d275efbde8afd4d8d8f1ffc2133/README.md",
+      "status": 200,
+      "final_url": "https://huggingface.co/datasets/piimb/pii-masking-benchmark/blob/4a13e9ffe6fd0d275efbde8afd4d8d8f1ffc2133/README.md",
+      "metadata": {}
+    },
+    {
+      "key": "arpaly2026advpiibench",
+      "file": "paper\\manuscript-completion-sources-20261014.bib",
+      "url": "https://huggingface.co/datasets/roei-ar/AdvPIIBench",
+      "status": 200,
+      "final_url": "https://huggingface.co/datasets/roei-ar/AdvPIIBench",
+      "metadata": {}
+    },
+    {
+      "key": "LinuxCgroupV2Interfaces2026",
+      "file": "paper\\manuscript-completion-sources-20261014.bib",
+      "url": "https://docs.kernel.org/admin-guide/cgroup-v2.html",
+      "status": 200,
+      "final_url": "https://docs.kernel.org/admin-guide/cgroup-v2.html",
+      "metadata": {}
+    },
+    {
+      "key": "DualAxis2026",
+      "file": "paper\\ref.bib",
+      "url": null,
+      "metadata": {}
+    },
+    {
+      "key": "PresidioNlpConfiguration2026",
+      "file": "paper\\ref.bib",
+      "url": "https://github.com/data-privacy-stack/presidio/blob/main/docs/analyzer/customizing_nlp_models.md",
+      "status": 200,
+      "final_url": "https://github.com/data-privacy-stack/presidio/blob/main/docs/analyzer/customizing_nlp_models.md",
+      "metadata": {}
+    },
+    {
+      "key": "CasperAbstract2026",
+      "file": "paper\\ref.bib",
+      "url": "https://researchwith.njit.edu/en/publications/casper-prompt-sanitization-for-protecting-user-privacy-in-web-bas/",
+      "status": 200,
+      "final_url": "https://researchwith.njit.edu/en/publications/casper-prompt-sanitization-for-protecting-user-privacy-in-web-bas/",
+      "metadata": {
+        "citation_title": [
+          "Casper: Prompt Sanitization for Protecting User Privacy in Web-Based Large Language Models"
+        ],
+        "citation_inbook_title": [
+          "Proceedings - 2025 IEEE 12th International Conference on Cyber Security and Cloud Computing, CSCloud 2025"
+        ],
+        "citation_author": [
+          "Chun Jie Chong",
+          "Chenxi Hou",
+          "Zhihao Yao",
+          "Seyed Mohammadjavad Seyed Talebi"
+        ],
+        "citation_publication_date": [
+          "2025"
+        ],
+        "citation_online_date": [
+          "2026/10/09"
+        ],
+        "citation_doi": [
+          "10.1109/CSCloud66326.2025.00027"
+        ],
+        "citation_language": [
+          "English (US)"
+        ],
+        "citation_publisher": [
+          "Institute of Electrical and Electronics Engineers Inc."
+        ],
+        "citation_firstpage": [
+          "122"
+        ],
+        "citation_lastpage": [
+          "131"
+        ],
+        "citation_conference_title": [
+          "12th IEEE International Conference on Cyber Security and Cloud Computing, CSCloud 2025"
+        ]
+      }
+    },
+    {
+      "key": "PromptShieldAbstract2026",
+      "file": "paper\\ref.bib",
+      "url": "https://research.itu.edu.tr/en/publications/promptshield-policy-aware-dlp-framework-for-generative-al-prompts/",
+      "status": 200,
+      "final_url": "https://research.itu.edu.tr/en/publications/promptshield-policy-aware-dlp-framework-for-generative-al-prompts/",
+      "metadata": {
+        "citation_title": [
+          "Promptshield: Policy-Aware DLP Framework for Generative Al Prompts"
+        ],
+        "citation_author": [
+          "Ezgi Keles",
+          "Serif Bahtiyar"
+        ],
+        "citation_publication_date": [
+          "2025"
+        ],
+        "citation_doi": [
+          "10.1109/UBMK67458.2025.11206862"
+        ],
+        "citation_language": [
+          "English"
+        ],
+        "citation_journal_title": [
+          "International Conference on Computer Science and Engineering, UBMK"
+        ],
+        "citation_issue": [
+          "2025"
+        ],
+        "citation_firstpage": [
+          "1537"
+        ],
+        "citation_lastpage": [
+          "1542"
+        ],
+        "citation_conference_title": [
+          "10th International Conference on Computer Science and Engineering, UBMK 2025"
+        ]
+      }
+    },
+    {
+      "key": "Casper2024",
+      "file": "paper\\ref.bib",
+      "url": "https://doi.org/10.1109/CSCloud66326.2025.00027",
+      "status": 202,
+      "final_url": "https://ieeexplore.ieee.org/document/11261423/",
+      "metadata": {}
+    },
+    {
+      "key": "IEEEexample:BSTcontrol",
+      "file": "paper\\ref.bib",
+      "url": null,
+      "metadata": {}
+    },
+    {
+      "key": "kelecspromptshield",
+      "file": "paper\\ref.bib",
+      "url": "https://web.itu.edu.tr/bahtiyars/SB-Students.html",
+      "status": 200,
+      "final_url": "https://web.itu.edu.tr/bahtiyars/SB-Students.html",
+      "metadata": {}
+    },
+    {
+      "key": "PromptShield2025",
+      "file": "paper\\ref.bib",
+      "url": "https://doi.org/10.1109/UBMK67458.2025.11206862",
+      "status": 202,
+      "final_url": "https://ieeexplore.ieee.org/document/11206862/",
+      "metadata": {}
+    },
+    {
+      "key": "HaS2024",
+      "file": "paper\\ref.bib",
+      "url": "https://arxiv.org/abs/2309.03057",
+      "status": 200,
+      "final_url": "https://arxiv.org/abs/2309.03057",
+      "metadata": {
+        "citation_title": [
+          "Hide and Seek (HaS): A Lightweight Framework for Prompt Privacy Protection"
+        ],
+        "citation_author": [
+          "Chen, Yu",
+          "Li, Tingxin",
+          "Liu, Huiming",
+          "Yu, Yang"
+        ],
+        "citation_date": [
+          "2023/09/06"
+        ],
+        "citation_online_date": [
+          "2023/09/06"
+        ],
+        "citation_arxiv_id": [
+          "2309.03057"
+        ]
+      }
+    },
+    {
+      "key": "priyanshu2023chatbots",
+      "file": "paper\\ref.bib",
+      "url": "https://arxiv.org/abs/2305.15008",
+      "status": 200,
+      "final_url": "https://arxiv.org/abs/2305.15008",
+      "metadata": {
+        "citation_title": [
+          "Are Chatbots Ready for Privacy-Sensitive Applications? An Investigation into Input Regurgitation and Prompt-Induced Sanitization"
+        ],
+        "citation_author": [
+          "Priyanshu, Aman",
+          "Vijay, Supriti",
+          "Kumar, Ayush",
+          "Naidu, Rakshit",
+          "Mireshghallah, Fatemehsadat"
+        ],
+        "citation_date": [
+          "2023/05/24"
+        ],
+        "citation_online_date": [
+          "2023/05/24"
+        ],
+        "citation_arxiv_id": [
+          "2305.15008"
+        ]
+      }
+    },
+    {
+      "key": "tamkin2024clio",
+      "file": "paper\\ref.bib",
+      "url": "https://arxiv.org/abs/2412.13678",
+      "status": 200,
+      "final_url": "https://arxiv.org/abs/2412.13678",
+      "metadata": {
+        "citation_title": [
+          "Clio: Privacy-Preserving Insights into Real-World AI Use"
+        ],
+        "citation_author": [
+          "Tamkin, Alex",
+          "McCain, Miles",
+          "Handa, Kunal",
+          "Durmus, Esin",
+          "Lovitt, Liane",
+          "Rathi, Ankur",
+          "Huang, Saffron",
+          "Mountfield, Alfred",
+          "Hong, Jerry",
+          "Ritchie, Stuart",
+          "Stern, Michael",
+          "Clarke, Brian",
+          "Goldberg, Landon",
+          "Sumers, Theodore R.",
+          "Mueller, Jared",
+          "McEachen, William",
+          "Mitchell, Wes",
+          "Carter, Shan",
+          "Clark, Jack",
+          "Kaplan, Jared",
+          "Ganguli, Deep"
+        ],
+        "citation_date": [
+          "2024/12/18"
+        ],
+        "citation_online_date": [
+          "2024/12/18"
+        ],
+        "citation_arxiv_id": [
+          "2412.13678"
+        ]
+      }
+    },
+    {
+      "key": "barbera2025ai",
+      "file": "paper\\ref.bib",
+      "url": "https://www.edpb.europa.eu/system/files/2025-04/ai-privacy-risks-and-mitigations-in-llms.pdf",
+      "status": 200,
+      "final_url": "https://www.edpb.europa.eu/system/files/documents/2025-04/ai-privacy-risks-and-mitigations-in-llms.pdf",
+      "metadata": {}
+    },
+    {
+      "key": "ProSan2024",
+      "file": "paper\\ref.bib",
+      "url": "https://arxiv.org/abs/2406.14318",
+      "status": 200,
+      "final_url": "https://arxiv.org/abs/2406.14318",
+      "metadata": {
+        "citation_title": [
+          "The Fire Thief Is Also the Keeper: Balancing Usability and Privacy in Prompts"
+        ],
+        "citation_author": [
+          "Shen, Zhili",
+          "Xi, Zihang",
+          "He, Ying",
+          "Tong, Wei",
+          "Hua, Jingyu",
+          "Zhong, Sheng"
+        ],
+        "citation_date": [
+          "2024/06/20"
+        ],
+        "citation_online_date": [
+          "2024/06/20"
+        ],
+        "citation_arxiv_id": [
+          "2406.14318"
+        ]
+      }
+    },
+    {
+      "key": "Gupta2024",
+      "file": "paper\\ref.bib",
+      "url": "https://www.sciencedirect.com/science/article/pii/S0045790624001435",
+      "error": "HTTP Error 403: Forbidden",
+      "metadata": {}
+    },
+    {
+      "key": "LIANG2025101366",
+      "file": "paper\\ref.bib",
+      "url": "https://doi.org/10.1016/j.patter.2025.101366",
+      "status": 200,
+      "final_url": "https://linkinghub.elsevier.com/retrieve/pii/S2666389925002144",
+      "metadata": {}
+    },
+    {
+      "key": "koraag2025comparing",
+      "file": "paper\\ref.bib",
+      "url": "https://arxiv.org/abs/2509.24344",
+      "status": 200,
+      "final_url": "https://arxiv.org/abs/2509.24344",
+      "metadata": {
+        "citation_title": [
+          "Comparing Open-Source and Commercial LLMs for Domain-Specific Analysis and Reporting: Software Engineering Challenges and Design Trade-offs"
+        ],
+        "citation_author": [
+          "Koraag, Theo",
+          "Wagner, Niklas",
+          "Dobslaw, Felix",
+          "Gren, Lucas"
+        ],
+        "citation_date": [
+          "2025/09/29"
+        ],
+        "citation_online_date": [
+          "2025/09/29"
+        ],
+        "citation_arxiv_id": [
+          "2509.24344"
+        ]
+      }
+    },
+    {
+      "key": "Crane2025",
+      "file": "paper\\ref.bib",
+      "url": "https://www.federalreserve.gov/econres/notes/feds-notes/measuring-ai-uptake-in-the-workplace-20240205.html",
+      "status": 200,
+      "final_url": "https://www.federalreserve.gov/econres/notes/feds-notes/measuring-ai-uptake-in-the-workplace-20240205.html",
+      "metadata": {
+        "citation_author": [
+          "Leland Crane",
+          "Michael Green",
+          "Paul Soto"
+        ],
+        "citation_title": [
+          "Measuring AI Uptake in the Workplace"
+        ],
+        "citation_publication_date": [
+          "02-05-2025"
+        ]
+      }
+    },
+    {
+      "key": "Zahra2025",
+      "file": "paper\\ref.bib",
+      "url": "https://techcouncil.com.au/newsroom/new-report-shows-aussies-embracing-ai-in-the-workplace/",
+      "status": 200,
+      "final_url": "https://techcouncil.com.au/newsroom/new-report-shows-aussies-embracing-ai-in-the-workplace/",
+      "metadata": {}
+    },
+    {
+      "key": "Athey2017",
+      "file": "paper\\ref.bib",
+      "url": "https://www.gsb.stanford.edu/faculty-research/working-papers/digital-privacy-paradox-small-money-small-costs-small-talk",
+      "status": 200,
+      "final_url": "https://www.gsb.stanford.edu/faculty-research/working-papers/digital-privacy-paradox-small-money-small-costs-small-talk",
+      "metadata": {}
+    },
+    {
+      "key": "King2025",
+      "file": "paper\\ref.bib",
+      "url": "https://doi.org/10.1016/j.compeleceng.2024.109215",
+      "status": 200,
+      "final_url": "https://linkinghub.elsevier.com/retrieve/pii/S0045790624001435",
+      "metadata": {}
+    },
+    {
+      "key": "Llama2023",
+      "file": "paper\\ref.bib",
+      "url": "https://arxiv.org/abs/2302.13971",
+      "status": 200,
+      "final_url": "https://arxiv.org/abs/2302.13971",
+      "metadata": {
+        "citation_title": [
+          "LLaMA: Open and Efficient Foundation Language Models"
+        ],
+        "citation_author": [
+          "Touvron, Hugo",
+          "Lavril, Thibaut",
+          "Izacard, Gautier",
+          "Martinet, Xavier",
+          "Lachaux, Marie-Anne",
+          "Lacroix, Timothée",
+          "Rozière, Baptiste",
+          "Goyal, Naman",
+          "Hambro, Eric",
+          "Azhar, Faisal",
+          "Rodriguez, Aurelien",
+          "Joulin, Armand",
+          "Grave, Edouard",
+          "Lample, Guillaume"
+        ],
+        "citation_date": [
+          "2023/02/27"
+        ],
+        "citation_online_date": [
+          "2023/02/27"
+        ],
+        "citation_arxiv_id": [
+          "2302.13971"
+        ]
+      }
+    },
+    {
+      "key": "Florian2025",
+      "file": "paper\\ref.bib",
+      "url": "https://aiexpjourney.substack.com/p/the-number-of-parameters-of-gpt-4o",
+      "status": 200,
+      "final_url": "https://aiexpjourney.substack.com/p/the-number-of-parameters-of-gpt-4o",
+      "metadata": {}
+    },
+    {
+      "key": "MEDEC2024",
+      "file": "paper\\ref.bib",
+      "url": null,
+      "metadata": {}
+    },
+    {
+      "key": "LearnMicrosoft2026",
+      "file": "paper\\ref.bib",
+      "url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/admin-api-quarantine",
+      "status": 200,
+      "final_url": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/admin-api-quarantine",
+      "metadata": {}
+    },
+    {
+      "key": "courseraTransformersConvolutional",
+      "file": "paper\\ref.bib",
+      "url": "https://www.coursera.org/articles/transformers-vs-convolutional-neural-networks",
+      "status": 200,
+      "final_url": "https://www.coursera.org/articles/transformers-vs-convolutional-neural-networks",
+      "metadata": {}
+    },
+    {
+      "key": "liu2025understanding",
+      "file": "paper\\ref.bib",
+      "url": null,
+      "metadata": {}
+    },
+    {
+      "key": "zhong2023chatradio",
+      "file": "paper\\ref.bib",
+      "url": "https://arxiv.org/abs/2310.05242",
+      "status": 200,
+      "final_url": "https://arxiv.org/abs/2310.05242",
+      "metadata": {
+        "citation_title": [
+          "ChatRadio-Valuer: A Chat Large Language Model for Generalizable Radiology Report Generation Based on Multi-institution and Multi-system Data"
+        ],
+        "citation_author": [
+          "Zhong, Tianyang",
+          "Zhao, Wei",
+          "Zhang, Yutong",
+          "Pan, Yi",
+          "Dong, Peixin",
+          "Jiang, Zuowei",
+          "Kui, Xiaoyan",
+          "Shang, Youlan",
+          "Yang, Li",
+          "Wei, Yaonai",
+          "Yang, Longtao",
+          "Chen, Hao",
+          "Zhao, Huan",
+          "Liu, Yuxiao",
+          "Zhu, Ning",
+          "Li, Yiwei",
+          "Wang, Yisong",
+          "Yao, Jiaqi",
+          "Wang, Jiaqi",
+          "Zeng, Ying",
+          "He, Lei",
+          "Zheng, Chao",
+          "Zhang, Zhixue",
+          "Li, Ming",
+          "Liu, Zhengliang",
+          "Dai, Haixing",
+          "Wu, Zihao",
+          "Zhang, Lu",
+          "Zhang, Shu",
+          "Cai, Xiaoyan",
+          "Hu, Xintao",
+          "Zhao, Shijie",
+          "Jiang, Xi",
+          "Zhang, Xin",
+          "Li, Xiang",
+          "Zhu, Dajiang",
+          "Guo, Lei",
+          "Shen, Dinggang",
+          "Han, Junwei",
+          "Liu, Tianming",
+          "Liu, Jun",
+          "Zhang, Tuo"
+        ],
+        "citation_date": [
+          "2023/10/08"
+        ],
+        "citation_online_date": [
+          "2023/10/10"
+        ],
+        "citation_arxiv_id": [
+          "2310.05242"
+        ]
+      }
+    },
+    {
+      "key": "li2025security",
+      "file": "paper\\ref.bib",
+      "url": null,
+      "metadata": {}
+    },
+    {
+      "key": "de2025lifecycle",
+      "file": "paper\\ref.bib",
+      "url": null,
+      "metadata": {}
+    },
+    {
+      "key": "haim2022reconstructing",
+      "file": "paper\\ref.bib",
+      "url": null,
+      "metadata": {}
+    },
+    {
+      "key": "Mousumi_Bakshi2025",
+      "file": "paper\\ref.bib",
+      "url": "https://www.linkedin.com/pulse/prompt-sanitization-unseen-hero-behind-safe-reliable-genai-bakshi-zfzsc/",
+      "status": 200,
+      "final_url": "https://www.linkedin.com/pulse/prompt-sanitization-unseen-hero-behind-safe-reliable-genai-bakshi-zfzsc/",
+      "metadata": {}
+    },
+    {
+      "key": "pradhan2025zero",
+      "file": "paper\\ref.bib",
+      "url": null,
+      "metadata": {}
+    },
+    {
+      "key": "munnangi2024brief",
+      "file": "paper\\ref.bib",
+      "url": "https://arxiv.org/abs/2411.05057",
+      "status": 200,
+      "final_url": "https://arxiv.org/abs/2411.05057",
+      "metadata": {
+        "citation_title": [
+          "A Brief History of Named Entity Recognition"
+        ],
+        "citation_author": [
+          "Munnangi, Monica"
+        ],
+        "citation_date": [
+          "2024/11/07"
+        ],
+        "citation_online_date": [
+          "2024/11/07"
+        ],
+        "citation_arxiv_id": [
+          "2411.05057"
+        ]
+      }
+    },
+    {
+      "key": "cormode2018privacy",
+      "file": "paper\\ref.bib",
+      "url": null,
+      "metadata": {}
+    },
+    {
+      "key": "cortes2016differential",
+      "file": "paper\\ref.bib",
+      "url": null,
+      "metadata": {}
+    },
+    {
+      "key": "SamsungBans2023",
+      "file": "paper\\ref.bib",
+      "url": "https://www.forbes.com/sites/siladityaray/2023/05/02/samsung-bans-chatgpt-and-other-chatbots-for-employees-after-sensitive-code-leak/",
+      "error": "HTTP Error 403: Forbidden",
+      "metadata": {}
+    },
+    {
+      "key": "BBCChatGPTHistoryBug2023",
+      "file": "paper\\ref.bib",
+      "url": "https://www.bbc.com/news/technology-65047304",
+      "status": 200,
+      "final_url": "https://www.bbc.com/news/technology-65047304",
+      "metadata": {}
+    },
+    {
+      "key": "GoogleWarns2023",
+      "file": "paper\\ref.bib",
+      "url": "https://www.reuters.com/technology/google-one-ais-biggest-backers-warns-own-staff-about-chatbots-2023-06-15/",
+      "error": "HTTP Error 401: HTTP Forbidden",
+      "metadata": {}
+    },
+    {
+      "key": "ChatGPTChildProtection",
+      "file": "paper\\ref.bib",
+      "url": null,
+      "metadata": {}
+    },
+    {
+      "key": "ClaudeDay2026",
+      "file": "paper\\ref.bib",
+      "url": "https://www.oasis.security/blog/claude-ai-prompt-injection-data-exfiltration-vulnerability",
+      "status": 200,
+      "final_url": "https://www.oasis.security/blog/claude-ai-prompt-injection-data-exfiltration-vulnerability",
+      "metadata": {}
+    },
+    {
+      "key": "OpenAINavierStokes2026",
+      "file": "paper\\ref.bib",
+      "url": "https://openai.com/index/navier-stokes-solution/",
+      "error": "HTTP Error 403: Forbidden",
+      "metadata": {}
+    },
+    {
+      "key": "BuckmasterStatement2026",
+      "file": "paper\\ref.bib",
+      "url": "https://cims.nyu.edu/~tristanb/statement.pdf",
+      "status": 200,
+      "final_url": "https://cims.nyu.edu/~tristanb/statement.pdf",
+      "metadata": {}
+    },
+    {
+      "key": "NYUCourant2026",
+      "file": "paper\\ref.bib",
+      "url": "https://cims.nyu.edu/dynamic/news/1528/",
+      "status": 200,
+      "final_url": "https://cims.nyu.edu/dynamic/news/1528/",
+      "metadata": {}
+    },
+    {
+      "key": "tunstall2022setfit",
+      "file": "paper\\ref.bib",
+      "url": "https://arxiv.org/html/2209.11055v1",
+      "status": 200,
+      "final_url": "https://arxiv.org/html/2209.11055v1",
+      "metadata": {}
+    },
+    {
+      "key": "benbaruch2021asymmetric",
+      "file": "paper\\ref.bib",
+      "url": "https://arxiv.org/abs/2009.14119v4",
+      "status": 200,
+      "final_url": "https://arxiv.org/abs/2009.14119v4",
+      "metadata": {
+        "citation_title": [
+          "Asymmetric Loss For Multi-Label Classification"
+        ],
+        "citation_author": [
+          "Ben-Baruch, Emanuel",
+          "Ridnik, Tal",
+          "Zamir, Nadav",
+          "Noy, Asaf",
+          "Friedman, Itamar",
+          "Protter, Matan",
+          "Zelnik-Manor, Lihi"
+        ],
+        "citation_date": [
+          "2020/09/29"
+        ],
+        "citation_online_date": [
+          "2021/07/29"
+        ],
+        "citation_arxiv_id": [
+          "2009.14119"
+        ]
+      }
+    },
+    {
+      "key": "lipton2014thresholding",
+      "file": "paper\\ref.bib",
+      "url": "https://arxiv.org/abs/1402.1892v2",
+      "status": 200,
+      "final_url": "https://arxiv.org/abs/1402.1892v2",
+      "metadata": {
+        "citation_title": [
+          "Thresholding Classifiers to Maximize F1 Score"
+        ],
+        "citation_author": [
+          "Lipton, Zachary Chase",
+          "Elkan, Charles",
+          "Narayanaswamy, Balakrishnan"
+        ],
+        "citation_date": [
+          "2014/02/08"
+        ],
+        "citation_online_date": [
+          "2014/05/14"
+        ],
+        "citation_arxiv_id": [
+          "1402.1892"
+        ]
+      }
+    },
+    {
+      "key": "sentenceTransformersMiniLML6v2",
+      "file": "paper\\ref.bib",
+      "url": "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/blob/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/README.md",
+      "status": 200,
+      "final_url": "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/blob/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/README.md",
+      "metadata": {}
+    },
+    {
+      "key": "sentenceTransformersMiniLMOnnx",
+      "file": "paper\\ref.bib",
+      "url": "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/blob/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/onnx/model.onnx",
+      "status": 200,
+      "final_url": "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/blob/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/onnx/model.onnx",
+      "metadata": {}
+    },
+    {
+      "key": "sentenceTransformersEfficiency",
+      "file": "paper\\ref.bib",
+      "url": "https://www.sbert.net/docs/sentence_transformer/usage/efficiency.html",
+      "status": 200,
+      "final_url": "https://www.sbert.net/docs/sentence_transformer/usage/efficiency.html",
+      "metadata": {}
+    },
+    {
+      "key": "onnxruntimePythonAPI",
+      "file": "paper\\ref.bib",
+      "url": "https://onnxruntime.ai/docs/api/python/api_summary.html",
+      "status": 200,
+      "final_url": "https://onnxruntime.ai/docs/api/python/api_summary.html",
+      "metadata": {}
+    },
+    {
+      "key": "huggingfaceTokenizersAPI",
+      "file": "paper\\ref.bib",
+      "url": "https://huggingface.co/docs/tokenizers/api/tokenizer",
+      "status": 200,
+      "final_url": "https://huggingface.co/docs/tokenizers/api/tokenizer",
+      "metadata": {}
+    },
+    {
+      "key": "onnxruntimeLicense",
+      "file": "paper\\ref.bib",
+      "url": "https://github.com/microsoft/onnxruntime/blob/main/LICENSE",
+      "status": 200,
+      "final_url": "https://github.com/microsoft/onnxruntime/blob/main/LICENSE",
+      "metadata": {}
+    },
+    {
+      "key": "huggingfaceTokenizersLicense",
+      "file": "paper\\ref.bib",
+      "url": "https://github.com/huggingface/tokenizers/blob/main/LICENSE",
+      "status": 200,
+      "final_url": "https://github.com/huggingface/tokenizers/blob/main/LICENSE",
+      "metadata": {}
+    },
+    {
+      "key": "huggingfaceSetfitLicense",
+      "file": "paper\\ref.bib",
+      "url": "https://github.com/huggingface/setfit/blob/main/LICENSE",
+      "status": 200,
+      "final_url": "https://github.com/huggingface/setfit/blob/main/LICENSE",
+      "metadata": {}
+    },
+    {
+      "key": "sentenceTransformersMiniLMConfig",
+      "file": "paper\\ref.bib",
+      "url": "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/blob/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/config.json",
+      "status": 200,
+      "final_url": "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/blob/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/config.json",
+      "metadata": {}
+    },
+    {
+      "key": "sentenceTransformersMiniLMSentenceConfig",
+      "file": "paper\\ref.bib",
+      "url": "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/blob/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/sentence_bert_config.json",
+      "status": 200,
+      "final_url": "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/blob/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/sentence_bert_config.json",
+      "metadata": {}
+    },
+    {
+      "key": "zinkevichRulesML",
+      "file": "paper\\ref.bib",
+      "url": "https://developers.google.com/machine-learning/guides/rules-of-ml",
+      "status": 200,
+      "final_url": "https://developers.google.com/machine-learning/guides/rules-of-ml",
+      "metadata": {}
+    },
+    {
+      "key": "googleResearchTuningPlaybook",
+      "file": "paper\\ref.bib",
+      "url": "https://github.com/google-research/tuning_playbook",
+      "status": 200,
+      "final_url": "https://github.com/google-research/tuning_playbook",
+      "metadata": {}
+    },
+    {
+      "key": "privokeTW01TaskQueryWindow20261012",
+      "file": "paper\\ref.bib",
+      "url": null,
+      "metadata": {}
+    },
+    {
+      "key": "googleBertL4H128A2",
+      "file": "paper\\ref.bib",
+      "url": "https://huggingface.co/google/bert_uncased_L-4_H-128_A-2/blob/c29bee83fc7f003ac8c5e6e135529da4ecddb7c3/README.md",
+      "status": 200,
+      "final_url": "https://huggingface.co/google/bert_uncased_L-4_H-128_A-2/blob/c29bee83fc7f003ac8c5e6e135529da4ecddb7c3/README.md",
+      "metadata": {}
+    },
+    {
+      "key": "googleBertL2H256A4",
+      "file": "paper\\ref.bib",
+      "url": "https://huggingface.co/google/bert_uncased_L-2_H-256_A-4/blob/4e937a8675e5afd9a4836735c186ec01695bc3ea/README.md",
+      "status": 200,
+      "final_url": "https://huggingface.co/google/bert_uncased_L-2_H-256_A-4/blob/4e937a8675e5afd9a4836735c186ec01695bc3ea/README.md",
+      "metadata": {}
+    },
+    {
+      "key": "googleBertL12H256A4",
+      "file": "paper\\ref.bib",
+      "url": "https://huggingface.co/google/bert_uncased_L-12_H-256_A-4/blob/2ab9a0f41435a4d23d4cbc11cc3e7c922545f13d/README.md",
+      "status": 200,
+      "final_url": "https://huggingface.co/google/bert_uncased_L-12_H-256_A-4/blob/2ab9a0f41435a4d23d4cbc11cc3e7c922545f13d/README.md",
+      "metadata": {}
+    },
+    {
+      "key": "pytorchPreviousVersions",
+      "file": "paper\\ref.bib",
+      "url": "https://pytorch.org/get-started/previous-versions/",
+      "status": 200,
+      "final_url": "https://pytorch.org/get-started/previous-versions/",
+      "metadata": {}
+    },
+    {
+      "key": "pytorch27Blackwell",
+      "file": "paper\\ref.bib",
+      "url": "https://pytorch.org/blog/pytorch-2-7/",
+      "status": 200,
+      "final_url": "https://pytorch.org/blog/pytorch-2-7/",
+      "metadata": {}
+    },
+    {
+      "key": "pytorch211Serialization",
+      "file": "paper\\ref.bib",
+      "url": "https://docs.pytorch.org/docs/2.11/notes/serialization.html",
+      "status": 200,
+      "final_url": "https://docs.pytorch.org/docs/2.11/notes/serialization.html",
+      "metadata": {}
+    },
+    {
+      "key": "huggingfaceTransformers4571Bert",
+      "file": "paper\\ref.bib",
+      "url": "https://huggingface.co/docs/transformers/v4.57.1/en/model_doc/bert",
+      "status": 200,
+      "final_url": "https://huggingface.co/docs/transformers/v4.57.1/en/model_doc/bert",
+      "metadata": {}
+    },
+    {
+      "key": "pytorchCu130TorchIndex",
+      "file": "paper\\ref.bib",
+      "url": "https://download.pytorch.org/whl/cu130/torch/",
+      "status": 200,
+      "final_url": "https://download.pytorch.org/whl/cu130/torch/",
+      "metadata": {}
+    },
+    {
+      "key": "pytorch212Release",
+      "file": "paper\\ref.bib",
+      "url": "https://pytorch.org/blog/pytorch-2-12-release-blog/",
+      "status": 200,
+      "final_url": "https://pytorch.org/blog/pytorch-2-12-release-blog/",
+      "metadata": {}
+    },
+    {
+      "key": "pytorchStartLocally",
+      "file": "paper\\ref.bib",
+      "url": "https://docs.pytorch.org/get-started/locally/",
+      "status": 200,
+      "final_url": "https://docs.pytorch.org/get-started/locally/",
+      "metadata": {}
+    },
+    {
+      "key": "nvidiaCudaGpus",
+      "file": "paper\\ref.bib",
+      "url": "https://developer.nvidia.com/cuda/gpus",
+      "status": 200,
+      "final_url": "https://developer.nvidia.com/cuda/gpus",
+      "metadata": {}
+    },
+    {
+      "key": "turc2019WellReadStudents",
+      "file": "paper\\ref.bib",
+      "url": "https://arxiv.org/abs/1908.08962",
+      "status": 200,
+      "final_url": "https://arxiv.org/abs/1908.08962",
+      "metadata": {
+        "citation_title": [
+          "Well-Read Students Learn Better: On the Importance of Pre-training Compact Models"
+        ],
+        "citation_author": [
+          "Turc, Iulia",
+          "Chang, Ming-Wei",
+          "Lee, Kenton",
+          "Toutanova, Kristina"
+        ],
+        "citation_date": [
+          "2019/08/23"
+        ],
+        "citation_online_date": [
+          "2019/09/25"
+        ],
+        "citation_arxiv_id": [
+          "1908.08962"
+        ]
+      }
+    },
+    {
+      "key": "privokeAU3Audience20261013",
+      "file": "paper\\ref.bib",
+      "url": null,
+      "metadata": {}
+    },
+    {
+      "key": "NissenbaumContextualIntegrity2004",
+      "file": "paper\\ref.bib",
+      "url": "https://digitalcommons.law.uw.edu/wlr/vol79/iss1/10/",
+      "status": 200,
+      "final_url": "https://digitalcommons.law.uw.edu/wlr/vol79/iss1/10/",
+      "metadata": {}
+    },
+    {
+      "key": "YanPositiveCongruent2021",
+      "file": "paper\\ref.bib",
+      "url": "https://openaccess.thecvf.com/content/CVPR2021/html/Yan_Positive-Congruent_Training_Towards_Regression-Free_Model_Updates_CVPR_2021_paper.html",
+      "status": 200,
+      "final_url": "https://openaccess.thecvf.com/content/CVPR2021/html/Yan_Positive-Congruent_Training_Towards_Regression-Free_Model_Updates_CVPR_2021_paper.html",
+      "metadata": {
+        "citation_title": [
+          "Positive-Congruent Training: Towards Regression-Free Model Updates"
+        ],
+        "citation_author": [
+          "Yan, Sijie",
+          "Xiong, Yuanjun",
+          "Kundu, Kaustav",
+          "Yang, Shuo",
+          "Deng, Siqi",
+          "Wang, Meng",
+          "Xia, Wei",
+          "Soatto, Stefano"
+        ],
+        "citation_publication_date": [
+          "2021"
+        ],
+        "citation_conference_title": [
+          "Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition"
+        ],
+        "citation_firstpage": [
+          "14299"
+        ],
+        "citation_lastpage": [
+          "14308"
+        ]
+      }
+    },
+    {
+      "key": "ErlingssonRappor2014",
+      "file": "paper\\ref.bib",
+      "url": "https://research.google/pubs/rappor-randomized-aggregatable-privacy-preserving-ordinal-response/",
+      "status": 200,
+      "final_url": "https://research.google/pubs/rappor-randomized-aggregatable-privacy-preserving-ordinal-response/",
+      "metadata": {
+        "citation_title": [
+          "RAPPOR: Randomized Aggregatable Privacy-Preserving Ordinal Response"
+        ],
+        "citation_publication_date": [
+          "2014"
+        ],
+        "citation_author": [
+          "Úlfar Erlingsson",
+          "Vasyl Pihur",
+          "Aleksandra Korolova"
+        ]
+      },
+      "bibtex": [
+        "@inproceedings{Erlingsson2014,\ntitle\t= {RAPPOR: Randomized Aggregatable Privacy-Preserving Ordinal Response},\nauthor\t= {Úlfar Erlingsson and Vasyl Pihur and Aleksandra Korolova},\nyear\t= {2014},\nURL\t= {https://arxiv.org/abs/1407.6981},\nbooktitle\t= {Proceedings of the 21st ACM Conference on Computer and Communications Security},\naddress\t= {Scottsdale, Arizona}\n}\n\n"
+      ]
+    },
+    {
+      "key": "DworkRothFoundations2014",
+      "file": "paper\\ref.bib",
+      "url": null,
+      "metadata": {}
+    },
+    {
+      "key": "CasperPreprintV12024",
+      "file": "paper\\research\\literature-baseline-sources-20261015.bib",
+      "url": "https://arxiv.org/abs/2408.07004v1",
+      "status": 200,
+      "final_url": "https://arxiv.org/abs/2408.07004v1",
+      "metadata": {
+        "citation_title": [
+          "Casper: Prompt Sanitization for Protecting User Privacy in Web-Based Large Language Models"
+        ],
+        "citation_author": [
+          "Chong, Chun Jie",
+          "Hou, Chenxi",
+          "Yao, Zhihao",
+          "Talebi, Seyed Mohammadjavad Seyed"
+        ],
+        "citation_doi": [
+          "10.1109/CSCloud66326.2025.00027"
+        ],
+        "citation_date": [
+          "2024/08/13"
+        ],
+        "citation_online_date": [
+          "2024/08/13"
+        ],
+        "citation_arxiv_id": [
+          "2408.07004"
+        ]
+      }
+    },
+    {
+      "key": "SpacyLarge371Release2026",
+      "file": "paper\\research\\paper-completion-sources-20261014.bib",
+      "url": "https://github.com/explosion/spacy-models/releases/tag/en_core_web_lg-3.7.1",
+      "status": 200,
+      "final_url": "https://github.com/explosion/spacy-models/releases/tag/en_core_web_lg-3.7.1",
+      "metadata": {}
+    }
+  ],
+  "publisher_deposited_crossref_metadata": {
+    "10.1016/j.compeleceng.2024.109215": {
+      "publisher": "Elsevier BV",
+      "DOI": "10.1016/j.compeleceng.2024.109215",
+      "type": "journal-article",
+      "page": "109215",
+      "title": [
+        "Enhancing user prompt confidentiality in Large Language Models through advanced differential encryption"
+      ],
+      "volume": "116",
+      "author": [
+        {
+          "given": "Brij B.",
+          "family": "Gupta",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Akshat",
+          "family": "Gaurav",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Varsha",
+          "family": "Arya",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Wadee",
+          "family": "Alhalabi",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0002-8493-2758",
+          "authenticated-orcid": false,
+          "given": "Dheyaaldin",
+          "family": "Alsalman",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0001-5451-8946",
+          "authenticated-orcid": false,
+          "given": "P.",
+          "family": "Vijayakumar",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "container-title": [
+        "Computers and Electrical Engineering"
+      ],
+      "URL": "https://doi.org/10.1016/j.compeleceng.2024.109215",
+      "published": {
+        "date-parts": [
+          [
+            2024,
+            5
+          ]
+        ]
+      }
+    },
+    "10.1016/j.patter.2025.101366": {
+      "publisher": "Elsevier BV",
+      "issue": "12",
+      "published-print": {
+        "date-parts": [
+          [
+            2025,
+            12
+          ]
+        ]
+      },
+      "DOI": "10.1016/j.patter.2025.101366",
+      "type": "journal-article",
+      "page": "101366",
+      "title": [
+        "The widespread adoption of large language model-assisted writing across society"
+      ],
+      "volume": "6",
+      "author": [
+        {
+          "given": "Weixin",
+          "family": "Liang",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Yaohui",
+          "family": "Zhang",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Mihai",
+          "family": "Codreanu",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Jiayu",
+          "family": "Wang",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Hancheng",
+          "family": "Cao",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0001-8880-4764",
+          "authenticated-orcid": false,
+          "given": "James",
+          "family": "Zou",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "container-title": [
+        "Patterns"
+      ],
+      "URL": "https://doi.org/10.1016/j.patter.2025.101366",
+      "published": {
+        "date-parts": [
+          [
+            2025,
+            12
+          ]
+        ]
+      }
+    },
+    "10.1016/j.neucom.2024.129190": {
+      "publisher": "Elsevier BV",
+      "published-print": {
+        "date-parts": [
+          [
+            2025,
+            3
+          ]
+        ]
+      },
+      "DOI": "10.1016/j.neucom.2024.129190",
+      "type": "journal-article",
+      "page": "129190",
+      "title": [
+        "Understanding LLMs: A comprehensive overview from training to inference"
+      ],
+      "volume": "620",
+      "author": [
+        {
+          "given": "Yiheng",
+          "family": "Liu",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Hao",
+          "family": "He",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Tianle",
+          "family": "Han",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Xu",
+          "family": "Zhang",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Mengyuan",
+          "family": "Liu",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Jiaming",
+          "family": "Tian",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0009-0005-6190-1413",
+          "authenticated-orcid": false,
+          "given": "Yutong",
+          "family": "Zhang",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Jiaqi",
+          "family": "Wang",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Xiaohui",
+          "family": "Gao",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Tianyang",
+          "family": "Zhong",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Yi",
+          "family": "Pan",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Shaochen",
+          "family": "Xu",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0001-7483-6570",
+          "authenticated-orcid": false,
+          "given": "Zihao",
+          "family": "Wu",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Zhengliang",
+          "family": "Liu",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Xin",
+          "family": "Zhang",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Shu",
+          "family": "Zhang",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Xintao",
+          "family": "Hu",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Tuo",
+          "family": "Zhang",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Ning",
+          "family": "Qiang",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Tianming",
+          "family": "Liu",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Bao",
+          "family": "Ge",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "container-title": [
+        "Neurocomputing"
+      ],
+      "URL": "https://doi.org/10.1016/j.neucom.2024.129190",
+      "published": {
+        "date-parts": [
+          [
+            2025,
+            3
+          ]
+        ]
+      }
+    },
+    "10.1016/j.jisa.2025.104284": {
+      "publisher": "Elsevier BV",
+      "published-print": {
+        "date-parts": [
+          [
+            2025,
+            12
+          ]
+        ]
+      },
+      "DOI": "10.1016/j.jisa.2025.104284",
+      "type": "journal-article",
+      "page": "104284",
+      "title": [
+        "Security concerns for Large Language Models: A survey"
+      ],
+      "volume": "95",
+      "author": [
+        {
+          "ORCID": "https://orcid.org/0000-0001-7091-3268",
+          "authenticated-orcid": false,
+          "given": "Miles Q.",
+          "family": "Li",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0001-8423-2906",
+          "authenticated-orcid": false,
+          "given": "Benjamin C.M.",
+          "family": "Fung",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "container-title": [
+        "Journal of Information Security and Applications"
+      ],
+      "URL": "https://doi.org/10.1016/j.jisa.2025.104284",
+      "published": {
+        "date-parts": [
+          [
+            2025,
+            12
+          ]
+        ]
+      }
+    },
+    "10.1109/ACCESS.2025.3619764": {
+      "publisher": "Institute of Electrical and Electronics Engineers (IEEE)",
+      "DOI": "10.1109/access.2025.3619764",
+      "type": "journal-article",
+      "page": "176482-176500",
+      "title": [
+        "A Lifecycle-Oriented Survey of Emerging Threats and Vulnerabilities in Large Language Models"
+      ],
+      "volume": "13",
+      "author": [
+        {
+          "ORCID": "https://orcid.org/0000-0003-0641-4792",
+          "authenticated-orcid": false,
+          "given": "Carmen",
+          "family": "de Maio",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "Department of Computer Science, University of Salerno, Fisciano, Italy"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0009-0003-5434-5426",
+          "authenticated-orcid": false,
+          "given": "Maria",
+          "family": "Di Gisi",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "IMT School for Advanced Studies Lucca, Lucca, Italy"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0002-4736-0113",
+          "authenticated-orcid": false,
+          "given": "Giuseppe",
+          "family": "Fenza",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Department of Management and Innovation Systems, University of Salerno, Fisciano, Italy"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0002-5474-2697",
+          "authenticated-orcid": false,
+          "given": "Mariacristina",
+          "family": "Gallo",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Department of Management and Innovation Systems, University of Salerno, Fisciano, Italy"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "ORCID": "https://orcid.org/0000-0003-4807-8942",
+          "authenticated-orcid": false,
+          "given": "Vincenzo",
+          "family": "Loia",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Department of Management and Innovation Systems, University of Salerno, Fisciano, Italy"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "container-title": [
+        "IEEE Access"
+      ],
+      "URL": "https://doi.org/10.1109/access.2025.3619764",
+      "published": {
+        "date-parts": [
+          [
+            2025
+          ]
+        ]
+      }
+    },
+    "10.1145/3183713.3197390": {
+      "publisher": "ACM",
+      "DOI": "10.1145/3183713.3197390",
+      "type": "proceedings-article",
+      "page": "1655-1658",
+      "title": [
+        "Privacy at Scale"
+      ],
+      "author": [
+        {
+          "given": "Graham",
+          "family": "Cormode",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "University of Warwick, Coventry, England UK"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Somesh",
+          "family": "Jha",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "University of Wisconsin-Madison, Madison, WI, USA"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Tejas",
+          "family": "Kulkarni",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "University of Warwick, Coventry, England UK"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Ninghui",
+          "family": "Li",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Purdue University, West Lafayette, IN, USA"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Divesh",
+          "family": "Srivastava",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "AT&amp;T Labs-Research, Middletown, NJ, USA"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Tianhao",
+          "family": "Wang",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Purdue University, West Lafayette, IN, USA"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "container-title": [
+        "Proceedings of the 2018 International Conference on Management of Data"
+      ],
+      "URL": "https://doi.org/10.1145/3183713.3197390",
+      "published": {
+        "date-parts": [
+          [
+            2018,
+            5,
+            27
+          ]
+        ]
+      }
+    },
+    "10.1109/CDC.2016.7798915": {
+      "publisher": "IEEE",
+      "DOI": "10.1109/cdc.2016.7798915",
+      "type": "proceedings-article",
+      "page": "4252-4272",
+      "title": [
+        "Differential privacy in control and network systems"
+      ],
+      "author": [
+        {
+          "given": "Jorge",
+          "family": "Cortes",
+          "sequence": "first",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Geir E.",
+          "family": "Dullerud",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Shuo",
+          "family": "Han",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Jerome",
+          "family": "Le Ny",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Sayan",
+          "family": "Mitra",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "George J.",
+          "family": "Pappas",
+          "sequence": "additional",
+          "affiliation": [],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "container-title": [
+        "2016 IEEE 55th Conference on Decision and Control (CDC)"
+      ],
+      "URL": "https://doi.org/10.1109/cdc.2016.7798915",
+      "published": {
+        "date-parts": [
+          [
+            2016,
+            12
+          ]
+        ]
+      }
+    },
+    "10.1561/0400000042": {
+      "publisher": "Emerald",
+      "issue": "3-4",
+      "published-print": {
+        "date-parts": [
+          [
+            2014,
+            8,
+            11
+          ]
+        ]
+      },
+      "DOI": "10.1561/0400000042",
+      "type": "journal-article",
+      "page": "211-487",
+      "title": [
+        "The Algorithmic Foundations of Differential Privacy"
+      ],
+      "volume": "9",
+      "author": [
+        {
+          "given": "Cynthia",
+          "family": "Dwork",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "Microsoft Research ,",
+              "place": [
+                "USA"
+              ]
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Aaron",
+          "family": "Roth",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "University of Pennsylvania ,",
+              "place": [
+                "USA"
+              ]
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "published-online": {
+        "date-parts": [
+          [
+            2014,
+            8,
+            11
+          ]
+        ]
+      },
+      "container-title": [
+        "Foundations and Trends® in Theoretical Computer Science"
+      ],
+      "URL": "https://doi.org/10.1561/0400000042",
+      "published": {
+        "date-parts": [
+          [
+            2014,
+            8,
+            11
+          ]
+        ]
+      }
+    },
+    "10.1145/2660267.2660348": {
+      "publisher": "ACM",
+      "DOI": "10.1145/2660267.2660348",
+      "type": "proceedings-article",
+      "page": "1054-1067",
+      "title": [
+        "RAPPOR"
+      ],
+      "author": [
+        {
+          "given": "Úlfar",
+          "family": "Erlingsson",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "Google Inc., Mountain View, CA, USA"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Vasyl",
+          "family": "Pihur",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Google Inc., Mountain View, CA, USA"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Aleksandra",
+          "family": "Korolova",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "University of Southern California, Los Angeles, CA, USA"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "container-title": [
+        "Proceedings of the 2014 ACM SIGSAC Conference on Computer and Communications Security"
+      ],
+      "URL": "https://doi.org/10.1145/2660267.2660348",
+      "published": {
+        "date-parts": [
+          [
+            2014,
+            11,
+            3
+          ]
+        ]
+      }
+    },
+    "10.1109/CSCloud66326.2025.00027": {
+      "publisher": "IEEE",
+      "published-print": {
+        "date-parts": [
+          [
+            2025,
+            11,
+            7
+          ]
+        ]
+      },
+      "DOI": "10.1109/cscloud66326.2025.00027",
+      "type": "proceedings-article",
+      "page": "122-133",
+      "title": [
+        "Casper: Prompt Sanitization for Protecting User Privacy in Web-Based Large Language Models"
+      ],
+      "author": [
+        {
+          "given": "Chun Jie",
+          "family": "Chong",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "New Jersey Institute of Technology,New Jersey,USA"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Chenxi",
+          "family": "Hou",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "New Jersey Institute of Technology,New Jersey,USA"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Zhihao",
+          "family": "Yao",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "New Jersey Institute of Technology,New Jersey,USA"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        },
+        {
+          "given": "Seyed Mohammadjavad Seyed",
+          "family": "Talebi",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Independent Researcher,California,USA"
+            }
+          ],
+          "role": [
+            {
+              "vocabulary": "crossref",
+              "role": "author"
+            }
+          ]
+        }
+      ],
+      "container-title": [
+        "2025 IEEE 12th International Conference on Cyber Security and Cloud Computing (CSCloud)"
+      ],
+      "URL": "https://doi.org/10.1109/cscloud66326.2025.00027",
+      "published": {
+        "date-parts": [
+          [
+            2025,
+            11,
+            7
+          ]
+        ]
+      }
+    },
+    "10.1109/UBMK67458.2025.11206862": {
+      "publisher": "IEEE",
+      "published-print": {
+        "date-parts": [
+          [
+            2025,
+            9,
+            17
+          ]
+        ]
+      },
+      "DOI": "10.1109/ubmk67458.2025.11206862",
+      "type": "proceedings-article",
+      "page": "1537-1542",
+      "title": [
+        "Promptshield: Policy-Aware DLP Framework for Generative Al Prompts"
+      ],
+      "author": [
+        {
+          "given": "Ezgi",
+          "family": "Keleş",
+          "sequence": "first",
+          "affiliation": [
+            {
+              "name": "Istanbul Technical University,Cyber Security and Privacy Research Lab, SPFLab,Dept. of Computer Engineering,Istanbul,T&#x00FC;rkiye"
+            }
+          ],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        },
+        {
+          "given": "Şerif",
+          "family": "Bahtiyar",
+          "sequence": "additional",
+          "affiliation": [
+            {
+              "name": "Istanbul Technical University,Cyber Security and Privacy Research Lab, SPFLab,Dept. of Computer Engineering,Istanbul,T&#x00FC;rkiye"
+            }
+          ],
+          "role": [
+            {
+              "role": "author",
+              "vocabulary": "crossref"
+            }
+          ]
+        }
+      ],
+      "container-title": [
+        "2025 10th International Conference on Computer Science and Engineering (UBMK)"
+      ],
+      "URL": "https://doi.org/10.1109/ubmk67458.2025.11206862",
+      "published": {
+        "date-parts": [
+          [
+            2025,
+            9,
+            17
+          ]
+        ]
+      }
+    }
+  },
+  "official_bibtex_exports": {
+    "ErlingssonRappor2014": {
+      "url": "https://research.google/pubs/rappor-randomized-aggregatable-privacy-preserving-ordinal-response/",
+      "text": "@inproceedings{Erlingsson2014,\ntitle\t= {RAPPOR: Randomized Aggregatable Privacy-Preserving Ordinal Response},\nauthor\t= {Úlfar Erlingsson and Vasyl Pihur and Aleksandra Korolova},\nyear\t= {2014},\nURL\t= {https://arxiv.org/abs/1407.6981},\nbooktitle\t= {Proceedings of the 21st ACM Conference on Computer and Communications Security},\naddress\t= {Scottsdale, Arizona}\n}\n\n"
+    },
+    "googleResearchTuningPlaybook": {
+      "url": "https://raw.githubusercontent.com/google-research/tuning_playbook/main/README.md",
+      "text": "@misc{tuningplaybookgithub,\n  author = {Varun Godbole and George E. Dahl and Justin Gilmer and Christopher J. Shallue and Zachary Nado},\n  title = {Deep Learning Tuning Playbook},\n  url = {http://github.com/google-research/tuning_playbook},\n  year = {2023},\n  note = {Version 1.0}\n}"
+    },
+    "MEDEC2024": {
+      "url": "https://aclanthology.org/2025.findings-acl.1159.bib",
+      "text": "@inproceedings{ben-abacha-etal-2025-medec,\n    title = \"{MEDEC}: A Benchmark for Medical Error Detection and Correction in Clinical Notes\",\n    author = \"Ben Abacha, Asma  and\n      Yim, Wen-wai  and\n      Fu, Yujuan  and\n      Sun, Zhaoyi  and\n      Yetisgen, Meliha  and\n      Xia, Fei  and\n      Lin, Thomas\",\n    editor = \"Che, Wanxiang  and\n      Nabende, Joyce  and\n      Shutova, Ekaterina  and\n      Pilehvar, Mohammad Taher\",\n    booktitle = \"Findings of the {A}ssociation for {C}omputational {L}inguistics: {ACL} 2025\",\n    month = jul,\n    year = \"2025\",\n    address = \"Vienna, Austria\",\n    publisher = \"Association for Computational Linguistics\",\n    url = \"https://aclanthology.org/2025.findings-acl.1159/\",\n    doi = \"10.18653/v1/2025.findings-acl.1159\",\n    pages = \"22539--22550\",\n    ISBN = \"979-8-89176-256-5\"\n}\n\n"
+    },
+    "haim2022reconstructing": {
+      "url": "https://proceedings.neurips.cc/paper_files/paper/2022/file/906927370cbeb537781100623cca6fa6-Bibtex-Conference.bib",
+      "text": "@inproceedings{NEURIPS2022_90692737,\n author = {Haim, Niv and Vardi, Gal and Yehudai, Gilad and Shamir, Ohad and Irani, Michal},\n booktitle = {Advances in Neural Information Processing Systems},\n doi = {10.52202/068431-1665},\n editor = {S. Koyejo and S. Mohamed and A. Agarwal and D. Belgrave and K. Cho and A. Oh},\n pages = {22911--22924},\n publisher = {Curran Associates, Inc.},\n title = {Reconstructing Training Data From Trained Neural Networks},\n url = {https://proceedings.neurips.cc/paper_files/paper/2022/file/906927370cbeb537781100623cca6fa6-Paper-Conference.pdf},\n volume = {35},\n year = {2022}\n}\n"
+    }
+  },
+  "changes": {
+    "Athey2017": [
+      "author",
+      "doi",
+      "url"
+    ],
+    "King2025": [
+      "url",
+      "eprint",
+      "archivePrefix"
+    ],
+    "Florian2025": [
+      "month",
+      "howpublished",
+      "entry type"
+    ],
+    "MEDEC2024": [
+      "title",
+      "author",
+      "doi",
+      "url"
+    ],
+    "PromptShield2025": [
+      "author"
+    ],
+    "GoogleWarns2023": [
+      "author"
+    ],
+    "LIANG2025101366": [
+      "doi"
+    ],
+    "courseraTransformersConvolutional": [
+      "author",
+      "year",
+      "note"
+    ],
+    "LearnMicrosoft2026": [
+      "author"
+    ],
+    "Mousumi_Bakshi2025": [
+      "entry type"
+    ],
+    "ErlingssonRappor2014": [
+      "pages"
+    ],
+    "tamkin2024clio": [
+      "author",
+      "url",
+      "title"
+    ],
+    "zhong2023chatradio": [
+      "author",
+      "url",
+      "title"
+    ],
+    "Llama2023": [
+      "author",
+      "title"
+    ],
+    "liu2025understanding": [
+      "title",
+      "author",
+      "doi",
+      "url"
+    ],
+    "li2025security": [
+      "author",
+      "doi",
+      "url"
+    ],
+    "de2025lifecycle": [
+      "volume",
+      "pages",
+      "doi",
+      "url"
+    ],
+    "haim2022reconstructing": [
+      "booktitle",
+      "doi",
+      "url",
+      "entry type"
+    ],
+    "pradhan2025zero": [
+      "doi",
+      "url"
+    ],
+    "cormode2018privacy": [
+      "doi",
+      "url"
+    ],
+    "cortes2016differential": [
+      "doi",
+      "url"
+    ],
+    "priyanshu2023chatbots": [
+      "url"
+    ],
+    "koraag2025comparing": [
+      "url"
+    ],
+    "munnangi2024brief": [
+      "url"
+    ],
+    "googleResearchTuningPlaybook": [
+      "author",
+      "year",
+      "note"
+    ],
+    "CasperAbstract2026": [
+      "author"
+    ],
+    "PromptShieldAbstract2026": [
+      "author"
+    ]
+  },
+  "validation": {
+    "pages": 10,
+    "first_nine_pages_text_unchanged": true,
+    "keys_before": 81,
+    "keys_after": 81,
+    "missing_keys": [],
+    "duplicate_keys": 0,
+    "active_bibitems": [
+      [
+        "Gupta2024",
+        "1"
+      ],
+      [
+        "LIANG2025101366",
+        "2"
+      ],
+      [
+        "koraag2025comparing",
+        "3"
+      ],
+      [
+        "SamsungBans2023",
+        "4"
+      ],
+      [
+        "GoogleWarns2023",
+        "5"
+      ],
+      [
+        "NissenbaumContextualIntegrity2004",
+        "6"
+      ],
+      [
+        "YanPositiveCongruent2021",
+        "7"
+      ],
+      [
+        "CasperPreprintV12024",
+        "8"
+      ],
+      [
+        "Casper2024",
+        "9"
+      ],
+      [
+        "HaS2024",
+        "10"
+      ],
+      [
+        "ProSan2024",
+        "11"
+      ],
+      [
+        "PromptShield2025",
+        "12"
+      ],
+      [
+        "ErlingssonRappor2014",
+        "13"
+      ],
+      [
+        "turc2019WellReadStudents",
+        "14"
+      ],
+      [
+        "DworkRothFoundations2014",
+        "15"
+      ],
+      [
+        "PIIMBPinned2026",
+        "16"
+      ],
+      [
+        "LinuxCgroupV2Interfaces2026",
+        "17"
+      ]
+    ],
+    "main_tex_unchanged": true,
+    "pdf_sha256": "3af8b9630a234dae6b6bb48daa62e31fecfbb98115c007c7235fe166dfadcec4",
+    "ref_bib_sha256": "153b678df011dbeec1324e6e6d2078150785966a7bcb10db0762f58f72a8788b"
+  },
+  "history": {
+    "reachable_bibliography_commits": 24,
+    "historical_unique_keys": 81,
+    "current_unique_keys": 81,
+    "missing_keys": [],
+    "deleted_or_renamed_bibliography_paths": [],
+    "historical_main_citation_union": 74,
+    "current_main_citations": 17,
+    "removed_but_retained_citation_keys": 57,
+    "all_reachable_commits_at_input": 738,
+    "active_database_unique_commits": 22,
+    "active_database_snapshots": 23,
+    "snapshots_per_path": {
+      "paper/ref.bib": 16,
+      "paper/research/paper-completion-sources-20261014.bib": 3,
+      "paper/manuscript-completion-sources-20261014.bib": 3,
+      "paper/research/literature-baseline-sources-20261015.bib": 1
+    }
+  },
+  "verification_status_counts": {
+    "source_identity_checked": 71,
+    "partial": 6,
+    "unverified": 1,
+    "internal": 2,
+    "style_control": 1
+  }
+}

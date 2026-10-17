@@ -1,5 +1,9 @@
 # Local development evidence package
 
+## Bibliography audit - 17 October 2026
+
+[BIBREST19](bibliography-audit-20261017.md) records the complete catalog/history check, primary-source metadata corrections, official BibTeX exports, access limits and PDF validation. It changes no empirical claims.
+
 ## Accelerated training across all surfaces — 10 October 2026
 
 [RQ-FUZZER-ALL-SURFACES-20261010](../../docs/accelerated-training-surfaces-study-20261010.md) retains the goal attribution, frozen 168-trajectory matrix, all 56 configuration decisions, actual doses and negative/tradeoff outcomes. The protocol SHA-256 is `aadcef30cd3fabb595cf076ce8beeb9c9bbc9159bfd44899dd0ede0fbc76e797`. Local raw archives remain under `evaluation/results/accelerated_all_surfaces_20261010/execution-study-v3/`. Fitting uses original source `0b469c7a5972beee4f64544f5c0f33337923fc85` and original immutable images; audit precision, worker import environment, projected-control scoring mounts and report-ledger schema have separately hash-bound source amendments ending at reporter `ad9241a86ba39e4d594b17eda67137807b7f632f`.
