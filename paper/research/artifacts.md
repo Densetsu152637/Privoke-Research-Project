@@ -85,3 +85,7 @@ Use [the experiment record](false-positive-experiments.md) to distinguish primar
 runs from invalidated pilots and unscored rejections; archiving an invalidated run
 does not make it a valid result. That checkpoint's selected live pipeline has 93.56% recall and
 22.69% specificity, so the research goal and final paper remain unfinished.
+
+## Citation coverage and future restoration, 17 October 2026
+
+[CITEMAP20 source-use and restoration guide](source-restoration-guide-20261017.md) accounts for every preserved bibliography key, reviews active claim attribution, and records recoverable historical citation locations for a future version with relaxed formatting. Deferred sources remain in their original BibTeX databases; the guide is an editorial index, not a manuscript supplement or authorization to restore excluded experiments.

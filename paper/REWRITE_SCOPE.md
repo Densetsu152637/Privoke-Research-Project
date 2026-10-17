@@ -52,6 +52,8 @@ On 17 October 2026, the user clarified: **“Restore the sources only to the bib
 
 Future paper rewrites must preserve every existing source record in the BibTeX source pool, including sources no longer cited by the current manuscript. Keep stable citation keys and retain verified metadata corrections. Removing an in-text citation may remove that item from the generated reference list, but must not delete its source-pool record. Do not replace the catalog with only the currently cited subset. The [bibliography audit](research/bibliography-audit-20261017.md) records the preserved 81-key catalog and its verification limits. This requirement preserves sources for future use; it does not authorize restoring excluded empirical studies or adding uncited sources to the printed bibliography.
 
+Every rewrite must account for every source-pool record in the [source-use and restoration guide](research/source-restoration-guide-20261017.md): active numbered citation, linked model-card footnote, deferred source, or bibliography formatting control. Update the map when citation use changes, retaining the source identity, stable key, database location and recoverable historical context. Deferred entries remain in the BibTeX databases; an unused source need not appear in the printed references. A future version with relaxed formatting can restore relevant background or method citations after checking their claims and editions, but relaxing formatting alone does not change the approved empirical scope.
+
 ## Requirements for every rewrite
 
 ### Authorized formatting exception, 17 October 2026

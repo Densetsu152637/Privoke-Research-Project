@@ -45,7 +45,7 @@ Local differential privacy, local inference, model regression, prompt privacy, r
 
 \section{Introduction}
 \label{sec:introduction}
-\IEEEPARstart{W}{eb-hosted} large language models (LLMs) support writing, coding and analysis by processing users' instructions and contextual material~\cite{Gupta2024,LIANG2025101366,koraag2025comparing}. That context can extend well beyond the immediate question. A person seeking help with a report, for example, might include a colleague's details, health information or confidential organizational material. Information that helps the model complete the task can therefore also disclose something the user intended to keep private. Reported workplace incidents show how this can happen during otherwise legitimate work~\cite{SamsungBans2023,GoogleWarns2023}. Controls on subsequent storage or use cannot prevent the initial transfer, whereas inspection on the user's device offers an opportunity to intervene before local control is lost.
+\IEEEPARstart{W}{eb-hosted} large language models (LLMs) support writing, coding and analysis by processing users' instructions and contextual material~\cite{Gupta2024,LIANG2025101366,koraag2025comparing}. That context can extend well beyond the immediate question. A person seeking help with a report, for example, might include a colleague's details, health information or confidential organizational material. Information that helps the model complete the task can therefore also disclose something the user intended to keep private. Reported workplace incidents and company warnings illustrate this risk during legitimate work~\cite{SamsungBans2023,GoogleWarns2023}. Controls on subsequent storage or use cannot prevent the initial transfer, whereas inspection on the user's device offers an opportunity to intervene before local control is lost.
 
 Deciding when to intervene involves more than recognizing names or identifiers. Prompts about the same subject can differ in whose information they contain, their intended recipients and the appropriateness of disclosure. Nissenbaum's account of contextual integrity likewise relates privacy to the norms governing information flows within a particular context~\cite{NissenbaumContextualIntegrity2004}. Detector labels can represent some of these distinctions without establishing that a disclosure is authorized. The resulting decision must also affect the outgoing request: alerting a user to sensitive content does not necessarily prevent its transmission. An evaluation must therefore distinguish contextual predictions, policy decisions and what actually leaves the device.
 
@@ -412,6 +412,9 @@ Across the lifecycle, early restrictions can survive later model improvements, i
 \section*{AI Assistance}
 Artificial intelligence (AI) assistance supported provisional contextual labelling and manuscript drafting. GPT-6 Sol assisted implementation and controlled testing, GPT-6 Luna assisted review, and GPT-6 Astra assisted manuscript review and rewriting. These provisional labels have not been independently adjudicated as ground truth. The authors remain responsible for the manuscript and its claims.
 
+% Source-use/restoration map: research/source-restoration-guide-20261017.md.
+% Keep every BibTeX source-pool record; this length-limited paper prints cited entries only.
+% Deferred sources and historical citation locations are preserved in that guide.
 \bibliographystyle{IEEEtran}
 \bibliography{ref,research/paper-completion-sources-20261014,manuscript-completion-sources-20261014,research/literature-baseline-sources-20261015}
 \end{document}
