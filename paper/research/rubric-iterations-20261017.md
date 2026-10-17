@@ -314,3 +314,47 @@ The current [rubric review](../rubric-evaluation.md) rereads all four rubric pag
 | Unchanged user template | `e4ea281c35acf1028e726f0777f2b75817478824a6b6fa723bd8b85ae8d9c056` |
 
 Root independently inspected final pages **3, 6, 8, 9 and 10**, accepted layout and source framing, and confirmed historical table/equation/Introduction preservation. Root also opened the delivered ten-page PDF, verified source/PDF/scope/template/rubric hashes against the receipt, checked new values and concurrent-user wording, and confirmed eighteen embedded non-Type3 font resources. This is distinct from the writer's all-ten-page visual inspection. Review/scope links resolve and fifteen/twenty-five matrix counts pass. Root retains final document acceptance and Git finalization; the writer stops at this stable handoff, with no active build process or disposable scratch pending. Ignored evidence is intentionally preserved.
+
+
+## Full-paper prose revision — sentence structure and continuity
+
+**Request and bounded assignment.** The user's exact request was: “the sentence structure is very jarring, they are not elegant and seem to end abruptly sometimes. Get the astra model to look over the paper and rewrite it using elegant language and sentence structure.” The same GPT-6 Astra high agent was the sole author. This authorized rewriting the previously preserved Introduction as well as the abstract, every technical/method/results/discussion/conclusion section and captions. Elegance was treated as clear connected explanation, not ornament, filler or stronger claims. Ownership was limited to `paper/main.tex`, `main.pdf`, `rubric-evaluation.md` and this ledger. Root retained Git ownership; no commit, push, new research, experiment, inference, training, resampling or protected-data access was performed by this writer.
+
+**Input and instruction checkpoint.** Input HEAD was `22bc18e3bc6c17da8774ae6d726bd971266b97ef` on `docs/paper`, clean and matching its tracking branch at preflight. The user template was now tracked, with unchanged SHA-256 `e4ea281c35acf1028e726f0777f2b75817478824a6b6fa723bd8b85ae8d9c056`. The writer loaded repository AGENTS and the valid shared `D:/Git Repositories/Agent-Custom-Workflow/AGENTS.md`, `workflows/AGENTS.leaf.md`, `profiles/AGENTS.implementer.md`, research/vision owners, and coordination/validation/coding/Git guides. PDF and writing-style skills were read from the installed paths. The supplied manuscript and explicit connected-prose preference governed style; no retrieved author-style evidence was claimed. No nested paper AGENTS was found. The seven-unit scope, supplied journal template/customs, no appendix and ten complete pages remained binding. The scope document, bibliographies, template, figure and underlying evidence were untouched.
+
+### Editorial coverage and examples
+
+The complete manuscript was read before editing. Compression had produced stacked short statements, slash-heavy noun phrases, isolated caveats and abrupt paragraph endings. The revision rewrote every substantive prose section: abstract; Introduction and contribution framing; all three literature strands; trust, interception, policy, model and update boundaries; telemetry mechanism explanations; every methods subsection; each RQ's results and direct answer; all four discussion subsections; Conclusion; and AI Assistance. All nine captions were also revised. Tables, equations and exact RQ wording were preserved. The missing closing quotation around the V3 synthetic prompt was corrected.
+
+Representative before/after passages illustrate actual changes rather than a new empirical interpretation:
+
+- **Related Work ending:** “The primitives are established; incompatible denominators preclude numerical superiority.” became “Making these decisions jointly inspectable reveals where they diverge. Their different targets and denominators, however, provide no basis for a numerical superiority claim.” The qualification now follows directly from the comparison it limits.
+- **Installed V3 result:** “Quality BLOCKed the same benign prompt once per transport, producing both non-arrivals. Exact loading coexisted with an inappropriate decision; one repeated prompt cannot estimate a false-positive rate.” became “Quality blocked the same benign prompt once on each transport, accounting for both non-arrivals. Correct package loading thus coexisted with an inappropriate decision, although one repeated prompt cannot establish a false-positive rate.” The adverse finding and its denominator remain explicit.
+- **RQ2 interpretation:** the intermediate phrase “rather than a published improvement without sacrificed protection” was replaced after root review with “The experiment demonstrates bounded learning gains and an enforceable guard, but those gains did not meet the retention requirements for publication.” This removes a stacked negative construction while retaining the learning result and rejection boundary.
+
+### Build, preservation and visual checks
+
+The PDF operation marker ran successfully exactly once before authoring one edited PDF. New ignored evidence is under `evaluation/results/paper-prose-revision-20261017/`, including compiler logs, extracted text, ten final renders and `source-and-pdf-checks.json`. A working-directory error initially created empty nested scratch directories; these were verified and removed immediately without manuscript mutation. The first actual MiKTeX attempt failed on sandboxed configuration access; narrowly approved configuration access allowed compilation with `--disable-installer` and `-no-shell-escape`. No installation or shell escape occurred.
+
+The first complete rewrite fit ten pages after BibTeX. One targeted editorial repair incorporated root's RQ2 wording, followed by two stabilization passes. This is **one initial rewrite plus one repair cycle**, within the two-repair allowance; compiler pass numbers do not denote editorial cycles. Pass5 is final. No page-fit truncation, typography reduction, margin change or further layout repair was required. Whitespace-counted source length changed from 7,246 to 7,214 tokens, including LaTeX/table syntax rather than a formal prose word count. The standalone abstract has 176 whitespace-counted words.
+
+Mechanical comparisons against input establish:
+
+- All **eight tabular bodies**, both displayed equations, all three exact RQs, all 26 labels, ordered citation calls, figure asset path and preamble remain byte-identical. Distinct numeric literals are unchanged; source/diff review additionally checks their meaning, since a literal-set comparison alone cannot prove fact preservation.
+- All seven study units and their tiers, seeds, denominators, paired gains/harms, uncertainty and adverse outcomes remain. These include provisional contextual targets, weak final specificity, all FULL guard rejections, hypothetical retention mappings, the quality-tier benign-prompt BLOCKs and telemetry estimation/admission failures. V1/V3, semantic/product, resident/total-cost and controlled/live-user distinctions are preserved.
+- The delivered PDF contains **ten complete US Letter pages, eight tables, one overview, two equations and twenty references**. All 18 font resources are embedded; none is Type3. References and citation keys resolve, and final logs contain no overfull, undefined/multiply-defined-reference or missing-glyph markers. No appendix/supplement dependency exists in source or extracted text.
+- The writer inspected all ten final pass5 pages rendered at 110 dpi. Text, equations, tables, overview and references remain readable without clipping or overlap. Root independently inspected pages **1, 2, 5, 7 and 9**, accepted the sampled prose and layout, and independently confirmed preservation of the numerical/tabular and source structures listed above.
+- The delivered `paper/main.pdf` was copied from the inspected build and is byte-identical. Table I now appears on p. 4 and Table III on p. 6; review locators were updated accordingly.
+
+### Current review and handoff
+
+The [rubric review](../rubric-evaluation.md) now binds this artifact and records all fifteen dimensions and twenty-five section groups. The earlier blanket readability judgment is explicitly qualified: it underweighted the abrupt phrasing identified by the user. T1/W1/W2 are reassessed against the actual full-paper revision, without an automatic grade upgrade or stronger empirical claim. The substantive scientific assessment and evidence limitations remain. Fluent prose does not establish independently valid contextual labels, safe deployed adaptation, total/cold overhead, representative live monitoring or human benefit.
+
+| Final artifact | SHA-256 |
+| --- | --- |
+| `paper/main.tex` | `b0fe8ee5abe54feb97d6f68dc8e7dfd33a9b20216130fdc34d8597ab9595becf` |
+| `paper/main.pdf` | `0cf08b6bd92a147e47e583ef4ab867ec5ca44014a85017371ab5f5317faa53ce` |
+| `paper/rubric-evaluation.md` | `c86418865d0784dfc396c81a03c1a5f404daeabdac4c33454bf929cbe745c24a` |
+| Unchanged `paper/REWRITE_SCOPE.md` | `e7a31b2b7112a9eaf47b360807d7c61d576690fd3bdd9fd5cd97aec349129289` |
+
+The writer returns the four owned paths ready for root's final acceptance and Git handling, then stops writes. No active build process or disposable scratch remains; ignored build/QA evidence is intentionally retained. Final root acceptance is distinct from the already completed sampled source/render review.
