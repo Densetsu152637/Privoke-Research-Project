@@ -48,6 +48,12 @@ Underlying research records, aggregates, reusable assets and Git history remain 
 
 ## Requirements for every rewrite
 
+### Authorized formatting exception, 17 October 2026
+
+For the architecture-figure and reference update, the user requested moving the three pinned BERT model-card references into small linked footnotes. This authorizes `\scriptsize` only within that model-card footnote, while retaining all three pinned revision identifiers and links. It does not authorize reducing body, table, caption or other footnote typography.
+
+The user's current ten-page delivery instruction also authorizes a compact framed `minipage` in `\scriptsize` for the existing contributions block so it stays together across columns. The contribution wording and order remain unchanged; this permission does not extend to other body text.
+
 - Keep the paper self-contained and at most ten complete pages, including references, without reducing prescribed typography. **No appendix or supplement is permitted**, including a renamed companion or “supporting detail” workaround. Essential definitions, methods, results and limitations for the retained units must appear in the paper itself.
 - Preserve the three research questions, explanatory writing style, actual quantitative findings and relevant uncertainty. Preserve all arms within retained comparisons and material negative outcomes; do not cherry-pick a tier, seed, detector contrast or simulation example to improve the apparent result.
 - Keep provisional labels distinct from independent ground truth; prediction agreement distinct from enforcement; full-product results distinct from semantic-only results; candidate assessment distinct from publication; and conditional telemetry content privacy distinct from participation or deployment utility.

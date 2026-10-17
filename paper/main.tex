@@ -24,6 +24,7 @@
 
 %
 \begin{document}
+\bstctlcite{IEEEexample:BSTcontrol}
 
 \title{\privoke: A Client-Side Semantic Privacy Firewall for User Prompts in Web-Hosted Large Language Models}
 
@@ -52,13 +53,24 @@ We address these connected decisions through \privoke, an implemented client-sid
 
 Maintaining the detector raises a further difficulty: a revision can improve average accuracy while becoming incorrect on cases its predecessor handled correctly~\cite{YanPositiveCongruent2021}. PriVoke therefore separates learning a candidate from accepting it. A server-side runtime trains on supplied labelled examples, after which the update service checks the candidate against its exact parent model and declared retention criteria. Clients can verify accepted artifacts and refresh local parameters without an application release. Reporting follows a separate path, with coarse event fields randomized on the workstation. Neither intercepted prompts nor telemetry supplies training labels, keeping maintenance and reporting independent of user traffic as a source of supervision.
 
-Casper, Hide and Seek and ProSan establish substantial precedent for local protection and learned sanitization~\cite{CasperPreprintV12024,Casper2024,HaS2024,ProSan2024}. PriVoke contributes an implemented lifecycle and an evaluation connecting three decisions: whether a request should leave the client, whether a revised detector should replace its predecessor, and whether randomized reports can support useful monitoring. Execution records connect classifications to transmission, version-bound comparisons expose candidate gains and harms, and resource and telemetry measurements delimit cost and information release. The contribution lies in this integration and its empirical analysis; local detection, regression analysis and randomized response are established techniques.
+Casper, Hide and Seek and ProSan establish substantial precedent for local protection and learned sanitization~\cite{CasperPreprintV12024,Casper2024,HaS2024,ProSan2024}. Our contribution lies in the integration and empirical analysis of request enforcement, guarded updates and separate reporting; local detection, regression analysis and randomized response are established techniques.
+
+\noindent\fbox{\begin{minipage}{0.96\columnwidth}
+\scriptsize
+\noindent\textbf{Contributions.} Our contributions are as follows:
+\begin{enumerate}
+\item A client-side semantic privacy firewall that combines local rule-, NER-, and semantic-based inspection with explicit ALLOW, WARN, and BLOCK enforcement before supported prompts leave the workstation.
+\item A guarded model-update lifecycle that binds candidate updates to their parent versions and applies retention checks before publication, showing that aggregate accuracy gains do not necessarily preserve previously protected behavior.
+\item A privacy-bounded telemetry mechanism that releases only randomized coarse event information under a local privacy-budget ledger, while remaining separate from user-prompt inspection and model training.
+\item An end-to-end empirical evaluation of detection, request enforcement, model-update retention, runtime overhead, and telemetry privacy, revealing trade-offs between improved agreement, unnecessary restriction, lost protection, and monitoring utility.
+\end{enumerate}
+\end{minipage}}\par\smallskip
 
 We organize the evaluation around three questions:
 \begin{enumerate}
-\item \textbf{RQ1: Does PriVoke detect and enforce privacy-sensitive prompt policies effectively?}
-\item \textbf{RQ2: Can PriVoke update its detector without sacrificing previously protected behavior?}
-\item \textbf{RQ3: What systems and privacy overhead does PriVoke introduce?}
+\item \textbf{RQ1}: Does PriVoke detect and enforce privacy-sensitive prompt policies effectively?
+\item \textbf{RQ2}: Can PriVoke update its detector without sacrificing previously protected behavior?
+\item \textbf{RQ3}: What systems and privacy overhead does PriVoke introduce?
 \end{enumerate}
 RQ1 examines the relationship between contextual prediction and enforcement, including situations in which better classification or fewer restrictions do not mean better protection. RQ2 tests whether aggregate improvements satisfy a casewise retention requirement. RQ3 measures systems costs while distinguishing report-content privacy from estimation error and contribution selection. Together, the questions establish what successful execution, training and accounting can demonstrate, and where the evidence remains limited by provisional contextual labels.
 
@@ -86,7 +98,7 @@ Fig.~\ref{fig:architecture} distinguishes prompt inspection from training on sup
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=\textwidth]{architecture-overview.pdf}
+\includegraphics[width=\textwidth]{output/architecture-overview.pdf}
 \caption{PriVoke's three data paths separate local prompt inspection, supplied training examples and randomized reporting. ALLOW and WARN release the original body to the hosted LLM. Native messaging manages the bridge/runtime, while analysis uses loopback gRPC-Web. Separate services supply versioned weights and collect randomized event fields. Training uses neither intercepted prompts nor telemetry; dashed lines show lifecycle control.}
 \label{fig:architecture}
 \end{figure*}
@@ -107,7 +119,7 @@ The policy ordinarily maps S3 to BLOCK and S2 to WARN. S0/S1 allow unless identi
 
 Consider a hypothetical S2 prediction with HEALTH, confidence 0.7 and no earlier restriction. The policy returns WARN, allowing the supported request to send its original body without acknowledgement. If a rule had already returned BLOCK, the request would instead be cancelled before semantic inspection. This example illustrates the mapping; it adds no observed prediction, independently labelled case or test.
 
-These models classify prompts rather than generate conversational responses. Historical V1 packages use randomly initialized frozen encoders with fitted heads; V3 packages retain pretrained Bidirectional Encoder Representations from Transformers (BERT) encoders and poolers~\cite{googleBertL4H128A2,googleBertL2H256A4,googleBertL12H256A4,turc2019WellReadStudents}. Both families offer efficient, balanced and quality packages, whose names imply no guaranteed performance ordering. The installed default now selects V3 balanced, alongside explicit V3 tiers and labelled older V1 choices. Its CPU loader verifies binary packages from the model service without falling back to a random or V1 model. Differences in tokenizers, capacity, thresholds and training history mean that comparisons assess the complete package change, not pretraining or architecture alone.
+These models classify prompts rather than generate conversational responses. Historical V1 packages use randomly initialized frozen encoders with fitted heads; V3 packages retain pretrained Bidirectional Encoder Representations from Transformers (BERT) encoders and poolers\footnote{\scriptsize \href{https://huggingface.co/google/bert_uncased_L-4_H-128_A-2/blob/c29bee83fc7f003ac8c5e6e135529da4ecddb7c3/README.md}{BERT L-4/H-128/A-2, revision c29bee83fc7f003ac8c5e6e135529da4ecddb7c3}; \href{https://huggingface.co/google/bert_uncased_L-2_H-256_A-4/blob/4e937a8675e5afd9a4836735c186ec01695bc3ea/README.md}{BERT L-2/H-256/A-4, revision 4e937a8675e5afd9a4836735c186ec01695bc3ea}; \href{https://huggingface.co/google/bert_uncased_L-12_H-256_A-4/blob/2ab9a0f41435a4d23d4cbc11cc3e7c922545f13d/README.md}{BERT L-12/H-256/A-4, revision 2ab9a0f41435a4d23d4cbc11cc3e7c922545f13d}.}~\cite{turc2019WellReadStudents}. Both families offer efficient, balanced and quality packages, whose names imply no guaranteed performance ordering. The installed default now selects V3 balanced, alongside explicit V3 tiers and labelled older V1 choices. Its CPU loader verifies binary packages from the model service without falling back to a random or V1 model. Differences in tokenizers, capacity, thresholds and training history mean that comparisons assess the complete package change, not pretraining or architecture alone.
 
 \subsection{Guarded Detector Updates}
 \label{sec:updates}
