@@ -1,0 +1,110 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{Gupta2024,LIANG2025101366,koraag2025comparing}
+\citation{SamsungBans2023,GoogleWarns2023}
+\citation{NissenbaumContextualIntegrity2004}
+\citation{YanPositiveCongruent2021}
+\citation{CasperPreprintV12024,Casper2024,HaS2024,ProSan2024}
+\@writefile{toc}{\contentsline {section}{\numberline {I}Introduction}{1}{section*.1}\protected@file@percent }
+\newlabel{sec:introduction}{{I}{1}{Introduction}{section*.1}{}}
+\citation{CasperPreprintV12024}
+\citation{HaS2024}
+\citation{ProSan2024}
+\citation{PromptShield2025}
+\citation{YanPositiveCongruent2021}
+\citation{ErlingssonRappor2014}
+\@writefile{toc}{\contentsline {section}{\numberline {II}Related Work and Contribution}{2}{section*.5}\protected@file@percent }
+\newlabel{sec:literature_review}{{II}{2}{Related Work and Contribution}{section*.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {III}System Design and Privacy Boundary}{2}{section*.6}\protected@file@percent }
+\newlabel{sec:system_architecture}{{III}{2}{System Design and Privacy Boundary}{section*.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-A}}Scope and Trust}{2}{subsection*.7}\protected@file@percent }
+\newlabel{sec:threat_model}{{\mbox  {III-A}}{2}{Scope and Trust}{subsection*.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-B}}Local Inspection and Request Enforcement}{2}{subsection*.10}\protected@file@percent }
+\citation{googleBertL4H128A2,googleBertL2H256A4,googleBertL12H256A4,turc2019WellReadStudents}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces PriVoke's three data paths separate local prompt inspection, supplied training examples and randomized reporting. ALLOW and WARN release the original body to the hosted LLM. Native messaging manages the bridge/runtime, while analysis uses loopback gRPC-Web. Separate services supply versioned weights and collect randomized event fields. Training uses neither intercepted prompts nor telemetry; dashed lines show lifecycle control.}}{3}{figure.9}\protected@file@percent }
+\newlabel{fig:architecture}{{1}{3}{PriVoke's three data paths separate local prompt inspection, supplied training examples and randomized reporting. ALLOW and WARN release the original body to the hosted LLM. Native messaging manages the bridge/runtime, while analysis uses loopback gRPC-Web. Separate services supply versioned weights and collect randomized event fields. Training uses neither intercepted prompts nor telemetry; dashed lines show lifecycle control}{figure.9}{}}
+\newlabel{sec:pii_categorisation}{{\mbox  {III-B}}{3}{Local Inspection and Request Enforcement}{subsection*.10}{}}
+\citation{DworkRothFoundations2014}
+\citation{DworkRothFoundations2014}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-C}}Guarded Detector Updates}{4}{subsection*.11}\protected@file@percent }
+\newlabel{sec:updates}{{\mbox  {III-C}}{4}{Guarded Detector Updates}{subsection*.11}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-D}}Separate Randomized Telemetry}{4}{subsection*.12}\protected@file@percent }
+\newlabel{sec:telemetry_mechanism}{{\mbox  {III-D}}{4}{Separate Randomized Telemetry}{subsection*.12}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Evidence linking the research questions to their measured outcomes. Contextual targets are provisional and do not constitute independently adjudicated privacy truth.}}{4}{table.18}\protected@file@percent }
+\newlabel{tab:question_map}{{I}{4}{Evidence linking the research questions to their measured outcomes. Contextual targets are provisional and do not constitute independently adjudicated privacy truth}{table.18}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {IV}Evaluation Method}{4}{section*.15}\protected@file@percent }
+\newlabel{sec:methodology}{{IV}{4}{Evaluation Method}{section*.15}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-A}}Questions and Evidence Units}{4}{subsection*.16}\protected@file@percent }
+\citation{PIIMBPinned2026}
+\citation{LinuxCgroupV2Interfaces2026}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}Comparison and Retention Protocols}{5}{subsection*.19}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-C}}Enforcement, Cost and Telemetry Protocols}{5}{subsection*.20}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {V}RQ1: Detection and Enforcement}{6}{section*.21}\protected@file@percent }
+\newlabel{sec:results}{{V}{6}{RQ1: Detection and Enforcement}{section*.21}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}Contextual Policy Agreement}{6}{subsection*.22}\protected@file@percent }
+\newlabel{sec:pipeline_comparison_results}{{\mbox  {V-A}}{6}{Contextual Policy Agreement}{subsection*.22}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces Full-product comparison on the same provisional contextual cases, shown as historical/updated counts. Labels+action is label-and-action joint agreement and Action is allowed-action agreement, both out of 1,560. Sensitive and Clean count correct classifications out of 810 and 750. All arms completed without errors.}}{6}{table.24}\protected@file@percent }
+\newlabel{tab:pipeline_v1_v3}{{II}{6}{Full-product comparison on the same provisional contextual cases, shown as historical/updated counts. Labels+action is label-and-action joint agreement and Action is allowed-action agreement, both out of 1,560. Sensitive and Clean count correct classifications out of 810 and 750. All arms completed without errors}{table.24}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Balanced-package ablation across the same 1,560 provisional cases, with requested layers in brackets. Action and Joint count allowed-action and label-and-action joint agreement; Under and Over count actions below and above the allowed set.}}{6}{table.26}\protected@file@percent }
+\newlabel{tab:targeted_ablation}{{III}{6}{Balanced-package ablation across the same 1,560 provisional cases, with requested layers in brackets. Action and Joint count allowed-action and label-and-action joint agreement; Under and Over count actions below and above the allowed set}{table.26}{}}
+\newlabel{sec:detector_ablation}{{\mbox  {V-A}}{6}{Contextual Policy Agreement}{table.24}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}Agreement on a Separate Annotation Target}{6}{subsection*.27}\protected@file@percent }
+\newlabel{sec:final_annotation}{{\mbox  {V-B}}{6}{Agreement on a Separate Annotation Target}{subsection*.27}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces Final semantic annotation-presence results for 236 positive and 262 negative rows. Historical/updated counts show true/false positives (TP/FP) and true/false negatives (TN/FN). All six arms completed without errors.}}{7}{table.29}\protected@file@percent }
+\newlabel{tab:final_presence}{{IV}{7}{Final semantic annotation-presence results for 236 positive and 262 negative rows. Historical/updated counts show true/false positives (TP/FP) and true/false negatives (TN/FN). All six arms completed without errors}{table.29}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Does a Decision Control Transmission?}{7}{subsection*.30}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces Matched semantic-only continuation on 1,080 reused provisional cases, shown as head-only/full-model counts. Labels+action denotes label-and-action joint agreement. The unchanged zero-head base has zero joint matches and 480 allowed-action matches. Guard harms are relative to that base on sixteen separate cases.}}{7}{table.35}\protected@file@percent }
+\newlabel{tab:matched_continuation}{{V}{7}{Matched semantic-only continuation on 1,080 reused provisional cases, shown as head-only/full-model counts. Labels+action denotes label-and-action joint agreement. The unchanged zero-head base has zero joint matches and 480 allowed-action matches. Guard harms are relative to that base on sixteen separate cases}{table.35}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VI}RQ2: Updates and Previously Protected Behavior}{7}{section*.31}\protected@file@percent }
+\newlabel{sec:adaptation_results}{{VI}{7}{RQ2: Updates and Previously Protected Behavior}{section*.31}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-A}}Improvement Subject to Retention}{7}{subsection*.32}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}Matched Continuation and Guard Decisions}{7}{subsection*.33}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces Page-observed rules/NER decision latency (ms), with sixty measurements across two fresh profiles per cell. Max is the observed maximum; timings exclude receiver response and semantic processing.}}{8}{table.39}\protected@file@percent }
+\newlabel{tab:browser_cost}{{VI}{8}{Page-observed rules/NER decision latency (ms), with sixty measurements across two fresh profiles per cell. Max is the observed maximum; timings exclude receiver response and semantic processing}{table.39}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VII}RQ3: Systems and Privacy Overhead}{8}{section*.36}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-A}}Measured Systems Cost}{8}{subsection*.37}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-B}}Privacy Cost and Telemetry Utility}{8}{subsection*.42}\protected@file@percent }
+\newlabel{sec:telemetry_results}{{\mbox  {VII-B}}{8}{Privacy Cost and Telemetry Utility}{subsection*.42}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {VII}{\ignorespaces Installed V3 balanced request-to-receiver latency (ms), with sixty timed requests across two profiles per cell. Off retains extension/native infrastructure, and observed maxima do not guarantee tail performance.}}{8}{table.41}\protected@file@percent }
+\newlabel{tab:v3_installed_cost}{{VII}{8}{Installed V3 balanced request-to-receiver latency (ms), with sixty timed requests across two profiles per cell. Off retains extension/native infrastructure, and observed maxima do not guarantee tail performance}{table.41}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {VIII}{\ignorespaces Two illustrative prespecified category cells ($K=11$, event $\varepsilon =1$), each repeated 10,000 times. Truth, clipped bias and RMSE describe the first category in count units. Clip gives its clipping frequency; Sum gives the frequency of independently clipped marginals failing to sum to $n$ (tolerance $10^{-9}$).}}{8}{table.44}\protected@file@percent }
+\newlabel{tab:telemetry_utility}{{VIII}{8}{Two illustrative prespecified category cells ($K=11$, event $\varepsilon =1$), each repeated 10,000 times. Truth, clipped bias and RMSE describe the first category in count units. Clip gives its clipping frequency; Sum gives the frequency of independently clipped marginals failing to sum to $n$ (tolerance $10^{-9}$)}{table.44}{}}
+\citation{CasperPreprintV12024,HaS2024,ProSan2024}
+\citation{NissenbaumContextualIntegrity2004}
+\citation{YanPositiveCongruent2021}
+\citation{ErlingssonRappor2014}
+\@writefile{toc}{\contentsline {section}{\numberline {VIII}Discussion and Limitations}{9}{section*.45}\protected@file@percent }
+\newlabel{sec:discussion}{{VIII}{9}{Discussion and Limitations}{section*.45}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-A}}What the System Evidence Supports}{9}{subsection*.46}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-B}}Ground Truth and Generalization Remain Open}{9}{subsection*.47}\protected@file@percent }
+\newlabel{sec:limitations}{{\mbox  {VIII-B}}{9}{Ground Truth and Generalization Remain Open}{subsection*.47}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-C}}Retention, Availability and Practical Utility}{9}{subsection*.48}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-D}}Measurement Boundaries and Next Steps}{9}{subsection*.49}\protected@file@percent }
+\bibstyle{IEEEtran}
+\bibdata{ref,research/paper-completion-sources-20261014,manuscript-completion-sources-20261014,research/literature-baseline-sources-20261015}
+\bibcite{Gupta2024}{1}
+\bibcite{LIANG2025101366}{2}
+\bibcite{koraag2025comparing}{3}
+\bibcite{SamsungBans2023}{4}
+\bibcite{GoogleWarns2023}{5}
+\bibcite{NissenbaumContextualIntegrity2004}{6}
+\bibcite{YanPositiveCongruent2021}{7}
+\bibcite{CasperPreprintV12024}{8}
+\bibcite{Casper2024}{9}
+\bibcite{HaS2024}{10}
+\bibcite{ProSan2024}{11}
+\bibcite{PromptShield2025}{12}
+\bibcite{ErlingssonRappor2014}{13}
+\bibcite{googleBertL4H128A2}{14}
+\bibcite{googleBertL2H256A4}{15}
+\bibcite{googleBertL12H256A4}{16}
+\bibcite{turc2019WellReadStudents}{17}
+\bibcite{DworkRothFoundations2014}{18}
+\bibcite{PIIMBPinned2026}{19}
+\bibcite{LinuxCgroupV2Interfaces2026}{20}
+\@writefile{toc}{\contentsline {section}{\numberline {IX}Conclusion}{10}{section*.50}\protected@file@percent }
+\newlabel{sec:conclusion}{{IX}{10}{Conclusion}{section*.50}{}}
+\@writefile{toc}{\contentsline {section}{References}{10}{section*.52}\protected@file@percent }
+\gdef \@abspage@last{10}
