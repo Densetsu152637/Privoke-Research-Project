@@ -6,7 +6,7 @@
 
 > Ensure within the paper that every source is referenced properly as well, and comment out sources (do not delete them) or document them external to the document so that future agents can restore them for a version of the paper that is not bound by such strict formatting requirements
 
-This editorial index uses the external-document option. All 81 source-pool records remain intact in their original BibTeX files: **17 active numbered references, three model cards linked in one footnote, 60 deferred sources and one IEEEtran formatting control**. No source was deleted or disabled. The paper prints only sources it cites; deferred sources need no `\nocite{*}` and are not silently treated as support for current claims. This guide is for future editing, not an appendix, supplementary evidence or a substitute for definitions/results required in the self-contained paper.
+This editorial index uses the external-document option. All 81 source-pool records remain intact in their original BibTeX files: **19 active numbered references, three model cards linked in one footnote, 58 deferred sources and one IEEEtran formatting control** (current external-version use, 18 October 2026). No source was deleted or disabled. The paper prints only sources it cites; deferred sources need no `\nocite{*}` and are not silently treated as support for current claims. This guide is an editorial source index. The 18 October external version permits appendices; definitions and empirical findings still belong in the manuscript.
 
 The [metadata audit](bibliography-audit-20261017.md) and [export receipts](bibliography-audit-sources-20261017.json) remain authoritative for corrected metadata and access limits. This follow-up checks claim attribution, source usage and restoration paths. It neither reruns experiments nor grants permission to restore excluded empirical studies.
 
@@ -16,11 +16,11 @@ The [metadata audit](bibliography-audit-20261017.md) and [export receipts](bibli
 2. Find the key below and inspect its original database record and metadata-audit limits. Recheck the precise version and the source passage supporting the proposed sentence. A historical citation is evidence of past use, not proof that its old claim was sound.
 3. Recover historical prose with `git show <full-commit>:paper/main.tex`, using the section and key below. Reuse only the supported, currently relevant part; do not revert the manuscript or bibliography to an old snapshot. The recorded commit is the first matching revision in the all-ref, date-ordered traversal, not a claim that it lies on the current first-parent branch.
 4. Add `\cite{theExactKey}` next to the supported claim. For model cards, retain the pinned URL/revision; switch a footnote to a numbered citation only when that version’s formatting permits. Prefer scholarly publication keys over duplicate institutional-abstract locator keys when citing the same work.
-5. Update this map so every record is still assigned exactly one role. Preserve every BibTeX entry and its corrected metadata, including entries that remain deferred. Compile LaTeX/BibTeX, check all labels and references, and inspect the PDF against the then-authorized page limit.
+5. Update this map so every record is still assigned exactly one role. Preserve every BibTeX entry and its corrected metadata, including entries that remain deferred. Compile LaTeX/BibTeX, check all labels and references, and inspect the PDF against the then-authorized format; there is currently no page limit.
 
 ## Active claim attribution
 
-All citation occurrences were checked, grouped by the 17 unique keys below. The only rendered wording correction distinguishes reported workplace incidents from company warnings in the introduction. Citation keys and ordering are unchanged. The three-source opening group supplies broad writing/analysis and confidentiality context; it is not evidence of a quantitative adoption rate or a performance claim.
+The 17 October attribution check covered the original 17 unique keys below; the two reintroduced keys are verified in the 18 October update below. That revision's only rendered wording correction distinguished reported workplace incidents from company warnings in the introduction. Citation keys and ordering were unchanged at that revision. The three-source opening group supplies broad writing/analysis and confidentiality context; it is not evidence of a quantitative adoption rate or a performance claim.
 
 | Key | Current location | Supporting source and attribution boundary |
 | --- | --- | --- |
@@ -50,7 +50,7 @@ Database paths are relative to `paper/`: **R** = `ref.bib` (76 entries); **P** =
 
 History method: `git log --all --date-order --format=%H -- paper/main.tex`, then `git show <SHA>:paper/main.tex`; scan citation commands after removing line comments, recording the surrounding section. This examined **68 manuscript revisions** and found **74 distinct historically cited source keys**, all present in the pool: 17 active + three footnote cards + 54 deferred. Six deferred sources have no citation in that history; the control is not a scholarly citation. No unknown historical key was discarded. Historical section names are locators, not restoration instructions.
 
-### Active numbered references (17)
+### Active numbered references (19)
 
 | Key / source identity | Database | Current use or restoration topic | Last historical citation location |
 | --- | --- | --- | --- |
@@ -71,6 +71,8 @@ History method: `git log --all --date-order --format=%H -- paper/main.tex`, then
 | `ErlingssonRappor2014` — [{RAPPOR}: Randomized Aggregatable Privacy-Preserving Ordinal Response](https://research.google/pubs/rappor-randomized-aggregatable-privacy-preserving-ordinal-response/) | R | Related Work; Discussion / Measurement Boundaries and Next Steps | `249aa0a90040b1d02f31ed15d5a1ab5acbe1caeb`; Related Work and Contribution; Measurement Boundaries and Next Steps |
 | `DworkRothFoundations2014` — The Algorithmic Foundations of Differential Privacy | R | System Design / Separate Randomized Telemetry (two occurrences) | `249aa0a90040b1d02f31ed15d5a1ab5acbe1caeb`; Separate Randomized Telemetry |
 | `CasperPreprintV12024` — [Casper: Prompt Sanitization for Protecting User Privacy in Web-Based Large Language Models](https://arxiv.org/abs/2408.07004v1) | L | Introduction; Related Work; Discussion / What the System Evidence Supports | `249aa0a90040b1d02f31ed15d5a1ab5acbe1caeb`; Introduction; Related Work and Contribution; What the System Evidence Supports |
+| `Llama2023` — [{LLaMA}: Open and Efficient Foundation Language Models](https://arxiv.org/abs/2302.13971) | R | Introduction: research-release precedent for separate model deployment, without a hosted/local capability ranking. | `d72075b35240b96a16cd062d5d3d91b0189d6f74`; Large Language Models and Prompt-Based Interaction |
+| `priyanshu2023chatbots` — [Are chatbots ready for privacy-sensitive applications? an investigation into input regurgitation and prompt-induced sanitization](https://arxiv.org/abs/2305.15008) | R | Introduction: prompt input regurgitation and instructed output sanitization, distinguished from pre-transmission control. | `2b5cf75149d146d73a8ba1227c936c444b75c9f9`; Introduction |
 
 ### Linked model-card references (3)
 
@@ -80,7 +82,7 @@ History method: `git log --all --date-order --format=%H -- paper/main.tex`, then
 | `googleBertL2H256A4` — [{BERT Miniatures: google/bert\_uncased\_L-2\_H-256\_A-4 model card}](https://huggingface.co/google/bert_uncased_L-2_H-256_A-4/blob/4e937a8675e5afd9a4836735c186ec01695bc3ea/README.md) | R | Pinned BERT card linked in the Local Inspection and Request Enforcement footnote; URL/revision matches this record. Retain artifact identity if converted back to a numbered citation. | `289910715a004a0b3c81a222452bf0f7c4ba1f05`; Local Inspection and Request Enforcement |
 | `googleBertL12H256A4` — [{BERT Miniatures: google/bert\_uncased\_L-12\_H-256\_A-4 model card}](https://huggingface.co/google/bert_uncased_L-12_H-256_A-4/blob/2ab9a0f41435a4d23d4cbc11cc3e7c922545f13d/README.md) | R | Pinned BERT card linked in the Local Inspection and Request Enforcement footnote; URL/revision matches this record. Retain artifact identity if converted back to a numbered citation. | `289910715a004a0b3c81a222452bf0f7c4ba1f05`; Local Inspection and Request Enforcement |
 
-### Deferred sources retained for future use (60)
+### Deferred sources retained for future use (58)
 
 | Key / source identity | Database | Current use or restoration topic | Last historical citation location |
 | --- | --- | --- | --- |
@@ -90,14 +92,12 @@ History method: `git log --all --date-order --format=%H -- paper/main.tex`, then
 | `CasperAbstract2026` — [Casper: Prompt Sanitization for Protecting User Privacy in Web-Based Large Language Models](https://researchwith.njit.edu/en/publications/casper-prompt-sanitization-for-protecting-user-privacy-in-web-bas/) | R | Published Casper version identity; use its 2025 abstract separately from the 2024 prototype. | `5e6b649b9a80872ed3b84a3d8f8ec9945887c163`; Related-System Interaction Detail |
 | `PromptShieldAbstract2026` — [{PromptShield}: Policy-Aware {DLP} Framework for Generative {AI} Prompts](https://research.itu.edu.tr/en/publications/promptshield-policy-aware-dlp-framework-for-generative-al-prompts/) | R | Institutional abstract locator for policy-aware enterprise protection; prefer the conference key for scholarly attribution. | `5e6b649b9a80872ed3b84a3d8f8ec9945887c163`; Related-System Interaction Detail |
 | `kelecspromptshield` — [{PROMPTSHIELD}: Policy-Aware Data Loss Prevention Framework for Generative AI Prompts](https://web.itu.edu.tr/bahtiyars/SB-Students.html) | R | Thesis background on policy-aware DLP; verify thesis availability and month before making detailed claims. | `d72075b35240b96a16cd062d5d3d91b0189d6f74`; Privacy Risks in External LLM Systems |
-| `priyanshu2023chatbots` — [Are chatbots ready for privacy-sensitive applications? an investigation into input regurgitation and prompt-induced sanitization](https://arxiv.org/abs/2305.15008) | R | Input regurgitation and prompt-induced sanitization background. | `2b5cf75149d146d73a8ba1227c936c444b75c9f9`; Introduction |
 | `tamkin2024clio` — [{Clio}: Privacy-Preserving Insights into Real-World {AI} Use](https://arxiv.org/abs/2412.13678) | R | Privacy-preserving analysis of AI usage; distinguish its analysis mechanism from PriVoke telemetry. | `2b5cf75149d146d73a8ba1227c936c444b75c9f9`; Introduction |
 | `barbera2025ai` — [{AI Privacy Risks \& Mitigations -- Large Language Models (LLMs)}](https://www.edpb.europa.eu/system/files/2025-04/ai-privacy-risks-and-mitigations-in-llms.pdf) | R | Broader taxonomy of LLM privacy risks and mitigations. | `5e6b649b9a80872ed3b84a3d8f8ec9945887c163`; Introduction |
 | `Crane2025` — [Measuring AI Uptake in the Workplace](https://www.federalreserve.gov/econres/notes/feds-notes/measuring-ai-uptake-in-the-workplace-20240205.html) | R | Workplace adoption context; preserve the source date despite the citation key year. | `2b5cf75149d146d73a8ba1227c936c444b75c9f9`; Introduction |
 | `Zahra2025` — [New report shows Aussies embracing AI in the workplace - Tech Council of Australia](https://techcouncil.com.au/newsroom/new-report-shows-aussies-embracing-ai-in-the-workplace/) | R | Australian workplace adoption context; resolve the audit byline limit before attribution. | `2b5cf75149d146d73a8ba1227c936c444b75c9f9`; Introduction |
 | `Athey2017` — [The Digital Privacy Paradox: Small Money, Small Costs, Small Talk](https://www.nber.org/papers/w23488) | R | Privacy preferences and behavior; do not infer PriVoke user benefit from this study. | `5e6b649b9a80872ed3b84a3d8f8ec9945887c163`; Introduction |
 | `King2025` — [User Privacy and Large Language Models: An Analysis of Frontier Developers' Privacy Policies](https://arxiv.org/abs/2509.05382) | R | Developer privacy policies and disclosure boundaries; keep the September preprint distinct from the later proceedings. | `5e6b649b9a80872ed3b84a3d8f8ec9945887c163`; Introduction |
-| `Llama2023` — [{LLaMA}: Open and Efficient Foundation Language Models](https://arxiv.org/abs/2302.13971) | R | Open foundation-model background; not the identity of PriVoke BERT packages. | `d72075b35240b96a16cd062d5d3d91b0189d6f74`; Large Language Models and Prompt-Based Interaction |
 | `Florian2025` — [The Number of Parameters of GPT-4o and Claude 3.5 Sonnet](https://aiexpjourney.substack.com/p/the-number-of-parameters-of-gpt-4o) | R | Commentary on model-size estimates; do not treat unconfirmed parameter counts as authoritative specifications. | `2b5cf75149d146d73a8ba1227c936c444b75c9f9`; Introduction |
 | `MEDEC2024` — [{MEDEC}: A Benchmark for Medical Error Detection and Correction in Clinical Notes](https://aclanthology.org/2025.findings-acl.1159/) | R | Medical error detection example; not privacy-policy ground truth or PriVoke validation. | `2b5cf75149d146d73a8ba1227c936c444b75c9f9`; Introduction |
 | `LearnMicrosoft2026` — [Quarantine noncompliant agents with the Power Platform API](https://learn.microsoft.com/en-us/microsoft-copilot-studio/admin-api-quarantine) | R | Enterprise agent-governance background; original publication month remains unverified. | No scholarly citation found in the scanned manuscript history. |
@@ -151,7 +151,7 @@ History method: `git log --all --date-order --format=%H -- paper/main.tex`, then
 | --- | --- | --- | --- |
 | `IEEEexample:BSTcontrol` — IEEEtran formatting control | R | Invoked by `\bstctlcite{IEEEexample:BSTcontrol}`; preserve style settings, never cite as scientific evidence. | No scholarly citation found in the scanned manuscript history. |
 
-## Validation record
+## Historical validation record, 17 October 2026
 
 The inventory was derived from the four database files, current citation commands, exact model-card footnote URLs and the history traversal above. The role sets are disjoint and cover all 81 keys. All 17 active keys resolve; all three footnote URLs retain their pinned revisions. The four bibliography databases are byte-unchanged from the input commit. No numerical results, empirical scope, citation order or formatting rules changed.
 
@@ -160,3 +160,11 @@ Native MiKTeX validation in `evaluation/results/citation_map_20261017` passed: `
 The rebuilt PDF has **10 pages and 17 numbered references**, with the exact prior key-to-number mapping. Extracted text on pages 2–10 matches the input PDF; only page 1 contains the intended wording correction. Page 1 was rendered with Poppler and visually inspected: the revised sentence, citations [4], [5], columns and footer fit without clipping or overlap. No new full-document visual review is claimed. `git diff --check` passed. Final PDF SHA-256: `690f3ce69fb63ddf3c33e228189137bb9075302289abc63810119ff50c09cdb2`.
 
 The working inventory and detailed build logs remain in the ignored validation directory. The complete durable key/status/history index is this guide; its history is recoverable through the exact Git commands above. No datasets, models, scoring runs or external-system writes were involved.
+
+## External-version update, 18 October 2026
+
+The current rewrite restores `Llama2023` and `priyanshu2023chatbots` from the deferred pool into the introduction. Both original arXiv abstracts were opened on 18 October: [LLaMA](https://arxiv.org/abs/2302.13971) supports the existence of released foundation models for separate deployment; [Priyanshu et al.](https://arxiv.org/abs/2305.15008) supports input regurgitation and instructed output sanitization. Neither is used for a new numerical result, a universal hosted/local capability claim, or current provider-policy claims. Their already-corrected BibTeX entries are unchanged.
+
+The expanded introduction also uses the existing `turc2019WellReadStudents` citation to motivate compact-model configuration; the new browser appendix uses existing `LinuxCgroupV2Interfaces2026` for the resource definition. Existing claims and citation identities remain. Their numeric positions change with first appearance, as required by the conference bibliography. The three linked pinned model-card references remain intact.
+
+The 33c5bf93 internal-to-external transition emptied `ref.bib`. This rewrite restores it byte-for-byte from that commit's parent, retaining all 76 records and metadata corrections. The other databases supply five further records: the complete pool remains 81 unique keys, partitioned as 19 numbered, three linked footnotes, 58 deferred, and one formatting control. The historical validation above remains a snapshot of the 17 October version. Current build and inspection evidence is recorded in [LONG22](external-version-expansion-20261018.md).

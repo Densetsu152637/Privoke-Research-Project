@@ -1,5 +1,9 @@
 # Local development evidence package
 
+## External manuscript expansion - 18 October 2026
+
+[LONG22](external-version-expansion-20261018.md) restores the original conference layout and four authors, removes the page cap, reintroduces scoped methodological appendices, merges historical explanation with the current refactors, and restores the corrected 81-source pool. No experiments are rerun and the seven-unit empirical scope remains fixed.
+
 ## Bibliography audit - 17 October 2026
 
 [BIBREST19](bibliography-audit-20261017.md) records the complete catalog/history check, primary-source metadata corrections, official BibTeX exports, access limits and PDF validation. It changes no empirical claims.
