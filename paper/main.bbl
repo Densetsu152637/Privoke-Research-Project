@@ -39,10 +39,13 @@ W.~Liang, Y.~Zhang, M.~Codreanu, J.~Wang, H.~Cao, and J.~Zou, ``The widespread
 \BIBentrySTDinterwordspacing
 
 \bibitem{koraag2025comparing}
+\BIBentryALTinterwordspacing
 T.~Koraag, N.~Wagner, F.~Dobslaw, and L.~Gren, ``Comparing open-source and
   commercial {LLMs} for domain-specific analysis and reporting: Software
   engineering challenges and design trade-offs,'' \emph{arXiv preprint
-  arXiv:2509.24344}, 2025.
+  arXiv:2509.24344}, 2025. [Online]. Available:
+  \url{https://arxiv.org/abs/2509.24344}
+\BIBentrySTDinterwordspacing
 
 \bibitem{SamsungBans2023}
 \BIBentryALTinterwordspacing
@@ -59,11 +62,36 @@ J.~Dastin and A.~Tong, ``Focus: Google, one of {AI}'s biggest backers, warns
   \url{https://www.reuters.com/technology/google-one-ais-biggest-backers-warns-own-staff-about-chatbots-2023-06-15/}
 \BIBentrySTDinterwordspacing
 
+\bibitem{Llama2023}
+\BIBentryALTinterwordspacing
+H.~Touvron, T.~Lavril, G.~Izacard, X.~Martinet, M.-A. Lachaux, T.~Lacroix,
+  B.~Rozi{\`e}re, N.~Goyal, E.~Hambro, F.~Azhar, A.~Rodriguez, A.~Joulin,
+  E.~Grave, and G.~Lample, ``{LLaMA}: Open and efficient foundation language
+  models,'' 02 2023. [Online]. Available:
+  \url{https://arxiv.org/abs/2302.13971}
+\BIBentrySTDinterwordspacing
+
+\bibitem{priyanshu2023chatbots}
+\BIBentryALTinterwordspacing
+A.~Priyanshu, S.~Vijay, A.~Kumar, R.~Naidu, and F.~Mireshghallah, ``Are
+  chatbots ready for privacy-sensitive applications? an investigation into
+  input regurgitation and prompt-induced sanitization,'' \emph{arXiv preprint
+  arXiv:2305.15008}, 2023. [Online]. Available:
+  \url{https://arxiv.org/abs/2305.15008}
+\BIBentrySTDinterwordspacing
+
 \bibitem{NissenbaumContextualIntegrity2004}
 \BIBentryALTinterwordspacing
 H.~Nissenbaum, ``Privacy as contextual integrity,'' \emph{Washington Law
   Review}, vol.~79, no.~1, pp. 119--158, 2004. [Online]. Available:
   \url{https://digitalcommons.law.uw.edu/wlr/vol79/iss1/10/}
+\BIBentrySTDinterwordspacing
+
+\bibitem{turc2019WellReadStudents}
+\BIBentryALTinterwordspacing
+I.~Turc, M.-W. Chang, K.~Lee, and K.~Toutanova, ``Well-read students learn
+  better: On the importance of pre-training compact models,'' 2019. [Online].
+  Available: \url{https://arxiv.org/abs/1908.08962}
 \BIBentrySTDinterwordspacing
 
 \bibitem{YanPositiveCongruent2021}
@@ -85,10 +113,11 @@ C.~J. Chong, C.~Hou, Z.~Yao, and S.~M.~S. Talebi, ``Casper: Prompt sanitization
 
 \bibitem{Casper2024}
 \BIBentryALTinterwordspacing
-------, ``Casper: Prompt sanitization for protecting user privacy in web-based
-  large language models,'' in \emph{2025 IEEE 12th International Conference on
-  Cyber Security and Cloud Computing (CSCloud)}, 2025, pp. 122--131, related
-  preprint: arXiv:2408.07004v1. [Online]. Available:
+C.~J. Chong, C.~Hou, Z.~Yao, and S.~M.~S. Talebi, ``Casper: Prompt sanitization
+  for protecting user privacy in web-based large language models,'' in
+  \emph{2025 IEEE 12th International Conference on Cyber Security and Cloud
+  Computing (CSCloud)}, 2025, pp. 122--131, related preprint:
+  arXiv:2408.07004v1. [Online]. Available:
   \url{https://doi.org/10.1109/CSCloud66326.2025.00027}
 \BIBentrySTDinterwordspacing
 
@@ -108,10 +137,10 @@ Z.~Shen, Z.~Xi, Y.~He, W.~Tong, J.~Hua, and S.~Zhong, ``The fire thief is also
 
 \bibitem{PromptShield2025}
 \BIBentryALTinterwordspacing
-E.~Keles and S.~Bahtiyar, ``{PromptShield}: Policy-aware {DLP} framework for
-  generative {AI} prompts,'' in \emph{2025 10th International Conference on
-  Computer Science and Engineering (UBMK)}, 2025, pp. 1537--1542, distinct
-  conference publication record; relationship to the 2026 thesis not
+E.~Kele{\c{s}} and {\c{S}}.~Bahtiyar, ``{PromptShield}: Policy-aware {DLP}
+  framework for generative {AI} prompts,'' in \emph{2025 10th International
+  Conference on Computer Science and Engineering (UBMK)}, 2025, pp. 1537--1542,
+  distinct conference publication record; relationship to the 2026 thesis not
   established. [Online]. Available:
   \url{https://doi.org/10.1109/UBMK67458.2025.11206862}
 \BIBentrySTDinterwordspacing
@@ -121,39 +150,8 @@ E.~Keles and S.~Bahtiyar, ``{PromptShield}: Policy-aware {DLP} framework for
 {\'U}.~Erlingsson, V.~Pihur, and A.~Korolova, ``{RAPPOR}: Randomized
   aggregatable privacy-preserving ordinal response,'' in \emph{Proceedings of
   the 2014 ACM SIGSAC Conference on Computer and Communications Security},
-  2014. [Online]. Available:
+  2014, pp. 1054--1067. [Online]. Available:
   \url{https://research.google/pubs/rappor-randomized-aggregatable-privacy-preserving-ordinal-response/}
-\BIBentrySTDinterwordspacing
-
-\bibitem{googleBertL4H128A2}
-\BIBentryALTinterwordspacing
-``{BERT Miniatures: google/bert\_uncased\_L-4\_H-128\_A-2 model card},'' pinned
-  revision c29bee83fc7f003ac8c5e6e135529da4ecddb7c3; Apache-2.0 declaration;
-  accessed October 12, 2026. [Online]. Available:
-  \url{https://huggingface.co/google/bert_uncased_L-4_H-128_A-2/blob/c29bee83fc7f003ac8c5e6e135529da4ecddb7c3/README.md}
-\BIBentrySTDinterwordspacing
-
-\bibitem{googleBertL2H256A4}
-\BIBentryALTinterwordspacing
-``{BERT Miniatures: google/bert\_uncased\_L-2\_H-256\_A-4 model card},'' pinned
-  revision 4e937a8675e5afd9a4836735c186ec01695bc3ea; Apache-2.0 declaration;
-  accessed October 12, 2026. [Online]. Available:
-  \url{https://huggingface.co/google/bert_uncased_L-2_H-256_A-4/blob/4e937a8675e5afd9a4836735c186ec01695bc3ea/README.md}
-\BIBentrySTDinterwordspacing
-
-\bibitem{googleBertL12H256A4}
-\BIBentryALTinterwordspacing
-``{BERT Miniatures: google/bert\_uncased\_L-12\_H-256\_A-4 model card},''
-  pinned revision 2ab9a0f41435a4d23d4cbc11cc3e7c922545f13d; Apache-2.0
-  declaration; accessed October 12, 2026. [Online]. Available:
-  \url{https://huggingface.co/google/bert_uncased_L-12_H-256_A-4/blob/2ab9a0f41435a4d23d4cbc11cc3e7c922545f13d/README.md}
-\BIBentrySTDinterwordspacing
-
-\bibitem{turc2019WellReadStudents}
-\BIBentryALTinterwordspacing
-I.~Turc, M.-W. Chang, K.~Lee, and K.~Toutanova, ``Well-read students learn
-  better: On the importance of pre-training compact models,'' 2019. [Online].
-  Available: \url{https://arxiv.org/abs/1908.08962}
 \BIBentrySTDinterwordspacing
 
 \bibitem{DworkRothFoundations2014}
