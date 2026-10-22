@@ -13,6 +13,8 @@ from privoke_model.contextual_training import training_policy_expectations, trai
 
 ROOT = Path(__file__).resolve().parents[3]
 BANK = ROOT / "evaluation/results/iterative_fuzzer_20261011/train-sensitive-retention/approved-train-bank.json"
+# The approved bank lives under ignored local results; clean checkouts (CI) skip bank-backed contracts.
+requires_bank = unittest.skipUnless(BANK.is_file(), "Approved TRAIN bank is local-only evaluation data.")
 
 
 def manufactured_release():
@@ -51,6 +53,7 @@ class RetentionContractTests(unittest.TestCase):
         artifact["parameters"]["manufactured"]["values"][0] = .2
         self.assertEqual(effective["manufactured"][0], float32(.1))
 
+    @requires_bank
     def test_approved_bank_has_one_real_lf_and_rejects_text_target_metadata_reordering(self):
         payload = BANK.read_bytes()
         rows = retention.validate_bank(payload)
@@ -84,6 +87,7 @@ class RetentionContractTests(unittest.TestCase):
             "expected_contextual_training_scope": "full_encoder", "expected_full_projected_adam_config_v1": canonical(CONFIG)})
         self.assertEqual(json.loads(training_admission_metadata(old)[0][1])["schema"], 3)
 
+    @requires_bank
     def test_reference_strict_boundaries_and_twenty_group_coverage(self):
         release, teacher = manufactured_release()
         bank = retention.validate_bank(release.bank_payload)
@@ -100,6 +104,7 @@ class RetentionContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "every20"):
             retention.validate_references(retention.canonical_bytes(refs), bank, teacher)
 
+    @requires_bank
     def test_immutable_reference_baseline_and_profile_pins_before_any_model_access(self):
         release, teacher = manufactured_release()
         with patch.object(retention, "teacher_identity", return_value=teacher):
@@ -123,6 +128,7 @@ class RetentionContractTests(unittest.TestCase):
                     retention.teacher_identity(path, "quality")
                 loader.assert_not_called()
 
+    @requires_bank
     def test_recomputed_forged_baseline_manifest_does_not_replace_independent_trusted_pin(self):
         release, teacher = manufactured_release()
         refs = json.loads(release.reference_payload)
