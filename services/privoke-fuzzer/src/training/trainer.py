@@ -4,36 +4,13 @@ import math
 import os
 import random
 from collections.abc import Iterable, Sequence
-from pathlib import Path
 
 from privoke_service import env_float, env_string
 from privoke_model.training_data import training_text_key
 from runtime_client import PrivokeRuntimeClient
 
-from .io import load_training_examples
 from .transforms import random_pii_transform
 from .types import BatchTrainingConfig, BatchTrainingExample, BatchTrainingUpdate
-
-
-def train_parameter_batch_from_files(
-    model_id: str,
-    batch_path: str | Path,
-    golden_batch_path: str | Path | None = None,
-    config: BatchTrainingConfig | None = None,
-    runtime_client: PrivokeRuntimeClient | None = None,
-) -> BatchTrainingUpdate:
-    golden_examples = (
-        load_training_examples(golden_batch_path)
-        if golden_batch_path is not None
-        else []
-    )
-    return train_parameter_batch(
-        model_id=model_id,
-        new_examples=load_training_examples(batch_path),
-        golden_examples=golden_examples,
-        config=config,
-        runtime_client=runtime_client,
-    )
 
 
 def train_parameter_batch(
