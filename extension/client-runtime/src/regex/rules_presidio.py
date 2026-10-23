@@ -90,7 +90,6 @@ DATE_SHORT_PATTERN_NAMES = ("mm/yy or m/yy",)
 DATE_CONTEXT_WORDS = (
     "date", "dated", "expiry", "expires", "expiration", "exp", "valid", "due",
     "born", "birth", "birthday", "dob", "issued", "since", "until", "deadline",
-    "month", "year",
 )
 
 

@@ -96,8 +96,8 @@ def identity_rules() -> List[RuleDefinition]:
         RuleDefinition(
             "structured_identity",
             r"\b(?:(?:name|username|user|handle|account|login|email|location|address)\s*[:=][ \t]*"
-            r"|phone\s*[:=][ \t]*(?=\d))"
-            r"[\w\.\-@]+(?:[ \t]+[\w\.\-@]+){0,4}",
+            r"|phone\s*[:=][ \t]*(?=[+(\d]))"
+            r"[+(]?[\w\.\-@]+\)?(?:[ \t]+[+(]?[\w\.\-@]+\)?){0,4}",
             initialise_unpacked(Sensitivity.S2, Visibility.P2, [Category.IDENTITY]),
             "structured_field",
         ),

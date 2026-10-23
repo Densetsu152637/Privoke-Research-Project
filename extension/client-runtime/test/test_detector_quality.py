@@ -11,6 +11,7 @@ for path in (PACKAGE_ROOT, SHARED_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
+from src.detection.preprocessing import normalize_text
 from src.regex.rule_detector import RuleDetector
 
 
@@ -100,7 +101,9 @@ class DetectorQualityTests(unittest.TestCase):
         self.assertIn("password_assignment", rule_names)
 
     def _rules(self, text: str) -> set[str]:
-        return {result.metadata.get("rule_name") for result in self.detector.analyze(text)}
+        # Production feeds the detector canonical (lowercased, collapsed) text.
+        return {result.metadata.get("rule_name")
+                for result in self.detector.analyze(normalize_text(text))}
 
     def _assert_not_fires(self, rule: str, texts) -> None:
         for text in texts:
@@ -123,14 +126,19 @@ class DetectorQualityTests(unittest.TestCase):
             "Explain how family law treats custody.", "What does a mother bird feed its chicks?"))
         self._assert_fires("family_disclosure", (
             "My wife is travelling this week.", "Our family moved last year.",
-            "Her youngest son plays football."))
+            "Her youngest son plays football.", "My ex-wife has the weekend schedule.",
+            "My soon-to-be ex-husband moved out.", "Our step-daughter visits often."))
+        # Non-possessive self-statements ("I have two kids") are intentionally not matched.
+        self._assert_not_fires("family_disclosure", ("I have two kids and a dog.",))
 
     def test_financial_keyword_requires_a_personal_financial_state_noun(self):
         self._assert_not_fires("financial_keyword", (
-            "Can you reset my account settings?", "I need to check my credit score rules.",
-            "Which bank offers the best savings rate?"))
+            "Can you reset my account settings?", "Explain how credit scoring models work.",
+            "Which bank offers the best savings rate?", "Please close my bank.", "Update my account."))
         self._assert_fires("financial_keyword", (
-            "My mortgage payment went up.", "Their debt is growing.", "I should review my loan terms."))
+            "My mortgage payment went up.", "Their debt is growing.", "I should review my loan terms.",
+            "My monthly salary changed.", "Please check my credit score.", "My savings are low.",
+            "My bank balance dropped.", "Her net worth is private."))
 
     def test_child_requires_a_possessive_or_a_minor_age(self):
         self._assert_not_fires("child", (
@@ -139,19 +147,25 @@ class DetectorQualityTests(unittest.TestCase):
         self._assert_fires("child", (
             "My daughter starts school soon.", "Their 8-year-old son needs a checkup.",
             "The player is aged 12."))
+        self._assert_fires("child", ("The 9-year-old girl joined the swim class.", "Our 6-year-old needs a ride."))
+        self._assert_not_fires("child", (
+            "This 5-year-old laptop keeps freezing.", "A 2-year-old codebase needs a rewrite.",
+            "The 3 year old server is being retired."))
 
     def test_location_needs_a_place_name_after_the_connector(self):
         self._assert_not_fires("location_keyword", (
-            "Please do not share my address or anything else.",
+            "Keep my address or any other detail out of the summary.",
             "I live in the middle of a busy schedule.", "Is my address in or out of scope?"))
         self._assert_fires("location_keyword", (
-            "My address is Brisbane.", "I live in Perth.", "my location in Hobart"))
+            "My address is Brisbane.", "I live in Perth.", "my location in Hobart",
+            "I live on Elm Street."))
 
     def test_structured_identity_value_is_one_short_line(self):
         self._assert_not_fires("structured_identity", (
             "Name:\nthe following paragraph explains the background in much more detail than needed here",
             "Phone: iPhone 14 is the model I am comparing"))
-        self._assert_fires("structured_identity", ("Name: Alex Morgan", "username: alex_m", "Phone: 555 0101"))
+        self._assert_fires("structured_identity", ("Name: Alex Morgan", "username: alex_m", "Phone: 555 0101",
+            "Phone: +61 400 000 000", "Phone: (555) 010 0101"))
         long_value = "name: one two three four five six seven eight nine"
         matched = [result.section_of_text for result in self.detector.analyze(long_value)
                    if result.metadata.get("rule_name") == "structured_identity"]
@@ -160,7 +174,7 @@ class DetectorQualityTests(unittest.TestCase):
     def test_driver_licence_alphanumeric_needs_digits_or_licence_context(self):
         rule = "presidio_uslicenserecognizer_driver license - alphanumeric (weak)"
         self._assert_not_fires(rule, (
-            "The main cost driver is a1 for this model.", "Part code B12 ships Monday."))
+            "The biggest driver of churn is q1 pricing.", "Part code B12 ships Monday."))
         self._assert_fires(rule, (
             "Licence number: D12 on file.", "Reference B1234567 was recorded."))
 
@@ -169,6 +183,8 @@ class DetectorQualityTests(unittest.TestCase):
         self._assert_not_fires("presidio_creditcardrecognizer_all credit cards (weak)",
                                ("Order 1234 5678 9012 3456 shipped.",))
         self._assert_fires("credit_card", ("Card 4111 1111 1111 1111 expires soon.",))
+        self._assert_fires("presidio_creditcardrecognizer_all credit cards (weak)",
+                           ("Card 4111 1111 1111 1111 expires soon.",))
 
     def test_iban_needs_a_valid_mod97_checksum(self):
         self._assert_not_fires("iban", ("Use code ab12cd for the promotion.", "Lookup xy99zz7 later."))
@@ -184,13 +200,15 @@ class DetectorQualityTests(unittest.TestCase):
         self._assert_fires(nhs, ("Reference 943 476 5919 was logged.",))
 
     def test_ssn_needs_an_issuable_area_group_and_serial(self):
+        self._assert_not_fires("presidio_usssnrecognizer_ssn5 (medium)", ("Ref 000-12-3456 here.", "Ref 666-12-3456 here.",
+                                                                          "Ref 912-34-5678 here."))
         self._assert_not_fires("ssn_formatted", ("Ref 000-12-3456 here.", "Ref 123-00-6789 here.",
                                                  "Ref 123-45-0000 here.", "Ref 666-12-3456 here."))
         self._assert_fires("ssn_formatted", ("Her SSN is 123-45-6789.",))
 
     def test_short_numeric_dates_need_date_context(self):
         rule = "presidio_daterecognizer_mm/yy or m/yy"
-        self._assert_not_fires(rule, ("The film scored 7/10 for me.",))
+        self._assert_not_fires(rule, ("The film scored 7/10 for me.", "Rate this 8/10 for the year."))
         self._assert_fires(rule, ("The card expires 07/27.",))
 
     def test_password_placeholders_are_not_credentials(self):

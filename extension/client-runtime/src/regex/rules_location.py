@@ -42,7 +42,7 @@ def location_rules() -> List[RuleDefinition]:
         ),
         RuleDefinition(
             "license_plate",
-            r"\b(?:license\s+plate|plate)\s*[:#=]?\s*[A-Z]{2,4}[-\s]?\d{3,4}\b|\b(?!(?:rfc|cve|iso|iec|ieee|ansi|nist|bcp|std)-)[A-Z]{3}-\d{4}\b",
+            r"\b(?:license\s+plate|plate)\s*[:#=]?\s*[A-Z]{2,4}[-\s]?\d{3,4}\b|\b(?!(?:rfc|cve|iso|iec|bcp|std)-)[A-Z]{3}-\d{4}\b",
             initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.LOCATION]),
             "license_plate",
         ),
@@ -51,9 +51,9 @@ def location_rules() -> List[RuleDefinition]:
             r"\b(?:(?:(?:i|we|he|she|they)\s+(?:(?:am|are|is)\s+)?"
             r"|(?:i['’]m|we['’]re|he['’]s|she['’]s|they['’]re)\s+)(?:currently\s+)?"
             r"(?:live|lives|living|located|from|(?:come|comes)\s+from|stay|staying|alone\s+tonight)"
-            r"\s+(?:in\s+|at\s+|near\s+)?"
+            r"\s+(?:in\s+|on\s+|at\s+|near\s+)?"
             r"|(?:my|our|his|her|their)\s+(?:home\s+)?(?:address|hometown|residence|location)"
-            r"\s*(?:is\s+|was\s+|[:=]\s*|(?:in|at|near)\s+)"
+            r"\s*(?:is\s+|was\s+|[:=]\s*|(?:in|on|at|near)\s+)"
             r"|(?:home\s+)?(?:address|hometown|residence)\s*[:=]\s*)"
             r"(?!(?:" + _CLOSED_CLASS_WORDS + r")\b)[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?",
             initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.LOCATION]),
