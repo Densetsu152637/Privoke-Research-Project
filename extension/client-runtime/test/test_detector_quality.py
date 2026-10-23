@@ -138,7 +138,7 @@ class DetectorQualityTests(unittest.TestCase):
         self._assert_fires("financial_keyword", (
             "My mortgage payment went up.", "Their debt is growing.", "I should review my loan terms.",
             "My monthly salary changed.", "Please check my credit score.", "My savings are low.",
-            "My bank balance dropped.", "Her net worth is private."))
+            "My bank balance dropped.", "My bank account balance is overdrawn.", "Her net worth is private."))
 
     def test_child_requires_a_possessive_or_a_minor_age(self):
         self._assert_not_fires("child", (

@@ -52,7 +52,7 @@ def financial_rules() -> List[RuleDefinition]:
         ),
         RuleDefinition(
             "financial_keyword",
-            r"\b(?:my|his|her|their)\s+(?:\w+\s+)?(?:salary|income|bonus|loan|mortgage|debt|investment|stock|crypto|bitcoin|ethereum|tax|paycheck|transaction|balance|savings|net\s+worth|credit\s+(?:score|history|report))\b",
+            r"\b(?:my|his|her|their)\s+(?:\w+\s+){0,2}(?:salary|income|bonus|loan|mortgage|debt|investment|stock|crypto|bitcoin|ethereum|tax|paycheck|transaction|balance|savings|net\s+worth|credit\s+(?:score|history|report))\b",
             initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.FINANCIAL]),
             "financial_info",
         ),
