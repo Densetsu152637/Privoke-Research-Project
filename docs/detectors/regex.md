@@ -11,6 +11,7 @@ This directory contains layer 1 of the PriVoke client-runtime detector pipeline:
 - `rule_detector.py`: compiles rules, collects matches, adds heuristics, deduplicates matches, and converts them to `ClassificationResult`.
 - `rule_types.py`: `RuleDefinition`, `CompiledRule`, and `RuleMatch`.
 - `rule_registry.py`: deterministic rule ordering.
+- `rule_validators.py`: checksum and context validators attached to rules.
 - `rule_heuristics.py`: synthetic matches derived from aggregate match/text properties.
 - `rules_visibility.py`: visibility-only cues.
 - `rules_identity.py`: direct and structured identity patterns.
@@ -41,11 +42,20 @@ Rules map directly to `Sensitivity`, `Visibility`, and `Category` values. They s
 
 ## Current Heuristics
 
-`rule_heuristics.py` adds synthetic matches for:
+`rule_heuristics.py` adds synthetic matches for (prompt length alone is not evidence and is never used):
 
-- prompts over 80 words, as `S1` `IDENTITY` personal narrative evidence,
 - two or more structured identity fields, as `S2` `IDENTITY`,
 - short prompts with high-confidence `S3` matches, as concentrated sensitive data.
+
+## Precision Rules
+
+- Kin terms and `family` (`family_disclosure`) need a possessive determiner (my/our/his/her/their), optionally with one modifier word. `child` needs a possessive plus child noun, or an age of 1-17 (`aged 9`, `9-year-old`); bare "student"/"minor" no longer count.
+- `financial_keyword` covers personal financial-state nouns only (salary, income, loan, mortgage, debt, balance and similar); "my account/credit/bank" alone does not.
+- `location_keyword` needs its connector (`live in`, `address is`, `address:`, `location in`) followed by a capture that is not a closed-class word (articles, pronouns, prepositions, conjunctions, auxiliaries).
+- `structured_identity` values stay on one line and capture at most five tokens; a `phone` label needs a digit-led value.
+- Validators reject shape-only hits: Luhn for card numbers, mod-97 for IBANs, mod-11 for NHS numbers, and issuable area/group/serial ranges for US SSNs (native and Presidio-derived rules). The Presidio alphanumeric driver-licence pattern needs five digits or a whole-word licence context term (`license`, `licence`, `lic`, `dl`, `cdl`); the ambiguous noun "driver" is not context. Context matching is word-bounded, never substring. The Presidio `mm/yy` date needs a date context word, so ratings like `7/10` do not match.
+- `password_assignment` ignores placeholder values (required, optional, none, null, true, false and similar); `social_handle` ignores chat mentions (`@here`, `@everyone`, `@channel`, `@all`); `license_plate` ignores standards identifiers such as `rfc-`, `cve-` and `iso-` numbers.
+- Known limit: the detector receives lowercased, normalised text, so capitalisation cannot gate proper nouns (`street_address`, `route_or_commute`, `vin`, `passport`). Fixing this needs the original-case text passed through `pipeline.py` and every layer's callable interface.
 
 ## Visibility Rules
 

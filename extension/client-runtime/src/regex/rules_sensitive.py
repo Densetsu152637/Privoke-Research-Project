@@ -33,7 +33,7 @@ def sensitive_category_rules() -> List[RuleDefinition]:
         ),
         RuleDefinition(
             "child",
-            r"\b(?:my\s+)?(?:child|children|kid|kids|son|daughter|minor|underage|schoolchild|student)\b|\b(?:age|aged)\s+(?:[1-9]|1[0-7])\b",
+            r"\b(?:my|our|his|her|their)\s+(?:[\w-]+\s+)?(?:child|children|kid|kids|son|daughter)\b|\b(?:age|aged)\s+(?:[1-9]|1[0-7])\b|\b(?:[1-9]|1[0-7])[\s-]*(?:year|yr)s?[\s-]*old\b",
             initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.CHILD]),
             "child_info",
         ),
