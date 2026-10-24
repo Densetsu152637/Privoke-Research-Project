@@ -151,6 +151,11 @@ class GlobalConfig:
     wait_for_regex: bool = field(
         default_factory=lambda: env_bool("PRIVOKE_WAIT_FOR_REGEX", True)
     )
+    # Ablation switch: regex and NER receive case-preserved normalized text.
+    # Semantic/LLM layers always receive lowercased text.
+    case_preserving_detectors: bool = field(
+        default_factory=lambda: env_bool("PRIVOKE_CASE_PRESERVING_DETECTORS", False)
+    )
     threadpool: ThreadPoolExecutor = field(
         default_factory=lambda: ThreadPoolExecutor(
             max_workers=multiprocessing.cpu_count()
