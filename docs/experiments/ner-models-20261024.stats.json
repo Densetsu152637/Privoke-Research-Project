@@ -1,0 +1,6616 @@
+{
+ "baseline": "sm-pf1",
+ "scope": "detector-layer (regex+NER); not LLM-only",
+ "comparisons": {
+  "gliner-core-t0.3-pf1": {
+   "tune": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 41,
+        "tn": 115,
+        "fp": 4,
+        "fn": 107
+       },
+       "new": {
+        "tp": 38,
+        "tn": 118,
+        "fp": 1,
+        "fn": 110
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": -0.020270270270270285,
+        "lo": -0.08053691275167785,
+        "hi": 0.040275258479956395
+       },
+       "specificity": {
+        "estimate": 0.025210084033613467,
+        "lo": -0.008849557522123908,
+        "hi": 0.06349206349206349
+       },
+       "f2": {
+        "estimate": -0.020711685869032492,
+        "lo": -0.08629267070929914,
+        "hi": 0.045679733145253434
+       },
+       "cost_4": {
+        "estimate": 0.03370786516853941,
+        "lo": -0.10145063746322328,
+        "hi": 0.1685393258426966
+       }
+      },
+      "flips": {
+       "fn_to_tp": 9,
+       "tp_to_fn": 12,
+       "fp_to_tn": 4,
+       "tn_to_fp": 1
+      },
+      "mcnemar_positives_p": 0.6636238098144531,
+      "mcnemar_negatives_p": 0.375,
+      "cluster_sign_positives_p": 0.6636238098144531,
+      "cluster_sign_negatives_p": 0.375
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       },
+       "new": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 118,
+        "tn": 113,
+        "fp": 6,
+        "fn": 30
+       },
+       "new": {
+        "tp": 114,
+        "tn": 116,
+        "fp": 3,
+        "fn": 34
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": -0.027027027027026973,
+        "lo": -0.06134969325153372,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.025210084033613467,
+        "lo": -0.008849557522123908,
+        "hi": 0.06349206349206349
+       },
+       "f2": {
+        "estimate": -0.020073122109194652,
+        "lo": -0.05069932883198265,
+        "hi": 0.00646123798036917
+       },
+       "cost_4": {
+        "estimate": 0.04868913857677909,
+        "lo": -0.018939393939393923,
+        "hi": 0.1287969641060046
+       }
+      },
+      "flips": {
+       "fn_to_tp": 1,
+       "tp_to_fn": 5,
+       "fp_to_tn": 4,
+       "tn_to_fp": 1
+      },
+      "mcnemar_positives_p": 0.21875,
+      "mcnemar_negatives_p": 0.375,
+      "cluster_sign_positives_p": 0.21875,
+      "cluster_sign_negatives_p": 0.375
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       },
+       "new": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "personalized": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 695,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 305
+       },
+       "new": {
+        "tp": 777,
+        "tn": 965,
+        "fp": 35,
+        "fn": 223
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.08200000000000007,
+        "lo": 0.06504065040650409,
+        "hi": 0.09970588889500862
+       },
+       "specificity": {
+        "estimate": -0.03500000000000003,
+        "lo": -0.046829616015101126,
+        "hi": -0.024108003857280624
+       },
+       "f2": {
+        "estimate": 0.0672075136971203,
+        "lo": 0.05194874626584844,
+        "hi": 0.08317080952085096
+       },
+       "cost_4": {
+        "estimate": -0.14649999999999996,
+        "lo": -0.183,
+        "hi": -0.11199999999999999
+       }
+      },
+      "flips": {
+       "fn_to_tp": 82,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 35
+      },
+      "mcnemar_positives_p": 4.1359030627651384e-25,
+      "mcnemar_negatives_p": 5.820766091346741e-11,
+      "cluster_sign_positives_p": 4.1359030627651384e-25,
+      "cluster_sign_negatives_p": 5.820766091346741e-11
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       },
+       "new": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 1000,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 0
+       },
+       "new": {
+        "tp": 1000,
+        "tn": 965,
+        "fp": 35,
+        "fn": 0
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": -0.03500000000000003,
+        "lo": -0.046829616015101126,
+        "hi": -0.024108003857280624
+       },
+       "f2": {
+        "estimate": -0.006951340615690138,
+        "lo": -0.009405029646289087,
+        "hi": -0.004758128469468659
+       },
+       "cost_4": {
+        "estimate": 0.0175,
+        "lo": 0.012,
+        "hi": 0.0235
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 35
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 5.820766091346741e-11,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 5.820766091346741e-11
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       },
+       "new": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   }
+  },
+  "gliner-core-t0.5-pf0": {
+   "tune": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 41,
+        "tn": 115,
+        "fp": 4,
+        "fn": 107
+       },
+       "new": {
+        "tp": 66,
+        "tn": 106,
+        "fp": 13,
+        "fn": 82
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.16891891891891891,
+        "lo": 0.07801188173528602,
+        "hi": 0.25874125874125875
+       },
+       "specificity": {
+        "estimate": -0.07563025210084029,
+        "lo": -0.1428571428571428,
+        "hi": -0.009433962264150941
+       },
+       "f2": {
+        "estimate": 0.1699822425817742,
+        "lo": 0.07590147624022464,
+        "hi": 0.2625658108287115
+       },
+       "cost_4": {
+        "estimate": -0.34082397003745313,
+        "lo": -0.544452736318408,
+        "hi": -0.1343215985290937
+       }
+      },
+      "flips": {
+       "fn_to_tp": 37,
+       "tp_to_fn": 12,
+       "fp_to_tn": 3,
+       "tn_to_fp": 12
+      },
+      "mcnemar_positives_p": 0.0004697573180081349,
+      "mcnemar_negatives_p": 0.03515625,
+      "cluster_sign_positives_p": 0.0004697573180081349,
+      "cluster_sign_negatives_p": 0.057373046875
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       },
+       "new": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 118,
+        "tn": 113,
+        "fp": 6,
+        "fn": 30
+       },
+       "new": {
+        "tp": 128,
+        "tn": 104,
+        "fp": 15,
+        "fn": 20
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.06756756756756765,
+        "lo": 0.0065778723770209616,
+        "hi": 0.12925170068027214
+       },
+       "specificity": {
+        "estimate": -0.07563025210084029,
+        "lo": -0.1428571428571428,
+        "hi": -0.009433962264150941
+       },
+       "f2": {
+        "estimate": 0.046725952951012784,
+        "lo": -0.007003667650606094,
+        "hi": 0.10000836463088522
+       },
+       "cost_4": {
+        "estimate": -0.11610486891385768,
+        "lo": -0.25746268656716415,
+        "hi": 0.025830258302583065
+       }
+      },
+      "flips": {
+       "fn_to_tp": 16,
+       "tp_to_fn": 6,
+       "fp_to_tn": 3,
+       "tn_to_fp": 12
+      },
+      "mcnemar_positives_p": 0.052478790283203125,
+      "mcnemar_negatives_p": 0.03515625,
+      "cluster_sign_positives_p": 0.052478790283203125,
+      "cluster_sign_negatives_p": 0.057373046875
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       },
+       "new": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "personalized": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 695,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 305
+       },
+       "new": {
+        "tp": 789,
+        "tn": 562,
+        "fp": 438,
+        "fn": 211
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.09400000000000008,
+        "lo": 0.07614160266351891,
+        "hi": 0.11278991047085696
+       },
+       "specificity": {
+        "estimate": -0.43799999999999994,
+        "lo": -0.4690359502793351,
+        "hi": -0.40747942378681545
+       },
+       "f2": {
+        "estimate": 0.014585934872038409,
+        "lo": -0.0029338834592273545,
+        "hi": 0.032453077483304935
+       },
+       "cost_4": {
+        "estimate": 0.031000000000000028,
+        "lo": -0.012512499999999952,
+        "hi": 0.07351249999999983
+       }
+      },
+      "flips": {
+       "fn_to_tp": 94,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 438
+      },
+      "mcnemar_positives_p": 1.0097419586828951e-28,
+      "mcnemar_negatives_p": 2.817681462947307e-132,
+      "cluster_sign_positives_p": 1.0097419586828951e-28,
+      "cluster_sign_negatives_p": 2.817681462947307e-132
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       },
+       "new": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 1000,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 0
+       },
+       "new": {
+        "tp": 1000,
+        "tn": 562,
+        "fp": 438,
+        "fn": 0
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": -0.43799999999999994,
+        "lo": -0.4690359502793351,
+        "hi": -0.40747942378681545
+       },
+       "f2": {
+        "estimate": -0.08054431776388382,
+        "lo": -0.08924801997578898,
+        "hi": -0.0723777580981276
+       },
+       "cost_4": {
+        "estimate": 0.219,
+        "lo": 0.201,
+        "hi": 0.2375
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 438
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 2.817681462947307e-132,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 2.817681462947307e-132
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       },
+       "new": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "check": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 24,
+        "tn": 115,
+        "fp": 4,
+        "fn": 92
+       },
+       "new": {
+        "tp": 42,
+        "tn": 111,
+        "fp": 8,
+        "fn": 74
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.15517241379310345,
+        "lo": 0.06306306306306309,
+        "hi": 0.24786324786324784
+       },
+       "specificity": {
+        "estimate": -0.03361344537815125,
+        "lo": -0.08771929824561397,
+        "hi": 0.016949152542372836
+       },
+       "f2": {
+        "estimate": 0.16465787225965645,
+        "lo": 0.0653457681299898,
+        "hi": 0.26366875070788587
+       },
+       "cost_4": {
+        "estimate": -0.28936170212765955,
+        "lo": -0.4814814814814814,
+        "hi": -0.10329824779200521
+       }
+      },
+      "flips": {
+       "fn_to_tp": 25,
+       "tp_to_fn": 7,
+       "fp_to_tn": 3,
+       "tn_to_fp": 7
+      },
+      "mcnemar_positives_p": 0.0021024015732109547,
+      "mcnemar_negatives_p": 0.34375,
+      "cluster_sign_positives_p": 0.0021024015732109547,
+      "cluster_sign_negatives_p": 0.34375
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 116
+       },
+       "new": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 116
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 83,
+        "tn": 113,
+        "fp": 6,
+        "fn": 33
+       },
+       "new": {
+        "tp": 90,
+        "tn": 109,
+        "fp": 10,
+        "fn": 26
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.06034482758620685,
+        "lo": 0.0,
+        "hi": 0.12297228727556568
+       },
+       "specificity": {
+        "estimate": -0.03361344537815125,
+        "lo": -0.08771929824561397,
+        "hi": 0.016949152542372836
+       },
+       "f2": {
+        "estimate": 0.04742026085952833,
+        "lo": -0.006117954135468346,
+        "hi": 0.1030987105014518
+       },
+       "cost_4": {
+        "estimate": -0.10212765957446807,
+        "lo": -0.22882238700564964,
+        "hi": 0.0211864406779661
+       }
+      },
+      "flips": {
+       "fn_to_tp": 10,
+       "tp_to_fn": 3,
+       "fp_to_tn": 3,
+       "tn_to_fp": 7
+      },
+      "mcnemar_positives_p": 0.09228515625,
+      "mcnemar_negatives_p": 0.34375,
+      "cluster_sign_positives_p": 0.09228515625,
+      "cluster_sign_negatives_p": 0.34375
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 50,
+        "tn": 119,
+        "fp": 0,
+        "fn": 66
+       },
+       "new": {
+        "tp": 50,
+        "tn": 119,
+        "fp": 0,
+        "fn": 66
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "openai": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 85,
+        "tn": 497,
+        "fp": 3,
+        "fn": 415
+       },
+       "new": {
+        "tp": 232,
+        "tn": 410,
+        "fp": 90,
+        "fn": 268
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.29400000000000004,
+        "lo": 0.25256469397169345,
+        "hi": 0.3353535353535353
+       },
+       "specificity": {
+        "estimate": -0.17400000000000004,
+        "lo": -0.20724530107474115,
+        "hi": -0.1417004048582996
+       },
+       "f2": {
+        "estimate": 0.29602527547595714,
+        "lo": 0.2529972631329393,
+        "hi": 0.3384905302193658
+       },
+       "cost_4": {
+        "estimate": -0.5010000000000001,
+        "lo": -0.5939999999999999,
+        "hi": -0.4069750000000002
+       }
+      },
+      "flips": {
+       "fn_to_tp": 151,
+       "tp_to_fn": 4,
+       "fp_to_tn": 0,
+       "tn_to_fp": 87
+      },
+      "mcnemar_positives_p": 1.0400614991961454e-39,
+      "mcnemar_negatives_p": 1.2924697071141057e-26,
+      "cluster_sign_positives_p": 1.0400614991961454e-39,
+      "cluster_sign_negatives_p": 1.2924697071141057e-26
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 500,
+        "fp": 0,
+        "fn": 500
+       },
+       "new": {
+        "tp": 0,
+        "tn": 500,
+        "fp": 0,
+        "fn": 500
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 459,
+        "tn": 463,
+        "fp": 37,
+        "fn": 41
+       },
+       "new": {
+        "tp": 471,
+        "tn": 384,
+        "fp": 116,
+        "fn": 29
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.02399999999999991,
+        "lo": 0.011834319526627168,
+        "hi": 0.038383935322515
+       },
+       "specificity": {
+        "estimate": -0.15800000000000003,
+        "lo": -0.1900830537599215,
+        "hi": -0.126953125
+       },
+       "f2": {
+        "estimate": -0.009150318902203303,
+        "lo": -0.021498605751262133,
+        "hi": 0.003930094697079771
+       },
+       "cost_4": {
+        "estimate": 0.031,
+        "lo": -0.0020000000000000018,
+        "hi": 0.06199999999999997
+       }
+      },
+      "flips": {
+       "fn_to_tp": 12,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 79
+      },
+      "mcnemar_positives_p": 0.00048828125,
+      "mcnemar_negatives_p": 3.308722450212111e-24,
+      "cluster_sign_positives_p": 0.00048828125,
+      "cluster_sign_negatives_p": 3.308722450212111e-24
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 373,
+        "tn": 470,
+        "fp": 30,
+        "fn": 127
+       },
+       "new": {
+        "tp": 373,
+        "tn": 470,
+        "fp": 30,
+        "fn": 127
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   }
+  },
+  "gliner-core-t0.5-pf1": {
+   "tune": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 41,
+        "tn": 115,
+        "fp": 4,
+        "fn": 107
+       },
+       "new": {
+        "tp": 25,
+        "tn": 119,
+        "fp": 0,
+        "fn": 123
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": -0.10810810810810811,
+        "lo": -0.174496644295302,
+        "hi": -0.043795620437956206
+       },
+       "specificity": {
+        "estimate": 0.03361344537815125,
+        "lo": 0.007751937984496138,
+        "hi": 0.06896551724137934
+       },
+       "f2": {
+        "estimate": -0.11922784323803079,
+        "lo": -0.19270247711262278,
+        "hi": -0.04742738345855293
+       },
+       "cost_4": {
+        "estimate": 0.2247191011235956,
+        "lo": 0.08014885496183216,
+        "hi": 0.3802281368821292
+       }
+      },
+      "flips": {
+       "fn_to_tp": 5,
+       "tp_to_fn": 21,
+       "fp_to_tn": 4,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 0.002493917942047119,
+      "mcnemar_negatives_p": 0.125,
+      "cluster_sign_positives_p": 0.002493917942047119,
+      "cluster_sign_negatives_p": 0.125
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       },
+       "new": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 118,
+        "tn": 113,
+        "fp": 6,
+        "fn": 30
+       },
+       "new": {
+        "tp": 108,
+        "tn": 117,
+        "fp": 2,
+        "fn": 40
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": -0.06756756756756754,
+        "lo": -0.11510791366906481,
+        "hi": -0.025974025974025983
+       },
+       "specificity": {
+        "estimate": 0.03361344537815125,
+        "lo": 0.007751937984496138,
+        "hi": 0.06896551724137934
+       },
+       "f2": {
+        "estimate": -0.0547915771379458,
+        "lo": -0.09730123537235981,
+        "hi": -0.0168601306917733
+       },
+       "cost_4": {
+        "estimate": 0.13483146067415736,
+        "lo": 0.03759398496240601,
+        "hi": 0.2413793103448275
+       }
+      },
+      "flips": {
+       "fn_to_tp": 1,
+       "tp_to_fn": 11,
+       "fp_to_tn": 4,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 0.00634765625,
+      "mcnemar_negatives_p": 0.125,
+      "cluster_sign_positives_p": 0.00634765625,
+      "cluster_sign_negatives_p": 0.125
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       },
+       "new": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "personalized": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 695,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 305
+       },
+       "new": {
+        "tp": 777,
+        "tn": 999,
+        "fp": 1,
+        "fn": 223
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.08200000000000007,
+        "lo": 0.06504065040650409,
+        "hi": 0.09970588889500862
+       },
+       "specificity": {
+        "estimate": -0.0010000000000000009,
+        "lo": -0.0030928632983307164,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.07295262141756387,
+        "lo": 0.05779134351452649,
+        "hi": 0.0889149990045119
+       },
+       "cost_4": {
+        "estimate": -0.16349999999999998,
+        "lo": -0.1995,
+        "hi": -0.12949999999999995
+       }
+      },
+      "flips": {
+       "fn_to_tp": 82,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 1
+      },
+      "mcnemar_positives_p": 4.1359030627651384e-25,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 4.1359030627651384e-25,
+      "cluster_sign_negatives_p": 1.0
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       },
+       "new": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 1000,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 0
+       },
+       "new": {
+        "tp": 1000,
+        "tn": 999,
+        "fp": 1,
+        "fn": 0
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": -0.0010000000000000009,
+        "lo": -0.0030928632983307164,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": -0.00019996000799837876,
+        "lo": -0.0006194667584902723,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0005,
+        "lo": 0.0,
+        "hi": 0.0015
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 1
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       },
+       "new": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "check": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 24,
+        "tn": 115,
+        "fp": 4,
+        "fn": 92
+       },
+       "new": {
+        "tp": 12,
+        "tn": 119,
+        "fp": 0,
+        "fn": 104
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": -0.10344827586206896,
+        "lo": -0.1754385964912281,
+        "hi": -0.035398230088495575
+       },
+       "specificity": {
+        "estimate": 0.03361344537815125,
+        "lo": 0.007751937984496138,
+        "hi": 0.06779661016949157
+       },
+       "f2": {
+        "estimate": -0.11785201885632302,
+        "lo": -0.1993158025573081,
+        "hi": -0.04005938265171273
+       },
+       "cost_4": {
+        "estimate": 0.18723404255319132,
+        "lo": 0.05462184873949582,
+        "hi": 0.33472803347280333
+       }
+      },
+      "flips": {
+       "fn_to_tp": 3,
+       "tp_to_fn": 15,
+       "fp_to_tn": 4,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 0.007537841796875,
+      "mcnemar_negatives_p": 0.125,
+      "cluster_sign_positives_p": 0.007537841796875,
+      "cluster_sign_negatives_p": 0.125
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 116
+       },
+       "new": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 116
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 83,
+        "tn": 113,
+        "fp": 6,
+        "fn": 33
+       },
+       "new": {
+        "tp": 78,
+        "tn": 117,
+        "fp": 2,
+        "fn": 38
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": -0.0431034482758621,
+        "lo": -0.0964912280701754,
+        "hi": 0.008130081300812945
+       },
+       "specificity": {
+        "estimate": 0.03361344537815125,
+        "lo": 0.007751937984496138,
+        "hi": 0.06779661016949157
+       },
+       "f2": {
+        "estimate": -0.03354031486012121,
+        "lo": -0.08259988046661179,
+        "hi": 0.010662086995676116
+       },
+       "cost_4": {
+        "estimate": 0.06808510638297871,
+        "lo": -0.029661016949152574,
+        "hi": 0.17721518987341767
+       }
+      },
+      "flips": {
+       "fn_to_tp": 2,
+       "tp_to_fn": 7,
+       "fp_to_tn": 4,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 0.1796875,
+      "mcnemar_negatives_p": 0.125,
+      "cluster_sign_positives_p": 0.1796875,
+      "cluster_sign_negatives_p": 0.125
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 50,
+        "tn": 119,
+        "fp": 0,
+        "fn": 66
+       },
+       "new": {
+        "tp": 50,
+        "tn": 119,
+        "fp": 0,
+        "fn": 66
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "openai": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 85,
+        "tn": 497,
+        "fp": 3,
+        "fn": 415
+       },
+       "new": {
+        "tp": 81,
+        "tn": 496,
+        "fp": 4,
+        "fn": 419
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": -0.008000000000000007,
+        "lo": -0.025844930417495027,
+        "hi": 0.00976610277030332
+       },
+       "specificity": {
+        "estimate": -0.0020000000000000018,
+        "lo": -0.011342155009451793,
+        "hi": 0.006172839506172867
+       },
+       "f2": {
+        "estimate": -0.009299456986135213,
+        "lo": -0.02979001488873799,
+        "hi": 0.01103156452188926
+       },
+       "cost_4": {
+        "estimate": 0.016999999999999904,
+        "lo": -0.018000000000000016,
+        "hi": 0.053999999999999826
+       }
+      },
+      "flips": {
+       "fn_to_tp": 8,
+       "tp_to_fn": 12,
+       "fp_to_tn": 2,
+       "tn_to_fp": 3
+      },
+      "mcnemar_positives_p": 0.5034446716308594,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 0.5034446716308594,
+      "cluster_sign_negatives_p": 1.0
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 500,
+        "fp": 0,
+        "fn": 500
+       },
+       "new": {
+        "tp": 0,
+        "tn": 500,
+        "fp": 0,
+        "fn": 500
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 459,
+        "tn": 463,
+        "fp": 37,
+        "fn": 41
+       },
+       "new": {
+        "tp": 462,
+        "tn": 462,
+        "fp": 38,
+        "fn": 38
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.006000000000000005,
+        "lo": 0.0,
+        "hi": 0.013806706114398493
+       },
+       "specificity": {
+        "estimate": -0.0020000000000000018,
+        "lo": -0.011342155009451793,
+        "hi": 0.006172839506172867
+       },
+       "f2": {
+        "estimate": 0.004528846153846189,
+        "lo": -0.0005718586432179336,
+        "hi": 0.01102875426131011
+       },
+       "cost_4": {
+        "estimate": -0.01100000000000001,
+        "lo": -0.026999999999999996,
+        "hi": 0.0020000000000000018
+       }
+      },
+      "flips": {
+       "fn_to_tp": 3,
+       "tp_to_fn": 0,
+       "fp_to_tn": 2,
+       "tn_to_fp": 3
+      },
+      "mcnemar_positives_p": 0.25,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 0.25,
+      "cluster_sign_negatives_p": 1.0
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 373,
+        "tn": 470,
+        "fp": 30,
+        "fn": 127
+       },
+       "new": {
+        "tp": 373,
+        "tn": 470,
+        "fp": 30,
+        "fn": 127
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   }
+  },
+  "gliner-pii-t0.5-pf1": {
+   "tune": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 41,
+        "tn": 115,
+        "fp": 4,
+        "fn": 107
+       },
+       "new": {
+        "tp": 85,
+        "tn": 113,
+        "fp": 6,
+        "fn": 63
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.2972972972972973,
+        "lo": 0.1866666666666667,
+        "hi": 0.40559440559440557
+       },
+       "specificity": {
+        "estimate": -0.01680672268907568,
+        "lo": -0.06837606837606836,
+        "hi": 0.036363636363636376
+       },
+       "f2": {
+        "estimate": 0.3004337223119905,
+        "lo": 0.18776722114357375,
+        "hi": 0.4098662350497518
+       },
+       "cost_4": {
+        "estimate": -0.6516853932584269,
+        "lo": -0.9063670411985019,
+        "hi": -0.39560439560439575
+       }
+      },
+      "flips": {
+       "fn_to_tp": 63,
+       "tp_to_fn": 19,
+       "fp_to_tn": 4,
+       "tn_to_fp": 6
+      },
+      "mcnemar_positives_p": 1.1467543245820193e-06,
+      "mcnemar_negatives_p": 0.75390625,
+      "cluster_sign_positives_p": 1.1467543245820193e-06,
+      "cluster_sign_negatives_p": 0.75390625
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       },
+       "new": {
+        "tp": 39,
+        "tn": 115,
+        "fp": 4,
+        "fn": 109
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.2635135135135135,
+        "lo": 0.19463087248322147,
+        "hi": 0.3356164383561644
+       },
+       "specificity": {
+        "estimate": -0.03361344537815125,
+        "lo": -0.06870229007633588,
+        "hi": -0.007751937984496138
+       },
+       "f2": {
+        "estimate": 0.30708661417322836,
+        "lo": 0.2308774558774559,
+        "hi": 0.38461538461538464
+       },
+       "cost_4": {
+        "estimate": -0.5692883895131087,
+        "lo": -0.7432950191570882,
+        "hi": -0.4052020866686565
+       }
+      },
+      "flips": {
+       "fn_to_tp": 39,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 4
+      },
+      "mcnemar_positives_p": 3.637978807091713e-12,
+      "mcnemar_negatives_p": 0.125,
+      "cluster_sign_positives_p": 3.637978807091713e-12,
+      "cluster_sign_negatives_p": 0.125
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 118,
+        "tn": 113,
+        "fp": 6,
+        "fn": 30
+       },
+       "new": {
+        "tp": 112,
+        "tn": 111,
+        "fp": 8,
+        "fn": 36
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": -0.04054054054054046,
+        "lo": -0.10344827586206895,
+        "hi": 0.020408163265306034
+       },
+       "specificity": {
+        "estimate": -0.01680672268907557,
+        "lo": -0.06837606837606847,
+        "hi": 0.036363636363636376
+       },
+       "f2": {
+        "estimate": -0.03750549243613077,
+        "lo": -0.09288452174311881,
+        "hi": 0.015511014911691748
+       },
+       "cost_4": {
+        "estimate": 0.09737827715355801,
+        "lo": -0.037735849056603765,
+        "hi": 0.23970417513163894
+       }
+      },
+      "flips": {
+       "fn_to_tp": 8,
+       "tp_to_fn": 14,
+       "fp_to_tn": 4,
+       "tn_to_fp": 6
+      },
+      "mcnemar_positives_p": 0.28627872467041016,
+      "mcnemar_negatives_p": 0.75390625,
+      "cluster_sign_positives_p": 0.28627872467041016,
+      "cluster_sign_negatives_p": 0.75390625
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       },
+       "new": {
+        "tp": 69,
+        "tn": 114,
+        "fp": 5,
+        "fn": 79
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.12162162162162166,
+        "lo": 0.07194244604316546,
+        "hi": 0.1768707482993197
+       },
+       "specificity": {
+        "estimate": -0.03361344537815125,
+        "lo": -0.06870229007633588,
+        "hi": -0.007751937984496138
+       },
+       "f2": {
+        "estimate": 0.1220552850987634,
+        "lo": 0.07115256511632212,
+        "hi": 0.1783484412192642
+       },
+       "cost_4": {
+        "estimate": -0.25468164794007486,
+        "lo": -0.3837705021536908,
+        "hi": -0.14022140221402224
+       }
+      },
+      "flips": {
+       "fn_to_tp": 18,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 4
+      },
+      "mcnemar_positives_p": 7.62939453125e-06,
+      "mcnemar_negatives_p": 0.125,
+      "cluster_sign_positives_p": 7.62939453125e-06,
+      "cluster_sign_negatives_p": 0.125
+     }
+    }
+   },
+   "personalized": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 695,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 305
+       },
+       "new": {
+        "tp": 1000,
+        "tn": 922,
+        "fp": 78,
+        "fn": 0
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.30500000000000005,
+        "lo": 0.275959051724138,
+        "hi": 0.3336769239721651
+       },
+       "specificity": {
+        "estimate": -0.07799999999999996,
+        "lo": -0.09494339681646179,
+        "hi": -0.062118126272912466
+       },
+       "f2": {
+        "estimate": 0.2444905271167025,
+        "lo": 0.21801631907729951,
+        "hi": 0.2711168501699406
+       },
+       "cost_4": {
+        "estimate": -0.571,
+        "lo": -0.6365000000000001,
+        "hi": -0.506
+       }
+      },
+      "flips": {
+       "fn_to_tp": 305,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 78
+      },
+      "mcnemar_positives_p": 3.068183415811079e-92,
+      "mcnemar_negatives_p": 6.617444900424222e-24,
+      "cluster_sign_positives_p": 3.068183415811079e-92,
+      "cluster_sign_negatives_p": 6.617444900424222e-24
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       },
+       "new": {
+        "tp": 653,
+        "tn": 946,
+        "fp": 54,
+        "fn": 347
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.653,
+        "lo": 0.6241409725680662,
+        "hi": 0.6827801278912864
+       },
+       "specificity": {
+        "estimate": -0.05400000000000005,
+        "lo": -0.06849350085441358,
+        "hi": -0.04059405940594063
+       },
+       "f2": {
+        "estimate": 0.6936477586573189,
+        "lo": 0.6668779722918965,
+        "hi": 0.7208165001063152
+       },
+       "cost_4": {
+        "estimate": -1.279,
+        "lo": -1.3634999999999997,
+        "hi": -1.1989875
+       }
+      },
+      "flips": {
+       "fn_to_tp": 653,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 54
+      },
+      "mcnemar_positives_p": 5.351097043477547e-197,
+      "mcnemar_negatives_p": 1.1102230246251565e-16,
+      "cluster_sign_positives_p": 5.351097043477547e-197,
+      "cluster_sign_negatives_p": 1.1102230246251565e-16
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 1000,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 0
+       },
+       "new": {
+        "tp": 1000,
+        "tn": 922,
+        "fp": 78,
+        "fn": 0
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": -0.07799999999999996,
+        "lo": -0.09494339681646179,
+        "hi": -0.062118126272912466
+       },
+       "f2": {
+        "estimate": -0.015360378101614836,
+        "lo": -0.019006879522847298,
+        "hi": -0.012092841817827216
+       },
+       "cost_4": {
+        "estimate": 0.039,
+        "lo": 0.031,
+        "hi": 0.048
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 78
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 6.617444900424222e-24,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 6.617444900424222e-24
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       },
+       "new": {
+        "tp": 943,
+        "tn": 946,
+        "fp": 54,
+        "fn": 57
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.014999999999999902,
+        "lo": 0.008007807807807741,
+        "hi": 0.023116027033167882
+       },
+       "specificity": {
+        "estimate": -0.05400000000000005,
+        "lo": -0.06849350085441358,
+        "hi": -0.04059405940594063
+       },
+       "f2": {
+        "estimate": 0.0020076981253687176,
+        "lo": -0.004564230356526686,
+        "hi": 0.009131667489649256
+       },
+       "cost_4": {
+        "estimate": -0.0030000000000000027,
+        "lo": -0.020500000000000018,
+        "hi": 0.013000000000000012
+       }
+      },
+      "flips": {
+       "fn_to_tp": 15,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 54
+      },
+      "mcnemar_positives_p": 6.103515625e-05,
+      "mcnemar_negatives_p": 1.1102230246251565e-16,
+      "cluster_sign_positives_p": 6.103515625e-05,
+      "cluster_sign_negatives_p": 1.1102230246251565e-16
+     }
+    }
+   }
+  },
+  "lg-pf0": {
+   "tune": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 41,
+        "tn": 115,
+        "fp": 4,
+        "fn": 107
+       },
+       "new": {
+        "tp": 74,
+        "tn": 108,
+        "fp": 11,
+        "fn": 74
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.22297297297297297,
+        "lo": 0.152317880794702,
+        "hi": 0.29530940019416646
+       },
+       "specificity": {
+        "estimate": -0.05882352941176472,
+        "lo": -0.12096774193548387,
+        "hi": -0.007575757575757569
+       },
+       "f2": {
+        "estimate": 0.22470776743830134,
+        "lo": 0.15185370096655265,
+        "hi": 0.29818860535755043
+       },
+       "cost_4": {
+        "estimate": -0.46816479400749067,
+        "lo": -0.6436846917450364,
+        "hi": -0.2999909747292421
+       }
+      },
+      "flips": {
+       "fn_to_tp": 35,
+       "tp_to_fn": 2,
+       "fp_to_tn": 3,
+       "tn_to_fp": 10
+      },
+      "mcnemar_positives_p": 1.0244548320770264e-08,
+      "mcnemar_negatives_p": 0.09228515625,
+      "cluster_sign_positives_p": 1.0244548320770264e-08,
+      "cluster_sign_negatives_p": 0.109375
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       },
+       "new": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 118,
+        "tn": 113,
+        "fp": 6,
+        "fn": 30
+       },
+       "new": {
+        "tp": 130,
+        "tn": 106,
+        "fp": 13,
+        "fn": 18
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.08108108108108114,
+        "lo": 0.03545474977524723,
+        "hi": 0.13235294117647067
+       },
+       "specificity": {
+        "estimate": -0.05882352941176461,
+        "lo": -0.12096774193548387,
+        "hi": -0.007575757575757569
+       },
+       "f2": {
+        "estimate": 0.06033139512788355,
+        "lo": 0.020812953002789895,
+        "hi": 0.10498464563592722
+       },
+       "cost_4": {
+        "estimate": -0.15355805243445692,
+        "lo": -0.2720588235294118,
+        "hi": -0.048689138576779034
+       }
+      },
+      "flips": {
+       "fn_to_tp": 13,
+       "tp_to_fn": 1,
+       "fp_to_tn": 3,
+       "tn_to_fp": 10
+      },
+      "mcnemar_positives_p": 0.0018310546875,
+      "mcnemar_negatives_p": 0.09228515625,
+      "cluster_sign_positives_p": 0.0018310546875,
+      "cluster_sign_negatives_p": 0.109375
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       },
+       "new": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "personalized": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 695,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 305
+       },
+       "new": {
+        "tp": 835,
+        "tn": 919,
+        "fp": 81,
+        "fn": 165
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.14,
+        "lo": 0.11826841182364732,
+        "hi": 0.16176507761850947
+       },
+       "specificity": {
+        "estimate": -0.08099999999999996,
+        "lo": -0.09825017367276925,
+        "hi": -0.06451532898105485
+       },
+       "f2": {
+        "estimate": 0.10911860253320749,
+        "lo": 0.089490792055744,
+        "hi": 0.12919249397765933
+       },
+       "cost_4": {
+        "estimate": -0.2395,
+        "lo": -0.287,
+        "hi": -0.19350000000000006
+       }
+      },
+      "flips": {
+       "fn_to_tp": 140,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 81
+      },
+      "mcnemar_positives_p": 1.4349296274686127e-42,
+      "mcnemar_negatives_p": 8.271806125530277e-25,
+      "cluster_sign_positives_p": 1.4349296274686127e-42,
+      "cluster_sign_negatives_p": 8.271806125530277e-25
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       },
+       "new": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 1000,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 0
+       },
+       "new": {
+        "tp": 1000,
+        "tn": 919,
+        "fp": 81,
+        "fn": 0
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": -0.08099999999999996,
+        "lo": -0.09825017367276925,
+        "hi": -0.06451532898105485
+       },
+       "f2": {
+        "estimate": -0.01594174375123003,
+        "lo": -0.01964716331957483,
+        "hi": -0.012521276733765381
+       },
+       "cost_4": {
+        "estimate": 0.0405,
+        "lo": 0.032,
+        "hi": 0.0495
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 81
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 8.271806125530277e-25,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 8.271806125530277e-25
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       },
+       "new": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "check": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 24,
+        "tn": 115,
+        "fp": 4,
+        "fn": 92
+       },
+       "new": {
+        "tp": 55,
+        "tn": 116,
+        "fp": 3,
+        "fn": 61
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.26724137931034486,
+        "lo": 0.18399558823529416,
+        "hi": 0.3529411764705882
+       },
+       "specificity": {
+        "estimate": 0.008403361344537785,
+        "lo": -0.03508771929824561,
+        "hi": 0.05128676470588232
+       },
+       "f2": {
+        "estimate": 0.2829174843472573,
+        "lo": 0.19584087231142902,
+        "hi": 0.3715999641563067
+       },
+       "cost_4": {
+        "estimate": -0.5319148936170213,
+        "lo": -0.7217512077294685,
+        "hi": -0.35563178105019133
+       }
+      },
+      "flips": {
+       "fn_to_tp": 32,
+       "tp_to_fn": 1,
+       "fp_to_tn": 4,
+       "tn_to_fp": 3
+      },
+      "mcnemar_positives_p": 7.916241884231567e-09,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 7.916241884231567e-09,
+      "cluster_sign_negatives_p": 1.0
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 116
+       },
+       "new": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 116
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 83,
+        "tn": 113,
+        "fp": 6,
+        "fn": 33
+       },
+       "new": {
+        "tp": 93,
+        "tn": 114,
+        "fp": 5,
+        "fn": 23
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.08620689655172409,
+        "lo": 0.03787521440823339,
+        "hi": 0.1415929203539823
+       },
+       "specificity": {
+        "estimate": 0.008403361344537896,
+        "lo": -0.03508771929824561,
+        "hi": 0.05128676470588232
+       },
+       "f2": {
+        "estimate": 0.0769500556653131,
+        "lo": 0.033999181964927155,
+        "hi": 0.1266071383923231
+       },
+       "cost_4": {
+        "estimate": -0.17446808510638295,
+        "lo": -0.28813744356450294,
+        "hi": -0.07594936708860761
+       }
+      },
+      "flips": {
+       "fn_to_tp": 10,
+       "tp_to_fn": 0,
+       "fp_to_tn": 4,
+       "tn_to_fp": 3
+      },
+      "mcnemar_positives_p": 0.001953125,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 0.001953125,
+      "cluster_sign_negatives_p": 1.0
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 50,
+        "tn": 119,
+        "fp": 0,
+        "fn": 66
+       },
+       "new": {
+        "tp": 50,
+        "tn": 119,
+        "fp": 0,
+        "fn": 66
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "openai": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 85,
+        "tn": 497,
+        "fp": 3,
+        "fn": 415
+       },
+       "new": {
+        "tp": 231,
+        "tn": 441,
+        "fp": 59,
+        "fn": 269
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.29200000000000004,
+        "lo": 0.2520325203252033,
+        "hi": 0.3333333333333333
+       },
+       "specificity": {
+        "estimate": -0.11199999999999999,
+        "lo": -0.1412224382076677,
+        "hi": -0.08433565723568427
+       },
+       "f2": {
+        "estimate": 0.30082275092439226,
+        "lo": 0.2591108520464646,
+        "hi": 0.34298757320581413
+       },
+       "cost_4": {
+        "estimate": -0.528,
+        "lo": -0.6210249999999998,
+        "hi": -0.43700000000000006
+       }
+      },
+      "flips": {
+       "fn_to_tp": 148,
+       "tp_to_fn": 2,
+       "fp_to_tn": 2,
+       "tn_to_fp": 58
+      },
+      "mcnemar_positives_p": 1.5871106406942878e-41,
+      "mcnemar_negatives_p": 3.1762786845135338e-15,
+      "cluster_sign_positives_p": 1.5871106406942878e-41,
+      "cluster_sign_negatives_p": 3.1762786845135338e-15
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 500,
+        "fp": 0,
+        "fn": 500
+       },
+       "new": {
+        "tp": 0,
+        "tn": 500,
+        "fp": 0,
+        "fn": 500
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 459,
+        "tn": 463,
+        "fp": 37,
+        "fn": 41
+       },
+       "new": {
+        "tp": 469,
+        "tn": 414,
+        "fp": 86,
+        "fn": 31
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.019999999999999907,
+        "lo": 0.008281573498964745,
+        "hi": 0.03326810176125239
+       },
+       "specificity": {
+        "estimate": -0.09800000000000009,
+        "lo": -0.12578649877298154,
+        "hi": -0.07156673114119927
+       },
+       "f2": {
+        "estimate": -0.0016629346680716584,
+        "lo": -0.012496307662787623,
+        "hi": 0.010365128006969737
+       },
+       "cost_4": {
+        "estimate": 0.00899999999999998,
+        "lo": -0.02100000000000002,
+        "hi": 0.036000000000000004
+       }
+      },
+      "flips": {
+       "fn_to_tp": 10,
+       "tp_to_fn": 0,
+       "fp_to_tn": 2,
+       "tn_to_fp": 51
+      },
+      "mcnemar_positives_p": 0.001953125,
+      "mcnemar_negatives_p": 3.1796787425264483e-13,
+      "cluster_sign_positives_p": 0.001953125,
+      "cluster_sign_negatives_p": 3.1796787425264483e-13
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 373,
+        "tn": 470,
+        "fp": 30,
+        "fn": 127
+       },
+       "new": {
+        "tp": 373,
+        "tn": 470,
+        "fp": 30,
+        "fn": 127
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   }
+  },
+  "lg-pf1": {
+   "tune": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 41,
+        "tn": 115,
+        "fp": 4,
+        "fn": 107
+       },
+       "new": {
+        "tp": 49,
+        "tn": 114,
+        "fp": 5,
+        "fn": 99
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.05405405405405406,
+        "lo": 0.0,
+        "hi": 0.1079136690647482
+       },
+       "specificity": {
+        "estimate": -0.008403361344537785,
+        "lo": -0.05319148936170215,
+        "hi": 0.03418803418803418
+       },
+       "f2": {
+        "estimate": 0.05743592983752205,
+        "lo": 0.0017809041321712406,
+        "hi": 0.11426924182165774
+       },
+       "cost_4": {
+        "estimate": -0.11610486891385774,
+        "lo": -0.23684210526315796,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 12,
+       "tp_to_fn": 4,
+       "fp_to_tn": 3,
+       "tn_to_fp": 4
+      },
+      "mcnemar_positives_p": 0.076812744140625,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 0.076812744140625,
+      "cluster_sign_negatives_p": 1.0
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       },
+       "new": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 118,
+        "tn": 113,
+        "fp": 6,
+        "fn": 30
+       },
+       "new": {
+        "tp": 120,
+        "tn": 112,
+        "fp": 7,
+        "fn": 28
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.013513513513513598,
+        "lo": -0.024246119733924622,
+        "hi": 0.05095890092519415
+       },
+       "specificity": {
+        "estimate": -0.008403361344537785,
+        "lo": -0.05319148936170215,
+        "hi": 0.03418803418803418
+       },
+       "f2": {
+        "estimate": 0.010470004118072085,
+        "lo": -0.022079041800703497,
+        "hi": 0.043519775155557126
+       },
+       "cost_4": {
+        "estimate": -0.026217228464419484,
+        "lo": -0.11152452101801547,
+        "hi": 0.05791505791505791
+       }
+      },
+      "flips": {
+       "fn_to_tp": 5,
+       "tp_to_fn": 3,
+       "fp_to_tn": 3,
+       "tn_to_fp": 4
+      },
+      "mcnemar_positives_p": 0.7265625,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 0.7265625,
+      "cluster_sign_negatives_p": 1.0
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       },
+       "new": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "personalized": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 695,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 305
+       },
+       "new": {
+        "tp": 756,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 244
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.061000000000000054,
+        "lo": 0.04518056826896911,
+        "hi": 0.07774564690893226
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.054636439280554505,
+        "lo": 0.04037439783392406,
+        "hi": 0.0696823814576716
+       },
+       "cost_4": {
+        "estimate": -0.122,
+        "lo": -0.15600000000000003,
+        "hi": -0.08999999999999997
+       }
+      },
+      "flips": {
+       "fn_to_tp": 67,
+       "tp_to_fn": 6,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 3.947260651543665e-14,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 3.947260651543665e-14,
+      "cluster_sign_negatives_p": 1.0
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       },
+       "new": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 1000,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 0
+       },
+       "new": {
+        "tp": 1000,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 0
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       },
+       "new": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "check": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 24,
+        "tn": 115,
+        "fp": 4,
+        "fn": 92
+       },
+       "new": {
+        "tp": 29,
+        "tn": 119,
+        "fp": 0,
+        "fn": 87
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.04310344827586207,
+        "lo": -0.009259259259259245,
+        "hi": 0.10084033613445378
+       },
+       "specificity": {
+        "estimate": 0.03361344537815125,
+        "lo": 0.007751937984496138,
+        "hi": 0.06779661016949157
+       },
+       "f2": {
+        "estimate": 0.0502152080344333,
+        "lo": -0.008527732093874286,
+        "hi": 0.11396019063926356
+       },
+       "cost_4": {
+        "estimate": -0.10212765957446823,
+        "lo": -0.21739130434782594,
+        "hi": 0.008300491327974387
+       }
+      },
+      "flips": {
+       "fn_to_tp": 8,
+       "tp_to_fn": 3,
+       "fp_to_tn": 4,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 0.2265625,
+      "mcnemar_negatives_p": 0.125,
+      "cluster_sign_positives_p": 0.2265625,
+      "cluster_sign_negatives_p": 0.125
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 116
+       },
+       "new": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 116
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 83,
+        "tn": 113,
+        "fp": 6,
+        "fn": 33
+       },
+       "new": {
+        "tp": 87,
+        "tn": 117,
+        "fp": 2,
+        "fn": 29
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.03448275862068961,
+        "lo": -0.00018939393939225975,
+        "hi": 0.07826086956521738
+       },
+       "specificity": {
+        "estimate": 0.03361344537815125,
+        "lo": 0.007751937984496138,
+        "hi": 0.06779661016949157
+       },
+       "f2": {
+        "estimate": 0.03616636528028938,
+        "lo": 0.00143201821167531,
+        "hi": 0.07547423255729437
+       },
+       "cost_4": {
+        "estimate": -0.08510638297872342,
+        "lo": -0.17316017316017313,
+        "hi": -0.008263612556541833
+       }
+      },
+      "flips": {
+       "fn_to_tp": 5,
+       "tp_to_fn": 1,
+       "fp_to_tn": 4,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 0.21875,
+      "mcnemar_negatives_p": 0.125,
+      "cluster_sign_positives_p": 0.21875,
+      "cluster_sign_negatives_p": 0.125
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 50,
+        "tn": 119,
+        "fp": 0,
+        "fn": 66
+       },
+       "new": {
+        "tp": 50,
+        "tn": 119,
+        "fp": 0,
+        "fn": 66
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "openai": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 85,
+        "tn": 497,
+        "fp": 3,
+        "fn": 415
+       },
+       "new": {
+        "tp": 79,
+        "tn": 500,
+        "fp": 0,
+        "fn": 421
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": -0.01200000000000001,
+        "lo": -0.027833001988071565,
+        "hi": 0.003929273084479365
+       },
+       "specificity": {
+        "estimate": 0.006000000000000005,
+        "lo": 0.0,
+        "hi": 0.013862073707370737
+       },
+       "f2": {
+        "estimate": -0.013548871307491994,
+        "lo": -0.031747063394465466,
+        "hi": 0.004798143707323111
+       },
+       "cost_4": {
+        "estimate": 0.020999999999999908,
+        "lo": -0.010000000000000009,
+        "hi": 0.052999999999999936
+       }
+      },
+      "flips": {
+       "fn_to_tp": 5,
+       "tp_to_fn": 11,
+       "fp_to_tn": 3,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 0.210113525390625,
+      "mcnemar_negatives_p": 0.25,
+      "cluster_sign_positives_p": 0.210113525390625,
+      "cluster_sign_negatives_p": 0.25
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 500,
+        "fp": 0,
+        "fn": 500
+       },
+       "new": {
+        "tp": 0,
+        "tn": 500,
+        "fp": 0,
+        "fn": 500
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 459,
+        "tn": 463,
+        "fp": 37,
+        "fn": 41
+       },
+       "new": {
+        "tp": 460,
+        "tn": 466,
+        "fp": 34,
+        "fn": 40
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0020000000000000018,
+        "lo": 0.0,
+        "hi": 0.006237006237006182
+       },
+       "specificity": {
+        "estimate": 0.006000000000000005,
+        "lo": 0.0,
+        "hi": 0.013862073707370737
+       },
+       "f2": {
+        "estimate": 0.0027421581025229846,
+        "lo": 0.00035650341358633986,
+        "hi": 0.006808698209450522
+       },
+       "cost_4": {
+        "estimate": -0.007000000000000006,
+        "lo": -0.016999999999999987,
+        "hi": -0.0010000000000000009
+       }
+      },
+      "flips": {
+       "fn_to_tp": 1,
+       "tp_to_fn": 0,
+       "fp_to_tn": 3,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 0.25,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 0.25
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 373,
+        "tn": 470,
+        "fp": 30,
+        "fn": 127
+       },
+       "new": {
+        "tp": 373,
+        "tn": 470,
+        "fp": 30,
+        "fn": 127
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   }
+  },
+  "sm-pf0": {
+   "tune": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 41,
+        "tn": 115,
+        "fp": 4,
+        "fn": 107
+       },
+       "new": {
+        "tp": 71,
+        "tn": 100,
+        "fp": 19,
+        "fn": 77
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.2027027027027027,
+        "lo": 0.1390728476821192,
+        "hi": 0.2684563758389262
+       },
+       "specificity": {
+        "estimate": -0.12605042016806722,
+        "lo": -0.1885245901639344,
+        "hi": -0.06896551724137934
+       },
+       "f2": {
+        "estimate": 0.19870682313078625,
+        "lo": 0.13341865642924983,
+        "hi": 0.2657259863677273
+       },
+       "cost_4": {
+        "estimate": -0.393258426966292,
+        "lo": -0.5539123512290712,
+        "hi": -0.2417582417582418
+       }
+      },
+      "flips": {
+       "fn_to_tp": 30,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 15
+      },
+      "mcnemar_positives_p": 1.862645149230957e-09,
+      "mcnemar_negatives_p": 6.103515625e-05,
+      "cluster_sign_positives_p": 1.862645149230957e-09,
+      "cluster_sign_negatives_p": 6.103515625e-05
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       },
+       "new": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 118,
+        "tn": 113,
+        "fp": 6,
+        "fn": 30
+       },
+       "new": {
+        "tp": 127,
+        "tn": 98,
+        "fp": 21,
+        "fn": 21
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.060810810810810856,
+        "lo": 0.025974025974025983,
+        "hi": 0.10144927536231885
+       },
+       "specificity": {
+        "estimate": -0.12605042016806722,
+        "lo": -0.1885245901639344,
+        "hi": -0.06896551724137934
+       },
+       "f2": {
+        "estimate": 0.03408576173939304,
+        "lo": 0.0018789436554420983,
+        "hi": 0.07018847396143248
+       },
+       "cost_4": {
+        "estimate": -0.0786516853932584,
+        "lo": -0.17647578466015382,
+        "hi": 0.007463385320588081
+       }
+      },
+      "flips": {
+       "fn_to_tp": 9,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 15
+      },
+      "mcnemar_positives_p": 0.00390625,
+      "mcnemar_negatives_p": 6.103515625e-05,
+      "cluster_sign_positives_p": 0.00390625,
+      "cluster_sign_negatives_p": 6.103515625e-05
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       },
+       "new": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "personalized": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 695,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 305
+       },
+       "new": {
+        "tp": 871,
+        "tn": 919,
+        "fp": 81,
+        "fn": 129
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.17600000000000005,
+        "lo": 0.15317897927534194,
+        "hi": 0.19980224836737406
+       },
+       "specificity": {
+        "estimate": -0.08099999999999996,
+        "lo": -0.09825017367276925,
+        "hi": -0.06451532898105485
+       },
+       "f2": {
+        "estimate": 0.13929355465288917,
+        "lo": 0.11863371847117851,
+        "hi": 0.16094296035104114
+       },
+       "cost_4": {
+        "estimate": -0.3115,
+        "lo": -0.3625,
+        "hi": -0.26198750000000015
+       }
+      },
+      "flips": {
+       "fn_to_tp": 176,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 81
+      },
+      "mcnemar_positives_p": 2.088097429759528e-53,
+      "mcnemar_negatives_p": 8.271806125530277e-25,
+      "cluster_sign_positives_p": 2.088097429759528e-53,
+      "cluster_sign_negatives_p": 8.271806125530277e-25
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       },
+       "new": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 1000,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 0
+       },
+       "new": {
+        "tp": 1000,
+        "tn": 919,
+        "fp": 81,
+        "fn": 0
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": -0.08099999999999996,
+        "lo": -0.09825017367276925,
+        "hi": -0.06451532898105485
+       },
+       "f2": {
+        "estimate": -0.01594174375123003,
+        "lo": -0.01964716331957483,
+        "hi": -0.012521276733765381
+       },
+       "cost_4": {
+        "estimate": 0.0405,
+        "lo": 0.032,
+        "hi": 0.0495
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 81
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 8.271806125530277e-25,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 8.271806125530277e-25
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       },
+       "new": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "check": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 24,
+        "tn": 115,
+        "fp": 4,
+        "fn": 92
+       },
+       "new": {
+        "tp": 50,
+        "tn": 101,
+        "fp": 18,
+        "fn": 66
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.22413793103448273,
+        "lo": 0.1496044594892928,
+        "hi": 0.3047619047619047
+       },
+       "specificity": {
+        "estimate": -0.11764705882352944,
+        "lo": -0.18183621933621924,
+        "hi": -0.05924836601307214
+       },
+       "f2": {
+        "estimate": 0.22602237300568495,
+        "lo": 0.14864692581620148,
+        "hi": 0.30915625640248046
+       },
+       "cost_4": {
+        "estimate": -0.38297872340425543,
+        "lo": -0.5611814345991561,
+        "hi": -0.220769944341373
+       }
+      },
+      "flips": {
+       "fn_to_tp": 26,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 14
+      },
+      "mcnemar_positives_p": 2.9802322387695312e-08,
+      "mcnemar_negatives_p": 0.0001220703125,
+      "cluster_sign_positives_p": 2.9802322387695312e-08,
+      "cluster_sign_negatives_p": 0.000244140625
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 116
+       },
+       "new": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 116
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 83,
+        "tn": 113,
+        "fp": 6,
+        "fn": 33
+       },
+       "new": {
+        "tp": 95,
+        "tn": 99,
+        "fp": 20,
+        "fn": 21
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.10344827586206895,
+        "lo": 0.05171969427657308,
+        "hi": 0.1621679371679371
+       },
+       "specificity": {
+        "estimate": -0.11764705882352933,
+        "lo": -0.18183621933621924,
+        "hi": -0.059248366013072026
+       },
+       "f2": {
+        "estimate": 0.06992788589168208,
+        "lo": 0.022451230445823075,
+        "hi": 0.12307268034496277
+       },
+       "cost_4": {
+        "estimate": -0.14468085106382977,
+        "lo": -0.27272727272727276,
+        "hi": -0.033333333333333326
+       }
+      },
+      "flips": {
+       "fn_to_tp": 12,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 14
+      },
+      "mcnemar_positives_p": 0.00048828125,
+      "mcnemar_negatives_p": 0.0001220703125,
+      "cluster_sign_positives_p": 0.00048828125,
+      "cluster_sign_negatives_p": 0.000244140625
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 50,
+        "tn": 119,
+        "fp": 0,
+        "fn": 66
+       },
+       "new": {
+        "tp": 50,
+        "tn": 119,
+        "fp": 0,
+        "fn": 66
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "openai": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 85,
+        "tn": 497,
+        "fp": 3,
+        "fn": 415
+       },
+       "new": {
+        "tp": 241,
+        "tn": 434,
+        "fp": 66,
+        "fn": 259
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.31199999999999994,
+        "lo": 0.27178368175771517,
+        "hi": 0.353064262666052
+       },
+       "specificity": {
+        "estimate": -0.126,
+        "lo": -0.1551020408163265,
+        "hi": -0.09799897959183673
+       },
+       "f2": {
+        "estimate": 0.3187793023730874,
+        "lo": 0.2768897482617101,
+        "hi": 0.36076269593475335
+       },
+       "cost_4": {
+        "estimate": -0.5609999999999999,
+        "lo": -0.657,
+        "hi": -0.46799999999999997
+       }
+      },
+      "flips": {
+       "fn_to_tp": 156,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 63
+      },
+      "mcnemar_positives_p": 2.1895288505075267e-47,
+      "mcnemar_negatives_p": 2.168404344971009e-19,
+      "cluster_sign_positives_p": 2.1895288505075267e-47,
+      "cluster_sign_negatives_p": 2.168404344971009e-19
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 500,
+        "fp": 0,
+        "fn": 500
+       },
+       "new": {
+        "tp": 0,
+        "tn": 500,
+        "fp": 0,
+        "fn": 500
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 459,
+        "tn": 463,
+        "fp": 37,
+        "fn": 41
+       },
+       "new": {
+        "tp": 471,
+        "tn": 407,
+        "fp": 93,
+        "fn": 29
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.02399999999999991,
+        "lo": 0.011811023622047223,
+        "hi": 0.03830664472871093
+       },
+       "specificity": {
+        "estimate": -0.1120000000000001,
+        "lo": -0.13973968711578422,
+        "hi": -0.08560311284046696
+       },
+       "f2": {
+        "estimate": -0.000984414376575038,
+        "lo": -0.012721189593024268,
+        "hi": 0.011823770526361068
+       },
+       "cost_4": {
+        "estimate": 0.00799999999999998,
+        "lo": -0.02400000000000002,
+        "hi": 0.037000000000000005
+       }
+      },
+      "flips": {
+       "fn_to_tp": 12,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 56
+      },
+      "mcnemar_positives_p": 0.00048828125,
+      "mcnemar_negatives_p": 2.7755575615628914e-17,
+      "cluster_sign_positives_p": 0.00048828125,
+      "cluster_sign_negatives_p": 2.7755575615628914e-17
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 373,
+        "tn": 470,
+        "fp": 30,
+        "fn": 127
+       },
+       "new": {
+        "tp": 373,
+        "tn": 470,
+        "fp": 30,
+        "fn": 127
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   }
+  },
+  "trf-pf0": {
+   "tune": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 41,
+        "tn": 115,
+        "fp": 4,
+        "fn": 107
+       },
+       "new": {
+        "tp": 61,
+        "tn": 115,
+        "fp": 4,
+        "fn": 87
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.13513513513513514,
+        "lo": 0.06666666666666665,
+        "hi": 0.2054794520547945
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": -0.054545454545454564,
+        "hi": 0.05084745762711862
+       },
+       "f2": {
+        "estimate": 0.14241031853556313,
+        "lo": 0.06987816096919294,
+        "hi": 0.2159111855542129
+       },
+       "cost_4": {
+        "estimate": -0.2996254681647941,
+        "lo": -0.4615458015267174,
+        "hi": -0.14230882106322354
+       }
+      },
+      "flips": {
+       "fn_to_tp": 25,
+       "tp_to_fn": 5,
+       "fp_to_tn": 4,
+       "tn_to_fp": 4
+      },
+      "mcnemar_positives_p": 0.00032491423189640045,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 0.00032491423189640045,
+      "cluster_sign_negatives_p": 1.0
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       },
+       "new": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 118,
+        "tn": 113,
+        "fp": 6,
+        "fn": 30
+       },
+       "new": {
+        "tp": 126,
+        "tn": 113,
+        "fp": 6,
+        "fn": 22
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.05405405405405406,
+        "lo": 0.012576650943396243,
+        "hi": 0.10126796099897371
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": -0.054545454545454564,
+        "hi": 0.05084745762711862
+       },
+       "f2": {
+        "estimate": 0.04614339948763857,
+        "lo": 0.00785343300046609,
+        "hi": 0.0870699991937252
+       },
+       "cost_4": {
+        "estimate": -0.11985018726591756,
+        "lo": -0.22676973119816984,
+        "hi": -0.018726591760299616
+       }
+      },
+      "flips": {
+       "fn_to_tp": 10,
+       "tp_to_fn": 2,
+       "fp_to_tn": 4,
+       "tn_to_fp": 4
+      },
+      "mcnemar_positives_p": 0.03857421875,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 0.03857421875,
+      "cluster_sign_negatives_p": 1.0
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       },
+       "new": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "personalized": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 695,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 305
+       },
+       "new": {
+        "tp": 777,
+        "tn": 976,
+        "fp": 24,
+        "fn": 223
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.08200000000000007,
+        "lo": 0.06504065040650409,
+        "hi": 0.09970588889500862
+       },
+       "specificity": {
+        "estimate": -0.02400000000000002,
+        "lo": -0.03386495087412155,
+        "hi": -0.01482176858936594
+       },
+       "f2": {
+        "estimate": 0.06905732054845692,
+        "lo": 0.053718987919868594,
+        "hi": 0.08501590774319098
+       },
+       "cost_4": {
+        "estimate": -0.15199999999999997,
+        "lo": -0.188,
+        "hi": -0.11699999999999999
+       }
+      },
+      "flips": {
+       "fn_to_tp": 82,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 24
+      },
+      "mcnemar_positives_p": 4.1359030627651384e-25,
+      "mcnemar_negatives_p": 1.1920928955078125e-07,
+      "cluster_sign_positives_p": 4.1359030627651384e-25,
+      "cluster_sign_negatives_p": 1.1920928955078125e-07
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       },
+       "new": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 1000,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 0
+       },
+       "new": {
+        "tp": 1000,
+        "tn": 976,
+        "fp": 24,
+        "fn": 0
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": -0.02400000000000002,
+        "lo": -0.03386495087412155,
+        "hi": -0.01482176858936594
+       },
+       "f2": {
+        "estimate": -0.004777070063694322,
+        "lo": -0.006821829855537698,
+        "hi": -0.0029382239123226664
+       },
+       "cost_4": {
+        "estimate": 0.012,
+        "lo": 0.0075,
+        "hi": 0.017
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 24
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.1920928955078125e-07,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.1920928955078125e-07
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       },
+       "new": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "check": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 24,
+        "tn": 115,
+        "fp": 4,
+        "fn": 92
+       },
+       "new": {
+        "tp": 33,
+        "tn": 117,
+        "fp": 2,
+        "fn": 83
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.07758620689655174,
+        "lo": 0.0,
+        "hi": 0.15652173913043477
+       },
+       "specificity": {
+        "estimate": 0.01680672268907557,
+        "lo": -0.015876190476190395,
+        "hi": 0.05084745762711862
+       },
+       "f2": {
+        "estimate": 0.08675888362090034,
+        "lo": 0.001185191037980482,
+        "hi": 0.17353104995279137
+       },
+       "cost_4": {
+        "estimate": -0.16170212765957448,
+        "lo": -0.32206165346754473,
+        "hi": -0.008547008547008733
+       }
+      },
+      "flips": {
+       "fn_to_tp": 15,
+       "tp_to_fn": 6,
+       "fp_to_tn": 3,
+       "tn_to_fp": 1
+      },
+      "mcnemar_positives_p": 0.0783538818359375,
+      "mcnemar_negatives_p": 0.625,
+      "cluster_sign_positives_p": 0.0783538818359375,
+      "cluster_sign_negatives_p": 0.625
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 116
+       },
+       "new": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 116
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 83,
+        "tn": 113,
+        "fp": 6,
+        "fn": 33
+       },
+       "new": {
+        "tp": 89,
+        "tn": 115,
+        "fp": 4,
+        "fn": 27
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.051724137931034475,
+        "lo": -0.0080016129032258,
+        "hi": 0.11382113821138207
+       },
+       "specificity": {
+        "estimate": 0.01680672268907568,
+        "lo": -0.015876190476190502,
+        "hi": 0.05084745762711862
+       },
+       "f2": {
+        "estimate": 0.04847072115212925,
+        "lo": -0.001945772273720991,
+        "hi": 0.10382447292867569
+       },
+       "cost_4": {
+        "estimate": -0.11063829787234036,
+        "lo": -0.2334873276503232,
+        "hi": 0.004201680672268893
+       }
+      },
+      "flips": {
+       "fn_to_tp": 9,
+       "tp_to_fn": 3,
+       "fp_to_tn": 3,
+       "tn_to_fp": 1
+      },
+      "mcnemar_positives_p": 0.14599609375,
+      "mcnemar_negatives_p": 0.625,
+      "cluster_sign_positives_p": 0.14599609375,
+      "cluster_sign_negatives_p": 0.625
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 50,
+        "tn": 119,
+        "fp": 0,
+        "fn": 66
+       },
+       "new": {
+        "tp": 50,
+        "tn": 119,
+        "fp": 0,
+        "fn": 66
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "openai": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 85,
+        "tn": 497,
+        "fp": 3,
+        "fn": 415
+       },
+       "new": {
+        "tp": 150,
+        "tn": 481,
+        "fp": 19,
+        "fn": 350
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.12999999999999998,
+        "lo": 0.09940357852882706,
+        "hi": 0.162
+       },
+       "specificity": {
+        "estimate": -0.03200000000000003,
+        "lo": -0.050607928047968105,
+        "hi": -0.014226920793548658
+       },
+       "f2": {
+        "estimate": 0.14223740481073432,
+        "lo": 0.10845486278129837,
+        "hi": 0.1772015715505391
+       },
+       "cost_4": {
+        "estimate": -0.244,
+        "lo": -0.31099999999999994,
+        "hi": -0.17900000000000005
+       }
+      },
+      "flips": {
+       "fn_to_tp": 69,
+       "tp_to_fn": 4,
+       "fp_to_tn": 3,
+       "tn_to_fp": 19
+      },
+      "mcnemar_positives_p": 2.4422670374772693e-16,
+      "mcnemar_negatives_p": 0.0008554458618164062,
+      "cluster_sign_positives_p": 2.4422670374772693e-16,
+      "cluster_sign_negatives_p": 0.0008554458618164062
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 500,
+        "fp": 0,
+        "fn": 500
+       },
+       "new": {
+        "tp": 0,
+        "tn": 500,
+        "fp": 0,
+        "fn": 500
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 459,
+        "tn": 463,
+        "fp": 37,
+        "fn": 41
+       },
+       "new": {
+        "tp": 465,
+        "tn": 448,
+        "fp": 52,
+        "fn": 35
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.01200000000000001,
+        "lo": 0.00390625,
+        "hi": 0.0222683356464183
+       },
+       "specificity": {
+        "estimate": -0.030000000000000027,
+        "lo": -0.04819277108433728,
+        "hi": -0.012396055210019567
+       },
+       "f2": {
+        "estimate": 0.004247558907123805,
+        "lo": -0.0034399788846446503,
+        "hi": 0.013126822296646393
+       },
+       "cost_4": {
+        "estimate": -0.009000000000000008,
+        "lo": -0.031,
+        "hi": 0.010000000000000009
+       }
+      },
+      "flips": {
+       "fn_to_tp": 6,
+       "tp_to_fn": 0,
+       "fp_to_tn": 3,
+       "tn_to_fp": 18
+      },
+      "mcnemar_positives_p": 0.03125,
+      "mcnemar_negatives_p": 0.0014896392822265625,
+      "cluster_sign_positives_p": 0.03125,
+      "cluster_sign_negatives_p": 0.0014896392822265625
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 373,
+        "tn": 470,
+        "fp": 30,
+        "fn": 127
+       },
+       "new": {
+        "tp": 373,
+        "tn": 470,
+        "fp": 30,
+        "fn": 127
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   }
+  },
+  "trf-pf1": {
+   "tune": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 41,
+        "tn": 115,
+        "fp": 4,
+        "fn": 107
+       },
+       "new": {
+        "tp": 39,
+        "tn": 119,
+        "fp": 0,
+        "fn": 109
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": -0.013513513513513542,
+        "lo": -0.06944444444444445,
+        "hi": 0.04216867469879515
+       },
+       "specificity": {
+        "estimate": 0.03361344537815125,
+        "lo": 0.007751937984496138,
+        "hi": 0.06896551724137934
+       },
+       "f2": {
+        "estimate": -0.012787755599618866,
+        "lo": -0.07395547053619017,
+        "hi": 0.04842337025629467
+       },
+       "cost_4": {
+        "estimate": 0.014981273408239737,
+        "lo": -0.10949803693873027,
+        "hi": 0.14127640331011676
+       }
+      },
+      "flips": {
+       "fn_to_tp": 8,
+       "tp_to_fn": 10,
+       "fp_to_tn": 4,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 0.8145294189453125,
+      "mcnemar_negatives_p": 0.125,
+      "cluster_sign_positives_p": 0.8145294189453125,
+      "cluster_sign_negatives_p": 0.125
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       },
+       "new": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 148
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 118,
+        "tn": 113,
+        "fp": 6,
+        "fn": 30
+       },
+       "new": {
+        "tp": 115,
+        "tn": 117,
+        "fp": 2,
+        "fn": 33
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": -0.020270270270270285,
+        "lo": -0.05594405594405594,
+        "hi": 0.013607771875873616
+       },
+       "specificity": {
+        "estimate": 0.03361344537815125,
+        "lo": 0.007751937984496138,
+        "hi": 0.06896551724137934
+       },
+       "f2": {
+        "estimate": -0.013020935931479571,
+        "lo": -0.04420857673285945,
+        "hi": 0.01661350591784496
+       },
+       "cost_4": {
+        "estimate": 0.02996254681647942,
+        "lo": -0.04528301886792452,
+        "hi": 0.11111111111111105
+       }
+      },
+      "flips": {
+       "fn_to_tp": 2,
+       "tp_to_fn": 5,
+       "fp_to_tn": 4,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 0.453125,
+      "mcnemar_negatives_p": 0.125,
+      "cluster_sign_positives_p": 0.453125,
+      "cluster_sign_negatives_p": 0.125
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       },
+       "new": {
+        "tp": 51,
+        "tn": 118,
+        "fp": 1,
+        "fn": 97
+       }
+      },
+      "n_rows": 267,
+      "n_clusters": 248,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "personalized": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 695,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 305
+       },
+       "new": {
+        "tp": 763,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 237
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.06800000000000006,
+        "lo": 0.050453862207942686,
+        "hi": 0.08639615655237456
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.06081668308940702,
+        "lo": 0.045044722318982336,
+        "hi": 0.07744160198397577
+       },
+       "cost_4": {
+        "estimate": -0.136,
+        "lo": -0.17399999999999993,
+        "hi": -0.09999999999999998
+       }
+      },
+      "flips": {
+       "fn_to_tp": 78,
+       "tp_to_fn": 10,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 3.33213360770301e-14,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 3.33213360770301e-14,
+      "cluster_sign_negatives_p": 1.0
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       },
+       "new": {
+        "tp": 0,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 1000
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 1000,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 0
+       },
+       "new": {
+        "tp": 1000,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 0
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       },
+       "new": {
+        "tp": 928,
+        "tn": 1000,
+        "fp": 0,
+        "fn": 72
+       }
+      },
+      "n_rows": 2000,
+      "n_clusters": 2000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "check": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 24,
+        "tn": 115,
+        "fp": 4,
+        "fn": 92
+       },
+       "new": {
+        "tp": 24,
+        "tn": 118,
+        "fp": 1,
+        "fn": 92
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": -0.05882352941176472,
+        "hi": 0.060869565217391286
+       },
+       "specificity": {
+        "estimate": 0.025210084033613467,
+        "lo": 0.0,
+        "hi": 0.05599999999999994
+       },
+       "f2": {
+        "estimate": 0.0014963339817447296,
+        "lo": -0.06490748670981228,
+        "hi": 0.06994540052398164
+       },
+       "cost_4": {
+        "estimate": -0.01276595744680864,
+        "lo": -0.13247863247863245,
+        "hi": 0.1068376068376069
+       }
+      },
+      "flips": {
+       "fn_to_tp": 6,
+       "tp_to_fn": 6,
+       "fp_to_tn": 3,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 0.25,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 0.25
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 116
+       },
+       "new": {
+        "tp": 0,
+        "tn": 119,
+        "fp": 0,
+        "fn": 116
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 83,
+        "tn": 113,
+        "fp": 6,
+        "fn": 33
+       },
+       "new": {
+        "tp": 85,
+        "tn": 116,
+        "fp": 3,
+        "fn": 31
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.01724137931034475,
+        "lo": -0.029126213592232997,
+        "hi": 0.06837606837606836
+       },
+       "specificity": {
+        "estimate": 0.025210084033613467,
+        "lo": 0.0,
+        "hi": 0.05599999999999994
+       },
+       "f2": {
+        "estimate": 0.019475456665880464,
+        "lo": -0.02252127671873465,
+        "hi": 0.06551644630923423
+       },
+       "cost_4": {
+        "estimate": -0.04680851063829783,
+        "lo": -0.1476793248945148,
+        "hi": 0.046808510638297884
+       }
+      },
+      "flips": {
+       "fn_to_tp": 5,
+       "tp_to_fn": 3,
+       "fp_to_tn": 3,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 0.7265625,
+      "mcnemar_negatives_p": 0.25,
+      "cluster_sign_positives_p": 0.7265625,
+      "cluster_sign_negatives_p": 0.25
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 50,
+        "tn": 119,
+        "fp": 0,
+        "fn": 66
+       },
+       "new": {
+        "tp": 50,
+        "tn": 119,
+        "fp": 0,
+        "fn": 66
+       }
+      },
+      "n_rows": 235,
+      "n_clusters": 217,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   },
+   "openai": {
+    "ner": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 85,
+        "tn": 497,
+        "fp": 3,
+        "fn": 415
+       },
+       "new": {
+        "tp": 74,
+        "tn": 500,
+        "fp": 0,
+        "fn": 426
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": -0.02200000000000002,
+        "lo": -0.04040404040404039,
+        "hi": -0.004064834512442512
+       },
+       "specificity": {
+        "estimate": 0.006000000000000005,
+        "lo": 0.0,
+        "hi": 0.013862073707370737
+       },
+       "f2": {
+        "estimate": -0.025144832758805413,
+        "lo": -0.04619247653226007,
+        "hi": -0.004506623097340088
+       },
+       "cost_4": {
+        "estimate": 0.040999999999999925,
+        "lo": 0.006000000000000005,
+        "hi": 0.07799999999999985
+       }
+      },
+      "flips": {
+       "fn_to_tp": 5,
+       "tp_to_fn": 16,
+       "fp_to_tn": 3,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 0.02660369873046875,
+      "mcnemar_negatives_p": 0.25,
+      "cluster_sign_positives_p": 0.02660369873046875,
+      "cluster_sign_negatives_p": 0.25
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 0,
+        "tn": 500,
+        "fp": 0,
+        "fn": 500
+       },
+       "new": {
+        "tp": 0,
+        "tn": 500,
+        "fp": 0,
+        "fn": 500
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    },
+    "union": {
+     "positive": {
+      "counts": {
+       "old": {
+        "tp": 459,
+        "tn": 463,
+        "fp": 37,
+        "fn": 41
+       },
+       "new": {
+        "tp": 461,
+        "tn": 466,
+        "fp": 34,
+        "fn": 39
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0040000000000000036,
+        "lo": 0.0,
+        "hi": 0.010204081632653073
+       },
+       "specificity": {
+        "estimate": 0.006000000000000005,
+        "lo": 0.0,
+        "hi": 0.013862073707370737
+       },
+       "f2": {
+        "estimate": 0.004376541544627743,
+        "lo": 0.00038464781921043745,
+        "hi": 0.009717043408642111
+       },
+       "cost_4": {
+        "estimate": -0.01100000000000001,
+        "lo": -0.023999999999999994,
+        "hi": -0.0010000000000000009
+       }
+      },
+      "flips": {
+       "fn_to_tp": 2,
+       "tp_to_fn": 0,
+       "fp_to_tn": 3,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 0.5,
+      "mcnemar_negatives_p": 0.25,
+      "cluster_sign_positives_p": 0.5,
+      "cluster_sign_negatives_p": 0.25
+     },
+     "block": {
+      "counts": {
+       "old": {
+        "tp": 373,
+        "tn": 470,
+        "fp": 30,
+        "fn": 127
+       },
+       "new": {
+        "tp": 373,
+        "tn": 470,
+        "fp": 30,
+        "fn": 127
+       }
+      },
+      "n_rows": 1000,
+      "n_clusters": 1000,
+      "delta": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "f2": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       },
+       "cost_4": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0
+       }
+      },
+      "flips": {
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0
+      },
+      "mcnemar_positives_p": 1.0,
+      "mcnemar_negatives_p": 1.0,
+      "cluster_sign_positives_p": 1.0,
+      "cluster_sign_negatives_p": 1.0
+     }
+    }
+   }
+  }
+ }
+}

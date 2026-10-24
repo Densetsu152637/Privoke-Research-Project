@@ -126,6 +126,7 @@ Important behavior:
 
 - Normalization applies Unicode NFKC, replaces `[at]` and `(at)` with `@`, removes spaces between adjacent digits, collapses horizontal whitespace, and preserves newlines. Regex and NER receive case-preserved text by default (`PRIVOKE_CASE_PRESERVING_DETECTORS`, default on; `0` lowercases them); the semantic/LLM layer always receives lowercased text.
 - `PRIVOKE_NER_POSTFILTER` defaults to on: spaCy entities pass through per-span cleaning and category-combination rules before they set the NER sensitivity (`src/NER/ner_postfilter.py`). `0` emits raw mapped entities.
+- `PRIVOKE_NER_MODEL` (default `en_core_web_sm`) selects the spaCy pipeline for NER; `PRIVOKE_NER_BACKEND=gliner` (default `spacy`, off) selects the GLiNER candidate backend. See `docs/detectors/ner.md`.
 - `PRIVOKE_WAIT_FOR_REGEX` defaults to true. In that mode regex runs first and a regex `BLOCK` short-circuits NER and semantic detection.
 - gRPC callers can request any subset of `regex`, `ner`, and `semantic`, and can override regex-first versus parallel scheduling per request.
 - gRPC callers can set `semantic_model_id` per request to select a streamed PriVoke model without mutating global runtime configuration.
@@ -244,6 +245,11 @@ Environment variables:
 - `PRIVOKE_WAIT_FOR_REGEX`
 - `PRIVOKE_CASE_PRESERVING_DETECTORS`, default true; `0` lowercases regex and NER input
 - `PRIVOKE_NER_POSTFILTER`, default true; `0` disables the NER post-filter
+- `PRIVOKE_NER_MODEL`, default `en_core_web_sm`; the spaCy pipeline for the NER layer (any installed pipeline with the OntoNotes label scheme; the post-filter was designed on the default)
+- `PRIVOKE_NER_BACKEND`, default `spacy`; `gliner` selects the optional GLiNER detector (needs the `gliner` package)
+- `PRIVOKE_NER_GLINER_MODEL`, default `knowledgator/gliner-pii-small-v1.0`; local checkpoint directory or Hugging Face id
+- `PRIVOKE_NER_GLINER_THRESHOLD`, default `0.3`; GLiNER span score threshold
+- `PRIVOKE_NER_GLINER_LABELS`, default `core`; `pii` adds identifier labels (see `docs/detectors/ner.md`)
 - `PRIVOKE_MAX_PROMPT_CHARS`
 - `PRIVOKE_MAX_GRPC_MESSAGE_BYTES`, default `262144`
 - `PRIVOKE_MAX_GRPC_RESPONSE_BYTES`, default `1048576`
