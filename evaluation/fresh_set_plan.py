@@ -290,25 +290,51 @@ def _scan_worker(path: str) -> tuple[str, list[str] | None]:
         return path, None
 
 
+SCAN_SUFFIXES = (".json", ".jsonl", ".json.gz", ".jsonl.gz", ".csv", ".tsv", ".csv.gz", ".tsv.gz")
+SCAN_NOT_READ_SUFFIXES = (".parquet", ".bin", ".pt", ".pth", ".safetensors", ".onnx", ".npz", ".npy", ".pkl", ".whl",
+                          ".gguf", ".ckpt")
+SCAN_PRUNED_DIRS = ("__pycache__", "node_modules", ".git", "snapshots", "blobs")
+
+
 def cmd_scan(args: argparse.Namespace) -> int:
-    """Collect PIIMB group-id tokens (never text) from json/jsonl(/.gz) artifacts under the roots."""
+    """Collect PIIMB group-id tokens (never text) from text data files under the roots.
+
+    Reads json/jsonl/csv/tsv (optionally gzip) up to --max-bytes; counts, but does not read, parquet and binary
+    weight formats; prunes virtual environments, .git and Hugging Face cache directories.
+    """
     import os
     from collections import defaultdict
     from multiprocessing import Pool
     skip_files = {os.path.normcase(os.path.abspath(p)) for p in args.skip}
     skip_dirs = [os.path.normcase(os.path.abspath(p)) for p in args.skip_dir]
-    suffixes = (".json", ".jsonl", ".json.gz", ".jsonl.gz")
+    coverage: Counter[str] = Counter()
+
     def walk_paths():
         for root in args.roots:
             for directory, dirnames, files in os.walk(root):
                 norm_dir = os.path.normcase(os.path.abspath(directory))
                 if any(norm_dir == d or norm_dir.startswith(d + os.sep) for d in skip_dirs):
+                    coverage["skipped_dirs"] += 1
                     dirnames[:] = []
                     continue
-                dirnames[:] = [d for d in dirnames if not (d.startswith(".venv") or d in ("__pycache__", "node_modules"))]
+                dirnames[:] = [d for d in dirnames if not (d.startswith(".venv") or d in SCAN_PRUNED_DIRS)]
                 for name in files:
+                    lowered = name.lower()
                     full = os.path.join(directory, name)
-                    if name.endswith(suffixes) and os.path.normcase(os.path.abspath(full)) not in skip_files:
+                    if lowered.endswith(SCAN_NOT_READ_SUFFIXES):
+                        coverage["not_read:" + lowered.rsplit(".", 1)[-1]] += 1
+                    elif lowered.endswith(SCAN_SUFFIXES):
+                        if os.path.normcase(os.path.abspath(full)) in skip_files:
+                            coverage["skipped_file_by_name"] += 1
+                            continue
+                        try:
+                            if os.path.getsize(full) > args.max_bytes:
+                                coverage["skipped_over_max_bytes"] += 1
+                                continue
+                        except OSError:
+                            coverage["unreadable"] += 1
+                            continue
+                        coverage["queued:" + ("gz" if lowered.endswith(".gz") else lowered.rsplit(".", 1)[-1])] += 1
                         yield full
 
     found: set[str] = set()
@@ -327,9 +353,13 @@ def cmd_scan(args: argparse.Namespace) -> int:
             top = "/".join(os.path.relpath(os.path.abspath(path), base).replace("\\", "/").split("/")[:3])
             per_top[top].update(groups)
     Path(args.output).write_text(json.dumps({"groups": sorted(found)}), encoding="utf-8")
-    summary = {"files_scanned": scanned, "files_unreadable": unreadable, "n_groups": len(found),
+    summary = {"roots": [str(r) for r in args.roots], "skip_dirs": list(args.skip_dir), "skip_files": list(args.skip),
+               "max_bytes": args.max_bytes, "files_read": scanned, "files_unreadable": unreadable,
+               "coverage": dict(sorted(coverage.items())), "n_groups": len(found),
                "groups_sha256": groups_sha256(found),
                "top_level_dirs_with_groups": {k: len(v) for k, v in sorted(per_top.items()) if v}}
+    if args.summary:
+        Path(args.summary).write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(json.dumps(summary))
     return 0
 
@@ -526,6 +556,8 @@ def build_parser() -> argparse.ArgumentParser:
     sc.add_argument("roots", nargs="+")
     sc.add_argument("--output", required=True)
     sc.add_argument("--workers", type=int, default=8)
+    sc.add_argument("--max-bytes", type=int, default=500_000_000, help="files above this size are skipped and counted")
+    sc.add_argument("--summary", help="write the coverage summary (roots, extensions, skipped counts) to this JSON file")
     sc.add_argument("--skip", nargs="*", default=[], help="files never to open (e.g. a held-out partition)")
     sc.add_argument("--skip-dir", nargs="*", default=[], help="directories never entered (e.g. the raw PIIMB download)")
     sc.set_defaults(func=cmd_scan)
