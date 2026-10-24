@@ -26,77 +26,92 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-A}}Scope and Trust}{3}{subsection*.11}\protected@file@percent }
 \newlabel{sec:threat_model}{{\mbox  {III-A}}{3}{Scope and Trust}{subsection*.11}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-B}}Local Inspection and Request Enforcement}{3}{subsection*.14}\protected@file@percent }
-\newlabel{sec:pii_categorisation}{{\mbox  {III-B}}{3}{Local Inspection and Request Enforcement}{subsection*.14}{}}
 \citation{turc2019WellReadStudents}
 \@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces PriVoke's client, server and opt-in legacy training paths. Local inspection returns an action: ALLOW and WARN send the original body; BLOCK cancels the request. Randomized coarse event fields pass through a separate budgeted reporting channel. Standard V3 uses pinned read-only packages. In the legacy route, the updater requests a cycle; the fuzzer generates labelled examples, the server runtime computes bounded updates on its cached model, and the fuzzer forwards only candidates passing its held-out guards. The updater applies an update only to its exact parent; this dashed path does not update standard V3.}}{4}{figure.13}\protected@file@percent }
 \newlabel{fig:architecture}{{1}{4}{PriVoke's client, server and opt-in legacy training paths. Local inspection returns an action: ALLOW and WARN send the original body; BLOCK cancels the request. Randomized coarse event fields pass through a separate budgeted reporting channel. Standard V3 uses pinned read-only packages. In the legacy route, the updater requests a cycle; the fuzzer generates labelled examples, the server runtime computes bounded updates on its cached model, and the fuzzer forwards only candidates passing its held-out guards. The updater applies an update only to its exact parent; this dashed path does not update standard V3}{figure.13}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-C}}Guarded Detector Updates}{4}{subsection*.16}\protected@file@percent }
-\newlabel{sec:updates}{{\mbox  {III-C}}{4}{Guarded Detector Updates}{subsection*.16}{}}
+\newlabel{sec:pii_categorisation}{{\mbox  {III-B}}{4}{Local Inspection and Request Enforcement}{subsection*.14}{}}
+\citation{Luhn1960Patent}
+\citation{ISO13616Part1_2020}
+\citation{Honnibal2020SpaCy}
 \citation{DworkRothFoundations2014}
 \citation{DworkRothFoundations2014}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-D}}Separate Randomized Telemetry}{5}{subsection*.17}\protected@file@percent }
-\newlabel{sec:telemetry_mechanism}{{\mbox  {III-D}}{5}{Separate Randomized Telemetry}{subsection*.17}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Evidence linking the research questions to their measured outcomes. Contextual targets are provisional and do not constitute independently adjudicated privacy truth.}}{5}{table.23}\protected@file@percent }
-\newlabel{tab:question_map}{{I}{5}{Evidence linking the research questions to their measured outcomes. Contextual targets are provisional and do not constitute independently adjudicated privacy truth}{table.23}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {IV}Evaluation Method}{5}{section*.20}\protected@file@percent }
-\newlabel{sec:methodology}{{IV}{5}{Evaluation Method}{section*.20}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-A}}Questions and Evidence Units}{5}{subsection*.21}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-C}}Detector Precision Controls}{5}{subsection*.16}\protected@file@percent }
+\newlabel{sec:detector_precision_design}{{\mbox  {III-C}}{5}{Detector Precision Controls}{subsection*.16}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-D}}Guarded Detector Updates}{5}{subsection*.17}\protected@file@percent }
+\newlabel{sec:updates}{{\mbox  {III-D}}{5}{Guarded Detector Updates}{subsection*.17}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-E}}Separate Randomized Telemetry}{5}{subsection*.18}\protected@file@percent }
+\newlabel{sec:telemetry_mechanism}{{\mbox  {III-E}}{5}{Separate Randomized Telemetry}{subsection*.18}{}}
 \citation{PIIMBPinned2026}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}Comparison and Retention Protocols}{6}{subsection*.24}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Evidence linking the research questions to their measured outcomes. Contextual targets are provisional and do not constitute independently adjudicated privacy truth.}}{6}{table.24}\protected@file@percent }
+\newlabel{tab:question_map}{{I}{6}{Evidence linking the research questions to their measured outcomes. Contextual targets are provisional and do not constitute independently adjudicated privacy truth}{table.24}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {IV}Evaluation Method}{6}{section*.21}\protected@file@percent }
+\newlabel{sec:methodology}{{IV}{6}{Evaluation Method}{section*.21}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-A}}Questions and Evidence Units}{6}{subsection*.22}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}Comparison and Retention Protocols}{7}{subsection*.25}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-C}}Detector Precision Protocol}{7}{subsection*.26}\protected@file@percent }
+\newlabel{sec:detprec_protocol}{{\mbox  {IV-C}}{7}{Detector Precision Protocol}{subsection*.26}{}}
 \citation{LinuxCgroupV2Interfaces2026}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-C}}Enforcement, Cost and Telemetry Protocols}{7}{subsection*.25}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces Full-product comparison on the same provisional contextual cases, shown as historical/updated counts. Labels+action is label-and-action joint agreement and Action is allowed-action agreement, both out of 1,560. Sensitive and Clean count correct classifications out of 810 and 750. All arms completed without errors.}}{8}{table.29}\protected@file@percent }
-\newlabel{tab:pipeline_v1_v3}{{II}{8}{Full-product comparison on the same provisional contextual cases, shown as historical/updated counts. Labels+action is label-and-action joint agreement and Action is allowed-action agreement, both out of 1,560. Sensitive and Clean count correct classifications out of 810 and 750. All arms completed without errors}{table.29}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {V}RQ1: Detection and Enforcement}{8}{section*.26}\protected@file@percent }
-\newlabel{sec:results}{{V}{8}{RQ1: Detection and Enforcement}{section*.26}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}Contextual Policy Agreement}{8}{subsection*.27}\protected@file@percent }
-\newlabel{sec:pipeline_comparison_results}{{\mbox  {V-A}}{8}{Contextual Policy Agreement}{subsection*.27}{}}
-\newlabel{sec:detector_ablation}{{\mbox  {V-A}}{8}{Contextual Policy Agreement}{table.29}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Balanced-package ablation across the same 1,560 provisional cases, with requested layers in brackets. Action and Joint count allowed-action and label-and-action joint agreement; Under and Over count actions below and above the allowed set.}}{8}{table.31}\protected@file@percent }
-\newlabel{tab:targeted_ablation}{{III}{8}{Balanced-package ablation across the same 1,560 provisional cases, with requested layers in brackets. Action and Joint count allowed-action and label-and-action joint agreement; Under and Over count actions below and above the allowed set}{table.31}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces Final semantic annotation-presence results for 236 positive and 262 negative rows. Historical/updated counts show true/false positives (TP/FP) and true/false negatives (TN/FN). All six arms completed without errors.}}{8}{table.34}\protected@file@percent }
-\newlabel{tab:final_presence}{{IV}{8}{Final semantic annotation-presence results for 236 positive and 262 negative rows. Historical/updated counts show true/false positives (TP/FP) and true/false negatives (TN/FN). All six arms completed without errors}{table.34}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}Agreement on a Separate Annotation Target}{8}{subsection*.32}\protected@file@percent }
-\newlabel{sec:final_annotation}{{\mbox  {V-B}}{8}{Agreement on a Separate Annotation Target}{subsection*.32}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Does a Decision Control Transmission?}{8}{subsection*.35}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces Matched semantic-only continuation on 1,080 reused provisional cases, shown as head-only/full-model counts. Labels+action denotes label-and-action joint agreement. The unchanged zero-head base has zero joint matches and 480 allowed-action matches. Guard harms are relative to that base on sixteen separate cases.}}{9}{table.40}\protected@file@percent }
-\newlabel{tab:matched_continuation}{{V}{9}{Matched semantic-only continuation on 1,080 reused provisional cases, shown as head-only/full-model counts. Labels+action denotes label-and-action joint agreement. The unchanged zero-head base has zero joint matches and 480 allowed-action matches. Guard harms are relative to that base on sixteen separate cases}{table.40}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {VI}RQ2: Updates and Previously Protected Behavior}{9}{section*.36}\protected@file@percent }
-\newlabel{sec:adaptation_results}{{VI}{9}{RQ2: Updates and Previously Protected Behavior}{section*.36}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-A}}Improvement Subject to Retention}{9}{subsection*.37}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}Matched Continuation and Guard Decisions}{9}{subsection*.38}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces Page-observed rules/NER decision latency (ms), with sixty measurements across two fresh profiles per cell. Max is the observed maximum; timings exclude receiver response and semantic processing.}}{9}{table.44}\protected@file@percent }
-\newlabel{tab:browser_cost}{{VI}{9}{Page-observed rules/NER decision latency (ms), with sixty measurements across two fresh profiles per cell. Max is the observed maximum; timings exclude receiver response and semantic processing}{table.44}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {VII}RQ3: Systems and Privacy Overhead}{9}{section*.41}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-A}}Measured Systems Cost}{9}{subsection*.42}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {VII}{\ignorespaces Installed V3 balanced request-to-receiver latency (ms), with sixty timed requests across two profiles per cell. Off retains extension/native infrastructure, and observed maxima do not guarantee tail performance.}}{10}{table.46}\protected@file@percent }
-\newlabel{tab:v3_installed_cost}{{VII}{10}{Installed V3 balanced request-to-receiver latency (ms), with sixty timed requests across two profiles per cell. Off retains extension/native infrastructure, and observed maxima do not guarantee tail performance}{table.46}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-B}}Privacy Cost and Telemetry Utility}{10}{subsection*.47}\protected@file@percent }
-\newlabel{sec:telemetry_results}{{\mbox  {VII-B}}{10}{Privacy Cost and Telemetry Utility}{subsection*.47}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {VIII}{\ignorespaces Two illustrative prespecified category cells ($K=11$, event $\varepsilon =1$), each repeated 10,000 times. Truth, clipped bias and RMSE describe the first category in count units. Clip gives its clipping frequency; Sum gives the frequency of independently clipped marginals failing to sum to $n$ (tolerance $10^{-9}$).}}{10}{table.49}\protected@file@percent }
-\newlabel{tab:telemetry_utility}{{VIII}{10}{Two illustrative prespecified category cells ($K=11$, event $\varepsilon =1$), each repeated 10,000 times. Truth, clipped bias and RMSE describe the first category in count units. Clip gives its clipping frequency; Sum gives the frequency of independently clipped marginals failing to sum to $n$ (tolerance $10^{-9}$)}{table.49}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {VIII}Discussion and Limitations}{10}{section*.50}\protected@file@percent }
-\newlabel{sec:discussion}{{VIII}{10}{Discussion and Limitations}{section*.50}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-A}}What the System Evidence Supports}{10}{subsection*.51}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-D}}Enforcement, Cost and Telemetry Protocols}{8}{subsection*.27}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces Full-product comparison on the same provisional contextual cases, shown as historical/updated counts. Labels+action is label-and-action joint agreement and Action is allowed-action agreement, both out of 1,560. Sensitive and Clean count correct classifications out of 810 and 750. All arms completed without errors.}}{9}{table.31}\protected@file@percent }
+\newlabel{tab:pipeline_v1_v3}{{II}{9}{Full-product comparison on the same provisional contextual cases, shown as historical/updated counts. Labels+action is label-and-action joint agreement and Action is allowed-action agreement, both out of 1,560. Sensitive and Clean count correct classifications out of 810 and 750. All arms completed without errors}{table.31}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {V}RQ1: Detection and Enforcement}{9}{section*.28}\protected@file@percent }
+\newlabel{sec:results}{{V}{9}{RQ1: Detection and Enforcement}{section*.28}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}Contextual Policy Agreement}{9}{subsection*.29}\protected@file@percent }
+\newlabel{sec:pipeline_comparison_results}{{\mbox  {V-A}}{9}{Contextual Policy Agreement}{subsection*.29}{}}
+\newlabel{sec:detector_ablation}{{\mbox  {V-A}}{9}{Contextual Policy Agreement}{table.31}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Balanced-package ablation across the same 1,560 provisional cases, with requested layers in brackets. Action and Joint count allowed-action and label-and-action joint agreement; Under and Over count actions below and above the allowed set.}}{9}{table.33}\protected@file@percent }
+\newlabel{tab:targeted_ablation}{{III}{9}{Balanced-package ablation across the same 1,560 provisional cases, with requested layers in brackets. Action and Joint count allowed-action and label-and-action joint agreement; Under and Over count actions below and above the allowed set}{table.33}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces Final semantic annotation-presence results for 236 positive and 262 negative rows. Historical/updated counts show true/false positives (TP/FP) and true/false negatives (TN/FN). All six arms completed without errors.}}{9}{table.36}\protected@file@percent }
+\newlabel{tab:final_presence}{{IV}{9}{Final semantic annotation-presence results for 236 positive and 262 negative rows. Historical/updated counts show true/false positives (TP/FP) and true/false negatives (TN/FN). All six arms completed without errors}{table.36}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}Agreement on a Separate Annotation Target}{9}{subsection*.34}\protected@file@percent }
+\newlabel{sec:final_annotation}{{\mbox  {V-B}}{9}{Agreement on a Separate Annotation Target}{subsection*.34}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces Detector-layer annotation-presence counts (TP/TN/FP/FN), shown as pre-change/installed. Regex and NER were requested explicitly ([2,3]); Union is positive when either layer reports. The development set has 502 rows (264 positive), dev-TUNE 267 (148), dev-CHECK 235 (116), personalized 2,000 (1,000), OpenAI 1,000 (500) and the held-out final endpoint 498 (236). $^\dagger $Post-review set.}}{10}{table.39}\protected@file@percent }
+\newlabel{tab:detprec}{{V}{10}{Detector-layer annotation-presence counts (TP/TN/FP/FN), shown as pre-change/installed. Regex and NER were requested explicitly ([2,3]); Union is positive when either layer reports. The development set has 502 rows (264 positive), dev-TUNE 267 (148), dev-CHECK 235 (116), personalized 2,000 (1,000), OpenAI 1,000 (500) and the held-out final endpoint 498 (236). $^\dagger $Post-review set}{table.39}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Detector-Layer Precision Revision}{10}{subsection*.37}\protected@file@percent }
+\newlabel{sec:detector_precision}{{\mbox  {V-C}}{10}{Detector-Layer Precision Revision}{subsection*.37}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-D}}Does a Decision Control Transmission?}{10}{subsection*.40}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {VI}RQ2: Updates and Previously Protected Behavior}{10}{section*.41}\protected@file@percent }
+\newlabel{sec:adaptation_results}{{VI}{10}{RQ2: Updates and Previously Protected Behavior}{section*.41}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-A}}Improvement Subject to Retention}{10}{subsection*.42}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces Matched semantic-only continuation on 1,080 reused provisional cases, shown as head-only/full-model counts. Labels+action denotes label-and-action joint agreement. The unchanged zero-head base has zero joint matches and 480 allowed-action matches. Guard harms are relative to that base on sixteen separate cases.}}{11}{table.45}\protected@file@percent }
+\newlabel{tab:matched_continuation}{{VI}{11}{Matched semantic-only continuation on 1,080 reused provisional cases, shown as head-only/full-model counts. Labels+action denotes label-and-action joint agreement. The unchanged zero-head base has zero joint matches and 480 allowed-action matches. Guard harms are relative to that base on sixteen separate cases}{table.45}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}Matched Continuation and Guard Decisions}{11}{subsection*.43}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {VII}{\ignorespaces Page-observed rules/NER decision latency (ms), with sixty measurements across two fresh profiles per cell. Max is the observed maximum; timings exclude receiver response and semantic processing.}}{11}{table.49}\protected@file@percent }
+\newlabel{tab:browser_cost}{{VII}{11}{Page-observed rules/NER decision latency (ms), with sixty measurements across two fresh profiles per cell. Max is the observed maximum; timings exclude receiver response and semantic processing}{table.49}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VII}RQ3: Systems and Privacy Overhead}{11}{section*.46}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-A}}Measured Systems Cost}{11}{subsection*.47}\protected@file@percent }
 \citation{CasperPreprintV12024,HaS2024,ProSan2024}
+\@writefile{lot}{\contentsline {table}{\numberline {VIII}{\ignorespaces Installed V3 balanced request-to-receiver latency (ms), with sixty timed requests across two profiles per cell. Off retains extension/native infrastructure, and observed maxima do not guarantee tail performance.}}{12}{table.51}\protected@file@percent }
+\newlabel{tab:v3_installed_cost}{{VIII}{12}{Installed V3 balanced request-to-receiver latency (ms), with sixty timed requests across two profiles per cell. Off retains extension/native infrastructure, and observed maxima do not guarantee tail performance}{table.51}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {IX}{\ignorespaces Two illustrative prespecified category cells ($K=11$, event $\varepsilon =1$), each repeated 10,000 times. Truth, clipped bias and RMSE describe the first category in count units. Clip gives its clipping frequency; Sum gives the frequency of independently clipped marginals failing to sum to $n$ (tolerance $10^{-9}$).}}{12}{table.54}\protected@file@percent }
+\newlabel{tab:telemetry_utility}{{IX}{12}{Two illustrative prespecified category cells ($K=11$, event $\varepsilon =1$), each repeated 10,000 times. Truth, clipped bias and RMSE describe the first category in count units. Clip gives its clipping frequency; Sum gives the frequency of independently clipped marginals failing to sum to $n$ (tolerance $10^{-9}$)}{table.54}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-B}}Privacy Cost and Telemetry Utility}{12}{subsection*.52}\protected@file@percent }
+\newlabel{sec:telemetry_results}{{\mbox  {VII-B}}{12}{Privacy Cost and Telemetry Utility}{subsection*.52}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VIII}Discussion and Limitations}{12}{section*.55}\protected@file@percent }
+\newlabel{sec:discussion}{{VIII}{12}{Discussion and Limitations}{section*.55}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-A}}What the System Evidence Supports}{12}{subsection*.56}\protected@file@percent }
 \citation{NissenbaumContextualIntegrity2004}
 \citation{YanPositiveCongruent2021}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-B}}Ground Truth and Generalization Remain Open}{13}{subsection*.57}\protected@file@percent }
+\newlabel{sec:limitations}{{\mbox  {VIII-B}}{13}{Ground Truth and Generalization Remain Open}{subsection*.57}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-C}}Retention, Availability and Practical Utility}{13}{subsection*.58}\protected@file@percent }
 \citation{ErlingssonRappor2014}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-B}}Ground Truth and Generalization Remain Open}{11}{subsection*.52}\protected@file@percent }
-\newlabel{sec:limitations}{{\mbox  {VIII-B}}{11}{Ground Truth and Generalization Remain Open}{subsection*.52}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-C}}Retention, Availability and Practical Utility}{11}{subsection*.53}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-D}}Measurement Boundaries and Next Steps}{11}{subsection*.54}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {IX}Conclusion}{12}{section*.55}\protected@file@percent }
-\newlabel{sec:conclusion}{{IX}{12}{Conclusion}{section*.55}{}}
-\@writefile{toc}{\contentsline {section}{Appendix\nobreakspace  A: Policy Decision Order and Observable Outcomes}{12}{section*.59}\protected@file@percent }
-\newlabel{app:policy}{{A}{12}{\appendixname \nobreakspace \thesectiondis \\* Policy Decision Order and Observable Outcomes}{section*.59}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VIII-D}}Measurement Boundaries and Next Steps}{14}{subsection*.59}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {IX}Conclusion}{14}{section*.60}\protected@file@percent }
+\newlabel{sec:conclusion}{{IX}{14}{Conclusion}{section*.60}{}}
+\@writefile{toc}{\contentsline {section}{Appendix\nobreakspace  A: Policy Decision Order and Observable Outcomes}{14}{section*.64}\protected@file@percent }
+\newlabel{app:policy}{{A}{14}{\appendixname \nobreakspace \thesectiondis \\* Policy Decision Order and Observable Outcomes}{section*.64}{}}
+\@writefile{toc}{\contentsline {section}{Appendix\nobreakspace  B: Measurement Definitions and Reused Evidence}{15}{section*.66}\protected@file@percent }
+\newlabel{app:measurement}{{B}{15}{\appendixname \nobreakspace \thesectiondis \\* Measurement Definitions and Reused Evidence}{section*.66}{}}
+\@writefile{toc}{\contentsline {section}{Appendix\nobreakspace  C: Candidate Identity, Guarding and Reproduction}{15}{section*.71}\protected@file@percent }
+\newlabel{app:retention}{{C}{15}{\appendixname \nobreakspace \thesectiondis \\* Candidate Identity, Guarding and Reproduction}{section*.71}{}}
+\@writefile{toc}{\contentsline {section}{Appendix\nobreakspace  D: Installed-Browser Observation Boundaries}{15}{section*.73}\protected@file@percent }
+\newlabel{app:browser}{{D}{15}{\appendixname \nobreakspace \thesectiondis \\* Installed-Browser Observation Boundaries}{section*.73}{}}
 \citation{LinuxCgroupV2Interfaces2026}
-\@writefile{toc}{\contentsline {section}{Appendix\nobreakspace  B: Measurement Definitions and Reused Evidence}{13}{section*.61}\protected@file@percent }
-\newlabel{app:measurement}{{B}{13}{\appendixname \nobreakspace \thesectiondis \\* Measurement Definitions and Reused Evidence}{section*.61}{}}
-\@writefile{toc}{\contentsline {section}{Appendix\nobreakspace  C: Candidate Identity, Guarding and Reproduction}{13}{section*.66}\protected@file@percent }
-\newlabel{app:retention}{{C}{13}{\appendixname \nobreakspace \thesectiondis \\* Candidate Identity, Guarding and Reproduction}{section*.66}{}}
-\@writefile{toc}{\contentsline {section}{Appendix\nobreakspace  D: Installed-Browser Observation Boundaries}{13}{section*.68}\protected@file@percent }
-\newlabel{app:browser}{{D}{13}{\appendixname \nobreakspace \thesectiondis \\* Installed-Browser Observation Boundaries}{section*.68}{}}
+\@writefile{toc}{\contentsline {section}{Appendix\nobreakspace  E: Telemetry Estimation and Admission}{16}{section*.75}\protected@file@percent }
+\newlabel{app:reporting}{{E}{16}{\appendixname \nobreakspace \thesectiondis \\* Telemetry Estimation and Admission}{section*.75}{}}
+\@writefile{toc}{\contentsline {section}{Appendix\nobreakspace  F: Detector Precision Rules and Reproduction}{16}{section*.78}\protected@file@percent }
+\newlabel{app:detprec}{{F}{16}{\appendixname \nobreakspace \thesectiondis \\* Detector Precision Rules and Reproduction}{section*.78}{}}
 \bibstyle{IEEEtran}
 \bibdata{ref,research/paper-completion-sources-20261014,manuscript-completion-sources-20261014,research/literature-baseline-sources-20261015}
 \bibcite{Gupta2024}{1}
@@ -112,13 +127,16 @@
 \bibcite{CasperPreprintV12024}{11}
 \bibcite{Casper2024}{12}
 \bibcite{HaS2024}{13}
-\@writefile{toc}{\contentsline {section}{Appendix\nobreakspace  E: Telemetry Estimation and Admission}{14}{section*.70}\protected@file@percent }
-\newlabel{app:reporting}{{E}{14}{\appendixname \nobreakspace \thesectiondis \\* Telemetry Estimation and Admission}{section*.70}{}}
-\@writefile{toc}{\contentsline {section}{References}{14}{section*.72}\protected@file@percent }
 \bibcite{ProSan2024}{14}
 \bibcite{PromptShield2025}{15}
 \bibcite{ErlingssonRappor2014}{16}
-\bibcite{DworkRothFoundations2014}{17}
-\bibcite{PIIMBPinned2026}{18}
-\bibcite{LinuxCgroupV2Interfaces2026}{19}
-\gdef \@abspage@last{15}
+\@writefile{lot}{\contentsline {table}{\numberline {X}{\ignorespaces Development-only union ablation (recall/specificity), repaired rules fixed. Case = case-preserved NER input; PF = post-filter (revised version). $^\dagger $Post-review set. Not held out.}}{17}{table.80}\protected@file@percent }
+\newlabel{tab:detprec_ablation}{{X}{17}{Development-only union ablation (recall/specificity), repaired rules fixed. Case = case-preserved NER input; PF = post-filter (revised version). $^\dagger $Post-review set. Not held out}{table.80}{}}
+\@writefile{toc}{\contentsline {section}{References}{17}{section*.81}\protected@file@percent }
+\bibcite{Luhn1960Patent}{17}
+\bibcite{ISO13616Part1_2020}{18}
+\bibcite{Honnibal2020SpaCy}{19}
+\bibcite{DworkRothFoundations2014}{20}
+\bibcite{PIIMBPinned2026}{21}
+\bibcite{LinuxCgroupV2Interfaces2026}{22}
+\gdef \@abspage@last{18}

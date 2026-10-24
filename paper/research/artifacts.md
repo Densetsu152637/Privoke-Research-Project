@@ -2,7 +2,7 @@
 
 ## Detector precision - 24 October 2026
 
-[DETPREC-20261024](detector-precision-20261024.md) records the eighth, detector-layer-only evidence unit authorized on 24 October 2026: regex precision repairs, case-preserved regex/NER input and the NER post-filter, with source revisions on `fix/regex-fp-reduction`, split and freeze protocol, and limitations. Results are pending the installation task (`install-1`); no measurement in the paper predates that rerun, and units 1 to 7 are not revalidated.
+[DETPREC-20261024](detector-precision-20261024.md) records the eighth, detector-layer-only evidence unit authorized on 24 October 2026: regex precision repairs, case-preserved regex/NER input and the NER post-filter, with source revisions on `fix/regex-fp-reduction`, split and freeze protocol, and limitations. Results recorded: held-out regex specificity .985 to .996 at recall .653 to .640, union essentially unchanged, no net NER benefit established. Units 1 to 7 are not revalidated.
 
 ## External manuscript expansion - 18 October 2026
 

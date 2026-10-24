@@ -24,10 +24,6 @@
 
 % custom commands
 \newcommand{\privoke}{\textsc{PriVoke}\xspace}
-% Placeholders for detector-precision results not yet supplied (task install-1, 24 October 2026).
-% Every occurrence must be replaced by an actual rerun result recorded in research/detector-precision-20261024.md.
-\newcommand{\todo}[1]{\textbf{[TODO #1]}}
-\newcommand{\pend}{\textbf{tbd}}
 
 %
 \begin{document}
@@ -50,9 +46,8 @@ nbis0006@student.monash.edu}
 \maketitle
 \raggedbottom
 %----------------------------------------------------------------------%
-% TODO(install-1): add one abstract sentence on the detector-precision unit (unit 8) once its numbers are supplied; REWRITE_SCOPE.md, 24 October 2026.
 \begin{abstract}
-Useful prompts often contain information that users may not intend to disclose to an external language-model provider. \privoke inspects supported requests locally and applies explicit allow, warn or block actions before transmission. A separate training path checks version and retention constraints before distributing accepted parameters, while independently randomized telemetry provides no training data. Across 1,560 authored cases with provisional targets, updated packages improved contextual policy agreement. Targeted detector removal nevertheless exposed a tradeoff between unnecessary restrictions and missed protection, and a frozen 498-row semantic annotation-presence check yielded specificity of only 13.36 to 21.76\%. Thirty-three installed receiver probes verified the declared request behavior. Every matched full-model candidate improved aggregate agreement but failed retention. Installed pretrained-model measurements isolated resident detector-activation cost, although a quality-tier probe blocked a benign prompt. Controlled telemetry tests verified delivery and accounting; separate audits identified a small excess over nominal privacy loss and substantial synthetic estimation error. Together, these findings demonstrate an inspectable protection and revision mechanism while leaving independent contextual accuracy, adaptation without lost protection, real-user monitoring usefulness and practical user benefit unresolved.
+Useful prompts often contain information that users may not intend to disclose to an external language-model provider. \privoke inspects supported requests locally and applies explicit allow, warn or block actions before transmission. A separate training path checks version and retention constraints before distributing accepted parameters, while independently randomized telemetry provides no training data. Across 1,560 authored cases with provisional targets, updated packages improved contextual policy agreement. Targeted detector removal nevertheless exposed a tradeoff between unnecessary restrictions and missed protection, and a frozen 498-row semantic annotation-presence check yielded specificity of only 13.36 to 21.76\%. Thirty-three installed receiver probes verified the declared request behavior. Every matched full-model candidate improved aggregate agreement but failed retention. Installed pretrained-model measurements isolated resident detector-activation cost, although a quality-tier probe blocked a benign prompt. A detector-layer precision revision raised regex specificity on a once-scored held-out set from 98.5 to 99.6\% at a recall cost of 1.3 points, leaving the rules-and-NER union essentially unchanged and establishing no net NER benefit. Controlled telemetry tests verified delivery and accounting; separate audits identified a small excess over nominal privacy loss and substantial synthetic estimation error. Together, these findings demonstrate an inspectable protection and revision mechanism while leaving independent contextual accuracy, adaptation without lost protection, real-user monitoring usefulness and practical user benefit unresolved.
 \end{abstract}
 \begin{IEEEkeywords}
 Local differential privacy, local inference, model regression, prompt privacy, randomized telemetry, request enforcement.
@@ -148,13 +143,13 @@ These models classify prompts rather than generate conversational responses. His
 \label{sec:detector_precision_design}
 Rules and NER run first, and a rule BLOCK ends the cascade, so their false detections cannot be repaired by a later semantic layer. Three controls therefore limit how often these layers fire without personal context. They change detector findings only; the policy mapping, the semantic models and the update path are unchanged.
 
-\textit{Rule gates.} A narrative heuristic that matched on length alone was removed. Kinship, family and child cues now require a possessive determiner, optionally with modifier words, or an age expression combined with a person noun. Financial keywords cover personal financial-state nouns after a possessive, and location keywords require a connector followed by a name rather than a closed-class word. Structured identity values remain on one short line. Rules derived from Presidio patterns regained validators: Luhn checksums for card numbers, mod-97 for IBANs, mod-11 for NHS numbers, issuable ranges for US social security numbers and whole-word context terms for weakly shaped licence and date patterns. Placeholder passwords, chat mentions and standards identifiers are excluded. Appendix~\ref{app:detprec} lists the gates.
+\textit{Rule gates.} A narrative heuristic that matched on length alone was removed. Kinship, family and child cues now require a possessive determiner, optionally with modifier words, or an age expression combined with a person noun. Financial keywords cover personal financial-state nouns after a possessive, and location keywords require a connector followed by a name rather than a closed-class word. Structured identity values remain on one short line. Rules derived from Presidio patterns regained validators: Luhn checksums~\cite{Luhn1960Patent} for card numbers, mod-97 for IBANs~\cite{ISO13616Part1_2020}, mod-11 for NHS numbers, issuable ranges for US social security numbers and whole-word context terms for weakly shaped licence and date patterns. Placeholder passwords, chat mentions and standards identifiers are excluded. Appendix~\ref{app:detprec} lists the gates.
 
-\textit{Case-preserved input.} All rules are compiled case-insensitively, so letter case does not determine which rules match. The small English spaCy NER model, however, uses capitalization as evidence for proper nouns, and lowercasing the input suppresses that evidence. Passing case-preserved text to NER therefore increases the entities it returns, but it also admits capitalized non-names such as headings, acronyms and ordinary words, which motivates the filter below.
+\textit{Case-preserved input.} All rules are compiled case-insensitively, so letter case does not determine which rules match. The small English spaCy NER model~\cite{Honnibal2020SpaCy}, however, uses capitalization as evidence for proper nouns, and lowercasing the input suppresses that evidence. Passing case-preserved text to NER therefore increases the entities it returns, but it also admits capitalized non-names such as headings, acronyms and ordinary words, which motivates the filter below.
 
 \textit{NER post-filter.} A first stage removes entity spans that are unlikely to be personal: masking placeholders, identifier-shaped tokens, spans inside structural headings, short acronyms without a locating or affiliation preposition, and single-token person candidates that an offline lexicon and tagger read as ordinary words. A second stage assigns sensitivity from the combination of surviving categories, following a quasi-identifier principle: a lone place or organization does not identify the speaker and is dropped unless a relation cue such as ``I live in'' ties it to the speaker; a person linked with a corroborated place or organization, or a corroborated name (multi-token, cue-introduced or recurring), yields S2; and an uncorroborated single name yields S1. The filter records the deciding rule for each emitted entity and uses only resources installed with the model.
 
-The installed runtime applies the case-preserved input and the post-filter together with the repaired rules; both can still be switched off individually for ablation. % TODO(install-1): confirm default-on state, flag names and the installed commit identifier before this paragraph is final.
+The rule repairs ship unconditionally. The case-preserved input and the post-filter are on by default and can be switched off individually (\path{PRIVOKE_CASE_PRESERVING_DETECTORS} and \path{PRIVOKE_NER_POSTFILTER}, set to 0), which preserves the pre-change behavior for ablation and rollback.
 
 \subsection{Guarded Detector Updates}
 \label{sec:updates}
@@ -237,9 +232,9 @@ The matched design reduces several sources of ambiguity: both treatments share t
 
 \subsection{Detector Precision Protocol}
 \label{sec:detprec_protocol}
-The eighth evidence unit asks whether repaired rules, case-preserved input and the NER post-filter reduce false annotation-presence detections without an unacceptable loss of recall. It is a detector-layer study: each call explicitly requests the regex and NER layers, [2,3], and asserts that both executed successfully. The semantic layer is never requested, so the outcomes are neither semantic-only nor full-product evidence and are not comparable with Tables~\ref{tab:pipeline_v1_v3} or~\ref{tab:final_presence}. The pre-change configuration denotes the rules, lowercased detector input and unfiltered NER output used by the earlier units. The installed configuration adds the three controls of Section~\ref{sec:detector_precision_design}. \todo{install-1: confirm whether single-control arms (case preservation alone, post-filter alone) are reported in the main text}
+The eighth evidence unit asks whether repaired rules, case-preserved input and the NER post-filter reduce false annotation-presence detections without an unacceptable loss of recall. It is a detector-layer study: each call explicitly requests the regex and NER layers, [2,3], and asserts that both executed successfully. The semantic layer is never requested, so the outcomes are neither semantic-only nor full-product evidence and are not comparable with Tables~\ref{tab:pipeline_v1_v3} or~\ref{tab:final_presence}. The pre-change configuration is a clean export of the commit preceding the revision, with the original rules, lowercased detector input and unfiltered NER output used by the earlier units. The installed configuration is the shipped default with all three controls of Section~\ref{sec:detector_precision_design}. Single-control arms (case preservation alone, the post-filter on lowercased input and variants that ignore organizations) are development-only ablations reported in Appendix~\ref{app:detprec}; they are not held out.
 
-Splits reuse existing material. The 502-row development set is divided by the parity of a hash of its source-group identifier into dev-TUNE (267 rows, 148 annotation-positive) and dev-CHECK (235 rows, 116 positive). Two synthetic sets complete the design: a personalized set of 2,000 rows (1,000 positive) and an OpenAI-generated set of 1,000 rows (500 positive). The post-filter rules were designed using only dev-TUNE and the personalized set, and were committed before any dev-CHECK or OpenAI score was computed. A subsequent review using author-written probe sentences produced a revised filter; because dev-CHECK and OpenAI had already been scored, the revised filter's results on them are post-review and no longer strictly held out. The final 498-row endpoint of Section~\ref{sec:final_annotation} was not opened for this unit. \todo{install-1: data used to design the regex repairs} \todo{install-1: identity, size, provenance and freeze time of the one-shot held-out set, and the freeze commit}
+Splits reuse existing material. The 502-row development set is divided by the parity of a hash of its source-group identifier into dev-TUNE (267 rows, 148 annotation-positive) and dev-CHECK (235 rows, 116 positive). Two synthetic sets complete the design: a personalized set of 2,000 rows (1,000 positive) and an OpenAI-generated set of 1,000 rows (500 positive). The post-filter rules were designed using only dev-TUNE and the personalized set, and were committed before any dev-CHECK or OpenAI score was computed. A subsequent review using author-written probe sentences produced a revised filter; because dev-CHECK and OpenAI had already been scored, the revised filter's results on them are post-review and no longer strictly held out. The data consulted while designing the regex repairs are not separately recorded, so the development and synthetic splits are treated as design material for them. The held-out set is the 498-row final endpoint of Section~\ref{sec:final_annotation} (236 annotation-positive rows). It was scored once for both configurations after the installed defaults were frozen, as aggregate counts and timing only, with no row inspected and no rule or code changed afterwards. The endpoint had already been opened for the semantic arms of unit 3 under its own protocol, so this is a one-shot detector-layer scoring rather than a new protected confirmation.
 
 A prediction is positive when any finding has nonzero sensitivity or a nonempty category set, the projection of Appendix~\ref{app:measurement}. Because S1 findings are positive, downgrading an uncorroborated name from S2 to S1 changes no confusion cell; only dropping a finding does. We report true/false positives and negatives, recall, specificity and mean latency per prompt for regex, NER and their union, and count rows that change confusion cell between configurations. Labels are the source annotation-presence labels, not contextual authorization.
 
@@ -328,10 +323,9 @@ This endpoint complements rather than reproduces the contextual comparison. It a
 \label{sec:detector_precision}
 The preceding results attribute much of the unnecessary restriction to rules and the weak specificity of annotation presence to detectors that fire without personal context. The precision revision of Section~\ref{sec:detector_precision_design} targets that behavior at the detector layers. Table~\ref{tab:detprec} compares the pre-change and installed configurations for regex, NER and their union on the splits of Section~\ref{sec:detprec_protocol}. These are detector-layer measurements: they exclude the semantic layer, policy mapping and request enforcement, and they are not comparable with the product or semantic-only tables above.
 
-% TODO(install-1): confirm the direction before finalizing. The user's reading of the interim runs was higher specificity with lower recall; the statements below must follow the final numbers.
 \begin{table}[t]
 \centering
-\caption{Detector-layer annotation-presence counts (TP/TN/FP/FN), shown as pre-change/installed. Regex and NER were requested explicitly ([2,3]); Union is positive when either layer reports. $^\dagger$Post-review set. \todo{install-1: all cells pending DETPREC-20261024 reruns}}
+\caption{Detector-layer annotation-presence counts (TP/TN/FP/FN), shown as pre-change/installed. Regex and NER were requested explicitly ([2,3]); Union is positive when either layer reports. The development set has 502 rows (264 positive), dev-TUNE 267 (148), dev-CHECK 235 (116), personalized 2,000 (1,000), OpenAI 1,000 (500) and the held-out final endpoint 498 (236). $^\dagger$Post-review set.}
 \label{tab:detprec}
 \small
 \setlength{\tabcolsep}{3pt}
@@ -339,32 +333,38 @@ The preceding results attribute much of the unnecessary restriction to rules and
 \toprule
 Split & Layer & TP & TN & FP & FN \\
 \midrule
-Tune & Regex &\pend/\pend &\pend/\pend &\pend/\pend &\pend/\pend \\
- & NER &\pend/\pend &\pend/\pend &\pend/\pend &\pend/\pend \\
- & Union &\pend/\pend &\pend/\pend &\pend/\pend &\pend/\pend \\
+dev (502) & Regex & 172/169 & 231/234 & 7/4 & 92/95 \\
+ & NER & 55/65 & 232/230 & 6/8 & 209/199 \\
+ & Union & 193/201 & 225/226 & 13/12 & 71/63 \\
 \midrule
-Check$^\dagger$ & Regex &\pend/\pend &\pend/\pend &\pend/\pend &\pend/\pend \\
- & NER &\pend/\pend &\pend/\pend &\pend/\pend &\pend/\pend \\
- & Union &\pend/\pend &\pend/\pend &\pend/\pend &\pend/\pend \\
+dev-TUNE & Regex & 96/95 & 115/117 & 4/2 & 52/53 \\
+ & NER & 35/41 & 117/115 & 2/4 & 113/107 \\
+ & Union & 113/118 & 113/113 & 6/6 & 35/30 \\
 \midrule
-Personalized & Regex &\pend/\pend &\pend/\pend &\pend/\pend &\pend/\pend \\
- & NER &\pend/\pend &\pend/\pend &\pend/\pend &\pend/\pend \\
- & Union &\pend/\pend &\pend/\pend &\pend/\pend &\pend/\pend \\
+dev-CHECK$^\dagger$ & Regex & 76/74 & 116/117 & 3/2 & 40/42 \\
+ & NER & 20/24 & 115/115 & 4/4 & 96/92 \\
+ & Union & 80/83 & 112/113 & 7/6 & 36/33 \\
 \midrule
-OpenAI$^\dagger$ & Regex &\pend/\pend &\pend/\pend &\pend/\pend &\pend/\pend \\
- & NER &\pend/\pend &\pend/\pend &\pend/\pend &\pend/\pend \\
- & Union &\pend/\pend &\pend/\pend &\pend/\pend &\pend/\pend \\
+Personalized & Regex & 1000/1000 & 977/1000 & 23/0 & 0/0 \\
+ & NER & 800/695 & 1000/1000 & 0/0 & 200/305 \\
+ & Union & 1000/1000 & 977/1000 & 23/0 & 0/0 \\
 \midrule
-Held-out & Regex &\pend/\pend &\pend/\pend &\pend/\pend &\pend/\pend \\
- & NER &\pend/\pend &\pend/\pend &\pend/\pend &\pend/\pend \\
- & Union &\pend/\pend &\pend/\pend &\pend/\pend &\pend/\pend \\
+OpenAI$^\dagger$ & Regex & 460/448 & 346/466 & 154/34 & 40/52 \\
+ & NER & 145/85 & 492/497 & 8/3 & 355/415 \\
+ & Union & 471/459 & 343/463 & 157/37 & 29/41 \\
+\midrule
+Held-out & Regex & 154/151 & 258/261 & 4/1 & 82/85 \\
+ & NER & 56/50 & 255/253 & 7/9 & 180/186 \\
+ & Union & 181/180 & 251/252 & 11/10 & 55/56 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-On the one-shot held-out set, the installed union changed from \todo{install-1: pre-change recall/specificity} to \todo{install-1: installed recall/specificity}, with \todo{install-1: FP removed} fewer false positives and \todo{install-1: TP lost} fewer true positives. The regex layer contributed \todo{install-1: regex-only change}, and the NER layer \todo{install-1: NER-only change}. On the design splits, which informed the filter, the corresponding union changes were \todo{install-1: tune and personalized}; on the post-review check sets they were \todo{install-1: check and OpenAI}. Mean detector latency per prompt was \todo{install-1: pre-change/installed ms}. Because the union is positive whenever either layer reports, regex-only false positives persist in it unchanged by the NER filter, and NER recall measured alone falls where lone places, organizations and uncorroborated names are no longer sensitive. \todo{install-1: quantify with final numbers}
+On the held-out final endpoint, the regex layer's specificity rose from 0.985 to 0.996 (false positives 4 to 1) while its recall fell from 0.653 to 0.640 (true positives 154 to 151). The design and development splits show the same direction at similar size: dev specificity 0.971 to 0.983 and recall 0.652 to 0.640. The synthetic sets show larger specificity gains: regex false positives fell from 23 to 0 on the personalized set and from 154 to 34 on the OpenAI set, where regex recall fell from 0.920 to 0.896. Because the rules were developed with these sets in view, the synthetic gains are optimistic, and the held-out difference rests on three rows.
 
-These results do not establish the effect on contextual actions. The precision revision was not rerun through the product comparison, ablation or installed probes, so the 139 shared unnecessary restrictions, the rule-block counts and the cost increments reported above remain pre-change measurements. The comparison also shares the limits listed in Section~\ref{sec:limitations}: one small spaCy model, annotation-presence labels with their noise, S1 findings counted as positive, and partly reused design material.
+The union is essentially unchanged on held-out data: recall 0.767 to 0.763 (181 to 180 true positives) and specificity 0.958 to 0.962 (11 to 10 false positives). The NER layer alone did not improve there: false positives rose from 7 to 9 and recall fell from 0.237 to 0.212. It also lost recall on both synthetic sets (personalized 0.800 to 0.695, OpenAI 0.290 to 0.170), and gained recall on the development set (0.208 to 0.246, with specificity 0.975 to 0.966) and on dev-CHECK, where its false positives stayed at four while recall rose from 0.172 to 0.207. A net NER benefit is therefore not established. The NER changes are installed on design and development evidence, with an off switch, and the union result is dominated by the regex layer. The trade the revision makes is regex specificity for a small recall cost.
+
+Mean detector latency per prompt, from one sequential pass, was 44.3 to 52.4 ms for the pre-change configuration and 46.1 to 51.5 ms for the installed one across splits, with no meaningful difference. These results do not establish the effect on contextual actions. The precision revision was not rerun through the product comparison, ablation or installed probes, so the 139 shared unnecessary restrictions, the rule-block counts and the cost increments reported above remain pre-change measurements. The comparison also shares the limits listed in Section~\ref{sec:limitations}: one small spaCy model, annotation-presence labels with their noise, S1 findings counted as positive, and partly reused design material.
 
 \subsection{Does a Decision Control Transmission?}
 Across thirty-three correctness probes, the installed-browser capture connected decisions to eighteen unchanged-body sends and fifteen zero-send outcomes. Correlated runtime and receiver records, including late-arrival checks, established these outcomes without a decision broker. Healthy full-pipeline and sole-semantic probes also verified execution, linking request disposition to the detector path actually exercised.
@@ -450,7 +450,7 @@ XHR &Full &35.9 &175.8 &341.0 \\
 \end{tabular}
 \end{table}
 
-These comparisons isolate detector activation for one short input, excluding total overhead relative to an absent extension and the cost of cold download or loading. With only two profile clusters per cell and observed maxima up to 341.0 ms, they establish neither a service-level objective nor a deployment-tail guarantee. Product code, dependencies and images also differ between V1 and V3, preventing attribution of cross-study speed differences to the model alone. Both studies timed the pre-change rules and NER; case-preserved input, the added validators and the NER post-filter were not part of the timed arms, so the rules/NER increments may differ for the installed configuration. \todo{install-1: latency of the installed detector configuration, if measured}
+These comparisons isolate detector activation for one short input, excluding total overhead relative to an absent extension and the cost of cold download or loading. With only two profile clusters per cell and observed maxima up to 341.0 ms, they establish neither a service-level objective nor a deployment-tail guarantee. Product code, dependencies and images also differ between V1 and V3, preventing attribution of cross-study speed differences to the model alone. Both studies timed the pre-change rules and NER; case-preserved input, the added validators and the NER post-filter were not part of the timed arms, so the rules/NER increments may differ for the installed configuration. A single sequential detector-layer pass (Section~\ref{sec:detector_precision}) found no meaningful per-prompt latency difference between configurations, but it is not a browser measurement.
 
 \subsection{Privacy Cost and Telemetry Utility}
 \label{sec:telemetry_results}
@@ -497,7 +497,7 @@ A stronger contextual evaluation would specify who may disclose which informatio
 
 Group and text exclusions reduce declared overlap, while paired cluster analyses show sensitivity to known dependence. Neither establishes template independence, paraphrase exclusion or absence of pretraining exposure. The final endpoint comprises 308 Nemotron, 89 AI4privacy, eighty Gretel, twenty Privy and one MAPA row. These English synthetic or machine-generated cases do not represent other languages or organizational policies, and neither unadjusted intervals nor three seeds provide a population guarantee. Confirmation after opening this endpoint requires a new protected successor.
 
-The detector-precision unit adds its own limits. It uses a single small English spaCy model, and its cue lists for honorifics, relations and roles are English-only. Annotation-presence labels are source annotations with unquantified noise, and a prediction is positive for any nonzero sensitivity, so S1 findings count as positives. The filter was designed on dev-TUNE and the personalized set; dev-CHECK and the OpenAI set were scored before the post-review revision and are no longer strictly held out, so only the one-shot held-out run is free of selection on its rows. The datasets are synthetic or benchmark-derived, and small splits make single rows move recall by about a percentage point. Pets, fictional or historical people and organizations that resemble given names cannot be separated from private people without world knowledge. \todo{install-1: add held-out size and any further limits}
+The detector-precision unit adds its own limits. It uses a single small English spaCy model, and its cue lists for honorifics, relations and roles are English-only. Annotation-presence labels are source annotations with unquantified noise, and a prediction is positive for any nonzero sensitivity, so S1 findings count as positives. The filter was designed on dev-TUNE and the personalized set; dev-CHECK and the OpenAI set were scored before the post-review revision and are no longer strictly held out, so only the one-shot run on the final endpoint is free of selection on its rows, and that endpoint was already opened for unit 3. The datasets are synthetic or benchmark-derived, and small splits make single rows move recall by about a percentage point. Pets, fictional or historical people and organizations that resemble given names cannot be separated from private people without world knowledge. The held-out run has 236 positive and 262 negative rows, so a single row moves recall by about 0.4 points and specificity by about 0.4 points; its regex differences rest on three and three rows. Timing is one sequential pass on one host.
 
 \subsection{Retention, Availability and Practical Utility}
 Matching the base and exposure reduces RQ2 configuration confounding without retrospectively isolating the RQ1 package effect. Consistent with negative-flip research~\cite{YanPositiveCongruent2021}, all matched full-model candidates improved aggregate assessment yet failed the guard. Under the configured rule, higher scores cannot override casewise rejection, and no candidate was published. The weak zero-head base and small guard also constrain the significance of a pass, motivating independently reviewed retention cases and explicit criteria for harm.
@@ -519,8 +519,7 @@ Across the lifecycle, early restrictions can survive later model improvements, i
 
 \section{Conclusion}
 \label{sec:conclusion}
-% TODO(install-1): add one sentence on detector precision (unit 8) once its numbers are supplied.
-\privoke integrates local prompt inspection, explicit request enforcement, version-bound guarded revision and independently randomized reporting. Its evaluation demonstrates why each mechanism needs distinct acceptance evidence. Agreement with authored contextual targets improved, while action errors and poor specificity on a separate annotation-presence task persisted. Installed probes verified supported request handling, including unchanged-content forwarding under WARN. All matched full-model candidates improved aggregate agreement but failed retention, making average gain insufficient to justify publication. Installed V3 tests measured resident activation cost while revealing an adverse quality-tier decision; controlled telemetry verified delivery and accounting without establishing live monitoring usefulness. The contribution is an inspectable lifecycle and an empirical account of its limits. Independent contextual accuracy, useful adaptation without lost protection and human benefit remain to be established.
+\privoke integrates local prompt inspection, explicit request enforcement, version-bound guarded revision and independently randomized reporting. Its evaluation demonstrates why each mechanism needs distinct acceptance evidence. Agreement with authored contextual targets improved, while action errors and poor specificity on a separate annotation-presence task persisted. Installed probes verified supported request handling, including unchanged-content forwarding under WARN. All matched full-model candidates improved aggregate agreement but failed retention, making average gain insufficient to justify publication. Installed V3 tests measured resident activation cost while revealing an adverse quality-tier decision; controlled telemetry verified delivery and accounting without establishing live monitoring usefulness. The contribution is an inspectable lifecycle and an empirical account of its limits. A detector-layer precision revision traded a small regex recall cost for higher held-out specificity without a measured net NER benefit, and its effect on full-product actions remains unmeasured. Independent contextual accuracy, useful adaptation without lost protection and human benefit remain to be established.
 
 \section*{AI Assistance}
 Artificial intelligence (AI) assistance supported provisional contextual labelling and manuscript drafting. GPT-6 Sol assisted implementation and controlled testing, GPT-6 Luna assisted review, and GPT-6 Astra assisted manuscript review and rewriting. These provisional labels have not been independently adjudicated as ground truth. The authors remain responsible for the manuscript and its claims.
@@ -597,7 +596,27 @@ This appendix defines the controls evaluated in Section~\ref{sec:detector_precis
 
 \textit{Post-filter, stage 2.} The first matching rule decides: (1) a person linked with a place or organization, when either side is independently corroborated, yields S2; (2) the corresponding place or organization yields S2; (3) a corroborated person yields S2; (4) a place or organization tied to the speaker by a relation cue keeps its default sensitivity; (5) one in the same prompt as such a tied entity keeps its default; (6) a facility or location directly beside a number yields S2; (7) a single uncorroborated person yields S1; and (8) a lone place or organization is dropped. Independent corroboration means evidence about the entity itself: a multi-token, cue-introduced or recurring person, or a place or organization with a personal-relation cue. A bare locating preposition does not corroborate.
 
-\textit{Reproduction.} The evaluation harness \path{evaluation/compare_ner_postfilter.py} runs explicit layers regex and NER on the host Python environment, asserts successful execution of both, and refuses paths named like the final endpoint. \todo{install-1: harness command, installed commit identifier and dataset fingerprints for the reported runs}
+\textit{Development-only ablations.} Table~\ref{tab:detprec_ablation} holds the repaired rules fixed and varies only the NER input and filter, using union recall/specificity from the source repository's experiment records. These arms were run on design and development splits; dev-CHECK and OpenAI are post-review, and none is held out. Case preservation alone raises or preserves union recall but lowers specificity on every split with a margin to lose (to 0.824, 0.832 and 0.814 on dev-TUNE, dev-CHECK and OpenAI, and to 0.919 on the personalized set), because capitalized non-names enter the NER output. The post-filter recovers most of that specificity on case-preserved input, and on lowercased input it lowers recall slightly while raising specificity. Counting only non-organization entities as NER positives moved development NER-only recall from 0.170 to 0.333 and specificity from 0.996 to 0.937 between lowercased and case-preserved input.
+
+\begin{table}[t]
+\centering
+\caption{Development-only union ablation (recall/specificity), repaired rules fixed. Case = case-preserved NER input; PF = post-filter (revised version). $^\dagger$Post-review set. Not held out.}
+\label{tab:detprec_ablation}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrrrr}
+\toprule
+NER arm & Tune & Check$^\dagger$ & Personal. & OpenAI$^\dagger$ \\
+\midrule
+Lowercase &.757/.966 &.681/.950 &1.000/1.000 &.926/.916 \\
+Case &.858/.824 &.819/.832 &1.000/.919 &.942/.814 \\
+Case + PF &.797/.950 &.716/.950 &1.000/1.000 &.918/.926 \\
+Lowercase + PF &.736/.983 &.664/.975 &1.000/1.000 &.914/.926 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textit{Reproduction.} The evaluation script \path{evaluation/evaluate_installed_detectors.py} calls the analysis pipeline per prompt with the explicit layer list regex and NER (never empty), on the host Python environment with spaCy \texttt{en\_core\_web\_sm}, and records the runtime flag values it observed. The pre-change configuration is a clean export of commit \texttt{e6c177ff}; the installed configuration is source commit \texttt{89c358fd}, which differs from the defaults-on commit \texttt{6a0c9ca3} only by that script. The final endpoint was scored once with an explicit one-shot option. Dataset SHA-256 digests, the full commit list and the aggregates are in \path{detector-precision-20261024.md}.
 
 % Source-use/restoration map: research/source-restoration-guide-20261017.md.
 % Keep every BibTeX source-pool record; print cited entries only, without a page limit.

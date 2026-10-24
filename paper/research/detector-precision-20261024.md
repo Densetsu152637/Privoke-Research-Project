@@ -1,6 +1,6 @@
 # Detector precision: regex repairs, case-preserved input and NER post-filter
 
-**Record:** DETPREC-20261024. **Date opened:** 24 October 2026. **Status:** scaffold; results pending (task `install-1`). **Paper input:** branch `docs/paper` at `2ab95a67`. **Scope:** manuscript evidence unit 8, detector layers only (see [REWRITE_SCOPE](../REWRITE_SCOPE.md#authorized-eighth-evidence-unit-24-october-2026)).
+**Record:** DETPREC-20261024. **Date opened:** 24 October 2026. **Status:** results recorded (task `paper-2`, same day). **Paper input:** branch `docs/paper` at `2ab95a67`. **Scope:** manuscript evidence unit 8, detector layers only (see [REWRITE_SCOPE](../REWRITE_SCOPE.md#authorized-eighth-evidence-unit-24-october-2026)).
 
 ## Goal and exact prompt
 
@@ -43,30 +43,49 @@ Source worktree `D:/Git Repositories/Privoke-Research-Project-wt-regex-fp`, bran
 | `4c26b52caa2e0a4bc6032c4d503fc9a0c10a35f5` | feat(evaluation): add NER post-filter detector-layer comparison harness |
 | `c4311b7455cdb546445295ee96eb56900fa7846e` | docs(experiments): record post-review v2 NER post-filter results beside v1 |
 
-Source experiment documents (interim, opt-in flags default off at that time): `docs/experiments/case-preservation-ablation-20261024.md`, `docs/experiments/ner-postfilter-20261024.md`. Installed-default commit and the one-shot held-out run: TODO(install-1).
+Source experiment documents (interim, opt-in flags default off at that time): `docs/experiments/case-preservation-ablation-20261024.md`, `docs/experiments/ner-postfilter-20261024.md`. Defaults-on freeze `6a0c9ca3` (`PRIVOKE_CASE_PRESERVING_DETECTORS` and `PRIVOKE_NER_POSTFILTER` default on; `0`/false/no disables; defined only in `src/config.py`); evaluation script `89c358fd`; evaluation record `ab647e45`. The post-filter freeze is `50fc51e6` (the source document's `6614ca80` was pre-rebase and is unreachable).
 
 ## Datasets
 
 - `evaluation/results/locked-public/development.jsonl` (502 rows; dev-TUNE and dev-CHECK by group-id hash parity).
 - `evaluation/datasets/privoke_personalized_synthetic.jsonl` (2,000 rows).
 - `evaluation/datasets/privoke_openai_synthetic.jsonl` (1,000 rows).
-- One-shot held-out set: TODO(install-1) identity, size, provenance, fingerprint and freeze time.
-- Data used to design the regex repairs: TODO(install-1).
+- One-shot held-out set: the 498-row locked-public PIIMB final partition (236 positive), the endpoint already opened for unit 3; scored once for both configurations after the defaults freeze, aggregates only, no row inspected, nothing changed afterwards.
+- Data used to design the regex repairs: not separately recorded.
+- SHA-256: development `65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095`; personalized `fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281`; openai `8e8e611b9d40f7d554726d577449585faefb9aec97f5dd4ffb051af1a6da2c3b`; final `613a78b9e5fa677904125b4c056fb8d57d15fb6ebd9c443a75f406ae3ac05515`.
 
-Harness: `evaluation/compare_ner_postfilter.py` (host environment `evaluation/.venv-v1-v3-pipeline`, spaCy `en_core_web_sm`).
+Harnesses: `evaluation/evaluate_installed_detectors.py` (old = clean export of `e6c177ff`, new = `89c358fd`; flags observed and recorded) and, for development-only single-control arms, `evaluation/compare_ner_postfilter.py` (host environment `evaluation/.venv-v1-v3-pipeline`, spaCy `en_core_web_sm`). Source aggregates: `docs/experiments/detector-precision-installed-20261024.md` and `.json` (commit `ab647e45`), `case-preservation-ablation-20261024.md`, `ner-postfilter-20261024.md`.
 
 ## Results
 
-TODO(install-1): fill from the final reruns. Required cells: regex, NER and union TP/TN/FP/FN for the pre-change and installed configurations on dev-TUNE, dev-CHECK (post-review), personalized, OpenAI (post-review) and the one-shot held-out set; recall and specificity; mean latency per prompt; rows changing confusion cell; any single-control arms to be reported. These cells map to `Table~\ref{tab:detprec}` and the prose of the subsection "Detector-Layer Precision Revision" in `paper/main.tex`.
+Counts are TP/TN/FP/FN, old (pre-change) then new (installed). Held-out = final endpoint, 498 rows, 236 positive. Source: `docs/experiments/detector-precision-installed-20261024.json`.
+
+| Split | Layer | Old | New | Recall old/new | Specificity old/new |
+| --- | --- | --- | --- | --- | --- |
+| held-out | regex | 154/258/4/82 | 151/261/1/85 | .653/.640 | .985/.996 |
+| held-out | NER | 56/255/7/180 | 50/253/9/186 | .237/.212 | .973/.966 |
+| held-out | union | 181/251/11/55 | 180/252/10/56 | .767/.763 | .958/.962 |
+| dev (502) | regex | 172/231/7/92 | 169/234/4/95 | .652/.640 | .971/.983 |
+| dev (502) | NER | 55/232/6/209 | 65/230/8/199 | .208/.246 | .975/.966 |
+| dev (502) | union | 193/225/13/71 | 201/226/12/63 | .731/.761 | .945/.950 |
+| personalized | regex | 1000/977/23/0 | 1000/1000/0/0 | 1.000/1.000 | .977/1.000 |
+| personalized | NER | 800/1000/0/200 | 695/1000/0/305 | .800/.695 | 1.000/1.000 |
+| openai | regex | 460/346/154/40 | 448/466/34/52 | .920/.896 | .692/.932 |
+| openai | NER | 145/492/8/355 | 85/497/3/415 | .290/.170 | .984/.994 |
+| openai | union | 471/343/157/29 | 459/463/37/41 | .942/.918 | .686/.926 |
+
+The dev-TUNE, dev-CHECK, personalized union and remaining rows and the latency table are in the source record and in paper Table `tab:detprec`. Mean latency ms/prompt (one sequential pass): old 44.3 to 52.4, new 46.1 to 51.5 across splits; no meaningful difference.
+
+Reading (evidence-faithful): the held-out result supports a regex specificity gain with a small recall cost; the held-out union is essentially unchanged; NER-only did not improve on held-out (FP 7 to 9, recall .237 to .212) and lost recall on the synthetic sets, so a net NER benefit is not established and the NER changes rest on design and development evidence with an off switch. Development-only single-control arms (case alone, lowercase plus post-filter, NER without organizations) are in Appendix F of the paper and are not held out.
 
 ## Limitations
 
-Single small English spaCy model; English-only cue lists; annotation-presence label noise; S1 findings counted positive; dev-TUNE and personalized used for design; dev-CHECK and OpenAI scored before the v2 post-review revision; synthetic and benchmark-derived data; small splits (one prompt moves recall by about one point); pets, fictional or historical people and name-like organizations are not separable without world knowledge; no full-product, semantic or installed-client rerun.
+Single small English spaCy model; English-only cue lists; annotation-presence label noise; S1 findings counted positive; dev-TUNE and personalized used for design; dev-CHECK and OpenAI scored before the v2 post-review revision; synthetic and benchmark-derived data; small splits (one prompt moves recall by about one point); pets, fictional or historical people and name-like organizations are not separable without world knowledge; no full-product, semantic or installed-client rerun; the held-out set has 236 positive and 262 negative rows, so its regex differences rest on three rows each; the held-out endpoint was already opened for unit 3; latency is a single sequential pass.
 
 ## Paper passages affected
 
-Added: macros `\todo` and `\pend`; subsection "Detector Precision Controls" in the system design; subsection "Detector Precision Protocol" in the evaluation method; subsection "Detector-Layer Precision Revision" and Table `tab:detprec` in the RQ1 results; Appendix "Detector Precision Rules and Reproduction"; limitations paragraph; question-map row. Edited: normalization and cascade paragraph; call-type sentence; comparison, ablation and installed-probe statements that those units ran with the pre-change configuration; RQ1 answer; RQ3 cost limitations; ablation discussion; artifact availability. Comments marked `TODO(install-1)` remain at the abstract and conclusion.
+Added: macros `\todo` and `\pend`; subsection "Detector Precision Controls" in the system design; subsection "Detector Precision Protocol" in the evaluation method; subsection "Detector-Layer Precision Revision" and Table `tab:detprec` in the RQ1 results; Appendix "Detector Precision Rules and Reproduction"; limitations paragraph; question-map row. Edited: normalization and cascade paragraph; call-type sentence; comparison, ablation and installed-probe statements that those units ran with the pre-change configuration; RQ1 answer; RQ3 cost limitations; ablation discussion; artifact availability. One numerical sentence was added to the abstract and one to the conclusion. All placeholders were replaced in `paper-2`.
 
 ## Bibliography
 
-No source was added. The BibTeX pool has no spaCy (`en_core_web_sm`), Gitleaks, Luhn or IBAN key; the only related keys are `PresidioNlpConfiguration2026` (`ref.bib`) and `SpacyLarge371Release2026` (`paper-completion-sources-20261014.bib`, the large model release). The text therefore cites none of them. Adding verified entries needs network access to the primary sources and was not done.
+Added to `ref.bib` after opening the sources on 24 October 2026: `Honnibal2020SpaCy` (project CITATION.cff, DOI 10.5281/zenodo.1212303), `Luhn1960Patent` (US 2,950,048, Google Patents) and `ISO13616Part1_2020` (title and validity date from the EVS listing; the ISO page returned 403). No Presidio or Gitleaks entry was added: `PresidioNlpConfiguration2026` covers NLP configuration, not rule patterns. See the [source guide](source-restoration-guide-20261017.md#detector-precision-update-24-october-2026).

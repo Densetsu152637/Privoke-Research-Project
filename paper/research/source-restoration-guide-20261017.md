@@ -168,3 +168,16 @@ The current rewrite restores `Llama2023` and `priyanshu2023chatbots` from the de
 The expanded introduction also uses the existing `turc2019WellReadStudents` citation to motivate compact-model configuration; the new browser appendix uses existing `LinuxCgroupV2Interfaces2026` for the resource definition. Existing claims and citation identities remain. Their numeric positions change with first appearance, as required by the conference bibliography. The three linked pinned model-card references remain intact.
 
 The 33c5bf93 internal-to-external transition emptied `ref.bib`. This rewrite restores it byte-for-byte from that commit's parent, retaining all 76 records and metadata corrections. The other databases supply five further records: the complete pool remains 81 unique keys, partitioned as 19 numbered, three linked footnotes, 58 deferred, and one formatting control. The historical validation above remains a snapshot of the 17 October version. Current build and inspection evidence is recorded in [LONG22](external-version-expansion-20261018.md).
+
+
+## Detector-precision update, 24 October 2026
+
+Three sources were added to `ref.bib` and are actively cited in the detector-precision design subsection (pool now 84 keys; 22 numbered, three footnoted, 58 deferred, one formatting control). Each was opened on 24 October 2026.
+
+| Key | Location | Source and attribution boundary |
+| --- | --- | --- |
+| `Honnibal2020SpaCy` | Detector Precision Controls | spaCy project's requested citation ([CITATION.cff](https://github.com/explosion/spaCy/blob/master/CITATION.cff); DOI [10.5281/zenodo.1212303](https://doi.org/10.5281/zenodo.1212303)). Identifies the NER library family only, not the `en_core_web_sm` model release. |
+| `Luhn1960Patent` | Detector Precision Controls | [US 2,950,048](https://patents.google.com/patent/US2950048A/en), Luhn, granted 23 August 1960, filed 6 January 1954 (filing date from the document text). Supports the checksum idea only. |
+| `ISO13616Part1_2020` | Detector Precision Controls | ISO 13616-1:2020 title and validity date from the [EVS listing](https://www.evs.ee/en/iso-13616-1-2020); the ISO catalogue page returned HTTP 403, so edition wording is omitted. |
+
+No Presidio or Gitleaks entry was added: the existing `PresidioNlpConfiguration2026` documents NLP model configuration, not rule patterns, and is not cited for them.
