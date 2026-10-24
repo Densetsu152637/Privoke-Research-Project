@@ -24,37 +24,37 @@ Database file #4: research/literature-baseline-sources-20261015.bib
 Done.
 You've used 23 entries,
             4087 wiz_defined-function locations,
-            977 strings with 13565 characters,
-and the built_in function-call counts, 15031 in all, are:
-= -- 1185
+            977 strings with 13485 characters,
+and the built_in function-call counts, 15024 in all, are:
+= -- 1184
 > -- 415
 < -- 80
 + -- 222
 - -- 89
-* -- 737
-:= -- 2341
+* -- 739
+:= -- 2345
 add.period$ -- 44
 call.type$ -- 23
-change.case$ -- 31
+change.case$ -- 30
 chr.to.int$ -- 195
 cite$ -- 23
-duplicate$ -- 1087
-empty$ -- 1205
+duplicate$ -- 1084
+empty$ -- 1204
 format.name$ -- 99
-if$ -- 3429
+if$ -- 3425
 int.to.chr$ -- 0
 int.to.str$ -- 22
-missing$ -- 224
-newline$ -- 121
+missing$ -- 223
+newline$ -- 123
 num.names$ -- 21
-pop$ -- 571
+pop$ -- 570
 preamble$ -- 1
 purify$ -- 0
 quote$ -- 4
-skip$ -- 1143
+skip$ -- 1142
 stack$ -- 0
-substring$ -- 497
-swap$ -- 846
+substring$ -- 495
+swap$ -- 844
 text.length$ -- 15
 text.prefix$ -- 0
 top$ -- 6
@@ -62,4 +62,4 @@ type$ -- 23
 warning$ -- 0
 while$ -- 48
 width$ -- 24
-write$ -- 260
+write$ -- 262

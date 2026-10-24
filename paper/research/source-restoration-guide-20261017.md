@@ -178,6 +178,6 @@ Three sources were added to `ref.bib` and are actively cited in the detector-pre
 | --- | --- | --- |
 | `Honnibal2020SpaCy` | Detector Precision Controls | spaCy project's requested citation ([CITATION.cff](https://github.com/explosion/spaCy/blob/master/CITATION.cff); DOI [10.5281/zenodo.1212303](https://doi.org/10.5281/zenodo.1212303)). Identifies the NER library family only, not the `en_core_web_sm` model release. |
 | `Luhn1960Patent` | Detector Precision Controls | [US 2,950,048](https://patents.google.com/patent/US2950048A/en), Luhn, granted 23 August 1960, filed 6 January 1954 (filing date from the document text). Supports the checksum idea only. |
-| `ISO13616Part1_2020` | Detector Precision Controls | ISO 13616-1:2020 title and validity date from the [EVS listing](https://www.evs.ee/en/iso-13616-1-2020); the ISO catalogue page returned HTTP 403, so edition wording is omitted. |
+| `ISO13616Part1_2020` | Detector Precision Controls | ISO 13616-1:2020 title from the [EVS listing](https://www.evs.ee/en/iso-13616-1-2020); the ISO catalogue page returned HTTP 403, so edition and validity details are omitted. |
 
 No Presidio or Gitleaks entry was added: the existing `PresidioNlpConfiguration2026` documents NLP model configuration, not rule patterns, and is not cited for them.

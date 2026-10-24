@@ -159,15 +159,16 @@ H.~P. Luhn, ``Computer for verifying numbers,'' U.S. Patent 2,950,048, Aug. 23,
   1960, filed 6 January 1954.
 
 \bibitem{ISO13616Part1_2020}
-{International Organization for Standardization}, ``Financial services ---
-  international bank account number ({IBAN}) --- part 1: Structure of the
-  {IBAN},'' ISO 13616-1:2020, 2020, valid from 29 September 2020.
+{International Organization for Standardization}, ``{Financial services ---
+  International bank account number (IBAN) --- Part 1: Structure of the
+  IBAN},'' ISO 13616-1:2020, 2020.
 
 \bibitem{Honnibal2020SpaCy}
+\BIBentryALTinterwordspacing
 M.~Honnibal, I.~Montani, S.~Van~Landeghem, and A.~Boyd, ``{spaCy}:
-  Industrial-strength natural language processing in {Python},'' 2020, citation
-  requested by the project (CITATION.cff); Zenodo concept DOI; accessed 24
-  October 2026.
+  Industrial-strength natural language processing in {Python},'' 2020, zenodo.
+  [Online]. Available: \url{https://doi.org/10.5281/zenodo.1212303}
+\BIBentrySTDinterwordspacing
 
 \bibitem{DworkRothFoundations2014}
 C.~Dwork and A.~Roth, ``The algorithmic foundations of differential privacy,''
