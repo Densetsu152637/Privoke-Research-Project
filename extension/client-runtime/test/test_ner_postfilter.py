@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
@@ -71,8 +72,13 @@ class SpanRuleTests(PostfilterTestCase):
         self.assertEqual(self.kept("# Quarterly Budget Overview"), {})
         self.assertEqual(self.decisions("# Quarterly Budget Overview")["# Quarterly Budget Overview"].rule, "structural")
 
-    def test_title_case_heading_is_suppressed(self) -> None:
-        self.assertEqual(self.kept("Voter Eligibility Requirements And Deadlines"), {})
+    def test_single_heading_word_read_as_a_person_is_dropped(self) -> None:
+        self.assertEqual(self.kept("Show the Voter list."), {})
+        self.assertEqual(self.decisions("Show the Voter list.")["Voter"].rule, "common_phrase")
+
+    def test_people_inside_headings_and_title_lines_are_kept(self) -> None:
+        self.assertEqual(self.kept("## Meeting notes with Sarah Connor"), {"Sarah Connor": "S2"})
+        self.assertEqual(self.kept("Jane Doe Senior Account Manager"), {"Jane Doe Senior": "S2"})
 
     def test_heading_rule_is_inert_on_lowercase_text(self) -> None:
         # No capitalisation evidence: the structural title-case test must not fire.
@@ -88,16 +94,23 @@ class SpanRuleTests(PostfilterTestCase):
         self.assertEqual(self.kept("We moved to LA last spring."), {"LA": "S2"})
         self.assertEqual(self.kept("I'm from the UK and I need advice."), {"UK": "S2"})
 
-    def test_common_word_collision_is_suppressed_without_context(self) -> None:
-        text = "Please send the Proposal to the committee."
-        self.assertEqual(self.kept(text, enabled=False), {"Proposal": "S2"})
-        self.assertEqual(self.kept(text), {})
-        self.assertEqual(self.decisions(text)["Proposal"].rule, "common_phrase")
+    def test_uncommon_single_name_is_not_a_common_word(self) -> None:
+        decisions = self.decisions("Forward this to Kowalski before Friday.")
+        if "Kowalski" not in decisions:
+            self.skipTest("spaCy did not tag the probe name as an entity")
+        self.assertEqual(decisions["Kowalski"].rule, "weak_person")
 
-    def test_unusual_capitalised_names_are_not_common_words(self) -> None:
-        decision = self.decisions("Dear Dhondup, please call back.").get("Dhondup")
-        if decision is not None:
-            self.assertNotEqual(decision.rule, "common_phrase")
+    def test_multi_word_names_of_ordinary_words_are_not_common_phrases(self) -> None:
+        self.assertEqual(self.kept("Ask Will Young to sign the lease."), {"Will Young": "S2"})
+
+    def test_mask_conventions_are_not_tied_to_one_letter(self) -> None:
+        def masked(text: str) -> bool:
+            return ner_postfilter._placeholder(text, SimpleNamespace(text=text, start=0, end=len(text)), None)
+
+        for text in ("XXXX", "Xs", "Zs", "Ns", "aaaa"):
+            self.assertTrue(masked(text), text)
+        for text in ("US", "Ann", "Sam", "UK"):
+            self.assertFalse(masked(text), text)
 
     def test_disabling_a_span_rule_restores_the_entity_to_stage_two(self) -> None:
         with_rule = self.decisions("Show a sample like Xs instead of the real digits.")["Xs"]
@@ -139,14 +152,13 @@ class CombinationRuleTests(PostfilterTestCase):
         kept = self.kept("Jordan said Jordan would arrive by noon.")
         self.assertEqual(kept, {"Jordan": "S2"})
 
-    def test_uncorroborated_single_name_is_dropped(self) -> None:
-        self.assertEqual(self.kept("Who is Jordan?"), {})
+    def test_uncorroborated_single_name_is_kept_at_s1(self) -> None:
+        self.assertEqual(self.kept("Who is Jordan?"), {"Jordan": "S1"})
         self.assertEqual(self.decisions("Who is Jordan?")["Jordan"].rule, "weak_person")
 
-    def test_uncorroborated_single_name_can_be_downgraded_instead(self) -> None:
-        decision = self.decisions("Who is Jordan?", weak_person=ner_postfilter.Sensitivity.S1)["Jordan"]
-        self.assertTrue(decision.keep)
-        self.assertEqual(decision.sensitivity, ner_postfilter.Sensitivity.S1)
+    def test_uncorroborated_single_name_can_be_dropped_instead(self) -> None:
+        decision = self.decisions("Who is Jordan?", weak_person=None)["Jordan"]
+        self.assertFalse(decision.keep)
 
     def test_street_beside_a_number_is_an_address(self) -> None:
         self.assertEqual(self.kept("We live at 12 Elm Street near the park."), {"Elm Street": "S2"})
@@ -154,6 +166,83 @@ class CombinationRuleTests(PostfilterTestCase):
     def test_person_with_place_via_salutation_and_relation(self) -> None:
         kept = self.kept("Hi Jordan, I am from LA and my sister Dana lives in Oslo.")
         self.assertEqual(set(kept), {"Jordan", "LA", "Dana", "Oslo"})
+
+
+class RecallGuardTests(PostfilterTestCase):
+    """Genuine disclosures that earlier rule sets lost or could lose."""
+
+    def test_third_party_single_names_stay_sensitive(self) -> None:
+        self.assertEqual(self.kept("Can you write a reference letter for Hannah?"), {"Hannah": "S1"})
+        self.assertEqual(self.kept("Forward this to Kowalski before Friday."), {"Kowalski": "S1"})
+
+    def test_possessed_role_nouns_corroborate_names(self) -> None:
+        self.assertEqual(self.kept("My therapist, Angela, says I should rest."), {"Angela": "S2"})
+        self.assertEqual(self.kept("Tomas, my accountant, filed it."), {"Tomas": "S2"})
+
+    def test_parenthetical_field_label_corroborates_a_name(self) -> None:
+        self.assertEqual(self.kept("Dana Ruiz (patient) arrived at noon."), {"Dana Ruiz": "S2"})
+
+    def test_role_at_organisation_ties_it_and_its_city_to_the_speaker(self) -> None:
+        kept = self.kept("I am a nurse at St Mary's Hospital in Leeds.")
+        self.assertEqual(set(kept), {"St Mary's Hospital", "Leeds"})
+        kept = self.kept("I'm a teacher at Lincoln High School in Omaha.")
+        self.assertEqual(set(kept), {"Lincoln High School", "Omaha"})
+        self.assertEqual(set(self.kept("My doctor at Mayo Clinic changed my dose.")), {"Mayo Clinic"})
+
+    def test_possessive_place_cue_covers_every_possessive(self) -> None:
+        self.assertEqual(self.kept("Our office in SF closed."), {"SF": "S2"})
+
+    def test_person_and_place_without_independent_evidence_are_not_linked(self) -> None:
+        # A bare locating preposition is true of any event; it does not corroborate.
+        kept = self.kept("Napoleon was defeated at Waterloo in 1815.")
+        self.assertNotIn("S2", kept.values())
+
+
+class LexiconCacheTests(unittest.TestCase):
+    @staticmethod
+    def _stub_nlp(name: str, words: set) -> SimpleNamespace:
+        table = SimpleNamespace(values=lambda: [words])
+        lookups = SimpleNamespace(has_table=lambda key: key == "lemma_index", get_table=lambda key: table)
+        lemmatizer = SimpleNamespace(lookups=lookups)
+        return SimpleNamespace(
+            meta={"lang": "en", "name": name, "version": "9.9.9"},
+            pipe_names=["lemmatizer"],
+            get_pipe=lambda _name: lemmatizer,
+        )
+
+    def setUp(self) -> None:
+        patcher = mock.patch.dict(ner_postfilter._LEXICON_CACHE, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_cache_is_keyed_by_model_meta_not_object_identity(self) -> None:
+        first = ner_postfilter._english_lexicon(self._stub_nlp("model_a", {"table"}))
+        again = ner_postfilter._english_lexicon(self._stub_nlp("model_a", {"other"}))
+        self.assertIs(first, again)
+        self.assertEqual(first, frozenset({"table"}))
+        other = ner_postfilter._english_lexicon(self._stub_nlp("model_b", {"chair"}))
+        self.assertEqual(other, frozenset({"chair"}))
+
+    def test_model_without_identity_is_not_cached(self) -> None:
+        nlp = self._stub_nlp("model_c", {"desk"})
+        nlp.meta = {}
+        self.assertEqual(ner_postfilter._english_lexicon(nlp), frozenset({"desk"}))
+        self.assertEqual(ner_postfilter._LEXICON_CACHE, {})
+
+
+class AnalyseTextIntegrationTests(PostfilterTestCase):
+    def test_both_flags_through_the_pipeline_ner_layer(self) -> None:
+        from src import pipeline
+
+        text = "My name is Maria Lopez and I live in Madrid. The format uses XXXX for digits."
+        with mock.patch.object(GLOBAL_CONFIG, "case_preserving_detectors", True), \
+                mock.patch.object(GLOBAL_CONFIG, "ner_postfilter", True):
+            analysis = pipeline.analyse_text(text, layers=["ner"], regex_first=False)
+        self.assertEqual([layer.layer for layer in analysis.layers], ["ner"])
+        layer = analysis.layers[0]
+        self.assertEqual(layer.status, "ok")
+        found = {r.section_of_text: r.metadata["postfilter_rule"] for r in layer.results}
+        self.assertEqual(found, {"Maria Lopez": "person_linked", "Madrid": "place_org_linked"})
 
 
 class RuleTableTests(unittest.TestCase):

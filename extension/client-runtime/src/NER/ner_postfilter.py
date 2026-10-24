@@ -55,32 +55,53 @@ ORG = "ORG"
 
 _SENTENCE_BREAK = re.compile(r"(?<!\b[mM]r)(?<!\b[mM]rs)(?<!\b[mM]s)(?<!\b[dD]r)(?<!\b[pP]rof)[.!?]+[\"')\]]*\s+|\n\s*\n")
 
+# One possessive set shared by every relation cue (person, place, organisation).
+_POSS_WORDS = ("my", "our", "his", "her", "their")
+_POSS = r"(?:" + "|".join(_POSS_WORDS) + r")"
+
+# People a speaker stands in a social, family, professional or service relation to.
+_ROLE_NOUNS = frozenset("""
+mother mom mum mama father dad papa wife husband spouse partner son daughter child kid baby brother sister sibling twin
+cousin uncle aunt nephew niece grandmother grandfather grandma grandpa grandson granddaughter grandparent parent
+friend boss manager supervisor mentor coach teacher tutor professor lecturer advisor adviser counsellor counselor
+therapist psychiatrist psychologist doctor physician dentist surgeon nurse midwife pastor priest rabbi imam
+lawyer attorney solicitor accountant banker landlord landlady tenant roommate flatmate neighbour neighbor colleague coworker
+assistant secretary employee employer client patient student girlfriend boyfriend fiance fiancee ex
+""".split())
+_ROLE_RE = "(?:" + "|".join(sorted(_ROLE_NOUNS, key=len, reverse=True)) + ")"
+
+# Words that label the value that follows ("Contact: X", "X (patient)").
+_FIELD_NOUNS = (
+    r"(?:full\s+name|name|contact|author|patient|client|customer|employee|applicant|student|owner|holder|"
+    r"signatory|recipient|sender|tenant|landlord|signed\s+by|prepared\s+by|submitted\s+by|reported\s+by|attn)"
+)
+
 _PERSON_CUE = re.compile(
     r"(?:"
     # self introduction / naming
-    r"\b(?:my|his|her|their|our|your)\s+(?:full\s+|legal\s+|first\s+|last\s+|real\s+)?name\s*(?:is|was|:)?"
+    r"\b" + _POSS + r"\s+(?:full\s+|legal\s+|first\s+|last\s+|real\s+)?name\s*(?:is|was|:)?"
     r"|\b(?:i\s+am|i'm|im|this\s+is|call\s+me|named|called|name's)"
     # salutations and sign-offs
     r"|\b(?:dear|hi|hello|hey|attn|attention|regards|thanks|thank\s+you|sincerely|cheers|best|signed|cc)\b[,:]?"
     # honorifics and role nouns that precede a person's name
     r"|\b(?:mr|mrs|ms|mx|miss|dr|prof|sir|madam|patient|student|client|customer|tenant|employee|applicant|resident)\b\.?"
-    # kinship / social relation ("my sister Sara")
-    r"|\bmy\s+(?:[a-z]+\s+)?(?:mother|father|mom|dad|wife|husband|son|daughter|brother|sister|friend|boss|manager|doctor|colleague|neighbou?r|partner|girlfriend|boyfriend|cousin|uncle|aunt|teacher|landlord|coworker|roommate|fianc[ée]e?)\b[,:]?(?:\s+(?:is|named|called))?"
+    # social or professional relation to the speaker ("my sister Sara", "our new nurse")
+    r"|\b" + _POSS + r"\s+(?:[a-z-]+\s+){0,2}?" + _ROLE_RE + r"\b[,:]?(?:\s+(?:is|named|called))?"
     # labelled field values
-    r"|\b(?:name|full\s+name|contact|author|signed\s+by|prepared\s+by|submitted\s+by|reported\s+by|attn)\s*[:\-–]"
+    r"|\b" + _FIELD_NOUNS + r"\s*[:\-–]"
     r")\s*[,:\-–]?\s*(?:the\s+)?$",
     re.IGNORECASE,
 )
-# A person who owns personal-data nouns ("Sara's account", "Sara, age 34").
+# What follows a person: possessor of personal-data nouns ("Sara's account"), an age,
+# a parenthetical that labels the value ("X (patient)"), or "X is my <role>".
 _PERSON_TRAILING_CUE = re.compile(
     r"^(?:['’]s\s+(?:account|email|e-mail|phone|number|address|password|card|record|file|appointment|"
     r"id|passport|licen[cs]e|insurance|salary|diagnosis|medical|bank|login)"
     r"|,\s*(?:age[d]?\s+)?\d{1,3}\b"
     r"|\s+(?:born|was\s+born|lives|resides|works)\b"
-    # a parenthetical that says what the value is: "X (full name)"
-    r"|\s*\(\s*(?:full\s+|legal\s+)?name\b"
-    # speaker label opening a quoted chat line: Name: "..."
-    r"|(?:\s+\w+)?\s*:\s*[\"“])",
+    r"|\s*\(\s*(?:[a-z]+\s+)?" + _FIELD_NOUNS + r"\b"
+    r"|,?\s+(?:is|was|being)\s+(?:also\s+)?" + _POSS + r"\s+(?:[a-z-]+\s+){0,2}?" + _ROLE_RE + r"\b"
+    r"|,\s*" + _POSS + r"\s+(?:[a-z-]+\s+){0,2}?" + _ROLE_RE + r"\b)",
     re.IGNORECASE,
 )
 
@@ -96,6 +117,12 @@ _ORG_PREP_CUE = re.compile(
     re.IGNORECASE,
 )
 
+# "I am a <role> at X", "my <role> at X": an affiliation stated about a person.
+_ROLE_AFFILIATION = (
+    r"\b(?:i\s+am|i'm|we're|we\s+are|he's|she's|they're)\s+(?:a|an)\s+(?:[a-z-]+\s+){0,3}?(?:at|for|with)"
+    r"|\b" + _POSS + r"\s+(?:[a-z'-]+\s+){1,2}(?:at|for|with)"
+)
+
 # Personal-relation cues: the speaker (or a named other) is tied to the place or
 # organisation, so the mention discloses something about a person.
 _PLACE_RELATION_CUE = re.compile(
@@ -105,7 +132,8 @@ _PLACE_RELATION_CUE = re.compile(
     r"stay|stays|staying|work|works|worked|working|study|studied|studying)\s*(?:in|at|near|to|around)?"
     r"|\b(?:i\s+am|i'm|we're|we\s+are|he's|she's|they're)\s+(?:currently\s+|originally\s+)?(?:from|in|based\s+in|located\s+in|living\s+in|staying\s+in|born\s+in)"
     r"|\b(?:born|raised|based|living|residing|located)\s+(?:and\s+raised\s+)?in"
-    r"|\bmy\s+(?:[a-z]+\s+)?(?:home|house|address|hometown|city|town|neighbou?rhood|apartment|flat|office|location|street|country)\s*(?:is|are|:)?\s*(?:in|at|on)?"
+    r"|\b" + _POSS + r"\s+(?:[a-z]+\s+)?(?:home|house|address|hometown|city|town|neighbou?rhood|apartment|flat|office|location|street|country|branch|store|shop|clinic|school)\s*(?:is|are|:)?\s*(?:in|at|on)?"
+    r"|" + _ROLE_AFFILIATION +
     r")\s*(?:the\s+)?$",
     re.IGNORECASE,
 )
@@ -116,7 +144,8 @@ _ORG_RELATION_CUE = re.compile(
     r"joined|am\s+employed|is\s+employed|are\s+employed)\s*(?:at|for|with|by)?"
     r"|\bemployed\s+(?:at|by|with)"
     r"|\b(?:i\s+am|i'm|we're|he's|she's|they're)\s+(?:currently\s+)?(?:at|with|from|a\s+member\s+of|enrolled\s+(?:at|in))"
-    r"|\b(?:my|our|his|her|their)\s+(?:[a-z]+\s+)?(?:employer|company|school|university|college|firm|workplace|organi[sz]ation|employer's\s+name|team)\s*(?:is|are|:|,)?\s*(?:called|named)?"
+    r"|\b" + _POSS + r"\s+(?:[a-z]+\s+)?(?:employer|company|school|university|college|firm|workplace|organi[sz]ation|team|clinic|practice|hospital|bank)\s*(?:is|are|:|,)?\s*(?:called|named)?"
+    r"|" + _ROLE_AFFILIATION +
     r")\s*(?:the\s+)?$",
     re.IGNORECASE,
 )
@@ -210,6 +239,32 @@ def _is_recurring(text: str, candidate: Candidate) -> bool:
     return False
 
 
+def _possessed_role_head(span) -> bool:
+    """The span is an apposition/compound/modifier of a role noun that carries a
+    possessive pronoun ("my therapist, Angela"; "our new nurse Dana")."""
+    root = span.root
+    if root.dep_ not in ("appos", "compound", "nmod", "npadvmod", "conj"):
+        return False
+    head = root.head
+    if head is root or head.lemma_.lower() not in _ROLE_NOUNS:
+        return False
+    return any(child.dep_ == "poss" and child.lower_ in _POSS_WORDS for child in head.children)
+
+
+def _is_speaker_label(text: str, candidate: Candidate) -> bool:
+    """Line-initial name followed by a colon and a quote or a running sentence."""
+    line_start = text.rfind("\n", 0, candidate.start) + 1
+    if text[line_start:candidate.start].strip(" \t>*-#"):
+        return False
+    line_end = text.find("\n", candidate.end)
+    tail = text[candidate.end:(len(text) if line_end < 0 else line_end)]
+    m = re.match(r"^(?:\s+\w+)?\s*:\s*(.*)$", tail)
+    if not m:
+        return False
+    rest = m.group(1).strip()
+    return rest[:1] in ("\"", "'", "\u201c", "\u2018") or len(rest.split()) >= 5
+
+
 def _annotate(text: str, candidate: Candidate) -> None:
     before = _before(text, candidate.start)
     after = _after(text, candidate.end)
@@ -219,6 +274,8 @@ def _annotate(text: str, candidate: Candidate) -> None:
         candidate.strong_cue = bool(
             _PERSON_CUE.search(before)
             or _PERSON_TRAILING_CUE.match(after)
+            or _possessed_role_head(candidate.span)
+            or _is_speaker_label(text, candidate)
             or _is_recurring(text, candidate)
         )
     elif candidate.label in PLACE_LABELS:
@@ -236,10 +293,13 @@ def _annotate(text: str, candidate: Candidate) -> None:
 # --------------------------------------------------------------------------
 
 def _placeholder(text: str, c: Candidate, _ctx) -> bool:
+    """Masking conventions: one letter repeated (``XXXX``), spans with no letters
+    (``****``), a capitalised run pluralised with a lower-case ``s`` (``Xs``,
+    ``Ns``: any letter), or template delimiters. Not tied to a specific letter."""
     letters = _letters(c.text)
     if not letters or len(set(letters)) == 1:
         return True
-    if re.fullmatch(r"([A-Z])*s", c.text.strip()):   # pluralised capital mask: "Xs"
+    if re.fullmatch(r"([A-Z])\1*s", c.text.strip()):   # pluralised capital run: "Xs"
         return True
     open_char = text[c.start - 1] if c.start > 0 else ""
     close_char = text[c.end] if c.end < len(text) else ""
@@ -258,7 +318,10 @@ def _identifier(text: str, c: Candidate, _ctx) -> bool:
 
 
 def _structural(text: str, c: Candidate, ctx) -> bool:
-    if c.strong_cue and c.label == PERSON:
+    # A person's name inside a heading or title line ("Meeting notes with Sarah
+    # Connor", "Jane Doe Senior Manager") is still a name: only cue-less single
+    # tokens, which are indistinguishable from title words, are treated as headings.
+    if c.label == PERSON and (c.strong_cue or c.multi_token):
         return False
     line_start, line_end = _line_bounds(text, c.start, c.end)
     line = text[line_start:line_end]
@@ -292,9 +355,9 @@ def _short_acronym(text: str, c: Candidate, _ctx) -> bool:
 def _common_phrase(text: str, c: Candidate, ctx) -> bool:
     if c.strong_cue:
         return False
-    # Places and organisations legitimately use ordinary words in multi-word
-    # names ("Park Avenue"); only a lone ordinary word is a collision there.
-    if c.label != PERSON and c.multi_token:
+    # Only a lone capitalised ordinary word is a collision. Multi-word names are
+    # kept: "Will Young" or "Park Avenue" are made of ordinary words too.
+    if c.label != PERSON or c.multi_token:
         return False
     return ctx.all_common(c)
 
@@ -323,12 +386,30 @@ def _is_place(c: Candidate) -> bool:
     return c.label in PLACE_LABELS
 
 
+def _independently_corroborated(c: Candidate) -> bool:
+    """Evidence about the entity itself, not merely that it co-occurs with another.
+
+    A person is corroborated by a name shape/cue/recurrence; a place or
+    organisation only by a personal-relation cue (a bare "in X"/"at X" locating
+    preposition is true of any event, not of a person)."""
+    if c.label == PERSON:
+        return c.strong_cue or c.multi_token
+    return c.relation_cue
+
+
 def _person_linked(c, combo):
-    return c.label == PERSON and bool(combo.places or combo.orgs)
+    if c.label != PERSON:
+        return False
+    partners = combo.places + combo.orgs
+    return bool(partners) and (
+        _independently_corroborated(c) or any(_independently_corroborated(p) for p in partners)
+    )
 
 
 def _place_org_linked(c, combo):
-    return (_is_place(c) or c.label == ORG) and bool(combo.persons)
+    if not (_is_place(c) or c.label == ORG) or not combo.persons:
+        return False
+    return _independently_corroborated(c) or any(_independently_corroborated(q) for q in combo.persons)
 
 
 def _person_corroborated(c, combo):
@@ -373,9 +454,9 @@ class CombinationRule:
 
 
 COMBINATION_RULES: tuple[CombinationRule, ...] = (
-    CombinationRule("person_linked", "A named person co-occurring with a place or organisation is a linked disclosure.",
+    CombinationRule("person_linked", "A person co-occurring with a place or organisation is a linked disclosure, if either side is independently corroborated.",
                     _person_linked, True, Sensitivity.S2),
-    CombinationRule("place_org_linked", "A place or organisation co-occurring with a named person identifies where the person is.",
+    CombinationRule("place_org_linked", "A place or organisation co-occurring with a person identifies where the person is, if either side is independently corroborated.",
                     _place_org_linked, True, Sensitivity.S2),
     CombinationRule("person_corroborated", "A multi-token, cue-introduced or recurring name is a real person mention.",
                     _person_corroborated, True, Sensitivity.S2),
@@ -385,7 +466,7 @@ COMBINATION_RULES: tuple[CombinationRule, ...] = (
                     _relation_anchored, True, None),
     CombinationRule("address_shape", "A street-like place beside a number is an address, not a bare place name.",
                     _address_shape, True, Sensitivity.S2),
-    CombinationRule("weak_person", "A single uncorroborated capitalised token is a weak name guess.",
+    CombinationRule("weak_person", "A single uncorroborated capitalised token is a weak name guess: kept at the weak sensitivity (default S1), or dropped when that is None.",
                     _weak_person, False, None),
     CombinationRule("lone_place_org", "A lone place or organisation is not an identifying disclosure.",
                     _lone_place_org, False, None),
@@ -396,7 +477,7 @@ COMBINATION_RULES: tuple[CombinationRule, ...] = (
 # Driver
 # --------------------------------------------------------------------------
 
-_LEXICON_CACHE: dict[int, frozenset] = {}
+_LEXICON_CACHE: dict[tuple, frozenset] = {}
 _TAGGER_PIPES = ("tok2vec", "tagger", "attribute_ruler", "lemmatizer")
 
 
@@ -405,15 +486,18 @@ def _english_lexicon(nlp) -> frozenset:
     general English word list). Empty when the model has no such table."""
     if nlp is None or "lemmatizer" not in nlp.pipe_names:
         return frozenset()
-    lemmatizer = nlp.get_pipe("lemmatizer")
-    cached = _LEXICON_CACHE.get(id(lemmatizer))
+    meta = getattr(nlp, "meta", None) or {}
+    key = (meta.get("lang"), meta.get("name"), meta.get("version"))
+    cached = _LEXICON_CACHE.get(key) if all(key) else None
     if cached is None:
         words: set = set()
-        lookups = getattr(lemmatizer, "lookups", None)
+        lookups = getattr(nlp.get_pipe("lemmatizer"), "lookups", None)
         if lookups is not None and lookups.has_table("lemma_index"):
             for entries in lookups.get_table("lemma_index").values():
                 words.update(w for w in entries if isinstance(w, str))
-        cached = _LEXICON_CACHE[id(lemmatizer)] = frozenset(words)
+        cached = frozenset(words)
+        if all(key):
+            _LEXICON_CACHE[key] = cached
     return cached
 
 
@@ -498,15 +582,15 @@ def postfilter(
     *,
     nlp=None,
     disabled: Iterable[str] = (),
-    weak_person: Optional[Sensitivity] = None,
+    weak_person: Optional[Sensitivity] = Sensitivity.S1,
 ) -> list[Decision]:
     """Run both stages over ``entities`` (spaCy spans of ``doc``).
 
     ``nlp`` is the spaCy pipeline that produced ``doc``: its lemmatizer table is
-    the offline word list and its tagger re-tags lower-cased sentences for the
+    the offline word list and its tagger re-tags the lower-cased span for the
     common-word rule; without it that rule never fires. ``disabled``
-    names rules to skip (ablation). ``weak_person`` keeps uncorroborated single
-    names at that sensitivity instead of dropping them.
+    names rules to skip (ablation). ``weak_person`` is the sensitivity kept for
+    uncorroborated single names (default S1); ``None`` drops them (S0).
     """
     disabled = frozenset(disabled)
     text = doc.text
