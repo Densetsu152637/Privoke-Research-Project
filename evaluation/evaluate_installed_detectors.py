@@ -11,6 +11,8 @@ mean ms/prompt per split. ``dev`` is the whole development file; ``tune``/``chec
 halves by ``sha256(group_id) % 2`` (same definition as compare_ner_postfilter.py), computed
 from the same pass.
 
+A ``<out>/<label>.final-scored`` marker is written after a final run; a later final run
+with the same ``--out`` and ``--label`` is refused while it exists.
 ``final`` (the locked held-out file) is refused unless ``--allow-final-once`` is given. For
 ``final`` only aggregate counts and timing are written: no text, id or per-row outcome is
 stored or printed.
@@ -76,6 +78,9 @@ def main() -> None:
     args = parser.parse_args()
     if "final" in args.splits and not args.allow_final_once:
         raise SystemExit("refusing the locked held-out file without --allow-final-once")
+    marker = args.out / f"{args.label}.final-scored"
+    if "final" in args.splits and marker.exists():
+        raise SystemExit(f"refusing: {marker} exists, the held-out file was already scored for this label/output")
 
     sys.path[:0] = [str(args.tree / "extension/client-runtime"), str(args.tree / "shared/python"), str(args.generated)]
     import spacy  # noqa: F401  pre-import in the main thread (layer threads race on first import)
@@ -89,7 +94,10 @@ def main() -> None:
     args.out.mkdir(parents=True, exist_ok=True)
     flags = {"case_preserving_detectors": getattr(GLOBAL_CONFIG, "case_preserving_detectors", "absent"),
              "ner_postfilter": getattr(GLOBAL_CONFIG, "ner_postfilter", "absent")}
-    report = {"label": args.label, "tree": str(args.tree), "layers": LAYERS, "regex_first": False,
+    import subprocess
+    sha = subprocess.run(["git", "-C", str(args.tree), "rev-parse", "HEAD"], capture_output=True, text=True)
+    tree_sha = sha.stdout.strip() if sha.returncode == 0 else "not-a-git-checkout (record the export's base SHA manually)"
+    report = {"label": args.label, "tree": str(args.tree), "tree_commit_sha": tree_sha, "layers": LAYERS, "regex_first": False,
               "observed_flags": flags, "scope": "detector-layer (regex+NER); not LLM-only", "splits": {}}
     pipeline.analyse_text("warm up Alice Smith", layers=LAYERS, regex_first=False)
     for split in args.splits:
@@ -102,8 +110,8 @@ def main() -> None:
             started = time.perf_counter()
             analysis = pipeline.analyse_text(row["text"], layers=LAYERS, regex_first=False)
             ms.append((time.perf_counter() - started) * 1000)
-            assert [l.layer for l in analysis.layers] == LAYERS and all(l.status == "ok" for l in analysis.layers), (
-                [(l.layer, l.status, l.error) for l in analysis.layers])
+            if [l.layer for l in analysis.layers] != LAYERS or any(l.status != "ok" for l in analysis.layers):
+                raise RuntimeError(f"unexpected layer execution: {[(l.layer, l.status, l.error) for l in analysis.layers]}")
             by_layer = {l.layer: any(positive(h) for h in l.results) for l in analysis.layers}
             regex.append(by_layer["regex"])
             ner.append(by_layer["ner"])
@@ -116,6 +124,9 @@ def main() -> None:
                                       [ner[i] for i in idx], [ms[i] for i in idx])
         report["splits"][split] = out
         print(f"[{args.label}] {split}: n={len(rows)}", file=sys.stderr)
+    if "final" in args.splits:
+        marker.write_text("scored
+", encoding="utf-8")
     (args.out / f"{args.label}-{'-'.join(args.splits)}.json").write_text(json.dumps(report, indent=1), encoding="utf-8")
     print(json.dumps(report, indent=1))
 

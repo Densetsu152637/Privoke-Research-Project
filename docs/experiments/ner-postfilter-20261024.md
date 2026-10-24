@@ -2,7 +2,7 @@
 
 Detector-layer experiment (regex and spaCy `en_core_web_sm` NER). This is not LLM-only or semantic evidence.
 
-Change: `PRIVOKE_NER_POSTFILTER=1` (`GLOBAL_CONFIG.ner_postfilter`, default off) routes spaCy entities through
+Change: `PRIVOKE_NER_POSTFILTER=1` (`GLOBAL_CONFIG.ner_postfilter`, default off; now default on since 6a0c9ca3) routes spaCy entities through
 `extension/client-runtime/src/NER/ner_postfilter.py`, then emits only the surviving entities with a rule-decided sensitivity
 (`metadata["postfilter_rule"]` records the deciding rule). It composes with `PRIVOKE_CASE_PRESERVING_DETECTORS`; with the flag off the
 NER output is unchanged.

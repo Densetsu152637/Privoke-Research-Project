@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -66,7 +67,9 @@ class CasePreservingPipelineTests(unittest.TestCase):
         return seen
 
     def test_default_is_case_preserving_for_regex_and_ner(self) -> None:
-        self.assertTrue(type(pipeline.GLOBAL_CONFIG)().case_preserving_detectors)
+        with mock.patch.dict("os.environ"):
+            os.environ.pop("PRIVOKE_CASE_PRESERVING_DETECTORS", None)
+            self.assertTrue(type(pipeline.GLOBAL_CONFIG)().case_preserving_detectors)
 
     def test_environment_zero_disables_case_preservation(self) -> None:
         with mock.patch.dict("os.environ", {"PRIVOKE_CASE_PRESERVING_DETECTORS": "0"}):

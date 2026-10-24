@@ -2,7 +2,7 @@
 
 Detector-layer ablation (regex and spaCy `en_core_web_sm` NER). This is not LLM-only or semantic evidence.
 
-Change: `PRIVOKE_CASE_PRESERVING_DETECTORS=1` (`GLOBAL_CONFIG.case_preserving_detectors`, default off) gives regex/NER
+Change: `PRIVOKE_CASE_PRESERVING_DETECTORS=1` (`GLOBAL_CONFIG.case_preserving_detectors`, default off; now default on since 6a0c9ca3) gives regex/NER
 case-preserved normalized text (`normalize_with_offsets(text, lowercase=False)`); semantic layers always stay lowercased.
 Only casing varies (NFKC, whitespace and `[at]`/`(at)` handling are identical, case-insensitive).
 

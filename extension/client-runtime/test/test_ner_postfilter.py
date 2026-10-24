@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -47,7 +48,9 @@ class PostfilterTestCase(unittest.TestCase):
 
 class FlagTests(PostfilterTestCase):
     def test_flag_defaults_on_and_zero_disables(self) -> None:
-        self.assertTrue(type(GLOBAL_CONFIG)().ner_postfilter)
+        with mock.patch.dict("os.environ"):
+            os.environ.pop("PRIVOKE_NER_POSTFILTER", None)
+            self.assertTrue(type(GLOBAL_CONFIG)().ner_postfilter)
         with mock.patch.dict("os.environ", {"PRIVOKE_NER_POSTFILTER": "0"}):
             self.assertFalse(type(GLOBAL_CONFIG)().ner_postfilter)
 
