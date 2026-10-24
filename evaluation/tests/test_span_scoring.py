@@ -144,7 +144,10 @@ class PromptScoreTests(unittest.TestCase):
         self.assertEqual(s["by_family"]["DEMOGRAPHIC"]["touched"], 0)
         self.assertEqual(s["by_category"]["LOCATION"], {"n_pred": 1, "overlapping_gold": 0, "typed_overlap": 0})
         self.assertEqual(s["by_category"]["IDENTITY"]["typed_overlap"], 2)
-        self.assertEqual(s["by_source"]["gpe"], {"n_pred": 1, "overlapping_gold": 0})
+        self.assertEqual(s["by_source"]["gpe"],
+                         {"n_pred": 1, "overlapping_gold": 0, "chars": 10, "chars_outside_gold": 10})
+        self.assertEqual(s["by_source"]["email"],
+                         {"n_pred": 1, "overlapping_gold": 1, "chars": 10, "chars_outside_gold": 5})
 
     def test_invalid_gold_span_rejected(self):
         with self.assertRaises(ValueError):
@@ -198,6 +201,24 @@ class LayerAndComparisonTests(unittest.TestCase):
         self.assertEqual((regex["counts"]["over_chars"], p4["counts"]["over_chars"], union["counts"]["over_chars"]), (0, 4, 4))
         self.assertAlmostEqual(p4["metrics"]["all_masked_rate"], 0.5)
         self.assertAlmostEqual(union["metrics"]["all_masked_rate"], 1.0)
+
+    def test_min_sens_filters_spans_and_p4_trigger(self):
+        rec = self.record("a", regex=[(0, 3)], ner=[(10, 14)])
+        rec["layers"]["regex"][0]["sensitivity"] = "S1"
+        self.assertEqual(len(ss.layer_spans(rec, "regex")), 1)
+        self.assertEqual(ss.layer_spans(rec, "regex", min_sens=2), [])
+        self.assertEqual(len(ss.layer_spans(rec, "p4")), 2)  # regex fired (S1 finding)
+        self.assertEqual(ss.layer_spans(rec, "p4", min_sens=2), [])  # only an S1 regex finding: no trigger
+        self.assertEqual(len(ss.layer_spans(rec, "union", min_sens=2)), 1)
+
+    def test_candidate_layer_compares_span_sources_within_one_tree(self):
+        gold_rows = [{"id": "a", "group_id": "g", "text": "x" * 40, "entities": gold((0, 5, "email"), (10, 20, "PERSON"))}]
+        preds = [self.record("a", regex=[(0, 5)], ner=[(10, 20)], group="g")]
+        out = ss.paired_comparison(gold_rows, preds, preds, "regex", names=("regex", "p4"), candidate_layer="p4",
+                                   n_boot=50, seed=3)
+        self.assertEqual(out["candidate_layer"], "p4")
+        self.assertEqual(out["all_masked_flips"]["gained"], 1)
+        self.assertAlmostEqual(out["deltas"]["p4"]["char_recall"]["estimate"], 10 / 15)
 
     def test_subset_and_id_mismatch(self):
         gold_rows = [{"id": "a", "group_id": "g1", "text": "x" * 10, "entities": gold((0, 3, "email"))},

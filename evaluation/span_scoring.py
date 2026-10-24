@@ -38,6 +38,8 @@ Definitions
   predicted chars outside gold / predicted chars (and per 1000 prompt characters).
 * "All mentions masked" (per prompt with gold spans): every gold span is fully covered by the
   predicted union; ``all_touched`` is the lenient variant (every gold span has >= 1 covered char).
+* ``min_sens`` (0 or 2 in the study) restricts predicted spans to sensitivity >= S<min_sens>: 0 keeps
+  every positive finding (the detector-layer definition), 2 drops the weak S1 findings.
 * Scopes: ``all`` scores every gold span. ``core`` treats gold spans whose family has no PriVoke
   detector category (titles, genders, ages, occupations, education, ...) as don't-care: they are removed
   from gold, predicted spans that overlap only don't-care gold are dropped, and their characters
@@ -354,6 +356,9 @@ def score_prompt(gold_entities: Sequence[Mapping], pred_spans: Sequence[Mapping]
         for src in p["sources"] or ("?",):
             by_source[src]["n_pred"] += 1
             by_source[src]["overlapping_gold"] += pred_hit[j]
+            by_source[src]["chars"] += pred_iv[j][1] - pred_iv[j][0]
+            by_source[src]["chars_outside_gold"] += (pred_iv[j][1] - pred_iv[j][0]
+                                                     - intersect_len([pred_iv[j]], gold_union))
     out["by_family"] = {k: dict(v) for k, v in by_family.items()}
     out["by_category"] = {k: dict(v) for k, v in by_category.items()}
     out["by_source"] = {k: dict(v) for k, v in by_source.items()}
@@ -494,9 +499,23 @@ def extract_predictions(tree: Path | str, rows: Sequence[Mapping], generated: Pa
     return records
 
 
-def layer_spans(pred: Mapping, layer: str) -> list[dict]:
-    """Spans of a scored layer from a prediction record (see module docstring for ``p4``)."""
+def _sens_rank(span: Mapping) -> int:
+    return int(str(span.get("sensitivity", "S0"))[1:] or 0)
+
+
+def layer_spans(pred: Mapping, layer: str, min_sens: int = 0) -> list[dict]:
+    """Spans of a scored layer from a prediction record (see module docstring for ``p4``).
+
+    ``min_sens`` keeps only spans whose sensitivity is at least S<min_sens> (0 = every positive
+    finding, the detector-layer definition of "fired"). With ``min_sens > 0`` the p4 trigger is
+    "the regex layer has a kept span".
+    """
     regex, ner = pred["layers"].get("regex", []), pred["layers"].get("ner", [])
+    fired = bool(pred["fired"].get("regex"))
+    if min_sens:
+        regex = [x for x in regex if _sens_rank(x) >= min_sens]
+        ner = [x for x in ner if _sens_rank(x) >= min_sens]
+        fired = bool(regex)
     if layer == "regex":
         return list(regex)
     if layer == "ner":
@@ -504,7 +523,7 @@ def layer_spans(pred: Mapping, layer: str) -> list[dict]:
     if layer == "union":
         return list(regex) + list(ner)
     if layer == "p4":
-        return list(regex) + (list(ner) if pred["fired"].get("regex") else [])
+        return list(regex) + (list(ner) if fired else [])
     raise ValueError(f"layer must be one of {SCORED_LAYERS}")
 
 
@@ -523,9 +542,10 @@ def _vector(counts: Mapping) -> list[int]:
     return [counts[k] for k in COUNT_FIELDS]
 
 
-def prompt_table(pairs: Sequence[tuple[dict, dict]], layer: str, scope: str = "all") -> tuple[np.ndarray, list[dict]]:
+def prompt_table(pairs: Sequence[tuple[dict, dict]], layer: str, scope: str = "all",
+                 min_sens: int = 0) -> tuple[np.ndarray, list[dict]]:
     """Per-prompt count matrix (n x len(COUNT_FIELDS)) and the raw per-prompt score dicts."""
-    scored = [score_prompt(g["entities"], layer_spans(p, layer), len(g["text"]), scope) for g, p in pairs]
+    scored = [score_prompt(g["entities"], layer_spans(p, layer, min_sens), len(g["text"]), scope) for g, p in pairs]
     return np.array([_vector(s) for s in scored], dtype=np.int64), scored
 
 
@@ -538,12 +558,12 @@ def aggregate_detail(scored: Sequence[Mapping], key: str) -> dict[str, dict[str,
 
 
 def score_layer(gold_rows: Sequence[Mapping], pred_rows: Sequence[Mapping], layer: str, scope: str = "all",
-                subset: Callable[[Mapping], bool] | None = None) -> dict:
+                subset: Callable[[Mapping], bool] | None = None, min_sens: int = 0) -> dict:
     """Aggregate metrics, per-family recall and per-category precision for one layer/scope/subset."""
     pairs = join_rows(gold_rows, pred_rows)
     if subset is not None:
         pairs = [(g, p) for g, p in pairs if subset(g)]
-    table, scored = prompt_table(pairs, layer, scope)
+    table, scored = prompt_table(pairs, layer, scope, min_sens)
     totals = table.sum(axis=0)
     counts = {k: int(v) for k, v in zip(COUNT_FIELDS, totals)}
     fam = aggregate_detail(scored, "by_family")
@@ -559,7 +579,7 @@ def score_layer(gold_rows: Sequence[Mapping], pred_rows: Sequence[Mapping], laye
     src = aggregate_detail(scored, "by_source")
     spanless = sum(p["spanless"].get("regex", 0) + p["spanless"].get("ner", 0) if layer in ("union", "p4")
                    else p["spanless"].get(layer, 0) for _, p in pairs)
-    return {"layer": layer, "scope": scope, "counts": counts, "metrics": metrics_from_counts(counts),
+    return {"layer": layer, "scope": scope, "min_sens": min_sens, "counts": counts, "metrics": metrics_from_counts(counts),
             "by_family": fam, "by_category": cat, "by_source": src, "n_spanless_positive_results": spanless}
 
 
@@ -608,17 +628,22 @@ def paired_comparison(gold_rows: Sequence[Mapping], baseline_preds: Sequence[Map
                       candidate_preds: Sequence[Mapping], layer: str, scope: str = "all",
                       subset: Callable[[Mapping], bool] | None = None, names: tuple[str, str] = ("old", "new"),
                       metrics: Sequence[str] = HEADLINE_METRICS, n_boot: int = DEFAULT_BOOTSTRAP,
-                      seed: int = DEFAULT_SEED) -> dict:
+                      seed: int = DEFAULT_SEED, min_sens: int = 0, candidate_layer: str | None = None) -> dict:
     """Old-vs-new on the same rows: grouped paired bootstrap (clusters = ``group_id``) plus exact McNemar
-    and a cluster sign test on the per-prompt "all mentions masked" outcome (prompts with gold spans)."""
+    and a cluster sign test on the per-prompt "all mentions masked" outcome (prompts with gold spans).
+
+    ``layer`` selects the span source for the baseline; ``candidate_layer`` (default: ``layer``) the one
+    for the candidate. Pass the same prediction list twice with different layers to compare span sources
+    inside one tree (e.g. ``regex`` versus ``p4``).
+    """
     base_pairs = join_rows(gold_rows, baseline_preds)
     cand_pairs = join_rows(gold_rows, candidate_preds)
     if subset is not None:
         keep = [subset(g) for g, _ in base_pairs]
         base_pairs = [x for x, k in zip(base_pairs, keep) if k]
         cand_pairs = [x for x, k in zip(cand_pairs, keep) if k]
-    tab_a, _ = prompt_table(base_pairs, layer, scope)
-    tab_b, _ = prompt_table(cand_pairs, layer, scope)
+    tab_a, _ = prompt_table(base_pairs, layer, scope, min_sens)
+    tab_b, _ = prompt_table(cand_pairs, candidate_layer or layer, scope, min_sens)
     groups = [g["group_id"] if g.get("group_id") is not None else f"row:{g['id']}" for g, _ in base_pairs]
     result = _boot_metrics(groups, {names[0]: tab_a, names[1]: tab_b}, metrics, names[0], n_boot, seed)
     ci = COUNT_FIELDS.index("all_masked")
@@ -633,8 +658,46 @@ def paired_comparison(gold_rows: Sequence[Mapping], baseline_preds: Sequence[Map
         "mcnemar": flips["mcnemar_positives"]}
     result["all_masked_cluster_sign_test"] = ds.cluster_sign_test(
         [True] * len(a), a.tolist(), b.tolist(), sub_groups, on="all")
-    result.update({"layer": layer, "scope": scope, "n_prompts": len(base_pairs), "n_prompts_gold": int(has.sum())})
+    result.update({"layer": layer, "candidate_layer": candidate_layer or layer, "scope": scope,
+                   "min_sens": min_sens, "n_prompts": len(base_pairs), "n_prompts_gold": int(has.sum())})
     return result
+
+
+# ----------------------------------------------------------------------------- study driver
+
+SUBSETS: dict[str, Callable[[Mapping], bool] | None] = {
+    "all-dev": None,
+    "dev-TUNE": lambda g: half_of(g["group_id"]) == "tune",
+    "dev-CHECK": lambda g: half_of(g["group_id"]) == "check",
+}
+
+
+def run_study(gold_rows: Sequence[Mapping], old_preds: Sequence[Mapping], new_preds: Sequence[Mapping],
+              n_boot: int = DEFAULT_BOOTSTRAP, seed: int = DEFAULT_SEED) -> dict:
+    """Old/new scores, paired old-vs-new comparisons and P4-versus-regex/union comparisons on every
+    subset x scope x minimum-sensitivity combination. Aggregates only (no text)."""
+    out: dict = {"subsets": {}}
+    for sub_name, subset in SUBSETS.items():
+        sub = out["subsets"].setdefault(sub_name, {})
+        for min_sens in (0, 2):
+            for scope in SCOPES:
+                cell = sub.setdefault(f"min_sens={min_sens}", {}).setdefault(scope, {"scores": {}, "old_vs_new": {}, "p4": {}})
+                for layer in SCORED_LAYERS:
+                    cell["scores"][layer] = {
+                        tag: score_layer(gold_rows, preds, layer, scope, subset, min_sens)
+                        for tag, preds in (("old", old_preds), ("new", new_preds))}
+                    cell["old_vs_new"][layer] = paired_comparison(
+                        gold_rows, old_preds, new_preds, layer, scope, subset, min_sens=min_sens,
+                        n_boot=n_boot, seed=seed)
+                for tag, preds in (("old", old_preds), ("new", new_preds)):
+                    cell["p4"][tag] = {
+                        "vs_regex": paired_comparison(gold_rows, preds, preds, "regex", scope, subset,
+                                                      names=("regex", "p4"), candidate_layer="p4",
+                                                      min_sens=min_sens, n_boot=n_boot, seed=seed),
+                        "vs_union": paired_comparison(gold_rows, preds, preds, "p4", scope, subset,
+                                                      names=("p4", "union"), candidate_layer="union",
+                                                      min_sens=min_sens, n_boot=n_boot, seed=seed)}
+    return out
 
 
 # ----------------------------------------------------------------------------- CLI
@@ -654,6 +717,14 @@ def _cli_score(args) -> None:
     print(json.dumps(out, indent=1))
 
 
+def _cli_study(args) -> None:
+    gold = load_jsonl(args.gold)
+    study = run_study(gold, load_jsonl(args.old), load_jsonl(args.new), args.n_boot, args.seed)
+    study["unmapped_gold_labels"] = dict(unmapped_labels(gold))
+    study["gold_sha256"] = hashlib.sha256(Path(args.gold).read_bytes()).hexdigest()
+    Path(args.out).write_text(json.dumps(study, indent=1), encoding="utf-8")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -668,6 +739,14 @@ def main() -> None:
     sc.add_argument("--gold", required=True, type=Path)
     sc.add_argument("--pred", required=True, type=Path)
     sc.set_defaults(func=_cli_score)
+    st = sub.add_parser("study", help="old/new/P4 study over dev subsets (aggregates only)")
+    st.add_argument("--gold", required=True, type=Path)
+    st.add_argument("--old", required=True, type=Path)
+    st.add_argument("--new", required=True, type=Path)
+    st.add_argument("--out", required=True, type=Path)
+    st.add_argument("--n-boot", type=int, default=DEFAULT_BOOTSTRAP)
+    st.add_argument("--seed", type=int, default=DEFAULT_SEED)
+    st.set_defaults(func=_cli_study)
     args = parser.parse_args()
     args.func(args)
 
