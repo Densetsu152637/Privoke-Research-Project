@@ -89,3 +89,7 @@ Added: subsection "Detector Precision Controls" in the system design; subsection
 ## Bibliography
 
 Added to `ref.bib` after opening the sources on 24 October 2026: `Honnibal2020SpaCy` (project CITATION.cff, DOI 10.5281/zenodo.1212303), `Luhn1960Patent` (US 2,950,048, Google Patents) and `ISO13616Part1_2020` (title from the EVS listing; the ISO page returned 403). No Presidio or Gitleaks entry was added: `PresidioNlpConfiguration2026` covers NLP configuration, not rule patterns. See the [source guide](source-restoration-guide-20261017.md#detector-precision-update-24-october-2026).
+
+## Follow-up (24 October 2026)
+
+Paired uncertainty, the `student_id` action-level repair and a full-product rerun of units 1 and 2 are recorded in [DETPREC-FOLLOWUP-20261024](detector-precision-followup-20261024.md). The held-out regex differences above are not statistically significant and the union shows no detectable change without equivalence. This record is otherwise unchanged.

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.5) (preloaded format=pdflatex 2026.10.9)  24 OCT 2026 13:14
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.5) (preloaded format=pdflatex 2026.10.9)  24 OCT 2026 22:14
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -571,7 +571,7 @@ LaTeX Font Info:    Trying to load font information for T1+pcr on input line 11
 (C:\Users\Nicholas\AppData\Local\Programs\MiKTeX\tex/latex/psnfss\t1pcr.fd
 File: t1pcr.fd 2001/06/04 font definitions for T1/pcr.
 )
-<figures/architecture-current.pdf, id=203, 869.16718pt x 422.53859pt>
+<figures/architecture-current.pdf, id=208, 869.16718pt x 422.53859pt>
 File: figures/architecture-current.pdf Graphic file (type pdf)
 <use figures/architecture-current.pdf>
 Package pdftex.def Info: figures/architecture-current.pdf  used on input line 1
@@ -601,94 +601,128 @@ Underfull \hbox (badness 1661) in paragraph at lines 150--151
 \T1/ptm/m/n/10 that are un-likely to be per-sonal: mask-ing place-hold-ers,
  []
 
-[5] [6] [7] [8] [9] [10] [11] [12]
-Underfull \hbox (badness 5077) in paragraph at lines 494--495
+[5] [6] [7] [8]
+Underfull \hbox (badness 2781) in paragraph at lines 257--258
+\T1/ptm/m/n/10 re-ceipts. They dis-tin-guish prod-uct/ablation de-pen-den-cies,
+
+ []
+
+
+Underfull \hbox (badness 2165) in paragraph at lines 257--258
+\T1/ptm/m/n/10 in-clud-ing his-tor-i-cal un-com-mit-ted sources, from matched
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 257--258
+\T1/pcr/m/n/10 detector -[] precision -[] followup -[] 20261024 . md$\T1/ptm/m/
+n/10 ).
+ []
+
+[9] [10] [11] [12] [13] [14]
+Underfull \hbox (badness 5077) in paragraph at lines 575--576
 []\T1/ptm/m/n/10 Contextual in-tegrity con-cerns ap-pro-pri-ate in-for-ma-tion
  []
 
-[13] [14]
-Underfull \hbox (badness 10000) in paragraph at lines 563--564
+[15] [16]
+Underfull \hbox (badness 10000) in paragraph at lines 644--645
 \T1/pcr/m/n/10 research / controlled -[] studies -[] 20261014 . md$\T1/ptm/m/n/
 10 ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 563--564
+Underfull \hbox (badness 10000) in paragraph at lines 644--645
 \T1/pcr/m/n/10 pipeline -[] comparison -[] 20261014 . json$ \T1/ptm/m/n/10 and
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 563--564
+Underfull \hbox (badness 10000) in paragraph at lines 644--645
 \T1/pcr/m/n/10 final -[] semantic -[] evidence -[] 20261014 . json$\T1/ptm/m/n/
 10 .
  []
 
 
-Underfull \hbox (badness 2393) in paragraph at lines 569--570
+Underfull \hbox (badness 2393) in paragraph at lines 650--651
 []\T1/ptm/m/n/10 The off base-line re-tains the ex-ten-sion hooks, na-tive
  []
 
-[15]
-Underfull \hbox (badness 10000) in paragraph at lines 573--574
+[17]
+Underfull \hbox (badness 10000) in paragraph at lines 654--655
 []\T1/ptm/m/n/10 Each his-tor-i-cal trans-port/action cell pools thirty
  []
 
 
-Underfull \hbox (badness 2237) in paragraph at lines 573--574
+Underfull \hbox (badness 2237) in paragraph at lines 654--655
 \T1/ptm/m/n/10 p99 is the ob-served max-i-mum of sixty mea-sure-ments,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 573--574
+Underfull \hbox (badness 10000) in paragraph at lines 654--655
 \T1/ptm/m/n/10 rather than ev-i-dence of a well-estimated pop-u-la-tion
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 573--574
+Underfull \hbox (badness 10000) in paragraph at lines 654--655
 \T1/ptm/m/n/10 tail. The V3 dis-tri-bu-tions like-wise con-tain re-peated
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 573--574
+Underfull \hbox (badness 10000) in paragraph at lines 654--655
 \T1/ptm/m/n/10 re-stric-tions mat-ter when in-ter-pret-ing ap-par-ent la-tency
  []
 
 
-Underfull \hbox (badness 6792) in paragraph at lines 573--574
+Underfull \hbox (badness 6792) in paragraph at lines 654--655
 \T1/ptm/m/n/10 dif-fer-ences and when ex-trap-o-lat-ing be-yond the fixed
  []
 
 
-Underfull \hbox (badness 5036) in paragraph at lines 573--574
+Underfull \hbox (badness 5036) in paragraph at lines 654--655
 \T1/ptm/m/n/10 syn-thetic prompts. The in-stalled ev-i-dence records are
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 573--574
+Underfull \hbox (badness 10000) in paragraph at lines 654--655
 \T1/pcr/m/n/10 installed -[] client -[] evidence -[] 20261014 . md$ \T1/ptm/m/n
 /10 and
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 573--574
+Underfull \hbox (badness 10000) in paragraph at lines 654--655
 \T1/pcr/m/n/10 v3 -[] standard -[] installed -[] evidence -[] 20261017 .
  []
 
 
-Underfull \hbox (badness 2865) in paragraph at lines 587--588
+Underfull \hbox (badness 2865) in paragraph at lines 668--669
 \T1/ptm/m/n/10 in $\T1/pcr/m/n/10 telemetry -[] evidence -[] 20261014 . md$ \T1
 /ptm/m/n/10 and $\T1/pcr/m/n/10 rq3 -[]
  []
 
-[16]
-Underfull \hbox (badness 10000) in paragraph at lines 619--620
+[18]
+Underfull \hbox (badness 10000) in paragraph at lines 700--701
 []\T1/ptm/m/it/10 Reproduction. \T1/ptm/m/n/10 The eval-u-a-tion script $\T1/pc
 r/m/n/10 evaluation /
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 619--620
+Underfull \hbox (badness 10000) in paragraph at lines 700--701
 \T1/pcr/m/n/10 evaluate _ installed _ detectors . py$ \T1/ptm/m/n/10 calls the
+ []
+
+
+Underfull \hbox (badness 4266) in paragraph at lines 702--703
+\T1/ptm/m/n/10 branch $\T1/pcr/m/n/10 research / wt -[] a -[] stats$\T1/ptm/m/n
+/10 , com-mit \T1/pcr/m/n/10 bf5e24c1\T1/ptm/m/n/10 ,
+ []
+
+
+Underfull \hbox (badness 3333) in paragraph at lines 702--703
+\T1/ptm/m/n/10 boot-strap; the pre-change tree is the clean ex-port of
+ []
+
+
+Underfull \hbox (badness 3989) in paragraph at lines 702--703
+\T1/ptm/m/n/10 product re-run comes from branch $\T1/pcr/m/n/10 research / wt -
+[] h -[]
  []
 
 (main.bbl
@@ -703,7 +737,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 99--105
 ng _ Towards _
  []
 
-[17])
+[19])
 
 ** Conference Paper **
 Before submitting the final camera ready copy, remember to:
@@ -715,7 +749,7 @@ Before submitting the final camera ready copy, remember to:
  uses only Type 1 fonts and that every step in the generation
  process uses the appropriate paper size.
 
-[18
+[20
 
 ] (main.aux)
  ***********
@@ -723,16 +757,16 @@ LaTeX2e <2026-06-01>
 L3 programming layer <2026-09-09>
  ***********
 Package rerunfilecheck Info: File `main.out' has not changed.
-(rerunfilecheck)             Checksum: A3ECD9CA466319520CEF8D0CF735F5A8;8629.
+(rerunfilecheck)             Checksum: 77735436D8B97E24B80D648C4364FD4C;8929.
  ) 
 Here is how much of TeX's memory you used:
- 13462 strings out of 467392
- 210292 string characters out of 5404181
- 650355 words of memory out of 5000000
- 42506 multiletter control sequences out of 15000+600000
+ 13476 strings out of 467392
+ 210463 string characters out of 5404181
+ 648348 words of memory out of 5000000
+ 42511 multiletter control sequences out of 15000+600000
  764729 words of font info for 187 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 74i,12n,79p,1759b,592s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 74i,12n,79p,2085b,590s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/
 cm/cmbx10.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/publ
 ic/amsfonts/cm/cmex10.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/font
@@ -746,19 +780,20 @@ fb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts
 ic/amsfonts/cm/cmr6.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/
 type1/public/amsfonts/cm/cmr7.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiK
 TeX/fonts/type1/public/amsfonts/cm/cmr8.pfb><C:/Users/Nicholas/AppData/Local/Pr
-ograms/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb><C:/Users/Nicholas/AppD
-ata/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy6.pfb><C:/Users/Ni
-cholas/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy7.pfb><
-C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/
-cmsy8.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/urw/cour
-ier/ucrr8a.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/urw
-/times/utmb8a.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/
-urw/times/utmbi8a.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/ty
-pe1/urw/times/utmr8a.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts
-/type1/urw/times/utmri8a.pfb>
-Output written on main.pdf (18 pages, 459287 bytes).
+ograms/MiKTeX/fonts/type1/public/amsfonts/cm/cmr9.pfb><C:/Users/Nicholas/AppDat
+a/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb><C:/Users/Nic
+holas/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy6.pfb><C
+:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/c
+msy7.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/public/am
+sfonts/cm/cmsy8.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type
+1/urw/courier/ucrr8a.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts
+/type1/urw/times/utmb8a.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fo
+nts/type1/urw/times/utmbi8a.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTe
+X/fonts/type1/urw/times/utmr8a.pfb><C:/Users/Nicholas/AppData/Local/Programs/Mi
+KTeX/fonts/type1/urw/times/utmri8a.pfb>
+Output written on main.pdf (20 pages, 486887 bytes).
 PDF statistics:
- 544 PDF objects out of 1000 (max. 8388607)
- 122 named destinations out of 1000 (max. 500000)
- 302 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 581 PDF objects out of 1000 (max. 8388607)
+ 131 named destinations out of 1000 (max. 500000)
+ 310 words of extra memory for PDF output out of 10000 (max. 10000000)
 

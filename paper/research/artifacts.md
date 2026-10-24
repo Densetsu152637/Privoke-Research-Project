@@ -4,6 +4,8 @@
 
 [DETPREC-20261024](detector-precision-20261024.md) records the eighth, detector-layer-only evidence unit authorized on 24 October 2026: regex precision repairs, case-preserved regex/NER input and the NER post-filter, with source revisions on `fix/regex-fp-reduction`, split and freeze protocol, and limitations. Results recorded: held-out regex specificity .985 to .996 at recall .653 to .640, union essentially unchanged, no net NER benefit established. Units 1 to 7 are not revalidated.
 
+[DETPREC-FOLLOWUP-20261024](detector-precision-followup-20261024.md) adds three settled follow-up findings: paired uncertainty (`research/wt-a-stats`, `bf5e24c1`; the held-out regex specificity gain and recall cost are 3-against-0 and 0-against-3 discordant rows, exact McNemar p = 0.25, not significant; union 13 against 14, p = 1.0; synthetic-set changes significant; endpoint now consumed), the `student_id` action-level repair (`fix/regex-fp-reduction`, `e70e3a2e`, added after endpoint scoring) and a full-product rerun of units 1 and 2 with the revised detectors (`research/wt-h-product`, `91b4ee83`; shared unnecessary restrictions 139 to 108, remove-regex net +121 to +85, NER now converts 48 findings). Units 1 and 2 are revalidated by that rerun except for the `student_id` rule; units 4 and 6 are not.
+
 ## External manuscript expansion - 18 October 2026
 
 [LONG22](external-version-expansion-20261018.md) restores the original conference layout and four authors, removes the page cap, reintroduces scoped methodological appendices, merges historical explanation with the current refactors, and restores the corrected 81-source pool. No experiments are rerun and the seven-unit empirical scope remains fixed.
