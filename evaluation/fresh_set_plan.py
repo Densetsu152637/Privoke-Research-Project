@@ -258,26 +258,76 @@ def groups_sha256(groups: set[str]) -> str:
     return hashlib.sha256("\n".join(sorted(groups)).encode()).hexdigest()
 
 
-def cmd_scan(args: argparse.Namespace) -> int:
-    import os
+_SCAN_CHUNK = 16 * 1024 * 1024
+_SCAN_OVERLAP = 512
+
+
+def scan_file_groups(path: str) -> set[str]:
+    """Group-id tokens (normalised) found in one file; read in chunks, never keeps text."""
+    import gzip
     found: set[str] = set()
-    scanned = 0
-    skip = {Path(p).resolve() for p in args.skip}
+    opener = gzip.open if path.endswith(".gz") else open
+    with opener(path, "rt", encoding="utf-8", errors="ignore") as handle:
+        carry = ""
+        block = handle.read(_SCAN_CHUNK)
+        while block:
+            following = handle.read(_SCAN_CHUNK)
+            window = carry + block
+            for match in GROUP_TOKEN.finditer(window):
+                # A match touching the window end may be cut off; the next window re-finds it whole.
+                if following and match.end() == len(window):
+                    continue
+                found.add(normalise_group(match.group(1)))
+            carry = window[-_SCAN_OVERLAP:]
+            block = following
+    return found
+
+
+def _scan_worker(path: str) -> tuple[str, list[str] | None]:
+    try:
+        return path, sorted(scan_file_groups(path))
+    except OSError:
+        return path, None
+
+
+def cmd_scan(args: argparse.Namespace) -> int:
+    """Collect PIIMB group-id tokens (never text) from json/jsonl(/.gz) artifacts under the roots."""
+    import os
+    from collections import defaultdict
+    from multiprocessing import Pool
+    skip_files = {os.path.normcase(os.path.abspath(p)) for p in args.skip}
+    skip_dirs = [os.path.normcase(os.path.abspath(p)) for p in args.skip_dir]
+    suffixes = (".json", ".jsonl", ".json.gz", ".jsonl.gz")
+    paths: list[str] = []
     for root in args.roots:
-        for directory, _, files in os.walk(root):
-            if any(part in directory for part in (".venv", "__pycache__", "node_modules")):
+        for directory, dirnames, files in os.walk(root):
+            norm_dir = os.path.normcase(os.path.abspath(directory))
+            if any(norm_dir == d or norm_dir.startswith(d + os.sep) for d in skip_dirs):
+                dirnames[:] = []
                 continue
+            dirnames[:] = [d for d in dirnames if not (d.startswith(".venv") or d in ("__pycache__", "node_modules"))]
             for name in files:
-                path = Path(directory) / name
-                if not name.endswith((".json", ".jsonl")) or path.resolve() in skip:
-                    continue
-                if path.stat().st_size > args.max_bytes:
-                    continue
-                scanned += 1
-                found.update(normalise_group(m.group(1))
-                             for m in GROUP_TOKEN.finditer(path.read_text(encoding="utf-8", errors="ignore")))
+                full = os.path.join(directory, name)
+                if name.endswith(suffixes) and os.path.normcase(os.path.abspath(full)) not in skip_files:
+                    paths.append(full)
+    found: set[str] = set()
+    unreadable = 0
+    per_top: dict[str, set[str]] = defaultdict(set)
+    base = os.path.dirname(os.path.abspath(args.roots[0]))
+    with Pool(args.workers) as pool:
+        for path, groups in pool.imap_unordered(_scan_worker, paths, chunksize=4):
+            if groups is None:
+                unreadable += 1
+                continue
+            found.update(groups)
+            top = os.path.relpath(os.path.abspath(path), base).replace("\\", "/").split("/")[:3]
+            top = "/".join(top)
+            per_top[top].update(groups)
     Path(args.output).write_text(json.dumps({"groups": sorted(found)}), encoding="utf-8")
-    print(json.dumps({"files_scanned": scanned, "n_groups": len(found), "groups_sha256": groups_sha256(found)}))
+    summary = {"files_scanned": len(paths) - unreadable, "files_unreadable": unreadable, "n_groups": len(found),
+               "groups_sha256": groups_sha256(found),
+               "top_level_dirs_with_groups": {k: len(v) for k, v in sorted(per_top.items()) if v}}
+    print(json.dumps(summary))
     return 0
 
 
@@ -422,6 +472,12 @@ def cmd_draw(args: argparse.Namespace) -> int:
             for _, record in rows[: quota - taken]:
                 chosen.append(record)
                 taken += 1
+    # PIIMB uids are not unique (distinct sentences can share a uid): keep ids unique by suffixing a text hash.
+    id_counts = Counter(r["id"] for r in chosen)
+    for record in chosen:
+        if id_counts[record["id"]] > 1:
+            record["id"] = f"{record['id']}#{record['text_blake2b'][:8]}"
+    stats["ids_disambiguated"] = sum(1 for r in chosen if "#" in r["id"])
     chosen.sort(key=lambda r: _rank(args.seed, "o:" + r["id"]))
     for record in chosen:
         del record["text_blake2b"]
@@ -466,8 +522,9 @@ def build_parser() -> argparse.ArgumentParser:
     sc = sub.add_parser("scan")
     sc.add_argument("roots", nargs="+")
     sc.add_argument("--output", required=True)
-    sc.add_argument("--max-bytes", type=int, default=30_000_000)
+    sc.add_argument("--workers", type=int, default=8)
     sc.add_argument("--skip", nargs="*", default=[], help="files never to open (e.g. a held-out partition)")
+    sc.add_argument("--skip-dir", nargs="*", default=[], help="directories never entered (e.g. the raw PIIMB download)")
     sc.set_defaults(func=cmd_scan)
     h = sub.add_parser("hash")
     h.add_argument("files", nargs="+")

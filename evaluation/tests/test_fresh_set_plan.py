@@ -100,6 +100,54 @@ class DrawTests(unittest.TestCase):
             plan.main(["scan", str(directory), "--output", str(out), "--skip", str(directory / "held.jsonl")])
             self.assertEqual(json.loads(out.read_text())["groups"], ["gretel:abc"])
 
+    def test_scan_skip_dir_gzip_and_chunk_boundary(self):
+        import gzip
+        with tempfile.TemporaryDirectory() as raw:
+            directory = Path(raw)
+            (directory / "skipme").mkdir()
+            (directory / "skipme" / "x.jsonl").write_text('{"g": "privy:skipped"}\n', encoding="utf-8")
+            with gzip.open(directory / "b.jsonl.gz", "wt", encoding="utf-8") as handle:
+                handle.write('{"id": "piimb:nemotron-pii:abc123_s7"}\n')
+            # a token straddling a chunk boundary must still be found
+            original = plan._SCAN_CHUNK
+            plan._SCAN_CHUNK = 50
+            try:
+                (directory / "c.json").write_text(" " * 40 + '"gretel:boundary_token_1"', encoding="utf-8")
+                found = plan.scan_file_groups(str(directory / "c.json"))
+            finally:
+                plan._SCAN_CHUNK = original
+            self.assertEqual(found, {"gretel:boundary_token_1"})
+            out = directory / "o.json"
+            plan.main(["scan", str(directory), "--output", str(out), "--workers", "1",
+                       "--skip-dir", str(directory / "skipme")])
+            groups = set(json.loads(out.read_text())["groups"])
+            self.assertIn("nemotron-pii:abc123", groups)
+            self.assertNotIn("privy:skipped", groups)
+
+    def test_draw_disambiguates_reused_uids(self):
+        with tempfile.TemporaryDirectory() as raw:
+            directory = Path(raw)
+            rows = []
+            for text in ("Call Person9x1 today.", "Another Person9x2 line."):
+                start = text.index("Person9x")
+                rows.append({"uid": "nemotron-pii:dup_s0", "task_name": "nemotron-pii", "source_dataset": "synthetic",
+                             "source_uid": "dup", "parent_id": "nemotron-pii:dup", "text": text, "language": "en",
+                             "entities": [{"start": start, "end": start + 9, "label": "name"}]})
+            clean = [{"uid": f"nemotron-pii:c{i}_s0", "task_name": "nemotron-pii", "source_dataset": "synthetic",
+                      "source_uid": f"c{i}", "parent_id": f"nemotron-pii:c{i}", "text": f"Plain {i}.",
+                      "entities": [], "language": "en"} for i in range(3)]
+            source = directory / "s.jsonl"
+            source.write_text("".join(json.dumps(r) + "\n" for r in rows + clean), encoding="utf-8")
+            (directory / "e.json").write_text(json.dumps({"groups": []}), encoding="utf-8")
+            plan.main(["draw", "--sentences", str(source),
+                       "--expect-sha256", hashlib.sha256(source.read_bytes()).hexdigest(),
+                       "--exclude", str(directory / "e.json"), "--seed", "1", "--positives", "2", "--negatives", "3",
+                       "--max-per-group", "2", "--output", str(directory / "o")])
+            out = [json.loads(line) for line in (directory / "o" / "piimb_fresh_v1.jsonl").read_text().splitlines()]
+            ids = [r["id"] for r in out]
+            self.assertEqual(len(ids), len(set(ids)))
+            self.assertEqual(sum("#" in i for i in ids), 2)
+
     def test_hash_mismatch_is_refused(self):
         with tempfile.TemporaryDirectory() as raw:
             directory = Path(raw)
