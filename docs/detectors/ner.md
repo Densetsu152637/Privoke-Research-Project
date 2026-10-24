@@ -19,6 +19,7 @@ This directory contains layer 2 of the PriVoke client-runtime detector pipeline:
 - deduplicates by `(start_char, end_char, label, text)`,
 - by default (`PRIVOKE_NER_POSTFILTER`, on; `0` disables) passes candidates through `ner_postfilter.py`: per-span cleaning (placeholders, identifiers, headings, short acronyms, common phrases) then category-combination rules that set the final sensitivity; dropped candidates are not emitted and kept results record `postfilter_rule` in metadata,
 - receives case-preserved text by default (`PRIVOKE_CASE_PRESERVING_DETECTORS`, on; `0` lowercases); the spaCy model is cased, so lowercased input degrades recognition. Results are in [installed detector precision](../experiments/detector-precision-installed-20261024.md).
+- optionally (`PRIVOKE_NER_CASELESS_GATE=1`, default off) lowercases a prompt that carries no case signal (all lower-case or all upper-case letters, ignoring the pronoun "I") before running spaCy, with length-preserving folding so spans stay valid. The post-filter's case-dependent checks (title-case heading detection, pluralised capital runs) are inert on the lowercased text, and the remaining rules are unchanged; `ner_postfilter.CASELESS_DISABLED_RULES` (empty) is the hook for skipping rules in caseless mode. Mixed-case prompts are never changed. Evidence: [robustness fixes](../experiments/robustness-fixes-20261024.md).
 
 The runtime has no per-request NER model-path selector. `model_name` is a
 construction-time argument for direct detector users; request text cannot choose or
