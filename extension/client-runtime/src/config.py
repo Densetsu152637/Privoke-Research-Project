@@ -163,6 +163,21 @@ class GlobalConfig:
     ner_postfilter: bool = field(
         default_factory=lambda: env_bool("PRIVOKE_NER_POSTFILTER", True)
     )
+    # Robustness canonicalisations, all default off (set the variable to 1 to
+    # enable). They apply to the case-preserved detector view only, never to
+    # semantic input (src/detection/preprocessing.py, src/NER/ner_detector.py).
+    strip_format_chars: bool = field(
+        default_factory=lambda: env_bool("PRIVOKE_STRIP_FORMAT_CHARS", False)
+    )
+    canonicalise_digits: bool = field(
+        default_factory=lambda: env_bool("PRIVOKE_CANONICALISE_DIGITS", False)
+    )
+    canonicalise_email_words: bool = field(
+        default_factory=lambda: env_bool("PRIVOKE_CANONICALISE_EMAIL_WORDS", False)
+    )
+    ner_caseless_gate: bool = field(
+        default_factory=lambda: env_bool("PRIVOKE_NER_CASELESS_GATE", False)
+    )
     threadpool: ThreadPoolExecutor = field(
         default_factory=lambda: ThreadPoolExecutor(
             max_workers=multiprocessing.cpu_count()
