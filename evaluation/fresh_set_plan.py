@@ -298,33 +298,36 @@ def cmd_scan(args: argparse.Namespace) -> int:
     skip_files = {os.path.normcase(os.path.abspath(p)) for p in args.skip}
     skip_dirs = [os.path.normcase(os.path.abspath(p)) for p in args.skip_dir]
     suffixes = (".json", ".jsonl", ".json.gz", ".jsonl.gz")
-    paths: list[str] = []
-    for root in args.roots:
-        for directory, dirnames, files in os.walk(root):
-            norm_dir = os.path.normcase(os.path.abspath(directory))
-            if any(norm_dir == d or norm_dir.startswith(d + os.sep) for d in skip_dirs):
-                dirnames[:] = []
-                continue
-            dirnames[:] = [d for d in dirnames if not (d.startswith(".venv") or d in ("__pycache__", "node_modules"))]
-            for name in files:
-                full = os.path.join(directory, name)
-                if name.endswith(suffixes) and os.path.normcase(os.path.abspath(full)) not in skip_files:
-                    paths.append(full)
+    def walk_paths():
+        for root in args.roots:
+            for directory, dirnames, files in os.walk(root):
+                norm_dir = os.path.normcase(os.path.abspath(directory))
+                if any(norm_dir == d or norm_dir.startswith(d + os.sep) for d in skip_dirs):
+                    dirnames[:] = []
+                    continue
+                dirnames[:] = [d for d in dirnames if not (d.startswith(".venv") or d in ("__pycache__", "node_modules"))]
+                for name in files:
+                    full = os.path.join(directory, name)
+                    if name.endswith(suffixes) and os.path.normcase(os.path.abspath(full)) not in skip_files:
+                        yield full
+
     found: set[str] = set()
     unreadable = 0
+    scanned = 0
     per_top: dict[str, set[str]] = defaultdict(set)
     base = os.path.dirname(os.path.abspath(args.roots[0]))
     with Pool(args.workers) as pool:
-        for path, groups in pool.imap_unordered(_scan_worker, paths, chunksize=4):
+        # Streamed: files are read while the (slow) directory walk is still running.
+        for path, groups in pool.imap_unordered(_scan_worker, walk_paths(), chunksize=16):
             if groups is None:
                 unreadable += 1
                 continue
+            scanned += 1
             found.update(groups)
-            top = os.path.relpath(os.path.abspath(path), base).replace("\\", "/").split("/")[:3]
-            top = "/".join(top)
+            top = "/".join(os.path.relpath(os.path.abspath(path), base).replace("\\", "/").split("/")[:3])
             per_top[top].update(groups)
     Path(args.output).write_text(json.dumps({"groups": sorted(found)}), encoding="utf-8")
-    summary = {"files_scanned": len(paths) - unreadable, "files_unreadable": unreadable, "n_groups": len(found),
+    summary = {"files_scanned": scanned, "files_unreadable": unreadable, "n_groups": len(found),
                "groups_sha256": groups_sha256(found),
                "top_level_dirs_with_groups": {k: len(v) for k, v in sorted(per_top.items()) if v}}
     print(json.dumps(summary))
