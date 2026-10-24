@@ -1,5 +1,6 @@
 """
-Opt-in post-filter for spaCy NER output (``PRIVOKE_NER_POSTFILTER``).
+Post-filter for spaCy NER output, enabled by default (``PRIVOKE_NER_POSTFILTER=0``
+disables it).
 
 spaCy labels are cheap evidence, not disclosures: a capitalised heading, a mask
 such as ``XXXX``, or a bare organisation name is not personal information.

@@ -65,8 +65,14 @@ class CasePreservingPipelineTests(unittest.TestCase):
             )
         return seen
 
-    def test_default_all_layers_lowercase(self) -> None:
-        self.assertFalse(pipeline.GLOBAL_CONFIG.case_preserving_detectors)
+    def test_default_is_case_preserving_for_regex_and_ner(self) -> None:
+        self.assertTrue(type(pipeline.GLOBAL_CONFIG)().case_preserving_detectors)
+
+    def test_environment_zero_disables_case_preservation(self) -> None:
+        with mock.patch.dict("os.environ", {"PRIVOKE_CASE_PRESERVING_DETECTORS": "0"}):
+            self.assertFalse(type(pipeline.GLOBAL_CONFIG)().case_preserving_detectors)
+
+    def test_disabled_all_layers_lowercase(self) -> None:
         seen = self._run(False)
         self.assertEqual(set(seen.values()), {"alice smith@example.com"})
 

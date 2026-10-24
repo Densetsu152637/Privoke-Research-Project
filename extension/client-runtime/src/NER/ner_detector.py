@@ -78,7 +78,7 @@ class EntityNERDetector:
             return self._classified_entities(model_entities)
 
     def _postfiltered_entities(self, doc, ents: Iterable) -> List[ClassificationResult]:
-        """Apply the opt-in post-filter; dropped candidates are not emitted."""
+        """Apply the post-filter (default on); dropped candidates are not emitted."""
         candidates = []
         seen_spans = set()
         for ent in ents:

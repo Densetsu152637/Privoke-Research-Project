@@ -151,15 +151,17 @@ class GlobalConfig:
     wait_for_regex: bool = field(
         default_factory=lambda: env_bool("PRIVOKE_WAIT_FOR_REGEX", True)
     )
-    # Ablation switch: regex and NER receive case-preserved normalized text.
-    # Semantic/LLM layers always receive lowercased text.
+    # Default on (PRIVOKE_CASE_PRESERVING_DETECTORS=0 disables): regex and NER
+    # receive case-preserved normalized text. Semantic/LLM layers always receive
+    # lowercased text.
     case_preserving_detectors: bool = field(
-        default_factory=lambda: env_bool("PRIVOKE_CASE_PRESERVING_DETECTORS", False)
+        default_factory=lambda: env_bool("PRIVOKE_CASE_PRESERVING_DETECTORS", True)
     )
-    # Opt-in post-filter on spaCy entities: per-span cleaning plus category
-    # combination rules that decide the final NER sensitivity (src/NER/ner_postfilter.py).
+    # Default on (PRIVOKE_NER_POSTFILTER=0 disables): post-filter on spaCy
+    # entities, per-span cleaning plus category combination rules that decide
+    # the final NER sensitivity (src/NER/ner_postfilter.py).
     ner_postfilter: bool = field(
-        default_factory=lambda: env_bool("PRIVOKE_NER_POSTFILTER", False)
+        default_factory=lambda: env_bool("PRIVOKE_NER_POSTFILTER", True)
     )
     threadpool: ThreadPoolExecutor = field(
         default_factory=lambda: ThreadPoolExecutor(

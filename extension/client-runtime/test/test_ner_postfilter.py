@@ -1,4 +1,4 @@
-"""Tests for the opt-in NER post-filter (author-written generic sentences)."""
+"""Tests for the NER post-filter (author-written generic sentences)."""
 
 from __future__ import annotations
 
@@ -46,8 +46,12 @@ class PostfilterTestCase(unittest.TestCase):
 
 
 class FlagTests(PostfilterTestCase):
-    def test_flag_defaults_off_and_passes_raw_entities_through(self) -> None:
-        self.assertFalse(type(GLOBAL_CONFIG)().ner_postfilter)
+    def test_flag_defaults_on_and_zero_disables(self) -> None:
+        self.assertTrue(type(GLOBAL_CONFIG)().ner_postfilter)
+        with mock.patch.dict("os.environ", {"PRIVOKE_NER_POSTFILTER": "0"}):
+            self.assertFalse(type(GLOBAL_CONFIG)().ner_postfilter)
+
+    def test_disabled_flag_passes_raw_entities_through(self) -> None:
         raw = self.kept("Show a sample like Xs instead of the real digits.", enabled=False)
         self.assertEqual(raw, {"Xs": "S2"})
 

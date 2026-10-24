@@ -37,6 +37,11 @@ class FakeNLP:
 
 class EntityNERPipelineCacheTests(unittest.TestCase):
     def setUp(self):
+        # These tests cover pipeline caching/locking with fake Docs; the
+        # post-filter needs real spaCy Docs and is covered in test_ner_postfilter.
+        patcher = patch.object(ner_detector.GLOBAL_CONFIG, "ner_postfilter", False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         with ner_detector._PIPELINE_CACHE_LOCK:
             ner_detector._PIPELINES.clear()
 
