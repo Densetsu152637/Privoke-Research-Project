@@ -1,5 +1,9 @@
 # Local development evidence package
 
+## Detector precision - 24 October 2026
+
+[DETPREC-20261024](detector-precision-20261024.md) records the eighth, detector-layer-only evidence unit authorized on 24 October 2026: regex precision repairs, case-preserved regex/NER input and the NER post-filter, with source revisions on `fix/regex-fp-reduction`, split and freeze protocol, and limitations. Results are pending the installation task (`install-1`); no measurement in the paper predates that rerun, and units 1 to 7 are not revalidated.
+
 ## External manuscript expansion - 18 October 2026
 
 [LONG22](external-version-expansion-20261018.md) restores the original conference layout and four authors, removes the page cap, reintroduces scoped methodological appendices, merges historical explanation with the current refactors, and restores the corrected 81-source pool. No experiments are rerun and the seven-unit empirical scope remains fixed.
