@@ -156,6 +156,11 @@ class GlobalConfig:
     case_preserving_detectors: bool = field(
         default_factory=lambda: env_bool("PRIVOKE_CASE_PRESERVING_DETECTORS", False)
     )
+    # Opt-in post-filter on spaCy entities: per-span cleaning plus category
+    # combination rules that decide the final NER sensitivity (src/NER/ner_postfilter.py).
+    ner_postfilter: bool = field(
+        default_factory=lambda: env_bool("PRIVOKE_NER_POSTFILTER", False)
+    )
     threadpool: ThreadPoolExecutor = field(
         default_factory=lambda: ThreadPoolExecutor(
             max_workers=multiprocessing.cpu_count()

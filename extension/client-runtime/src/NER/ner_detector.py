@@ -15,8 +15,10 @@ from typing import Iterable, List
 
 import spacy
 
+from .ner_postfilter import Decision, postfilter
 from .use_cases import NER_LABEL_USE_CASES, EntityUseCase
-from ..classification import ClassificationResult
+from ..classification import ClassificationResult, initialise_unpacked
+from ..config import GLOBAL_CONFIG
 
 
 _MAX_CACHED_PIPELINES = 2
@@ -71,7 +73,39 @@ class EntityNERDetector:
         with self._pipeline_entry.inference_lock:
             doc = self.nlp(text)
             model_entities = list(doc.ents)
+            if GLOBAL_CONFIG.ner_postfilter:
+                return self._postfiltered_entities(doc, model_entities)
             return self._classified_entities(model_entities)
+
+    def _postfiltered_entities(self, doc, ents: Iterable) -> List[ClassificationResult]:
+        """Apply the opt-in post-filter; dropped candidates are not emitted."""
+        candidates = []
+        seen_spans = set()
+        for ent in ents:
+            if NER_LABEL_USE_CASES.get(ent.label_) is None:
+                continue
+            span_key = (ent.start_char, ent.end_char, ent.label_, ent.text)
+            if span_key not in seen_spans:
+                seen_spans.add(span_key)
+                candidates.append(ent)
+
+        results = []
+        for decision in postfilter(doc, candidates, nlp=self.nlp):
+            if decision.keep:
+                results.append(self._decided_entity(decision))
+        return results
+
+    def _decided_entity(self, decision: Decision) -> ClassificationResult:
+        ent = decision.candidate.span
+        use_case = NER_LABEL_USE_CASES[ent.label_]
+        result = self._classified_entity(ent, use_case)
+        if decision.sensitivity is not None:
+            base = use_case.classification
+            result.classification = initialise_unpacked(
+                decision.sensitivity, base.visibility(), base.categories()
+            )
+        result.metadata = {**result.metadata, "postfilter_rule": decision.rule}
+        return result
 
     def _classified_entities(self, ents: Iterable) -> List[ClassificationResult]:
         entities = []
