@@ -54,6 +54,8 @@ class RuleDetector:
         matches = []
         for rule in self.rules:
             for regex_match in rule.pattern.finditer(text):
+                if rule.validator is not None and not rule.validator(regex_match):
+                    continue
                 matches.append(
                     RuleMatch(
                         rule_name=rule.name,

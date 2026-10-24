@@ -2,9 +2,14 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Dict, Pattern, Tuple
+from typing import Callable, Dict, Optional, Pattern, Tuple
 
 from ..classification import Classification, ClassificationResult
+
+
+# A validator receives the regex match (with its full source string available as
+# ``match.string``) and returns False to reject a structurally plausible hit.
+MatchValidator = Callable[["re.Match[str]"], bool]
 
 
 @dataclass(frozen=True)
@@ -16,6 +21,7 @@ class RuleDefinition:
     classification: Classification
     signal: str
     flags: int = re.IGNORECASE
+    validator: Optional[MatchValidator] = None
 
     def compile(self) -> "CompiledRule":
         return CompiledRule(
@@ -23,6 +29,7 @@ class RuleDefinition:
             pattern=re.compile(self.pattern, self.flags),
             classification=self.classification,
             signal=self.signal,
+            validator=self.validator,
         )
 
 
@@ -34,6 +41,7 @@ class CompiledRule:
     pattern: Pattern[str]
     classification: Classification
     signal: str
+    validator: Optional[MatchValidator] = None
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,7 @@
 from typing import List
 
 from .rule_types import RuleDefinition
+from .rule_validators import checksum_validator, iban_valid, luhn_valid
 from ..classification import Category, Sensitivity, Visibility, initialise_unpacked
 
 
@@ -16,12 +17,14 @@ def financial_rules() -> List[RuleDefinition]:
                 [Category.FINANCIAL, Category.IDENTITY],
             ),
             "credit_card",
+            validator=checksum_validator(luhn_valid),
         ),
         RuleDefinition(
             "iban",
             r"\b[A-Z]{2}\d{2}[A-Z0-9]{1,30}\b",
             initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.FINANCIAL]),
             "iban",
+            validator=checksum_validator(iban_valid),
         ),
         RuleDefinition(
             "bank_account",
@@ -49,7 +52,7 @@ def financial_rules() -> List[RuleDefinition]:
         ),
         RuleDefinition(
             "financial_keyword",
-            r"\b(?:my|his|her|their)\s+(?:salary|income|bonus|bank|account|credit|loan|mortgage|debt|investment|stock|crypto|bitcoin|ethereum|tax|paycheck|transaction|balance)\b",
+            r"\b(?:my|his|her|their)\s+(?:\w+\s+){0,2}(?:salary|income|bonus|loan|mortgage|debt|investment|stock|crypto|bitcoin|ethereum|tax|paycheck|transaction|balance|savings|net\s+worth|credit\s+(?:score|history|report))\b",
             initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.FINANCIAL]),
             "financial_info",
         ),

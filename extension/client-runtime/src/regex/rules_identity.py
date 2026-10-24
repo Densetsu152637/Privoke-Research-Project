@@ -1,6 +1,7 @@
 from typing import List
 
 from .rule_types import RuleDefinition
+from .rule_validators import checksum_validator, us_ssn_valid
 from ..classification import Category, Sensitivity, Visibility, initialise_unpacked
 
 
@@ -30,6 +31,7 @@ def identity_rules() -> List[RuleDefinition]:
             r"\b\d{3}[\s\-]?\d{2}[\s\-]?\d{4}\b",
             initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.IDENTITY]),
             "ssn",
+            validator=checksum_validator(us_ssn_valid),
         ),
         RuleDefinition(
             "itin",
@@ -56,6 +58,17 @@ def identity_rules() -> List[RuleDefinition]:
             "government_id",
         ),
         RuleDefinition(
+            "student_id",
+            # An institutional identifier value tied to a student: "student ID 12345" or
+            # "student <name>, ID <code>". The value must be 4+ characters with a digit, so
+            # generic mentions of students or of ID requirements do not match. This is an
+            # identity disclosure, not CHILD: students are not necessarily minors.
+            r"\bstudent(?:[\s_-]*(?:id|number|no\.?)\s*[:#=]?|\b[^\n.;:!?]{0,60}?[,(]\s*id\s*[:#=]?)\s*"
+            r"(?=[a-z0-9-]*\d)[a-z0-9][a-z0-9-]{3,}\b",
+            initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.IDENTITY]),
+            "student_id",
+        ),
+        RuleDefinition(
             "api_key",
             r"\b(?:sk|pk|ghp|xoxb|akia)[-_a-z0-9]{16,}\b",
             initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.IDENTITY]),
@@ -69,7 +82,7 @@ def identity_rules() -> List[RuleDefinition]:
         ),
         RuleDefinition(
             "password_assignment",
-            r"\b(?:password|passwd|pwd|passcode)\s*[:=]\s*\S+",
+            r"\b(?:password|passwd|pwd|passcode)\s*[:=]\s*(?!(?:required|optional|none|null|nil|true|false|empty|blank|unknown|hidden|masked|n/?a)\b)\S+",
             initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.IDENTITY]),
             "password",
         ),
@@ -87,13 +100,15 @@ def identity_rules() -> List[RuleDefinition]:
         ),
         RuleDefinition(
             "social_handle",
-            r"(?<![a-zA-Z0-9.])@[\w\-\.]{2,}(?![a-zA-Z0-9_])",
+            r"(?<![a-zA-Z0-9.])@(?!(?:here|everyone|channel|all)\b)[\w\-\.]{2,}(?![a-zA-Z0-9_])",
             initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.IDENTITY]),
             "social_handle",
         ),
         RuleDefinition(
             "structured_identity",
-            r"\b(name|username|user|handle|account|login|email|phone|location|address)\s*[:=]\s*[\w\s\.\-@]+",
+            r"\b(?:(?:name|username|user|handle|account|login|email|location|address)\s*[:=][ \t]*"
+            r"|phone\s*[:=][ \t]*(?=[+(\d]))"
+            r"[+(]?[\w\.\-@]+\)?(?:[ \t]+[+(]?[\w\.\-@]+\)?){0,4}",
             initialise_unpacked(Sensitivity.S2, Visibility.P2, [Category.IDENTITY]),
             "structured_field",
         ),
