@@ -125,8 +125,7 @@ def main() -> None:
         report["splits"][split] = out
         print(f"[{args.label}] {split}: n={len(rows)}", file=sys.stderr)
     if "final" in args.splits:
-        marker.write_text("scored
-", encoding="utf-8")
+        marker.write_text("scored\n", encoding="utf-8")
     (args.out / f"{args.label}-{'-'.join(args.splits)}.json").write_text(json.dumps(report, indent=1), encoding="utf-8")
     print(json.dumps(report, indent=1))
 
