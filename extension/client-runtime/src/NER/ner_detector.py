@@ -56,7 +56,8 @@ def _pipeline_entry(model_name: str) -> _PipelineEntry:
 class EntityNERDetector:
     """Entity extraction backed by spaCy NER labels."""
 
-    def __init__(self, model_name: str = "en_core_web_sm"):
+    def __init__(self, model_name: str | None = None):
+        model_name = model_name or GLOBAL_CONFIG.ner_model
         self.backend_name = "spacy"
         self.model_name = model_name
         self._pipeline_entry = _pipeline_entry(model_name)

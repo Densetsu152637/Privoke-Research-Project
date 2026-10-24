@@ -163,6 +163,12 @@ class GlobalConfig:
     ner_postfilter: bool = field(
         default_factory=lambda: env_bool("PRIVOKE_NER_POSTFILTER", True)
     )
+    # spaCy model for the NER layer (PRIVOKE_NER_MODEL). Default en_core_web_sm; a
+    # larger installed English model (e.g. en_core_web_lg) can be evaluated without
+    # code changes. The post-filter is unchanged and was designed on the default.
+    ner_model: str = field(
+        default_factory=lambda: env_optional_str("PRIVOKE_NER_MODEL") or "en_core_web_sm"
+    )
     threadpool: ThreadPoolExecutor = field(
         default_factory=lambda: ThreadPoolExecutor(
             max_workers=multiprocessing.cpu_count()
