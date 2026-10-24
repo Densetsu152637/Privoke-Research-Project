@@ -492,7 +492,7 @@ def cmd_draw(args: argparse.Namespace) -> int:
     for label, quota in ((True, args.positives), (False, args.negatives)):
         pool = sorted((_rank(args.seed, "g:" + group), group, rows)
                       for (lab, group), rows in candidates.items()
-                      if lab is label and rows and group not in used_groups)
+                      if lab is label and rows and (args.share_groups_across_classes or group not in used_groups))
         available = sum(len(rows) for _, _, rows in pool)
         if available < quota:
             raise SystemExit(f"Only {available} eligible {'positive' if label else 'clean'} rows "
@@ -514,7 +514,7 @@ def cmd_draw(args: argparse.Namespace) -> int:
     chosen.sort(key=lambda r: _rank(args.seed, "o:" + r["id"]))
     for record in chosen:
         del record["text_blake2b"]
-    per_group = Counter(r["group_id"] for r in chosen)
+    per_group = Counter((r["expected_has_pii"], r["group_id"]) for r in chosen)
     if any(r["group_id"] in excluded for r in chosen) or max(per_group.values()) > args.max_per_group:
         raise SystemExit("Post-selection check failed (excluded group or group cap exceeded).")
 
@@ -525,6 +525,9 @@ def cmd_draw(args: argparse.Namespace) -> int:
         "dataset": "piimb", "revision": PIIMB_REVISION, "source_file": "data/test_sentences.jsonl",
         "source_file_sha256": digest.hexdigest(), "seed": args.seed, "name": args.name,
         "quota": {"positives": args.positives, "negatives": args.negatives}, "max_per_group": args.max_per_group,
+        "share_groups_across_classes": args.share_groups_across_classes,
+        "groups_in_both_classes": len({r["group_id"] for r in chosen if r["expected_has_pii"]}
+                                      & {r["group_id"] for r in chosen if not r["expected_has_pii"]}),
         "exclusion_files": [str(p) for p in args.exclude], "exclusion_groups": len(excluded),
         "exclusion_groups_sha256": groups_sha256(excluded),
         "population": dict(sorted(stats.items())),
@@ -573,6 +576,9 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--negatives", type=int, required=True)
     d.add_argument("--max-per-group", type=int, default=1,
                    help="cap on sentences per source document (analyse with the grouped bootstrap if > 1)")
+    d.add_argument("--share-groups-across-classes", action="store_true",
+                   help="last-resort relaxation: a source document may supply both positive and clean sentences "
+                        "(still at most --max-per-group per class); analyse with the grouped bootstrap")
     d.add_argument("--name", default="piimb_fresh_v1")
     d.add_argument("--output", required=True)
     d.set_defaults(func=cmd_draw)
