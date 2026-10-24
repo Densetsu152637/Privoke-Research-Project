@@ -1,6 +1,6 @@
 # Pre-registration: detector precision follow-ups on fresh data (draft, 2026-10-24)
 
-**Status: DRAFT. Becomes binding only when the freeze record (section 9) is written, before any fresh row is scored. Scope: detector-layer (regex, NER, regex OR NER). Not LLM-only, not semantic-layer, not full-product. The full-product rerun is a separate study and is not covered by these hypotheses.**
+**Status: FROZEN at the commit that adds `docs/research/fresh-sets-freeze-20261024.md` and `.json` (section 9; the data were built and hashed first, and no detector has been run on any fresh row). Amendments are permitted only before any fresh row is scored and must be committed with a note in the freeze addendum. Scope: detector-layer (regex, NER, regex OR NER). Not LLM-only, not semantic-layer, not full-product. The full-product rerun is a separate study and is not covered by these hypotheses.**
 
 Program: research follow-ups to PR #5 (`fix/regex-fp-reduction`), user-approved 24 Oct 2026 ("Test all of these in parallel and integrate promising ones", including the full-product rerun; downloads under 5 GB allowed for testing). Data plan and power: `docs/research/fresh-evaluation-sources-20261024.md`. Downloads: `docs/research/download-request-20261024.md`.
 
@@ -12,12 +12,18 @@ The shipped precision work (regex repairs, case-preserving detector input, NER p
 
 | ID | Description | Size | Label basis | Seed |
 |---|---|---|---|---|
-| F1 | PIIMB sentences at revision 4a13e9ff..., group-disjoint from development and final and from all training/validation uses | 10,000 PII + 6,600 clean | PIIMB entity spans | 8102026 |
-| F2 | Natural benign prompts: oasst2 2,000, WildChat 2,500, Dolly 1,500 | 6,000 | Pooled two-rater adjudication (protocol in the sources doc, section 4.1) | 9102026 |
-| F3 | SPY legal and medical (optional, prompt-style positives) | up to 2,000 | SPY tags converted to spans | 10102026 |
-| F4 | TAB ECHR test (optional) | up to 300 documents | TAB mentions | 11102026 |
+| F1 | PIIMB sentences at revision 4a13e9ff..., disjoint by source group from development, final and every group token found in training, validation and earlier-study artifacts (13,218 normalised groups); spans kept | **10,000 PII + 6,446 clean = 16,446** (as built; 6,600 clean were planned) | PIIMB entity spans | 8102026 |
+| F2 | Natural prompts (English, at most 433 characters): oasst2 2,000, WildChat 2,500, Dolly 1,500 | 6,000 (**unlabelled; human adjudication pending**) | Pooled two-rater adjudication (protocol in the sources doc, section 4.1; guideline `docs/research/f2-adjudication-guideline-20261024.md`) | 9102026 |
+| F3 | SPY legal and medical prompt-style positives, seeded Faker fill, spans kept | 2,000 (1,000 + 1,000), positives only | SPY tags converted to character spans | 10102026 |
+| F4 | TAB ECHR test | **not built** (optional; not downloaded, no hypothesis depends on it) | n/a | n/a |
 
-Sample sizes follow the power analysis (sources doc, section 5): 10,000 positives give 84 % power for the union-recall non-inferiority test (margin 1 pt) when the true change is 0; 6,600 clean rows give 95 % power for union-specificity non-inferiority (margin 1 pt, psi 5 %) and more than 99 % for the regex specificity effect.
+Sample sizes follow the power analysis (sources doc, section 5): 10,000 positives give 84 % power for the union-recall non-inferiority test (margin 1 pt) when the true change is 0; 6,446 clean rows give about 95 % power for union-specificity non-inferiority (margin 1 pt, psi 5 %) and more than 99 % for the regex specificity effect. H2 margin stays at 1.0 pt: the pool allowed the full 10,000 positives, so no margin change was forced.
+
+### 2.1 F1 as built: exclusion, cap and relaxation (decided before any scoring; no detector was run)
+
+- Exclusion union: the locked development and final groups (929 groups, hash `16e2006b...`) united with every group token found by `fresh_set_plan.py scan` in 213,161 text data files under `evaluation/` and `models/` (13,240 tokens; all 929 locked groups are among them). Normalised union: 13,218 groups, sha256 `fd4bd415...` (the full values are in the freeze record). Because the exclusion is wide, 70,669 otherwise eligible PIIMB rows were removed, which also changed the source mix: the Nemotron-PII share is about 23 % (it was about 60 % in the locked sets) and ai4privacy, Gretel and Privy now dominate.
+- Cap rule applied in order: cap 1 and then caps 2 and 3 with disjoint classes could not fill the clean quota (at most 1,547, 2,255 and 2,505 clean groups available). The pre-registered rule stopped at cap 3, so a further, last-resort relaxation was chosen **before scoring**: a source document may supply both positive and clean sentences (at most 3 per class per document), and the clean quota is the maximum the pool allows at cap 3: **6,446**. 1,313 documents appear in both classes. All hypothesis tests use the grouped bootstrap with whole-document clusters, which accounts for this.
+- Privy group ids are per-sentence uids ending in `_sN`; they are excluded through the normalised token (over-exclusion is possible, leakage is not).
 
 Old development, TUNE, CHECK, personalized, openai and final results stay as historical context and are never pooled with F-sets.
 
@@ -95,7 +101,7 @@ Each frozen configuration is scored once on each fresh set. No row text is inspe
 
 ## 9. Freeze procedure
 
-Before scoring, a freeze record `docs/research/preregistration-freeze-<date>.json` is committed containing:
+Before scoring, a freeze record (`docs/research/fresh-sets-freeze-20261024.md` with machine-readable `fresh-sets-freeze-20261024.json`; this replaces the earlier proposed file name) is committed containing:
 
 1. sha256 of this document, `evaluation/fresh_set_plan.py`, `evaluation/detector_stats.py`, `evaluation/evaluate_installed_detectors.py`, the label guideline, the category mapping file.
 2. Git commit SHAs of the code under test (O: `e6c177ff` export; N: `e70e3a2e` or the final integration head; N+R: `b1975bc2`; perturbation script: `33b6e6b5` with sha256 `7dabcaa0...`), package versions of the evaluation venv, spaCy model version, and for H3 each model's source URL, revision and weight sha256.
@@ -113,3 +119,10 @@ After the freeze commit, any change to these items invalidates the registration;
 - Sentence-level data may overstate document-level behaviour; F3 and F4 provide prompt-style and document-style checks.
 - Annotator disagreement on F2: kappa reported; U (ambiguous) prompts analysed both ways.
 - Multiple stakeholders may reuse the F-sets for other questions: they are single-use for this registration; later users must register new draws.
+
+
+## 11. Open items at freeze
+
+- The PIIMB-label to PriVoke-category mapping file required by H4 (category-level scoring only) and the statistics code hash for the scoring wave are not part of this data freeze. They must be committed as a freeze addendum before any scoring; presence-level and character-level H4 scoring do not depend on the mapping.
+- The F2 labels do not exist until the blind human adjudication is done. H1b, H2b (F2 part), H3a' and the F2 cell of H6 cannot be evaluated before then; if the adjudication is not completed, they are reported as not evaluated rather than approximated.
+- The model lists and flags are fixed as in section 3 (N+lg, N+trf, five N+R configurations). GLiNER-PII is dropped.
