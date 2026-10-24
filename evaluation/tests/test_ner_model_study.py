@@ -41,6 +41,7 @@ class SelectionTests(unittest.TestCase):
         }
         result = study.select_gliner(design)
         self.assertEqual(result["chosen"], "gliner-core-t0.5-pf1")
+        self.assertEqual(result["post_review_labels"], ["gliner-core-t0.5-pf1", "gliner-core-t0.5-pf0"])
         self.assertEqual([r["label"] for r in result["ranking"]],
                          ["gliner-core-t0.5-pf1", "gliner-core-t0.3-pf1"])
 

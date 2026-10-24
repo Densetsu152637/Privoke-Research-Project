@@ -123,7 +123,8 @@ def select_gliner(design: dict[str, dict[str, dict]]) -> dict:
         raise ValueError("no GLiNER configurations in the design results")
     scored.sort()
     best = scored[0]
-    return {"chosen": best[2], "mean_union_balanced_accuracy": best[3],
+    twin = best[2][:-1] + ("0" if best[2].endswith("1") else "1")
+    return {"chosen": best[2], "post_review_labels": [best[2], twin], "mean_union_balanced_accuracy": best[3],
             "ranking": [{"label": s[2], "mean_union_balanced_accuracy": s[3], "design_fp": s[1]} for s in scored]}
 
 
@@ -268,11 +269,11 @@ def cmd_run(args) -> None:
         if args.freeze is None:
             raise SystemExit("post-review requires --freeze")
         freeze_commit = require_committed(args.freeze, args.tree)
-        frozen = json.loads(args.freeze.read_text(encoding="utf-8"))["chosen"]
-        allowed = {l for l in all_design_labels() if not l.startswith("gliner-")} | {frozen}
+        frozen = json.loads(args.freeze.read_text(encoding="utf-8"))["post_review_labels"]
+        allowed = {l for l in all_design_labels() if not l.startswith("gliner-")} | set(frozen)
         extra = [l for l in labels if l not in allowed]
         if extra:
-            raise SystemExit(f"post-review may only run spaCy configurations and the frozen GLiNER one ({frozen}); got {extra}")
+            raise SystemExit(f"post-review may only run spaCy configurations and the frozen GLiNER ones ({frozen}); got {extra}")
     for label in labels:
         parse_label(label)
 
@@ -350,6 +351,49 @@ def cmd_stats(args) -> None:
     print(f"wrote {args.stats_out}", file=sys.stderr)
 
 
+def _fmt(value) -> str:
+    return "n/a" if value is None else f"{value:.3f}"
+
+
+def render_report(out: Path, splits: tuple[str, ...], labels: list[str] | None = None) -> str:
+    """Markdown tables (one per split) from the aggregate JSON files in ``out``."""
+    reports = {}
+    for path in sorted(out.glob("*-design.json")) + sorted(out.glob("*-post-review.json")):
+        report = json.loads(path.read_text(encoding="utf-8"))
+        reports.setdefault(report["label"], {}).update(report["splits"])
+    lines = []
+    for split in splits:
+        lines += [f"**{split}**", "",
+                  "| Config | NER TP | NER FP | NER recall | NER spec | Union TP | Union FP | Union recall | Union spec "
+                  "| Union BLOCK recall | Union BLOCK spec | ms/prompt (indicative) |",
+                  "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+        for label in (labels or sorted(reports)):
+            if label not in reports or split not in reports[label]:
+                continue
+            cell = reports[label][split]
+            ner, union, block = cell["ner"]["positive"], cell["union"]["positive"], cell["union"]["block"]
+            lines.append(f"| {label} | {ner['TP']} | {ner['FP']} | {_fmt(ner['recall'])} | {_fmt(ner['specificity'])} "
+                         f"| {union['TP']} | {union['FP']} | {_fmt(union['recall'])} | {_fmt(union['specificity'])} "
+                         f"| {_fmt(block['recall'])} | {_fmt(block['specificity'])} "
+                         f"| {cell['mean_ms_per_prompt_indicative']:.0f} |")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def cmd_collect(args) -> None:
+    """Merge the per-configuration aggregate JSON files of one phase into one file (no row data)."""
+    merged = {"phase": args.phase, "scope": "detector-layer (regex+NER); not LLM-only", "configs": {}}
+    for path in sorted(args.out.glob(f"*-{args.phase}.json")):
+        report = json.loads(path.read_text(encoding="utf-8"))
+        merged["configs"][report["label"]] = {k: report[k] for k in
+                                              ("config", "tree_commit_sha", "freeze_commit", "dataset_sha256", "splits")}
+    args.dest.write_text(json.dumps(merged, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def cmd_report(args) -> None:
+    print(render_report(args.out, tuple(args.splits), args.labels))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -375,6 +419,16 @@ def main() -> None:
     stats.add_argument("--splits", nargs="+", default=list(DESIGN_SPLITS + POST_REVIEW_SPLITS))
     stats.add_argument("--n-boot", type=int, default=10_000)
     stats.set_defaults(func=cmd_stats)
+    collect = sub.add_parser("collect")
+    collect.add_argument("--out", type=Path, required=True)
+    collect.add_argument("--phase", choices=sorted(PHASE_SPLITS), required=True)
+    collect.add_argument("--dest", type=Path, required=True)
+    collect.set_defaults(func=cmd_collect)
+    report = sub.add_parser("report")
+    report.add_argument("--out", type=Path, required=True)
+    report.add_argument("--splits", nargs="+", default=list(DESIGN_SPLITS + POST_REVIEW_SPLITS))
+    report.add_argument("--labels", nargs="+", default=None)
+    report.set_defaults(func=cmd_report)
     args = parser.parse_args()
     args.func(args)
 

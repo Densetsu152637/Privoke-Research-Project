@@ -1,0 +1,115 @@
+{
+ "chosen": "gliner-core-t0.5-pf1",
+ "post_review_labels": [
+  "gliner-core-t0.5-pf1",
+  "gliner-core-t0.5-pf0"
+ ],
+ "mean_union_balanced_accuracy": 0.9279807517601635,
+ "ranking": [
+  {
+   "label": "gliner-core-t0.5-pf1",
+   "mean_union_balanced_accuracy": 0.9279807517601635,
+   "design_fp": 3
+  },
+  {
+   "label": "gliner-core-t0.3-pf1",
+   "mean_union_balanced_accuracy": 0.9275150465591642,
+   "design_fp": 38
+  },
+  {
+   "label": "gliner-core-t0.4-pf1",
+   "mean_union_balanced_accuracy": 0.9266699409493527,
+   "design_fp": 15
+  },
+  {
+   "label": "gliner-core-t0.6-pf1",
+   "mean_union_balanced_accuracy": 0.9214739950034068,
+   "design_fp": 2
+  },
+  {
+   "label": "gliner-core-t0.7-pf1",
+   "mean_union_balanced_accuracy": 0.91471723824665,
+   "design_fp": 2
+  },
+  {
+   "label": "gliner-pii-t0.7-pf0",
+   "mean_union_balanced_accuracy": 0.9079214739950034,
+   "design_fp": 34
+  },
+  {
+   "label": "gliner-pii-t0.7-pf1",
+   "mean_union_balanced_accuracy": 0.9053663979105155,
+   "design_fp": 32
+  },
+  {
+   "label": "gliner-pii-t0.5-pf1",
+   "mean_union_balanced_accuracy": 0.9028824665001136,
+   "design_fp": 86
+  },
+  {
+   "label": "gliner-pii-t0.4-pf1",
+   "mean_union_balanced_accuracy": 0.9013434590052237,
+   "design_fp": 124
+  },
+  {
+   "label": "gliner-pii-t0.6-pf1",
+   "mean_union_balanced_accuracy": 0.900070633658869,
+   "design_fp": 58
+  },
+  {
+   "label": "gliner-pii-t0.6-pf0",
+   "mean_union_balanced_accuracy": 0.9000524074494662,
+   "design_fp": 69
+  },
+  {
+   "label": "gliner-core-t0.7-pf0",
+   "mean_union_balanced_accuracy": 0.8856589825119237,
+   "design_fp": 115
+  },
+  {
+   "label": "gliner-pii-t0.3-pf1",
+   "mean_union_balanced_accuracy": 0.8833044515103339,
+   "design_fp": 228
+  },
+  {
+   "label": "gliner-pii-t0.5-pf0",
+   "mean_union_balanced_accuracy": 0.8805201567113332,
+   "design_fp": 206
+  },
+  {
+   "label": "gliner-core-t0.6-pf0",
+   "mean_union_balanced_accuracy": 0.8642150806268454,
+   "design_fp": 259
+  },
+  {
+   "label": "gliner-pii-t0.4-pf0",
+   "mean_union_balanced_accuracy": 0.8289436747672041,
+   "design_fp": 420
+  },
+  {
+   "label": "gliner-core-t0.5-pf0",
+   "mean_union_balanced_accuracy": 0.8252036111741994,
+   "design_fp": 453
+  },
+  {
+   "label": "gliner-core-t0.4-pf0",
+   "mean_union_balanced_accuracy": 0.7736661367249602,
+   "design_fp": 635
+  },
+  {
+   "label": "gliner-pii-t0.3-pf0",
+   "mean_union_balanced_accuracy": 0.7420329320917556,
+   "design_fp": 710
+  },
+  {
+   "label": "gliner-core-t0.3-pf0",
+   "mean_union_balanced_accuracy": 0.7178011583011583,
+   "design_fp": 796
+  }
+ ],
+ "criterion": "highest mean union balanced accuracy over (dev-TUNE, personalized); ties by fewer design FP; positive rule; GLiNER configurations only",
+ "design_splits": [
+  "tune",
+  "personalized"
+ ]
+}
