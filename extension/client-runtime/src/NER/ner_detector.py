@@ -56,6 +56,8 @@ def _pipeline_entry(model_name: str) -> _PipelineEntry:
 class EntityNERDetector:
     """Entity extraction backed by spaCy NER labels."""
 
+    reasoning_source = "spaCy"
+
     def __init__(self, model_name: str | None = None):
         model_name = model_name or GLOBAL_CONFIG.ner_model
         self.backend_name = "spacy"
@@ -130,7 +132,7 @@ class EntityNERDetector:
         return ClassificationResult(
             classification=use_case.classification,
             section_of_text=ent.text,
-            reasoning=f"spaCy labelled this span as {ent.label_}",
+            reasoning=f"{self.reasoning_source} labelled this span as {ent.label_}",
             span=(ent.start_char, ent.end_char),
             confidence=use_case.confidence,
             metadata={

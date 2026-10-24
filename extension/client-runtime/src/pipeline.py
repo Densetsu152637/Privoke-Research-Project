@@ -471,9 +471,9 @@ def _detector_for(
         detector = RuleDetector()
         return detector.analyze
     if layer == NER_LAYER:
-        from .NER import EntityNERDetector
+        from .NER import build_ner_detector
 
-        detector = EntityNERDetector()
+        detector = build_ner_detector()
         return detector.extract_entities
     if layer == SEMANTIC_LAYER:
         detector = get_llm_choice(model_id=semantic_model_id)

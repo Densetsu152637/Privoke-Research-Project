@@ -16,11 +16,11 @@ for path in (PACKAGE_ROOT, SHARED_PYTHON_ROOT):
 
 def check_required_detector_dependencies() -> None:
     """Load every dependency required by the always-local detector layers."""
-    from src.NER import EntityNERDetector
+    from src.NER import build_ner_detector
     from src.regex.rule_detector import RuleDetector
 
     RuleDetector()
-    EntityNERDetector()
+    build_ner_detector()
 
 
 def check_standard_v3_dependencies() -> None:

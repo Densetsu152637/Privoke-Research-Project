@@ -169,6 +169,24 @@ class GlobalConfig:
     ner_model: str = field(
         default_factory=lambda: env_optional_str("PRIVOKE_NER_MODEL") or "en_core_web_sm"
     )
+    # NER backend (PRIVOKE_NER_BACKEND): "spacy" (default) or "gliner". The GLiNER
+    # backend is an evaluation candidate and requires the optional ``gliner``
+    # package; it stays off unless selected (src/NER/gliner_detector.py).
+    ner_backend: str = field(
+        default_factory=lambda: (env_optional_str("PRIVOKE_NER_BACKEND") or "spacy").lower()
+    )
+    # GLiNER checkpoint (local directory or Hugging Face id), span score threshold
+    # and label preset ("core" or "pii"); used only when ner_backend == "gliner".
+    ner_gliner_model: str = field(
+        default_factory=lambda: env_optional_str("PRIVOKE_NER_GLINER_MODEL")
+        or "knowledgator/gliner-pii-small-v1.0"
+    )
+    ner_gliner_threshold: float = field(
+        default_factory=lambda: env_positive_float("PRIVOKE_NER_GLINER_THRESHOLD", 0.3)
+    )
+    ner_gliner_labels: str = field(
+        default_factory=lambda: (env_optional_str("PRIVOKE_NER_GLINER_LABELS") or "core").lower()
+    )
     threadpool: ThreadPoolExecutor = field(
         default_factory=lambda: ThreadPoolExecutor(
             max_workers=multiprocessing.cpu_count()
