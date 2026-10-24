@@ -106,6 +106,34 @@ class CachingGlinerTests(unittest.TestCase):
             cache.predict_entities("t", ["name"], threshold=0.2)
 
 
+class ReportTests(unittest.TestCase):
+    def test_render_report_and_collect_use_only_aggregates(self):
+        import json
+        union = {"positive": cell(3, 4, 1, 2), "block": cell(1, 5, 0, 4)}
+        layer = {"positive": cell(1, 4, 1, 4), "block": cell(0, 5, 0, 5)}
+        report = {"label": "sm-pf1", "config": {}, "tree_commit_sha": "x", "freeze_commit": None, "dataset_sha256": {},
+                  "splits": {"tune": {"ner": layer, "union": union, "regex": layer, "mean_ms_per_prompt_indicative": 1.0}}}
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            (out / "sm-pf1-design.json").write_text(json.dumps(report), encoding="utf-8")
+            text = study.render_report(out, ("tune",))
+            self.assertIn("| sm-pf1 | 1 | 1 |", text)
+            self.assertIn("**tune**", text)
+            self.assertEqual(study.render_report(out, ("check",)).count("| sm-pf1"), 0)
+
+    def test_compact_comparison_keeps_decision_fields(self):
+        metric = {"estimate": 0.1, "lo": 0.0, "hi": 0.2}
+        cmp = {"deltas": {"new": {m: metric for m in ("recall", "specificity", "f2", "cost_4")}},
+               "flips": {"fn_to_tp": 1, "tp_to_fn": 2, "fp_to_tn": 3, "tn_to_fp": 4,
+                         "mcnemar_positives": {"p_two_sided": 0.5}, "mcnemar_negatives": {"p_two_sided": 0.25}},
+               "cluster_sign_test": {"positives": {"p_two_sided": 1.0}, "negatives": {"p_two_sided": 0.75}},
+               "counts": {}, "n_rows": 10, "n_clusters": 9}
+        compact = study.compact_comparison(cmp)
+        self.assertEqual(compact["flips"], {"fn_to_tp": 1, "tp_to_fn": 2, "fp_to_tn": 3, "tn_to_fp": 4})
+        self.assertEqual(compact["mcnemar_negatives_p"], 0.25)
+        self.assertEqual(compact["delta"]["recall"], metric)
+
+
 class FreezeGuardTests(unittest.TestCase):
     def git(self, root, *args):
         subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True)

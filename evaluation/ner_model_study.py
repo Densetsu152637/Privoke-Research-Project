@@ -326,6 +326,20 @@ def cmd_select(args) -> None:
     print(json.dumps({k: result[k] for k in ("chosen", "mean_union_balanced_accuracy")}, indent=1))
 
 
+def compact_comparison(cmp: dict) -> dict:
+    """The decision-relevant part of one ``detector_stats`` comparison (candidate minus baseline)."""
+    deltas = cmp["deltas"]["new"]
+    pick = lambda name: {k: deltas[name][k] for k in ("estimate", "lo", "hi")}  # noqa: E731
+    flips = cmp["flips"]
+    return {"counts": cmp["counts"], "n_rows": cmp["n_rows"], "n_clusters": cmp["n_clusters"],
+            "delta": {m: pick(m) for m in ("recall", "specificity", "f2", "cost_4")},
+            "flips": {k: flips[k] for k in ("fn_to_tp", "tp_to_fn", "fp_to_tn", "tn_to_fp")},
+            "mcnemar_positives_p": flips["mcnemar_positives"]["p_two_sided"],
+            "mcnemar_negatives_p": flips["mcnemar_negatives"]["p_two_sided"],
+            "cluster_sign_positives_p": cmp["cluster_sign_test"]["positives"]["p_two_sided"],
+            "cluster_sign_negatives_p": cmp["cluster_sign_test"]["negatives"]["p_two_sided"]}
+
+
 def cmd_stats(args) -> None:
     import importlib.util
 
@@ -339,14 +353,14 @@ def cmd_stats(args) -> None:
         base_rows = stats.load_rows(base_path)
         for path in sorted(args.out.glob(f"*-{split}.rows.jsonl")):
             label = path.name[: -len(f"-{split}.rows.jsonl")]
-            if label == BASELINE:
+            if label == BASELINE or (args.labels and label not in args.labels):
                 continue
             rows = stats.load_rows(path)
             for layer in ("ner", "union"):
                 for rule in ("positive", "block"):
                     cmp = stats.compare_runs(base_rows, rows, layer=layer, rule=rule, grouping="group_id",
                                              n_boot=args.n_boot)
-                    result["comparisons"].setdefault(label, {}).setdefault(split, {}).setdefault(layer, {})[rule] = cmp
+                    result["comparisons"].setdefault(label, {}).setdefault(split, {}).setdefault(layer, {})[rule] = compact_comparison(cmp)
     args.stats_out.write_text(json.dumps(result, indent=1), encoding="utf-8")
     print(f"wrote {args.stats_out}", file=sys.stderr)
 
@@ -365,8 +379,8 @@ def render_report(out: Path, splits: tuple[str, ...], labels: list[str] | None =
     for split in splits:
         lines += [f"**{split}**", "",
                   "| Config | NER TP | NER FP | NER recall | NER spec | Union TP | Union FP | Union recall | Union spec "
-                  "| Union BLOCK recall | Union BLOCK spec | ms/prompt (indicative) |",
-                  "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+                  "| Union BLOCK recall | Union BLOCK spec |",
+                  "|---|---|---|---|---|---|---|---|---|---|---|"]
         for label in (labels or sorted(reports)):
             if label not in reports or split not in reports[label]:
                 continue
@@ -374,8 +388,7 @@ def render_report(out: Path, splits: tuple[str, ...], labels: list[str] | None =
             ner, union, block = cell["ner"]["positive"], cell["union"]["positive"], cell["union"]["block"]
             lines.append(f"| {label} | {ner['TP']} | {ner['FP']} | {_fmt(ner['recall'])} | {_fmt(ner['specificity'])} "
                          f"| {union['TP']} | {union['FP']} | {_fmt(union['recall'])} | {_fmt(union['specificity'])} "
-                         f"| {_fmt(block['recall'])} | {_fmt(block['specificity'])} "
-                         f"| {cell['mean_ms_per_prompt_indicative']:.0f} |")
+                         f"| {_fmt(block['recall'])} | {_fmt(block['specificity'])} |")
         lines.append("")
     return "\n".join(lines)
 
@@ -418,6 +431,7 @@ def main() -> None:
     stats.add_argument("--stats-out", type=Path, required=True)
     stats.add_argument("--splits", nargs="+", default=list(DESIGN_SPLITS + POST_REVIEW_SPLITS))
     stats.add_argument("--n-boot", type=int, default=10_000)
+    stats.add_argument("--labels", nargs="+", default=None, help="restrict to these configuration labels")
     stats.set_defaults(func=cmd_stats)
     collect = sub.add_parser("collect")
     collect.add_argument("--out", type=Path, required=True)
