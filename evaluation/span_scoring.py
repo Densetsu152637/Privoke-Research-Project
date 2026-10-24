@@ -85,30 +85,41 @@ def _register(family: str, *labels: str) -> None:
 
 
 _register("NAME", "PERSON", "name", "first_name", "last_name", "GIVENNAME", "SURNAME")
-_register("CONTACT", "email", "EMAIL", "EMAIL_ADDRESS", "phone_number", "TELEPHONENUM", "fax_number", "url")
+_register("CONTACT", "email", "EMAIL", "EMAIL_ADDRESS", "phone_number", "TELEPHONENUM", "fax_number", "url",
+          "PHONE_NUM")  # PHONE_NUM: Wave 3 freeze addendum (telephone number, principle as TELEPHONENUM)
 _register("GOV_ID", "ssn", "SOCIALNUM", "DRIVERLICENSENUM", "US_DRIVER_LICENSE", "PASSPORTNUM", "US_PASSPORT",
           "IDCARDNUM", "TAXNUM", "tax_id", "license_plate", "US_LICENSE_PLATE", "vehicle_identifier",
-          "certificate_license_number")
+          "certificate_license_number",
+          # Wave 3 freeze addendum: labels present in F1/F3 that were unmapped (principle: government-issued
+          # identification numbers and generic identification numbers are GOV_ID)
+          "US_SSN", "US_ITIN", "national_id", "ID_NUM")
 _register("ACCOUNT_ID", "user_name", "customer_id", "employee_id", "unique_id", "unique_identifier",
-          "device_identifier", "biometric_identifier", "http_cookie", "password", "pin", "mac_address", "ipv4")
+          "device_identifier", "biometric_identifier", "http_cookie", "password", "pin", "mac_address", "ipv4",
+          # Wave 3 freeze addendum (principle: network, device and credential identifiers, like ipv4/mac/password)
+          "ipv6", "IP_ADDRESS", "IMEI", "api_key")
 _register("DOB", "date_of_birth")
 _register("LOCATION", "STREET", "street_address", "address", "CITY", "city", "state", "county", "country",
           "ZIPCODE", "postcode", "BUILDINGNUM", "LOCATION", "coordinate")
 _register("FINANCIAL", "CREDITCARDNUMBER", "credit_card_number", "credit_debit_card", "account_number",
-          "bank_routing_number", "swift_bic", "FINANCIAL", "cvv")
+          "bank_routing_number", "swift_bic", "FINANCIAL", "cvv",
+          # Wave 3 freeze addendum (principle: payment cards and bank account numbers)
+          "CREDIT_CARD", "IBAN_CODE", "US_BANK_NUMBER")
 _register("HEALTH", "medical_record_number", "health_plan_beneficiary_number", "blood_type")
 _register("POLITICS", "political_view")
 _register("RELIGION", "religious_belief")
 _register("TEMPORAL", "DATE", "date", "DATE_TIME", "date_time", "time")
 _register("ORG", "company_name", "ORGANIZATION")
 # attribute families: PIIMB marks them as PII, but PriVoke has no matching detector category
-_register("DEMOGRAPHIC", "TITLE", "gender", "GENDER", "SEX", "AGE", "age", "NRP", "language")
+_register("DEMOGRAPHIC", "TITLE", "gender", "GENDER", "SEX", "AGE", "age", "NRP", "language",
+          "race_ethnicity")  # race_ethnicity: Wave 3 freeze addendum (protected attribute without a PriVoke category, as NRP)
+# sexuality: Wave 3 freeze addendum (a PriVoke SEXUAL category exists)
+_register("SEXUAL", "sexuality")
 _register("OCCUPATION", "occupation", "education_level", "employment_status")
 
 FAMILY_CATEGORIES: dict[str, tuple[str, ...]] = {
     "NAME": ("IDENTITY",), "CONTACT": ("IDENTITY",), "GOV_ID": ("IDENTITY",), "ACCOUNT_ID": ("IDENTITY",),
     "DOB": ("IDENTITY",), "LOCATION": ("LOCATION",), "FINANCIAL": ("FINANCIAL",), "HEALTH": ("HEALTH",),
-    "POLITICS": ("POLITICS",), "RELIGION": ("RELIGION",),
+    "POLITICS": ("POLITICS",), "RELIGION": ("RELIGION",), "SEXUAL": ("SEXUAL",),
     # the runtime itself files dates (regex) and organisations (NER ORG) under IDENTITY at S1
     "TEMPORAL": ("IDENTITY",), "ORG": ("IDENTITY",),
     "DEMOGRAPHIC": (), "OCCUPATION": (), "UNMAPPED": (),
