@@ -2,19 +2,21 @@
 
 **Scope: detector layers only (regex, NER, regex OR NER). Not LLM-only, not semantic, not full-product.** Registered in `docs/research/preregistration-detector-v2-20261024.md`; frozen by `docs/research/fresh-sets-freeze-20261024.md` (`57e3cb7b`) and the addendum `docs/research/fresh-sets-freeze-addendum-20261024.md` (commit `37b02251`, committed before any fresh row was scored). Machine-readable results: `docs/experiments/fresh-heldout-results-20261024.json` (all hypothesis records, per-configuration tables, span and perturbed results; the full aggregate and per-row outputs stay under the gitignored `evaluation/results/w3_scoring_20261024/`).
 
+**Labelling convention (amended after the independent critic review).** Sections marked **REGISTERED** contain only tests, cells and decision rules fixed in the pre-registration and addendum before scoring (sections 2, 2.1 and 3, and the descriptive flag rates of section 4). Section 5 is **EXPLORATORY (post hoc)**: it was produced after the registered results were seen, uses no new data, and cannot satisfy, replace or rescue any registered hypothesis.
+
 User instruction (24 Oct 2026): "Proceed with Wave 3 once S finishes and the addendum is committed; report natural-prompt flag rates descriptively and evaluate the natural-prompt hypotheses after human adjudication."
 
 ## 1. Execution record (incidents, stated plainly)
 
 - **First launch (21:50) was interrupted** by a host session restart about 21:55 and produced no output at all (all output directories empty). It was restarted unchanged, with no change to code or configuration.
-- **Second launch** (from 22:32): the nine configurations were scheduled four at a time. Six finished cleanly. **N exited 139 and N+all exited 139 (segmentation faults)** and **N+digits exited 127** (empty log, nothing written). The cause of the two segmentation faults was not identified; they did not recur when the configurations were run one at a time with `PYTHONFAULTHANDLER=1` (a diagnostic setting that does not affect results). N had written its F1 rows and spans; N+all had written F1, F3 and F2 and crashed during perturbed-item scoring. The code is unchanged (driver sha256 `12b1c596...`, analysis `1c12b4b8...`).
+- **Second launch** (O and N+lg started 22:08, N+trf 22:09, N+strip 22:33, N+email 22:46, N+caseless 22:49; the start times of N and N+all were overwritten in their run metadata by the resumed runs, 04:41 and 05:58, and N+digits reran from 05:16): the nine configurations were scheduled four at a time. Six finished cleanly. **N exited 139 and N+all exited 139 (segmentation faults)** and **N+digits exited 127** (empty log, nothing written). The cause of the two segmentation faults was not identified; they did not recur when the configurations were run one at a time with `PYTHONFAULTHANDLER=1` (a diagnostic setting that does not affect results). N had written its F1 rows and spans; N+all had written F1, F3 and F2 and crashed during perturbed-item scoring. The code is unchanged (driver sha256 `12b1c596...`, analysis `1c12b4b8...`).
 - **Reruns, one at a time, identical per-configuration command:** N resumed (kept its complete F1 output, scored F3, F2 and the perturbed items), N+digits ran in full, N+all resumed (perturbed items only). Resumption skips sets whose atomically written output exists (addendum item 9); no output was ever overwritten and no scored set was scored twice. Every configuration is complete: F1 16,446 rows and spans, F3 2,000, F2 6,000; N and the five N+R configurations each have 58,899 perturbed items (9,538 `zero_width`, 6,812 each of `digits_space`/`digits_dot`/`digits_dash`, 5,237 `digits_words`, 1,329 each of the three `email_*`, 9,811 `lowercase`, 9,890 `uppercase`; 10,000 distinct rows).
 - The committed `w3_run.sh score` starts all nine at once; the actual runs used the same per-configuration command through a scheduling wrapper (invocation only). The script header demands `TREES_ROOT` for every stage; a dummy value was set for `pool` and `analyse`.
-- No hypothesis, threshold or code was changed after scoring started. Row texts were never printed. Latency is not reported (separate step).
+- No hypothesis, threshold or code was changed after scoring started. Row texts were never printed. Latency is taken from the separate record `docs/experiments/detector-latency-20261025.md` (section 3).
 
 Configurations and sources: O = export of `e6c177ff`; N = export of `e70e3a2e`; N+R and N+lg/N+trf = `research/w3-candidate` `058942e0` with the registered flags (merge shown identical to N on 4,004 development-type rows). spaCy 3.7.5; `en_core_web_sm` 3.7.1, `en_core_web_lg` 3.7.1, `en_core_web_trf` 3.7.3. Data: F1 16,446 rows (10,000 positive, 6,446 clean, 8,184 clusters), F3 2,000 positive-only rows, F2 6,000 unlabelled prompts. 10,000 bootstrap replicates, seed 20261024, whole `group_id` clusters, 95 % percentile intervals; the lower (upper) limit is the one-sided 97.5 % bound.
 
-## 2. Hypothesis results (deltas in percentage points, candidate minus reference)
+## 2. REGISTERED: hypothesis results (deltas in percentage points, candidate minus reference)
 
 | Hypothesis | Estimate [95 % CI] | Discordant counts / test | Verdict |
 |---|---|---|---|
@@ -56,14 +58,33 @@ Union recall on F3 is 100.00 % for all nine configurations (NER-only 99.65 to 99
 
 Spans (secondary; `span_scoring`, scope all, minimum sensitivity 0). F1, N - O, union: overlap recall +1.19 [+0.76, +1.63], overlap precision 57.84 to 61.83, share of prompts with every gold span fully masked 37.31 to 37.16 (no significant change); regex-only character coverage -1.35 [-1.57, -1.15]; NER-only +2.62. N+lg vs N, union: overlap recall +1.79 [+1.46, +2.13], character coverage +2.33. P4 (NER extends regex masking only when the regex layer fired; descriptive, no hypothesis): on F1 for N it reaches character coverage 57.39 against 49.54 for regex only and 63.54 for the full union, i.e. it recovers part of the NER span gain and gives up 5.22 pt [4.88, 5.56] of overlap recall relative to the union. **F3 anomaly:** on the long F3 documents the old regex layer's spans cover nearly the whole text (character coverage 99.97 %, 955 over-masked characters per 1,000), so the F3 old-versus-new span deltas (union character coverage -29.09, over-masking 955.5 to 78.2 per 1,000) are dominated by that behaviour and are not a recall result; unmapped gold labels: none; spanless positive results: 0 in every layer.
 
-## 3. Promotion verdicts (section 6 of the registration; criteria 4 and 5 and every F2 item remain pending)
+### 2.1 REGISTERED secondary: source-stratified analysis (pre-registration section 10; not used for promotion)
 
-- **N (shipped defaults): NOT promoted. Criterion 2 fails: H2 non-inferiority of union recall is not established (-1.37 pt, lower bound -1.95 against a -1.0 margin).** The owner exemption covers only the OpenAI-synthetic criterion and is conditional on H2 passing, so it does not rescue N. The pre-registered conclusion is the trade-off: the regex repairs and case preservation buy regex specificity +1.75 pt (114 gains vs 1 loss), union specificity +3.32 pt and less over-masking, and cost union recall -1.37 pt (342 gains, 479 losses), regex recall -2.18 pt and a 1.90 pt loss in BLOCK-level recall (190 flows from BLOCK to lesser action, none the other way). The registration's section 8 requires a documented decision on keeping the regex repairs; that decision belongs to the owner, and the defaults are not reverted here. Criterion 1 (H1) is met.
-- **N+lg: criteria 1 to 3 met on F1/F3** (H3a and H3b pass after Holm; H3c passes on F1 with a recall gain, on F3 trivially at the ceiling; historical synthetic recall: personalized 1.000 to 1.000, openai 0.918 to 0.920). Conditional on H3a' (F2 adjudication), the critic review, latency, and the owner's distribution decision (about 550 MB more than `sm`). The declared training sources of `en_core_web_lg` contain no PIIMB source.
-- **N+trf: not eligible** (pre-registered comparator). Descriptively it has the highest specificity (union 91.87, NER-only 99.35) at the lowest NER recall (25.23) and unchanged union recall.
-- **N+strip, N+digits, N+email, N+caseless: each passes its H5 hypothesis after Holm, and H6 on the F1 and F3 cells**; conditional on the H6 F2 cell, the critic review and latency. `N+all` satisfies the registered rule (all four constituent flags pass H5 and H6 individually; H5e also passes). Caveats: `N+caseless` helps only uppercase text (74.3 to 76.8 on `uppercase`, 77.0 to 77.0 on `lowercase`) and its pooled gain is small (+1.30 pt); `N+strip` also loses 245 of 9,538 items. The pre-declared check at the frozen commit `b1975bc2` finds the per-flag unit tests (`test_robustness_fixes.py`) there; the flag documentation (`docs/detectors/preprocessing.md`, `ner.md`) is added by the docs-only follow-up `3f9aa450`, not by `b1975bc2` itself, so the strict reading of the check is met for tests and met for documentation only through that follow-up. Criterion 3 for N+R is the historical no-flip context (not re-scored).
+Same tests as above within each F1 `source_dataset` (union and regex layers, positive rule; 10,000 replicates, seed 20261024; computed by `evaluation/w3_followup.py`). The registration lists this analysis as secondary; the first version of this record omitted it. Deltas in points with 95 % intervals.
 
-Limits that bear on the verdicts: the perturbed items test the transforms the fixes were designed against, so H5 shows that each fix works on its own transform and says nothing about how often such inputs occur; F1 positives include attribute spans (age, title, gender) that PriVoke has no detector for, which is one reason recall is far from 100 %; F3 recall is saturated, so its non-inferiority cells carry no information; PIIMB label noise was not audited (the registered 200-row sensitivity sample is not done).
+| Source (positives / clean rows) | H1 regex specificity N-O | H2 union recall N-O | H2b union specificity N-O | H3a union specificity lg-N | H3b NER specificity lg-N | H3c union recall lg-N |
+|---|---|---|---|---|---|---|
+| ai4privacy (3,374 / 1,504) | +1.93 [+1.21, +2.72] | +1.96 [+0.95, +2.92] | +1.00 [-0.44, +2.43] | +3.66 [+2.64, +4.76] | +3.79 [+2.75, +4.90] | +2.58 [+1.77, +3.38] |
+| Gretel (3,325 / 2,024) | +1.88 [+1.28, +2.56] | -0.45 [-1.30, +0.37] | +2.03 [+0.81, +3.29] | +1.88 [+1.03, +2.73] | +2.22 [+1.27, +3.18] | +0.42 [-0.15, +0.97] |
+| Nemotron-PII (1,687 / 2,088) | +0.91 [+0.47, +1.39] | -4.86 [-6.36, -3.38] | +0.00 [-0.90, +0.88] | +2.54 [+1.87, +3.27] | +3.07 [+2.33, +3.85] | +1.19 [+0.36, +2.02] |
+| Privy (1,614 / 830) | +3.25 [+2.12, +4.49] | -6.57 [-8.29, -4.93] | +19.04 [+15.95, +22.12] | -4.34 [-6.73, -1.91] | -7.59 [-10.37, -4.84] | +4.03 [+2.52, +5.58] |
+
+Reading. The pooled union-recall loss (H2) is not uniform: ai4privacy +1.96 [+0.95, +2.92] (a gain), Gretel -0.45 [-1.30, +0.37] (inconclusive), Nemotron-PII -4.86 [-6.36, -3.38] and Privy -6.57 [-8.29, -4.93] (large losses). The N-O union specificity gain is likewise concentrated (Privy +19.04 [+15.95, +22.12]; the intervals for ai4privacy and Nemotron-PII include 0). The regex-only specificity gain (H1) is positive and its interval excludes 0 in all four sources, with regex recall falling in all four. For N+lg versus N, union specificity (H3a) and NER-only specificity (H3b) rise in ai4privacy, Gretel and Nemotron-PII but **fall in Privy** (H3a -4.34 [-6.73, -1.91], H3b -7.59 [-10.37, -4.84]), while union recall rises in all four. **The pooled H3a and H3b results therefore depend on the F1 source mix**: Privy is 12.9 % of the F1 clean rows and Nemotron-PII is 23 % of F1 against about 60 % of the locked development/final sets, so a pool with a different mix could change the size, and for a Privy-heavy mix the sign, of the specificity gain. The registration pooled sources without weighting; this table is the registered check on that choice and is a heterogeneity finding, not a verdict.
+
+## 3. REGISTERED: promotion verdicts (section 6 of the registration)
+
+Criterion 4 (critic review): an independent critic recomputed the numbers and confirmed every registered verdict and the determinism of the resumed runs; the critic's exploratory findings are in section 5. Criterion 5 (latency, `docs/experiments/detector-latency-20261025.md`: host-process detector-layer latency, 1,000 development-type prompts, 3 repeats; mean per-prompt time against the old mean of 28.3 ms): N +3.2 %, each N+R configuration at most +5 %, N+lg +1.8 % (all below the 20 % limit: **pass**), N+trf +211 % (**fails; not eligible**). Memory: N+lg +762 MB resident, N+trf +2.4 GB.
+
+- **N (shipped defaults): NOT promoted. Criterion 2 fails: H2 non-inferiority of union recall is not established (-1.37 pt, lower bound -1.95 against a -1.0 margin).** The owner exemption covers only the OpenAI-synthetic criterion and is conditional on H2 passing, so it does not rescue N. The pre-registered conclusion is the trade-off: the regex repairs and case preservation buy regex specificity +1.75 pt (114 gains vs 1 loss), union specificity +3.32 pt and less over-masking, and cost union recall -1.37 pt (342 gains, 479 losses), regex recall -2.18 pt and a 1.90 pt loss in BLOCK-level recall (190 rows move from BLOCK to a lesser action, none the other way). Criteria 1 (H1) and 5 are met.
+- **N+lg: criteria 1 to 3 and 5 met on F1/F3** (H3a and H3b pass after Holm; H3c passes on F1 with a recall gain and on F3 trivially at the ceiling; historical synthetic recall: personalized 1.000 to 1.000, openai 0.918 to 0.920; latency +1.8 %). Open: H3a' (F2 adjudication), the source heterogeneity of section 2.1 (the pooled gain does not hold in Privy), the owner's size decision (about 550 MB on disk, +762 MB resident), and the choice of base (below). The declared training sources of `en_core_web_lg` contain no PIIMB source.
+- **N+trf: not eligible** (pre-registered comparator; +211 % latency). Descriptively it has the highest specificity (union 91.87, NER-only 99.35) at the lowest NER recall (25.23) and unchanged union recall.
+- **N+strip, N+digits, N+email, N+caseless, N+all: H5 passes after Holm and H6 passes on the F1 and F3 cells, but the pre-declared documentation check is UNMET.** The registration requires the default-off flag documentation to exist at the frozen commit `b1975bc2`. At that commit only code comments in `config.py` and the unit tests (`test_robustness_fixes.py`, present) exist; the documentation (`docs/detectors/preprocessing.md`, `ner.md`) arrived in the docs-only follow-up `3f9aa450` (there is no runtime difference between `b1975bc2` and `b3d11a50`). Promoting any N+R candidate therefore **requires an owner waiver** of that check, plus the H6 F2 cell and criterion 4 sign-off. `N+all` satisfies the registered rule (all four constituent flags pass H5 and H6 individually; H5e also passes). Criterion 3 for N+R is the historical no-flip context (not re-scored). **Read H5 and H6 with the caveats of section 5.4: H5 is largely circular and H6 passes on zero flips.**
+
+**Pending, by owner:**
+1. Owner decisions: (a) keep, revert or rework the regex repairs, rule by rule, under section 8 of the registration (section 5.2 lists the rules); (b) waive the documentation check for the N+R candidates; (c) the model-size decision for N+lg; (d) whether N+lg is promoted on top of N or on the post-decision regex base.
+2. Humans: the blinded F2 adjudication of the 2,449-prompt pool (H1b, H2b F2 part, H3a', H6 F2 cell) and the registered 200-row label-noise audit of flagged-clean F1 rows.
+
+Limits that bear on the verdicts: the perturbed items test the transforms the fixes were designed against, so H5 shows that each fix works on its own transform and says nothing about how often such inputs occur; F1 positives include attribute spans (age, title, gender) that PriVoke has no detector for, which is one reason recall is far from 100 %; F3 recall is saturated, so its non-inferiority cells carry no information; PIIMB label noise was not audited.
 
 ## 4. F2 natural prompts: descriptive flag rates only (no verdicts; unlabelled)
 
@@ -71,6 +92,61 @@ Flagged share of 6,000 prompts, union layer, positive rule (Wilson 95 %): O 24.4
 
 **Review pool (blinded, without labels):** 2,449 prompts = 2,049 prompts flagged by the union layer (positive rule) in at least one of the nine configurations + the 400-item seeded audit sample (first 400 items of the key's audit order flagged by none). 25 packets of up to 100 (`pool-packet-001..025.jsonl`, items hold only the opaque id and the text) under `evaluation/results/fresh_sets_20261024/f2_adjudication/pool/packets/`; the coordinator membership and per-configuration flag lists are under `pool/coordinator/` (not for raters). This is larger than the planning figure of about 1,500 because the old defaults flag 24 % of prompts. Hypotheses H1b, H2b (F2 part), H3a' and the F2 cell of H6 will be evaluated after adjudication.
 
-## 5. Limitations and deviations
+## 5. EXPLORATORY (post hoc; produced after the registered results were seen; not for promotion)
 
-Deviations from the freeze record: the per-row version of `evaluate_installed_detectors.py` is used (addendum); the two crashes and the scheduling described in section 1; resumption of N and N+all. The perturbation statistics treat items of one row as one cluster; clusters are the stored `group_id` values (108 Privy and Gretel rows have ids ending in `_sN` and may over-split). Wald bounds agree with the bootstrap bounds throughout. F2 is unlabelled; no F2 verdict exists.
+Everything in this section comes from `evaluation/w3_followup.py` (JSON key `exploratory_post_hoc`) and the critic's recomputation, on the same F1 outputs, under the positive rule; there is no new data. It explains the registered H2 result; it cannot rescue it.
+
+### 5.1 Layer attribution of the H2 loss (exact layer swapping)
+
+Union decision = regex layer of one configuration OR NER layer of another, compared with O on F1 (candidate minus O):
+
+| Hybrid | Union recall | Union specificity |
+|---|---|---|
+| O-regex + N-NER | +0.08 [-0.43, +0.61] | +1.75 [+1.12, +2.41] |
+| N-regex + O-NER | -1.49 [-1.73, -1.26] | +1.44 [+1.14, +1.76] |
+| N (registered reference) | -1.37 [-1.95, -0.79] | +3.32 [+2.60, +4.07] |
+| O-regex + lg-NER | +1.98 [+1.42, +2.55] | +3.48 [+2.90, +4.07] |
+| N+lg (full) versus O | +0.49 [-0.13, +1.10] | +5.03 [+4.38, +5.71] |
+
+The union-recall loss sits in the regex layer: keeping the old regex layer and taking the new NER layer gives +0.08. Of the 479 positives lost by N, 117 are regex-only hits in O, 29 hits in both layers and 333 NER-only hits in O; the 342 gains are all NER hits. The **146 regex-caused lost rows** (the old regex layer fired) are tabulated below; 90 of them have an old regex span on annotated PII, the other 56 were hits on text the annotation does not mark. The regex rule repairs and the case-preserving input are not separable here: that needs a new registered draw. The hybrid rows and the N+lg versus O row cannot substitute for H2, and N+lg versus O is not a registered comparison.
+
+### 5.2 Per-rule table of the 146 regex-caused lost rows
+
+| Old regex rule (O) | Lost rows containing rule | Lost rows where it is the only regex rule | Rule spans on / off annotated PII | Clean rows with union FP fixed (containing / sole) | BLOCK-lost rows with an S3 span of the rule |
+|---|---|---|---|---|---|
+| presidio_uslicenserecognizer_driver license - alphanumeric (weak) | 63 | 56 | 54 / 23 | 37 / 32 | 0 |
+| iban | 37 | 22 | 29 / 8 | 8 / 0 | 139 |
+| family_disclosure | 22 | 19 | 0 / 32 | 12 / 10 | 0 |
+| concentrated_sensitive_data | 18 | 0 | 18 / 0 | 19 / 0 | 0 |
+| child | 10 | 7 | 0 / 11 | 26 / 10 | 26 |
+| presidio_creditcardrecognizer_all credit cards (weak) | 10 | 3 | 11 / 0 | 0 / 0 | 15 |
+| ssn_formatted | 5 | 0 | 5 / 0 | 0 / 0 | 6 |
+| presidio_ibanrecognizer_iban generic | 3 | 2 | 3 / 0 | 0 / 0 | 4 |
+| presidio_usssnrecognizer_ssn3 (very weak) | 3 | 0 | 3 / 0 | 0 / 0 | 4 |
+| presidio_usssnrecognizer_ssn5 (medium) | 3 | 0 | 3 / 0 | 0 / 0 | 4 |
+| credit_card | 2 | 0 | 2 / 0 | 0 / 0 | 4 |
+| financial_keyword | 2 | 2 | 0 / 2 | 13 / 13 | 0 |
+| presidio_usssnrecognizer_ssn1 (very weak) | 2 | 0 | 2 / 0 | 0 / 0 | 2 |
+| location_keyword | 1 | 1 | 0 / 1 | 0 / 0 | 0 |
+| presidio_daterecognizer_mm/yy or m/yy | 1 | 0 | 1 / 0 | 3 / 3 | 0 |
+| presidio_nhsrecognizer_nhs (medium) | 1 | 1 | 1 / 0 | 0 / 0 | 3 |
+| structured_identity | 1 | 1 | 0 / 1 | 9 / 9 | 0 |
+| personal_narrative | 0 | 0 | 0 / 0 | 1 / 1 | 0 |
+
+Columns: rows among the 146 whose old regex output contains the rule (and where it is the only rule); old-rule spans on and off annotated PII on those rows; clean F1 rows whose union false positive disappears under N and in which the rule fired (385 clean union false positives are fixed in total: 283 through the NER layer alone, 88 through the regex layer alone, 14 where both layers fired); BLOCK-lost rows with an S3 span of the rule. The weak driver-licence, IBAN, concentrated-sensitive-data, credit-card and SSN recognisers are the main cost side (their lost hits are largely on annotated PII); `child`, `family_disclosure`, `financial_keyword` and `structured_identity` hits are entirely off annotated PII, so their removal costs 'positives' by label without losing a listed entity. A per-rule keep, revert or rework decision belongs to the owner (section 3).
+
+### 5.3 BLOCK-level loss
+
+190 positives are BLOCK under O and not under N, none the other way; every one is a BLOCK produced by the old regex layer. 107 become WARN and 83 ALLOW (maximum sensitivity S3 to S2: 107, to S1: 18, to S0: 65). S3 rules involved: IBAN 139 rows, child 26, weak credit-card recogniser 15, SSN recognisers 14, credit_card 4, generic IBAN recogniser 4, NHS 3.
+
+### 5.4 H5 circularity and H6 triviality
+
+- H5a: `N+strip` on `zero_width` is **identical** to N on the unperturbed text on all 9,538 items (0 mismatches, recall 81.30 % both ways): the flag undoes the transform the hypothesis was built from.
+- H5b: `N+digits` gains come from `digits_dash` (56.5 to 91.2; N on the unperturbed rows 91.1) and `digits_words` (53.9 to 96.5; unperturbed 96.0). On `digits_space` N already scores 91.1 and the flag adds nothing; on `digits_dot` N already scores 99.0 (flag 98.8).
+- H5c: `N+email` restores the three email transforms to the unperturbed level (68.7, 68.8, 69.7 to 100.0, 100.0, 99.85).
+- H5d: `N+caseless` is a no-op on `lowercase` (77.0 to 77.0); on `uppercase` it moves 74.3 to 76.85, still below the unperturbed 80.9 on those rows. The pooled +1.30 pt is all uppercase.
+- H6 passes because there are **zero union flips** on clean F1 and F3 (F3 sits at 100 % recall); it could only have failed if a flag changed clean-text decisions, so for default-off canonicalisations a pass is close to guaranteed and says little beyond that.
+
+## 6. Limitations and deviations
+
+Deviations from the freeze record: the per-row version of `evaluate_installed_detectors.py` is used (addendum); the pre-registration cites `research/wt-g-nermodels` `f4f07c3c` for N+lg and N+trf, but the NER-model option in the scored tree comes from `research/wt-d-nerrole` `ba660071` (via the candidate tree `058942e0`), which has the same `PRIVOKE_NER_MODEL` option without G's default-off GLiNER backend (the spaCy decisions are identical, as confirmed in the critic's review); the two crashes and the scheduling described in section 1; resumption of N and N+all. The perturbation statistics treat items of one row as one cluster; clusters are the stored `group_id` values (111 rows, 108 Privy and 3 Gretel, have ids ending in `_sN` and may over-split). Wald bounds agree with the bootstrap bounds throughout. F2 is unlabelled; no F2 verdict exists.

@@ -1,12 +1,818 @@
 {
  "execution_record": {
   "addendum_commit": "37b02251",
+  "amendment": "second commit amends the record after the independent critic review: adds the registered source-stratified analysis, exploratory attribution, documentation-check verdict UNMET, latency verdicts, pending owner decisions; no rescoring, no change to scoring code",
   "analysis": "w3_run.sh pool and analyse (TREES_ROOT is required by the script header for every stage and was set to a dummy value for pool/analyse)",
   "code_changes_after_freeze": "none",
   "completeness": "every configuration has f1 16446 rows/spans, f3 2000, f2 6000; N, N+strip, N+digits, N+email, N+caseless, N+all each 58899 perturbed items",
   "first_launch": "nine parallel processes started 2026-10-24 21:50; killed by a host session restart about 21:55 before any output file was written (output directories empty; logs held only a torch FutureWarning). Restarted unchanged.",
+  "followup_script": "evaluation/w3_followup.py (post hoc tables; no scoring logic)",
+  "n_lg_tree_note": "pre-registration cites research/wt-g-nermodels f4f07c3c; the scored tree takes PRIVOKE_NER_MODEL from research/wt-d-nerrole ba660071 (candidate 058942e0), without G's default-off GLiNER backend; spaCy decisions identical (critic review)",
   "reruns": "serial, one at a time, PYTHONFAULTHANDLER=1 added (diagnostic only): N resumed (f1 kept, f3, f2, perturbed scored), N+digits full run, N+all resumed (perturbed scored). Resumption skips sets whose atomically written output exists (addendum item 9). All exited 0; no fault trace; cause of the two segmentation faults not identified (not reproduced when run alone).",
-  "second_launch": "2026-10-24 22:32 onward, scheduled with xargs -P 4 (one invocation per configuration, identical per-configuration command to w3_run.sh score). Exits: O 0, N+lg 0, N+trf 0, N+strip 0, N+email 0, N+caseless 0; N 139 (segmentation fault after f1 rows/spans were written); N+all 139 (after f1, f3, f2 were written, during perturbed-item scoring); N+digits 127 (command not found; empty log, nothing written)."
+  "sN_id_rows": "111 rows (108 Privy, 3 Gretel) have group ids ending _sN",
+  "second_launch": "2026-10-24 22:08 onward (O and N+lg 22:08, N+trf 22:09, N+strip 22:33, N+email 22:46, N+caseless 22:49; N and N+all start times overwritten by resumed runs at 04:41 and 05:58; N+digits rerun 05:16), scheduled with xargs -P 4 (one invocation per configuration, identical per-configuration command to w3_run.sh score). Exits: O 0, N+lg 0, N+trf 0, N+strip 0, N+email 0, N+caseless 0; N 139 (segmentation fault after f1 rows/spans were written); N+all 139 (after f1, f3, f2 were written, during perturbed-item scoring); N+digits 127 (command not found; empty log, nothing written)."
+ },
+ "exploratory_post_hoc": {
+  "N_lg_minus_O_union": {
+   "mcnemar_p_negatives": 4.223859223039003e-53,
+   "mcnemar_p_positives": 0.12031924878411934,
+   "n_neg": 6446,
+   "n_pos": 10000,
+   "recall": {
+    "estimate": 0.0049000000000000155,
+    "hi": 0.010992477192363367,
+    "lo": -0.0012993698170416178
+   },
+   "recall_flips": {
+    "gained": 502,
+    "lost": 453
+   },
+   "specificity": {
+    "estimate": 0.05026372944461677,
+    "hi": 0.057121414585336545,
+    "lo": 0.043767829115952527
+   },
+   "specificity_flips": {
+    "gained": 404,
+    "lost": 80
+   }
+  },
+  "block_gained": 0,
+  "block_lost": 190,
+  "block_lost_O_regex_action": {
+   "BLOCK": 190
+  },
+  "block_lost_to_action": {
+   "ALLOW": 83,
+   "WARN": 107
+  },
+  "clean_union_fp_fixed": 385,
+  "clean_union_fp_fixed_by_O_layer": {
+   "ner": 283,
+   "regex": 88,
+   "regexner": 14
+  },
+  "gained_by_N_layer": {
+   "ner": 342
+  },
+  "gained_rows": 342,
+  "h5_circularity": {
+   "H6": "passes on zero union flips on clean F1 and F3",
+   "N+caseless": "no-op on lowercase; uppercase 74.3 to 76.85 (unperturbed 80.9)",
+   "N+digits": "gains from digits_dash (56.5 to 91.2) and digits_words (53.9 to 96.5); digits_space and digits_dot no gain",
+   "N+email": "restores email transforms to unperturbed level",
+   "N+strip zero_width": "identical to N on unperturbed text on all 9538 items (0 mismatches, recall 81.30%)"
+  },
+  "hybrid__N_regex+O_ner__minus_O": {
+   "mcnemar_p_negatives": 4.8467614016778965e-27,
+   "mcnemar_p_positives": 2.802596928649634e-45,
+   "n_neg": 6446,
+   "n_pos": 10000,
+   "recall": {
+    "estimate": -0.014899999999999913,
+    "hi": -0.01257665472287092,
+    "lo": -0.01734051065741703
+   },
+   "recall_flips": {
+    "gained": 0,
+    "lost": 149
+   },
+   "specificity": {
+    "estimate": 0.014427551970214059,
+    "hi": 0.01761915402276156,
+    "lo": 0.011389836830967509
+   },
+   "specificity_flips": {
+    "gained": 94,
+    "lost": 1
+   }
+  },
+  "hybrid__O_regex+N_ner__minus_O": {
+   "mcnemar_p_negatives": 1.2322538709454126e-07,
+   "mcnemar_p_positives": 0.7877758456001002,
+   "n_neg": 6446,
+   "n_pos": 10000,
+   "recall": {
+    "estimate": 0.0008000000000000229,
+    "hi": 0.006071655992634192,
+    "lo": -0.004343025658071281
+   },
+   "recall_flips": {
+    "gained": 342,
+    "lost": 334
+   },
+   "specificity": {
+    "estimate": 0.017530251318647272,
+    "hi": 0.024087304355915284,
+    "lo": 0.011177311073202363
+   },
+   "specificity_flips": {
+    "gained": 283,
+    "lost": 170
+   }
+  },
+  "hybrid__O_regex+lg_ner__minus_O": {
+   "mcnemar_p_negatives": 4.987683093229345e-32,
+   "mcnemar_p_positives": 3.0891491324838135e-12,
+   "n_neg": 6446,
+   "n_pos": 10000,
+   "recall": {
+    "estimate": 0.01980000000000004,
+    "hi": 0.025462140392322887,
+    "lo": 0.014170832980538688
+   },
+   "recall_flips": {
+    "gained": 502,
+    "lost": 304
+   },
+   "specificity": {
+    "estimate": 0.034750232702451145,
+    "hi": 0.040748936783497454,
+    "lo": 0.029005898692669032
+   },
+   "specificity_flips": {
+    "gained": 303,
+    "lost": 79
+   }
+  },
+  "label": "post hoc, exploratory: cannot satisfy or replace a registered hypothesis",
+  "lost_by_O_layer": {
+   "both": 29,
+   "ner-only": 333,
+   "regex-only": 117
+  },
+  "lost_rows": 479,
+  "per_rule_O_regex": {
+   "child": {
+    "block_lost_rows_with_S3_span_of_rule": 26,
+    "clean_union_fp_rows_fixed_containing_rule": 26,
+    "clean_union_fp_rows_fixed_sole_rule": 10,
+    "lost_rows_containing_rule": 10,
+    "lost_rows_sole_rule": 7,
+    "spans_off_gold": 11
+   },
+   "concentrated_sensitive_data": {
+    "clean_union_fp_rows_fixed_containing_rule": 19,
+    "lost_rows_containing_rule": 18,
+    "spans_on_gold": 18
+   },
+   "credit_card": {
+    "block_lost_rows_with_S3_span_of_rule": 4,
+    "lost_rows_containing_rule": 2,
+    "spans_on_gold": 2
+   },
+   "family_disclosure": {
+    "clean_union_fp_rows_fixed_containing_rule": 12,
+    "clean_union_fp_rows_fixed_sole_rule": 10,
+    "lost_rows_containing_rule": 22,
+    "lost_rows_sole_rule": 19,
+    "spans_off_gold": 32
+   },
+   "financial_keyword": {
+    "clean_union_fp_rows_fixed_containing_rule": 13,
+    "clean_union_fp_rows_fixed_sole_rule": 13,
+    "lost_rows_containing_rule": 2,
+    "lost_rows_sole_rule": 2,
+    "spans_off_gold": 2
+   },
+   "iban": {
+    "block_lost_rows_with_S3_span_of_rule": 139,
+    "clean_union_fp_rows_fixed_containing_rule": 8,
+    "lost_rows_containing_rule": 37,
+    "lost_rows_sole_rule": 22,
+    "spans_off_gold": 8,
+    "spans_on_gold": 29
+   },
+   "location_keyword": {
+    "lost_rows_containing_rule": 1,
+    "lost_rows_sole_rule": 1,
+    "spans_off_gold": 1
+   },
+   "personal_narrative": {
+    "clean_union_fp_rows_fixed_containing_rule": 1,
+    "clean_union_fp_rows_fixed_sole_rule": 1
+   },
+   "presidio_creditcardrecognizer_all credit cards (weak)": {
+    "block_lost_rows_with_S3_span_of_rule": 15,
+    "lost_rows_containing_rule": 10,
+    "lost_rows_sole_rule": 3,
+    "spans_on_gold": 11
+   },
+   "presidio_daterecognizer_mm/yy or m/yy": {
+    "clean_union_fp_rows_fixed_containing_rule": 3,
+    "clean_union_fp_rows_fixed_sole_rule": 3,
+    "lost_rows_containing_rule": 1,
+    "spans_on_gold": 1
+   },
+   "presidio_ibanrecognizer_iban generic": {
+    "block_lost_rows_with_S3_span_of_rule": 4,
+    "lost_rows_containing_rule": 3,
+    "lost_rows_sole_rule": 2,
+    "spans_on_gold": 3
+   },
+   "presidio_nhsrecognizer_nhs (medium)": {
+    "block_lost_rows_with_S3_span_of_rule": 3,
+    "lost_rows_containing_rule": 1,
+    "lost_rows_sole_rule": 1,
+    "spans_on_gold": 1
+   },
+   "presidio_uslicenserecognizer_driver license - alphanumeric (weak)": {
+    "clean_union_fp_rows_fixed_containing_rule": 37,
+    "clean_union_fp_rows_fixed_sole_rule": 32,
+    "lost_rows_containing_rule": 63,
+    "lost_rows_sole_rule": 56,
+    "spans_off_gold": 23,
+    "spans_on_gold": 54
+   },
+   "presidio_usssnrecognizer_ssn1 (very weak)": {
+    "block_lost_rows_with_S3_span_of_rule": 2,
+    "lost_rows_containing_rule": 2,
+    "spans_on_gold": 2
+   },
+   "presidio_usssnrecognizer_ssn3 (very weak)": {
+    "block_lost_rows_with_S3_span_of_rule": 4,
+    "lost_rows_containing_rule": 3,
+    "spans_on_gold": 3
+   },
+   "presidio_usssnrecognizer_ssn5 (medium)": {
+    "block_lost_rows_with_S3_span_of_rule": 4,
+    "lost_rows_containing_rule": 3,
+    "spans_on_gold": 3
+   },
+   "ssn_formatted": {
+    "block_lost_rows_with_S3_span_of_rule": 6,
+    "lost_rows_containing_rule": 5,
+    "spans_on_gold": 5
+   },
+   "structured_identity": {
+    "clean_union_fp_rows_fixed_containing_rule": 9,
+    "clean_union_fp_rows_fixed_sole_rule": 9,
+    "lost_rows_containing_rule": 1,
+    "lost_rows_sole_rule": 1,
+    "spans_off_gold": 1
+   }
+  },
+  "regex_caused_lost_rows": 146,
+  "regex_caused_lost_rows_with_a_regex_span_on_gold": 90,
+  "rule_firing_rows_O_to_N": {
+   "clean": {
+    "child": [
+     36,
+     1
+    ],
+    "concentrated_sensitive_data": [
+     105,
+     77
+    ],
+    "credit_card": [
+     3,
+     0
+    ],
+    "family_disclosure": [
+     16,
+     2
+    ],
+    "financial_keyword": [
+     16,
+     4
+    ],
+    "iban": [
+     17,
+     0
+    ],
+    "personal_narrative": [
+     3,
+     0
+    ],
+    "presidio_creditcardrecognizer_all credit cards (weak)": [
+     3,
+     0
+    ],
+    "presidio_daterecognizer_mm/yy or m/yy": [
+     34,
+     13
+    ],
+    "presidio_nhsrecognizer_nhs (medium)": [
+     10,
+     1
+    ],
+    "presidio_uslicenserecognizer_driver license - alphanumeric (weak)": [
+     65,
+     12
+    ],
+    "presidio_usssnrecognizer_ssn4 (very weak)": [
+     40,
+     32
+    ],
+    "ssn_formatted": [
+     42,
+     34
+    ],
+    "structured_identity": [
+     26,
+     16
+    ]
+   },
+   "positives": {
+    "child": [
+     63,
+     27
+    ],
+    "concentrated_sensitive_data": [
+     1393,
+     1334
+    ],
+    "credit_card": [
+     332,
+     140
+    ],
+    "family_disclosure": [
+     87,
+     7
+    ],
+    "financial_keyword": [
+     41,
+     18
+    ],
+    "iban": [
+     493,
+     54
+    ],
+    "location_keyword": [
+     33,
+     22
+    ],
+    "personal_narrative": [
+     11,
+     0
+    ],
+    "presidio_creditcardrecognizer_all credit cards (weak)": [
+     488,
+     168
+    ],
+    "presidio_daterecognizer_mm/yy or m/yy": [
+     449,
+     156
+    ],
+    "presidio_ibanrecognizer_iban generic": [
+     72,
+     54
+    ],
+    "presidio_nhsrecognizer_nhs (medium)": [
+     661,
+     53
+    ],
+    "presidio_uslicenserecognizer_driver license - alphanumeric (weak)": [
+     1171,
+     808
+    ],
+    "presidio_usssnrecognizer_ssn1 (very weak)": [
+     53,
+     49
+    ],
+    "presidio_usssnrecognizer_ssn3 (very weak)": [
+     416,
+     399
+    ],
+    "presidio_usssnrecognizer_ssn4 (very weak)": [
+     631,
+     537
+    ],
+    "presidio_usssnrecognizer_ssn5 (medium)": [
+     422,
+     405
+    ],
+    "ssn_formatted": [
+     1043,
+     944
+    ],
+    "structured_identity": [
+     382,
+     380
+    ]
+   }
+  }
+ },
+ "pending": {
+  "humans": [
+   "F2 adjudication of the 2,449-prompt pool",
+   "200-row label-noise audit"
+  ],
+  "owner": [
+   "keep/revert/rework regex repairs per rule (registration section 8)",
+   "waive documentation check for N+R",
+   "N+lg size decision",
+   "N+lg on N or on post-decision regex base"
+  ]
+ },
+ "registered_secondary_source_stratified": {
+  "by_source": {
+   "ai4privacy/pii-masking-openpii-1m": {
+    "H1_regex__N_minus_O": {
+     "mcnemar_p_negatives": 3.725290298461914e-09,
+     "mcnemar_p_positives": 2.0816681711721685e-16,
+     "n_neg": 1504,
+     "n_pos": 3374,
+     "recall": {
+      "estimate": -0.016893894487255423,
+      "hi": -0.01265822784810133,
+      "lo": -0.02128968613786364
+     },
+     "recall_flips": {
+      "gained": 1,
+      "lost": 58
+     },
+     "specificity": {
+      "estimate": 0.01928191489361697,
+      "hi": 0.02717031146454607,
+      "lo": 0.012132124646038299
+     },
+     "specificity_flips": {
+      "gained": 29,
+      "lost": 0
+     }
+    },
+    "H2_H2b_union__N_minus_O": {
+     "mcnemar_p_negatives": 0.18759872474577588,
+     "mcnemar_p_positives": 0.00010748167831471247,
+     "n_neg": 1504,
+     "n_pos": 3374,
+     "recall": {
+      "estimate": 0.01956135151155891,
+      "hi": 0.02919508604773265,
+      "lo": 0.009518073205579193
+     },
+     "recall_flips": {
+      "gained": 175,
+      "lost": 109
+     },
+     "specificity": {
+      "estimate": 0.009973404255319118,
+      "hi": 0.024296955813708426,
+      "lo": -0.004438878275592358
+     },
+     "specificity_flips": {
+      "gained": 64,
+      "lost": 49
+     }
+    },
+    "H3a_H3c_union__lg_minus_N": {
+     "mcnemar_p_negatives": 4.869560700851427e-13,
+     "mcnemar_p_positives": 3.0122672871316036e-10,
+     "n_neg": 1504,
+     "n_pos": 3374,
+     "recall": {
+      "estimate": 0.025785417901600494,
+      "hi": 0.03384448557580018,
+      "lo": 0.01774432372379463
+     },
+     "recall_flips": {
+      "gained": 140,
+      "lost": 53
+     },
+     "specificity": {
+      "estimate": 0.03656914893617025,
+      "hi": 0.047556869783535474,
+      "lo": 0.02640051513200259
+     },
+     "specificity_flips": {
+      "gained": 60,
+      "lost": 5
+     }
+    },
+    "H3b_ner__lg_minus_N": {
+     "mcnemar_p_negatives": 1.4195339782113736e-13,
+     "mcnemar_p_positives": 1.1983635298596286e-17,
+     "n_neg": 1504,
+     "n_pos": 3374,
+     "recall": {
+      "estimate": 0.055127445168938916,
+      "hi": 0.06787734444775229,
+      "lo": 0.04251066972633222
+     },
+     "recall_flips": {
+      "gained": 333,
+      "lost": 147
+     },
+     "specificity": {
+      "estimate": 0.03789893617021278,
+      "hi": 0.048960773243032,
+      "lo": 0.027546308062297183
+     },
+     "specificity_flips": {
+      "gained": 62,
+      "lost": 5
+     }
+    }
+   },
+   "gretelai/gretel-pii-masking-en-v1": {
+    "H1_regex__N_minus_O": {
+     "mcnemar_p_negatives": 7.275957614183426e-12,
+     "mcnemar_p_positives": 4.336808689942018e-19,
+     "n_neg": 2024,
+     "n_pos": 3325,
+     "recall": {
+      "estimate": -0.018646616541353356,
+      "hi": -0.01418853870567302,
+      "lo": -0.023423423423423406
+     },
+     "recall_flips": {
+      "gained": 0,
+      "lost": 62
+     },
+     "specificity": {
+      "estimate": 0.018774703557312256,
+      "hi": 0.02561528108013156,
+      "lo": 0.012788981800295085
+     },
+     "specificity_flips": {
+      "gained": 38,
+      "lost": 0
+     }
+    },
+    "H2_H2b_union__N_minus_O": {
+     "mcnemar_p_negatives": 0.0006382953625234167,
+     "mcnemar_p_positives": 0.3085051328988321,
+     "n_neg": 2024,
+     "n_pos": 3325,
+     "recall": {
+      "estimate": -0.004511278195488688,
+      "hi": 0.003700391762170031,
+      "lo": -0.01298327668200793
+     },
+     "recall_flips": {
+      "gained": 87,
+      "lost": 102
+     },
+     "specificity": {
+      "estimate": 0.02025691699604748,
+      "hi": 0.032878195965400876,
+      "lo": 0.008142493638676807
+     },
+     "specificity_flips": {
+      "gained": 90,
+      "lost": 49
+     }
+    },
+    "H3a_H3c_union__lg_minus_N": {
+     "mcnemar_p_negatives": 8.14003082672391e-06,
+     "mcnemar_p_positives": 0.1654405129339897,
+     "n_neg": 2024,
+     "n_pos": 3325,
+     "recall": {
+      "estimate": 0.004210526315789442,
+      "hi": 0.009705795375474969,
+      "lo": -0.0014983630416613991
+     },
+     "recall_flips": {
+      "gained": 51,
+      "lost": 37
+     },
+     "specificity": {
+      "estimate": 0.018774703557312256,
+      "hi": 0.027346031511466688,
+      "lo": 0.01028271628666842
+     },
+     "specificity_flips": {
+      "gained": 55,
+      "lost": 17
+     }
+    },
+    "H3b_ner__lg_minus_N": {
+     "mcnemar_p_negatives": 1.029887431251981e-06,
+     "mcnemar_p_positives": 0.950564856668466,
+     "n_neg": 2024,
+     "n_pos": 3325,
+     "recall": {
+      "estimate": -0.0006015037593984918,
+      "hi": 0.009110486221318555,
+      "lo": -0.010173604133415908
+     },
+     "recall_flips": {
+      "gained": 129,
+      "lost": 131
+     },
+     "specificity": {
+      "estimate": 0.022233201581027706,
+      "hi": 0.03176132089215388,
+      "lo": 0.012713625879843324
+     },
+     "specificity_flips": {
+      "gained": 65,
+      "lost": 20
+     }
+    }
+   },
+   "nvidia/Nemotron-PII": {
+    "H1_regex__N_minus_O": {
+     "mcnemar_p_negatives": 2.09808349609375e-05,
+     "mcnemar_p_positives": 5.960464477539063e-08,
+     "n_neg": 2088,
+     "n_pos": 1687,
+     "recall": {
+      "estimate": -0.014819205690575044,
+      "hi": -0.009158531317947407,
+      "lo": -0.020975260607840263
+     },
+     "recall_flips": {
+      "gained": 0,
+      "lost": 25
+     },
+     "specificity": {
+      "estimate": 0.00909961685823757,
+      "hi": 0.013908872901678637,
+      "lo": 0.00469439650061262
+     },
+     "specificity_flips": {
+      "gained": 20,
+      "lost": 1
+     }
+    },
+    "H2_H2b_union__N_minus_O": {
+     "mcnemar_p_negatives": 1.0,
+     "mcnemar_p_positives": 5.42323308582825e-12,
+     "n_neg": 2088,
+     "n_pos": 1687,
+     "recall": {
+      "estimate": -0.04860699466508589,
+      "hi": -0.03379581119992105,
+      "lo": -0.0636254670787234
+     },
+     "recall_flips": {
+      "gained": 32,
+      "lost": 114
+     },
+     "specificity": {
+      "estimate": 0.0,
+      "hi": 0.008845540614030752,
+      "lo": -0.009013621286224592
+     },
+     "specificity_flips": {
+      "gained": 52,
+      "lost": 52
+     }
+    },
+    "H3a_H3c_union__lg_minus_N": {
+     "mcnemar_p_negatives": 2.295386103412511e-14,
+     "mcnemar_p_positives": 0.005515201485501109,
+     "n_neg": 2088,
+     "n_pos": 1687,
+     "recall": {
+      "estimate": 0.011855364552459946,
+      "hi": 0.02016140990318752,
+      "lo": 0.0036101083032490378
+     },
+     "recall_flips": {
+      "gained": 34,
+      "lost": 14
+     },
+     "specificity": {
+      "estimate": 0.025383141762452044,
+      "hi": 0.03270158707362505,
+      "lo": 0.018677937389610596
+     },
+     "specificity_flips": {
+      "gained": 55,
+      "lost": 2
+     }
+    },
+    "H3b_ner__lg_minus_N": {
+     "mcnemar_p_negatives": 1.5903890617646743e-17,
+     "mcnemar_p_positives": 0.0017094927839213544,
+     "n_neg": 2088,
+     "n_pos": 1687,
+     "recall": {
+      "estimate": 0.02133965619442796,
+      "hi": 0.03531508826213599,
+      "lo": 0.007488183168956442
+     },
+     "recall_flips": {
+      "gained": 81,
+      "lost": 45
+     },
+     "specificity": {
+      "estimate": 0.03065134099616862,
+      "hi": 0.03848118194423917,
+      "lo": 0.023323615160349864
+     },
+     "specificity_flips": {
+      "gained": 66,
+      "lost": 2
+     }
+    }
+   },
+   "piimb/privy": {
+    "H1_regex__N_minus_O": {
+     "mcnemar_p_negatives": 1.4901161193847656e-08,
+     "mcnemar_p_positives": 1.0587911840678754e-22,
+     "n_neg": 830,
+     "n_pos": 1614,
+     "recall": {
+      "estimate": -0.04584882280049574,
+      "hi": -0.036002482929857305,
+      "lo": -0.056426964303771934
+     },
+     "recall_flips": {
+      "gained": 0,
+      "lost": 74
+     },
+     "specificity": {
+      "estimate": 0.032530120481927716,
+      "hi": 0.04488778054862841,
+      "lo": 0.02122291923082019
+     },
+     "specificity_flips": {
+      "gained": 27,
+      "lost": 0
+     }
+    },
+    "H2_H2b_union__N_minus_O": {
+     "mcnemar_p_negatives": 1.9469657355817753e-32,
+     "mcnemar_p_positives": 3.7432301549452987e-14,
+     "n_neg": 830,
+     "n_pos": 1614,
+     "recall": {
+      "estimate": -0.06567534076827763,
+      "hi": -0.04927275359405808,
+      "lo": -0.08286621572778441
+     },
+     "recall_flips": {
+      "gained": 48,
+      "lost": 154
+     },
+     "specificity": {
+      "estimate": 0.19036144578313252,
+      "hi": 0.22122790439761897,
+      "lo": 0.1595238095238095
+     },
+     "specificity_flips": {
+      "gained": 179,
+      "lost": 21
+     }
+    },
+    "H3a_H3c_union__lg_minus_N": {
+     "mcnemar_p_negatives": 0.0006060762772090586,
+     "mcnemar_p_positives": 2.215948407640851e-07,
+     "n_neg": 830,
+     "n_pos": 1614,
+     "recall": {
+      "estimate": 0.040272614622057,
+      "hi": 0.05582524271844658,
+      "lo": 0.025168429199290517
+     },
+     "recall_flips": {
+      "gained": 111,
+      "lost": 46
+     },
+     "specificity": {
+      "estimate": -0.04337349397590362,
+      "hi": -0.019138755980861233,
+      "lo": -0.06732087207132129
+     },
+     "specificity_flips": {
+      "gained": 35,
+      "lost": 71
+     }
+    },
+    "H3b_ner__lg_minus_N": {
+     "mcnemar_p_negatives": 1.6967766819869384e-07,
+     "mcnemar_p_positives": 1.3302138712823862e-14,
+     "n_neg": 830,
+     "n_pos": 1614,
+     "recall": {
+      "estimate": 0.09293680297397772,
+      "hi": 0.11706185944848335,
+      "lo": 0.07001176652587465
+     },
+     "recall_flips": {
+      "gained": 267,
+      "lost": 117
+     },
+     "specificity": {
+      "estimate": -0.07590361445783134,
+      "hi": -0.048387096774193616,
+      "lo": -0.10365135453474672
+     },
+     "specificity_flips": {
+      "gained": 41,
+      "lost": 104
+     }
+    }
+   }
+  },
+  "label": "pre-registration section 10: source-stratified secondary analysis (not used for promotion)",
+  "source_mix_clean": {
+   "ai4privacy/pii-masking-openpii-1m": 1504,
+   "gretelai/gretel-pii-masking-en-v1": 2024,
+   "nvidia/Nemotron-PII": 2088,
+   "piimb/privy": 830
+  },
+  "source_mix_positives": {
+   "ai4privacy/pii-masking-openpii-1m": 3374,
+   "gretelai/gretel-pii-masking-en-v1": 3325,
+   "nvidia/Nemotron-PII": 1687,
+   "piimb/privy": 1614
+  }
  },
  "results": {
   "configs": [
@@ -31814,8 +32620,8 @@
      },
      "status": "personalized: no regression; openai: regression exempt by the owner decision (replaced by H2)"
     },
-    "criterion_4_critic_review": "pending (root dispatches the critic)",
-    "criterion_5_latency": "pending (separate serialized latency step)",
+    "criterion_4_critic_review": "recomputation confirmed all registered verdicts; exploratory findings in the record",
+    "criterion_5_latency": "pass (+3.2% mean vs old 28.3 ms) (docs/experiments/detector-latency-20261025.md)",
     "verdict": "not promoted: criterion 2 (H2/H2b)"
    },
    "N+all": {
@@ -31833,8 +32639,9 @@
     "H6_evaluated_cells_pass": true,
     "configuration": "N+all (reference N)",
     "criterion_3": "docs/experiments/robustness-fixes-20261024.md on research/wt-r-robustfix reports no outcome flips on clean development, personalized and openai text for every flag (context, not re-scored)",
-    "criterion_4_critic_review": "pending (root dispatches the critic)",
-    "criterion_5_latency": "pending (separate serialized latency step)",
+    "criterion_4_critic_review": "recomputation confirmed all registered verdicts; exploratory findings in the record",
+    "criterion_5_latency": "pass (<=+5%) (docs/experiments/detector-latency-20261025.md)",
+    "documentation_check_at_b1975bc2": "UNMET: flag documentation arrived in docs-only commit 3f9aa450; no runtime diff b1975bc2 to b3d11a50; owner waiver required",
     "frozen_commit_checks": {
      "commit": "b1975bc2",
      "doc_files_changed_by_followup": [
@@ -31853,7 +32660,7 @@
      "unit_tests_present_at_frozen_commit": true
     },
     "rule": "N+all is promoted only if every constituent flag passes individually, or N+all passes H5e and H6 while no constituent flag fails H6",
-    "verdict": "H5 and H6 (F1/F3 cells) met; conditional on the H6 F2 cell, the critic review and latency"
+    "verdict": "H5 and H6 (F1/F3 cells) met; documentation check UNMET (owner waiver required); also conditional on the H6 F2 cell"
    },
    "N+caseless": {
     "H5": {
@@ -31870,8 +32677,9 @@
     "H6_evaluated_cells_pass": true,
     "configuration": "N+caseless (reference N)",
     "criterion_3": "docs/experiments/robustness-fixes-20261024.md on research/wt-r-robustfix reports no outcome flips on clean development, personalized and openai text for every flag (context, not re-scored)",
-    "criterion_4_critic_review": "pending (root dispatches the critic)",
-    "criterion_5_latency": "pending (separate serialized latency step)",
+    "criterion_4_critic_review": "recomputation confirmed all registered verdicts; exploratory findings in the record",
+    "criterion_5_latency": "pass (<=+5%) (docs/experiments/detector-latency-20261025.md)",
+    "documentation_check_at_b1975bc2": "UNMET: flag documentation arrived in docs-only commit 3f9aa450; no runtime diff b1975bc2 to b3d11a50; owner waiver required",
     "frozen_commit_checks": {
      "commit": "b1975bc2",
      "doc_files_changed_by_followup": [
@@ -31889,7 +32697,7 @@
      "unit_tests_file": "extension/client-runtime/test/test_robustness_fixes.py",
      "unit_tests_present_at_frozen_commit": true
     },
-    "verdict": "H5 and H6 (F1/F3 cells) met; conditional on the H6 F2 cell, the critic review and latency"
+    "verdict": "H5 and H6 (F1/F3 cells) met; documentation check UNMET (owner waiver required); also conditional on the H6 F2 cell"
    },
    "N+digits": {
     "H5": {
@@ -31906,8 +32714,9 @@
     "H6_evaluated_cells_pass": true,
     "configuration": "N+digits (reference N)",
     "criterion_3": "docs/experiments/robustness-fixes-20261024.md on research/wt-r-robustfix reports no outcome flips on clean development, personalized and openai text for every flag (context, not re-scored)",
-    "criterion_4_critic_review": "pending (root dispatches the critic)",
-    "criterion_5_latency": "pending (separate serialized latency step)",
+    "criterion_4_critic_review": "recomputation confirmed all registered verdicts; exploratory findings in the record",
+    "criterion_5_latency": "pass (<=+5%) (docs/experiments/detector-latency-20261025.md)",
+    "documentation_check_at_b1975bc2": "UNMET: flag documentation arrived in docs-only commit 3f9aa450; no runtime diff b1975bc2 to b3d11a50; owner waiver required",
     "frozen_commit_checks": {
      "commit": "b1975bc2",
      "doc_files_changed_by_followup": [
@@ -31925,7 +32734,7 @@
      "unit_tests_file": "extension/client-runtime/test/test_robustness_fixes.py",
      "unit_tests_present_at_frozen_commit": true
     },
-    "verdict": "H5 and H6 (F1/F3 cells) met; conditional on the H6 F2 cell, the critic review and latency"
+    "verdict": "H5 and H6 (F1/F3 cells) met; documentation check UNMET (owner waiver required); also conditional on the H6 F2 cell"
    },
    "N+email": {
     "H5": {
@@ -31942,8 +32751,9 @@
     "H6_evaluated_cells_pass": true,
     "configuration": "N+email (reference N)",
     "criterion_3": "docs/experiments/robustness-fixes-20261024.md on research/wt-r-robustfix reports no outcome flips on clean development, personalized and openai text for every flag (context, not re-scored)",
-    "criterion_4_critic_review": "pending (root dispatches the critic)",
-    "criterion_5_latency": "pending (separate serialized latency step)",
+    "criterion_4_critic_review": "recomputation confirmed all registered verdicts; exploratory findings in the record",
+    "criterion_5_latency": "pass (<=+5%) (docs/experiments/detector-latency-20261025.md)",
+    "documentation_check_at_b1975bc2": "UNMET: flag documentation arrived in docs-only commit 3f9aa450; no runtime diff b1975bc2 to b3d11a50; owner waiver required",
     "frozen_commit_checks": {
      "commit": "b1975bc2",
      "doc_files_changed_by_followup": [
@@ -31961,7 +32771,7 @@
      "unit_tests_file": "extension/client-runtime/test/test_robustness_fixes.py",
      "unit_tests_present_at_frozen_commit": true
     },
-    "verdict": "H5 and H6 (F1/F3 cells) met; conditional on the H6 F2 cell, the critic review and latency"
+    "verdict": "H5 and H6 (F1/F3 cells) met; documentation check UNMET (owner waiver required); also conditional on the H6 F2 cell"
    },
    "N+lg": {
     "H3a_prime_F2": "pending adjudication",
@@ -31985,9 +32795,9 @@
      },
      "status": "historical context versus N: no regression of more than 1 pt"
     },
-    "criterion_4_critic_review": "pending (root dispatches the critic)",
-    "criterion_5_latency": "pending (separate serialized latency step)",
-    "verdict": "criteria 1-3 met on F1/F3; conditional on F2 (H3a'), the critic review and latency"
+    "criterion_4_critic_review": "recomputation confirmed all registered verdicts; exploratory findings in the record",
+    "criterion_5_latency": "pass (+1.8%; +762 MB resident) (docs/experiments/detector-latency-20261025.md)",
+    "verdict": "criteria 1-3 and 5 met on F1/F3; conditional on F2 (H3a'), source heterogeneity (Privy specificity falls), owner size decision, and base choice"
    },
    "N+strip": {
     "H5": {
@@ -32004,8 +32814,9 @@
     "H6_evaluated_cells_pass": true,
     "configuration": "N+strip (reference N)",
     "criterion_3": "docs/experiments/robustness-fixes-20261024.md on research/wt-r-robustfix reports no outcome flips on clean development, personalized and openai text for every flag (context, not re-scored)",
-    "criterion_4_critic_review": "pending (root dispatches the critic)",
-    "criterion_5_latency": "pending (separate serialized latency step)",
+    "criterion_4_critic_review": "recomputation confirmed all registered verdicts; exploratory findings in the record",
+    "criterion_5_latency": "pass (<=+5%) (docs/experiments/detector-latency-20261025.md)",
+    "documentation_check_at_b1975bc2": "UNMET: flag documentation arrived in docs-only commit 3f9aa450; no runtime diff b1975bc2 to b3d11a50; owner waiver required",
     "frozen_commit_checks": {
      "commit": "b1975bc2",
      "doc_files_changed_by_followup": [
@@ -32023,10 +32834,12 @@
      "unit_tests_file": "extension/client-runtime/test/test_robustness_fixes.py",
      "unit_tests_present_at_frozen_commit": true
     },
-    "verdict": "H5 and H6 (F1/F3 cells) met; conditional on the H6 F2 cell, the critic review and latency"
+    "verdict": "H5 and H6 (F1/F3 cells) met; documentation check UNMET (owner waiver required); also conditional on the H6 F2 cell"
    },
    "N+trf": {
     "configuration": "N+trf (comparator)",
+    "criterion_4_critic_review": "recomputation confirmed all registered verdicts; exploratory findings in the record",
+    "criterion_5_latency": "fail (+211%); not eligible (docs/experiments/detector-latency-20261025.md)",
     "descriptive_family_passes": true,
     "verdict": "not eligible for promotion this round (pre-registered); estimates are descriptive"
    }
