@@ -91,6 +91,15 @@ class DrawTests(unittest.TestCase):
                 counts[row["group_id"]] = counts.get(row["group_id"], 0) + 1
             self.assertLessEqual(max(counts.values()), 2)
 
+    def test_scan_collects_group_tokens_without_text_and_honours_skip(self):
+        with tempfile.TemporaryDirectory() as raw:
+            directory = Path(raw)
+            (directory / "a.jsonl").write_text('{"group_id": "gretel:abc_s3", "text": "x"}\n', encoding="utf-8")
+            (directory / "held.jsonl").write_text('{"group_id": "privy:zzz"}\n', encoding="utf-8")
+            out = directory / "o.json"
+            plan.main(["scan", str(directory), "--output", str(out), "--skip", str(directory / "held.jsonl")])
+            self.assertEqual(json.loads(out.read_text())["groups"], ["gretel:abc"])
+
     def test_hash_mismatch_is_refused(self):
         with tempfile.TemporaryDirectory() as raw:
             directory = Path(raw)

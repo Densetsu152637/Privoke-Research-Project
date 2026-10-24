@@ -6,6 +6,9 @@ power  Exact paired-test power / sample-size tables for the fresh-set design.
 draw   Draw a balanced, group-disjoint sample from a LOCAL copy of the pinned PIIMB
        ``data/test_sentences.jsonl`` file, excluding every group id listed in the
        supplied exclusion files.
+scan   Collect every PIIMB group-id token found in json/jsonl artifacts under given roots
+       (tokens only, never text) to extend the exclusion set with groups used for
+       training, validation or earlier studies.
 hash   Print the sha256 of the sorted, newline-joined group ids of an exclusion file.
 
 The draw never contacts the network.  It mirrors the row filters of
@@ -255,6 +258,29 @@ def groups_sha256(groups: set[str]) -> str:
     return hashlib.sha256("\n".join(sorted(groups)).encode()).hexdigest()
 
 
+def cmd_scan(args: argparse.Namespace) -> int:
+    import os
+    found: set[str] = set()
+    scanned = 0
+    skip = {Path(p).resolve() for p in args.skip}
+    for root in args.roots:
+        for directory, _, files in os.walk(root):
+            if any(part in directory for part in (".venv", "__pycache__", "node_modules")):
+                continue
+            for name in files:
+                path = Path(directory) / name
+                if not name.endswith((".json", ".jsonl")) or path.resolve() in skip:
+                    continue
+                if path.stat().st_size > args.max_bytes:
+                    continue
+                scanned += 1
+                found.update(normalise_group(m.group(1))
+                             for m in GROUP_TOKEN.finditer(path.read_text(encoding="utf-8", errors="ignore")))
+    Path(args.output).write_text(json.dumps({"groups": sorted(found)}), encoding="utf-8")
+    print(json.dumps({"files_scanned": scanned, "n_groups": len(found), "groups_sha256": groups_sha256(found)}))
+    return 0
+
+
 def cmd_hash(args: argparse.Namespace) -> int:
     groups = set()
     for path in args.files:
@@ -437,6 +463,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--power", type=float, default=0.80)
     p.add_argument("--json")
     p.set_defaults(func=cmd_power)
+    sc = sub.add_parser("scan")
+    sc.add_argument("roots", nargs="+")
+    sc.add_argument("--output", required=True)
+    sc.add_argument("--max-bytes", type=int, default=30_000_000)
+    sc.add_argument("--skip", nargs="*", default=[], help="files never to open (e.g. a held-out partition)")
+    sc.set_defaults(func=cmd_scan)
     h = sub.add_parser("hash")
     h.add_argument("files", nargs="+")
     h.set_defaults(func=cmd_hash)

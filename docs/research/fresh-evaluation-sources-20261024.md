@@ -40,7 +40,7 @@ The repository reused the same PIIMB test pool for training and validation mater
 - `evaluation/prepare-public-negatives.py` (seed 4102026) drew 2400 clean PIIMB rows as a training curriculum (`evaluation/results/public-negative-curriculum/`).
 - `evaluation/prepare-representation-study.py` (seeds 5102026 / 6102026) and `evaluation/prepare-external-pii-study.py` (train/validation material), plus the validation prediction files with 959 PIIMB rows and `text_control_20261004_v1/selection.json` (about 14,300 group-id mentions), show further PIIMB rows used for fitting or validation.
 
-For detector-layer (regex and spaCy NER) evaluation these uses do not train the detectors, so overlap is tolerable. For any semantic-layer or fitted-profile study it is not. The builder must therefore also exclude every PIIMB group id that appears in any training/validation artifact. A scan of `evaluation/results/**` for group-id tokens was started to size this exclusion (it excludes `final.jsonl` itself); `fresh_set_plan.py draw --exclude` takes any number of group-id files, so the union is a flag, not a code change. The result of the scan is reported in the return message of this task, if it finished, and is otherwise the first step of the builder.
+For detector-layer (regex and spaCy NER) evaluation these uses do not train the detectors, so overlap is tolerable. For any semantic-layer or fitted-profile study it is not. The builder must therefore also exclude every PIIMB group id that appears in any training/validation artifact. A scan of `evaluation/results/**` for group-id tokens was attempted to size this exclusion, but it did not finish within the task's time budget (thousands of large result files on a slow disk), so the size of the extra exclusion is unknown. The scan is now the `scan` subcommand of `evaluation/fresh_set_plan.py` (tokens only, never text, `--skip` for `final.jsonl`); it is the first step of the builder, and `draw --exclude` accepts any number of group-id files, so the union is a flag, not a code change.
 
 ### 2.4 Local copy and what to download
 
@@ -177,7 +177,7 @@ All F-sets are scored exactly once per frozen configuration (single-scoring rule
 - Licence details for ai4privacy-300k come from the 400k licence text found by search; the 300k `license.md` returned 404 on direct fetch.
 - SPY entity strings depend on a Faker seed; the builder must record the seed and Faker version.
 - Source mix is Nemotron-heavy (about 60 % of the locked set); conclusions about "PIIMB" are conclusions about this mixture.
-- The training/validation group scan (section 2.3) is not part of this commit's evidence unless reported in the return message.
+- The training/validation group scan (section 2.3) was not completed; the number of extra excluded groups is unknown until the builder runs it.
 
 ## 8. Sources read (2026-10-24)
 
