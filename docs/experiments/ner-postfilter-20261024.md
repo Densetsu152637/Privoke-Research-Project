@@ -11,7 +11,7 @@ NER output is unchanged.
 
 - `development.jsonl` (502 rows) is split by `sha256(group_id) % 2`: dev-TUNE (parity 0, 267 rows, 148 positive) and dev-CHECK
   (parity 1, 235 rows, 116 positive). Rules were designed looking only at dev-TUNE and the personalized synthetic set. They were
-  committed (freeze commit `6614ca80`) before any dev-CHECK or openai number was computed, and no rule was changed afterwards.
+  committed (freeze commit `50fc51e6`) before any dev-CHECK or openai number was computed, and no rule was changed afterwards.
   `final.jsonl` was not opened. This document describes two versions: **v1** (frozen commit `50fc51e6`, results below under "Results v1") and
   **v2** (post-review revision, section "Post-review revision v2"). v2 was changed after a critic review using author-written probe sentences, not
   dev-CHECK/openai rows; but because those sets were already measured, **v2 dev-CHECK and openai numbers are post-review and no longer strictly held-out**.
