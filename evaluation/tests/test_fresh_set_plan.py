@@ -124,6 +124,22 @@ class DrawTests(unittest.TestCase):
             self.assertIn("nemotron-pii:abc123", groups)
             self.assertNotIn("privy:skipped", groups)
 
+    def test_draw_excludes_sentence_level_groups_via_normalised_token(self):
+        # privy rows carry no parent_id, so the group is the sentence uid ("privy:5_s0"); scans store "privy:5".
+        with tempfile.TemporaryDirectory() as raw:
+            directory = Path(raw)
+            rows = [{"uid": f"privy:{i}_s0", "task_name": "privy", "source_dataset": "synthetic", "text": f"Plain {i}.",
+                     "entities": [], "language": "en"} for i in range(5)]
+            source = directory / "s.jsonl"
+            source.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+            (directory / "e.json").write_text(json.dumps({"groups": ["privy:0", "privy:1"]}), encoding="utf-8")
+            with self.assertRaises(SystemExit) as raised:
+                plan.main(["draw", "--sentences", str(source),
+                           "--expect-sha256", hashlib.sha256(source.read_bytes()).hexdigest(),
+                           "--exclude", str(directory / "e.json"), "--seed", "1", "--positives", "0", "--negatives", "4",
+                           "--output", str(directory / "o")])
+            self.assertIn("Only 3 eligible clean rows", str(raised.exception))
+
     def test_draw_disambiguates_reused_uids(self):
         with tempfile.TemporaryDirectory() as raw:
             directory = Path(raw)

@@ -465,7 +465,7 @@ def cmd_draw(args: argparse.Namespace) -> int:
                 continue
             seen[key] = has_pii
             group = str(row.get("parent_id") or row.get("source_uid") or row.get("uid", index))
-            if group in excluded:
+            if group in excluded or normalise_group(group) in excluded:  # privy ids are per-sentence uids ending in _sN
                 stats["excluded_group"] += 1
                 continue
             uid = str(row.get("uid", index))
@@ -515,7 +515,7 @@ def cmd_draw(args: argparse.Namespace) -> int:
     for record in chosen:
         del record["text_blake2b"]
     per_group = Counter((r["expected_has_pii"], r["group_id"]) for r in chosen)
-    if any(r["group_id"] in excluded for r in chosen) or max(per_group.values()) > args.max_per_group:
+    if any(r["group_id"] in excluded or normalise_group(r["group_id"]) in excluded for r in chosen) or max(per_group.values()) > args.max_per_group:
         raise SystemExit("Post-selection check failed (excluded group or group cap exceeded).")
 
     output.mkdir(parents=True)
