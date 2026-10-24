@@ -152,6 +152,25 @@ class DetectorQualityTests(unittest.TestCase):
             "This 5-year-old laptop keeps freezing.", "A 2-year-old codebase needs a rewrite.",
             "The 3 year old server is being retired."))
 
+    def test_student_alone_is_not_child_but_an_identified_student_record_is_identity(self):
+        # Bare student/minor wording is not CHILD (students are often adults); an
+        # institutional identifier value tied to a student is an IDENTITY disclosure instead.
+        self._assert_not_fires("child", (
+            "Student Jordan Lee, ID ABC-123456, needs a form.",
+            "Please update student ID 20481733 in the roster."))
+        self._assert_fires("student_id", (
+            "Please update student ID 20481733 in the roster.",
+            "Student Jordan Lee, ID ABC-123456, needs a form.",
+            "student number: 55501234", "Student Priya (ID 889012) enrolled."))
+        self._assert_not_fires("student_id", (
+            "Every student must show their ID at the door.",
+            "Each student ID is printed on the card.",
+            "The student, ID required, left.",
+            "Students receive a user ID after registration.",
+            "The student ID format should be documented."))
+        # A student who is explicitly a minor is still CHILD through the age cues.
+        self._assert_fires("child", ("The 15-year-old student needs a form.", "Student aged 9 joined the class."))
+
     def test_location_needs_a_place_name_after_the_connector(self):
         self._assert_not_fires("location_keyword", (
             "Keep my address or any other detail out of the summary.",

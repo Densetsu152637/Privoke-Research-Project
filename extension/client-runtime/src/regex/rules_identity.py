@@ -58,6 +58,17 @@ def identity_rules() -> List[RuleDefinition]:
             "government_id",
         ),
         RuleDefinition(
+            "student_id",
+            # An institutional identifier value tied to a student: "student ID 12345" or
+            # "student <name>, ID <code>". The value must be 4+ characters with a digit, so
+            # generic mentions of students or of ID requirements do not match. This is an
+            # identity disclosure, not CHILD: students are not necessarily minors.
+            r"\bstudent(?:[\s_-]*(?:id|number|no\.?)\s*[:#=]?|\b[^\n.;:!?]{0,60}?[,(]\s*id\s*[:#=]?)\s*"
+            r"(?=[a-z0-9-]*\d)[a-z0-9][a-z0-9-]{3,}\b",
+            initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.IDENTITY]),
+            "student_id",
+        ),
+        RuleDefinition(
             "api_key",
             r"\b(?:sk|pk|ghp|xoxb|akia)[-_a-z0-9]{16,}\b",
             initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.IDENTITY]),
