@@ -2,9 +2,32 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Dict, Pattern, Tuple
+from typing import Callable, Dict, Optional, Pattern, Tuple
 
 from ..classification import Classification, ClassificationResult
+
+
+# A validator receives the regex match (with its full source string available as
+# ``match.string``) and returns False to reject a structurally plausible hit.
+MatchValidator = Callable[["re.Match[str]"], bool]
+
+
+@dataclass(frozen=True)
+class Downgrade:
+    """What a hit that fails its rule's validator is reported as instead of being dropped.
+
+    A checksum failure shows the value is not a valid number of the rule's kind; it does
+    not show the value is not an identifier. A rule lists downgrades in priority order and
+    the first whose ``accept`` test passes (always, when ``accept`` is None) keeps the hit
+    under its own rule name and classification, typically at a lower sensitivity than the
+    validated rule. A hit that no downgrade accepts is dropped.
+    """
+
+    name: str
+    classification: Classification
+    signal: str
+    accept: Optional[MatchValidator] = None
+    confidence: float = 0.80
 
 
 @dataclass(frozen=True)
@@ -16,6 +39,8 @@ class RuleDefinition:
     classification: Classification
     signal: str
     flags: int = re.IGNORECASE
+    validator: Optional[MatchValidator] = None
+    downgrades: Tuple[Downgrade, ...] = ()
 
     def compile(self) -> "CompiledRule":
         return CompiledRule(
@@ -23,6 +48,8 @@ class RuleDefinition:
             pattern=re.compile(self.pattern, self.flags),
             classification=self.classification,
             signal=self.signal,
+            validator=self.validator,
+            downgrades=self.downgrades,
         )
 
 
@@ -34,6 +61,8 @@ class CompiledRule:
     pattern: Pattern[str]
     classification: Classification
     signal: str
+    validator: Optional[MatchValidator] = None
+    downgrades: Tuple[Downgrade, ...] = ()
 
 
 @dataclass(frozen=True)

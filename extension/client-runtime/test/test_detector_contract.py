@@ -132,9 +132,10 @@ class OriginalSpanTests(unittest.TestCase):
 
     def test_ner_and_semantic_results_share_original_span_contract(self):
         text = 'Hello     Alex'
-        for layer in ('ner', 'semantic'):
+        # NER receives case-preserved text by default; semantic stays lowercased.
+        for layer, section in (('ner', 'Alex'), ('semantic', 'alex')):
             with self.subTest(layer=layer), patch('src.pipeline._detector_for',
-                    return_value=lambda text: [finding(Sensitivity.S2, section='alex', span=(6, 10))]):
+                    return_value=lambda text, section=section: [finding(Sensitivity.S2, section=section, span=(6, 10))]):
                 analysis = analyse_text(text, layers=[layer])
                 self.assertEqual(analysis.layers[0].results[0].span, (10, 14))
                 self.assertEqual(analysis.result.section_of_text, 'Alex')

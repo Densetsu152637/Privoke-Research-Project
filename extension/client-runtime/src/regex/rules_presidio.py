@@ -8,7 +8,16 @@ from typing import List
 
 from presidio_analyzer import PatternRecognizer, RecognizerRegistry
 
-from .rule_types import RuleDefinition
+from .rule_types import MatchValidator, RuleDefinition
+from .rule_validators import (
+    checksum_validator,
+    context_required_validator,
+    digits_or_context_validator,
+    iban_valid,
+    luhn_valid,
+    nhs_number_valid,
+    us_ssn_valid,
+)
 from ..classification import (
     Category,
     Sensitivity,
@@ -59,6 +68,44 @@ SENSITIVITY_MAP = {
 }
 
 
+# Entities whose values carry a checksum or fixed invalid ranges; the generic
+# digit-run patterns only count when the value could actually be issued.
+ENTITY_CHECKSUMS = {
+    "CREDIT_CARD": luhn_valid,
+    "IBAN_CODE": iban_valid,
+    "UK_NHS": nhs_number_valid,
+    "US_SSN": us_ssn_valid,
+}
+
+# The alphanumeric driver-licence pattern is a letter plus a short digit run,
+# which also matches part numbers and codes. Keep it only with enough digits
+# or an explicit licence context word. Presidio's own context list also holds
+# ambiguous nouns ("driver", "permit", "identification", "driving") that occur
+# in unrelated phrases, so only licence-specific terms are used.
+DRIVER_LICENSE_CONTEXT = (
+    "license", "licence", "lic", "lic#", "dl", "dls", "cdl", "cdls",
+)
+
+DATE_SHORT_PATTERN_NAMES = ("mm/yy or m/yy",)
+DATE_CONTEXT_WORDS = (
+    "date", "dated", "expiry", "expires", "expiration", "exp", "valid", "due",
+    "born", "birth", "birthday", "dob", "issued", "since", "until", "deadline",
+)
+
+
+def _presidio_validator(entity: str, pattern) -> MatchValidator | None:
+    check = ENTITY_CHECKSUMS.get(entity)
+    if check is not None:
+        return checksum_validator(check)
+    pattern_name = pattern.name.lower()
+    if entity == "US_DRIVER_LICENSE" and "alphanumeric" in pattern_name:
+        return digits_or_context_validator(5, DRIVER_LICENSE_CONTEXT)
+    if entity == "DATE_TIME" and pattern_name in DATE_SHORT_PATTERN_NAMES:
+        # "7/10" is as likely a score as a month/year.
+        return context_required_validator(DATE_CONTEXT_WORDS)
+    return None
+
+
 def presidio_rules() -> List[RuleDefinition]:
     registry = RecognizerRegistry()
     registry.load_predefined_recognizers()
@@ -98,6 +145,7 @@ def presidio_rules() -> List[RuleDefinition]:
                         [category],
                     ),
                     signal=f"presidio_{entity.lower()}",
+                    validator=_presidio_validator(entity, pattern),
                 )
             )
 

@@ -13,7 +13,7 @@ This package currently contains the text normalizer used before all detector lay
 `normalize_text` currently:
 
 - applies Unicode NFKC normalization,
-- lowercases the whole prompt,
+- lowercases the whole prompt for the semantic/LLM layer. Regex and NER instead receive a case-preserved variant (`normalize_with_offsets(text, lowercase=False)`) by default; `PRIVOKE_CASE_PRESERVING_DETECTORS=0` restores lowercased input for them as well,
 - replaces `[at]` and `(at)` with `@`,
 - removes spaces between adjacent digits,
 - collapses horizontal spaces and tabs,
