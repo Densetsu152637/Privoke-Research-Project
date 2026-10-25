@@ -1,7 +1,16 @@
 from typing import List
 
-from .rule_types import RuleDefinition
-from .rule_validators import checksum_validator, iban_valid, luhn_valid
+from .rule_types import Downgrade, RuleDefinition
+from .rule_validators import (
+    CARD_CONTEXT,
+    IBAN_CONTEXT,
+    alphanumeric_identifier_shape,
+    checksum_validator,
+    context_required_validator,
+    iban_valid,
+    luhn_valid,
+    match_shape_validator,
+)
 from ..classification import Category, Sensitivity, Visibility, initialise_unpacked
 
 
@@ -18,6 +27,19 @@ def financial_rules() -> List[RuleDefinition]:
             ),
             "credit_card",
             validator=checksum_validator(luhn_valid),
+            downgrades=(
+                # A card number that fails Luhn but is labelled as a card is still the
+                # user's card (typos, test and synthetic numbers). Unlabelled digit runs
+                # are left to the generic account-number patterns.
+                Downgrade(
+                    "credit_card_unverified",
+                    initialise_unpacked(
+                        Sensitivity.S3, Visibility.PU, [Category.FINANCIAL, Category.IDENTITY]
+                    ),
+                    "credit_card",
+                    accept=context_required_validator(CARD_CONTEXT),
+                ),
+            ),
         ),
         RuleDefinition(
             "iban",
@@ -25,6 +47,21 @@ def financial_rules() -> List[RuleDefinition]:
             initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.FINANCIAL]),
             "iban",
             validator=checksum_validator(iban_valid),
+            downgrades=(
+                Downgrade(
+                    "iban_unverified",
+                    initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.FINANCIAL]),
+                    "iban",
+                    accept=context_required_validator(IBAN_CONTEXT),
+                ),
+                # Not a valid IBAN, but still a long letter-prefixed number-like token.
+                Downgrade(
+                    "unverified_number_identifier",
+                    initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.IDENTITY]),
+                    "number_identifier",
+                    accept=match_shape_validator(alphanumeric_identifier_shape),
+                ),
+            ),
         ),
         RuleDefinition(
             "bank_account",

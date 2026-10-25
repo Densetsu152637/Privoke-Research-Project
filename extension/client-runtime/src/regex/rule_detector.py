@@ -55,6 +55,9 @@ class RuleDetector:
         for rule in self.rules:
             for regex_match in rule.pattern.finditer(text):
                 if rule.validator is not None and not rule.validator(regex_match):
+                    downgraded = self._downgraded_match(rule, regex_match)
+                    if downgraded is not None:
+                        matches.append(downgraded)
                     continue
                 matches.append(
                     RuleMatch(
@@ -67,6 +70,20 @@ class RuleDetector:
                     )
                 )
         return matches
+
+    @staticmethod
+    def _downgraded_match(rule, regex_match) -> RuleMatch | None:
+        for downgrade in rule.downgrades:
+            if downgrade.accept is None or downgrade.accept(regex_match):
+                return RuleMatch(
+                    rule_name=downgrade.name,
+                    signal=downgrade.signal,
+                    text=regex_match.group(0),
+                    span=regex_match.span(),
+                    classification=downgrade.classification,
+                    confidence=downgrade.confidence,
+                )
+        return None
 
     def _suppress_clean_context_matches(
         self,

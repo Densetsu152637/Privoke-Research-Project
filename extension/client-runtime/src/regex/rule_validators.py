@@ -62,6 +62,25 @@ def us_ssn_valid(value: str) -> bool:
     return group != "00" and serial != "0000"
 
 
+# Context words that make a failed-checksum number still a value of its kind: a typo in a
+# card number or IBAN that the user labels as one is still that user's card or account.
+CARD_CONTEXT = (
+    "card", "credit", "debit", "visa", "mastercard", "amex", "cvv", "cvc",
+    "payment", "expiry", "expires", "expiration",
+)
+IBAN_CONTEXT = (
+    "iban", "bank", "account", "transfer", "wire", "payment", "swift", "bic", "sort code",
+)
+SSN_CONTEXT = ("ssn", "social security", "tax file", "national insurance")
+
+
+def alphanumeric_identifier_shape(value: str) -> bool:
+    """Number-like token: 8+ characters, 5+ digits and at least one letter."""
+    compact = re.sub(r"[\s\-]", "", value)
+    digits = len(_digits(compact))
+    return len(compact) >= 8 and digits >= 5 and digits < len(compact)
+
+
 def checksum_validator(check: Callable[[str], bool]) -> MatchValidator:
     return lambda match: check(match.group(0))
 
@@ -79,6 +98,10 @@ def has_context_word(
         re.search(r"(?<!\w)" + re.escape(word.lower()) + r"(?!\w)", window)
         for word in words
     )
+
+
+def match_shape_validator(shape: Callable[[str], bool]) -> MatchValidator:
+    return lambda match: shape(match.group(0))
 
 
 def digits_or_context_validator(min_digits: int, words: Iterable[str]) -> MatchValidator:

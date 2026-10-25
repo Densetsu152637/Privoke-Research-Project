@@ -1,7 +1,7 @@
 from typing import List
 
-from .rule_types import RuleDefinition
-from .rule_validators import checksum_validator, us_ssn_valid
+from .rule_types import Downgrade, RuleDefinition
+from .rule_validators import SSN_CONTEXT, checksum_validator, context_required_validator, us_ssn_valid
 from ..classification import Category, Sensitivity, Visibility, initialise_unpacked
 
 
@@ -32,6 +32,14 @@ def identity_rules() -> List[RuleDefinition]:
             initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.IDENTITY]),
             "ssn",
             validator=checksum_validator(us_ssn_valid),
+            downgrades=(
+                Downgrade(
+                    "ssn_unverified",
+                    initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.IDENTITY]),
+                    "ssn",
+                    accept=context_required_validator(SSN_CONTEXT),
+                ),
+            ),
         ),
         RuleDefinition(
             "itin",
