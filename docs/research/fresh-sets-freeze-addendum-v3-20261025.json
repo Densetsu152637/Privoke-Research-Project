@@ -1,0 +1,228 @@
+{
+ "K": {
+  "base": "42f8f529 (tree 6cdbaba8614b057f94e22bf5e831fde96c1c6b96), a docs-only commit on top of N = e70e3a2e (tree 338be80626f26220b51a25c09fbb1ffd037ac896)",
+  "branch": "research/wt-k-rework",
+  "commit": "b7e716c354d1f772e638a54a7433b12371627912",
+  "development_attestation": "design on dev-TUNE and personalized; dev-CHECK and openai post-review (aggregate counts and rule names seen, no rule tuned on them); final.jsonl and every fresh set never read; the exploratory fresh analysis not opened (owner summary only)",
+  "development_record": "docs/experiments/regex-rework-20261025.md (+ .json) at c8ceaacc; sha256 (LF blob) 6e2903b68d1b0411b25042b3c75e2b221fb81de9f45bc286dec4427eafcea590",
+  "development_record_commit": "c8ceaacc7ddd00f3a9259b7b14590e5a357f3559",
+  "files_changed_vs_42f8f529": [
+   "docs/detectors/regex.md",
+   "extension/client-runtime/src/regex/rule_detector.py",
+   "extension/client-runtime/src/regex/rule_registry.py",
+   "extension/client-runtime/src/regex/rule_types.py",
+   "extension/client-runtime/src/regex/rule_validators.py",
+   "extension/client-runtime/src/regex/rules_financial.py",
+   "extension/client-runtime/src/regex/rules_identifiers.py",
+   "extension/client-runtime/src/regex/rules_identity.py",
+   "extension/client-runtime/test/test_regex_identifier_rework.py"
+  ],
+  "files_changed_vs_e70e3a2e": [
+   "docs/detectors/regex.md",
+   "docs/experiments/student-id-identity-rule-20261024.md",
+   "extension/client-runtime/src/regex/rule_detector.py",
+   "extension/client-runtime/src/regex/rule_registry.py",
+   "extension/client-runtime/src/regex/rule_types.py",
+   "extension/client-runtime/src/regex/rule_validators.py",
+   "extension/client-runtime/src/regex/rules_financial.py",
+   "extension/client-runtime/src/regex/rules_identifiers.py",
+   "extension/client-runtime/src/regex/rules_identity.py",
+   "extension/client-runtime/test/test_regex_identifier_rework.py"
+  ],
+  "scope_check": "every changed runtime file is in extension/client-runtime/src/regex/ (rules, validators, registry, types, detector driver) or is its test or documentation; nothing outside the regex layer changed, so no further component needs naming; the NER layer, case-preserving input and post-filter are N's",
+  "tree": "59b92ab9bf5cdaa33303626684fad1f91b8cc48f",
+  "unit_tests_on_export": {
+   "log_sha256": "47d2ba1d7f8ad6f7505221404393c90f469bd50d3aaa0fcdd62c5ccb48fe5f92",
+   "modules": [
+    "test_regex_identifier_rework",
+    "test_detector_quality",
+    "test_detector_contract",
+    "test_ner_postfilter",
+    "test_case_preserving_detectors",
+    "test_pipeline",
+    "test_gitleaks_rules",
+    "test_ner_pipeline_cache"
+   ],
+   "ran": 117,
+   "result": "OK"
+  }
+ },
+ "K_all": {
+  "branch": "research/v3-candidate (scratch)",
+  "commit": "4e6957833de8a2694d59271acedffe4059930252",
+  "construction": "b7e716c3 merged (no-ff, conflict-free) with research/w3-candidate 058942e02866b621a2597df5341eb9c19b75561e (tree 50e0a8a63bd0302095f7da50b82d70f846534bf5; N + robustness commit b3d11a50 containing b1975bc2 + NER-model option 3bd22f21/ba660071)",
+  "diff_to_w3_candidate": "extension/ and shared/ differ from 058942e0 in exactly the eight K regex files",
+  "equivalence_all_flags_off_vs_K": {
+   "identical": true,
+   "k_dev_union_tp_fp": [
+    205,
+    12
+   ],
+   "k_numbers_match_development_record": true,
+   "k_openai_union_tp_fp": [
+    460,
+    37
+   ],
+   "k_personalized_union_tp_fp": [
+    1000,
+    0
+   ],
+   "report_sha256": "b6d215cca78819911d6a17160b8948bef48ee0503b4057d102510112ef663907",
+   "row_file_bytes_identical": true,
+   "row_mismatches": 0,
+   "sets": {
+    "dev": 502,
+    "dev_spans": 502,
+    "openai": 1000,
+    "personalized": 2000
+   },
+   "span_mismatches": 0
+  },
+  "flags_on": [
+   "PRIVOKE_STRIP_FORMAT_CHARS=1",
+   "PRIVOKE_CANONICALISE_DIGITS=1",
+   "PRIVOKE_CANONICALISE_EMAIL_WORDS=1",
+   "PRIVOKE_NER_CASELESS_GATE=1"
+  ],
+  "tree": "0cc4e67aff30357213912ac5df9a7d8a061fc1bd",
+  "unit_tests_on_export": {
+   "log_sha256": "4632ad6e649c080de880a0ee0b666de5a95a3b54aa616e2ff2093ef59508e0b8",
+   "modules": [
+    "test_regex_identifier_rework",
+    "test_detector_quality",
+    "test_detector_contract",
+    "test_ner_postfilter",
+    "test_case_preserving_detectors",
+    "test_pipeline",
+    "test_gitleaks_rules",
+    "test_ner_pipeline_cache",
+    "test_robustness_fixes",
+    "test_ner_model_option"
+   ],
+   "ran": 155,
+   "result": "OK"
+  }
+ },
+ "commands": {
+  "analyse": "evaluation/v3_run.sh analyse  (python evaluation/v3_analysis.py analyse --results-w3 W3 --results-v3 V3 --f4-gold ... --workers 4; then render)",
+  "equivalence_run_before_this_commit": "v3_scoring.py run --config K and --config KA0 with --sets dev dev_spans personalized openai; v3_scoring.py equiv --a K --b KA0",
+  "pool": "evaluation/v3_run.sh pool  (python evaluation/v3_analysis.py pool ...)",
+  "score": "TREES_ROOT=<scratchpad>/wave1/v3-score/trees evaluation/v3_run.sh score  (two configurations at a time: K and K+all on f4 f1 f3 f2, then O and N on f4; each: python evaluation/v3_scoring.py run --config CFG --trees-root TREES_ROOT --generated <main>/extension/client-runtime/generated --out <main>/evaluation/results/v3_scoring_20261025 --sets SETS --no-perturbed)"
+ },
+ "configurations": {
+  "K": {
+   "env": {},
+   "expected_flags": "case_preserving_detectors=True, ner_postfilter=True, other flag attributes absent (as N)",
+   "tree": "K"
+  },
+  "K+all": {
+   "env": {
+    "PRIVOKE_CANONICALISE_DIGITS": "1",
+    "PRIVOKE_CANONICALISE_EMAIL_WORDS": "1",
+    "PRIVOKE_NER_CASELESS_GATE": "1",
+    "PRIVOKE_STRIP_FORMAT_CHARS": "1"
+   },
+   "tree": "KA"
+  },
+  "KA0": {
+   "env": {},
+   "note": "equivalence check only",
+   "tree": "KA"
+  },
+  "N": {
+   "env": {},
+   "tree": "N"
+  },
+  "O": {
+   "env": {},
+   "tree": "O"
+  },
+  "layers": [
+   "regex",
+   "ner"
+  ],
+  "regex_first": false
+ },
+ "environment": {
+  "docker": "none",
+  "ner_model": "en_core_web_sm 3.7.1",
+  "network": "none",
+  "numpy": "1.26.4",
+  "presidio-analyzer": "2.2.363",
+  "python": "3.11.9 (.venv-v1-v3-pipeline)",
+  "spacy": "3.7.5",
+  "torch": "2.11.0+cpu",
+  "transformers": "4.57.6"
+ },
+ "export_digests_sha256_of_sorted_path_sha256_lines": {
+  "K": {
+   "digest": "4c7b0806af7d30443daabac4489a2a358a4d2b1b62052bb41c4db3b93376c2ce",
+   "export_of": "b7e716c354d1f772e638a54a7433b12371627912",
+   "files": 155
+  },
+  "KA": {
+   "digest": "8cabadac2d88f0a6c3fc1d81af3052bd9e8a3c5641704d9672512bc53d17ed3e",
+   "export_of": "4e6957833de8a2694d59271acedffe4059930252",
+   "files": 157
+  },
+  "N": {
+   "digest": "4e6505d7685256c86eb3241e8cc8da71cc8e5ac2adffadd83e7ef53c087c49a9",
+   "export_of": "e70e3a2e3910b9e4833188cec711d0edb6d99583",
+   "files": 153
+  },
+  "O": {
+   "digest": "39a48a242b4f661261156b64672dc6a1fc22a23813fd19229c7b4765c7118d79",
+   "export_of": "e6c177ff7504ff2109be739ae60b5b4708d9d7a0",
+   "files": 149
+  },
+  "definition": "sha256 over the sorted lines 'relative path TAB file sha256' (each line newline-terminated) of extension/client-runtime and shared/python of the git archive export, excluding __pycache__ and .pyc; the O and N digests reproduce the Wave 3 addendum values",
+  "trees_root": "scratchpad wave1/v3-score/trees (O and N copied unchanged from wave1/w3-score/trees)"
+ },
+ "freeze_record": "docs/research/fresh-sets-freeze-v3-20261025.md (+ .json); F4 file sha256 d4bed756790c7b000fc5e8b6028e3f962c8dbfabe3f607a7180224d55356589d",
+ "observations_before_this_addendum": "No detector, NER model or LLM has been run on any F4 row. The F4 file was opened by this agent only to read the key names and value types of its first row and that row's non-text fields (id, group_id, categories, source); no F4 text was read or printed. Harness and stand-in tests used development rows only.",
+ "output_dir": "D:/Git Repositories/Privoke-Research-Project/evaluation/results/v3_scoring_20261025/ (gitignored; ids, flags and spans only)",
+ "record": "v3 freeze addendum (written and committed before any F4 row is scored)",
+ "registration": "docs/research/preregistration-detector-v3-20261025.md",
+ "registration_sha256_lf_blob": "afcd2bd96b3e6cdc5b40f56f7f50409fd28f968f15a9933164eca0e9b487d186",
+ "reused_wave3_per_row_outputs": {
+  "directory": "D:/Git Repositories/Privoke-Research-Project/evaluation/results/w3_scoring_20261024/ (gitignored)",
+  "note": "the rows hashes equal the rows_sha256 values stored in the Wave 3 run_meta.json files; O and N are scored on F4 fresh (they have never seen F4)",
+  "sha256_on_disk": {
+   "N/f1.rows.jsonl": "fbc24d2fe9aacbf6361f2cf3d77fd21b486a3468dc8e6c8ed1101d9c6c0bb7fa",
+   "N/f1.spans.jsonl": "09790a07ea63d530ee153bb453c48ca81888296b119e233ce8bab842d792cccb",
+   "N/f2.rows.jsonl": "36124d314c787c857c54c3c8e1ba72086b3c44419c5c4af11f45ade11ed77d42",
+   "N/f3.rows.jsonl": "53ddcd168f183156516fb3b3ac3ff8638cc6404d5d0cca2c4fef1877781c4f70",
+   "N/f3.spans.jsonl": "f48a7b81b1d12fe852e35defaf2acf6f29eda022949444140c110b7f847f4ce1",
+   "N/run_meta.json": "b7a7db7af27970cc047334e86e2742bf1b92de6d55694a3ce6b6649b26f4ec5d",
+   "O/f1.rows.jsonl": "a65c0fdc3fec679c8acf23b49b27c81b5df494dff8b344db749e42f8f0828124",
+   "O/f1.spans.jsonl": "fff5e22b5d74a3664d66389c4e7e274ac9ded46cd6a94b7df5e70d3f48270b4e",
+   "O/f2.rows.jsonl": "38c4a827d16ce0c722fe4985fc6d294cfba2e081a9ea8fac7671d84f2c091e43",
+   "O/f3.rows.jsonl": "2f5a4b02d85d41770de08e18d59522c6324523622695bc60d4f1ab389fb1e285",
+   "O/f3.spans.jsonl": "9dc59da96fe63071c94d6ebbbf783ffb9408fce57e7233917b29a6ea17f0951d",
+   "O/run_meta.json": "aea665fff37b3d4e085366a1c59223294f9ad6440f49b10789f2155efcccd258"
+  }
+ },
+ "root_decision_g2": "G2 (union specificity of K versus N, margin 2.0 pt) confirmed as written by root (manager) on 25 Oct 2026 under the owner's instruction to proceed without intervention",
+ "scope": "detector layers only (regex, NER, regex OR NER); not LLM-only, not semantic, not full-product",
+ "scripts_commit": "f1182a988a741949b5fd55e53edf61cb496bcd66 on research/wt-v3-score (feature commit b562f929 plus a one-line renderer fix; both before this addendum and before any F4 row was scored)",
+ "scripts_sha256_lf_blob": {
+  "docs/research/label-family-mapping-20261024.json": "19cc6103d404484be3a3ef0a851edfa0ae1254859557ffc87921673b9b05e5f6",
+  "evaluation/detector_stats.py": "c9b79a43e766021f2e1d083eb9db64fcc86d4db78b35f3ef27ad9b607127f60e",
+  "evaluation/evaluate_installed_detectors.py": "35d74729c6c57701e05664a3d91d83cc5eef18632e86ada9a61199632cffd297",
+  "evaluation/robustness_probe.py": "7dabcaa05050995bb35df2a569e2431e61ad343e805e7acb3a764d41ac63607f",
+  "evaluation/span_scoring.py": "7ab4995edb7bdefc9a84cd212211f6a539df191e716541840ec3f9def9942851",
+  "evaluation/tests/test_v3_scoring.py": "1387b9fb42b0d8a687ec3038165f6e0c23de996418f95a5882a330c6a195261e",
+  "evaluation/v3_analysis.py": "91ae67252e9ee8f09cad563211698431208d8871d94da422cc7dbedce93f833f",
+  "evaluation/v3_run.sh": "0ab4a02c48f33639f1a5513f53a84ee566ffcaee2ebf18374810586af6080a74",
+  "evaluation/v3_scoring.py": "39e4ecb4d8950e8953ebf3ca848c4b2d8d41a58cfa468adadd9fdf06102e9521",
+  "evaluation/w3_analysis.py": "1c12b4b8a413f538e65e676e88ca831c0c15891e5ea7c692d32e2b835fc03063",
+  "evaluation/w3_run.sh": "a1caa8b86197aa50f4f606ae8813e6e4b6b1c6ca702509d04ef3fe68977099b5",
+  "evaluation/w3_scoring.py": "12b1c596ce24cb4c5bd47e6ab009b20c6d46def847490dde69834bb13558e59a"
+ },
+ "seeds": {
+  "bootstrap_and_standardised": 20261024,
+  "f4_draw": 11102026,
+  "replicates": 10000
+ },
+ "wave3_scripts_unchanged": "the hashes of detector_stats, span_scoring, evaluate_installed_detectors, robustness_probe, w3_scoring, w3_analysis, w3_run and the label mapping are identical to docs/research/fresh-sets-freeze-addendum-20261024.json"
+}
