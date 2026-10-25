@@ -662,8 +662,7 @@ def render(args) -> None:
     H = res["hypotheses"]
     L: list[str] = []
     add = L.append
-    add("Notation: a pair `A>B` is B minus A (reference A, candidate B); deltas in percentage points; intervals are 95 % grouped paired percentile bootstrap.
-")
+    add("Notation: a pair `A>B` is B minus A (reference A, candidate B); deltas in percentage points; intervals are 95 % grouped paired percentile bootstrap.\n")
     head = "| Cell | n | rate base -> cand (%) | delta pt [95 % CI] | gained / lost | exact McNemar p |\n|---|---|---|---|---|---|"
     add("### Registered primary and guards\n")
     add("| Hypothesis | n | rate ref -> K (%) | delta pt [95 % CI] | gained / lost | margin (pt) | Wald lower (row / cluster) | verdict |\n|---|---|---|---|---|---|---|---|")
