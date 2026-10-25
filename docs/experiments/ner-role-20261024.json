@@ -1,0 +1,2985 @@
+{
+ "scope": "detector-layer (regex+NER); not LLM-only",
+ "old_commit": "not-a-git-checkout",
+ "new_commit": "55cbd1e57f0bbc111060c64a7a368069f49e1061",
+ "old_flags": {
+  "case_preserving_detectors": "absent",
+  "ner_postfilter": "absent"
+ },
+ "new_flags": {
+  "case_preserving_detectors": true,
+  "ner_postfilter": true
+ },
+ "dataset_sha256": {
+  "dev": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095",
+  "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+  "openai": "8e8e611b9d40f7d554726d577449585faefb9aec97f5dd4ffb051af1a6da2c3b"
+ },
+ "design_splits": [
+  "tune",
+  "personalized"
+ ],
+ "old_parity": {
+  "rows": 3502,
+  "rows_where_old_shipped_ner_differs_from_raw_lowercase": 0
+ },
+ "configs": {
+  "OLD": {
+   "chosen_P2_variant": "person_any_or_relation_or_geo",
+   "variant_design_scores": {
+    "person_multi_token": {
+     "design_mean_balanced_accuracy": 0.9165898818987054,
+     "design_FP": 27
+    },
+    "person_cue": {
+     "design_mean_balanced_accuracy": 0.9030763683851919,
+     "design_FP": 27
+    },
+    "person_cue_or_recurring": {
+     "design_mean_balanced_accuracy": 0.9030763683851919,
+     "design_FP": 27
+    },
+    "person_any": {
+     "design_mean_balanced_accuracy": 0.9182790710878945,
+     "design_FP": 27
+    },
+    "person_any_or_relation": {
+     "design_mean_balanced_accuracy": 0.9182790710878945,
+     "design_FP": 27
+    },
+    "person_any_or_relation_or_geo": {
+     "design_mean_balanced_accuracy": 0.9216574494662729,
+     "design_FP": 27
+    }
+   },
+   "policies": {
+    "tune": {
+     "n": 267,
+     "positives": 148,
+     "policies": {
+      "P0": {
+       "TP": 96,
+       "TN": 115,
+       "FP": 4,
+       "FN": 52,
+       "recall": 0.6486486486486487,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8075176016352488
+      },
+      "P1": {
+       "TP": 113,
+       "TN": 113,
+       "FP": 6,
+       "FN": 35,
+       "recall": 0.7635135135135135,
+       "specificity": 0.9495798319327731,
+       "balanced_accuracy": 0.8565466727231432
+      },
+      "P2:person_multi_token": {
+       "TP": 107,
+       "TN": 115,
+       "FP": 4,
+       "FN": 41,
+       "recall": 0.722972972972973,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8446797637974108
+      },
+      "P2:person_cue": {
+       "TP": 99,
+       "TN": 115,
+       "FP": 4,
+       "FN": 49,
+       "recall": 0.668918918918919,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8176527367703839
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 99,
+       "TN": 115,
+       "FP": 4,
+       "FN": 49,
+       "recall": 0.668918918918919,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8176527367703839
+      },
+      "P2:person_any": {
+       "TP": 108,
+       "TN": 115,
+       "FP": 4,
+       "FN": 40,
+       "recall": 0.7297297297297297,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8480581421757892
+      },
+      "P2:person_any_or_relation": {
+       "TP": 108,
+       "TN": 115,
+       "FP": 4,
+       "FN": 40,
+       "recall": 0.7297297297297297,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8480581421757892
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 110,
+       "TN": 115,
+       "FP": 4,
+       "FN": 38,
+       "recall": 0.7432432432432432,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8548148989325459
+      },
+      "P3": {
+       "TP": 96,
+       "TN": 115,
+       "FP": 4,
+       "FN": 52,
+       "recall": 0.6486486486486487,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8075176016352488
+      },
+      "P4": {
+       "TP": 96,
+       "TN": 115,
+       "FP": 4,
+       "FN": 52,
+       "recall": 0.6486486486486487,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8075176016352488
+      },
+      "P2": {
+       "TP": 110,
+       "TN": 115,
+       "FP": 4,
+       "FN": 38,
+       "recall": 0.7432432432432432,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8548148989325459
+      }
+     }
+    },
+    "personalized": {
+     "n": 2000,
+     "positives": 1000,
+     "policies": {
+      "P0": {
+       "TP": 1000,
+       "TN": 977,
+       "FP": 23,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 0.977,
+       "balanced_accuracy": 0.9884999999999999
+      },
+      "P1": {
+       "TP": 1000,
+       "TN": 977,
+       "FP": 23,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 0.977,
+       "balanced_accuracy": 0.9884999999999999
+      },
+      "P2:person_multi_token": {
+       "TP": 1000,
+       "TN": 977,
+       "FP": 23,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 0.977,
+       "balanced_accuracy": 0.9884999999999999
+      },
+      "P2:person_cue": {
+       "TP": 1000,
+       "TN": 977,
+       "FP": 23,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 0.977,
+       "balanced_accuracy": 0.9884999999999999
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 1000,
+       "TN": 977,
+       "FP": 23,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 0.977,
+       "balanced_accuracy": 0.9884999999999999
+      },
+      "P2:person_any": {
+       "TP": 1000,
+       "TN": 977,
+       "FP": 23,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 0.977,
+       "balanced_accuracy": 0.9884999999999999
+      },
+      "P2:person_any_or_relation": {
+       "TP": 1000,
+       "TN": 977,
+       "FP": 23,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 0.977,
+       "balanced_accuracy": 0.9884999999999999
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 1000,
+       "TN": 977,
+       "FP": 23,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 0.977,
+       "balanced_accuracy": 0.9884999999999999
+      },
+      "P3": {
+       "TP": 1000,
+       "TN": 977,
+       "FP": 23,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 0.977,
+       "balanced_accuracy": 0.9884999999999999
+      },
+      "P4": {
+       "TP": 1000,
+       "TN": 977,
+       "FP": 23,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 0.977,
+       "balanced_accuracy": 0.9884999999999999
+      },
+      "P2": {
+       "TP": 1000,
+       "TN": 977,
+       "FP": 23,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 0.977,
+       "balanced_accuracy": 0.9884999999999999
+      }
+     }
+    },
+    "check": {
+     "n": 235,
+     "positives": 116,
+     "policies": {
+      "P0": {
+       "TP": 76,
+       "TN": 116,
+       "FP": 3,
+       "FN": 40,
+       "recall": 0.6551724137931034,
+       "specificity": 0.9747899159663865,
+       "balanced_accuracy": 0.8149811648797449
+      },
+      "P1": {
+       "TP": 80,
+       "TN": 112,
+       "FP": 7,
+       "FN": 36,
+       "recall": 0.6896551724137931,
+       "specificity": 0.9411764705882353,
+       "balanced_accuracy": 0.8154158215010142
+      },
+      "P2:person_multi_token": {
+       "TP": 79,
+       "TN": 116,
+       "FP": 3,
+       "FN": 37,
+       "recall": 0.6810344827586207,
+       "specificity": 0.9747899159663865,
+       "balanced_accuracy": 0.8279121993625036
+      },
+      "P2:person_cue": {
+       "TP": 76,
+       "TN": 116,
+       "FP": 3,
+       "FN": 40,
+       "recall": 0.6551724137931034,
+       "specificity": 0.9747899159663865,
+       "balanced_accuracy": 0.8149811648797449
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 76,
+       "TN": 116,
+       "FP": 3,
+       "FN": 40,
+       "recall": 0.6551724137931034,
+       "specificity": 0.9747899159663865,
+       "balanced_accuracy": 0.8149811648797449
+      },
+      "P2:person_any": {
+       "TP": 79,
+       "TN": 116,
+       "FP": 3,
+       "FN": 37,
+       "recall": 0.6810344827586207,
+       "specificity": 0.9747899159663865,
+       "balanced_accuracy": 0.8279121993625036
+      },
+      "P2:person_any_or_relation": {
+       "TP": 79,
+       "TN": 116,
+       "FP": 3,
+       "FN": 37,
+       "recall": 0.6810344827586207,
+       "specificity": 0.9747899159663865,
+       "balanced_accuracy": 0.8279121993625036
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 79,
+       "TN": 116,
+       "FP": 3,
+       "FN": 37,
+       "recall": 0.6810344827586207,
+       "specificity": 0.9747899159663865,
+       "balanced_accuracy": 0.8279121993625036
+      },
+      "P3": {
+       "TP": 76,
+       "TN": 116,
+       "FP": 3,
+       "FN": 40,
+       "recall": 0.6551724137931034,
+       "specificity": 0.9747899159663865,
+       "balanced_accuracy": 0.8149811648797449
+      },
+      "P4": {
+       "TP": 76,
+       "TN": 116,
+       "FP": 3,
+       "FN": 40,
+       "recall": 0.6551724137931034,
+       "specificity": 0.9747899159663865,
+       "balanced_accuracy": 0.8149811648797449
+      },
+      "P2": {
+       "TP": 79,
+       "TN": 116,
+       "FP": 3,
+       "FN": 37,
+       "recall": 0.6810344827586207,
+       "specificity": 0.9747899159663865,
+       "balanced_accuracy": 0.8279121993625036
+      }
+     }
+    },
+    "openai": {
+     "n": 1000,
+     "positives": 500,
+     "policies": {
+      "P0": {
+       "TP": 460,
+       "TN": 346,
+       "FP": 154,
+       "FN": 40,
+       "recall": 0.92,
+       "specificity": 0.692,
+       "balanced_accuracy": 0.806
+      },
+      "P1": {
+       "TP": 471,
+       "TN": 343,
+       "FP": 157,
+       "FN": 29,
+       "recall": 0.942,
+       "specificity": 0.686,
+       "balanced_accuracy": 0.8140000000000001
+      },
+      "P2:person_multi_token": {
+       "TP": 464,
+       "TN": 346,
+       "FP": 154,
+       "FN": 36,
+       "recall": 0.928,
+       "specificity": 0.692,
+       "balanced_accuracy": 0.81
+      },
+      "P2:person_cue": {
+       "TP": 463,
+       "TN": 346,
+       "FP": 154,
+       "FN": 37,
+       "recall": 0.926,
+       "specificity": 0.692,
+       "balanced_accuracy": 0.8089999999999999
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 463,
+       "TN": 345,
+       "FP": 155,
+       "FN": 37,
+       "recall": 0.926,
+       "specificity": 0.69,
+       "balanced_accuracy": 0.808
+      },
+      "P2:person_any": {
+       "TP": 464,
+       "TN": 345,
+       "FP": 155,
+       "FN": 36,
+       "recall": 0.928,
+       "specificity": 0.69,
+       "balanced_accuracy": 0.8089999999999999
+      },
+      "P2:person_any_or_relation": {
+       "TP": 466,
+       "TN": 345,
+       "FP": 155,
+       "FN": 34,
+       "recall": 0.932,
+       "specificity": 0.69,
+       "balanced_accuracy": 0.8109999999999999
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 470,
+       "TN": 345,
+       "FP": 155,
+       "FN": 30,
+       "recall": 0.94,
+       "specificity": 0.69,
+       "balanced_accuracy": 0.815
+      },
+      "P3": {
+       "TP": 460,
+       "TN": 346,
+       "FP": 154,
+       "FN": 40,
+       "recall": 0.92,
+       "specificity": 0.692,
+       "balanced_accuracy": 0.806
+      },
+      "P4": {
+       "TP": 460,
+       "TN": 346,
+       "FP": 154,
+       "FN": 40,
+       "recall": 0.92,
+       "specificity": 0.692,
+       "balanced_accuracy": 0.806
+      },
+      "P2": {
+       "TP": 470,
+       "TN": 345,
+       "FP": 155,
+       "FN": 30,
+       "recall": 0.94,
+       "specificity": 0.69,
+       "balanced_accuracy": 0.815
+      }
+     }
+    }
+   },
+   "P2_vs_P0": {
+    "tune": {
+     "+TP": 14
+    },
+    "personalized": {},
+    "check": {
+     "+TP": 3
+    },
+    "openai": {
+     "+TP": 10,
+     "+FP": 1
+    }
+   },
+   "P1_vs_P0": {
+    "tune": {
+     "+TP": 17,
+     "+FP": 2
+    },
+    "personalized": {},
+    "check": {
+     "+TP": 4,
+     "+FP": 4
+    },
+    "openai": {
+     "+TP": 11,
+     "+FP": 3
+    }
+   },
+   "P2_vs_P1": {
+    "tune": {
+     "-TP": 3,
+     "-FP": 2
+    },
+    "personalized": {},
+    "check": {
+     "-TP": 1,
+     "-FP": 4
+    },
+    "openai": {
+     "-FP": 2,
+     "-TP": 1
+    }
+   },
+   "amplification": {
+    "tune": {
+     "regex_positive_rows": 100,
+     "regex_positive_rows_expected_pii": 96,
+     "P4_extra_spans_pii": 11,
+     "P3_gate_rows": 81,
+     "name_expected_rows": 21,
+     "name_expected_and_ner_entity": 5,
+     "place_not_expected_rows": 85,
+     "place_not_expected_but_ner_entity": 1,
+     "P3_extra_spans_pii": 9,
+     "name_not_expected_rows": 79,
+     "name_not_expected_but_ner_entity": 0,
+     "P4_rows_with_extra_span_pii": 9,
+     "place_expected_rows": 15,
+     "place_expected_and_ner_entity": 3,
+     "regex_positive_rows_no_pii": 4,
+     "P4_extra_spans_nopii": 0,
+     "P3_extra_spans_nopii": 0,
+     "P4_extra_spans_by_label": {
+      "PERSON": 5,
+      "ORG": 1,
+      "GPE": 5
+     }
+    },
+    "personalized": {
+     "regex_positive_rows": 1023,
+     "regex_positive_rows_expected_pii": 1000,
+     "P4_rows_with_extra_span_pii": 777,
+     "P4_extra_spans_pii": 1024,
+     "P3_gate_rows": 1023,
+     "P3_extra_spans_pii": 1024,
+     "name_expected_rows": 777,
+     "name_expected_and_ner_entity": 568,
+     "place_expected_rows": 241,
+     "place_expected_and_ner_entity": 183,
+     "place_not_expected_rows": 782,
+     "place_not_expected_but_ner_entity": 35,
+     "name_not_expected_rows": 246,
+     "name_not_expected_but_ner_entity": 43,
+     "regex_positive_rows_no_pii": 23,
+     "P4_extra_spans_nopii": 0,
+     "P3_extra_spans_nopii": 0,
+     "P4_extra_spans_by_label": {
+      "GPE": 220,
+      "PERSON": 647,
+      "ORG": 156,
+      "LOC": 1
+     }
+    },
+    "check": {
+     "regex_positive_rows": 79,
+     "regex_positive_rows_expected_pii": 76,
+     "P4_rows_with_extra_span_pii": 8,
+     "P4_extra_spans_pii": 10,
+     "P3_gate_rows": 66,
+     "P3_extra_spans_pii": 9,
+     "name_expected_rows": 13,
+     "name_expected_and_ner_entity": 6,
+     "place_expected_rows": 6,
+     "place_expected_and_ner_entity": 0,
+     "name_not_expected_rows": 66,
+     "name_not_expected_but_ner_entity": 1,
+     "place_not_expected_rows": 73,
+     "place_not_expected_but_ner_entity": 1,
+     "regex_positive_rows_no_pii": 3,
+     "P4_extra_spans_nopii": 0,
+     "P3_extra_spans_nopii": 0,
+     "P4_extra_spans_by_label": {
+      "PERSON": 8,
+      "ORG": 1,
+      "GPE": 1
+     }
+    },
+    "openai": {
+     "regex_positive_rows": 614,
+     "regex_positive_rows_expected_pii": 460,
+     "P4_extra_spans_pii": 94,
+     "P3_gate_rows": 543,
+     "P3_extra_spans_pii": 94,
+     "name_not_expected_rows": 614,
+     "name_not_expected_but_ner_entity": 45,
+     "place_expected_rows": 76,
+     "place_expected_and_ner_entity": 18,
+     "regex_positive_rows_no_pii": 154,
+     "P4_extra_spans_nopii": 2,
+     "P3_extra_spans_nopii": 2,
+     "place_not_expected_rows": 538,
+     "place_not_expected_but_ner_entity": 17,
+     "P4_rows_with_extra_span_pii": 81,
+     "P4_rows_with_extra_span_nopii": 2,
+     "P4_extra_spans_by_label": {
+      "PERSON": 46,
+      "ORG": 9,
+      "LOC": 2,
+      "GPE": 39
+     }
+    }
+   }
+  },
+  "NEW": {
+   "chosen_P2_variant": "person_any_or_relation_or_geo",
+   "variant_design_scores": {
+    "person_multi_token": {
+     "design_mean_balanced_accuracy": 0.9232057687940041,
+     "design_FP": 6
+    },
+    "person_cue": {
+     "design_mean_balanced_accuracy": 0.9130280490574608,
+     "design_FP": 2
+    },
+    "person_cue_or_recurring": {
+     "design_mean_balanced_accuracy": 0.9130280490574608,
+     "design_FP": 2
+    },
+    "person_any": {
+     "design_mean_balanced_accuracy": 0.9265841471723825,
+     "design_FP": 6
+    },
+    "person_any_or_relation": {
+     "design_mean_balanced_accuracy": 0.9282733363615716,
+     "design_FP": 6
+    },
+    "person_any_or_relation_or_geo": {
+     "design_mean_balanced_accuracy": 0.9299625255507609,
+     "design_FP": 6
+    }
+   },
+   "policies": {
+    "tune": {
+     "n": 267,
+     "positives": 148,
+     "policies": {
+      "P0": {
+       "TP": 95,
+       "TN": 117,
+       "FP": 2,
+       "FN": 53,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.812542584601408
+      },
+      "P1": {
+       "TP": 118,
+       "TN": 113,
+       "FP": 6,
+       "FN": 30,
+       "recall": 0.7972972972972973,
+       "specificity": 0.9495798319327731,
+       "balanced_accuracy": 0.8734385646150351
+      },
+      "P2:person_multi_token": {
+       "TP": 110,
+       "TN": 113,
+       "FP": 6,
+       "FN": 38,
+       "recall": 0.7432432432432432,
+       "specificity": 0.9495798319327731,
+       "balanced_accuracy": 0.8464115375880081
+      },
+      "P2:person_cue": {
+       "TP": 99,
+       "TN": 117,
+       "FP": 2,
+       "FN": 49,
+       "recall": 0.668918918918919,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8260560981149216
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 99,
+       "TN": 117,
+       "FP": 2,
+       "FN": 49,
+       "recall": 0.668918918918919,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8260560981149216
+      },
+      "P2:person_any": {
+       "TP": 112,
+       "TN": 113,
+       "FP": 6,
+       "FN": 36,
+       "recall": 0.7567567567567568,
+       "specificity": 0.9495798319327731,
+       "balanced_accuracy": 0.8531682943447649
+      },
+      "P2:person_any_or_relation": {
+       "TP": 113,
+       "TN": 113,
+       "FP": 6,
+       "FN": 35,
+       "recall": 0.7635135135135135,
+       "specificity": 0.9495798319327731,
+       "balanced_accuracy": 0.8565466727231432
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 114,
+       "TN": 113,
+       "FP": 6,
+       "FN": 34,
+       "recall": 0.7702702702702703,
+       "specificity": 0.9495798319327731,
+       "balanced_accuracy": 0.8599250511015217
+      },
+      "P3": {
+       "TP": 95,
+       "TN": 117,
+       "FP": 2,
+       "FN": 53,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.812542584601408
+      },
+      "P4": {
+       "TP": 95,
+       "TN": 117,
+       "FP": 2,
+       "FN": 53,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.812542584601408
+      },
+      "P2": {
+       "TP": 114,
+       "TN": 113,
+       "FP": 6,
+       "FN": 34,
+       "recall": 0.7702702702702703,
+       "specificity": 0.9495798319327731,
+       "balanced_accuracy": 0.8599250511015217
+      }
+     }
+    },
+    "personalized": {
+     "n": 2000,
+     "positives": 1000,
+     "policies": {
+      "P0": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P1": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_multi_token": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_cue": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_any": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_any_or_relation": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P3": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P4": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      }
+     }
+    },
+    "check": {
+     "n": 235,
+     "positives": 116,
+     "policies": {
+      "P0": {
+       "TP": 74,
+       "TN": 117,
+       "FP": 2,
+       "FN": 42,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8105621558968414
+      },
+      "P1": {
+       "TP": 83,
+       "TN": 113,
+       "FP": 6,
+       "FN": 33,
+       "recall": 0.7155172413793104,
+       "specificity": 0.9495798319327731,
+       "balanced_accuracy": 0.8325485366560417
+      },
+      "P2:person_multi_token": {
+       "TP": 81,
+       "TN": 114,
+       "FP": 5,
+       "FN": 35,
+       "recall": 0.6982758620689655,
+       "specificity": 0.957983193277311,
+       "balanced_accuracy": 0.8281295276731382
+      },
+      "P2:person_cue": {
+       "TP": 74,
+       "TN": 117,
+       "FP": 2,
+       "FN": 42,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8105621558968414
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 75,
+       "TN": 117,
+       "FP": 2,
+       "FN": 41,
+       "recall": 0.646551724137931,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8148725007244277
+      },
+      "P2:person_any": {
+       "TP": 81,
+       "TN": 114,
+       "FP": 5,
+       "FN": 35,
+       "recall": 0.6982758620689655,
+       "specificity": 0.957983193277311,
+       "balanced_accuracy": 0.8281295276731382
+      },
+      "P2:person_any_or_relation": {
+       "TP": 81,
+       "TN": 114,
+       "FP": 5,
+       "FN": 35,
+       "recall": 0.6982758620689655,
+       "specificity": 0.957983193277311,
+       "balanced_accuracy": 0.8281295276731382
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 81,
+       "TN": 114,
+       "FP": 5,
+       "FN": 35,
+       "recall": 0.6982758620689655,
+       "specificity": 0.957983193277311,
+       "balanced_accuracy": 0.8281295276731382
+      },
+      "P3": {
+       "TP": 74,
+       "TN": 117,
+       "FP": 2,
+       "FN": 42,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8105621558968414
+      },
+      "P4": {
+       "TP": 74,
+       "TN": 117,
+       "FP": 2,
+       "FN": 42,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8105621558968414
+      },
+      "P2": {
+       "TP": 81,
+       "TN": 114,
+       "FP": 5,
+       "FN": 35,
+       "recall": 0.6982758620689655,
+       "specificity": 0.957983193277311,
+       "balanced_accuracy": 0.8281295276731382
+      }
+     }
+    },
+    "openai": {
+     "n": 1000,
+     "positives": 500,
+     "policies": {
+      "P0": {
+       "TP": 448,
+       "TN": 466,
+       "FP": 34,
+       "FN": 52,
+       "recall": 0.896,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.914
+      },
+      "P1": {
+       "TP": 459,
+       "TN": 463,
+       "FP": 37,
+       "FN": 41,
+       "recall": 0.918,
+       "specificity": 0.926,
+       "balanced_accuracy": 0.922
+      },
+      "P2:person_multi_token": {
+       "TP": 456,
+       "TN": 466,
+       "FP": 34,
+       "FN": 44,
+       "recall": 0.912,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.922
+      },
+      "P2:person_cue": {
+       "TP": 453,
+       "TN": 466,
+       "FP": 34,
+       "FN": 47,
+       "recall": 0.906,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.919
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 453,
+       "TN": 466,
+       "FP": 34,
+       "FN": 47,
+       "recall": 0.906,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.919
+      },
+      "P2:person_any": {
+       "TP": 456,
+       "TN": 466,
+       "FP": 34,
+       "FN": 44,
+       "recall": 0.912,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.922
+      },
+      "P2:person_any_or_relation": {
+       "TP": 459,
+       "TN": 466,
+       "FP": 34,
+       "FN": 41,
+       "recall": 0.918,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.925
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 459,
+       "TN": 466,
+       "FP": 34,
+       "FN": 41,
+       "recall": 0.918,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.925
+      },
+      "P3": {
+       "TP": 448,
+       "TN": 466,
+       "FP": 34,
+       "FN": 52,
+       "recall": 0.896,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.914
+      },
+      "P4": {
+       "TP": 448,
+       "TN": 466,
+       "FP": 34,
+       "FN": 52,
+       "recall": 0.896,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.914
+      },
+      "P2": {
+       "TP": 459,
+       "TN": 466,
+       "FP": 34,
+       "FN": 41,
+       "recall": 0.918,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.925
+      }
+     }
+    }
+   },
+   "P2_vs_P0": {
+    "tune": {
+     "+TP": 19,
+     "+FP": 4
+    },
+    "personalized": {},
+    "check": {
+     "+TP": 7,
+     "+FP": 3
+    },
+    "openai": {
+     "+TP": 11
+    }
+   },
+   "P1_vs_P0": {
+    "tune": {
+     "+TP": 23,
+     "+FP": 4
+    },
+    "personalized": {},
+    "check": {
+     "+TP": 9,
+     "+FP": 4
+    },
+    "openai": {
+     "+TP": 11,
+     "+FP": 3
+    }
+   },
+   "P2_vs_P1": {
+    "tune": {
+     "-TP": 4
+    },
+    "personalized": {},
+    "check": {
+     "-TP": 2,
+     "-FP": 1
+    },
+    "openai": {
+     "-FP": 3
+    }
+   },
+   "amplification": {
+    "tune": {
+     "regex_positive_rows": 97,
+     "regex_positive_rows_expected_pii": 95,
+     "P4_extra_spans_pii": 15,
+     "P3_gate_rows": 79,
+     "name_expected_rows": 21,
+     "name_expected_and_ner_entity": 9,
+     "place_not_expected_rows": 82,
+     "place_not_expected_but_ner_entity": 0,
+     "P3_extra_spans_pii": 12,
+     "name_not_expected_rows": 76,
+     "name_not_expected_but_ner_entity": 3,
+     "P4_rows_with_extra_span_pii": 12,
+     "place_expected_rows": 15,
+     "place_expected_and_ner_entity": 2,
+     "regex_positive_rows_no_pii": 2,
+     "P4_extra_spans_nopii": 0,
+     "P3_extra_spans_nopii": 0,
+     "P4_extra_spans_by_label": {
+      "PERSON": 12,
+      "GPE": 1,
+      "ORG": 1,
+      "LOC": 1
+     }
+    },
+    "personalized": {
+     "regex_positive_rows": 1000,
+     "regex_positive_rows_expected_pii": 1000,
+     "P4_rows_with_extra_span_pii": 692,
+     "P4_extra_spans_pii": 1121,
+     "P3_gate_rows": 1000,
+     "P3_extra_spans_pii": 1121,
+     "name_expected_rows": 777,
+     "name_expected_and_ner_entity": 688,
+     "place_expected_rows": 241,
+     "place_expected_and_ner_entity": 223,
+     "place_not_expected_rows": 759,
+     "place_not_expected_but_ner_entity": 1,
+     "name_not_expected_rows": 223,
+     "name_not_expected_but_ner_entity": 0,
+     "P4_extra_spans_by_label": {
+      "PERSON": 688,
+      "GPE": 223,
+      "ORG": 209,
+      "FAC": 1
+     }
+    },
+    "check": {
+     "regex_positive_rows": 76,
+     "regex_positive_rows_expected_pii": 74,
+     "P4_rows_with_extra_span_pii": 14,
+     "P4_extra_spans_pii": 18,
+     "P3_gate_rows": 62,
+     "P3_extra_spans_pii": 13,
+     "name_expected_rows": 12,
+     "name_expected_and_ner_entity": 11,
+     "place_expected_rows": 5,
+     "place_expected_and_ner_entity": 1,
+     "name_not_expected_rows": 64,
+     "name_not_expected_but_ner_entity": 2,
+     "place_not_expected_rows": 71,
+     "place_not_expected_but_ner_entity": 0,
+     "regex_positive_rows_no_pii": 2,
+     "P4_extra_spans_nopii": 0,
+     "P3_extra_spans_nopii": 0,
+     "P4_extra_spans_by_label": {
+      "PERSON": 16,
+      "LOC": 1,
+      "ORG": 1
+     }
+    },
+    "openai": {
+     "regex_positive_rows": 482,
+     "regex_positive_rows_expected_pii": 448,
+     "P4_extra_spans_pii": 72,
+     "P3_gate_rows": 473,
+     "P3_extra_spans_pii": 72,
+     "name_not_expected_rows": 482,
+     "name_not_expected_but_ner_entity": 52,
+     "place_expected_rows": 76,
+     "place_expected_and_ner_entity": 4,
+     "place_not_expected_rows": 406,
+     "place_not_expected_but_ner_entity": 5,
+     "P4_rows_with_extra_span_pii": 60,
+     "regex_positive_rows_no_pii": 34,
+     "P4_extra_spans_nopii": 0,
+     "P3_extra_spans_nopii": 0,
+     "P4_extra_spans_by_label": {
+      "PERSON": 56,
+      "GPE": 9,
+      "ORG": 7
+     }
+    }
+   }
+  },
+  "NEW-raw": {
+   "chosen_P2_variant": "person_any_or_relation_or_geo",
+   "variant_design_scores": {
+    "person_multi_token": {
+     "design_mean_balanced_accuracy": 0.9232057687940041,
+     "design_FP": 6
+    },
+    "person_cue": {
+     "design_mean_balanced_accuracy": 0.9130280490574608,
+     "design_FP": 2
+    },
+    "person_cue_or_recurring": {
+     "design_mean_balanced_accuracy": 0.9130280490574608,
+     "design_FP": 2
+    },
+    "person_any": {
+     "design_mean_balanced_accuracy": 0.9265841471723825,
+     "design_FP": 6
+    },
+    "person_any_or_relation": {
+     "design_mean_balanced_accuracy": 0.9282733363615716,
+     "design_FP": 6
+    },
+    "person_any_or_relation_or_geo": {
+     "design_mean_balanced_accuracy": 0.9308284124460595,
+     "design_FP": 8
+    }
+   },
+   "policies": {
+    "tune": {
+     "n": 267,
+     "positives": 148,
+     "policies": {
+      "P0": {
+       "TP": 95,
+       "TN": 117,
+       "FP": 2,
+       "FN": 53,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.812542584601408
+      },
+      "P1": {
+       "TP": 127,
+       "TN": 98,
+       "FP": 21,
+       "FN": 21,
+       "recall": 0.8581081081081081,
+       "specificity": 0.8235294117647058,
+       "balanced_accuracy": 0.840818759936407
+      },
+      "P2:person_multi_token": {
+       "TP": 110,
+       "TN": 113,
+       "FP": 6,
+       "FN": 38,
+       "recall": 0.7432432432432432,
+       "specificity": 0.9495798319327731,
+       "balanced_accuracy": 0.8464115375880081
+      },
+      "P2:person_cue": {
+       "TP": 99,
+       "TN": 117,
+       "FP": 2,
+       "FN": 49,
+       "recall": 0.668918918918919,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8260560981149216
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 99,
+       "TN": 117,
+       "FP": 2,
+       "FN": 49,
+       "recall": 0.668918918918919,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8260560981149216
+      },
+      "P2:person_any": {
+       "TP": 112,
+       "TN": 113,
+       "FP": 6,
+       "FN": 36,
+       "recall": 0.7567567567567568,
+       "specificity": 0.9495798319327731,
+       "balanced_accuracy": 0.8531682943447649
+      },
+      "P2:person_any_or_relation": {
+       "TP": 113,
+       "TN": 113,
+       "FP": 6,
+       "FN": 35,
+       "recall": 0.7635135135135135,
+       "specificity": 0.9495798319327731,
+       "balanced_accuracy": 0.8565466727231432
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 117,
+       "TN": 111,
+       "FP": 8,
+       "FN": 31,
+       "recall": 0.7905405405405406,
+       "specificity": 0.9327731092436975,
+       "balanced_accuracy": 0.861656824892119
+      },
+      "P3": {
+       "TP": 95,
+       "TN": 117,
+       "FP": 2,
+       "FN": 53,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.812542584601408
+      },
+      "P4": {
+       "TP": 95,
+       "TN": 117,
+       "FP": 2,
+       "FN": 53,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.812542584601408
+      },
+      "P2": {
+       "TP": 117,
+       "TN": 111,
+       "FP": 8,
+       "FN": 31,
+       "recall": 0.7905405405405406,
+       "specificity": 0.9327731092436975,
+       "balanced_accuracy": 0.861656824892119
+      }
+     }
+    },
+    "personalized": {
+     "n": 2000,
+     "positives": 1000,
+     "policies": {
+      "P0": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P1": {
+       "TP": 1000,
+       "TN": 919,
+       "FP": 81,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 0.919,
+       "balanced_accuracy": 0.9595
+      },
+      "P2:person_multi_token": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_cue": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_any": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_any_or_relation": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P3": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P4": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      }
+     }
+    },
+    "check": {
+     "n": 235,
+     "positives": 116,
+     "policies": {
+      "P0": {
+       "TP": 74,
+       "TN": 117,
+       "FP": 2,
+       "FN": 42,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8105621558968414
+      },
+      "P1": {
+       "TP": 95,
+       "TN": 99,
+       "FP": 20,
+       "FN": 21,
+       "recall": 0.8189655172413793,
+       "specificity": 0.8319327731092437,
+       "balanced_accuracy": 0.8254491451753115
+      },
+      "P2:person_multi_token": {
+       "TP": 81,
+       "TN": 114,
+       "FP": 5,
+       "FN": 35,
+       "recall": 0.6982758620689655,
+       "specificity": 0.957983193277311,
+       "balanced_accuracy": 0.8281295276731382
+      },
+      "P2:person_cue": {
+       "TP": 74,
+       "TN": 117,
+       "FP": 2,
+       "FN": 42,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8105621558968414
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 75,
+       "TN": 117,
+       "FP": 2,
+       "FN": 41,
+       "recall": 0.646551724137931,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8148725007244277
+      },
+      "P2:person_any": {
+       "TP": 81,
+       "TN": 114,
+       "FP": 5,
+       "FN": 35,
+       "recall": 0.6982758620689655,
+       "specificity": 0.957983193277311,
+       "balanced_accuracy": 0.8281295276731382
+      },
+      "P2:person_any_or_relation": {
+       "TP": 81,
+       "TN": 114,
+       "FP": 5,
+       "FN": 35,
+       "recall": 0.6982758620689655,
+       "specificity": 0.957983193277311,
+       "balanced_accuracy": 0.8281295276731382
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 85,
+       "TN": 113,
+       "FP": 6,
+       "FN": 31,
+       "recall": 0.7327586206896551,
+       "specificity": 0.9495798319327731,
+       "balanced_accuracy": 0.841169226311214
+      },
+      "P3": {
+       "TP": 74,
+       "TN": 117,
+       "FP": 2,
+       "FN": 42,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8105621558968414
+      },
+      "P4": {
+       "TP": 74,
+       "TN": 117,
+       "FP": 2,
+       "FN": 42,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8105621558968414
+      },
+      "P2": {
+       "TP": 85,
+       "TN": 113,
+       "FP": 6,
+       "FN": 31,
+       "recall": 0.7327586206896551,
+       "specificity": 0.9495798319327731,
+       "balanced_accuracy": 0.841169226311214
+      }
+     }
+    },
+    "openai": {
+     "n": 1000,
+     "positives": 500,
+     "policies": {
+      "P0": {
+       "TP": 448,
+       "TN": 466,
+       "FP": 34,
+       "FN": 52,
+       "recall": 0.896,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.914
+      },
+      "P1": {
+       "TP": 471,
+       "TN": 407,
+       "FP": 93,
+       "FN": 29,
+       "recall": 0.942,
+       "specificity": 0.814,
+       "balanced_accuracy": 0.8779999999999999
+      },
+      "P2:person_multi_token": {
+       "TP": 457,
+       "TN": 466,
+       "FP": 34,
+       "FN": 43,
+       "recall": 0.914,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.923
+      },
+      "P2:person_cue": {
+       "TP": 453,
+       "TN": 466,
+       "FP": 34,
+       "FN": 47,
+       "recall": 0.906,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.919
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 453,
+       "TN": 466,
+       "FP": 34,
+       "FN": 47,
+       "recall": 0.906,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.919
+      },
+      "P2:person_any": {
+       "TP": 457,
+       "TN": 466,
+       "FP": 34,
+       "FN": 43,
+       "recall": 0.914,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.923
+      },
+      "P2:person_any_or_relation": {
+       "TP": 460,
+       "TN": 466,
+       "FP": 34,
+       "FN": 40,
+       "recall": 0.92,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.926
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 465,
+       "TN": 463,
+       "FP": 37,
+       "FN": 35,
+       "recall": 0.93,
+       "specificity": 0.926,
+       "balanced_accuracy": 0.928
+      },
+      "P3": {
+       "TP": 448,
+       "TN": 466,
+       "FP": 34,
+       "FN": 52,
+       "recall": 0.896,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.914
+      },
+      "P4": {
+       "TP": 448,
+       "TN": 466,
+       "FP": 34,
+       "FN": 52,
+       "recall": 0.896,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.914
+      },
+      "P2": {
+       "TP": 465,
+       "TN": 463,
+       "FP": 37,
+       "FN": 35,
+       "recall": 0.93,
+       "specificity": 0.926,
+       "balanced_accuracy": 0.928
+      }
+     }
+    }
+   },
+   "P2_vs_P0": {
+    "tune": {
+     "+FP": 6,
+     "+TP": 22
+    },
+    "personalized": {},
+    "check": {
+     "+TP": 11,
+     "+FP": 4
+    },
+    "openai": {
+     "+TP": 17,
+     "+FP": 3
+    }
+   },
+   "P1_vs_P0": {
+    "tune": {
+     "+FP": 19,
+     "+TP": 32
+    },
+    "personalized": {
+     "+FP": 81
+    },
+    "check": {
+     "+TP": 21,
+     "+FP": 18
+    },
+    "openai": {
+     "+FP": 59,
+     "+TP": 23
+    }
+   },
+   "P2_vs_P1": {
+    "tune": {
+     "-FP": 13,
+     "-TP": 10
+    },
+    "personalized": {
+     "-FP": 81
+    },
+    "check": {
+     "-FP": 14,
+     "-TP": 10
+    },
+    "openai": {
+     "-FP": 56,
+     "-TP": 6
+    }
+   },
+   "amplification": {
+    "tune": {
+     "regex_positive_rows": 97,
+     "regex_positive_rows_expected_pii": 95,
+     "P4_extra_spans_pii": 37,
+     "P3_gate_rows": 79,
+     "name_expected_rows": 21,
+     "name_expected_and_ner_entity": 9,
+     "place_not_expected_rows": 82,
+     "place_not_expected_but_ner_entity": 3,
+     "P4_rows_with_extra_span_pii": 27,
+     "P3_extra_spans_pii": 33,
+     "name_not_expected_rows": 76,
+     "name_not_expected_but_ner_entity": 4,
+     "place_expected_rows": 15,
+     "place_expected_and_ner_entity": 7,
+     "regex_positive_rows_no_pii": 2,
+     "P4_extra_spans_nopii": 0,
+     "P3_extra_spans_nopii": 0,
+     "P4_extra_spans_by_label": {
+      "ORG": 13,
+      "PERSON": 13,
+      "GPE": 10,
+      "LOC": 1
+     }
+    },
+    "personalized": {
+     "regex_positive_rows": 1000,
+     "regex_positive_rows_expected_pii": 1000,
+     "P4_rows_with_extra_span_pii": 850,
+     "P4_extra_spans_pii": 1575,
+     "P3_gate_rows": 1000,
+     "P3_extra_spans_pii": 1575,
+     "name_expected_rows": 777,
+     "name_expected_and_ner_entity": 689,
+     "place_expected_rows": 241,
+     "place_expected_and_ner_entity": 237,
+     "place_not_expected_rows": 759,
+     "place_not_expected_but_ner_entity": 15,
+     "name_not_expected_rows": 223,
+     "name_not_expected_but_ner_entity": 3,
+     "P4_extra_spans_by_label": {
+      "PERSON": 702,
+      "GPE": 249,
+      "ORG": 620,
+      "FAC": 3,
+      "LOC": 1
+     }
+    },
+    "check": {
+     "regex_positive_rows": 76,
+     "regex_positive_rows_expected_pii": 74,
+     "P4_rows_with_extra_span_pii": 23,
+     "P4_extra_spans_pii": 30,
+     "P3_gate_rows": 62,
+     "P3_extra_spans_pii": 23,
+     "name_expected_rows": 12,
+     "name_expected_and_ner_entity": 11,
+     "place_expected_rows": 5,
+     "place_expected_and_ner_entity": 1,
+     "name_not_expected_rows": 64,
+     "name_not_expected_but_ner_entity": 4,
+     "place_not_expected_rows": 71,
+     "place_not_expected_but_ner_entity": 1,
+     "regex_positive_rows_no_pii": 2,
+     "P4_extra_spans_nopii": 0,
+     "P3_extra_spans_nopii": 0,
+     "P4_extra_spans_by_label": {
+      "PERSON": 18,
+      "LOC": 2,
+      "ORG": 10
+     }
+    },
+    "openai": {
+     "regex_positive_rows": 482,
+     "regex_positive_rows_expected_pii": 448,
+     "P4_extra_spans_pii": 227,
+     "P3_gate_rows": 473,
+     "P3_extra_spans_pii": 220,
+     "name_not_expected_rows": 482,
+     "name_not_expected_but_ner_entity": 63,
+     "place_expected_rows": 76,
+     "place_expected_and_ner_entity": 22,
+     "place_not_expected_rows": 406,
+     "place_not_expected_but_ner_entity": 21,
+     "P4_rows_with_extra_span_pii": 165,
+     "regex_positive_rows_no_pii": 34,
+     "P4_extra_spans_nopii": 7,
+     "P3_extra_spans_nopii": 7,
+     "P4_rows_with_extra_span_nopii": 7,
+     "P4_extra_spans_by_label": {
+      "ORG": 115,
+      "PERSON": 67,
+      "GPE": 52
+     }
+    }
+   }
+  },
+  "NEW@en_core_web_lg": {
+   "chosen_P2_variant": "person_multi_token",
+   "variant_design_scores": {
+    "person_multi_token": {
+     "design_mean_balanced_accuracy": 0.9324750170338405,
+     "design_FP": 4
+    },
+    "person_cue": {
+     "design_mean_balanced_accuracy": 0.91471723824665,
+     "design_FP": 2
+    },
+    "person_cue_or_recurring": {
+     "design_mean_balanced_accuracy": 0.9126163979105155,
+     "design_FP": 3
+    },
+    "person_any": {
+     "design_mean_balanced_accuracy": 0.9324750170338405,
+     "design_FP": 4
+    },
+    "person_any_or_relation": {
+     "design_mean_balanced_accuracy": 0.9324750170338405,
+     "design_FP": 4
+    },
+    "person_any_or_relation_or_geo": {
+     "design_mean_balanced_accuracy": 0.9324750170338405,
+     "design_FP": 4
+    }
+   },
+   "policies": {
+    "tune": {
+     "n": 267,
+     "positives": 148,
+     "policies": {
+      "P0": {
+       "TP": 95,
+       "TN": 117,
+       "FP": 2,
+       "FN": 53,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.812542584601408
+      },
+      "P1": {
+       "TP": 120,
+       "TN": 112,
+       "FP": 7,
+       "FN": 28,
+       "recall": 0.8108108108108109,
+       "specificity": 0.9411764705882353,
+       "balanced_accuracy": 0.875993640699523
+      },
+      "P2:person_multi_token": {
+       "TP": 113,
+       "TN": 115,
+       "FP": 4,
+       "FN": 35,
+       "recall": 0.7635135135135135,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8649500340676811
+      },
+      "P2:person_cue": {
+       "TP": 100,
+       "TN": 117,
+       "FP": 2,
+       "FN": 48,
+       "recall": 0.6756756756756757,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8294344764932999
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 100,
+       "TN": 116,
+       "FP": 3,
+       "FN": 48,
+       "recall": 0.6756756756756757,
+       "specificity": 0.9747899159663865,
+       "balanced_accuracy": 0.825232795821031
+      },
+      "P2:person_any": {
+       "TP": 113,
+       "TN": 115,
+       "FP": 4,
+       "FN": 35,
+       "recall": 0.7635135135135135,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8649500340676811
+      },
+      "P2:person_any_or_relation": {
+       "TP": 113,
+       "TN": 115,
+       "FP": 4,
+       "FN": 35,
+       "recall": 0.7635135135135135,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8649500340676811
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 113,
+       "TN": 115,
+       "FP": 4,
+       "FN": 35,
+       "recall": 0.7635135135135135,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8649500340676811
+      },
+      "P3": {
+       "TP": 95,
+       "TN": 117,
+       "FP": 2,
+       "FN": 53,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.812542584601408
+      },
+      "P4": {
+       "TP": 95,
+       "TN": 117,
+       "FP": 2,
+       "FN": 53,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.812542584601408
+      },
+      "P2": {
+       "TP": 113,
+       "TN": 115,
+       "FP": 4,
+       "FN": 35,
+       "recall": 0.7635135135135135,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8649500340676811
+      }
+     }
+    },
+    "personalized": {
+     "n": 2000,
+     "positives": 1000,
+     "policies": {
+      "P0": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P1": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_multi_token": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_cue": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_any": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_any_or_relation": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P3": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P4": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      }
+     }
+    },
+    "check": {
+     "n": 235,
+     "positives": 116,
+     "policies": {
+      "P0": {
+       "TP": 74,
+       "TN": 117,
+       "FP": 2,
+       "FN": 42,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8105621558968414
+      },
+      "P1": {
+       "TP": 87,
+       "TN": 117,
+       "FP": 2,
+       "FN": 29,
+       "recall": 0.75,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8665966386554622
+      },
+      "P2:person_multi_token": {
+       "TP": 84,
+       "TN": 117,
+       "FP": 2,
+       "FN": 32,
+       "recall": 0.7241379310344828,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8536656041727035
+      },
+      "P2:person_cue": {
+       "TP": 75,
+       "TN": 117,
+       "FP": 2,
+       "FN": 41,
+       "recall": 0.646551724137931,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8148725007244277
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 77,
+       "TN": 117,
+       "FP": 2,
+       "FN": 39,
+       "recall": 0.6637931034482759,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8234931903796001
+      },
+      "P2:person_any": {
+       "TP": 85,
+       "TN": 117,
+       "FP": 2,
+       "FN": 31,
+       "recall": 0.7327586206896551,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8579759490002897
+      },
+      "P2:person_any_or_relation": {
+       "TP": 85,
+       "TN": 117,
+       "FP": 2,
+       "FN": 31,
+       "recall": 0.7327586206896551,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8579759490002897
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 85,
+       "TN": 117,
+       "FP": 2,
+       "FN": 31,
+       "recall": 0.7327586206896551,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8579759490002897
+      },
+      "P3": {
+       "TP": 74,
+       "TN": 117,
+       "FP": 2,
+       "FN": 42,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8105621558968414
+      },
+      "P4": {
+       "TP": 74,
+       "TN": 117,
+       "FP": 2,
+       "FN": 42,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8105621558968414
+      },
+      "P2": {
+       "TP": 84,
+       "TN": 117,
+       "FP": 2,
+       "FN": 32,
+       "recall": 0.7241379310344828,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8536656041727035
+      }
+     }
+    },
+    "openai": {
+     "n": 1000,
+     "positives": 500,
+     "policies": {
+      "P0": {
+       "TP": 448,
+       "TN": 466,
+       "FP": 34,
+       "FN": 52,
+       "recall": 0.896,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.914
+      },
+      "P1": {
+       "TP": 460,
+       "TN": 466,
+       "FP": 34,
+       "FN": 40,
+       "recall": 0.92,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.926
+      },
+      "P2:person_multi_token": {
+       "TP": 457,
+       "TN": 466,
+       "FP": 34,
+       "FN": 43,
+       "recall": 0.914,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.923
+      },
+      "P2:person_cue": {
+       "TP": 453,
+       "TN": 466,
+       "FP": 34,
+       "FN": 47,
+       "recall": 0.906,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.919
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 453,
+       "TN": 466,
+       "FP": 34,
+       "FN": 47,
+       "recall": 0.906,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.919
+      },
+      "P2:person_any": {
+       "TP": 457,
+       "TN": 466,
+       "FP": 34,
+       "FN": 43,
+       "recall": 0.914,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.923
+      },
+      "P2:person_any_or_relation": {
+       "TP": 460,
+       "TN": 466,
+       "FP": 34,
+       "FN": 40,
+       "recall": 0.92,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.926
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 460,
+       "TN": 466,
+       "FP": 34,
+       "FN": 40,
+       "recall": 0.92,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.926
+      },
+      "P3": {
+       "TP": 448,
+       "TN": 466,
+       "FP": 34,
+       "FN": 52,
+       "recall": 0.896,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.914
+      },
+      "P4": {
+       "TP": 448,
+       "TN": 466,
+       "FP": 34,
+       "FN": 52,
+       "recall": 0.896,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.914
+      },
+      "P2": {
+       "TP": 457,
+       "TN": 466,
+       "FP": 34,
+       "FN": 43,
+       "recall": 0.914,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.923
+      }
+     }
+    }
+   },
+   "P2_vs_P0": {
+    "tune": {
+     "+TP": 18,
+     "+FP": 2
+    },
+    "personalized": {},
+    "check": {
+     "+TP": 10
+    },
+    "openai": {
+     "+TP": 9
+    }
+   },
+   "P1_vs_P0": {
+    "tune": {
+     "+FP": 5,
+     "+TP": 25
+    },
+    "personalized": {},
+    "check": {
+     "+TP": 13
+    },
+    "openai": {
+     "+TP": 12
+    }
+   },
+   "P2_vs_P1": {
+    "tune": {
+     "-FP": 3,
+     "-TP": 7
+    },
+    "personalized": {},
+    "check": {
+     "-TP": 3
+    },
+    "openai": {
+     "-TP": 3
+    }
+   },
+   "amplification": {
+    "tune": {
+     "regex_positive_rows": 97,
+     "regex_positive_rows_expected_pii": 95,
+     "P4_extra_spans_pii": 23,
+     "P3_gate_rows": 79,
+     "name_expected_rows": 21,
+     "name_expected_and_ner_entity": 13,
+     "place_not_expected_rows": 82,
+     "place_not_expected_but_ner_entity": 0,
+     "P3_extra_spans_pii": 20,
+     "name_not_expected_rows": 76,
+     "name_not_expected_but_ner_entity": 2,
+     "P4_rows_with_extra_span_pii": 15,
+     "place_expected_rows": 15,
+     "place_expected_and_ner_entity": 1,
+     "regex_positive_rows_no_pii": 2,
+     "P4_extra_spans_nopii": 0,
+     "P3_extra_spans_nopii": 0,
+     "P4_extra_spans_by_label": {
+      "PERSON": 16,
+      "ORG": 6,
+      "LOC": 1
+     }
+    },
+    "personalized": {
+     "regex_positive_rows": 1000,
+     "regex_positive_rows_expected_pii": 1000,
+     "P4_rows_with_extra_span_pii": 755,
+     "P4_extra_spans_pii": 1075,
+     "P3_gate_rows": 1000,
+     "P3_extra_spans_pii": 1075,
+     "name_expected_rows": 777,
+     "name_expected_and_ner_entity": 755,
+     "place_expected_rows": 241,
+     "place_expected_and_ner_entity": 231,
+     "place_not_expected_rows": 759,
+     "place_not_expected_but_ner_entity": 0,
+     "name_not_expected_rows": 223,
+     "name_not_expected_but_ner_entity": 0,
+     "P4_extra_spans_by_label": {
+      "PERSON": 755,
+      "GPE": 231,
+      "ORG": 89
+     }
+    },
+    "check": {
+     "regex_positive_rows": 76,
+     "regex_positive_rows_expected_pii": 74,
+     "P4_rows_with_extra_span_pii": 13,
+     "P4_extra_spans_pii": 17,
+     "P3_gate_rows": 62,
+     "P3_extra_spans_pii": 14,
+     "name_expected_rows": 12,
+     "name_expected_and_ner_entity": 11,
+     "place_expected_rows": 5,
+     "place_expected_and_ner_entity": 1,
+     "name_not_expected_rows": 64,
+     "name_not_expected_but_ner_entity": 2,
+     "place_not_expected_rows": 71,
+     "place_not_expected_but_ner_entity": 0,
+     "regex_positive_rows_no_pii": 2,
+     "P4_extra_spans_nopii": 0,
+     "P3_extra_spans_nopii": 0,
+     "P4_extra_spans_by_label": {
+      "PERSON": 15,
+      "GPE": 1,
+      "ORG": 1
+     }
+    },
+    "openai": {
+     "regex_positive_rows": 482,
+     "regex_positive_rows_expected_pii": 448,
+     "P4_extra_spans_pii": 60,
+     "P3_gate_rows": 473,
+     "P3_extra_spans_pii": 60,
+     "name_not_expected_rows": 482,
+     "name_not_expected_but_ner_entity": 44,
+     "place_expected_rows": 76,
+     "place_expected_and_ner_entity": 4,
+     "place_not_expected_rows": 406,
+     "place_not_expected_but_ner_entity": 4,
+     "P4_rows_with_extra_span_pii": 52,
+     "regex_positive_rows_no_pii": 34,
+     "P4_extra_spans_nopii": 0,
+     "P3_extra_spans_nopii": 0,
+     "P4_extra_spans_by_label": {
+      "PERSON": 45,
+      "ORG": 7,
+      "GPE": 8
+     }
+    }
+   }
+  },
+  "NEW-raw@en_core_web_lg": {
+   "chosen_P2_variant": "person_any_or_relation_or_geo",
+   "variant_design_scores": {
+    "person_multi_token": {
+     "design_mean_balanced_accuracy": 0.9324750170338405,
+     "design_FP": 4
+    },
+    "person_cue": {
+     "design_mean_balanced_accuracy": 0.91471723824665,
+     "design_FP": 2
+    },
+    "person_cue_or_recurring": {
+     "design_mean_balanced_accuracy": 0.9126163979105155,
+     "design_FP": 3
+    },
+    "person_any": {
+     "design_mean_balanced_accuracy": 0.9324750170338405,
+     "design_FP": 4
+    },
+    "person_any_or_relation": {
+     "design_mean_balanced_accuracy": 0.9324750170338405,
+     "design_FP": 4
+    },
+    "person_any_or_relation_or_geo": {
+     "design_mean_balanced_accuracy": 0.9405093118328413,
+     "design_FP": 5
+    }
+   },
+   "policies": {
+    "tune": {
+     "n": 267,
+     "positives": 148,
+     "policies": {
+      "P0": {
+       "TP": 95,
+       "TN": 117,
+       "FP": 2,
+       "FN": 53,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.812542584601408
+      },
+      "P1": {
+       "TP": 130,
+       "TN": 106,
+       "FP": 13,
+       "FN": 18,
+       "recall": 0.8783783783783784,
+       "specificity": 0.8907563025210085,
+       "balanced_accuracy": 0.8845673404496934
+      },
+      "P2:person_multi_token": {
+       "TP": 113,
+       "TN": 115,
+       "FP": 4,
+       "FN": 35,
+       "recall": 0.7635135135135135,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8649500340676811
+      },
+      "P2:person_cue": {
+       "TP": 100,
+       "TN": 117,
+       "FP": 2,
+       "FN": 48,
+       "recall": 0.6756756756756757,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8294344764932999
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 100,
+       "TN": 116,
+       "FP": 3,
+       "FN": 48,
+       "recall": 0.6756756756756757,
+       "specificity": 0.9747899159663865,
+       "balanced_accuracy": 0.825232795821031
+      },
+      "P2:person_any": {
+       "TP": 113,
+       "TN": 115,
+       "FP": 4,
+       "FN": 35,
+       "recall": 0.7635135135135135,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8649500340676811
+      },
+      "P2:person_any_or_relation": {
+       "TP": 113,
+       "TN": 115,
+       "FP": 4,
+       "FN": 35,
+       "recall": 0.7635135135135135,
+       "specificity": 0.9663865546218487,
+       "balanced_accuracy": 0.8649500340676811
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 119,
+       "TN": 114,
+       "FP": 5,
+       "FN": 29,
+       "recall": 0.8040540540540541,
+       "specificity": 0.957983193277311,
+       "balanced_accuracy": 0.8810186236656825
+      },
+      "P3": {
+       "TP": 95,
+       "TN": 117,
+       "FP": 2,
+       "FN": 53,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.812542584601408
+      },
+      "P4": {
+       "TP": 95,
+       "TN": 117,
+       "FP": 2,
+       "FN": 53,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.812542584601408
+      },
+      "P2": {
+       "TP": 119,
+       "TN": 114,
+       "FP": 5,
+       "FN": 29,
+       "recall": 0.8040540540540541,
+       "specificity": 0.957983193277311,
+       "balanced_accuracy": 0.8810186236656825
+      }
+     }
+    },
+    "personalized": {
+     "n": 2000,
+     "positives": 1000,
+     "policies": {
+      "P0": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P1": {
+       "TP": 1000,
+       "TN": 919,
+       "FP": 81,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 0.919,
+       "balanced_accuracy": 0.9595
+      },
+      "P2:person_multi_token": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_cue": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_any": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_any_or_relation": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P3": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P4": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      },
+      "P2": {
+       "TP": 1000,
+       "TN": 1000,
+       "FP": 0,
+       "FN": 0,
+       "recall": 1.0,
+       "specificity": 1.0,
+       "balanced_accuracy": 1.0
+      }
+     }
+    },
+    "check": {
+     "n": 235,
+     "positives": 116,
+     "policies": {
+      "P0": {
+       "TP": 74,
+       "TN": 117,
+       "FP": 2,
+       "FN": 42,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8105621558968414
+      },
+      "P1": {
+       "TP": 93,
+       "TN": 114,
+       "FP": 5,
+       "FN": 23,
+       "recall": 0.8017241379310345,
+       "specificity": 0.957983193277311,
+       "balanced_accuracy": 0.8798536656041727
+      },
+      "P2:person_multi_token": {
+       "TP": 85,
+       "TN": 117,
+       "FP": 2,
+       "FN": 31,
+       "recall": 0.7327586206896551,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8579759490002897
+      },
+      "P2:person_cue": {
+       "TP": 75,
+       "TN": 117,
+       "FP": 2,
+       "FN": 41,
+       "recall": 0.646551724137931,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8148725007244277
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 77,
+       "TN": 117,
+       "FP": 2,
+       "FN": 39,
+       "recall": 0.6637931034482759,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8234931903796001
+      },
+      "P2:person_any": {
+       "TP": 86,
+       "TN": 117,
+       "FP": 2,
+       "FN": 30,
+       "recall": 0.7413793103448276,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8622862938278759
+      },
+      "P2:person_any_or_relation": {
+       "TP": 86,
+       "TN": 117,
+       "FP": 2,
+       "FN": 30,
+       "recall": 0.7413793103448276,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8622862938278759
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 87,
+       "TN": 117,
+       "FP": 2,
+       "FN": 29,
+       "recall": 0.75,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8665966386554622
+      },
+      "P3": {
+       "TP": 74,
+       "TN": 117,
+       "FP": 2,
+       "FN": 42,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8105621558968414
+      },
+      "P4": {
+       "TP": 74,
+       "TN": 117,
+       "FP": 2,
+       "FN": 42,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8105621558968414
+      },
+      "P2": {
+       "TP": 87,
+       "TN": 117,
+       "FP": 2,
+       "FN": 29,
+       "recall": 0.75,
+       "specificity": 0.9831932773109243,
+       "balanced_accuracy": 0.8665966386554622
+      }
+     }
+    },
+    "openai": {
+     "n": 1000,
+     "positives": 500,
+     "policies": {
+      "P0": {
+       "TP": 448,
+       "TN": 466,
+       "FP": 34,
+       "FN": 52,
+       "recall": 0.896,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.914
+      },
+      "P1": {
+       "TP": 469,
+       "TN": 414,
+       "FP": 86,
+       "FN": 31,
+       "recall": 0.938,
+       "specificity": 0.828,
+       "balanced_accuracy": 0.883
+      },
+      "P2:person_multi_token": {
+       "TP": 457,
+       "TN": 466,
+       "FP": 34,
+       "FN": 43,
+       "recall": 0.914,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.923
+      },
+      "P2:person_cue": {
+       "TP": 453,
+       "TN": 466,
+       "FP": 34,
+       "FN": 47,
+       "recall": 0.906,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.919
+      },
+      "P2:person_cue_or_recurring": {
+       "TP": 453,
+       "TN": 466,
+       "FP": 34,
+       "FN": 47,
+       "recall": 0.906,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.919
+      },
+      "P2:person_any": {
+       "TP": 457,
+       "TN": 466,
+       "FP": 34,
+       "FN": 43,
+       "recall": 0.914,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.923
+      },
+      "P2:person_any_or_relation": {
+       "TP": 460,
+       "TN": 466,
+       "FP": 34,
+       "FN": 40,
+       "recall": 0.92,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.926
+      },
+      "P2:person_any_or_relation_or_geo": {
+       "TP": 463,
+       "TN": 464,
+       "FP": 36,
+       "FN": 37,
+       "recall": 0.926,
+       "specificity": 0.928,
+       "balanced_accuracy": 0.927
+      },
+      "P3": {
+       "TP": 448,
+       "TN": 466,
+       "FP": 34,
+       "FN": 52,
+       "recall": 0.896,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.914
+      },
+      "P4": {
+       "TP": 448,
+       "TN": 466,
+       "FP": 34,
+       "FN": 52,
+       "recall": 0.896,
+       "specificity": 0.932,
+       "balanced_accuracy": 0.914
+      },
+      "P2": {
+       "TP": 463,
+       "TN": 464,
+       "FP": 36,
+       "FN": 37,
+       "recall": 0.926,
+       "specificity": 0.928,
+       "balanced_accuracy": 0.927
+      }
+     }
+    }
+   },
+   "P2_vs_P0": {
+    "tune": {
+     "+TP": 24,
+     "+FP": 3
+    },
+    "personalized": {},
+    "check": {
+     "+TP": 13
+    },
+    "openai": {
+     "+TP": 15,
+     "+FP": 2
+    }
+   },
+   "P1_vs_P0": {
+    "tune": {
+     "+FP": 11,
+     "+TP": 35
+    },
+    "personalized": {
+     "+FP": 81
+    },
+    "check": {
+     "+TP": 19,
+     "+FP": 3
+    },
+    "openai": {
+     "+TP": 21,
+     "+FP": 52
+    }
+   },
+   "P2_vs_P1": {
+    "tune": {
+     "-FP": 8,
+     "-TP": 11
+    },
+    "personalized": {
+     "-FP": 81
+    },
+    "check": {
+     "-TP": 6,
+     "-FP": 3
+    },
+    "openai": {
+     "-TP": 6,
+     "-FP": 50
+    }
+   },
+   "amplification": {
+    "tune": {
+     "regex_positive_rows": 97,
+     "regex_positive_rows_expected_pii": 95,
+     "P4_rows_with_extra_span_pii": 26,
+     "P4_extra_spans_pii": 42,
+     "P3_gate_rows": 79,
+     "name_expected_rows": 21,
+     "name_expected_and_ner_entity": 14,
+     "place_not_expected_rows": 82,
+     "place_not_expected_but_ner_entity": 1,
+     "P3_extra_spans_pii": 37,
+     "name_not_expected_rows": 76,
+     "name_not_expected_but_ner_entity": 3,
+     "place_expected_rows": 15,
+     "place_expected_and_ner_entity": 7,
+     "regex_positive_rows_no_pii": 2,
+     "P4_extra_spans_nopii": 0,
+     "P3_extra_spans_nopii": 0,
+     "P4_extra_spans_by_label": {
+      "PERSON": 19,
+      "ORG": 14,
+      "LOC": 1,
+      "GPE": 8
+     }
+    },
+    "personalized": {
+     "regex_positive_rows": 1000,
+     "regex_positive_rows_expected_pii": 1000,
+     "P4_rows_with_extra_span_pii": 810,
+     "P4_extra_spans_pii": 1338,
+     "P3_gate_rows": 1000,
+     "P3_extra_spans_pii": 1338,
+     "name_expected_rows": 777,
+     "name_expected_and_ner_entity": 755,
+     "place_expected_rows": 241,
+     "place_expected_and_ner_entity": 241,
+     "place_not_expected_rows": 759,
+     "place_not_expected_but_ner_entity": 13,
+     "name_not_expected_rows": 223,
+     "name_not_expected_but_ner_entity": 8,
+     "P4_extra_spans_by_label": {
+      "PERSON": 764,
+      "GPE": 253,
+      "ORG": 311,
+      "FAC": 9,
+      "LOC": 1
+     }
+    },
+    "check": {
+     "regex_positive_rows": 76,
+     "regex_positive_rows_expected_pii": 74,
+     "P4_rows_with_extra_span_pii": 21,
+     "P4_extra_spans_pii": 29,
+     "P3_gate_rows": 62,
+     "P3_extra_spans_pii": 23,
+     "name_expected_rows": 12,
+     "name_expected_and_ner_entity": 11,
+     "place_expected_rows": 5,
+     "place_expected_and_ner_entity": 3,
+     "name_not_expected_rows": 64,
+     "name_not_expected_but_ner_entity": 2,
+     "place_not_expected_rows": 71,
+     "place_not_expected_but_ner_entity": 1,
+     "regex_positive_rows_no_pii": 2,
+     "P4_extra_spans_nopii": 0,
+     "P3_extra_spans_nopii": 0,
+     "P4_extra_spans_by_label": {
+      "PERSON": 15,
+      "GPE": 4,
+      "ORG": 10
+     }
+    },
+    "openai": {
+     "regex_positive_rows": 482,
+     "regex_positive_rows_expected_pii": 448,
+     "P4_extra_spans_pii": 191,
+     "P3_gate_rows": 473,
+     "P3_extra_spans_pii": 191,
+     "name_not_expected_rows": 482,
+     "name_not_expected_but_ner_entity": 52,
+     "place_expected_rows": 76,
+     "place_expected_and_ner_entity": 23,
+     "place_not_expected_rows": 406,
+     "place_not_expected_but_ner_entity": 22,
+     "P4_rows_with_extra_span_pii": 143,
+     "regex_positive_rows_no_pii": 34,
+     "P4_extra_spans_nopii": 7,
+     "P3_extra_spans_nopii": 7,
+     "P4_rows_with_extra_span_nopii": 7,
+     "P4_extra_spans_by_label": {
+      "PERSON": 53,
+      "ORG": 84,
+      "GPE": 61
+     }
+    }
+   }
+  }
+ }
+}
