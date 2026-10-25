@@ -428,8 +428,10 @@ def cmd_draw(args: argparse.Namespace) -> int:
     excluded: set[str] = set()
     for path in args.exclude:
         excluded |= {normalise_group(g) for g in load_group_set(Path(path))}
-    output = Path(args.output)
-    if output.exists():
+    if not args.count_only and not args.output:
+        raise SystemExit("--output is required unless --count-only is given.")
+    output = Path(args.output) if args.output else None
+    if output is not None and output.exists():
         raise SystemExit("Refusing to overwrite an existing fresh-set directory.")
 
     seen: dict[bytes, bool | None] = {}
@@ -486,6 +488,18 @@ def cmd_draw(args: argparse.Namespace) -> int:
     conflicted = {k for k, v in seen.items() if v is None}
     candidates = {k: [item for item in v if bytes.fromhex(item[1]["text_blake2b"]) not in conflicted]
                   for k, v in candidates.items()}
+
+    if args.count_only:
+        report = {"cap": args.max_per_group, "exclusion_groups": len(excluded),
+                  "exclusion_groups_sha256": groups_sha256(excluded), "population": dict(sorted(stats.items()))}
+        for label, name in ((True, "positive"), (False, "clean")):
+            kept_rows = [record for (lab, _), rows in candidates.items() if lab is label for _, record in rows]
+            report[name] = {"rows": len(kept_rows), "groups": len({r["group_id"] for r in kept_rows}),
+                            "by_source_rows": dict(sorted(Counter(r["source_dataset"] for r in kept_rows).items())),
+                            "by_source_groups": dict(sorted(Counter(
+                                src for src, _ in {(r["source_dataset"], r["group_id"]) for r in kept_rows}).items()))}
+        print(json.dumps(report, indent=1))
+        return 0
 
     chosen: list[dict] = []
     used_groups: set[str] = set()
@@ -544,6 +558,51 @@ def cmd_draw(args: argparse.Namespace) -> int:
     return 0
 
 
+def _identity_sets(path: Path) -> tuple[set[str], set[str], set[bytes]]:
+    """(normalised groups, ids, blake2b text keys) of a fresh-set JSONL file; text is only hashed, never kept."""
+    groups: set[str] = set()
+    ids: set[str] = set()
+    texts: set[bytes] = set()
+    with path.open(encoding="utf-8") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            groups.add(normalise_group(str(row["group_id"])))
+            ids.add(str(row["id"]).split("#", 1)[0])
+            texts.add(hashlib.blake2b(row["text"].encode("utf-8"), digest_size=16).digest())
+    return groups, ids, texts
+
+
+def cmd_disjoint(args: argparse.Namespace) -> int:
+    left, right = _identity_sets(Path(args.left)), _identity_sets(Path(args.right))
+    report = {"left_groups": len(left[0]), "right_groups": len(right[0]),
+              "shared_groups": len(left[0] & right[0]), "shared_ids": len(left[1] & right[1]),
+              "shared_texts": len(left[2] & right[2])}
+    print(json.dumps(report))
+    return 0 if not (report["shared_groups"] or report["shared_ids"] or report["shared_texts"]) else 1
+
+
+def cmd_ni_power(args: argparse.Namespace) -> int:
+    """Non-inferiority power at a fixed n (Wald), with an optional cluster design effect and Monte-Carlo check."""
+    rows = []
+    for psi in args.psis:
+        for true_delta in args.true_deltas:
+            effective = int(args.n / args.design_effect)
+            record = {"n": args.n, "design_effect": args.design_effect, "effective_n": effective, "psi": psi,
+                      "true_delta": true_delta, "margin": args.margin,
+                      "power_wald": round(noninferiority_power(effective, true_delta, psi, args.margin), 4),
+                      "n_for_80pct": noninferiority_n(true_delta, psi, args.margin, 0.80)}
+            if args.simulate:
+                record["power_simulated"] = simulate_noninferiority(effective, true_delta, psi, args.margin,
+                                                                   trials=args.simulate)
+            rows.append(record)
+            print(json.dumps(record))
+    if args.json:
+        Path(args.json).write_text(json.dumps(rows, indent=1), encoding="utf-8")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -555,6 +614,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--power", type=float, default=0.80)
     p.add_argument("--json")
     p.set_defaults(func=cmd_power)
+    npw = sub.add_parser("ni-power", help="non-inferiority power at a fixed n")
+    npw.add_argument("--n", type=int, required=True)
+    npw.add_argument("--psis", type=float, nargs="+", required=True)
+    npw.add_argument("--true-deltas", type=float, nargs="+", default=[0.0, -0.005])
+    npw.add_argument("--margin", type=float, required=True)
+    npw.add_argument("--design-effect", type=float, default=1.0)
+    npw.add_argument("--simulate", type=int, default=0, help="Monte-Carlo trials (0 = skip)")
+    npw.add_argument("--json")
+    npw.set_defaults(func=cmd_ni_power)
     sc = sub.add_parser("scan")
     sc.add_argument("roots", nargs="+")
     sc.add_argument("--output", required=True)
@@ -580,8 +648,14 @@ def build_parser() -> argparse.ArgumentParser:
                    help="last-resort relaxation: a source document may supply both positive and clean sentences "
                         "(still at most --max-per-group per class); analyse with the grouped bootstrap")
     d.add_argument("--name", default="piimb_fresh_v1")
-    d.add_argument("--output", required=True)
+    d.add_argument("--output", help="fresh-set directory to create (required unless --count-only)")
+    d.add_argument("--count-only", action="store_true",
+                   help="print the eligible pool (rows and groups per class and source at the given cap) and write nothing")
     d.set_defaults(func=cmd_draw)
+    j = sub.add_parser("disjoint", help="count group, id and text overlaps between two fresh-set files (counts only)")
+    j.add_argument("left")
+    j.add_argument("right")
+    j.set_defaults(func=cmd_disjoint)
     return parser
 
 

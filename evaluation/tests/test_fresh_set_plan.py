@@ -176,5 +176,70 @@ class DrawTests(unittest.TestCase):
                            "--output", str(directory / "o")])
 
 
+class SecondDrawTests(unittest.TestCase):
+    """Positives-only draw disjoint from an earlier fresh-set file, count-only pool report, overlap check, NI power."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.directory = Path(self.temp.name)
+        self.source = self.directory / "sentences.jsonl"
+        self.digest = fabricate(self.source)
+        self.empty = self.directory / "e.json"
+        self.empty.write_text(json.dumps({"groups": []}), encoding="utf-8")
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def draw(self, name, exclude, **extra):
+        argv = ["draw", "--sentences", str(self.source), "--expect-sha256", self.digest, "--exclude", *map(str, exclude),
+                "--seed", "7", "--positives", str(extra.pop("positives", 20)), "--negatives", str(extra.pop("negatives", 0)),
+                "--max-per-group", str(extra.pop("cap", 2)), "--output", str(self.directory / name)]
+        self.assertEqual(plan.main(argv), 0)
+        return self.directory / name / "piimb_fresh_v1.jsonl"
+
+    def test_second_draw_excludes_first_fresh_set_by_group_and_is_disjoint(self):
+        first = self.draw("first", [self.empty], positives=20, negatives=10)
+        used = {json.loads(line)["group_id"] for line in first.read_text(encoding="utf-8").splitlines()}
+        second = self.draw("second", [self.empty, first], positives=10)
+        rows = [json.loads(line) for line in second.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(len(rows), 10)
+        self.assertTrue(all(row["expected_has_pii"] for row in rows))
+        self.assertFalse(used & {row["group_id"] for row in rows})
+        self.assertEqual(plan.main(["disjoint", str(first), str(second)]), 0)
+
+    def test_disjoint_reports_overlap_with_nonzero_exit(self):
+        first = self.draw("first", [self.empty], positives=10)
+        self.assertEqual(plan.main(["disjoint", str(first), str(first)]), 1)
+
+    def test_count_only_reports_pool_and_writes_nothing(self):
+        import contextlib
+        import io
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            code = plan.main(["draw", "--count-only", "--sentences", str(self.source), "--expect-sha256", self.digest,
+                              "--exclude", str(self.empty), "--seed", "1", "--positives", "0", "--negatives", "0",
+                              "--max-per-group", "1"])
+        self.assertEqual(code, 0)
+        report = json.loads(buffer.getvalue())
+        self.assertGreater(report["positive"]["rows"], 0)
+        self.assertEqual(report["positive"]["by_source_rows"], {"synthetic": report["positive"]["rows"]})
+        self.assertEqual(report["cap"], 1)
+        self.assertEqual(sorted(path.name for path in self.directory.iterdir()), ["e.json", "sentences.jsonl"])
+
+    def test_draw_without_output_or_count_only_is_refused(self):
+        with self.assertRaises(SystemExit):
+            plan.main(["draw", "--sentences", str(self.source), "--expect-sha256", self.digest,
+                       "--exclude", str(self.empty), "--seed", "1", "--positives", "1", "--negatives", "0"])
+
+    def test_ni_power_command_matches_formula(self):
+        output = self.directory / "p.json"
+        plan.main(["ni-power", "--n", "8646", "--psis", "0.082", "--true-deltas", "0", "--margin", "0.01",
+                   "--json", str(output)])
+        record = json.loads(output.read_text())[0]
+        self.assertAlmostEqual(record["power_wald"], plan.noninferiority_power(8646, 0.0, 0.082, 0.01), places=4)
+        self.assertGreaterEqual(record["power_wald"], 0.80)
+        self.assertEqual(record["n_for_80pct"], plan.noninferiority_n(0.0, 0.082, 0.01, 0.80))
+
+
 if __name__ == "__main__":
     unittest.main()
