@@ -1,0 +1,262 @@
+{
+ "freeze_date": "2026-10-25",
+ "status": "F4 data frozen; no detector or model has been run on any F4 row; configuration K not yet frozen (slot open, filled by the v3 addendum before scoring)",
+ "preregistration": "docs/research/preregistration-detector-v3-20261025.md",
+ "preregistration_sha256_lf_blob": "afcd2bd96b3e6cdc5b40f56f7f50409fd28f968f15a9933164eca0e9b487d186",
+ "preregistration_commit": "8523fe5d",
+ "parent_preregistration": "docs/research/preregistration-detector-v2-20261024.md",
+ "owner_decision_record": "docs/experiments/fresh-heldout-results-20261024.md section 7 (blob sha256 411dd604da8ad7f263ba107c16a95fb1c4130bd0fdd667d3f9ecc51b754280b0)",
+ "inputs": {
+  "piimb": {
+   "revision": "4a13e9ffe6fd0d275efbde8afd4d8d8f1ffc2133",
+   "file": "data/test_sentences.jsonl",
+   "sha256": "5ff46f3a80316318794f94596fa374060d70f2f32a85909f958cbabc70bae41f"
+  },
+  "f1_file_sha256": "4ff0832331f0b3f8d58026cca5cb26fd25833f98864b5822fb7c8d21172a9167",
+  "v2_exclusion_union_sha256": "b31bc6eba7e0cd45eeed9bd112847a672a205fb9a915d2c39a1813bc167f6518"
+ },
+ "exclusion": {
+  "rescan_files_read": 213224,
+  "rescan_files_unreadable": 0,
+  "rescan_raw_tokens": 21473,
+  "rescan_raw_sha256": "10ba3884a259c4c9e78918ef0dc2b5516f9ea5de6d7c9f1803eff8f887618f71",
+  "rescan_coverage": {
+   "not_read:bin": 178,
+   "not_read:npy": 7,
+   "not_read:npz": 588,
+   "not_read:onnx": 1,
+   "not_read:parquet": 1,
+   "not_read:pt": 252,
+   "not_read:safetensors": 132,
+   "not_read:whl": 1,
+   "queued:csv": 1,
+   "queued:json": 212576,
+   "queued:jsonl": 647,
+   "skipped_dirs": 5,
+   "skipped_file_by_name": 1
+  },
+  "union_raw_groups": 21473,
+  "normalised_groups_used_by_draw": 21399,
+  "normalised_groups_sha256": "4017ce4d21c64b694db55b7b88e5dd109cdcd2c29405c2085694d8f186fec53e",
+  "union_file_sha256": "a07c4c3d28bdf780450e903bfd140a9e621f3dc5af91dc01e28463ba6586a621"
+ },
+ "F4": {
+  "seed": 11102026,
+  "max_per_group": 3,
+  "quota": {
+   "positives": 8646,
+   "negatives": 0
+  },
+  "selected": {
+   "rows": 8646,
+   "positives": 8646,
+   "groups": 5745,
+   "by_source": {
+    "piimb/privy|pii": 2151,
+    "gretelai/gretel-pii-masking-en-v1|pii": 2863,
+    "ai4privacy/pii-masking-openpii-1m|pii": 2950,
+    "nvidia/Nemotron-PII|pii": 682
+   },
+   "entity_count": 23534
+  },
+  "population": {
+   "conflicting_duplicate": 80,
+   "duplicate": 15274,
+   "eligible_rows": 9451,
+   "excluded_group": 98117,
+   "ids_disambiguated": 4,
+   "non_english": 27180,
+   "rows_seen": 150022
+  },
+  "pool_positive_rows_by_cap": {
+   "1": 5745,
+   "2": 7535,
+   "3": 8646
+  },
+  "pool_clean_rows": 0,
+  "pool_documents": 5745,
+  "pool_by_source_cap3": {
+   "ai4privacy": 2950,
+   "gretel": 2863,
+   "nemotron_pii": 682,
+   "privy": 2151
+  },
+  "documents_by_source": {
+   "ai4privacy": 1813,
+   "gretel": 1616,
+   "nemotron_pii": 245,
+   "privy": 2071
+  },
+  "entities_by_source": {
+   "ai4privacy": 10823,
+   "gretel": 6493,
+   "nemotron_pii": 1296,
+   "privy": 4922
+  },
+  "documents_by_sentence_count": {
+   "1": 3955,
+   "2": 679,
+   "3": 1111
+  },
+  "text_length": {
+   "median": 126,
+   "p90": 332,
+   "max": 1433
+  },
+  "disjoint_from_F1": {
+   "left_groups": 8181,
+   "right_groups": 5745,
+   "shared_groups": 0,
+   "shared_ids": 0,
+   "shared_texts": 0
+  },
+  "output_sha256_lf": "8c3da51b79daaa5215a62554af1f3f1d50b56e96ed439d883747783d6bac5f54",
+  "file_sha256": "d4bed756790c7b000fc5e8b6028e3f962c8dbfabe3f607a7180224d55356589d"
+ },
+ "second_look_S1": {
+  "set": "F1 clean subset",
+  "rows": 6446,
+  "documents": 3805,
+  "confirmatory": false
+ },
+ "f1_draw_regression_check": {
+  "expected_output_sha256_lf": "8ba37b336a321981544d4743c4e6784b03c32132ee44be7bc154b6c1488902fa",
+  "reproduced": true
+ },
+ "power": {
+  "n": 8646,
+  "h7": {
+   "margin": 0.01,
+   "psi_0.082_delta_0": 0.901,
+   "psi_0.082_delta_-0.005": 0.3684,
+   "n80_delta_0": 6437,
+   "n80_delta_-0.005": 25737
+  },
+  "h8": {
+   "margin": 0.005,
+   "psi_0.019_delta_0": 0.9212,
+   "n80": 5966
+  }
+ },
+ "analysis_parameters": {
+  "bootstrap_replicates": 10000,
+  "seed": 20261024,
+  "noninferiority_bound": "lower limit of the 95% percentile interval (one-sided 97.5%)",
+  "H7": {
+   "rule": "positive",
+   "layer": "union",
+   "margin_pt": -1.0,
+   "comparison": "K - O on F4"
+  },
+  "H8": {
+   "rule": "block",
+   "layer": "union",
+   "margin_pt": -0.5,
+   "comparison": "K - O on F4"
+  },
+  "G1": {
+   "set": "F1 clean (second look)",
+   "layer": "union",
+   "rule": "positive",
+   "margin_pt": -1.0,
+   "comparison": "K - O"
+  },
+  "G2": {
+   "set": "F1 clean (second look)",
+   "layer": "union",
+   "rule": "positive",
+   "margin_pt": -2.0,
+   "comparison": "K - N"
+  },
+  "standardised_weights": {
+   "F1_mix": [
+    0.3374,
+    0.3325,
+    0.1687,
+    0.1614
+   ],
+   "equal": [
+    0.25,
+    0.25,
+    0.25,
+    0.25
+   ],
+   "order": [
+    "ai4privacy",
+    "gretel",
+    "nemotron_pii",
+    "privy"
+   ]
+  }
+ },
+ "configurations": {
+  "O": "export of e6c177ff",
+  "N": "export of e70e3a2e",
+  "K": "OPEN SLOT: commit and tree of research/wt-k-rework, to be recorded in the v3 addendum before scoring",
+  "K+all": "K merged with b3d11a50 (contains b1975bc2) with the four robustness flags on; tree in the v3 addendum"
+ },
+ "code_sha256_lf_blob": {
+  "evaluation/fresh_set_plan.py@ffd43fb6": "02865ca4c25cd060812d82940688a33e31f5047c75baded9d7d39b48d37f375e",
+  "evaluation/tests/test_fresh_set_plan.py@ffd43fb6": "b11469c3e3e0e6a0e87f8850b2faae921bb444de77725994fa629bf14100cdb3",
+  "evaluation/build_fresh_sets.py": "73cf3c1f903a2ce1beb72ecb19e32c181636ed7ee82d509e0755399026b4308e",
+  "evaluation/requirements-fresh-data.txt": "2daf35926753e73d1b7cd12724db7b5b35cdd3e4cc4cf33c690006552af4486d",
+  "evaluation/detector_stats.py": "c9b79a43e766021f2e1d083eb9db64fcc86d4db78b35f3ef27ad9b607127f60e",
+  "docs/research/label-family-mapping-20261024.json": "19cc6103d404484be3a3ef0a851edfa0ae1254859557ffc87921673b9b05e5f6",
+  "docs/research/preregistration-detector-v2-20261024.md": "f97b8b5da50f163febde19d8b9395a6f88d2a361f142b4ae54fd931c92f48e1d"
+ },
+ "manifest_script_sha256_on_disk": "5bcd61a14a29c2d1497880c2e9f7c365cb6a3fbf8088336738d3abd75ca316f6",
+ "environment": {
+  "python": "3.11.9",
+  "venv": "evaluation/.venv-fresh-data",
+  "packages": {
+   "pyarrow": "26.0.0",
+   "Faker": "40.43.0",
+   "pandas": "3.1.0",
+   "numpy": "2.4.6"
+  }
+ },
+ "files": {
+  "f4_piimb/piimb_fresh_f4.jsonl": {
+   "bytes": 5438592,
+   "sha256": "d4bed756790c7b000fc5e8b6028e3f962c8dbfabe3f607a7180224d55356589d"
+  },
+  "f4_piimb/manifest.json": {
+   "bytes": 1427,
+   "sha256": "b27b169f18d379933eb216d9edf599d4d67ea3e9bd81deaf3f0126073d12c355"
+  },
+  "exclusion_union_v3.json": {
+   "bytes": 849070,
+   "sha256": "a07c4c3d28bdf780450e903bfd140a9e621f3dc5af91dc01e28463ba6586a621"
+  },
+  "exclusion_scan_groups_v3.json": {
+   "bytes": 849070,
+   "sha256": "a07c4c3d28bdf780450e903bfd140a9e621f3dc5af91dc01e28463ba6586a621"
+  },
+  "scan_summary_v3.json": {
+   "bytes": 11017,
+   "sha256": "c32c96736cb1e3d11abaaa9a9ffaa4174cc15757402e32a8c7d5641066743c65"
+  },
+  "power_h7.json": {
+   "bytes": 1897,
+   "sha256": "8a45c6bb42e8e911817069950c2ea0e3bcee721df5190c59b07fc8c3a88d1718"
+  },
+  "power_h7_de1.2.json": {
+   "bytes": 1623,
+   "sha256": "44fb2a9f79a498925a937f677b4aeb988788d05d4646084ab051569482bad83e"
+  },
+  "power_h8.json": {
+   "bytes": 1697,
+   "sha256": "feb254bc45d21d801b0dbcddc8023b696d38b709096770dc568a9020bf41defa"
+  },
+  "power_h8_de1.2.json": {
+   "bytes": 1090,
+   "sha256": "1774437b6e1284f559e1c4a0768864eaace3632a74e2fbedb8488f9e874d00c9"
+  },
+  "draw_f4.log": {
+   "bytes": 593,
+   "sha256": "71fc0dd4930637214b78bcee128125a310239240fb024e51c9547e1dfd90e48a"
+  }
+ },
+ "open_slot": "docs/research/fresh-sets-freeze-addendum-v3-20261025.md and .json (K SHA and tree, changed-file list, K tests, development attestation, trees, scoring script hashes, O/N per-row output hashes) - to be committed before any F4 row is scored",
+ "note_on_hashes": "file sha256 values are of bytes on disk (Windows newlines); output_sha256_lf in the manifest covers LF-normalised content; code and document hashes are of LF git blobs"
+}
