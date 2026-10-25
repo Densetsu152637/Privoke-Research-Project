@@ -102,14 +102,17 @@ An independent critic recomputed every registered cell exactly (H7, H8, G1, G2, 
 - **Out-of-distribution probe.** `labelled_identifier_generic` fires at S2 (WARN) on technical text such as `user_id=12345`, `?user_id=abc123` and `client id 0x1F2A3B` (as K's own record warned); the F2 flag set does not change (K = N on all 6,000 prompts). A regex stress test (long hyphen, space and label repetitions) showed no catastrophic backtracking (`w3-critic/v3/redos.py`).
 - **Latency (criterion 5).** Met per `docs/experiments/detector-latency-v3-20261025.md` (`efe0e719`): K - N 0.00 ms median, K+all +0.06 ms; largest regression +0.4 %; K about +2.4 % against O across sessions. Criterion 5 is therefore met; criterion 4 is this critic review.
 
-## 8. Critic summary for the owner
+## 8. Critic summary for the owner (verbatim, w3-critic-2, 25 Oct 2026)
 
-Attribution and provenance: the critic's own owner-facing text was not supplied to this author, so it is **not reproduced verbatim here**. What follows is the coordinator's recorded summary of the critic's conclusions (root checkpoint, 25 Oct 2026), marked as such; replace it with the critic's text if the owner requires the verbatim wording.
-- All registered cells recompute exactly; no leakage, contamination or reporting-selection problem found.
-- K is not promotable under the registered rule: H7 is a significant loss against O on union recall (about 0.4 to 1.7 pt), inconclusive only against the 1-pt margin.
-- K dominates N on F4 recall rules at the cost of 5 clean false positives on F1 clean.
-- The remaining gap to O is mostly the NER-layer change (and some removed regex rules), concentrated in Privy, and it predates K.
-- Recommendation recorded by the critic: if PR #5 ships, ship K rather than N; the alternative is reverting to O. The decision belongs to the owner.
+> K vs N: on fresh F4 positives, K catches every row N catches plus 69 more (+0.80 pt union recall, +1.56 pt BLOCK level). On the F1 clean rows (not fresh), it adds 5 false positives (−0.08 pt). On 6,000 natural prompts it flags exactly the same prompts as N.
+>
+> K vs O: K's union recall is lower by 1.05 pt [0.41, 1.70], and that loss is real. BLOCK-level recall is equal. Union specificity is +3.24 pt on F1 clean rows (not fresh).
+>
+> Where the gap comes from: mostly the NER changes (case preservation, post-filter) that K shares with N, concentrated in Privy text, where O's NER barely separates clean from positive rows.
+>
+> The choice: if PR #5 ships, ship K rather than N. Reverting to O buys back about 1 pt of union recall, mostly through O's noisy NER, and gives up about 3.2 pt of union specificity.
+
+The decision belongs to the owner.
 
 ## 9. Limitations, deviations and incidents
 
