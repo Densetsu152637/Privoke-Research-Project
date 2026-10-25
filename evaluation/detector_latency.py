@@ -41,9 +41,13 @@ CONFIGS: dict[str, dict] = {
     "N+all": {"tree": "C", "env": dict(_ALL4), "venv": "sm"},
     "N+lg": {"tree": "C", "env": {"PRIVOKE_NER_MODEL": "en_core_web_lg"}, "venv": "sm"},
     "N+trf": {"tree": "C", "env": {"PRIVOKE_NER_MODEL": "en_core_web_trf"}, "venv": "trf"},
+    # v3 rework (docs/research/fresh-sets-freeze-addendum-v3-20261025.md): trees K (b7e716c3), KA (4e695783)
+    "K": {"tree": "K", "env": {}, "venv": "sm"},
+    "K+all": {"tree": "KA", "env": dict(_ALL4), "venv": "sm"},
 }
 COMBINED = ["regex", "ner"]
 WARMUP = 50
+ALLOWED_PIDS: tuple = ()  # pre-existing foreign python processes tolerated while idle (their CPU is recorded)
 THREAD_VARS = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "NUMEXPR_NUM_THREADS")
 
 
@@ -186,6 +190,16 @@ def cpu_load_percent(seconds: float = 3.0) -> float | None:
     return 100.0 * (total - idle) / total if total else None
 
 
+def process_cpu_seconds(pids) -> dict:
+    if os.name != "nt" or not pids:
+        return {}
+    ids = ",".join(str(p) for p in pids)
+    out = subprocess.run(["powershell", "-NoProfile", "-Command",
+                          f"Get-Process -Id {ids} -ErrorAction SilentlyContinue | ForEach-Object {{ \"$($_.Id) $($_.CPU)\" }}"],
+                         capture_output=True, text=True).stdout.splitlines()
+    return {line.split()[0]: float(line.split()[1]) for line in out if len(line.split()) == 2}
+
+
 def other_python_processes() -> list[str]:
     """Python processes other than this one, its launcher parent and its own children (venv launchers)."""
     if os.name != "nt":
@@ -196,7 +210,9 @@ def other_python_processes() -> list[str]:
     rows = [line.split() for line in subprocess.run(["powershell", "-NoProfile", "-Command", cmd],
                                                     capture_output=True, text=True).stdout.splitlines() if line.strip()]
     parent_of_me = next((int(r[1]) for r in rows if int(r[0]) == me), -1)
-    return [f"{r[0]} {r[2]}" for r in rows if int(r[0]) not in (me, parent_of_me) and int(r[1]) != me]
+    allowed = set(ALLOWED_PIDS)
+    return [f"{r[0]} {r[2]}" for r in rows if int(r[0]) not in (me, parent_of_me) and int(r[1]) != me
+            and int(r[0]) not in allowed]
 
 
 def environment_record() -> dict:
@@ -218,10 +234,14 @@ def package_versions(python: Path) -> dict:
             "    try: out[n]=m.version(n)\n"
             "    except Exception: pass\n"
             "print(json.dumps(out))")
+    if not Path(python).exists():
+        return {"unavailable": str(python)}
     return json.loads(subprocess.run([str(python), "-c", code], capture_output=True, text=True).stdout)
 
 
 def command_run(args) -> None:
+    global ALLOWED_PIDS
+    ALLOWED_PIDS = tuple(args.allow_pids)
     texts, meta = build_sample(args.data_root)
     sample_path = args.scratch / "sample.json"
     args.scratch.mkdir(parents=True, exist_ok=True)
@@ -261,6 +281,7 @@ def command_run(args) -> None:
         cmd = [str(pythons[cfg["venv"]]), "-u", str(Path(__file__).resolve()), "worker", "--config", config,
                "--repeat", str(repeat), "--sample", str(sample_path), "--trees-root", str(args.trees_root),
                "--generated", str(args.generated)]
+        allowed_before = process_cpu_seconds(ALLOWED_PIDS)
         t_spawn = time.time()
         proc = subprocess.run(cmd, capture_output=True, text=True, env=env)
         marker = [line for line in proc.stdout.splitlines() if line.startswith("RESULT_JSON ")]
@@ -268,6 +289,8 @@ def command_run(args) -> None:
             raise SystemExit(f"worker failed for {config} r{repeat}: {proc.stderr[-2000:]}")
         result = json.loads(marker[0][len("RESULT_JSON "):])
         result["cold_start_s"] = result["t_first_result"] - t_spawn
+        result["allowed_pid_cpu_s_before"] = allowed_before
+        result["allowed_pid_cpu_s_after"] = process_cpu_seconds(ALLOWED_PIDS)
         result["load_pct_before"] = load
         result["load_pct_after"] = cpu_load_percent(1.0)
         result["pauses_before"] = waits
@@ -280,8 +303,8 @@ def command_run(args) -> None:
                "sample": meta, "warmup_prompts": WARMUP, "repeats": args.repeats, "schedule": schedule,
                "order_seed": args.order_seed, "environment": environment_record(),
                "packages": {k: package_versions(v) for k, v in pythons.items()},
-               "trees": {t: (args.trees_root / t / "EXPORT_SHA").read_text().strip() for t in ("O", "N", "C")},
-               "contention_checks": checks, "after": after, "runs": runs, "aggregate": aggregate(runs)}
+               "trees": {t: (args.trees_root / t / "EXPORT_SHA").read_text().strip() for t in sorted({c["tree"] for n, c in CONFIGS.items() if n in {r["config"] for r in runs}})},
+               "contention_checks": checks, "allowed_pids": list(ALLOWED_PIDS), "after": after, "runs": runs, "aggregate": aggregate(runs)}
     args.out_json.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print("wrote", args.out_json)
 
@@ -325,6 +348,7 @@ def main() -> None:
     run.add_argument("--repeats", type=int, default=3)
     run.add_argument("--order-seed", type=int, default=20261025)
     run.add_argument("--max-load", type=float, default=25.0)
+    run.add_argument("--allow-pids", type=int, nargs="*", default=[])
     run.add_argument("--max-waits", type=int, default=90)
     run.add_argument("--configs", nargs="*", choices=sorted(CONFIGS))
     worker = sub.add_parser("worker")
