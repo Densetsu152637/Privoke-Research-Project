@@ -93,3 +93,7 @@ Added to `ref.bib` after opening the sources on 24 October 2026: `Honnibal2020Sp
 ## Follow-up (24 October 2026)
 
 Paired uncertainty, the `student_id` action-level repair and a full-product rerun of units 1 and 2 are recorded in [DETPREC-FOLLOWUP-20261024](detector-precision-followup-20261024.md). The held-out regex differences above are not statistically significant and the union shows no detectable change without equivalence. This record is otherwise unchanged.
+
+## Follow-up (25 October 2026)
+
+Fresh registered held-out tests of the first revision and of the shipped rework K, and the supplementary checks, are recorded in [DETPREC-HELDOUT-20261025](detector-precision-heldout-20261025.md). The held-out and split results above are unchanged and describe the first installed revision before the student-identifier rule and the rework.
