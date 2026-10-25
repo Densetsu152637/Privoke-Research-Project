@@ -15410,6 +15410,85 @@
   }
  },
  "n_boot": 10000,
+ "post_review_notes": {
+  "critic_owner_statement": "not supplied verbatim to this author; the markdown section 8 gives the coordinator's recorded summary and says so",
+  "h7_reading": "upper bound -0.41: K is significantly worse than O on union recall by about 0.4 to 1.7 pt; inconclusive only relative to the -1.0 pt margin",
+  "k_vs_n": {
+   "clean_rows_cost_S1": {
+    "G2_delta_pt": [
+     -0.08,
+     -0.15,
+     -0.02
+    ],
+    "lost": 5,
+    "rule": "labelled_identifier_generic"
+   },
+   "recall_rules_F4": {
+    "block": [
+     135,
+     0
+    ],
+    "positive": [
+     69,
+     0
+    ],
+    "warn_or_block": [
+     82,
+     0
+    ]
+   },
+   "span_over_masking_per_1k_chars": 10.82,
+   "status": "K-N recall cells are context, not registered hypotheses"
+  },
+  "label": "added after the independent critic review; exploratory unless stated; no rescoring",
+  "low_severity": {
+   "f4_freeze_13s_after_k_freeze": "8295a7ab 11:39:09 vs b7e716c3 11:38:56; no effect",
+   "latency": "efe0e719: K-N 0.00 ms; about +2.4 % vs O across sessions",
+   "ood_probe": "labelled_identifier_generic fires S2 on user_id=12345, ?user_id=abc123, client id 0x1F2A3B; F2 unchanged; no catastrophic backtracking",
+   "qualifier_lexicon_mirrors_piimb_labels": true
+  },
+  "privy_layer_swap_critic_exploratory": {
+   "F1_privy_N_and_K_union_flag_rate_on_clean": 0.29,
+   "F1_privy_O_union_flag_rate_on_clean": 0.48,
+   "K": [
+    -8.0,
+    -9.57,
+    -6.41,
+    69,
+    241
+   ],
+   "K_regex_plus_O_ner": [
+    -2.23,
+    -2.89,
+    -1.62,
+    1,
+    49
+   ],
+   "O_regex_plus_K_ner": [
+    -5.16,
+    -6.63,
+    -3.73,
+    68,
+    179
+   ],
+   "caveat": "unannotated PII cannot be ruled out",
+   "lost_rows_O_ner_span_off_annotation": 164,
+   "lost_rows_O_ner_span_touching_annotation": 77,
+   "lost_rows_by_O_layer": {
+    "both": 26,
+    "ner_only": 179,
+    "regex_only": 36
+   },
+   "non_privy_K_minus_O": [
+    1.25,
+    0.59,
+    1.92,
+    273,
+    192
+   ],
+   "source": "w3-critic/v3/privy.py"
+  }
+ },
  "promotion": {
   "K": {
    "G1": "pass",
@@ -15422,8 +15501,8 @@
     "3_G1_and_G2_hold": true,
     "6_historical_synthetic_context": true
    },
-   "criterion4_critic_review": "pending",
-   "criterion5_latency": "pending (separate record; not measured here)",
+   "criterion4_critic_review": "done: all registered cells recompute exactly; no leakage or contamination found (see post_review_notes)",
+   "criterion5_latency": "met per docs/experiments/detector-latency-v3-20261025.md (efe0e719); not measured by the scoring run",
    "criterion6_detail": {
     "openai": true,
     "personalized": true
