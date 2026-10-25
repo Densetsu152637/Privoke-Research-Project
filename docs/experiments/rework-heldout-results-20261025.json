@@ -15411,7 +15411,26 @@
  },
  "n_boot": 10000,
  "post_review_notes": {
-  "critic_owner_statement": "reproduced verbatim in section 8 of the markdown (w3-critic-2, 25 Oct 2026)",
+  "critic_correction_w3_critic_3": {
+   "pooled_F4_layer_swap_pt": {
+    "K_regex_plus_O_ner": [
+     -0.59,
+     -0.84,
+     -0.34
+    ],
+    "O_regex_plus_K_ner": [
+     -0.28,
+     -0.88,
+     0.31
+    ]
+   },
+   "privy_layer_swap_pt": {
+    "K_regex_plus_O_ner": -2.23,
+    "O_regex_plus_K_ner": -5.16
+   },
+   "text": "Pooled over F4, the recall gap is not mostly NER: layer swap K-regex+O-NER -0.59 [-0.84,-0.34] (excludes 0), O-regex+K-NER -0.28 [-0.88,+0.31]. The NER-layer change dominates only within Privy (-5.16 vs -2.23 regex). Read 'mostly through O's noisy NER' as 'through both layers (in Privy mainly through O's noisy NER)'."
+  },
+  "critic_owner_statement": "reproduced verbatim in section 8 of the markdown (w3-critic-2, 25 Oct 2026), followed by the correction of w3-critic-3 (25 Oct 2026)",
   "h7_reading": "upper bound -0.41: K is significantly worse than O on union recall by about 0.4 to 1.7 pt; inconclusive only relative to the -1.0 pt margin",
   "k_vs_n": {
    "clean_rows_cost_S1": {

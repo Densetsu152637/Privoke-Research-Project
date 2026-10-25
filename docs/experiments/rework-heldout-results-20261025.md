@@ -112,6 +112,11 @@ An independent critic recomputed every registered cell exactly (H7, H8, G1, G2, 
 >
 > The choice: if PR #5 ships, ship K rather than N. Reverting to O buys back about 1 pt of union recall, mostly through O's noisy NER, and gives up about 3.2 pt of union specificity.
 
+
+**Correction (w3-critic-3, 25 Oct 2026)** to the summary above, appended without altering the quoted text:
+
+> Pooled over F4, the recall gap is not mostly NER: the exploratory layer swap gives K-regex+O-NER −0.59 [−0.84, −0.34] (excludes 0) and O-regex+K-NER −0.28 [−0.88, +0.31]. The NER-layer change dominates only within Privy (−5.16 vs −2.23 regex). Read "mostly through O's noisy NER" as "through both layers (in Privy mainly through O's noisy NER)".
+
 The decision belongs to the owner.
 
 ## 9. Limitations, deviations and incidents
