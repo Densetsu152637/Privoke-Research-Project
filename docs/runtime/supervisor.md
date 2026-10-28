@@ -55,6 +55,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-native-host.ps1 -Brow
 
 Use `-Browser OperaGX` for an explicit Opera GX registration. Other values are `Chrome`, `Edge`, `Chromium`, `Firefox`, and `All`.
 
+The Windows installer checks that the runtime Python interpreter can execute before changing the installation. After moving the checkout to another drive or directory, recreate its Python virtual environment and reinstall the runtime dependencies, then rerun this installer from the new checkout. The installed launcher stores absolute paths; an old path can cause the browser to report "Error when communicating with the native messaging host" even when the host is registered.
+
 Linux or macOS:
 
 ```bash

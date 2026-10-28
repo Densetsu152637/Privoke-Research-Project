@@ -19,6 +19,13 @@ foreach ($requiredFile in @($identityPath, $pythonPath, $sourceHostPath, $launch
     }
 }
 
+# A copied virtual environment can retain python.exe while losing its base
+# interpreter or pyvenv.cfg. Validate it before replacing a working installation.
+& $pythonPath -c "import sys; sys.exit(0)"
+if ($LASTEXITCODE -ne 0) {
+    throw "PriVoke Python cannot start. Recreate extension/client-runtime/.venv and install its dependencies, then rerun this installer."
+}
+
 $identities = Get-Content -Raw -LiteralPath $identityPath | ConvertFrom-Json
 $chromiumExtensionId = [string]$identities.chromium_extension_id
 $firefoxExtensionId = [string]$identities.firefox_extension_id
