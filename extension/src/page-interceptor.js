@@ -32,7 +32,7 @@ window.fetch = async function privokeFetch(input, init) {
     emitOutcome(requestId, decision?.action ?? null, decision?.observation, disposition);
   };
   try {
-    const text = extractPrompt(body);
+    const text = extractPrompt(body, targetApp);
     if (text) requestId = crypto.randomUUID();
     const forward = () => {
       forwarded = true;
@@ -288,7 +288,7 @@ function installXhrInterceptor() {
     const xhr = this;
     const request = requests.get(xhr);
     const blob = body instanceof Blob;
-    const text = request?.targetApp ? extractPrompt(body) : "";
+    const text = request?.targetApp ? extractPrompt(body, request.targetApp) : "";
     if (!request?.targetApp || (!text && !blob)) return send.apply(xhr, arguments);
     if (request.synchronous) {
       throw new DOMException("PriVoke cannot check a synchronous prompt request.", "NetworkError");
@@ -306,7 +306,7 @@ function installXhrInterceptor() {
     if (blob) {
       decision = inspectBody(body, request.controller.signal).then((raw) => {
         if (request.cancelled || requests.get(xhr) !== request) return null;
-        const decodedText = extractPrompt(raw);
+        const decodedText = extractPrompt(raw, request.targetApp);
         if (!decodedText) return null;
         request.analysisStarted = true;
         request.requestId = crypto.randomUUID();

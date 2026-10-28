@@ -96,6 +96,40 @@ test("page deadline leaves the full health and analysis budgets for a late safe 
   assert.equal(h.timers.size, 0);
 });
 
+test("ChatGPT metadata bypasses analysis while prompt-bearing requests on the same path stay gated", async () => {
+  const endpoint = "https://chatgpt.com/backend-api/f/conversation/fixture-subpath";
+  const h = harness();
+  const metadata = { method: "POST", body: JSON.stringify({ action: "next", model: "gpt-4o" }) };
+  assert.equal(await h.window.fetch(endpoint, metadata), h.response);
+  assert.deepEqual(h.sent[0].args, [endpoint, metadata]);
+  assert.equal(h.messages.length, 0);
+  for (const action of ["ALLOW", "BLOCK"]) {
+    const init = { method: "POST", body: JSON.stringify({ messages: [
+      { author: { role: "user" }, content: { parts: ["Actual user prompt"] } },
+    ] }) };
+    const result = h.window.fetch(endpoint, init);
+    await flush();
+    assert.equal(h.messages.filter(({ type }) => type === "ANALYZE_PROMPT").at(-1).text, "Actual user prompt");
+    h.decide(action);
+    if (action === "ALLOW") assert.equal(await result, h.response);
+    else await assert.rejects(result, /Prompt blocked by PriVoke/);
+  }
+  assert.equal(h.sent.length, 2);
+});
+
+test("XHR and encoded ChatGPT metadata produce no analysis or synthetic error", async () => {
+  const h = harness();
+  const metadata = JSON.stringify({ action: "next", model: "gpt-4o" });
+  const { xhr, events } = startXhr(h);
+  xhr.send(metadata);
+  assert.equal(h.sent.length, 1);
+  assert.equal(h.messages.length, 0);
+  assert.deepEqual(events, []);
+  assert.equal(await h.window.fetch(url, { method: "POST", body: new Blob([metadata]) }), h.response);
+  assert.equal(h.sent.length, 2);
+  assert.equal(h.messages.length, 0);
+});
+
 test("blocked fetch rejects as a visible failure without sending the prompt", async () => {
   const h = harness();
   const request = h.window.fetch(url, { method: "POST", body });

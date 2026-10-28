@@ -82,3 +82,24 @@ test("non-ASCII and single-character user prompts are inspected", () => {
   assert.equal(extractPrompt({ prompt: "\u79c1\u306e\u533b\u7642\u8a18\u9332" }), "\u79c1\u306e\u533b\u7642\u8a18\u9332");
   assert.equal(extractPrompt({ prompt: "x" }), "x");
 });
+
+test("ChatGPT metadata and non-user messages are not mistaken for prompt text", () => {
+  for (const payload of [
+    { action: "next", model: "gpt-4o", conversation_id: "12345678-1234-1234-1234-123456789012" },
+    { messages: [{ author: { role: "assistant" }, content: { parts: ["Prior assistant output"] } }] },
+    { messages: [{ role: "system", content: "System metadata" }] },
+    { input: [{ role: "assistant", content: "Prior assistant output" }] },
+    { message: { role: "system", content: "System metadata" } },
+    { role: "assistant", content: "Prior assistant output" },
+  ]) assert.equal(extractPrompt(payload, "chatgpt"), "");
+});
+
+test("ChatGPT structured user text remains protected even on a conversation subpath", () => {
+  const endpoint = "https://chatgpt.com/backend-api/f/conversation/fixture-subpath";
+  assert.equal(promptTarget(endpoint), "chatgpt");
+  for (const payload of [
+    { messages: [{ author: { role: "user" }, content: { parts: ["Private user text"] } }] },
+    { prompt: "Private user text" },
+    { input: [{ role: "assistant", content: "Old reply" }, { role: "user", content: "Private user text" }] },
+  ]) assert.equal(extractPrompt(payload, "chatgpt"), "Private user text");
+});

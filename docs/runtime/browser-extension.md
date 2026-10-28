@@ -46,6 +46,10 @@ Known analysis timeouts, disconnected extension contexts, and local runtime conn
 
 The page waits 35.5 seconds for the extension decision, covering the sequential 3.5-second semantic health check and unchanged 30-second analysis deadline plus 2 seconds for messaging. This prevents the page from rejecting a valid result while the background analysis is still within its budget. A missing decision after that outer deadline remains blocked.
 
+For ChatGPT, analysis requires text from a recognized prompt field or user message. Metadata-only conversation requests (for example model, action, and identifier fields) and assistant/system-only messages do not trigger analysis or a prompt notice. Conversation subpaths remain eligible when their bodies contain user prompt text; there is no blanket preparation-path exclusion. This uses the supported structured payload shapes, not a captured inventory of ChatGPT's current background requests, so future payload changes still require compatibility validation.
+
+Chromium-compatible browsers use callback reply semantics even when they expose a `browser` alias; browser-only Firefox continues to use Promise-based messaging.
+
 ## Request path
 
 ```text
