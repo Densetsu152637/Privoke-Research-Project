@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import socket
 import unittest
 from subprocess import CompletedProcess
 from pathlib import Path
@@ -37,6 +39,13 @@ class FakeProcess:
 
 
 class RuntimeProcessSupervisorTests(unittest.TestCase):
+    def setUp(self) -> None:
+        # These lifecycle tests use fake processes; exercise real platform
+        # termination separately below, without passing fake PIDs to taskkill.
+        termination = patch.object(RuntimeProcessSupervisor, "_terminate_process", side_effect=lambda process: process.terminate())
+        termination.start()
+        self.addCleanup(termination.stop)
+
     def test_switching_stack_restarts_owned_child_and_preserves_loopback(self) -> None:
         processes = []
         def factory(*args, **kwargs):
@@ -164,6 +173,51 @@ class RuntimeProcessSupervisorTests(unittest.TestCase):
         self.assertFalse(status.enabled)
         self.assertEqual(launches, [])
         self.assertIn("presidio_analyzer", status.message)
+
+
+@unittest.skipUnless(os.name == "nt", "Windows venv process-tree regression")
+class WindowsRuntimeProcessTests(unittest.TestCase):
+    def test_stopping_venv_runtime_releases_port_and_allows_restart(self) -> None:
+        runtime_python = Path(__file__).resolve().parents[2] / "client-runtime" / ".venv" / "Scripts" / "python.exe"
+        if not runtime_python.is_file():
+            self.skipTest("Local Windows runtime virtual environment is unavailable")
+        with socket.socket() as port_socket:
+            port_socket.bind(("127.0.0.1", 0))
+            port = port_socket.getsockname()[1]
+        command = (
+            str(runtime_python), "-c",
+            "import socket,time; s=socket.socket(); "
+            f"s.bind(('127.0.0.1',{port})); s.listen(); time.sleep(60)",
+        )
+        supervisor = RuntimeProcessSupervisor(command=command, runtime_port=port, environment=dict(os.environ))
+        try:
+            for _ in range(3):
+                self.assertTrue(supervisor.start().enabled)
+                self.assertTrue(supervisor._runtime_port_is_open())
+                self.assertFalse(supervisor.stop().enabled)
+                self.assertFalse(supervisor._runtime_port_is_open(), "Detector outlived its venv launcher")
+        finally:
+            supervisor.stop()
+
+    def test_failed_tree_termination_does_not_report_stopped(self) -> None:
+        supervisor = RuntimeProcessSupervisor(command=("runtime",), environment={})
+        process = FakeProcess()
+        supervisor._process = process
+        with patch("src.runtime_supervisor.subprocess.run", return_value=CompletedProcess([], 1)):
+            with self.assertRaisesRegex(RuntimeError, "process tree"):
+                supervisor.stop()
+        self.assertIs(supervisor._process, process)
+        self.assertTrue(supervisor.status().enabled)
+
+    def test_partial_tree_failure_is_not_ignored_when_launcher_exits(self) -> None:
+        supervisor = RuntimeProcessSupervisor(command=("runtime",), environment={})
+        process = FakeProcess()
+        def partial_failure(*args, **kwargs):
+            process.return_code = 0
+            return CompletedProcess(args[0], 1)
+        with patch("src.runtime_supervisor.subprocess.run", side_effect=partial_failure):
+            with self.assertRaisesRegex(RuntimeError, "process tree"):
+                supervisor._terminate_process(process)
 
 
 if __name__ == "__main__":

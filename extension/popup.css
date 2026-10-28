@@ -115,6 +115,7 @@ h2 { margin: 0; font-size: 13px; letter-spacing: .005em; }
 }
 .layer-toggle:disabled { cursor: wait; opacity: .65; }
 .extension-off .layer-toggle:disabled { cursor: not-allowed; }
+.layer-toggle[data-layer="llm"]:disabled { cursor: not-allowed; filter: grayscale(1); }
 
 .layer-icon {
   display: grid;

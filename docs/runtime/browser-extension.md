@@ -21,6 +21,7 @@ Docker is optional for the extension's regex and NER layers. It is used only whe
 
 - The master toggle starts or stops the client-runtime detector process through `PrivokeRuntimeControlService`. The lightweight supervisor stays online so an off runtime can be started again.
 - **Regex**, **NER**, and **LLM (streamed)** can be enabled independently; all three start enabled.
+- The popup greys out and disables the LLM control until its availability check succeeds. Failed checks show **Unavailable**; the popup retries every five seconds while open and checks again after turning PriVoke on or changing servers. A saved LLM selection is retained during an outage for automatic recovery, but the disabled control cannot be changed. Regex and NER controls remain usable.
 - When semantic protection is configured, analysis checks streaming availability through the supervisor. Health results are cached for five seconds and concurrent checks are coalesced. An outage uses other enabled layers temporarily; semantic remains configured and resumes automatically after a successful later check.
 - If semantic is the only enabled layer, unavailable streaming keeps the request protected by a runtime error and blocks it. Disabling the master toggle or all layers explicitly bypasses analysis.
 - Manual analysis reports a compact `PASS`, `WARN`, or `ERROR` badge beside the **Analyse prompt** button. `BLOCK` maps to `ERROR` in this compact UI.
@@ -69,6 +70,8 @@ The extension itself is not deployed with Docker. Install its native messaging l
 python models/prepare_standard_releases.py
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build model-streaming-service
 ```
+
+The development override is required for the extension's Dev setting: it publishes `127.0.0.1:50051` to the workstation. A service launched with only `docker-compose.yml` can be healthy inside Docker while remaining unreachable by the browser's local supervisor. In `docker compose ps`, `50051/tcp` alone is internal exposure; Dev requires `127.0.0.1:50051->50051/tcp`.
 
 2. Prepare the detector and supervisor. The commands below use one virtual environment, but each process keeps its own source and generated protobuf bindings:
 

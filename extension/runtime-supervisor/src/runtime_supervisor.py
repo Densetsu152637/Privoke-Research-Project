@@ -180,6 +180,21 @@ class RuntimeProcessSupervisor:
     def _terminate_process(self, process: subprocess.Popen) -> None:
         if process.poll() is not None:
             return
+        if os.name == "nt":
+            # Windows venv python.exe is a redirector: terminating only that
+            # PID leaves the real interpreter listening on the runtime port.
+            taskkill = str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "taskkill.exe")
+            result = subprocess.run(  # nosec B603 - fixed tool and owned PID
+                [taskkill, "/PID", str(process.pid), "/T", "/F"],
+                capture_output=True,
+                timeout=self.stop_timeout_seconds,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+                check=False,
+            )
+            if result.returncode != 0:
+                raise RuntimeError("Could not stop the owned client runtime process tree.")
+            process.wait(timeout=self.stop_timeout_seconds)
+            return
         process.terminate()
         try:
             process.wait(timeout=self.stop_timeout_seconds)
