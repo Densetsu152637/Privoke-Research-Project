@@ -42,6 +42,10 @@ The page-network hook currently recognises prompt POSTs for:
 
 Both `fetch` and `XMLHttpRequest` are intercepted at `document_start`. If the extension bridge or runtime is unavailable, website requests are blocked and a notice reports that analysis could not complete safely. A streamed semantic outage falls back to other enabled detection layers; when no fallback layer is enabled, prompts remain blocked until semantic analysis recovers.
 
+Known analysis timeouts, disconnected extension contexts, and local runtime connection failures show fixed recovery guidance: check the runtime in the popup, reload the AI page, or start/check the local runtime respectively. Unknown failures retain the generic analysis-failed notice. These failures still block the submission; raw error details are never copied into notices. A failure notice does not mean sensitive content was detected.
+
+The page waits 35.5 seconds for the extension decision, covering the sequential 3.5-second semantic health check and unchanged 30-second analysis deadline plus 2 seconds for messaging. This prevents the page from rejecting a valid result while the background analysis is still within its budget. A missing decision after that outer deadline remains blocked.
+
 ## Request path
 
 ```text

@@ -21,7 +21,7 @@ window.addEventListener("message", (event) => {
     text: data.text,
     targetApp: data.targetApp,
   })).then((result) => {
-    const response = result?.ok ? result.response : runtimeFailureResponse();
+    const response = result?.ok ? result.response : runtimeFailureResponse(result?.error);
     const action = normalizeAction(response?.action);
     let noticeStatus = "NOT_REQUESTED";
     try {
@@ -38,8 +38,8 @@ window.addEventListener("message", (event) => {
       }
     }
     postResult(data.requestId, action, noticeStatus);
-  }).catch(() => {
-    const response = runtimeFailureResponse();
+  }).catch((error) => {
+    const response = runtimeFailureResponse(error);
     let noticeStatus = "UNKNOWN";
     try {
       showNotice("BLOCK", data.text, response);

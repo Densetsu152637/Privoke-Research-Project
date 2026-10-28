@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
 import { extractPrompt, promptTarget } from "../src/prompt-interception.js";
+import { ANALYSIS_TIMEOUT_MS, STREAMING_HEALTH_TIMEOUT_MS, RESPONSE_TIMEOUT_MS } from "../src/analysis-timeouts.js";
 
 const source = (await readFile(new URL("../src/page-interceptor.js", import.meta.url), "utf8"))
   .replace(/^import .*;\r?\n/gm, "");
@@ -50,7 +51,7 @@ function harness(RequestClass = Request) {
     postMessage(data) { messages.push(data); if (data.type === "ANALYZE_OUTCOME") order.push("outcome"); },
   };
   vm.runInNewContext(source, {
-    runtimeFailureResponse: () => ({ action: "BLOCK" }), window, location: { href: url }, XMLHttpRequest: Xhr,
+    RESPONSE_TIMEOUT_MS, runtimeFailureResponse: () => ({ action: "BLOCK" }), window, location: { href: url }, XMLHttpRequest: Xhr,
     Request: RequestClass, Response, URL, URLSearchParams, FormData, Blob, ReadableStream,
     Uint8Array, ArrayBuffer, TextEncoder, TextDecoder, DOMException, AbortController,
     Event, ProgressEvent: Event, TypeError, crypto, extractPrompt, promptTarget,
@@ -80,6 +81,21 @@ function harness(RequestClass = Request) {
 
 const outcomes = (h) => h.messages.filter((message) => message.type === "ANALYZE_OUTCOME");
 
+test("page deadline leaves the full health and analysis budgets for a late safe decision", async () => {
+  const h = harness();
+  const result = h.window.fetch(url, { method: "POST", body });
+  await flush();
+  const analysisTimer = [...h.timers.values()].find(({ ms }) => ms > 5_000);
+  assert.ok(analysisTimer.ms > STREAMING_HEALTH_TIMEOUT_MS + ANALYSIS_TIMEOUT_MS);
+  // At the old deadline a valid result could still be pending in background.
+  h.expire(32_000);
+  assert.equal(h.sent.length, 0);
+  h.decide("ALLOW");
+  assert.equal(await result, h.response);
+  assert.equal(h.sent.length, 1);
+  assert.equal(h.timers.size, 0);
+});
+
 test("blocked fetch rejects as a visible failure without sending the prompt", async () => {
   const h = harness();
   const request = h.window.fetch(url, { method: "POST", body });
@@ -102,7 +118,7 @@ for (const action of ["ALLOW", "WARN"]) {
     const request = h.window.fetch(url, init);
     await flush();
     if (action) h.decide(action);
-    else h.expire(32_000);
+    else h.expire(RESPONSE_TIMEOUT_MS);
     assert.equal(await request, h.response);
     assert.deepEqual(h.sent[0].args, [url, init]);
     assert.equal(outcomes(h).length, 1);
@@ -285,7 +301,7 @@ test("XHR analysis timeout blocks and duplicate pending sends fail synchronously
   const { xhr } = startXhr(h);
   xhr.send(body);
   assert.throws(() => xhr.send(body), { name: "InvalidStateError" });
-  h.expire(32_000);
+  h.expire(RESPONSE_TIMEOUT_MS);
   await flush();
   assert.equal(h.sent.length, 0);
   assert.equal(xhr.readyState, h.Xhr.DONE);
@@ -375,7 +391,7 @@ test("fetch analysis timeout blocks without sending and releases listeners", asy
   const h = harness();
   const result = h.window.fetch(url, { method: "POST", body });
   await flush();
-  h.expire(32_000);
+  h.expire(RESPONSE_TIMEOUT_MS);
   await assert.rejects(result, { name: "TypeError" });
   assert.equal(h.sent.length, 0);
   assert.equal(outcomes(h).length, 1);

@@ -1,8 +1,8 @@
 import { extractPrompt, promptTarget } from "./prompt-interception.js";
 import { runtimeFailureResponse } from "./interception-failure.js";
+import { RESPONSE_TIMEOUT_MS } from "./analysis-timeouts.js";
 
 const CHANNEL = "privoke-extension-v1";
-const RESPONSE_TIMEOUT_MS = 32_000;
 const BODY_READ_TIMEOUT_MS = 5_000;
 const MAX_BODY_BYTES = 1_048_576;
 const NOTICE_STATUSES = new Set(["NOT_REQUESTED", "RENDERED", "FAILED", "UNKNOWN"]);
