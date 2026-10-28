@@ -74,7 +74,7 @@ Each service keeps generated protobuf code locally:
 - Python bindings under each Python service's `generated` directory
 - Workstation control-plane bindings under `extension/runtime-supervisor/generated`
 
-The Dockerfiles generate these bindings at image build time. `docker-compose.dev.yml` regenerates them at container startup before running the service.
+The Dockerfiles generate these bindings at image build time. `docker-compose.yml` regenerates them at container startup before running the service.
 
 Host evaluation and integration scripts use `python evaluation/setup-host.py`
 from the repository root to generate all three Python contracts into

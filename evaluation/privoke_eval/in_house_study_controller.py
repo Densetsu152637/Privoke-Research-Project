@@ -32,7 +32,7 @@ CHECKPOINT_KEYS = tuple((arm, epoch) for arm in contract.ARM_KEYS
                         for epoch in ((0,) if arm.startswith('S') else range(1, 6)))
 TRAINER_DIGEST = '2e5ddc5d5f13098a5d95ff98bf116421263de0472b7eb729156066b5c2a67806'
 ROOT = Path(__file__).resolve().parents[2]
-COMPOSE_FILES = ('docker-compose.yml', 'evaluation/compose.tests.yml',
+COMPOSE_FILES = ('docker-compose.prod.yml', 'evaluation/compose.tests.yml',
                  'evaluation/compose.public-negatives.yml', 'evaluation/compose.presence.yml',
                  'evaluation/compose.in-house-fit.yml', 'evaluation/compose.in-house-study.yml')
 FIT_ROOT = Path('/private-fit-root')

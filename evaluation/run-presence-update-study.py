@@ -29,7 +29,7 @@ SEEDS = (42, 43, 44)
 SOURCE_ID = "presence-research-evaluation"
 UPDATER_SOURCE = "presence-research-fuzzer"
 BALANCED_CHECKSUM = "8c139431ba8605a3d6817d24d233cce78fc22a086fdeb3ee99702ada86c80015"
-COMPOSE = ["docker", "compose", "-f", "docker-compose.yml", "-f", "evaluation/compose.tests.yml",
+COMPOSE = ["docker", "compose", "-f", "docker-compose.prod.yml", "-f", "evaluation/compose.tests.yml",
            "-f", "evaluation/compose.public-negatives.yml", "-f", "evaluation/compose.presence.yml"]
 PINNED_PARTITIONS = {
     "train": (3832, "da9a1b095587264714c5ae99c8a0f92329a04f6fc237a8ace7d71e837ede429d"),

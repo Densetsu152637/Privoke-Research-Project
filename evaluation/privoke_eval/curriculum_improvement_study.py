@@ -64,7 +64,7 @@ def command(args, *, env=None, log=None):
 
 
 def source_inventory():
-    paths = {ROOT / name for name in ("docker-compose.yml", "evaluation/compose.tests.yml", "evaluation/compose.continual-fuzzer-study.yml",
+    paths = {ROOT / name for name in ("docker-compose.prod.yml", "evaluation/compose.tests.yml", "evaluation/compose.continual-fuzzer-study.yml",
              "evaluation/host_environment.py", "evaluation/run-curriculum-improvement-study.py", "evaluation/fit-contextual-representation-arm.py",
              "evaluation/run-continual-fuzzer-study.py",
              "evaluation/Dockerfile.curriculum-improvement", "evaluation/requirements-training.txt")}
@@ -360,7 +360,7 @@ def compose_configuration(output, protocol, cell):
     continual.write_json(path, override)
     env = dict(os.environ, CONTINUAL_STUDY_ID=cell["project"], CONTINUAL_STUDY_MODEL_ID=f"privoke-{cell['profile']}",
                CONTINUAL_STUDY_CURRICULUM=str(Path(protocol["inputs"][cell["curriculum"]]["manifest"]).parent))
-    compose = ["docker", "compose", "--project-name", cell["project"], "-f", ROOT / "docker-compose.yml",
+    compose = ["docker", "compose", "--project-name", cell["project"], "-f", ROOT / "docker-compose.prod.yml",
                "-f", ROOT / "evaluation/compose.tests.yml", "-f", ROOT / "evaluation/compose.continual-fuzzer-study.yml", "-f", path]
     return directory, compose, env
 

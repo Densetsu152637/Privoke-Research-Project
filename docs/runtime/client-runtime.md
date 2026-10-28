@@ -268,7 +268,7 @@ To expose an NVIDIA GPU to the container, use the opt-in override on a host with
 the NVIDIA Container Toolkit installed:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+docker compose -f docker-compose.prod.yml -f docker-compose.gpu.yml up --build
 ```
 
 The normal Compose files do not request a GPU and remain portable to CPU-only hosts.

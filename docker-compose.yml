@@ -1,114 +1,82 @@
-x-service-security: &service-security
-  init: true
-  read_only: true
-  cap_drop:
-    - ALL
-  security_opt:
-    - no-new-privileges:true
-  tmpfs:
-    - /tmp:rw,noexec,nosuid,nodev,size=64m
-
+# Default workstation development stack. Production: docker compose -f docker-compose.prod.yml ...
 services:
   storage-permissions:
-    restart: "no"
-    build:
-      context: .
-      dockerfile: services/param-update-service/Dockerfile
-    user: "0:0"
-    read_only: true
-    network_mode: none
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-    security_opt:
-      - no-new-privileges:true
-    entrypoint: ["/bin/sh", "-ec"]
-    command:
-      - |
-        cp -n /models/*.json /state/models/
-        chown -R 10001:10001 /state/models /state/parameter-updates /state/telemetry /state/telemetry-client /state/fuzzer-dumps /state/model-packages
-    environment:
-      MODEL_ID: privoke-balanced
-      MODEL_ARTIFACT_PATH: /state/models/privoke-balanced.json
-      PARAM_UPDATE_STORAGE_PATH: /state/parameter-updates/updates.jsonl
-      MODEL_TRAINING_MAX_TOKENS: 256
-    volumes:
-      - model-data:/state/models
-      - model-package-cache:/state/model-packages
-      - param-update-data:/state/parameter-updates
-      - telemetry-data:/state/telemetry
-      - telemetry-client-state:/state/telemetry-client
-      - fuzzer-dumps:/state/fuzzer-dumps
+    extends:
+      file: docker-compose.prod.yml
+      service: storage-permissions
 
   model-streaming-service:
-    <<: *service-security
-    restart: unless-stopped
+    extends:
+      file: docker-compose.prod.yml
+      service: model-streaming-service
+    restart: "no"
+    image: ${COMPOSE_PROJECT_NAME:-privoke-research-project}-model-streaming-service-dev
     build:
       context: .
       dockerfile: services/model-streaming-service/Dockerfile
-    depends_on:
-      storage-permissions:
-        condition: service_completed_successfully
+      target: development
     container_name: model-streaming-service
-    expose:
-      - "50051"
+    user: "0:0"
+    cap_add:
+      - DAC_OVERRIDE
+    read_only: false
+    ports:
+      - "127.0.0.1:50051:50051"
     environment:
       MODEL_STREAMING_PORT: 50051
       MODEL_LATEST_ID: ${MODEL_LATEST_ID:-privoke-v3-balanced}
       MODEL_ARTIFACT_DIR: /models
-      MODEL_RELEASE_DIR: /model-releases
-    volumes:
-      - model-data:/models:ro
-      - type: bind
-        source: ./models/standard-releases
-        target: /model-releases
-        read_only: true
-        bind: {create_host_path: false}
+      GOTMPDIR: /workspace/.tmp/go-build
     healthcheck:
-      test: ["CMD", "/model-streaming-service", "healthcheck"]
+      test: ["CMD", "/usr/local/bin/model-streaming-service-dev", "healthcheck"]
       interval: 2s
       timeout: 1s
       retries: 30
       start_period: 5s
+    volumes:
+      - ./services/model-streaming-service:/workspace/services/model-streaming-service
+      - ./shared:/workspace/shared
+      - model-data:/models:ro
+    command:
+      [
+        "sh",
+        "-c",
+        "mkdir -p /workspace/.tmp/go-build /workspace/services/model-streaming-service/gen && protoc --proto_path=/workspace/shared/proto --go_out=paths=source_relative:/workspace/services/model-streaming-service/gen --go-grpc_out=paths=source_relative:/workspace/services/model-streaming-service/gen /workspace/shared/proto/privoke/v1/parameters.proto && go run ./cmd/server",
+      ]
 
   param-update-service:
-    profiles: [legacy-training]
-    command: [sh, -ec, "python app/bootstrap.py && exec python app/server.py"]
-    <<: *service-security
-    restart: unless-stopped
+    extends:
+      file: docker-compose.prod.yml
+      service: param-update-service
+    restart: "no"
+    image: ${COMPOSE_PROJECT_NAME:-privoke-research-project}-param-update-service-dev
     build:
       context: .
       dockerfile: services/param-update-service/Dockerfile
+      target: development
     container_name: param-update-service
+    user: "0:0"
+    cap_add:
+      - DAC_OVERRIDE
+    read_only: false
     depends_on:
-      storage-permissions:
-        condition: service_completed_successfully
       model-streaming-service:
         condition: service_healthy
       privoke-fuzzer:
         condition: service_healthy
-    expose:
-      - "50052"
+    ports:
+      - "127.0.0.1:50052:50052"
     environment:
       PARAM_UPDATE_PORT: 50052
       PARAM_UPDATE_STORAGE_PATH: /data/updates.jsonl
       MODEL_ARTIFACT_PATH: /models/privoke-balanced.json
-      FUZZER_TRAIN_UNDERLYING: "true"
-      FUZZER_CYCLE_STATE_PATH: /data/training-cycles.sqlite3
       FUZZER_TARGET: privoke-fuzzer:50053
       FUZZER_PROMPT_COUNT: ${FUZZER_PROMPT_COUNT:-32}
       FUZZER_REQUEST_TIMEOUT_SECONDS: 60
       FUZZER_REQUEST_MAX_ATTEMPTS: 5
       FUZZER_REQUEST_INTERVAL_SECONDS: ${FUZZER_REQUEST_INTERVAL_SECONDS:-3600}
       FUZZER_REQUEST_SEED: ${FUZZER_REQUEST_SEED:-1337}
-      FUZZER_CURRICULUM_SAMPLER_POLICY: ${FUZZER_CURRICULUM_SAMPLER_POLICY:-deterministic_v1}
-      FUZZER_CURRICULUM_SAMPLER_SEED: ${FUZZER_CURRICULUM_SAMPLER_SEED:-0}
       MODEL_ID: privoke-balanced
-    volumes:
-      - param-update-data:/data
-      - model-data:/models
     healthcheck:
       test:
         [
@@ -123,24 +91,42 @@ services:
       timeout: 2s
       retries: 30
       start_period: 5s
+    volumes:
+      - param-update-data:/data
+      - ./services/param-update-service:/workspace/services/param-update-service
+      - ./shared:/workspace/shared
+      - model-data:/models
+    command:
+      [
+        "sh",
+        "-c",
+        "mkdir -p /workspace/services/param-update-service/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/param-update-service/generated --grpc_python_out=/workspace/services/param-update-service/generated /workspace/shared/proto/privoke/v1/parameters.proto && python app/bootstrap.py && python app/server.py",
+      ]
 
   telemetry-service:
-    <<: *service-security
-    restart: unless-stopped
+    extends:
+      file: docker-compose.prod.yml
+      service: telemetry-service
+    restart: "no"
+    image: ${COMPOSE_PROJECT_NAME:-privoke-research-project}-telemetry-service-dev
     build:
       context: .
       dockerfile: services/telemetry-service/Dockerfile
+      target: development
     container_name: telemetry-service
-    depends_on:
-      storage-permissions:
-        condition: service_completed_successfully
-    expose:
-      - "50055"
+    user: "0:0"
+    cap_add:
+      - DAC_OVERRIDE
+    read_only: false
+    ports:
+      - "127.0.0.1:50055:50055"
     environment:
       TELEMETRY_PORT: 50055
       TELEMETRY_DB_PATH: /data/telemetry-ldp-v1.sqlite3
     volumes:
       - telemetry-data:/data
+      - ./services/telemetry-service:/workspace/services/telemetry-service
+      - ./shared:/workspace/shared
     healthcheck:
       test:
         [
@@ -155,35 +141,42 @@ services:
       timeout: 2s
       retries: 30
       start_period: 5s
+    command:
+      [
+        "sh",
+        "-c",
+        "mkdir -p /workspace/services/telemetry-service/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/telemetry-service/generated --grpc_python_out=/workspace/services/telemetry-service/generated /workspace/shared/proto/privoke/v1/telemetry.proto && python app/server.py",
+      ]
 
   client-runtime:
-    <<: *service-security
-    restart: unless-stopped
+    extends:
+      file: docker-compose.prod.yml
+      service: client-runtime
+    restart: "no"
+    image: ${COMPOSE_PROJECT_NAME:-privoke-research-project}-client-runtime-dev
     build:
       context: .
       dockerfile: extension/client-runtime/Dockerfile
-    container_name: client-runtime
+      target: development
+    user: "0:0"
+    cap_add:
+      - DAC_OVERRIDE
+    read_only: false
     depends_on:
       model-streaming-service:
         condition: service_healthy
       telemetry-service:
         condition: service_healthy
-      storage-permissions:
-        condition: service_completed_successfully
-    expose:
-      - "50054"
+    ports:
+      - "127.0.0.1:50054:50054"
     environment:
       PRIVOKE_GRPC_PORT: 50054
       PRIVOKE_GRPC_HOST: "[::]"
       PRIVOKE_LLM_CHOICE: streamed
-      PRIVOKE_STACK_MODE: internal
-      PRIVOKE_REGEX_GITLEAKS: ${PRIVOKE_REGEX_GITLEAKS:-true}
-      PRIVOKE_REGEX_PRESIDIO: ${PRIVOKE_REGEX_PRESIDIO:-true}
       MODEL_STREAMING_TARGET: model-streaming-service:50051
       MODEL_STREAMING_CONSUMER_ID: server-client-runtime
       MODEL_STREAMING_CACHE_TTL_SECONDS: ${MODEL_STREAMING_CACHE_TTL_SECONDS:-1}
       MODEL_ID: latest
-      MODEL_PACKAGE_CACHE_DIR: /data/model-packages
       PRIVOKE_MODEL_DEVICE: ${PRIVOKE_MODEL_DEVICE:-auto}
       PYTHONPATH: /workspace/shared/python
       TELEMETRY_ENABLED: "true"
@@ -192,8 +185,9 @@ services:
       TELEMETRY_LDP_DAILY_EPSILON: ${TELEMETRY_LDP_DAILY_EPSILON:-8}
       TELEMETRY_PRIVACY_LEDGER_PATH: /data/telemetry-client/telemetry-budget.sqlite3
     volumes:
+      - ./extension/client-runtime:/workspace/extension/client-runtime
+      - ./shared:/workspace/shared
       - telemetry-client-state:/data/telemetry-client
-      - model-package-cache:/data/model-packages
     healthcheck:
       test:
         [
@@ -208,20 +202,33 @@ services:
       timeout: 2s
       retries: 30
       start_period: 5s
+    command:
+      [
+        "sh",
+        "-c",
+        "mkdir -p /workspace/extension/client-runtime/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/extension/client-runtime/generated --grpc_python_out=/workspace/extension/client-runtime/generated /workspace/shared/proto/privoke/v1/parameters.proto /workspace/shared/proto/privoke/v1/runtime.proto /workspace/shared/proto/privoke/v1/telemetry.proto && python src/grpc_main.py",
+      ]
 
   privoke-fuzzer:
-    profiles: [legacy-training]
-    <<: *service-security
-    restart: unless-stopped
+    extends:
+      file: docker-compose.prod.yml
+      service: privoke-fuzzer
+    restart: "no"
+    image: ${COMPOSE_PROJECT_NAME:-privoke-research-project}-privoke-fuzzer-dev
     build:
       context: .
       dockerfile: services/privoke-fuzzer/Dockerfile
+      target: development
     container_name: privoke-fuzzer
+    user: "0:0"
+    cap_add:
+      - DAC_OVERRIDE
+    read_only: false
     depends_on:
-      storage-permissions:
-        condition: service_completed_successfully
       client-runtime:
         condition: service_healthy
+    ports:
+      - "127.0.0.1:50053:50053"
     environment:
       PRIVOKE_RUNTIME_TARGET: client-runtime:50054
       PYTHONPATH: /workspace/shared/python
@@ -231,9 +238,10 @@ services:
       FUZZER_ID: server-fuzzer
       PRIVOKE_FUZZER_DUMP_DIR: /workspace/dumps/privoke-fuzzer
       FUZZ_MAX_CONCURRENT_CYCLES: 1
-      FUZZ_TRAINING_REPLAY_WEIGHT: ${FUZZ_TRAINING_REPLAY_WEIGHT:-0.35}
     volumes:
-      - fuzzer-dumps:/workspace/dumps/privoke-fuzzer
+      - ./services/privoke-fuzzer:/workspace/services/privoke-fuzzer
+      - ./shared:/workspace/shared
+      - ./dumps/privoke-fuzzer:/workspace/dumps/privoke-fuzzer
     healthcheck:
       test:
         [
@@ -248,10 +256,16 @@ services:
       timeout: 2s
       retries: 30
       start_period: 5s
+    command:
+      [
+        "sh",
+        "-c",
+        "mkdir -p /workspace/services/privoke-fuzzer/generated && python -m grpc_tools.protoc -I /workspace/shared/proto --python_out=/workspace/services/privoke-fuzzer/generated --grpc_python_out=/workspace/services/privoke-fuzzer/generated /workspace/shared/proto/privoke/v1/parameters.proto /workspace/shared/proto/privoke/v1/runtime.proto && python src/main.py",
+      ]
 
 volumes:
-  model-package-cache:
   model-data:
+  model-package-cache:
   param-update-data:
   telemetry-data:
   telemetry-client-state:

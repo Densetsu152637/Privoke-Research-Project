@@ -6,7 +6,7 @@ services:
   presence-update-service:
     image: privoke-research-project-param-update-service:latest
     extends:
-      file: docker-compose.yml
+      file: docker-compose.prod.yml
       service: param-update-service
     container_name: privoke-research-eval-20261004-presence-updater
     environment:
@@ -25,7 +25,7 @@ services:
   presence-fuzzer:
     image: privoke-research-project-privoke-fuzzer:latest
     extends:
-      file: docker-compose.yml
+      file: docker-compose.prod.yml
       service: privoke-fuzzer
     container_name: privoke-research-eval-20261004-presence-fuzzer
     environment:

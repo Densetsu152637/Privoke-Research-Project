@@ -10,7 +10,7 @@ import struct
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "evaluation/results"
 LOCKED = RESULTS / "locked-public"
-COMPOSE = ["docker", "compose", "-f", "docker-compose.yml", "-f", "evaluation/compose.tests.yml",
+COMPOSE = ["docker", "compose", "-f", "docker-compose.prod.yml", "-f", "evaluation/compose.tests.yml",
            "-f", "evaluation/compose.public-negatives.yml"]
 EXPORT_PROGRAM = r'''
 import json,sys

@@ -68,10 +68,10 @@ The extension itself is not deployed with Docker. Install its native messaging l
 
 ```bash
 python models/prepare_standard_releases.py
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build model-streaming-service
+docker compose up --build model-streaming-service
 ```
 
-The development override is required for the extension's Dev setting: it publishes `127.0.0.1:50051` to the workstation. A service launched with only `docker-compose.yml` can be healthy inside Docker while remaining unreachable by the browser's local supervisor. In `docker compose ps`, `50051/tcp` alone is internal exposure; Dev requires `127.0.0.1:50051->50051/tcp`.
+The default development stack publishes `127.0.0.1:50051` to the workstation for the extension's Dev setting. The explicitly selected `docker-compose.prod.yml` keeps this port internal to Docker and is not reachable by the browser's local supervisor. In `docker compose ps`, `50051/tcp` alone is internal exposure; Dev requires `127.0.0.1:50051->50051/tcp`.
 
 2. Prepare the detector and supervisor. The commands below use one virtual environment, but each process keeps its own source and generated protobuf bindings:
 
