@@ -1,5 +1,5 @@
 import { sendRuntimeMessage } from "./webextension-api.js";
-import { runtimeFailureResponse } from "./interception-failure.js";
+import { interceptionResponse, runtimeFailureResponse } from "./interception-failure.js";
 
 const CHANNEL = "privoke-extension-v1";
 const NOTICE_ID = "privoke-page-notice";
@@ -21,7 +21,7 @@ window.addEventListener("message", (event) => {
     text: data.text,
     targetApp: data.targetApp,
   })).then((result) => {
-    const response = result?.ok ? result.response : runtimeFailureResponse(result?.error);
+    const response = result?.ok ? interceptionResponse(result.response) : runtimeFailureResponse(result?.error);
     const action = normalizeAction(response?.action);
     let noticeStatus = "NOT_REQUESTED";
     try {
@@ -42,12 +42,12 @@ window.addEventListener("message", (event) => {
     const response = runtimeFailureResponse(error);
     let noticeStatus = "UNKNOWN";
     try {
-      showNotice("BLOCK", data.text, response);
+      showNotice("WARN", data.text, response);
       noticeStatus = "RENDERED";
     } catch {
       noticeStatus = "FAILED";
     }
-    postResult(data.requestId, "BLOCK", noticeStatus);
+    postResult(data.requestId, "WARN", noticeStatus);
   });
 });
 
@@ -68,7 +68,7 @@ function updateSemanticAvailability(response) {
     layer === "DETECTION_LAYER_REGEX" ? "regex" : "NER"
   ));
   notice.textContent = response.semanticFailClosedOnly
-    ? "PriVoke semantic analysis is temporarily unavailable. No other protection layers are enabled, so prompts remain blocked until the service returns."
+    ? "PriVoke semantic analysis is temporarily unavailable. Prompts will continue without a complete privacy check until the service returns."
     : `PriVoke semantic analysis is temporarily unavailable. ${activeLayers.join(" and ")} protection remains active; retrying automatically.`;
   notice.style.cssText = "position:fixed;z-index:2147483647;left:16px;bottom:16px;max-width:420px;padding:12px 16px;border:1px solid #d7a42b;border-radius:8px;background:#fff8df;color:#352900;font:13px/1.4 system-ui,sans-serif;box-shadow:0 4px 16px #0002";
   if (!existing) (document.documentElement || document).append(notice);
@@ -94,7 +94,7 @@ function validRequestId(value) {
 
 function normalizeAction(value) {
   const action = typeof value === "string" ? value.toUpperCase() : "";
-  return ["ALLOW", "WARN", "BLOCK"].includes(action) ? action : "BLOCK";
+  return ["ALLOW", "WARN", "BLOCK"].includes(action) ? action : "WARN";
 }
 
 function showNotice(action, text, response) {
@@ -127,7 +127,8 @@ function showNotice(action, text, response) {
   const heading = document.createElement("div");
   heading.className = "heading";
   const title = document.createElement("strong");
-  title.textContent = action === "BLOCK" ? "Prompt blocked" : "Sensitive prompt warning";
+  title.textContent = response.inspectionUnavailable ? "Privacy check unavailable"
+    : action === "BLOCK" ? "Prompt blocked" : "Sensitive prompt warning";
   const close = document.createElement("button");
   close.type = "button";
   close.setAttribute("aria-label", "Dismiss PriVoke notice");

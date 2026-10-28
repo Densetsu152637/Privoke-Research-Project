@@ -4,6 +4,7 @@ import test from "node:test";
 import vm from "node:vm";
 import { extractPrompt, promptTarget } from "../src/prompt-interception.js";
 import { ANALYSIS_TIMEOUT_MS, STREAMING_HEALTH_TIMEOUT_MS, RESPONSE_TIMEOUT_MS } from "../src/analysis-timeouts.js";
+import { runtimeFailureResponse } from "../src/interception-failure.js";
 
 const source = (await readFile(new URL("../src/page-interceptor.js", import.meta.url), "utf8"))
   .replace(/^import .*;\r?\n/gm, "");
@@ -15,7 +16,7 @@ async function flushUntil(predicate) {
   assert.equal(predicate(), true);
 }
 
-function harness(RequestClass = Request) {
+function harness(RequestClass = Request, nativeError = null) {
   const messages = [];
   const listeners = new Set();
   const timers = new Map();
@@ -45,13 +46,18 @@ function harness(RequestClass = Request) {
     }
   }
   const window = {
-    fetch(...args) { sent.push({ args, receiver: this }); order.push("fetch"); return Promise.resolve(response); },
+    fetch(...args) {
+      if (args[0] instanceof Request && args[0].bodyUsed) return Promise.reject(new TypeError("Body already consumed"));
+      sent.push({ args, receiver: this }); order.push("fetch");
+      if (nativeError) throw nativeError;
+      return Promise.resolve(response);
+    },
     addEventListener(type, listener) { if (type === "message") listeners.add(listener); },
     removeEventListener(type, listener) { listeners.delete(listener); },
     postMessage(data) { messages.push(data); if (data.type === "ANALYZE_OUTCOME") order.push("outcome"); },
   };
   vm.runInNewContext(source, {
-    RESPONSE_TIMEOUT_MS, runtimeFailureResponse: () => ({ action: "BLOCK" }), window, location: { href: url }, XMLHttpRequest: Xhr,
+    RESPONSE_TIMEOUT_MS, runtimeFailureResponse, window, location: { href: url }, XMLHttpRequest: Xhr,
     Request: RequestClass, Response, URL, URLSearchParams, FormData, Blob, ReadableStream,
     Uint8Array, ArrayBuffer, TextEncoder, TextDecoder, DOMException, AbortController,
     Event, ProgressEvent: Event, TypeError, crypto, extractPrompt, promptTarget,
@@ -318,42 +324,42 @@ test("XHR native send failures emit error once and are never retried", async () 
   assert.deepEqual(h.order, ["xhr-send", "outcome"]);
 });
 
-test("page messaging failures block immediately and clean up the check", async () => {
+test("page messaging failures permit handoff and clean up even when warning rendering fails", async () => {
   const h = harness();
   h.window.postMessage = () => { throw new Error("messaging unavailable"); };
-  await assert.rejects(h.window.fetch(url, { method: "POST", body }), { name: "TypeError" });
+  assert.equal(await h.window.fetch(url, { method: "POST", body }), h.response);
   const { xhr } = startXhr(h);
   xhr.send(body);
   await flush();
-  assert.equal(h.sent.length, 0);
+  assert.equal(h.sent.length, 2);
   assert.equal(h.listeners.size, 0);
   assert.equal(h.timers.size, 0);
 });
 
-test("XHR analysis timeout blocks and duplicate pending sends fail synchronously", async () => {
+test("XHR analysis timeout permits handoff and duplicate pending sends fail synchronously", async () => {
   const h = harness();
   const { xhr } = startXhr(h);
   xhr.send(body);
   assert.throws(() => xhr.send(body), { name: "InvalidStateError" });
   h.expire(RESPONSE_TIMEOUT_MS);
   await flush();
-  assert.equal(h.sent.length, 0);
-  assert.equal(xhr.readyState, h.Xhr.DONE);
+  assert.equal(h.sent.length, 1);
+  assert.equal(xhr.readyState, h.Xhr.OPENED);
   assert.equal(outcomes(h).length, 1);
-  assert.equal(outcomes(h)[0].observation.request_disposition, "BLOCKED_LOCALLY");
+  assert.equal(outcomes(h)[0].observation.request_disposition, "ORIGINAL_REQUEST_HANDED_OFF");
   assert.equal(outcomes(h)[0].observation.notice_status, "UNKNOWN");
 });
 
-test("unmatched requests bypass analysis and synchronous prompt requests fail immediately", async () => {
+test("unmatched requests and uninspectable synchronous prompts reach the native API", async () => {
   const h = harness();
   await h.window.fetch("https://example.com", { method: "POST", body });
   const xhr = new h.Xhr();
   xhr.open("POST", "https://example.com");
   xhr.send(body);
   xhr.open("POST", url, false);
-  assert.throws(() => xhr.send(body), { name: "NetworkError" });
+  xhr.send(body);
   assert.equal(h.messages.length, 0);
-  assert.equal(h.sent.length, 2);
+  assert.equal(h.sent.length, 3);
 });
 
 test("legacy action-only result remains compatible and marks notice state unknown", async () => {
@@ -367,15 +373,15 @@ test("legacy action-only result remains compatible and marks notice state unknow
   assert.equal(outcomes(h)[0].observation.request_disposition, "ORIGINAL_REQUEST_HANDED_OFF");
 });
 
-test("invalid actions fail closed and observations do not expose prompt text", async () => {
+test("invalid actions permit handoff and observations do not expose prompt text", async () => {
   const h = harness();
   const request = h.window.fetch(url, { method: "POST", body });
   await flush();
   h.decide("MAYBE");
-  await assert.rejects(request, { name: "TypeError", message: "Prompt blocked by PriVoke." });
+  assert.equal(await request, h.response);
   assert.equal(outcomes(h).length, 1);
-  assert.equal(outcomes(h)[0].action, "BLOCK");
-  assert.equal(outcomes(h)[0].observation.request_disposition, "BLOCKED_LOCALLY");
+  assert.equal(outcomes(h)[0].action, "WARN");
+  assert.equal(outcomes(h)[0].observation.request_disposition, "ORIGINAL_REQUEST_HANDED_OFF");
   assert.equal(outcomes(h)[0].observation.notice_status, "UNKNOWN");
   assert.equal(JSON.stringify(outcomes(h)[0]).includes("My private prompt"), false);
 });
@@ -421,29 +427,30 @@ test("aborting XHR while its Blob is decoding prevents a late analysis or send",
 });
 
 
-test("fetch analysis timeout blocks without sending and releases listeners", async () => {
+test("fetch analysis timeout forwards the original request and releases listeners", async () => {
   const h = harness();
   const result = h.window.fetch(url, { method: "POST", body });
   await flush();
   h.expire(RESPONSE_TIMEOUT_MS);
-  await assert.rejects(result, { name: "TypeError" });
-  assert.equal(h.sent.length, 0);
+  assert.equal(await result, h.response);
+  assert.equal(h.sent.length, 1);
   assert.equal(outcomes(h).length, 1);
-  assert.equal(outcomes(h)[0].observation.request_disposition, "BLOCKED_LOCALLY");
+  assert.equal(outcomes(h)[0].observation.request_disposition, "ORIGINAL_REQUEST_HANDED_OFF");
   assert.equal(outcomes(h)[0].observation.notice_status, "UNKNOWN");
   assert.equal(h.listeners.size, 0);
   assert.equal(h.timers.size, 0);
 });
 
-test("an unreadable XHR Blob emits its terminal failure events", async () => {
+test("an unreadable XHR Blob is handed to native send unchanged", async () => {
   const h = harness();
   const { xhr, events } = startXhr(h);
   const unreadable = new Blob([body]);
   unreadable.stream = () => new ReadableStream({ start(controller) { controller.error(new Error("body cannot be decoded")); } });
   xhr.send(unreadable);
   await flush();
-  assert.equal(h.sent.length, 0);
-  assert.deepEqual(events.map(([type]) => type), ["readystatechange", "error", "loadend"]);
+  assert.equal(h.sent.length, 1);
+  assert.equal(h.sent[0].body, unreadable);
+  assert.deepEqual(events, []);
   assert.equal(outcomes(h).length, 0);
   assert.equal(h.timers.size, 0);
 });
@@ -492,7 +499,7 @@ test("blocked stream uploads never reach native fetch", async () => {
 });
 
 for (const mode of ["timeout", "abort", "oversize", "unreadable"]) {
-  test(`stream inspection ${mode} settles without sending`, async () => {
+  test(`stream inspection ${mode} preserves native handoff except cancellation`, async () => {
     const h = harness();
     const controller = new AbortController();
     let cancelled = false;
@@ -504,25 +511,47 @@ for (const mode of ["timeout", "abort", "oversize", "unreadable"]) {
       cancel() { cancelled = true; },
     });
     const result = h.window.fetch(url, { method: "POST", body: stream, duplex: "half", signal: controller.signal });
-    const rejected = assert.rejects(result, mode === "abort" ? { name: "AbortError" } : /inspection timed out|inspection limit|upload unavailable/);
+    const settled = mode === "abort" ? assert.rejects(result, { name: "AbortError" }) : result;
     await flush();
     if (mode === "timeout") h.expire(5_000);
     if (mode === "abort") controller.abort();
-    await rejected;
+    await settled;
     await flush();
-    assert.equal(h.sent.length, 0);
+    assert.equal(h.sent.length, mode === "abort" ? 0 : 1);
     assert.equal(h.messages.length, 0);
     assert.equal(h.timers.size, 0);
-    if (mode !== "unreadable") assert.equal(cancelled, true);
+    if (mode === "abort") assert.equal(cancelled, true);
   });
 }
 
-test("consumed Request bodies fail closed instead of bypassing inspection", async () => {
+test("consumed Request bodies retain native fetch failure", async () => {
   const h = harness();
   const request = new Request(url, { method: "POST", body });
   await request.text();
   await assert.rejects(h.window.fetch(request), { name: "TypeError" });
   assert.equal(h.sent.length, 0);
+});
+
+test("oversized upload inspection preserves every byte on the forwarded stream branch", async () => {
+  const h = harness();
+  const original = "x".repeat(1_048_577);
+  const init = { method: "POST", body: uploadStream(original), duplex: "half", credentials: "include" };
+  assert.equal(await h.window.fetch(url, init), h.response);
+  assert.equal(h.sent.length, 1);
+  const forwarded = h.sent[0].args[0];
+  assert.equal(forwarded.credentials, "include");
+  assert.equal(await forwarded.text(), original);
+  assert.equal(h.messages.length, 0);
+});
+
+test("unavailable analysis preserves native fetch rejection without retrying", async () => {
+  const nativeError = new Error("native network failure");
+  const h = harness(Request, nativeError);
+  const request = h.window.fetch(url, { method: "POST", body });
+  await flush();
+  h.expire(RESPONSE_TIMEOUT_MS);
+  await assert.rejects(request, (error) => error === nativeError);
+  assert.equal(h.sent.length, 1);
 });
 
 test("a null init body still checks the existing Request body", async () => {
