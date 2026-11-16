@@ -326,7 +326,7 @@ The user stated that nginx is not needed because the system uses microservices, 
 - **Method:**
   - Reorganize the existing content without adding results.
   - Move the scattered "does not establish" caveats into Discussion and Threats to Validity.
-  - Check the RQ formatting (`	extbf{RQ1}:`) and the authors of former reference 9.
+  - Check the RQ formatting (`\textbf{RQ1}:`) and the authors of former reference 9.
   - Keep the page limits.
 - **Acceptance checks:** G1–G5 and G14.
 - **Status:** pending.
