@@ -238,5 +238,19 @@ class RecordTests(unittest.TestCase):
         self.assertTrue(all(name.startswith("copilot-") for name in failed))
 
 
+
+class CoverageTests(unittest.TestCase):
+    def test_provider_hosts_exclude_the_negative_control_host(self):
+        self.assertNotIn("example.com", cp.PROVIDER_HOSTS)
+        self.assertIn("copilot.microsoft.com", cp.PROVIDER_HOSTS)
+
+    def test_coverage_status_distinguishes_surfaced_and_silent_gaps(self):
+        self.assertEqual(cp.coverage_status(True, ""), "covered")
+        # EDGE-COPILOT-1: Edge refuses the scripts but the extension badges the tab.
+        self.assertEqual(cp.coverage_status(False, "!"), "gap_surfaced")
+        self.assertEqual(cp.coverage_status(False, ""), "silent_gap")
+        self.assertEqual(cp.coverage_status(False, {"harnessError": "n/a"}), "gap_badge_not_measured")
+
+
 if __name__ == "__main__":
     unittest.main()

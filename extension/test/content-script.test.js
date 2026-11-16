@@ -16,7 +16,7 @@ function relay(sendRuntimeMessage, document = { getElementById() { throw new Err
     postMessage(data) { results.push(data); },
   };
   vm.runInNewContext(source, {
-    interceptionResponse, runtimeFailureResponse, window, sendRuntimeMessage,
+    interceptionResponse, runtimeFailureResponse, window, sendRuntimeMessage, answerCoveragePings() {},
     document,
   });
   listener({ source: window, data: {
@@ -104,7 +104,7 @@ for (const mode of ["sync", "async", "response"]) {
 function highlight(text, evidence) {
   const container = { children: [], append(...items) { this.children.push(...items); } };
   const context = vm.createContext({
-    window: { addEventListener() {} },
+    window: { addEventListener() {} }, answerCoveragePings() {},
     document: { createElement(tag) { return { tag, className: "", textContent: "" }; } },
   });
   vm.runInContext(source, context);

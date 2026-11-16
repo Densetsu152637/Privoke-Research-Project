@@ -92,6 +92,7 @@ class ChromiumSession {
       "--disable-sync",
       `--host-resolver-rules=${hostRules}`,
       `--ignore-certificate-errors-spki-list=${options.spki}`,
+      ...(options.extraArgs ?? []),
       "about:blank",
     ];
     this.child = spawn(options.exe, args, { stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"] });
@@ -167,6 +168,26 @@ class ChromiumSession {
 
   async evaluate(expression) {
     const result = await this.send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }, this.sessionId);
+    return result.result?.result?.value;
+  }
+
+  // Evaluates `expression` in the extension's background service worker, for example to
+  // read the per-tab action badge that reports a coverage gap.
+  async extensionEvaluate(expression) {
+    if (!this.workerSession) {
+      const targets = (await this.send("Target.getTargets")).result.targetInfos;
+      const worker = targets.find((target) => target.type === "service_worker"
+        && target.url.startsWith(`chrome-extension://${this.extensionId}/`));
+      if (!worker) return { harnessError: "extension service worker not found" };
+      this.workerSession = (await this.send("Target.attachToTarget",
+        { targetId: worker.targetId, flatten: true })).result.sessionId;
+    }
+    const result = await this.send("Runtime.evaluate",
+      { expression, awaitPromise: true, returnByValue: true }, this.workerSession);
+    if (result.error || result.result?.exceptionDetails) {
+      this.workerSession = undefined;
+      return { harnessError: result.error?.message ?? result.result.exceptionDetails.text };
+    }
     return result.result?.result?.value;
   }
 
@@ -314,6 +335,10 @@ for await (const line of input) {
       reply({ id: request.id, ...(await session.open(request.url)) });
     } else if (request.op === "run") {
       reply({ id: request.id, outcome: await session.run(request.spec, request.timeoutMs ?? 120_000) });
+    } else if (request.op === "extension-eval") {
+      reply({ id: request.id, value: session.extensionEvaluate
+        ? await session.extensionEvaluate(request.expression)
+        : { harnessError: "extension evaluation is only implemented for Chromium" } });
     } else if (request.op === "eval") {
       reply({ id: request.id, value: await session.evaluate(request.expression) });
     } else if (request.op === "close") {

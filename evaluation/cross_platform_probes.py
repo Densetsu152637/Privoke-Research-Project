@@ -203,6 +203,23 @@ class Capture:
         return sha256_hex(self.body)
 
 
+PROVIDER_HOSTS = tuple(host for host in FIXTURE_HOSTS if host != "example.com")
+COVERAGE_GAP_BADGE = "!"
+
+
+def coverage_status(page_hook_active: bool | None, badge: object) -> str:
+    """Classify one provider page: hooked, a gap the extension surfaced, or a silent gap.
+
+    `badge` is the action badge text read from the extension's service worker, or a
+    dict with `harnessError` when the browser offers no way to read it (Firefox).
+    """
+    if page_hook_active:
+        return "covered"
+    if not isinstance(badge, str):
+        return "gap_badge_not_measured"
+    return "gap_surfaced" if badge == COVERAGE_GAP_BADGE else "silent_gap"
+
+
 def probe_id_from_path(path: str) -> str | None:
     values = parse_qs(urlsplit(path).query).get("xp")
     return values[0] if values else None
