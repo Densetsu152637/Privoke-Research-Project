@@ -1,8 +1,8 @@
 # Rust workspace
 
-> Source area: `rust`. Plan: [Rust server rewrite](../plans/rust-server-rewrite.md), stages 0 to 2. Run every command from the repository root unless stated.
+> Source area: `rust`. Plan: [Rust server rewrite](../plans/rust-server-rewrite.md), stages 0 to 3. Run every command from the repository root unless stated.
 
-The workspace holds the Rust side of the server rewrite. At stage 1 it contains three libraries and no service. The Python and Go services are unchanged and remain the measured system until a later stage replaces them.
+The workspace holds the Rust side of the server rewrite. Stages 1 and 2 added three libraries and the PKI tool; stage 3 adds the first service, `privoke-model-streaming`. The Python and Go services are unchanged and remain the measured system until a later stage replaces them.
 
 | Crate | Purpose |
 | --- | --- |
@@ -10,6 +10,7 @@ The workspace holds the Rust side of the server rewrite. At stage 1 it contains 
 | `privoke-contracts` | Byte-exact ports of the Python contracts: canonical JSON in four layouts including Python's float `repr`, artifact checksums, receipt keys, window-training seeds, tensor fingerprints and the pinned V3 manifest rules. Re-exports `privoke-proto` as `proto`. |
 | `privoke-transport` | In-service mutual TLS, authorisation, limits, the identity registry and hot reload. It replaces nginx. |
 | `privoke-pki` (`rust/tools/privoke-pki`) | Operator CA tool and installation enrolment: `init-ca`, `issue-server`, `issue-reporter`, `sign`, `sign-service`, `revoke`, `crl`, and the installation commands `enrol`, `renew`, `install-cert` and `status`. The library is what `privoke-supervisor` will call. |
+| `privoke-model-streaming` (`rust/services/model-streaming`) | The model-streaming service that replaces the Go service: legacy float catalog, standard V3 packages, two mutual-TLS listeners and a `healthcheck` subcommand. See [below](#privoke-model-streaming). |
 
 ## Build and test
 
@@ -105,6 +106,142 @@ cargo tree --locked -p privoke-transport -e features -e no-dev --manifest-path r
 
 The output must not contain `workstation-loopback`; `fail_closed_release_dependency_tree_has_no_plaintext_feature` asserts it.
 
+## `privoke-model-streaming`
+
+The Rust replacement for `services/model-streaming-service` (Go, left in place). It serves the same artifact catalog, legacy float streams and standard V3 packages with byte-identical output, behind in-service mutual TLS instead of the nginx ingress. Binary: `model-streaming-service`. Dockerfile: `rust/services/model-streaming/Dockerfile`.
+
+### Listeners and authorisation
+
+Both listeners are `privoke-transport` mutual-TLS listeners over the same server certificate, client CA, CRL and registry. An RPC that a listener's policy does not list is `UNIMPLEMENTED` there.
+
+| Listener | Default port | RPCs | Roles |
+| --- | --- | --- | --- |
+| Public | 50443 (`MODEL_STREAMING_PUBLIC_PORT`) | `Health`, `StreamModelParameters`, `GetModelPackage`, `StreamModelAsset` | `consumer` (registered installations), rate key: identity |
+| Internal | 50051 (`MODEL_STREAMING_PORT`) | `GetModelParameters`, `Health` | `publisher`, `trainer`, `runtime` (registered services), rate key: identity |
+
+`GetModelPackage` and `StreamModelAsset` are public for the first time (plan goal G8); the nginx ingress routed only three RPCs and not these two. The reporter credential is refused on both listeners.
+
+Caller binding: on the public listener a request that names a `consumer_id` is refused with `PERMISSION_DENIED` unless it is the caller's own installation UUID (or its URN); an empty `consumer_id` is accepted. On the internal listener `consumer_id` stays a log label, because service principals are not installations. A request that reaches a handler with no authenticated principal is refused `UNAUTHENTICATED`, so the service cannot be wired to a listener without the authorisation layer by mistake.
+
+### Startup and configuration
+
+The binary needs `--cert`, `--key`, `--client-ca`, `--crl` and `--registry` (`privoke_transport::startup::CloudTlsArgs`). It builds the TLS verifier and parses the registry before it reads any model file or binds a socket, so a missing, empty or invalid input exits 1 with the flag named. There is no flag, feature or environment variable that disables authentication; `--insecure` and similar are unknown arguments (exit 2). `cargo test -p privoke-model-streaming --test features` asserts that the dependency tree has no `workstation-loopback`.
+
+Environment, as in the Go service where a name existed there:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `MODEL_STREAMING_PORT` | `50051` | internal listener port |
+| `MODEL_STREAMING_PUBLIC_PORT` | `50443` | public listener port (new) |
+| `MODEL_STREAMING_BIND` | `0.0.0.0` | interface for both listeners (new) |
+| `MODEL_LATEST_ID` | `privoke-v3-balanced` | what `latest` resolves to; never a scratch or pretrained-contextual model |
+| `MODEL_ARTIFACT_DIR` | `/models` | legacy JSON artifacts (every `*.json` is validated at startup) |
+| `MODEL_RELEASE_DIR` | `/model-releases` | prepared standard V3 releases, verified against the pinned manifests when `MODEL_LATEST_ID` is a standard model |
+
+`model-streaming-service healthcheck --client-cert C --client-key K --server-ca CA [--address host:port] [--server-name N]` makes one mutual-TLS `Health` call to the internal listener and exits 0 only for `model-streaming-service` reporting `SERVING`. The probe needs a registered service identity (any of the three roles), so a container health check mounts one; the Go probe was plaintext. Each flag has an environment fallback (`MODEL_HEALTHCHECK_CERT`, `_KEY`, `_SERVER_CA`, `_SERVER_NAME`).
+
+### Behaviour kept from the Go service
+
+Every contract below is a line-for-line port and is covered by the ported tests: artifact size and checksum rules (`calculateArtifactChecksum` is the contracts crate's `Utf8Go` canonical form), the exact raw-flag, duplicate-key and Unicode guards for scratch and pretrained artifacts, all five architectures (Tiny, Tiny with task-query readout, sparse presence, scratch presence, pretrained context), the contextual training strategy, objective and optimizer policies (FULL Adam, ORIGINAL retention, window checkpoint), the pinned standard V3 store with symlink refusal and re-hashing before streaming, the live scratch catalog with its inspect-open-inspect race checks, `Health` as `NOT_SERVING` when any catalog entry fails to validate, 1024-value parameter chunks with the metadata on the first chunk only, and 1 MiB asset chunks.
+
+Training-contract metadata (`full_projected_adam_config_v1`, `train_window_config_v1`) is compared lexically against the Python `canonical()` text, so `epsilon` is `1e-08` and `margin_cap` is `1.0` in `contextual.rs`. Floats are never written by this service except in the checksum canonical form, which goes through `privoke_contracts::pyfloat::repr` and not `serde_json`.
+
+### Deliberate differences
+
+- **Caller binding and two listeners** (above). Go had one plaintext listener and no caller identity.
+- **Stricter JSON.** Case variants of a field name (`Model_ID`) are ignored where Go's decoder folded case; lone surrogates and invalid UTF-8 are refused for every architecture (Go replaced them in the two Tiny architectures and guarded only presence, scratch and pretrained); a `null` inside a tensor's `shape` or `values` array is refused (Go decoded it as 0). Each only rejects inputs Python's reader also refuses or that no tool writes.
+- **Checksums use the Python float text.** A number is written back with Python's `repr` (as the Python writer did) and not with its original lexical form (as Go's `UseNumber` did). They agree for every artifact the Python writer produced; a hand-edited artifact with `1e-8` or `1E5` is accepted by Rust and Python alike but was refused by Go.
+- **No path in `NOT_FOUND`.** Go's message for an absent scratch file embedded the `lstat` error text, which contained a server path. Rust says `scratch artifact is absent`.
+- **Limits are the nginx defaults of `privoke-transport`** (1 MiB request, 60 s, 64 concurrent streams per connection) in place of Go's 64 KiB, 8 MiB and 32.
+
+### Build and run
+
+```
+docker build -f rust/services/model-streaming/Dockerfile -t privoke-model-streaming-rust:<tag> .
+```
+
+The Dockerfile builds `--locked` in `rust:1.99.1-slim-bookworm` and runs on `gcr.io/distroless/cc-debian12:nonroot` with the repository's `models/privoke-*.json` under `/models`. A `Dockerfile.dockerignore` next to it allow-lists `rust/`, `shared/proto/` and those artifacts (the repository `.dockerignore` drops every `bin` directory, which would remove `privoke-transport/src/bin`). A run needs the five TLS files and the release store, for example:
+
+```
+docker run --rm -p 127.0.0.1:50443:50443 -p 127.0.0.1:50051:50051 \
+  -v <models>:/models:ro -v <releases>:/model-releases:ro -v <pki>:/pki:ro \
+  privoke-model-streaming-rust:<tag> --cert /pki/server.crt --key /pki/server.key \
+  --client-ca /pki/client-ca.pem --crl /pki/crl.pem --registry /pki/registry.toml
+```
+
+### Tests
+
+All of these run on the host (`cargo test -p privoke-model-streaming --locked`).
+
+- **Ported Go tests** (`tests/go_*.rs`): every one of the 57 `Test*` functions in `services/model-streaming-service/cmd/server/*_test.go` has a Rust test with the name in a comment above it, and the three Go tests with several subtests are split where the subtests need different set-up. The table is below. Fixtures are the same files (`shared/python/tests/fixtures`, `models/privoke-*.json`).
+- **Corpus replay** (`tests/corpus.rs`): the four legacy catalog models (`GetModelParameters` message digest, every streamed chunk and the stream digest), the 20 recorded negative requests (status and details), and, for each of the three standard V3 models, the package message, manifest bytes and every asset chunk, all compared byte for byte with `tests/conformance/model_streaming.json`. The V3 half reads the prepared release store from `V3_TEST_RELEASE_DIR`, `models/standard-releases`, or the main checkout of a linked worktree, and reports itself skipped when none exists.
+- **Mutual TLS end to end** (`tests/mtls.rs`): real certificates issued with `privoke-pki`, both listeners, role gating, caller binding, unregistered, foreign-CA and no-certificate peers, deny-list and late-registration reload, the V3 fetch with pin verification, the binary's fail-closed startup for each missing flag, the absence of insecure flags, the live binary and its `healthcheck` subcommand.
+- **Container rows**: `python evaluation/update_security.py --target rust --rust-image <image>` hosts the built image on loopback with a disposable PKI (client CA, server CA, a foreign CA, registered and unregistered installations, a registered service, the reporter credential, and expired, not-yet-valid, serverAuth-only and no-EKU certificates for registered identities) and runs rows T1 to T12, R3, R4, R7, R8, R9 and X8 (plus positive controls X1, X1b, X8b and the internal-listener rows I1 to I4). It writes `.tmp/update-security-rust-s03.json` by default and never touches the recorded UPDSEC files; `--rust-binary` runs a host binary instead, for development. The default `--target go` is unchanged.
+
+The Go-test mapping:
+
+| Go test (`cmd/server`) | Rust test (`rust/services/model-streaming/tests`) |
+| --- | --- |
+| `TestAllSixScratchIDsAreServedAfterCatalogConstruction` (scratch_catalog_live_test.go) | `go_scratch_live::all_six_scratch_ids_are_served_after_catalog_construction` |
+| `TestArtifactChecksumMatchesSharedPythonCanonicalJSON` (main_test.go) | `go_main::artifact_checksum_matches_shared_python_canonical_json` |
+| `TestContextualDecisionMarginConfigurationFailsClosed` (contextual_training_test.go) | `go_contextual::contextual_decision_margin_configuration_fails_closed` |
+| `TestContextualDecisionMarginObjectivePreservesManifestAndStreams` (contextual_training_test.go) | `go_contextual::contextual_decision_margin_objective_preserves_manifest_and_streams` |
+| `TestContextualMeanCategoryObjectivePreservesManifestAndStreams` (contextual_training_test.go) | `go_contextual::contextual_mean_category_objective_preserves_manifest_and_streams` |
+| `TestContextualObjectiveIndependentOfTrainingStrategy` (contextual_training_test.go) | `go_contextual::contextual_objective_independent_of_training_strategy` |
+| `TestContextualOptimizerIndependentAndStreamed` (contextual_training_test.go) | `go_contextual::contextual_optimizer_independent_and_streamed` |
+| `TestContextualRawFlagsRequireBoolean` (contextual_training_test.go) | `go_contextual::contextual_raw_flags_require_boolean` |
+| `TestContextualRawObjectiveTypesRejected` (contextual_training_test.go) | `go_contextual::contextual_raw_objective_types_rejected` |
+| `TestContextualRawOptimizerTypesRejected` (contextual_training_test.go) | `go_contextual::contextual_raw_optimizer_types_rejected` |
+| `TestContextualSharedFixtureTrainabilityAndMetadata` (contextual_training_test.go) | `go_contextual::contextual_shared_fixture_trainability_and_metadata` |
+| `TestContextualStrategyAndManifestRejectInvalid` (contextual_training_test.go) | `go_contextual::contextual_strategy_and_manifest_reject_invalid` |
+| `TestFullAdamPolicyRejectsMissingMalformedMixedAndUnsupported` (full_adam_policy_test.go) | `go_contextual::full_adam_policy_rejects_missing_malformed_mixed_and_unsupported` |
+| `TestFullAdamThreeProfilesAndExactMetadata` (full_adam_policy_test.go) | `go_contextual::full_adam_three_profiles_and_exact_metadata` |
+| `TestFullEncoderProfilesAdmitEmbeddingsAndRejectFrozenOrWrongScope` (contextual_training_test.go) | `go_contextual::full_encoder_profiles_admit_embeddings_and_reject_frozen_or_wrong_scope` |
+| `TestGetModelParametersLoadsPersistentArtifact` (main_test.go) | `go_main::get_model_parameters_loads_persistent_artifact` |
+| `TestGetModelParametersRejectsControlCharacters` (main_test.go) | `go_main::get_model_parameters_rejects_control_characters` |
+| `TestGetModelParametersRejectsInvalidArtifactChecksum` (main_test.go) | `go_main::get_model_parameters_rejects_invalid_artifact_checksum` |
+| `TestGetModelParametersRejectsUnknownModel` (main_test.go) | `go_main::get_model_parameters_rejects_unknown_model` |
+| `TestGetModelParametersResolvesLatestAlias` (main_test.go) | `go_main::get_model_parameters_resolves_latest_alias` |
+| `TestLoadModelCatalogDiscoversArtifacts` (main_test.go) | `go_main::load_model_catalog_discovers_artifacts` |
+| `TestLoadPresenceArtifactRejectsMissingAndNullTrainableFlags` (artifact_test.go) | `go_artifact::load_presence_artifact_rejects_missing_and_null_trainable_flags` |
+| `TestLoadRepositoryArtifact` (main_test.go) | `go_main::load_repository_artifact` |
+| `TestPresenceConfigRejectsInvalidContracts` (artifact_test.go) | `go_artifact::presence_config_rejects_invalid_contracts` |
+| `TestPresenceParametersRejectInvalidManifest` (artifact_test.go) | `go_artifact::presence_parameters_reject_invalid_manifest` |
+| `TestPresenceRawTrainableFlagsAndUnicode` (artifact_test.go) | `go_artifact::presence_raw_trainable_flags_and_unicode` |
+| `TestPresenceSharedPythonFixtureLoadsAndStreamsMetadata` (artifact_test.go) | `go_artifact::presence_shared_python_fixture_loads_and_streams_metadata` |
+| `TestPretrainedArtifactRejectsConfigHeadAndIdentityDrift` (pretrained_context_test.go) | `go_pretrained::pretrained_artifact_rejects_config_head_and_identity_drift` |
+| `TestPretrainedCannotBeLatestAndExplicitCatalogLoadPreservesIdentity` (pretrained_context_test.go) | `go_pretrained::pretrained_cannot_be_latest_and_explicit_catalog_load_preserves_identity` |
+| `TestPretrainedClosedASCIIReleaseVersionsMatchPython` (pretrained_context_test.go) | `go_pretrained::pretrained_closed_ascii_release_versions_match_python` |
+| `TestPretrainedOnlyAdmittedContextProfilesPreserveStreamConfig` (pretrained_context_test.go) | `go_pretrained::pretrained_only_admitted_context_profiles_preserve_stream_config` |
+| `TestPretrainedRawDuplicateFlagsAndUnknownFieldsRejected` (pretrained_context_test.go) | `go_pretrained::pretrained_raw_duplicate_flags_and_unknown_fields_rejected` |
+| `TestPretrainedSharedPythonFixtureLoadsAndStreamsSixFrozenHeads` (pretrained_context_test.go) | `go_pretrained::pretrained_shared_python_fixture_loads_and_streams_six_frozen_heads` |
+| `TestScratchAllProfilesAndOfflineModes` (scratch_presence_test.go) | `go_scratch::scratch_all_profiles_and_offline_modes` |
+| `TestScratchCatalogCannotBecomeLatestOnConstructionOrReload` (scratch_presence_test.go) | `go_scratch::scratch_catalog_cannot_become_latest_on_construction_or_reload` |
+| `TestScratchCatalogConcurrentReadsInstallAndRemove` (scratch_catalog_live_test.go) | `go_scratch_live::scratch_catalog_concurrent_reads_install_and_remove` |
+| `TestScratchCatalogPropagatesStatErrors` (scratch_catalog_live_test.go) | `go_scratch_live::scratch_catalog_propagates_stat_errors` |
+| `TestScratchCatalogRejectsDirectoryPathSubstitution` (scratch_catalog_live_test.go) | `go_scratch_live::scratch_catalog_rejects_directory_path_substitution` |
+| `TestScratchCatalogRejectsInspectedFileABAReplacement` (scratch_catalog_live_test.go) | `go_scratch_live::scratch_catalog_rejects_inspected_file_aba_replacement` |
+| `TestScratchCatalogRejectsOutsideSymlinkSubstitutionDuringOpen` (scratch_catalog_live_test.go) | `go_scratch_live::scratch_catalog_rejects_outside_symlink_substitution_during_open` |
+| `TestScratchCatalogRejectsSymlinkDirectoryAndWrongIdentity` (scratch_catalog_live_test.go) | `go_scratch_live::scratch_catalog_rejects_symlink_outside_catalog`<br>`go_scratch_live::scratch_catalog_rejects_directory_at_canonical_filename`<br>`go_scratch_live::scratch_catalog_rejects_wrong_model_identity` |
+| `TestScratchCatalogRejectsUnknownAndTraversalIDs` (scratch_catalog_live_test.go) | `go_scratch_live::scratch_catalog_rejects_unknown_and_traversal_ids` |
+| `TestScratchCatalogSeesAtomicReplacementAndRemoval` (scratch_catalog_live_test.go) | `go_scratch_live::scratch_catalog_sees_atomic_replacement_and_removal` |
+| `TestScratchCatalogServesFileInstalledAfterConstruction` (scratch_catalog_live_test.go) | `go_scratch_live::scratch_catalog_serves_file_installed_after_construction` |
+| `TestScratchOptionalFilesDoNotBreakBaselineHealthButInvalidFilesDo` (scratch_catalog_live_test.go) | `go_scratch_live::scratch_optional_files_do_not_break_baseline_health_but_invalid_files_do` |
+| `TestScratchRawGuardsRunBeforeTypedDecode` (scratch_presence_test.go) | `go_scratch::scratch_raw_guards_run_before_typed_decode` |
+| `TestScratchRejectsWrongShapesModesAndProvenance` (scratch_presence_test.go) | `go_scratch::scratch_rejects_wrong_shapes_modes_and_provenance` |
+| `TestScratchRequestConsumerContract` (scratch_presence_test.go) | `go_scratch::scratch_request_consumer_contract` |
+| `TestScratchSharedFixtureChecksumAndFirstChunkMetadata` (scratch_presence_test.go) | `go_scratch::scratch_shared_fixture_checksum_and_first_chunk_metadata` |
+| `TestSensitiveRetentionPoliciesCoexistAndFailClosed` (sensitive_retention_test.go) | `go_contextual::sensitive_retention_policies_coexist_and_fail_closed` |
+| `TestStandardV3ActualPinnedAssetsAndLegacyIsolation` (standard_v3_test.go) | `go_standard_v3::standard_v3_actual_pinned_assets_and_legacy_isolation` |
+| `TestStandardV3DefaultAndMissingStoreFailClosed` (standard_v3_test.go) | `go_standard_v3::standard_v3_default_and_missing_store_fail_closed` |
+| `TestStandardV3RejectsLinksTraversalAndUnpinnedManifests` (standard_v3_test.go) | `go_standard_v3::standard_v3_rejects_links_traversal_and_unpinned_manifests` |
+| `TestSumDecisionMarginConfigAndOptimizerParity` (full_adam_policy_test.go) | `go_contextual::sum_decision_margin_config_and_optimizer_parity` |
+| `TestTaskQueryFailClosed` (task_query_test.go) | `go_contextual::task_query_fail_closed` |
+| `TestTaskQuerySharedFixtureTransportAndScopes` (task_query_test.go) | `go_contextual::task_query_shared_fixture_transport_and_scopes` |
+| `TestWindowPolicyRequiresExactConfigurationAndIndependentPins` (train_window_test.go) | `go_contextual::window_policy_requires_exact_configuration_and_independent_pins` |
+
+Tests that need a symlink (`scratch_catalog_rejects_symlink_outside_catalog`, `scratch_catalog_rejects_outside_symlink_substitution_during_open`, and the asset-symlink assertion in `standard_v3_rejects_links_traversal_and_unpinned_manifests`) report themselves skipped on a Windows host without the symlink privilege, as the Go tests do. The directory cases use a junction there instead, which `symlink_metadata` also reports as a link, so the path-substitution and root-link refusals do run.
+
 ## Not in this stage
 
-No service, no PyO3, and no CI job (no `.github/` change before the submission deadline). The `privoke-supervisor` wrapper commands (`enrol`, `install-cert`, `renew`, `status`) belong to stage 7; they call the `privoke_pki::client` library. The Rust CI job waits for the deadline.
+No other service than `privoke-model-streaming`, no PyO3, and no CI job (no `.github/` change before the submission deadline). The `privoke-supervisor` wrapper commands (`enrol`, `install-cert`, `renew`, `status`) belong to stage 7; they call the `privoke_pki::client` library. The Rust CI job waits for the deadline.
