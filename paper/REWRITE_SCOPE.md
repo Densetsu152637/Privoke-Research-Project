@@ -66,6 +66,14 @@ The user instructed on 16 November 2026: **"Read the email conversation, and wor
 
 The excluded families below remain excluded. The separation rules and the source-pool preservation rules still apply. Numerical results enter the manuscript only from the cited records.
 
+## Evidence units 9 to 11, ASIACCS 2027 revision, 16 November 2026
+
+The three records below implement the experiments authorized by the 16 November 2026 entry above and are the ninth to eleventh evidence units. Each is reported with its record's scope label and is never pooled with another unit, with the semantic-only units 3 and 5, or with the full-product units 1, 2, 4 and 6. The unmet properties and negative results of each record are reported as such. The independent human annotation study remains unrun and enters only as a limitation and future work (tooling status: [annotation packet](../docs/research/annotation-packet-status-20261116.md)).
+
+- **Unit 9, adversarial privacy evasion** ([ADVEVADE-20261116](research/adversarial-evasion-20261116.md)). Product pipeline (regex, NER and V3 balanced semantics, explicit layers, in-process runtime). A secondary, non-registered use of F4 after its registered use; not a fresh confirmation. Fixed, non-adaptive transforms, so the ASR is a floor; report it with baseline protection and the specificity confound.
+- **Unit 10, guarded-update and authentication security tests** ([UPDSEC-20261116](research/update-security-20261116.md)). Live legacy update and streaming services on loopback with synthetic state; the standard V3 path is read-only. Mutual-TLS rows ran against a stand-in terminator. Report the unmet properties as missing mechanisms, not bypasses.
+- **Unit 11, WARN intervention** ([WARNINT-20261116](research/warn-intervention-20261116.md)). Detector-layer (regex and NER) evidence on development data; the semantic layer was not run. WARN+MASK is opt-in and off by default; WARN+CONFIRM is an analytic bound in the user-compliance rate, not a measurement.
+
 ## RQ1: Detection and enforcement
 
 1. **Full-product contextual package comparison, all three tiers.** Retain historical and updated efficient, balanced and quality packages on the same 1,560 authored provisional cases (810 sensitive, 750 clean). Distinguish label-and-action joint agreement, allowed-action agreement and binary classification. Keep paired gains and losses, the shared 139 unnecessary restrictions, package/configuration confounds and the absence of independently adjudicated contextual truth. This is full-product evidence with actual cascade execution recorded, not a semantic-only result. See [pipeline aggregates](research/pipeline-comparison-20261014.json).
