@@ -1,7 +1,7 @@
 //! A minimal cloud-shaped binary: the five fail-closed flags, a health service, and the full transport stack.
 //!
-//! It exists to test fail-closed startup and to smoke-test mutual TLS from other languages. It admits only the
-//! installations named with `--admit-installation`.
+//! It exists to test fail-closed startup and to smoke-test mutual TLS from other languages. It admits only what the
+//! registry file lists.
 
 use std::net::SocketAddr;
 use std::process::ExitCode;
@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use clap::Parser;
 use privoke_transport::startup::CloudTlsArgs;
-use privoke_transport::{AuthLayer, LimiterKey, Limits, Policy, Registry, Role, SecureListener, SharedRegistry, secure_server};
+use privoke_transport::{AuthLayer, LimiterKey, Limits, Policy, Role, SecureListener, secure_server};
 
 #[derive(Debug, Parser)]
 #[command(name = "privoke-listener-probe")]
@@ -19,9 +19,6 @@ struct Args {
     /// Address to listen on.
     #[arg(long, default_value = "127.0.0.1:0")]
     listen: SocketAddr,
-    /// Installation UUIDs to admit.
-    #[arg(long)]
-    admit_installation: Vec<String>,
     /// Milliseconds between credential file polls.
     #[arg(long, default_value_t = 60_000)]
     reload_poll_ms: u64,
@@ -39,9 +36,9 @@ async fn main() -> ExitCode {
     };
     let limits = Limits::default();
     let _reloader = transport.tls.spawn_watcher(Duration::from_millis(args.reload_poll_ms));
-    let registry = args.admit_installation.iter().fold(Registry::new(), |registry, uuid| registry.with_installation(uuid));
+    let _registry_reloader = transport.registry.spawn_watcher(Duration::from_millis(args.reload_poll_ms));
     let policy = Policy::new().allow("/grpc.health.v1.Health/Check", &[Role::Consumer], LimiterKey::Identity);
-    let auth = AuthLayer::new(policy, SharedRegistry::new(registry), limits.rate);
+    let auth = AuthLayer::new(policy, transport.registry.registry(), limits.rate);
     let listener = match SecureListener::bind(args.listen, transport.tls, limits.clone()).await {
         Ok(listener) => listener,
         Err(error) => {

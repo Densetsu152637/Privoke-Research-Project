@@ -1,12 +1,13 @@
 //! Fail-closed startup for cloud binaries.
 //!
 //! A cloud server needs all five of `--cert`, `--key`, `--client-ca`, `--crl` and `--registry`. If any is missing,
-//! unreadable, empty or invalid, [`CloudTlsArgs::into_config`] returns an error and the binary must exit non-zero
+//! unreadable, empty or invalid (the registry included), [`CloudTlsArgs::into_config`] returns an error and the binary must exit non-zero
 //! before it binds a socket. There is no flag and no feature in this build that turns authentication off.
 
 use std::path::PathBuf;
 
 use crate::error::TransportError;
+use crate::registry::RegistryFileReloader;
 use crate::reload::ReloadableTls;
 use crate::tls::ServerTlsConfig;
 
@@ -35,8 +36,8 @@ pub struct CloudTlsArgs {
 pub struct CloudTransport {
     /// The live TLS configuration, validated and ready to hot reload.
     pub tls: ReloadableTls,
-    /// The registry file, whose format and reload belong to the registry module of stage 2.
-    pub registry_path: PathBuf,
+    /// The parsed registry file with its reloader; start `registry.spawn_watcher` to follow changes.
+    pub registry: RegistryFileReloader,
 }
 
 fn required(flag: &str, value: Option<PathBuf>) -> Result<PathBuf, TransportError> {
@@ -57,7 +58,9 @@ impl CloudTlsArgs {
         let crl = required("--crl", self.crl)?;
         let registry_path = required("--registry", self.registry)?;
         let tls = ReloadableTls::load(ServerTlsConfig::new(cert, key, client_ca, crl))?;
-        Ok(CloudTransport { tls, registry_path })
+        let registry =
+            RegistryFileReloader::load(&registry_path).map_err(|error| TransportError::Startup(format!("--registry: {error}")))?;
+        Ok(CloudTransport { tls, registry })
     }
 }
 

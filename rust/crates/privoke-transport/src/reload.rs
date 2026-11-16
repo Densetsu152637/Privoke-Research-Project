@@ -162,6 +162,12 @@ impl ReloadableTls {
 #[derive(Debug)]
 pub struct WatcherGuard(JoinHandle<()>);
 
+impl WatcherGuard {
+    pub(crate) fn new(handle: JoinHandle<()>) -> Self {
+        Self(handle)
+    }
+}
+
 impl Drop for WatcherGuard {
     fn drop(&mut self) {
         self.0.abort();

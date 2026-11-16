@@ -296,11 +296,18 @@ pub struct Options {
     pub registry: Registry,
     pub policy: Policy,
     pub poll: Duration,
+    pub shared_registry: Option<SharedRegistry>,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Self { limits: Limits::default(), registry: default_registry(), policy: default_policy(), poll: Duration::from_millis(100) }
+        Self {
+            limits: Limits::default(),
+            registry: default_registry(),
+            policy: default_policy(),
+            poll: Duration::from_millis(100),
+            shared_registry: None,
+        }
     }
 }
 
@@ -312,7 +319,7 @@ impl TestServer {
     pub async fn start_with(pki: &Pki, options: Options) -> Self {
         let tls = ReloadableTls::load(pki.server_config()).unwrap();
         let reloader = tls.spawn_watcher(options.poll);
-        let registry = SharedRegistry::new(options.registry);
+        let registry = options.shared_registry.unwrap_or_else(|| SharedRegistry::new(options.registry));
         let auth = AuthLayer::new(options.policy, registry.clone(), options.limits.rate);
         let listener = SecureListener::bind("127.0.0.1:0".parse().unwrap(), tls.clone(), options.limits.clone()).await.unwrap();
         let address = listener.local_addr().unwrap();

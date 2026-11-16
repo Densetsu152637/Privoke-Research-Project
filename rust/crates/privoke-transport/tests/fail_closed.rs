@@ -24,7 +24,16 @@ struct Files {
 
 fn files() -> Files {
     let pki = Pki::new();
-    let registry = pki.write("installations.toml", "# registry contents belong to stage 2\n");
+    let registry = pki.write(
+        "registry.toml",
+        &format!(
+            "version = 1
+
+[[installation]]
+id = \"{ALICE}\"
+"
+        ),
+    );
     Files { pki, registry }
 }
 
@@ -83,6 +92,21 @@ fn fail_closed_library_refuses_unusable_inputs() {
         assert!(args_without(&files, None).into_config().is_err(), "missing file for {flag} was accepted");
         std::fs::write(&path, original).unwrap();
     }
+    for bad in [
+        "# no version
+",
+        "version = 2
+",
+        "version = 1
+[[installation]]
+id = \"not-a-uuid\"
+",
+        "not toml {",
+    ] {
+        std::fs::write(&files.registry, bad).unwrap();
+        let error = args_without(&files, None).into_config().unwrap_err().to_string();
+        assert!(error.contains("--registry"), "{bad:?}: {error}");
+    }
     std::fs::remove_file(&files.registry).unwrap();
     assert!(args_without(&files, None).into_config().unwrap_err().to_string().contains("--registry"));
 }
@@ -136,12 +160,7 @@ async fn fail_closed_binary_serves_only_authenticated_registered_clients() {
             let _ = self.0.wait();
         }
     }
-    let child = command
-        .args(["--admit-installation", ALICE, "--reload-poll-ms", "100"])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .spawn()
-        .unwrap();
+    let child = command.args(["--reload-poll-ms", "100"]).stdin(Stdio::null()).stdout(Stdio::piped()).spawn().unwrap();
     let mut child = Kill(child);
     let mut line = String::new();
     BufReader::new(child.0.stdout.take().unwrap()).read_line(&mut line).unwrap();

@@ -7,13 +7,12 @@
 //! list applies to open connections, must know the identity and not deny it (`PERMISSION_DENIED`); and the role must
 //! be one the policy lists for the RPC (`PERMISSION_DENIED`).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::net::IpAddr;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use arc_swap::ArcSwap;
 use futures_util::future::BoxFuture;
 use governor::{DefaultKeyedRateLimiter, Quota, RateLimiter};
 use tonic::Status;
@@ -22,6 +21,7 @@ use tower::{Layer, Service};
 use crate::identity::{Identity, Principal, Role};
 use crate::limits::RateLimit;
 use crate::listener::ConnectionInfo;
+use crate::registry::SharedRegistry;
 
 /// What a rate bucket is keyed by.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,95 +66,6 @@ impl Policy {
     /// The listed RPC paths, for documentation and tests.
     pub fn paths(&self) -> impl Iterator<Item = &str> {
         self.rules.keys().map(String::as_str)
-    }
-}
-
-/// Why the registry refused an identity.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-pub enum Denial {
-    /// The identity is on the deny list.
-    #[error("identity is revoked")]
-    Denied,
-    /// The identity is not registered.
-    #[error("identity is not registered")]
-    Unregistered,
-}
-
-/// Who may call at all, and with which role. Stage 2 adds the file format and its reload; this is the in-memory model.
-#[derive(Debug, Clone, Default)]
-pub struct Registry {
-    installations: HashSet<String>,
-    services: HashMap<String, Role>,
-    denied: HashSet<Identity>,
-    reporter: bool,
-}
-
-impl Registry {
-    /// An empty registry that admits nobody.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Register an installation (role `consumer`).
-    #[must_use]
-    pub fn with_installation(mut self, uuid: &str) -> Self {
-        self.installations.insert(uuid.to_string());
-        self
-    }
-
-    /// Register a service principal with its role.
-    #[must_use]
-    pub fn with_service(mut self, name: &str, role: Role) -> Self {
-        self.services.insert(name.to_string(), role);
-        self
-    }
-
-    /// Admit the shared telemetry reporter credential.
-    #[must_use]
-    pub fn with_reporter(mut self) -> Self {
-        self.reporter = true;
-        self
-    }
-
-    /// Put an identity on the deny list; it wins over registration.
-    #[must_use]
-    pub fn deny(mut self, identity: Identity) -> Self {
-        self.denied.insert(identity);
-        self
-    }
-
-    /// Resolve an authenticated identity to a principal.
-    pub fn resolve(&self, identity: &Identity) -> Result<Principal, Denial> {
-        if self.denied.contains(identity) {
-            return Err(Denial::Denied);
-        }
-        let role = match identity {
-            Identity::Installation(id) => self.installations.contains(id).then_some(Role::Consumer),
-            Identity::Service(name) => self.services.get(name).copied(),
-            Identity::Reporter => self.reporter.then_some(Role::Reporter),
-        };
-        role.map(|role| Principal { identity: identity.clone(), role }).ok_or(Denial::Unregistered)
-    }
-}
-
-/// A registry that can be replaced atomically while requests are in flight.
-#[derive(Debug, Clone)]
-pub struct SharedRegistry(Arc<ArcSwap<Registry>>);
-
-impl SharedRegistry {
-    /// Wrap an initial registry.
-    pub fn new(registry: Registry) -> Self {
-        Self(Arc::new(ArcSwap::from_pointee(registry)))
-    }
-
-    /// The current registry.
-    pub fn load(&self) -> Arc<Registry> {
-        self.0.load_full()
-    }
-
-    /// Replace the registry; the next request sees it, including on connections that are already open.
-    pub fn replace(&self, registry: Registry) {
-        self.0.store(Arc::new(registry));
     }
 }
 

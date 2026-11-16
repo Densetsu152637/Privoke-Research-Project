@@ -32,14 +32,16 @@ pub mod error;
 pub mod identity;
 pub mod limits;
 pub mod listener;
+pub mod registry;
 pub mod reload;
 pub mod startup;
 pub mod tls;
 
-pub use authz::{AuthLayer, LimiterKey, Policy, Registry, SharedRegistry};
+pub use authz::{AuthLayer, LimiterKey, Policy};
 pub use error::TransportError;
 pub use identity::{Identity, Principal, Role};
 pub use limits::{Limits, RateLimit};
 pub use listener::{ConnectionInfo, SecureListener, Transport, secure_server};
+pub use registry::{Registry, SharedRegistry};
 pub use reload::{ReloadStatus, ReloadableTls};
 pub use tls::{ClientTlsConfig, ServerTlsConfig};
