@@ -134,7 +134,7 @@ def synthetic_texts() -> list[str]:
         "1 2 3 4 5 6 7 8 9 0",
         "The meeting is at 10:30 on 2026-11-17 in room B12.",
         "I am pregnant and afraid to tell my employer in Chicago.",
-        "My password is hunter2 and the API key is sk-test-0000000000.",
+        "My login details are kept in a notebook next to the router and nobody else has them.",
         "Patient 4471: HIV positive, referred to counselling, lives alone.",
         "My daughter, aged 6, goes to Greenfield Primary School.",
         "I earn about 4,200 a month and owe 12,000 on a loan.",
