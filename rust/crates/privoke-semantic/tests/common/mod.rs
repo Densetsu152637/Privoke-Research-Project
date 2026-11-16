@@ -39,8 +39,13 @@ pub fn read_json(path: &std::path::Path) -> Value {
 }
 
 /// What a replay measured.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Report {
+    /// The declared absolute tolerance of the logits (the stage's 1e-5 unless a test states and justifies its own).
+    pub tolerance: f64,
+    /// Logit values above the stage's 1e-5 (all of them within `tolerance`).
+    pub above_headline: usize,
+    pub values: usize,
     pub rows: usize,
     pub error_rows: usize,
     pub finding_rows: usize,
@@ -51,7 +56,29 @@ pub struct Report {
     pub failures: Vec<String>,
 }
 
+impl Default for Report {
+    fn default() -> Self {
+        Self::with_tolerance(LOGIT_TOLERANCE)
+    }
+}
+
 impl Report {
+    pub fn with_tolerance(tolerance: f64) -> Self {
+        Self {
+            tolerance,
+            above_headline: 0,
+            values: 0,
+            rows: 0,
+            error_rows: 0,
+            finding_rows: 0,
+            max_logit_diff: 0.0,
+            max_pooled_diff: 0.0,
+            max_confidence_diff: 0.0,
+            boundary_confidences: 0,
+            failures: Vec::new(),
+        }
+    }
+
     fn fail(&mut self, id: &str, message: String) {
         self.failures.push(format!("{id}: {message}"));
     }
@@ -59,11 +86,14 @@ impl Report {
     /// Print the measurements and fail with the first mismatches.
     pub fn assert_clean(&self, label: &str) {
         say!(
-            "{label}: {} rows ({} error rows, {} with findings), max logit diff {:.3e}, max pooled diff {:.3e}, max raw confidence diff {:.3e}, {} rounding-boundary confidences, {} failures",
+            "{label}: {} rows ({} error rows, {} with findings), max logit diff {:.3e} (tolerance {:e}; {} of {} logit and pooled values above 1e-5), max pooled diff {:.3e}, max raw confidence diff {:.3e}, {} rounding-boundary confidences, {} failures",
             self.rows,
             self.error_rows,
             self.finding_rows,
             self.max_logit_diff,
+            self.tolerance,
+            self.above_headline,
+            self.values,
             self.max_pooled_diff,
             self.max_confidence_diff,
             self.boundary_confidences,
@@ -94,7 +124,9 @@ fn compare_vectors(report: &mut Report, id: &str, name: &str, mine: &[f32], gold
         if diff > *slot {
             *slot = diff;
         }
-        if diff > LOGIT_TOLERANCE || !diff.is_finite() {
+        report.values += 1;
+        report.above_headline += usize::from(diff > LOGIT_TOLERANCE);
+        if diff > report.tolerance || !diff.is_finite() {
             report.fail(id, format!("{name} differs by {diff:e} (rust {a}, golden {b})"));
             return;
         }
