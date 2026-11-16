@@ -605,3 +605,30 @@ def postfilter(
     decisions.extend(_stage_two(kept, disabled, weak_person))
     decisions.sort(key=lambda d: (d.candidate.start, d.candidate.end))
     return decisions
+
+
+# --------------------------------------------------------------------------
+# Caseless input (PRIVOKE_NER_CASELESS_GATE)
+# --------------------------------------------------------------------------
+
+# Rules skipped when the prompt carries no case signal. Empty by design: the
+# case-dependent checks (title-case heading detection, pluralised capital runs)
+# are already inert once the text is lower-cased. Also disabling the non-case
+# rules (lone place/organisation, weak person) raised caseless NER recall but
+# also its false positives on dev-TUNE; that is a precision trade, not a case
+# effect (docs/experiments/robustness-fixes-20261024.md).
+CASELESS_DISABLED_RULES: frozenset = frozenset()
+
+_PRONOUN_I = re.compile(r"\bI\b(?:['’](?:m|ll|ve|d|d've))?")
+
+
+def has_case_signal(text: str) -> bool:
+    """True when letter case can carry evidence: lower-case and upper-case
+    letters both occur, ignoring the pronoun "I" (capitalised in any style)."""
+    stripped = _PRONOUN_I.sub(" ", text)
+    return any(ch.isupper() for ch in stripped) and any(ch.islower() for ch in text)
+
+
+def fold_case(text: str) -> str:
+    """Lower-case ``text`` without changing its length, so spans stay valid."""
+    return "".join(ch.lower() if len(ch.lower()) == 1 else ch for ch in text)
