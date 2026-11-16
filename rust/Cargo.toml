@@ -1,0 +1,52 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/privoke-proto",
+    "crates/privoke-contracts",
+    "crates/privoke-transport",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.90"
+publish = false
+license = "CC0-1.0"
+
+[workspace.dependencies]
+# Pinned by Cargo.lock; bump deliberately and rerun `cargo test --workspace --locked`.
+tonic = { version = "0.14", default-features = false, features = ["codegen", "transport", "router"] }
+tonic-prost = "0.14"
+tonic-prost-build = "0.14"
+tonic-health = "0.14"
+prost = "0.14"
+protox = "0.10"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "sync", "fs", "signal"] }
+tokio-stream = { version = "0.1", features = ["net"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+rustls-pki-types = "1"
+x509-parser = { version = "0.18", features = ["verify"] }
+arc-swap = "1"
+notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
+governor = "0.10"
+tower = { version = "0.5", default-features = false, features = ["util"] }
+http = "1"
+http-body = "1"
+clap = { version = "4", features = ["derive"] }
+thiserror = "2"
+tracing = "0.1"
+sha2 = "0.11"
+rcgen = { version = "0.14", default-features = false, features = ["crypto", "ring", "pem"] }
+base64 = "0.22"
+time = "0.3"
+futures-util = "0.3"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"

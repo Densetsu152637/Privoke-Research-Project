@@ -1,0 +1,42 @@
+[package]
+name = "privoke-transport"
+description = "In-service mutual TLS, authorisation, limits and hot reload for the PriVoke Rust servers"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# Plaintext loopback listener for the workstation supervisor only. Never enable in a cloud build.
+workstation-loopback = []
+
+[dependencies]
+tonic = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tokio-rustls = { workspace = true }
+rustls = { workspace = true }
+rustls-pki-types = { workspace = true }
+x509-parser = { workspace = true }
+arc-swap = { workspace = true }
+notify = { workspace = true }
+governor = { workspace = true }
+tower = { workspace = true }
+http = { workspace = true }
+clap = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+futures-util = { workspace = true }
+
+[dev-dependencies]
+privoke-proto = { path = "../privoke-proto" }
+privoke-transport = { path = ".", features = ["workstation-loopback"] }
+rcgen = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true }
+tonic-health = { workspace = true }
+
+[lints]
+workspace = true
