@@ -484,9 +484,23 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
   - A test asserts that no identity column or identity log line exists.
   - A test asserts that two clients holding the same reporter certificate, at different source IPs, are limited independently.
   - Against the container, a request without a certificate and a request with an installation (non-reporter) certificate are both rejected (R10).
-- Status: pending
+- Status: done (RUST-S4, 2026-11-16)
 - Outcome:
-- Handoff notes: `services/telemetry-service/app/storage.py` stays in place as the parity oracle.
+  - **Service** (`rust/services/telemetry`, crate `privoke-telemetry`, binary `telemetry-service`, Dockerfile beside it). Ports of `validation.py`, `storage.py` (storage and estimator), `config.py` and the collector of `server.py`. Two mutual-TLS listeners over the stage 1 and 2 transport: public `58443` (published as `8443`) serves `RecordTelemetry` and `Health` to the shared `reporter` role with the limiter keyed by source IP; internal `50055` serves `GetTelemetrySummary` and `Health` to `publisher`, `trainer` and `runtime` services. It starts only with `--cert --key --client-ca --crl --registry` and opens no database before the verifier exists. SQLite is `rusqlite` with the `bundled` feature and the unchanged Python schema, so existing databases open. The peer identity is never stored or logged; the source IP lives in memory for the rate limiter and for a per-source daily cap (default 10000 accepted reports per UTC day, IPv6 by /64, dropped at the day boundary, with an address-free aggregate line logged at rollover).
+  - **Parity (host, Windows, rustc 1.99.1, Python 3.13 oracle).** Counts exact, estimates 0 ULP everywhere (bit-identical; the G5 tolerance is 4):
+    - Stage 0 corpus: 195 packets through the handlers (182 accepted, 13 rejected with the recorded status and message), 6 strata and 155 marginal rows exact, 26 summary estimates, the serialised summary hash identical, the empty summary and health.
+    - Telemetry-audit fixtures (`tests/fixtures/estimator_oracle.json`, produced by running the Python `TelemetryStore`): the `store_parity` packets of `evaluation/analysis/audit-telemetry-mechanism.py` (9 packets, 3 strata, 26 estimates) and 1200 further packets over 400 epsilon strata that stress `exp` (26 estimates). A database written by the Python store opens, matches and extends (`tests/fixtures/python_written.sqlite3`).
+  - **Malformed packets.** Every test of `services/telemetry-service/tests/test_security_validation.py` is ported (validation, estimator, legacy wire packet, legacy database untouched, health when storage is unwritable), plus truncated and non-UTF-8 protobuf, wrong wire types, reserved legacy tags, duplicate fields, an incompatible aggregate schema, an oversize message and rejected packets that are neither stored nor counted. One deliberate fix: a legacy database is now inspected before WAL mode is set, so it is byte-identical afterwards (Python rewrote its header).
+  - **Identity.** `no_identity_column_and_no_identity_log_line` runs the built binary and sends accepted, invalid, denied and refused requests from three source addresses. The schema is exactly the two Python tables and six columns. Neither the process log nor any file of the data directory (database, WAL, shared memory) contains the URNs, the installation UUID, the certificate fingerprints or any source address. The per-report "recorded" log line of the Python service is dropped.
+  - **Independent limiting.** With one reporter certificate and client sockets bound to `127.0.0.2`, `.3` and `.4`: the first source is limited after its burst, a second connection from the same address shares that bucket, the second and third sources are untouched and the second is then limited on its own account. The daily cap is likewise per source, and a rejected packet does not use the allowance.
+  - **R10 against the built container** (image from the Dockerfile on loopback, distinct name and ports, fresh volume, all removed): a request without a certificate is refused on first use (the handshake alert); a registered and an unregistered installation certificate are `PERMISSION_DENIED` on `RecordTelemetry` (public) and `GetTelemetrySummary` (internal); the reporter credential is accepted, gets `UNIMPLEMENTED` for the summary on the public listener, and a service identity reads the summary. The `healthcheck` subcommand passes inside the container. The container log holds no identity, address or URN. The in-process forms of the same rows (`tests/mtls.rs`) run in the normal suite.
+  - **Stage 6 emitter check, now against the real service.** The unmodified Python emitter (`event_emitter.py`, host `evaluation/.venv-v1-v3-pipeline`, grpcio 1.82.1) delivered 4 of 4 reports over mutual TLS with the reporter credential, both to the in-process service and to the container, and the stored sample count rose by exactly 4. The same emitter with an installation certificate in the telemetry slot had 4 of 4 submissions refused with `PERMISSION_DENIED` and nothing stored. The privacy module `extension/client-runtime/src/telemetry/privacy.py` is untouched.
+  - **Checks.** `cargo test --workspace --locked` (255 passed, 0 failed, 3 ignored that were already ignored), clippy and `cargo fmt --check` clean. Two ignored-by-environment tests (`emitter`, `container`) skip themselves unless `PRIVOKE_HOST_PYTHON`, `PRIVOKE_PY_GENERATED` and `TELEMETRY_CONTAINER_IMAGE` are set; both were run with them set for this record. Details are in the telemetry section of `docs/runtime/rust-workspace.md`.
+  - **Not done here.** No Compose or `deploy/` change and no `.github/` change (stage 8a wires the container and its volume; the Python service keeps serving until then). The summary has no caller outside the service identities yet: a consumer of `GetTelemetrySummary` (the operational study scripts) needs a `runtime`, `trainer` or `publisher` certificate at stage 8a. The daily cap and per-IP buckets are per process, so a second replica would double the allowance.
+- Handoff notes:
+  - `services/telemetry-service/app/storage.py` stays in place as the parity oracle; the fixtures record its bit patterns.
+  - Stage 8a: mount a data volume at `/data` (owned by uid 65532), the server key pair, the client CA, the CRL and the registry with `reporter = true`; publish `58443` as `8443` and keep `50055` internal; set `PRIVOKE_CLOUD_TELEMETRY_TARGET`; probe with `telemetry-service healthcheck` and a service identity. Behind a proxy or a NAT every client shares one source address, so the per-source limits would bind all of them; the Rust listeners must be reached directly. Raise `TELEMETRY_DAILY_CAP_PER_IP` if one network hosts many installations.
+  - Stage 9: the per-day aggregate line is the anomaly signal named in the credential decision; the limiter and the cap are the abuse mitigations, and aggregate integrity against a holder of the shared key remains the residual risk stated in the plan.
 
 ## Stage 5: Rust param-update service and scheduler
 
@@ -543,7 +557,7 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
   - **Escape hatch.** `PRIVOKE_ALLOW_INSECURE_INTERNAL_PLAINTEXT=true` with `PRIVOKE_STACK_MODE=internal` allows plaintext on the Compose network for evaluation Compose files that predate certificates. It is logged and must not be set in a deployment.
   - **Checks (host).** All certificates are issued at test time by the real `privoke-pki` into a temporary directory; none is committed. `python evaluation/run-component-tests.py shared`: 89 tests (the 69 baseline plus 20 new), the same 2 `dotenv` errors, no new failures. New tests cover R6 (plaintext call to a TLS server is `UNAVAILABLE`; plaintext bind on `0.0.0.0` is refused), X16 (internal-mode non-loopback plaintext refused, opt-out explicit), client without a certificate, certificate from another CA, an untrusted server CA, a valid certificate for an identity that is not allowed (`PERMISSION_DENIED`), registry role admission, deny list and bad-edit reload, split targets, reporter-only credential, and the health probe over mutual TLS. Supervisor suite OK (24, 1 skipped). Fuzzer suite OK (144, 1 skipped; two tests need the gitignored approved-bank evidence, which was copied from the main checkout for the run). Client-runtime in `.venv-v1-v3-pipeline`: 440 tests, 5 failures, 18 errors, the same failing set as the base tree run in the same environment (no new failures); the three new emitter tests pass. G6 (`git diff --exit-code rust-reference-20261117 -- <G6 paths>`) exits 0; the `asiaccs-2027-submission` name in the check no longer exists, Stage 0 renamed the tag.
   - **Semantic-only byte identity.** 12 fixed prompts (Stage 0 recorded no `AnalyzePrompt` inputs, see its deferred gaps) were sent to `grpc_main.py` from the base tree (`96f0bbd`) and from this tree, each as `layers=[DETECTION_LAYER_SEMANTIC]`, against the Go model service in Docker (`privoke-v3-balanced`). Every response had exactly one successful semantic layer execution, and the serialized responses are byte-identical after the Stage 0 timing normalisation (`elapsed_ms` field and the `elapsed_ms` metadata key).
-  - **Pending.** The emitter delivers over mutual TLS with the reporter credential to a minimal stand-in that implements `RecordTelemetry` and `Health` (reporter identity only). The same check against the Rust telemetry service waits for Stage 4.
+  - **Closed by stage 4.** The emitter delivers over mutual TLS with the reporter credential to a minimal stand-in that implements `RecordTelemetry` and `Health` (reporter identity only). The same check against the Rust telemetry service, in process and in its container, passed in RUST-S4 (see stage 4).
   - **Not done here (by ownership).** `services/pretrained-v3/src/runtime_server.py` (its own plaintext bind) and the fuzzer's `training/parameter_updates.py` and `training/window_evidence.py` (plaintext channels to param-update and the runtime) are G6 paths and keep their plaintext; a stage that owns them must move them to `bind_server` and `service_channel`. The install scripts do not write the client `.env`, so they are unchanged; the template `extension/client-runtime/.env.example` gained the new variables. No `deploy/` or Compose edits: Compose files need server certificates (or the opt-out) at the stage 8a cutover.
 - Handoff notes:
   - Transport-only change.
@@ -566,9 +580,21 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
   - `npm test` in `extension/` passes against the Rust bridge.
   - The `python evaluation/run-component-tests.py supervisor` cases are ported.
   - Measured end-to-end median latency does not regress beyond the run-to-run spread.
-- Status: pending
+- Status: done (RUST-S7, 17 November 2026; branch `wt/rust-s07`, not merged)
 - Outcome:
-- Handoff notes: the installed-client claims (C5, C6, C42) are not claimed for this build unless the installed-browser protocol is rerun.
+  - **Crate.** `rust/services/runtime-supervisor` (package `privoke-runtime-supervisor`, binary `privoke-supervisor`, library `privoke_supervisor`), one new workspace member. Commands: `native-host` (also the default, because a browser passes only the calling origin), `serve`, `enrol`, `renew`, `install-cert`, `status` (thin wrappers on `privoke_pki::client`) and `fetch-model`. Documented in `docs/runtime/rust-workspace.md#privoke-runtime-supervisor-stage-7`.
+  - **Native host.** Byte-identical replay of the stage 0 native-messaging transcripts: 17 of 17 through the library and 17 of 17 through the real process (34 replays), including the `started` path, truncated, oversized and invalid frames (exit 1, no reply) and a top-level `null` ending the session. Two documented normalisations: `<ROOT>` and separators, and the two port numbers of the control-port-conflict message, because the replay uses ephemeral ports instead of the real 8080 and 50056. A hand-written reader of Python's JSON grammar keeps messages that `serde_json` would reject (`NaN`, lone surrogates, duplicate keys) answering as Python did.
+  - **Process supervisor and control service.** `RuntimeProcessSupervisor` and `PrivokeRuntimeControlService` are ported on one actor thread; the `supervisor` component cases are ported: the 8 platform-neutral runtime-supervisor cases, the 3 Windows process cases (real processes), the 3 service cases (the health call now runs over mutual TLS against an in-process Rust model-streaming) and the 5 native-host cases (the Windows no-console-window flag is exercised by the detached-start test rather than asserted on its own). The 5 `grpc_web_bridge` cases are not ported (the bridge is not rebuilt) and still pass in Python as the oracle. Plaintext loopback comes from the `workstation-loopback` transport feature, enabled only by this crate; the cloud crates' feature-tree tests still pass.
+  - **Children die with it.** `confine.rs` (Windows Job Object with kill-on-close, created suspended; Linux parent-death signal plus process group) is proven by killing the `serve` process without cleanup: the runtime child, and a launcher whose child holds the port (the venv redirector shape), are gone and the port is free. Stopping releases the port and restarts three times in a row, and a failed tree termination is never reported as stopped.
+  - **Model fetch.** Port of `fetch_package` and `receive_asset` onto the same cache layout, over mutual TLS with the installation certificate and a pinned server CA (no system-roots fallback; plaintext only to loopback). Pin, manifest-contract, asset-declaration, per-chunk, hash, size, re-read and re-hash checks as in Python; `manifest.json` last; a cached file is re-hashed and never overwritten; links in the cache path are refused. 15 tests: the real pinned releases through an in-process Rust model-streaming (efficient and `latest`, cached re-fetch without re-download, a corrupted cache, an unregistered, foreign-CA or certificate-less client, `consumer_id` binding) and 12 tamper classes against a scripted server with a synthetic pin set.
+  - **Deliberate differences.** The request `consumer_id` is the installation UUID or empty, not `client-runtime`, because the stage 3 public listener refuses any other value (a test shows the refusal). `PRIVOKE_MODEL_STREAMING_TLS=true` keeps mutual TLS on a loopback target. The Rust build does not open port 8080; `ensure_supervisor` waits for the bridge port as before, so a Rust-only workstation install is not usable until W4 (the Rust control service can serve the Python bridge as the oracle).
+  - **Installer scripts.** `install-native-host.sh` and `.ps1` register the Rust executable (`<binary> native-host`) when `PRIVOKE_SUPERVISOR_BINARY` or `-SupervisorBinary` is given, and are unchanged otherwise. They were checked for syntax only (`sh -n`, the PowerShell parser) and not run, because running them writes the user's real native-host registration. No registration was created.
+  - **Checks (host).** `cargo test --workspace --locked` (290 tests, none failed, including the two `privoke-spacy` timing tests, which did not flake in the two full runs), clippy with `--all-targets --locked` and `cargo fmt --check` are clean. One earlier full run had one `serve exited early` failure in the process tests; the cause was two tests drawing the same ephemeral port, fixed in the test helper, and six repeat runs of the crate then passed. Supervisor tests: 64 (12 unit, 7 control, 3 enrolment, 15 fetch, 4 replay with 34 transcript replays, 9 real-process, 14 ported cases). No key or secret-shaped string is committed; every CA and certificate is created by the test.
+  - **Not done here.** The Linux half of `confine.rs` follows the worker-pool pattern but was not compiled or run (Windows host). The `npm test` against the Rust bridge and the end-to-end latency checks of the original acceptance list are not applicable: the bridge is not rebuilt (W4 owns the extension transport and `tests/conformance/latency-baseline.json`). The gRPC-Web transcripts are untouched and remain the oracle for W4.
+- Handoff notes:
+  - The installed-client claims (C5, C6, C42) are not claimed for this build unless the installed-browser protocol is rerun.
+  - W4: the controller replaces the `serve` control listener and `confine.rs` with a W2 pool of W1 workers, and the readiness wait in `ensure_supervisor` with the native port. `fetch.rs` and `channel.rs` already give it the read-only model path to pass to the worker.
+  - A Rust-only install needs `fetch-model` before the first inspection; the Python runtime still loads the model itself through the same cache until W4.
 
 ## Stage 8a: Fail-closed cutover with nginx rollback retained
 
@@ -810,6 +836,25 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
   - The CI/Linux stage must: build the Linux bundle (python-build-standalone or equivalent for 3.11.9, then fill `cpython-distribution.linux-x86_64`, `cpython-build.linux-x86_64` and `blis-target.linux-x86_64` in the lock), run `parity_gate.py` on it, and build the worker with `--features embed`. The lock already holds the manylinux hashes. `build_bundle.py` refuses non-Windows hosts until then.
   - A different CPU family selects a different BLIS kernel and is refused by the lock; a server fleet with several CPU families needs a lock decision (pin `BLIS_ARCH` or record several targets).
 
+## Stage 11b: In-process spaCy backend (user decision, 17 November 2026)
+
+**User instruction:** "there should be no external spaCy process, it should be integrated inside the client-runtime process (if possible)".
+
+- **Current state.** Until stage 17, the runtime worker is the W1 Python pipeline. It already runs spaCy inside its own process, so no separate spaCy process exists there.
+- **Rust runtime (stage 17).** Once the analysis runtime moves to Rust, spaCy is embedded in that runtime worker process through PyO3. It runs on one dedicated interpreter thread that owns the GIL and the loaded `en_core_web_sm`, and other threads reach it through a channel. No `privoke-spacy-worker` child process is spawned.
+- **Isolation.** Isolation comes from the runtime worker boundary. The W2 pool and sandbox wrap the whole runtime worker, so if spaCy crashes, that worker dies and the controller restarts it, with no retry of a poisoned request.
+- **Throughput.** Throughput scales by adding runtime worker processes, not spaCy processes.
+- **Objective:**
+  - Add an in-process backend to `privoke-spacy` behind a `SpacyBackend` trait. The same API and the same offset conversion must serve both backends: `InProcess` is the default, and `WorkerPool` is kept only for tests and as the parity oracle.
+  - Load the hash-locked bundle (stage 11) from inside the host process. The bundle refuses to start on any lock difference.
+  - Redirect Python stdout to stderr in-process.
+- **Depends on:** stage 11.
+- **Owned paths:** `rust/crates/privoke-spacy/`, plus the docs section.
+- **Acceptance checks:**
+  - **Parity.** The in-process backend's output is byte-identical to the worker-pool backend on every recorded NER set and in both selections.
+  - **No extra processes.** A test asserts that no child process is created when NER runs.
+  - **Crash handling.** A deliberate interpreter crash inside a runtime worker takes down only that worker, and the W2 pool restarts it without retrying the request.
+
 ## Stage 12: Regex rules and preprocessing in Rust (D2)
 
 - Objective: build the `privoke-rules` crate. It ports `extension/client-runtime/src/regex/*` (including the Presidio recognisers and validators, ported by hand from the `presidio-analyzer` 2.2.363 sources) and `detection/preprocessing.py` (normalisation with offset maps).
@@ -848,6 +893,8 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
   - Offsets are code point indexes. Rust strings are UTF-8, so callers must not use byte offsets from a `&str` with these spans.
 
 ## Stage 13: NER layer and post-filter in Rust (D1)
+
+- **Backend boundary (17 Nov):** code against the `SpacyBackend` trait from stage 11b, never the worker-pool client directly.
 
 - Objective: build `privoke-ner-layer` in the Privoke workspace, using the stage 11 spaCy worker. It ports:
   - `NER/ner_detector.py`, including the caseless gate (`has_case_signal`, `fold_case`, `CASELESS_DISABLED_RULES`)
@@ -910,6 +957,7 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
   - Root settled that the pipeline and policy aggregation are within the user's approval, because they are server logic.
   - It also includes D11: model package and legacy stream fetch, with pin, shape and finite checks, into the same cache layout. Root approved this as networking work.
   - The gradient RPCs stay on the Python worker until stage 19. The supervisor routes each RPC by path to the Rust or Python worker.
+- **Runtime process model (17 Nov, stage 11b):** the Rust runtime runs inside a W2-pooled worker process and embeds spaCy in-process through the stage 11b backend. No separate spaCy process is used.
 - Depends on: stages W1–W4, 9, 12, 13, 14 and 16
 - Owned paths:
   - `rust/services/runtime/`
@@ -1280,3 +1328,31 @@ These assessments informed the user's decision. D1 to D10 are approved and stage
 - **Revisit triggers for the boundary:**
   - Loopback hop latency exceeds the run-to-run spread.
   - Stages 17 to 22 complete (the approved D ports). The Python runtime worker then disappears, and only the PyO3 spaCy worker pool (stage 11) remains Python.
+
+## Stage 23: Pull request, container smoke-test CI and Google Cloud auto-deploy script (user decision, 17 November 2026)
+
+**User instruction:** "Ensure that when all of this is done, you make a PR for this branch with proper CI for container smoke testing (and the updated main script for auto-deploy to google cloud | I will setup google cloud later)".
+
+- **Objective:**
+  - Once the earlier stages are complete, open a pull request from `feat/rust-rewrite` to `main`.
+  - Update `.github/workflows/service-stack-ci.yml`, or add a Rust stack workflow. It must:
+    - build every Rust service image;
+    - run `cargo test --workspace --locked` on Linux, including the Linux spaCy bundle and the parity job;
+    - bring the container stack up with test certificates generated at runtime;
+    - run the smoke tests, including the negative rows, from host Python or Rust clients.
+  - Update `.github/workflows/deploy-gce.yml` and `deploy/` so that a merge to `main` builds and pushes the Rust images and rolls them out to the Google Cloud VM, using the stage 8a fail-closed cutover order.
+  - Deployment needs Google Cloud credentials, which the user will configure later. It must stay inert until the repository secrets and variables exist: skip with a clear notice, and never fail open.
+- **Depends on:** all earlier stages. The stage 8 cutover itself still needs the user's approval before it runs against production.
+- **Owned paths:**
+  - `.github/workflows/`
+  - `deploy/`
+  - `docs/deployment/google-cloud.md`
+- **Acceptance checks:**
+  - **CI passes.** The pull request's required checks pass on the hosted runners.
+  - **Workflows are linted.** `actionlint` passes on every workflow file.
+  - **Deployment stays inert.** Without GCP secrets the deploy workflow skips cleanly. A rehearsal with act, or a dry run, shows the deployment steps in order.
+  - **No secrets are committed.**
+- **Status:** pending.
+- **Handoff notes:**
+  - This supersedes the earlier "no CI before the deadline" restriction for this stage only. The pull request lands after the 11 December submission, unless the user decides otherwise.
+  - Known flaky test to fix first: `privoke-spacy` `queued_request_survives_a_hung_worker_ahead_of_it` still fails under a heavy parallel build (`-j 2` full workspace, 17 Nov). Its fixed 4 s offset is too short when process start-up is slow.
