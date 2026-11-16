@@ -10,6 +10,7 @@ members = [
     "services/spacy-worker",
     "crates/privoke-rules",
     "crates/privoke-worker-pool",
+    "services/telemetry",
 ]
 
 [workspace.package]
