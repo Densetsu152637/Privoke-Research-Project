@@ -1,4 +1,5 @@
 import { extractPrompt, promptTarget } from "./prompt-interception.js";
+import { maskText, rewritePromptBody } from "./redaction.js";
 import { runtimeFailureResponse } from "./interception-failure.js";
 import { RESPONSE_TIMEOUT_MS } from "./analysis-timeouts.js";
 
@@ -7,7 +8,7 @@ const BODY_READ_TIMEOUT_MS = 5_000;
 const MAX_BODY_BYTES = 1_048_576;
 const NOTICE_STATUSES = new Set(["NOT_REQUESTED", "RENDERED", "FAILED", "UNKNOWN"]);
 const REQUEST_DISPOSITIONS = new Set([
-  "BLOCKED_LOCALLY", "ORIGINAL_REQUEST_HANDED_OFF", "UNKNOWN",
+  "BLOCKED_LOCALLY", "ORIGINAL_REQUEST_HANDED_OFF", "MASKED_REQUEST_HANDED_OFF", "UNKNOWN",
 ]);
 const nativeFetch = window.fetch;
 
@@ -49,11 +50,13 @@ window.fetch = async function privokeFetch(input, init) {
   try {
     const text = extractPrompt(body, targetApp);
     if (text) requestId = crypto.randomUUID();
-    const forward = () => {
+    const forward = (maskedBody) => {
       forwarded = true;
       try {
-        const result = request ? nativeFetch.call(this, request) : nativeFetch.apply(this, arguments);
-        reportOutcome("ORIGINAL_REQUEST_HANDED_OFF");
+        const result = maskedBody !== undefined
+          ? nativeFetch.apply(this, maskedFetchArguments(input, init, request, maskedBody))
+          : request ? nativeFetch.call(this, request) : nativeFetch.apply(this, arguments);
+        reportOutcome(maskedBody !== undefined ? "MASKED_REQUEST_HANDED_OFF" : "ORIGINAL_REQUEST_HANDED_OFF");
         return result;
       } catch (error) {
         reportOutcome("UNKNOWN");
@@ -68,7 +71,8 @@ window.fetch = async function privokeFetch(input, init) {
       // Sites often suppress AbortError as an intentional user cancellation.
       throw new TypeError("Prompt blocked by PriVoke.");
     }
-    return forward();
+    // Opt-in WARN+MASK; maskedBodyFor is null unless that setting supplied spans.
+    return forward(maskedBodyFor(body, text, decision) ?? undefined);
   } catch (error) {
     reportOutcome("UNKNOWN");
     if (!forwarded && request?.body) void request.body.cancel().catch(() => {});
@@ -77,6 +81,33 @@ window.fetch = async function privokeFetch(input, init) {
 };
 
 installXhrInterceptor();
+
+function maskedBodyFor(body, text, decision) {
+  if (decision?.action !== "WARN" || !decision.maskSpans?.length) return null;
+  const masked = maskText(text, decision.maskSpans);
+  if (masked.maskedChars === 0) return null;
+  return rewritePromptBody(body, text, masked.text);
+}
+
+function maskedFetchArguments(input, init, request, maskedBody) {
+  if (request) return [new Request(request, { body: maskedBody })];
+  if (input instanceof Request) return [new Request(input, { ...init, body: maskedBody })];
+  return [input, { ...init, body: maskedBody }];
+}
+
+function sanitizeMaskSpans(value) {
+  if (!Array.isArray(value)) return undefined;
+  const spans = value.slice(0, 1000).filter((span) => (
+    Number.isInteger(span?.start) && Number.isInteger(span?.end)
+  )).map((span) => ({
+    start: span.start,
+    end: span.end,
+    categories: Array.isArray(span.categories)
+      ? span.categories.filter((category) => typeof category === "string").slice(0, 16)
+      : [],
+  }));
+  return spans.length ? spans : undefined;
+}
 
 async function requestBody(input, init, signal) {
   if (init?.body != null) {
@@ -193,7 +224,10 @@ function analyze(text, targetApp, signal, requestId) {
         const observation = validAction
           ? normalizeObservation(data.observation)
           : { schema_version: 1, notice_status: "UNKNOWN" };
-        finish(validAction ? { action, observation } : runtimeFailureResponse());
+        const maskSpans = validAction && action === "WARN" ? sanitizeMaskSpans(data.maskSpans) : undefined;
+        finish(validAction
+          ? { action, observation, ...(maskSpans ? { maskSpans } : {}) }
+          : runtimeFailureResponse());
       }
     }
 
@@ -344,11 +378,13 @@ function installXhrInterceptor() {
         const decodedText = extractPrompt(raw, request.targetApp);
         if (!decodedText) return null;
         request.analysisStarted = true;
+        request.promptText = decodedText;
         request.requestId = crypto.randomUUID();
         return analyze(decodedText, request.targetApp, request.controller.signal, request.requestId);
       });
     } else {
       request.analysisStarted = true;
+      request.promptText = text;
       request.requestId = crypto.randomUUID();
       decision = analyze(text, request.targetApp, request.controller.signal, request.requestId);
     }
@@ -362,8 +398,10 @@ function installXhrInterceptor() {
       request.pending = false;
       clearTimeout(request.timeout);
       try {
-        send.call(xhr, body);
-        reportXhrOutcome(request, decision?.action ?? null, decision?.observation, "ORIGINAL_REQUEST_HANDED_OFF");
+        const maskedBody = maskedBodyFor(blob ? undefined : body, request.promptText, decision);
+        send.call(xhr, maskedBody ?? body);
+        reportXhrOutcome(request, decision?.action ?? null, decision?.observation,
+          maskedBody ? "MASKED_REQUEST_HANDED_OFF" : "ORIGINAL_REQUEST_HANDED_OFF");
       } catch {
         // An asynchronous native send failure must also settle the caller.
         reportXhrOutcome(request, decision?.action ?? null, decision?.observation, "UNKNOWN");

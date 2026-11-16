@@ -12,6 +12,7 @@ import {
   addRuntimeMessageListener,
 } from "./webextension-api.js";
 import { SemanticAvailability } from "./semantic-availability.js";
+import { collectMaskSpans } from "./redaction.js";
 import { ANALYSIS_TIMEOUT_MS, STREAMING_HEALTH_TIMEOUT_MS } from "./analysis-timeouts.js";
 
 const client = new RuntimeClient();
@@ -195,6 +196,10 @@ async function analyzePrompt(message, sender) {
       semanticStateTransition: semanticStatus.transition,
       semanticFallbackLayers: semanticStatus.fallbackLayers,
       semanticFailClosedOnly: semanticStatus.failClosedOnly,
+      // Only populated when the opt-in WARN+MASK setting is on.
+      ...(settings.warnMasking && String(response.action).toUpperCase() === "WARN"
+        ? { maskSpans: collectMaskSpans(response) }
+        : {}),
     },
   };
 }
