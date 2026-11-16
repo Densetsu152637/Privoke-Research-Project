@@ -5,6 +5,7 @@ members = [
     "crates/privoke-contracts",
     "crates/privoke-transport",
     "tools/privoke-pki",
+    "services/model-streaming",
 ]
 
 [workspace.package]
