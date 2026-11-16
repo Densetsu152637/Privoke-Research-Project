@@ -18,7 +18,7 @@ class DetectorLatencyHelpers(unittest.TestCase):
         self.assertEqual((stats["n"], stats["median_ms"], stats["mean_ms"], stats["max_ms"]), (3, 2.0, 2.0, 3.0))
 
     def test_configs_match_frozen_table(self):
-        self.assertEqual(set(dl.CONFIGS), {"O", "N", "N+strip", "N+digits", "N+email", "N+caseless", "N+all", "N+lg", "N+trf"})
+        self.assertEqual(set(dl.CONFIGS), {"O", "N", "N+strip", "N+digits", "N+email", "N+caseless", "N+all", "N+lg", "N+trf", "K", "K+all"})
         self.assertEqual(dl.CONFIGS["N+trf"]["env"], {"PRIVOKE_NER_MODEL": "en_core_web_trf"})
         self.assertEqual(dl.CONFIGS["N+trf"]["venv"], "trf")
         self.assertEqual(len(dl.CONFIGS["N+all"]["env"]), 4)
