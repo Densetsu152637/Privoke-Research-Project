@@ -826,6 +826,87 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
 - Outcome:
 - Handoff notes: the installed-client claims are revalidated only if the installed-browser protocol is rerun on this build.
 
+## Worker isolation architecture (user decision, 17 November 2026)
+
+The user approved this design: **"Implement this."** One inference worker sits behind thin front ends.
+
+- **Client:** extension → native messaging → Rust controller (the stage 7 supervisor) → pipes → worker.
+- **Server:** fuzzer → gRPC with mutual TLS → thin Rust analysis microservice → pipes → worker, inside a quarantined container.
+
+The worker is the same binary and pipe protocol everywhere. It never opens a socket and needs no network. The client gets no listening ports: the gRPC-Web bridge on 8080 and the runtime ports are removed from workstation installs. This supersedes the stage 7 bridge objective and its gRPC-Web transcript replay check. Stages W1–W4 come before stage 17, which later only swaps worker internals for Rust crates behind the same protocol.
+
+## Stage W1: Worker pipe protocol and Python worker entrypoint
+
+- Objective:
+  - Add `extension/client-runtime/src/worker_main.py`, which serves the existing pipeline over a framed protocol on a dedicated pipe file descriptor, with stdout redirected to stderr.
+  - Frames are length-prefixed and carry the existing protobuf `PrivokeRuntimeService` messages: `AnalyzePrompt`, `DetectAnnotationPresence`, `Health` and the gradient RPCs, each with a method tag.
+  - The worker announces readiness only after the models load. It refuses to start if it can open a network socket while running in sandboxed mode (`PRIVOKE_WORKER_SANDBOX=1`); this is a self-check, and enforcement is the OS layer's job (W2).
+  - The protocol is specified in `docs/runtime/worker-protocol.md`.
+- Depends on: stage 1
+- Owned paths:
+  - `extension/client-runtime/src/worker_main.py`, `extension/client-runtime/src/worker_protocol.py` and their tests
+  - `docs/runtime/worker-protocol.md`
+- Acceptance checks:
+  - **Parity with the gRPC server path.** For each explicit layer selection on the corpus, responses through the pipe are byte-identical to responses through the existing gRPC server path. Never send an empty layer list.
+  - **Framing survives stray output.** A deliberate `print` inside the worker does not corrupt the framing.
+  - **Malformed frames fail closed.** A malformed frame produces an error frame, and the worker survives.
+
+## Stage W2: Generic worker pool and OS sandbox (`privoke-worker-pool`)
+
+- Objective: build one Rust crate used by stage 11 (spaCy), W3 and W4. It provides:
+  - spawn and supervise, with readiness gating;
+  - a bounded queue, deadlines, and no retry of a poisoned request;
+  - crash-loop backoff;
+  - the OS sandbox:
+    - **Windows:** a Job Object with kill-on-close plus memory and active-process limits; best-effort network denial through an AppContainer or a firewall rule.
+    - **Linux:** `PR_SET_PDEATHSIG`, rlimits, and a no-network Landlock or seccomp filter where the kernel supports it.
+  - a clean environment and an explicit `PYTHONHOME`.
+- Depends on: stage 1
+- Owned paths: `rust/crates/privoke-worker-pool/`
+- Acceptance checks:
+  - **Children die with the parent.** Killing the parent kills every child, on Windows and on Linux in a container.
+  - **Limits are enforced.** Memory and process limits kill a runaway test worker.
+  - **No network, or a recorded gap.** A test worker's connect attempt fails where the sandbox is supported. Where it is not, the gap is recorded per OS.
+  - **Pool rules hold.** Tests cover poisoned input, backoff and readiness.
+
+## Stage W3: Quarantined analysis microservice for the fuzzer
+
+- Objective:
+  - Add `rust/services/analysis/`, a thin tonic gRPC service with mutual TLS through `privoke-transport` and the stage 2 registry. It owns a worker pool (W2) of W1 workers.
+  - The `fuzzer` role may call only analysis and gradient RPCs. The service holds no publisher credential.
+  - Add a Compose profile with:
+    - an `internal: true` network shared only with the fuzzer;
+    - a read-only root filesystem with a tmpfs for scratch, and models mounted read-only;
+    - a non-root user, `cap_drop: [ALL]`, `no-new-privileges` and the default seccomp profile;
+    - memory, CPU and pids limits.
+  - The fuzzer's runtime client is switched to this service with mutual TLS (shared with stage 6).
+- Depends on: W1, W2, stage 2
+- Owned paths:
+  - `rust/services/analysis/` and its Dockerfile
+  - the quarantined service and profile in the Compose files
+  - the fuzzer's runtime-client target configuration
+- Acceptance checks:
+  - **Responses match.** Analysis responses through the service equal the W1 pipe responses.
+  - **Access is enforced.** A non-fuzzer identity gets `PERMISSION_DENIED`, and a publisher RPC gets `UNIMPLEMENTED`.
+  - **Quarantine holds.** From inside the container, outbound connections fail and the root filesystem is read-only.
+  - **Training still works.** The fuzzer's training cycle runs end to end against it in the `legacy-training` profile.
+
+## Stage W4: Client controller without listening ports
+
+- Objective:
+  - The stage 7 Rust native host becomes the controller, owning a W2 pool of W1 workers.
+  - The extension's runtime client moves from gRPC-Web over `http://127.0.0.1:8080` to native-messaging port messages that carry the same request and response semantics, timeouts and failure policy.
+  - The Python supervisor and bridge stay available, as the oracle only, until W4 passes.
+- Depends on: stage 7, W1, W2
+- Owned paths:
+  - `extension/src/runtime-client.js` and its transport
+  - `rust/services/runtime-supervisor/`
+- Acceptance checks:
+  - **The extension suite passes.** `npm test` passes, with tests for native-port transport, timeouts and fail-closed behaviour.
+  - **The cross-platform probes still pass.** The 73-probe study gives the same outcomes on Chrome and Firefox, with no listening ports opened by PriVoke.
+  - **No orphans.** Closing the browser leaves no orphaned worker.
+  - **Latency does not regress.** The measured end-to-end median latency does not regress beyond the run-to-run spread.
+
 ## Stage 18: Telemetry reporter in Rust (D8)
 
 - Objective: port `telemetry/privacy.py` (53-bit draw, binary64 thresholds, rejection sampling, SQLite ledger) and `event_emitter.py` into the Rust runtime.
