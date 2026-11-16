@@ -1,6 +1,6 @@
 # Rust workspace
 
-> Source area: `rust`. Plan: [Rust server rewrite](../plans/rust-server-rewrite.md), stages 0 to 3 and 11. Run every command from the repository root unless stated.
+> Source area: `rust`. Plan: [Rust server rewrite](../plans/rust-server-rewrite.md), stages 0 to 3, 11, W2 and W3. Run every command from the repository root unless stated.
 
 The workspace holds the Rust side of the server rewrite. Stages 1 and 2 added three libraries and the PKI tool; stage 3 adds the first service, `privoke-model-streaming`; stage 11 adds the spaCy client crate and the spaCy worker. The Python and Go services are unchanged and remain the measured system until a later stage replaces them.
 
@@ -14,6 +14,7 @@ The workspace holds the Rust side of the server rewrite. Stages 1 and 2 added th
 | `privoke-spacy` | Client of the spaCy worker: the framed protocol, UTF-8 and UTF-16 offset conversion, and the supervised worker pool. No Python dependency. |
 | `privoke-spacy-worker` (`services/spacy-worker`) | The worker process. It embeds CPython 3.11 through PyO3 and serves the unchanged spaCy `en_core_web_sm`. The `embed` feature is off by default, so the workspace builds and tests without Python. |
 | `privoke-rules` | The regex rule layer (300 rules including the ported Presidio recognisers and the Gitleaks catalogue) and the canonical-text preprocessing with offset maps, identical to the Python client runtime (stage 12). |
+| `privoke-analysis` (`rust/services/analysis`) | The quarantined analysis microservice for the fuzzer (stage W3): mutual TLS, a fuzzer-only policy, and a pool of W1 Python workers. See [below](#privoke-analysis-stage-w3). |
 
 ## Build and test
 
@@ -447,3 +448,99 @@ docker run --rm --init -v <worktree>:/work -v privoke-w2-target:/target -v privo
 ```
 
 `--init` reaps the workers the tests kill. A Linux-built `privoke-spacy-worker` bundle is still pending (stage 11's CI/Linux stage).
+
+## `privoke-analysis` (stage W3)
+
+Plan: [stage W3](../plans/rust-server-rewrite.md#stage-w3-quarantined-analysis-microservice-for-the-fuzzer). `rust/services/analysis` is the quarantined analysis microservice for the fuzzer: a thin tonic service with in-service mutual TLS (`privoke-transport`, the stage 2 registry) that owns a `privoke-worker-pool` of W1 Python workers. It runs no analysis of its own and holds no publisher credential.
+
+```
+cargo test -p privoke-analysis --locked --manifest-path rust/Cargo.toml                       # unit tests, model cache, start-up refusal
+PRIVOKE_ANALYSIS_TEST_PYTHON=<python with the client-runtime requirements> \
+  cargo test -p privoke-analysis --locked --manifest-path rust/Cargo.toml                     # adds the real-worker scenarios
+```
+
+Without `PRIVOKE_ANALYSIS_TEST_PYTHON` the two real-worker tests print that they are skipped and pass. `evaluation/.venv-v1-v3-pipeline` is a suitable interpreter on the development host.
+
+### What it serves, and to whom
+
+| Layer | Rule | Result |
+| --- | --- | --- |
+| Transport policy | The six `PrivokeRuntimeService` RPCs (`AnalyzePrompt`, `DetectAnnotationPresence`, `ComputeSemanticGradients`, `ComputeUnderlyingModelGradients`, `ComputePresenceGradients`, `Health`) for the `publisher`, `trainer` and `runtime` registry roles | Any other path, including every publisher RPC and the model RPCs, is `UNIMPLEMENTED`. An installation or the reporter is `PERMISSION_DENIED`. A missing or untrusted client certificate fails the handshake. |
+| Service allow list | Only the service names in `ANALYSIS_ALLOWED_SERVICES` (default `fuzzer`) | Another registered service, and the service's own model credential, get `PERMISSION_DENIED`. `ANALYSIS_HEALTH_SERVICES` names identities that may call `Health` only (the container's own probe). |
+| Layer selection | Every layer-bearing request must name exactly `[DETECTION_LAYER_SEMANTIC]` | An empty list, regex, NER, the whole pipeline, or a mixed list is `INVALID_ARGUMENT` before any worker sees it. The fuzzer's own `_validate_requested_execution` therefore holds through the service. |
+
+There is no `fuzzer` value in the `Role` enum. The fuzzer is a registered service (`urn:privoke:service:fuzzer`, role `publisher`, because it also publishes updates), and "fuzzer only" is the service-name allow list on top of the role policy. The transport crate is unchanged.
+
+### Responses are the worker's bytes
+
+The worker serialises each response with deterministic map order, as the gRPC server does. Decoding that into a Rust message and encoding it again is not byte-faithful: `prost` leaves out a map entry's value when it is the default (a `0.0` metric), where Python writes it, and that cost 54 bytes in the first gradient response. So `src/raw.rs` serves the service over a pass-through codec: the request bytes reach the worker as the client sent them, and the worker's response bytes reach the client as the worker wrote them. Only `Health` is built here.
+
+### Models
+
+The worker has no network, so the service fetches models and the worker reads them.
+
+- **Fetch.** `GetModelParameters` on the model-streaming internal listener, over mutual TLS, with the service's own `runtime` certificate (`urn:privoke:service:analysis`). The empty id and `latest` mean `ANALYSIS_DEFAULT_MODEL_ID` (default `privoke-balanced`), because `latest` on model-streaming resolves to a V3 package.
+- **Checks.** The identity returned is the one requested; version and timestamp are present; names are strictly ordered, shapes positive, value counts equal the shape, all values finite, at most 65,536 values; `artifact_checksum` is present; and, for an id in `ANALYSIS_MODEL_PINS` (`id=sha256,...`), it equals the pin. A refused model is `FAILED_PRECONDITION` and is never written.
+- **Cache.** The checked response is stored as `<model_id>.snapshot.pb` in a named volume (`ANALYSIS_CACHE_DIR`), replaced atomically, and fetched again when it is older than `ANALYSIS_MODEL_TTL_MS` (default 1000), so a published update reaches the worker within about two seconds, as with the old runtime's one-second cache. If model-streaming is unreachable the cached snapshot keeps serving and the failure is logged; with nothing cached the call is `UNAVAILABLE`.
+- **Worker side.** `python/worker_shim.py` runs the unchanged W1 worker in-process and swaps its model provider for one that reads those snapshots and builds exactly the `ParameterSnapshot` the streaming client builds. The worker's own artifact and V3-package readers stay as the fallback. The worker never writes a model root; nothing but its code stops it writing the cache volume inside the container, so the guarantee is the worker's code and the read-only root, not a separate read-only mount.
+- **Not served.** V3 packages (`privoke-v3-*`) are not fetched: they need the public listener and a `consumer` credential. A request that names one gets the worker's own error text inside the response. The W1 gradient RPCs do not serve V3 packages either.
+
+### Worker and pool
+
+`python/worker_shim.py` also adapts the pool's framing (a 4-byte little-endian length, then the frame) to the W1 worker's 20-byte-header frames on two dedicated pipes, in one process, so the pool and the W1 protocol are both used as specified. The pool returns an answer as text, so a response travels base64-encoded between the two. The sandbox policy is `deny_network`, a clean environment and the worker's `PRIVOKE_WORKER_SANDBOX=1` socket self-check; the interpreter is the virtual environment's own (`PYTHONHOME` would override its `pyvenv.cfg` and hide `site-packages`). No address-space or `RLIMIT_NPROC` ceiling is set: torch maps large ranges and the container's cgroup memory and pids limits are the controls. The pool has one deadline, the longest gradient deadline plus a grace (330 s), so a hung analysis request holds its worker that long; the worker's own cooperative deadline (25 s for analysis) normally ends it first.
+
+On a Windows host the worker's socket self-check cannot pass (W2 provides no network denial there), so the Rust tests run with `require_sandbox` off on Windows and on in the container. The container is the quarantine.
+
+### Compose
+
+`docker-compose.analysis.yml` is additive: nothing in `docker-compose.prod.yml` or `docker-compose.yml` changes. Layer it over the production file with the `legacy-training` and `quarantined-analysis` profiles:
+
+```
+docker build -f rust/services/model-streaming/Dockerfile -t privoke-model-streaming-rust:s03 .
+docker compose -f docker-compose.prod.yml -f docker-compose.analysis.yml \
+    --profile legacy-training --profile quarantined-analysis up -d --build
+```
+
+`PRIVOKE_W3_PKI_DIR` names a directory of certificates made by `privoke-pki` (`server-ca.pem`, `client-ca.pem`, `crl.pem`, `registry.toml`, `server/server.{crt,key}`, `svc/{fuzzer,analysis}.{crt,key}`); the test builds one per run and deletes it. The server certificate must carry the names `analysis-service`, `analysis-model-streaming` and `privoke-fuzzer`. The analysis image is built on the client-runtime image (`PRIVOKE_PYTHON_RUNTIME_IMAGE`), so the worker runs on the dependency set of the runtime it replaces.
+
+| Service | What it is |
+| --- | --- |
+| `analysis-service` (profile `quarantined-analysis`) | Networks: only `analysis-fuzzer` and `analysis-models`, both `internal: true`, so there is no route out and no published port. `read_only: true`, a `/tmp` tmpfs (`noexec,nosuid,nodev`), user 10001, `cap_drop: [ALL]`, `no-new-privileges`, Docker's default seccomp profile (never `unconfined`), `mem_limit` and `memswap_limit` 3 GiB, 2 CPUs, `pids_limit` 256. The model cache is the named volume `analysis-model-cache`. |
+| `analysis-model-streaming` | The stage 3 Rust service on `analysis-models`, reading the same `model-data` volume the param-update service writes, read-only. |
+| `privoke-fuzzer` (override) | `PRIVOKE_RUNTIME_TARGET=analysis-service:50054` with the fuzzer's service certificate, so the unchanged stage 6 `service_channel` speaks mutual TLS to it; the dependency on the plaintext `client-runtime` is removed. Its own listener gets server credentials (stage 6) and admits the fuzzer and the test driver. |
+
+`docker-compose.analysis-test.yml` adds two test-only pieces, never part of a deployment (see the file's header): a TCP gateway that publishes three loopback ports, because a host cannot reach a container whose only networks are `internal: true` (TLS stays end to end and the gateway holds no credential), and `param-update-front`, which accepts both TLS and plaintext for the Python param-update server. The second exists because the fuzzer's receipt lookup uses mutual TLS as soon as it holds a certificate, while `training/parameter_updates.py` keeps a plaintext channel to the same target (a G6 path that stage 6 could not change) and the Python param-update server cannot terminate TLS. Stage 5's Rust service removes the need.
+
+### Checks
+
+Driven from the host; nothing runs through `docker compose run`.
+
+```
+python -m unittest rust/services/analysis/tests/test_container.py -v     # hosts the stack, then probes it from the host
+```
+
+Results of the run recorded in the plan (17 November 2026, Docker Desktop on Windows 11, torch 2.11.0+cpu in both the host virtual environment and the container image):
+
+| Plan check | Where it is checked | Result |
+| --- | --- | --- |
+| Responses match the W1 pipe responses | `tests/service.rs` (host, Windows) and `test_container.py::ParityTests` (container) replay the 22 recorded semantic-only `AnalyzePrompt` cases of `tests/conformance/worker-frames/analysis.json` | all 22 digests equal, in both places |
+| Gradient parity | `tests/replay.rs` replays the 9 recorded gradient and presence cases of `training.json` with the capture's own models (the prepared full-encoder release and a presence release), over the pass-through codec; `ParityTests` repeats a head-gradient call in the container | 9 of 9 byte-identical (semantic, underlying full-encoder, presence detect, presence gradients, the admission-header cases). The tenth case (wrong layers) is `INVALID_ARGUMENT` by design. No float tolerance is needed |
+| Access | `AccessTests`, `tests/service.rs` | the fuzzer is served; another registered publisher, the service's own `runtime` credential, the test driver and an installation get `PERMISSION_DENIED` on analysis, gradient and presence RPCs; `ParamUpdateService` and `ModelStreamingService.GetModelParameters` and `FuzzerService` are `UNIMPLEMENTED`; no certificate or a certificate from another CA cannot connect |
+| Quarantine | `QuarantineTests` | outbound connections to three addresses and a name fail from inside the container; the root and the code directories are not writable, `/tmp` and the cache volume are; the worker's READY frame says `sandbox_self_check: passed` and `telemetry: disabled`; `docker inspect` shows the hardening above; both networks are `internal: true` and the container has no published port |
+| Semantic-only | `SemanticOnlyTests` | empty, regex, NER, runtime and mixed selections are `INVALID_ARGUMENT` for every layer-bearing RPC; the fuzzer's own `PrivokeRuntimeClient` (unchanged, over `service_channel`) completes a semantic call and raises for the others |
+| Models with a read-only root | `QuarantineTests` | the service was healthy and answering with `read_only: true`; the cache is on the volume |
+| Training cycle | `TrainingCycleTests` | `RunTrainingCycle` (32 prompts, seed 1) through the fuzzer, with the analysis service as its only runtime: accepted, `v0.3.0` to `v0.3.0+train.1`, weights changed, and the analysis service's cache followed to the new version without a restart |
+| Drivers on the host | all of the above | `docker compose up` hosts the stack; no `docker compose run`; `docker exec` is used only for the in-container probes |
+
+Unit and component checks: `cargo test -p privoke-analysis` is 17 unit tests, 4 model-cache tests (mutual-TLS fetch, checks, pins, update, outage, unregistered caller), 2 service tests and 1 replay test with a real worker (skipped without `PRIVOKE_ANALYSIS_TEST_PYTHON`), and the container module is 15 tests.
+
+Findings and limits:
+
+- **Stage 3 refuses what `bootstrap.py` writes.** `services/param-update-service/app/bootstrap.py` always rewrites the tracked `privoke-balanced.json` as a prepared full-encoder release (`v0.4.0-full-ctx256-...`, 908,225 bytes). The Rust model service rejects it (`artifact checksum does not match its contents`), although Python's own `artifact_checksum` of the file equals the stored value and every float token in it round-trips through `privoke_contracts::pyfloat::repr`. The cause is not found. The test stack therefore starts param-update without the bootstrap, with `FUZZER_TRAIN_UNDERLYING=false`, and serves the tracked artifact, so the cycle it runs is the head-only one. The full-encoder (`RunUnderlyingTrainingCycle`) path through the service is covered by the byte-identical gradient replay, not by a cycle. Stage 3 should reproduce this with the file in the `model-data` volume before the cutover (the file is regenerated by `docker compose up` of the production file).
+- **The fuzzer cannot use its default sampler here.** `audience_coverage_v1` needs the pinned AU3 manifest, which neither the production file nor the repository supplies, so the test overlay sets `FUZZ_CONTEXTUAL_SAMPLING_STRATEGY=legacy_random_v1`, as `evaluation/compose.legacy-ci.yml` does for the historical V1 topology coverage.
+- **A process-wide channel policy and two plaintext channels.** `service_channel` uses mutual TLS for every target once the fuzzer holds a certificate, while `training/parameter_updates.py` and `training/window_evidence.py` keep `grpc.insecure_channel` (G6 paths). The window-evidence path to the runtime is therefore plaintext and would not reach this service; the cycle paths that go through `runtime_client` do. The param-update front in the test file is the stand-in until stage 5.
+- **V3 packages are not served** (see above). The fuzzer's default `MODEL_ID` in the production file is `privoke-balanced`, so nothing it sends names one.
+- **One deadline.** 330 s for every method, as above.
+- **The worker can write the cache volume** if its code were compromised; the root, the code and the interpreter are read-only and the worker has no socket. A second, read-only mount of the volume for the worker would need a separate container, which the pool does not support.
+- **Windows.** The Rust tests pass on Windows with `require_sandbox` off; the container is where the sandbox self-check and the network denial are exercised.
+- **Gaps in the checks.** The in-container run does not replay the gradient digests (the training models are not in the stack's volume), and the quarantine probes use `docker exec`, whose process is not under the worker's seccomp filter; the worker-side denial is shown by the worker's own `sandbox_self_check: passed` (it tried TCP and UDP sockets and was refused) and by W2's Linux test.

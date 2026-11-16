@@ -1,0 +1,96 @@
+# Test-only additions for the stage W3 checks. Never part of a deployment. Layer it over the other two files:
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.analysis.yml -f docker-compose.analysis-test.yml \
+#       --profile legacy-training --profile quarantined-analysis up -d
+#
+# Two things are missing from a plain stack, and both are the test's to supply:
+#
+# * The host cannot reach a container whose only networks are `internal: true`. `analysis-test-gateway` copies TCP
+#   bytes from three loopback ports to the analysis service, the fuzzer and the model service. TLS stays end to end between
+#   the host client and the target, and the gateway holds no credential. The analysis service itself still has no route
+#   out and no published port.
+# * The Python param-update server cannot terminate TLS yet (the Rust service of stage 5 does), while the fuzzer's
+#   receipt lookup uses mutual TLS as soon as it holds a certificate. `param-update-front` accepts both on one port.
+#
+# The scripts are plain Python from tests/support, mounted read-only into a stock interpreter image.
+
+x-support: &support
+  type: bind
+  source: ./rust/services/analysis/tests/support
+  target: /support
+  read_only: true
+
+x-pki: &pki
+  type: bind
+  source: ${PRIVOKE_W3_PKI_DIR:?set PRIVOKE_W3_PKI_DIR to the directory with the analysis certificates}
+  target: /run/privoke
+  read_only: true
+
+services:
+  analysis-test-gateway:
+    profiles: [quarantined-analysis]
+    image: ${PRIVOKE_SUPPORT_IMAGE:-python:3.11-slim-bookworm}
+    container_name: analysis-test-gateway
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    user: "10001:10001"
+    command: [python, /support/tcp_gateway.py, "50754=analysis-service:50054", "50753=privoke-fuzzer:50053", "50752=analysis-model-streaming:50051"]
+    ports:
+      - "127.0.0.1:${PRIVOKE_W3_ANALYSIS_PORT:-50754}:50754"
+      - "127.0.0.1:${PRIVOKE_W3_FUZZER_PORT:-50753}:50753"
+      - "127.0.0.1:${PRIVOKE_W3_MODEL_PORT:-50752}:50752"
+    networks: [default, analysis-fuzzer, analysis-models]
+    volumes:
+      - *support
+
+  param-update-front:
+    profiles: [quarantined-analysis]
+    image: ${PRIVOKE_SUPPORT_IMAGE:-python:3.11-slim-bookworm}
+    container_name: param-update-front
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    user: "10001:10001"
+    command:
+      - python
+      - /support/tls_front.py
+      - "50052"
+      - param-update-service:50052
+      - /run/privoke/server/server.crt
+      - /run/privoke/server/server.key
+      - /run/privoke/client-ca.pem
+    depends_on:
+      param-update-service:
+        condition: service_started
+    volumes:
+      - *support
+      - *pki
+
+  param-update-service:
+    # The production command runs `app/bootstrap.py` first, which rewrites the tracked artifact as a prepared
+    # full-encoder release (v0.4.0-full-ctx256). The Rust model service of stage 3 refuses that file ("artifact checksum
+    # does not match its contents") although its checksum is self-consistent in Python, so this stack serves the tracked
+    # artifact and the fuzzer runs the head-only cycle. See docs/runtime/rust-workspace.md, W3 findings.
+    command: [sh, -ec, "exec python app/server.py"]
+    depends_on:
+      model-streaming-service: !reset null
+    environment:
+      # The scheduler's plaintext request to the fuzzer would be refused by the fuzzer's mutual-TLS listener; the
+      # checks start the cycle themselves.
+      FUZZER_REQUEST_INTERVAL_SECONDS: "86400"
+      # The head-only cycle; the dual (full-encoder) cycle needs the prepared artifact described above.
+      FUZZER_TRAIN_UNDERLYING: "false"
+
+  privoke-fuzzer:
+    environment:
+      PARAM_UPDATE_TARGET: param-update-front:50052
+      PRIVOKE_HEALTHCHECK_SERVER_NAME: privoke-fuzzer
+      # The default sampler (audience_coverage_v1) needs the pinned AU3 manifest, which the production file does not
+      # supply and the repository does not carry; the legacy V1 sampler needs no external asset. This is the same choice
+      # evaluation/compose.legacy-ci.yml makes for the historical V1 topology coverage.
+      FUZZ_CONTEXTUAL_SAMPLING_STRATEGY: legacy_random_v1
