@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.5) (preloaded format=pdflatex 2026.10.9)  16 NOV 2026 20:08
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.5) (preloaded format=pdflatex 2026.10.9)  16 NOV 2026 20:28
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1714,13 +1714,10 @@ Overfull \hbox (1.76465pt too wide) detected at line 164
 9 º \U/ntxmia/m/it/9 = []
  []
 
-
-Underfull \vbox (badness 4846) has occurred while \output is active []
-
 LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/sc' will be
-(Font)              scaled to size 7.0pt on input line 178.
- [3.3{C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine
-/lbtn_omcwp2.enc}]
+(Font)              scaled to size 7.0pt on input line 177.
+[3.3{C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/
+lbtn_omcwp2.enc}]
 Overfull \hbox (1.09447pt too wide) in paragraph at lines 181--182
 []\T1/LinuxLibertineT-TLF/m/it/9 (-20) Not a con-flict-ing retry. \T1/LinuxLibe
 rtineT-TLF/m/n/9 (-20) Let $\OML/nxlmi/m/it/9 ^^T \U/ntxmia/m/it/9 = \OML/nxlmi
@@ -1880,7 +1877,7 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 (D:/Git-Worktrees/Privoke-Research-Project/wt-paper/paper/main.bbl
-Underfull \vbox (badness 10000) has occurred while \output is active []
+Underfull \vbox (badness 1895) has occurred while \output is active []
 
  [12.12]
 LaTeX Font Info:    Font shape `OT1/LinuxLibertineT-TLF/sb/n' will be
@@ -2258,11 +2255,11 @@ Package rerunfilecheck Info: File `main.out' has not changed.
 (rerunfilecheck)             Checksum: ED2D11E8DA272E2509887843BA78587C;8701.
  ) 
 Here is how much of TeX's memory you used:
- 44150 strings out of 467392
- 981079 string characters out of 5404181
+ 44153 strings out of 467392
+ 981163 string characters out of 5404181
  1538158 words of memory out of 5000000
  71626 multiletter control sequences out of 15000+600000
- 882342 words of font info for 639 fonts, out of 8000000 for 9000
+ 882596 words of font info for 641 fonts, out of 8000000 for 9000
  1302 hyphenation exceptions out of 8191
  107i,19n,131p,1945b,2631s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/public/inconsola
@@ -2288,7 +2285,7 @@ x/txexs.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/public
 /newtx/txmiaX.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/
 public/newtx/txsys.pfb>
 Output written on D:/Git-Worktrees\Privoke-Research-Project\wt-paper\paper\main
-.pdf (22 pages, 887859 bytes).
+.pdf (22 pages, 888098 bytes).
 PDF statistics:
  730 PDF objects out of 1000 (max. 8388607)
  157 named destinations out of 1000 (max. 500000)
