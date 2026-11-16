@@ -80,3 +80,28 @@ relative to a baseline measured just before each profile's window. The final
 measurements occur after 120 minutes because checkpoint evaluation finished
 after the elapsed windows. Without `--overwrite`, the script refuses to replace
 its named outputs.
+
+
+## ASIACCS 2027 submission tooling (16 November 2026)
+
+The anonymous ACM `sigconf` submission (`paper/main.tex`, `sample-base.bib`) has its figures and checks here.
+
+```powershell
+python paper/scripts/make_figures.py                      # CSV data for the pgfplots figures
+python paper/scripts/check_pages.py                        # G3: page limits, from main.aux and pdfinfo
+python paper/scripts/check_anonymity.py                    # G2: identity patterns in main.tex, PDF text, pdfinfo
+python paper/scripts/check_bib_keys.py --base bca457df     # G4: source pool preserved in sample-base.bib
+```
+
+- `make_figures.py` uses only the standard library and reads aggregates already recorded
+  under `paper/research/` (`pipeline-comparison-20261014.json`,
+  `final-semantic-evidence-20261014.json`, `controlled-studies-20261014.json`,
+  `v3-standard-installed-evidence-20261017.md`). It writes `paper/figures/data/*.csv`; the
+  plots are typeset by pgfplots in `paper/figures/plot-*.tex` because the maintained evaluation
+  environments do not include matplotlib.
+- `anonymity-patterns.txt` lists the identity patterns (names, affiliation, emails, repository
+  and Hugging Face owners and URLs). `check_anonymity.py` also accepts directories, which the
+  Stage 8 artifact export reuses. Build artifacts such as `main.log` hold local paths and must not
+  be exported.
+- Build with `latexmk -pdf main.tex` in `paper/`. MiKTeX may need `--enable-installer` for a
+  first-time package install.

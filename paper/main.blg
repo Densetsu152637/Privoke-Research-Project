@@ -1,65 +1,87 @@
 This is BibTeX, Version 0.99e
 Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
 The top-level auxiliary file: main.aux
-Reallocating 'name_of_file' (item size: 1) to 9 items.
-The style file: IEEEtran.bst
-Reallocating 'name_of_file' (item size: 1) to 4 items.
-Reallocating 'name_of_file' (item size: 1) to 43 items.
-Reallocating 'name_of_file' (item size: 1) to 39 items.
-Reallocating 'name_of_file' (item size: 1) to 46 items.
-Reallocating 'singl_function' (item size: 4) to 100 items.
+Reallocating 'name_of_file' (item size: 1) to 21 items.
+The style file: ACM-Reference-Format.bst
+Reallocating 'name_of_file' (item size: 1) to 12 items.
 Reallocating 'singl_function' (item size: 4) to 100 items.
 Reallocating 'singl_function' (item size: 4) to 100 items.
 Reallocating 'wiz_functions' (item size: 4) to 6000 items.
+Database file #1: sample-base.bib
+Warning--entry type for "Luhn1960Patent" isn't style-file defined
+--line 759 of file sample-base.bib
 Reallocating 'singl_function' (item size: 4) to 100 items.
-Database file #1: ref.bib
-Database file #2: research/paper-completion-sources-20261014.bib
-Database file #3: manuscript-completion-sources-20261014.bib
-Database file #4: research/literature-baseline-sources-20261015.bib
--- IEEEtran.bst version 1.14 (2015/08/26) by Michael Shell.
--- http://www.michaelshell.org/tex/ieeetran/bibtex/
--- See the "IEEEtran_bst_HOWTO.pdf" manual for usage information.
-** IEEEtran BST control entry "IEEEexample:BSTcontrol" detected.
-
-Done.
-You've used 23 entries,
-            4087 wiz_defined-function locations,
-            977 strings with 13485 characters,
-and the built_in function-call counts, 15024 in all, are:
-= -- 1184
-> -- 415
-< -- 80
-+ -- 222
-- -- 89
-* -- 739
-:= -- 2345
-add.period$ -- 44
-call.type$ -- 23
-change.case$ -- 30
-chr.to.int$ -- 195
-cite$ -- 23
-duplicate$ -- 1084
-empty$ -- 1204
-format.name$ -- 99
-if$ -- 3425
-int.to.chr$ -- 0
-int.to.str$ -- 22
-missing$ -- 223
-newline$ -- 123
-num.names$ -- 21
-pop$ -- 570
+Reallocating 'wiz_functions' (item size: 4) to 9000 items.
+Warning--no key, author in PIIMBPinned2026
+Warning--no author, editor, organization, or key in PIIMBPinned2026
+Warning--to sort, need author or key in PIIMBPinned2026
+Reallocating 'glb_str_end' (item size: 4) to 20 items.
+Reallocating 'glb_str_ptr' (item size: 4) to 20 items.
+Reallocating 'global_strs' (item size: 1) to 4000000 items.
+Warning--no key, author in PIIMBPinned2026
+Warning--no key, author in PIIMBPinned2026
+Reallocating 'singl_function' (item size: 4) to 100 items.
+Warning--no key, author in PIIMBPinned2026
+Warning--empty author in PIIMBPinned2026
+Warning--empty year in PIIMBPinned2026
+Warning--using n.d. in PIIMBPinned2026
+Warning--empty publisher in Casper2024
+Warning--empty address in Casper2024
+Warning--no number and no volume in GoogleWarns2023
+Warning--page numbers missing in both pages and numpages fields in GoogleWarns2023
+Warning--empty publisher in ErlingssonRappor2014
+Warning--empty address in ErlingssonRappor2014
+Warning--empty year in LinuxCgroupV2Interfaces2026
+Warning--using n.d. in LinuxCgroupV2Interfaces2026
+Warning--empty publisher in PromptShield2025
+Warning--empty address in PromptShield2025
+Warning--no number and no volume in koraag2025comparing
+Warning--page numbers missing in both pages and numpages fields in koraag2025comparing
+Warning--no number and no volume in priyanshu2023chatbots
+Warning--page numbers missing in both pages and numpages fields in priyanshu2023chatbots
+Warning--no number and no volume in SamsungBans2023
+Warning--page numbers missing in both pages and numpages fields in SamsungBans2023
+Warning--empty publisher in YanPositiveCongruent2021
+Warning--empty address in YanPositiveCongruent2021
+You've used 22 entries,
+            6335 wiz_defined-function locations,
+            1693 strings with 24800 characters,
+and the built_in function-call counts, 23671 in all, are:
+= -- 2988
+> -- 845
+< -- 0
++ -- 289
+- -- 293
+* -- 1726
+:= -- 2301
+add.period$ -- 109
+call.type$ -- 22
+change.case$ -- 175
+chr.to.int$ -- 22
+cite$ -- 53
+duplicate$ -- 2012
+empty$ -- 1452
+format.name$ -- 357
+if$ -- 5714
+int.to.chr$ -- 2
+int.to.str$ -- 1
+missing$ -- 52
+newline$ -- 278
+num.names$ -- 147
+pop$ -- 822
 preamble$ -- 1
-purify$ -- 0
-quote$ -- 4
-skip$ -- 1142
+purify$ -- 333
+quote$ -- 0
+skip$ -- 735
 stack$ -- 0
-substring$ -- 495
-swap$ -- 844
-text.length$ -- 15
+substring$ -- 1583
+swap$ -- 172
+text.length$ -- 0
 text.prefix$ -- 0
-top$ -- 6
-type$ -- 23
-warning$ -- 0
-while$ -- 48
-width$ -- 24
-write$ -- 262
+top$ -- 0
+type$ -- 548
+warning$ -- 27
+while$ -- 115
+width$ -- 0
+write$ -- 497
+(There were 28 warnings)

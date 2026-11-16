@@ -1,28 +1,32 @@
-# Anonymity patterns for the ASIACCS 2027 double-blind submission.
-# One case-insensitive extended regular expression per line (grep -iE / Python re.I).
-# Lines starting with '#' and blank lines are ignored; no inline comments.
-# Used to check the paper (main.tex, PDF text, PDF metadata) and the exported code
-# artifact (evaluation/export_anonymous_artifact.py). Any match is a failure.
+# Identity patterns for the anonymous ASIACCS submission and code artifact.
+# One case-insensitive regular expression per line; '#' starts a comment.
+# Shared by paper/scripts/check_anonymity.py and evaluation/export_anonymous_artifact.py.
+# Use '[ ]+' for spacing so grep -E and Python re read the same pattern.
 
-# Author names
+# Author and supervisor names
 Nicholas[ ]+Bisset
 Bisset
 Manpreet
 Sahadevan
 Nixon[ ]+Ngai
-Ngai
+\bNgai\b
 Sanoop
 Mallissery
 
-# Institution
+# Institution and institutional e-mail forms
 Monash
+@student\.
+sanoop\.mallissery
 
 # Account handles and e-mail local parts
 nbis0006
 msah0018
 nnga0004
-Densetsu152637
+Densetsu
 git4san
 
-# Repository URLs under any owner
+# Repository and model-hub URLs under any owner
 github\.com/[A-Za-z0-9_.-]+/Privoke-Research-Project
+github\.com/[A-Za-z0-9_.-]*privoke
+huggingface\.co/[A-Za-z0-9_.-]*privoke
+Privoke-Research-Project

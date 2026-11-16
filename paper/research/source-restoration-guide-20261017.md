@@ -1,6 +1,6 @@
 # Source-use and restoration guide
 
-**Record:** CITEMAP20. **Date:** 17 October 2026. **Input:** `c4b9b6d0429200fb9bcdc1fbde7b426434cb180d` on `docs/paper`.
+**Active database (16 November 2026): `paper/sample-base.bib`, the union of the four databases below; see the ASIACCS update at the end.** **Record:** CITEMAP20. **Date:** 17 October 2026. **Input:** `c4b9b6d0429200fb9bcdc1fbde7b426434cb180d` on `docs/paper`.
 
 ## Request and use of this guide
 
@@ -181,3 +181,16 @@ Three sources were added to `ref.bib` and are actively cited in the detector-pre
 | `ISO13616Part1_2020` | Detector Precision Controls | ISO 13616-1:2020 title from the [EVS listing](https://www.evs.ee/en/iso-13616-1-2020); the ISO catalogue page returned HTTP 403, so edition and validity details are omitted. |
 
 No Presidio or Gitleaks entry was added: the existing `PresidioNlpConfiguration2026` documents NLP model configuration, not rule patterns, and is not cited for them.
+
+
+## ASIACCS 2027 template update, 16 November 2026
+
+**`paper/sample-base.bib` is now the active bibliography database.** The ACM sigconf submission uses `\bibliographystyle{ACM-Reference-Format}` and `\bibliography{sample-base}`. `sample-base.bib` is the union of the four databases named above: all 84 keys of `ref.bib` (79), `manuscript-completion-sources-20261014.bib` (3), `research/paper-completion-sources-20261014.bib` (1) and `research/literature-baseline-sources-20261015.bib` (1), with no duplicate keys, original metadata unchanged and a comment recording the source file of each record. The four original files remain in place and are not deleted; the database letters in the map above (**R**, **P**, **M**, **L**) name where each record originated, and every record is now also in `sample-base.bib`. `paper/scripts/check_bib_keys.py --base bca457df` verifies that every key of the original files is present in `sample-base.bib` (G4 of the revision plan).
+
+Role changes in this version:
+
+- The 22 numbered references are unchanged in identity: the 19 earlier active keys plus `Honnibal2020SpaCy`, `Luhn1960Patent` and `ISO13616Part1_2020`. Those last three are now cited in the appendix *Detector Precision Rules and Reproduction* (rule gates, checksum validators and the NER post-filter) instead of the system-design subsection, and no cited claim changed.
+- `IEEEexample:BSTcontrol` is an `IEEEtran` control and is no longer invoked (`\bstctlcite` was removed with the IEEE class). It remains in the source pool as a deferred, never-cited control record.
+- `DualAxis2026` remains an uncited deferred record. Its author field names the paper's authors, so it must not be cited in the anonymous submission. Do not print it in a submitted review version.
+- The model-card links and all other deferred records keep their previous role.
+- Citation keys and the 58 deferred sources are otherwise unchanged. No source was removed from the pool.
