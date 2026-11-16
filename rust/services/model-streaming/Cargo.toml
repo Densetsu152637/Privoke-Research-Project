@@ -1,0 +1,38 @@
+[package]
+name = "privoke-model-streaming"
+description = "The PriVoke model-streaming service: legacy float catalog, standard V3 packages, mutual TLS, public and internal listeners"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+name = "privoke_model_streaming"
+path = "src/lib.rs"
+
+[[bin]]
+name = "model-streaming-service"
+path = "src/main.rs"
+
+[dependencies]
+privoke-contracts = { path = "../../crates/privoke-contracts" }
+privoke-transport = { path = "../../crates/privoke-transport" }
+tonic = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+clap = { workspace = true }
+thiserror = { workspace = true }
+sha2 = { workspace = true }
+same-file = "1"
+unicode-properties = { version = "0.1", default-features = false, features = ["general-category"] }
+
+[dev-dependencies]
+privoke-pki = { path = "../../tools/privoke-pki" }
+tempfile = { workspace = true }
+base64 = { workspace = true }
+prost = { workspace = true }
+time = { workspace = true }
+
+[lints]
+workspace = true

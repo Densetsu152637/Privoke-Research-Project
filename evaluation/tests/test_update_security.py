@@ -8,6 +8,8 @@ harness (Go streaming service, hard kills, mutual-TLS stand-in) is run by
 from concurrent import futures
 import hashlib
 import json
+import os
+import re
 from pathlib import Path
 import shutil
 import struct
@@ -255,6 +257,153 @@ class RecordedResultTests(unittest.TestCase):
         document = DOCUMENT.read_text(encoding="utf-8")
         generated = document.split(report.BEGIN, 1)[1].split(report.END, 1)[0].strip("\n")
         self.assertEqual(generated + "\n", report.render_tables(self.record))
+
+
+OPENSSL_AVAILABLE = bool(shutil.which("openssl") or Path(r"C:\Program Files\Git\usr\bin\openssl.exe").exists())
+RUST_BINARY = os.environ.get("PRIVOKE_RUST_MODEL_STREAMING_BINARY")
+RELEASE_STORE = Path(os.environ.get("PRIVOKE_STANDARD_RELEASES") or ROOT / "models/standard-releases")
+
+
+class RustTargetOptionTests(unittest.TestCase):
+    """`--target rust` is additive: the default target, its defaults and its exit codes are those of the recorded harness."""
+
+    def test_default_target_and_options_are_the_recorded_harness(self):
+        args = harness.build_parser().parse_args([])
+        self.assertEqual(args.target, "go")
+        self.assertIsNone(args.output)  # main() fills in the recorded record path for the go target
+        self.assertEqual(args.image, "privoke-updsec-model-dev:20261116")
+        self.assertEqual(args.release_dir, ROOT / "models/standard-releases")
+        self.assertFalse(args.skip_docker)
+
+    def test_rust_options_parse(self):
+        args = harness.build_parser().parse_args(["--target", "rust", "--rust-image", "x:1", "--rust-binary", "bin", "--output", "out.json"])
+        self.assertEqual((args.target, args.rust_image, args.rust_binary, args.output), ("rust", "x:1", Path("bin"), Path("out.json")))
+        with self.assertRaises(SystemExit):
+            harness.build_parser().parse_args(["--target", "python"])
+
+    def test_both_targets_refuse_a_missing_release_store_before_hosting_anything(self):
+        with tempfile.TemporaryDirectory() as directory:
+            missing = str(Path(directory) / "absent")
+            self.assertEqual(harness.main(["--release-dir", missing]), 2)
+            self.assertEqual(harness.main(["--target", "rust", "--release-dir", missing]), 2)
+
+    def test_rust_record_never_defaults_to_the_recorded_research_files(self):
+        source = Path(harness.__file__).read_text(encoding="utf-8")
+        self.assertIn('args.output or ROOT / ".tmp/update-security-rust-s03.json"', source)
+
+    def test_registry_toml_has_the_transport_format(self):
+        text = harness.registry_toml(["123e4567-e89b-42d3-a456-426614174000"], [("client-runtime", "runtime")], reporter=False)
+        self.assertEqual(text.splitlines()[:2], ["version = 1", "reporter = false"])
+        self.assertIn('[[installation]]\nid = "123e4567-e89b-42d3-a456-426614174000"', text)
+        self.assertIn('[[service]]\nname = "client-runtime"\nrole = "runtime"', text)
+        try:
+            import tomllib
+        except ImportError:  # Python 3.10
+            return
+        parsed = tomllib.loads(text)
+        self.assertEqual(parsed["installation"][0]["id"], "123e4567-e89b-42d3-a456-426614174000")
+        self.assertEqual(parsed["service"][0], {"name": "client-runtime", "role": "runtime"})
+
+    def test_property_rule_needs_the_allowed_status_and_an_unchanged_store(self):
+        rule = harness.evaluate_rust_row
+        denied = ("PERMISSION_DENIED",)
+        self.assertTrue(rule("rejected_unchanged", "rejected", "PERMISSION_DENIED", denied, True))
+        self.assertFalse(rule("rejected_unchanged", "rejected", "NOT_FOUND", denied, True), "a refusal with the wrong status is not the expected control")
+        self.assertFalse(rule("rejected_unchanged", "rejected", "PERMISSION_DENIED", denied, False))
+        self.assertFalse(rule("rejected_unchanged", "accepted", "OK", denied, True))
+        self.assertFalse(rule("rejected_unchanged", "not_run", "HARNESS_ERROR", None, True))
+        self.assertTrue(rule("rejected_unchanged", "rejected", "UNAVAILABLE", None, True))
+        self.assertTrue(rule("positive_control", "accepted", "OK", None, True))
+        self.assertFalse(rule("positive_control", "rejected", "PERMISSION_DENIED", None, True))
+        self.assertIsNone(rule("not_applicable", "not_applicable", None, None, None))
+
+    def test_the_stage_3_row_families_are_declared(self):
+        self.assertEqual(set(harness.RUST_ROW_IDS), {f"T{n}" for n in range(1, 13)} | {"R3", "R4", "R7", "R8", "R9", "X8"})
+        self.assertEqual(harness.rust_row_family("R7-no-cert"), "R7")
+        self.assertEqual(harness.rust_row_family("T12"), "T12")
+
+
+@unittest.skipUnless(OPENSSL_AVAILABLE, "OpenSSL unavailable")
+class RustPkiTests(unittest.TestCase):
+    """The disposable PKI carries the identity profile the Rust server enforces."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.directory = tempfile.TemporaryDirectory()
+        cls.pki = harness.RustPki(Path(cls.directory.name))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.directory.cleanup()
+
+    def describe(self, pem: bytes) -> str:
+        import update_security_pki as pki
+
+        return subprocess.run([pki.find_openssl(), "x509", "-noout", "-text"], input=pem, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.decode()
+
+    def test_every_identity_is_a_single_privoke_uri_san(self):
+        for name in ("registered", "second", "expired", "future", "no-eku", "server-only", "foreign"):
+            text = self.describe(self.pki.certs[name][0])
+            self.assertIn(f"URI:{harness.URN_INSTALLATION}{self.pki.ids[name]}", text, name)
+        self.assertIn(f"URI:{harness.URN_SERVICE}client-runtime", self.describe(self.pki.certs["runtime"][0]))
+        self.assertIn(f"URI:{harness.URN_REPORTER}", self.describe(self.pki.certs["reporter"][0]))
+
+    def test_extended_key_usage_profiles_match_the_r3_rows(self):
+        self.assertIn("TLS Web Client Authentication", self.describe(self.pki.certs["registered"][0]))
+        self.assertIn("TLS Web Server Authentication", self.describe(self.pki.certs["server-only"][0]))
+        self.assertNotIn("TLS Web Client Authentication", self.describe(self.pki.certs["server-only"][0]))
+        self.assertNotIn("Extended Key Usage", self.describe(self.pki.certs["no-eku"][0]))
+
+    def test_validity_windows_make_the_expired_and_future_certificates(self):
+        import datetime as dt
+
+        def moment(text, label):
+            found = re.search(label + r"\s*:\s*(.+?) GMT", text).group(1)
+            return dt.datetime.strptime(" ".join(found.split()), "%b %d %H:%M:%S %Y").replace(tzinfo=dt.timezone.utc)
+
+        def window(name):
+            text = self.describe(self.pki.certs[name][0])
+            return moment(text, "Not Before"), moment(text, "Not After")
+
+        now = dt.datetime.now(dt.timezone.utc)
+        self.assertLess(window("expired")[1], now)
+        self.assertGreater(window("future")[0], now)
+        start, end = window("registered")
+        self.assertLess(start, now)
+        self.assertGreater(end, now)
+
+    def test_crl_is_version_2_signed_and_not_stale(self):
+        import update_security_pki as pki
+
+        text = subprocess.run([pki.find_openssl(), "crl", "-noout", "-text"], input=self.pki.crl, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.decode()
+        self.assertIn("Version 2", text)
+        self.assertIn("Next Update", text)
+        self.assertIn("X509v3 CRL Number", text)
+
+    def test_published_files_name_only_registered_identities(self):
+        with tempfile.TemporaryDirectory() as directory:
+            published = self.pki.publish(Path(directory))
+            registry = (published / "registry.toml").read_text(encoding="utf-8")
+            for name in ("registered", "second-registered", "expired", "future", "no-eku", "server-only", "foreign"):
+                self.assertIn(self.pki.ids[name], registry)
+            self.assertNotIn(self.pki.ids["second"], registry, "the unregistered control identity must not be in the registry")
+            self.assertEqual({path.name for path in published.iterdir()}, {"server.crt", "server.key", "client-ca.pem", "crl.pem", "registry.toml"})
+
+
+@unittest.skipUnless(RUST_BINARY and Path(RUST_BINARY).exists() and RELEASE_STORE.is_dir(),
+                     "set PRIVOKE_RUST_MODEL_STREAMING_BINARY (and prepare models/standard-releases or set PRIVOKE_STANDARD_RELEASES) "
+                     "to run the rows against a host binary")
+class RustTargetRowsTests(unittest.TestCase):
+    def test_every_stage_3_row_passes_against_a_host_binary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "record.json"
+            code = harness.main(["--target", "rust", "--rust-binary", RUST_BINARY, "--release-dir", str(RELEASE_STORE), "--output", str(output)])
+            record = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual(record["summary"]["property_unmet_ids"], [])
+        self.assertEqual(record["missing_row_families"], [])
+        self.assertTrue(record["standard_release_store_unchanged"])
+        self.assertEqual(code, 0)
+        self.assertNotIn("PRIVATE KEY", json.dumps(record))
 
 
 if __name__ == "__main__":
