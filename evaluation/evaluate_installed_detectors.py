@@ -49,6 +49,35 @@ def positive(result) -> bool:
     return result.classification.sensitivity().name != "S0" or bool(result.classification.categories())
 
 
+def _sens_value(result) -> int:
+    return result.classification.sensitivity().value
+
+
+def layer_row(results, strongest_result) -> dict:
+    """Per-layer record: positive flag, max sensitivity, categories and the runtime policy action."""
+    results = tuple(results)
+    names = sorted({c.name for h in results for c in h.classification.categories()})
+    top = max(results, key=_sens_value).classification.sensitivity().name if results else "S0"
+    return {"positive": any(positive(h) for h in results), "max_sensitivity": top, "categories": names,
+            "action": strongest_result(results)[1].name}
+
+
+def union_row(regex_row: dict, ner_row: dict, analysis) -> dict:
+    sens = max((regex_row["max_sensitivity"], ner_row["max_sensitivity"]), key=lambda n: int(n[1:]))
+    return {"positive": regex_row["positive"] or ner_row["positive"], "max_sensitivity": sens,
+            "categories": sorted(set(regex_row["categories"]) | set(ner_row["categories"])),
+            "action": analysis.action.name}
+
+
+def row_identity(row: dict, split: str) -> tuple[str, str | None]:
+    example_id = str(row.get("example_id") or row["id"])
+    group_id = row.get("group_id")
+    if split == "final":
+        example_id = hashlib.sha256(example_id.encode()).hexdigest()[:16]
+        group_id = hashlib.sha256(str(group_id).encode()).hexdigest()[:16] if group_id is not None else None
+    return example_id, group_id
+
+
 def confusion(expected, predicted) -> dict:
     c = collections.Counter()
     for e, p in zip(expected, predicted):
@@ -73,6 +102,8 @@ def main() -> None:
     parser.add_argument("--data-root", type=Path, required=True)
     parser.add_argument("--generated", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--per-row-dir", type=Path, default=None,
+                        help="also write per-row JSONL (see module doc); aggregates are unchanged")
     parser.add_argument("--allow-final-once", action="store_true",
                         help="permit the single locked held-out run; writes aggregates only")
     args = parser.parse_args()
@@ -105,7 +136,7 @@ def main() -> None:
         report.setdefault("dataset_sha256", {})[split] = sha256_file(path)
         rows = [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
         expected = [bool(r["expected_has_pii"]) for r in rows]
-        regex, ner, ms = [], [], []
+        regex, ner, ms, per_row = [], [], [], []
         for row in rows:
             started = time.perf_counter()
             analysis = pipeline.analyse_text(row["text"], layers=LAYERS, regex_first=False)
@@ -115,6 +146,17 @@ def main() -> None:
             by_layer = {l.layer: any(positive(h) for h in l.results) for l in analysis.layers}
             regex.append(by_layer["regex"])
             ner.append(by_layer["ner"])
+            if args.per_row_dir is not None:
+                layer_rows = {l.layer: layer_row(l.results, pipeline.strongest_result) for l in analysis.layers}
+                example_id, group_id = row_identity(row, split)
+                record = {"split": split, "example_id": example_id, "group_id": group_id,
+                          "stratum": row.get("scenario") or row.get("task_name"),
+                          "expected_has_pii": bool(row["expected_has_pii"]),
+                          "regex": layer_rows["regex"], "ner": layer_rows["ner"],
+                          "union": union_row(layer_rows["regex"], layer_rows["ner"], analysis)}
+                if split == "dev":
+                    record["half"] = "check" if int(hashlib.sha256(row["group_id"].encode()).hexdigest(), 16) % 2 else "tune"
+                per_row.append(record)
         out = {"all": summarise(expected, regex, ner, ms)}
         if split == "dev":
             for half, wanted in (("tune", 0), ("check", 1)):
@@ -123,6 +165,10 @@ def main() -> None:
                 out[half] = summarise([expected[i] for i in idx], [regex[i] for i in idx],
                                       [ner[i] for i in idx], [ms[i] for i in idx])
         report["splits"][split] = out
+        if args.per_row_dir is not None:
+            args.per_row_dir.mkdir(parents=True, exist_ok=True)
+            (args.per_row_dir / f"{args.label}-{split}.rows.jsonl").write_text(
+                "".join(json.dumps(r, sort_keys=True) + chr(10) for r in per_row), encoding="utf-8")
         print(f"[{args.label}] {split}: n={len(rows)}", file=sys.stderr)
     if "final" in args.splits:
         marker.write_text("scored\n", encoding="utf-8")

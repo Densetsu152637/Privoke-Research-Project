@@ -1,0 +1,188 @@
+{
+ "added_for_wave3": {
+  "ACCOUNT_ID": [
+   "ipv6",
+   "IP_ADDRESS",
+   "IMEI",
+   "api_key"
+  ],
+  "CONTACT": [
+   "PHONE_NUM"
+  ],
+  "DEMOGRAPHIC": [
+   "race_ethnicity"
+  ],
+  "FINANCIAL": [
+   "CREDIT_CARD",
+   "IBAN_CODE",
+   "US_BANK_NUMBER"
+  ],
+  "GOV_ID": [
+   "US_SSN",
+   "US_ITIN",
+   "national_id",
+   "ID_NUM"
+  ],
+  "SEXUAL": [
+   "sexuality"
+  ],
+  "principle": "labels present in F1/F3 gold that were UNMAPPED; mapped by semantic type, consistent with existing entries"
+ },
+ "core_families": [
+  "ACCOUNT_ID",
+  "CONTACT",
+  "DOB",
+  "FINANCIAL",
+  "GOV_ID",
+  "HEALTH",
+  "LOCATION",
+  "NAME",
+  "ORG",
+  "POLITICS",
+  "RELIGION",
+  "SEXUAL",
+  "TEMPORAL"
+ ],
+ "family_to_privoke_categories": {
+  "ACCOUNT_ID": [
+   "IDENTITY"
+  ],
+  "CONTACT": [
+   "IDENTITY"
+  ],
+  "DEMOGRAPHIC": [],
+  "DOB": [
+   "IDENTITY"
+  ],
+  "FINANCIAL": [
+   "FINANCIAL"
+  ],
+  "GOV_ID": [
+   "IDENTITY"
+  ],
+  "HEALTH": [
+   "HEALTH"
+  ],
+  "LOCATION": [
+   "LOCATION"
+  ],
+  "NAME": [
+   "IDENTITY"
+  ],
+  "OCCUPATION": [],
+  "ORG": [
+   "IDENTITY"
+  ],
+  "POLITICS": [
+   "POLITICS"
+  ],
+  "RELIGION": [
+   "RELIGION"
+  ],
+  "SEXUAL": [
+   "SEXUAL"
+  ],
+  "TEMPORAL": [
+   "IDENTITY"
+  ],
+  "UNMAPPED": []
+ },
+ "key_normalisation": "lowercase, every non-alphanumeric character removed",
+ "label_to_family": {
+  "accountnumber": "FINANCIAL",
+  "address": "LOCATION",
+  "age": "DEMOGRAPHIC",
+  "apikey": "ACCOUNT_ID",
+  "bankroutingnumber": "FINANCIAL",
+  "biometricidentifier": "ACCOUNT_ID",
+  "bloodtype": "HEALTH",
+  "buildingnum": "LOCATION",
+  "certificatelicensenumber": "GOV_ID",
+  "city": "LOCATION",
+  "companyname": "ORG",
+  "coordinate": "LOCATION",
+  "country": "LOCATION",
+  "county": "LOCATION",
+  "creditcard": "FINANCIAL",
+  "creditcardnumber": "FINANCIAL",
+  "creditdebitcard": "FINANCIAL",
+  "customerid": "ACCOUNT_ID",
+  "cvv": "FINANCIAL",
+  "date": "TEMPORAL",
+  "dateofbirth": "DOB",
+  "datetime": "TEMPORAL",
+  "deviceidentifier": "ACCOUNT_ID",
+  "driverlicensenum": "GOV_ID",
+  "educationlevel": "OCCUPATION",
+  "email": "CONTACT",
+  "emailaddress": "CONTACT",
+  "employeeid": "ACCOUNT_ID",
+  "employmentstatus": "OCCUPATION",
+  "faxnumber": "CONTACT",
+  "financial": "FINANCIAL",
+  "firstname": "NAME",
+  "gender": "DEMOGRAPHIC",
+  "givenname": "NAME",
+  "healthplanbeneficiarynumber": "HEALTH",
+  "httpcookie": "ACCOUNT_ID",
+  "ibancode": "FINANCIAL",
+  "idcardnum": "GOV_ID",
+  "idnum": "GOV_ID",
+  "imei": "ACCOUNT_ID",
+  "ipaddress": "ACCOUNT_ID",
+  "ipv4": "ACCOUNT_ID",
+  "ipv6": "ACCOUNT_ID",
+  "language": "DEMOGRAPHIC",
+  "lastname": "NAME",
+  "licenseplate": "GOV_ID",
+  "location": "LOCATION",
+  "macaddress": "ACCOUNT_ID",
+  "medicalrecordnumber": "HEALTH",
+  "name": "NAME",
+  "nationalid": "GOV_ID",
+  "nrp": "DEMOGRAPHIC",
+  "occupation": "OCCUPATION",
+  "organization": "ORG",
+  "passportnum": "GOV_ID",
+  "password": "ACCOUNT_ID",
+  "person": "NAME",
+  "phonenum": "CONTACT",
+  "phonenumber": "CONTACT",
+  "pin": "ACCOUNT_ID",
+  "politicalview": "POLITICS",
+  "postcode": "LOCATION",
+  "raceethnicity": "DEMOGRAPHIC",
+  "religiousbelief": "RELIGION",
+  "sex": "DEMOGRAPHIC",
+  "sexuality": "SEXUAL",
+  "socialnum": "GOV_ID",
+  "ssn": "GOV_ID",
+  "state": "LOCATION",
+  "street": "LOCATION",
+  "streetaddress": "LOCATION",
+  "surname": "NAME",
+  "swiftbic": "FINANCIAL",
+  "taxid": "GOV_ID",
+  "taxnum": "GOV_ID",
+  "telephonenum": "CONTACT",
+  "time": "TEMPORAL",
+  "title": "DEMOGRAPHIC",
+  "uniqueid": "ACCOUNT_ID",
+  "uniqueidentifier": "ACCOUNT_ID",
+  "url": "CONTACT",
+  "usbanknumber": "FINANCIAL",
+  "usdriverlicense": "GOV_ID",
+  "username": "ACCOUNT_ID",
+  "usitin": "GOV_ID",
+  "uslicenseplate": "GOV_ID",
+  "uspassport": "GOV_ID",
+  "usssn": "GOV_ID",
+  "vehicleidentifier": "GOV_ID",
+  "zipcode": "LOCATION"
+ },
+ "purpose": "PIIMB / SPY label -> family -> PriVoke category mapping used by span_scoring.py (frozen before scoring; H4 category-level scoring only)",
+ "unmapped_after": {
+  "F1": 0,
+  "F3": 0
+ }
+}
