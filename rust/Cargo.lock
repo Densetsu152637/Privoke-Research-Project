@@ -1246,6 +1246,7 @@ name = "privoke-spacy"
 version = "0.1.0"
 dependencies = [
  "privoke-spacy",
+ "privoke-worker-pool",
  "serde",
  "serde_json",
  "thiserror",
@@ -1294,6 +1295,20 @@ dependencies = [
  "tower",
  "tracing",
  "x509-parser",
+]
+
+[[package]]
+name = "privoke-worker-pool"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "privoke-worker-pool",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

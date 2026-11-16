@@ -315,3 +315,58 @@ python rust/services/spacy-worker/tools/parity_gate.py --bundle rust/target/bund
 The gate extracts the recorded NER sets (read-only, hash-checked) into an ignored work directory and runs plain spaCy over them in the read-only reference environment `evaluation/.venv-v1-v3-pipeline`, in parallel shards (`tools/reference_dump.py`). It sends the same documents through the bundle's pool (`examples/parity_dump.rs`) and compares the SHA-256 of every result, per set and per selection. The pool path also decodes each result, which checks every token and entity offset against the text. `--smoke` runs the 200-document check: 160 documents sampled with a fixed seed from the recorded sets, and 40 synthetic stress documents (URLs, emoji, CJK, zero-width characters, casing extremes, odd whitespace). Golden data stays in `rust/target/parity`, which Git ignores.
 
 The sets are `development` (502 rows), `personalized` (2000), `openai` (1000), `piimb` (150,022 sentences, the pool that F1, F3 and F4 were drawn from), `dolly15k` and `oasst2` (the sources of F2), and the synthetic `stress` set. WildChat, the third F2 source, is a parquet shard that neither environment can read, and its sampled rows are not stored, so it is not covered. `final.jsonl` is a locked partition and is not opened.
+
+## `privoke-worker-pool` (stage W2)
+
+Plan: [stage W2](../plans/rust-server-rewrite.md#stage-w2-generic-worker-pool-and-os-sandbox-privoke-worker-pool). One protocol-agnostic crate runs every worker process: `privoke-spacy` today, the quarantined analysis service (W3) and the client controller (W4) next. It knows frames (a 4-byte little-endian length and the payload), not what they mean; a `Protocol` implementation reads the first frame (`Hello::Ready` or `Hello::Fatal`) and each answer (`Reply::Answer`, `Reported` or `Violation`). `privoke-spacy` supplies its JSON protocol and keeps its public API.
+
+```
+cargo test -p privoke-worker-pool --locked --manifest-path rust/Cargo.toml    # pool rules and sandbox, host
+```
+
+Supervision, per slot: spawn under the sandbox, wait for the first frame, serve from the shared bounded queue, replace the process on exit, crash, protocol violation or missed deadline. The frame pipe is the worker's stdin and stdout; a worker calls `worker_side::claim_frame_output()` (or the Python `os.dup`/`os.dup2` equivalent in W1) first, which takes the original standard output for frames and points standard output at standard error. The pool logs standard error.
+
+| Rule | Test (`tests/pool_rules.rs`) |
+| --- | --- |
+| Readiness gate: a request while no worker is ready fails at once | `request_during_load_is_not_ready` |
+| Poisoned input is never retried on another worker | `poisoned_input_is_not_retried` |
+| Crash-loop backoff, never faster than the configured delay | `crash_loop_backs_off`, `backoff_doubles_from_100ms_to_a_30s_cap` |
+| A completed request resets the failure count | `a_completed_request_resets_the_backoff` |
+| A refused worker is final | `refused_worker_stops_the_slot_and_reports_why` |
+| Bounded queue | `full_queue_is_resource_exhausted` |
+| One deadline for queue plus service; a missed deadline kills the worker | `deadline_kills_the_worker_and_the_pool_recovers`, `queued_request_survives_a_hung_worker_ahead_of_it` |
+| Worker errors keep the worker; out-of-protocol answers restart it | `worker_reported_error_keeps_the_worker`, `out_of_protocol_answer_restarts_the_worker` |
+| A stray print leaves the frames intact | `stray_output_does_not_corrupt_the_frames` |
+
+### Sandbox
+
+`PoolConfig::sandbox` is a `SandboxPolicy`. The default only ties the worker's life to the parent's; `SandboxPolicy::strict(python_home)` adds a clean environment, an explicit `PYTHONHOME` and network denial, and `memory_limit_bytes` and `max_processes` add limits. A control that is asked for and cannot be installed fails the spawn, so a worker never runs less confined than its policy says.
+
+| Control | Windows | Linux | Test (`tests/sandbox.rs`) |
+| --- | --- | --- | --- |
+| Dies with the parent | Job Object, kill-on-close; the worker is created suspended, put in the job, then resumed, so it cannot start a child that escapes | `PR_SET_PDEATHSIG` (SIGKILL), with a `getppid` check against the fork race | `children_die_with_the_parent`, `dropping_the_pool_kills_the_workers` |
+| Memory limit | job memory limit (committed memory of the worker and its descendants) | `RLIMIT_AS` | `a_memory_limit_kills_a_runaway_worker` |
+| Process limit | job active-process limit; counts the worker, and a process created over it is terminated | `RLIMIT_NPROC`, a ceiling for the whole real user | `a_process_limit_stops_a_runaway_worker` |
+| Other | UI restrictions on the job; die on unhandled exception | `RLIMIT_CORE` 0 | |
+| Network denied | **not provided** | seccomp filter: `socket`, `connect`, `bind`, `listen`, `accept`, `accept4`, `sendto`, `sendmsg`, `sendmmsg` and `io_uring_*` return `EPERM`; other architectures and x32 entry points are refused or killed | `network_denial_blocks_connect_on_linux` |
+| Clean environment, explicit `PYTHONHOME` | yes (`SystemRoot` is kept) | yes | `clean_environment_and_explicit_pythonhome` |
+
+Limits and caveats:
+
+- **Windows has no network denial.** A Job Object limits lifetime and resources; it cannot cut off sockets. The worker's own self-check (it refuses to start when it can open a socket in sandboxed mode, W1) and the absence of network code are the controls there. `network_denial_enforced()` is false on Windows, a policy that asks for denial logs a warning, and no document or test claims it.
+- **Linux descendants.** `PR_SET_PDEATHSIG` is cleared across `fork`, so it covers the workers the pool starts, not a worker's own children; a worker that spawns children must set it on them. On Windows the job covers the whole tree. The signal fires when the *thread* that forked the worker exits, so the pool must be started from a thread that lives as long as it (a Tokio runtime thread does).
+- **`RLIMIT_NPROC` does not bind uid 0** (without a user namespace). The Linux process-limit test skips as root and runs as uid 1000 in the container run.
+- **Linux filter choice.** The filter is seccomp, not Landlock: it needs no kernel feature beyond seccomp and no path configuration. `socketpair` stays allowed, as it has no peer outside the process tree.
+
+### Linux container run
+
+Docker hosts a Linux build and test container; the test binaries run inside it with `docker run`, never `docker compose run`. The container builds as root, then runs the sandbox test binary as uid 1000 so `RLIMIT_NPROC` binds:
+
+```
+docker run --rm --init -v <worktree>:/work -v privoke-w2-target:/target -v privoke-w2-cargo:/usr/local/cargo/registry \
+  -e CARGO_TARGET_DIR=/target rust:1.99.1-slim-bookworm bash -c \
+  "cd /work/rust && cargo test -p privoke-worker-pool -p privoke-spacy --locked \
+   && chmod -R a+rX /target && setpriv --reuid 1000 --regid 1000 --clear-groups /target/debug/deps/sandbox-<hash>"
+```
+
+`--init` reaps the workers the tests kill. A Linux-built `privoke-spacy-worker` bundle is still pending (stage 11's CI/Linux stage).

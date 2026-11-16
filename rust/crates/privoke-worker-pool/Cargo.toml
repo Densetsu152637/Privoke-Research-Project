@@ -1,0 +1,59 @@
+[package]
+name = "privoke-worker-pool"
+description = "Protocol-agnostic supervised worker pool with an OS sandbox (stage W2)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# Builds the JSON test protocol, the test worker and the test parent that the sandbox and pool-rule tests drive.
+test-worker = ["dep:serde_json", "dep:serde"]
+
+[[bin]]
+name = "privoke-worker-pool-test-worker"
+path = "src/bin/test_worker.rs"
+required-features = ["test-worker"]
+
+[[bin]]
+name = "privoke-worker-pool-test-parent"
+path = "src/bin/test_parent.rs"
+required-features = ["test-worker"]
+
+[dependencies]
+tokio = { workspace = true, features = ["process", "io-util", "time", "sync", "rt", "macros"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", features = ["raw_value"], optional = true }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Console",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_JobObjects",
+    "Win32_System_Threading",
+] }
+
+[dev-dependencies]
+privoke-worker-pool = { path = ".", features = ["test-worker"] }
+tokio = { workspace = true }
+serde_json = "1"
+
+# The sandbox needs `unsafe` for the operating-system calls. It is confined to `sandbox/` and `worker_side.rs`, each of
+# which opts in explicitly; everything else keeps the workspace's ban.
+[lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"

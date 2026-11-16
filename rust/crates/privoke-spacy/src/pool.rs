@@ -1,65 +1,36 @@
-//! The supervised worker pool.
+//! The spaCy worker pool: `privoke-worker-pool`'s supervised pool with the spaCy protocol on top.
 //!
-//! One supervisor task owns each worker slot. It starts the worker process, waits for the ready frame (the worker has
-//! loaded spaCy by then), takes requests from the shared bounded queue, and replaces the process whenever it exits,
-//! crashes, answers out of protocol or misses a deadline.
-//!
-//! Guarantees, each with a test:
+//! Process supervision, the readiness gate, the bounded queue, deadlines, the no-retry rule, crash-loop backoff and the
+//! OS sandbox live in `privoke-worker-pool` (stage W2) and have their tests there. What stays here is spaCy-specific:
+//! the ready and answer frames, the text limits, the lemma-index cache and the decode of `analyze` results. The
+//! guarantees as seen by a caller:
 //!
 //! * **Bounded queue.** At most `queue_capacity` requests wait. The next one gets `ResourceExhausted`.
-//! * **Readiness gating.** While no worker is ready (loading, restarting, or refused) a request gets `Unavailable`
-//!   at once instead of waiting on a dead pool.
+//! * **Readiness gating.** While no worker is ready (loading, restarting, or refused) a request gets `Unavailable` at
+//!   once instead of waiting on a dead pool.
 //! * **Deadlines.** A request has one deadline covering the queue and the worker. A worker that exceeds it is killed
 //!   and restarted, and the request gets `Unavailable`. The deadline must stay below the bridge's 30 s.
-//! * **No retry of poisoned input.** A request is handed to one worker and never re-queued. If that worker dies, the
-//!   request fails with `Unavailable`, so a crashing document cannot take down the other workers in turn.
+//! * **No retry of poisoned input.** A request is handed to one worker and never re-queued.
 //! * **Crash-loop backoff.** Restarts wait 100 ms, 200 ms, ... up to 30 s. The count resets only after a worker
 //!   completes a request.
 //! * **Bundle refusal.** A `fatal` frame (the bundle check failed) stops the slot for good; the pool never becomes
 //!   ready and [`SpacyPool::wait_ready`] returns the reason.
 
-use std::collections::{BTreeMap, VecDeque};
 use std::ffi::OsString;
 use std::path::PathBuf;
-use std::process::Stdio;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::{Child, ChildStdin, ChildStdout, Command};
-use tokio::sync::{Notify, OnceCell, oneshot, watch};
-use tokio::task::JoinHandle;
-use tokio::time::{Instant, sleep, timeout, timeout_at};
+use privoke_worker_pool::{Hello, PoolError, Protocol, Reply, WorkerPool};
+use tokio::sync::OnceCell;
+
+pub use privoke_worker_pool::{Backoff, SandboxPolicy};
 
 use crate::error::{ConfigError, SpacyError};
-use crate::protocol::{Analysis, Envelope, RawAnalysis, Request, Selection, WorkerInfo, read_frame, write_frame};
+use crate::protocol::{Analysis, Envelope, RawAnalysis, Request, Selection, WorkerInfo};
 
 /// The bridge's deadline. A request deadline must be below it.
 pub const BRIDGE_DEADLINE: Duration = Duration::from_secs(30);
-
-/// Exponential restart backoff.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Backoff {
-    /// The delay after the first failure.
-    pub initial: Duration,
-    /// The cap.
-    pub max: Duration,
-}
-
-impl Default for Backoff {
-    fn default() -> Self {
-        Self { initial: Duration::from_millis(100), max: Duration::from_secs(30) }
-    }
-}
-
-impl Backoff {
-    /// The delay before restart number `failures` in a row (1 is the first): `initial * 2^(failures - 1)`, capped.
-    pub fn delay(&self, failures: u32) -> Duration {
-        let shift = failures.saturating_sub(1).min(32);
-        self.initial.saturating_mul(1u32 << shift.min(31)).min(self.max)
-    }
-}
 
 /// Pool settings.
 #[derive(Clone, Debug)]
@@ -82,6 +53,9 @@ pub struct PoolConfig {
     pub max_text_chars: usize,
     /// Restart backoff.
     pub backoff: Backoff,
+    /// The OS sandbox around each worker. The default only ties the worker's life to the parent's; use
+    /// [`SandboxPolicy::strict`] and limits for a production bundle.
+    pub sandbox: SandboxPolicy,
 }
 
 impl PoolConfig {
@@ -97,6 +71,7 @@ impl PoolConfig {
             startup_timeout: Duration::from_secs(120),
             max_text_chars: 20_000,
             backoff: Backoff::default(),
+            sandbox: SandboxPolicy::default(),
         }
     }
 
@@ -119,45 +94,85 @@ impl PoolConfig {
         }
         Ok(())
     }
+
+    fn pool_config(&self) -> privoke_worker_pool::PoolConfig {
+        let mut cfg = privoke_worker_pool::PoolConfig::new(&self.command);
+        cfg.name = "spacy".into();
+        cfg.args.clone_from(&self.args);
+        cfg.envs.clone_from(&self.envs);
+        cfg.workers = self.workers;
+        cfg.queue_capacity = self.queue_capacity;
+        cfg.request_deadline = self.request_deadline;
+        cfg.startup_timeout = self.startup_timeout;
+        cfg.backoff = self.backoff;
+        cfg.sandbox = self.sandbox.clone();
+        cfg
+    }
 }
 
-#[derive(Clone, Debug, Default)]
-struct Status {
-    ready: usize,
-    fatal: Option<String>,
-    info: Option<WorkerInfo>,
+/// The spaCy protocol over the pool's frames.
+#[derive(Clone, Copy, Debug)]
+struct SpacyProtocol;
+
+impl Protocol for SpacyProtocol {
+    type Info = WorkerInfo;
+
+    fn parse_hello(&self, frame: &[u8]) -> Result<Hello<WorkerInfo>, String> {
+        let info: WorkerInfo = serde_json::from_slice(frame).map_err(|e| format!("malformed ready frame: {e}"))?;
+        match info.kind.as_str() {
+            "fatal" => Ok(Hello::Fatal(info.reason.unwrap_or_else(|| "no reason given".into()))),
+            "ready" => Ok(Hello::Ready(info)),
+            other => Err(format!("unexpected first frame of type {other:?}")),
+        }
+    }
+
+    fn parse_reply(&self, frame: &[u8], request_id: u64) -> Reply {
+        let envelope: Envelope<'_> = match serde_json::from_slice(frame) {
+            Ok(envelope) => envelope,
+            Err(e) => return Reply::Violation(format!("malformed response frame: {e}")),
+        };
+        if envelope.id != request_id {
+            return Reply::Violation(format!("response id {} does not match request id {request_id}", envelope.id));
+        }
+        if !envelope.ok {
+            return Reply::Reported(envelope.error.unwrap_or_else(|| "unspecified error".into()));
+        }
+        match envelope.result {
+            Some(raw) => Reply::Answer(raw.get().to_string()),
+            None => Reply::Violation("a successful response has no result".into()),
+        }
+    }
 }
 
-struct Job {
-    id: u64,
-    payload: Vec<u8>,
-    deadline: Instant,
-    reply: oneshot::Sender<Result<String, SpacyError>>,
+impl From<PoolError> for SpacyError {
+    fn from(error: PoolError) -> Self {
+        match error {
+            PoolError::ResourceExhausted { capacity } => Self::ResourceExhausted { capacity },
+            // The pool does not know it is running a spaCy bundle; the caller's wording does.
+            PoolError::NotReady(reason) => Self::NotReady(reason.replacen("the worker was refused", "the bundle was refused", 1)),
+            PoolError::WorkerFailed(reason) => Self::WorkerFailed(reason),
+            PoolError::DeadlineExceeded(deadline) => Self::DeadlineExceeded(deadline),
+            PoolError::WorkerReported(message) => Self::WorkerReported(message),
+            PoolError::Shutdown => Self::Shutdown,
+        }
+    }
 }
 
-struct Shared {
-    cfg: PoolConfig,
-    queue: Mutex<VecDeque<Job>>,
-    wake: Notify,
-    status: watch::Sender<Status>,
-    shutdown: watch::Sender<bool>,
-    next_id: AtomicU64,
-    starts: AtomicU64,
-    pids: Mutex<BTreeMap<usize, u32>>,
-    lemma: OnceCell<Arc<Vec<String>>>,
+impl From<privoke_worker_pool::ConfigError> for ConfigError {
+    fn from(error: privoke_worker_pool::ConfigError) -> Self {
+        match error {
+            privoke_worker_pool::ConfigError::Invalid(message) => Self::Invalid(message),
+            privoke_worker_pool::ConfigError::NoRuntime => Self::NoRuntime,
+        }
+    }
 }
 
 /// A supervised pool of spaCy worker processes. Dropping it kills the workers.
 #[derive(Debug)]
 pub struct SpacyPool {
-    shared: Arc<Shared>,
-    tasks: Vec<JoinHandle<()>>,
-}
-
-impl std::fmt::Debug for Shared {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Shared").field("workers", &self.cfg.workers).finish_non_exhaustive()
-    }
+    pool: WorkerPool<SpacyProtocol>,
+    max_text_chars: usize,
+    lemma: OnceCell<Arc<Vec<String>>>,
 }
 
 impl SpacyPool {
@@ -165,68 +180,38 @@ impl SpacyPool {
     /// the background and [`SpacyPool::wait_ready`] waits for the first one. Must run inside a Tokio runtime.
     pub fn start(cfg: PoolConfig) -> Result<Self, ConfigError> {
         cfg.validate()?;
-        tokio::runtime::Handle::try_current().map_err(|_| ConfigError::NoRuntime)?;
-        let workers = cfg.workers;
-        let shared = Arc::new(Shared {
-            cfg,
-            queue: Mutex::new(VecDeque::new()),
-            wake: Notify::new(),
-            status: watch::channel(Status::default()).0,
-            shutdown: watch::channel(false).0,
-            next_id: AtomicU64::new(1),
-            starts: AtomicU64::new(0),
-            pids: Mutex::new(BTreeMap::new()),
-            lemma: OnceCell::new(),
-        });
-        let tasks = (0..workers).map(|slot| tokio::spawn(supervise(shared.clone(), slot))).collect();
-        Ok(Self { shared, tasks })
+        let pool = WorkerPool::start(SpacyProtocol, cfg.pool_config())?;
+        Ok(Self { pool, max_text_chars: cfg.max_text_chars, lemma: OnceCell::new() })
     }
 
     /// True while at least one worker has loaded spaCy and is alive.
     pub fn is_ready(&self) -> bool {
-        self.shared.status.borrow().ready > 0
+        self.pool.is_ready()
     }
 
     /// The number of ready workers.
     pub fn ready_workers(&self) -> usize {
-        self.shared.status.borrow().ready
+        self.pool.ready_workers()
     }
 
     /// The first ready worker's announcement (spaCy, model and Python versions, lock hash).
     pub fn worker_info(&self) -> Option<WorkerInfo> {
-        self.shared.status.borrow().info.clone()
+        self.pool.info()
     }
 
     /// How many worker processes have been started, counting restarts.
     pub fn starts(&self) -> u64 {
-        self.shared.starts.load(Ordering::SeqCst)
+        self.pool.starts()
     }
 
     /// The operating-system ids of the running worker processes, for diagnostics and for tests that kill one.
     pub fn worker_pids(&self) -> Vec<u32> {
-        self.shared.pids.lock().unwrap_or_else(PoisonError::into_inner).values().copied().collect()
+        self.pool.worker_pids()
     }
 
     /// Waits until a worker is ready. Fails at once if the bundle was refused, and when `within` elapses.
     pub async fn wait_ready(&self, within: Duration) -> Result<(), SpacyError> {
-        let mut rx = self.shared.status.subscribe();
-        let wait = async {
-            loop {
-                {
-                    let status = rx.borrow_and_update();
-                    if let Some(reason) = &status.fatal {
-                        return Err(SpacyError::NotReady(format!("the bundle was refused: {reason}")));
-                    }
-                    if status.ready > 0 {
-                        return Ok(());
-                    }
-                }
-                if rx.changed().await.is_err() {
-                    return Err(SpacyError::Shutdown);
-                }
-            }
-        };
-        timeout(within, wait).await.unwrap_or_else(|_| Err(SpacyError::NotReady(format!("no worker became ready within {within:?}"))))
+        Ok(self.pool.wait_ready(within).await?)
     }
 
     /// Runs spaCy on `text` and returns the exact result bytes.
@@ -234,11 +219,11 @@ impl SpacyPool {
         if text.is_empty() {
             return Err(SpacyError::InvalidArgument("text must not be empty".into()));
         }
-        let max = self.shared.cfg.max_text_chars;
+        let max = self.max_text_chars;
         if text.chars().nth(max).is_some() {
             return Err(SpacyError::InvalidArgument(format!("text may contain at most {max} characters")));
         }
-        let id = self.next_id();
+        let id = self.pool.next_id();
         let body = self.submit(id, Request::Analyze { id, selection, text }.encode()?).await?;
         Ok(RawAnalysis::new(body))
     }
@@ -250,10 +235,9 @@ impl SpacyPool {
 
     /// The model's lemma-index word list, fetched from a worker once and then cached.
     pub async fn lemma_index(&self) -> Result<Arc<Vec<String>>, SpacyError> {
-        self.shared
-            .lemma
+        self.lemma
             .get_or_try_init(|| async {
-                let id = self.next_id();
+                let id = self.pool.next_id();
                 let body = self.submit(id, Request::LemmaIndex { id }.encode()?).await?;
                 let words: Vec<String> =
                     serde_json::from_str(&body).map_err(|e| SpacyError::Protocol(format!("malformed lemma index: {e}")))?;
@@ -266,240 +250,17 @@ impl SpacyPool {
     /// Sends an arbitrary encoded request. For tests of the worker's own hooks.
     #[doc(hidden)]
     pub async fn submit_request(&self, build: impl FnOnce(u64) -> Request<'static>) -> Result<String, SpacyError> {
-        let id = self.next_id();
+        let id = self.pool.next_id();
         self.submit(id, build(id).encode()?).await
     }
 
     /// Stops the supervisors and kills the workers.
-    pub async fn shutdown(mut self) {
-        self.shared.shutdown.send_replace(true);
-        for task in self.tasks.drain(..) {
-            let _ = task.await;
-        }
-    }
-
-    fn next_id(&self) -> u64 {
-        self.shared.next_id.fetch_add(1, Ordering::SeqCst)
+    pub async fn shutdown(self) {
+        self.pool.shutdown().await;
     }
 
     async fn submit(&self, id: u64, payload: Vec<u8>) -> Result<String, SpacyError> {
-        if *self.shared.shutdown.borrow() {
-            return Err(SpacyError::Shutdown);
-        }
-        {
-            let status = self.shared.status.borrow();
-            if let Some(reason) = &status.fatal {
-                return Err(SpacyError::NotReady(format!("the bundle was refused: {reason}")));
-            }
-            if status.ready == 0 {
-                return Err(SpacyError::NotReady("no worker has finished loading spaCy".into()));
-            }
-        }
-        let deadline = Instant::now() + self.shared.cfg.request_deadline;
-        let (reply, answer) = oneshot::channel();
-        {
-            let mut queue = self.shared.queue.lock().unwrap_or_else(PoisonError::into_inner);
-            if queue.len() >= self.shared.cfg.queue_capacity {
-                return Err(SpacyError::ResourceExhausted { capacity: self.shared.cfg.queue_capacity });
-            }
-            queue.push_back(Job { id, payload, deadline, reply });
-        }
-        self.shared.wake.notify_one();
-        match timeout_at(deadline, answer).await {
-            Ok(Ok(result)) => result,
-            Ok(Err(_)) => Err(SpacyError::WorkerFailed("the worker dropped the request".into())),
-            Err(_) => Err(SpacyError::DeadlineExceeded(self.shared.cfg.request_deadline)),
-        }
-    }
-}
-
-impl Drop for SpacyPool {
-    fn drop(&mut self) {
-        self.shared.shutdown.send_replace(true);
-        for task in &self.tasks {
-            task.abort();
-        }
-    }
-}
-
-struct Running {
-    child: Child,
-    stdin: ChildStdin,
-    stdout: ChildStdout,
-}
-
-enum Outcome {
-    /// The pool is shutting down.
-    Shutdown,
-    /// The worker exited, crashed, broke the protocol or missed a deadline.
-    Failed(String),
-    /// The bundle was refused; do not restart.
-    Fatal,
-}
-
-async fn supervise(shared: Arc<Shared>, slot: usize) {
-    let mut shutdown = shared.shutdown.subscribe();
-    let mut failures: u32 = 0;
-    loop {
-        if *shutdown.borrow() {
-            return;
-        }
-        shared.starts.fetch_add(1, Ordering::SeqCst);
-        let outcome = match spawn(&shared.cfg, slot) {
-            Ok(mut running) => {
-                if let Some(pid) = running.child.id() {
-                    shared.pids.lock().unwrap_or_else(PoisonError::into_inner).insert(slot, pid);
-                }
-                let outcome = run_worker(&shared, slot, &mut running, &mut shutdown, &mut failures).await;
-                let _ = running.child.kill().await;
-                shared.pids.lock().unwrap_or_else(PoisonError::into_inner).remove(&slot);
-                outcome
-            }
-            Err(e) => Outcome::Failed(format!("cannot start {}: {e}", shared.cfg.command.display())),
-        };
-        match outcome {
-            Outcome::Shutdown | Outcome::Fatal => return,
-            Outcome::Failed(reason) => {
-                failures = failures.saturating_add(1);
-                let delay = shared.cfg.backoff.delay(failures);
-                tracing::warn!(slot, failures, ?delay, "spaCy worker stopped: {reason}");
-                tokio::select! {
-                    () = sleep(delay) => {}
-                    _ = shutdown.changed() => return,
-                }
-            }
-        }
-    }
-}
-
-fn spawn(cfg: &PoolConfig, slot: usize) -> std::io::Result<Running> {
-    let mut command = Command::new(&cfg.command);
-    command
-        .args(&cfg.args)
-        .envs(cfg.envs.iter().map(|(k, v)| (k, v)))
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    let mut child = command.spawn()?;
-    let missing = || std::io::Error::other("the worker's pipes are missing");
-    let stdin = child.stdin.take().ok_or_else(missing)?;
-    let stdout = child.stdout.take().ok_or_else(missing)?;
-    if let Some(stderr) = child.stderr.take() {
-        tokio::spawn(async move {
-            let mut lines = BufReader::new(stderr).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                tracing::debug!(target: "privoke_spacy::worker", slot, "{line}");
-            }
-        });
-    }
-    Ok(Running { child, stdin, stdout })
-}
-
-async fn run_worker(
-    shared: &Shared,
-    slot: usize,
-    running: &mut Running,
-    shutdown: &mut watch::Receiver<bool>,
-    failures: &mut u32,
-) -> Outcome {
-    // Handshake: the worker is not ready until spacy.load has finished and the bundle check passed.
-    let hello = tokio::select! {
-        r = timeout(shared.cfg.startup_timeout, read_frame(&mut running.stdout)) => r,
-        _ = shutdown.changed() => return Outcome::Shutdown,
-    };
-    let info = match hello {
-        Err(_) => return Outcome::Failed(format!("no ready frame within {:?}", shared.cfg.startup_timeout)),
-        Ok(Err(e)) => return Outcome::Failed(format!("no ready frame: {e}")),
-        Ok(Ok(frame)) => match serde_json::from_slice::<WorkerInfo>(&frame) {
-            Ok(info) => info,
-            Err(e) => return Outcome::Failed(format!("malformed ready frame: {e}")),
-        },
-    };
-    match info.kind.as_str() {
-        "fatal" => {
-            let reason = info.reason.unwrap_or_else(|| "no reason given".into());
-            tracing::error!(slot, "spaCy bundle refused: {reason}");
-            shared.status.send_modify(|s| s.fatal = Some(reason));
-            return Outcome::Fatal;
-        }
-        "ready" => {}
-        other => return Outcome::Failed(format!("unexpected first frame of type {other:?}")),
-    }
-    shared.status.send_modify(|s| {
-        s.ready += 1;
-        s.info.get_or_insert(info);
-    });
-    let outcome = serve(shared, running, shutdown, failures).await;
-    shared.status.send_modify(|s| s.ready = s.ready.saturating_sub(1));
-    outcome
-}
-
-async fn serve(shared: &Shared, running: &mut Running, shutdown: &mut watch::Receiver<bool>, failures: &mut u32) -> Outcome {
-    loop {
-        let job = loop {
-            let next = shared.queue.lock().unwrap_or_else(PoisonError::into_inner).pop_front();
-            if let Some(job) = next {
-                break job;
-            }
-            tokio::select! {
-                () = shared.wake.notified() => {}
-                status = running.child.wait() => {
-                    return Outcome::Failed(format!("the worker exited while idle: {status:?}"));
-                }
-                _ = shutdown.changed() => return Outcome::Shutdown,
-            }
-        };
-        if job.reply.is_closed() {
-            continue;
-        }
-        if Instant::now() >= job.deadline {
-            let _ = job.reply.send(Err(SpacyError::DeadlineExceeded(shared.cfg.request_deadline)));
-            continue;
-        }
-        match exchange(running, &job, shared.cfg.request_deadline).await {
-            Exchange::Answer(result) => {
-                *failures = 0;
-                let _ = job.reply.send(result);
-            }
-            Exchange::Failed(err, reason) => {
-                // The request is answered with its own error and is never handed to another worker.
-                let _ = job.reply.send(Err(err));
-                return Outcome::Failed(reason);
-            }
-        }
-    }
-}
-
-enum Exchange {
-    Answer(Result<String, SpacyError>),
-    Failed(SpacyError, String),
-}
-
-async fn exchange(running: &mut Running, job: &Job, configured: Duration) -> Exchange {
-    let failed = |reason: String| Exchange::Failed(SpacyError::WorkerFailed(reason.clone()), reason);
-    let io = async {
-        write_frame(&mut running.stdin, &job.payload).await?;
-        read_frame(&mut running.stdout).await
-    };
-    let frame = match timeout_at(job.deadline, io).await {
-        Err(_) => return Exchange::Failed(SpacyError::DeadlineExceeded(configured), "the request missed its deadline".into()),
-        Ok(Err(e)) => return failed(format!("pipe error: {e}")),
-        Ok(Ok(frame)) => frame,
-    };
-    let envelope: Envelope<'_> = match serde_json::from_slice(&frame) {
-        Ok(envelope) => envelope,
-        Err(e) => return failed(format!("malformed response frame: {e}")),
-    };
-    if envelope.id != job.id {
-        return failed(format!("response id {} does not match request id {}", envelope.id, job.id));
-    }
-    if !envelope.ok {
-        return Exchange::Answer(Err(SpacyError::WorkerReported(envelope.error.unwrap_or_else(|| "unspecified error".into()))));
-    }
-    match envelope.result {
-        Some(raw) => Exchange::Answer(Ok(raw.get().to_string())),
-        None => failed("a successful response has no result".into()),
+        Ok(self.pool.submit(id, payload).await?)
     }
 }
 

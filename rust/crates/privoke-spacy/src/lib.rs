@@ -19,5 +19,5 @@ pub mod protocol;
 
 pub use error::{ConfigError, SpacyError, StatusKind};
 pub use offsets::{OffsetMap, Span};
-pub use pool::{BRIDGE_DEADLINE, Backoff, PoolConfig, SpacyPool};
+pub use pool::{BRIDGE_DEADLINE, Backoff, PoolConfig, SandboxPolicy, SpacyPool};
 pub use protocol::{Analysis, Entity, RawAnalysis, Selection, Token, WorkerInfo};
