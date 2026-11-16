@@ -24,6 +24,8 @@ use privoke_transport::{AuthLayer, LimiterKey, Limits, Policy, Role, SecureListe
 use prost::Message;
 use tonic::{Code, Request, Response, Status};
 
+type Change = Box<dyn Fn(&mut FuzzerRequestConfig)>;
+
 fn configuration(directory: &Path) -> FuzzerRequestConfig {
     FuzzerRequestConfig {
         target: "unused".into(),
@@ -110,7 +112,7 @@ async fn a_zero_prompt_count_disables_the_scheduler_without_opening_the_journal(
 fn the_sampler_seed_and_limits_validate() {
     let directory = tempfile::tempdir().unwrap();
     let base = configuration(directory.path());
-    let invalid: Vec<Box<dyn Fn(&mut FuzzerRequestConfig)>> = vec![
+    let invalid: Vec<Change> = vec![
         Box::new(|config: &mut FuzzerRequestConfig| config.seed = -1),
         Box::new(|config: &mut FuzzerRequestConfig| config.seed = 1 << 32),
         Box::new(|config: &mut FuzzerRequestConfig| config.prompt_count = -1),

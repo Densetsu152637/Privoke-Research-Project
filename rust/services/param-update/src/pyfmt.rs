@@ -209,8 +209,8 @@ mod tests {
             ("a", object(vec![])),
             ("c", Value::String("\u{e9}\n".into())),
         ]);
-        assert_eq!(dumps(&value, Layout::Compact).unwrap(), r#"{"a":{},"b":[1,0.5,[]],"c":"é\n"}"#);
-        assert_eq!(dumps(&value, Layout::Spaced).unwrap(), r#"{"a": {}, "b": [1, 0.5, []], "c": "é\n"}"#);
+        assert_eq!(dumps(&value, Layout::Compact).unwrap(), r#"{"a":{},"b":[1,0.5,[]],"c":"\u00e9\n"}"#);
+        assert_eq!(dumps(&value, Layout::Spaced).unwrap(), r#"{"a": {}, "b": [1, 0.5, []], "c": "\u00e9\n"}"#);
         assert_eq!(
             dumps(&value, Layout::Indented).unwrap(),
             "{\n  \"a\": {},\n  \"b\": [\n    1,\n    0.5,\n    []\n  ],\n  \"c\": \"\\u00e9\\n\"\n}"
