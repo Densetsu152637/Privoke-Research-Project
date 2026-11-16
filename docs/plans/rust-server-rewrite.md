@@ -988,6 +988,23 @@ The worker is the same binary and pipe protocol everywhere. It never opens a soc
   - **Network denial on Linux.** A test worker's connect attempt fails under Landlock or seccomp, and the test runs on the Linux container.
   - **No network denial on Windows.** Network denial is not claimed on Windows. The Job Object gives lifetime and resource limits only. The worker's self-check and the absence of any network code are the controls there, and the documentation states this.
   - **Pool rules hold.** Tests cover poisoned input, backoff and readiness.
+- Status: done on Windows and in a Linux container (RUST-W2, 2026-11-17). Network denial is Linux only; Windows has none and none is claimed.
+- Outcome:
+  - **Code.** `rust/crates/privoke-worker-pool`: `WorkerPool<P: Protocol>` (spawn and supervise, readiness gate, bounded queue, one deadline per request, no retry, crash-loop backoff), frame helpers (async and blocking), `worker_side::claim_frame_output()` (frames on the original stdout, stdout repointed at stderr), and `SandboxPolicy` with the per-OS sandbox. `privoke-spacy` now wraps it: `SpacyPool` keeps its API and adds `PoolConfig::sandbox`; only the spaCy protocol, text limits, lemma cache and decode remain there. The worker frame protocol is unchanged.
+  - **Sandbox.** Windows: Job Object per worker (worker created suspended, assigned, then resumed) with kill-on-close, job memory limit, active-process limit, UI restrictions. Linux: `PR_SET_PDEATHSIG`, `RLIMIT_AS`, `RLIMIT_NPROC`, `RLIMIT_CORE` 0 and a seccomp filter (network and `io_uring` syscalls return `EPERM`). Both: clean environment with an allow-list, explicit `PYTHONHOME`, `PYTHONNOUSERSITE=1`. A control that is asked for and cannot be installed fails the spawn.
+  - **Tests.** `privoke-worker-pool`: 6 unit, 15 pool-rule and 8 sandbox tests. They pass on Windows and in `rust:1.99.1-slim-bookworm` (kernel 6.18, WSL2), where the sandbox binary also runs as uid 1000 so `RLIMIT_NPROC` binds. Stage 11: `privoke-spacy` 12 unit and 14 pool tests (12 to 14 of the pool tests pass on a given run on this host, see findings), and the 9 real-worker tests with `--features embed,test-hooks` pass through the extracted pool.
+  - **Checks.** Clippy (`-D warnings`, all targets, also with `embed,test-hooks`) and `cargo fmt --check` are clean on Windows; clippy, fmt and the tests are clean in the Linux container for the two crates.
+  - **Per-OS sandbox:** see the table in `docs/runtime/rust-workspace.md#privoke-worker-pool-stage-w2`.
+  - **Findings and deviations.**
+    - Killing the parent kills every worker on both OSes. On Windows it kills the worker's own children too (the job holds the tree). On Linux `PR_SET_PDEATHSIG` is cleared across `fork`, so a worker's own children survive unless the worker sets it on them; the test kills the leftover. Stated in the documentation.
+    - The Linux filter is seccomp, not Landlock: it needs no path policy and works on any kernel with seccomp. Landlock network rules need ABI 4 (kernel 6.7).
+    - `RLIMIT_NPROC` is a per-user ceiling and does not bind uid 0, so the Linux process limit is a ceiling the caller chooses above the user's current count, and its test runs as uid 1000. Windows counts the processes in the worker's job.
+    - Two stage 11 pool tests (`p3_crash_loop_backs_off`, `queued_request_survives_a_hung_worker_ahead_of_it`) are timing-sensitive and fail on this host about two runs in three, before and after W2 (the unchanged commit 96f0bbd fails the same two). Starting a process here takes between 80 ms and 2.5 s, which breaks their 1.5 s and 500 ms windows. They were left unchanged; the new pool-rule tests assert lower bounds (a gap is at least the backoff) and generous deadlines instead.
+    - The stage 11 bundle was rebuilt for the real-worker run (`build_bundle.py --test-hooks`), because the earlier worktree was gone.
+- Handoff notes:
+  - W3 and W4 build on `WorkerPool<P>` with their own `Protocol` (a protobuf frame protocol for the W1 worker). Use `SandboxPolicy::strict(python_home)` plus `memory_limit_bytes` and `max_processes` for the Python worker; on Linux pick `max_processes` above the user's current process and thread count.
+  - Start the pool from a long-lived runtime thread: Linux `PR_SET_PDEATHSIG` fires when the forking thread exits.
+  - Windows: the worker's self-check is the only network control; do not describe the Windows sandbox as network-isolated. In the quarantined container (W3) the Compose network is the control.
 
 ## Stage W3: Quarantined analysis microservice for the fuzzer
 

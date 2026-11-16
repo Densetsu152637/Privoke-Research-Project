@@ -17,20 +17,17 @@
 //! `start_char` and `end_char` are code-point offsets. The result bytes are produced by one function that both the
 //! worker and the reference environment run, which is what the parity gate compares.
 
-use std::io;
-
-use serde::{Deserialize, Serialize};
-use serde_json::value::RawValue;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-
 use crate::error::SpacyError;
 use crate::offsets::{OffsetMap, Span};
+use serde::{Deserialize, Serialize};
+use serde_json::value::RawValue;
 
 /// The protocol revision announced in the ready frame.
 pub const PROTOCOL_VERSION: u32 = 1;
 
-/// The largest frame either side accepts. A 20 000 character document is far below it.
-pub const MAX_FRAME_BYTES: usize = 64 * 1024 * 1024;
+/// The framing is the pool crate's: a 4-byte little-endian length and the payload. A 20 000 character document is far
+/// below the frame limit.
+pub use privoke_worker_pool::{MAX_FRAME_BYTES, read_frame, write_frame};
 
 /// Which part of the spaCy pipeline runs.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize)]
@@ -148,30 +145,6 @@ pub(crate) struct Envelope<'a> {
     pub error: Option<String>,
 }
 
-/// Writes one frame.
-pub async fn write_frame<W: AsyncWrite + Unpin>(out: &mut W, payload: &[u8]) -> io::Result<()> {
-    let len = u32::try_from(payload.len()).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "frame too large"))?;
-    if payload.len() > MAX_FRAME_BYTES {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "frame too large"));
-    }
-    out.write_all(&len.to_le_bytes()).await?;
-    out.write_all(payload).await?;
-    out.flush().await
-}
-
-/// Reads one frame. A clean end of stream before the length is `UnexpectedEof`.
-pub async fn read_frame<R: AsyncRead + Unpin>(input: &mut R) -> io::Result<Vec<u8>> {
-    let mut len = [0u8; 4];
-    input.read_exact(&mut len).await?;
-    let len = u32::from_le_bytes(len) as usize;
-    if len > MAX_FRAME_BYTES {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, format!("frame of {len} bytes exceeds the limit")));
-    }
-    let mut payload = vec![0u8; len];
-    input.read_exact(&mut payload).await?;
-    Ok(payload)
-}
-
 /// One spaCy token. The offsets of [`Token::span`] come from the code-point index the worker reports.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Token {
@@ -270,6 +243,10 @@ impl RawAnalysis {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
+    use std::io;
+
+    use tokio::io::AsyncWriteExt as _;
+
     use super::*;
 
     #[tokio::test]
