@@ -96,7 +96,92 @@ The bootstrap installs Docker Engine, the Compose plugin and the Google Cloud CL
 
 ## 4. Provision TLS and installation credentials
 
-The ingress requires a server certificate with a SAN matching `$STACK_HOST`, its private key, and the public certificate of a CA trusted to issue client certificates. Use an organizational CA or managed certificate process. A publicly trusted server certificate lets clients leave `PRIVOKE_TLS_CA_FILE` empty. nginx terminates TLS and routes only the three permitted RPC methods; see the [nginx gRPC module](https://nginx.org/en/docs/http/ngx_http_grpc_module.html).
+> The profile, tool and registry below are built and tested (stage 2 of the [Rust server rewrite plan](../plans/rust-server-rewrite.md)) but take effect only when the Rust services replace nginx at the stage 8a cutover. Until then, follow [the nginx procedure](#current-nginx-procedure-until-the-rust-cutover) at the end of this section.
+
+After the cutover each server authenticates its callers itself, with mutual TLS and a registry. nginx is gone.
+
+### Who holds what
+
+| Principal | Certificate identity (URI SAN) | Role | Issued by |
+| --- | --- | --- | --- |
+| Installation | `urn:privoke:installation:<uuid>` | `consumer` | the operator, on a CSR the installation made |
+| Service (param-update, fuzzer, runtime) | `urn:privoke:service:<name>` | `publisher`, `trainer` or `runtime`, set in the registry | the operator |
+| Telemetry reporter | `urn:privoke:reporter` | `reporter`; one credential shared by every installation | the operator, delivered with each enrolment |
+
+Every client certificate is a leaf with the `clientAuth` extended key usage only and exactly one `urn:privoke:` URI SAN. Installation and reporter certificates last 180 days, service and server certificates 90 days. The servers refuse anything else at the handshake (`privoke-transport`), then consult the registry on every RPC.
+
+### Secret files
+
+Every file in this table is either a secret or says it is public.
+
+| File | Where it lives | Secret |
+| --- | --- | --- |
+| `ca/client/ca.key` | operator, offline | yes: signs every installation |
+| `ca/server/ca.key` | operator, offline | yes |
+| `ca/client/reporter/reporter.key` | operator, offline; copied to every installation | yes, but shared by design, so treat it as extractable |
+| `ca/client/ledger.toml` | operator | no secrets, but it is the revocation record: back it up |
+| `server.key` | the VM, from Secret Manager | yes |
+| `client.key`, `client.next.key`, `client.prev.key`, `reporter.key` | the installation's credential directory, owner-only | yes |
+| `*.crt`, `*.csr`, `server-ca.pem`, `crl.pem`, `registry.toml`, `installation.id` | various | no |
+
+`privoke-pki` creates every key file with mode 0600 on Linux and macOS and restricts it to the current user with `icacls` on Windows.
+
+### Operator setup (once)
+
+Run on an operator workstation. Build the tool with `cargo build --release -p privoke-pki --manifest-path rust/Cargo.toml`.
+
+```bash
+privoke-pki init-ca --dir ca/client --name "PriVoke Client CA"
+privoke-pki init-ca --dir ca/server --name "PriVoke Server CA"
+privoke-pki issue-server --ca-dir ca/server --dns "$STACK_HOST" --out-dir out/server
+privoke-pki issue-reporter --ca-dir ca/client
+privoke-pki sign-service --ca-dir ca/client --name param-update --role publisher --out-dir out/services --registry out/registry.toml
+privoke-pki crl --ca-dir ca/client --out out/crl.pem --days 7
+```
+
+Upload `server.crt`, `server.key`, `ca/client/ca.crt`, `crl.pem` and `registry.toml` to Secret Manager, as in the nginx procedure. Each server starts with `--cert`, `--key`, `--client-ca`, `--crl` and `--registry`; without any one of them it exits before binding. Publish a new CRL at least every 7 days: a server whose CRL has passed its `nextUpdate` refuses every handshake.
+
+### Enrolment
+
+Enrolment is operator-mediated. The CA key stays offline and there is no online issuing endpoint.
+
+1. **User:** `privoke-supervisor enrol` (the same operation as `privoke-pki enrol --dir <credential dir>`) generates the installation UUID, a private key that never leaves the machine, and `client.csr`. It prints the CSR fingerprint.
+2. **User to operator:** send `client.csr`, which is public, by any channel.
+3. **Operator:** confirm the fingerprint and the user's identity out of band (in person or a known contact), then run:
+
+   ```bash
+   privoke-pki sign --ca-dir ca/client --csr client.csr --installation <uuid> --days 180 \
+     --server-ca ca/server/ca.crt --registry out/registry.toml --out-dir out/<uuid> --label "<who>"
+   ```
+
+   This signs the CSR only if its single SAN is the UUID the operator named, records the certificate in the ledger, adds the installation to the registry with the certificate's expiry, and writes the bundle: `client.crt`, `server-ca.pem`, `reporter.crt` and `reporter.key`. Publish the updated `registry.toml`; servers pick it up within a minute.
+4. **Operator to user:** return the bundle.
+5. **User:** `privoke-supervisor install-cert` (or `privoke-pki install-cert --dir <dir> --cert client.crt --server-ca server-ca.pem --reporter-cert reporter.crt --reporter-key reporter.key`) checks that the certificate carries this installation's identity and `clientAuth`, is within its validity and matches the local key, then stores it. Configure the [client `.env`](../runtime/client-configuration.md) to point at the credential files.
+
+### Renewal
+
+`status` warns from 30 days before expiry. `renew` creates a new key and CSR under the same UUID (`client.next.key`, `client.next.csr`) and leaves the active certificate in force. The operator runs `sign` again with the same `--installation`, and the user runs `install-cert`, which recognises the renewal key, makes it active and keeps the old pair as `client.prev.*`. Both certificates are valid until the old one expires. Renewal needs a human at both ends, so this process suits a small cohort; automatic renewal would need an online issuer and is out of scope.
+
+### Offline expiry
+
+An installation that stays offline past `notAfter` loses only cloud model refresh and telemetry delivery. Local inspection keeps using the cached, pin-verified package in `MODEL_PACKAGE_CACHE_DIR`. The next contact fails closed at the handshake until the user renews, and `status` says so.
+
+### Revocation
+
+```bash
+privoke-pki revoke --ca-dir ca/client --installation <uuid> --registry out/registry.toml --reason "device lost"
+privoke-pki crl --ca-dir ca/client --out out/crl.pem --days 7
+```
+
+The registry deny entry applies to open connections as soon as servers reload the file. The CRL applies to new handshakes as soon as servers reload it, and a maximum connection age of ten minutes bounds how long an open stream can survive. Revoking the reporter (`revoke --reporter`) revokes every installation's telemetry credential at once; recovery is to issue a new reporter credential and deliver it at each installation's next renewal.
+
+### Registry file
+
+`registry.toml` (version 1) lists `[[installation]]` entries (`id`, optional `label`, optional `expires`), `[[service]]` entries (`name`, `role`, optional `expires`), `reporter = true|false` and `[[deny]]` entries (`urn`, `reason`). An invalid file is refused whole and the server keeps the registry it had; the first load must succeed or the server does not start. `privoke-pki` validates the whole file on every edit.
+
+### Current nginx procedure (until the Rust cutover)
+
+Until stage 8a of the [Rust server rewrite plan](../plans/rust-server-rewrite.md) cuts over, nginx is the ingress and this procedure is the one in force. It gives every installation the same access and has no per-installation revocation. The ingress requires a server certificate with a SAN matching `$STACK_HOST`, its private key, and the public certificate of a CA trusted to issue client certificates. Use an organizational CA or managed certificate process. A publicly trusted server certificate lets clients leave `PRIVOKE_TLS_CA_FILE` empty. nginx terminates TLS and routes only the three permitted RPC methods; see the [nginx gRPC module](https://nginx.org/en/docs/http/ngx_http_grpc_module.html).
 
 For a private research installation, this example produces a private server CA, a separate client CA, and one installation certificate. Run it on an operator workstation; keep the CA private keys offline. All output goes into an ignored `secrets/` directory. Adapt certificate validity and renewal to your operating process.
 

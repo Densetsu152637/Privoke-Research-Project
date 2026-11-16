@@ -413,9 +413,25 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
   - The reporter credential is issued and delivered with enrolment.
   - The registry hot-reload test passes.
   - The documentation names every secret file.
-- Status: pending
+- Status: done (RUST-S2, 2026-11-16)
 - Outcome:
-- Handoff notes: if the operator-mediated enrolment is not acceptable to the user, mark GAP-NO-CREDENTIAL-MECHANISM and GAP-NO-PER-INSTALLATION-AUTHZ `kept`, with the reason "no enrolment process", and fall back to CA-wide access as today.
+  - **Certificate profile.** Leaf certificates, `clientAuth` EKU only, one `urn:privoke:` URI SAN (`installation:<uuid>`, `service:<name>`, `reporter`). Installation and reporter certificates last 180 days, service and server certificates 90. `privoke-transport` enforces it at the handshake.
+  - **Registry.** `privoke-transport/src/registry.rs`: versioned TOML with installations (optional expiry), services (role `publisher`, `trainer` or `runtime`, optional expiry), the reporter switch and the deny list. An invalid file is refused whole; the first load fails closed (`--registry` is now parsed at startup); `RegistryFileReloader` polls the file and keeps the previous registry on a bad edit. The deny list and expiry apply to open connections.
+  - **`privoke-pki`** (`rust/tools/privoke-pki`, library plus binary). Operator: `init-ca`, `issue-server`, `issue-reporter`, `sign` (checks the CSR's only SAN against the UUID the operator confirmed, writes the bundle with the reporter credential, updates the registry), `sign-service`, `revoke`, `crl`, with a ledger (`ledger.toml`) that maps identities to serials. Installation: `enrol`, `renew`, `install-cert`, `status`, implemented in `privoke_pki::client` for `privoke-supervisor` to call in stage 7. Key files are created owner-only (mode 0600; `icacls` on Windows).
+  - **Checks (host, Windows, rustc 1.99.1).** `cargo test --workspace --locked` exits 0 with 67 tests (contracts 19, transport 38, pki 10); clippy has no warnings; `cargo fmt --check` is clean.
+    - Enrolment: `enrol` then `sign` then `install-cert` through the CLI, then a mutual-TLS call accepted by a real transport server; the delivered reporter credential is accepted too. A signed but unregistered installation gets `PERMISSION_DENIED`.
+    - Renewal: same UUID, the old certificate keeps working while the renewal is in flight, `install-cert` promotes the renewal key, and the old pair (`client.prev.*`) and the new one are both accepted; one registry entry.
+    - Offline expiry: an expired certificate is refused by `install-cert` and at the real server's handshake; `status` reports it as expired and states that local inspection keeps using the cached, pin-verified package, and warns from 30 days before expiry.
+    - Revocation: `revoke` and a new CRL make the revoked installation's next handshake fail while a control installation connects; a registry deny entry gives `PERMISSION_DENIED` on an already open connection; revoking the reporter stops every holder of the shared credential.
+    - Registry hot reload: admit and deny edits reach open connections, a broken or deleted file keeps the previous registry and is reported, and a good file restores reloading.
+    - Refusals: CSR identity mismatch, malformed UUID, service or DNS SAN, tampered CSR, certificate for another identity or key, double `init-ca`, double `enrol`, `renew` before `enrol`, revoking an identity never issued.
+  - **Documentation.** Section 4 of `docs/deployment/google-cloud.md` is rewritten (who holds what, every secret file, operator setup, enrolment, renewal, offline expiry, revocation, registry); the nginx procedure stays at its end as the one in force until the stage 8a cutover. `docs/runtime/rust-workspace.md` describes the registry and the tool.
+  - **Not done here.** No `.github/` change (the Rust CI job waits for the deadline). `privoke-supervisor` wrapper commands (stage 7). The registry reloader polls only; `notify` is used for the TLS files and could be added for the registry. Telemetry per-IP daily counters (stage 4).
+- Handoff notes:
+  - Servers flatten `startup::CloudTlsArgs`; `CloudTransport.registry` is the `RegistryFileReloader` whose `registry()` goes to `AuthLayer` and whose `spawn_watcher` follows the file.
+  - Stage 3 to 5 policies: model service `Health`, `StreamModelParameters`, `GetModelPackage`, `StreamModelAsset` for `consumer` (rate key: identity); telemetry `RecordTelemetry` for `reporter` (rate key: source IP); param-update on the internal listener for `publisher` and `trainer`.
+  - The CRL must be refreshed before `nextUpdate` (default 7 days) or servers refuse every handshake; deployment must schedule that.
+  - Fallback if the enrolment process is not acceptable: if the operator-mediated enrolment is not acceptable to the user, mark GAP-NO-CREDENTIAL-MECHANISM and GAP-NO-PER-INSTALLATION-AUTHZ `kept`, with the reason "no enrolment process", and fall back to CA-wide access as today.
 
 ## Stage 3: Rust model-streaming service
 
