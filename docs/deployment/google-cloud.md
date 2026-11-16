@@ -145,6 +145,25 @@ For existing secrets, use `gcloud secrets versions add NAME --data-file=FILE` in
 
 The example grants all currently valid certificates signed by the client CA the same limited download/telemetry access. It does not implement user accounts or enrollment. For individual revocation, maintain a CA-signed CRL, add it as a Secret Manager secret, fetch it alongside the other files in `deploy.sh`, and enable nginx `ssl_crl`; otherwise rely on short validity or rotate the client CA to revoke all clients. Renew server and client certificates before expiry. Publish the server secret versions and redeploy to reload nginx. A rollback restores the previous certificate snapshot as well as code, so confirm it is still valid.
 
+### Ingress routing
+
+`deploy/gce/nginx.conf` routes exactly three gRPC methods and returns 404 for every
+other path: `/privoke.v1.ModelStreamingService/StreamModelParameters`,
+`/privoke.v1.ModelStreamingService/Health` and
+`/privoke.v1.TelemetryService/RecordTelemetry`. `GetModelParameters`,
+`GetModelPackage`, `StreamModelAsset` and every `ParamUpdateService` method are not
+routed. The deployed `MODEL_LATEST_ID` defaults to `privoke-v3-balanced`
+(`deploy/gce/compose.yml`, `deploy.sh`), and the model service serves V3 only through
+`GetModelPackage` and `StreamModelAsset`; its legacy `StreamModelParameters` returns
+`FAILED_PRECONDITION` for V3 or `latest`. As configured, a client reaching the model
+service only through this ingress therefore cannot fetch the default V3 package
+(the repository's V3 client path, `extension/client-runtime/src/LLM/privoke/v3_package.py`,
+calls the two unrouted RPCs). This configuration gap is recorded here and has not
+been changed. The ingress also configures no certificate revocation list, and all
+certificates from the client CA receive identical access. Evidence:
+[UPDSEC-20261116](../../paper/research/update-security-20261116.md) static rows
+ST4 to ST7.
+
 ## 5. Configure VM and GitHub environments
 
 Copy [deploy/gce/.env.example](../../deploy/gce/.env.example) to `deploy/gce/.env`, edit its project ID and Secret Manager names, then transfer it:
