@@ -85,7 +85,7 @@ pub fn validate_policy(metadata: &BTreeMap<String, String>) -> Result<bool, Fail
         }
         return Ok(false);
     }
-    let pins_ok = [WINDOW_MANIFEST_KEY, COMPONENT_MANIFEST_KEY].iter().all(|key| get(*key).is_some_and(is_sha256));
+    let pins_ok = [WINDOW_MANIFEST_KEY, COMPONENT_MANIFEST_KEY].iter().all(|key| get(key).is_some_and(is_sha256));
     let mixed =
         ["contextual_training_backtracking_policy", "contextual_training_diagnostics_policy", FULL_ADAM_CONFIG_KEY, RETENTION_MANIFEST_KEY]
             .iter()
@@ -138,7 +138,7 @@ pub fn validate_publication(request: &ParameterUpdateRequest, artifact: &ModelAr
     let selected_step_ok = strict_int(field("selected_step")).is_some_and(|step| CHECKPOINTS.contains(&step));
     let auxiliary_ok = auxiliary.is_some_and(|rows| rows % 64 == 0 && (20 * 64..=200 * 64).contains(&rows));
     let checkpoint_rows_ok = auxiliary.is_some_and(|rows| loosely_equals(field("checkpoint_rows"), 9 * (512 + rows / 64)));
-    let hashes_ok = ["trace_sha256", "base", "terminal", "selected", "delta", "published"].iter().all(|name| is_sha256_value(field(*name)));
+    let hashes_ok = ["trace_sha256", "base", "terminal", "selected", "delta", "published"].iter().all(|name| is_sha256_value(field(name)));
     if !loosely_equals(field("schema"), 1)
         || !text_equals(field("policy"), WINDOW_ADAM)
         || !text_equals(field("status"), "selected")
