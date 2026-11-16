@@ -1,15 +1,17 @@
 # Plan: Rust server rewrite and nginx removal
 
-Revision: 2026-11-16 r2 (planning only; base `7384ec7` on `feat/nick-branch`, branch `plan/rust-rewrite`; r2 applies the triaged plan-gate critique)
+Revision: 2026-11-16 r3 (planning only; base `7384ec7` on `feat/nick-branch`, branch `plan/rust-rewrite`; r2 applied the plan-gate critique, r3 the round-2 critique and root's settlements)
 
 **User instruction (16 November 2026).** "Because we use microservices, we do not need nginx. Also, plan to rewrite most of the server architecture in rust, the only exceptions being where model inference and training occur, as python is a good language for them. However, if they can be rewritten in rust, let me know and then I will decide whether it happens or not."
 
-**Follow-up user decision (16 November 2026).** "Because spaCy NER runs a model, make an equivalent rust harness in a separate repo, make it importable through crate and then use it. D1-D10 can be ported."
+**Follow-up user decisions (16 November 2026).**
+- "Because spaCy NER runs a model, make an equivalent rust harness in a separate repo, make it importable through crate and then use it. D1-D10 can be ported."
+- The user then decided: "Use PyO3". spaCy is called through PyO3 in a supervised worker pool (stage 11), and the separate-repository plan was dropped.
 
 **Status.** This is a plan. No code is changed by it. Every stage is `pending`.
 - Stages 0 to 10 cover the server rewrite.
 - Stages 11 to 22 cover the [approved inference and training ports](#approved-inference-and-training-ports-stages-11-to-22), D1 to D10.
-- D11 remains a pending user decision.
+- D11 (model fetch in Rust) is approved as networking work and is part of stage 17.
 
 ## Goals
 
@@ -49,7 +51,7 @@ Each goal is boolean and names its check. Commands run from the repository root 
 
 **In scope:**
 - Moving server and infrastructure code to Rust.
-- Porting the approved inference and training components D1 to D10 to Rust, including the separate `privoke-ner` crate repository.
+- Porting the approved inference and training components D1 to D10 to Rust. NER uses the unchanged spaCy, called through PyO3 (stage 11).
 - Removing nginx and replacing it with in-service mutual TLS and authorisation.
 - PKI and identity design.
 - Compose, deployment and CI changes.
@@ -64,7 +66,7 @@ Each goal is boolean and names its check. Commands run from the repository root 
 - Editing the paper.
 - Pushing.
 
-Before the deadline, only stage 0 and stage 1 may run in this repository (see [sequencing](#sequencing-against-the-11-december-2026-deadline)). Whether stage 11, in the separate `Privoke-NER` repository, may start earlier is root's call.
+Before the deadline, only stage 0 and stage 1 may run in this repository (see [sequencing](#sequencing-against-the-11-december-2026-deadline)). Stage 11 now lives in this repository, not a separate one. Root's earlier permission to start it before the deadline was based on the separate repository, so root needs to re-confirm it for the PyO3 stage. Until then it follows the rule above.
 
 ## Assumptions
 
@@ -110,7 +112,7 @@ Before the deadline, only stage 0 and stage 1 may run in this repository (see [s
 - Proposed new paths:
   - `rust/` (Cargo workspace)
   - `tests/conformance/` (golden corpus captured in stage 0)
-  - `D:/Git Repositories/Privoke-NER` (separate local repository, crate `privoke-ner`, stage 11)
+  - `rust/crates/privoke-spacy/` and `rust/services/spacy-worker/` (stage 11, PyO3 spaCy worker); no separate NER repository
 
 ## Related docs
 
@@ -155,7 +157,7 @@ Classes:
 | Pretrained-v3 runtime and training | `services/pretrained-v3/src/{runtime_server,fuzzer_training,audience_schedule}.py` | Python (torch) | V3 semantic inference and physical training (`TrainingService`). Frozen AU3/BC01 sampling schedules. | b | Stays. Approved Rust port: D3 (stage 14); D4 (stage 19); D5 (stage 20). |
 | Client runtime: gRPC shell | `extension/client-runtime/src/grpc_main.py`, `hosting/{grpc_server,serialization,runtime_config,analyzer,models}.py`, `env.py`, `config.py`, `dependency_check.py` | Python | `PrivokeRuntimeService` server (image `CMD`), request and response serialisation, runtime configuration. | a, held in Python | Stays in the Python worker. Reason: it is the in-process host of inference and gradients. Each RPC calls into the torch, spaCy and pipeline objects in the same interpreter. A Rust replacement would need either PyO3 (rejected, see [boundary](#pythonrust-boundary)) or a second Python-side server, so the same shell would still exist. The Rust supervisor becomes the external edge in front of it instead. Stage 6 changes listener security only. |
 | Client runtime: HTTP JSON shell | `extension/client-runtime/src/main.py`, `hosting/server.py` | Python | Alternative `ThreadingHTTPServer` JSON host of the same analyzer; not used by the container images, which run `grpc_main.py`. | a, held in Python | Not ported. Same in-process reason as the gRPC shell. Deprecating it is a separate decision for root, because evaluation scripts may use it. |
-| Client runtime: model fetch | `extension/client-runtime/src/LLM/privoke/{v3_package,parameter_stream}.py` | Python | Downloads V3 packages and legacy tensor streams from the model service, verifies pins, shapes and finite values, and writes the cache that inference loads. | a, held in Python | Stays in Python. Reason: verification is coupled to the loader that builds the torch model, and the installed-client evidence (C42, V3 timing) measured this path. Moving download and pin checking into the Rust supervisor is D11, which is pending a user decision. It is listed with the ports because it changes an evidence path, even though it is not inference. |
+| Client runtime: model fetch | `extension/client-runtime/src/LLM/privoke/{v3_package,parameter_stream}.py` | Python | Downloads V3 packages and legacy tensor streams from the model service, verifies pins, shapes and finite values, and writes the cache that inference loads. | a, held in Python | Stays in Python. Reason: verification is coupled to the loader that builds the torch model, and the installed-client evidence (C42, V3 timing) measured this path. Moving download and pin checking to Rust is D11, which root has approved as networking work. It is done in stage 17. It is listed with the ports because it changes an evidence path, even though it is not inference. |
 | Client runtime: detection pipeline | `extension/client-runtime/src/{pipeline,model,detection/*,classification/*,task_readout,pretrained_context,transformer_encoder,util}.py` | Python | Normalisation, layer selection, policy aggregation, semantic readout. | b | Stays. Normalisation and aggregation fix the recorded detector results. |
 | Regex layer | `extension/client-runtime/src/regex/*` | Python (`regex`, Presidio recognisers) | Deterministic rules, validators, Presidio imports. | b (detector) | Stays. Approved Rust port: D2 (stage 12). |
 | NER layer | `extension/client-runtime/src/NER/*` | Python (spaCy, optional GLiNER) | spaCy `en_core_web_sm`, post-filter, pattern entities. | b | Stays. Approved Rust port: D1 (stages 11 and 13); D9 (stage 15). |
@@ -187,7 +189,7 @@ Alternatives considered against the same requirements: keep the Python evidence 
 | Option | Verdict | Reasons |
 | --- | --- | --- |
 | **Process boundary over gRPC (chosen)** | Accept | <ul><li>The contracts already exist and are tested.</li><li>The Python worker runs the same code and interpreter that produced the recorded evidence.</li><li>The GIL and torch thread pools stay out of the Rust async runtime.</li><li>A crash or OOM in inference cannot take the network edge down.</li><li>Independent toolchains: torch wheels on one side, a static Rust binary on the other.</li><li>Python tests keep running on the host exactly as `AGENTS.md` prescribes.</li></ul> Cost: one extra loopback hop on the workstation. The bridge already adds a hop today, so the stage 7 check is that the end-to-end median does not regress. This is an estimate and must be measured. |
-| PyO3, Rust embedding CPython | Reject | <ul><li>It links CPython, torch and spaCy into the Rust binary, which is fragile with Windows DLLs and virtual environments.</li><li>The GIL serialises calls.</li><li>A Python fault kills the server.</li><li>The inference code is still Python, so nothing is gained.</li></ul> |
+| PyO3, Rust embedding CPython (whole runtime) | Reject (for spaCy alone, the user chose PyO3 in an out-of-process worker pool; see stage 11) | <ul><li>It links CPython, torch and spaCy into the Rust binary, which is fragile with Windows DLLs and virtual environments.</li><li>The GIL serialises calls.</li><li>A Python fault kills the server.</li><li>The inference code is still Python, so nothing is gained.</li></ul> |
 | PyO3, Python importing a Rust extension (`privoke_contracts_rs`) | Reject for now; revisit | It would remove the duplicate contract code. However, it changes the code path behind recorded training evidence. Revisit after the deadline, once the conformance corpus shows byte equality and the user wants a single contract implementation. |
 | Keep Python and Go servers; add mutual TLS only | Reject | It does not satisfy the user's instruction. It remains the fallback if a stage fails its parity gate. |
 
@@ -304,10 +306,10 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
 - **Before 11 December 2026:** run stage 0 (tag, conformance capture) and, optionally, stage 1 (Rust workspace and contract crate) on `plan/rust-rewrite` or a successor branch. Do not merge into the branch the submission and artifact are built from. Make no change to `services/`, `extension/`, `deploy/`, `shared/python/`, `paper/` or `.github/`. In particular, no CI workflow changes before the deadline: the Rust tests run on the host only (`cargo test`).
 - **After submission:** stages 2 to 9 in order. The artifact-evaluation and camera-ready builds use the submission tag. If the paper is to describe the Rust build, stage 9 and the revalidation rows run before camera-ready, and the paper is edited under its own authorisation.
 - **Approved ports (stages 11 to 22, D1 to D10):**
-  - They run on a non-submission branch, or in the separate NER repository, and never change the submission build or the evidence it reports.
+  - They run on a non-submission branch and never change the submission build or the evidence it reports.
   - Runtime integration (stage 17 onward) starts only after stage 9, so that server and model changes are never confounded in one revalidation.
   - The paper keeps describing the measured Python system until a revalidated rerun exists.
-- **D11:** pending user decision.
+- **D11:** approved by root as networking work, and done within stage 17.
 
 ## Rust and host test workflow
 
@@ -615,12 +617,14 @@ Deleting any of these directories is a separate future decision. Before it, ever
 
 ## Approved inference and training ports (stages 11 to 22)
 
-**User decision (16 November 2026), verbatim:** "Because spaCy NER runs a model, make an equivalent rust harness in a separate repo, make it importable through crate and then use it. D1-D10 can be ported."
+**User decision (16 November 2026), verbatim:** "Because spaCy NER runs a model, make an equivalent rust harness in a separate repo, make it importable through crate and then use it. D1-D10 can be ported." This was then superseded for NER by the user's "Use PyO3" decision (stage 11).
 
 Root settled the following:
 - D1 to D10 are approved for porting.
-- The NER layer becomes a separate crate, `privoke-ner`, in its own repository.
-- D11 was added in r2 of this plan and is **not** approved. It stays a pending user decision.
+- D1 is resolved by the PyO3 binding (the user's decision of 16 November 2026): spaCy is called unchanged in a supervised worker pool (stage 11) and is not ported. The separate `privoke-ner` repository is not created.
+- D11 (model fetch) was added in r2. Root approved it as networking work, and it is done in stage 17.
+- Stage 17 (pipeline and policy aggregation) is within the approval, because it is server logic.
+- Stage 11 is now in this repository. Root needs to re-confirm whether it may start before the deadline.
 
 The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust options, what each port loses, effort and risk. These stages turn D1 to D10 into dependency-ordered work.
 
@@ -628,17 +632,17 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
 - **No Python edits.** The Python implementation stays unchanged, and G6 still holds. It remains both the parity oracle and the system the paper describes.
 - **The paper is unchanged.** It keeps describing the measured Python system until a revalidated rerun of the Rust build exists, and paper edits need their own `REWRITE_SCOPE` authorisation.
 - **Revalidation means new records.** Every claim a stage revalidates gets a new record. Historical records are never edited (G7).
-- **Branch.** All work happens on a non-submission branch (or the separate NER repository) and never enters the 11 December submission build or its artifact.
+- **Branch.** All work happens on a non-submission branch and never enters the 11 December submission build or its artifact.
 - **Scheduling.** The schedule is unchanged:
   - In the Privoke repository, nothing beyond stages 0 and 1 happens before the deadline.
   - Runtime integration (stage 17 onward) starts only after stage 9, so that server changes and model changes are never confounded in one revalidation.
-  - The separate `Privoke-NER` repository (stage 11) touches neither the submission build nor its evidence. Root decides whether it may start before the deadline.
+  - Stage 11 (PyO3 spaCy worker) is in this repository on a non-submission branch. Root needs to re-confirm whether it may start before the deadline.
 - **LLM-layer isolation.** Semantic parity runs use an explicit semantic-only layer selection and assert the returned layer execution, as the repository `AGENTS.md` requires. Product end-to-end reruns are separate, labelled runs.
 
 **Dependency order:**
 
 ```
-11 (privoke-ner, separate repo) ──┐
+11 (spaCy PyO3 worker) ─────────┐
 12 (D2 rules + preprocessing) ────┼─> 13 (D1 NER layer + post-filter) ─> 15 (D9 GLiNER)
 14 (D3 semantic inference) ───────┴─> 16 (D10 external classifier)
                                       17 (Rust analysis runtime; needs 12, 13, 14, 16) ─> 18 (D8 reporter)
@@ -648,107 +652,72 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
 
 | Stage | Item | Parity criterion (on the stage 0 corpus plus every recorded evaluation set it names) | Revalidates (new records) |
 | --- | --- | --- | --- |
-| 11 | D1 crate | Entity spans and labels exactly equal to spaCy, plus tags, POS, lemmas, heads and dependency labels for the post-filter (see stage 11) | Prerequisite of 13; no claim by itself |
+| 11 | D1 engine: spaCy through PyO3 | NER smoke test: worker output byte-identical to direct Python spaCy on a small corpus (identical by construction) | none (spaCy unchanged) |
 | 12 | D2 | Identical rule hits (rule, span, signal, severity) and identical normalised text and offset maps on all recorded detector sets | C2, C10, C38, C44 to C47, C54, C55 (regex part) |
 | 13 | D1 | Identical post-filter decisions and NER-layer results, for the default and caseless gate settings | C2, C44 to C55, the installed probes, NER paper text |
 | 14 | D3 | Golden logits within the stated tolerance, and identical decisions (sensitivity, category, visibility, action) on recorded sets, semantic-only | C12, C13, C27, C31, C35, C37, C41, C47, V1/V3 comparisons, latency tables |
 | 15 | D9 | Identical GLiNER spans at the frozen threshold on the C53 sets | C53 (GLiNER comparator) |
 | 16 | D10 | Byte-identical request bodies (prompt construction) and identical parsing of recorded responses | none (no recorded claim) |
-| 17 | Integration | Byte-identical `AnalyzePromptResponse` on the corpus, for each explicit layer selection | C1, C5, C6, C42, V3 installed timing (only if claimed for this build) |
+| 17 | Integration and D11 | Identical decisions for every layer selection. Floats are equal after rounding to 6 decimal places. Responses are byte-identical only for regex-only and NER-only selections. D11 produces an identical package cache. | C1, C5, C6, C42, V3 installed timing (only if claimed for this build) |
 | 18 | D8 | Identical ledger behaviour. A new finite-epsilon audit of the Rust kernel replaces C34 for this build. | C7, C34 (T2 rerun) |
-| 19 | D4 | Gradients and updates within the stated tolerance. Identical accepted and rejected guard outcomes on recorded runs. | C39, RQ2, the local SGD, FULL Adam, window and retention studies |
+| 19 | D4 | Gradients and updates within the stated tolerance. Identical accepted and rejected guard outcomes on recorded runs. Artifact bytes are identical only where the gradients are bitwise equal; otherwise artifacts are compared with a tolerance. | C39, RQ2, the local SGD, FULL Adam, window and retention studies |
 | 20 | D5 | Identical sample streams (schedule digests equal) for every recorded seed | C4, C16, the 2026-10 fuzzer study series, AU3 and BC01 schedules |
 | 21 | D6 | Identical cycle records and dumps after normalisation (G5 rules) | the fuzzer study series (cycle mechanics) |
 | 22 | D7 | As 14 and 19, for the `TrainingService` and runtime RPCs | the pretrained-v3 study records |
 
-## Stage 11: `privoke-ner` crate in a separate repository (D1 engine)
+## Stage 11: spaCy through PyO3 in a supervised worker pool (D1 engine)
 
-- Objective: reproduce spaCy 3.7.5 running `en_core_web_sm` 3.7.1 (the shipped default) in Rust, as the crate `privoke-ner`.
-  - **Repository:** `D:/Git Repositories/Privoke-NER`, created with `git init` locally only. A GitHub remote, a crates.io publication, or any push needs the user's later approval.
-  - **How Privoke depends on it:** during development, `rust/Cargo.toml` uses `privoke-ner = { path = "../../Privoke-NER" }` (relative to the Privoke checkout; the exact relative path is set in stage 11e). Once a remote exists and is approved, this becomes a `git` dependency pinned by `rev`, and `Cargo.lock` records it.
-  - **Licence:** spaCy and the model are MIT-licensed, and the export keeps their licence and source notices (`LICENSE`, `LICENSES_SOURCES`).
-- **Components in scope.** Taken from `extension/client-runtime/src/NER/` and the model's `config.cfg`:
+**User decision (16 November 2026): "Use PyO3".** spaCy is not ported. No `Privoke-NER` repository is created, and no model weights are exported. The Rust pipeline calls the unchanged Python spaCy 3.7.5 running `en_core_web_sm` 3.7.1.
 
-  | spaCy component | Used by Privoke? | Evidence | In scope |
-  | --- | --- | --- | --- |
-  | tokenizer | yes | all | yes |
-  | `ner` (own `Tok2Vec`: MultiHashEmbed with NORM, PREFIX, SUFFIX, SHAPE; rows 5000/1000/2500/2500; width 96; MaxoutWindowEncoder depth 4, window 1, maxout 3; `TransitionBasedParser.v2` with hidden 64, maxout 2, `use_upper`) | yes | `ner_detector.py` uses `doc.ents` | yes |
-  | shared `tok2vec` (attrs adding SPACY and IS_SPACE; rows 5000/1000/2500/2500/50/50) | yes, through its listeners | it feeds tagger and parser | yes |
-  | `tagger` | yes | post-filter `token.pos_` (heading rule, around line 517; common-phrase rule, around lines 530 to 536) needs tags, which attribute_ruler maps to POS | yes |
-  | `parser` | yes | post-filter role rule uses `dep_`, `head`, `children` (around lines 247 to 252) | yes |
-  | `attribute_ruler` | yes | maps `tag_` to `pos_` and applies exceptions; `pos_` is read | yes |
-  | `lemmatizer` (rule mode) | yes | `lemma_` in the role and common-phrase rules; the `lemma_index` table forms the post-filter's English word list (`_english_lexicon`) | yes |
-  | `senter` | no | disabled in the model (`disabled = ["senter"]`), and Privoke never enables it | **out of scope** |
-
-  Nothing else can be scoped out: the default NER result passes through the post-filter, and the post-filter reads tagger, attribute-ruler, lemmatizer and parser outputs. The milestones still separate "`ner` alone" (11c) from "full pipeline" (11d), because NER entity spans depend only on the tokenizer, vocab norms and `ner`'s own `Tok2Vec`.
-- **Sub-steps:**
-  - **11a. Export and golden generator.**
-    - `tools/export_spacy.py` in the NER repository runs under `evaluation/.venv-v1-v3-pipeline` (spaCy 3.7.5, thinc 8.2.5, `en_core_web_sm` 3.7.1). It writes:
-      - each component's thinc weights, as safetensors, named by the layer path in the model tree
-      - `config.cfg`, `meta.json`, the `ner` and `parser` `moves` (action and label inventories)
-      - tokenizer settings: `prefix_search`, `suffix_search` and `infix_finditer` pattern source, `token_match`, `url_match`, and the special-case `rules`
-      - vocab: lexeme `NORM` table, the string store needed for hashing, lookups tables (`lemma_rules`, `lemma_exc`, `lemma_index`, `lemma_lookup` if present)
-      - `attribute_ruler` patterns
-      - a manifest of SHA-256 digests
-    - `tools/golden.py` runs spaCy on a declared corpus and writes JSON lines per document. Each document records:
-      - tokens: `text`, `idx`, `whitespace_`, `norm`, `prefix`, `suffix`, `shape`, `is_alpha`, `lower_`, `tag_`, `pos_`, `lemma_`, `dep_`, `head.i`
-      - entities: `start_char`, `end_char`, `label_`
-      - selected intermediate activations (`ner` `Tok2Vec` output, shared `tok2vec` output, precomputed hidden features, per-step action scores)
-      - the result of `tokenizer.explain` for tokenizer diagnosis
-      - a second pass with `fold_case` applied, for the caseless gate, and the post-filter's tagger-only sub-pipeline on lowercased phrases
-    - **Declared corpus:** the texts of the recorded NER evaluation sets (design, dev-CHECK, OpenAI, F1, F4, held-out), plus a tokenizer stress set (URLs, emails, emoji, CJK, combining marks, zero-width characters, digits with separators). It is frozen by hash before any Rust code runs.
-  - **11b. Tokenizer.**
-    - Reimplement spaCy's `Tokenizer.__call__` algorithm: whitespace split, then a special-case lookup, then a loop of prefix and suffix stripping with special-case rechecks, then `token_match` and `url_match`, then infix splits.
-    - Handle special-case matching across affixes (the `PhraseMatcher`-based special-case pass with `faster_heuristics`).
-    - The exported Python `re` patterns are compiled with `fancy-regex`. Each construct that differs between Python `re` and `fancy-regex` is translated and listed, including Unicode `\w` and `\d` classes, case-insensitive flags and the lookarounds in `url_match`.
-    - Unicode categories follow the Unicode version of the Python 3.11 used for the golden data, and the tests pin it.
-    - Acceptance: identical token texts, `idx` and whitespace on 100% of the corpus.
-  - **11c. `ner` model.**
-    - Lexical attributes:
-      - `NORM` comes from the exported norm table, falling back to the lowercase form.
-      - `PREFIX` is the first character and `SUFFIX` the last three.
-      - `SHAPE` is a port of spaCy's `word_shape`.
-      - `SPACY` and `IS_SPACE` serve the shared `tok2vec`.
-    - Hashing:
-      - attribute strings get spaCy's 64-bit string hash (MurmurHash64A, as in `spacy.strings.hash_string`)
-      - `HashEmbed` hashes ids with thinc's MurmurHash3 x86-128 and the per-table seed, and sums four rows modulo the table size
-    - Encoder:
-      - `MultiHashEmbed`: per-attribute `HashEmbed`, concatenated, then `Maxout` with `LayerNorm` to the width, followed by dropout, which is a no-op at inference
-      - `MaxoutWindowEncoder`: residual blocks of `expand_window(1)` → `Maxout(pieces 3)` → `LayerNorm`, repeated 4 times
-    - Parser model (`TransitionBasedParser.v2`):
-      - The `PrecomputableAffine` lower layer is applied per token to the state-feature tokens, then the features are summed, maxed out (2 pieces) and passed to the upper linear layer, as in thinc's `ParserStepModel`.
-      - State features for `state_type = "ner"`: the token positions that `StateClass` exposes for `ner` (`nF` features), with the padding vector for missing tokens.
-      - Transition system: BILUO (`BiluoPushDown`), with `is_valid` per action and missing-entity handling.
-      - Greedy decoding: argmax over valid actions, with ties broken by the lowest action index as in spaCy.
-    - Implemented with `ndarray` and f32, plus a BLAS-free matmul that accumulates in a fixed order. `candle` is an alternative if it matches.
-    - Acceptance: entity spans and labels equal spaCy's on the corpus, and the stated tolerances hold.
-  - **11d. Remaining pipeline.**
-    - The shared `tok2vec`.
-    - `tagger`: softmax over the tag inventory, argmax.
-    - `parser`: arc-eager transitions with the exported label set, then deprojectivisation of the pseudo-projective labels (`nonproj`), as spaCy applies after parsing. This step is listed explicitly because it is easy to miss.
-    - `attribute_ruler`: the subset of `Matcher` pattern semantics that the exported patterns use. Each pattern operator used is enumerated, and an unsupported one is a build error.
-    - Rule `lemmatizer`: `lemma_rules`, `lemma_exc` and `lemma_index` by universal POS, with the lookup fallback.
-    - Also verified from the source: whether `ner` reads sentence boundaries set by the parser. If so, the parser must run first, as it does in spaCy's pipeline order.
-  - **11e. Crate API and Privoke wiring.**
-    - Public API: `Pipeline::load(dir)`; `Pipeline::process(&str) -> Doc`; `Pipeline::process_with(&str, Components)` for the post-filter's tagger-only sub-pipeline; `Doc` with tokens (the fields above) and entities; `Pipeline::lemma_index()`.
-    - No Python in the crate. `cargo test` covers the golden comparison. The exported model data is not committed if the user prefers; in that case it is regenerated by `export_spacy.py` with digest checks.
-- Depends on: stage 0 (the declared corpus hashes come from the conformance capture), and none of the Privoke server stages.
+- **Objective.** Give the Rust NER layer (stage 13) spaCy's exact output through a small, supervised spaCy worker.
+- **Choice: a pool of supervised worker processes, not a dedicated interpreter thread.**
+  - Each worker is a small Rust binary, `privoke-spacy-worker`. It embeds CPython through PyO3, calls `spacy.load("en_core_web_sm")` once at start-up, and serves requests over a local length-prefixed protocol on stdin/stdout pipes.
+  - The Rust runtime (stage 17) owns the pool. It starts N workers (default 1 on the workstation, configurable on the server), restarts a worker that exits, crashes or misses its deadline, and routes each request to an idle worker.
+  - **Why processes rather than a thread:**
+    - **Crash isolation.** A segfault, OOM or deadlock in spaCy, thinc or NumPy, or a GIL held forever, kills or stalls only that worker. With a thread inside the runtime it would kill or stall the runtime, and with it the extension's inspection path.
+    - **Throughput.** It scales past the single-GIL limit by adding processes. spaCy's C extensions do not support sub-interpreters, so a thread design can never exceed one document at a time.
+    - **Memory.** Each worker's memory is bounded and reclaimed on restart.
+  - The cost is one local pipe hop per document. It is measured in stage 17 against the current in-process Python call, and it should be small next to the measured NER-layer cost (C55, about 27 ms combined median). That figure is an estimate until measured.
+- **Worker protocol.**
+  - Request: text, plus a pipe selection — full pipeline, or the post-filter's tagger-only sub-pipeline (`select_pipes(enable=tok2vec, tagger, attribute_ruler, lemmatizer)`) on lowercased phrases.
+  - Response, per token: `text`, `idx`, `whitespace_`, `is_alpha`, `lower_`, `tag_`, `pos_`, `lemma_`, `dep_`, `head.i`. Plus the entities (`start_char`, `end_char`, `label_`).
+  - A one-time `lemma_index` word-list request, for the post-filter's lexicon.
+  - Python objects never leave the worker.
+  - The caseless gate and the post-filter are Rust logic (stage 13). GLiNER (stage 15) uses the same worker with `ner` disabled.
+- **Back-pressure and limits.**
+  - A bounded queue, returning `RESOURCE_EXHAUSTED` when full.
+  - A per-request deadline below the bridge's 30 s.
+  - A maximum text length equal to the runtime's current limit.
+  - A worker that times out is killed and restarted, and the request returns `UNAVAILABLE`.
+  - A failed NER layer then blocks an otherwise ALLOW decision, as the Python pipeline does today.
+- **Packaging (bundled venv).**
+  - A relocatable CPython 3.11 runtime and a venv, shipped beside the runtime binary in the Docker images and the workstation installer.
+  - The venv is built from pinned wheels with hashes: `spacy==3.7.5`, `thinc==8.2.5`, the `en_core_web_sm` 3.7.1 wheel (URL and SHA-256 as pinned in `extension/client-runtime/requirements*.txt`), and their pinned dependencies.
+  - It is built from wheels, not copied from a developer venv.
+  - PyO3 builds against that exact interpreter (no `abi3`, because spaCy's compiled extensions pin the minor version).
+  - The worker sets `PYTHONHOME`, `sys.path` and, on Windows, the DLL search path explicitly, and ignores the user's Python environment.
+- **Licensing.** spaCy, thinc and the model are bundled unchanged, with their own `LICENSE` files and the model's `LICENSES_SOURCES`. The model's `meta.json` declares MIT, with the sources OntoNotes 5, ClearNLP and WordNet 3.0. The bundle build fails if these files are missing.
+- **Workspace isolation (N7).**
+  - Stage 11 writes only on the non-submission branch of this plan's worktree (or its successor branch). It writes nothing in the submission worktree or the main checkout (`D:/Git Repositories/Privoke-Research-Project`).
+  - Its access to `evaluation/.venv-v1-v3-pipeline` (the reference for the smoke test) and to the stage 0 hashes is read-only.
+  - Golden output derived from recorded sets is generated locally into an ignored directory and is not committed.
+- Depends on: stage 1
 - Owned paths:
-  - the whole `D:/Git Repositories/Privoke-NER` repository
-  - in Privoke, only the `privoke-ner` dependency line in `rust/Cargo.toml` and the lockfile
-- Acceptance checks. This is the NER parity criterion, run by `cargo test --release -p privoke-ner -- --include-ignored golden` in the NER repository:
-  - **Required:** on the declared corpus, the entity spans (`start_char`, `end_char`) and labels from `ner` are exactly equal to spaCy's, for every document, in both default and `fold_case` input.
-  - The report gives the agreement rate (documents with identical entities over all documents, and entity-level exact match). The stage passes only at 100%. Any disagreement is listed with its first divergent action and the score margin.
-  - **Tokens:** `tag_`, `pos_`, `lemma_`, `dep_` and `head` are equal on 100% of tokens. The post-filter sub-pipeline on lowercased phrases is equal on 100% of phrases.
-  - **Float tolerance on intermediate activations**, reported in each run: `Tok2Vec` outputs and precomputed hidden features within an absolute 1e-4 and a relative 1e-3 of thinc float32. Action scores are within 1e-4, and when the top-two margin is below 1e-4 the case is flagged for review rather than passed silently.
-  - Speed and peak memory are measured against spaCy in the same session. They are reported, not gated.
+  - `rust/crates/privoke-spacy/`, the client used by stage 13
+  - `rust/services/spacy-worker/`
+  - the bundled-venv build script and its pin file
+- Acceptance checks:
+  - **NER smoke test.** On a small declared corpus (about 200 documents: a sample of the recorded NER sets, read-only by hash, plus a synthetic stress set of URLs, emoji, CJK, zero-width characters and all-caps or all-lowercase text), the worker's output (tokens, all fields above, and entities) is byte-identical to direct Python spaCy in `evaluation/.venv-v1-v3-pipeline`, for both the full and tagger-only selections. Identity is expected by construction; a mismatch indicates a packaging or version fault.
+  - The bundle reports exactly spaCy 3.7.5, thinc 8.2.5 and `en_core_web_sm` 3.7.1 at start-up, and the runtime refuses to start otherwise.
+  - The runtime starts from the bundle with no system Python on `PATH`, on Windows and Linux.
+  - Killing a worker in the middle of a request gives `UNAVAILABLE` for that request, and the pool recovers.
+  - The queue-full and deadline paths are tested.
 - Status: pending
 - Outcome:
 - Handoff notes:
-  - **Later options**, not in this stage:
-    - `en_core_web_lg`: adds static vectors (`include_static_vectors`, a vectors table keyed by the string hash) on top of the same architecture, so it is a small extension.
-    - `en_core_web_trf`: a RoBERTa transformer listener, on `candle` with the `tokenizers` crate; a large extension, with separate parity tolerance.
-  - The paper notes that the user held the larger model and it is not shipped, so neither option changes the default.
+  - The runtime keeps a Python dependency for spaCy only; every other analysis component is Rust after stage 17.
+  - The earlier rejection of embedding CPython (see the [boundary](#pythonrust-boundary) table) remains for torch and the whole runtime. For spaCy alone, the out-of-process pool answers its crash and GIL objections. The remaining objection, packaging, is handled by the bundled venv.
+  - `en_core_web_lg` or `trf` would only be a pin change in the bundle; the default is unchanged.
 
 ## Stage 12: Regex rules and preprocessing in Rust (D2)
 
@@ -764,7 +733,7 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
 
 ## Stage 13: NER layer and post-filter in Rust (D1)
 
-- Objective: build `privoke-ner-layer` in the Privoke workspace on top of `privoke-ner`. It ports:
+- Objective: build `privoke-ner-layer` in the Privoke workspace, using the stage 11 spaCy worker. It ports:
   - `NER/ner_detector.py`, including the caseless gate (`has_case_signal`, `fold_case`, `CASELESS_DISABLED_RULES`)
   - `NER/ner_postfilter.py` (both stages and all rules, including `_english_lexicon` from `lemma_index`)
   - `NER/pattern_entity_detector.py`
@@ -774,6 +743,7 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
 - Owned paths: `rust/crates/privoke-ner-layer/`
 - Acceptance checks:
   - Identical NER-layer results, and identical post-filter decision logs (rule, candidate, outcome), on all recorded NER sets, for the default and caseless settings and each robustness flag.
+  - Golden data derived from recorded sets is generated locally into an ignored directory and is not committed.
   - The golden output comes from Python with an explicit NER-only layer selection.
 - Status: pending
 - Outcome:
@@ -797,7 +767,7 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
 
 ## Stage 15: GLiNER backend (D9)
 
-- Objective: port `NER/gliner_detector.py` as an optional backend. It uses `gline-rs` or `ort` for the model and `privoke-ner` (with `ner` disabled) for the spaCy tokens and parse it reads.
+- Objective: port `NER/gliner_detector.py` as an optional backend. It uses `gline-rs` or `ort` for the model and the stage 11 spaCy worker (with `ner` disabled) for the spaCy tokens and parse it reads.
 - Depends on: stages 11 and 13
 - Owned paths: `rust/crates/privoke-ner-layer/src/gliner*`
 - Acceptance checks: identical spans at the frozen label preset and threshold on the C53 sets.
@@ -821,14 +791,19 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
 ## Stage 17: Rust analysis runtime (integrates D1 to D3, D9, D10)
 
 - Objective: implement `PrivokeRuntimeService` analysis RPCs (`AnalyzePrompt`, `DetectAnnotationPresence`, `Health`) in Rust. This covers the `pipeline.py`, `model.py`, `classification/*` and `task_readout.py` logic, and it runs as the supervisor's child process instead of the Python worker.
-  - This is needed to use the approved ports. It implies porting the pipeline and policy aggregation, which no D item named explicitly, so root should confirm it is within the approval.
+  - Root settled that the pipeline and policy aggregation are within the user's approval, because they are server logic.
+  - It also includes D11: model package and legacy stream fetch, with pin, shape and finite checks, into the same cache layout. Root approved this as networking work.
   - The gradient RPCs stay on the Python worker until stage 19. The supervisor routes each RPC by path to the Rust or Python worker.
 - Depends on: stages 7, 9, 12, 13, 14 and 16
 - Owned paths:
   - `rust/services/runtime/`
   - the supervisor routing in `rust/services/runtime-supervisor/`
 - Acceptance checks:
-  - `AnalyzePromptResponse` is byte-identical to the Python worker for each explicit layer selection (regex, NER, semantic, regex+NER, full) on the corpus. LLM-only results are reported separately from product results.
+  - **Decisions must be identical.** For each explicit layer selection (regex, NER, semantic, regex+NER, full) on the corpus, these are identical to the Python worker: action, sensitivity, severity, category, visibility, and the per-layer findings (layer, span, label, rule or signal).
+  - **Floating-point fields** (confidences, scores, probabilities) are compared after rounding to 6 decimal places, or within an absolute 1e-5, which is consistent with the stage 14 logit tolerance. The rule is declared in `tests/conformance/normalization.toml`.
+  - **Byte equality** of the serialised `AnalyzePromptResponse` is required only for regex-only and NER-only selections, which involve no model floats beyond spaCy parity.
+  - LLM-only (semantic-only) results are reported separately from product results.
+  - D11: the Rust fetch writes a package cache byte-identical to the Python fetch's, and it rejects the same pin, shape and finite-value violations.
   - Extension tests pass.
 - Status: pending
 - Outcome:
@@ -857,7 +832,9 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
 - Acceptance checks:
   - Gradients and parameter deltas are within an absolute 1e-6 relative to the Python output under the same seed and threads. Bitwise equality is reported where achieved.
   - Accepted and rejected guard outcomes are identical on replayed recorded runs.
-  - Published artifact bytes are identical where the recorded run was deterministic.
+  - **Byte equality of published artifacts** is required only for runs where the gradients themselves were bitwise equal to the Python output.
+  - **Every other run** compares artifacts with a tolerance: same version, tensor inventory and shapes; per-coordinate parameter values within 1e-6 absolute; same canonical metadata.
+  - The report counts runs in each category.
 - Status: pending
 - Outcome:
 - Handoff notes: CUDA parity is out of scope unless requested.
@@ -899,11 +876,11 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
 
 ## Port assessments (D1 to D11)
 
-These assessments informed the user's decision. D1 to D10 are approved and staged above. D11 is pending.
+These assessments informed the user's decision. D1 to D10 are approved and staged above. D11 is approved by root as networking work and is done in stage 17.
 
 "Lost" lists what a port invalidates or gives up until its stage revalidates it. Effort is S, M or L, and risk refers to the risk of not reaching parity.
 
-### D1. spaCy NER layer
+### D1. spaCy NER layer (resolved by PyO3 binding, user decision 16 Nov)
 
 - **Code:** `extension/client-runtime/src/NER/{ner_detector,ner_postfilter,pattern_entity_detector,use_cases}.py` with `en_core_web_sm` 3.7.1.
 - **Feasibility:** there is no Rust spaCy, so no off-the-shelf port exists. The post-filter depends on the tagger's lowercased-token reading, the parser's dependencies and the model's word list.
@@ -911,7 +888,7 @@ These assessments informed the user's decision. D1 to D10 are approved and stage
   - (a) A different token-classification model through `ort` (ONNX Runtime) or `candle`, with the `tokenizers` crate. Ready-made pipelines exist, such as `rust-bert` NER on `tch-rs`.
   - (b) A hand-built gazetteer and rules engine.
   - Both are new detectors, not ports.
-- **Chosen by the user:** option (c), a faithful reimplementation of the `en_core_web_sm` pipeline in a separate crate. See stage 11.
+- **Resolved by the user (16 November 2026), "Use PyO3":** spaCy is called unchanged through PyO3 in a supervised worker pool (stage 11). It is not reimplemented, so detector parity is preserved by construction. The earlier choice of a separate-repository reimplementation was withdrawn. Effort for the engine: S to M.
 - **Lost:** detector parity. All regex+NER evidence is measured with spaCy: C2, C44 to C55, the installed probes, the Presidio comparison context, and the paper text describing spaCy and the post-filter.
 - **Effort:** L. **Risk:** high.
 
@@ -1021,14 +998,14 @@ These assessments informed the user's decision. D1 to D10 are approved and stage
 - **Lost:** nothing measurable. The prompt construction in `LLM/prompt.py` must be byte-identical.
 - **Effort:** S. **Risk:** low.
 
-### D11. Model package fetch in the Rust supervisor (added in r2; not approved, pending user decision)
+### D11. Model package fetch in Rust (added in r2; approved by root as networking work, done in stage 17)
 
 - **Code:** `extension/client-runtime/src/LLM/privoke/{v3_package,parameter_stream}.py`
 - **What it is:** not inference. It is listed here because it changes an evidence path: the installed-client probes and the V3 timing measured the Python fetch.
 - **Rust options:** a `tonic` client in the supervisor (or in the stage 17 runtime). It writes the same cache layout and performs the same pin, shape and finite-value checks.
 - **Lost:** nothing, if the cache bytes and the rejection behaviour are identical. The installed-client claims need a rerun to be claimed for the new path.
 - **Effort:** S to M. **Risk:** low.
-- **Note:** if the user approves it, it becomes part of stage 17.
+- **Note:** this is done in stage 17.
 
 ## Rejected alternatives and revisit conditions
 
@@ -1039,4 +1016,4 @@ These assessments informed the user's decision. D1 to D10 are approved and stage
 - **Rewrite before the deadline.** Rejected: it would change the system the paper and artifact describe while they are being finalised.
 - **Revisit triggers for the boundary:**
   - Loopback hop latency exceeds the run-to-run spread.
-  - Stages 17 to 22 complete (the approved D ports). The Python worker then disappears from the runtime path, and the boundary reduces to the supervisor and the Rust runtime.
+  - Stages 17 to 22 complete (the approved D ports). The Python runtime worker then disappears, and only the PyO3 spaCy worker pool (stage 11) remains Python.
