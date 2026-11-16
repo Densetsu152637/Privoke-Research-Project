@@ -49,6 +49,23 @@ The 24 October instruction **"Test all of these in parallel and integrate promis
 
 Boundaries. All of this is detector-layer evidence (regex, NER, their union; explicit layers, execution asserted) and stays separate from semantic-only units 3 and 5 and from full-product units 1, 2, 4 and 6. The full-product rerun of units 1 and 2 and the installed probes and cost studies of units 4 and 6 predate K and must be described as such. Report negative and inconclusive results plainly (the loss against the original detectors, the failed H2, the inconclusive H7, the dropped GLiNER model, the circular H5 and trivial H6 passes). Do not claim that the registered promotion rule was met, that K improves recall against the original detectors, that robustness fixes or larger NER models are shipped, or any F2 specificity or contextual-authorization result (F2 adjudication and the label-noise audit are pending). This entry authorizes no new execution and no further excluded study; numerical results enter the manuscript only from the cited records.
 
+## ASIACCS 2027 revision authorization, 16 November 2026
+
+The user instructed on 16 November 2026: **"Read the email conversation, and work on any outstanding improvements."** That instruction refers to the supervisor's review thread ("Paper Completion", 15 October to 13 November 2026). It authorizes the improvements that thread still leaves open, tracked in the [ASIACCS revision plan](../docs/plans/asiaccs-2027-revision.md). This entry supersedes the format of the 18 October entry above, but nothing else in it:
+
+- **Format.** Use the ACM `acmart` `sigconf` template as an anonymous submission, with `\bibliographystyle{ACM-Reference-Format}` and `\bibliography{sample-base}`. Limit the main paper to 12 pages; references and appendices together may add up to 10 more pages. Remove all author details from the paper and the released code. The IEEEtran four-author format, the no-page-limit rule and the `\scriptsize` exceptions are historical. ACM typography must not be altered.
+- **Presentation.** Make Tables I–III and the appendices more concise. State the methodology and system behavior mathematically where appropriate. Add pseudocode for the main PriVoke workflow and the guarded update, and present key findings as graphs. Make each security property explicit and link it to its experiment. Distinguish the standard V3 path from the legacy update path. Specify the guarded-update acceptance and rejection conditions formally.
+- **New experiments authorized for execution and, once recorded, for manuscript coverage.** Four experiments are authorized:
+  - End-to-end adversarial privacy-evasion evaluation, reporting attack success rate (ASR). This is a product end-to-end task, so the full pipeline is permitted, with results kept separate from LLM-only results.
+  - Security testing of the guarded update mechanism.
+  - Authentication and communication-security negative tests.
+  - A WARN intervention experiment (WARN+CONFIRM or WARN+MASK/EDIT).
+  
+  Each new experiment becomes a new evidence unit numbered after unit 8, with its own record under `research/`.
+- **Not executable by agents.** The independent human-labelled contextual dataset needs at least two human annotators. Agents may prepare its materials but must not generate or simulate the human labels.
+
+The excluded families below remain excluded. The separation rules and the source-pool preservation rules still apply. Numerical results enter the manuscript only from the cited records.
+
 ## RQ1: Detection and enforcement
 
 1. **Full-product contextual package comparison, all three tiers.** Retain historical and updated efficient, balanced and quality packages on the same 1,560 authored provisional cases (810 sensitive, 750 clean). Distinguish label-and-action joint agreement, allowed-action agreement and binary classification. Keep paired gains and losses, the shared 139 unnecessary restrictions, package/configuration confounds and the absence of independently adjudicated contextual truth. This is full-product evidence with actual cascade execution recorded, not a semantic-only result. See [pipeline aggregates](research/pipeline-comparison-20261014.json).
