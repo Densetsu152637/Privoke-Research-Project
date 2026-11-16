@@ -1,0 +1,36 @@
+# Comparison rules for the Rust conformance replay (goal G5 of docs/plans/rust-server-rewrite.md).
+# Anything not listed here is compared byte for byte with no normalisation.
+
+[byte_equality]
+# No normalisation. Artifacts hash with CRLF folded to LF because the Python writer uses text mode.
+surfaces = [
+  "canonical_json",
+  "checksums",
+  "fingerprints",
+  "contract_configs",
+  "model_streaming.legacy",
+  "model_streaming.v3",
+  "native_messaging",
+  "grpc_web",
+  "update_sequence.steps.artifact_after",
+]
+
+[receipts_and_audit]
+# Byte equality after these replacements. Client-supplied request_id, base_version, digests and
+# versions are never replaced.
+timestamp_fields = ["timestamp", "time"]
+timestamp_suffix = "_at"
+timestamp_placeholder = "<TS>"
+# UUIDs the server generated (not supplied by the request) become <ID:n>, numbered by first appearance.
+generated_id_placeholder = "<ID:{n}>"
+
+[telemetry]
+# Integer counts and stored marginals are exact. Estimator outputs are compared as IEEE-754 bits.
+integer_fields_exact = true
+float_tolerance_ulps = 4
+
+[informational]
+# Recorded for reference, not compared: wording that comes from the Python standard library or the gRPC core.
+native_messaging_error_messages = "entries with message_is_informational"
+http_error_page_bodies = "grpc_web responses with status >= 400"
+unreachable_runtime_trailer = "grpc_web label runtime-service-unreachable"

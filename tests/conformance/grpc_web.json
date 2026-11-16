@@ -1,0 +1,508 @@
+{
+ "control_timeout_seconds": 35.0,
+ "exchanges": [
+  {
+   "label": "preflight-extension-origin",
+   "request": {
+    "body_hex": "",
+    "headers": {
+     "Access-Control-Request-Method": "POST"
+    },
+    "method": "OPTIONS",
+    "origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+    "path": "/privoke.v1.PrivokeRuntimeControlService/Status"
+   },
+   "response": {
+    "body_hex": "",
+    "frames": [],
+    "headers": {
+     "access-control-allow-headers": "content-type,x-grpc-web,x-user-agent,grpc-timeout",
+     "access-control-allow-methods": "POST,OPTIONS",
+     "access-control-allow-origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+     "access-control-max-age": "86400",
+     "vary": "Origin"
+    },
+    "status": 204
+   }
+  },
+  {
+   "label": "preflight-localhost-origin",
+   "request": {
+    "body_hex": "",
+    "headers": {},
+    "method": "OPTIONS",
+    "origin": "http://localhost",
+    "path": "/privoke.v1.PrivokeRuntimeControlService/Status"
+   },
+   "response": {
+    "body_hex": "",
+    "frames": [],
+    "headers": {
+     "access-control-allow-headers": "content-type,x-grpc-web,x-user-agent,grpc-timeout",
+     "access-control-allow-methods": "POST,OPTIONS",
+     "access-control-allow-origin": "http://localhost",
+     "access-control-max-age": "86400",
+     "vary": "Origin"
+    },
+    "status": 204
+   }
+  },
+  {
+   "label": "preflight-127-origin",
+   "request": {
+    "body_hex": "",
+    "headers": {},
+    "method": "OPTIONS",
+    "origin": "http://127.0.0.1",
+    "path": "/privoke.v1.PrivokeRuntimeControlService/Status"
+   },
+   "response": {
+    "body_hex": "",
+    "frames": [],
+    "headers": {
+     "access-control-allow-headers": "content-type,x-grpc-web,x-user-agent,grpc-timeout",
+     "access-control-allow-methods": "POST,OPTIONS",
+     "access-control-allow-origin": "http://127.0.0.1",
+     "access-control-max-age": "86400",
+     "vary": "Origin"
+    },
+    "status": 204
+   }
+  },
+  {
+   "label": "preflight-moz-extension",
+   "request": {
+    "body_hex": "",
+    "headers": {},
+    "method": "OPTIONS",
+    "origin": "moz-extension://{12345678-1234-1234-1234-123456789abc}",
+    "path": "/privoke.v1.PrivokeRuntimeControlService/Status"
+   },
+   "response": {
+    "body_hex": "",
+    "frames": [],
+    "headers": {
+     "access-control-allow-headers": "content-type,x-grpc-web,x-user-agent,grpc-timeout",
+     "access-control-allow-methods": "POST,OPTIONS",
+     "access-control-allow-origin": "moz-extension://{12345678-1234-1234-1234-123456789abc}",
+     "access-control-max-age": "86400",
+     "vary": "Origin"
+    },
+    "status": 204
+   }
+  },
+  {
+   "label": "preflight-foreign-origin",
+   "request": {
+    "body_hex": "",
+    "headers": {},
+    "method": "OPTIONS",
+    "origin": "https://example.com",
+    "path": "/privoke.v1.PrivokeRuntimeControlService/Status"
+   },
+   "response": {
+    "body_hex": "informational",
+    "body_sha256_informational": "edc8240a7033b7684c56984c48617895eb3241b02e6ce5422e787844bb9c9a65",
+    "frames": [],
+    "headers": {
+     "content-type": "text/html;charset=utf-8"
+    },
+    "status": 403
+   }
+  },
+  {
+   "label": "preflight-no-origin",
+   "request": {
+    "body_hex": "",
+    "headers": {},
+    "method": "OPTIONS",
+    "origin": null,
+    "path": "/privoke.v1.PrivokeRuntimeControlService/Status"
+   },
+   "response": {
+    "body_hex": "informational",
+    "body_sha256_informational": "edc8240a7033b7684c56984c48617895eb3241b02e6ce5422e787844bb9c9a65",
+    "frames": [],
+    "headers": {
+     "content-type": "text/html;charset=utf-8"
+    },
+    "status": 403
+   }
+  },
+  {
+   "label": "preflight-near-miss-origin",
+   "request": {
+    "body_hex": "",
+    "headers": {},
+    "method": "OPTIONS",
+    "origin": "http://localhost:8080",
+    "path": "/privoke.v1.PrivokeRuntimeControlService/Status"
+   },
+   "response": {
+    "body_hex": "informational",
+    "body_sha256_informational": "edc8240a7033b7684c56984c48617895eb3241b02e6ce5422e787844bb9c9a65",
+    "frames": [],
+    "headers": {
+     "content-type": "text/html;charset=utf-8"
+    },
+    "status": 403
+   }
+  },
+  {
+   "label": "status-stopped",
+   "request": {
+    "body_hex": "0000000000",
+    "headers": {
+     "Content-Type": "application/grpc-web+proto",
+     "X-Grpc-Web": "1"
+    },
+    "method": "POST",
+    "origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+    "path": "/privoke.v1.PrivokeRuntimeControlService/Status"
+   },
+   "response": {
+    "body_hex": "0000000023120753544f505045441a18666978656420636f6e666f726d616e6365207374617475738000000010677270632d7374617475733a20300d0a",
+    "frames": [
+     {
+      "flag": 0,
+      "payload_hex": "120753544f505045441a18666978656420636f6e666f726d616e636520737461747573"
+     },
+     {
+      "flag": 128,
+      "payload_hex": "677270632d7374617475733a20300d0a"
+     }
+    ],
+    "headers": {
+     "access-control-allow-origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+     "access-control-expose-headers": "grpc-status,grpc-message",
+     "content-type": "application/grpc-web+proto",
+     "vary": "Origin"
+    },
+    "status": 200
+   }
+  },
+  {
+   "label": "enable-runtime",
+   "request": {
+    "body_hex": "00000000020801",
+    "headers": {
+     "Content-Type": "application/grpc-web+proto",
+     "X-Grpc-Web": "1"
+    },
+    "method": "POST",
+    "origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+    "path": "/privoke.v1.PrivokeRuntimeControlService/SetRuntimeEnabled"
+   },
+   "response": {
+    "body_hex": "00000000280801120752554e4e494e471a18666978656420636f6e666f726d616e6365207374617475732092218000000010677270632d7374617475733a20300d0a",
+    "frames": [
+     {
+      "flag": 0,
+      "payload_hex": "0801120752554e4e494e471a18666978656420636f6e666f726d616e636520737461747573209221"
+     },
+     {
+      "flag": 128,
+      "payload_hex": "677270632d7374617475733a20300d0a"
+     }
+    ],
+    "headers": {
+     "access-control-allow-origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+     "access-control-expose-headers": "grpc-status,grpc-message",
+     "content-type": "application/grpc-web+proto",
+     "vary": "Origin"
+    },
+    "status": 200
+   }
+  },
+  {
+   "label": "status-running",
+   "request": {
+    "body_hex": "0000000000",
+    "headers": {
+     "Content-Type": "application/grpc-web+proto",
+     "X-Grpc-Web": "1"
+    },
+    "method": "POST",
+    "origin": "http://127.0.0.1",
+    "path": "/privoke.v1.PrivokeRuntimeControlService/Status"
+   },
+   "response": {
+    "body_hex": "00000000280801120752554e4e494e471a18666978656420636f6e666f726d616e6365207374617475732092218000000010677270632d7374617475733a20300d0a",
+    "frames": [
+     {
+      "flag": 0,
+      "payload_hex": "0801120752554e4e494e471a18666978656420636f6e666f726d616e636520737461747573209221"
+     },
+     {
+      "flag": 128,
+      "payload_hex": "677270632d7374617475733a20300d0a"
+     }
+    ],
+    "headers": {
+     "access-control-allow-origin": "http://127.0.0.1",
+     "access-control-expose-headers": "grpc-status,grpc-message",
+     "content-type": "application/grpc-web+proto",
+     "vary": "Origin"
+    },
+    "status": 200
+   }
+  },
+  {
+   "label": "model-streaming-health",
+   "request": {
+    "body_hex": "0000000000",
+    "headers": {
+     "Content-Type": "application/grpc-web+proto",
+     "X-Grpc-Web": "1"
+    },
+    "method": "POST",
+    "origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+    "path": "/privoke.v1.PrivokeRuntimeControlService/ModelStreamingHealth"
+   },
+   "response": {
+    "body_hex": "00000000220a176d6f64656c2d73747265616d696e672d73657276696365120753455256494e478000000010677270632d7374617475733a20300d0a",
+    "frames": [
+     {
+      "flag": 0,
+      "payload_hex": "0a176d6f64656c2d73747265616d696e672d73657276696365120753455256494e47"
+     },
+     {
+      "flag": 128,
+      "payload_hex": "677270632d7374617475733a20300d0a"
+     }
+    ],
+    "headers": {
+     "access-control-allow-origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+     "access-control-expose-headers": "grpc-status,grpc-message",
+     "content-type": "application/grpc-web+proto",
+     "vary": "Origin"
+    },
+    "status": 200
+   }
+  },
+  {
+   "label": "disable-runtime",
+   "request": {
+    "body_hex": "0000000000",
+    "headers": {
+     "Content-Type": "application/grpc-web+proto",
+     "X-Grpc-Web": "1"
+    },
+    "method": "POST",
+    "origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+    "path": "/privoke.v1.PrivokeRuntimeControlService/SetRuntimeEnabled"
+   },
+   "response": {
+    "body_hex": "0000000023120753544f505045441a18666978656420636f6e666f726d616e6365207374617475738000000010677270632d7374617475733a20300d0a",
+    "frames": [
+     {
+      "flag": 0,
+      "payload_hex": "120753544f505045441a18666978656420636f6e666f726d616e636520737461747573"
+     },
+     {
+      "flag": 128,
+      "payload_hex": "677270632d7374617475733a20300d0a"
+     }
+    ],
+    "headers": {
+     "access-control-allow-origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+     "access-control-expose-headers": "grpc-status,grpc-message",
+     "content-type": "application/grpc-web+proto",
+     "vary": "Origin"
+    },
+    "status": 200
+   }
+  },
+  {
+   "label": "control-unknown-method-grpc-unimplemented",
+   "request": {
+    "body_hex": "0000000000",
+    "headers": {
+     "Content-Type": "application/grpc-web+proto",
+     "X-Grpc-Web": "1"
+    },
+    "method": "POST",
+    "origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+    "path": "/privoke.v1.PrivokeRuntimeControlService/Nope"
+   },
+   "response": {
+    "body_hex": "8000000038677270632d7374617475733a2031320d0a677270632d6d6573736167653a204d6574686f642532306e6f74253230666f756e642532310d0a",
+    "frames": [
+     {
+      "flag": 128,
+      "payload_hex": "677270632d7374617475733a2031320d0a677270632d6d6573736167653a204d6574686f642532306e6f74253230666f756e642532310d0a"
+     }
+    ],
+    "headers": {
+     "access-control-allow-origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+     "content-type": "application/grpc-web+proto",
+     "vary": "Origin"
+    },
+    "status": 200
+   }
+  },
+  {
+   "label": "runtime-service-unreachable",
+   "request": {
+    "body_hex": "0000000000",
+    "headers": {
+     "Content-Type": "application/grpc-web+proto",
+     "X-Grpc-Web": "1"
+    },
+    "method": "POST",
+    "origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+    "path": "/privoke.v1.PrivokeRuntimeService/AnalyzeText"
+   },
+   "response": {
+    "body_hex": "informational",
+    "frames": [
+     {
+      "flag": 128,
+      "payload_hex": "informational"
+     }
+    ],
+    "headers": {
+     "access-control-allow-origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+     "content-type": "application/grpc-web+proto",
+     "vary": "Origin"
+    },
+    "status": 200
+   }
+  },
+  {
+   "label": "post-foreign-origin",
+   "request": {
+    "body_hex": "0000000000",
+    "headers": {
+     "Content-Type": "application/grpc-web+proto",
+     "X-Grpc-Web": "1"
+    },
+    "method": "POST",
+    "origin": "https://example.com",
+    "path": "/privoke.v1.PrivokeRuntimeControlService/Status"
+   },
+   "response": {
+    "body_hex": "informational",
+    "body_sha256_informational": "edc8240a7033b7684c56984c48617895eb3241b02e6ce5422e787844bb9c9a65",
+    "frames": [],
+    "headers": {
+     "content-type": "text/html;charset=utf-8"
+    },
+    "status": 403
+   }
+  },
+  {
+   "label": "post-no-origin",
+   "request": {
+    "body_hex": "0000000000",
+    "headers": {
+     "Content-Type": "application/grpc-web+proto",
+     "X-Grpc-Web": "1"
+    },
+    "method": "POST",
+    "origin": null,
+    "path": "/privoke.v1.PrivokeRuntimeControlService/Status"
+   },
+   "response": {
+    "body_hex": "informational",
+    "body_sha256_informational": "edc8240a7033b7684c56984c48617895eb3241b02e6ce5422e787844bb9c9a65",
+    "frames": [],
+    "headers": {
+     "content-type": "text/html;charset=utf-8"
+    },
+    "status": 403
+   }
+  },
+  {
+   "label": "unknown-path",
+   "request": {
+    "body_hex": "0000000000",
+    "headers": {
+     "Content-Type": "application/grpc-web+proto",
+     "X-Grpc-Web": "1"
+    },
+    "method": "POST",
+    "origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+    "path": "/other.Service/Method"
+   },
+   "response": {
+    "body_hex": "informational",
+    "body_sha256_informational": "c96cf8ce66abd86013abd1e0052663681b6d57a5b0920274cea85b3060759aaa",
+    "frames": [],
+    "headers": {
+     "content-type": "text/html;charset=utf-8"
+    },
+    "status": 404
+   }
+  },
+  {
+   "label": "bad-frame-flag",
+   "request": {
+    "body_hex": "0100000000",
+    "headers": {
+     "Content-Type": "application/grpc-web+proto",
+     "X-Grpc-Web": "1"
+    },
+    "method": "POST",
+    "origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+    "path": "/privoke.v1.PrivokeRuntimeControlService/Status"
+   },
+   "response": {
+    "body_hex": "informational",
+    "body_sha256_informational": "340c750da346da75501bb595636e2f8d225ddfc41c01ef74d458b53db8e4523f",
+    "frames": [],
+    "headers": {
+     "content-type": "text/html;charset=utf-8"
+    },
+    "status": 400
+   }
+  },
+  {
+   "label": "bad-frame-length",
+   "request": {
+    "body_hex": "00000000096162",
+    "headers": {
+     "Content-Type": "application/grpc-web+proto",
+     "X-Grpc-Web": "1"
+    },
+    "method": "POST",
+    "origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+    "path": "/privoke.v1.PrivokeRuntimeControlService/Status"
+   },
+   "response": {
+    "body_hex": "informational",
+    "body_sha256_informational": "d1b22c9d6d9acecef7f3be65138969bc482e3b32f9f092fa9423b39927f38740",
+    "frames": [],
+    "headers": {
+     "content-type": "text/html;charset=utf-8"
+    },
+    "status": 400
+   }
+  },
+  {
+   "label": "short-body",
+   "request": {
+    "body_hex": "0000",
+    "headers": {
+     "Content-Type": "application/grpc-web+proto",
+     "X-Grpc-Web": "1"
+    },
+    "method": "POST",
+    "origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+    "path": "/privoke.v1.PrivokeRuntimeControlService/Status"
+   },
+   "response": {
+    "body_hex": "informational",
+    "body_sha256_informational": "340c750da346da75501bb595636e2f8d225ddfc41c01ef74d458b53db8e4523f",
+    "frames": [],
+    "headers": {
+     "content-type": "text/html;charset=utf-8"
+    },
+    "status": 400
+   }
+  }
+ ],
+ "note": "Real GrpcWebBridge in front of the real PrivokeRuntimeControlService with a fixed supervisor. PrivokeRuntimeService needs torch and is exercised only as an unreachable upstream.",
+ "runtime_timeout_seconds": 30.0,
+ "schema": 1
+}

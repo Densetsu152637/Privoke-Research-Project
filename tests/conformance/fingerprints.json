@@ -1,0 +1,54 @@
+{
+ "schema": 1,
+ "synthetic": [
+  {
+   "expected_with_shapes": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "expected_without_shapes": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+   "name": "empty",
+   "parameters_json": "{}",
+   "shapes_json": "{}"
+  },
+  {
+   "expected_with_shapes": "9b2e005b83fbb2358c94468d10b4be983148aaeea0e2625bf232836220ed36e9",
+   "expected_without_shapes": "aedad55b634a552929834df2f9fcf9797c2ba51c700f735d5e207250c7a74f74",
+   "name": "one",
+   "parameters_json": "{\"w\": [0.0, -0.0, 1.0]}",
+   "shapes_json": "{\"w\": [3]}"
+  },
+  {
+   "expected_with_shapes": "036fa7d845e793bbe1e12bee2e0e76caab834baafeeb195bf1c1d067c6b52949",
+   "expected_without_shapes": "57884cac5f99a74ff1a643402349e23ac0386c7b9bfdd8ea2420fc5d678cb16e",
+   "name": "unicode-order",
+   "parameters_json": "{\"\\u00e9\": [1.0], \"z\": [2.0], \"A\": [3.0], \"\\ud83d\\ude00\": [4.0], \"\\uffff\": [5.0]}",
+   "shapes_json": "{\"\\u00e9\": [1], \"z\": [1], \"A\": [1], \"\\ud83d\\ude00\": [1], \"\\uffff\": [1]}"
+  },
+  {
+   "expected_with_shapes": "3718c3e52b4be05ab5f749aeac61908b35c1ae0ebab24f4dec26f3014de4cfea",
+   "expected_without_shapes": "b19a3560512fba0d53b55832ecac8db4c05aff090603619071d7df7783418197",
+   "name": "float32-widened",
+   "parameters_json": "{\"t\": [0.10000000149011612, 9.99999993922529e-09, 3.4028234663852886e+38, -1.4999999621068127e-05, 16777216.0]}",
+   "shapes_json": "{\"t\": [5]}"
+  },
+  {
+   "expected_with_shapes": "17fb4957298db5f4d90a87a99e3b9cddc1fbf4db67041dad7c2a69994dbd088c",
+   "expected_without_shapes": "3a72f760996930efc9e93b08f60a85d3e97ef089e8f75f0d69846eef5f59c32a",
+   "name": "ints-become-floats",
+   "parameters_json": "{\"i\": [1, 2, 3, 100000000, 10000000000000000]}",
+   "shapes_json": "{\"i\": [5]}"
+  },
+  {
+   "expected_with_shapes": "aefd09c79b4ba52b85914b91aa9faea68eab4f6c17c2327b7f40602783bc737c",
+   "expected_without_shapes": "08d8506613c45508442ff9c881daecf591540446a3f1573e6ac86c2fca76be68",
+   "name": "partial-shapes",
+   "parameters_json": "{\"a\": [1.5], \"b\": [2.5]}",
+   "shapes_json": "{\"a\": [1]}"
+  },
+  {
+   "expected_with_shapes": "180df7cea1008609408a099f39a5cb69ebd99a9b3c837cf173b66d0d9832b696",
+   "expected_without_shapes": "ae6318e54ae21bb20dc0a50310a48bcc6bc8727e2d301b6cc8b0166d10821c7f",
+   "name": "matrix",
+   "parameters_json": "{\"m\": [-0.539706776414453, -0.10321770928470331, -0.6992330498755537, -0.09733577532440263, -0.6315015884554225, -0.2814334535265872, -0.5951699452033326, -0.9693718119330286, -0.0033487623937131783, 0.9995531606160808, 0.30165740331492996, 0.8279091801212393]}",
+   "shapes_json": "{\"m\": [3, 4]}"
+  }
+ ]
+}
