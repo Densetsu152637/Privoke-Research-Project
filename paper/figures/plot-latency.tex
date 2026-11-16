@@ -5,7 +5,7 @@
 \definecolor{pvgreen}{RGB}{0,158,115}
 \begin{tikzpicture}
 \begin{axis}[
-  width=\columnwidth, height=5cm, ybar, bar width=3.2pt, ymode=log, ymin=1, ymax=1000,
+  width=\columnwidth, height=4.2cm, ybar, bar width=3.2pt, ymode=log, ymin=1, ymax=1000,
   symbolic x coords={fetch-Off,fetch-Rules/NER,fetch-Semantic,fetch-Full,XHR-Off,XHR-Rules/NER,XHR-Semantic,XHR-Full},
   xtick=data, xticklabels={Off,R/N,Sem,Full,Off,R/N,Sem,Full}, enlarge x limits=0.07,
   ylabel={Latency (ms, log scale)}, ymajorgrids, tick label style={font=\small}, label style={font=\small},

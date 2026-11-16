@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.5) (preloaded format=pdflatex 2026.10.9)  16 NOV 2026 17:21
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.5) (preloaded format=pdflatex 2026.10.9)  16 NOV 2026 18:23
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1586,16 +1586,13 @@ Overfull \hbox (2.45955pt too wide) in paragraph at lines 74--75
 ci-sions. \T1/LinuxLibertineT-TLF/m/n/9 (-20) Casper com-bines browser-
  []
 
-
-Underfull \vbox (badness 7451) has occurred while \output is active []
-
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/n' will be
 (Font)              scaled to size 6.0pt on input line 75.
- [1.1{C:/Users/Nicholas/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Us
-ers/Nicholas/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_76gpa
-5.enc}{C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertin
-e/lbtn_jtta5h.enc}{C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/enc/dv
-ips/libertine/lbtn_25tcsq.enc}
+[1.1{C:/Users/Nicholas/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}{C:/Use
+rs/Nicholas/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn_76gpa5
+.enc}{C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine
+/lbtn_jtta5h.enc}{C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/enc/dvi
+ps/libertine/lbtn_25tcsq.enc}
 
 {C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/lbtn
 _nh77jq.enc}{C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/li
@@ -1656,11 +1653,40 @@ LaTeX Font Info:    Font shape `U/ntxexa/m/n' will be
 (Font)              scaled to size 8.0pt on input line 96.
 LaTeX Font Info:    Font shape `U/ntxexa/m/n' will be
 (Font)              scaled to size 6.0pt on input line 96.
+
+Underfull \hbox (badness 1558) in paragraph at lines 102--102
+[]|\T1/LinuxLibertineT-TLF/m/n/8 (+20) The of-fi-cial teleme-try packet schema 
+ex-cludes raw
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 107--108
+[]|\T1/LinuxLibertineT-TLF/m/n/8 (+20) Measured on de-tec-tor lay-ers: mask-ing
+ pre-vents 0.545
+ []
+
+
+Underfull \hbox (badness 2096) in paragraph at lines 107--108
+\T1/LinuxLibertineT-TLF/m/n/8 (+20) against 0.413 for plain WARN, bounded by sp
+an re-call;
+ []
+
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/b/sc' will be
 (Font)              scaled to size 9.0pt on input line 114.
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/sc' will be
 (Font)              scaled to size 8.0pt on input line 119.
-<figures/architecture-current.pdf, id=298, 869.16718pt x 422.53859pt>
+
+Underfull \hbox (badness 1189) in paragraph at lines 121--121
+[]|\T1/LinuxLibertineT-TLF/m/n/8 (+20) Provider or net-work ob-
+ []
+
+
+Underfull \hbox (badness 2035) in paragraph at lines 124--124
+[]|\T1/LinuxLibertineT-TLF/m/n/8 (+20) Tensor name, shape, finite-ness and mag-
+ni-tude
+ []
+
+<figures/architecture-current.pdf, id=290, 869.16718pt x 422.53859pt>
 File: figures/architecture-current.pdf Graphic file (type pdf)
 <use figures/architecture-current.pdf>
 Package pdftex.def Info: figures/architecture-current.pdf  used on input line 1
@@ -1682,9 +1708,9 @@ LaTeX Font Info:    Font shape `OT1/LinuxLibertineT-TLF/m/it' will be
 LaTeX Font Info:    Font shape `OT1/LinuxLibertineT-TLF/m/it' will be
 (Font)              scaled to size 5.5pt on input line 152.
 LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
-(Font)              scaled to size 9.0pt on input line 170.
+(Font)              scaled to size 9.0pt on input line 173.
 LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/n' will be
-(Font)              scaled to size 7.0pt on input line 170.
+(Font)              scaled to size 7.0pt on input line 173.
 [2.2{C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/
 lbtn_kijugd.enc}{C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/enc/dvip
 s/inconsolata/i4-t1-4.enc}]
@@ -1697,10 +1723,10 @@ Overfull \hbox (1.76465pt too wide) detected at line 182
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
-Underfull \vbox (badness 2538) has occurred while \output is active []
+Underfull \vbox (badness 1412) has occurred while \output is active []
 
 LaTeX Font Info:    Font shape `T1/LinuxBiolinumT-TLF/m/sc' will be
-(Font)              scaled to size 7.0pt on input line 189.
+(Font)              scaled to size 7.0pt on input line 184.
  [3.3{C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine
 /lbtn_omcwp2.enc}{C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/enc/dvi
 ps/libertine/lbtn_tlukpt.enc}]
@@ -1719,7 +1745,7 @@ Underfull \hbox (badness 2119) in paragraph at lines 205--206
  []
 
 
-Underfull \vbox (badness 6675) has occurred while \output is active []
+Underfull \vbox (badness 1087) has occurred while \output is active []
 
  [4.4 <D:/Git-Worktrees/Privoke-Research-Project/wt-paper/paper/figures/archite
 cture-current.pdf>]
@@ -1731,19 +1757,19 @@ inuxLibertineT-TLF/m/n/9 (-20) .
  []
 
 [5.5]
-Overfull \hbox (1.06345pt too wide) in paragraph at lines 276--288
+Overfull \hbox (1.06345pt too wide) in paragraph at lines 274--286
  [][] 
  []
 
 LaTeX Font Info:    Font shape `OT1/LinuxLibertineT-TLF/sb/n' will be
-(Font)              scaled to size 9.0pt on input line 296.
+(Font)              scaled to size 9.0pt on input line 294.
 LaTeX Font Info:    Font shape `OT1/LinuxLibertineT-TLF/sb/n' will be
-(Font)              scaled to size 6.6pt on input line 296.
+(Font)              scaled to size 6.6pt on input line 294.
 LaTeX Font Info:    Font shape `OT1/LinuxLibertineT-TLF/sb/n' will be
-(Font)              scaled to size 5.5pt on input line 296.
+(Font)              scaled to size 5.5pt on input line 294.
 [6.6{C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/libertine/
 lbtn_fygcup.enc}]
-Overfull \hbox (11.8336pt too wide) in paragraph at lines 331--332
+Overfull \hbox (11.8336pt too wide) in paragraph at lines 327--328
 \T1/zi4/m/n/9 detector -[] precision -[] followup -[] 20261024 . md$\T1/LinuxLi
 bertineT-TLF/m/n/9 (-20) ). Some pinned check-
  []
@@ -1769,32 +1795,24 @@ PGFPlots: reading {figures/data/presence.csv}
 PGFPlots: reading {figures/data/presence.csv}
 )
 LaTeX Font Info:    Font shape `T1/zi4/b/n' will be
-(Font)              scaled to size 9.0pt on input line 342.
+(Font)              scaled to size 9.0pt on input line 338.
 
 
-Class acmart Warning: A possible image without description on input line 344.
-
-[7.7]
-Overfull \hbox (1.01546pt too wide) in paragraph at lines 361--362
-\T1/LinuxLibertineT-TLF/m/n/9 (-20) layer re-sults do not mea-sure con-tex-tual
- au-tho-riza-tion or full-product
- []
-
-LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/b/n' will be
-(Font)              scaled to size 8.0pt on input line 382.
-[8.8]
-Underfull \vbox (badness 3954) has occurred while \output is active []
+Class acmart Warning: A possible image without description on input line 340.
 
 
-Overfull \hbox (1.42484pt too wide) in paragraph at lines 417--418
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [7.7]
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [8.8]
+Overfull \hbox (1.42484pt too wide) in paragraph at lines 386--387
 []\T1/LinuxLibertineT-TLF/m/n/9 (-20) Full-model con-tin-u-a-tion im-proved joi
 nt and allowed-action agree-
- []
-
-
-Overfull \hbox (3.94127pt too wide) in paragraph at lines 417--418
-\T1/LinuxLibertineT-TLF/m/n/9 (-20) creased on 33/37/15 cases and over-enforcem
-ent dis-tance on 17/13/17;
  []
 
 
@@ -1808,38 +1826,10 @@ PGFPlots: reading {figures/data/continuation.csv}
 PGFPlots: reading {figures/data/continuation.csv}
 )
 
-Class acmart Warning: A possible image without description on input line 424.
+Class acmart Warning: A possible image without description on input line 393.
 
 
-Underfull \vbox (badness 1062) has occurred while \output is active []
-
- [9.9]
-(D:/Git-Worktrees/Privoke-Research-Project/wt-paper/paper/figures/plot-latency.
-tex
-Package pgfplots info on input line 15: Using 'lua backend=false' for axis: ymo
-de=log unsupported (yet).
-Package pgfplots info on input line 15: Using 'lua backend=false' for axis: x c
-oord trafo unsupported.
-PGFPlots: reading {figures/data/latency.csv}
-PGFPlots: reading {figures/data/latency.csv}
-PGFPlots: reading {figures/data/latency.csv}
-)
-Underfull \hbox (badness 1194) in paragraph at lines 441--441
-\T1/LinuxLibertineT-TLF/b/n/9 (+20) by trans-port and de-tec-tor arm (Off, rule
-s/NER, se-man-
- []
-
-
-Underfull \hbox (badness 1199) in paragraph at lines 441--441
-\T1/LinuxLibertineT-TLF/b/n/9 (+20) tic, full), sixty timed re-quests per cell 
-across two pro-
- []
-
-
-Class acmart Warning: A possible image without description on input line 443.
-
-
-Overfull \hbox (25.03398pt too wide) in paragraph at lines 449--450
+Overfull \hbox (25.03398pt too wide) in paragraph at lines 409--410
 \T1/LinuxLibertineT-TLF/m/n/9 (-20) ceeded nom-i-nal bud-gets 0.5, 1 and 2 by a
 p-prox-i-mately $\LMS/ntxsy/m/n/9 ¹\OT1/LinuxLibertineT-TLF/m/n/9 (-20) 1\OML/n
 xlmi/m/it/9 :\OT1/LinuxLibertineT-TLF/m/n/9 (-20) 294\OML/nxlmi/m/it/9 ; \OT1/L
@@ -1848,20 +1838,35 @@ inuxLibertineT-TLF/m/n/9 (-20) 1\OML/nxlmi/m/it/9 :\OT1/LinuxLibertineT-TLF/m/n
 i/m/it/9 :\OT1/LinuxLibertineT-TLF/m/n/9 (-20) 226\LMS/ntxsy/m/n/9 º ^^B
  []
 
+[9.9]
+Overfull \hbox (5.42838pt too wide) in paragraph at lines 433--450
+ [][] 
+ []
 
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
- [10.10]
+[10.10]
 Underfull \vbox (badness 4279) has occurred while \output is active []
 
- [11.11]
-(D:/Git-Worktrees/Privoke-Research-Project/wt-paper/paper/main.bbl
+
+Underfull \hbox (badness 1184) in paragraph at lines 476--476
+\T1/LinuxLibertineT-TLF/b/n/9 (+20) 238 clean de-vel-op-ment prompts (regex and
+ NER only).
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 489--489
+[]|\T1/LinuxLibertineT-TLF/m/n/8 (+20) Masked chars out-side
+ []
+
+[11.11]
+Underfull \vbox (badness 4279) has occurred while \output is active []
+
+
+(D:/Git-Worktrees/Privoke-Research-Project/wt-paper/paper/main.bbl [12.12]
 LaTeX Font Info:    Font shape `OT1/LinuxLibertineT-TLF/sb/n' will be
 (Font)              scaled to size 7.3pt on input line 67.
 LaTeX Font Info:    Font shape `OT1/LinuxLibertineT-TLF/m/it' will be
 (Font)              scaled to size 7.3pt on input line 67.
 LaTeX Info: Redefining \tempurl on input line 80.
- [12.12]
 LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/m/it' will be
 (Font)              scaled to size 7.0pt on input line 96.
 LaTeX Info: Redefining \tempurl on input line 113.
@@ -1905,91 +1910,123 @@ Underfull \hbox (badness 10000) in paragraph at lines 353--365
 VPR2021 / html / Yan _ Positive -[] Congruent _
  []
 
-)
+
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
+)
+Underfull \vbox (badness 2903) has occurred while \output is active []
+
  [13.13]
-Overfull \hbox (14.42734pt too wide) in paragraph at lines 541--542
+Overfull \hbox (14.42734pt too wide) in paragraph at lines 553--554
 \T1/LinuxLibertineT-TLF/m/n/9 (-20) re-vi-sion \T1/zi4/m/n/9 4a13e9f \T1/LinuxL
 ibertineT-TLF/m/n/9 (-20) (236 annotation-positive, 262 annotation-negative) [[
 ]].
  []
 
 
-Overfull \hbox (15.45134pt too wide) in paragraph at lines 602--603
+Underfull \vbox (badness 2951) has occurred while \output is active []
+
+ [14.14]
+Overfull \hbox (15.45134pt too wide) in paragraph at lines 614--615
 []\T1/LinuxLibertineT-TLF/m/n/9 (-20) The repos-i-tory lo-ca-tors for these re-
 tained units are $\T1/zi4/m/n/9 paper / research /
  []
 
 
-Overfull \hbox (26.64398pt too wide) in paragraph at lines 602--603
+Overfull \hbox (26.64398pt too wide) in paragraph at lines 614--615
 \T1/zi4/m/n/9 controlled -[] studies -[] 20261014 . md$\T1/LinuxLibertineT-TLF/
 m/n/9 (-20) , $\T1/zi4/m/n/9 pipeline -[] comparison -[] 20261014 .
  []
 
 
-Underfull \vbox (badness 1675) has occurred while \output is active []
+Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [14.14]
-Overfull \hbox (13.37218pt too wide) in paragraph at lines 633--634
+
+Overfull \hbox (13.37218pt too wide) in paragraph at lines 645--646
 \T1/LinuxLibertineT-TLF/m/n/9 (-20) stalled ev-i-dence records are $\T1/zi4/m/n
 /9 installed -[] client -[] evidence -[] 20261014 .
  []
 
+
+(D:/Git-Worktrees/Privoke-Research-Project/wt-paper/paper/figures/plot-latency.
+tex
+Package pgfplots info on input line 15: Using 'lua backend=false' for axis: ymo
+de=log unsupported (yet).
+Package pgfplots info on input line 15: Using 'lua backend=false' for axis: x c
+oord trafo unsupported.
+PGFPlots: reading {figures/data/latency.csv}
+PGFPlots: reading {figures/data/latency.csv}
+PGFPlots: reading {figures/data/latency.csv}
+)
+Underfull \hbox (badness 1194) in paragraph at lines 692--692
+\T1/LinuxLibertineT-TLF/b/n/9 (+20) by trans-port and de-tec-tor arm (Off, rule
+s/NER, se-man-
+ []
+
+
+Underfull \hbox (badness 1199) in paragraph at lines 692--692
+\T1/LinuxLibertineT-TLF/b/n/9 (+20) tic, full), sixty timed re-quests per cell 
+across two pro-
+ []
+
+
+Class acmart Warning: A possible image without description on input line 694.
+
 [15.15]
-Underfull \hbox (badness 10000) in paragraph at lines 711--711
-[]\T1/LinuxLibertineT-TLF/b/n/9 (+20) Table 13: |Detector-layer annotation-pres
+Underfull \hbox (badness 10000) in paragraph at lines 732--732
+[]\T1/LinuxLibertineT-TLF/b/n/9 (+20) Table 14: |Detector-layer annotation-pres
 ence counts
  []
 
-[16.16]
-Overfull \hbox (2.46404pt too wide) in paragraph at lines 789--790
-[]\T1/LinuxLibertineT-TLF/m/it/9 (-20) NER as am-pli-fier. \T1/LinuxLibertineT-
-TLF/m/n/9 (-20) A study on the de-vel-op-ment splits asked whether
- []
-
-[17.17]
+[16.16] [17.17]
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [18.18]
-Underfull \hbox (badness 10000) in paragraph at lines 815--815
-[]\T1/LinuxLibertineT-TLF/b/n/9 (+20) Table 15: |Development-only union ab-la-t
+Underfull \hbox (badness 10000) in paragraph at lines 836--836
+[]\T1/LinuxLibertineT-TLF/b/n/9 (+20) Table 16: |Development-only union ab-la-t
 ion (re-
  []
 
 
-Overfull \hbox (29.10281pt too wide) in paragraph at lines 831--832
-[]\T1/LinuxLibertineT-TLF/m/it/9 (-20) Reproduction. \T1/LinuxLibertineT-TLF/m/
-n/9 (-20) The eval-u-a-tion script $\T1/zi4/m/n/9 evaluation / evaluate _ insta
-lled _
+Overfull \hbox (6.88353pt too wide) in paragraph at lines 852--853
+[]\T1/LinuxLibertineT-TLF/m/it/9 (-20) Reproduction. $\T1/zi4/m/n/9 evaluation 
+/ evaluate _ installed _ detectors . py$
  []
 
 
-Underfull \vbox (badness 2343) has occurred while \output is active []
-
-
-Overfull \hbox (5.83057pt too wide) in paragraph at lines 833--834
-\T1/LinuxLibertineT-TLF/m/n/9 (-20) The full-product re-run comes from branch $
-\T1/zi4/m/n/9 research / wt -[] h -[] product$\T1/LinuxLibertineT-TLF/m/n/9 (-2
-0) ,
+Overfull \hbox (19.5112pt too wide) in paragraph at lines 852--853
+\T1/zi4/m/n/9 b7e716c3 \T1/LinuxLibertineT-TLF/m/n/9 (-20) with de-vel-op-ment 
+record \T1/zi4/m/n/9 c8ceaacc \T1/LinuxLibertineT-TLF/m/n/9 (-20) (pull re-ques
+t 5); $\T1/zi4/m/n/9 detector -[]
  []
 
 
-Overfull \hbox (1.48619pt too wide) in paragraph at lines 859--860
+Overfull \hbox (2.04524pt too wide) in paragraph at lines 852--853
+\T1/zi4/m/n/9 precision -[] heldout -[] 20261025 . md$ \T1/LinuxLibertineT-TLF/
+m/n/9 (-20) lists the branches, com-mits and
+ []
+
+LaTeX Font Info:    Font shape `T1/LinuxLibertineT-TLF/b/n' will be
+(Font)              scaled to size 8.0pt on input line 871.
+
+Overfull \hbox (1.48619pt too wide) in paragraph at lines 903--904
 \T1/LinuxLibertineT-TLF/m/n/9 (-20) the host Python en-vi-ron-ment with spaCy 3
 .7.5 and \T1/zi4/m/n/9 en_core_web_sm
  []
 
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
- [19.19]
+[19.19]
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [20.20]
+[21.21]
+Overfull \hbox (16.97719pt too wide) in paragraph at lines 1023--1024
+\T1/zi4/m/n/9 update -[] security -[] 20261116 . md$ \T1/LinuxLibertineT-TLF/m/
+n/9 (-20) and $\T1/zi4/m/n/9 warn -[] intervention -[] 20261116 .
+ []
+
 
 Class acmart Warning: Some images may lack descriptions.
 (acmart)              ACM is committed to complying with the upcoming US ADA ht
@@ -2012,8 +2049,7 @@ Class acmart Warning: ACM reference format is mandatory
 (acmart)              \settopmatter command..
 
 
-Package balance Warning: You have called \balance in second column
-(balance)                Columns might not be balanced.
+Overfull \vbox (2.124pt too high) has occurred while \output is active []
 
 
 (C:\Users\Nicholas\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-pdfdo
@@ -2023,22 +2059,22 @@ File: se-pdfdoc.def 2019/11/29 v1.12 stringenc: PDFDocEncoding
 (C:\Users\Nicholas\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\se-utf8.
 def
 File: se-utf8.def 2019/11/29 v1.12 stringenc: UTF-8
-) [21.21] (D:/Git-Worktrees/Privoke-Research-Project/wt-paper/paper/main.aux)
+) [22.22] (D:/Git-Worktrees/Privoke-Research-Project/wt-paper/paper/main.aux)
  ***********
 LaTeX2e <2026-06-01>
 L3 programming layer <2026-09-09>
  ***********
 Package rerunfilecheck Info: File `main.out' has not changed.
-(rerunfilecheck)             Checksum: 7AE28C1B4BCF02AC6CCA1B62E63E2D92;12077.
+(rerunfilecheck)             Checksum: ED4D67F12AAFE4A55052EA030BD4560E;11991.
  ) 
 Here is how much of TeX's memory you used:
- 44083 strings out of 467392
- 979836 string characters out of 5404181
- 1535158 words of memory out of 5000000
- 71607 multiletter control sequences out of 15000+600000
- 873077 words of font info for 616 fonts, out of 8000000 for 9000
+ 44082 strings out of 467392
+ 979631 string characters out of 5404181
+ 1542158 words of memory out of 5000000
+ 71610 multiletter control sequences out of 15000+600000
+ 871711 words of font info for 610 fonts, out of 8000000 for 9000
  1302 hyphenation exceptions out of 8191
- 107i,19n,131p,1846b,2631s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 107i,19n,131p,1798b,2631s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/public/inconsola
 ta/Inconsolata-zi4b.pfb><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/
 type1/public/inconsolata/Inconsolata-zi4r.pfb><C:/Users/Nicholas/AppData/Local/
@@ -2061,9 +2097,9 @@ sers/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/txmiaX.pfb
 ><C:/Users/Nicholas/AppData/Local/Programs/MiKTeX/fonts/type1/public/newtx/txsy
 s.pfb>
 Output written on D:/Git-Worktrees\Privoke-Research-Project\wt-paper\paper\main
-.pdf (21 pages, 835932 bytes).
+.pdf (22 pages, 839497 bytes).
 PDF statistics:
- 716 PDF objects out of 1000 (max. 8388607)
- 143 named destinations out of 1000 (max. 500000)
+ 728 PDF objects out of 1000 (max. 8388607)
+ 148 named destinations out of 1000 (max. 500000)
  142786 words of extra memory for PDF output out of 154059 (max. 10000000)
 
