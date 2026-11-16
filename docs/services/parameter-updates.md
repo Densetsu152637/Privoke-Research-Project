@@ -53,6 +53,57 @@ Receipts persist in `<PARAM_UPDATE_STORAGE_PATH>.receipts.sqlite3` with SQLite w
 
 Retention enforcement and general metadata privacy filtering remain outside this contract; bounded metadata must exclude raw prompt text. There is no dedicated raw-prompt field.
 
+## Guards and access control (current properties)
+
+This service is the only model-update path. The standard V3 path is read-only: a
+V3 `model_id` is rejected because every update must name the configured `MODEL_ID`
+(`app/validation.py`), and the updater writes only the legacy JSON artifact.
+
+Update guards, in force on every `SubmitParameterUpdate`:
+
+- Compare-and-swap on `base_version`: a request whose base differs from the artifact's
+  current version is rejected as stale (`shared/python/privoke_model/artifact.py`,
+  `apply_parameter_update`), checked under the writer lock in `app/server.py`.
+- Publication writes a temporary file, fsyncs it and calls `os.replace`, then fsyncs the
+  directory where the platform supports it (`write_artifact_atomic`); an update touching
+  several tensors is applied whole or not at all.
+- With a `request_id`, a durable receipt keyed by updater source, request source and
+  request ID makes an identical replay return the original version, and a different
+  payload under the same key is rejected (`app/receipts.py`, `app/server.py`). Without a
+  `request_id`, an identical replay is rejected as stale rather than recognised.
+- Each gradient value must be finite with `abs(value) <= PARAM_UPDATE_MAX_ABS_GRADIENT`
+  (default `1.0`). Frozen, unknown and misshaped tensors, and value counts above the
+  limits, are rejected.
+
+Not present, as current properties:
+
+- No cumulative or aggregate bound. The magnitude limit is per coordinate per update,
+  so repeated updates at the limit are each accepted, and one update may move up to
+  65,536 coordinates by the limit (`MAX_UPDATE_VALUES`). Nothing limits update rate or L2 norm.
+- No application authentication. The service binds a plaintext gRPC port
+  (`server.add_insecure_port` in `app/server.py`) and checks no credential, token, expiry
+  or peer identity. Any peer that can reach the port can publish an update. `source_id`
+  is caller-asserted: it is recorded as `last_update_source` in the artifact and in the
+  audit line, and is not verified. `GetParameterUpdateStatus` is likewise unauthenticated.
+- Access is limited by network placement only. The production and Compute Engine Compose
+  files publish this service with `expose` and no host port mapping, behind the
+  `legacy-training` profile, and the nginx ingress routes no `ParamUpdateService` method.
+  The ingress's mutual TLS authenticates a client certificate, not a `source_id`, and does
+  not apply to traffic inside the Compose network. No certificate revocation list is
+  configured.
+- No startup cleanup of stray temporary files left by an interrupted write; the active
+  artifact stays valid.
+
+These behaviours were exercised by negative tests on synthetic inputs and a synthetic
+model state, recorded in
+[UPDSEC-20261116](../../paper/research/update-security-20261116.md): stale, replayed,
+duplicate (eight concurrent submissions applied once), malformed, NaN/Inf, wrong-shape
+and interrupted updates were rejected or applied exactly once, and the model was
+unchanged after each rejection. Over-bound values were rejected, 25 successive
+maximum-magnitude updates were all accepted, and unauthenticated updates with a forged
+`source_id` were accepted. That record states its scope and limitations; it is not a
+penetration test.
+
 ## Runtime
 
 Default port: `50052`

@@ -106,6 +106,37 @@ use additive runtime RPCs rather than changing this tensor transport. Rebuild
 affected images and regenerate consumer bindings when adopting those RPCs; older
 consumers retain the contextual path.
 
+## Transport and access control
+
+The service opens a plaintext gRPC listener (`net.Listen("tcp", ...)` and
+`grpc.NewServer` with message-size and concurrent-stream options only, in
+`cmd/server/main.go`). It has no application authentication: no token, API key,
+credential expiry or peer-identity check. `consumer_id` is a caller-asserted
+label that is length- and character-validated and echoed in response metadata
+(`cmd/server/streaming_server.go`), not an authenticated identity. An arbitrary
+or empty `consumer_id` is served the legacy model, the V3 manifest and the V3
+assets. Retrieval is read-only: no RPC on this service writes the model
+directory or the pinned V3 release store.
+
+Authentication exists only at the cloud ingress. `deploy/gce/nginx.conf` requires
+and verifies a client certificate (`ssl_verify_client on`), configures no
+certificate revocation list, grants every certificate from the client CA the same
+access, and routes only `ModelStreamingService/StreamModelParameters`,
+`ModelStreamingService/Health` and `TelemetryService/RecordTelemetry`; every other
+path returns 404. `GetModelParameters`, `GetModelPackage` and `StreamModelAsset`
+are therefore not reachable through that ingress. The default `latest` model is
+V3, and the legacy tensor RPCs reject V3 (including an empty or `latest` ID that
+resolves to it) with `FAILED_PRECONDITION` (`streaming_server.go`), so V3 is served
+only by the two unrouted package RPCs (see
+[Google Cloud deployment](../deployment/google-cloud.md#ingress-routing)).
+
+Measured behaviour of these properties, with the legacy and V3 paths exercised
+separately, is recorded in
+[UPDSEC-20261116](../../paper/research/update-security-20261116.md)
+(rows T1 to T14 and X1 to X16; gaps `GAP-NO-RETRIEVAL-AUTH`,
+`GAP-IDENTITY-SELF-ASSERTED`, `GAP-NO-REVOCATION`). The release-store
+fingerprint was unchanged across the whole run.
+
 ## Runtime
 
 Environment variables:
@@ -131,7 +162,7 @@ decision-margin objective uses the same S0/non-S0 label and category-threshold
 checks as the earlier decision-margin objective. Existing tensor shape,
 trainability and size checks still apply. Serving this metadata permits artifact
 transport; it does not establish training qualification or measured quality.
-# Frozen-window policy identity
+## Frozen-window policy identity
 
 Go admission recognizes the separate `full_projected_adam64_window_checkpoint_v1` optimizer, exact canonical frozen-window configuration, `candidate_window_exact_component_retention_v1` eligibility and both window/component manifest pins. It rejects orphan pins, policy mixtures and changed configuration, while preserving earlier Adam/retention contracts. Existing full tensor validation applies to both legacy and v2 task-query shapes. Stream cache identity includes all new policy/config/pin fields, preventing reuse of a snapshot under changed window semantics. No study result or default artifact is replaced by this opt-in capability.
 
