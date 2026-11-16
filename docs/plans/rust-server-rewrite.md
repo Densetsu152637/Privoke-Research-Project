@@ -338,7 +338,7 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
 ## Stage 0: Reference tag and conformance corpus
 
 - Objective:
-  - Tag the submission revision (`asiaccs-2027-submission`; the tag name is root's decision).
+  - Tag the submission revision (done as the local tag `rust-reference-20261117`; see the outcome).
   - Capture a golden corpus from the current Python and Go services into `tests/conformance/`:
     - artifacts before and after a fixed update sequence
     - receipts
@@ -356,8 +356,13 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
   - Capture is deterministic: running it twice gives an identical corpus (`git diff --exit-code tests/conformance`).
   - No file outside the owned paths changes.
   - Large binaries are stored as hashes.
-- Status: pending
+- Status: done (RUST-S01, 2026-11-16)
 - Outcome:
+  - **Reference revision.** The local tag `rust-reference-20261117` (fb1b317) replaces the `asiaccs-2027-submission` name above. It was created and is not pushed. Capture refuses to run if the tracked reference sources differ from the tag.
+  - **Corpus.** `tests/conformance/` holds 11 files plus `manifest.json` (hashes, tool versions, deferred gaps) and `normalization.toml` (the G5 comparison rules): canonical JSON (273 cases over 4 layouts), 900 float `repr` cases, contract configs, artifact checksums and fingerprints of the four tracked models, a fixed 19-step update sequence with receipts, audit lines and rejection messages, 195 telemetry packets with stored marginals and summary, Go streaming chunk sequences for four legacy models, V3 manifests and asset chunk hashes for three tiers, 20 negative or alias requests, 17 native-messaging and 20 gRPC-Web transcripts.
+  - **Method.** Host Python (`.venv-v1-v3-pipeline`) for every surface; the Go service ran from the `privoke-updsec-model-dev:20261116` image with `docker run` on a loopback port. Binary assets are SHA-256 and sizes only, and artifacts are hashed with CRLF folded to LF because the Python writer uses text mode. `generated_at_unix` comes from a fixed one-tick-per-call clock.
+  - **Checks.** Two consecutive captures were identical (`diff -r`), and after the commit a third capture left `git diff --exit-code tests/conformance` clean. `python -m unittest discover -s evaluation/tests -p test_capture_conformance.py` runs 12 tests, including two-run determinism of the host surfaces. No file outside `tests/conformance/`, `evaluation/capture_conformance.py` and its test was changed.
+  - **Deferred gaps** (also in the manifest): browser-launched native-messaging transcripts and the `started=true` supervisor launch; `PrivokeRuntimeService` responses through the bridge (needs torch; only the unreachable-upstream case is recorded); concurrent, kill-and-recover and fuzzer-request behaviour (UPDSEC rows, not byte-deterministic); scratch-presence and pretrained-context catalog models (artifacts are not tracked).
 - Handoff notes: allowed before the deadline. Capture uses host processes, and the Go service runs in Docker as in UPDSEC.
 
 ## Stage 1: Rust workspace, contracts and transport crates
@@ -370,9 +375,19 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
   - The contract crate reproduces every stage 0 canonical-JSON, checksum and fingerprint fixture byte for byte.
   - The verifier rejects each of the following in tests: no certificate, foreign CA, expired, not yet valid, missing EKU, revoked.
   - The CRL hot-reload tests and the `fail_closed` startup test pass.
-- Status: pending
+- Status: done (RUST-S01, 2026-11-16)
 - Outcome:
+  - **Workspace** `rust/` (edition 2024, `Cargo.lock` committed): `privoke-proto` (protox plus tonic-prost-build 0.14, `BTreeMap` map fields), `privoke-contracts` and `privoke-transport` (tonic 0.14.9, prost 0.14, rustls 0.23.46 with the ring provider, tokio-rustls 0.26, x509-parser 0.18, rcgen 0.14 for tests).
+  - **Contracts.** Strict JSON parser, four canonical layouts, Python float `repr`, artifact checksum, receipt key, derived seed, fingerprints and the V3 manifest rules. Replaying the corpus reproduces all 245 canonical-JSON cases that Python accepts (the other 28 are refusals that Rust also refuses), all 900 float reprs, the contract configs, 40 synthetic and 4 tracked-artifact checksums, the fingerprints, the three pinned manifests, and the wire bytes of 19 update requests and 195 telemetry packets, byte for byte.
+  - **Transport.** `ServerTlsConfig` cannot be built without a client CA and a CRL. The verifier adds an explicit `clientAuth` EKU and a single `urn:privoke:` identity SAN to `WebPkiClientVerifier`; it rejects no certificate, foreign CA, expired, not yet valid, no EKU, serverAuth-only EKU, missing or malformed identity, and revoked, all before the handler runs. CRLs are checked for signature, `nextUpdate` and staleness. The configuration is held in an `ArcSwap`, reloaded by a `notify` watcher plus polling, and a failed reload keeps the old configuration. Session resumption is off so revocation cannot be bypassed. `AuthLayer` applies the (role, RPC) policy (`UNIMPLEMENTED`, `UNAUTHENTICATED`, `PERMISSION_DENIED`, `RESOURCE_EXHAUSTED`), reading the registry on every request. `Limits` carries the nginx defaults. `listener::loopback` exists only behind `workstation-loopback`.
+  - **Checks (host, Windows, rustc 1.99.1).** `cargo test --workspace --locked` exits 0 with 52 tests (contracts 19, transport 33); `cargo clippy --workspace --all-targets --locked` has no warnings; `cargo fmt --check` is clean. `cargo test -p privoke-transport fail_closed` passes 6 tests, including the probe binary exiting 1 without each of the five flags before binding and exiting 2 on `--insecure` and similar flags.
+  - **Not done here.** No CI job (no `.github/` change), no registry file format or `privoke-pki` (stage 2), no `privoke-conformance` crate (it is introduced when the first service stage replays the corpus; the contract replay tests live in `privoke-contracts/tests`). Documentation: `docs/runtime/rust-workspace.md`.
 - Handoff notes: allowed before the deadline on a non-submission branch, without CI.
+  - Stage 2 owns `src/registry*`; stage 1 supplies only the in-memory `Registry` and `SharedRegistry`, and `startup::CloudTlsArgs` checks that `--registry` is a non-empty file without parsing it.
+  - Cloud binaries flatten `startup::CloudTlsArgs`, build `secure_server(&limits, auth)`, set `max_decoding_message_size(limits.max_message_bytes)` on each service, and add a `healthcheck` subcommand of their own.
+  - Services read the caller from `request.extensions().get::<Principal>()` and call `Principal::check_claim` for `consumer_id` and `source_id`.
+  - Go's JSON encoder writes `1e-8` where Python writes `1e-08`; stage 3 must use `pyfloat::repr`, not a Go-style encoder, for training-contract metadata.
+  - TLS 1.3 reports a refused client certificate on first use, so negative tests must make an RPC, as the transport tests do.
 
 ## Stage 2: PKI, identities and authorisation policy
 
