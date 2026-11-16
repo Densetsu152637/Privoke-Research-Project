@@ -150,8 +150,8 @@ Revision: 2026-11-16 (base `bca457df` on `feat/nick-branch`; plan-gate findings 
   - `paper/scripts/`
   - `paper/research/source-restoration-guide-20261017.md`
 - **Acceptance checks:** G1–G5.
-- **Status:** pending.
-- **Outcome:** none yet.
+- **Status:** done.
+- **Outcome:** `asiaccs/paper` merged in `7384ec7`. G1–G4 pass (`check_pages.py`: body ends p12, 21 pages; 84 bib keys, none missing; anonymity check 0 matches). Section 9 holds resolving placeholders for Stages 3–5. Code-vs-paper notes: the matched-study guard differs from the service predicate; standard V3 has no update path (read-only).
 - **Handoff notes:**
   - Keep every retained evidence unit and its negative results. Reach 12 pages by tightening the prose and moving detail to the appendices.
   - Write no prose about Stage 3–5 results until Stage 7. Before then, add only structure whose references resolve: section headings, and security-property table rows marked "evaluated in Section X". Add no numbers.
@@ -204,8 +204,8 @@ Revision: 2026-11-16 (base `bca457df` on `feat/nick-branch`; plan-gate findings 
   - Fix a real defect only when the fix is small and covered by a test, and report every fix as a finding.
   - Record any missing mechanism as a gap. Never invent a result.
 - **Acceptance checks:** G7, G8, and G12 for the touched components.
-- **Status:** pending.
-- **Outcome:** none yet.
+- **Status:** done.
+- **Outcome:** merged in `dc7e104` (UPDSEC-20261116). 12 rows failed their property; all are missing mechanisms (no service authentication, self-asserted identities, no cumulative bound). Mutual-TLS rows used a grpcio stand-in; a live nginx run needs an authorised image pull.
 - **Handoff notes:** none.
 
 ## Stage 5: WARN intervention
@@ -224,8 +224,8 @@ Revision: 2026-11-16 (base `bca457df` on `feat/nick-branch`; plan-gate findings 
   - WARN+CONFIRM uses a declared user-compliance parameter, so label its result an analytic bound.
   - Confirm that the shipped default behavior is unchanged.
 - **Acceptance checks:** G9; the extension tests pass.
-- **Status:** pending.
-- **Outcome:** none yet.
+- **Status:** done.
+- **Outcome:** merged in `9fa5396` (WARNINT-20261116; regex+NER only, development set). WARN+MASK is opt-in and off by default.
 - **Handoff notes:** none.
 
 ## Stage 6: Documentation staleness audit
@@ -249,8 +249,8 @@ Revision: 2026-11-16 (base `bca457df` on `feat/nick-branch`; plan-gate findings 
   - **Excludes:** `docs/research/`, `docs/experiments/`, `docs/plans/`, the param-update and model-streaming READMEs, and every dated record.
 - **Pass B, after the experiment stages land:** covers the files pass A excluded, plus index links.
 - **Acceptance checks:** G11.
-- **Status:** pending.
-- **Outcome:** none yet.
+- **Status:** pass A done (`742438c`); pass B for the services, runtime and ingress docs done (`4114781`, merged before `7384ec7`); a final pass is pending after Stage 3.
+- **Outcome:** see the merge commits.
 - **Handoff notes:** none.
 
 ## Stage 7: Integrate the new evidence into the paper
@@ -276,9 +276,13 @@ Revision: 2026-11-16 (base `bca457df` on `feat/nick-branch`; plan-gate findings 
   - G10.
   - A grep of the exported tree with the G2 patterns finds nothing.
   - The copy is not uploaded.
-- **Status:** pending.
-- **Outcome:** none yet.
+- **Status:** done.
+- **Outcome:** merged in `7384ec7`. One export run gave 0 matches; an archive pipe race was fixed in `880d92c`. The annotation packet is ready and blocked on humans; the `fresh_eval-folio-NN` token leaks the partition and needs a coordinator decision.
 - **Handoff notes:** reads `paper/scripts/anonymity-patterns.txt`, which Stage 2 creates. If Stage 2 has not created it yet, create the same file with the same content and let root reconcile the two.
+
+## Decision, 16 November 2026: nginx and the Rust rewrite
+
+The user stated that nginx is not needed because the system uses microservices, and asked for a plan to rewrite the server architecture in Rust, with Python kept for inference and training. nginx is currently the only authentication layer in the cloud deployment (UPDSEC-20261116). Its removal is therefore sequenced in [the Rust rewrite plan](rust-server-rewrite.md), after the services enforce mutual TLS themselves. The paper describes the measured current system.
 
 ## Stage 9: Validation, review gate and push
 
