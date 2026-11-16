@@ -49,11 +49,30 @@ This is a detection signal, not enforcement: G1 still does not hold for Copilot 
 | Edge 157.0.4341.60 | 0/12 pass, unchanged from XPLAT: no analysis; the ALLOW, WARN and BLOCK bodies each reached the receiver once | `gap_surfaced`: hook inactive, badge `!` | `covered`, no badge |
 | Chrome 157.0.8103.51 (control) | not rerun (see below) | `covered`, no badge | `covered`, no badge |
 
-The rerun used the study's own probe catalogue, driver, receiver and `score_probe`, limited to the Copilot shapes, plus the coverage stage. The full 73-probe `cross_platform_study.py run` was **not** rerun. Its loopback ports (8080, 50056, 50057) were held by a supervisor and runtime tree that the user's registered native launcher started during this session's probes (created 20:18:39 local time; parent launcher already exited). The study refuses to run over another runtime, and stopping that process tree was outside this task's permission, so it is left for the user. The Edge Copilot probes need no runtime because they never reach analysis. Chrome's Copilot probes would have sent analysis to that foreign runtime, so only the Chrome coverage stage was run. No request reached a host outside the fixture set (`foreign_host_requests` empty in both runs).
+The rerun used the study's own probe catalogue, driver, receiver and `score_probe`, limited to the Copilot shapes, plus the coverage stage. The full 73-probe `cross_platform_study.py run` was **not** rerun. Its loopback ports (8080, 50056, 50057) were held by a supervisor and runtime tree that the user's registered native launcher started during this session's probes (created 20:18:39 local time; parent launcher already exited). The study refuses to run over another runtime, and stopping that process tree was outside this task's permission, so it was left for the user. After the user approved, root stopped that tree and the full run followed; see the next section. The Edge Copilot probes need no runtime because they never reach analysis. Chrome's Copilot probes would have sent analysis to that foreign runtime, so only the Chrome coverage stage was run. No request reached a host outside the fixture set (`foreign_host_requests` empty in both runs).
+
+## Full rerun at 449edce
+
+After the user approved, root stopped the leftover runtime tree (PIDs 45596, 44796, 17868, 27944). The unmodified study then ran from worktree `wt-xplat-rerun` at revision `449edcedc1dede51bde5d278dbb460eb82775528` (tracked tree clean, `worktree_dirty: false`), started 2026-11-16T09:29:15Z. It ran the full 73-probe catalogue per browser, including the fault stages, plus the new `page_coverage` stage. Numbers: [cross-platform-edge-addendum-20261117.json](cross-platform-edge-addendum-20261117.json); re-derive with `python evaluation/cross_platform_study.py derive paper/research/cross-platform-edge-addendum-20261117.json`.
+
+| Browser | Total | Decision | Failure handling | Negative control | Provider shape | `copilot.microsoft.com` coverage | Other 5 provider hosts |
+|---|---|---|---|---|---|---|---|
+| Edge 157.0.4341.60 | 61/73 | 6/6 | 10/10 | 3/3 | 42/54 | `gap_surfaced` (hook inactive, badge `!`) | `covered` |
+| Chrome 157.0.8103.51 | 73/73 | 6/6 | 10/10 | 3/3 | 54/54 | `covered` | `covered` |
+
+The 12 Edge failures are exactly the Copilot probes: `copilot-chat-message` and `copilot-send-event` × fetch/XHR × ALLOW/WARN/BLOCK. The pass counts match XPLAT-20261117, as expected: the change surfaces the gap but cannot enforce on a page Edge does not let extensions script. G1 still fails for Copilot in Edge. The difference is that the user now sees a `!` badge on that tab instead of nothing. The page-hook harness passed 166/166.
+
+Hygiene:
+
+- `foreign_host_requests` was empty, and so were `native_launcher_events` and `outbound_non_loopback_connections`.
+- There were 0 unattributed receiver POSTs.
+- No supervisor or runtime process was left after the run.
+- Both browsers used temporary profiles. A registered native launcher can still start a runtime from a temporary profile, because the registration is per user, not per profile. During this run the study's decoy on the control port prevented any launch.
+- The study's supervisor ran the main checkout's client-runtime venv. The worktree's `generated/` protobuf directories were copied from the main checkout and are gitignored, as in XPLAT.
 
 ## Limitations
 
-Headless, unpacked extension, one Edge build, one run. The popup warning is unit-tested but was not opened in a live browser; the badge was read live. Whether a later Edge build lifts the restriction is unknown; the coverage check would then report `covered` without any code change.
+Headless, unpacked extension, one Edge build, one full run per browser (plus the earlier Copilot-only run). The popup warning is unit-tested but was not opened in a live browser; the badge was read live. Whether a later Edge build lifts the restriction is unknown; the coverage check would then report `covered` without any code change.
 
 ## Reproduce
 
