@@ -15,6 +15,7 @@ import grpc
 from config import FuzzerConfig
 from privoke.v1 import parameters_pb2, parameters_pb2_grpc
 from privoke_service import validate_text
+from privoke_service.stack_connection import service_channel
 from prompt_generation import generate_presence_training_partition, generate_training_partition
 from prompt_generation.generator import (CONTEXTUAL_SAMPLING_STRATEGY_KEY,
     contextual_sampling_audit, validate_contextual_sampling_strategy)
@@ -480,7 +481,7 @@ class FuzzerTrainingService(parameters_pb2_grpc.FuzzerServiceServicer):
 
     def _previous_update_for_fingerprint(self, request, cycle, context, fingerprint):
         try:
-            with grpc.insecure_channel(self.config.param_update_target) as channel:
+            with service_channel(self.config.param_update_target) as channel:
                 return parameters_pb2_grpc.ParamUpdateServiceStub(channel).GetParameterUpdateStatus(
                     parameters_pb2.ParameterUpdateStatusRequest(
                         source_id=self.config.fuzzer_id,

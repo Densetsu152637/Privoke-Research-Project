@@ -79,7 +79,7 @@ class TelemetryReporter:
         self._budget = DailyPrivacyBudget(
             ledger_path or default_ledger_path(), daily_epsilon
         )
-        self._channel = grpc_channel(target)
+        self._channel = grpc_channel(target, credential="reporter")
         self.timeout_seconds = timeout_seconds
         self.emitter = StructuredEventEmitter()
         self._queue: queue.Queue = queue.Queue(maxsize=max(1, queue_size))
