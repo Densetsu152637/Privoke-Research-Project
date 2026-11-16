@@ -1,9 +1,12 @@
 import { sendRuntimeMessage } from "./webextension-api.js";
 import { interceptionResponse, runtimeFailureResponse } from "./interception-failure.js";
+import { answerCoveragePings } from "./page-coverage.js";
 
 const CHANNEL = "privoke-extension-v1";
 const NOTICE_ID = "privoke-page-notice";
 const SEMANTIC_STATUS_ID = "privoke-semantic-status";
+
+answerCoveragePings();
 
 window.addEventListener("message", (event) => {
   const data = event.data;

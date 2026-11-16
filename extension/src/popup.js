@@ -1,4 +1,5 @@
 import { sendRuntimeMessage } from "./webextension-api.js";
+import { activeTabCoverage, COVERAGE_GAP_MESSAGE, COVERAGE_GAP_TITLE } from "./page-coverage.js";
 
 const prompt = document.querySelector("#prompt");
 const analyze = document.querySelector("#analyze");
@@ -10,6 +11,7 @@ const reason = document.querySelector("#reason");
 const excerpt = document.querySelector("#excerpt");
 const serverWarning = document.querySelector("#server-warning");
 const runtimeWarning = document.querySelector("#runtime-warning");
+const coverageWarning = document.querySelector("#coverage-warning");
 const waitRegex = document.querySelector("#wait-regex");
 const modelQuality = document.querySelector("#model-quality");
 const masterToggle = document.querySelector("#master-toggle");
@@ -45,6 +47,7 @@ stackToggle.addEventListener("click", async () => {
 });
 
 void initialise();
+void showPageCoverage();
 setInterval(() => { void refreshStreamingHealth(); }, 5_000);
 
 async function initialise() {
@@ -286,6 +289,19 @@ function clearManualResult() {
 function setStatus(message, isError = false) {
   status.textContent = message;
   status.classList.toggle("error", isError);
+}
+
+async function showPageCoverage() {
+  let state;
+  try {
+    state = await activeTabCoverage(globalThis, { attempts: 1 });
+  } catch {
+    return;
+  }
+  if (!state?.supported || state.covered) return;
+  coverageWarning.querySelector("strong").textContent = COVERAGE_GAP_TITLE;
+  coverageWarning.querySelector("span").textContent = COVERAGE_GAP_MESSAGE;
+  coverageWarning.hidden = false;
 }
 
 function showRuntimeWarning(message) {

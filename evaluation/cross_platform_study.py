@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from cross_platform_probes import (  # noqa: E402
     CASES, CATEGORY_DECISION, CATEGORY_FAILURE, CATEGORY_NEGATIVE, CATEGORY_PROVIDER_SHAPE,
-    FIXTURE_HOSTS, REPO_ROOT, ProbeDef, build_catalogue, build_failure_probes, dump_bodies,
+    FIXTURE_HOSTS, PROVIDER_HOSTS, REPO_ROOT, coverage_status, ProbeDef, build_catalogue, build_failure_probes, dump_bodies,
     load_shapes, score_probe, sha256_hex, summarise,
 )
 from cross_platform_receiver import Receiver, generate_certificate  # noqa: E402
@@ -339,6 +339,23 @@ class Study:
         probes = sorted(probes, key=lambda p: (p.page_url, p.id))
         return [self.run_probe(driver, state, probe, stage) for probe in probes]
 
+    def page_coverage(self, driver: Driver, state: dict[str, Any]) -> list[dict[str, Any]]:
+        """Whether the page hook is active on each provider page, and whether a gap is surfaced."""
+        hooked = "!/native code/.test(Function.prototype.toString.call(window.fetch))"
+        badge = ("chrome.tabs.query({}).then((tabs) => Promise.all(tabs.filter((t) => t.url === %s)"
+                 ".map((t) => chrome.action.getBadgeText({ tabId: t.id })))).then((texts) => texts[0] ?? null)")
+        rows = []
+        for host in PROVIDER_HOSTS:
+            url = f"https://{host}/"
+            driver.request("open", url=url)
+            state["page"] = url
+            time.sleep(3)  # the background retries the content-script ping for about one second
+            active = driver.request("eval", expression=hooked).get("value")
+            text = driver.request("extension-eval", expression=badge % json.dumps(url)).get("value")
+            rows.append({"host": host, "page_hook_active": active, "action_badge": text,
+                         "status": coverage_status(active, text)})
+        return rows
+
     def ensure_runtime(self) -> bool:
         if not self.supervisor.process or self.supervisor.process.poll() is not None:
             self.supervisor.start()
@@ -381,6 +398,7 @@ class Study:
             if not entry["warm_up"]["ready"]:
                 entry.update(status="failed", reason="extension never produced a successful ALLOW decision")
                 return entry
+            entry["page_coverage"] = self.page_coverage(driver, state)
             records = self.run_group(driver, state, self.catalogue, "steady-state")
             if not self.args.skip_faults:
                 records += self.fault_stages(driver, state)
@@ -540,6 +558,9 @@ def derive(path: Path) -> None:
         print(f"{browser['browser']} {browser.get('browser_version')}: {summary['passed']}/{summary['total']} passed")
         for category, bucket in sorted(summary["by_category"].items()):
             print(f"  {category}: {bucket['passed']}/{bucket['total']}")
+        for row in browser.get("page_coverage", []):
+            if row["status"] != "covered":
+                print(f"  coverage {row['host']}: {row['status']}")
         failed = [p["id"] for p in browser["probes"] if not p["passed"]]
         if failed:
             print("  failed:", failed)

@@ -14,12 +14,14 @@ import {
 import { SemanticAvailability } from "./semantic-availability.js";
 import { collectMaskSpans } from "./redaction.js";
 import { ANALYSIS_TIMEOUT_MS, STREAMING_HEALTH_TIMEOUT_MS } from "./analysis-timeouts.js";
+import { watchTabCoverage } from "./page-coverage.js";
 
 const client = new RuntimeClient();
 const semanticAvailability = new SemanticAvailability(checkStreamingHealth);
 let runtimeControlTail = Promise.resolve();
 
 addRuntimeMessageListener(handleMessage);
+watchTabCoverage();
 addRuntimeLifecycleListeners(() => {
   void restoreEnabledRuntime().catch(reportStartupFailure);
 });

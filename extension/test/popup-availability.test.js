@@ -35,6 +35,8 @@ function harness({ enabled = true, llm = true, health = async () => ({ ok: false
     document: { querySelector: element, querySelectorAll: () => buttons,
       body: { classList: { toggle() {} } } },
     setInterval(callback) { timers.push(callback); },
+    async activeTabCoverage() { return { supported: false, covered: false }; },
+    COVERAGE_GAP_TITLE: "", COVERAGE_GAP_MESSAGE: "",
     async sendRuntimeMessage(message) {
       messages.push(message);
       switch (message.type) {
