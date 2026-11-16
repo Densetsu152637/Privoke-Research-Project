@@ -172,6 +172,12 @@ def analyse_text(
     try:
         normalised = normalize_with_offsets(text)
         normalised_text = normalised.text
+        case_preserved = (
+            normalize_with_offsets(text, lowercase=False)
+            if GLOBAL_CONFIG.case_preserving_detectors
+            and (REGEX_LAYER in requested_layers or NER_LAYER in requested_layers)
+            else normalised
+        )
     except Exception as exc:
         return PipelineAnalysis(
             tuple(
@@ -197,7 +203,7 @@ def analyse_text(
     completed: dict[str, LayerExecution] = {}
     if REGEX_LAYER in requested_layers and run_regex_first:
         regex_execution = _remap_execution(
-            _execute_layer(REGEX_LAYER, normalised_text), normalised
+            _execute_layer(REGEX_LAYER, case_preserved.text), case_preserved
         )
         completed[REGEX_LAYER] = regex_execution
         _, regex_action = strongest_result(regex_execution.results)
@@ -229,7 +235,7 @@ def analyse_text(
     executions = GLOBAL_CONFIG.threadpool.map(
         lambda layer: _execute_layer(
             layer,
-            normalised_text,
+            (case_preserved if layer != SEMANTIC_LAYER else normalised).text,
             semantic_model_id=semantic_model_id,
             semantic_presence_gate=(
                 semantic_presence_gate if layer == SEMANTIC_LAYER else None
@@ -238,8 +244,13 @@ def analyse_text(
         ),
         pending_layers,
     )
-    completed.update({execution.layer: _remap_execution(execution, normalised)
-                      for execution in executions})
+    completed.update({
+        execution.layer: _remap_execution(
+            execution,
+            normalised if execution.layer == SEMANTIC_LAYER else case_preserved,
+        )
+        for execution in executions
+    })
     return PipelineAnalysis(tuple(completed[layer] for layer in requested_layers))
 
 

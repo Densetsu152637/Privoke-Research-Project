@@ -24,11 +24,13 @@ def normalize_text(text: str) -> str:
     return normalize_with_offsets(text).text
 
 
-def normalize_with_offsets(text: str) -> NormalizedText:
+def normalize_with_offsets(text: str, *, lowercase: bool = True) -> NormalizedText:
     """Map each canonical character to the original interval that produced it.
 
     Expanded Unicode characters share an interval. Collapsed/replaced sequences
     cover their complete source interval, including obfuscation and whitespace.
+    ``lowercase=False`` keeps the original letter case (for case-sensitive
+    detector layers such as NER); semantic models require the default.
     """
     characters: list[str] = []
     origins: list[tuple[int, int]] = []
@@ -56,17 +58,18 @@ def normalize_with_offsets(text: str) -> NormalizedText:
         flush(len(text))
 
     canonical = ''.join(characters)
-    lowered_origins = [origin for character, origin in zip(canonical, origins)
-                       for _ in character.lower()]
-    canonical = canonical.lower()
-    origins = lowered_origins
+    if lowercase:
+        lowered_origins = [origin for character, origin in zip(canonical, origins)
+                           for _ in character.lower()]
+        canonical = canonical.lower()
+        origins = lowered_origins
 
-    def substitute(pattern: str, replacement: str) -> None:
+    def substitute(pattern: str, replacement: str, flags: int = 0) -> None:
         nonlocal canonical, origins
         parts: list[str] = []
         mapped: list[tuple[int, int]] = []
         cursor = 0
-        for match in re.finditer(pattern, canonical):
+        for match in re.finditer(pattern, canonical, flags):
             start, end = match.span()
             parts.append(canonical[cursor:start])
             mapped.extend(origins[cursor:start])
@@ -79,7 +82,7 @@ def normalize_with_offsets(text: str) -> NormalizedText:
         mapped.extend(origins[cursor:])
         canonical, origins = ''.join(parts), mapped
 
-    substitute(r'\[at\]|\(at\)', '@')
+    substitute(r'\[at\]|\(at\)', '@', re.IGNORECASE)
     substitute(r'(?<=\d)[ \t]+(?=\d)', '')
     substitute(r'[ \t]+', ' ')
     substitute(r'\n+', '\n')

@@ -124,7 +124,8 @@ raw prompt
 
 Important behavior:
 
-- Normalization lowercases text, applies Unicode NFKC, replaces `[at]` and `(at)` with `@`, removes spaces between adjacent digits, collapses horizontal whitespace, and preserves newlines.
+- Normalization applies Unicode NFKC, replaces `[at]` and `(at)` with `@`, removes spaces between adjacent digits, collapses horizontal whitespace, and preserves newlines. Regex and NER receive case-preserved text by default (`PRIVOKE_CASE_PRESERVING_DETECTORS`, default on; `0` lowercases them); the semantic/LLM layer always receives lowercased text.
+- `PRIVOKE_NER_POSTFILTER` defaults to on: spaCy entities pass through per-span cleaning and category-combination rules before they set the NER sensitivity (`src/NER/ner_postfilter.py`). `0` emits raw mapped entities.
 - `PRIVOKE_WAIT_FOR_REGEX` defaults to true. In that mode regex runs first and a regex `BLOCK` short-circuits NER and semantic detection.
 - gRPC callers can request any subset of `regex`, `ner`, and `semantic`, and can override regex-first versus parallel scheduling per request.
 - gRPC callers can set `semantic_model_id` per request to select a streamed PriVoke model without mutating global runtime configuration.
@@ -241,6 +242,8 @@ Environment variables:
 - `PRIVOKE_GRPC_PORT`, direct/server default `50054`; the workstation supervisor sets it to `50057` for its child
 - `PRIVOKE_LLM_CHOICE`
 - `PRIVOKE_WAIT_FOR_REGEX`
+- `PRIVOKE_CASE_PRESERVING_DETECTORS`, default true; `0` lowercases regex and NER input
+- `PRIVOKE_NER_POSTFILTER`, default true; `0` disables the NER post-filter
 - `PRIVOKE_MAX_PROMPT_CHARS`
 - `PRIVOKE_MAX_GRPC_MESSAGE_BYTES`, default `262144`
 - `PRIVOKE_MAX_GRPC_RESPONSE_BYTES`, default `1048576`

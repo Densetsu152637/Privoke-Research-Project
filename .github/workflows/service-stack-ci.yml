@@ -168,7 +168,7 @@ jobs:
         run: |
           FT5_STATE_DIR="$CI_STATE_ROOT" docker compose run --rm --no-deps \
             --user 10001:10001 --entrypoint python client-runtime -c \
-            'import torch; assert torch.__version__.split("+")[0] == "2.10.0"; x=torch.tensor([1.0],requires_grad=True); (x*x).sum().backward(); assert x.grad.item()==2.0; print(torch.__version__)'
+            'import torch; assert torch.__version__.split("+")[0] == "2.11.0"; x=torch.tensor([1.0],requires_grad=True); (x*x).sum().backward(); assert x.grad.item()==2.0; print(torch.__version__)'
       - name: Prepare fixed fixture and capture S0 before automatic scheduling
         run: |
           FT5_STATE_DIR="$CI_STATE_ROOT" "$RUNNER_TEMP/semantic-smoke" \

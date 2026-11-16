@@ -16,7 +16,9 @@ This directory contains layer 2 of the PriVoke client-runtime detector pipeline:
 - serializes each shared pipeline's inference and conversion to plain `ClassificationResult` values with a per-pipeline lock; `Doc` and `Span` objects remain request-local,
 - raises the normal spaCy import or model-load exception when dependencies are missing,
 - does not cache failed model loads, so a later construction may retry,
-- deduplicates by `(start_char, end_char, label, text)`.
+- deduplicates by `(start_char, end_char, label, text)`,
+- by default (`PRIVOKE_NER_POSTFILTER`, on; `0` disables) passes candidates through `ner_postfilter.py`: per-span cleaning (placeholders, identifiers, headings, short acronyms, common phrases) then category-combination rules that set the final sensitivity; dropped candidates are not emitted and kept results record `postfilter_rule` in metadata,
+- receives case-preserved text by default (`PRIVOKE_CASE_PRESERVING_DETECTORS`, on; `0` lowercases); the spaCy model is cased, so lowercased input degrades recognition. Results are in [installed detector precision](../experiments/detector-precision-installed-20261024.md).
 
 The runtime has no per-request NER model-path selector. `model_name` is a
 construction-time argument for direct detector users; request text cannot choose or
