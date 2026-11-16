@@ -1,6 +1,6 @@
 # Rust workspace
 
-> Source area: `rust`. Plan: [Rust server rewrite](../plans/rust-server-rewrite.md), stages 0 to 3 and 11. Run every command from the repository root unless stated.
+> Source area: `rust`. Plan: [Rust server rewrite](../plans/rust-server-rewrite.md), stages 0 to 4 and 11. Run every command from the repository root unless stated.
 
 The workspace holds the Rust side of the server rewrite. Stages 1 and 2 added three libraries and the PKI tool; stage 3 adds the first service, `privoke-model-streaming`; stage 11 adds the spaCy client crate and the spaCy worker. The Python and Go services are unchanged and remain the measured system until a later stage replaces them.
 
@@ -11,6 +11,7 @@ The workspace holds the Rust side of the server rewrite. Stages 1 and 2 added th
 | `privoke-transport` | In-service mutual TLS, authorisation, limits, the identity registry and hot reload. It replaces nginx. |
 | `privoke-pki` (`rust/tools/privoke-pki`) | Operator CA tool and installation enrolment: `init-ca`, `issue-server`, `issue-reporter`, `sign`, `sign-service`, `revoke`, `crl`, and the installation commands `enrol`, `renew`, `install-cert` and `status`. The library is what `privoke-supervisor` will call. |
 | `privoke-model-streaming` (`rust/services/model-streaming`) | The model-streaming service that replaces the Go service: legacy float catalog, standard V3 packages, two mutual-TLS listeners and a `healthcheck` subcommand. See [below](#privoke-model-streaming). |
+| `privoke-telemetry` (`rust/services/telemetry`) | The telemetry service that replaces `services/telemetry-service` (Python): ingestion, validation, SQLite aggregate storage that opens the Python service's databases, and the summary estimator, behind mutual TLS with the shared reporter credential. See [below](#privoke-telemetry-stage-4). |
 | `privoke-spacy` | Client of the spaCy worker: the framed protocol, UTF-8 and UTF-16 offset conversion, and the supervised worker pool. No Python dependency. |
 | `privoke-spacy-worker` (`services/spacy-worker`) | The worker process. It embeds CPython 3.11 through PyO3 and serves the unchanged spaCy `en_core_web_sm`. The `embed` feature is off by default, so the workspace builds and tests without Python. |
 | `privoke-rules` | The regex rule layer (300 rules including the ported Presidio recognisers and the Gitleaks catalogue) and the canonical-text preprocessing with offset maps, identical to the Python client runtime (stage 12). |
@@ -245,9 +246,84 @@ The Go-test mapping:
 
 Tests that need a symlink (`scratch_catalog_rejects_symlink_outside_catalog`, `scratch_catalog_rejects_outside_symlink_substitution_during_open`, and the asset-symlink assertion in `standard_v3_rejects_links_traversal_and_unpinned_manifests`) report themselves skipped on a Windows host without the symlink privilege, as the Go tests do. The directory cases use a junction there instead, which `symlink_metadata` also reports as a link, so the path-substitution and root-link refusals do run.
 
+## `privoke-telemetry` (stage 4)
+
+The Rust replacement for `services/telemetry-service` (Python, left in place as the parity oracle). Binary: `telemetry-service`. Dockerfile: `rust/services/telemetry/Dockerfile`. Modules mirror the Python files: `validation` (`validation.py`), `storage` (`storage.py`, including the estimator), `config` (`config.py`) and `service` (the collector of `server.py`); `daily`, `server` and `healthcheck` are new.
+
+### Listeners and authorisation
+
+| Listener | Default port | RPCs | Roles | Rate key |
+| --- | --- | --- | --- | --- |
+| public | `58443` (published as `8443`) | `RecordTelemetry`, `Health` | `reporter` (the shared credential `urn:privoke:reporter`) | source IP |
+| internal | `50055` | `GetTelemetrySummary`, `Health` | `publisher`, `trainer`, `runtime` | service identity |
+
+Both are `privoke-transport` mutual-TLS listeners over one server certificate, client CA, CRL and registry. The binary needs `--cert`, `--key`, `--client-ca`, `--crl` and `--registry`, and exits 1 naming the first missing or invalid one before it opens the database or binds a port. An RPC that a listener does not list is `UNIMPLEMENTED` there: the summary cannot be read with the credential that every installation holds, and a service identity cannot report. An installation certificate (registered or not) is `PERMISSION_DENIED` on both listeners; no certificate, or one from another CA, fails the handshake. The registry must carry `reporter = true`; turning it off reaches open connections.
+
+### What is and is not kept about a peer
+
+The certificate identity is the shared reporter credential and says nothing about who reported, so the service reads it for admission only. The one per-peer value it uses is the **source IP**, held in memory for two controls. Neither reaches the database or a log line.
+
+- **Rate limit.** The transport token bucket (20 requests per second, burst 40) is keyed by source IP on the public listener. Two clients holding the same certificate at different addresses are limited independently, and two connections from one address share a bucket. `TELEMETRY_RATE_PER_SECOND` and `TELEMETRY_RATE_BURST` change it.
+- **Daily cap.** At most `TELEMETRY_DAILY_CAP_PER_IP` (default 10000) accepted reports per source per UTC day, then `RESOURCE_EXHAUSTED`. Reports that fail validation or storage do not use the allowance. IPv6 sources count by /64, and at most one million sources are tracked per day (beyond that the service refuses instead of growing). The counters are dropped at the day boundary. At rollover the service logs three aggregate numbers (accepted, distinct sources, refused) with no address: this is the per-IP daily acceptance counter that records counts by day and no identities. Nothing about a day is persisted.
+
+The database has the Python schema and nothing else: `telemetry_strata(epsilon_micros, sample_count)` and `telemetry_counts(epsilon_micros, dimension, value, observed_count)`. No column can hold an identity, an address or a time. The log lines are the startup line (ports and the cap, no address), persistence or aggregation failures (no request data) and the day summary. The Python per-report "recorded" line is dropped. `no_identity_column_and_no_identity_log_line` runs the binary, sends reports from three source addresses with the reporter and an installation certificate, and asserts that neither its stderr nor any file of the data directory contains the URNs, the installation UUID, the certificate fingerprints or any source address.
+
+### Behaviour kept from the Python service
+
+- Validation order and messages: mechanism, epsilon range, the six-decimal rule with Python's `isclose`, then each dimension in `time_bucket, action, primary_category, risk_bucket, model_version` order.
+- The legacy-database and incompatible-schema refusals. The file is inspected before WAL mode is set, so a legacy database is left byte for byte unchanged (Python switched it to WAL first).
+- One `BEGIN IMMEDIATE` transaction per report, a fresh connection per operation, and `Health` as a writable-transaction probe.
+- The estimator, with the same IEEE operations in the same order: `exp_epsilon + domain_size - 1`, `count - n * other`, and Python's `min` and `max` tie rules. Results agree bit for bit on the host; G5 allows 4 ULP for another libm.
+- A request above `TELEMETRY_MAX_MESSAGE_BYTES` (131072) is refused before the handler.
+
+### Configuration
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `TELEMETRY_PORT` | `50055` | internal listener port |
+| `TELEMETRY_PUBLIC_PORT` | `58443` | public listener port (new) |
+| `TELEMETRY_BIND` | `0.0.0.0` | interface for both listeners (new) |
+| `TELEMETRY_DB_PATH` | `/data/telemetry-ldp-v1.sqlite3` | the SQLite file; a Python-written file opens unchanged |
+| `TELEMETRY_MAX_MESSAGE_BYTES` | `131072` | largest request message |
+| `TELEMETRY_DAILY_CAP_PER_IP` | `10000` | accepted reports per source per UTC day (new) |
+| `TELEMETRY_RATE_PER_SECOND`, `TELEMETRY_RATE_BURST` | `20`, `40` | per-source rate limit (new) |
+
+`telemetry-service healthcheck --client-cert C --client-key K --server-ca CA [--address host:port] [--server-name N]` makes one mutual-TLS `Health` call to the internal listener. It needs a registered service identity; the reporter credential is not admitted there.
+
+### Build and run
+
+```
+docker build -f rust/services/telemetry/Dockerfile -t privoke-telemetry-rust:<tag> .
+docker run --rm -p 127.0.0.1:58443:58443 -p 127.0.0.1:50055:50055 \
+  -v <pki>:/pki:ro -v <data-volume>:/data \
+  privoke-telemetry-rust:<tag> --cert /pki/server.crt --key /pki/server.key \
+  --client-ca /pki/client-ca.pem --crl /pki/crl.pem --registry /pki/registry.toml
+```
+
+The image builds `--locked` in `rust:1.99.1-slim-bookworm` (SQLite is compiled in through the `bundled` feature of `rusqlite`) and runs on `gcr.io/distroless/cc-debian12:nonroot`. `/data` is created owned by `nonroot`, so a fresh volume is writable; an existing volume must be writable by uid 65532. `Dockerfile.dockerignore` allow-lists `rust/` and `shared/proto/` and excludes keys, certificates and databases.
+
+### Tests
+
+Run on the host: `cargo test -p privoke-telemetry --locked --manifest-path rust/Cargo.toml`.
+
+| File | Covers |
+| --- | --- |
+| `tests/parity.rs` | The stage 0 corpus: 195 packets through the handlers, 6 strata and 155 marginal rows exact, 26 summary estimates within 4 ULP, the serialised summary hash, the empty summary and health. The telemetry-audit fixtures in `tests/fixtures/estimator_oracle.json`: the packets of `store_parity` in `evaluation/analysis/audit-telemetry-mechanism.py` (26 estimates) and 1200 further packets over 400 strata that stress `exp`. A database written by the Python store (`tests/fixtures/python_written.sqlite3`), opened and extended. |
+| `tests/ported.rs` | Every test of `services/telemetry-service/tests/test_security_validation.py`, and the malformed-packet cases: truncated and non-UTF-8 protobuf, wrong wire types, reserved legacy tags, duplicate fields, the legacy and incompatible databases, and rejected packets that are neither stored nor counted. |
+| `tests/mtls.rs` | The policy on both listeners and R10 in process. Per-source-IP independence of the limiter with one certificate (client sockets bound to `127.0.0.2`, `.3` and `.4`). The daily cap. An oversize message. No identity column and no identity log line. Fail-closed startup with the built binary (each flag, and a legacy database). The `healthcheck` subcommand. |
+| `tests/emitter.rs`, `tests/emitter_check.py` | The stage 6 check: the real Python emitter (`event_emitter.py`, unmodified) delivers four reports over mutual TLS with the reporter credential, and is refused with an installation certificate in the telemetry slot. |
+| `tests/container.rs` | R10 against the built container, the container's own `healthcheck`, the emitter against the container, and a container log that holds no peer data. |
+
+`emitter.rs` and `container.rs` report themselves skipped, and pass, when their inputs are absent:
+
+- `PRIVOKE_HOST_PYTHON` is a host interpreter with `grpcio` and `protobuf` (for example the one in `evaluation/.venv-v1-v3-pipeline`). `PRIVOKE_PY_GENERATED` is a directory holding the generated `privoke/v1/telemetry_pb2*.py`: `evaluation/setup-host.py` makes them, or `python -m grpc_tools.protoc -I shared/proto --python_out=<dir> --grpc_python_out=<dir> shared/proto/privoke/v1/telemetry.proto`. The script patches `is_loopback_target`, as the stage 6 test does, so that a loopback target takes the production TLS path.
+- `TELEMETRY_CONTAINER_IMAGE` is an image built from the Dockerfile. The test starts it as `privoke-s04-telemetry-r10` on two ephemeral loopback ports with a fresh volume, and removes both when it ends. Only the server key pair, the CA certificates, the CRL and the registry are mounted.
+
+The two fixtures were generated by running the Python oracle (`services/telemetry-service/app/storage.py`) and record its bit patterns. Regenerate them with the same Python, from the packets inside the fixture, only if the estimator is changed deliberately.
+
 ## Not in this stage
 
-No other service than `privoke-model-streaming`, no PyO3, and no CI job (no `.github/` change before the submission deadline). The `privoke-supervisor` wrapper commands (`enrol`, `install-cert`, `renew`, `status`) belong to stage 7; they call the `privoke_pki::client` library. The Rust CI job waits for the deadline.
+No other service than `privoke-model-streaming` (stage 4 adds `privoke-telemetry`, above), no PyO3, and no CI job (no `.github/` change before the submission deadline). The `privoke-supervisor` wrapper commands (`enrol`, `install-cert`, `renew`, `status`) belong to stage 7; they call the `privoke_pki::client` library. The Rust CI job waits for the deadline.
 
 ## Not in stage 1
 
