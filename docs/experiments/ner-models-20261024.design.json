@@ -1,0 +1,3484 @@
+{
+ "configs": {
+  "gliner-core-t0.3-pf0": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": false,
+    "preset": "core",
+    "threshold": 0.3
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 39.016274999999965,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 1000,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 121,
+       "FP": 762,
+       "TN": 238,
+       "TP": 879,
+       "recall": 0.879,
+       "specificity": 0.238
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 762,
+       "TN": 238,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.238
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 47.0289138576779,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 148,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 47,
+       "FP": 32,
+       "TN": 87,
+       "TP": 101,
+       "recall": 0.6824324324324325,
+       "specificity": 0.7310924369747899
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 12,
+       "FP": 34,
+       "TN": 85,
+       "TP": 136,
+       "recall": 0.918918918918919,
+       "specificity": 0.7142857142857143
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-core-t0.3-pf1": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": true,
+    "preset": "core",
+    "threshold": 0.3
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 123.03160000000014,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 1000,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 223,
+       "FP": 35,
+       "TN": 965,
+       "TP": 777,
+       "recall": 0.777,
+       "specificity": 0.965
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 35,
+       "TN": 965,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.965
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 106.65820224719099,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 148,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 110,
+       "FP": 1,
+       "TN": 118,
+       "TP": 38,
+       "recall": 0.25675675675675674,
+       "specificity": 0.9915966386554622
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 34,
+       "FP": 3,
+       "TN": 116,
+       "TP": 114,
+       "recall": 0.7702702702702703,
+       "specificity": 0.9747899159663865
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-core-t0.4-pf0": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": false,
+    "preset": "core",
+    "threshold": 0.4
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 38.499375000000015,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 1000,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 151,
+       "FP": 614,
+       "TN": 386,
+       "TP": 849,
+       "recall": 0.849,
+       "specificity": 0.386
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 614,
+       "TN": 386,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.386
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 38.516853932584254,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 148,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 64,
+       "FP": 19,
+       "TN": 100,
+       "TP": 84,
+       "recall": 0.5675675675675675,
+       "specificity": 0.8403361344537815
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 17,
+       "FP": 21,
+       "TN": 98,
+       "TP": 131,
+       "recall": 0.8851351351351351,
+       "specificity": 0.8235294117647058
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-core-t0.4-pf1": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": true,
+    "preset": "core",
+    "threshold": 0.4
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 37.307695000000024,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 1000,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 223,
+       "FP": 13,
+       "TN": 987,
+       "TP": 777,
+       "recall": 0.777,
+       "specificity": 0.987
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 13,
+       "TN": 987,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.987
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 34.61468164794006,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 148,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 117,
+       "FP": 0,
+       "TN": 119,
+       "TP": 31,
+       "recall": 0.20945945945945946,
+       "specificity": 1.0
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 39,
+       "FP": 2,
+       "TN": 117,
+       "TP": 109,
+       "recall": 0.7364864864864865,
+       "specificity": 0.9831932773109243
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-core-t0.5-pf0": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": false,
+    "preset": "core",
+    "threshold": 0.5
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 40.23607999999995,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 1000,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 211,
+       "FP": 438,
+       "TN": 562,
+       "TP": 789,
+       "recall": 0.789,
+       "specificity": 0.562
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 438,
+       "TN": 562,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.562
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 38.628389513108615,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 148,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 82,
+       "FP": 13,
+       "TN": 106,
+       "TP": 66,
+       "recall": 0.44594594594594594,
+       "specificity": 0.8907563025210085
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 20,
+       "FP": 15,
+       "TN": 104,
+       "TP": 128,
+       "recall": 0.8648648648648649,
+       "specificity": 0.8739495798319328
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-core-t0.5-pf1": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": true,
+    "preset": "core",
+    "threshold": 0.5
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 42.10998499999999,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 1000,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 223,
+       "FP": 1,
+       "TN": 999,
+       "TP": 777,
+       "recall": 0.777,
+       "specificity": 0.999
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 1,
+       "TN": 999,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.999
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 39.235243445692866,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 148,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 123,
+       "FP": 0,
+       "TN": 119,
+       "TP": 25,
+       "recall": 0.16891891891891891,
+       "specificity": 1.0
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 40,
+       "FP": 2,
+       "TN": 117,
+       "TP": 108,
+       "recall": 0.7297297297297297,
+       "specificity": 0.9831932773109243
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-core-t0.6-pf0": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": false,
+    "preset": "core",
+    "threshold": 0.6
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 33.25673000000003,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 1000,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 234,
+       "FP": 248,
+       "TN": 752,
+       "TP": 766,
+       "recall": 0.766,
+       "specificity": 0.752
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 248,
+       "TN": 752,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.752
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 33.159250936329606,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 148,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 101,
+       "FP": 9,
+       "TN": 110,
+       "TP": 47,
+       "recall": 0.31756756756756754,
+       "specificity": 0.9243697478991597
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 30,
+       "FP": 11,
+       "TN": 108,
+       "TP": 118,
+       "recall": 0.7972972972972973,
+       "specificity": 0.907563025210084
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-core-t0.6-pf1": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": true,
+    "preset": "core",
+    "threshold": 0.6
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 39.388524999999966,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 1000,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 234,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 766,
+       "recall": 0.766,
+       "specificity": 1.0
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 40.648014981273384,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 148,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 130,
+       "FP": 0,
+       "TN": 119,
+       "TP": 18,
+       "recall": 0.12162162162162163,
+       "specificity": 1.0
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 44,
+       "FP": 2,
+       "TN": 117,
+       "TP": 104,
+       "recall": 0.7027027027027027,
+       "specificity": 0.9831932773109243
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-core-t0.7-pf0": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": false,
+    "preset": "core",
+    "threshold": 0.7
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 29.59641000000005,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 1000,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 336,
+       "FP": 108,
+       "TN": 892,
+       "TP": 664,
+       "recall": 0.664,
+       "specificity": 0.892
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 108,
+       "TN": 892,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.892
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 28.88243445692884,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 148,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 127,
+       "FP": 5,
+       "TN": 114,
+       "TP": 21,
+       "recall": 0.14189189189189189,
+       "specificity": 0.957983193277311
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 43,
+       "FP": 7,
+       "TN": 112,
+       "TP": 105,
+       "recall": 0.7094594594594594,
+       "specificity": 0.9411764705882353
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-core-t0.7-pf1": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": true,
+    "preset": "core",
+    "threshold": 0.7
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 33.98263000000006,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 1000,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 336,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 664,
+       "recall": 0.664,
+       "specificity": 1.0
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 32.80539325842697,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 148,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 140,
+       "FP": 0,
+       "TN": 119,
+       "TP": 8,
+       "recall": 0.05405405405405406,
+       "specificity": 1.0
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 48,
+       "FP": 2,
+       "TN": 117,
+       "TP": 100,
+       "recall": 0.6756756756756757,
+       "specificity": 0.9831932773109243
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-pii-t0.3-pf0": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": false,
+    "preset": "pii",
+    "threshold": 0.3
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 34.4664649999999,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 290,
+       "FP": 103,
+       "TN": 897,
+       "TP": 710,
+       "recall": 0.71,
+       "specificity": 0.897
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 672,
+       "TN": 328,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.328
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 0,
+       "FP": 103,
+       "TN": 897,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.897
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 672,
+       "TN": 328,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.328
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 33.59681647940076,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 104,
+       "FP": 11,
+       "TN": 108,
+       "TP": 44,
+       "recall": 0.2972972972972973,
+       "specificity": 0.907563025210084
+      },
+      "positive": {
+       "FN": 15,
+       "FP": 36,
+       "TN": 83,
+       "TP": 133,
+       "recall": 0.8986486486486487,
+       "specificity": 0.6974789915966386
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 75,
+       "FP": 12,
+       "TN": 107,
+       "TP": 73,
+       "recall": 0.49324324324324326,
+       "specificity": 0.8991596638655462
+      },
+      "positive": {
+       "FN": 6,
+       "FP": 38,
+       "TN": 81,
+       "TP": 142,
+       "recall": 0.9594594594594594,
+       "specificity": 0.680672268907563
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-pii-t0.3-pf1": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": true,
+    "preset": "pii",
+    "threshold": 0.3
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 141.19423499999976,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 290,
+       "FP": 103,
+       "TN": 897,
+       "TP": 710,
+       "recall": 0.71,
+       "specificity": 0.897
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 214,
+       "TN": 786,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.786
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 0,
+       "FP": 103,
+       "TN": 897,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.897
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 214,
+       "TN": 786,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.786
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 121.43086142322093,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 104,
+       "FP": 11,
+       "TN": 108,
+       "TP": 44,
+       "recall": 0.2972972972972973,
+       "specificity": 0.907563025210084
+      },
+      "positive": {
+       "FN": 36,
+       "FP": 12,
+       "TN": 107,
+       "TP": 112,
+       "recall": 0.7567567567567568,
+       "specificity": 0.8991596638655462
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 75,
+       "FP": 12,
+       "TN": 107,
+       "TP": 73,
+       "recall": 0.49324324324324326,
+       "specificity": 0.8991596638655462
+      },
+      "positive": {
+       "FN": 20,
+       "FP": 14,
+       "TN": 105,
+       "TP": 128,
+       "recall": 0.8648648648648649,
+       "specificity": 0.8823529411764706
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-pii-t0.4-pf0": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": false,
+    "preset": "pii",
+    "threshold": 0.4
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 38.24833000000004,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 306,
+       "FP": 63,
+       "TN": 937,
+       "TP": 694,
+       "recall": 0.694,
+       "specificity": 0.937
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 398,
+       "TN": 602,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.602
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 16,
+       "FP": 63,
+       "TN": 937,
+       "TP": 984,
+       "recall": 0.984,
+       "specificity": 0.937
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 398,
+       "TN": 602,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.602
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 36.8724344569288,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 106,
+       "FP": 5,
+       "TN": 114,
+       "TP": 42,
+       "recall": 0.28378378378378377,
+       "specificity": 0.957983193277311
+      },
+      "positive": {
+       "FN": 30,
+       "FP": 20,
+       "TN": 99,
+       "TP": 118,
+       "recall": 0.7972972972972973,
+       "specificity": 0.8319327731092437
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 77,
+       "FP": 6,
+       "TN": 113,
+       "TP": 71,
+       "recall": 0.4797297297297297,
+       "specificity": 0.9495798319327731
+      },
+      "positive": {
+       "FN": 15,
+       "FP": 22,
+       "TN": 97,
+       "TP": 133,
+       "recall": 0.8986486486486487,
+       "specificity": 0.8151260504201681
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-pii-t0.4-pf1": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": true,
+    "preset": "pii",
+    "threshold": 0.4
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 38.42451999999998,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 306,
+       "FP": 63,
+       "TN": 937,
+       "TP": 694,
+       "recall": 0.694,
+       "specificity": 0.937
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 113,
+       "TN": 887,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.887
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 16,
+       "FP": 63,
+       "TN": 937,
+       "TP": 984,
+       "recall": 0.984,
+       "specificity": 0.937
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 113,
+       "TN": 887,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.887
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 32.827977528089896,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 106,
+       "FP": 5,
+       "TN": 114,
+       "TP": 42,
+       "recall": 0.28378378378378377,
+       "specificity": 0.957983193277311
+      },
+      "positive": {
+       "FN": 48,
+       "FP": 9,
+       "TN": 110,
+       "TP": 100,
+       "recall": 0.6756756756756757,
+       "specificity": 0.9243697478991597
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 77,
+       "FP": 6,
+       "TN": 113,
+       "TP": 71,
+       "recall": 0.4797297297297297,
+       "specificity": 0.9495798319327731
+      },
+      "positive": {
+       "FN": 28,
+       "FP": 11,
+       "TN": 108,
+       "TP": 120,
+       "recall": 0.8108108108108109,
+       "specificity": 0.907563025210084
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-pii-t0.5-pf0": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": false,
+    "preset": "pii",
+    "threshold": 0.5
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 40.705670000000005,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 347,
+       "FP": 54,
+       "TN": 946,
+       "TP": 653,
+       "recall": 0.653,
+       "specificity": 0.946
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 193,
+       "TN": 807,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.807
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 57,
+       "FP": 54,
+       "TN": 946,
+       "TP": 943,
+       "recall": 0.943,
+       "specificity": 0.946
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 193,
+       "TN": 807,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.807
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 39.40756554307116,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 109,
+       "FP": 4,
+       "TN": 115,
+       "TP": 39,
+       "recall": 0.2635135135135135,
+       "specificity": 0.9663865546218487
+      },
+      "positive": {
+       "FN": 50,
+       "FP": 11,
+       "TN": 108,
+       "TP": 98,
+       "recall": 0.6621621621621622,
+       "specificity": 0.907563025210084
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 79,
+       "FP": 5,
+       "TN": 114,
+       "TP": 69,
+       "recall": 0.46621621621621623,
+       "specificity": 0.957983193277311
+      },
+      "positive": {
+       "FN": 26,
+       "FP": 13,
+       "TN": 106,
+       "TP": 122,
+       "recall": 0.8243243243243243,
+       "specificity": 0.8907563025210085
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-pii-t0.5-pf1": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": true,
+    "preset": "pii",
+    "threshold": 0.5
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 40.56296499999997,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 347,
+       "FP": 54,
+       "TN": 946,
+       "TP": 653,
+       "recall": 0.653,
+       "specificity": 0.946
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 78,
+       "TN": 922,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.922
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 57,
+       "FP": 54,
+       "TN": 946,
+       "TP": 943,
+       "recall": 0.943,
+       "specificity": 0.946
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 78,
+       "TN": 922,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.922
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 38.27299625468163,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 109,
+       "FP": 4,
+       "TN": 115,
+       "TP": 39,
+       "recall": 0.2635135135135135,
+       "specificity": 0.9663865546218487
+      },
+      "positive": {
+       "FN": 63,
+       "FP": 6,
+       "TN": 113,
+       "TP": 85,
+       "recall": 0.5743243243243243,
+       "specificity": 0.9495798319327731
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 79,
+       "FP": 5,
+       "TN": 114,
+       "TP": 69,
+       "recall": 0.46621621621621623,
+       "specificity": 0.957983193277311
+      },
+      "positive": {
+       "FN": 36,
+       "FP": 8,
+       "TN": 111,
+       "TP": 112,
+       "recall": 0.7567567567567568,
+       "specificity": 0.9327731092436975
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-pii-t0.6-pf0": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": false,
+    "preset": "pii",
+    "threshold": 0.6
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 32.699639999999995,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 361,
+       "FP": 28,
+       "TN": 972,
+       "TP": 639,
+       "recall": 0.639,
+       "specificity": 0.972
+      },
+      "positive": {
+       "FN": 1,
+       "FP": 59,
+       "TN": 941,
+       "TP": 999,
+       "recall": 0.999,
+       "specificity": 0.941
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 70,
+       "FP": 28,
+       "TN": 972,
+       "TP": 930,
+       "recall": 0.93,
+       "specificity": 0.972
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 59,
+       "TN": 941,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.941
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 33.803745318352064,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 119,
+       "FP": 3,
+       "TN": 116,
+       "TP": 29,
+       "recall": 0.19594594594594594,
+       "specificity": 0.9747899159663865
+      },
+      "positive": {
+       "FN": 79,
+       "FP": 8,
+       "TN": 111,
+       "TP": 69,
+       "recall": 0.46621621621621623,
+       "specificity": 0.9327731092436975
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 86,
+       "FP": 4,
+       "TN": 115,
+       "TP": 62,
+       "recall": 0.4189189189189189,
+       "specificity": 0.9663865546218487
+      },
+      "positive": {
+       "FN": 38,
+       "FP": 10,
+       "TN": 109,
+       "TP": 110,
+       "recall": 0.7432432432432432,
+       "specificity": 0.9159663865546218
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-pii-t0.6-pf1": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": true,
+    "preset": "pii",
+    "threshold": 0.6
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 34.695159999999994,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 361,
+       "FP": 28,
+       "TN": 972,
+       "TP": 639,
+       "recall": 0.639,
+       "specificity": 0.972
+      },
+      "positive": {
+       "FN": 1,
+       "FP": 52,
+       "TN": 948,
+       "TP": 999,
+       "recall": 0.999,
+       "specificity": 0.948
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 70,
+       "FP": 28,
+       "TN": 972,
+       "TP": 930,
+       "recall": 0.93,
+       "specificity": 0.972
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 52,
+       "TN": 948,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.948
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 39.37299625468167,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 119,
+       "FP": 3,
+       "TN": 116,
+       "TP": 29,
+       "recall": 0.19594594594594594,
+       "specificity": 0.9747899159663865
+      },
+      "positive": {
+       "FN": 89,
+       "FP": 4,
+       "TN": 115,
+       "TP": 59,
+       "recall": 0.39864864864864863,
+       "specificity": 0.9663865546218487
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 86,
+       "FP": 4,
+       "TN": 115,
+       "TP": 62,
+       "recall": 0.4189189189189189,
+       "specificity": 0.9663865546218487
+      },
+      "positive": {
+       "FN": 44,
+       "FP": 6,
+       "TN": 113,
+       "TP": 104,
+       "recall": 0.7027027027027027,
+       "specificity": 0.9495798319327731
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-pii-t0.7-pf0": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": false,
+    "preset": "pii",
+    "threshold": 0.7
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 29.41857499999999,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 436,
+       "FP": 5,
+       "TN": 995,
+       "TP": 564,
+       "recall": 0.564,
+       "specificity": 0.995
+      },
+      "positive": {
+       "FN": 74,
+       "FP": 29,
+       "TN": 971,
+       "TP": 926,
+       "recall": 0.926,
+       "specificity": 0.971
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 5,
+       "TN": 995,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 0.995
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 29,
+       "TN": 971,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.971
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 29.361161048689155,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 129,
+       "FP": 1,
+       "TN": 118,
+       "TP": 19,
+       "recall": 0.12837837837837837,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 102,
+       "FP": 3,
+       "TN": 116,
+       "TP": 46,
+       "recall": 0.3108108108108108,
+       "specificity": 0.9747899159663865
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 91,
+       "FP": 2,
+       "TN": 117,
+       "TP": 57,
+       "recall": 0.38513513513513514,
+       "specificity": 0.9831932773109243
+      },
+      "positive": {
+       "FN": 44,
+       "FP": 5,
+       "TN": 114,
+       "TP": 104,
+       "recall": 0.7027027027027027,
+       "specificity": 0.957983193277311
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "gliner-pii-t0.7-pf1": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": true,
+    "preset": "pii",
+    "threshold": 0.7
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 30.857169999999957,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 436,
+       "FP": 5,
+       "TN": 995,
+       "TP": 564,
+       "recall": 0.564,
+       "specificity": 0.995
+      },
+      "positive": {
+       "FN": 74,
+       "FP": 29,
+       "TN": 971,
+       "TP": 926,
+       "recall": 0.926,
+       "specificity": 0.971
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 5,
+       "TN": 995,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 0.995
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 29,
+       "TN": 971,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.971
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 33.01269662921349,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 129,
+       "FP": 1,
+       "TN": 118,
+       "TP": 19,
+       "recall": 0.12837837837837837,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 109,
+       "FP": 1,
+       "TN": 118,
+       "TP": 39,
+       "recall": 0.2635135135135135,
+       "specificity": 0.9915966386554622
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 91,
+       "FP": 2,
+       "TN": 117,
+       "TP": 57,
+       "recall": 0.38513513513513514,
+       "specificity": 0.9831932773109243
+      },
+      "positive": {
+       "FN": 48,
+       "FP": 3,
+       "TN": 116,
+       "TP": 100,
+       "recall": 0.6756756756756757,
+       "specificity": 0.9747899159663865
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "lg-pf0": {
+   "config": {
+    "backend": "spacy",
+    "model": "en_core_web_lg",
+    "postfilter": false
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 39.95977999999998,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 1000,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 165,
+       "FP": 81,
+       "TN": 919,
+       "TP": 835,
+       "recall": 0.835,
+       "specificity": 0.919
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 81,
+       "TN": 919,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.919
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 41.24868913857677,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 148,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 74,
+       "FP": 11,
+       "TN": 108,
+       "TP": 74,
+       "recall": 0.5,
+       "specificity": 0.907563025210084
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 18,
+       "FP": 13,
+       "TN": 106,
+       "TP": 130,
+       "recall": 0.8783783783783784,
+       "specificity": 0.8907563025210085
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "lg-pf1": {
+   "config": {
+    "backend": "spacy",
+    "model": "en_core_web_lg",
+    "postfilter": true
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 49.39694999999986,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 1000,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 244,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 756,
+       "recall": 0.756,
+       "specificity": 1.0
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 50.91123595505618,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 148,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 99,
+       "FP": 5,
+       "TN": 114,
+       "TP": 49,
+       "recall": 0.3310810810810811,
+       "specificity": 0.957983193277311
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 28,
+       "FP": 7,
+       "TN": 112,
+       "TP": 120,
+       "recall": 0.8108108108108109,
+       "specificity": 0.9411764705882353
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "sm-pf0": {
+   "config": {
+    "backend": "spacy",
+    "model": "en_core_web_sm",
+    "postfilter": false
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 50.2463750000001,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 1000,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 129,
+       "FP": 81,
+       "TN": 919,
+       "TP": 871,
+       "recall": 0.871,
+       "specificity": 0.919
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 81,
+       "TN": 919,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.919
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 48.38719101123595,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 148,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 77,
+       "FP": 19,
+       "TN": 100,
+       "TP": 71,
+       "recall": 0.4797297297297297,
+       "specificity": 0.8403361344537815
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 21,
+       "FP": 21,
+       "TN": 98,
+       "TP": 127,
+       "recall": 0.8581081081081081,
+       "specificity": 0.8235294117647058
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "sm-pf1": {
+   "config": {
+    "backend": "spacy",
+    "model": "en_core_web_sm",
+    "postfilter": true
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 50.706659999999914,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 1000,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 305,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 695,
+       "recall": 0.695,
+       "specificity": 1.0
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 47.41955056179772,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 148,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 107,
+       "FP": 4,
+       "TN": 115,
+       "TP": 41,
+       "recall": 0.27702702702702703,
+       "specificity": 0.9663865546218487
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 30,
+       "FP": 6,
+       "TN": 113,
+       "TP": 118,
+       "recall": 0.7972972972972973,
+       "specificity": 0.9495798319327731
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "trf-pf0": {
+   "config": {
+    "backend": "spacy",
+    "model": "en_core_web_trf",
+    "postfilter": false
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 74.01118999999987,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 1000,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 223,
+       "FP": 24,
+       "TN": 976,
+       "TP": 777,
+       "recall": 0.777,
+       "specificity": 0.976
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 24,
+       "TN": 976,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 0.976
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 64.63771535580527,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 148,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 87,
+       "FP": 4,
+       "TN": 115,
+       "TP": 61,
+       "recall": 0.41216216216216217,
+       "specificity": 0.9663865546218487
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 22,
+       "FP": 6,
+       "TN": 113,
+       "TP": 126,
+       "recall": 0.8513513513513513,
+       "specificity": 0.9495798319327731
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  },
+  "trf-pf1": {
+   "config": {
+    "backend": "spacy",
+    "model": "en_core_web_trf",
+    "postfilter": true
+   },
+   "dataset_sha256": {
+    "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+    "tune": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095"
+   },
+   "freeze_commit": null,
+   "splits": {
+    "personalized": {
+     "mean_ms_per_prompt_indicative": 66.435395,
+     "n": 2000,
+     "ner": {
+      "block": {
+       "FN": 1000,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 237,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 763,
+       "recall": 0.763,
+       "specificity": 1.0
+      }
+     },
+     "positives": 1000,
+     "regex": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 72,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 928,
+       "recall": 0.928,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 0,
+       "FP": 0,
+       "TN": 1000,
+       "TP": 1000,
+       "recall": 1.0,
+       "specificity": 1.0
+      }
+     }
+    },
+    "tune": {
+     "mean_ms_per_prompt_indicative": 68.16925093632959,
+     "n": 267,
+     "ner": {
+      "block": {
+       "FN": 148,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 109,
+       "FP": 0,
+       "TN": 119,
+       "TP": 39,
+       "recall": 0.2635135135135135,
+       "specificity": 1.0
+      }
+     },
+     "positives": 148,
+     "regex": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 53,
+       "FP": 2,
+       "TN": 117,
+       "TP": 95,
+       "recall": 0.6418918918918919,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 97,
+       "FP": 1,
+       "TN": 118,
+       "TP": 51,
+       "recall": 0.34459459459459457,
+       "specificity": 0.9915966386554622
+      },
+      "positive": {
+       "FN": 33,
+       "FP": 2,
+       "TN": 117,
+       "TP": 115,
+       "recall": 0.777027027027027,
+       "specificity": 0.9831932773109243
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "fbf25e78049fbd655a59671720dcb083668b76ae"
+  }
+ },
+ "phase": "design",
+ "scope": "detector-layer (regex+NER); not LLM-only"
+}
