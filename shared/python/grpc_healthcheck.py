@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,11 +48,27 @@ HEALTH_SPECS = {
 }
 
 
+def _channel(target: str, server_name: str | None):
+    """Plaintext, or mutual TLS when the server in this container has TLS configured.
+
+    The probe presents this service's own client identity (PRIVOKE_TLS_CERT_FILE and key), which the server's
+    allow list must admit, and checks the server certificate against PRIVOKE_TLS_CA_FILE. ``server_name`` names the
+    certificate when the probe addresses it by loopback.
+    """
+    from privoke_service.stack_connection import grpc_channel, server_credentials_configured
+
+    if not server_credentials_configured(os.environ):
+        return grpc.insecure_channel(target)
+    options = (("grpc.ssl_target_name_override", server_name),) if server_name else ()
+    return grpc_channel(target, environment=os.environ, options=options, tls=True)
+
+
 def check_health(
     service: str,
     target: str,
     generated_dir: str | Path,
     timeout_seconds: float = 1.0,
+    server_name: str | None = None,
 ) -> None:
     spec = HEALTH_SPECS[service]
     generated_path = str(Path(generated_dir).resolve())
@@ -63,7 +80,7 @@ def check_health(
     request = getattr(protobuf_module, spec.request_name)()
     stub_type = getattr(grpc_module, spec.stub_name)
 
-    with grpc.insecure_channel(target) as channel:
+    with _channel(target, server_name) as channel:
         response = stub_type(channel).Health(request, timeout=timeout_seconds)
 
     if response.service != service or response.status != "SERVING":
@@ -79,6 +96,7 @@ def main() -> int:
     parser.add_argument("target")
     parser.add_argument("generated_dir")
     parser.add_argument("--timeout", type=float, default=1.0)
+    parser.add_argument("--server-name", default=os.environ.get("PRIVOKE_HEALTHCHECK_SERVER_NAME") or None)
     args = parser.parse_args()
 
     try:
@@ -87,6 +105,7 @@ def main() -> int:
             args.target,
             args.generated_dir,
             args.timeout,
+            args.server_name,
         )
     except Exception as exc:
         print(f"healthcheck failed: {exc}", file=sys.stderr)
