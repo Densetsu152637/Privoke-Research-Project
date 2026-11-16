@@ -1,0 +1,39 @@
+[package]
+name = "privoke-analysis"
+description = "The quarantined analysis microservice: a mutual-TLS gRPC front end over a supervised pool of W1 Python workers (stage W3)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+name = "privoke_analysis"
+path = "src/lib.rs"
+
+[[bin]]
+name = "analysis-service"
+path = "src/main.rs"
+
+[dependencies]
+privoke-contracts = { path = "../../crates/privoke-contracts" }
+privoke-transport = { path = "../../crates/privoke-transport" }
+privoke-worker-pool = { path = "../../crates/privoke-worker-pool" }
+tonic = { workspace = true }
+prost = { workspace = true }
+tokio = { workspace = true, features = ["process", "io-util", "time", "sync", "rt", "macros"] }
+clap = { workspace = true }
+thiserror = { workspace = true }
+base64 = { workspace = true }
+sha2 = { workspace = true }
+bytes = "1"
+
+[dev-dependencies]
+privoke-pki = { path = "../../tools/privoke-pki" }
+privoke-model-streaming = { path = "../model-streaming" }
+tempfile = { workspace = true }
+time = { workspace = true }
+serde_json = "1"
+
+[lints]
+workspace = true

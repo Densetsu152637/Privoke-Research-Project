@@ -12,6 +12,7 @@ members = [
     "crates/privoke-worker-pool",
     "services/telemetry",
     "services/runtime-supervisor",
+    "services/analysis",
 ]
 
 [workspace.package]

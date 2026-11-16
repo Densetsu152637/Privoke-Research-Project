@@ -1242,6 +1242,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "privoke-analysis"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "bytes",
+ "clap",
+ "privoke-contracts",
+ "privoke-model-streaming",
+ "privoke-pki",
+ "privoke-transport",
+ "privoke-worker-pool",
+ "prost",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror",
+ "time",
+ "tokio",
+ "tonic",
+]
+
+[[package]]
 name = "privoke-contracts"
 version = "0.1.0"
 dependencies = [

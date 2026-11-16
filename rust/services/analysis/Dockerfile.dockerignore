@@ -1,0 +1,13 @@
+# BuildKit reads this file instead of the repository-root .dockerignore for rust/services/analysis/Dockerfile. Allow-list
+# only what the build needs; the root file drops every `bin` directory, which would remove privoke-transport/src/bin.
+*
+!rust
+!shared/proto
+!shared/python
+!extension/client-runtime/src
+rust/target
+**/*.key
+**/*.pem
+**/*.p12
+**/__pycache__
+**/*.pyc
