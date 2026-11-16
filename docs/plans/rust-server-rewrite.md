@@ -1284,3 +1284,31 @@ These assessments informed the user's decision. D1 to D10 are approved and stage
 - **Revisit triggers for the boundary:**
   - Loopback hop latency exceeds the run-to-run spread.
   - Stages 17 to 22 complete (the approved D ports). The Python runtime worker then disappears, and only the PyO3 spaCy worker pool (stage 11) remains Python.
+
+## Stage 23: Pull request, container smoke-test CI and Google Cloud auto-deploy script (user decision, 17 November 2026)
+
+**User instruction:** "Ensure that when all of this is done, you make a PR for this branch with proper CI for container smoke testing (and the updated main script for auto-deploy to google cloud | I will setup google cloud later)".
+
+- **Objective:**
+  - Once the earlier stages are complete, open a pull request from `feat/rust-rewrite` to `main`.
+  - Update `.github/workflows/service-stack-ci.yml`, or add a Rust stack workflow. It must:
+    - build every Rust service image;
+    - run `cargo test --workspace --locked` on Linux, including the Linux spaCy bundle and the parity job;
+    - bring the container stack up with test certificates generated at runtime;
+    - run the smoke tests, including the negative rows, from host Python or Rust clients.
+  - Update `.github/workflows/deploy-gce.yml` and `deploy/` so that a merge to `main` builds and pushes the Rust images and rolls them out to the Google Cloud VM, using the stage 8a fail-closed cutover order.
+  - Deployment needs Google Cloud credentials, which the user will configure later. It must stay inert until the repository secrets and variables exist: skip with a clear notice, and never fail open.
+- **Depends on:** all earlier stages. The stage 8 cutover itself still needs the user's approval before it runs against production.
+- **Owned paths:**
+  - `.github/workflows/`
+  - `deploy/`
+  - `docs/deployment/google-cloud.md`
+- **Acceptance checks:**
+  - **CI passes.** The pull request's required checks pass on the hosted runners.
+  - **Workflows are linted.** `actionlint` passes on every workflow file.
+  - **Deployment stays inert.** Without GCP secrets the deploy workflow skips cleanly. A rehearsal with act, or a dry run, shows the deployment steps in order.
+  - **No secrets are committed.**
+- **Status:** pending.
+- **Handoff notes:**
+  - This supersedes the earlier "no CI before the deadline" restriction for this stage only. The pull request lands after the 11 December submission, unless the user decides otherwise.
+  - Known flaky test to fix first: `privoke-spacy` `queued_request_survives_a_hung_worker_ahead_of_it` still fails under a heavy parallel build (`-j 2` full workspace, 17 Nov). Its fixed 4 s offset is too short when process start-up is slow.
