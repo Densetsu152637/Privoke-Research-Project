@@ -1236,6 +1236,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "privoke-ner-layer"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "privoke-rules",
+ "privoke-spacy",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "privoke-pki"
 version = "0.1.0"
 dependencies = [

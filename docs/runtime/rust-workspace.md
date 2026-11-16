@@ -447,3 +447,69 @@ docker run --rm --init -v <worktree>:/work -v privoke-w2-target:/target -v privo
 ```
 
 `--init` reaps the workers the tests kill. A Linux-built `privoke-spacy-worker` bundle is still pending (stage 11's CI/Linux stage).
+
+## `privoke-ner-layer` (stage 13)
+
+> Plan: [Rust server rewrite](../plans/rust-server-rewrite.md#stage-13-ner-layer-and-post-filter-in-rust-d1).
+
+`privoke-ner-layer` ports the NER layer of the client runtime (`extension/client-runtime/src/NER`) onto the stage 11 spaCy worker. It reuses `privoke-rules` for the preprocessing (`normalize_with_offsets`, the offset maps and the three robustness flags) and for Python's text semantics (`pyre`, `pyunicode`). Offsets are code point indexes, as in Python; spaCy's own offsets are code points too.
+
+| Module | Python source |
+| --- | --- |
+| `detector` | `ner_detector.py`: `EntityNERDetector`, the caseless gate (`PRIVOKE_NER_CASELESS_GATE`, default off) and the post-filter switch (`PRIVOKE_NER_POSTFILTER`, default on). |
+| `postfilter` | `ner_postfilter.py`: both stages, the five span rules, the eight combination rules, the context cues, `has_case_signal`, `fold_case`, `CASELESS_DISABLED_RULES`, and the lexicon from the model's `lemma_index`. The decision log (rule, stage, candidate, outcome) is returned with the results. |
+| `usecases` | `use_cases.py`: PERSON, GPE, LOC, FAC and ORG with their packed classification and confidence. |
+| `pattern` | `pattern_entity_detector.py`: cues, shapes, optional gazetteer, recurrence, and the hybrid `augment_entities`. It needs no spaCy and is not wired into the pipeline in Python either. |
+| `layer` | The NER path of `pipeline.analyse_text(text, layers=["ner"])`: case-preserved normalisation (or the lowercased view when case preservation is off), detection, and remapping of spans to the original prompt, with the same `error` outcome for a normalisation failure. |
+| `analyzer`, `replay` | The `SpacyBackend` trait (implemented for `privoke_spacy::SpacyPool`), a replay of recorded spaCy results for the tests, and a per-document cache for the parity runs. |
+| `pytext`, `unicode_tables` | `isalpha`, `isupper`, `islower`, spaCy's `is_punct` and `str` helpers, from tables generated from the reference interpreter (Unicode 14.0.0, the same version as `privoke-rules`). |
+| `pat` | Python patterns on top of `privoke_rules::pyre` (below). |
+
+The post-filter reads spaCy only through `SpacyBackend`: `analyze(text, Selection::Full)` for the entities, the tokens and the dependency parse (`Span.root` is recomputed from the token heads exactly as spaCy does, including its special case for punctuation and space tokens), `analyze(phrase, Selection::TaggerOnly)` for the common-word rule, and `lemma_index()` for the lexicon.
+
+### Patterns that name a non-ASCII character
+
+`PyRegex` accepts only ASCII (plus a few preserved characters) in a pattern, and the NER patterns name the en dash, the em dash, the bullet and `é` (`[:\-–]`, `[–—\-]`, `[-*•]`, `fianc[ée]e?`). `privoke-rules` is not changed for this; `pat` handles them in this crate:
+
+- **Dashes and bullet.** For each of them that the text holds, the pattern and the text are relabelled with one ASCII punctuation character that occurs neither in the text nor as a literal in the pattern (the sentinel stays "other", like the dash). A kind that the text does not hold needs no sentinel and its class member is dropped. When the text holds a dash and every one of the 24 candidates the search returns an error instead of guessing; no recorded set reaches that.
+- **`é`.** Only the two relation cues name it. The main pattern holds the unaccented branch (`fiancee?`) and a second pattern holds the accented branch alone with `\w` in the `[ée]` slot; a match of the second counts only if the text has `é` or `É` in that slot. Python's alternatives are different words, so at one start at most one of the two applies, and the leftmost match of the two is the one Python finds.
+
+### Parity with Python
+
+The golden output comes from the unchanged Python runtime and `evaluation/generate_ner_golden.py`. Every run selects the layer explicitly (`pipeline.analyse_text(text, layers=["ner"])`) and asserts that exactly one `ner` layer ran; the regex and semantic layers are never requested and an empty layer list is never sent. The generator wraps `ner_detector.postfilter` to record every decision, and the spaCy pipeline to cache and (for the committed fixture) record every analysis.
+
+Settings per row (`LAYER_CONFIGS`): `default`, `caseless` (gate on), `format`, `digits`, `email` (each robustness flag alone), `all-flags`, `caseless-all-flags`, `lowercase` (case preservation off) and `no-postfilter`. The pattern detector runs in six configurations (`PATTERN_CONFIGS`: default, gazetteer, cues only, shape only, no recurrence, hybrid with the spaCy results as seeds). A run is identical when the results (span in the original prompt, text, packed classification, confidence, reasoning, metadata including `postfilter_rule`) and the decision log (rule, stage, keep, sensitivity, label, span, text and the four cue features of each candidate) agree.
+
+```
+# golden, into the ignored evaluation/results/ (read-only access to the datasets of the main checkout)
+evaluation/.venv-v1-v3-pipeline/Scripts/python.exe evaluation/generate_ner_golden.py sets development personalized openai stress fuzz \
+    lower-development upper-development ... --data-root "D:/Git Repositories/Privoke-Research-Project" --out evaluation/results/ner-golden-<date>
+evaluation/.venv-v1-v3-pipeline/Scripts/python.exe evaluation/generate_ner_golden.py sets piimb --shard 0 --shards 6 ...   # likewise dolly15k, oasst2
+# Rust, through the real worker pool
+cargo run --release -p privoke-ner-layer --example parity --manifest-path rust/Cargo.toml -- \
+    --worker rust/target/bundle/windows/privoke-spacy-worker.exe --golden evaluation/results/ner-golden-<date> --workers 8
+```
+
+The sets are those of the stage 11 gate (`parity_sets.py`, hash-checked, read-only): `development`, `personalized`, `openai`, `piimb`, `dolly15k`, `oasst2` and the synthetic `stress` set, plus a seeded `fuzz` corpus of name, place and organisation sentences built to reach every rule and the `lower-` and `upper-` variants of the three small sets (so that the caseless gate sees prompts with no case signal). `final.jsonl` is never opened. WildChat (the third F2 source) is not covered, as in stage 11.
+
+| Set | Rows | NER layer (9 settings) | Pattern detector (6 settings) |
+| --- | --- | --- | --- |
+| development | 502 | 4,518 / 4,518 | 3,012 / 3,012 |
+| personalized | 2,000 | 18,000 / 18,000 | 12,000 / 12,000 |
+| openai | 1,000 | 9,000 / 9,000 | 6,000 / 6,000 |
+| piimb | 150,022 | 1,350,198 / 1,350,198 | 900,132 / 900,132 |
+| dolly15k | 19,478 | 175,302 / 175,302 | 116,868 / 116,868 |
+| oasst2 | 64,592 | 581,328 / 581,328 | 387,552 / 387,552 |
+| stress | 40 | 360 / 360 | 240 / 240 |
+| fuzz | 4,000 | 36,000 / 36,000 | 24,000 / 24,000 |
+| lower-development | 502 | 4,518 / 4,518 | 3,012 / 3,012 |
+| upper-development | 502 | 4,518 / 4,518 | 3,012 / 3,012 |
+| lower-personalized | 2,000 | 18,000 / 18,000 | 12,000 / 12,000 |
+| upper-personalized | 2,000 | 18,000 / 18,000 | 12,000 / 12,000 |
+| lower-openai | 1,000 | 9,000 / 9,000 | 6,000 / 6,000 |
+| upper-openai | 1,000 | 9,000 / 9,000 | 6,000 / 6,000 |
+| **all** | 248,638 | 2,237,742 / 2,237,742 | 1,491,828 / 1,491,828 |
+
+Every cell is identical: results, remapped spans and the post-filter decision log. Zero differences, zero errors. (Windows, Python 3.11.9, spaCy 3.7.5, model 3.7.1, BLIS `haswell`; the Linux bundle is pending.)
+
+Two further checks run in `cargo test --workspace --locked`: the committed synthetic fixture (`tests/fixtures/synthetic_golden.b64`, generated by `generate_ner_golden.py synthetic`: 123 generic prompts, all 9 NER-layer and 6 pattern settings, with the spaCy analyses that Python saw replayed, so no worker is needed; a second test asserts that every post-filter rule decides at least once), and the unit tests of `pytext`, `pat`, `usecases` and `pattern`. With `PRIVOKE_SPACY_BUNDLE=<bundle dir>` the same fixture runs through the real worker (`tests/real_worker.rs`; it skips, and passes, when the variable is unset).
