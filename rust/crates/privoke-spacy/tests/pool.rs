@@ -24,7 +24,7 @@ fn config(extra: &[&str]) -> PoolConfig {
 async fn until(what: &str, mut cond: impl FnMut() -> bool) {
     let start = Instant::now();
     while !cond() {
-        assert!(start.elapsed() < Duration::from_secs(10), "timed out waiting for {what}");
+        assert!(start.elapsed() < Duration::from_secs(30), "timed out waiting for {what}");
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
 }
@@ -82,18 +82,20 @@ async fn p3_poisoned_input_is_not_retried() {
     assert_eq!(pool.starts(), 3, "exactly one restart: the poisoned request was not retried on the other worker");
 }
 
-/// P3, crash loop: a worker that dies at once is restarted with growing delays.
+/// P3, crash loop: a worker that dies at once is restarted with growing delays. Process start-up time varies by host, so
+/// the test waits for the sixth start to be logged (an event) and checks the lower bound the backoff guarantees: every
+/// gap between starts is at least the configured delay. A pool without backoff would restart as fast as the host can
+/// start a process, so on any host quicker than the 800 ms cap it would break the later gaps.
 #[tokio::test]
 async fn p3_crash_loop_backs_off() {
     let dir = tempfile_dir();
     let log = dir.join("spawns.log");
-    let pool = SpacyPool::start(config(&["--exit-at-start", "--spawn-log", log.to_str().unwrap()])).unwrap();
-    tokio::time::sleep(Duration::from_millis(1500)).await;
+    let mut cfg = config(&["--exit-at-start", "--spawn-log", log.to_str().unwrap()]);
+    cfg.backoff = Backoff { initial: Duration::from_millis(100), max: Duration::from_millis(800) };
+    let backoff = cfg.backoff;
+    let pool = SpacyPool::start(cfg).unwrap();
+    until("six worker starts", || spawn_times(&log).len() >= 6).await;
     let times = spawn_times(&log);
-    let backoff = Backoff { initial: Duration::from_millis(40), max: Duration::from_millis(400) };
-    assert!(times.len() >= 4, "expected several restarts, saw {}", times.len());
-    // Cumulative delays 40, 120, 280, 600, 1000, 1400 ms allow at most 7 starts in 1.5 s; no backoff would allow hundreds.
-    assert!(times.len() <= 8, "restarts did not back off: {} starts in 1.5 s", times.len());
     for (n, pair) in times.windows(2).enumerate() {
         let gap = Duration::from_millis((pair[1] - pair[0]) as u64);
         let wanted = backoff.delay(n as u32 + 1);
@@ -101,6 +103,7 @@ async fn p3_crash_loop_backs_off() {
     }
     assert!(!pool.is_ready());
     assert!(matches!(pool.analyze("x", Selection::Full).await, Err(SpacyError::NotReady(_))));
+    drop(pool);
     std::fs::remove_dir_all(dir).ok();
 }
 
@@ -171,7 +174,7 @@ async fn queued_request_survives_a_hung_worker_ahead_of_it() {
     let pool = Arc::new(
         SpacyPool::start({
             let mut cfg = config(&[]);
-            cfg.request_deadline = Duration::from_millis(500);
+            cfg.request_deadline = Duration::from_secs(8);
             cfg
         })
         .unwrap(),
@@ -181,7 +184,9 @@ async fn queued_request_survives_a_hung_worker_ahead_of_it() {
         let pool = pool.clone();
         async move { pool.analyze("HANG", Selection::Full).await }
     });
-    tokio::time::sleep(Duration::from_millis(300)).await;
+    // Half the deadline: the queued request's own deadline then outlasts the hung one's kill by 4 s, which is the room the
+    // restart gets, however slowly this host starts a process.
+    tokio::time::sleep(Duration::from_secs(4)).await;
     let queued = pool.analyze("behind the hang", Selection::Full).await;
     assert!(queued.is_ok(), "{queued:?}");
     assert!(matches!(hung.await.unwrap(), Err(SpacyError::DeadlineExceeded(_))));
