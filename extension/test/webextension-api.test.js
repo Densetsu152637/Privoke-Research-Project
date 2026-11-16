@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   addRuntimeLifecycleListeners,
+  connectNative,
   addRuntimeMessageListener,
   sendNativeMessage,
   sendRuntimeMessage,
@@ -108,4 +109,14 @@ test("uses injected promise storage without a browser global", async () => {
 
   await storageSet(storage, { setting: true }, {});
   assert.deepEqual(await storageGet(storage, "setting", {}), { setting: true });
+});
+
+test("opens a native-messaging port through whichever namespace the browser provides", () => {
+  const opened = [];
+  const runtime = { connectNative(host) { opened.push(host); return { host }; } };
+
+  assert.deepEqual(connectNative("test.host", { browser: { runtime } }), { host: "test.host" });
+  assert.deepEqual(connectNative("test.host", { chrome: { runtime } }), { host: "test.host" });
+  assert.deepEqual(opened, ["test.host", "test.host"]);
+  assert.throws(() => connectNative("test.host", {}), /WebExtensions runtime API is unavailable/);
 });

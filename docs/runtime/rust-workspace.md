@@ -528,49 +528,42 @@ docker run --rm --init -v <worktree>:/work -v privoke-w2-target:/target -v privo
 
 `--init` reaps the workers the tests kill. A Linux-built `privoke-spacy-worker` bundle is still pending (stage 11's CI/Linux stage).
 
-## `privoke-runtime-supervisor` (stage 7)
+## `privoke-runtime-supervisor` controller (stages 7 and W4)
 
-Plan: [stage 7](../plans/rust-server-rewrite.md#stage-7-rust-runtime-supervisor), as revised by the [worker isolation architecture](../plans/rust-server-rewrite.md#worker-isolation-architecture-user-decision-17-november-2026). Binary: `privoke-supervisor` (`rust/services/runtime-supervisor`). It replaces three Python files: the native-messaging host (`native_messaging_host.py`), the process supervisor (`runtime_supervisor.py`) and `PrivokeRuntimeControlService` (`main.py`). The gRPC-Web bridge (`grpc_web_bridge.py`) is not rebuilt, and the extension transport is unchanged until W4. The Python supervisor, host and bridge stay in place as the oracle.
-
-```
-cargo test -p privoke-runtime-supervisor --locked --manifest-path rust/Cargo.toml
-```
+Plans: [stage 7](../plans/rust-server-rewrite.md#stage-7-rust-runtime-supervisor) and [stage W4](../plans/rust-server-rewrite.md#stage-w4-client-controller-without-listening-ports). Binary `privoke-supervisor` (`rust/services/runtime-supervisor`). Under W4 it is the client controller: the browser starts it as a native-messaging host, it owns one sandboxed `privoke-worker-pool` of the W1 Python worker, and it opens no listening socket. `confine.rs`, `process.rs`, the loopback control service and the Python-compatible `ensure_supervisor` host were removed; the Python supervisor, bridge and host stay in `extension/runtime-supervisor` as the oracle only.
 
 | Command | Does |
 | --- | --- |
-| (none) or `native-host` | The native-messaging host on stdio. A browser starts it with only the calling origin, which is ignored. |
-| `serve` | The supervisor: the runtime child plus the loopback control service on `127.0.0.1:50056`. Environment names are the Python ones (`PRIVOKE_LOCAL_RUNTIME_PORT`, `PRIVOKE_CONTROL_GRPC_PORT`, `PRIVOKE_RUNTIME_START_ENABLED`, the timeouts). |
-| `enrol`, `renew`, `install-cert`, `status` | The installation side of enrolment, calling `privoke_pki::client`. `--dir` defaults to `PRIVOKE_CREDENTIAL_DIR`, else `%LOCALAPPDATA%\PriVoke\credentials` or `$XDG_DATA_HOME/privoke/credentials`. The key never leaves that directory; `status` reads local files only, warns 30 days before expiry and says what still works after it. |
-| `fetch-model [--model-id latest]` | Downloads the standard V3 package over mutual TLS and verifies it into the user cache (below). |
+| (none) or `native-host` | The controller on stdio. A browser passes only the calling origin, which is ignored. |
+| `enrol`, `renew`, `install-cert`, `status` | Unchanged from stage 7 (`privoke_pki::client`). |
+| `fetch-model [--model-id latest]` | Downloads the standard V3 package over mutual TLS into the user cache (below). |
 
-### Native host
+### Controller protocol
 
-The wire format is the Python host's: a native-endian `u32` length and a JSON body of at most 1 MiB, one supported action (`ensure_supervisor`). The replay tests feed every stage 0 transcript (`tests/conformance/native_messaging.json`, 17) to the library and to the real process (34 replays) and compare the bytes written. Replies are `json.dumps` compact with `ensure_ascii`. A truncated header or body, an oversized length, invalid UTF-8 or invalid JSON ends the process with exit code 1 and no reply, as the Python exception did, and a top-level `null` ends the session as end of input did. The JSON reader accepts what Python's does (`NaN`, `Infinity`, lone surrogate escapes, duplicate keys, huge integers), because `serde_json` would turn a message Python answered into a crash.
+One native-messaging port, frames as in `native_host.rs` (native-endian `u32` length, JSON, 1 MiB cap both ways). Messages are the `runtime.proto` messages, base64 in a JSON envelope; replies carry the request `id` and may arrive in any order.
 
-Two normalisations in the replay: `<ROOT>` and path separators (the recorded `supervisor-entry-missing` message), and the two port numbers of the `control-port-conflict` message. The recording used the real ports 8080 and 50056; the replay binds ephemeral ports instead (a real runtime may hold the real ones) and maps the numbers back before rebuilding the frame, so the framing is still compared byte for byte. Ports, the entry program and the timeout can be changed only in a build with the `test-helpers` feature.
+```text
+request  {"v":1,"id":7,"method":"AnalyzePrompt","payload":"<base64>"}
+success  {"v":1,"id":7,"ok":true,"payload":"<base64>"}
+failure  {"v":1,"id":7,"ok":false,"code":"UNAVAILABLE","message":"..."}
+```
 
-`ensure_supervisor` keeps the Python order: bridge port open means already running, control port open means conflict, otherwise start the entry detached and wait for the bridge port. The entry is `privoke-supervisor serve` instead of `main.py`. Because the bridge is not rebuilt, nothing in the Rust build opens port 8080; until W4 a Rust-only install answers `ensure_supervisor` with a timeout. The Rust control service can sit behind the Python bridge (it serves the same `PrivokeRuntimeControlService`), which is how the oracle is exercised.
+| Method | Request | Response |
+| --- | --- | --- |
+| `AnalyzePrompt` | `AnalyzePromptRequest` | `AnalyzePromptResponse` |
+| `Status` | `RuntimeHealthRequest` | `RuntimeControlStatus` |
+| `SetRuntimeEnabled` | `SetRuntimeEnabledRequest` | `RuntimeControlStatus` |
+| `ModelStreamingHealth` | `RuntimeHealthRequest` | `RuntimeHealthResponse` |
 
-The native-host manifest templates are written by `extension/runtime-supervisor/scripts/install-native-host.{sh,ps1}`. Set `PRIVOKE_SUPERVISOR_BINARY` (sh) or pass `-SupervisorBinary` (ps1) to register the Rust executable (`<binary> native-host`) instead of the Python host; unset, nothing changes. These two scripts were checked for syntax only; running them writes the user's real registration, so they were not run.
+Failure policy: every failure is an error reply with a gRPC-style code (`INVALID_ARGUMENT`, `FAILED_PRECONDITION`, `UNAVAILABLE`, `DEADLINE_EXCEEDED`, `RESOURCE_EXHAUSTED`, `UNIMPLEMENTED`, `INTERNAL`); nothing becomes a decision. A frame that is not JSON, or has no integer `id`, ends the session without a reply. A reply over 1 MiB becomes `RESOURCE_EXHAUSTED`. End of input (port closed, browser gone) stops the runtime before the process exits. The worker rejects an empty layer list (`INVALID_LAYERS` becomes `INVALID_ARGUMENT`), so a request can never run the full pipeline by omission.
 
-### The runtime child and "children die with the supervisor"
+### Worker and sandbox
 
-`process.rs` is the port of `RuntimeProcessSupervisor` (same messages, same start, stop and stack-switch rules). All state lives on one long-lived thread, which both serialises requests like the Python lock and satisfies the Linux rule that the parent-death signal follows the thread that started the child. The child is always the fixed argv `python src/grpc_main.py` (after `dependency_check.py`), loopback only; no caller of the control service can change argv, directory or environment. A test build can replace the argv through `PRIVOKE_TEST_RUNTIME_COMMAND`; a normal build has no such switch.
+`worker.rs` holds the W1 frame codec and the pool `Protocol`; `runtime.rs` the lifecycle (enable, disable, status, cancel on stop); `python/worker_shim.py` adapts the pool's `u32` framing to the W1 worker's pipe descriptors and lets the worker read the controller's cache layout (`<cache>/<model_id>/<pin>/`) read-only. W3 has a similar shim; reconcile the two when both merge. The pool runs one worker under `SandboxPolicy`: dies with the controller, 6 GiB memory limit (`PRIVOKE_WORKER_MEMORY_MB`, 0 for none), at most 8 processes, a clean environment limited to named variables (no credentials). Network denial is enforced on Linux only; on Windows none is claimed. Analysis deadline 27 s (`PRIVOKE_RUNTIME_REQUEST_TIMEOUT_SECONDS`), worker start 30 s (`PRIVOKE_RUNTIME_START_TIMEOUT_SECONDS`). The Linux code path was not compiled or run here.
 
-`confine.rs` is the confinement. Windows: a Job Object with kill-on-close, the child created suspended, put in the job and resumed, so even the venv `python.exe` redirector's child is in the job. Stopping terminates the job and waits until it is empty. Linux: `PR_SET_PDEATHSIG` with a `getppid` check, `setsid`, and a signal to the process group on stop. It repeats the two operating-system calls of `privoke-worker-pool` and does not depend on that crate, whose pool needs framed workers; W4 moves the controller onto the pool and removes `confine.rs`. The Linux half follows the same pattern but was not compiled or run here (the host is Windows).
+### Tests
 
-| Rule | Test |
-| --- | --- |
-| The runtime child dies when the supervisor is killed with no cleanup | `real_processes::the_runtime_child_dies_with_the_supervisor` |
-| The whole tree (launcher and the process holding the port) dies with it | `real_processes::the_whole_runtime_tree_dies_with_the_supervisor` |
-| Stop releases the port and restart works, three times, also through a launcher that starts the real runtime | `real_processes::stopping_*` |
-| A failed tree termination is not reported as stopped, even when the launcher exited | `supervisor_cases::failed_tree_termination_*`, `partial_tree_failure_*` |
-
-`stop` also waits for the runtime port to close before returning, since the operating system closes a dead process's listening socket a moment later and an immediate restart would otherwise mistake it for a foreign process.
-
-### Control service
-
-`PrivokeRuntimeControlService` (`SetRuntimeEnabled`, `Status`, `ModelStreamingHealth`) is served by `control.rs` on plaintext loopback through `privoke_transport`'s `workstation-loopback` listener, which refuses any other address. This crate is the only one that enables that feature, and the existing transport tests still assert that the cloud crates do not. The listener carries no identity and the cloud `AuthLayer` is not applied: any local process can call it, as it could the Python control port (GAP-LOOPBACK-PLAINTEXT-POLICY keeps this). W4 removes it from workstation installs. `ModelStreamingHealth` is lazy and reports `NOT_SERVING` for every failure (no credential, refused handshake, unregistered identity, timeout).
+`tests/controller_session.rs` (16) runs the real host process against a stand-in worker (`privoke-supervisor-test-worker`, `test-helpers` feature): round trip, fail-closed errors, layer pass-through, malformed frames, concurrency, closing the port and killing the controller both kill the worker, crash, hang deadline, start failure, oversize, no listening socket. `tests/real_worker.rs` runs the real Python worker (skips without the runtime virtual environment). `tests/health.rs` ports the model-health tests. 18 unit tests; fetch and enrolment tests are unchanged.
 
 ### Model fetch
 
@@ -584,7 +577,7 @@ Tests run an in-process `privoke-model-streaming` on certificates generated at t
 
 ### Not in this stage
 
-The gRPC-Web bridge, the extension transport (W4), the Python worker protocol and pool (W1, W2, W4), the telemetry reporter, and any CI job. The installed-client claims (C5, C6, C42) are not claimed for this build.
+The telemetry reporter, Rust workers (stage 17), and any CI job. The installed-client claims (C5, C6, C42) are not claimed for this build.
 
 ## `privoke-analysis` (stage W3)
 

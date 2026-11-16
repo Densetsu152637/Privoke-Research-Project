@@ -17,7 +17,7 @@ extension_root="$repository_root/extension"
 identity_path="$extension_root/extension-identities.json"
 python_path="$extension_root/client-runtime/.venv/bin/python"
 source_host_path="$supervisor_root/src/native_messaging_host.py"
-# The Rust supervisor (rust/services/runtime-supervisor) is the native host when PRIVOKE_SUPERVISOR_BINARY names its
+# The Rust controller (rust/services/runtime-supervisor) is the native host when PRIVOKE_SUPERVISOR_BINARY names its
 # executable. Unset, the Python host stays the registered one.
 supervisor_binary="${PRIVOKE_SUPERVISOR_BINARY:-}"
 if [ -n "$supervisor_binary" ]; then
@@ -76,7 +76,12 @@ if [ "$browser" = auto ]; then
   fi
 fi
 
-host_name=org.privoke.runtime_launcher
+# The Rust controller has its own host name so it can be registered beside the Python launcher.
+if [ -n "$supervisor_binary" ]; then
+  host_name=org.privoke.runtime_controller
+else
+  host_name=org.privoke.runtime_launcher
+fi
 mkdir -p "$install_root"
 installed_host_path="$install_root/native_messaging_host.py"
 launcher_path="$install_root/privoke-native-host"
