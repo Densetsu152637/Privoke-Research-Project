@@ -836,6 +836,25 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
   - The CI/Linux stage must: build the Linux bundle (python-build-standalone or equivalent for 3.11.9, then fill `cpython-distribution.linux-x86_64`, `cpython-build.linux-x86_64` and `blis-target.linux-x86_64` in the lock), run `parity_gate.py` on it, and build the worker with `--features embed`. The lock already holds the manylinux hashes. `build_bundle.py` refuses non-Windows hosts until then.
   - A different CPU family selects a different BLIS kernel and is refused by the lock; a server fleet with several CPU families needs a lock decision (pin `BLIS_ARCH` or record several targets).
 
+## Stage 11b: In-process spaCy backend (user decision, 17 November 2026)
+
+**User instruction:** "there should be no external spaCy process, it should be integrated inside the client-runtime process (if possible)".
+
+- **Current state.** Until stage 17, the runtime worker is the W1 Python pipeline. It already runs spaCy inside its own process, so no separate spaCy process exists there.
+- **Rust runtime (stage 17).** Once the analysis runtime moves to Rust, spaCy is embedded in that runtime worker process through PyO3. It runs on one dedicated interpreter thread that owns the GIL and the loaded `en_core_web_sm`, and other threads reach it through a channel. No `privoke-spacy-worker` child process is spawned.
+- **Isolation.** Isolation comes from the runtime worker boundary. The W2 pool and sandbox wrap the whole runtime worker, so if spaCy crashes, that worker dies and the controller restarts it, with no retry of a poisoned request.
+- **Throughput.** Throughput scales by adding runtime worker processes, not spaCy processes.
+- **Objective:**
+  - Add an in-process backend to `privoke-spacy` behind a `SpacyBackend` trait. The same API and the same offset conversion must serve both backends: `InProcess` is the default, and `WorkerPool` is kept only for tests and as the parity oracle.
+  - Load the hash-locked bundle (stage 11) from inside the host process. The bundle refuses to start on any lock difference.
+  - Redirect Python stdout to stderr in-process.
+- **Depends on:** stage 11.
+- **Owned paths:** `rust/crates/privoke-spacy/`, plus the docs section.
+- **Acceptance checks:**
+  - **Parity.** The in-process backend's output is byte-identical to the worker-pool backend on every recorded NER set and in both selections.
+  - **No extra processes.** A test asserts that no child process is created when NER runs.
+  - **Crash handling.** A deliberate interpreter crash inside a runtime worker takes down only that worker, and the W2 pool restarts it without retrying the request.
+
 ## Stage 12: Regex rules and preprocessing in Rust (D2)
 
 - Objective: build the `privoke-rules` crate. It ports `extension/client-runtime/src/regex/*` (including the Presidio recognisers and validators, ported by hand from the `presidio-analyzer` 2.2.363 sources) and `detection/preprocessing.py` (normalisation with offset maps).
@@ -874,6 +893,8 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
   - Offsets are code point indexes. Rust strings are UTF-8, so callers must not use byte offsets from a `&str` with these spans.
 
 ## Stage 13: NER layer and post-filter in Rust (D1)
+
+- **Backend boundary (17 Nov):** code against the `SpacyBackend` trait from stage 11b, never the worker-pool client directly.
 
 - Objective: build `privoke-ner-layer` in the Privoke workspace, using the stage 11 spaCy worker. It ports:
   - `NER/ner_detector.py`, including the caseless gate (`has_case_signal`, `fold_case`, `CASELESS_DISABLED_RULES`)
@@ -936,6 +957,7 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
   - Root settled that the pipeline and policy aggregation are within the user's approval, because they are server logic.
   - It also includes D11: model package and legacy stream fetch, with pin, shape and finite checks, into the same cache layout. Root approved this as networking work.
   - The gradient RPCs stay on the Python worker until stage 19. The supervisor routes each RPC by path to the Rust or Python worker.
+- **Runtime process model (17 Nov, stage 11b):** the Rust runtime runs inside a W2-pooled worker process and embeds spaCy in-process through the stage 11b backend. No separate spaCy process is used.
 - Depends on: stages W1–W4, 9, 12, 13, 14 and 16
 - Owned paths:
   - `rust/services/runtime/`
