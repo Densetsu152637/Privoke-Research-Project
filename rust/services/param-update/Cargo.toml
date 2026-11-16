@@ -1,0 +1,39 @@
+[package]
+name = "privoke-param-update"
+description = "The PriVoke parameter-update service and training-cycle scheduler: guarded compare-and-swap publication, durable receipts, publisher identities over mutual TLS"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+name = "privoke_param_update"
+path = "src/lib.rs"
+
+[[bin]]
+name = "param-update-service"
+path = "src/main.rs"
+
+[dependencies]
+privoke-contracts = { path = "../../crates/privoke-contracts" }
+privoke-transport = { path = "../../crates/privoke-transport" }
+# The artifact loader and per-architecture validators are the stage 3 ones; the update path publishes only what they accept.
+privoke-model-streaming = { path = "../model-streaming" }
+tonic = { workspace = true }
+tokio = { workspace = true }
+clap = { workspace = true }
+prost = { workspace = true }
+# SQLite is compiled in and opens the receipt and journal databases the Python service wrote.
+rusqlite = { version = "0.37", features = ["bundled"] }
+uuid = { version = "1", default-features = false, features = ["v4"] }
+
+[dev-dependencies]
+privoke-pki = { path = "../../tools/privoke-pki" }
+tempfile = { workspace = true }
+serde_json = "1"
+base64 = { workspace = true }
+time = { workspace = true }
+
+[lints]
+workspace = true
