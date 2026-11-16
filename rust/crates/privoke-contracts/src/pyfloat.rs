@@ -1,8 +1,13 @@
 //! Python `float.__repr__` for finite doubles.
 //!
 //! Python writes the shortest digit string that round-trips, in positional notation unless the decimal
-//! exponent is below -4 or at least 16 (`1e-05`, `1e+16`, `1e-08`). Rust's `{:e}` gives the same shortest digits,
-//! so only the layout differs.
+//! exponent is below -4 or at least 16 (`1e-05`, `1e+16`, `1e-08`). Among the round-tripping strings of that
+//! length it picks the one nearest the exact binary value, breaking an exact tie to the even last digit.
+//!
+//! Rust's shortest `{:e}` gives the same digit count but breaks an exact tie upwards: the float32-derived double
+//! `0.0161151885986328125` becomes `...813` where Python writes `0.016115188598632812`. Both strings round-trip, so
+//! the digits are recomputed with Rust's correctly rounded (half-to-even) fixed-precision formatting and kept when
+//! they round-trip; otherwise the shortest digits are the only candidate of that length.
 
 /// Error for NaN and infinities, which `json.dumps(..., allow_nan=False)` refuses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -17,7 +22,7 @@ pub fn repr(value: f64) -> Result<String, NonFinite> {
     if value == 0.0 {
         return Ok(if value.is_sign_negative() { "-0.0" } else { "0.0" }.to_string());
     }
-    let scientific = format!("{:e}", value.abs());
+    let scientific = nearest_shortest(value.abs())?;
     let Some((mantissa, exponent)) = scientific.split_once('e') else {
         return Err(NonFinite);
     };
@@ -59,7 +64,20 @@ pub fn repr(value: f64) -> Result<String, NonFinite> {
     Ok(out)
 }
 
+/// The shortest round-tripping digits of a finite positive `value` in `{:e}` layout, nearest the exact value with
+/// ties to even, as Python's `repr` chooses them.
+fn nearest_shortest(value: f64) -> Result<String, NonFinite> {
+    let shortest = format!("{value:e}");
+    let Some((mantissa, _)) = shortest.split_once('e') else {
+        return Err(NonFinite);
+    };
+    let digits = mantissa.bytes().filter(u8::is_ascii_digit).count();
+    let nearest = format!("{:.*e}", digits.saturating_sub(1), value);
+    Ok(if nearest.parse::<f64>().is_ok_and(|parsed| parsed.to_bits() == value.to_bits()) { nearest } else { shortest })
+}
+
 #[cfg(test)]
+#[allow(clippy::excessive_precision)]
 mod tests {
     use super::repr;
 
@@ -80,6 +98,11 @@ mod tests {
             (123456789012345680.0, "1.2345678901234568e+17"),
             (-2.5e-7, "-2.5e-07"),
             (0.30000000000000004, "0.30000000000000004"),
+            // Exact decimal ties (float32-derived doubles): Python rounds the last digit to even, Rust's `{:e}` up.
+            (0.016115188598632812, "0.016115188598632812"),
+            (-913.7710571289062, "-913.7710571289062"),
+            (750.6682739257812, "750.6682739257812"),
+            (1010.4002075195312, "1010.4002075195312"),
         ];
         for (value, expected) in cases {
             assert_eq!(repr(value).as_deref(), Ok(expected), "{value:e}");
