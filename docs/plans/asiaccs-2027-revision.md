@@ -77,6 +77,23 @@ Revision: 2026-11-16 (base `bca457df` on `feat/nick-branch`; plan-gate findings 
   | shared | 69 tests; 2 errors because `dotenv` is missing |
   | client-runtime | 437 tests; 5 failures and 14 errors, the same set as at `e6c177ff` |
   | evaluation | 809 tests; errors caused by `numpy` and `torch` missing from `.venv`. The NumPy tests pass under `.venv-fuzzer-study`. |
+- **G14. The paper follows the supervisor's section order.** `grep '\section' paper/main.tex` shows these sections in order:
+  1. Introduction (problem, gap, PriVoke, contributions, RQs)
+  2. Background and Related Work
+  3. Threat Model and Security Goals
+  4. PriVoke Design, with a Security Properties / Design Rationale subsection stating the G-properties formally and the LDP event-content property
+  5. Implementation
+  6. Evaluation Methodology
+  7. Evaluation, with subsections RQ1, adversarial robustness, RQ2 guarded updates and attack resistance, RQ3 systems overhead, telemetry privacy/utility, and cross-platform/provider validation
+  8. Discussion and Threats to Validity
+  9. Conclusion
+
+  G1–G5 still hold.
+- **G15. A cross-platform and provider validation record exists** (`paper/research/cross-platform-20261117.md`). It covers:
+  - the installed extension on Windows across Chrome, Edge and Firefox, against the synthetic receiver;
+  - page-hook compatibility with the request shapes of the supported providers, using recorded or synthesized fixtures.
+
+  Any live-provider run is listed as blocked until the user approves sending traffic to real providers.
 - **G13. The work is pushed without the confidential reference PDF.** `origin/feat/nick-branch` contains the final commit, and `git ls-files | grep -i epsilonmind` is empty.
 
 ## Scope and non-goals
@@ -125,6 +142,9 @@ Revision: 2026-11-16 (base `bca457df` on `feat/nick-branch`; plan-gate findings 
 | WARN intervention (17 Oct) | G9 |
 | Independent human-labelled dataset (17 Oct, 2 Nov) | G10, blocked on human annotators |
 | Threat model, goals, contributions and RQ structure (17 Oct) | Done in `d1092cd8`; preserved under G5 |
+| Section order I–IX: Background and Related Work kept tight; Security Properties / Design Rationale with formal G-statements and the event-content LDP property; Implementation separate from design; Evaluation Methodology (datasets, annotation, adversarial transformations, baselines, metrics, environments, statistics); Evaluation A–F; Discussion and Threats to Validity collecting the "does not establish" caveats (17 Oct) | G14, Stage 10 |
+| Evaluation F: cross-platform and provider validation (17 Oct) | G15, Stage 11 |
+| Internal-submission items: title, a contributions subsection, RQs bold only on the label, a hand-drawn architecture figure, the authors of reference 9 (17 Oct) | Title, contributions and figure are done. Stage 10 checks the RQ format and the reference 9 authors. The footnote and dpbox items were IEEE-only and are superseded by ACM. |
 
 ## Stage 1: Scope record and plan
 
@@ -284,8 +304,44 @@ Revision: 2026-11-16 (base `bca457df` on `feat/nick-branch`; plan-gate findings 
 
 The user stated that nginx is not needed because the system uses microservices, and asked for a plan to rewrite the server architecture in Rust, with Python kept for inference and training. nginx is currently the only authentication layer in the cloud deployment (UPDSEC-20261116). Its removal is therefore sequenced in [the Rust rewrite plan](rust-server-rewrite.md), after the services enforce mutual TLS themselves. The paper describes the measured current system.
 
+## Stage 10: Section structure alignment (supervisor, 17 Oct)
+
+- **Objective:** meet G14.
+- **Depends on:** Stage 7.
+- **Owned paths:** `paper/main.tex`.
+- **Method:**
+  - Reorganize the existing content without adding results.
+  - Move the scattered "does not establish" caveats into Discussion and Threats to Validity.
+  - Check the RQ formatting (`	extbf{RQ1}:`) and the authors of former reference 9.
+  - Keep the page limits.
+- **Acceptance checks:** G1–G5 and G14.
+- **Status:** pending.
+
+## Stage 11: Cross-platform and provider validation (supervisor, 17 Oct)
+
+- **Objective:** meet G15.
+- **Depends on:** Stage 1.
+- **Owned paths:**
+  - `evaluation/cross_platform*.py` and its tests
+  - `extension/test/` fixtures
+  - `paper/research/cross-platform-20261117.md`
+  - `docs/experiments/cross-platform-*`
+- **Method:**
+  - Run the installed-browser probes on the Windows host for each browser against the local synthetic HTTPS receiver.
+  - Test the provider request-shape fixtures through the page-interceptor test harness.
+  - Do not send any prompt to a real provider without user approval.
+- **Acceptance checks:** G15.
+- **Status:** pending.
+
+## Stage 12: Fold in the Stage 11 results
+
+- **Objective:** add the Stage 11 results to Evaluation F of the paper within the page limits.
+- **Depends on:** Stages 10 and 11.
+- **Status:** pending.
+
 ## Stage 9: Validation, review gate and push
 
+- **Status note:** first pass done on 16 Nov (`2478b49` pushed: implementation gate converged with 5 accepted findings fixed). Repeat after Stages 10–12.
 - **Objective:**
   - Meet G12 and G13.
   - Pass the implementation-gate critic.
