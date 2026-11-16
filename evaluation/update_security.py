@@ -1203,6 +1203,18 @@ def git_revision() -> str:
     return result.stdout.strip()
 
 
+def image_facts(image: str) -> dict:
+    inspect = subprocess.run(["docker", "image", "inspect", "--format", "{{.Id}}", image], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    version = subprocess.run(["docker", "run", "--rm", image, "go", "version"], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return {"image": image, "image_id": inspect.stdout.strip(), "go": version.stdout.strip()}
+
+
+def tree_is_clean() -> bool:
+    status = subprocess.run(["git", "status", "--porcelain", "--", "evaluation", "services", "shared", "deploy"], cwd=ROOT, text=True,
+                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    return not status.stdout.strip()
+
+
 def release_fingerprint(release_dir: Path):
     entries = {}
     for path in sorted(release_dir.rglob("*")):
@@ -1248,7 +1260,7 @@ def main(argv=None) -> int:
         "id": RECORD_ID, "title": "Guarded-update and authentication security tests",
         "revision": git_revision(), "generated_unix": int(time.time()),
         "environment": {"python": sys.version.split()[0], "platform": sys.platform, "grpc": __import__("grpc").__version__,
-                        "streaming_image": args.image, "updater": "services/param-update-service/app/server.py as a host process on 127.0.0.1",
+                        "streaming_image": image_facts(args.image), "source_tree_clean_for_tested_paths": tree_is_clean(), "updater": "services/param-update-service/app/server.py as a host process on 127.0.0.1",
                         "openssl": subprocess.run([__import__("update_security_pki").find_openssl(), "version"], text=True,
                                                   stdout=subprocess.PIPE).stdout.strip()},
         "fixture": {"legacy_model": LEGACY_MODEL, "v3_model": V3_MODEL, "artifact_pristine_sha256": hashlib.sha256(stack.pristine).hexdigest(),
