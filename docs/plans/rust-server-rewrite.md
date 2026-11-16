@@ -465,6 +465,7 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
   - **Registry roles for stage 5 and the runtime.** `param-update`, the fuzzer and the client runtime need a registered service (`publisher`, `trainer` or `runtime`) to call `GetModelParameters` on the internal listener. `consumer_id` is a log label there, so they can keep their current values.
   - **Pins.** `standard_pin` comes from `privoke_contracts::v3`, so a new V3 release is added once, in the contracts crate and the corpus.
   - **CRL.** The service refuses every handshake once the CRL's `nextUpdate` passes (stage 1); the schedule that renews it is a stage 8a task.
+  - **Bootstrap-artifact checksum (RUST-CHECKSUM-1, fixed).** `pyfloat::repr` took Rust's shortest `{:e}` digits, which break an exact decimal tie upwards where Python rounds to the even digit. Float32-derived doubles hit this: the prepared `v0.4.0-full-ctx256` release has one such token, `0.016115188598632812` (exact value `...8125`), which Rust wrote as `...813`, so "identical for Python-written artifacts" above did not hold and the service refused the file. `repr` now recomputes the same digit count with half-even fixed-precision formatting and keeps it when it round-trips. Regression: `privoke-contracts/tests/float_ties.rs`. Go re-emits lexical tokens (`UseNumber`) and was not affected. The stage 0 `float_repr.json` corpus has no tie case; adding one needs `evaluation/capture_conformance.py`.
 
 ## Stage 4: Rust telemetry service
 
