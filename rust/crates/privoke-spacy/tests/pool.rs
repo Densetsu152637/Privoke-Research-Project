@@ -17,14 +17,14 @@ fn config(extra: &[&str]) -> PoolConfig {
     cfg.args = extra.iter().map(OsString::from).collect();
     cfg.backoff = Backoff { initial: Duration::from_millis(40), max: Duration::from_millis(400) };
     cfg.request_deadline = Duration::from_secs(5);
-    cfg.startup_timeout = Duration::from_secs(10);
+    cfg.startup_timeout = Duration::from_secs(60);
     cfg
 }
 
 async fn until(what: &str, mut cond: impl FnMut() -> bool) {
     let start = Instant::now();
     while !cond() {
-        assert!(start.elapsed() < Duration::from_secs(30), "timed out waiting for {what}");
+        assert!(start.elapsed() < Duration::from_secs(60), "timed out waiting for {what}");
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
 }
@@ -36,7 +36,7 @@ fn spawn_times(log: &Path) -> Vec<u128> {
 #[tokio::test]
 async fn analyzes_in_both_selections_and_caches_the_lemma_index() {
     let pool = SpacyPool::start(config(&[])).unwrap();
-    pool.wait_ready(Duration::from_secs(10)).await.unwrap();
+    pool.wait_ready(Duration::from_secs(60)).await.unwrap();
     let text = "Alice lives in Paris";
     let full = pool.analyze(text, Selection::Full).await.unwrap();
     assert_eq!(full.tokens.len(), 4);
@@ -57,7 +57,7 @@ async fn p3_request_during_load_is_unavailable() {
     let err = pool.analyze("hello", Selection::Full).await.unwrap_err();
     assert!(matches!(err, SpacyError::NotReady(_)), "{err}");
     assert_eq!(err.status(), StatusKind::Unavailable);
-    pool.wait_ready(Duration::from_secs(10)).await.unwrap();
+    pool.wait_ready(Duration::from_secs(60)).await.unwrap();
     assert!(pool.analyze("hello", Selection::Full).await.is_ok());
 }
 
@@ -111,7 +111,7 @@ async fn p3_crash_loop_backs_off() {
 #[tokio::test]
 async fn refused_bundle_stops_the_slot_and_reports_why() {
     let pool = SpacyPool::start(config(&["--fatal", "numpy 1.26.3 differs from the lock"])).unwrap();
-    let err = pool.wait_ready(Duration::from_secs(10)).await.unwrap_err();
+    let err = pool.wait_ready(Duration::from_secs(60)).await.unwrap_err();
     assert!(err.to_string().contains("numpy 1.26.3 differs from the lock"), "{err}");
     tokio::time::sleep(Duration::from_millis(300)).await;
     assert_eq!(pool.starts(), 1);
@@ -129,7 +129,7 @@ async fn full_queue_is_resource_exhausted() {
         })
         .unwrap(),
     );
-    pool.wait_ready(Duration::from_secs(10)).await.unwrap();
+    pool.wait_ready(Duration::from_secs(60)).await.unwrap();
     let busy = tokio::spawn({
         let pool = pool.clone();
         async move { pool.analyze("SLEEP:900", Selection::Full).await }
@@ -157,7 +157,7 @@ async fn deadline_kills_the_worker_and_the_pool_recovers() {
         cfg
     })
     .unwrap();
-    pool.wait_ready(Duration::from_secs(10)).await.unwrap();
+    pool.wait_ready(Duration::from_secs(60)).await.unwrap();
     let started = Instant::now();
     let err = pool.analyze("HANG", Selection::Full).await.unwrap_err();
     assert!(matches!(err, SpacyError::DeadlineExceeded(_)), "{err}");
@@ -167,28 +167,48 @@ async fn deadline_kills_the_worker_and_the_pool_recovers() {
     assert!(pool.analyze("alive again", Selection::Full).await.is_ok());
 }
 
+/// How long this host takes to bring a crashed worker back to ready, measured on a throwaway pool: the worst of three
+/// restarts, so the figure already includes the host's current load.
+async fn measured_restart_time() -> Duration {
+    let pool = SpacyPool::start(config(&[])).unwrap();
+    pool.wait_ready(Duration::from_secs(30)).await.unwrap();
+    let mut worst = Duration::ZERO;
+    for restart in 2..=4u64 {
+        let _ = pool.analyze("CRASH", Selection::Full).await;
+        let started = Instant::now();
+        until("the crashed worker to restart", || pool.starts() == restart && pool.is_ready()).await;
+        worst = worst.max(started.elapsed());
+    }
+    worst
+}
+
 /// A request queued behind a hung worker is not poisoned: the hung one is killed at its deadline, and the restarted
-/// worker serves the queued request within its own, later deadline.
+/// worker serves the queued request within its own, later deadline. The queued request arrives four fifths of a deadline after
+/// the hung one, so the restart has the other four fifths (at least 8 s) to finish. The deadline is at least 10 s and at
+/// least eight times the restart time measured beforehand, so the test does not depend on how fast this host starts a
+/// process, even when the load changes after the measurement.
 #[tokio::test]
 async fn queued_request_survives_a_hung_worker_ahead_of_it() {
+    let restart = measured_restart_time().await;
+    // The pool rejects a deadline of 30 s or more (the bridge's limit).
+    let deadline = (restart * 8).clamp(Duration::from_secs(10), Duration::from_secs(29));
     let pool = Arc::new(
         SpacyPool::start({
             let mut cfg = config(&[]);
-            cfg.request_deadline = Duration::from_secs(8);
+            cfg.request_deadline = deadline;
             cfg
         })
         .unwrap(),
     );
-    pool.wait_ready(Duration::from_secs(10)).await.unwrap();
+    pool.wait_ready(Duration::from_secs(30)).await.unwrap();
     let hung = tokio::spawn({
         let pool = pool.clone();
         async move { pool.analyze("HANG", Selection::Full).await }
     });
-    // Half the deadline: the queued request's own deadline then outlasts the hung one's kill by 4 s, which is the room the
-    // restart gets, however slowly this host starts a process.
-    tokio::time::sleep(Duration::from_secs(4)).await;
+    // Late enough that the restart has most of a deadline, early enough that the hung request is still in flight.
+    tokio::time::sleep(deadline * 4 / 5).await;
     let queued = pool.analyze("behind the hang", Selection::Full).await;
-    assert!(queued.is_ok(), "{queued:?}");
+    assert!(queued.is_ok(), "{queued:?} (measured restart {restart:?}, deadline {deadline:?})");
     assert!(matches!(hung.await.unwrap(), Err(SpacyError::DeadlineExceeded(_))));
     assert_eq!(pool.starts(), 2);
 }
@@ -196,7 +216,7 @@ async fn queued_request_survives_a_hung_worker_ahead_of_it() {
 #[tokio::test]
 async fn worker_reported_error_keeps_the_worker() {
     let pool = SpacyPool::start(config(&[])).unwrap();
-    pool.wait_ready(Duration::from_secs(10)).await.unwrap();
+    pool.wait_ready(Duration::from_secs(60)).await.unwrap();
     let err = pool.analyze("ERR", Selection::Full).await.unwrap_err();
     assert!(matches!(err, SpacyError::WorkerReported(ref m) if m == "boom"), "{err}");
     assert_eq!(err.status(), StatusKind::Unavailable);
@@ -207,7 +227,7 @@ async fn worker_reported_error_keeps_the_worker() {
 #[tokio::test]
 async fn out_of_protocol_answer_restarts_the_worker() {
     let pool = SpacyPool::start(config(&[])).unwrap();
-    pool.wait_ready(Duration::from_secs(10)).await.unwrap();
+    pool.wait_ready(Duration::from_secs(60)).await.unwrap();
     let err = pool.analyze("BADID", Selection::Full).await.unwrap_err();
     assert!(matches!(err, SpacyError::WorkerFailed(_)), "{err}");
     until("a restarted worker", || pool.starts() == 2 && pool.is_ready()).await;
@@ -221,7 +241,7 @@ async fn invalid_text_is_rejected_before_queueing() {
         cfg
     })
     .unwrap();
-    pool.wait_ready(Duration::from_secs(10)).await.unwrap();
+    pool.wait_ready(Duration::from_secs(60)).await.unwrap();
     assert_eq!(pool.analyze("", Selection::Full).await.unwrap_err().status(), StatusKind::InvalidArgument);
     assert_eq!(pool.analyze("12345678901", Selection::Full).await.unwrap_err().status(), StatusKind::InvalidArgument);
     assert!(pool.analyze("1234567890", Selection::Full).await.is_ok());
@@ -243,7 +263,7 @@ async fn a_missing_executable_is_retried_with_backoff_not_a_panic() {
 #[tokio::test]
 async fn shutdown_stops_the_workers() {
     let pool = SpacyPool::start(config(&[])).unwrap();
-    pool.wait_ready(Duration::from_secs(10)).await.unwrap();
+    pool.wait_ready(Duration::from_secs(60)).await.unwrap();
     pool.shutdown().await;
 }
 

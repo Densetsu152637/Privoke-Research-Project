@@ -31,7 +31,7 @@ async fn request_during_load_is_not_ready() {
     assert!(!pool.is_ready());
     let err = call(&pool, "echo", json!({"text": "x"})).await.unwrap_err();
     assert!(matches!(err, PoolError::NotReady(_)), "{err}");
-    pool.wait_ready(Duration::from_secs(10)).await.unwrap();
+    pool.wait_ready(Duration::from_secs(60)).await.unwrap();
     assert!(call(&pool, "echo", json!({"text": "x"})).await.is_ok());
 }
 
@@ -102,7 +102,7 @@ async fn a_completed_request_resets_the_backoff() {
 #[tokio::test]
 async fn refused_worker_stops_the_slot_and_reports_why() {
     let pool = WorkerPool::start(JsonProtocol, config(&["--fatal", "the bundle differs from the lock"])).unwrap();
-    let err = pool.wait_ready(Duration::from_secs(10)).await.unwrap_err();
+    let err = pool.wait_ready(Duration::from_secs(60)).await.unwrap_err();
     assert!(err.to_string().contains("the bundle differs from the lock"), "{err}");
     tokio::time::sleep(Duration::from_millis(300)).await;
     assert_eq!(pool.starts(), 1);

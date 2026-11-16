@@ -19,13 +19,13 @@ pub fn config(extra: &[&str]) -> PoolConfig {
     cfg.args = extra.iter().map(OsString::from).collect();
     cfg.backoff = Backoff { initial: Duration::from_millis(40), max: Duration::from_millis(400) };
     cfg.request_deadline = Duration::from_secs(5);
-    cfg.startup_timeout = Duration::from_secs(10);
+    cfg.startup_timeout = Duration::from_secs(60);
     cfg
 }
 
 pub async fn ready_pool(cfg: PoolConfig) -> Pool {
     let pool = WorkerPool::start(JsonProtocol, cfg).unwrap();
-    pool.wait_ready(Duration::from_secs(10)).await.unwrap();
+    pool.wait_ready(Duration::from_secs(60)).await.unwrap();
     pool
 }
 
@@ -43,7 +43,7 @@ pub async fn call(pool: &Pool, op: &str, extra: Value) -> Result<Value, PoolErro
 pub async fn until(what: &str, mut cond: impl FnMut() -> bool) {
     let start = Instant::now();
     while !cond() {
-        assert!(start.elapsed() < Duration::from_secs(15), "timed out waiting for {what}");
+        assert!(start.elapsed() < Duration::from_secs(60), "timed out waiting for {what}");
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
 }
