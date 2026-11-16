@@ -7,8 +7,8 @@
 //!
 //! # Backend
 //!
-//! The numeric kernels are the dependency-free reference backend in [`math`]: float32 tensors, float64 accumulation,
-//! one rounding per operation. It was chosen over `tch-rs`, `candle` and `ort` because the stage's measured spike could
+//! The numeric kernels are the dependency-free reference backend in [`math`]: float32 weights, float64 activations,
+//! one rounding to float32 at the head output. It was chosen over `tch-rs`, `candle` and `ort` because the stage's measured spike could
 //! not be run (no libtorch or ONNX runtime in the CI image, and local builds are not part of this stage's workflow); see
 //! `docs/runtime/rust-workspace.md#privoke-semantic-stage-14` for the decision record. The kernels sit behind
 //! [`math::Dense`] and [`math::attention`], so another backend replaces them without touching the model code.
