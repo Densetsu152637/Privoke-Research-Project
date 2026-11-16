@@ -13,10 +13,10 @@
 \@writefile{toc}{\contentsline {section}{Abstract}{1}{section*.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
 \newlabel{sec:introduction}{{1}{1}{Introduction}{section.1}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {2}Related Work and Contribution}{1}{section.2}\protected@file@percent }
-\newlabel{sec:literature_review}{{2}{1}{Related Work and Contribution}{section.2}{}}
 \citation{YanPositiveCongruent2021}
 \citation{ErlingssonRappor2014}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Related Work and Contribution}{2}{section.2}\protected@file@percent }
+\newlabel{sec:literature_review}{{2}{2}{Related Work and Contribution}{section.2}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {3}Threat Model and Security Goals}{2}{section.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Scope and Trust}{2}{subsection.3.1}\protected@file@percent }
 \newlabel{sec:threat_model}{{3.1}{2}{Scope and Trust}{subsection.3.1}{}}
@@ -27,7 +27,6 @@
 \newlabel{sec:system_architecture}{{4}{2}{System Design and Privacy Boundary}{section.4}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Local Inspection and Request Enforcement}{2}{subsection.4.1}\protected@file@percent }
 \newlabel{sec:enforcement}{{4.1}{2}{Local Inspection and Request Enforcement}{subsection.4.1}{}}
-\newlabel{sec:pii_categorisation}{{4.1}{2}{Local Inspection and Request Enforcement}{algorithm.1}{}}
 \citation{turc2019WellReadStudents}
 \citation{turc2019WellReadStudents}
 \@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Security goals, the section that tests each, and its status. Unmet properties are shown as such; none is omitted.}}{3}{table.caption.5}\protected@file@percent }
@@ -35,6 +34,7 @@
 \newlabel{tab:security_goals}{{1}{3}{Security goals, the section that tests each, and its status. Unmet properties are shown as such; none is omitted}{table.caption.5}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Threats, \textsc  {PriVoke}\xspace  defenses and the experiment that evaluates each defense, with its outcome.}}{3}{table.caption.6}\protected@file@percent }
 \newlabel{tab:threat_defense}{{2}{3}{Threats, \privoke defenses and the experiment that evaluates each defense, with its outcome}{table.caption.6}{}}
+\newlabel{sec:pii_categorisation}{{4.1}{3}{Local Inspection and Request Enforcement}{algorithm.1}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces \textsc  {PriVoke}\xspace  's client, server and opt-in legacy training paths. Local inspection returns an action: ALLOW and WARN send the original body; BLOCK cancels the request. Randomized coarse event fields pass through a separate budgeted reporting channel. Standard V3 uses pinned read-only packages. In the legacy route, the updater requests a cycle; the fuzzer generates labelled examples, the server runtime computes bounded updates on its cached model, and the fuzzer forwards only candidates passing its held-out guards. The updater applies an update only to its exact parent; this dashed path does not update standard V3.}}{4}{figure.caption.7}\protected@file@percent }
 \newlabel{fig:architecture}{{1}{4}{\privoke 's client, server and opt-in legacy training paths. Local inspection returns an action: ALLOW and WARN send the original body; BLOCK cancels the request. Randomized coarse event fields pass through a separate budgeted reporting channel. Standard V3 uses pinned read-only packages. In the legacy route, the updater requests a cycle; the fuzzer generates labelled examples, the server runtime computes bounded updates on its cached model, and the fuzzer forwards only candidates passing its held-out guards. The updater applies an update only to its exact parent; this dashed path does not update standard V3}{figure.caption.7}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Detector Precision Controls}{4}{subsection.4.2}\protected@file@percent }
@@ -103,8 +103,8 @@
 \newlabel{sec:eval_update}{{9.2}{10}{Guarded-Update Attacks (G2, G6)}{subsection.9.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {9.3}Authentication and Communication Security (G7)}{11}{subsection.9.3}\protected@file@percent }
 \newlabel{sec:eval_auth}{{9.3}{11}{Authentication and Communication Security (G7)}{subsection.9.3}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces WARN intervention arms on 264 sensitive and 238 clean development prompts (regex and NER only). WARN+CONFIRM is an analytic bound over compliance $c\in [0,1]$, not a measurement; its endpoints equal WARN ($c=0$) and BLOCK ($c=1$). Intact: sent with a gold span unmasked.}}{11}{table.caption.13}\protected@file@percent }
-\newlabel{tab:warn}{{6}{11}{WARN intervention arms on 264 sensitive and 238 clean development prompts (regex and NER only). WARN+CONFIRM is an analytic bound over compliance $c\in [0,1]$, not a measurement; its endpoints equal WARN ($c=0$) and BLOCK ($c=1$). Intact: sent with a gold span unmasked}{table.caption.13}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces WARN intervention arms on 264 sensitive and 238 clean development prompts (regex and NER only). WARN+CONFIRM is an analytic bound over compliance $c\in [0,1]$, not a measurement; its endpoints equal WARN ($c=0$) and BLOCK ($c=1$). Intact: sent with a gold span unmasked; the stricter measure (any gold character unmasked) is in the text.}}{11}{table.caption.13}\protected@file@percent }
+\newlabel{tab:warn}{{6}{11}{WARN intervention arms on 264 sensitive and 238 clean development prompts (regex and NER only). WARN+CONFIRM is an analytic bound over compliance $c\in [0,1]$, not a measurement; its endpoints equal WARN ($c=0$) and BLOCK ($c=1$). Intact: sent with a gold span unmasked; the stricter measure (any gold character unmasked) is in the text}{table.caption.13}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {9.4}WARN Intervention (G8)}{11}{subsection.9.4}\protected@file@percent }
 \newlabel{sec:eval_warn}{{9.4}{11}{WARN Intervention (G8)}{subsection.9.4}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {10}Discussion and Limitations}{11}{section.10}\protected@file@percent }
