@@ -690,9 +690,17 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
   - A maximum text length equal to the runtime's current limit.
   - A worker that times out is killed and restarted, and the request returns `UNAVAILABLE`.
   - A failed NER layer then blocks an otherwise ALLOW decision, as the Python pipeline does today.
+  - **Poisoned input (P3).** A request whose worker crashed is never retried on another worker; it returns `UNAVAILABLE`, which blocks an ALLOW as above.
+  - **Crash-loop backoff (P3).** Restarts back off exponentially, from 100 ms up to a 30 s cap.
+  - **Readiness (P3).** A worker is not ready until `spacy.load` completes. Requests arriving while no worker is ready return `UNAVAILABLE`.
+- **Framing and offsets (P4).**
+  - The protocol uses a dedicated pipe file descriptor, not stdout. Inside the worker, `sys.stdout` is redirected to stderr, so a stray print or C-library warning cannot corrupt the frames.
+  - spaCy character offsets are Python code points. The Rust client converts them to UTF-8 byte offsets internally, and to UTF-16 code units at the extension boundary, matching today's behaviour.
 - **Packaging (bundled venv).**
   - A relocatable CPython 3.11 runtime and a venv, shipped beside the runtime binary in the Docker images and the workstation installer.
-  - The venv is built from pinned wheels with hashes: `spacy==3.7.5`, `thinc==8.2.5`, the `en_core_web_sm` 3.7.1 wheel (URL and SHA-256 as pinned in `extension/client-runtime/requirements*.txt`), and their pinned dependencies.
+  - The venv is built from a new hash-locked file, `rust/services/spacy-worker/bundle.lock.txt`, installed with `pip install --require-hashes`. `extension/client-runtime/requirements.txt` only gives a range (`spacy>=3.7.2,<3.8.0`), has no `thinc` pin, and has no hash for the model wheel, so it cannot serve as the pin source (P1).
+  - The lock pins exact versions and SHA-256 hashes for spaCy, thinc, blis, numpy, cymem, preshed, murmurhash, srsly, wasabi, catalogue, confection and the `en_core_web_sm` 3.7.1 wheel.
+  - These versions are taken from the reference `evaluation/.venv-v1-v3-pipeline` (`pip freeze`), along with that venv's CPython 3.11 patch version.
   - It is built from wheels, not copied from a developer venv.
   - PyO3 builds against that exact interpreter (no `abi3`, because spaCy's compiled extensions pin the minor version).
   - The worker sets `PYTHONHOME`, `sys.path` and, on Windows, the DLL search path explicitly, and ignores the user's Python environment.
@@ -707,8 +715,15 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
   - `rust/services/spacy-worker/`
   - the bundled-venv build script and its pin file
 - Acceptance checks:
-  - **NER smoke test.** On a small declared corpus (about 200 documents: a sample of the recorded NER sets, read-only by hash, plus a synthetic stress set of URLs, emoji, CJK, zero-width characters and all-caps or all-lowercase text), the worker's output (tokens, all fields above, and entities) is byte-identical to direct Python spaCy in `evaluation/.venv-v1-v3-pipeline`, for both the full and tagger-only selections. Identity is expected by construction; a mismatch indicates a packaging or version fault.
-  - The bundle reports exactly spaCy 3.7.5, thinc 8.2.5 and `en_core_web_sm` 3.7.1 at start-up, and the runtime refuses to start otherwise.
+  - **NER smoke test.** On a small declared corpus (about 200 documents: a sample of the recorded NER sets, read-only by hash, plus a synthetic stress set of URLs, emoji, CJK, zero-width characters and all-caps or all-lowercase text), the worker's output (tokens, all fields above, and entities) is byte-identical to direct Python spaCy in `evaluation/.venv-v1-v3-pipeline`, for both the full and tagger-only selections. Identity is expected by construction; a mismatch indicates a packaging or version fault. This 200-document check is the quick check only.
+  - **Full NER parity gate (P2).** Every recorded NER set (read-only, by hash) is run through both the bundle and the reference venv, with both selections. The gate is 100% byte-identical output, and any mismatch blocks the stage.
+  - At start-up the bundle compares its installed packages and the CPython patch version against the whole `bundle.lock.txt`, and the runtime refuses to start on any difference (P1).
+  - The worker-protocol tests each have a case that must pass:
+    - **P3, poisoned input:** a deliberate crash input returns `UNAVAILABLE` without being retried.
+    - **P3, crash loop:** restarts back off.
+    - **P3, readiness:** a request during `spacy.load` returns `UNAVAILABLE`.
+    - **P4, framing:** a deliberate `print` inside the worker leaves the framing intact.
+    - **P4, offsets:** emoji, combining-mark and CJK text map to correct UTF-8 and UTF-16 offsets.
   - The runtime starts from the bundle with no system Python on `PATH`, on Windows and Linux.
   - Killing a worker in the middle of a request gives `UNAVAILABLE` for that request, and the pool recovers.
   - The queue-full and deadline paths are tested.
