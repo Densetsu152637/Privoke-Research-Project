@@ -74,6 +74,20 @@ The three records below implement the experiments authorized by the 16 November 
 - **Unit 10, guarded-update and authentication security tests** ([UPDSEC-20261116](research/update-security-20261116.md)). Live legacy update and streaming services on loopback with synthetic state; the standard V3 path is read-only. Mutual-TLS rows ran against a stand-in terminator. Report the unmet properties as missing mechanisms, not bypasses.
 - **Unit 11, WARN intervention** ([WARNINT-20261116](research/warn-intervention-20261116.md)). Detector-layer (regex and NER) evidence on development data; the semantic layer was not run. WARN+MASK is opt-in and off by default; WARN+CONFIRM is an analytic bound in the user-compliance rate, not a measurement.
 
+## Supervisor structure and cross-platform validation, 17 November 2026
+
+The user instructed: **"Implement the plans that you have created now. Also ensure that additions and improvements suggested by Sanoop are in those plans if they have not been added and implemented alongside everything else."** The supervisor's thread (17 October) asked for a nine-section structure and an Evaluation subsection on "Cross-platform/provider validation". This entry authorizes two things:
+
+- **Reorganizing the manuscript into that structure.** Goal G14 in the [ASIACCS plan](../docs/plans/asiaccs-2027-revision.md).
+- **A new evidence unit 12, cross-platform and provider validation (XPLAT).** It covers installed-extension probes on Windows browsers against a local synthetic receiver, and the provider request-shape fixtures in the extension test harness.
+
+Boundaries:
+
+- **Record.** [XPLAT-20261117](research/cross-platform-20261117.md) is the unit 12 record; it is installed-extension enforcement on Windows with a synthetic receiver and the regex and NER runtime, and is kept separate from every other unit.
+- **No live providers.** No prompt is sent to a real LLM provider, and none of the user's accounts are used, without separate approval.
+- **Not representative of real providers.** Fixtures are synthetic or derived from code; they do not establish real-provider compatibility.
+- **Same separation rules** as the other units.
+
 ## RQ1: Detection and enforcement
 
 1. **Full-product contextual package comparison, all three tiers.** Retain historical and updated efficient, balanced and quality packages on the same 1,560 authored provisional cases (810 sensitive, 750 clean). Distinguish label-and-action joint agreement, allowed-action agreement and binary classification. Keep paired gains and losses, the shared 139 unnecessary restrictions, package/configuration confounds and the absence of independently adjudicated contextual truth. This is full-product evidence with actual cascade execution recorded, not a semantic-only result. See [pipeline aggregates](research/pipeline-comparison-20261014.json).

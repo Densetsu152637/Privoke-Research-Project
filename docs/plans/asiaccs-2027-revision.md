@@ -89,11 +89,25 @@ Revision: 2026-11-16 (base `bca457df` on `feat/nick-branch`; plan-gate findings 
   9. Conclusion
 
   G1–G5 still hold.
+
+  Exact expectation:
+  - The `\section` titles, in order, are: Introduction; Background and Related Work; Threat Model and Security Goals; PriVoke Design; Implementation; Evaluation Methodology; Evaluation; Discussion and Threats to Validity; Conclusion.
+  - The Design subsections, in order: Architecture; Local Inspection and Enforcement; Guarded Update Lifecycle; Privacy-Preserving Telemetry; Security Properties.
+  - The Evaluation subsections, in order: RQ1; Adversarial Robustness; RQ2; RQ3; Telemetry Privacy and Utility; Cross-Platform and Provider Validation.
+  - Every row of the security-goals table cites a `\label` of a formal property or predicate stated in Security Properties.
+  - The guarded-update acceptance predicate is referenced from the RQ2 subsection.
+  - The authentication results sit in the RQ2 subsection, under "attack resistance".
+  - The human-annotation status and the other "does not establish" caveats appear under Threats to Validity and are not repeated elsewhere.
 - **G15. A cross-platform and provider validation record exists** (`paper/research/cross-platform-20261117.md`). It covers:
   - the installed extension on Windows across Chrome, Edge and Firefox, against the synthetic receiver;
   - page-hook compatibility with the request shapes of the supported providers, using recorded or synthesized fixtures.
 
   Any live-provider run is listed as blocked until the user approves sending traffic to real providers.
+
+  Pass criteria:
+  - The record's JSON has one row per browser and probe, with these fields: browser, version, probe, expected outcome, observed outcome, pass.
+  - Every installed browser either runs or is listed as not run, with its reason.
+  - The providers are the hosts the extension supports, as named in its manifest and `prompt-interception.js`. For each, a fixture passes when prompt extraction returns the fixture prompt and BLOCK prevents the send.
 - **G13. The work is pushed without the confidential reference PDF.** `origin/feat/nick-branch` contains the final commit, and `git ls-files | grep -i epsilonmind` is empty.
 
 ## Scope and non-goals
@@ -312,7 +326,7 @@ The user stated that nginx is not needed because the system uses microservices, 
 - **Method:**
   - Reorganize the existing content without adding results.
   - Move the scattered "does not establish" caveats into Discussion and Threats to Validity.
-  - Check the RQ formatting (`	extbf{RQ1}:`) and the authors of former reference 9.
+  - Check the RQ formatting (`\textbf{RQ1}:`) and the authors of former reference 9.
   - Keep the page limits.
 - **Acceptance checks:** G1–G5 and G14.
 - **Status:** pending.
@@ -320,7 +334,8 @@ The user stated that nginx is not needed because the system uses microservices, 
 ## Stage 11: Cross-platform and provider validation (supervisor, 17 Oct)
 
 - **Objective:** meet G15.
-- **Depends on:** Stage 1.
+- **Depends on:** Stage 1, and the scope entry `REWRITE_SCOPE.md` 17 November 2026, which authorizes this as evidence unit 12.
+- **Overlap:** none with Stages 7, 10 and 12. Its only file under `paper/` is its own new record, the same exception the earlier experiment stages had.
 - **Owned paths:**
   - `evaluation/cross_platform*.py` and its tests
   - `extension/test/` fixtures
@@ -336,7 +351,9 @@ The user stated that nginx is not needed because the system uses microservices, 
 ## Stage 12: Fold in the Stage 11 results
 
 - **Objective:** add the Stage 11 results to Evaluation F of the paper within the page limits.
-- **Depends on:** Stages 10 and 11.
+- **Depends on:** Stages 10 and 11. The paper stages run strictly in the order 7, 10, 12.
+- **Owned paths:** `paper/main.tex`, plus the claims and scope index files.
+- **Acceptance checks:** G1–G5, G14 and G15. Any added content is offset by an equal cut, and the G3 check is re-run.
 - **Status:** pending.
 
 ## Stage 9: Validation, review gate and push
@@ -346,5 +363,5 @@ The user stated that nginx is not needed because the system uses microservices, 
   - Meet G12 and G13.
   - Pass the implementation-gate critic.
   - Reconcile the worktrees.
-- **Depends on:** all earlier stages.
+- **Depends on:** Stages 1–8 and 10–12.
 - **Status:** pending.

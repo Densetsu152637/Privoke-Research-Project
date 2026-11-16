@@ -1,5 +1,9 @@
 # Local development evidence package
 
+## Cross-platform and provider validation - 17 November 2026
+
+[XPLAT-20261117](cross-platform-20261117.md) ([JSON](cross-platform-20261117.json)) records evidence unit 12: installed-extension probes on Windows 11 (Chrome 157, Edge 157, Firefox 159 via a Playwright build; installed Firefox 134 not run) against a synthetic local receiver with the regex and NER runtime, plus synthetic provider request-shape fixtures and 166 page-hook harness tests. No live provider was contacted. Re-derive its counts with `python evaluation/cross_platform_study.py derive paper/research/cross-platform-20261117.json`.
+
 ## Detector precision - 24 October 2026
 
 [DETPREC-20261024](detector-precision-20261024.md) records the eighth, detector-layer-only evidence unit authorized on 24 October 2026: regex precision repairs, case-preserved regex/NER input and the NER post-filter, with source revisions on `fix/regex-fp-reduction`, split and freeze protocol, and limitations. Results recorded: held-out regex specificity .985 to .996 at recall .653 to .640, union essentially unchanged, no net NER benefit established. Units 1 to 7 are not revalidated.
