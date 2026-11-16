@@ -26,11 +26,12 @@ Docker is optional for the extension's regex and NER layers. It is used only whe
 - If semantic is the only enabled layer, unavailable streaming produces an analysis error. Website interception warns and continues the original request; manual popup analysis still reports the error. Disabling the master toggle or all layers explicitly bypasses analysis.
 - Manual analysis reports a compact `PASS`, `WARN`, or `ERROR` badge beside the **Analyse prompt** button. `BLOCK` maps to `ERROR` in this compact UI.
 - Website notifications are shown only for `WARN` and `BLOCK`. The detected evidence span is rendered in red; `ALLOW` stays silent.
-- A warning allows the original web request to continue. A block cancels it before it is sent.
+- By default a warning allows the original web request to continue (see the opt-in WARN+MASK setting above). A block cancels it before it is sent.
 - Blocked `fetch` calls reject with a `TypeError` so the site's normal failure handler can report the unsent prompt. Blocked XHR calls expose `DONE` with status `0` and emit `readystatechange`, `error`, and `loadend`, allowing the site's loading state to finish. Cancellation and XHR timeouts during the privacy check also emit their usual terminal events, and late analysis results cannot send a cancelled request.
 - Synchronous XHR prompt calls fail immediately with `NetworkError`, because the extension's privacy check requires asynchronous messaging. Unmatched requests retain their native behavior.
 - Settings persist in the standard WebExtensions local-storage API. **Wait for regex** selects first/short-circuit versus parallel execution. **Model profile** selects the three standard V3 tiers or explicit older V1 tiers; **Latest (V3 balanced)** is the default. Existing explicit V1 choices migrate to their labeled older profiles.
 - Every analysis request names the concrete enabled layers; the extension never relies on the runtime's omitted-layer default.
+- **WARN+MASK** (`warnMasking`, default `false`, no popup control; set `{ warnMasking: true }` through the `UPDATE_SETTINGS` message or the persisted `privokeSettings` object): when on, a `WARN` decision replaces every positive detector span that carries a character offset (from all executed layers' results and the evidence span) with a typed placeholder such as `[PRIVOKE_CONTACT]` in the prompt text of the outgoing `fetch` or asynchronous XHR body before native handoff. Overlapping spans merge (differing categories give `[PRIVOKE_SENSITIVE]`); offsets count Unicode code points. The request is handed off as `MASKED_REQUEST_HANDED_OFF`. If the prompt cannot be located as a single string value in a JSON or plain-text body (form-encoded, multi-part, Blob, or nested-JSON envelope bodies), or no span is available, the original request is forwarded as under plain WARN. `ALLOW` and `BLOCK` are unaffected. Masking is bounded by detector span recall: unlocated or missed sensitive text is still sent. Measured effect: [WARN intervention experiment](../experiments/warn-intervention-20261116.md).
 
 The page-network hook currently recognises prompt POSTs for:
 
@@ -201,6 +202,7 @@ For incremental builds, run `npm run dev` and reload the unpacked extension plus
 - `src/runtime-client.js`: protobuf encoding plus analysis, lifecycle, and supervisor-mediated health gRPC-Web calls.
 - `src/analysis-request.js`: enforces explicit concrete layers on every outgoing analysis RPC.
 - `src/settings.js`: defaults, validation, and persisted settings.
+- `src/redaction.js`: opt-in WARN+MASK span merging, placeholder text and request-body rewriting (shared test vectors in `test/fixtures/mask-vectors.json`).
 - `src/webextension-api.js`: promise/callback and `browser`/`chrome` namespace portability adapter.
 - `scripts/build.mjs`: esbuild bundles and static-file assembly into `dist`.
 - `client-runtime`: Python inspection runtime and detector layers.
@@ -208,4 +210,4 @@ For incremental builds, run `npm run dev` and reload the unpacked extension plus
 
 The two Python processes are documented in [Client runtime](client-runtime.md) and [Runtime supervisor](supervisor.md).
 
-The hook covers recognized POST endpoint/body shapes through page `fetch` and asynchronous XHR. It does not claim coverage for WebSocket, `sendBeacon`, workers, every attachment payload, or future website endpoint changes. WARN continues the original request; returned `masked_text` is evidence for consumers and is not automatically substituted into website traffic. Live website/native-host compatibility requires release validation beyond the JavaScript harness.
+The hook covers recognized POST endpoint/body shapes through page `fetch` and asynchronous XHR. It does not claim coverage for WebSocket, `sendBeacon`, workers, every attachment payload, or future website endpoint changes. By default WARN continues the original request; returned `masked_text` (which masks only the single evidence span) is evidence for consumers and is not substituted into website traffic. Only the opt-in WARN+MASK setting above rewrites traffic, using all located spans rather than `masked_text`. Live website/native-host compatibility requires release validation beyond the JavaScript harness.
