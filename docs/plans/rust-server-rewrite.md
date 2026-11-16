@@ -701,6 +701,8 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
   - The venv is built from a new hash-locked file, `rust/services/spacy-worker/bundle.lock.txt`, installed with `pip install --require-hashes`. `extension/client-runtime/requirements.txt` only gives a range (`spacy>=3.7.2,<3.8.0`), has no `thinc` pin, and has no hash for the model wheel, so it cannot serve as the pin source (P1).
   - The lock pins exact versions and SHA-256 hashes for spaCy, thinc, blis, numpy, cymem, preshed, murmurhash, srsly, wasabi, catalogue, confection and the `en_core_web_sm` 3.7.1 wheel.
   - These versions are taken from the reference `evaluation/.venv-v1-v3-pipeline` (`pip freeze`), along with that venv's CPython 3.11 patch version.
+  - The lock is the complete freeze, including transitive packages such as pydantic, jinja2, requests, tqdm, typer, weasel and langcodes. The whole-lock start-up comparison therefore covers every installed package.
+  - The lock check also records the CPython build identity (distribution and build flags) and the BLIS CPU-dispatch target.
   - It is built from wheels, not copied from a developer venv.
   - PyO3 builds against that exact interpreter (no `abi3`, because spaCy's compiled extensions pin the minor version).
   - The worker sets `PYTHONHOME`, `sys.path` and, on Windows, the DLL search path explicitly, and ignores the user's Python environment.
@@ -716,7 +718,7 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
   - the bundled-venv build script and its pin file
 - Acceptance checks:
   - **NER smoke test.** On a small declared corpus (about 200 documents: a sample of the recorded NER sets, read-only by hash, plus a synthetic stress set of URLs, emoji, CJK, zero-width characters and all-caps or all-lowercase text), the worker's output (tokens, all fields above, and entities) is byte-identical to direct Python spaCy in `evaluation/.venv-v1-v3-pipeline`, for both the full and tagger-only selections. Identity is expected by construction; a mismatch indicates a packaging or version fault. This 200-document check is the quick check only.
-  - **Full NER parity gate (P2).** Every recorded NER set (read-only, by hash) is run through both the bundle and the reference venv, with both selections. The gate is 100% byte-identical output, and any mismatch blocks the stage.
+  - **Full NER parity gate (P2).** Every recorded NER set (read-only, by hash) is run through both the bundle and the reference venv, with both selections. The gate is 100% byte-identical output, and any mismatch blocks the stage. The gate runs on both the Windows and the Linux bundle, because both ship.
   - At start-up the bundle compares its installed packages and the CPython patch version against the whole `bundle.lock.txt`, and the runtime refuses to start on any difference (P1).
   - The worker-protocol tests each have a case that must pass:
     - **P3, poisoned input:** a deliberate crash input returns `UNAVAILABLE` without being retried.
