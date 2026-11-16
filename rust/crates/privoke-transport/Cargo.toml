@@ -11,6 +11,13 @@ license.workspace = true
 default = []
 # Plaintext loopback listener for the workstation supervisor only. Never enable in a cloud build.
 workstation-loopback = []
+# Builds the listener probe used by the fail-closed startup tests.
+probe = ["dep:tonic-health"]
+
+[[bin]]
+name = "privoke-listener-probe"
+path = "src/bin/privoke-listener-probe.rs"
+required-features = ["probe"]
 
 [dependencies]
 tonic = { workspace = true }
@@ -29,10 +36,13 @@ clap = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 futures-util = { workspace = true }
+hyper-util = { workspace = true }
+tonic-health = { workspace = true, optional = true }
 
 [dev-dependencies]
 privoke-proto = { path = "../privoke-proto" }
-privoke-transport = { path = ".", features = ["workstation-loopback"] }
+privoke-transport = { path = ".", features = ["workstation-loopback", "probe"] }
+tempfile = { workspace = true }
 rcgen = { workspace = true }
 time = { workspace = true }
 tokio = { workspace = true }
