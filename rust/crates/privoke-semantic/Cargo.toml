@@ -1,0 +1,21 @@
+[package]
+name = "privoke-semantic"
+description = "Semantic inference of the client runtime: V3 pretrained BERT encoder and heads, and the legacy Tiny transformer (stage 14)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+privoke-contracts = { path = "../privoke-contracts" }
+privoke-rules = { path = "../privoke-rules" }
+# Same crate version as the Python `tokenizers` wheel the reference runtime pins (0.22.2); `onig` is the regex engine of
+# the default features, without the progress bar and the C++ unigram trainer.
+tokenizers = { version = "=0.22.2", default-features = false, features = ["onig"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true
