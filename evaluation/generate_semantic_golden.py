@@ -82,6 +82,11 @@ def has_surrogate(text: str) -> bool:
     return any(0xD800 <= ord(ch) < 0xE000 for ch in text)
 
 
+def lf(data: bytes) -> bytes:
+    """Line-ending neutral bytes: Git checks text files out with CRLF on Windows."""
+    return data.replace(b"\r\n", b"\n")
+
+
 def write_json(path: Path, value) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8", newline="\n")
@@ -404,7 +409,7 @@ def write_tiny_synthetic(out: Path, torch, pipeline) -> None:
         print(f"tracked {name}: {len(tracked[name])} rows")
     write_json(out / "tiny_tracked.golden.json",
                {"meta": {"python": sys.version.split()[0], "numpy": np.__version__, "layers": ["semantic"],
-                         "sha256": {n: hashlib.sha256((REPO / "models" / f"{n}.json").read_bytes()).hexdigest() for n in TINY_MODELS}},
+                         "sha256": {n: hashlib.sha256(lf((REPO / "models" / f"{n}.json").read_bytes())).hexdigest() for n in TINY_MODELS}},
                 "models": tracked})
 
 

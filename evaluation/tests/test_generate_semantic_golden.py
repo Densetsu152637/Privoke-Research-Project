@@ -121,7 +121,7 @@ class CommittedFixtureTest(unittest.TestCase):
         self.assertEqual(tracked["meta"]["layers"], ["semantic"])
         self.assertEqual(sorted(tracked["models"]), sorted(golden.TINY_MODELS))
         for name, digest in tracked["meta"]["sha256"].items():
-            self.assertEqual(hashlib.sha256((REPO / "models" / f"{name}.json").read_bytes()).hexdigest(), digest, f"{name} changed; regenerate the golden")
+            self.assertEqual(hashlib.sha256(golden.lf((REPO / "models" / f"{name}.json").read_bytes())).hexdigest(), digest, f"{name} changed; regenerate the golden")
 
     def test_the_rust_tests_use_the_same_fixture_names(self) -> None:
         source = "".join(path.read_text(encoding="utf-8") for path in RUST_TESTS.glob("*.rs"))
@@ -137,7 +137,7 @@ class RegenerationTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             torch, pipeline, model, inventory, config = golden.build_synthetic_v3(Path(tmp))
             for name in ("model.safetensors", "vocab.txt", "config.json"):
-                self.assertEqual((Path(tmp) / name).read_bytes(), (FIXTURES / "v3_synthetic" / name).read_bytes(), name)
+                self.assertEqual(golden.lf((Path(tmp) / name).read_bytes()), golden.lf((FIXTURES / "v3_synthetic" / name).read_bytes()), name)
             self.assertEqual(config["hidden_size"], 32)
             self.assertEqual(len(inventory), 61)
             committed = json.loads((FIXTURES / "v3_synthetic" / "golden.json").read_text(encoding="utf-8"))

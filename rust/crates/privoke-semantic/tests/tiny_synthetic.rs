@@ -48,7 +48,8 @@ fn tracked_legacy_models_match_numpy() {
     assert_eq!(models.len(), 4);
     for (name, rows) in models {
         let path = repo_root().join("models").join(format!("{name}.json"));
-        let bytes = std::fs::read(&path).unwrap();
+        // Git checks text files out with CRLF on Windows; the golden hashes the LF form.
+        let bytes: Vec<u8> = std::fs::read(&path).unwrap().into_iter().filter(|byte| *byte != 13).collect();
         assert_eq!(Some(sha256_hex(&bytes).as_str()), golden["meta"]["sha256"][name].as_str(), "{name} changed since the golden was made");
         let model = TinyModel::from_file(&path).unwrap();
         replay(&model, rows.as_array().unwrap(), &format!("tiny {name}"));
