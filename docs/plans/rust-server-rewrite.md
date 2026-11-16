@@ -944,6 +944,19 @@ The worker is the same binary and pipe protocol everywhere. It never opens a soc
   - **Gradient parity.** For the semantic, underlying and presence gradient RPCs, including `full_encoder`, gradients through the pipe are byte-identical to the gRPC path on the same seed and input, or within 1e-6 where nondeterministic kernels are used, declared per RPC. The maximum frame size and the deadlines cover the largest gradient payload, and both are stated.
   - **Framing survives stray output.** A deliberate `print` inside the worker does not corrupt the framing.
   - **Malformed frames fail closed.** A malformed frame produces an error frame, and the worker survives.
+  - **Sandbox self-check.** With `PRIVOKE_WORKER_SANDBOX=1` the worker refuses to start (exit code 3, `SANDBOX_VIOLATION` frame, no READY) if it can create a socket, and starts when socket creation is refused.
+- Status: done (RUST-W1, 17 November 2026; branch `wt/rust-w1`, not merged)
+- Outcome:
+  - **Built.** `worker_main.py` (entrypoint, read-only model provider, sandbox self-check, serve loop), `worker_protocol.py` (frame codec, standard library only), `docs/runtime/worker-protocol.md`, tests `test_worker_{protocol,process,parity,models}.py` with `worker_harness.py`, `worker_cases.py` and `worker_test_entry.py` under `extension/client-runtime/test/`, and the capture `tests/conformance/worker-frames/` (`capture_worker_frames.py`, `prompts.json`, `analysis.json`, `training.json`, `protocol.json`, `manifest.json`). `grpc_main.py`, `hosting/` and the pipeline are unchanged and remain the oracle.
+  - **Frame and deadline limits.** 20-byte header, 64 MiB hard payload maximum. Analysis and presence requests 262,144 bytes, responses 1 MiB, deadline 25 s (below the bridge's 30 s). Gradient requests 4 MiB, responses 64 MiB, default deadline 120 s (full encoder 300 s), maximum 900 s. The largest measured gradient payload is 150,889 bytes (full encoder, `privoke-balanced`); 64 MiB also covers a 9.6M-parameter V3 full-encoder update (about 38.4 MB).
+  - **Parity.** 201 captured cases were byte-identical to the gRPC server path (53 LLM-only, 60 detector ablation, 88 product pipeline), after clearing only `elapsed_ms` and its metadata copy. Semantic, underlying (full encoder) and presence gradients were byte-identical, so no float tolerance is declared for any RPC. The stage 0 corpus holds no `PrivokeRuntimeService` prompts, so the inputs are 20 new synthetic prompts. LLM-only counts are kept apart from the regex/NER selections.
+  - **Model loader check.** The read-only provider's snapshot of all four tracked legacy models equals the Go service's recorded `GetModelParameters` metadata and float32 tensor digests.
+  - **Component suite.** `evaluation/run-component-tests.py client-runtime`: 483 tests, 5 failures and 19 errors, the identical 24 tests that fail without the W1 files (426 tests, same 5 and 19). The 14-error baseline quoted in the brief does not match this checkout; the W1 tests add no failure.
+- Handoff notes:
+  - The Rust pool (W2) passes two inheritable pipe ends as `--request-fd` and `--response-fd` (Windows: HANDLE values), captures stderr as the log, and gates on the READY frame. `worker_harness.py` is a working reference controller.
+  - Gradient parity covers Tiny and sparse-presence models; the gradient RPCs do not serve V3 packages. Scratch-presence and pretrained-context artifacts are not served by the worker.
+  - Analysis responses depend on the torch build named in `tests/conformance/worker-frames/manifest.json`; the replay tests skip on a different build. Capture and tests run with one CPU thread.
+  - Stage 11 should reuse the header, error codes and limits rules and take method tags `0x10` to `0x1f`.
 
 ## Stage W2: Generic worker pool and OS sandbox (`privoke-worker-pool`)
 
