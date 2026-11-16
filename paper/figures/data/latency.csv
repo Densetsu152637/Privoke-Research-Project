@@ -1,0 +1,9 @@
+cell,transport,arm,p50,p95,max
+fetch-Off,fetch,Off,3.2,4.0,4.3
+fetch-Rules/NER,fetch,Rules/NER,29.6,33.8,92.4
+fetch-Semantic,fetch,Semantic,19.7,158.8,283.6
+fetch-Full,fetch,Full,35.4,172.8,202.1
+XHR-Off,XHR,Off,3.3,5.0,7.4
+XHR-Rules/NER,XHR,Rules/NER,29.9,31.8,100.5
+XHR-Semantic,XHR,Semantic,15.1,162.8,312.7
+XHR-Full,XHR,Full,35.9,175.8,341.0
