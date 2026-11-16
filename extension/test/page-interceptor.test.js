@@ -17,7 +17,7 @@ async function flushUntil(predicate) {
   assert.equal(predicate(), true);
 }
 
-function harness(RequestClass = Request, nativeError = null) {
+function harness(RequestClass = Request, nativeError = null, overrides = {}) {
   const messages = [];
   const listeners = new Set();
   const timers = new Map();
@@ -64,6 +64,7 @@ function harness(RequestClass = Request, nativeError = null) {
     Event, ProgressEvent: Event, TypeError, crypto, extractPrompt, promptTarget, maskText, rewritePromptBody,
     setTimeout(callback, ms) { const id = Symbol(); timers.set(id, { callback, ms }); return id; },
     clearTimeout(id) { timers.delete(id); },
+    ...overrides,
   });
   function decide(action, requestId = messages.filter((message) => message.type === "ANALYZE_PROMPT").at(-1).requestId,
     { legacy = false, maskSpans } = {}) {
@@ -702,4 +703,47 @@ test("default WARN (no mask spans in the decision) hands the identical init obje
   await request;
   assert.equal(h.sent[0].args[1], init);
   assert.equal(h.sent[0].args[1].body, body);
+});
+
+test("fetch falls back to the original request when building the masked Request throws", async () => {
+  class FragileRequest extends Request {
+    static armed = false;
+    constructor(input, init) {
+      if (FragileRequest.armed && init?.body !== undefined) throw new TypeError("cannot rebuild request");
+      super(input, init);
+    }
+  }
+  const h = harness(FragileRequest);
+  const input = new FragileRequest(url, { method: "POST", body });
+  FragileRequest.armed = true;
+  const result = h.window.fetch(input);
+  await flush();
+  h.decide("WARN", undefined, { maskSpans });
+  assert.equal(await result, h.response);
+  assert.equal(h.sent.length, 1);
+  assert.equal(h.sent[0].args[0], input);
+  assert.equal(outcomes(h)[0].observation.request_disposition, "ORIGINAL_REQUEST_HANDED_OFF");
+});
+
+test("fetch falls back to the original request when body rewriting throws", async () => {
+  const h = harness(Request, null, { rewritePromptBody() { throw new Error("rewrite failed"); } });
+  const init = { method: "POST", body };
+  const result = h.window.fetch(url, init);
+  await flush();
+  h.decide("WARN", undefined, { maskSpans });
+  assert.equal(await result, h.response);
+  assert.deepEqual(h.sent[0].args, [url, init]);
+  assert.equal(outcomes(h)[0].observation.request_disposition, "ORIGINAL_REQUEST_HANDED_OFF");
+});
+
+test("XHR falls back to the original body when body rewriting throws", async () => {
+  const h = harness(Request, null, { rewritePromptBody() { throw new Error("rewrite failed"); } });
+  const { xhr, events } = startXhr(h);
+  xhr.send(body);
+  h.decide("WARN", undefined, { maskSpans });
+  await flush();
+  assert.equal(h.sent.length, 1);
+  assert.equal(h.sent[0].body, body);
+  assert.deepEqual(events, []);
+  assert.equal(outcomes(h)[0].observation.request_disposition, "ORIGINAL_REQUEST_HANDED_OFF");
 });

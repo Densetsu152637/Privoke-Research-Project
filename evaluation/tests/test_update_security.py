@@ -101,8 +101,18 @@ class LiveUpdaterTests(unittest.TestCase):
     def setUpClass(cls):
         import grpc
         from privoke_model import load_artifact
+        # An earlier test may have left another service's top-level modules (the fuzzer's
+        # ``config``) in sys.modules; import the updater's modules in isolation, then restore.
+        names = {path.stem for path in SERVICE_APP.glob("*.py")} | {"server", "config"}
+        saved = {name: sys.modules.pop(name) for name in names if name in sys.modules}
         sys.path.insert(0, str(SERVICE_APP))
-        import server as updater
+        try:
+            import server as updater
+        finally:
+            sys.path.remove(str(SERVICE_APP))
+            for name in names:
+                sys.modules.pop(name, None)
+            sys.modules.update(saved)
 
         cls.grpc, cls.load_artifact = grpc, staticmethod(load_artifact)
         cls.directory = tempfile.TemporaryDirectory()
