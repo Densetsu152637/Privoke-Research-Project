@@ -1224,13 +1224,437 @@ def release_fingerprint(release_dir: Path):
     return hashlib.sha256(json.dumps(entries, sort_keys=True).encode()).hexdigest(), len(entries)
 
 
-def main(argv=None) -> int:
+# --------------------------------------------------------------------------------------
+# Rust target: the Rust model-streaming service behind its own mutual TLS (stage 3 of
+# docs/plans/rust-server-rewrite.md). Selected with `--target rust`; the default target is unchanged.
+# --------------------------------------------------------------------------------------
+
+RUST_RECORD_ID = "UPDSEC-RUST-S3"
+RUST_PUBLIC_CONTAINER_PORT = 50443
+RUST_INTERNAL_CONTAINER_PORT = 50051
+RUST_DEFAULT_IMAGE = "privoke-model-streaming-rust:dev"
+URN_INSTALLATION = "urn:privoke:installation:"
+URN_SERVICE = "urn:privoke:service:"
+URN_REPORTER = "urn:privoke:reporter"
+RUST_ROW_IDS = ("T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12", "R3", "R4", "R7", "R8", "R9", "X8")
+
+
+def registry_toml(installations=(), services=(), *, reporter: bool = True) -> str:
+    """The identity registry file of `privoke-transport` (version 1): installations, service roles, reporter switch."""
+    lines = ["version = 1", f"reporter = {'true' if reporter else 'false'}", ""]
+    for installation in installations:
+        lines += ["[[installation]]", f'id = "{installation}"', ""]
+    for name, role in services:
+        lines += ["[[service]]", f'name = "{name}"', f'role = "{role}"', ""]
+    return "\n".join(lines)
+
+
+def rust_row_family(row_id: str) -> str:
+    """The plan row a sub-row belongs to: `R7-no-cert` is part of `R7`."""
+    return row_id.split("-", 1)[0]
+
+
+def evaluate_rust_row(expected: str, observed: str, code: str | None, codes: tuple[str, ...] | None, model_unchanged: bool | None):
+    """Property rule of a Rust-target row. A rejection counts only with an allowed status code and an unchanged store."""
+    if expected == "rejected_unchanged":
+        return observed == "rejected" and (codes is None or code in codes) and model_unchanged is not False
+    if expected == "positive_control":
+        return observed == "accepted"
+    return None
+
+
+def issue_custom_certificate(authority, label: str, *, cn: str, extensions: list[str], start, end) -> tuple[bytes, bytes]:
+    """Issue a certificate whose extension block is written verbatim (used for profiles `TestAuthority.issue` cannot express)."""
+    key, csr, crt, ext = (f"{label}.key", f"{label}.csr", f"{label}.crt", f"{label}.ext")
+    authority._run("req", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1", "-nodes", "-subj", f"/CN={cn}", "-keyout", key, "-out", csr)
+    (authority.dir / ext).write_text("\n".join(["basicConstraints=CA:FALSE", *extensions]) + "\n", encoding="utf-8")
+    from update_security_pki import _stamp
+    authority._run("ca", "-config", "ca.cnf", "-batch", "-notext", "-in", csr, "-out", crt, "-cert", "ca.crt", "-keyfile", "ca.key",
+                   "-startdate", _stamp(start), "-enddate", _stamp(end), "-extfile", ext)
+    return (authority.dir / crt).read_bytes(), (authority.dir / key).read_bytes()
+
+
+def write_client_crl(authority, *, days: int = 2) -> bytes:
+    """A signed, non-stale, empty CRL (version 2, with a CRL number) for the client CA, as the server requires."""
+    (authority.dir / "crlnumber").write_text("01\n", encoding="utf-8")
+    (authority.dir / "crl.cnf").write_text(
+        "[ca]\ndefault_ca=CA_default\n[CA_default]\ndatabase=index.txt\ncrlnumber=crlnumber\ndefault_md=sha256\n"
+        f"default_crl_days={days}\ncrl_extensions=crl_ext\n[crl_ext]\nauthorityKeyIdentifier=keyid:always\n", encoding="utf-8")
+    authority._run("ca", "-config", "crl.cnf", "-gencrl", "-keyfile", "ca.key", "-cert", "ca.crt", "-out", "crl.pem")
+    return (authority.dir / "crl.pem").read_bytes()
+
+
+class RustPki:
+    """The disposable PKI of one run: client CA, server CA, a foreign CA, and every certificate the rows present."""
+
+    def __init__(self, work: Path):
+        import datetime as dt
+        import uuid
+        from update_security_pki import TestAuthority
+
+        self.work = work
+        self.client_ca = TestAuthority(work, "client-ca")
+        self.server_ca = TestAuthority(work, "server-ca")
+        self.foreign_ca = TestAuthority(work, "foreign-ca")
+        now = dt.datetime.now(dt.timezone.utc)
+        hour = dt.timedelta(hours=1)
+        self.ids = {name: str(uuid.uuid4()) for name in ("registered", "second", "second-registered", "expired", "future", "no-eku", "server-only", "foreign")}
+        urn = lambda name: f"URI:{URN_INSTALLATION}{self.ids[name]}"  # noqa: E731
+        self.server = self.server_ca.issue("server", cn="rust-model-streaming", usage="serverAuth", san="DNS:localhost,IP:127.0.0.1")
+        self.certs = {
+            "registered": self.client_ca.issue("registered", cn="installation-registered", usage="clientAuth", san=urn("registered")),
+            "second": self.client_ca.issue("second", cn="installation-second", usage="clientAuth", san=urn("second")),
+            "second-registered": self.client_ca.issue("second-registered", cn="installation-second-registered", usage="clientAuth", san=urn("second-registered")),
+            "runtime": self.client_ca.issue("runtime", cn="service-runtime", usage="clientAuth", san=f"URI:{URN_SERVICE}client-runtime"),
+            "reporter": self.client_ca.issue("reporter", cn="reporter", usage="clientAuth", san=f"URI:{URN_REPORTER}"),
+            # R3: each is registered, so a refusal can only come from the TLS verifier.
+            "expired": self.client_ca.issue("expired", cn="installation-expired", usage="clientAuth", san=urn("expired"), start=now - 10 * hour, end=now - 5 * hour),
+            "future": self.client_ca.issue("future", cn="installation-future", usage="clientAuth", san=urn("future"), start=now + 5 * hour, end=now + 10 * hour),
+            "server-only": self.client_ca.issue("server-only", cn="installation-server-only", usage="serverAuth", san=urn("server-only")),
+            "no-eku": issue_custom_certificate(self.client_ca, "no-eku", cn="installation-no-eku", extensions=[f"subjectAltName={urn('no-eku')}"],
+                                               start=now - hour, end=now + hour),
+            # R4: a valid subject (a registered identity) signed by a CA the server does not trust.
+            "foreign": self.foreign_ca.issue("foreign", cn="installation-foreign", usage="clientAuth", san=urn("foreign")),
+        }
+        self.crl = write_client_crl(self.client_ca)
+        self.registered_ids = [self.ids[name] for name in ("registered", "second-registered", "expired", "future", "no-eku", "server-only", "foreign")]
+
+    def publish(self, directory: Path) -> Path:
+        """Write the files the server reads. Keys are synthetic, so they are world-readable for the container's user."""
+        directory.mkdir(parents=True, exist_ok=True)
+        files = {"server.crt": self.server[0], "server.key": self.server[1], "client-ca.pem": self.client_ca.cert, "crl.pem": self.crl,
+                 "registry.toml": registry_toml(self.registered_ids, [("client-runtime", "runtime")]).encode()}
+        for name, content in files.items():
+            path = directory / name
+            path.write_bytes(content)
+            path.chmod(0o644)
+        return directory
+
+
+class RustService:
+    """The Rust server under test, in its container (or, for development, as a host process)."""
+
+    def __init__(self, work: Path, pki: RustPki, models_dir: Path, release_dir: Path, *, image: str, binary: Path | None = None):
+        self.pki, self.work, self.image, self.binary = pki, work, image, binary
+        self.models_dir, self.release_dir = models_dir, release_dir
+        self.public_port, self.internal_port = free_port(), free_port()
+        self.container = f"updsec-rust-{os.getpid()}-{self.public_port}"
+        self.process: subprocess.Popen | None = None
+        self.pki_dir = pki.publish(work / "pki")
+
+    def command_arguments(self, base: str) -> list[str]:
+        return ["--cert", f"{base}/server.crt", "--key", f"{base}/server.key", "--client-ca", f"{base}/client-ca.pem", "--crl", f"{base}/crl.pem",
+                "--registry", f"{base}/registry.toml"]
+
+    def start(self):
+        if self.binary:
+            environment = {**os.environ, "MODEL_ARTIFACT_DIR": str(self.models_dir), "MODEL_RELEASE_DIR": str(self.release_dir),
+                           "MODEL_LATEST_ID": V3_MODEL, "MODEL_STREAMING_BIND": "127.0.0.1", "MODEL_STREAMING_PORT": str(self.internal_port),
+                           "MODEL_STREAMING_PUBLIC_PORT": str(self.public_port)}
+            self.process = subprocess.Popen([str(self.binary), *self.command_arguments(str(self.pki_dir))], env=environment,
+                                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            command = ["docker", "run", "-d", "--rm", "--name", self.container,
+                       "-p", f"127.0.0.1:{self.public_port}:{RUST_PUBLIC_CONTAINER_PORT}", "-p", f"127.0.0.1:{self.internal_port}:{RUST_INTERNAL_CONTAINER_PORT}",
+                       "-e", f"MODEL_LATEST_ID={V3_MODEL}", "-e", "MODEL_STREAMING_BIND=0.0.0.0",
+                       "-v", f"{self.models_dir}:/models:ro", "-v", f"{self.release_dir}:/model-releases:ro", "-v", f"{self.pki_dir}:/pki:ro",
+                       self.image, *self.command_arguments("/pki")]
+            subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.wait_serving()
+
+    def wait_serving(self, timeout: float = 180.0):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if self.process and self.process.poll() is not None:
+                raise RuntimeError("the Rust service exited during startup")
+            try:
+                client = RustClient(self, "registered")
+                try:
+                    if client.models.Health(client.pb.HealthRequest(), timeout=3).status == "SERVING":
+                        return
+                finally:
+                    client.close()
+            except Exception:  # noqa: BLE001 - not ready yet
+                pass
+            time.sleep(0.5)
+        raise RuntimeError(f"the Rust service did not serve: {self.logs()[-600:]}")
+
+    def logs(self) -> str:
+        if self.binary:
+            return ""
+        return subprocess.run(["docker", "logs", "--tail", "30", self.container], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+
+    def stop(self):
+        if self.process and self.process.poll() is None:
+            self.process.kill()
+            self.process.wait(10)
+        if not self.binary:
+            subprocess.run(["docker", "rm", "-f", self.container], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+class RustClient:
+    """A gRPC client that presents one named certificate (or none) to the public or internal listener."""
+
+    def __init__(self, service: RustService, identity: str | None, *, internal: bool = False, root: bytes | None = None):
+        import grpc
+        from privoke.v1 import parameters_pb2 as pb, parameters_pb2_grpc as rpc
+
+        self.grpc, self.pb, self.rpc = grpc, pb, rpc
+        pki = service.pki
+        certificate, key = pki.certs[identity] if identity else (None, None)
+        credentials = grpc.ssl_channel_credentials(root_certificates=root or pki.server_ca.cert, private_key=key, certificate_chain=certificate)
+        port = service.internal_port if internal else service.public_port
+        self.channel = grpc.secure_channel(f"127.0.0.1:{port}", credentials, options=(("grpc.enable_http_proxy", 0), ("grpc.max_receive_message_length", 64 * 1024 * 1024)))
+        self.models = rpc.ModelStreamingServiceStub(self.channel)
+        self.updates = rpc.ParamUpdateServiceStub(self.channel)
+
+    def close(self):
+        self.channel.close()
+
+    def outcome(self, fn, *, stream: bool = False):
+        """Run one call; `accepted` carries a short description of what was served, `rejected` the status."""
+        try:
+            result = fn()
+            if stream:
+                first = next(iter(result), None)
+                result.cancel()
+                return {"observed": "accepted", "code": "OK", "message": "stream opened" + (f" (first message {type(first).__name__})" if first is not None else "")}
+            return {"observed": "accepted", "code": "OK", "message": type(result).__name__, "response": result}
+        except self.grpc.RpcError as error:
+            return {"observed": "rejected", "code": error.code().name, "message": short(error.details())}
+
+
+def run_rust_rows(service: RustService, models_dir: Path, release_dir: Path) -> list[dict]:
+    """Every row of the stage 3 gate against the running Rust service. Nothing here is inferred: each row is a live call."""
+    from privoke.v1 import parameters_pb2 as pb
+
+    rows: list[dict] = []
+    ids = service.pki.ids
+    legacy = LEGACY_MODEL
+
+    def snapshot_store():
+        return release_fingerprint(release_dir), sha256_file(models_dir / f"{legacy}.json")
+
+    def row(row_id, cls, path, description, expected, identity, call, *, codes=None, gap=None, internal=False, stream=False, root=None, evidence=None):
+        before = snapshot_store()
+        started = time.time()
+        client = RustClient(service, identity, internal=internal, root=root)
+        try:
+            result = client.outcome(lambda: call(client), stream=stream)
+        except Exception as error:  # a harness failure must be visible, never a silent pass
+            result = {"observed": "not_run", "code": "HARNESS_ERROR", "message": short(f"{type(error).__name__}: {error}")}
+        finally:
+            client.close()
+        unchanged = snapshot_store() == before
+        result.pop("response", None)
+        rows.append({"id": row_id, "class": cls, "path": path, "description": description, "expected": expected, "observed": result["observed"],
+                     "code": result["code"], "message": result["message"], "model_unchanged": unchanged, "expected_codes": list(codes) if codes else None,
+                     "identity": identity or "no client certificate", "property_met": evaluate_rust_row(expected, result["observed"], result["code"], codes, unchanged),
+                     "gap": gap, "evidence": evidence or [], "duration_s": round(time.time() - started, 3)})
+
+    R, U, S = "unauthorized_retrieval", "rust-public", "rust-internal"
+    refused = ("UNAVAILABLE",)  # a refused handshake: the peer never reaches a handler
+    denied = ("PERMISSION_DENIED",)
+    mine = ids["registered"]
+    pin = ""
+    fetched: dict = {}
+
+    def request(consumer, model=legacy):
+        return pb.ModelParametersRequest(consumer_id=consumer, model_id=model)
+
+    def stream_params(consumer, model=legacy):
+        return lambda client: client.models.StreamModelParameters(request(consumer, model), timeout=30)
+
+    def package(consumer, model=V3_MODEL):
+        return lambda client: client.models.GetModelPackage(request(consumer, model), timeout=30)
+
+    def asset(model=V3_MODEL, manifest=None, name="config.json", consumer=""):
+        return lambda client: client.models.StreamModelAsset(pb.ModelAssetRequest(consumer_id=consumer, model_id=model,
+                                                             manifest_sha256=manifest if manifest is not None else pin, asset_name=name), timeout=30)
+
+    # The pin comes from a positive fetch by a registered installation: this is also the G8 default-package check.
+    probe = RustClient(service, "registered")
+    try:
+        manifest = probe.models.GetModelPackage(request(mine, V3_MODEL), timeout=30)
+        pin = manifest.manifest_sha256
+        fetched = {"assets": {a.name: (a.sha256, a.size_bytes) for a in manifest.assets}, "manifest_sha256": pin}
+    finally:
+        probe.close()
+
+    row("X1", "invalid_certificate", U, "Registered installation certificate from the client CA (positive control): fetch the default V3 manifest.", "positive_control",
+        "registered", package(mine), gap="GAP-NO-RETRIEVAL-AUTH")
+
+    def verified_asset(name):
+        def fetch(client):
+            digest, total = hashlib.sha256(), 0
+            for chunk in client.models.StreamModelAsset(pb.ModelAssetRequest(consumer_id=mine, model_id=V3_MODEL, manifest_sha256=pin, asset_name=name), timeout=120):
+                digest.update(chunk.data)
+                total += len(chunk.data)
+            expected = fetched["assets"][name]
+            if digest.hexdigest() != expected[0] or total != expected[1]:
+                raise RuntimeError("streamed asset does not match its manifest")
+            return type("Verified", (), {})()
+        return fetch
+
+    row("X1b", "invalid_certificate", U, "Registered installation streams config.json of the default V3 package and verifies its pin (G8 positive control).",
+        "positive_control", "registered", verified_asset("config.json"), gap="GAP-NO-RETRIEVAL-AUTH")
+    row("X1c", "invalid_certificate", U, "Registered installation streams the whole model.safetensors of the default V3 package over mutual TLS and verifies its pin.",
+        "positive_control", "registered", verified_asset("model.safetensors"), gap="GAP-NO-RETRIEVAL-AUTH")
+
+    # T1 to T12: the original retrieval rows, now against the public listener with mutual TLS.
+    row("T1", R, U, "Model download by an unauthenticated consumer with an arbitrary consumer_id.", "rejected_unchanged", None,
+        stream_params("updsec-unknown-consumer"), stream=True, codes=refused, gap="GAP-NO-RETRIEVAL-AUTH")
+    row("T2", "impersonation", U, "Model download by a registered installation claiming the installed runtime's consumer_id.", "rejected_unchanged", "registered",
+        stream_params("server-client-runtime"), stream=True, codes=denied, gap="GAP-IDENTITY-SELF-ASSERTED")
+    row("T3", R, U, "Model download with no consumer_id and no client certificate.", "rejected_unchanged", None, stream_params(""), stream=True,
+        codes=refused, gap="GAP-NO-RETRIEVAL-AUTH")
+    row("T4", R, U, "Model download with a control character in consumer_id (registered installation).", "rejected_unchanged", "registered",
+        stream_params("bad\nconsumer"), stream=True, codes=("INVALID_ARGUMENT", "PERMISSION_DENIED"))
+    row("T5", R, U, "Download of a model id that is not in the catalogue (registered installation).", "rejected_unchanged", "registered",
+        stream_params(mine, "privoke-not-a-model"), stream=True, codes=("NOT_FOUND",))
+    row("T6", R, U, "Download with a path-traversal model id (registered installation).", "rejected_unchanged", "registered",
+        stream_params(mine, "../etc/passwd"), stream=True, codes=("NOT_FOUND",))
+    row("T7", R, "standard-v3", "Legacy float-tensor download of the standard V3 model (registered installation).", "rejected_unchanged", "registered",
+        stream_params(mine, V3_MODEL), stream=True, codes=("FAILED_PRECONDITION",))
+    row("T8", R, "standard-v3", "Standard V3 package manifest requested by an unauthenticated consumer.", "rejected_unchanged", None, package(""),
+        codes=refused, gap="GAP-NO-RETRIEVAL-AUTH")
+    row("T9", R, "standard-v3", "Asset stream with a wrong manifest pin (registered installation).", "rejected_unchanged", "registered",
+        asset(manifest="0" * 64, consumer=mine), stream=True, codes=("INVALID_ARGUMENT",))
+    row("T10", R, "standard-v3", "Asset stream for a non-allowlisted asset name (path traversal).", "rejected_unchanged", "registered",
+        asset(name="../preparation.json", consumer=mine), stream=True, codes=("INVALID_ARGUMENT",))
+    row("T11", R, "standard-v3", "Asset stream for a legacy model id (registered installation).", "rejected_unchanged", "registered",
+        asset(model=legacy, consumer=mine), stream=True, codes=("INVALID_ARGUMENT",))
+    row("T12", R, "standard-v3", "Asset stream with correct pin and name by an unauthenticated consumer.", "rejected_unchanged", None, asset(), stream=True,
+        codes=refused, gap="GAP-NO-RETRIEVAL-AUTH")
+
+    # R3: certificate lifetime and profile, refused at the handshake by the real service (every identity below is registered).
+    for label, identity, text in (("expired", "expired", "An expired client certificate"), ("not-yet-valid", "future", "A not-yet-valid client certificate"),
+                                  ("no-client-auth-eku", "no-eku", "A client certificate with no extended key usage"),
+                                  ("server-auth-only", "server-only", "A client certificate whose only usage is serverAuth")):
+        row(f"R3-{label}", "expired_credentials" if label in ("expired", "not-yet-valid") else "invalid_certificate", U,
+            f"{text}, for a registered identity, is refused at the TLS handshake.", "rejected_unchanged", identity, package(""), codes=refused,
+            gap="GAP-NO-CREDENTIAL-MECHANISM")
+    # R4: a foreign-CA certificate with a valid (registered) subject.
+    row("R4", "impersonation", U, "A certificate from a foreign CA carrying a registered installation's subject is refused at the handshake.",
+        "rejected_unchanged", "foreign", package(""), codes=refused, gap="GAP-IDENTITY-SELF-ASSERTED")
+
+    # R7: GetModelPackage, a newly public RPC.
+    row("R7-no-cert", R, U, "GetModelPackage without a client certificate.", "rejected_unchanged", None, package(""), codes=refused,
+        gap="GAP-NO-RETRIEVAL-AUTH")
+    row("R7-unregistered", R, U, "GetModelPackage by a valid, unregistered installation certificate.", "rejected_unchanged", "second", package(""),
+        codes=denied, gap="GAP-NO-PER-INSTALLATION-AUTHZ")
+    row("R7-reporter", R, U, "GetModelPackage with the telemetry reporter credential.", "rejected_unchanged", "reporter", package(""), codes=denied)
+    row("R7-traversal", R, U, "GetModelPackage with a path-traversal model id (registered installation).", "rejected_unchanged", "registered",
+        package(mine, "../privoke-v3-balanced"), codes=("NOT_FOUND",))
+    row("R7-unknown", R, U, "GetModelPackage for a model that is not in the catalogue (registered installation).", "rejected_unchanged", "registered",
+        package(mine, "does-not-exist"), codes=("NOT_FOUND",))
+
+    # R8: StreamModelAsset, a newly public RPC.
+    row("R8-no-cert", R, "standard-v3", "StreamModelAsset without a client certificate.", "rejected_unchanged", None, asset(), stream=True, codes=refused,
+        gap="GAP-NO-RETRIEVAL-AUTH")
+    row("R8-unregistered", R, "standard-v3", "StreamModelAsset by a valid, unregistered installation certificate.", "rejected_unchanged", "second",
+        asset(), stream=True, codes=denied, gap="GAP-NO-PER-INSTALLATION-AUTHZ")
+    row("R8-reporter", R, "standard-v3", "StreamModelAsset with the telemetry reporter credential.", "rejected_unchanged", "reporter", asset(), stream=True, codes=denied)
+    row("R8-wrong-pin", R, "standard-v3", "StreamModelAsset with a wrong pin (registered installation).", "rejected_unchanged", "registered",
+        asset(manifest="0" * 64, consumer=mine), stream=True, codes=("INVALID_ARGUMENT",))
+    row("R8-not-allowlisted", R, "standard-v3", "StreamModelAsset for a non-allowlisted asset name (registered installation).", "rejected_unchanged",
+        "registered", asset(name="../manifest.json", consumer=mine), stream=True, codes=("INVALID_ARGUMENT",))
+
+    # R9: the private RPCs are not served on the public listener at all.
+    row("R9-get-model-parameters", R, U, "GetModelParameters on the public listener (registered installation).", "rejected_unchanged", "registered",
+        lambda client: client.models.GetModelParameters(request(mine), timeout=30), codes=("UNIMPLEMENTED",))
+    row("R9-submit-update", "unauthorized_update", U, "ParamUpdateService.SubmitParameterUpdate on the public listener (registered installation).",
+        "rejected_unchanged", "registered",
+        lambda client: client.updates.SubmitParameterUpdate(pb.ParameterUpdateRequest(source_id=mine, model_id=legacy, base_version="v1"), timeout=30),
+        codes=("UNIMPLEMENTED",))
+    row("R9-update-status", "unauthorized_update", U, "ParamUpdateService.GetParameterUpdateStatus on the public listener (registered installation).",
+        "rejected_unchanged", "registered",
+        lambda client: client.updates.GetParameterUpdateStatus(pb.ParameterUpdateStatusRequest(source_id=mine, request_id="never-issued", model_id=legacy), timeout=30),
+        codes=("UNIMPLEMENTED",))
+
+    # X8 variant: per-installation authorisation.
+    row("X8", "impersonation", U, "A second, distinct installation certificate from the same client CA whose id is not registered.", "rejected_unchanged",
+        "second", package(""), codes=denied, gap="GAP-NO-PER-INSTALLATION-AUTHZ")
+    row("X8b", "impersonation", U, "A second installation certificate from the same client CA whose id is registered (positive control).", "positive_control",
+        "second-registered", package(ids["second-registered"]), gap="GAP-NO-PER-INSTALLATION-AUTHZ")
+
+    # The internal listener, for the rows that need GetModelParameters to be reached.
+    row("I1", R, S, "A registered service identity downloads a legacy model on the internal listener (positive control).", "positive_control", "runtime",
+        lambda client: client.models.GetModelParameters(request("param-update"), timeout=30), internal=True)
+    row("I2", R, S, "A registered installation (consumer role) on the internal listener.", "rejected_unchanged", "registered",
+        lambda client: client.models.GetModelParameters(request(mine), timeout=30), internal=True, codes=denied)
+    row("I3", R, S, "A registered service identity asks the internal listener for the V3 model through the legacy float RPC.", "rejected_unchanged",
+        "runtime", lambda client: client.models.GetModelParameters(request("param-update", V3_MODEL), timeout=30), internal=True,
+        codes=("FAILED_PRECONDITION",))
+    row("I4", R, S, "A registered service identity calls a consumer RPC on the internal listener.", "rejected_unchanged", "runtime", package(""),
+        internal=True, codes=("UNIMPLEMENTED",))
+    return rows
+
+
+def run_rust_target(args) -> int:
+    """`--target rust`: host the Rust service (container or `--rust-binary`), run the rows, write the record."""
+    import platform
+
+    release_dir = args.release_dir
+    if not release_dir.is_dir():
+        print(f"standard release store not found: {release_dir}", file=sys.stderr)
+        return 2
+    release_before = release_fingerprint(release_dir)
+    scratch_parent = ROOT / ".tmp" if (ROOT / ".tmp").is_dir() else None
+    work = Path(tempfile.mkdtemp(prefix="updsec-rust-", dir=scratch_parent))
+    models_dir = work / "models"
+    models_dir.mkdir()
+    shutil.copyfile(ROOT / "models" / f"{LEGACY_MODEL}.json", models_dir / f"{LEGACY_MODEL}.json")
+    service = None
+    try:
+        pki = RustPki(work)
+        service = RustService(work, pki, models_dir.resolve(), release_dir.resolve(), image=args.rust_image, binary=args.rust_binary)
+        service.start()
+        rows = run_rust_rows(service, models_dir, release_dir)
+        logs = service.logs()
+    finally:
+        if service:
+            service.stop()
+    release_after = release_fingerprint(release_dir)
+    missing = sorted(set(RUST_ROW_IDS) - {rust_row_family(row["id"]) for row in rows})
+    record = {
+        "id": RUST_RECORD_ID, "title": "Rust model-streaming service: retrieval and authentication negative rows", "target": "rust",
+        "revision": git_revision(), "generated_unix": int(time.time()),
+        "environment": {"python": sys.version.split()[0], "platform": platform.platform(), "grpc": __import__("grpc").__version__,
+                        "image": args.rust_image if not args.rust_binary else None, "host_binary": str(args.rust_binary) if args.rust_binary else None},
+        "fixture": {"legacy_model": LEGACY_MODEL, "v3_model": V3_MODEL}, "standard_release_store_unchanged": release_before == release_after,
+        "required_row_families": list(RUST_ROW_IDS), "missing_row_families": missing, "attacks": rows, "summary": summarize(rows),
+        "container_log_tail": logs[-2000:],
+    }
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    shutil.rmtree(work, ignore_errors=True)
+    unmet = record["summary"]["property_unmet_ids"]
+    print(f"{record['summary']['total_rows']} rows; property unmet: {unmet}; missing row families: {missing}")
+    return 0 if not unmet and not missing and record["standard_release_store_unchanged"] else 1
+
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--output", type=Path, default=ROOT / "paper/research/update-security-20261116.json")
+    parser.add_argument("--target", choices=("go", "rust"), default="go",
+                        help="go (default): the recorded UPDSEC harness; rust: the Rust model-streaming service rows (stage 3)")
+    parser.add_argument("--output", type=Path, default=None,
+                        help="record path (default: paper/research/update-security-20261116.json for go, .tmp/update-security-rust-s03.json for rust)")
     parser.add_argument("--release-dir", type=Path, default=ROOT / "models/standard-releases")
     parser.add_argument("--image", default="privoke-updsec-model-dev:20261116", help="model-streaming-service dev image (built from this checkout)")
     parser.add_argument("--skip-docker", action="store_true", help="do not host the Go streaming service (retrieval rows become not_run)")
-    args = parser.parse_args(argv)
+    parser.add_argument("--rust-image", default=RUST_DEFAULT_IMAGE, help="--target rust: the built Rust model-streaming image")
+    parser.add_argument("--rust-binary", type=Path, default=None,
+                        help="--target rust: run this host binary instead of the container (development only; the stage 3 gate uses the container)")
+    return parser
+
+
+def main(argv=None) -> int:
+    args = build_parser().parse_args(argv)
+    if args.target == "rust":
+        args.output = args.output or ROOT / ".tmp/update-security-rust-s03.json"
+        return run_rust_target(args)
+    args.output = args.output or ROOT / "paper/research/update-security-20261116.json"
     release_dir = args.release_dir
     if not release_dir.is_dir():
         print(f"standard release store not found: {release_dir}", file=sys.stderr)
