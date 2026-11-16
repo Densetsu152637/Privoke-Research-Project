@@ -8,6 +8,7 @@ members = [
     "services/model-streaming",
     "crates/privoke-spacy",
     "services/spacy-worker",
+    "crates/privoke-rules",
 ]
 
 [workspace.package]

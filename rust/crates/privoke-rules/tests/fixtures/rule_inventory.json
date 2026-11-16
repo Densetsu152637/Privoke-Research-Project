@@ -1,0 +1,2825 @@
+[
+ {
+  "name": "visibility_public",
+  "signal": "visibility_public",
+  "packed": 4,
+  "flags": 2,
+  "pattern_sha256": "3731d79b0ae3abb50d439162ea30a865110c24a9930a777584434e26533344af",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(public(?:ly)?|public\\s+(?:post|profile|page)|visible\\s+to\\s+anyone|open\\s+internet)\\b"
+ },
+ {
+  "name": "visibility_semi_public",
+  "signal": "visibility_semi_public",
+  "packed": 8,
+  "flags": 2,
+  "pattern_sha256": "91257608fb44c3e2ceeac7c532a3d39cf4ff366b59c0d2b5512f19366d840772",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(community\\s+(?:page|thread|forum)|public\\s+thread|members?\\s+thread|semi-public)\\b"
+ },
+ {
+  "name": "visibility_restricted",
+  "signal": "visibility_restricted",
+  "packed": 12,
+  "flags": 2,
+  "pattern_sha256": "5509343989e1c5d4fc6245ebb5a9acab1573238516764c16eb01c63cba0adc91",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(behind\\s+(?:login|authentication)|authenticated|restricted|members?\\s+only|logged-in\\s+users?)\\b"
+ },
+ {
+  "name": "visibility_group_private",
+  "signal": "visibility_group_private",
+  "packed": 16,
+  "flags": 2,
+  "pattern_sha256": "344473622533ea3714319a2137c741d8127f58f72e3b6a640560e35f6c77e9bf",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(group\\s+(?:chat|dm|message)|shared\\s+dm|private\\s+(?:group|workspace|channel)|team\\s+chat)\\b"
+ },
+ {
+  "name": "visibility_personal_private",
+  "signal": "visibility_personal_private",
+  "packed": 20,
+  "flags": 2,
+  "pattern_sha256": "c0441dea514277fef011dcd260eb9f52977c98e0e1198de2b3cfa290ae70f0e0",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(personal\\s+(?:note|diary|journal)|my\\s+(?:diary|journal)|diary|journal|only\\s+me|not\\s+shared|private\\s+note|local-only)\\b"
+ },
+ {
+  "name": "email",
+  "signal": "email",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "e4c9f9ea5aa033c78828ad2bb01146d5c60c8992f5485696ad48886891fb584c",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b[\\w\\.-]+@[\\w\\.-]+\\.\\w+\\b"
+ },
+ {
+  "name": "phone_us",
+  "signal": "phone",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "81aedca8921b20dd2e345131e4c9e179c636d412bde01453dc617ab32a3c5534",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "(?<![\\w])(?:\\+?1[\\s\\-]?)?\\(?[2-9]\\d{2}\\)?[\\s\\-]?\\d{3}[\\s\\-]?\\d{4}\\b"
+ },
+ {
+  "name": "phone_intl",
+  "signal": "phone",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "11608282b3b3fed6902a7c85cb368506b6c1d525b993139a2efb3cbd3eeebffc",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\+\\d{1,3}([\\s\\-]?\\d{2,4}){2,3}\\b"
+ },
+ {
+  "name": "ssn_formatted",
+  "signal": "ssn",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "98ea514de4d7acdea36bc237722f0dc7177a24e44674ab2287619c5fc81493c3",
+  "validator": true,
+  "downgrades": [
+   {
+    "name": "ssn_unverified",
+    "signal": "ssn",
+    "packed": 8223,
+    "confidence": 0.8,
+    "accept": true
+   }
+  ],
+  "pattern": "\\b\\d{3}[\\s\\-]?\\d{2}[\\s\\-]?\\d{4}\\b"
+ },
+ {
+  "name": "itin",
+  "signal": "itin",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "236d216a66215313c74fccc820b86b6f19da5ebb384b6ca3c277f5deb976bd5e",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b9\\d{2}[\\s\\-]?(?:7\\d|8[0-8]|9[0-2]|9[4-9])[\\s\\-]?\\d{4}\\b"
+ },
+ {
+  "name": "passport",
+  "signal": "passport",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "ed620f0654dbf737f5797bcfc71f09e79bca917a71f44623c994764c3c6009c9",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:passport|pass(?:port)? no\\.?|passport number)\\s*[:#=]?\\s*[A-Z]{1,2}\\d{6,9}\\b|\\b[A-Z]{1,2}\\d{6,9}\\b"
+ },
+ {
+  "name": "driver_license",
+  "signal": "driver_license",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "f451988e05cf30da32f0a8cd956bb8eb6cb02d9eea2ee9a916483389f3501797",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:driver'?s?\\s+licen[cs]e|dl)\\s*[:#=]?\\s*[A-Z0-9\\-]{5,15}\\b"
+ },
+ {
+  "name": "government_id",
+  "signal": "government_id",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "330b32dcc89fbdd5803379a880b623c62acc1f7f48adba1d3b1bd429729ebd99",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:national\\s+id|tax\\s+id|tin|id\\s+number|identity\\s+number)\\s*[:#=]?\\s*[A-Z0-9\\-]{5,20}\\b"
+ },
+ {
+  "name": "student_id",
+  "signal": "student_id",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "4dcc751c83bde8c1ef7c453d686957cd0413894452d3d8cc7810ace2da757d7b",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\bstudent(?:[\\s_-]*(?:id|number|no\\.?)\\s*[:#=]?|\\b[^\\n.;:!?]{0,60}?[,(]\\s*id\\s*[:#=]?)\\s*(?=[a-z0-9-]*\\d)[a-z0-9][a-z0-9-]{3,}\\b"
+ },
+ {
+  "name": "api_key",
+  "signal": "api_key",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "2a169eea573fdda2200afa92e49875dea4181ad06d2941a37db9ed4644a6722b",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:sk|pk|ghp|xoxb|akia)[-_a-z0-9]{16,}\\b"
+ },
+ {
+  "name": "url_with_token",
+  "signal": "url_token",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "6203e5734fc8e001ac7f7cabab4cd4cd6eab3a4b235196e7dc0e1d58fe77394d",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "https?://\\S*(?:token|key|secret|auth|session)=\\S+"
+ },
+ {
+  "name": "password_assignment",
+  "signal": "password",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "ddc08ef9d794b8da504d5cd2669ed41b688c00c7c52f9c7c9658524963f3d107",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:password|passwd|pwd|passcode)\\s*[:=]\\s*(?!(?:required|optional|none|null|nil|true|false|empty|blank|unknown|hidden|masked|n/?a)\\b)\\S+"
+ },
+ {
+  "name": "mac_address",
+  "signal": "mac_address",
+  "packed": 8222,
+  "flags": 2,
+  "pattern_sha256": "766b7a06fb9c039ffe88a5184d92dc54a049fb73f43d33ca65d88bf7bdb3711c",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b[0-9a-f]{2}(?::[0-9a-f]{2}){5}\\b"
+ },
+ {
+  "name": "vin",
+  "signal": "vin",
+  "packed": 8222,
+  "flags": 2,
+  "pattern_sha256": "690d625e437400a575f9f6ad2a57905f3deb97b36af940e4fb0af81259833cde",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b[A-HJ-NPR-Z0-9]{17}\\b"
+ },
+ {
+  "name": "social_handle",
+  "signal": "social_handle",
+  "packed": 8222,
+  "flags": 2,
+  "pattern_sha256": "a53cd3b8f956746d08948891a02a1cca8502a6505c7c66010afc95173ad7e38c",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "(?<![a-zA-Z0-9.])@(?!(?:here|everyone|channel|all)\\b)[\\w\\-\\.]{2,}(?![a-zA-Z0-9_])"
+ },
+ {
+  "name": "structured_identity",
+  "signal": "structured_field",
+  "packed": 8206,
+  "flags": 2,
+  "pattern_sha256": "3f96514b9d44c3524d656e064c9f28937ee54f0c9315de7e89bbe5dcc68b3c80",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:(?:name|username|user|handle|account|login|email|location|address)\\s*[:=][ \\t]*|phone\\s*[:=][ \\t]*(?=[+(\\d]))[+(]?[\\w\\.\\-@]+\\)?(?:[ \\t]+[+(]?[\\w\\.\\-@]+\\)?){0,4}"
+ },
+ {
+  "name": "date_field",
+  "signal": "date_field",
+  "packed": 8222,
+  "flags": 2,
+  "pattern_sha256": "6ef1cab194b4315f457e6a9ab80076a6f96f3348ede04bd06f39d539c75a93e3",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(birth[\\s_]?date|dob|date[\\s_]?of[\\s_]?birth|birthday|born|age)\\s*[:=]?\\s*[\\d\\s\\/-]+"
+ },
+ {
+  "name": "labelled_identifier_sensitive",
+  "signal": "labelled_identifier",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "96128c312a0fd1fccf26f5676ac59d6cfbbd05f91ea73d2188c95c3ea7e9e837",
+  "validator": true,
+  "downgrades": [],
+  "pattern": "\\b(?:(?:passport|licen[cs]e|national|social\\s+(?:security|insurance)|tax(?:\\s+(?:file|payer|registration))?|identity|identification|citizen(?:ship)?|voter|visa|residen(?:ce|cy)\\s+permit|immigration|military|birth\\s+certificate|patient|medical(?:\\s+record)?|health(?:\\s+plan)?|(?:health|medical|insurance)(?:\\s+plan)?\\s+member|insurance|medicare|medicaid|beneficiary|bank(?:\\s+account)?|(?<!loyalty\\s)(?<!library\\s)(?<!gift\\s)(?<!store\\s)(?<!reward\\s)(?<!rewards\\s)(?<!club\\s)card)(?:[\\s_-]*(?:id|identifier|numbers?|no|num|nr|code|ref(?:erence)?)\\b\\.?(?:[\\s_-]+(?:id|identifier|numbers?|no|num|nr|code|ref(?:erence)?)\\b\\.?)?|\\s*#)|(?:ssn|tfn|nino|ein|itin|mrn|nric)(?:[\\s_-]*(?:id|identifier|numbers?|no|num|nr|code|ref(?:erence)?)\\b\\.?)?|(?:passport|id\\s+card|identity\\s+card|medicare|medicaid)\\s*(?=[:=#]))[\\\"'*_]*(?:\\s*(?:is|was|are)\\b)?\\s*[:=#]?[*_\\s\\\"'(\\[]*(?P<value>(?:(?=[A-Z0-9_\\-]*\\d)[A-Z0-9_]+(?:-[A-Z0-9_]+)*|[A-Z]{1,3}(?=\\s[A-Z0-9_\\-]*\\d))(?:-[A-Z0-9_]+|\\s(?=[A-Z0-9_\\-]*\\d)[A-Z0-9_]+(?:-[A-Z0-9_]+)*){0,5})\\b"
+ },
+ {
+  "name": "labelled_identifier_generic",
+  "signal": "labelled_identifier",
+  "packed": 8222,
+  "flags": 2,
+  "pattern_sha256": "ade1513c70ad3f6c6cc4d48abd0d40e3c9b1b7303beea355e2c5084e5adc3060",
+  "validator": true,
+  "downgrades": [],
+  "pattern": "\\b(?:(?:customer|client|account|member(?:ship)?|subscriber|employee|staff|personnel|user|policy|claim|registration|plate|(?:loyalty|library|rewards?|club|gift|store)\\s+card|reference)(?:[\\s_-]*(?:id|identifier|numbers?|no|num|nr|code|ref(?:erence)?)\\b\\.?(?:[\\s_-]+(?:id|identifier|numbers?|no|num|nr|code|ref(?:erence)?)\\b\\.?)?|\\s*#))[\\\"'*_]*(?:\\s*(?:is|was|are)\\b)?\\s*[:=#]?[*_\\s\\\"'(\\[]*(?P<value>(?:(?=[A-Z0-9_\\-]*\\d)[A-Z0-9_]+(?:-[A-Z0-9_]+)*|[A-Z]{1,3}(?=\\s[A-Z0-9_\\-]*\\d))(?:-[A-Z0-9_]+|\\s(?=[A-Z0-9_\\-]*\\d)[A-Z0-9_]+(?:-[A-Z0-9_]+)*){0,5})\\b"
+ },
+ {
+  "name": "street_address",
+  "signal": "street_address",
+  "packed": 4127,
+  "flags": 2,
+  "pattern_sha256": "163f3020b68a90d1184fccd8701979c9226a46733dfe6608b85500f824dbc585",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b\\d{1,6}\\s+[A-Z][\\w.'-]*(?:\\s+[A-Z][\\w.'-]*){0,4}\\s+(?:st|street|ave|avenue|rd|road|blvd|boulevard|drive|dr|lane|ln|court|ct|way|terrace|pl|place)\\b"
+ },
+ {
+  "name": "geo_coordinates",
+  "signal": "geo_coordinates",
+  "packed": 4127,
+  "flags": 2,
+  "pattern_sha256": "ec7d515c620c7066277e89be14ee8cf1de38b07252846eec6917c89792d35ad0",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b-?\\d{1,2}\\.\\d{4,}\\s*,\\s*-?\\d{1,3}\\.\\d{4,}\\b"
+ },
+ {
+  "name": "license_plate",
+  "signal": "license_plate",
+  "packed": 4126,
+  "flags": 2,
+  "pattern_sha256": "4134fc81c761fdb0cccd38263813a65bc361ff7dfbefea3aad0e081d02b0576c",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:license\\s+plate|plate)\\s*[:#=]?\\s*[A-Z]{2,4}[-\\s]?\\d{3,4}\\b|\\b(?!(?:rfc|cve|iso|iec|bcp|std)-)[A-Z]{3}-\\d{4}\\b"
+ },
+ {
+  "name": "location_keyword",
+  "signal": "location",
+  "packed": 4126,
+  "flags": 2,
+  "pattern_sha256": "b2766b852227b822598b0f3099ffc261a3f158c8a2143972ed76a7e5cda435db",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:(?:(?:i|we|he|she|they)\\s+(?:(?:am|are|is)\\s+)?|(?:i['’]m|we['’]re|he['’]s|she['’]s|they['’]re)\\s+)(?:currently\\s+)?(?:live|lives|living|located|from|(?:come|comes)\\s+from|stay|staying|alone\\s+tonight)\\s+(?:in\\s+|on\\s+|at\\s+|near\\s+)?|(?:my|our|his|her|their)\\s+(?:home\\s+)?(?:address|hometown|residence|location)\\s*(?:is\\s+|was\\s+|[:=]\\s*|(?:in|on|at|near)\\s+)|(?:home\\s+)?(?:address|hometown|residence)\\s*[:=]\\s*)(?!(?:a|an|the|this|that|these|those|some|any|all|each|every|either|neither|both|another|other|such|anything|anyone|something|someone|everything|everyone|nothing|nobody|somewhere|anywhere|everywhere|nowhere|i|me|my|mine|you|your|we|our|us|they|their|them|he|him|his|she|her|it|its|and|or|but|nor|so|if|than|then|as|because|to|of|in|on|at|for|with|without|by|from|about|into|over|after|before|between|through|during|under|again|near|up|out|off|is|are|was|were|be|been|am|do|does|did|can|could|will|would|should|may|might|must|not|no|just|only|also|too|very|more|most|what|which|who|whom|whose|how|when|where|why|there|here)\\b)[A-Z][a-z]+(?:\\s+[A-Z][a-z]+)?"
+ },
+ {
+  "name": "route_or_commute",
+  "signal": "route_location",
+  "packed": 4126,
+  "flags": 2,
+  "pattern_sha256": "b9853792b7c7d584c8270bbc8194ccdc6e75540b4422bdf8185f6e42bf4a3c84",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:commute|route|walk|drive|bus|train)\\s+(?:from|to|between)\\s+[A-Z][a-z]+(?:\\s+[A-Z][a-z]+)?\\b"
+ },
+ {
+  "name": "health_keyword",
+  "signal": "health_info",
+  "packed": 63,
+  "flags": 2,
+  "pattern_sha256": "228103229436f366a39f22746c0e585594faa39c3f97146c8985d318aac95c42",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:my|his|her|their|patient|child|son|daughter|spouse|partner)\\s+(?:hospital|doctor|medication|medicine|prescription|disease|cancer|diabetes|depression|anxiety|therapy|psychiatric|diagnosis|prognosis|allergy|symptom|treatment|pregnan(?:t|cy)|hiv|aids|autism|adhd)\\b"
+ },
+ {
+  "name": "health_statement",
+  "signal": "health_disclosure",
+  "packed": 63,
+  "flags": 2,
+  "pattern_sha256": "6a55d46f5a6e40738069ee73ce53a93f68347bb81d716ed17cdaee5e92c063c7",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:i|my|he|she|they|patient|client|child|son|daughter|spouse|partner)\\s+(?:have|has|had|take|takes|was diagnosed with|am diagnosed with|is diagnosed with|suffer from|suffers from|tested positive for)\\s+(?:medication|medicine|prescription|cancer|diabetes|depression|anxiety|therapy|diagnosis|allergy|symptom|treatment|hiv|aids|autism|adhd|ptsd|bipolar|asthma|strep|chest pain)\\b"
+ },
+ {
+  "name": "medical_identifier",
+  "signal": "medical_identifier",
+  "packed": 63,
+  "flags": 2,
+  "pattern_sha256": "85ed83afbc0caac659aa7549846250efef1b1e103cdb0210b0fef12d5cf4079c",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:insurance\\s+id|policy\\s+id|member\\s+id|medical\\s+license|medicare\\s+(?:id|number))\\s*[:#=]?\\s*[A-Z0-9\\-]{5,24}\\b"
+ },
+ {
+  "name": "credit_card",
+  "signal": "credit_card",
+  "packed": 8735,
+  "flags": 2,
+  "pattern_sha256": "9e674587ab1e9828176aaa7a88d7dbd2e5c0bb2e8ac8116128002e1b7fe5afb9",
+  "validator": true,
+  "downgrades": [
+   {
+    "name": "credit_card_unverified",
+    "signal": "credit_card",
+    "packed": 8735,
+    "confidence": 0.8,
+    "accept": true
+   }
+  ],
+  "pattern": "\\b(?:\\d{4}[\\s\\-]?){3}\\d{4}\\b"
+ },
+ {
+  "name": "iban",
+  "signal": "iban",
+  "packed": 543,
+  "flags": 2,
+  "pattern_sha256": "32c8f6d24031f418d89454eb7826a15f506c5aaab5eeff78cb6b7b81ca5dedd7",
+  "validator": true,
+  "downgrades": [
+   {
+    "name": "iban_unverified",
+    "signal": "iban",
+    "packed": 543,
+    "confidence": 0.8,
+    "accept": true
+   },
+   {
+    "name": "unverified_number_identifier",
+    "signal": "number_identifier",
+    "packed": 8222,
+    "confidence": 0.8,
+    "accept": true
+   }
+  ],
+  "pattern": "\\b[A-Z]{2}\\d{2}[A-Z0-9]{1,30}\\b"
+ },
+ {
+  "name": "bank_account",
+  "signal": "bank_account",
+  "packed": 543,
+  "flags": 2,
+  "pattern_sha256": "bc75aea213e208269b420dad8b4564d9a7dc519076f29d570d894c07ede5a414",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:bank\\s+account|account\\s+number|routing\\s+number|sort\\s+code)\\s*(?:is|number is|[:#=])?\\s*(?=[A-Z0-9\\- ]{6,24}\\b)(?=[A-Z0-9\\- ]*\\d)[A-Z0-9][A-Z0-9\\- ]{5,23}\\b"
+ },
+ {
+  "name": "swift_bic",
+  "signal": "swift_bic",
+  "packed": 542,
+  "flags": 2,
+  "pattern_sha256": "e6138ddb637d47cd01c23c6f2b128c3919cb39d7b2a35c9203976531b25f5271",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:swift|bic|swift/bic)\\s*[:#=]?\\s*[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?\\b"
+ },
+ {
+  "name": "crypto_wallet",
+  "signal": "crypto_wallet",
+  "packed": 542,
+  "flags": 2,
+  "pattern_sha256": "a6b43603323818c3a88c22e75ab350650a278024f321fd5c5101c26b2508e3c8",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:bc1|[13])[a-zA-HJ-NP-Z0-9]{25,59}\\b"
+ },
+ {
+  "name": "salary_disclosure",
+  "signal": "salary_disclosure",
+  "packed": 542,
+  "flags": 2,
+  "pattern_sha256": "9fd4f2a6ab5b7a23e450541a897cec56e936e91862d14a5d7a713026c8ecc691",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:my|his|her|their|salary|income|paycheck|bonus)\\s+(?:salary|income|paycheck|bonus|is|was|offer|of|=|:)\\s*\\$?\\d[\\d,]*(?:\\.\\d{2})?\\b"
+ },
+ {
+  "name": "financial_keyword",
+  "signal": "financial_info",
+  "packed": 542,
+  "flags": 2,
+  "pattern_sha256": "4e77345ba172d70a507a2d52334dba060912dd37938447d64c2df5eeab2bb029",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:my|his|her|their)\\s+(?:\\w+\\s+){0,2}(?:salary|income|bonus|loan|mortgage|debt|investment|stock|crypto|bitcoin|ethereum|tax|paycheck|transaction|balance|savings|net\\s+worth|credit\\s+(?:score|history|report))\\b"
+ },
+ {
+  "name": "money_amount",
+  "signal": "money_amount",
+  "packed": 542,
+  "flags": 2,
+  "pattern_sha256": "69c29fa69c3d8e41fd67bec8f07c163d87dadd78fc6729640e39abaa827d3493",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:(?:my|our|his|her|their)\\b[^.!?;\\n]{0,64}|(?:i|we)\\s+(?:earn|earned|spent|spend|paid|pay|owe|owed|saved)\\b[^.!?;\\n]{0,48}|(?:salary|income|debt|balance|mortgage|paycheck)\\s*[:=]\\s*)(?:\\$\\s?\\d[\\d,]*(?:\\.\\d{2})?|\\b\\d[\\d,]*\\s?(?:usd|aud|eur|gbp)\\b)"
+ },
+ {
+  "name": "politics",
+  "signal": "political_info",
+  "packed": 95,
+  "flags": 2,
+  "pattern_sha256": "c8a94cf07ac0b274e50bd5dac2711cca496ff9c975e28240e934e7c840ea0f38",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(voted?\\s+for|political\\s+(?:party|view|belief|campaign)|democrat|republican|labor party|liberal party|conservative|socialist|communist|activist|protest(?:ed|ing)?|union member)\\b"
+ },
+ {
+  "name": "religion",
+  "signal": "religious_info",
+  "packed": 159,
+  "flags": 2,
+  "pattern_sha256": "6276f29164456febe7314c75584f3f9d32beea687c5fa62cfccf5f1edb51ad9a",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(christian|muslim|islam|jewish|judaism|hindu|buddhist|atheist|agnostic|church|mosque|synagogue|temple|priest|pastor|imam|rabbi|religion|faith|prayer group)\\b"
+ },
+ {
+  "name": "criminal",
+  "signal": "criminal_info",
+  "packed": 287,
+  "flags": 2,
+  "pattern_sha256": "9dd58155eede941a41eebdd58b0ab92d7139272e8c35107be29e58dc4c490cfd",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(arrest(?:ed)?|convict(?:ed|ion)|felony|misdemeanor|probation|parole|criminal\\s+record|charged\\s+with|court\\s+case|restraining\\s+order)\\b"
+ },
+ {
+  "name": "sexual",
+  "signal": "sexual_info",
+  "packed": 1055,
+  "flags": 2,
+  "pattern_sha256": "6df4890bf6de8dff4b5ef686c469b9eaee66d9a22d648e3826068d04d645bfcc",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(sexual\\s+(?:orientation|history)|gay|lesbian|bisexual|transgender|queer|lgbtq|dating\\s+profile|intimate|pregnancy termination|abortion)\\b"
+ },
+ {
+  "name": "child",
+  "signal": "child_info",
+  "packed": 2079,
+  "flags": 2,
+  "pattern_sha256": "a34d5a49dbc3db34658c08d8eb2a2f03096daa7d688d040097c036f3b3b5f6c9",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:my|our|his|her|their)\\s+(?:[\\w-]+[\\s-]+){0,2}?(?:child|children|kid|kids|son|daughter)\\b|\\b(?:age|aged)\\s+(?:[1-9]|1[0-7])\\b|\\b(?:my|our|his|her|their)\\s+(?:[1-9]|1[0-7])[\\s-]*(?:year|yr)s?[\\s-]*old\\b|\\b(?:[1-9]|1[0-7])[\\s-]*(?:year|yr)s?[\\s-]*old\\s+(?:child|kid|son|daughter|boy|girl|toddler|baby|infant|niece|nephew|grandson|granddaughter|pupil|student)\\b"
+ },
+ {
+  "name": "third_party_disclosure",
+  "signal": "third_party_info",
+  "packed": 16414,
+  "flags": 2,
+  "pattern_sha256": "581f5d95148c1efc3dfb838050c8d39c003c0796b9c85a763374b0439a037d2d",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:my|his|her|their)\\s+(?:spouse|husband|wife|partner|boyfriend|girlfriend|child|son|daughter|mother|father|friend|coworker|colleague|boss|employee)\\b"
+ },
+ {
+  "name": "family_disclosure",
+  "signal": "family_info",
+  "packed": 16414,
+  "flags": 2,
+  "pattern_sha256": "7092393d678f736d48b3fd0609b3ffc814b093e64759aefe3ed06b6005beefc6",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:my|our|his|her|their)\\s+(?:[\\w-]+[\\s-]+){0,2}?(?:spouse|husband|wife|partner|boyfriend|girlfriend|children|kids|son|daughter|mother|father|siblings?|family)\\b"
+ },
+ {
+  "name": "workplace_keyword",
+  "signal": "workplace_info",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "fa106d89395798d383784b19fc8f9c5f3e37fd673fb6988963a1f7adf6a581ca",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:(?:i|we)\\s+(?:work|worked|am\\s+employed|are\\s+employed)\\s+(?:at|for|by)|(?:my|our)\\s+(?:employer|company|workplace|office|manager|boss)\\s*(?:is|are|[:=])|(?:employer|company|department)\\s*[:=])\\s+[a-z][\\w&.-]*"
+ },
+ {
+  "name": "timestamp_field",
+  "signal": "timestamp",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "926888870580389943f7385aea03130ced8237f90167fe61a6d5b5b847dcd379",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(timestamp|visited|accessed|logged|created|modified|updated|date|time)\\s*[:=]\\s*[\\d\\s\\-/:T.Z]+"
+ },
+ {
+  "name": "gitleaks_1password_secret_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c1421960667960f94a99a6b34fb942a860b605ce1668caf03f4a9a4916d90900",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_1password_service_account_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "0a9c2b92bc8dc852ea10ba33121a01521926b9b8dc87ee049ee30d58a1a7f0c2",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_adafruit_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "a12b21134a10229d82d67dc295b2194010f01aa731bdb2e2bb802002ee0dd353",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_adobe_client_id",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "e862c25383d18d5dbc10a038f4a5d13dad6360121e2770293f9435c8db64d33a",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_adobe_client_secret",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "60aa142c262e7b9583d30cd2021a7f6497b11e4560543a33adf5da9e544c7899",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_age_secret_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "abf8b5a7c831eabf0ebe2c50be68d8c184c409c00dc573480c9f0c648e1d8640",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_airtable_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "f8b21f7fb2bc403dd05a310accaf70ae687af2b585921aaf3925bbf8a4b081ae",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_airtable_personnal_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "312af6a6ac96b8cf547b56f618aaaebc20b1732b8da20627f0070a5e1c682261",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_algolia_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "2486104a705e46822a232beb5b276ebddce74f9452391b4e0efb68283b1c6728",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_alibaba_access_key_id",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "765a4b76a65a63bf444af7b5ea3f5cd2c41529830f393128259c3d9993916657",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_alibaba_secret_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "e991ae2fe6bf6df1ec7b5860b904afa2e13cb67da4c3696dd54c7669a7fbb01c",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_anthropic_admin_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "e7db8aeaa3009b7610259097de68c090f8b654a7816179bed6ce561c94d61447",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_anthropic_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "a679c88536c8d3caa7b85592f6dd217043aea67dd411313d586e920914f27f2f",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_artifactory_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "6cedf6585c07a3a8e2978928800dcdb6b18a1e4ec1128ef3618c131ea8a05f4a",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_artifactory_reference_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "b31f439794f88bcd47e7f9314104e6bbed365900959376a7cc8a90ce8504e4f6",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_asana_client_id",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "d5d844b869b30f58fb13ed9747c3fb3545d325894097c53b4c8db685203c81a9",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_asana_client_secret",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "40989550452587ff4c184c55c50bef9eb9697062e24e822e6bf94eab0b5e1f03",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_atlassian_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "da6276a4cd6493678a91f86e675b5f8fadd12e8e3bf3ccd2f3d7d607674492fd",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_authress_service_client_access_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "b962329263e2106f86980785b7d5922aaf47a48b8c3a0df95025c95e57df2297",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_aws_amazon_bedrock_api_key_long_lived",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "3f521fe0feb9a21f38439f7f55bf1df0d4640820e78cc415415be1b8391427b1",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_aws_amazon_bedrock_api_key_short_lived",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "522e9347612951b131245a2959b343538f901b0c06ecf47f537f215d49d11b4f",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_azure_ad_client_secret",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "19c6d75d7519a2d0bb231d4beca852c09b92be43fb0196b125ed62db65ed2080",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_beamer_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "90ca7beec5d8ad221e93dea9b15a00946f4274c61467c4ff580aa8b6026a23a5",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_bitbucket_client_id",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "243d570246e52304920651a208b213b3d0b5dda9a0399e8cb53c8e1f10dc3697",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_bitbucket_client_secret",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c0b1730342ab28f7b01ea453dd5b06d34e0f703788d1cf47d3125b0029734d00",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_bittrex_access_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "d874962e7f9aafddde48ad02c13e4602b3fa5229ddd1c5b3a1dbbc2a863cfc38",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_cisco_meraki_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "dc5680f72365c119d3e852ed74674e068834e5c9796bc5fe977e0ea6bdeb887f",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_clickhouse_cloud_api_secret_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "95564a9aa10bd1d163f90e014672316b01232920d027160247d7e0a705db6f48",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_clojars_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "2dd24561a102c3079d6c9605afa226eccf7b614c13ab68d98375577c30ac44d9",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_cloudflare_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "039ad0376cb589cc64488bd76454ecc600c99ee2600628a83cdd10e011b9d44e",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_cloudflare_global_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "4216da7500104835bbf3d0b4df0f831978902522d4c6c7d8be6a86c70efac85d",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_cloudflare_origin_ca_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "e94862517ec3fee23284dd529d8fffe02d5660dacbc1214082a246c7b52d1d11",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_codecov_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "f8fb3b75d6f82a57054fd59135843ad7f6b8f9fb7eba132d88ab3cdf4f3bc5c1",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_cohere_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c9e79720ec6f1d2fa3a2fc157897af86e22e35627f9a8ac0a659a7e24408c120",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_coinbase_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c7be495e7e779fb0291d7a3870c451d4bf5083afa2dc9b04620cff2a92ca07c9",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_confluent_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "5b111f23016094df6dd4e9c091b67e76a13456e02c0666aa971dd60cf9addb56",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_confluent_secret_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "3c3090f144a453c0cb89849dd0b501e0babd2435dfe2583b9ac8f2efb5a67f2d",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_contentful_delivery_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c49b1c80e3c5020e7775ca58c299d689b9ef4550ee5b8ac04f4ca6e016408f42",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_databricks_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "84ac1e3c0a5480536450e9e2fc01640a9c511cbe614eeaa73154804974d25d3b",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_datadog_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "e85b90bfd4facb870b4205d8ee441886b461f82e5f7543d062f2dfc3596623db",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_defined_networking_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "54811ebd8fcfd8210bf283a58847b31d1d3af772b4ba94a1b5ea47197795fa63",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_digitalocean_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "696df32366824c2f9122ffea809db4e99ca091d0bf93ab2c5e4649bddeb94e0b",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_digitalocean_pat",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "60b89b1baadeb1d14f2edfec0d922f9656a42bfb4e8ac4ef56fa1bd381b705a7",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_digitalocean_refresh_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "e2c1ceb01a89cc4bcdb5058784f02dc7409b1740eec824fde364c8156bf61063",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_discord_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "9017e0c779586cea146aec8a60e35e777de7538732517fb24a96c1e6d446cfa3",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_discord_client_id",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "961c44c33dd10a9c38a2746f48dd3331cf9ffc8bed856f8df264af4ed7dc0c71",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_discord_client_secret",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "969c4e625df22229dc2b6a58f6079583e75052d731dc88d4b2c69fd03a8a37fb",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_doppler_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "745d17ad28ed631c68e087eab65450399d81b852ec4bd7c6cea49a2cd05fe9d8",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_droneci_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "8c29ffd7cac8bb69dfddc43f785a9619de483dc6fe0c93674cdc01ec4ba35687",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_dropbox_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "25e077e86e4299c2d8342c374f37745e1abfc1bafa418c33c37035ba018ce16a",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_dropbox_long_lived_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "1ab54b0c61e17885b98f575b2bd7a4ec9680b94b7b02f5162601a3b89d3517f3",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_dropbox_short_lived_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "3dcb4bebfc5b58f8580e01ae55abd2815073811c7884a646148f6fd5a740d854",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_duffel_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "a557de2c83811643594306d808c7e4a3d60bfe2d7cb8c3327d55d795862ac6e3",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_dynatrace_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "81c0842ddcec11eb6a6b622b99223806b78bfbeec9eb457af611862e02c43a4f",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_easypost_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "4b914f9859a9751713242767e24216f4dd39870de38b021f79656a48c524a5ff",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_easypost_test_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "62ca06b330e3bf5536bfe001e37297e86d7c120d41f91bf787f19ae8d0c68d34",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_etsy_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "b55e5c536d9a2cc0f51748f9ec94399d19168a301f408c65f8c6fef3975bc794",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_facebook_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c98d76632e7a2babfc530e89781546462f03919ec58c8c45a60d9d0d9daf0fb1",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_facebook_page_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "feebd2b2b93f7d8c683c78011fc195fbddc7e2f3a63e8ef08e743e217f763726",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_facebook_secret",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "97a2bfa7195a75ec766e042b6954867f64d340fa9c5b5df26bb112f6c40ef1c0",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_fastly_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "a639d2f879b598ad2bcdb5d01e7542692364e729cc9d65afab3829ff08cb57cb",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_finicity_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "77294bc261af1b856a6e19c7d876e9f4d722ef6c3ae9647bfe1807d4f56d630c",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_finicity_client_secret",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "f1082450dbd95c6b48fda95beec2242b26cfe77bc55f633da736a3d9572c1a2c",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_finnhub_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "316ed42a6bb1dfa32bce6de7a984d5976a4f2316380da9a5877000e8b725300b",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_flickr_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "3cdd048f04fee4b07430118b14206e2033477df7fdf4a0260858b9890d2ed5b8",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_flutterwave_encryption_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "73f3be97246488ef02b82605e2d562b678b1154df32bafda8bf48c73fb3263c3",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_flutterwave_public_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "fe4e928baa335fe913c3f77e7e01a1bb608fb3a450a35f793d325039b5d7e40c",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_flutterwave_secret_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "e5bb269d8fe16538dbbeecadddb80a376b3b3bce86e9af7d3cd80092d752fa3d",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_flyio_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "90a39bab83cbef5cebfcc242e50506bf03e4b85324f5b8e7fe0b80e0dfd12fe1",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_frameio_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c5b1e6d2b6306c2bd1113f2dd2dd2dac94763a7c7fbbc4a6222e54ad1039c79d",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_freemius_secret_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "4aa29ae09c98013bc6d1135ce6832fa4a2eb8605903d4a0ba85d9d273d0973eb",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_freshbooks_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "5d3565ae1096acbe361be686d9fd07922fdd5c729d83243dcb5fb191df2cd717",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_github_fine_grained_pat",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "f34759fff680476263718303d6ab17e262c7f7ed9b55bf4639f6670f47eb208a",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_github_oauth",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "9432443e0175ce9b3042d0973b4f1935c78586500452f58e0bb57dc01f271543",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_github_refresh_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "01a64a0a9d16e0397677a4e236a6fbe1d925b785a38b5609483b94801d79bec8",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gitlab_cicd_job_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "082dd18a65f2b9aab1907506937b6f4aaa2a1b27282e619bd94f2effe189592d",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gitlab_deploy_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "b819e081b52da58cba1d1d3b863791ed3c7f218536cc95f01e6bc78104d2409a",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gitlab_feature_flag_client_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "3d984c643487612afb0c0d431cfcfa427258970779f038bdb5a2b4cd97b99cf5",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gitlab_feed_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "9be6f4ef654797239c2a562591e1f315662174ea68c6a8a5ab9c54b36a3682b0",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gitlab_incoming_mail_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "e7698a0cbe5355c18400e3b78b789a754cb0b5cd151a41360f4468fc90e07797",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gitlab_kubernetes_agent_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "615ec5bc8e803767a695d20a1cc7ca1e817c6b13882434d0553dc681c777be96",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gitlab_oauth_app_secret",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c296380963719e29c36244d01e93529daab5ee966a109239fb079ab34630f360",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gitlab_pat",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "346b84bdda17085e902be7dc9c0d85da85f07e17b466aab0d15246e0ba190f7c",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gitlab_pat_routable",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "df69c535c92098e79948a064e55e778d0762637caeed5a300868323e61ee5da8",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gitlab_ptt",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "26a6ee1f7b7ff82025a79dd47af3eb7c2330ca74ef935d843da693a2c5706c74",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gitlab_rrt",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c831937dae9e982b0db84c034848dd5b84f18ede5c0b4810dfdd6190e0c52cc3",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gitlab_runner_authentication_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "588092243232a04e2b59fa493d6ba10167ad3195bfdf34fd0b9dee5a170d77d1",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gitlab_runner_authentication_token_routable",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "7b58cffb2593c1544dbce86860570e0ad96de741a864560da489a49fb7116adf",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gitlab_scim_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "719d4e3443bea08063c582f03415167fa39ca5f845328c6ec9894336ff97231c",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gitlab_session_cookie",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "027b9a0533f6e2ae25edb02455a5e03853012f33566d32b61a458fefec36ee97",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gitter_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "48249ef316228c29adb8cff29d0d769c62a299f2671ee6e9a8573206c9ddbf93",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_gocardless_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "a4aa7b77229c3b9e4788378ffe2c1445b7315f1ba13860cf83437f5efd818d74",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_grafana_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "e1e8153206b18d07920d1df8ea567df61940386363030b1b779c5c45dd36bbee",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_grafana_cloud_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "1c2c9b95a09836f6b0776387cfc21e1f60265ff0f6c54e1115eeb31b0bdadf88",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_grafana_service_account_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "266f0b08e698eef55126c54a9ffd368aa41d148041d45ff379e7c543309bf91f",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_harness_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "e3182e1a28817b4f88cea330195a5fa17704fe8d8798c31c8d6a739c55c47196",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_hashicorp_tf_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "9570e6b73b019cc41a203a99b721ca7ef3eed66d2795429051c9db56397242d9",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_hashicorp_tf_password",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "3f9ee6257bb5c45c45a8e40c5ac63a7736923cae36ef61f286d07ccaa2cbfe4f",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_heroku_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "ceba4142c5ce18219749db204da5b3bc233bdfff7472f1e4454336b07f81ae50",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_heroku_api_key_v2",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "5279b4fff7bc7b3e3f8ee483f233d11c3b8b05bc4ab46a3cbb7c3d7d59d27d51",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_hubspot_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "e65964876e7f01c36171ac70bb264ec3c2924722bffcb8d71157c591c76015a4",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_huggingface_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c570594661739e9f2dc1cfc585bbdfca54c6ee467eeb1199ba5ffc82ce51460a",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_huggingface_organization_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "593f26a17d656c3af104b9fe58224e44c188ef0eec229ff3baf18481165084bb",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_infracost_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "0b20fea333c4ae6c386db9733f86d1ecaae2abfdde7796034d78ec02569bcec2",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_intercom_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "149f62c29631f202143beb9de95b19ebe5da22dc292042d8792a3672f5bbe871",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_intra42_client_secret",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "0bc43fc97d75f25420588999ded3e0bc5a1f055a07f54371259613d62dbebde8",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_jfrog_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c6b6207b5128952712ffba3f34b1b7546668e9cea80e4702345a8d2394856b5e",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_jfrog_identity_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "6fee26bcd6991eefbd8cabbfcc0a50eed886887a90c34a6dd0284eba40092fe8",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_jwt",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "036058eec082c25c6d71a244b1b72a0684a6b2817ddba531d0fdae124ae22bc6",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_jwt_base64",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c58c09ad20b9990e5794bcd6d325a4121919259ad25a22e09c96c1b8bdd11dad",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_kraken_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "7c401962348b277729ad1a256f00862bd685e41045cbf3e005ea9985356dbcac",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_kucoin_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "efa4a7aad93f0f444ed3babb892715d10295c0103028b4220f9fc79ce3f74628",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_kucoin_secret_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "fb2741f4fc938b6d8a1968c81b535bd89dd3bc54f3bb8adf672d9733b5e1bfc4",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_launchdarkly_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "3e8f6ba2d9cde12f1a341832a90bdf87b0cde294ad59387d57d58ee8a470d05c",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_linear_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "aed920816f11325095d35a0d60a2e5021d3a80832bf201cd4e3830f48b3e4e7c",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_linear_client_secret",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "3f5932da22bff6e57bf17f9460cd1be127e8386a9f3449698a58c319c435bea5",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_linkedin_client_id",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "70293b47c7c161742ea3871ba85c9285dae155c51abe4a613833c234323d60a3",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_linkedin_client_secret",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "77f351a13a6c6ba3867ccc4f9313623d12664f50407f7466575dc9045abd8e87",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_lob_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "091cd299e2ebd1ef316990b036c159a2fd9d1f1d02a4d6629f0738077f0ecbdb",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_lob_pub_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "943db1704635635d758b803ad6aed47541549ef9a77800d929bc44e7bf45a56f",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_looker_client_id",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "ca31a52cb212210c7e1b0f952e76349a2531b2eec66d6c73190555a74088d1de",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_looker_client_secret",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "b32befb3e04977876c0635c4a49d3e2d3f0b8e72500fb1e32c7e106a2b011259",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_mailchimp_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "e5493287e8cb631e3c908853237ac04cff0ba60f0f013b0f44176da62ca39aa0",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_mailgun_private_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "05a14d741ac902622c887427004fc8afc3a442861563d5301375883cf72bba5e",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_mailgun_pub_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "bcae427c3900b14d9a795e71009e79e7f63f9b0fd59105a9d907dde5d28f9b53",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_mailgun_signing_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "bd449409e8e744f276b3054eb0597ecbf254dd7ad03b33e0577feeb662231483",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_mapbox_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "5240bdd15382b4604670dd4d6813c4e728da005f9cb4b0da78ba65f9ca043b35",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_mattermost_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "7a314d7ac4f60985ab5fff6944e5cbbac69628b6ffc135df06626e5a188b8add",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_maxmind_license_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "707190b0c134ea192ff5daf0894d13742587c075c909b26afda90aa3e364d720",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_messagebird_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "b7c8eaad36149dfbc751ad7431e1130fb8aeed63c7e629a260d030c3f5aba787",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_messagebird_client_id",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "2faf49e9559d2623ade63851db865617868e33c64798aeda55cf3dfae70733c9",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_microsoft_teams_webhook",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "3e73ca3ebaaf455af042e1a56b12311ed2bb5cf8e7367f4463611c180f5a4b16",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_netlify_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "d3c2a6c1a09abdbcd8289235bbbb7b4d659caa96cc83ff08016a994b3711e563",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_new_relic_browser_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c98d4795c3a51b15cc54bf50e70fe4f19e36d60955518f6175e4a2c879b2dc13",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_new_relic_insert_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c543aa27914e2669a1c394aca80a3c869b9a583dbc2f92467059612bf62e3625",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_new_relic_user_api_id",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "7f696484070b9a0b84ceeec76c5389aa0bb6a8fb81ff995f48cb0899d071ebb5",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_new_relic_user_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "aec9a69ff0953deb519f6b50318e5f7c902e2d8269b8aecf3b2b42d1832ca86c",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_notion_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "0082c54e688f2572469353784b0f24f809c3f7ddc95bb5e49680fc31d24de7f5",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_npm_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "d9f34a4ce7d2ff4ed3508595e73863e257b758d9ab426ad121cb50a1822ae1e3",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_nytimes_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "d54af55ff4e041f292927fd861c4d2e8e5afadaff8aba18b6088e9225b1d0dfb",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_octopus_deploy_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "a9e470abab96642543b0d082cd4afbabf24f575ebc3cbaa09b792643671c5a6e",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_okta_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "9f9df6957553e855519257c49cc6c59a6c428c07149514bcdec108f6b3ef8d53",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_openai_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "46ec0c23c9e1bc1a85053870c7ab9fc870c39c0b39ca1f842a675a1a24f79317",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_perplexity_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "3ceac3616e15a2f0d87d01a848780dff940650947f4e3b29404a592209a5ebe0",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_plaid_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "6ab469f3295976d77d0fddb081e4ed5805d8f2bdc0518abadc5dd058ca13c5f7",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_plaid_client_id",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "5d47cfa0fc040d2b6720a6f0eae81af6ae5ec47d41abc8582b160843904af6f2",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_plaid_secret_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "09fadadc46fe64782ee1bc67ddb0852f127250c09843745247af2c05b8152e40",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_planetscale_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "8edb24ec156465e4950102925102e45713d2e9fb9518d748eb6ad0048cd93456",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_planetscale_oauth_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "9838c39a37a81140d9da281a7e7c5d1b9495ade36b2093e7087825e5c556c2c4",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_planetscale_password",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "d46614f0b991138f16f4bfded55e27a76ca2dbb9095bbae9bfab2f3fc7ab020b",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_postman_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "ee0910492b61b6bdf1ab5fd09039e0ca4b2f4adf733e1ab4af53dd07cfe872ac",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_prefect_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "db49bef1227afd602e3c1207f0777cad3cfe21a0b3589f053c153ffb041d965c",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_private_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "5d2343b8cb37598180af7dab3d332fd0abac9f72106690f980038afb16cd0072",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_privateai_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c4fbb45e6646454beff48cb0191bc38335b39db1c5e1e02561265c884d324d96",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_pulumi_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "28921a2088d6d93a8ba24ce61417d677273a887b05145abdce47294cf1204a5b",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_pypi_upload_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "da7432c6af7fcd8d27226c1f7500eb6e7ec53e0dd5680c99e44f62272b2a66c2",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_rapidapi_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "256333534dd217481edc2c2f4e076e5bd41c924954e0540764763f522aa7ba1c",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_readme_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "aab58061d5d5f8497995f278ba34099973ff1fcf7d3ccc9c9327edf5ea61b99c",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_rubygems_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "8867a335e10492898a5dfae89c0078565399d2bcaa6f9604c56d9ce301d52359",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_scalingo_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "9955fd2266744c95919d029de25c4af40889cc7911253bbded5ce29124e53171",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_sendbird_access_id",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "3abb2dcd829a40aec3f5f2b294c88872e089b2fa67064776a013ca7d6e855e62",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_sendbird_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "a12cd94441797d6718ec8105e3b5508aae2fa3d489b9e142e65bc6ab9dc15379",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_sendgrid_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "fe8207d529961b1c0eb2aaedad0ec313c9f760d6cc7ce5f76fa9d96aeb314f59",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_sendinblue_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "d567ffa97250a70f22178e1db4b81f32492f256244138a9ab349be4c9d12dbd2",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_sentry_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c3b30ed6eab0727a634486e96eabf16b9e3783de2727d602a66418dce14b3e68",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_sentry_user_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "a67bdcd8cedef3c369589e1af2f17b27b23ceb259ae1805b17de3d43cd330bda",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_settlemint_application_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "ed0680998f332158ceb6335536871ea0dc926246e8b87ac4ca18900783da02d5",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_settlemint_personal_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "a5363d6636f234ab0ef2eedd8b810462c35ca0f26bd5d4ef757578b1e449153c",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_settlemint_service_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "77550cd0a0d3db813423d5624935ab2c867859314edcb7a166283100e985cd03",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_shippo_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "6405580b90fdea5f95d9c06ec760233861285de2bdd9867a2dfb9de942389857",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_shopify_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "4e20895f5fcb45145d3a599d176efc1062ad57526c6f8085305aad4d13f60a8a",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_shopify_custom_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "51613460b3ab2a8919505b0d26d3b184a4c6cf78a8ae22ce49d2e8ed49c700eb",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_shopify_private_app_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "d91391ee9d52122fb92df8de64ccceb3907cda2b1a3f508cbd2605d32210bca8",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_shopify_shared_secret",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "8c27d1a80cbdd457bf53512f3a62f6eddaa5886f271b0da94a416d07c891e2b6",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_sidekiq_secret",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "2a20d06d799dc4c85cdfc5fa595982941bf2ac5105709dabb93f8d0af13b0861",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_sidekiq_sensitive_url",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "89377f2f8d2d4750ac5331cbee469cecf244e9e50f470e9725bac4c722438e9e",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_slack_app_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "0cd4897319c7af05e7773875e4a5ef9ba42c9416389d45452b015f073017947e",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_slack_bot_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "75a4bc2b7214415d63c780a0531b41fc6d98cfec93fc44cf45e7e6eeaccd937b",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_slack_config_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "7a5f944cfb088b61953040d024ebe08163d1f7d75dd9671400277d174b469a9b",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_slack_config_refresh_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "9af9615e83df1eb371d607d669fd34661aa71bbb8180cd07bdf6c44f3d38b4a9",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_slack_legacy_bot_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "0f37a47751843950fc94dd6b4044fe89192fa247dc867f208b52043bb8406ef7",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_slack_legacy_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "3be5b101e81711a8d6d3428aacf3f470bd3ed51774faa28c8f21ec2fdb4e9695",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_slack_legacy_workspace_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "08c781ffc4afeb1099cbf2f1460029e26693be8b3d7c143d58d08a7c226aac6a",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_slack_user_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "1ce294eeb22c18c4046da44a5270a422d9c06a359f73ac1122422b468cdb4868",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_slack_webhook_url",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "4ecadff32e4a61a896abc28ff7bb4106471419140ca57fc2a31ae2a9e181ff1a",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_snyk_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "d6d1ce9fa5f2c08b31367503f41cbbe6e559ec677a6c5becf758ce47074c7572",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_sonar_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "05c527c911a18849551fa98bc6c04cca9cbe23f384e74ccda32e366c8b5ae907",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_sourcegraph_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "fbbd8b1e0aa9cc6f810af748b5290e1d10d3b348c6f0e7a0d5ca2cdaf49358bb",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_square_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "4ec3a7fb0d646fca8e1890cfb7298bdf896af0b7877bd3e0520511fc449762e6",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_squarespace_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "1fa177154c6e31fc2da1a4bdbb55e9170c95d2423a671f284b503f80cdfb4923",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_stripe_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "14831f22dbc402f704cc9f7bc45aff8807bed135497af0911044c04195576b13",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_sumologic_access_id",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "e52ee78609c926f69af567bff95067d47c982f83399aff83044fbb8e5deda0dc",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_sumologic_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "1c31458faa5268baf519be92ee019f75f2613e0da615ba3fa95b1fa02857619e",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_telegram_bot_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "118958685e5bf77fd545d1b26269c6a247b1ae62575d501e9a072c020dce12e8",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_travisci_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "71bae1e4921c5e833c1995aa39f25c49531784a948b71fe4f0e1381d8a51d091",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_twilio_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "d4a91dc885352297c82494cc6684fd85a9c63020ae6f1a93a47ae3f2c976da12",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_twitch_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "e0b7bb92592323eef374c3d98879a1959bf121cf944a46e35a8627fbed624c45",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_twitter_access_secret",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "771d83d684d5ae2e5dbbe3e4bb62574cdf90c00d6adad38ae59444f23cb1b0fc",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_twitter_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "773c54deb95d2de91448b8d0fe565841821c799d12feb106d2e0ff99a951bc1c",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_twitter_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "7efa7b15629947f98a781cf6f2f23dafad80e084074c27693cefc170fe208e02",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_twitter_api_secret",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "3210aac4117ec171cfe5bca56c241bdec3ab5235baf19e1eced1eed337f983b0",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_twitter_bearer_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "6e2c958aa7fb198bcda4f74ea9c5036ea81998f5fe83b1e63ef096d92645c11a",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_typeform_api_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "972d14d5211941a18e4d2dc457f94eeed7acff946a252420cad586e2af760eb4",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_vault_batch_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "1702c7b0adea94ea2d75b66e645d3afee26e81d530a6cbeed4f203be4709589d",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_yandex_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "d696e2eeb01613f0539aa85b2dbf840faca247954a52c24232225a4a90af90e8",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_yandex_api_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "c732a8ff10695e964b7339cd1268070a1d5ec9cd3e5832f6c3d8157a48e9b34c",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_yandex_aws_access_token",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "885c7a23ec69a94d6dea92b9d05252d6dc0ac402388e73d4c7e06bfbb128fae5",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "gitleaks_zendesk_secret_key",
+  "signal": "gitleaks_secret",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "f0f95e3b9fba12966021795afa32d286c36720a79b390e6ca842677798d2b0d8",
+  "validator": false,
+  "downgrades": []
+ },
+ {
+  "name": "presidio_creditcardrecognizer_all credit cards (weak)",
+  "signal": "presidio_credit_card",
+  "packed": 543,
+  "flags": 2,
+  "pattern_sha256": "f619fa242c932c37a86272c6fdadf7c9d98d55a3fce6e67c5eefbc9cbcf33ba1",
+  "validator": true,
+  "downgrades": [],
+  "pattern": "\\b(?!1\\d{12}(?!\\d))((4\\d{3})|(5[0-5]\\d{2})|(6\\d{3})|(1\\d{3})|(3\\d{3}))[- ]?(\\d{3,4})[- ]?(\\d{3,4})[- ]?(\\d{3,5})\\b"
+ },
+ {
+  "name": "presidio_usbankrecognizer_bank account (weak)",
+  "signal": "presidio_us_bank_number",
+  "packed": 543,
+  "flags": 2,
+  "pattern_sha256": "77ff5492baf672074003d52a35a22f6684d6232d8b61cadb6f5a70d6fde174f7",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b[0-9]{8,17}\\b"
+ },
+ {
+  "name": "presidio_uslicenserecognizer_driver license - alphanumeric (weak)",
+  "signal": "presidio_us_driver_license",
+  "packed": 8222,
+  "flags": 2,
+  "pattern_sha256": "ab1eb0b240f24580398c85e7215e1324d3aa545c803c3b3c34e31ece2f29d08b",
+  "validator": true,
+  "downgrades": [],
+  "pattern": "\\b([A-Z][0-9]{3,6}|[A-Z][0-9]{5,9}|[A-Z][0-9]{6,8}|[A-Z][0-9]{4,8}|[A-Z][0-9]{9,11}|[A-Z]{1,2}[0-9]{5,6}|H[0-9]{8}|V[0-9]{6}|X[0-9]{8}|A-Z]{2}[0-9]{2,5}|[A-Z]{2}[0-9]{3,7}|[0-9]{2}[A-Z]{3}[0-9]{5,6}|[A-Z][0-9]{13,14}|[A-Z][0-9]{18}|[A-Z][0-9]{6}R|[A-Z][0-9]{9}|[A-Z][0-9]{1,12}|[0-9]{9}[A-Z]|[A-Z]{2}[0-9]{6}[A-Z]|[0-9]{8}[A-Z]{2}|[0-9]{3}[A-Z]{2}[0-9]{4}|[A-Z][0-9][A-Z][0-9][A-Z]|[0-9]{7,8}[A-Z])\\b"
+ },
+ {
+  "name": "presidio_uslicenserecognizer_driver license - digits (very weak)",
+  "signal": "presidio_us_driver_license",
+  "packed": 8222,
+  "flags": 2,
+  "pattern_sha256": "03317c267dbb76a24f612f304ee2c013f3e9d41e6305815120f3dab962f6b045",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b([0-9]{6,14}|[0-9]{16})\\b"
+ },
+ {
+  "name": "presidio_usitinrecognizer_itin (very weak)",
+  "signal": "presidio_us_itin",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "724a6775f6d92716e995d54584accc04002a575a5656e29ef674cabd0e5168ff",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b9\\d{2}[- ](5\\d|6[0-5]|7\\d|8[0-8]|9([0-2]|[4-9]))\\d{4}\\b|\\b9\\d{2}(5\\d|6[0-5]|7\\d|8[0-8]|9([0-2]|[4-9]))[- ]\\d{4}\\b"
+ },
+ {
+  "name": "presidio_usitinrecognizer_itin (weak)",
+  "signal": "presidio_us_itin",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "1dfa186e9a6100e454f3a6c75a48580a421ea9589ab51a97c6eb98f6ff304f75",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b9\\d{2}(5\\d|6[0-5]|7\\d|8[0-8]|9([0-2]|[4-9]))\\d{4}\\b"
+ },
+ {
+  "name": "presidio_usitinrecognizer_itin (medium)",
+  "signal": "presidio_us_itin",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "aca6bdbc8bcbfacf4ca2ea4d200b6b125f27bb2c264ddc7e898f4fb6bd637830",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b9\\d{2}[- ](5\\d|6[0-5]|7\\d|8[0-8]|9([0-2]|[4-9]))[- ]\\d{4}\\b"
+ },
+ {
+  "name": "presidio_uspassportrecognizer_passport (very weak)",
+  "signal": "presidio_us_passport",
+  "packed": 8222,
+  "flags": 2,
+  "pattern_sha256": "31cb23903d5651344e09f7af74f00b83d6aab7695d6d3746a82f74e4dc81db5b",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "(\\b[0-9]{9}\\b)"
+ },
+ {
+  "name": "presidio_uspassportrecognizer_passport next generation (very weak)",
+  "signal": "presidio_us_passport",
+  "packed": 8222,
+  "flags": 2,
+  "pattern_sha256": "a4aad820a6663d667bbbd115cdb12de97e5c3e1642ee7f2d6508004772ad7bef",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "(\\b[A-Z][0-9]{8}\\b)"
+ },
+ {
+  "name": "presidio_usssnrecognizer_ssn1 (very weak)",
+  "signal": "presidio_us_ssn",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "17f1d935dc2f3eff609f25588ecf780079b27af525d94753b321970e6d3cf768",
+  "validator": true,
+  "downgrades": [],
+  "pattern": "\\b([0-9]{5})-([0-9]{4})\\b"
+ },
+ {
+  "name": "presidio_usssnrecognizer_ssn2 (very weak)",
+  "signal": "presidio_us_ssn",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "75527eba59550d4d2ae263e621abea122e7a9a38de21f4909d38445a1a1a1e41",
+  "validator": true,
+  "downgrades": [],
+  "pattern": "\\b([0-9]{3})-([0-9]{6})\\b"
+ },
+ {
+  "name": "presidio_usssnrecognizer_ssn3 (very weak)",
+  "signal": "presidio_us_ssn",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "213ac080713cf308d3465dd8a62e3557fe86cfb19aa66deb5b794e44bbff9867",
+  "validator": true,
+  "downgrades": [],
+  "pattern": "\\b(([0-9]{3})-([0-9]{2})-([0-9]{4}))\\b"
+ },
+ {
+  "name": "presidio_usssnrecognizer_ssn4 (very weak)",
+  "signal": "presidio_us_ssn",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "4e6bd6618bc9dd323421afe89056f087940f6afa495546db0b053cb2891a628c",
+  "validator": true,
+  "downgrades": [],
+  "pattern": "\\b[0-9]{9}\\b"
+ },
+ {
+  "name": "presidio_usssnrecognizer_ssn5 (medium)",
+  "signal": "presidio_us_ssn",
+  "packed": 8223,
+  "flags": 2,
+  "pattern_sha256": "f2721d631f6158ff7a4597fece26edfdf2c5f975d5909f85b7dbf1f87d953df1",
+  "validator": true,
+  "downgrades": [],
+  "pattern": "\\b([0-9]{3})[- .]([0-9]{2})[- .]([0-9]{4})\\b"
+ },
+ {
+  "name": "presidio_nhsrecognizer_nhs (medium)",
+  "signal": "presidio_uk_nhs",
+  "packed": 63,
+  "flags": 2,
+  "pattern_sha256": "d813b701023b51882d9d27dac61c3e990bcac57882d92623470124b9cb9fda8d",
+  "validator": true,
+  "downgrades": [],
+  "pattern": "\\b([0-9]{3})[- ]?([0-9]{3})[- ]?([0-9]{4})\\b"
+ },
+ {
+  "name": "presidio_cryptorecognizer_crypto (medium)",
+  "signal": "presidio_crypto",
+  "packed": 542,
+  "flags": 2,
+  "pattern_sha256": "9d9a993fd6aee8943056104f28b07d0ef54978e553bf57a9ef6aeccb18ad84af",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,59}"
+ },
+ {
+  "name": "presidio_daterecognizer_iso 8601 datetime",
+  "signal": "presidio_date_time",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "869d9b1ca6564777fbb41c9e9b0d8657f78124e8c37743871ae31744487bf783",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(\\d{4}-[01]\\d-[0-3]\\dT[0-2]\\d:[0-5]\\d:[0-5]\\d\\.\\d+([+-][0-2]\\d:[0-5]\\d|Z))|(\\d{4}-[01]\\d-[0-3]\\dT[0-2]\\d:[0-5]\\d:[0-5]\\d([+-][0-2]\\d:[0-5]\\d|Z))|(\\d{4}-[01]\\d-[0-3]\\dT[0-2]\\d:[0-5]\\d([+-][0-2]\\d:[0-5]\\d|Z))\\b"
+ },
+ {
+  "name": "presidio_daterecognizer_mm/dd/yyyy or mm/dd/yy",
+  "signal": "presidio_date_time",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "de849c1681c98a79e57d617168dfc4a0deb85049cc30cb50466cc2972e54a6e8",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(([1-9]|0[1-9]|1[0-2])/([1-9]|0[1-9]|[1-2][0-9]|3[0-1])/(\\d{4}|\\d{2}))\\b"
+ },
+ {
+  "name": "presidio_daterecognizer_dd/mm/yyyy or dd/mm/yy",
+  "signal": "presidio_date_time",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "19ffdc2987b151d9a442700781fcadc338c6c2cbfccfaaf5addf962e5f2bf35d",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(([1-9]|0[1-9]|[1-2][0-9]|3[0-1])/([1-9]|0[1-9]|1[0-2])/(\\d{4}|\\d{2}))\\b"
+ },
+ {
+  "name": "presidio_daterecognizer_yyyy/mm/dd",
+  "signal": "presidio_date_time",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "4ccb5d61a4e1942d27bed361cdc2ed5071620616a0f83096e84cd6974f057bcc",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(\\d{4}/([1-9]|0[1-9]|1[0-2])/([1-9]|0[1-9]|[1-2][0-9]|3[0-1]))\\b"
+ },
+ {
+  "name": "presidio_daterecognizer_mm-dd-yyyy",
+  "signal": "presidio_date_time",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "9d1fcea6de93cf884ebe8e380e1213be27af70397b7d84f8596a07de69584849",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(([1-9]|0[1-9]|1[0-2])-([1-9]|0[1-9]|[1-2][0-9]|3[0-1])-\\d{4})\\b"
+ },
+ {
+  "name": "presidio_daterecognizer_dd-mm-yyyy",
+  "signal": "presidio_date_time",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "cd1cf05f027c5501af93630fd6e2a4c85890cd560b18186be30d464480381701",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(([1-9]|0[1-9]|[1-2][0-9]|3[0-1])-([1-9]|0[1-9]|1[0-2])-\\d{4})\\b"
+ },
+ {
+  "name": "presidio_daterecognizer_yyyy-mm-dd",
+  "signal": "presidio_date_time",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "79e15fb16d77fdfaf147b62da6353f4416bd73fbb8ccc4ae6ba7255da73a0abb",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(\\d{4}-([1-9]|0[1-9]|1[0-2])-([1-9]|0[1-9]|[1-2][0-9]|3[0-1]))\\b"
+ },
+ {
+  "name": "presidio_daterecognizer_dd.mm.yyyy or dd.mm.yy",
+  "signal": "presidio_date_time",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "ed7ea12896824ef74beff16c8e8fdb51964fbf77d98b97ac428ec716d6dc6cf9",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(([1-9]|0[1-9]|[1-2][0-9]|3[0-1])\\.([1-9]|0[1-9]|1[0-2])\\.(\\d{4}|\\d{2}))\\b"
+ },
+ {
+  "name": "presidio_daterecognizer_dd-mmm-yyyy or dd-mmm-yy",
+  "signal": "presidio_date_time",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "9cca403b33cf14e4c1a52dd080c96ad6ab5a9322bec41cdb05ff7f13a3c9975b",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(([1-9]|0[1-9]|[1-2][0-9]|3[0-1])-(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)-(\\d{4}|\\d{2}))\\b"
+ },
+ {
+  "name": "presidio_daterecognizer_mmm-yyyy or mmm-yy",
+  "signal": "presidio_date_time",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "47b9242593e806a64bab98da8ac6a10827ca89e9c626fa7dbebc94ec73069090",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b((JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)-(\\d{4}|\\d{2}))\\b"
+ },
+ {
+  "name": "presidio_daterecognizer_dd-mmm or dd-mmm",
+  "signal": "presidio_date_time",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "94027aaf76935ea5aed57fc365119fd6b98e0185298c9aebabb74217456011b0",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(([1-9]|0[1-9]|[1-2][0-9]|3[0-1])-(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))\\b"
+ },
+ {
+  "name": "presidio_daterecognizer_mm/yyyy or m/yyyy",
+  "signal": "presidio_date_time",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "52dd574bb25c715094547d7fd784be05fb811d224caad33a087f099a825cf1b0",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(([1-9]|0[1-9]|1[0-2])/\\d{4})\\b"
+ },
+ {
+  "name": "presidio_daterecognizer_mm/yy or m/yy",
+  "signal": "presidio_date_time",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "cfd91e15ada32edae38563a162e1718eda3f651bcbe4dbaa78e7b1188a6ee15a",
+  "validator": true,
+  "downgrades": [],
+  "pattern": "\\b(([1-9]|0[1-9]|1[0-2])/\\d{2})\\b"
+ },
+ {
+  "name": "presidio_emailrecognizer_email (medium)",
+  "signal": "presidio_email_address",
+  "packed": 8222,
+  "flags": 2,
+  "pattern_sha256": "004723abbb67ff6cd016ee68d2230812dfc8064e5b57517a463b37bb0037395d",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b((([!#$%&'*+\\-/=?^_`{|}~\\w])|([!#$%&'*+\\-/=?^_`{|}~\\w][!#$%&'*+\\-/=?^_`{|}~\\.\\w]{0,}[!#$%&'*+\\-/=?^_`{|}~\\w]))[@]\\w+(?:-+\\w+)*(?:\\.\\w+(?:-+\\w+)*)+)\\b"
+ },
+ {
+  "name": "presidio_ibanrecognizer_iban generic",
+  "signal": "presidio_iban_code",
+  "packed": 543,
+  "flags": 2,
+  "pattern_sha256": "1f98697e78e08d679ce1109ea41d0ec9be085a81f048829c521f4ed31442a692",
+  "validator": true,
+  "downgrades": [],
+  "pattern": "(?<![A-Z0-9])([A-Z]{2}[0-9]{2}(?:[ -]?[A-Z0-9]{4}){2,6})((?:[ -]?[A-Z0-9]{4})?)((?:[ -]?[A-Z0-9]{1,3})?)(?![A-Z0-9])"
+ },
+ {
+  "name": "presidio_iprecognizer_ipv4_mapped",
+  "signal": "presidio_ip_address",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "5def597d3b4dac734f0bc1f1bfb007d7eac0987347cb882549c144e6e4967d89",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "(?<![\\w:])::(?:ffff(?::0{1,4})?:)?(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:/(?:12[0-8]|1[01]\\d|[1-9]?\\d))?\\b"
+ },
+ {
+  "name": "presidio_iprecognizer_ipv4_embedded",
+  "signal": "presidio_ip_address",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "66197b1f8e63cd274a8defa9ddec02d92e1b6c1c1f99600d9ab4abaf734ff7ca",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "(?<![\\w:])(?:(?:[0-9A-Fa-f]{1,4}:){1,5}:(?:[0-9A-Fa-f]{1,4}:){0,4}|(?:[0-9A-Fa-f]{1,4}:){6})(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:/(?:12[0-8]|1[01]\\d|[1-9]?\\d))?\\b"
+ },
+ {
+  "name": "presidio_iprecognizer_ipv4",
+  "signal": "presidio_ip_address",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "ae1e66dfc54606cfe8ae78046d518957eea722a866aa2ea15052b0b83d0d2089",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:/(?:[0-2]?\\d|3[0-2]))?\\b"
+ },
+ {
+  "name": "presidio_iprecognizer_ipv6",
+  "signal": "presidio_ip_address",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "c4f79b73053cd5f01ec3d23ddaee6758cc6ac273cf56ca29bc0c32a4be0ee9f8",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "(?<![\\w:])(?:(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|:(?::[0-9A-Fa-f]{1,4}){1,7}|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,5}(?::[0-9A-Fa-f]{1,4}){1,2}|(?:[0-9A-Fa-f]{1,4}:){1,4}(?::[0-9A-Fa-f]{1,4}){1,3}|(?:[0-9A-Fa-f]{1,4}:){1,3}(?::[0-9A-Fa-f]{1,4}){1,4}|(?:[0-9A-Fa-f]{1,4}:){1,2}(?::[0-9A-Fa-f]{1,4}){1,5}|[0-9A-Fa-f]{1,4}:(?::[0-9A-Fa-f]{1,4}){1,6}|:(?::[0-9A-Fa-f]{1,4}){1,6})(?:%[0-9a-zA-Z]+)?(?:/(?:12[0-8]|1[01]\\d|[1-9]?\\d))?(?![\\w:]|\\.\\d)"
+ },
+ {
+  "name": "presidio_iprecognizer_ipv6_unspecified",
+  "signal": "presidio_ip_address",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "c696285024ae5b47399eee61fb05e29710194b0f81a342a9c03af7543489a7bb",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "(?<![\\w:])::(?:/(?:12[0-8]|1[01]\\d|[1-9]?\\d))?(?![\\w:])"
+ },
+ {
+  "name": "presidio_medicallicenserecognizer_usa dea certificate number (weak)",
+  "signal": "presidio_medical_license",
+  "packed": 63,
+  "flags": 2,
+  "pattern_sha256": "8b00da21c7ca480a33bb13d6dcc7750459a2a5a18a9311e974fd465a5f213cc5",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "[abcdefghjklmprstuxABCDEFGHJKLMPRSTUX]{1}[a-zA-Z]{1}\\d{7}|[abcdefghjklmprstuxABCDEFGHJKLMPRSTUX]{1}9\\d{7}"
+ },
+ {
+  "name": "presidio_macaddressrecognizer_mac_colon_or_hyphen",
+  "signal": "presidio_mac_address",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "a101077778af2f8848da6e33fd04a3f0a2ef499b50460fc844c5a518f039c41a",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b[0-9A-Fa-f]{2}([:-])(?:[0-9A-Fa-f]{2}\\1){4}[0-9A-Fa-f]{2}\\b"
+ },
+ {
+  "name": "presidio_macaddressrecognizer_mac_cisco_dot",
+  "signal": "presidio_mac_address",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "1dbdb084e42f48d211af5982ab50b5628c3320be970ec39208d7acfd958437f1",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "\\b[0-9A-Fa-f]{4}\\.[0-9A-Fa-f]{4}\\.[0-9A-Fa-f]{4}\\b"
+ },
+ {
+  "name": "presidio_urlrecognizer_standard url",
+  "signal": "presidio_url",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "422b91a465b6177e83eb908ce308fbc3de52432667a3165d12d2a70ba7cf148c",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "(?i)(?:https?://)((www\\d{0,3}[.])?[a-z0-9.\\-]{1,253}[.](?:(?:com)|(?:edu)|(?:gov)|(?:int)|(?:mil)|(?:net)|(?:onl)|(?:org)|(?:pro)|(?:red)|(?:tel)|(?:uno)|(?:xxx)|(?:academy)|(?:accountant)|(?:accountants)|(?:actor)|(?:adult)|(?:africa)|(?:agency)|(?:airforce)|(?:apartments)|(?:app)|(?:archi)|(?:army)|(?:art)|(?:asia)|(?:associates)|(?:attorney)|(?:auction)|(?:audio)|(?:auto)|(?:autos)|(?:baby)|(?:band)|(?:bar)|(?:bargains)|(?:beer)|(?:berlin)|(?:best)|(?:bet)|(?:bid)|(?:bike)|(?:bio)|(?:black)|(?:blackfriday)|(?:blog)|(?:blue)|(?:boats)|(?:bond)|(?:boo)|(?:boston)|(?:bot)|(?:boutique)|(?:build)|(?:builders)|(?:business)|(?:buzz)|(?:cab)|(?:cafe)|(?:cam)|(?:camera)|(?:camp)|(?:capital)|(?:car)|(?:cards)|(?:care)|(?:careers)|(?:cars)|(?:casa)|(?:cash)|(?:casino)|(?:catering)|(?:center)|(?:ceo)|(?:cfd)|(?:charity)|(?:chat)|(?:cheap)|(?:christmas)|(?:church)|(?:city)|(?:claims)|(?:cleaning)|(?:click)|(?:clinic)|(?:clothing)|(?:cloud)|(?:club)|(?:codes)|(?:coffee)|(?:college)|(?:com)|(?:community)|(?:company)|(?:computer)|(?:condos)|(?:construction)|(?:consulting)|(?:contact)|(?:contractors)|(?:cooking)|(?:cool)|(?:coupons)|(?:courses)|(?:credit)|(?:creditcard)|(?:cricket)|(?:cruises)|(?:cyou)|(?:dad)|(?:dance)|(?:date)|(?:dating)|(?:day)|(?:degree)|(?:delivery)|(?:democrat)|(?:dental)|(?:dentist)|(?:desi)|(?:design)|(?:dev)|(?:diamonds)|(?:diet)|(?:digital)|(?:direct)|(?:directory)|(?:discount)|(?:doctor)|(?:dog)|(?:domains)|(?:download)|(?:earth)|(?:eco)|(?:education)|(?:email)|(?:energy)|(?:engineer)|(?:engineering)|(?:enterprises)|(?:equipment)|(?:esq)|(?:estate)|(?:events)|(?:exchange)|(?:expert)|(?:exposed)|(?:express)|(?:fail)|(?:faith)|(?:family)|(?:fans)|(?:farm)|(?:fashion)|(?:feedback)|(?:film)|(?:finance)|(?:financial)|(?:fish)|(?:fishing)|(?:fit)|(?:fitness)|(?:flights)|(?:florist)|(?:flowers)|(?:football)|(?:forsale)|(?:foundation)|(?:fun)|(?:fund)|(?:furniture)|(?:futbol)|(?:fyi)|(?:gallery)|(?:game)|(?:games)|(?:garden)|(?:gay)|(?:gdn)|(?:gifts)|(?:gives)|(?:giving)|(?:glass)|(?:global)|(?:gmbh)|(?:gold)|(?:golf)|(?:graphics)|(?:gratis)|(?:green)|(?:gripe)|(?:group)|(?:guide)|(?:guitars)|(?:guru)|(?:hair)|(?:hamburg)|(?:haus)|(?:health)|(?:healthcare)|(?:help)|(?:hiphop)|(?:hockey)|(?:holdings)|(?:holiday)|(?:homes)|(?:horse)|(?:hospital)|(?:host)|(?:hosting)|(?:house)|(?:how)|(?:icu)|(?:info)|(?:ink)|(?:institute)|(?:insure)|(?:international)|(?:investments)|(?:irish)|(?:jewelry)|(?:jetzt)|(?:juegos)|(?:kaufen)|(?:kids)|(?:kitchen)|(?:kiwi)|(?:krd)|(?:kyoto)|(?:land)|(?:lat)|(?:law)|(?:lawyer)|(?:lease)|(?:legal)|(?:lgbt)|(?:life)|(?:lighting)|(?:limited)|(?:limo)|(?:link)|(?:live)|(?:loan)|(?:loans)|(?:lol)|(?:london)|(?:love)|(?:ltd)|(?:ltda)|(?:luxury)|(?:maison)|(?:management)|(?:market)|(?:marketing)|(?:markets)|(?:mba)|(?:media)|(?:melbourne)|(?:meme)|(?:memorial)|(?:men)|(?:miami)|(?:mobi)|(?:moda)|(?:moe)|(?:mom)|(?:money)|(?:monster)|(?:mortgage)|(?:motorcycles)|(?:mov)|(?:movie)|(?:nagoya)|(?:name)|(?:navy)|(?:network)|(?:new)|(?:news)|(?:ngo)|(?:ninja)|(?:now)|(?:nyc)|(?:observer)|(?:okinawa)|(?:one)|(?:ong)|(?:onl)|(?:online)|(?:organic)|(?:osaka)|(?:page)|(?:paris)|(?:partners)|(?:parts)|(?:party)|(?:pet)|(?:phd)|(?:photo)|(?:photography)|(?:photos)|(?:pics)|(?:pictures)|(?:pink)|(?:pizza)|(?:place)|(?:plumbing)|(?:plus)|(?:poker)|(?:porn)|(?:press)|(?:pro)|(?:productions)|(?:prof)|(?:promo)|(?:properties)|(?:property)|(?:protection)|(?:pub)|(?:quest)|(?:racing)|(?:recipes)|(?:red)|(?:rehab)|(?:reise)|(?:reisen)|(?:rent)|(?:rentals)|(?:repair)|(?:report)|(?:republican)|(?:rest)|(?:restaurant)|(?:review)|(?:reviews)|(?:rip)|(?:rocks)|(?:rodeo)|(?:rsvp)|(?:run)|(?:saarland)|(?:sale)|(?:salon)|(?:sarl)|(?:sbs)|(?:school)|(?:schule)|(?:science)|(?:services)|(?:sex)|(?:sexy)|(?:sh)|(?:shoes)|(?:shop)|(?:shopping)|(?:show)|(?:singles)|(?:site)|(?:skin)|(?:soccer)|(?:social)|(?:software)|(?:solar)|(?:solutions)|(?:soy)|(?:space)|(?:spiegel)|(?:study)|(?:style)|(?:sucks)|(?:supply)|(?:support)|(?:surf)|(?:surgery)|(?:systems)|(?:tax)|(?:taxi)|(?:team)|(?:tech)|(?:technology)|(?:tel)|(?:theater)|(?:tips)|(?:tires)|(?:today)|(?:tools)|(?:top)|(?:tours)|(?:town)|(?:toys)|(?:trade)|(?:training)|(?:tube)|(?:uk)|(?:university)|(?:uno)|(?:vacations)|(?:ventures)|(?:vet)|(?:video)|(?:villas)|(?:vin)|(?:vip)|(?:vision)|(?:vlaanderen)|(?:vodka)|(?:vote)|(?:voting)|(?:voyage)|(?:wales)|(?:wang)|(?:watch)|(?:webcam)|(?:website)|(?:wedding)|(?:wiki)|(?:wine)|(?:work)|(?:works)|(?:world)|(?:wtf)|(?:xyz)|(?:yoga)|(?:yokohama)|(?:you)|(?:zone)|(?:ac)|(?:ad)|(?:ae)|(?:af)|(?:ag)|(?:ai)|(?:al)|(?:am)|(?:an)|(?:ao)|(?:aq)|(?:ar)|(?:as)|(?:at)|(?:au)|(?:aw)|(?:ax)|(?:az)|(?:ba)|(?:bb)|(?:bd)|(?:be)|(?:bf)|(?:bg)|(?:bh)|(?:bi)|(?:bj)|(?:bm)|(?:bn)|(?:bo)|(?:br)|(?:bs)|(?:bt)|(?:bv)|(?:bw)|(?:by)|(?:bz)|(?:ca)|(?:cc)|(?:cd)|(?:cf)|(?:cg)|(?:ch)|(?:ci)|(?:ck)|(?:cl)|(?:cm)|(?:cn)|(?:co)|(?:cr)|(?:cu)|(?:cv)|(?:cw)|(?:cx)|(?:cy)|(?:cz)|(?:de)|(?:dj)|(?:dk)|(?:dm)|(?:do)|(?:dz)|(?:ec)|(?:ee)|(?:eg)|(?:er)|(?:es)|(?:et)|(?:eu)|(?:fi)|(?:fj)|(?:fk)|(?:fm)|(?:fo)|(?:fr)|(?:ga)|(?:gb)|(?:gd)|(?:ge)|(?:gf)|(?:gg)|(?:gh)|(?:gi)|(?:gl)|(?:gm)|(?:gn)|(?:gp)|(?:gq)|(?:gr)|(?:gs)|(?:gt)|(?:gu)|(?:gw)|(?:gy)|(?:hk)|(?:hm)|(?:hn)|(?:hr)|(?:ht)|(?:hu)|(?:id)|(?:ie)|(?:il)|(?:im)|(?:in)|(?:io)|(?:iq)|(?:ir)|(?:is)|(?:it)|(?:je)|(?:jm)|(?:jo)|(?:jp)|(?:ke)|(?:kg)|(?:kh)|(?:ki)|(?:km)|(?:kn)|(?:kp)|(?:kr)|(?:kw)|(?:ky)|(?:kz)|(?:la)|(?:lb)|(?:lc)|(?:li)|(?:lk)|(?:lr)|(?:ls)|(?:lt)|(?:lu)|(?:lv)|(?:ly)|(?:ma)|(?:mc)|(?:md)|(?:me)|(?:mg)|(?:mh)|(?:mk)|(?:ml)|(?:mm)|(?:mn)|(?:mo)|(?:mp)|(?:mq)|(?:mr)|(?:ms)|(?:mt)|(?:mu)|(?:mv)|(?:mw)|(?:mx)|(?:my)|(?:mz)|(?:na)|(?:nc)|(?:ne)|(?:nf)|(?:ng)|(?:ni)|(?:nl)|(?:no)|(?:np)|(?:nr)|(?:nu)|(?:nz)|(?:om)|(?:pa)|(?:pe)|(?:pf)|(?:pg)|(?:ph)|(?:pk)|(?:pl)|(?:pm)|(?:pn)|(?:pr)|(?:ps)|(?:pt)|(?:pw)|(?:py)|(?:qa)|(?:re)|(?:ro)|(?:rs)|(?:ru)|(?:rw)|(?:sa)|(?:sb)|(?:sc)|(?:sd)|(?:se)|(?:sg)|(?:sh)|(?:si)|(?:sj)|(?:sk)|(?:sl)|(?:sm)|(?:sn)|(?:so)|(?:sr)|(?:st)|(?:su)|(?:sv)|(?:sx)|(?:sy)|(?:sz)|(?:tc)|(?:td)|(?:tf)|(?:tg)|(?:th)|(?:tj)|(?:tk)|(?:tl)|(?:tm)|(?:tn)|(?:to)|(?:tp)|(?:tr)|(?:tt)|(?:tv)|(?:tw)|(?:tz)|(?:ua)|(?:ug)|(?:uk)|(?:us)|(?:uy)|(?:uz)|(?:va)|(?:vc)|(?:ve)|(?:vg)|(?:vi)|(?:vn)|(?:vu)|(?:wf)|(?:ws)|(?:ye)|(?:yt)|(?:za)|(?:zm)|(?:zw))(?:/[^\\s()<>\\\"']*)?)"
+ },
+ {
+  "name": "presidio_urlrecognizer_non schema url",
+  "signal": "presidio_url",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "7405c3a8b8c39f4d0850f0598d9e19cdeae0f9f0e1e4a5c425cc7b70ad6d337b",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "(?i)((www\\d{0,3}[.])?[a-z0-9.\\-]{1,253}[.](?:(?:com)|(?:edu)|(?:gov)|(?:int)|(?:mil)|(?:net)|(?:onl)|(?:org)|(?:pro)|(?:red)|(?:tel)|(?:uno)|(?:xxx)|(?:academy)|(?:accountant)|(?:accountants)|(?:actor)|(?:adult)|(?:africa)|(?:agency)|(?:airforce)|(?:apartments)|(?:app)|(?:archi)|(?:army)|(?:art)|(?:asia)|(?:associates)|(?:attorney)|(?:auction)|(?:audio)|(?:auto)|(?:autos)|(?:baby)|(?:band)|(?:bar)|(?:bargains)|(?:beer)|(?:berlin)|(?:best)|(?:bet)|(?:bid)|(?:bike)|(?:bio)|(?:black)|(?:blackfriday)|(?:blog)|(?:blue)|(?:boats)|(?:bond)|(?:boo)|(?:boston)|(?:bot)|(?:boutique)|(?:build)|(?:builders)|(?:business)|(?:buzz)|(?:cab)|(?:cafe)|(?:cam)|(?:camera)|(?:camp)|(?:capital)|(?:car)|(?:cards)|(?:care)|(?:careers)|(?:cars)|(?:casa)|(?:cash)|(?:casino)|(?:catering)|(?:center)|(?:ceo)|(?:cfd)|(?:charity)|(?:chat)|(?:cheap)|(?:christmas)|(?:church)|(?:city)|(?:claims)|(?:cleaning)|(?:click)|(?:clinic)|(?:clothing)|(?:cloud)|(?:club)|(?:codes)|(?:coffee)|(?:college)|(?:com)|(?:community)|(?:company)|(?:computer)|(?:condos)|(?:construction)|(?:consulting)|(?:contact)|(?:contractors)|(?:cooking)|(?:cool)|(?:coupons)|(?:courses)|(?:credit)|(?:creditcard)|(?:cricket)|(?:cruises)|(?:cyou)|(?:dad)|(?:dance)|(?:date)|(?:dating)|(?:day)|(?:degree)|(?:delivery)|(?:democrat)|(?:dental)|(?:dentist)|(?:desi)|(?:design)|(?:dev)|(?:diamonds)|(?:diet)|(?:digital)|(?:direct)|(?:directory)|(?:discount)|(?:doctor)|(?:dog)|(?:domains)|(?:download)|(?:earth)|(?:eco)|(?:education)|(?:email)|(?:energy)|(?:engineer)|(?:engineering)|(?:enterprises)|(?:equipment)|(?:esq)|(?:estate)|(?:events)|(?:exchange)|(?:expert)|(?:exposed)|(?:express)|(?:fail)|(?:faith)|(?:family)|(?:fans)|(?:farm)|(?:fashion)|(?:feedback)|(?:film)|(?:finance)|(?:financial)|(?:fish)|(?:fishing)|(?:fit)|(?:fitness)|(?:flights)|(?:florist)|(?:flowers)|(?:football)|(?:forsale)|(?:foundation)|(?:fun)|(?:fund)|(?:furniture)|(?:futbol)|(?:fyi)|(?:gallery)|(?:game)|(?:games)|(?:garden)|(?:gay)|(?:gdn)|(?:gifts)|(?:gives)|(?:giving)|(?:glass)|(?:global)|(?:gmbh)|(?:gold)|(?:golf)|(?:graphics)|(?:gratis)|(?:green)|(?:gripe)|(?:group)|(?:guide)|(?:guitars)|(?:guru)|(?:hair)|(?:hamburg)|(?:haus)|(?:health)|(?:healthcare)|(?:help)|(?:hiphop)|(?:hockey)|(?:holdings)|(?:holiday)|(?:homes)|(?:horse)|(?:hospital)|(?:host)|(?:hosting)|(?:house)|(?:how)|(?:icu)|(?:info)|(?:ink)|(?:institute)|(?:insure)|(?:international)|(?:investments)|(?:irish)|(?:jewelry)|(?:jetzt)|(?:juegos)|(?:kaufen)|(?:kids)|(?:kitchen)|(?:kiwi)|(?:krd)|(?:kyoto)|(?:land)|(?:lat)|(?:law)|(?:lawyer)|(?:lease)|(?:legal)|(?:lgbt)|(?:life)|(?:lighting)|(?:limited)|(?:limo)|(?:link)|(?:live)|(?:loan)|(?:loans)|(?:lol)|(?:london)|(?:love)|(?:ltd)|(?:ltda)|(?:luxury)|(?:maison)|(?:management)|(?:market)|(?:marketing)|(?:markets)|(?:mba)|(?:media)|(?:melbourne)|(?:meme)|(?:memorial)|(?:men)|(?:miami)|(?:mobi)|(?:moda)|(?:moe)|(?:mom)|(?:money)|(?:monster)|(?:mortgage)|(?:motorcycles)|(?:mov)|(?:movie)|(?:nagoya)|(?:name)|(?:navy)|(?:network)|(?:new)|(?:news)|(?:ngo)|(?:ninja)|(?:now)|(?:nyc)|(?:observer)|(?:okinawa)|(?:one)|(?:ong)|(?:onl)|(?:online)|(?:organic)|(?:osaka)|(?:page)|(?:paris)|(?:partners)|(?:parts)|(?:party)|(?:pet)|(?:phd)|(?:photo)|(?:photography)|(?:photos)|(?:pics)|(?:pictures)|(?:pink)|(?:pizza)|(?:place)|(?:plumbing)|(?:plus)|(?:poker)|(?:porn)|(?:press)|(?:pro)|(?:productions)|(?:prof)|(?:promo)|(?:properties)|(?:property)|(?:protection)|(?:pub)|(?:quest)|(?:racing)|(?:recipes)|(?:red)|(?:rehab)|(?:reise)|(?:reisen)|(?:rent)|(?:rentals)|(?:repair)|(?:report)|(?:republican)|(?:rest)|(?:restaurant)|(?:review)|(?:reviews)|(?:rip)|(?:rocks)|(?:rodeo)|(?:rsvp)|(?:run)|(?:saarland)|(?:sale)|(?:salon)|(?:sarl)|(?:sbs)|(?:school)|(?:schule)|(?:science)|(?:services)|(?:sex)|(?:sexy)|(?:sh)|(?:shoes)|(?:shop)|(?:shopping)|(?:show)|(?:singles)|(?:site)|(?:skin)|(?:soccer)|(?:social)|(?:software)|(?:solar)|(?:solutions)|(?:soy)|(?:space)|(?:spiegel)|(?:study)|(?:style)|(?:sucks)|(?:supply)|(?:support)|(?:surf)|(?:surgery)|(?:systems)|(?:tax)|(?:taxi)|(?:team)|(?:tech)|(?:technology)|(?:tel)|(?:theater)|(?:tips)|(?:tires)|(?:today)|(?:tools)|(?:top)|(?:tours)|(?:town)|(?:toys)|(?:trade)|(?:training)|(?:tube)|(?:uk)|(?:university)|(?:uno)|(?:vacations)|(?:ventures)|(?:vet)|(?:video)|(?:villas)|(?:vin)|(?:vip)|(?:vision)|(?:vlaanderen)|(?:vodka)|(?:vote)|(?:voting)|(?:voyage)|(?:wales)|(?:wang)|(?:watch)|(?:webcam)|(?:website)|(?:wedding)|(?:wiki)|(?:wine)|(?:work)|(?:works)|(?:world)|(?:wtf)|(?:xyz)|(?:yoga)|(?:yokohama)|(?:you)|(?:zone)|(?:ac)|(?:ad)|(?:ae)|(?:af)|(?:ag)|(?:ai)|(?:al)|(?:am)|(?:an)|(?:ao)|(?:aq)|(?:ar)|(?:as)|(?:at)|(?:au)|(?:aw)|(?:ax)|(?:az)|(?:ba)|(?:bb)|(?:bd)|(?:be)|(?:bf)|(?:bg)|(?:bh)|(?:bi)|(?:bj)|(?:bm)|(?:bn)|(?:bo)|(?:br)|(?:bs)|(?:bt)|(?:bv)|(?:bw)|(?:by)|(?:bz)|(?:ca)|(?:cc)|(?:cd)|(?:cf)|(?:cg)|(?:ch)|(?:ci)|(?:ck)|(?:cl)|(?:cm)|(?:cn)|(?:co)|(?:cr)|(?:cu)|(?:cv)|(?:cw)|(?:cx)|(?:cy)|(?:cz)|(?:de)|(?:dj)|(?:dk)|(?:dm)|(?:do)|(?:dz)|(?:ec)|(?:ee)|(?:eg)|(?:er)|(?:es)|(?:et)|(?:eu)|(?:fi)|(?:fj)|(?:fk)|(?:fm)|(?:fo)|(?:fr)|(?:ga)|(?:gb)|(?:gd)|(?:ge)|(?:gf)|(?:gg)|(?:gh)|(?:gi)|(?:gl)|(?:gm)|(?:gn)|(?:gp)|(?:gq)|(?:gr)|(?:gs)|(?:gt)|(?:gu)|(?:gw)|(?:gy)|(?:hk)|(?:hm)|(?:hn)|(?:hr)|(?:ht)|(?:hu)|(?:id)|(?:ie)|(?:il)|(?:im)|(?:in)|(?:io)|(?:iq)|(?:ir)|(?:is)|(?:it)|(?:je)|(?:jm)|(?:jo)|(?:jp)|(?:ke)|(?:kg)|(?:kh)|(?:ki)|(?:km)|(?:kn)|(?:kp)|(?:kr)|(?:kw)|(?:ky)|(?:kz)|(?:la)|(?:lb)|(?:lc)|(?:li)|(?:lk)|(?:lr)|(?:ls)|(?:lt)|(?:lu)|(?:lv)|(?:ly)|(?:ma)|(?:mc)|(?:md)|(?:me)|(?:mg)|(?:mh)|(?:mk)|(?:ml)|(?:mm)|(?:mn)|(?:mo)|(?:mp)|(?:mq)|(?:mr)|(?:ms)|(?:mt)|(?:mu)|(?:mv)|(?:mw)|(?:mx)|(?:my)|(?:mz)|(?:na)|(?:nc)|(?:ne)|(?:nf)|(?:ng)|(?:ni)|(?:nl)|(?:no)|(?:np)|(?:nr)|(?:nu)|(?:nz)|(?:om)|(?:pa)|(?:pe)|(?:pf)|(?:pg)|(?:ph)|(?:pk)|(?:pl)|(?:pm)|(?:pn)|(?:pr)|(?:ps)|(?:pt)|(?:pw)|(?:py)|(?:qa)|(?:re)|(?:ro)|(?:rs)|(?:ru)|(?:rw)|(?:sa)|(?:sb)|(?:sc)|(?:sd)|(?:se)|(?:sg)|(?:sh)|(?:si)|(?:sj)|(?:sk)|(?:sl)|(?:sm)|(?:sn)|(?:so)|(?:sr)|(?:st)|(?:su)|(?:sv)|(?:sx)|(?:sy)|(?:sz)|(?:tc)|(?:td)|(?:tf)|(?:tg)|(?:th)|(?:tj)|(?:tk)|(?:tl)|(?:tm)|(?:tn)|(?:to)|(?:tp)|(?:tr)|(?:tt)|(?:tv)|(?:tw)|(?:tz)|(?:ua)|(?:ug)|(?:uk)|(?:us)|(?:uy)|(?:uz)|(?:va)|(?:vc)|(?:ve)|(?:vg)|(?:vi)|(?:vn)|(?:vu)|(?:wf)|(?:ws)|(?:ye)|(?:yt)|(?:za)|(?:zm)|(?:zw))(?:/[^\\s()<>\\\"']*)?)"
+ },
+ {
+  "name": "presidio_urlrecognizer_quoted url",
+  "signal": "presidio_url",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "473c5e6b40a312726402cd1f58f430d58d74563bbdc0022b9349a4e3bcd9bdf0",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "(?i)[\"\\'](https?://((www\\d{0,3}[.])?[a-z0-9.\\-]{1,253}[.](?:(?:com)|(?:edu)|(?:gov)|(?:int)|(?:mil)|(?:net)|(?:onl)|(?:org)|(?:pro)|(?:red)|(?:tel)|(?:uno)|(?:xxx)|(?:academy)|(?:accountant)|(?:accountants)|(?:actor)|(?:adult)|(?:africa)|(?:agency)|(?:airforce)|(?:apartments)|(?:app)|(?:archi)|(?:army)|(?:art)|(?:asia)|(?:associates)|(?:attorney)|(?:auction)|(?:audio)|(?:auto)|(?:autos)|(?:baby)|(?:band)|(?:bar)|(?:bargains)|(?:beer)|(?:berlin)|(?:best)|(?:bet)|(?:bid)|(?:bike)|(?:bio)|(?:black)|(?:blackfriday)|(?:blog)|(?:blue)|(?:boats)|(?:bond)|(?:boo)|(?:boston)|(?:bot)|(?:boutique)|(?:build)|(?:builders)|(?:business)|(?:buzz)|(?:cab)|(?:cafe)|(?:cam)|(?:camera)|(?:camp)|(?:capital)|(?:car)|(?:cards)|(?:care)|(?:careers)|(?:cars)|(?:casa)|(?:cash)|(?:casino)|(?:catering)|(?:center)|(?:ceo)|(?:cfd)|(?:charity)|(?:chat)|(?:cheap)|(?:christmas)|(?:church)|(?:city)|(?:claims)|(?:cleaning)|(?:click)|(?:clinic)|(?:clothing)|(?:cloud)|(?:club)|(?:codes)|(?:coffee)|(?:college)|(?:com)|(?:community)|(?:company)|(?:computer)|(?:condos)|(?:construction)|(?:consulting)|(?:contact)|(?:contractors)|(?:cooking)|(?:cool)|(?:coupons)|(?:courses)|(?:credit)|(?:creditcard)|(?:cricket)|(?:cruises)|(?:cyou)|(?:dad)|(?:dance)|(?:date)|(?:dating)|(?:day)|(?:degree)|(?:delivery)|(?:democrat)|(?:dental)|(?:dentist)|(?:desi)|(?:design)|(?:dev)|(?:diamonds)|(?:diet)|(?:digital)|(?:direct)|(?:directory)|(?:discount)|(?:doctor)|(?:dog)|(?:domains)|(?:download)|(?:earth)|(?:eco)|(?:education)|(?:email)|(?:energy)|(?:engineer)|(?:engineering)|(?:enterprises)|(?:equipment)|(?:esq)|(?:estate)|(?:events)|(?:exchange)|(?:expert)|(?:exposed)|(?:express)|(?:fail)|(?:faith)|(?:family)|(?:fans)|(?:farm)|(?:fashion)|(?:feedback)|(?:film)|(?:finance)|(?:financial)|(?:fish)|(?:fishing)|(?:fit)|(?:fitness)|(?:flights)|(?:florist)|(?:flowers)|(?:football)|(?:forsale)|(?:foundation)|(?:fun)|(?:fund)|(?:furniture)|(?:futbol)|(?:fyi)|(?:gallery)|(?:game)|(?:games)|(?:garden)|(?:gay)|(?:gdn)|(?:gifts)|(?:gives)|(?:giving)|(?:glass)|(?:global)|(?:gmbh)|(?:gold)|(?:golf)|(?:graphics)|(?:gratis)|(?:green)|(?:gripe)|(?:group)|(?:guide)|(?:guitars)|(?:guru)|(?:hair)|(?:hamburg)|(?:haus)|(?:health)|(?:healthcare)|(?:help)|(?:hiphop)|(?:hockey)|(?:holdings)|(?:holiday)|(?:homes)|(?:horse)|(?:hospital)|(?:host)|(?:hosting)|(?:house)|(?:how)|(?:icu)|(?:info)|(?:ink)|(?:institute)|(?:insure)|(?:international)|(?:investments)|(?:irish)|(?:jewelry)|(?:jetzt)|(?:juegos)|(?:kaufen)|(?:kids)|(?:kitchen)|(?:kiwi)|(?:krd)|(?:kyoto)|(?:land)|(?:lat)|(?:law)|(?:lawyer)|(?:lease)|(?:legal)|(?:lgbt)|(?:life)|(?:lighting)|(?:limited)|(?:limo)|(?:link)|(?:live)|(?:loan)|(?:loans)|(?:lol)|(?:london)|(?:love)|(?:ltd)|(?:ltda)|(?:luxury)|(?:maison)|(?:management)|(?:market)|(?:marketing)|(?:markets)|(?:mba)|(?:media)|(?:melbourne)|(?:meme)|(?:memorial)|(?:men)|(?:miami)|(?:mobi)|(?:moda)|(?:moe)|(?:mom)|(?:money)|(?:monster)|(?:mortgage)|(?:motorcycles)|(?:mov)|(?:movie)|(?:nagoya)|(?:name)|(?:navy)|(?:network)|(?:new)|(?:news)|(?:ngo)|(?:ninja)|(?:now)|(?:nyc)|(?:observer)|(?:okinawa)|(?:one)|(?:ong)|(?:onl)|(?:online)|(?:organic)|(?:osaka)|(?:page)|(?:paris)|(?:partners)|(?:parts)|(?:party)|(?:pet)|(?:phd)|(?:photo)|(?:photography)|(?:photos)|(?:pics)|(?:pictures)|(?:pink)|(?:pizza)|(?:place)|(?:plumbing)|(?:plus)|(?:poker)|(?:porn)|(?:press)|(?:pro)|(?:productions)|(?:prof)|(?:promo)|(?:properties)|(?:property)|(?:protection)|(?:pub)|(?:quest)|(?:racing)|(?:recipes)|(?:red)|(?:rehab)|(?:reise)|(?:reisen)|(?:rent)|(?:rentals)|(?:repair)|(?:report)|(?:republican)|(?:rest)|(?:restaurant)|(?:review)|(?:reviews)|(?:rip)|(?:rocks)|(?:rodeo)|(?:rsvp)|(?:run)|(?:saarland)|(?:sale)|(?:salon)|(?:sarl)|(?:sbs)|(?:school)|(?:schule)|(?:science)|(?:services)|(?:sex)|(?:sexy)|(?:sh)|(?:shoes)|(?:shop)|(?:shopping)|(?:show)|(?:singles)|(?:site)|(?:skin)|(?:soccer)|(?:social)|(?:software)|(?:solar)|(?:solutions)|(?:soy)|(?:space)|(?:spiegel)|(?:study)|(?:style)|(?:sucks)|(?:supply)|(?:support)|(?:surf)|(?:surgery)|(?:systems)|(?:tax)|(?:taxi)|(?:team)|(?:tech)|(?:technology)|(?:tel)|(?:theater)|(?:tips)|(?:tires)|(?:today)|(?:tools)|(?:top)|(?:tours)|(?:town)|(?:toys)|(?:trade)|(?:training)|(?:tube)|(?:uk)|(?:university)|(?:uno)|(?:vacations)|(?:ventures)|(?:vet)|(?:video)|(?:villas)|(?:vin)|(?:vip)|(?:vision)|(?:vlaanderen)|(?:vodka)|(?:vote)|(?:voting)|(?:voyage)|(?:wales)|(?:wang)|(?:watch)|(?:webcam)|(?:website)|(?:wedding)|(?:wiki)|(?:wine)|(?:work)|(?:works)|(?:world)|(?:wtf)|(?:xyz)|(?:yoga)|(?:yokohama)|(?:you)|(?:zone)|(?:ac)|(?:ad)|(?:ae)|(?:af)|(?:ag)|(?:ai)|(?:al)|(?:am)|(?:an)|(?:ao)|(?:aq)|(?:ar)|(?:as)|(?:at)|(?:au)|(?:aw)|(?:ax)|(?:az)|(?:ba)|(?:bb)|(?:bd)|(?:be)|(?:bf)|(?:bg)|(?:bh)|(?:bi)|(?:bj)|(?:bm)|(?:bn)|(?:bo)|(?:br)|(?:bs)|(?:bt)|(?:bv)|(?:bw)|(?:by)|(?:bz)|(?:ca)|(?:cc)|(?:cd)|(?:cf)|(?:cg)|(?:ch)|(?:ci)|(?:ck)|(?:cl)|(?:cm)|(?:cn)|(?:co)|(?:cr)|(?:cu)|(?:cv)|(?:cw)|(?:cx)|(?:cy)|(?:cz)|(?:de)|(?:dj)|(?:dk)|(?:dm)|(?:do)|(?:dz)|(?:ec)|(?:ee)|(?:eg)|(?:er)|(?:es)|(?:et)|(?:eu)|(?:fi)|(?:fj)|(?:fk)|(?:fm)|(?:fo)|(?:fr)|(?:ga)|(?:gb)|(?:gd)|(?:ge)|(?:gf)|(?:gg)|(?:gh)|(?:gi)|(?:gl)|(?:gm)|(?:gn)|(?:gp)|(?:gq)|(?:gr)|(?:gs)|(?:gt)|(?:gu)|(?:gw)|(?:gy)|(?:hk)|(?:hm)|(?:hn)|(?:hr)|(?:ht)|(?:hu)|(?:id)|(?:ie)|(?:il)|(?:im)|(?:in)|(?:io)|(?:iq)|(?:ir)|(?:is)|(?:it)|(?:je)|(?:jm)|(?:jo)|(?:jp)|(?:ke)|(?:kg)|(?:kh)|(?:ki)|(?:km)|(?:kn)|(?:kp)|(?:kr)|(?:kw)|(?:ky)|(?:kz)|(?:la)|(?:lb)|(?:lc)|(?:li)|(?:lk)|(?:lr)|(?:ls)|(?:lt)|(?:lu)|(?:lv)|(?:ly)|(?:ma)|(?:mc)|(?:md)|(?:me)|(?:mg)|(?:mh)|(?:mk)|(?:ml)|(?:mm)|(?:mn)|(?:mo)|(?:mp)|(?:mq)|(?:mr)|(?:ms)|(?:mt)|(?:mu)|(?:mv)|(?:mw)|(?:mx)|(?:my)|(?:mz)|(?:na)|(?:nc)|(?:ne)|(?:nf)|(?:ng)|(?:ni)|(?:nl)|(?:no)|(?:np)|(?:nr)|(?:nu)|(?:nz)|(?:om)|(?:pa)|(?:pe)|(?:pf)|(?:pg)|(?:ph)|(?:pk)|(?:pl)|(?:pm)|(?:pn)|(?:pr)|(?:ps)|(?:pt)|(?:pw)|(?:py)|(?:qa)|(?:re)|(?:ro)|(?:rs)|(?:ru)|(?:rw)|(?:sa)|(?:sb)|(?:sc)|(?:sd)|(?:se)|(?:sg)|(?:sh)|(?:si)|(?:sj)|(?:sk)|(?:sl)|(?:sm)|(?:sn)|(?:so)|(?:sr)|(?:st)|(?:su)|(?:sv)|(?:sx)|(?:sy)|(?:sz)|(?:tc)|(?:td)|(?:tf)|(?:tg)|(?:th)|(?:tj)|(?:tk)|(?:tl)|(?:tm)|(?:tn)|(?:to)|(?:tp)|(?:tr)|(?:tt)|(?:tv)|(?:tw)|(?:tz)|(?:ua)|(?:ug)|(?:uk)|(?:us)|(?:uy)|(?:uz)|(?:va)|(?:vc)|(?:ve)|(?:vg)|(?:vi)|(?:vn)|(?:vu)|(?:wf)|(?:ws)|(?:ye)|(?:yt)|(?:za)|(?:zm)|(?:zw))(?:/[^\\s()<>\\\"']*)?))[\"\\']"
+ },
+ {
+  "name": "presidio_urlrecognizer_quoted non-schema url",
+  "signal": "presidio_url",
+  "packed": 8221,
+  "flags": 2,
+  "pattern_sha256": "58b5bbbc4796bab1808322896eb62264f5fb8d10842cc14175db9bbbbd7df30b",
+  "validator": false,
+  "downgrades": [],
+  "pattern": "(?i)[\"\\'](((www\\d{0,3}[.])?[a-z0-9.\\-]{1,253}[.](?:(?:com)|(?:edu)|(?:gov)|(?:int)|(?:mil)|(?:net)|(?:onl)|(?:org)|(?:pro)|(?:red)|(?:tel)|(?:uno)|(?:xxx)|(?:academy)|(?:accountant)|(?:accountants)|(?:actor)|(?:adult)|(?:africa)|(?:agency)|(?:airforce)|(?:apartments)|(?:app)|(?:archi)|(?:army)|(?:art)|(?:asia)|(?:associates)|(?:attorney)|(?:auction)|(?:audio)|(?:auto)|(?:autos)|(?:baby)|(?:band)|(?:bar)|(?:bargains)|(?:beer)|(?:berlin)|(?:best)|(?:bet)|(?:bid)|(?:bike)|(?:bio)|(?:black)|(?:blackfriday)|(?:blog)|(?:blue)|(?:boats)|(?:bond)|(?:boo)|(?:boston)|(?:bot)|(?:boutique)|(?:build)|(?:builders)|(?:business)|(?:buzz)|(?:cab)|(?:cafe)|(?:cam)|(?:camera)|(?:camp)|(?:capital)|(?:car)|(?:cards)|(?:care)|(?:careers)|(?:cars)|(?:casa)|(?:cash)|(?:casino)|(?:catering)|(?:center)|(?:ceo)|(?:cfd)|(?:charity)|(?:chat)|(?:cheap)|(?:christmas)|(?:church)|(?:city)|(?:claims)|(?:cleaning)|(?:click)|(?:clinic)|(?:clothing)|(?:cloud)|(?:club)|(?:codes)|(?:coffee)|(?:college)|(?:com)|(?:community)|(?:company)|(?:computer)|(?:condos)|(?:construction)|(?:consulting)|(?:contact)|(?:contractors)|(?:cooking)|(?:cool)|(?:coupons)|(?:courses)|(?:credit)|(?:creditcard)|(?:cricket)|(?:cruises)|(?:cyou)|(?:dad)|(?:dance)|(?:date)|(?:dating)|(?:day)|(?:degree)|(?:delivery)|(?:democrat)|(?:dental)|(?:dentist)|(?:desi)|(?:design)|(?:dev)|(?:diamonds)|(?:diet)|(?:digital)|(?:direct)|(?:directory)|(?:discount)|(?:doctor)|(?:dog)|(?:domains)|(?:download)|(?:earth)|(?:eco)|(?:education)|(?:email)|(?:energy)|(?:engineer)|(?:engineering)|(?:enterprises)|(?:equipment)|(?:esq)|(?:estate)|(?:events)|(?:exchange)|(?:expert)|(?:exposed)|(?:express)|(?:fail)|(?:faith)|(?:family)|(?:fans)|(?:farm)|(?:fashion)|(?:feedback)|(?:film)|(?:finance)|(?:financial)|(?:fish)|(?:fishing)|(?:fit)|(?:fitness)|(?:flights)|(?:florist)|(?:flowers)|(?:football)|(?:forsale)|(?:foundation)|(?:fun)|(?:fund)|(?:furniture)|(?:futbol)|(?:fyi)|(?:gallery)|(?:game)|(?:games)|(?:garden)|(?:gay)|(?:gdn)|(?:gifts)|(?:gives)|(?:giving)|(?:glass)|(?:global)|(?:gmbh)|(?:gold)|(?:golf)|(?:graphics)|(?:gratis)|(?:green)|(?:gripe)|(?:group)|(?:guide)|(?:guitars)|(?:guru)|(?:hair)|(?:hamburg)|(?:haus)|(?:health)|(?:healthcare)|(?:help)|(?:hiphop)|(?:hockey)|(?:holdings)|(?:holiday)|(?:homes)|(?:horse)|(?:hospital)|(?:host)|(?:hosting)|(?:house)|(?:how)|(?:icu)|(?:info)|(?:ink)|(?:institute)|(?:insure)|(?:international)|(?:investments)|(?:irish)|(?:jewelry)|(?:jetzt)|(?:juegos)|(?:kaufen)|(?:kids)|(?:kitchen)|(?:kiwi)|(?:krd)|(?:kyoto)|(?:land)|(?:lat)|(?:law)|(?:lawyer)|(?:lease)|(?:legal)|(?:lgbt)|(?:life)|(?:lighting)|(?:limited)|(?:limo)|(?:link)|(?:live)|(?:loan)|(?:loans)|(?:lol)|(?:london)|(?:love)|(?:ltd)|(?:ltda)|(?:luxury)|(?:maison)|(?:management)|(?:market)|(?:marketing)|(?:markets)|(?:mba)|(?:media)|(?:melbourne)|(?:meme)|(?:memorial)|(?:men)|(?:miami)|(?:mobi)|(?:moda)|(?:moe)|(?:mom)|(?:money)|(?:monster)|(?:mortgage)|(?:motorcycles)|(?:mov)|(?:movie)|(?:nagoya)|(?:name)|(?:navy)|(?:network)|(?:new)|(?:news)|(?:ngo)|(?:ninja)|(?:now)|(?:nyc)|(?:observer)|(?:okinawa)|(?:one)|(?:ong)|(?:onl)|(?:online)|(?:organic)|(?:osaka)|(?:page)|(?:paris)|(?:partners)|(?:parts)|(?:party)|(?:pet)|(?:phd)|(?:photo)|(?:photography)|(?:photos)|(?:pics)|(?:pictures)|(?:pink)|(?:pizza)|(?:place)|(?:plumbing)|(?:plus)|(?:poker)|(?:porn)|(?:press)|(?:pro)|(?:productions)|(?:prof)|(?:promo)|(?:properties)|(?:property)|(?:protection)|(?:pub)|(?:quest)|(?:racing)|(?:recipes)|(?:red)|(?:rehab)|(?:reise)|(?:reisen)|(?:rent)|(?:rentals)|(?:repair)|(?:report)|(?:republican)|(?:rest)|(?:restaurant)|(?:review)|(?:reviews)|(?:rip)|(?:rocks)|(?:rodeo)|(?:rsvp)|(?:run)|(?:saarland)|(?:sale)|(?:salon)|(?:sarl)|(?:sbs)|(?:school)|(?:schule)|(?:science)|(?:services)|(?:sex)|(?:sexy)|(?:sh)|(?:shoes)|(?:shop)|(?:shopping)|(?:show)|(?:singles)|(?:site)|(?:skin)|(?:soccer)|(?:social)|(?:software)|(?:solar)|(?:solutions)|(?:soy)|(?:space)|(?:spiegel)|(?:study)|(?:style)|(?:sucks)|(?:supply)|(?:support)|(?:surf)|(?:surgery)|(?:systems)|(?:tax)|(?:taxi)|(?:team)|(?:tech)|(?:technology)|(?:tel)|(?:theater)|(?:tips)|(?:tires)|(?:today)|(?:tools)|(?:top)|(?:tours)|(?:town)|(?:toys)|(?:trade)|(?:training)|(?:tube)|(?:uk)|(?:university)|(?:uno)|(?:vacations)|(?:ventures)|(?:vet)|(?:video)|(?:villas)|(?:vin)|(?:vip)|(?:vision)|(?:vlaanderen)|(?:vodka)|(?:vote)|(?:voting)|(?:voyage)|(?:wales)|(?:wang)|(?:watch)|(?:webcam)|(?:website)|(?:wedding)|(?:wiki)|(?:wine)|(?:work)|(?:works)|(?:world)|(?:wtf)|(?:xyz)|(?:yoga)|(?:yokohama)|(?:you)|(?:zone)|(?:ac)|(?:ad)|(?:ae)|(?:af)|(?:ag)|(?:ai)|(?:al)|(?:am)|(?:an)|(?:ao)|(?:aq)|(?:ar)|(?:as)|(?:at)|(?:au)|(?:aw)|(?:ax)|(?:az)|(?:ba)|(?:bb)|(?:bd)|(?:be)|(?:bf)|(?:bg)|(?:bh)|(?:bi)|(?:bj)|(?:bm)|(?:bn)|(?:bo)|(?:br)|(?:bs)|(?:bt)|(?:bv)|(?:bw)|(?:by)|(?:bz)|(?:ca)|(?:cc)|(?:cd)|(?:cf)|(?:cg)|(?:ch)|(?:ci)|(?:ck)|(?:cl)|(?:cm)|(?:cn)|(?:co)|(?:cr)|(?:cu)|(?:cv)|(?:cw)|(?:cx)|(?:cy)|(?:cz)|(?:de)|(?:dj)|(?:dk)|(?:dm)|(?:do)|(?:dz)|(?:ec)|(?:ee)|(?:eg)|(?:er)|(?:es)|(?:et)|(?:eu)|(?:fi)|(?:fj)|(?:fk)|(?:fm)|(?:fo)|(?:fr)|(?:ga)|(?:gb)|(?:gd)|(?:ge)|(?:gf)|(?:gg)|(?:gh)|(?:gi)|(?:gl)|(?:gm)|(?:gn)|(?:gp)|(?:gq)|(?:gr)|(?:gs)|(?:gt)|(?:gu)|(?:gw)|(?:gy)|(?:hk)|(?:hm)|(?:hn)|(?:hr)|(?:ht)|(?:hu)|(?:id)|(?:ie)|(?:il)|(?:im)|(?:in)|(?:io)|(?:iq)|(?:ir)|(?:is)|(?:it)|(?:je)|(?:jm)|(?:jo)|(?:jp)|(?:ke)|(?:kg)|(?:kh)|(?:ki)|(?:km)|(?:kn)|(?:kp)|(?:kr)|(?:kw)|(?:ky)|(?:kz)|(?:la)|(?:lb)|(?:lc)|(?:li)|(?:lk)|(?:lr)|(?:ls)|(?:lt)|(?:lu)|(?:lv)|(?:ly)|(?:ma)|(?:mc)|(?:md)|(?:me)|(?:mg)|(?:mh)|(?:mk)|(?:ml)|(?:mm)|(?:mn)|(?:mo)|(?:mp)|(?:mq)|(?:mr)|(?:ms)|(?:mt)|(?:mu)|(?:mv)|(?:mw)|(?:mx)|(?:my)|(?:mz)|(?:na)|(?:nc)|(?:ne)|(?:nf)|(?:ng)|(?:ni)|(?:nl)|(?:no)|(?:np)|(?:nr)|(?:nu)|(?:nz)|(?:om)|(?:pa)|(?:pe)|(?:pf)|(?:pg)|(?:ph)|(?:pk)|(?:pl)|(?:pm)|(?:pn)|(?:pr)|(?:ps)|(?:pt)|(?:pw)|(?:py)|(?:qa)|(?:re)|(?:ro)|(?:rs)|(?:ru)|(?:rw)|(?:sa)|(?:sb)|(?:sc)|(?:sd)|(?:se)|(?:sg)|(?:sh)|(?:si)|(?:sj)|(?:sk)|(?:sl)|(?:sm)|(?:sn)|(?:so)|(?:sr)|(?:st)|(?:su)|(?:sv)|(?:sx)|(?:sy)|(?:sz)|(?:tc)|(?:td)|(?:tf)|(?:tg)|(?:th)|(?:tj)|(?:tk)|(?:tl)|(?:tm)|(?:tn)|(?:to)|(?:tp)|(?:tr)|(?:tt)|(?:tv)|(?:tw)|(?:tz)|(?:ua)|(?:ug)|(?:uk)|(?:us)|(?:uy)|(?:uz)|(?:va)|(?:vc)|(?:ve)|(?:vg)|(?:vi)|(?:vn)|(?:vu)|(?:wf)|(?:ws)|(?:ye)|(?:yt)|(?:za)|(?:zm)|(?:zw))(?:/[^\\s()<>\\\"']*)?))[\"\\']"
+ }
+]
