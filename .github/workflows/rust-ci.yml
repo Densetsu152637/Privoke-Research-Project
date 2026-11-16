@@ -85,9 +85,11 @@ jobs:
         run: cargo test --workspace --locked --no-fail-fast
 
   embed-check:
-    # The PyO3 spaCy worker needs a CPython 3.11 development install. The full
-    # embed tests need the Linux bundle, which is still pending (stage 11), so
-    # this job only proves the embed feature compiles and lints on Linux.
+    # The PyO3 spaCy worker and the in-process spaCy backend (stage 11b) need a
+    # CPython 3.11 development install. The full embed tests, the real-interpreter
+    # crash test and the NER parity gate need the Linux bundle, which is still
+    # pending (stage 23), so this job only proves the embed and in-process
+    # features compile and lint on Linux.
     name: spaCy worker embed build (Linux)
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -116,3 +118,7 @@ jobs:
         run: |
           PYO3_PYTHON="$(python -c 'import sys; print(sys.executable)')" \
             cargo clippy -p privoke-spacy-worker --features embed --all-targets --locked -- -D warnings
+      - name: Clippy with in-process
+        run: |
+          PYO3_PYTHON="$(python -c 'import sys; print(sys.executable)')" \
+            cargo clippy -p privoke-spacy --features in-process,test-hooks,fake-worker --all-targets --locked -- -D warnings

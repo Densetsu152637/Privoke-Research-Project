@@ -78,6 +78,12 @@ pub enum Request<'a> {
         /// Correlates the answer.
         id: u64,
     },
+    /// Test hook: the host process lists its own child processes (Linux only; answers `null` elsewhere). Honoured only
+    /// by the in-process runtime host.
+    TestChildren {
+        /// Correlates the answer.
+        id: u64,
+    },
     /// Test hook: the worker sleeps, then answers.
     TestSleep {
         /// Correlates the answer.
@@ -95,6 +101,7 @@ impl Request<'_> {
             | Self::LemmaIndex { id }
             | Self::TestCrash { id }
             | Self::TestPrint { id }
+            | Self::TestChildren { id }
             | Self::TestSleep { id, .. } => *id,
         }
     }
