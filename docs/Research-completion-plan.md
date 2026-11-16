@@ -1,5 +1,7 @@
 # PriVoke research and paper completion plan
 
+> Status: historical record. It is not maintained as current state; the current revision plan is [asiaccs-2027-revision.md](plans/asiaccs-2027-revision.md).
+
 Prepared 3 October 2026. Repository review checkpoint: `f03aa1b58cf2052afd822edffc9aac6c28ef101d`, branch `feat/dev-testing`.
 
 Execution updates are in [the current integration record](../evaluation/PROGRESS.md)

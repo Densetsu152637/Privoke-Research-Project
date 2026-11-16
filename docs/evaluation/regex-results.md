@@ -1,5 +1,7 @@
 # PriVoke Regex Layer Execution-Time Summary
 
+> Status: historical measurement. The rule counts and timings below describe the regex rule sets at the time of the run; the detector has since changed (labelled-identifier rules, validator downgrades; see the [regex detector notes](../detectors/regex.md)).
+
 > Source area: `evaluation/results`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
 
 This summary focuses on regex-layer execution time across two benchmark datasets.
