@@ -14,7 +14,7 @@ This package is instantiated in two independent contexts:
 
 | Context | Owner | Binding | Consumer |
 | --- | --- | --- | --- |
-| Server simulation | Docker Compose | `[::]:50054` inside Compose; the development override also publishes `127.0.0.1:50054` | Host Python fuzzer and evaluator clients, and server services |
+| Server simulation | Docker Compose | `[::]:50054` inside Compose; the default development `docker-compose.yml` also publishes `127.0.0.1:50054` (`docker-compose.prod.yml` keeps it internal) | Host Python fuzzer and evaluator clients, and server services |
 | Browser extension | `../runtime-supervisor` | `127.0.0.1:50057` | Supervisor-owned bridge for the WebExtension |
 
 The contexts share source code only. The extension never calls the Compose instance, and the fuzzer never calls the extension instance. The supervisor also exposes its separate control service on `127.0.0.1:50056` and its gRPC-Web bridge on `127.0.0.1:8080`.
@@ -171,9 +171,9 @@ Action policy:
 
 ## Detector Layers
 
-Regex rules are in `src/regex`. `RuleDetector.analyze(text)` returns one `ClassificationResult` per regex or heuristic hit. Rules are grouped by visibility, identity, location, health, financial, sensitive category, and context modules.
+Regex rules are in `src/regex`. `RuleDetector.analyze(text)` returns one `ClassificationResult` per regex or heuristic hit. Rules are grouped by visibility, identity, labelled identifier, location, health, financial, sensitive category, and context modules, plus imported Presidio and Gitleaks rule sets (`PRIVOKE_REGEX_PRESIDIO` and `PRIVOKE_REGEX_GITLEAKS`, both default on). See [Regex detector](../detectors/regex.md).
 
-NER is in `src/NER`. `EntityNERDetector` uses spaCy `en_core_web_sm` and maps `PERSON`, `GPE`, `LOC`, `FAC`, and `ORG` labels into PriVoke classifications. spaCy and the model are install-time dependencies from `requirements.txt`; missing packages or model data fail during import or detector initialization.
+NER is in `src/NER`. `EntityNERDetector` uses the spaCy pipeline named by `PRIVOKE_NER_MODEL` (default `en_core_web_sm`) and maps `PERSON`, `GPE`, `LOC`, `FAC`, and `ORG` labels into PriVoke classifications. spaCy and the model are install-time dependencies from `requirements.txt`; missing packages or model data fail during import or detector initialization.
 
 Semantic classifiers are in `src/LLM`:
 
@@ -250,6 +250,9 @@ Environment variables:
 - `PRIVOKE_NER_GLINER_MODEL`, default `knowledgator/gliner-pii-small-v1.0`; local checkpoint directory or Hugging Face id
 - `PRIVOKE_NER_GLINER_THRESHOLD`, default `0.3`; GLiNER span score threshold
 - `PRIVOKE_NER_GLINER_LABELS`, default `core`; `pii` adds identifier labels (see `docs/detectors/ner.md`)
+- `PRIVOKE_NER_CASELESS_GATE`, default off; `1` lowercases a prompt with no case signal before NER (see `docs/detectors/ner.md`)
+- `PRIVOKE_STRIP_FORMAT_CHARS`, `PRIVOKE_CANONICALISE_DIGITS`, `PRIVOKE_CANONICALISE_EMAIL_WORDS`, default off; optional input canonicalisations for the case-preserved detector view (see `docs/detectors/preprocessing.md`)
+- `PRIVOKE_REGEX_PRESIDIO`, `PRIVOKE_REGEX_GITLEAKS`, default on; `0` excludes the imported Presidio or Gitleaks rule sets
 - `PRIVOKE_MAX_PROMPT_CHARS`
 - `PRIVOKE_MAX_GRPC_MESSAGE_BYTES`, default `262144`
 - `PRIVOKE_MAX_GRPC_RESPONSE_BYTES`, default `1048576`

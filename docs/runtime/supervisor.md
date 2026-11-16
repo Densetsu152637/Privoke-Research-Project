@@ -30,7 +30,7 @@ WebExtension -> HTTP gRPC-Web :8080 -> supervisor-owned bridge
 
 ## Local setup
 
-First prepare `../client-runtime` as described in its README. Then, from this directory, install the lightweight control-plane dependencies and generate this process's protobuf bindings:
+First prepare `../client-runtime` as described in [Client runtime](client-runtime.md#local-setup). Then, from this directory, install the lightweight control-plane dependencies and generate this process's protobuf bindings:
 
 ```bash
 cd extension/runtime-supervisor

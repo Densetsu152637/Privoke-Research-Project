@@ -21,6 +21,8 @@ This directory contains layer 1 of the PriVoke client-runtime detector pipeline:
 - `rules_financial.py`: account, card, money, income, debt, and asset patterns.
 - `rules_sensitive.py`: politics, religion, criminal, sexual, child, and third-party cues.
 - `rules_context.py`: family, workplace, and timestamp context.
+- `rules_presidio.py`: regex recognizers imported from Microsoft Presidio (`import_presidio.py` prints the patterns of an installed Presidio registry).
+- `rules_gitleaks.py`: secret-detection rules imported from the Gitleaks catalog (`external_rules/gitleaks.toml`).
 
 ## Output Contract
 

@@ -45,6 +45,10 @@ pip install -r extension/client-runtime/requirements.txt
 - Texts are scored in windows of at most 300 whitespace-separated words so the checkpoint's length limit never truncates silently.
 - `pytorch_model.bin` checkpoints are loaded by GLiNER with `torch.load(weights_only=True)`.
 
+## Experimental pattern entity detector (not wired in)
+
+`pattern_entity_detector.py` holds `PatternEntityDetector`, a no-ML detector that keeps the `EntityNERDetector` contract and label mapping and records its mechanism (`cue`, `shape`, `gazetteer`, `recurrence`) in `metadata["mechanism"]`. It is not selectable through `PRIVOKE_NER_BACKEND` and is not part of the runtime pipeline; only its tests and the comparison script use it. Results: [pattern detector versus spaCy NER](../experiments/ner-pattern-detector-20261024.md).
+
 ## Label Mapping
 
 Current mappings:
