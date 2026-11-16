@@ -148,7 +148,24 @@ def canonical_line(obj: dict) -> str:
 
 
 def file_sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def read_shard_items(path: Path, shards: int, shard: int) -> list[dict]:
+    """Stream the frozen set and keep only this shard's items (bounded memory per scoring process)."""
+    items = []
+    with Path(path).open("r", encoding="utf-8") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            item = json.loads(line)
+            if shard_of(item["row_id"], shards) == shard:
+                items.append(item)
+    return items
 
 
 def stratified_sample(rows: list[dict], per_source: int | None, seed: int = SEED) -> list[dict]:
@@ -312,7 +329,7 @@ def cmd_score(args) -> int:
     actual = file_sha256(frozen)
     if actual != args.expected_sha256:
         raise SystemExit(f"frozen set hash {actual} does not match the declared {args.expected_sha256}; refusing to score")
-    items = [i for i in read_jsonl(frozen) if shard_of(i["row_id"], args.shards) == args.shard]
+    items = read_shard_items(frozen, args.shards, args.shard)
     out = set_dir / f"scores_{args.arm}_s{args.shard}of{args.shards}.jsonl"
     runtime = Runtime(Path(args.release_dir), args.arm, Path(args.generated))
     expected_checksum = runtime.identity["artifact_checksum"]
