@@ -1,28 +1,55 @@
 # Plan: Rust server rewrite and nginx removal
 
-Revision: 2026-11-16 (planning only; base `7384ec7` on `feat/nick-branch`, branch `plan/rust-rewrite`)
+Revision: 2026-11-16 r2 (planning only; base `7384ec7` on `feat/nick-branch`, branch `plan/rust-rewrite`; r2 applies the triaged plan-gate critique)
 
 **User instruction (16 November 2026).** "Because we use microservices, we do not need nginx. Also, plan to rewrite most of the server architecture in rust, the only exceptions being where model inference and training occur, as python is a good language for them. However, if they can be rewritten in rust, let me know and then I will decide whether it happens or not."
 
-**Status.** This is a plan. No code is changed by it. Every stage is `pending`. The [user-decision section](#inference-and-training-components-that-could-be-rewritten-in-rust-for-the-users-decision) lists options only; nothing there is scheduled.
+**Follow-up user decision (16 November 2026).** "Because spaCy NER runs a model, make an equivalent rust harness in a separate repo, make it importable through crate and then use it. D1-D10 can be ported."
+
+**Status.** This is a plan. No code is changed by it. Every stage is `pending`.
+- Stages 0 to 10 cover the server rewrite.
+- Stages 11 to 22 cover the [approved inference and training ports](#approved-inference-and-training-ports-stages-11-to-22), D1 to D10.
+- D11 remains a pending user decision.
 
 ## Goals
 
 Each goal is boolean and names its check. Commands run from the repository root on the host.
 
-- **G1. nginx is gone from every deployment path.** `git grep -n -i nginx -- deploy .github docker-compose*.yml` prints nothing, and `deploy/gce/nginx.conf` does not exist.
-- **G2. Authentication is enforced inside each server, before nginx is removed.** Stage 8 (removal) has stages 3 to 6 as dependencies. Every non-loopback listener of a server rejects a peer without a valid client certificate. Check: the new UPDSEC record (stage 9) has rows A1, A3, T1, T3, T8, T12 and T14 `rejected` with model unchanged, and the new static rows (replacing ST1 to ST3) hold.
-- **G3. Each UPDSEC-20261116 gap is closed or kept, and each has a negative test.** In the new record, the gap table lists all eight gaps. Each is `met`, or `kept` with a reason, and each links at least one row that ran. Check: `python evaluation/update_security_report.py` followed by `python -m unittest discover -s evaluation/tests -p test_update_security.py`.
+- **G1. nginx is gone from every deployment path.** `git grep -n -i nginx -- deploy .github docker-compose.yml docker-compose.prod.yml docker-compose.gpu.yml` prints nothing, and `deploy/gce/nginx.conf` does not exist. This holds only after stage 8b; until then nginx is the rollback path.
+- **G2. Authentication is enforced inside each server, fail-closed, before nginx is removed.** Every non-loopback listener of a server rejects a peer without a valid client certificate.
+  - A cloud build cannot start without a client-certificate verifier, and it has no plaintext or insecure flag.
+  - Stage 8a has stages 3 to 6 as dependencies, and it is gated on the stage 3 to 5 negative rows passing against the real containers.
+  - Check: the new UPDSEC record (stage 9) has rows A1, A3, T1, T3, T8, T12, T14 and R7 `rejected` with model unchanged, and the new static rows (replacing ST1 to ST3) hold. Startup check: each cloud binary, started without `--client-ca`, exits non-zero (`cargo test -p privoke-transport fail_closed`).
+- **G3. Each UPDSEC-20261116 gap is closed or kept, and each has a negative test.** In the new record, the gap table lists all eight gaps. Each is `met`, `kept`, or `kept (telemetry)` with a reason, and each links at least one row that ran. Check: `python evaluation/update_security_report.py` followed by `python -m unittest discover -s evaluation/tests -p test_update_security.py`.
 - **G4. The Rust services pass their host tests.** `cargo test --workspace --locked --manifest-path rust/Cargo.toml` exits 0 on the host.
-- **G5. The Rust services behave like the services they replace.** Check: `cargo test -p privoke-conformance --manifest-path rust/Cargo.toml`. It replays the stage 0 corpus and requires byte equality for artifacts, canonical JSON, fingerprints, streamed chunks, V3 package bytes and receipts. Telemetry estimates must also match exactly.
-- **G6. Python inference and training code does not change unless a stage owns the change.** `git diff <S0 tag> -- extension/client-runtime/src/{LLM,NER,regex,detection,classification,v3} extension/client-runtime/src/pipeline.py extension/client-runtime/src/model.py services/privoke-fuzzer/src/{prompt_generation,training} services/pretrained-v3/src/{runtime_server,fuzzer_training,audience_schedule}.py shared/python/privoke_model` shows nothing. Stage 6 may change transport-only files, and it lists them.
-- **G7. Recorded evidence is not invalidated silently.** Every row in the [revalidation table](#research-evidence-and-revalidation) is `revalidated (record)`, `historical (unchanged path)`, or `not claimed for the Rust build`. No existing evidence file is edited to describe the Rust build. Check: review the table against `git log -- paper/research docs/experiments`.
-- **G8. Cloud clients can fetch the default V3 package.** `GetModelPackage` and `StreamModelAsset` are public RPCs on the authenticated model listener. Check: the stage 8 smoke test fetches `privoke-v3-balanced` over mutual TLS and verifies its pin.
+- **G5. The Rust services behave like the services they replace.** Check: `cargo test -p privoke-conformance --manifest-path rust/Cargo.toml`. It replays the stage 0 corpus and compares outputs under the rules in `tests/conformance/normalization.toml`:
+  - **Byte equality, no normalisation:**
+    - artifacts
+    - canonical JSON
+    - fingerprints
+    - streamed chunk sequences
+    - V3 manifests and assets
+    - native-messaging and gRPC-Web payloads
+  - **Receipts and audit lines:** byte equality after normalisation. Wall-clock timestamps (fields ending in `_at`, `timestamp`, `time`) become `<TS>`. Server-generated identifiers (UUIDs not supplied by the request) become `<ID:n>`, numbered by first appearance, so that equality of reuse is still checked. Client-supplied `request_id`, `base_version`, digests and versions are never normalised.
+  - **Telemetry:** integer counts and stored marginals are exact. Floating-point estimator outputs agree within 4 ULP. They come from the same IEEE operations, so the expected difference is 0; the tolerance only covers reordering of `log` and `exp` in libm.
+- **G6. Python inference and training code does not change unless a stage owns the change.** The check is a single command, with no brace expansion, that works in PowerShell and Git Bash:
+  ```
+  git diff --exit-code asiaccs-2027-submission -- extension/client-runtime/src/LLM extension/client-runtime/src/NER extension/client-runtime/src/regex extension/client-runtime/src/detection extension/client-runtime/src/classification extension/client-runtime/src/v3 extension/client-runtime/src/pipeline.py extension/client-runtime/src/model.py extension/client-runtime/src/telemetry/privacy.py services/privoke-fuzzer/src/prompt_generation services/privoke-fuzzer/src/training services/pretrained-v3/src/runtime_server.py services/pretrained-v3/src/fuzzer_training.py services/pretrained-v3/src/audience_schedule.py shared/python/privoke_model
+  ```
+  It must exit 0. The tag name is set in stage 0. Stage 6 changes only the transport files it lists, which are outside these paths.
+- **G7. Recorded evidence is not invalidated silently.** Check: `python evaluation/check_revalidation.py --plan docs/plans/rust-server-rewrite.md --base asiaccs-2027-submission`, written in stage 9, exits 0. It asserts the following:
+  1. Every row of the [revalidation table](#research-evidence-and-revalidation) has a status from {`revalidated (<record path>)`, `historical (unchanged path)`, `not claimed for the Rust build`}, and every cited record exists.
+  2. `git diff --diff-filter=MD --name-only asiaccs-2027-submission -- paper/research docs/experiments` is empty, so existing evidence was only added to, never modified or deleted.
+  3. `paper/research/update-security-20261116.md` and its JSON are byte-identical to the tag.
+
+  Until the script exists, the same three items are a manual checklist in the stage 9 handoff.
+- **G8. Cloud clients can fetch the default V3 package. This is a deliberate behaviour change.** `GetModelPackage` and `StreamModelAsset` become public RPCs on the authenticated model listener. Today nginx does not route them. Check: the stage 8a smoke test fetches `privoke-v3-balanced` over mutual TLS and verifies its pin. Each new public RPC also has its negative rows (R7, R8).
 
 ## Scope and non-goals
 
 **In scope:**
 - Moving server and infrastructure code to Rust.
+- Porting the approved inference and training components D1 to D10 to Rust, including the separate `privoke-ner` crate repository.
 - Removing nginx and replacing it with in-service mutual TLS and authorisation.
 - PKI and identity design.
 - Compose, deployment and CI changes.
@@ -30,14 +57,14 @@ Each goal is boolean and names its check. Commands run from the repository root 
 - Sequencing against the paper deadline.
 
 **Non-goals:**
-- Rewriting any model inference or training code. The user decides that separately.
+- Changing the Python inference and training code. The approved Rust ports (stages 11 to 22) are new code, and the Python implementation stays unchanged as the oracle and as the measured system the paper describes (G6).
 - Changing the protobuf contracts in `shared/proto/`, except for additions that a stage justifies.
 - Changing the browser extension's gRPC-Web wire format.
 - Changing the native-messaging protocol.
 - Editing the paper.
 - Pushing.
 
-Before the deadline, only stage 0 and stage 1 may run (see [sequencing](#sequencing-against-the-11-december-2026-deadline)).
+Before the deadline, only stage 0 and stage 1 may run in this repository (see [sequencing](#sequencing-against-the-11-december-2026-deadline)). Whether stage 11, in the separate `Privoke-NER` repository, may start earlier is root's call.
 
 ## Assumptions
 
@@ -79,9 +106,11 @@ Before the deadline, only stage 0 and stage 1 may run (see [sequencing](#sequenc
   - `evaluation/update_security_pki.py`
   - `evaluation/update_security_report.py`
   - `evaluation/tests/test_update_security.py`
+- NER reference: `extension/client-runtime/src/NER/`, `evaluation/.venv-v1-v3-pipeline` (spaCy 3.7.5, thinc 8.2.5, `en_core_web_sm` 3.7.1, `en_core_web_lg` 3.7.1).
 - Proposed new paths:
   - `rust/` (Cargo workspace)
   - `tests/conformance/` (golden corpus captured in stage 0)
+  - `D:/Git Repositories/Privoke-NER` (separate local repository, crate `privoke-ner`, stage 11)
 
 ## Related docs
 
@@ -109,7 +138,7 @@ The current trust boundaries are as follows:
 
 Classes:
 - **(a) Server/infra → Rust.**
-- **(b) Inference/training → stays Python.**
+- **(b) Inference/training → stays Python during the server rewrite (stages 0 to 10).** The approved ports (stages 11 to 22) then add Rust equivalents, and the Python code stays unchanged as the oracle.
 - **(a/b) Mixed:** the component is split.
 
 | Component | Path | Language now | What it does | Class | Plan |
@@ -117,29 +146,30 @@ Classes:
 | Model streaming service | `services/model-streaming-service/cmd/server/*.go` | Go | Catalog. Legacy JSON Tiny artifact snapshot streaming. Standard V3 manifests and assets (`standard_v3.go`). Validation of training-contract metadata, which must equal Python canonical JSON byte for byte (`contextual_training.go`, `scratch_presence.go`, `pretrained_context.go`). Health subcommand. | a | Rust, stage 3 |
 | Param update service | `services/param-update-service/app/{server,validation,receipts,audit,bootstrap,config}.py` | Python | Validates updates (model, base version, tensors, shapes, finite values, per-coordinate bound). Compare-and-swap publication with atomic rename. Durable receipts in SQLite. Audit log. Bootstrap. No backpropagation. | a | Rust, stage 5 |
 | Training-cycle scheduler | `services/param-update-service/app/{fuzzer_requests,training_cycles}.py` | Python | Timed, persistent requests to the fuzzer (SQLite state, retries, seeds). This is orchestration, not training. | a | Rust, stage 5 |
-| Telemetry collector | `services/telemetry-service/app/{server,validation,storage,config}.py` | Python | Validates LDP packets. Stores lifetime marginals in SQLite. Summary uses nominal inversion and clipping. | a | Rust, stage 4. The estimator is ported with the Python code kept as a parity oracle, because claims C7 and C34 cite it. See [decision item D8](#d8-telemetry-ldp-randomizer-and-estimator). |
-| Fuzzer service | `services/privoke-fuzzer/src/{fuzzer_service,main,cli,config,runtime_client,json_records}.py` | Python | gRPC `FuzzerService`, cycle control, calls to the runtime for gradients, dumps. | b (kept whole) | Stays Python. The orchestration is thin (`fuzzer_service.py` plus `runtime_client.py`) and tied to the training loop it drives. Splitting it would add a process hop and gain nothing. Stage 6 adds mutual TLS only. |
-| Fuzzer prompt generation | `services/privoke-fuzzer/src/prompt_generation/*` | Python | Seeded synthetic training curricula (Python `random`, MT19937). | b | Stays. Decision item D5. |
-| Fuzzer training and update aggregation | `services/privoke-fuzzer/src/training/*` | Python | Batches, transforms, gradient aggregation into update deltas, retention evidence. | b | Stays. Decision item D5. |
+| Telemetry collector | `services/telemetry-service/app/{server,validation,storage,config}.py` | Python | Validates LDP packets. Stores lifetime marginals in SQLite. Summary uses nominal inversion and clipping. | a | Rust, stage 4. The estimator is ported with the Python code kept as a parity oracle, because claims C7 and C34 cite it. The client randomizer port is D8 (stage 18; see [assessment D8](#d8-telemetry-ldp-randomizer-and-estimator)). |
+| Fuzzer service (legacy) | `services/privoke-fuzzer/src/{fuzzer_service,main,cli,config,runtime_client,json_records}.py` | Python | gRPC `FuzzerService`, cycle control, calls to the runtime for gradients, dumps. | b (kept whole) | Stays Python. `fuzzer_service.py` imports `prompt_generation` and `training` and runs them in-process (sampling, batch training, evidence persistence), so its orchestration is inseparable from the training loop. Stage 6 adds mutual TLS only. Approved Rust port: D6 (stage 21). |
+| Fuzzer prompt generation | `services/privoke-fuzzer/src/prompt_generation/*` | Python | Seeded synthetic training curricula (Python `random`, MT19937). | b | Stays. Approved Rust port: D5 (stage 20). |
+| Fuzzer training and update aggregation | `services/privoke-fuzzer/src/training/*` | Python | Batches, transforms, gradient aggregation into update deltas, retention evidence. | b | Stays. Approved Rust port: D5 (stage 20). |
 | Pretrained-v3 checkpoint server | `services/pretrained-v3/src/{checkpoint_server,checkpoint_store,common}.py` | Python | Experimental content-addressed checkpoint store and publication receipts (`CheckpointService`). | a (experimental) | Deferred. Stage 10 is optional and runs only if V3 training graduates from experimental. |
-| Pretrained-v3 fuzzer server | `services/pretrained-v3/src/fuzzer_server.py` | Python | Experimental `V3FuzzerService` orchestration. | a (experimental) | Deferred to stage 10. |
-| Pretrained-v3 runtime and training | `services/pretrained-v3/src/{runtime_server,fuzzer_training,audience_schedule}.py` | Python (torch) | V3 semantic inference and physical training (`TrainingService`). Frozen AU3/BC01 sampling schedules. | b | Stays. Decision items D3, D4, D5. |
-| Client runtime: transport and hosting | `extension/client-runtime/src/{grpc_main.py,hosting/*,env.py,config.py,dependency_check.py}` | Python | gRPC `PrivokeRuntimeService` server. HTTP JSON server (`hosting/server.py`). Serialisation. | a/b | Stays in the Python worker process, behind the Rust supervisor (see [boundary](#pythonrust-boundary)). Stage 6 changes the listener security only. |
-| Client runtime: model fetch | `extension/client-runtime/src/LLM/privoke/{v3_package,parameter_stream}.py` | Python | Downloads and verifies V3 packages and legacy streams into the cache. | a | Stays in Python for now. Moving the download and pin check into the Rust supervisor is a revisit item: it would change the path the installed-client evidence measured. |
+| Pretrained-v3 fuzzer server | `services/pretrained-v3/src/fuzzer_server.py` | Python | Experimental `V3FuzzerService` orchestration. | b (experimental) | Stays Python, for the same reason as the legacy fuzzer: it imports `fuzzer_training.schedule` in-process to produce the frozen sampling stream. It is not part of stage 10. A Rust replacement is part of D6 (stage 21). |
+| Pretrained-v3 runtime and training | `services/pretrained-v3/src/{runtime_server,fuzzer_training,audience_schedule}.py` | Python (torch) | V3 semantic inference and physical training (`TrainingService`). Frozen AU3/BC01 sampling schedules. | b | Stays. Approved Rust port: D3 (stage 14); D4 (stage 19); D5 (stage 20). |
+| Client runtime: gRPC shell | `extension/client-runtime/src/grpc_main.py`, `hosting/{grpc_server,serialization,runtime_config,analyzer,models}.py`, `env.py`, `config.py`, `dependency_check.py` | Python | `PrivokeRuntimeService` server (image `CMD`), request and response serialisation, runtime configuration. | a, held in Python | Stays in the Python worker. Reason: it is the in-process host of inference and gradients. Each RPC calls into the torch, spaCy and pipeline objects in the same interpreter. A Rust replacement would need either PyO3 (rejected, see [boundary](#pythonrust-boundary)) or a second Python-side server, so the same shell would still exist. The Rust supervisor becomes the external edge in front of it instead. Stage 6 changes listener security only. |
+| Client runtime: HTTP JSON shell | `extension/client-runtime/src/main.py`, `hosting/server.py` | Python | Alternative `ThreadingHTTPServer` JSON host of the same analyzer; not used by the container images, which run `grpc_main.py`. | a, held in Python | Not ported. Same in-process reason as the gRPC shell. Deprecating it is a separate decision for root, because evaluation scripts may use it. |
+| Client runtime: model fetch | `extension/client-runtime/src/LLM/privoke/{v3_package,parameter_stream}.py` | Python | Downloads V3 packages and legacy tensor streams from the model service, verifies pins, shapes and finite values, and writes the cache that inference loads. | a, held in Python | Stays in Python. Reason: verification is coupled to the loader that builds the torch model, and the installed-client evidence (C42, V3 timing) measured this path. Moving download and pin checking into the Rust supervisor is D11, which is pending a user decision. It is listed with the ports because it changes an evidence path, even though it is not inference. |
 | Client runtime: detection pipeline | `extension/client-runtime/src/{pipeline,model,detection/*,classification/*,task_readout,pretrained_context,transformer_encoder,util}.py` | Python | Normalisation, layer selection, policy aggregation, semantic readout. | b | Stays. Normalisation and aggregation fix the recorded detector results. |
-| Regex layer | `extension/client-runtime/src/regex/*` | Python (`regex`, Presidio recognisers) | Deterministic rules, validators, Presidio imports. | b (detector) | Stays. Decision item D2. |
-| NER layer | `extension/client-runtime/src/NER/*` | Python (spaCy, optional GLiNER) | spaCy `en_core_web_sm`, post-filter, pattern entities. | b | Stays. Decision items D1 and D9. |
-| Semantic classifiers | `extension/client-runtime/src/LLM/{local_classifier,privoke_classifier,abs_classifier,prompt}.py`, `LLM/privoke/{streamed_model,presence_model,scratch_presence_model,pretrained_context_model}.py`, `v3/model.py` | Python (torch, transformers, tokenizers, safetensors) | V3 encoder and heads, legacy Tiny model, presence models. | b | Stays. Decision item D3. |
-| External LLM classifier | `extension/client-runtime/src/LLM/open_classifier.py` | Python (`openai`) | Remote API classifier. | b | Stays. Decision item D10. |
-| Gradient and local training | `extension/client-runtime/src/LLM/privoke/{training,full_adam_training,window_training,supervised_training,presence_training,sensitive_retention_training,reference_preparation}.py`, `v3/training.py` | Python (torch) | `ComputeSemanticGradients`, `ComputeUnderlyingModelGradients` and `ComputePresenceGradients`. Local SGD and FULL projected Adam. | b | Stays. Decision item D4. |
-| Telemetry reporter (client) | `extension/client-runtime/src/telemetry/{privacy,event_emitter}.py` | Python | Randomised response, persistent budget ledger, delivery. | a (infra), held | Stays in Python. The audited finite kernel (C34) is this code. Decision item D8. |
+| Regex layer | `extension/client-runtime/src/regex/*` | Python (`regex`, Presidio recognisers) | Deterministic rules, validators, Presidio imports. | b (detector) | Stays. Approved Rust port: D2 (stage 12). |
+| NER layer | `extension/client-runtime/src/NER/*` | Python (spaCy, optional GLiNER) | spaCy `en_core_web_sm`, post-filter, pattern entities. | b | Stays. Approved Rust port: D1 (stages 11 and 13); D9 (stage 15). |
+| Semantic classifiers | `extension/client-runtime/src/LLM/{local_classifier,privoke_classifier,abs_classifier,prompt}.py`, `LLM/privoke/{streamed_model,presence_model,scratch_presence_model,pretrained_context_model}.py`, `v3/model.py` | Python (torch, transformers, tokenizers, safetensors) | V3 encoder and heads, legacy Tiny model, presence models. | b | Stays. Approved Rust port: D3 (stage 14). |
+| External LLM classifier | `extension/client-runtime/src/LLM/open_classifier.py` | Python (`openai`) | Remote API classifier. | b | Stays. Approved Rust port: D10 (stage 16). |
+| Gradient and local training | `extension/client-runtime/src/LLM/privoke/{training,full_adam_training,window_training,supervised_training,presence_training,sensitive_retention_training,reference_preparation}.py`, `v3/training.py` | Python (torch) | `ComputeSemanticGradients`, `ComputeUnderlyingModelGradients` and `ComputePresenceGradients`. Local SGD and FULL projected Adam. | b | Stays. Approved Rust port: D4 (stage 19). |
+| Telemetry reporter (client) | `extension/client-runtime/src/telemetry/{privacy,event_emitter}.py` | Python | Randomised response, persistent budget ledger, delivery. | a (infra), held | Stays in Python. The audited finite kernel (C34) is `privacy.py`, and it must stay byte-identical (G6). Stage 6 changes only the delivery channel in `event_emitter.py`, so that it can use the telemetry credential. Approved Rust port: D8 (stage 18). |
 | Runtime supervisor | `extension/runtime-supervisor/src/{main,runtime_supervisor,grpc_web_bridge,native_messaging_host}.py` | Python | Native-messaging host (length-prefixed JSON on stdio). Launches the supervisor and the fixed-argv runtime child. gRPC-Web to gRPC bridge with an origin allowlist and 30/35 s timeouts. `PrivokeRuntimeControlService`. | a | Rust, stage 7 |
 | Shared model contracts | `shared/python/privoke_model/{artifact,fingerprint,readout,v3_contract,standard_v3,full_adam,contextual_training,sensitive_retention,window_training,scratch_presence,pretrained_context}.py` | Python | Artifact codec and checksum. Two canonical-JSON variants (`full_adam.canonical`: ASCII-escaped; `sensitive_retention.canonical_bytes`: UTF-8 plus LF). Tensor fingerprints. V3 manifest rules. | a/b | A Rust port in `rust/crates/privoke-contracts` serves the Rust servers (stage 1). The Python originals stay authoritative for training, and the conformance corpus binds the two. |
 | Shared training contracts | `shared/python/privoke_model/{presence,training_data,window_training}.py` | Python | Lexical presence inference. Train/eval text keys. Window training. | b | Stays. |
 | Service helpers | `shared/python/privoke_service/{environment,logging,validation,stack_connection}.py`, `shared/python/grpc_healthcheck.py` | Python | Environment parsing. Stack selection and the mutual-TLS client channel. Health probe. | a (Python consumers stay) | Stays for the Python processes. Stage 6 adds server credentials and per-service cloud targets. Rust equivalents live in `rust/crates/privoke-transport`. |
 | Contracts | `shared/proto/privoke/v1/{parameters,runtime,telemetry}.proto`, `shared/proto/privoke/experimental/v3.proto` | protobuf | Service interfaces. | interface | Unchanged. Rust uses `tonic-build`, with `protox` so that `protoc` is not needed on Windows. |
-| Compose stacks | `docker-compose.yml`, `docker-compose.prod.yml`, `docker-compose.gpu.yml`, `evaluation/compose.*.yml` | YAML | Development, production and study stacks. | a | Stage 8 switches the service images. Study compose files stay pinned to their recorded revisions (see revalidation). |
-| Cloud deployment | `deploy/gce/{compose.yml,nginx.conf,deploy.sh,bootstrap.sh,tests/smoke.py}`, `.github/workflows/deploy-gce.yml` | YAML, shell, nginx, Python | VM stack and ingress. | a | Stage 8 removes nginx and rewrites the smoke test. |
+| Compose stacks | `docker-compose.yml`, `docker-compose.prod.yml`, `docker-compose.gpu.yml`, `evaluation/compose.*.yml` | YAML | Development, production and study stacks. | a | Stage 8a switches the service images. Study compose files stay pinned to their recorded revisions (see revalidation). |
+| Cloud deployment | `deploy/gce/{compose.yml,nginx.conf,deploy.sh,bootstrap.sh,tests/smoke.py}`, `.github/workflows/deploy-gce.yml` | YAML, shell, nginx, Python | VM stack and ingress. | a | Stage 8a cuts over with nginx kept as rollback; stage 8b removes nginx. |
 
 ## Python↔Rust boundary
 
@@ -170,33 +200,68 @@ nginx is removed only after every function it performs has an in-service replace
 | TLS termination (1.2/1.3) | `tonic` with `rustls`. The server config is built directly so that the client verifier can be set. | 1, 3, 4, 5 |
 | Client certificate required, one CA, depth 2 | `rustls::server::WebPkiClientVerifier`, with roots from the client CA, CRLs loaded, and anonymous clients refused. | 1 |
 | Method allowlist with 404 default | A **public listener** serves only the public RPCs. Private RPCs go on a separate **internal listener**. An authorisation interceptor maps (role, RPC) to allow, and returns `PERMISSION_DENIED` otherwise. | 3 to 5 |
-| Rate limits per IP, 20 connections | `tower` `ConcurrencyLimit`, plus a per-peer limiter (`tower_governor`, keyed by certificate identity and falling back to IP), plus a connection cap. | 1 |
+| Rate limits per IP, 20 connections | `tower` `ConcurrencyLimit`, plus a per-peer limiter (`tower_governor`), plus a connection cap. The limiter key depends on the service:<br>• **Model service:** keyed by the installation identity from the certificate.<br>• **Telemetry service:** keyed by source IP, because every reporter shares one certificate (see the telemetry notes below), so a certificate key would put all clients in one bucket. | 1 |
 | 1 MB body, 60 s timeouts | `max_decoding_message_size` and `tower::timeout` per service. Streaming RPCs keep their existing per-message limits. | 1 |
-| One `:443` shared by two services | Each public service gets its own port. The plan uses model `:443` and telemetry `:8443`; the actual ports are a stage 2 decision. The client gets `PRIVOKE_CLOUD_MODEL_TARGET` and `PRIVOKE_CLOUD_TELEMETRY_TARGET`, and an unset value falls back to `PRIVOKE_CLOUD_TARGET` for model only. The firewall rule in section 3 of the deployment guide changes to match. | 6, 8 |
+| One `:443` shared by two services | Model on `:443`, telemetry on `:8443` (see the [port decision](#port-decision)). The client gets `PRIVOKE_CLOUD_MODEL_TARGET` and `PRIVOKE_CLOUD_TELEMETRY_TARGET`; an unset value falls back to `PRIVOKE_CLOUD_TARGET`, for model only. The firewall rule in section 3 of the deployment guide changes to match, at the end of the stage 8a cutover. | 6, 8 |
 | `/healthz` on 127.0.0.1:8081 | Each Rust binary has a `healthcheck` subcommand, as the Go service has now, and the gRPC `Health` RPC on the internal listener. | 3 to 5 |
 | Re-resolve upstreams after recreate | Not needed: there is no proxy hop. | — |
 
-**Identity (stage 2).** Every principal holds a short-lived X.509 certificate from the private CA. The identity is carried in the certificate's URI SAN:
+**Fail-closed construction.**
+- `privoke-transport` builds a server only from a `ServerTlsConfig`, and that type cannot be constructed without a client-CA root store and a CRL path. There is no plaintext constructor in the cloud build.
+- Plaintext loopback is available only behind the cargo feature `workstation-loopback`. That feature is enabled only for `runtime-supervisor` and for tests.
+- The cloud Dockerfiles build with `--no-default-features`. A CI or host test asserts that the release binaries do not contain the loopback code path (`cargo tree -e features` shows no `workstation-loopback`).
+- A cloud binary started without `--client-ca`, `--crl`, `--registry`, `--cert` or `--key` exits non-zero before it binds.
+
+**Identity (stage 2).** Every principal holds an X.509 certificate from the private client CA. The identity is carried in the certificate's URI SAN:
 - `urn:privoke:installation:<uuid>`, role `consumer`
 - `urn:privoke:service:<name>`, role `publisher`, `trainer` or `runtime`
+- `urn:privoke:reporter`, the shared telemetry credential
 
 How services use the identity:
 - Services derive `consumer_id` and `source_id` from the peer certificate (`Request::peer_certs`, parsed with `x509-parser`).
 - A request field that disagrees with the certificate identity is rejected.
-- A registry file (`installations.toml` and `services.toml`, hot-reloaded) authorises identities individually.
+- A registry file (`installations.toml` and `services.toml`) authorises identities individually.
 
-Revocation:
-- A CRL is loaded by `rustls`, so revocation takes effect at the handshake.
-- The registry deny list provides immediate revocation without reissuing the CRL.
-- Issuance and CRLs use a Rust CLI (`rust/tools/privoke-pki`, built on `rcgen`) that replaces the manual OpenSSL steps in section 4 of the deployment guide.
+**Enrolment and renewal of per-installation certificates (stage 2 acceptance).** This is operator-mediated, which suits the deployment's scale (a private research installation; section 4 of the deployment guide already issues certificates by hand). The CA key stays offline. No online issuing endpoint is added, so no new RPC or contract is needed.
 
-**Telemetry privacy constraint.** Per-installation certificates make telemetry reports linkable to an installation at the transport. The paper already lists source IP and report presence as observable. Even so, the collector must not persist or log the peer identity next to packet content.
+1. **Who enrols.** The operator, holding the offline client-CA key, is the only issuer. The user installs the extension, then runs `privoke-supervisor enrol`. This generates the key pair locally (the private key never leaves the machine, file mode 0600 or user-only ACL) and writes a CSR whose SAN carries a fresh installation UUID.
+2. **How the desktop receives its certificate.** The user sends the CSR, which is public, to the operator by any channel. The operator verifies the request out of band (the user and a fingerprint confirmed in person or by a known contact), then runs `privoke-pki sign --installation <uuid> --days 180`, adds the UUID to `installations.toml` and publishes the registry. The operator returns `client.crt` and the server CA. `privoke-supervisor install-cert` checks that the certificate matches the local key and SAN before storing it.
+3. **Renewal, including offline periods.** Certificates are valid for 180 days. Inside `privoke-supervisor`, `status` warns from 30 days before expiry, and `renew` creates a new key and CSR under the same UUID. The operator signs it by the same manual path, so no network renewal service exists.
+4. **Expiry while offline is safe.** An installation that stays offline past expiry loses only cloud model refresh and telemetry delivery. Local inspection keeps using the cached, pin-verified package in `MODEL_PACKAGE_CACHE_DIR`. The next contact fails closed at the handshake until the user renews, and the supervisor's status reports this.
+5. **Revocation.** The operator adds the UUID to the registry deny list (immediate) and issues a CRL (applied at the handshake; see CRL hot reload below).
 
-Two options for stage 2 to choose between:
-1. A shared `reporter` role certificate for telemetry only.
-2. Per-installation certificates, with the linkability documented.
+Limitation, stated rather than hidden: renewal needs a human at both ends, so this does not scale beyond a small cohort. Automatic renewal would need an online issuer, and that is out of scope. Revisit if the installation count grows beyond what the operator can serve by hand. On this basis the plan closes GAP-NO-CREDENTIAL-MECHANISM and GAP-NO-PER-INSTALLATION-AUTHZ for model retrieval and keeps the latter for telemetry.
 
-Recommendation: option 1 for telemetry, per-installation certificates for model retrieval. The gap table below records this as a deliberate scope limit for telemetry.
+**CRL and registry hot reload (stage 1, tested by X13 in stage 9).**
+- Each listener accepts TCP itself and runs a `tokio-rustls` `TlsAcceptor`. The acceptor is built per connection from an `ArcSwap<Arc<rustls::ServerConfig>>`, and tonic serves the result with `serve_with_incoming`. tonic's built-in TLS cannot swap configs, which is why the acceptor is separate.
+- A reloader watches the CRL and registry files (`notify`, plus a 60 s poll as a fallback). It parses the new CRL and checks its signature against the client CA and that `nextUpdate` is in the future. It then builds a new `WebPkiClientVerifier` and `ServerConfig` and stores them atomically, so new handshakes use the new config.
+- A malformed or stale CRL is refused. The old config stays active, and an error is logged and exposed in `Health`.
+- Existing connections were authenticated under the old config. A maximum connection age (10 min, with graceful drain) bounds how long a revoked peer can keep a stream open. The registry deny list is checked on every RPC, so it takes effect immediately even on open connections.
+- Tests:
+  - Revoke one installation, replace the CRL file, and within the poll interval a new handshake fails while a control installation still connects.
+  - A corrupt CRL keeps the previous config.
+  - A deny-listed UUID gets `PERMISSION_DENIED` on an open connection.
+
+<a id="port-decision"></a>**Port decision (separate hostname on 443 versus port 8443).** Without a proxy, two TLS servers cannot share one IP and port. SNI routing is a proxy function.
+- **A separate hostname on 443** therefore needs a second external IP routed to the VM (GCE protocol forwarding or a second NIC). Each container then publishes `<ip>:443`. It works on networks that allow only 443, but it adds a reserved static IP, guest routing configuration and a second DNS name and server certificate.
+- **Port 8443 for telemetry** needs nothing extra, but restrictive networks that allow only 443 will block it.
+
+Decision: **8443 for telemetry, 443 for model.** Reasons:
+- Model retrieval, the path whose failure matters, stays on 443.
+- Telemetry is best-effort by design. Blocked delivery is already handled as an outage: the budget is reserved and not refunded, which is the privacy-safe direction, and inspection is unaffected.
+- The single-IP VM layout and costs stay unchanged.
+
+Revisit (switch to a second IP on 443) if stage 9 or field reports show material telemetry loss from blocked 8443. The client configuration already supports separate targets, so the switch is configuration-only.
+
+**Telemetry credential, abuse and poisoning.**
+- Per-installation certificates would make telemetry reports linkable to an installation at the transport. The collector therefore accepts the shared `urn:privoke:reporter` credential. It is delivered to installations at enrolment as a second key pair (`PRIVOKE_TELEMETRY_TLS_CERT_FILE` / `PRIVOKE_TELEMETRY_TLS_KEY_FILE`, loaded by `stack_connection`) and never persists or logs the peer identity.
+- Consequence: GAP-NO-PER-INSTALLATION-AUTHZ and GAP-IDENTITY-SELF-ASSERTED are `kept (telemetry)`. Revoking the reporter credential revokes every reporter, and recovery means rotating it at the next enrolment or renewal of each installation.
+- Abuse and poisoning: anyone holding the shared key can submit arbitrary well-formed packets. They could extract it from any installation, since it is on every client. LDP reports cannot be checked for truthfulness by construction, so a holder can bias the collected marginals (a known class of poisoning attacks on LDP frequency estimation).
+- Mitigations:
+  - a per-source-IP rate and daily cap
+  - the message-size and field-domain validation that already exists
+  - a per-IP daily acceptance counter, which records only counts by day and not identities, for detecting anomalies
+- Residual risk, to be stated wherever telemetry results are used: aggregates are not robust to a motivated key holder, and the paper's telemetry claims (C7, C34) concern privacy of honest reports, not integrity of aggregates.
 
 ## UPDSEC gap closure map
 
@@ -205,11 +270,11 @@ Every gap from [UPDSEC-20261116](../../paper/research/update-security-20261116.m
 | Gap | Decision | Mechanism | Negative test (must be rejected, model unchanged) |
 | --- | --- | --- | --- |
 | GAP-NO-PUBLISHER-AUTH | Close (stage 5) | `ParamUpdateService` serves only on the internal listener. It requires mutual TLS and the `publisher` role for `SubmitParameterUpdate`, and `publisher` or `trainer` for `GetParameterUpdateStatus`. | A1 and T14 rerun. Add R1: a valid `consumer` installation certificate submits an update and gets `PERMISSION_DENIED`. |
-| GAP-IDENTITY-SELF-ASSERTED | Close (stages 3 and 5) | `source_id` and `consumer_id` come from the certificate SAN. A mismatching field is rejected with `PERMISSION_DENIED`. | A2 and T2 rerun. Add R2: a publisher certificate for `service:test-trainer` claims `source_id=server-fuzzer`. |
-| GAP-NO-CREDENTIAL-MECHANISM | Close (stage 2). The mechanism is short-lived client certificates checked in-service, with no bearer tokens. | Expiry and not-before are checked by `rustls` at the handshake. Registry entries carry an expiry. | A3 rerun: the bogus token is ignored and the request still fails for lack of a certificate. Add R3: an expired certificate, a not-yet-valid certificate, and a certificate without client-auth EKU are each rejected at the handshake by the real service, not a stand-in. |
-| GAP-NO-RETRIEVAL-AUTH | Close (stage 3) | Every model RPC except `Health` requires the `consumer` role. `GetModelPackage` and `StreamModelAsset` are now reachable (G8). | T1, T3, T8 and T12 rerun without a certificate. Add R4: a certificate from a foreign CA with a valid subject. |
-| GAP-NO-PER-INSTALLATION-AUTHZ | Close (stage 2 registry, enforced in stages 3 and 4) | Installation IDs in the registry; unknown IDs are refused. | X8 changes: a second certificate from the same CA whose installation ID is not registered gets `PERMISSION_DENIED`. A registered one is accepted (positive control). |
-| GAP-NO-REVOCATION | Close (stage 2) | CRL in `WebPkiClientVerifier`, plus the registry deny list. | X13 changes from `not_applicable` to a live run: revoke one installation and its handshake fails. A deny-listed ID gets `PERMISSION_DENIED` without a restart. |
+| GAP-IDENTITY-SELF-ASSERTED | Close for update and model retrieval (stages 3 and 5). `kept (telemetry)`: reports carry no identity field, and the shared reporter credential is deliberately not individual. | `source_id` and `consumer_id` come from the certificate SAN. A mismatching field is rejected with `PERMISSION_DENIED`. | A2 and T2 rerun. Add R2: a publisher certificate for `service:test-trainer` claims `source_id=server-fuzzer`. The telemetry row is static: no identity is stored. |
+| GAP-NO-CREDENTIAL-MECHANISM | Close (stage 2). The mechanism is client certificates with 180-day validity, checked in-service, issued and renewed through the operator-mediated enrolment above. There are no bearer tokens. | Expiry and not-before are checked by `rustls` at the handshake. Registry entries carry an expiry. | A3 rerun: the bogus token is ignored and the request still fails for lack of a certificate. Add R3: an expired certificate, a not-yet-valid certificate, and a certificate without client-auth EKU are each rejected at the handshake by the real service, not a stand-in. |
+| GAP-NO-RETRIEVAL-AUTH | Close (stage 3) | Every model RPC except `Health` requires the `consumer` role. `GetModelPackage` and `StreamModelAsset` become publicly reachable, a behaviour change (G8). | T1, T3, T8 and T12 rerun without a certificate. Add R4: a certificate from a foreign CA with a valid subject. Add R7 (new public `GetModelPackage`): no certificate, an unregistered installation, the reporter credential, and a path-traversal or unknown model id, all through the public listener. Add R8 (new public `StreamModelAsset`): the same identities, plus a wrong pin and a non-allowlisted asset name (as T9 to T11), through the public listener. Add R9: `GetModelParameters` and `ParamUpdateService` methods on the public listener return `UNIMPLEMENTED`. |
+| GAP-NO-PER-INSTALLATION-AUTHZ | Close for model retrieval (stage 2 registry, enforced in stage 3). `kept (telemetry)`: the shared reporter credential avoids making reports linkable, and revoking it is all-or-nothing. | Installation IDs in the registry; unknown IDs are refused. | X8 changes: a second certificate from the same CA whose installation ID is not registered gets `PERMISSION_DENIED`. A registered one is accepted (positive control). The telemetry row records the kept property with an installation certificate (accepted only if it is the reporter credential). |
+| GAP-NO-REVOCATION | Close (stages 1 and 2) | CRL in `WebPkiClientVerifier`, hot-reloaded by an atomic `ServerConfig` swap, plus the registry deny list and a maximum connection age. | X13 changes from `not_applicable` to a live run, as in the CRL hot reload tests above: a revoked installation's new handshake fails without a restart, a corrupt CRL keeps the old config, and a deny-listed ID gets `PERMISSION_DENIED` on an open connection. |
 | GAP-NO-CUMULATIVE-BOUND | Close as configurable policy (stage 5). The default is chosen in stage 5 from replayed recorded update sequences. | Two new checks on top of the per-coordinate bound: a per-update L2 bound, and a rolling cumulative L2 drift budget measured from the anchored release. Both are recorded in the receipt. | E6 and E7 rerun and are rejected once the budget is exceeded. Add R5: drift spread across many small updates, each under the per-update bound, is rejected at the budget. |
 | GAP-LOOPBACK-PLAINTEXT-POLICY | Split. **Close** for internal Compose mode: the Python and Rust servers on the Compose network use mutual TLS (stage 6). **Keep** for workstation loopback (supervisor to Python worker, bridge to supervisor). | Reason for keeping: traffic never leaves the host, and any local process can already reach the loopback gRPC-Web bridge, so TLS adds no boundary there. Optional hardening (revisit item): a per-launch secret that the supervisor passes to the worker on stdin and checks in metadata. | X16 changes: in internal mode with a non-loopback target, plaintext is refused. Add R6: a Compose-network plaintext call to `param-update` or `client-runtime` is refused. Loopback stays a documented `kept` row. |
 
@@ -226,18 +291,23 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
 | UPDSEC-20261116. Paper G2, G7, the threats table and the guarded-update text (`paper/main.tex` around lines 101, 106, 125 and 241, which say update-path authentication is pending and the cumulative change is unbounded). | The services and their authentication change. Closing gaps makes those paper sentences out of date. | 9: new record `UPDSEC-<date>`. The paper changes only under its own scope authorisation. |
 | Legacy guarded-update mechanism (paper section "Guarded Detector Updates"). C4, C10 and C16 used Python `param-update`. | Validation, compare-and-swap and receipts are reimplemented. | 5: byte equality of published artifacts on the stage 0 sequences keeps the historical results applicable. A new cumulative bound is a behaviour change and is disclosed. |
 | Standard V3 serving (paper path table). Package pins. | The Go service is replaced. | 3: byte equality of manifests and assets. |
+| Ingress claim of three routed RPCs: UPDSEC ST5 and ST6, the paper threats row "Client certificates on streaming and telemetry routes" (`main.tex`, around line 125), and the [ingress routing](../deployment/google-cloud.md#ingress-routing) section of the deployment guide. | Behaviour change. The public surface grows from three RPCs to `Health`, `StreamModelParameters`, `GetModelPackage` and `StreamModelAsset` on the model service, plus `RecordTelemetry`. Authentication moves from nginx into each service. | 9: new static rows and R7 to R9 in the new UPDSEC record. The historical record keeps its three-RPC statement unchanged. The paper statement is `not claimed for the Rust build` until edited under its own authorisation. |
 | C1 (component suites pass). | The suites change. | 3 to 7: new suite counts in a new record. |
 | C5, C6, C42 (B14 installed client). V3 installed timing (`main.tex`, around line 327). Paper around line 325 ("supervisor, bridge"). | The supervisor, bridge and native host are rewritten. Bridge timeouts set the silent-broker timing (about 32 s). | 7: rerun the installed-browser protocol (`paper/research/installed-browser-protocol.md`) only if the paper or artifact is to describe the Rust build. Otherwise mark `not claimed for the Rust build`. |
 | C7, C34 and the telemetry audit (collector inversion and clipping). | The collector estimator is reimplemented. | 4: exact estimator parity on the corpus. The client kernel is unchanged unless the user chooses D8. |
 | Anonymous artifact (ASIACCS-S8) and reproduction capsules (C41, RP14). | The artifact pins the current build. | Tag the submission revision in stage 0. The artifact is never rebuilt from the Rust tree. |
-| Study compose files (`evaluation/compose.*.yml`), whose results cite Go and Python images. | The images change. | Recorded studies stay reproducible from their own revisions. Stage 8 does not edit historical study stacks. |
-| Any item in the user-decision list (D1 to D10). | It changes inference or training numerics. | See each item. It affects most of C2 to C56. |
+| Study compose files (`evaluation/compose.*.yml`), whose results cite Go and Python images. | The images change. | Recorded studies stay reproducible from their own revisions. Stage 8a does not edit historical study stacks. |
+| Approved ports D1 to D10 (stages 11 to 22). | They change the inference and training implementation. | Each stage's parity criterion and revalidated claims are in the [port table](#approved-inference-and-training-ports-stages-11-to-22). Together they cover most of C2 to C56. Until a stage's record exists, those claims stay `not claimed for the Rust build`. |
 
 ## Sequencing against the 11 December 2026 deadline
 
-- **Before 11 December 2026:** run stage 0 (tag, conformance capture) and, optionally, stage 1 (Rust workspace and contract crate) on `plan/rust-rewrite` or a successor branch. Do not merge into the branch the submission and artifact are built from. Make no change to `services/`, `extension/`, `deploy/`, `shared/python/` or `paper/`.
+- **Before 11 December 2026:** run stage 0 (tag, conformance capture) and, optionally, stage 1 (Rust workspace and contract crate) on `plan/rust-rewrite` or a successor branch. Do not merge into the branch the submission and artifact are built from. Make no change to `services/`, `extension/`, `deploy/`, `shared/python/`, `paper/` or `.github/`. In particular, no CI workflow changes before the deadline: the Rust tests run on the host only (`cargo test`).
 - **After submission:** stages 2 to 9 in order. The artifact-evaluation and camera-ready builds use the submission tag. If the paper is to describe the Rust build, stage 9 and the revalidation rows run before camera-ready, and the paper is edited under its own authorisation.
-- **User-decision items (D1 to D10):** none is scheduled. If any is chosen, it should start only after stage 9, so that server and model changes are never confounded in one revalidation.
+- **Approved ports (stages 11 to 22, D1 to D10):**
+  - They run on a non-submission branch, or in the separate NER repository, and never change the submission build or the evidence it reports.
+  - Runtime integration (stage 17 onward) starts only after stage 9, so that server and model changes are never confounded in one revalidation.
+  - The paper keeps describing the measured Python system until a revalidated rerun exists.
+- **D11:** pending user decision.
 
 ## Rust and host test workflow
 
@@ -261,7 +331,7 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
   - then run `evaluation/update_security.py` and `evaluation/run-component-tests.py`
   - Never use `docker compose run` or a test-driver container for test cases.
 - **LLM-layer isolation:** any check of the Python worker after the transport changes sends an explicit semantic-only layer selection and asserts the returned layer execution. A product end-to-end check is a separate, labelled run.
-- **CI:** `service-stack-ci.yml` gains a Rust job (`cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`). The Go job stays until stage 9 retires the Go service.
+- **CI:** after the deadline, stage 2 adds a Rust job to `service-stack-ci.yml` (`cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`, and the `fail_closed` and feature checks). No workflow file changes before 11 December 2026, on any branch. The Go job stays until stage 9 retires the Go service from deployment.
 
 ## Stage 0: Reference tag and conformance corpus
 
@@ -292,16 +362,15 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
 
 - Objective: create the workspace, proto bindings, `privoke-contracts` and `privoke-transport` (TLS server and client config, verifier with CRL, authorisation interceptor, limits).
 - Depends on: stage 0
-- Owned paths:
-  - `rust/`
-  - Rust job in `.github/workflows/service-stack-ci.yml`
+- Owned paths: `rust/` (no `.github/` changes in this stage)
 - Acceptance checks:
-  - `cargo test --workspace --locked` exits 0.
+  - `cargo test --workspace --locked` exits 0 on the host.
   - The contract crate reproduces every stage 0 canonical-JSON, checksum and fingerprint fixture byte for byte.
   - The verifier rejects each of the following in tests: no certificate, foreign CA, expired, not yet valid, missing EKU, revoked.
+  - The CRL hot-reload tests and the `fail_closed` startup test pass.
 - Status: pending
 - Outcome:
-- Handoff notes: allowed before the deadline on a non-submission branch.
+- Handoff notes: allowed before the deadline on a non-submission branch, without CI.
 
 ## Stage 2: PKI, identities and authorisation policy
 
@@ -317,173 +386,532 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
   - `rust/tools/privoke-pki/`
   - `rust/crates/privoke-transport/src/registry*`
   - `docs/deployment/google-cloud.md` (section 4)
+  - Rust job in `.github/workflows/service-stack-ci.yml` (after the deadline)
 - Acceptance checks:
-  - The tool issues, rotates and revokes certificates in a host test.
+  - **Enrolment is specified and tested:** a host test runs `enrol` → `privoke-pki sign` → `install-cert` → mutual-TLS call accepted.
+  - **Renewal is specified and tested:** `renew` under the same UUID → old and new certificates both valid until the old one expires.
+  - **Offline expiry is specified and tested:** an expired certificate is refused, and local inspection still works from the cached package.
+  - **Revocation is specified and tested:** deny list plus CRL, as in the enrolment design above.
+  - The documentation names who enrols (the operator with the offline CA), how the desktop receives the certificate (an out-of-band CSR and certificate exchange), and how renewal works offline (manual, 180-day validity, 30-day warning, fail-closed with local inspection unaffected).
+  - The reporter credential is issued and delivered with enrolment.
   - The registry hot-reload test passes.
   - The documentation names every secret file.
 - Status: pending
 - Outcome:
-- Handoff notes: decide shared reporter certificate versus per-installation certificates for telemetry (recommendation: shared).
+- Handoff notes: if the operator-mediated enrolment is not acceptable to the user, mark GAP-NO-CREDENTIAL-MECHANISM and GAP-NO-PER-INSTALLATION-AUTHZ `kept`, with the reason "no enrolment process", and fall back to CA-wide access as today.
 
 ## Stage 3: Rust model-streaming service
 
 - Objective:
-  - Replace the Go service with full RPC parity (catalog, legacy streaming, V3 packages, metadata contract validation, health subcommand).
-  - Public listener: `Health`, `StreamModelParameters`, `GetModelPackage`, `StreamModelAsset`.
+  - Replace the Go service with full RPC parity: catalog, legacy streaming, V3 packages, metadata contract validation, health subcommand.
+  - Public listener: `Health`, `StreamModelParameters`, `GetModelPackage`, `StreamModelAsset`. Exposing the last two is a behaviour change (G8).
   - Internal listener: `GetModelParameters` and `Health`.
+  - Fail-closed startup.
 - Depends on: stages 1 and 2
 - Owned paths:
   - `rust/services/model-streaming/`
-  - `services/model-streaming-service/Dockerfile` (replaced) or a new Dockerfile
+  - its Dockerfile, a new file (the Go Dockerfile stays)
 - Acceptance checks:
   - Every Go test case (`cmd/server/*_test.go`) is ported or explicitly mapped.
   - Streamed bytes match the stage 0 corpus for every catalog model.
-  - T1 to T12, R4 and the X8 variant behave as in the gap map.
+  - The following negative rows pass against the built container on loopback: T1 to T12, R3, R4, R7, R8, R9 and the X8 variant.
 - Status: pending
 - Outcome:
-- Handoff notes: keep the Go source until stage 9.
+- Handoff notes: the Go source and Dockerfile stay in place (see the stage 9 retirement scope).
 
 ## Stage 4: Rust telemetry service
 
 - Objective:
-  - Port ingestion, validation, SQLite storage (opens existing databases) and the summary estimator.
-  - Mutual TLS with the reporter credential.
+  - Port ingestion, validation, SQLite storage (it opens existing databases) and the summary estimator.
+  - Mutual TLS with the shared reporter credential.
+  - A rate limiter and a daily cap, both keyed by source IP.
   - The peer identity is never persisted.
+  - Fail-closed startup.
 - Depends on: stages 1 and 2
-- Owned paths: `rust/services/telemetry/`
+- Owned paths:
+  - `rust/services/telemetry/`
+  - its Dockerfile
 - Acceptance checks:
-  - The estimator output equals the Python output on the corpus and on the telemetry-audit fixtures.
-  - Malformed-packet tests are ported.
-  - A test asserts that no identity column or log line exists.
+  - The estimator output matches the Python output under the G5 rules, on the corpus and on the telemetry-audit fixtures.
+  - The malformed-packet tests are ported.
+  - A test asserts that no identity column or identity log line exists.
+  - A test asserts that two clients holding the same reporter certificate, at different source IPs, are limited independently.
+  - Against the container, a request without a certificate and a request with an installation (non-reporter) certificate are both rejected (R10).
 - Status: pending
 - Outcome:
-- Handoff notes: the Python `storage.py` stays as the parity oracle in tests.
+- Handoff notes: `services/telemetry-service/app/storage.py` stays in place as the parity oracle.
 
 ## Stage 5: Rust param-update service and scheduler
 
 - Objective:
-  - Port validation, compare-and-swap publication, receipts (existing SQLite and JSONL formats), audit, bootstrap and the training-cycle scheduler, which calls the Python fuzzer over mutual TLS.
+  - Port validation, compare-and-swap publication, receipts (existing SQLite and JSONL formats), audit and bootstrap.
+  - Port the training-cycle scheduler, which calls the Python fuzzer over mutual TLS.
   - Add publisher authorisation, identity binding and the configurable cumulative bound.
-- Depends on: stages 1 and 2. Stage 6 is needed for the fuzzer side of the mutual-TLS link.
-- Owned paths: `rust/services/param-update/`
+  - Fail-closed startup.
+- Depends on: stages 1, 2 and 6. Stage 6 gives the Python fuzzer its mutual-TLS listener and publisher client. Its only prerequisite is stage 2, so it is scheduled before this stage.
+- Owned paths:
+  - `rust/services/param-update/`
+  - its Dockerfile
 - Acceptance checks:
-  - The published artifact bytes equal the Python service's on the stage 0 update sequences.
+  - The published artifact bytes equal the Python service's on the stage 0 update sequences (G5 rules for receipts).
   - The ported `test_security_validation.py` and `test_update_receipts.py` cases pass, including the injected crash windows.
-  - A1 to A3, E1 to E7, T14, R1, R2 and R5 behave as in the gap map.
+  - Against the container, the following behave as in the gap map: A1 to A3, E1 to E7, T14, R1, R2 and R5.
+  - The scheduler completes one cycle against the stage 6 Python fuzzer over mutual TLS, and is refused when the fuzzer certificate is not registered.
 - Status: pending
 - Outcome:
-- Handoff notes: choose the default cumulative budget by replaying recorded accepted sequences (C4, C10, C16), so that the bound would not have rejected any historical accepted update unless that is disclosed.
+- Handoff notes: choose the default cumulative budget by replaying the recorded accepted sequences (C4, C10, C16). The bound must not reject any historical accepted update unless this is disclosed.
 
-## Stage 6: Mutual TLS for the remaining Python servers and split cloud targets
+## Stage 6: Mutual TLS for the remaining Python servers, telemetry credential and split cloud targets
 
 - Objective:
-  - Add server credentials and client-identity checks to `privoke_service` for the client-runtime gRPC server, the fuzzer and pretrained-v3.
-  - Internal Compose mode uses mutual TLS.
+  - Add server credentials and client-identity checks in `privoke_service` for the client-runtime gRPC server, the legacy fuzzer and pretrained-v3. Internal Compose mode uses mutual TLS.
+  - The fuzzer's publisher client uses its service certificate.
   - Add `PRIVOKE_CLOUD_MODEL_TARGET` and `PRIVOKE_CLOUD_TELEMETRY_TARGET`.
+  - Deliver the reporter credential to the telemetry emitter through `PRIVOKE_TELEMETRY_TLS_CERT_FILE` and `PRIVOKE_TELEMETRY_TLS_KEY_FILE`.
 - Depends on: stage 2
 - Owned paths:
-  - `shared/python/privoke_service/stack_connection.py`
+  - `shared/python/privoke_service/stack_connection.py` (server credentials, per-service targets, loading the telemetry credential env)
+  - `shared/python/grpc_healthcheck.py`
   - `extension/client-runtime/src/grpc_main.py`
+  - `extension/client-runtime/src/telemetry/event_emitter.py` (channel construction only)
+  - `extension/client-runtime/src/telemetry/__init__.py` (only if exports change)
   - `services/privoke-fuzzer/src/main.py`
   - `services/pretrained-v3/src/common.py`
-  - `shared/python/grpc_healthcheck.py`
+  - `docs/runtime/client-configuration.md`
+  - the installer scripts that write the client `.env` (`extension/runtime-supervisor/scripts/install-native-host.{sh,ps1}`)
   - shared tests
+  - Not owned: `extension/client-runtime/src/telemetry/privacy.py` stays byte-identical, and G6 includes it.
 - Acceptance checks:
-  - `python evaluation/run-component-tests.py shared` passes.
+  - `python evaluation/run-component-tests.py shared` and the runtime telemetry tests pass.
   - R6 and X16 behave as in the gap map.
-  - A semantic-only `AnalyzePrompt` gives byte-identical responses before and after on the stage 0 inputs (explicit semantic-only layer list, with the returned layer execution asserted).
+  - A semantic-only `AnalyzePrompt` gives byte-identical responses before and after on the stage 0 inputs. The request uses an explicit semantic-only layer list, and the returned layer execution is asserted.
+  - The emitter delivers a packet over mutual TLS with the reporter credential to the stage 4 service.
+  - The G6 command exits 0.
 - Status: pending
 - Outcome:
-- Handoff notes: transport-only change. The G6 diff check lists exactly these files.
+- Handoff notes: transport-only change.
 
 ## Stage 7: Rust runtime supervisor
 
 - Objective:
-  - Replace the native-messaging host, process supervisor, gRPC-Web bridge (`tonic-web`, same origin allowlist, 30/35 s timeouts, same paths) and `PrivokeRuntimeControlService`.
+  - Replace the native-messaging host, the process supervisor, the gRPC-Web bridge and `PrivokeRuntimeControlService`. The bridge uses `tonic-web` and keeps the same origin allowlist, the 30/35 s timeouts and the same paths.
   - The Python client runtime stays as the child worker.
-- Depends on: stage 1
+  - Add the `enrol`, `install-cert`, `renew` and `status` commands from stage 2.
+- Depends on: stages 1 and 2
 - Owned paths:
   - `rust/services/runtime-supervisor/`
-  - native-host manifest templates in `extension/runtime-supervisor/scripts/` (paths only)
+  - the native-host manifest templates in `extension/runtime-supervisor/scripts/` (paths only)
 - Acceptance checks:
   - The stage 0 native-messaging and gRPC-Web transcripts replay identically.
   - `npm test` in `extension/` passes against the Rust bridge.
-  - `python evaluation/run-component-tests.py supervisor` cases are ported.
+  - The `python evaluation/run-component-tests.py supervisor` cases are ported.
   - Measured end-to-end median latency does not regress beyond the run-to-run spread.
 - Status: pending
 - Outcome:
-- Handoff notes:
-  - The installed-client claims (C5, C6, C42) are not claimed for this build unless the installed-browser protocol is rerun.
-  - Revisit: move the V3 package download and pin check into the supervisor.
+- Handoff notes: the installed-client claims (C5, C6, C42) are not claimed for this build unless the installed-browser protocol is rerun.
 
-## Stage 8: Compose and deployment cutover; remove nginx
+## Stage 8a: Fail-closed cutover with nginx rollback retained
 
-- Objective:
-  - Switch `docker-compose*.yml` and `deploy/gce/compose.yml` to the Rust images.
-  - Delete the `ingress` service and `deploy/gce/nginx.conf`.
-  - Publish model `:443` and telemetry `:8443` directly.
-  - Update `deploy.sh` (drop `nginx -t`) and `deploy-gce.yml` (drop `nginx.conf` from the tarball).
-  - Rewrite `deploy/gce/tests/smoke.py` to assert in-service mutual TLS, the private-RPC denial and the V3 fetch.
-  - Update the firewall and ingress-routing documentation.
-- Depends on: stages 3, 4, 5 and 6. Authentication must be enforced before nginx goes.
+- Objective: cut over from the nginx-fronted services to the Rust services without ever exposing an unauthenticated or untested listener. The order is fixed:
+  1. **Stage the containers.** Deploy a release that runs the Rust containers alongside the current nginx release. The Rust public ports are published on `127.0.0.1` only (for example `127.0.0.1:50443` and `127.0.0.1:58443`). The firewall is unchanged, and nginx keeps serving `:443`.
+  2. **Negative gate.** From the host Python harness, over an SSH tunnel to those loopback ports, run the stage 3 to 5 negative rows against the real containers on the VM: T1 to T14, A1 to A3, E6, E7, R1 to R10, X8 and X13. Any unexpected accept stops the cutover.
+  3. **Smoke on loopback.** The rewritten `deploy/gce/tests/smoke.py` asserts the following:
+     - mutual TLS is required
+     - private RPCs are denied (R9)
+     - the V3 fetch works (G8)
+     - telemetry is accepted with the reporter credential
+     - a container started without a CA or CRL fails to start
+  4. **Switch.** Publish the Rust ports on `0.0.0.0:443` and `:8443` and stop the nginx container. Only then open the firewall for `8443`; 443 is already open.
+  5. **External smoke.** Rerun the smoke test from outside the VM against the public endpoints.
+  6. **Rollback until step 5 passes.** If anything fails, `deploy.sh` redeploys the previous release directory, which contains `nginx.conf` and the `ingress` service, and closes `8443` again.
+  - Until step 4, the existing UPDSEC row set, with its three routed RPCs, still describes production.
+- Depends on: stages 3, 4, 5 and 6. Stage 7 is needed only by workstation clients and is not a dependency of the cloud cutover.
 - Owned paths:
-  - `docker-compose*.yml`
-  - `deploy/gce/`
+  - `docker-compose.yml`
+  - `docker-compose.prod.yml`
+  - `docker-compose.gpu.yml`
+  - `deploy/gce/compose.yml`
+  - `deploy/gce/deploy.sh`
+  - `deploy/gce/tests/smoke.py`
   - `.github/workflows/deploy-gce.yml`
   - `.github/workflows/service-stack-ci.yml`
   - `docs/deployment/google-cloud.md`
   - `docs/services/`
 - Acceptance checks:
-  - G1, and G8 through the smoke test.
+  - The step 2 negative gate passed against the containers.
+  - The external smoke test (step 5) passes.
   - `docker compose -f deploy/gce/compose.yml config --quiet` passes.
   - `python -m unittest discover -s evaluation/tests -p test_compose_defaults.py` passes.
 - Status: pending
 - Outcome:
-- Handoff notes: do not edit `evaluation/compose.*.yml` historical study stacks.
+- Handoff notes:
+  - `nginx.conf` and the `ingress` service stay in the repository and in the previous release directory until stage 8b.
+  - Do not edit the historical study stacks in `evaluation/compose.*.yml`.
 
-## Stage 9: Security revalidation, retirement and records
+## Stage 8b: Remove nginx
+
+- Objective: delete the `ingress` service, `deploy/gce/nginx.conf`, the `nginx -t` step in `deploy.sh`, `nginx.conf` from the `deploy-gce.yml` tarball, and the nginx text in the documentation.
+- Depends on: stage 8a passing its external smoke test on the production VM, plus one full deployment cycle without a rollback.
+- Owned paths:
+  - `deploy/gce/`
+  - `.github/workflows/deploy-gce.yml`
+  - `docs/deployment/google-cloud.md`
+- Acceptance checks: G1.
+- Status: pending
+- Outcome:
+- Handoff notes: after 8b, rolling back to nginx means redeploying an earlier release from the tag.
+
+## Stage 9: Security revalidation, retirement from deployment and records
 
 - Objective:
-  - Extend `evaluation/update_security.py` with the R rows and the new static checks, and run it against the Rust services as host processes.
+  - Extend `evaluation/update_security.py` with a `--target rust` mode: the R rows, new static checks against the Rust configuration, and the X8 and X13 changes. Run it against the Rust services as host processes.
+  - Keep the existing legacy mode (the nginx static checks ST4 to ST7, and the Go and Python targets), so that UPDSEC-20261116 stays reproducible at its tag.
   - Write a new UPDSEC record. Do not overwrite UPDSEC-20261116.
-  - Fill in the revalidation table.
-  - Retire the Go service and the Python `param-update`, `telemetry` and `runtime-supervisor` sources (history is preserved by the tag).
-- Depends on: stage 8, and stage 7 for the supervisor retirement
+  - Write `evaluation/check_revalidation.py` (G7) and fill in the revalidation table.
+  - Retire the replaced services from deployment only, as listed below.
+- Depends on: stages 8a and 8b
 - Owned paths:
-  - `evaluation/update_security*.py`
+  - `evaluation/update_security.py`
+  - `evaluation/update_security_pki.py`
+  - `evaluation/update_security_report.py`
   - `evaluation/tests/test_update_security.py`
+  - `evaluation/check_revalidation.py`
   - `paper/research/update-security-<date>.md` and its `.json`
   - `docs/experiments/`
-  - retired service directories
+  - the `README` notes in the retired directories
 - Acceptance checks: G2, G3, G5 and G7.
 - Status: pending
 - Outcome:
 - Handoff notes: paper text changes need their own `REWRITE_SCOPE` authorisation.
 
-## Stage 10 (optional): Experimental pretrained-v3 servers
+**Retirement scope.** Retirement here means removal from deployment, not deletion. Fifty-five files in `evaluation/` refer to the replaced service directories, so this plan moves and deletes no service source directory. The Python and Go sources stay at their current paths as the parity oracle and for historical reproduction. A separate `tests/oracle/` copy is therefore unnecessary, and no reference breaks. Each retired directory gets one README line: "Retired from deployment by stage 8a; kept as conformance oracle and for historical reproduction; do not deploy."
 
-- Objective: port `checkpoint_server` and `checkpoint_store` and the `fuzzer_server` orchestration to Rust, behind the same transport crate. `runtime_server`, `fuzzer_training` and `audience_schedule` stay Python.
+| Reference | Retirement action |
+| --- | --- |
+| `services/param-update-service/`, `services/telemetry-service/`, `services/model-streaming-service/` (Go), `extension/runtime-supervisor/src/` | Kept in place and no longer built by the default or production Compose files. Their tests keep running in `run-component-tests.py` as oracle tests. The CI Go job stays as an oracle build until root decides otherwise. |
+| `evaluation/update_security.py`, `update_security_pki.py`, `update_security_report.py` | Extended with `--target rust`. The legacy target, which hosts `services/param-update-service/app/server.py` on the host and uses the Go image, is unchanged. |
+| `evaluation/privoke_eval/task_query_window_study.py` (TW01) | Unchanged. It inventories, builds and runs `services/param-update-service` and `services/model-streaming-service/Dockerfile` at its pinned sources, and it keeps working because those paths remain. |
+| `evaluation/analysis/audit-telemetry-mechanism.py` (T2 audit) | Unchanged. It reads `services/telemetry-service/app/{storage,validation}.py`, which stay as the audited oracle. A Rust collector audit would be a new script. |
+| `evaluation/compose.*.yml`, `evaluation/Dockerfile*` (study stacks) | Unchanged. They pin the historical Python and Go services. |
+| `evaluation/run-*.py` study runners, `evaluation/run-component-tests.py` | Unchanged. `run-component-tests.py` gains Rust targets only if root asks, because the Rust tests run through `cargo test`. |
+
+Deleting any of these directories is a separate future decision. Before it, every reference above must be migrated or explicitly frozen.
+
+## Stage 10 (optional): Experimental pretrained-v3 checkpoint server
+
+- Objective:
+  - Port `checkpoint_server.py` and `checkpoint_store.py` to Rust, behind the same transport crate.
+  - The following stay Python:
+    - `fuzzer_server.py`, which imports the frozen schedule in-process (a Rust shell is part of D6)
+    - `runtime_server.py`
+    - `fuzzer_training.py`
+    - `audience_schedule.py`
 - Depends on: stage 9, and a decision that V3 training graduates from experimental
-- Owned paths: `rust/services/v3-checkpoint/`, `rust/services/v3-fuzzer/`
-- Acceptance checks: content-addressed store and receipt parity with the Python store on the corpus.
+- Owned paths: `rust/services/v3-checkpoint/`
+- Acceptance checks: the content-addressed store and its receipts match the Python store on the corpus.
 - Status: pending (not scheduled)
 - Outcome:
 - Handoff notes: skip if the experimental path is retired instead.
 
-## Inference and training components that could be rewritten in Rust (for the user's decision)
+## Approved inference and training ports (stages 11 to 22)
 
-These are options, not recommendations. Each item can be chosen independently, but none should start before stage 9 (see sequencing).
+**User decision (16 November 2026), verbatim:** "Because spaCy NER runs a model, make an equivalent rust harness in a separate repo, make it importable through crate and then use it. D1-D10 can be ported."
 
-"Lost" lists what a rewrite would invalidate or give up. Effort is S, M or L, and risk refers to the risk of not reaching parity.
+Root settled the following:
+- D1 to D10 are approved for porting.
+- The NER layer becomes a separate crate, `privoke-ner`, in its own repository.
+- D11 was added in r2 of this plan and is **not** approved. It stays a pending user decision.
+
+The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust options, what each port loses, effort and risk. These stages turn D1 to D10 into dependency-ordered work.
+
+**Rules that apply to every port stage:**
+- **No Python edits.** The Python implementation stays unchanged, and G6 still holds. It remains both the parity oracle and the system the paper describes.
+- **The paper is unchanged.** It keeps describing the measured Python system until a revalidated rerun of the Rust build exists, and paper edits need their own `REWRITE_SCOPE` authorisation.
+- **Revalidation means new records.** Every claim a stage revalidates gets a new record. Historical records are never edited (G7).
+- **Branch.** All work happens on a non-submission branch (or the separate NER repository) and never enters the 11 December submission build or its artifact.
+- **Scheduling.** The schedule is unchanged:
+  - In the Privoke repository, nothing beyond stages 0 and 1 happens before the deadline.
+  - Runtime integration (stage 17 onward) starts only after stage 9, so that server changes and model changes are never confounded in one revalidation.
+  - The separate `Privoke-NER` repository (stage 11) touches neither the submission build nor its evidence. Root decides whether it may start before the deadline.
+- **LLM-layer isolation.** Semantic parity runs use an explicit semantic-only layer selection and assert the returned layer execution, as the repository `AGENTS.md` requires. Product end-to-end reruns are separate, labelled runs.
+
+**Dependency order:**
+
+```
+11 (privoke-ner, separate repo) ──┐
+12 (D2 rules + preprocessing) ────┼─> 13 (D1 NER layer + post-filter) ─> 15 (D9 GLiNER)
+14 (D3 semantic inference) ───────┴─> 16 (D10 external classifier)
+                                      17 (Rust analysis runtime; needs 12, 13, 14, 16) ─> 18 (D8 reporter)
+14 ─> 19 (D4 gradients and training) ─┐
+20 (D5 curricula, aggregation) ───────┴─> 21 (D6 fuzzer orchestration) ─> 22 (D7 pretrained-v3 runtime)
+```
+
+| Stage | Item | Parity criterion (on the stage 0 corpus plus every recorded evaluation set it names) | Revalidates (new records) |
+| --- | --- | --- | --- |
+| 11 | D1 crate | Entity spans and labels exactly equal to spaCy, plus tags, POS, lemmas, heads and dependency labels for the post-filter (see stage 11) | Prerequisite of 13; no claim by itself |
+| 12 | D2 | Identical rule hits (rule, span, signal, severity) and identical normalised text and offset maps on all recorded detector sets | C2, C10, C38, C44 to C47, C54, C55 (regex part) |
+| 13 | D1 | Identical post-filter decisions and NER-layer results, for the default and caseless gate settings | C2, C44 to C55, the installed probes, NER paper text |
+| 14 | D3 | Golden logits within the stated tolerance, and identical decisions (sensitivity, category, visibility, action) on recorded sets, semantic-only | C12, C13, C27, C31, C35, C37, C41, C47, V1/V3 comparisons, latency tables |
+| 15 | D9 | Identical GLiNER spans at the frozen threshold on the C53 sets | C53 (GLiNER comparator) |
+| 16 | D10 | Byte-identical request bodies (prompt construction) and identical parsing of recorded responses | none (no recorded claim) |
+| 17 | Integration | Byte-identical `AnalyzePromptResponse` on the corpus, for each explicit layer selection | C1, C5, C6, C42, V3 installed timing (only if claimed for this build) |
+| 18 | D8 | Identical ledger behaviour. A new finite-epsilon audit of the Rust kernel replaces C34 for this build. | C7, C34 (T2 rerun) |
+| 19 | D4 | Gradients and updates within the stated tolerance. Identical accepted and rejected guard outcomes on recorded runs. | C39, RQ2, the local SGD, FULL Adam, window and retention studies |
+| 20 | D5 | Identical sample streams (schedule digests equal) for every recorded seed | C4, C16, the 2026-10 fuzzer study series, AU3 and BC01 schedules |
+| 21 | D6 | Identical cycle records and dumps after normalisation (G5 rules) | the fuzzer study series (cycle mechanics) |
+| 22 | D7 | As 14 and 19, for the `TrainingService` and runtime RPCs | the pretrained-v3 study records |
+
+## Stage 11: `privoke-ner` crate in a separate repository (D1 engine)
+
+- Objective: reproduce spaCy 3.7.5 running `en_core_web_sm` 3.7.1 (the shipped default) in Rust, as the crate `privoke-ner`.
+  - **Repository:** `D:/Git Repositories/Privoke-NER`, created with `git init` locally only. A GitHub remote, a crates.io publication, or any push needs the user's later approval.
+  - **How Privoke depends on it:** during development, `rust/Cargo.toml` uses `privoke-ner = { path = "../../Privoke-NER" }` (relative to the Privoke checkout; the exact relative path is set in stage 11e). Once a remote exists and is approved, this becomes a `git` dependency pinned by `rev`, and `Cargo.lock` records it.
+  - **Licence:** spaCy and the model are MIT-licensed, and the export keeps their licence and source notices (`LICENSE`, `LICENSES_SOURCES`).
+- **Components in scope.** Taken from `extension/client-runtime/src/NER/` and the model's `config.cfg`:
+
+  | spaCy component | Used by Privoke? | Evidence | In scope |
+  | --- | --- | --- | --- |
+  | tokenizer | yes | all | yes |
+  | `ner` (own `Tok2Vec`: MultiHashEmbed with NORM, PREFIX, SUFFIX, SHAPE; rows 5000/1000/2500/2500; width 96; MaxoutWindowEncoder depth 4, window 1, maxout 3; `TransitionBasedParser.v2` with hidden 64, maxout 2, `use_upper`) | yes | `ner_detector.py` uses `doc.ents` | yes |
+  | shared `tok2vec` (attrs adding SPACY and IS_SPACE; rows 5000/1000/2500/2500/50/50) | yes, through its listeners | it feeds tagger and parser | yes |
+  | `tagger` | yes | post-filter `token.pos_` (heading rule, around line 517; common-phrase rule, around lines 530 to 536) needs tags, which attribute_ruler maps to POS | yes |
+  | `parser` | yes | post-filter role rule uses `dep_`, `head`, `children` (around lines 247 to 252) | yes |
+  | `attribute_ruler` | yes | maps `tag_` to `pos_` and applies exceptions; `pos_` is read | yes |
+  | `lemmatizer` (rule mode) | yes | `lemma_` in the role and common-phrase rules; the `lemma_index` table forms the post-filter's English word list (`_english_lexicon`) | yes |
+  | `senter` | no | disabled in the model (`disabled = ["senter"]`), and Privoke never enables it | **out of scope** |
+
+  Nothing else can be scoped out: the default NER result passes through the post-filter, and the post-filter reads tagger, attribute-ruler, lemmatizer and parser outputs. The milestones still separate "`ner` alone" (11c) from "full pipeline" (11d), because NER entity spans depend only on the tokenizer, vocab norms and `ner`'s own `Tok2Vec`.
+- **Sub-steps:**
+  - **11a. Export and golden generator.**
+    - `tools/export_spacy.py` in the NER repository runs under `evaluation/.venv-v1-v3-pipeline` (spaCy 3.7.5, thinc 8.2.5, `en_core_web_sm` 3.7.1). It writes:
+      - each component's thinc weights, as safetensors, named by the layer path in the model tree
+      - `config.cfg`, `meta.json`, the `ner` and `parser` `moves` (action and label inventories)
+      - tokenizer settings: `prefix_search`, `suffix_search` and `infix_finditer` pattern source, `token_match`, `url_match`, and the special-case `rules`
+      - vocab: lexeme `NORM` table, the string store needed for hashing, lookups tables (`lemma_rules`, `lemma_exc`, `lemma_index`, `lemma_lookup` if present)
+      - `attribute_ruler` patterns
+      - a manifest of SHA-256 digests
+    - `tools/golden.py` runs spaCy on a declared corpus and writes JSON lines per document. Each document records:
+      - tokens: `text`, `idx`, `whitespace_`, `norm`, `prefix`, `suffix`, `shape`, `is_alpha`, `lower_`, `tag_`, `pos_`, `lemma_`, `dep_`, `head.i`
+      - entities: `start_char`, `end_char`, `label_`
+      - selected intermediate activations (`ner` `Tok2Vec` output, shared `tok2vec` output, precomputed hidden features, per-step action scores)
+      - the result of `tokenizer.explain` for tokenizer diagnosis
+      - a second pass with `fold_case` applied, for the caseless gate, and the post-filter's tagger-only sub-pipeline on lowercased phrases
+    - **Declared corpus:** the texts of the recorded NER evaluation sets (design, dev-CHECK, OpenAI, F1, F4, held-out), plus a tokenizer stress set (URLs, emails, emoji, CJK, combining marks, zero-width characters, digits with separators). It is frozen by hash before any Rust code runs.
+  - **11b. Tokenizer.**
+    - Reimplement spaCy's `Tokenizer.__call__` algorithm: whitespace split, then a special-case lookup, then a loop of prefix and suffix stripping with special-case rechecks, then `token_match` and `url_match`, then infix splits.
+    - Handle special-case matching across affixes (the `PhraseMatcher`-based special-case pass with `faster_heuristics`).
+    - The exported Python `re` patterns are compiled with `fancy-regex`. Each construct that differs between Python `re` and `fancy-regex` is translated and listed, including Unicode `\w` and `\d` classes, case-insensitive flags and the lookarounds in `url_match`.
+    - Unicode categories follow the Unicode version of the Python 3.11 used for the golden data, and the tests pin it.
+    - Acceptance: identical token texts, `idx` and whitespace on 100% of the corpus.
+  - **11c. `ner` model.**
+    - Lexical attributes:
+      - `NORM` comes from the exported norm table, falling back to the lowercase form.
+      - `PREFIX` is the first character and `SUFFIX` the last three.
+      - `SHAPE` is a port of spaCy's `word_shape`.
+      - `SPACY` and `IS_SPACE` serve the shared `tok2vec`.
+    - Hashing:
+      - attribute strings get spaCy's 64-bit string hash (MurmurHash64A, as in `spacy.strings.hash_string`)
+      - `HashEmbed` hashes ids with thinc's MurmurHash3 x86-128 and the per-table seed, and sums four rows modulo the table size
+    - Encoder:
+      - `MultiHashEmbed`: per-attribute `HashEmbed`, concatenated, then `Maxout` with `LayerNorm` to the width, followed by dropout, which is a no-op at inference
+      - `MaxoutWindowEncoder`: residual blocks of `expand_window(1)` → `Maxout(pieces 3)` → `LayerNorm`, repeated 4 times
+    - Parser model (`TransitionBasedParser.v2`):
+      - The `PrecomputableAffine` lower layer is applied per token to the state-feature tokens, then the features are summed, maxed out (2 pieces) and passed to the upper linear layer, as in thinc's `ParserStepModel`.
+      - State features for `state_type = "ner"`: the token positions that `StateClass` exposes for `ner` (`nF` features), with the padding vector for missing tokens.
+      - Transition system: BILUO (`BiluoPushDown`), with `is_valid` per action and missing-entity handling.
+      - Greedy decoding: argmax over valid actions, with ties broken by the lowest action index as in spaCy.
+    - Implemented with `ndarray` and f32, plus a BLAS-free matmul that accumulates in a fixed order. `candle` is an alternative if it matches.
+    - Acceptance: entity spans and labels equal spaCy's on the corpus, and the stated tolerances hold.
+  - **11d. Remaining pipeline.**
+    - The shared `tok2vec`.
+    - `tagger`: softmax over the tag inventory, argmax.
+    - `parser`: arc-eager transitions with the exported label set, then deprojectivisation of the pseudo-projective labels (`nonproj`), as spaCy applies after parsing. This step is listed explicitly because it is easy to miss.
+    - `attribute_ruler`: the subset of `Matcher` pattern semantics that the exported patterns use. Each pattern operator used is enumerated, and an unsupported one is a build error.
+    - Rule `lemmatizer`: `lemma_rules`, `lemma_exc` and `lemma_index` by universal POS, with the lookup fallback.
+    - Also verified from the source: whether `ner` reads sentence boundaries set by the parser. If so, the parser must run first, as it does in spaCy's pipeline order.
+  - **11e. Crate API and Privoke wiring.**
+    - Public API: `Pipeline::load(dir)`; `Pipeline::process(&str) -> Doc`; `Pipeline::process_with(&str, Components)` for the post-filter's tagger-only sub-pipeline; `Doc` with tokens (the fields above) and entities; `Pipeline::lemma_index()`.
+    - No Python in the crate. `cargo test` covers the golden comparison. The exported model data is not committed if the user prefers; in that case it is regenerated by `export_spacy.py` with digest checks.
+- Depends on: stage 0 (the declared corpus hashes come from the conformance capture), and none of the Privoke server stages.
+- Owned paths:
+  - the whole `D:/Git Repositories/Privoke-NER` repository
+  - in Privoke, only the `privoke-ner` dependency line in `rust/Cargo.toml` and the lockfile
+- Acceptance checks. This is the NER parity criterion, run by `cargo test --release -p privoke-ner -- --include-ignored golden` in the NER repository:
+  - **Required:** on the declared corpus, the entity spans (`start_char`, `end_char`) and labels from `ner` are exactly equal to spaCy's, for every document, in both default and `fold_case` input.
+  - The report gives the agreement rate (documents with identical entities over all documents, and entity-level exact match). The stage passes only at 100%. Any disagreement is listed with its first divergent action and the score margin.
+  - **Tokens:** `tag_`, `pos_`, `lemma_`, `dep_` and `head` are equal on 100% of tokens. The post-filter sub-pipeline on lowercased phrases is equal on 100% of phrases.
+  - **Float tolerance on intermediate activations**, reported in each run: `Tok2Vec` outputs and precomputed hidden features within an absolute 1e-4 and a relative 1e-3 of thinc float32. Action scores are within 1e-4, and when the top-two margin is below 1e-4 the case is flagged for review rather than passed silently.
+  - Speed and peak memory are measured against spaCy in the same session. They are reported, not gated.
+- Status: pending
+- Outcome:
+- Handoff notes:
+  - **Later options**, not in this stage:
+    - `en_core_web_lg`: adds static vectors (`include_static_vectors`, a vectors table keyed by the string hash) on top of the same architecture, so it is a small extension.
+    - `en_core_web_trf`: a RoBERTa transformer listener, on `candle` with the `tokenizers` crate; a large extension, with separate parity tolerance.
+  - The paper notes that the user held the larger model and it is not shipped, so neither option changes the default.
+
+## Stage 12: Regex rules and preprocessing in Rust (D2)
+
+- Objective: build the `privoke-rules` crate. It ports `extension/client-runtime/src/regex/*` (including the Presidio recognisers and validators, ported by hand from the `presidio-analyzer` 2.2.363 sources) and `detection/preprocessing.py` (normalisation with offset maps).
+- Depends on: stages 0 and 1
+- Owned paths: `rust/crates/privoke-rules/`
+- Acceptance checks:
+  - Rule hits (rule name, span, signal, severity) and normalised text with offset maps are identical on the corpus and on all recorded detector sets. The pinned Unicode version is stated.
+  - Each pattern needing `fancy-regex` or `pcre2` is listed with the reason.
+- Status: pending
+- Outcome:
+- Handoff notes: the golden output comes from the Python layer with an explicit `regex`-only layer selection.
+
+## Stage 13: NER layer and post-filter in Rust (D1)
+
+- Objective: build `privoke-ner-layer` in the Privoke workspace on top of `privoke-ner`. It ports:
+  - `NER/ner_detector.py`, including the caseless gate (`has_case_signal`, `fold_case`, `CASELESS_DISABLED_RULES`)
+  - `NER/ner_postfilter.py` (both stages and all rules, including `_english_lexicon` from `lemma_index`)
+  - `NER/pattern_entity_detector.py`
+  - `NER/use_cases.py`
+  - the default-off robustness flags
+- Depends on: stages 11 and 12
+- Owned paths: `rust/crates/privoke-ner-layer/`
+- Acceptance checks:
+  - Identical NER-layer results, and identical post-filter decision logs (rule, candidate, outcome), on all recorded NER sets, for the default and caseless settings and each robustness flag.
+  - The golden output comes from Python with an explicit NER-only layer selection.
+- Status: pending
+- Outcome:
+- Handoff notes: C55 latency, if rerun, is a new record for the Rust build.
+
+## Stage 14: Semantic inference in Rust (D3)
+
+- Objective: build `privoke-semantic`.
+  - V3 encoder and heads come first. Loading the V3 packages (safetensors and tokenizer) is unchanged.
+  - Then the legacy Tiny streamed model, the presence models (including the pure-Python `privoke_model/presence.py`), and the experimental scratch-presence and pretrained-context models.
+  - The backend is chosen by a measured spike over `tch-rs` (same libtorch, closest numerics), `candle` and `ort`. The default is `tch-rs` if it reaches decision parity; otherwise the best of the others, with the reason recorded.
+- Depends on: stage 1
+- Owned paths: `rust/crates/privoke-semantic/`
+- Acceptance checks:
+  - Tokenisation is identical.
+  - Logits are within an absolute 1e-5 of torch CPU float32 (a backend that cannot meet this states its own tolerance and justification).
+  - Decisions are identical on every recorded semantic set, semantic-only.
+- Status: pending
+- Outcome:
+- Handoff notes: report backend, version and thread settings, because the paper names Torch 2.11 CPU with four threads.
+
+## Stage 15: GLiNER backend (D9)
+
+- Objective: port `NER/gliner_detector.py` as an optional backend. It uses `gline-rs` or `ort` for the model and `privoke-ner` (with `ner` disabled) for the spaCy tokens and parse it reads.
+- Depends on: stages 11 and 13
+- Owned paths: `rust/crates/privoke-ner-layer/src/gliner*`
+- Acceptance checks: identical spans at the frozen label preset and threshold on the C53 sets.
+- Status: pending
+- Outcome:
+- Handoff notes: not shipped by default, as in the Python build.
+
+## Stage 16: External classifier client (D10)
+
+- Objective: port `LLM/open_classifier.py` and `LLM/prompt.py` with `reqwest`.
+- Depends on: stage 14, for the shared classifier trait
+- Owned paths: `rust/crates/privoke-semantic/src/open*`
+- Acceptance checks:
+  - Request bodies are byte-identical for the corpus prompts.
+  - Recorded responses parse identically.
+  - Tests use no live API calls.
+- Status: pending
+- Outcome:
+- Handoff notes: an API key is supplied by the user only at run time and is never recorded.
+
+## Stage 17: Rust analysis runtime (integrates D1 to D3, D9, D10)
+
+- Objective: implement `PrivokeRuntimeService` analysis RPCs (`AnalyzePrompt`, `DetectAnnotationPresence`, `Health`) in Rust. This covers the `pipeline.py`, `model.py`, `classification/*` and `task_readout.py` logic, and it runs as the supervisor's child process instead of the Python worker.
+  - This is needed to use the approved ports. It implies porting the pipeline and policy aggregation, which no D item named explicitly, so root should confirm it is within the approval.
+  - The gradient RPCs stay on the Python worker until stage 19. The supervisor routes each RPC by path to the Rust or Python worker.
+- Depends on: stages 7, 9, 12, 13, 14 and 16
+- Owned paths:
+  - `rust/services/runtime/`
+  - the supervisor routing in `rust/services/runtime-supervisor/`
+- Acceptance checks:
+  - `AnalyzePromptResponse` is byte-identical to the Python worker for each explicit layer selection (regex, NER, semantic, regex+NER, full) on the corpus. LLM-only results are reported separately from product results.
+  - Extension tests pass.
+- Status: pending
+- Outcome:
+- Handoff notes: the installed-client claims are revalidated only if the installed-browser protocol is rerun on this build.
+
+## Stage 18: Telemetry reporter in Rust (D8)
+
+- Objective: port `telemetry/privacy.py` (53-bit draw, binary64 thresholds, rejection sampling, SQLite ledger) and `event_emitter.py` into the Rust runtime.
+- Depends on: stages 4 and 17
+- Owned paths: `rust/crates/privoke-telemetry-client/`
+- Acceptance checks:
+  - Ledger behaviour is identical on the controlled fixtures (caps, persistence, ordering, outage and recovery).
+  - A new exact finite-epsilon audit of the Rust kernel's actual thresholds, using a new audit script, is a new T2 record. C34's values are not reused.
+- Status: pending
+- Outcome:
+- Handoff notes: until that record exists, the C34 values apply to the Python kernel only.
+
+## Stage 19: Gradients and local training in Rust (D4)
+
+- Objective: port the gradient RPCs and the local training paths to Rust (`tch-rs` recommended for parity):
+  - `ComputeSemanticGradients`, `ComputeUnderlyingModelGradients`, `ComputePresenceGradients`
+  - `training.py`, `full_adam_training.py`, `window_training.py`, `supervised_training.py`, `presence_training.py`, `sensitive_retention_training.py`, `reference_preparation.py`, `v3/training.py`
+  - The FULL Adam contract (float64 moments, `cpu_threads: 1`) is binding.
+- Depends on: stage 14
+- Owned paths: `rust/crates/privoke-training/`
+- Acceptance checks:
+  - Gradients and parameter deltas are within an absolute 1e-6 relative to the Python output under the same seed and threads. Bitwise equality is reported where achieved.
+  - Accepted and rejected guard outcomes are identical on replayed recorded runs.
+  - Published artifact bytes are identical where the recorded run was deterministic.
+- Status: pending
+- Outcome:
+- Handoff notes: CUDA parity is out of scope unless requested.
+
+## Stage 20: Curricula, schedules and update aggregation in Rust (D5)
+
+- Objective: port `services/privoke-fuzzer/src/prompt_generation/*` and `training/*` aggregation, and `pretrained-v3/src/{fuzzer_training,audience_schedule}.py`.
+  - This includes an exact reimplementation of CPython `random`: MT19937 seeding from int, `random()`, `getrandbits`, `_randbelow`, `choice`, `shuffle`, `sample`, `randrange`, `uniform`, `choices` with cumulative weights.
+- Depends on: stage 1
+- Owned paths: `rust/crates/privoke-curriculum/`
+- Acceptance checks:
+  - Every recorded schedule and curriculum digest, for every recorded seed, is reproduced exactly.
+  - A per-call test against CPython `random` covers 10^6 draws per method.
+- Status: pending
+- Outcome:
+- Handoff notes: any digest mismatch blocks the stage. Approximate parity is not acceptable for frozen schedules.
+
+## Stage 21: Fuzzer orchestration in Rust (D6)
+
+- Objective: replace `services/privoke-fuzzer/src/{fuzzer_service,runtime_client,main,cli,config,json_records}.py` and `services/pretrained-v3/src/fuzzer_server.py` with Rust services that use stages 19 and 20 in-process, with stage 1 transport.
+- Depends on: stages 19 and 20, and stage 10 if it ran
+- Owned paths: `rust/services/fuzzer/`, `rust/services/v3-fuzzer/`
+- Acceptance checks:
+  - Cycle records and dumps are identical under the G5 normalisation on replayed recorded cycles.
+  - The stage 5 scheduler interoperates over mutual TLS.
+- Status: pending
+- Outcome:
+- Handoff notes: historical study runners keep pointing at the Python fuzzer.
+
+## Stage 22: Pretrained-v3 runtime and training server in Rust (D7)
+
+- Objective: replace `services/pretrained-v3/src/runtime_server.py` (V3 inference and `TrainingService`), using stages 14 and 19.
+- Depends on: stages 14, 19 and 21
+- Owned paths: `rust/services/v3-runtime/`
+- Acceptance checks: the parity criteria of stages 14 and 19 hold on the pretrained-v3 recorded fits and snapshots.
+- Status: pending
+- Outcome:
+- Handoff notes: after this stage the process boundary has no Python worker left. The Python code stays in place as the oracle (stage 9 retirement scope).
+
+## Port assessments (D1 to D11)
+
+These assessments informed the user's decision. D1 to D10 are approved and staged above. D11 is pending.
+
+"Lost" lists what a port invalidates or gives up until its stage revalidates it. Effort is S, M or L, and risk refers to the risk of not reaching parity.
 
 ### D1. spaCy NER layer
 
 - **Code:** `extension/client-runtime/src/NER/{ner_detector,ner_postfilter,pattern_entity_detector,use_cases}.py` with `en_core_web_sm` 3.7.1.
-- **Feasibility:** low for parity. There is no Rust spaCy. The small model's CNN tok2vec, tokenizer exceptions and tagger cannot be ported directly. The post-filter depends on the tagger's lowercased-token reading and the model's word list.
+- **Feasibility:** there is no Rust spaCy, so no off-the-shelf port exists. The post-filter depends on the tagger's lowercased-token reading, the parser's dependencies and the model's word list.
 - **Rust options:**
   - (a) A different token-classification model through `ort` (ONNX Runtime) or `candle`, with the `tokenizers` crate. Ready-made pipelines exist, such as `rust-bert` NER on `tch-rs`.
   - (b) A hand-built gazetteer and rules engine.
   - Both are new detectors, not ports.
+- **Chosen by the user:** option (c), a faithful reimplementation of the `en_core_web_sm` pipeline in a separate crate. See stage 11.
 - **Lost:** detector parity. All regex+NER evidence is measured with spaCy: C2, C44 to C55, the installed probes, the Presidio comparison context, and the paper text describing spaCy and the post-filter.
 - **Effort:** L. **Risk:** high.
 
@@ -555,15 +983,17 @@ These are options, not recommendations. Each item can be chosen independently, b
 
 ### D6. Fuzzer service orchestration
 
-- **Code:** `services/privoke-fuzzer/src/{fuzzer_service,runtime_client,main,cli,config,json_records}.py`
-- **Classification:** this plan keeps it in Python as part of training.
-- **Feasibility:** straightforward with `tonic` once D5 stays in Python. It would need a Rust process calling a Python curriculum worker, which adds a hop.
+- **Code:**
+  - `services/privoke-fuzzer/src/{fuzzer_service,runtime_client,main,cli,config,json_records}.py`
+  - `services/pretrained-v3/src/fuzzer_server.py`
+- **Classification:** both are class b in the inventory, because each imports its sampler and training code in-process. They are not part of stage 10.
+- **Feasibility:** straightforward with `tonic` once D5 is in Rust, which is why stage 21 depends on stage 20. Without D5, it would need a Rust process calling a Python curriculum worker, which adds a hop.
 - **Lost:** the single-process debugging and dump format, unless preserved.
 - **Effort:** S to M. **Risk:** low.
 
 ### D7. Pretrained-v3 runtime server orchestration
 
-- The checkpoint, store and fuzzer parts are already stage 10.
+- The checkpoint server and store are already stage 10. The experimental fuzzer server belongs to D6.
 - The `runtime_server.py` gRPC shell around torch could only move with D3 and D4, or as a Rust front end to a Python worker.
 - **Effort:** S as a front end. **Risk:** low. It gives little benefit while the service is experimental.
 
@@ -591,6 +1021,15 @@ These are options, not recommendations. Each item can be chosen independently, b
 - **Lost:** nothing measurable. The prompt construction in `LLM/prompt.py` must be byte-identical.
 - **Effort:** S. **Risk:** low.
 
+### D11. Model package fetch in the Rust supervisor (added in r2; not approved, pending user decision)
+
+- **Code:** `extension/client-runtime/src/LLM/privoke/{v3_package,parameter_stream}.py`
+- **What it is:** not inference. It is listed here because it changes an evidence path: the installed-client probes and the V3 timing measured the Python fetch.
+- **Rust options:** a `tonic` client in the supervisor (or in the stage 17 runtime). It writes the same cache layout and performs the same pin, shape and finite-value checks.
+- **Lost:** nothing, if the cache bytes and the rejection behaviour are identical. The installed-client claims need a rerun to be claimed for the new path.
+- **Effort:** S to M. **Risk:** low.
+- **Note:** if the user approves it, it becomes part of stage 17.
+
 ## Rejected alternatives and revisit conditions
 
 - **Rust edge gateway replacing nginx** (one Rust proxy in front of the plaintext services). Rejected: it recreates the single compensating control that the user's microservice argument removes, and it leaves the in-service gaps open.
@@ -600,4 +1039,4 @@ These are options, not recommendations. Each item can be chosen independently, b
 - **Rewrite before the deadline.** Rejected: it would change the system the paper and artifact describe while they are being finalised.
 - **Revisit triggers for the boundary:**
   - Loopback hop latency exceeds the run-to-run spread.
-  - The user chooses D3 or D4, which would let the Python worker disappear on that path.
+  - Stages 17 to 22 complete (the approved D ports). The Python worker then disappears from the runtime path, and the boundary reduces to the supervisor and the Rust runtime.
