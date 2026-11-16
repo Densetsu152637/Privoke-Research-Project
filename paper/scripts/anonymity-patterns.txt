@@ -23,7 +23,6 @@ msah0018
 nnga0004
 Densetsu152637
 git4san
-legend\.d\.1000
 
 # Repository URLs under any owner
 github\.com/[A-Za-z0-9_.-]+/Privoke-Research-Project
