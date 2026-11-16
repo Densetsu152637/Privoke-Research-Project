@@ -496,7 +496,8 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
 ## Stage 7: Rust runtime supervisor
 
 - Objective:
-  - Replace the native-messaging host, the process supervisor, the gRPC-Web bridge and `PrivokeRuntimeControlService`. The bridge uses `tonic-web` and keeps the same origin allowlist, the 30/35 s timeouts and the same paths.
+  - Replace the native-messaging host, the process supervisor and `PrivokeRuntimeControlService`.
+  - The gRPC-Web bridge is not rebuilt. Under the worker isolation architecture, the extension talks to the controller over native messaging (W4), and workstations get no listening ports.
   - The Python client runtime stays as the child worker.
   - Add the `enrol`, `install-cert`, `renew` and `status` commands from stage 2.
 - Depends on: stages 1 and 2
@@ -504,7 +505,7 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
   - `rust/services/runtime-supervisor/`
   - the native-host manifest templates in `extension/runtime-supervisor/scripts/` (paths only)
 - Acceptance checks:
-  - The stage 0 native-messaging and gRPC-Web transcripts replay identically.
+  - The stage 0 native-messaging transcripts replay identically. The gRPC-Web transcripts are kept only as an oracle for W4's request and response semantics.
   - `npm test` in `extension/` passes against the Rust bridge.
   - The `python evaluation/run-component-tests.py supervisor` cases are ported.
   - Measured end-to-end median latency does not regress beyond the run-to-run spread.
@@ -671,7 +672,7 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
 
 - **Objective.** Give the Rust NER layer (stage 13) spaCy's exact output through a small, supervised spaCy worker.
 - **Choice: a pool of supervised worker processes, not a dedicated interpreter thread.**
-  - Each worker is a small Rust binary, `privoke-spacy-worker`. It embeds CPython through PyO3, calls `spacy.load("en_core_web_sm")` once at start-up, and serves requests over a local length-prefixed protocol on stdin/stdout pipes.
+  - Each worker is a small Rust binary, `privoke-spacy-worker`. It embeds CPython through PyO3, calls `spacy.load("en_core_web_sm")` once at start-up, and serves requests over the length-prefixed W1 frame protocol on a dedicated pipe file descriptor (stdout redirected to stderr), sharing `privoke-worker-pool` (W2).
   - The Rust runtime (stage 17) owns the pool. It starts N workers (default 1 on the workstation, configurable on the server), restarts a worker that exits, crashes or misses its deadline, and routes each request to an idle worker.
   - **Why processes rather than a thread:**
     - **Crash isolation.** A segfault, OOM or deadlock in spaCy, thinc or NumPy, or a GIL held forever, kills or stalls only that worker. With a thread inside the runtime it would kill or stall the runtime, and with it the extension's inspection path.
@@ -807,11 +808,11 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
 
 ## Stage 17: Rust analysis runtime (integrates D1 to D3, D9, D10)
 
-- Objective: implement `PrivokeRuntimeService` analysis RPCs (`AnalyzePrompt`, `DetectAnnotationPresence`, `Health`) in Rust. This covers the `pipeline.py`, `model.py`, `classification/*` and `task_readout.py` logic, and it runs as the supervisor's child process instead of the Python worker.
+- Objective: implement `PrivokeRuntimeService` analysis RPCs (`AnalyzePrompt`, `DetectAnnotationPresence`, `Health`) in Rust. This covers the `pipeline.py`, `model.py`, `classification/*` and `task_readout.py` logic, and it runs as a worker behind the W1 frame protocol, inside the W2 pool, instead of the Python worker.
   - Root settled that the pipeline and policy aggregation are within the user's approval, because they are server logic.
   - It also includes D11: model package and legacy stream fetch, with pin, shape and finite checks, into the same cache layout. Root approved this as networking work.
   - The gradient RPCs stay on the Python worker until stage 19. The supervisor routes each RPC by path to the Rust or Python worker.
-- Depends on: stages 7, 9, 12, 13, 14 and 16
+- Depends on: stages W1–W4, 9, 12, 13, 14 and 16
 - Owned paths:
   - `rust/services/runtime/`
   - the supervisor routing in `rust/services/runtime-supervisor/`
@@ -833,7 +834,12 @@ The user approved this design: **"Implement this."** One inference worker sits b
 - **Client:** extension → native messaging → Rust controller (the stage 7 supervisor) → pipes → worker.
 - **Server:** fuzzer → gRPC with mutual TLS → thin Rust analysis microservice → pipes → worker, inside a quarantined container.
 
-The worker is the same binary and pipe protocol everywhere. It never opens a socket and needs no network. The client gets no listening ports: the gRPC-Web bridge on 8080 and the runtime ports are removed from workstation installs. This supersedes the stage 7 bridge objective and its gRPC-Web transcript replay check. Stages W1–W4 come before stage 17, which later only swaps worker internals for Rust crates behind the same protocol.
+The worker is the same binary and pipe protocol everywhere. It never opens a socket and needs no network:
+
+- **Models.** The front end fetches models over mutual TLS from model-streaming, checks the pins, writes the cache to a named volume (server) or the user cache directory (client), and passes the worker read-only model paths.
+- **Telemetry.** Telemetry is disabled in the worker. The client controller owns the reporter, which keeps the existing privacy code until stage 18. The quarantined service emits no telemetry.
+- **Scheduling.** W1–W4 run on `feat/rust-rewrite` only and are not merged into the submission build before 11 December 2026.
+- **Recorded studies.** Legacy study Compose files and recorded studies stay pinned to the Python stack. Existing evidence rows remain Python-bridge measurements; only a rerun of the installed-browser protocol on the new transport supports any new claim. The client gets no listening ports: the gRPC-Web bridge on 8080 and the runtime ports are removed from workstation installs. This supersedes the stage 7 bridge objective and its gRPC-Web transcript replay check. Stages W1–W4 come before stage 17, which later only swaps worker internals for Rust crates behind the same protocol.
 
 ## Stage W1: Worker pipe protocol and Python worker entrypoint
 
@@ -847,7 +853,9 @@ The worker is the same binary and pipe protocol everywhere. It never opens a soc
   - `extension/client-runtime/src/worker_main.py`, `extension/client-runtime/src/worker_protocol.py` and their tests
   - `docs/runtime/worker-protocol.md`
 - Acceptance checks:
-  - **Parity with the gRPC server path.** For each explicit layer selection on the corpus, responses through the pipe are byte-identical to responses through the existing gRPC server path. Never send an empty layer list.
+  - **Parity with the gRPC server path.** For each explicit layer selection, responses through the pipe are byte-identical to responses through the existing gRPC server path. The test inputs are the stage 0 corpus prompts plus a new `tests/conformance/worker-frames/` capture made by W1.
+  - **Empty layer lists are rejected.** Never send an empty layer list. The worker rejects one with an error frame.
+  - **Gradient parity.** For the semantic, underlying and presence gradient RPCs, including `full_encoder`, gradients through the pipe are byte-identical to the gRPC path on the same seed and input, or within 1e-6 where nondeterministic kernels are used, declared per RPC. The maximum frame size and the deadlines cover the largest gradient payload, and both are stated.
   - **Framing survives stray output.** A deliberate `print` inside the worker does not corrupt the framing.
   - **Malformed frames fail closed.** A malformed frame produces an error frame, and the worker survives.
 
@@ -866,7 +874,8 @@ The worker is the same binary and pipe protocol everywhere. It never opens a soc
 - Acceptance checks:
   - **Children die with the parent.** Killing the parent kills every child, on Windows and on Linux in a container.
   - **Limits are enforced.** Memory and process limits kill a runaway test worker.
-  - **No network, or a recorded gap.** A test worker's connect attempt fails where the sandbox is supported. Where it is not, the gap is recorded per OS.
+  - **Network denial on Linux.** A test worker's connect attempt fails under Landlock or seccomp, and the test runs on the Linux container.
+  - **No network denial on Windows.** Network denial is not claimed on Windows. The Job Object gives lifetime and resource limits only. The worker's self-check and the absence of any network code are the controls there, and the documentation states this.
   - **Pool rules hold.** Tests cover poisoned input, backoff and readiness.
 
 ## Stage W3: Quarantined analysis microservice for the fuzzer
@@ -880,7 +889,8 @@ The worker is the same binary and pipe protocol everywhere. It never opens a soc
     - a non-root user, `cap_drop: [ALL]`, `no-new-privileges` and the default seccomp profile;
     - memory, CPU and pids limits.
   - The fuzzer's runtime client is switched to this service with mutual TLS (shared with stage 6).
-- Depends on: W1, W2, stage 2
+- Depends on: W1, W2, stages 2 and 6
+- Ownership: stage 6 owns the fuzzer's mutual-TLS client code. W3 owns only the target configuration and Compose wiring.
 - Owned paths:
   - `rust/services/analysis/` and its Dockerfile
   - the quarantined service and profile in the Compose files
@@ -890,6 +900,10 @@ The worker is the same binary and pipe protocol everywhere. It never opens a soc
   - **Access is enforced.** A non-fuzzer identity gets `PERMISSION_DENIED`, and a publisher RPC gets `UNIMPLEMENTED`.
   - **Quarantine holds.** From inside the container, outbound connections fail and the root filesystem is read-only.
   - **Training still works.** The fuzzer's training cycle runs end to end against it in the `legacy-training` profile.
+  - **Semantic-only selection is preserved.** The fuzzer's assertion that only the semantic layer runs still holds through the service, and non-semantic layer requests from the fuzzer are rejected.
+  - **Gradient parity holds through the service.**
+  - **Models load with the root read-only.** Model load works with a read-only root filesystem and the cache on its volume.
+  - **Test drivers stay on the host.** All checks are driven by host Python or Rust test clients against the hosted containers, never `docker compose run`.
 
 ## Stage W4: Client controller without listening ports
 
@@ -905,7 +919,8 @@ The worker is the same binary and pipe protocol everywhere. It never opens a soc
   - **The extension suite passes.** `npm test` passes, with tests for native-port transport, timeouts and fail-closed behaviour.
   - **The cross-platform probes still pass.** The 73-probe study gives the same outcomes on Chrome and Firefox, with no listening ports opened by PriVoke.
   - **No orphans.** Closing the browser leaves no orphaned worker.
-  - **Latency does not regress.** The measured end-to-end median latency does not regress beyond the run-to-run spread.
+  - **Latency does not regress.** The end-to-end median latency stays within the run-to-run spread recorded in a baseline file, `tests/conformance/latency-baseline.json`, captured on the Python bridge before the switch.
+  - **Known gaps stay separate.** Firefox native messaging is tested as its own transport. The Edge Copilot gap (EDGE-COPILOT-1) is out of scope and stays reported.
 
 ## Stage 18: Telemetry reporter in Rust (D8)
 
