@@ -5,6 +5,15 @@
 
 use std::path::PathBuf;
 
+/// Print a line straight to stderr. `println!` is captured by the test harness and hidden for a passing test; the
+/// measurements and the reasons for a skip must reach the CI log.
+macro_rules! say {
+    ($($arg:tt)*) => {{
+        use std::io::Write;
+        let _ = writeln!(std::io::stderr(), $($arg)*);
+    }};
+}
+
 use privoke_semantic::layer::{LayerOutcome, SemanticClassifier, analyse_semantic_layer};
 use privoke_semantic::{Prediction, TinyModel, V3Model};
 use serde_json::Value;
@@ -49,7 +58,7 @@ impl Report {
 
     /// Print the measurements and fail with the first mismatches.
     pub fn assert_clean(&self, label: &str) {
-        println!(
+        say!(
             "{label}: {} rows ({} error rows, {} with findings), max logit diff {:.3e}, max pooled diff {:.3e}, max raw confidence diff {:.3e}, {} rounding-boundary confidences, {} failures",
             self.rows,
             self.error_rows,

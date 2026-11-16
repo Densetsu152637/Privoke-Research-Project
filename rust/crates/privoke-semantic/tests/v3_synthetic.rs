@@ -6,6 +6,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+#[macro_use]
 mod common;
 
 use common::{Report, check_v3_row, fixtures, read_json};
@@ -25,7 +26,7 @@ fn synthetic_release_matches_torch_on_every_row() {
     for row in golden["rows"].as_array().unwrap() {
         check_v3_row(&model, row, &mut report);
     }
-    println!("torch {} with {} threads, Python {}", golden["meta"]["torch"], golden["meta"]["threads"], golden["meta"]["python"]);
+    say!("torch {} with {} threads, Python {}", golden["meta"]["torch"], golden["meta"]["threads"], golden["meta"]["python"]);
     assert!(report.rows > 150);
     assert_eq!(report.error_rows, 2, "the two over-length prompts are layer errors");
     assert!(report.finding_rows > 100);

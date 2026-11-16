@@ -14,6 +14,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+#[macro_use]
 mod common;
 
 use std::path::PathBuf;
@@ -42,7 +43,7 @@ fn golden_files(dir: &std::path::Path, prefix: &str) -> Vec<PathBuf> {
 #[test]
 fn pinned_v3_releases_match_torch() {
     let (Some(releases), Some(golden)) = (env_dir("PRIVOKE_V3_RELEASES"), env_dir("PRIVOKE_SEMANTIC_GOLDEN")) else {
-        eprintln!(
+        say!(
             "skipped: PRIVOKE_V3_RELEASES and PRIVOKE_SEMANTIC_GOLDEN are not set (the release store and the recorded-set golden are local only)"
         );
         return;
@@ -51,7 +52,7 @@ fn pinned_v3_releases_match_torch() {
     for tier in ["efficient", "balanced", "quality"] {
         let files = golden_files(&golden, &format!("v3-{tier}-"));
         if files.is_empty() {
-            eprintln!("skipped: no golden for tier {tier} in {}", golden.display());
+            say!("skipped: no golden for tier {tier} in {}", golden.display());
             continue;
         }
         let id = format!("privoke-v3-{tier}");
@@ -67,20 +68,20 @@ fn pinned_v3_releases_match_torch() {
             checked += report.rows;
         }
     }
-    println!("pinned V3 releases: {checked} rows replayed");
+    say!("pinned V3 releases: {checked} rows replayed");
 }
 
 #[test]
 fn tracked_tiny_models_match_numpy_on_recorded_sets() {
     let Some(golden) = env_dir("PRIVOKE_SEMANTIC_GOLDEN") else {
-        eprintln!("skipped: PRIVOKE_SEMANTIC_GOLDEN is not set (the recorded-set golden is local only)");
+        say!("skipped: PRIVOKE_SEMANTIC_GOLDEN is not set (the recorded-set golden is local only)");
         return;
     };
     let mut checked = 0;
     for name in ["privoke-baseline", "privoke-efficient", "privoke-balanced", "privoke-quality"] {
         let files = golden_files(&golden, &format!("tiny-{name}-"));
         if files.is_empty() {
-            eprintln!("skipped: no golden for {name} in {}", golden.display());
+            say!("skipped: no golden for {name} in {}", golden.display());
             continue;
         }
         let model = TinyModel::from_file(&repo_root().join("models").join(format!("{name}.json"))).unwrap();
@@ -94,5 +95,5 @@ fn tracked_tiny_models_match_numpy_on_recorded_sets() {
             checked += report.rows;
         }
     }
-    println!("tracked Tiny models: {checked} rows replayed");
+    say!("tracked Tiny models: {checked} rows replayed");
 }

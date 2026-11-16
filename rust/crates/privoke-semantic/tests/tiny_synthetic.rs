@@ -6,6 +6,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+#[macro_use]
 mod common;
 
 use common::{Report, check_tiny_row, fixtures, read_json, repo_root};
