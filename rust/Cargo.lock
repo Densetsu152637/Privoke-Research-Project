@@ -1319,6 +1319,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "privoke-runtime-supervisor"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "libc",
+ "privoke-contracts",
+ "privoke-model-streaming",
+ "privoke-pki",
+ "privoke-runtime-supervisor",
+ "privoke-transport",
+ "rcgen",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror",
+ "time",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "uuid",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "privoke-spacy"
 version = "0.1.0"
 dependencies = [
