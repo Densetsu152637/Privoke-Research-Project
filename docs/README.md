@@ -84,6 +84,7 @@ Research documents, dataset reviews and evidence retain their existing locations
 | [Frozen pretrained contextual study](semantic-pretrained-context-study-20261010.md) | Research question, measured synthetic gains with failed harm veto, secondary regressions, separate 512-token checks and [public arithmetic evidence](evidence/semantic-pretrained-20261010/README.md) |
 | [Accelerated normal-batch fuzzer study](accelerated-fuzzer-study-20261010.md) | Audited twelve-trajectory semantic-only schedule; measurable tradeoffs, quality plateau, fixed iteration criteria and safe reproducible aggregates |
 | [Accelerated training across model surfaces](accelerated-training-surfaces-study-20261010.md) | 168 semantic-only trajectories across every supported training surface; all 56 configurations reported, none qualifying under frozen gain/harm rules |
+| [ASIACCS 2027 revision plan](plans/asiaccs-2027-revision.md) | Plan for the paper revision and its scope authorization |
 | [Research completion plan](Research-completion-plan.md) | Research questions, experiments, milestones and publication readiness |
 | [Research paper writing guide](Research-paper-writing-guide.md) | Methodology improvements, wording, evidence reporting and venue requirements |
 | [Current research evidence](../paper/research/claims.md) | Provisional claims, measured development results, protocol and professor review requests |

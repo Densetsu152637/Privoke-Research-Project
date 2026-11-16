@@ -1,5 +1,7 @@
 # PriVoke research paper: methodology, writing and submission guide
 
+> Status: historical record. It is not maintained as current state; the current revision plan is [asiaccs-2027-revision.md](plans/asiaccs-2027-revision.md).
+
 Reviewed 3 October 2026. Use alongside the [research completion plan](Research-completion-plan.md), [evaluation guide](evaluation/overview.md) and current [`paper/main.tex`](../paper/main.tex). This guide recommends how to make the paper credible and easy to review; it cannot guarantee acceptance. It does not report new experimental results.
 
 A [methodology draft](research-methodology-draft.md) records the implemented

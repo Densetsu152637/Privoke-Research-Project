@@ -2,7 +2,7 @@
 
 ## Architecture and prerequisites
 
-The deployment runs the five existing services and an nginx ingress on one Debian 12 Compute Engine VM. Docker volumes retain telemetry, update history, fuzzer output and mutable model artifacts. Only port `443` is public. IAP carries administrative SSH traffic to port `22`; the raw gRPC ports remain inside Docker. Each workstation authenticates with its own client certificate, downloads parameters and optionally submits metadata. Prompt analysis stays on the workstation.
+The deployment builds and publishes the five existing service images and runs an nginx ingress; `param-update-service` and `privoke-fuzzer` start only when the opt-in `legacy-training` Compose profile is enabled (see the training note below) on one Debian 12 Compute Engine VM. Docker volumes retain telemetry, update history, fuzzer output and mutable model artifacts. Only port `443` is public. IAP carries administrative SSH traffic to port `22`; the raw gRPC ports remain inside Docker. Each workstation authenticates with its own client certificate, downloads parameters and optionally submits metadata. Prompt analysis stays on the workstation.
 
 This is the supported cloud shape in this repository: a single VM running `deploy/gce/compose.yml`, with nginx as the only external endpoint. It is not a managed Kubernetes, Cloud Run, or multi-VM deployment. The browser extension, its native-messaging host, runtime supervisor, and the client detector run on each user's workstation; the VM's `client-runtime` container is the fuzzer/server-side runtime and is a separate process. The VM does not receive browser prompts for the extension's local detector.
 
