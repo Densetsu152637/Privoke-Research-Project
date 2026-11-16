@@ -399,6 +399,52 @@ The sets are `development` (502 rows), `personalized` (2000), `openai` (1000), `
 
 No service, no PyO3, and no CI job (no `.github/` change before the submission deadline). The registry file format and the `privoke-pki` tool are stage 2.
 
+## In-process spaCy (stage 11b)
+
+Plan: [stage 11b](../plans/rust-server-rewrite.md#stage-11b-in-process-spacy-backend-user-decision-17-november-2026). The user's instruction is that no external spaCy process exists: spaCy is integrated into the client-runtime process. `privoke-spacy` therefore has two backends behind one API, and the in-process one is the default.
+
+| Backend | What it is | Use |
+| --- | --- | --- |
+| `InProcess` (default) | CPython 3.11 embedded through PyO3 on **one dedicated interpreter thread** (`privoke-spacy-interpreter`) that owns the GIL and the loaded `en_core_web_sm`. Callers reach it through a bounded channel. No child process. | The runtime worker (stage 17). |
+| `SpacyPool` | The stage 11 pool of `privoke-spacy-worker` child processes. | Tests, and the parity oracle for `InProcess`. |
+
+`Spacy` is the enum the runtime holds (`Spacy::start(&SpacyConfig)`); `SpacyConfig::default()` is `InProcess`, with the bundle directory taken from the running executable. Both variants have the same methods (`analyze_raw`, `analyze`, `lemma_index`, `wait_ready`, `worker_info`), return the same `SpacyError`, and use the same offset conversion, so the NER layer (`privoke-ner-layer`) implements its `SpacyBackend` trait for `InProcess` and `Spacy` as it does for `SpacyPool`.
+
+### Same bundle, same lock check, same bytes
+
+The interpreter thread runs the Python file the stage 11 worker embeds (`rust/services/spacy-worker/python/privoke_spacy_impl.py`, included from there, so there is one copy). `startup` compares the interpreter and every installed package with the whole `bundle.lock.txt`, checks that `sys.path` and `sys.prefix` lie inside the bundle, and loads the model. A difference is a refusal: the backend never becomes ready and `wait_ready` returns the reason. `redirect_stdout` runs before anything else, so Python's fd 1 and `sys.stdout` point at stderr and a stray `print` or C-library message cannot reach a stream that the host owns. `analyze_body` produces the result bytes in every place, which is what the parity gate compares.
+
+The host executable must sit in the bundle directory: CPython finds `python311._pth` next to its library, and the isolation check refuses a process that sees anything outside the bundle. The PyO3 engine is behind the `in-process` feature of `privoke-spacy` (off by default, like `embed` on the worker), so `cargo test --workspace` needs no Python. Without the feature, `InProcess::start` fails with a configuration error and never falls back to a worker process.
+
+### Failure model
+
+Isolation comes from the runtime worker boundary, not from the interpreter. The W2 pool and sandbox wrap the whole runtime worker, so a crash of the interpreter (a segfault in spaCy, thinc or NumPy, an OOM) takes down that worker only, and the pool restarts it and never retries the request that was in flight. A stuck interpreter cannot be killed from inside; the pool's deadline replaces the worker. Throughput scales by adding runtime workers, not interpreters.
+
+| Behaviour | Test (`rust/crates/privoke-spacy/tests`) |
+| --- | --- |
+| Bounded queue, `RESOURCE_EXHAUSTED` when full | `inprocess::full_queue_is_resource_exhausted` |
+| One deadline for queue and interpreter, caller not held; an abandoned queued request is skipped | `inprocess::deadline_is_unavailable_and_the_caller_is_not_held`, `inprocess::an_abandoned_queued_request_is_not_run` |
+| P3 readiness: a request during the model load is `UNAVAILABLE` | `inprocess::p3_request_during_load_is_unavailable` |
+| A refused bundle is final and reports why; a failed or panicking start is `UNAVAILABLE` | `inprocess::a_refused_bundle_is_final_and_reports_why`, `inprocess::a_failed_start_and_a_panicking_factory_are_unavailable` |
+| An engine error is reported and the interpreter keeps serving; a panic on the thread makes the backend `UNAVAILABLE` | `inprocess::an_engine_error_is_reported_and_the_interpreter_keeps_serving`, `inprocess::a_panic_on_the_interpreter_thread_makes_the_backend_unavailable` |
+| `InProcess` is the default; the real backend needs the feature | `inprocess::the_default_backend_is_in_process`, `inprocess::the_real_backend_needs_the_in_process_feature` |
+| Bytes equal to the pool backend (Python-free harness) | `inprocess::results_are_byte_identical_to_the_worker_pool_backend` |
+| No child process when NER runs | `runtime_worker::no_child_process_is_created_when_ner_runs` (Python-free host, Linux), `real_interpreter::no_child_process_is_created_when_real_ner_runs` (real interpreter) |
+| Interpreter crash kills only that worker; the pool restarts it; no retry | `runtime_worker::an_interpreter_crash_kills_only_that_worker_and_the_request_is_not_retried`, `runtime_worker::a_poisoned_document_crashes_one_worker_and_is_not_retried`, `real_interpreter::a_real_interpreter_crash_kills_only_that_worker_and_is_not_retried` (CPython `abort()`) |
+| A stuck interpreter is replaced with its worker at the pool deadline | `runtime_worker::a_stuck_interpreter_is_replaced_with_its_worker_at_the_pool_deadline` |
+| P4 framing: a print inside the in-process interpreter | `real_interpreter::a_print_inside_the_interpreter_leaves_the_framing_intact` |
+| NER parity on every recorded set, both selections | `real_interpreter::in_process_output_is_byte_identical_to_the_worker_pool_on_every_recorded_set` |
+
+`runtime_worker.rs` drives `privoke-spacy-host`, a stand-in for the stage 17 runtime worker: one process that hosts `InProcess` and speaks the worker frame protocol, so the W2 pool supervises it as it will supervise the runtime worker. Its Python-free engine runs in CI. `real_interpreter.rs` needs the bundle and the recorded sets, and each of its tests skips itself with a printed `SKIPPED` reason when one is missing:
+
+```
+PYO3_PYTHON=<python 3.11> cargo build --release -p privoke-spacy --bin privoke-spacy-host --features fake-worker,in-process,test-hooks --manifest-path rust/Cargo.toml
+PRIVOKE_SPACY_HOST=rust/target/release/privoke-spacy-host PRIVOKE_SPACY_BUNDLE=rust/target/bundle/windows \
+  cargo test -p privoke-spacy --test real_interpreter --locked --manifest-path rust/Cargo.toml -- --nocapture
+```
+
+`PRIVOKE_SPACY_PARITY_SETS` names the sets directory that `parity_sets.py` writes (default `rust/target/parity/sets`; never committed), and `PRIVOKE_SPACY_PARITY_LIMIT` caps the documents per set for a quick run. The host is copied into the bundle as `privoke-spacy-host-s11b` (a test artefact, built with the test hooks and never shipped). CI compiles and lints the in-process feature (job `spaCy worker embed build (Linux)`, step "Clippy with in-process"); the real-interpreter tests need the Linux bundle, which is stage 23.
+
 ## `privoke-rules` (stage 12)
 
 > Plan: [Rust server rewrite](../plans/rust-server-rewrite.md#stage-12-regex-rules-and-preprocessing-in-rust-d2).

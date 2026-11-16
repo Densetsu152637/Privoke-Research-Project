@@ -4,7 +4,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use privoke_rules::pyre::PatternError;
-use privoke_spacy::{Analysis, Selection, SpacyError, SpacyPool};
+use privoke_spacy::{Analysis, InProcess, Selection, Spacy, SpacyError, SpacyPool};
 
 /// A failure of the NER layer: the spaCy worker, or a pattern that Python would also reject.
 #[derive(Debug, thiserror::Error)]
@@ -40,3 +40,22 @@ impl SpacyBackend for SpacyPool {
         async move { Ok(SpacyPool::lemma_index(self).await?) }
     }
 }
+
+// The in-process backend (stage 11b) is the runtime's default; the pool is kept for tests and as the parity oracle.
+// `Spacy` is the runtime's choice between them.
+macro_rules! backend_impl {
+    ($($ty:ty),+) => {$(
+        #[allow(clippy::manual_async_fn)] // the explicit `Send` bound is part of the trait
+        impl SpacyBackend for $ty {
+            fn analyze<'a>(&'a self, text: &'a str, selection: Selection) -> impl Future<Output = Result<Analysis, NerError>> + Send + 'a {
+                async move { Ok(<$ty>::analyze(self, text, selection).await?) }
+            }
+
+            fn lemma_index(&self) -> impl Future<Output = Result<Arc<Vec<String>>, NerError>> + Send {
+                async move { Ok(<$ty>::lemma_index(self).await?) }
+            }
+        }
+    )+};
+}
+
+backend_impl!(InProcess, Spacy);

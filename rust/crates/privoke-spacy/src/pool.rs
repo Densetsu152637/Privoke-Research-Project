@@ -29,6 +29,17 @@ pub use privoke_worker_pool::{Backoff, SandboxPolicy};
 use crate::error::{ConfigError, SpacyError};
 use crate::protocol::{Analysis, Envelope, RawAnalysis, Request, Selection, WorkerInfo};
 
+/// The text rules both backends apply before a request is queued: not empty, and at most `max` characters.
+pub(crate) fn check_text(text: &str, max: usize) -> Result<(), SpacyError> {
+    if text.is_empty() {
+        return Err(SpacyError::InvalidArgument("text must not be empty".into()));
+    }
+    if text.chars().nth(max).is_some() {
+        return Err(SpacyError::InvalidArgument(format!("text may contain at most {max} characters")));
+    }
+    Ok(())
+}
+
 /// The bridge's deadline. A request deadline must be below it.
 pub const BRIDGE_DEADLINE: Duration = Duration::from_secs(30);
 
@@ -216,13 +227,7 @@ impl SpacyPool {
 
     /// Runs spaCy on `text` and returns the exact result bytes.
     pub async fn analyze_raw(&self, text: &str, selection: Selection) -> Result<RawAnalysis, SpacyError> {
-        if text.is_empty() {
-            return Err(SpacyError::InvalidArgument("text must not be empty".into()));
-        }
-        let max = self.max_text_chars;
-        if text.chars().nth(max).is_some() {
-            return Err(SpacyError::InvalidArgument(format!("text may contain at most {max} characters")));
-        }
+        check_text(text, self.max_text_chars)?;
         let id = self.pool.next_id();
         let body = self.submit(id, Request::Analyze { id, selection, text }.encode()?).await?;
         Ok(RawAnalysis::new(body))
