@@ -1,0 +1,26 @@
+# Identity patterns for the anonymous submission (case-insensitive extended regular expressions,
+# one per line; '#' starts a comment). Used by check_anonymity.py and by the Stage 8 artifact
+# export. None may match main.tex, the text of main.pdf, or its pdfinfo metadata.
+# Author names
+Nicholas[[:space:]]+Bisset
+Bisset
+Manpreet
+Sahadevan
+Nixon[[:space:]]+Ngai
+\bNgai\b
+Sanoop
+Mallissery
+# Affiliation
+Monash
+# Email addresses and local parts
+nbis0006
+msah0018
+nnga0004
+legend\.d\.1000
+sanoop\.mallissery
+@student\.
+# Repository, GitHub and Hugging Face owners and URLs
+Densetsu
+Privoke-Research-Project
+github\.com/[A-Za-z0-9_.-]*privoke
+huggingface\.co/[A-Za-z0-9_.-]*privoke
