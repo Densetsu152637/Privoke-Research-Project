@@ -1,0 +1,43 @@
+[package]
+name = "privoke-spacy-worker"
+description = "Worker process that embeds CPython through PyO3 and serves spaCy over a framed local protocol (stage 11)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# Links and embeds CPython 3.11 (needs PYO3_PYTHON pointing at a 3.11 development install; see build_bundle.py).
+# Off by default so that `cargo test --workspace` needs no Python on the host.
+embed = ["dep:pyo3"]
+# Adds the test-only requests (crash, print, sleep). Never part of a shipped bundle.
+test-hooks = []
+
+[[bin]]
+name = "privoke-spacy-worker"
+path = "src/main.rs"
+required-features = ["embed"]
+
+[[example]]
+name = "parity-dump"
+path = "examples/parity_dump.rs"
+
+[dependencies]
+privoke-spacy = { path = "../../crates/privoke-spacy" }
+pyo3 = { version = "0.30", optional = true, default-features = false, features = ["auto-initialize"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["raw_value"] }
+
+[dev-dependencies]
+tokio = { workspace = true }
+sha2 = { workspace = true }
+
+[[test]]
+name = "real_worker"
+path = "tests/real_worker.rs"
+required-features = ["embed", "test-hooks"]
+
+[lints]
+workspace = true
