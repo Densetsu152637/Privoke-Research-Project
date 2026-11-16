@@ -1,0 +1,32 @@
+[package]
+name = "privoke-spacy"
+description = "Client and supervised worker pool for the PyO3 spaCy worker (stage 11)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# Builds the protocol-compatible fake worker used by the pool tests (no Python).
+fake-worker = []
+
+[[bin]]
+name = "privoke-spacy-fake-worker"
+path = "src/bin/privoke-spacy-fake-worker.rs"
+required-features = ["fake-worker"]
+
+[dependencies]
+tokio = { workspace = true, features = ["process", "io-util", "time", "sync", "rt", "macros"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["raw_value"] }
+
+[dev-dependencies]
+privoke-spacy = { path = ".", features = ["fake-worker"] }
+tokio = { workspace = true }
+
+[lints]
+workspace = true
