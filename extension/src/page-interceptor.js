@@ -53,10 +53,18 @@ window.fetch = async function privokeFetch(input, init) {
     const forward = (maskedBody) => {
       forwarded = true;
       try {
-        const result = maskedBody !== undefined
-          ? nativeFetch.apply(this, maskedFetchArguments(input, init, request, maskedBody))
+        let maskedArguments;
+        if (maskedBody !== undefined) {
+          try {
+            maskedArguments = maskedFetchArguments(input, init, request, maskedBody);
+          } catch {
+            // Masking failure fails open to the original request (plain WARN).
+          }
+        }
+        const result = maskedArguments
+          ? nativeFetch.apply(this, maskedArguments)
           : request ? nativeFetch.call(this, request) : nativeFetch.apply(this, arguments);
-        reportOutcome(maskedBody !== undefined ? "MASKED_REQUEST_HANDED_OFF" : "ORIGINAL_REQUEST_HANDED_OFF");
+        reportOutcome(maskedArguments ? "MASKED_REQUEST_HANDED_OFF" : "ORIGINAL_REQUEST_HANDED_OFF");
         return result;
       } catch (error) {
         reportOutcome("UNKNOWN");
@@ -72,7 +80,13 @@ window.fetch = async function privokeFetch(input, init) {
       throw new TypeError("Prompt blocked by PriVoke.");
     }
     // Opt-in WARN+MASK; maskedBodyFor is null unless that setting supplied spans.
-    return forward(maskedBodyFor(body, text, decision) ?? undefined);
+    let maskedBody = null;
+    try {
+      maskedBody = maskedBodyFor(body, text, decision);
+    } catch {
+      // Masking failure fails open to the original request (plain WARN).
+    }
+    return forward(maskedBody ?? undefined);
   } catch (error) {
     reportOutcome("UNKNOWN");
     if (!forwarded && request?.body) void request.body.cancel().catch(() => {});
@@ -398,7 +412,12 @@ function installXhrInterceptor() {
       request.pending = false;
       clearTimeout(request.timeout);
       try {
-        const maskedBody = maskedBodyFor(blob ? undefined : body, request.promptText, decision);
+        let maskedBody = null;
+        try {
+          maskedBody = maskedBodyFor(blob ? undefined : body, request.promptText, decision);
+        } catch {
+          // Masking failure fails open to the original request (plain WARN).
+        }
         send.call(xhr, maskedBody ?? body);
         reportXhrOutcome(request, decision?.action ?? null, decision?.observation,
           maskedBody ? "MASKED_REQUEST_HANDED_OFF" : "ORIGINAL_REQUEST_HANDED_OFF");
