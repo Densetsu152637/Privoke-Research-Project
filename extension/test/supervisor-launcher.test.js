@@ -1,81 +1,67 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { NativeTransportError } from "../src/native-port-transport.js";
 import { ensureSupervisorRunning } from "../src/supervisor-launcher.js";
 
-test("does not invoke the native launcher when the supervisor responds", async () => {
-  let launches = 0;
+test("asks the controller for its status over the port and returns it", async () => {
   const expected = { enabled: false, status: "STOPPED" };
+  let calls = 0;
   const client = {
     async runtimeStatus() {
+      calls += 1;
       return expected;
     },
   };
 
-  const actual = await ensureSupervisorRunning(client, {
-    launch: async () => {
-      launches += 1;
-      return { ok: true };
-    },
-  });
-
-  assert.equal(actual, expected);
-  assert.equal(launches, 0);
+  assert.equal(await ensureSupervisorRunning(client), expected);
+  assert.equal(calls, 1);
 });
 
-test("launches and waits for the supervisor after an initial fetch failure", async () => {
-  let statusCalls = 0;
-  let launches = 0;
+test("retries while the controller is still starting", async () => {
+  let calls = 0;
   const client = {
     async runtimeStatus() {
-      statusCalls += 1;
-      if (statusCalls < 3) throw new TypeError("Failed to fetch");
+      calls += 1;
+      if (calls < 3) throw new NativeTransportError("The PriVoke controller disconnected: Native host has exited.");
       return { enabled: false, status: "STOPPED" };
     },
   };
 
-  const result = await ensureSupervisorRunning(client, {
-    launch: async () => {
-      launches += 1;
-      return { ok: true, started: true };
-    },
-    attempts: 2,
-    retryDelayMs: 0,
-  });
+  const result = await ensureSupervisorRunning(client, { attempts: 4, retryDelayMs: 0 });
 
   assert.equal(result.status, "STOPPED");
-  assert.equal(launches, 1);
-  assert.equal(statusCalls, 3);
+  assert.equal(calls, 3);
 });
 
-test("reports when the native host is not installed", async () => {
+test("a host that is not installed fails at once with the install hint, without retrying", async () => {
+  let calls = 0;
   const client = {
     async runtimeStatus() {
-      throw new TypeError("Failed to fetch");
+      calls += 1;
+      throw new NativeTransportError("The PriVoke controller disconnected: Specified native messaging host not found.", { permanent: true });
     },
   };
 
   await assert.rejects(
-    ensureSupervisorRunning(client, {
-      launch: async () => {
-        throw new Error("Specified native messaging host not found.");
-      },
-    }),
+    ensureSupervisorRunning(client, { attempts: 10, retryDelayMs: 0 }),
     /Install the PriVoke native messaging host/,
   );
+  assert.equal(calls, 1);
 });
 
-test("propagates a launcher startup failure", async () => {
+test("gives up after the attempts and says the controller could not be reached", async () => {
+  let calls = 0;
   const client = {
     async runtimeStatus() {
-      throw new TypeError("Failed to fetch");
+      calls += 1;
+      throw new NativeTransportError("The PriVoke controller disconnected");
     },
   };
 
   await assert.rejects(
-    ensureSupervisorRunning(client, {
-      launch: async () => ({ ok: false, message: "Supervisor executable is missing." }),
-    }),
-    /Supervisor executable is missing/,
+    ensureSupervisorRunning(client, { attempts: 3, retryDelayMs: 0 }),
+    /could not be reached: The PriVoke controller disconnected/,
   );
+  assert.equal(calls, 3);
 });

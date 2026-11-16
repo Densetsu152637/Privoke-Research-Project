@@ -1075,6 +1075,15 @@ The worker is the same binary and pipe protocol everywhere. It never opens a soc
   - **No orphans.** Closing the browser leaves no orphaned worker.
   - **Latency does not regress.** The end-to-end median latency stays within the run-to-run spread recorded in a baseline file, `tests/conformance/latency-baseline.json`, captured on the Python bridge before the switch.
   - **Known gaps stay separate.** Firefox native messaging is tested as its own transport. The Edge Copilot gap (EDGE-COPILOT-1) is out of scope and stays reported.
+- Status: code complete, acceptance partly pending (RUST-W4, 17 November 2026; branch `wt/rust-w4`, not merged)
+- Outcome:
+  - **Built.** The stage 7 host is now the controller: native messaging with a versioned JSON envelope around the `runtime.proto` messages, one sandboxed W2 pool of the W1 worker through `python/worker_shim.py`, no listening socket. `confine.rs`, `process.rs`, the loopback control service and the Python-compatible `ensure_supervisor` host were removed. The extension's `runtime-client.js` now uses `native-port-transport.js` (host `org.privoke.runtime_controller`); the manifest lost its loopback permissions. See `docs/runtime/rust-workspace.md#controller-protocol` and `docs/runtime/browser-extension.md`.
+  - **Checks run.** `npm test` 368/368. Rust controller tests (16 session, 4 health, 18 unit, 1 real Python worker) passed locally, clippy and fmt clean.
+  - **Pending.** The 73-probe study on Chrome and Firefox, the listening-port and orphan checks, `latency-baseline.json` and the latency comparison, and the full workspace test run. Local builds and browser runs were stopped by the coordinator; the harness (`--transport native`, `latency`) is written. Details in `paper/research/w4-transport-20261117.md`.
+- Handoff notes:
+  - The website policy on analysis failure is still warn-and-hand-off (existing tests and the XPLAT failure probes); only the transport is fail-closed.
+  - W3's shim and this one duplicate each other; merge them.
+  - Installer scripts were syntax-checked only. `-SupervisorBinary` registers the controller under its own host name.
 
 ## Stage 18: Telemetry reporter in Rust (D8)
 

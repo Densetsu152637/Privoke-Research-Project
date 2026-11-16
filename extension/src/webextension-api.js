@@ -40,6 +40,13 @@ export function sendNativeMessage(hostName, message, root = globalThis) {
   );
 }
 
+// A long-lived port to a native-messaging host. The browser starts the host when the port opens and ends it when
+// the port closes. Both Chromium and Firefox return the port synchronously; a host that cannot be started shows up
+// as a disconnect with an error, not as an exception.
+export function connectNative(hostName, root = globalThis) {
+  return webExtensionApi(root).runtime.connectNative(hostName);
+}
+
 export function localStorageArea(root = globalThis) {
   const storage = webExtensionApi(root).storage?.local;
   if (!storage) throw new Error("WebExtensions local storage API is unavailable.");

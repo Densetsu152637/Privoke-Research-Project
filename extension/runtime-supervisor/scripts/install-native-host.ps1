@@ -1,10 +1,13 @@
 param(
     [ValidateSet('Auto', 'OperaGX', 'Chrome', 'Edge', 'Chromium', 'Firefox', 'All')]
-    [string]$Browser = 'Auto'
+    [string]$Browser = 'Auto',
+    # The Rust controller (rust/services/runtime-supervisor, `privoke-supervisor`). Given, it is registered as the
+    # native host `org.privoke.runtime_controller`; omitted, the Python launcher stays registered as before.
+    [string]$SupervisorBinary = ''
 )
 
 $ErrorActionPreference = 'Stop'
-$hostName = 'org.privoke.runtime_launcher'
+$hostName = if ([string]::IsNullOrWhiteSpace($SupervisorBinary)) { 'org.privoke.runtime_launcher' } else { 'org.privoke.runtime_controller' }
 $supervisorRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $repositoryRoot = (Resolve-Path -LiteralPath (Join-Path $supervisorRoot '..\..')).Path
 $extensionRoot = Join-Path $repositoryRoot 'extension'

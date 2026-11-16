@@ -1,4 +1,5 @@
 import { RuntimeClient } from "./runtime-client.js";
+import { NativePortTransport } from "./native-port-transport.js";
 import { restoreConfiguredRuntime } from "./runtime-lifecycle.js";
 import {
   detectionLayers,
@@ -16,7 +17,10 @@ import { collectMaskSpans } from "./redaction.js";
 import { ANALYSIS_TIMEOUT_MS, STREAMING_HEALTH_TIMEOUT_MS } from "./analysis-timeouts.js";
 import { watchTabCoverage } from "./page-coverage.js";
 
-const client = new RuntimeClient();
+// A controller that restarts has lost its runtime; restore the configured state when a later port opens.
+const client = new RuntimeClient(new NativePortTransport({
+  onReconnect: () => { void restoreEnabledRuntime().catch(reportStartupFailure); },
+}));
 const semanticAvailability = new SemanticAvailability(checkStreamingHealth);
 let runtimeControlTail = Promise.resolve();
 

@@ -1,13 +1,12 @@
-//! `privoke-supervisor`: the workstation runtime supervisor.
+//! `privoke-supervisor`: the workstation runtime controller.
 //!
 //! | Command | Does |
 //! | --- | --- |
-//! | (none), `native-host` | The native-messaging host on stdio. A browser starts it with its own arguments (the calling origin), which are ignored. |
-//! | `serve` | The long-lived supervisor: the runtime child and the loopback control service. |
+//! | (none), `native-host` | The native-messaging host on stdio: owns the sandboxed worker pool, opens no port. A browser starts it with its own arguments (the calling origin), which are ignored. |
 //! | `enrol`, `renew`, `install-cert`, `status` | The installation side of enrolment, on `privoke_pki::client`. |
 //! | `fetch-model` | Download and verify the standard V3 package into the user cache. |
 
-use std::io::{self, Write};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -16,11 +15,13 @@ use std::time::Duration;
 use clap::{Parser, Subcommand};
 use privoke_supervisor::channel::ModelEndpoint;
 use privoke_supervisor::config::{self, Environment};
-use privoke_supervisor::control::{ControlService, EndpointHealth, serve_loopback};
+use privoke_supervisor::controller::{Controller, run_session};
 use privoke_supervisor::credentials::{self, InstallFiles};
 use privoke_supervisor::fetch::{FetchConfig, Fetcher, StandardAdmission};
-use privoke_supervisor::native_host::{self, HostConfig};
-use privoke_supervisor::process::{DEFAULT_RUNTIME_PORT, OsLauncher, RuntimeProcessSupervisor, SupervisorSettings};
+use privoke_supervisor::health::EndpointHealth;
+use privoke_supervisor::native_host;
+use privoke_supervisor::runtime::RuntimeController;
+use privoke_supervisor::worker::WorkerSettings;
 use time::OffsetDateTime;
 
 #[derive(Debug, Parser)]
@@ -41,8 +42,6 @@ enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
         launch: Vec<String>,
     },
-    /// Run the supervisor: the runtime child and the loopback control service.
-    Serve,
     /// Create the installation id, key and CSR. Send the CSR, which is public, to the operator.
     Enrol {
         /// Credential directory (default: the per-user PriVoke credential directory).
@@ -91,7 +90,6 @@ fn main() -> ExitCode {
     let args = Args::parse();
     let outcome = match args.command {
         None | Some(Command::NativeHost { .. }) => run_native_host(),
-        Some(Command::Serve) => run_serve(),
         Some(Command::Enrol { dir }) => credential_command(dir, |dir| credentials::enrol(dir).map_err(|e| e.to_string())),
         Some(Command::Renew { dir }) => credential_command(dir, |dir| credentials::renew(dir).map_err(|e| e.to_string())),
         Some(Command::InstallCert { dir, cert, server_ca, reporter_cert, reporter_key }) => credential_command(dir, |dir| {
@@ -139,102 +137,33 @@ fn repository_root(environment: &Environment) -> Result<PathBuf, String> {
 }
 
 fn run_native_host() -> Result<(), String> {
-    let environment = config::process_environment();
-    let root = repository_root(&environment).ok();
-    let entry = std::env::current_exe().map_err(|error| error.to_string())?;
-    let log = native_host::default_log_path(environment.get("PRIVOKE_SUPERVISOR_LOG").map(String::as_str));
-    #[allow(unused_mut)]
-    let mut host = HostConfig::standard(entry, root, log);
-    #[cfg(feature = "test-helpers")]
-    apply_test_overrides(&mut host, &environment);
-    let (stdin, stdout) = (io::stdin(), io::stdout());
-    native_host::serve(&mut stdin.lock(), &mut stdout.lock(), &host).map_err(|error| error.to_string())
-}
-
-/// Ports, entry and timeout overrides so the transcript replay can run beside a real installation. Compiled only
-/// with the `test-helpers` feature; a normal build has no way to move the ports or change the program it starts.
-#[cfg(feature = "test-helpers")]
-fn apply_test_overrides(host: &mut HostConfig, environment: &Environment) {
-    let number = |name: &str| environment.get(name).and_then(|value| value.parse::<u64>().ok());
-    if let Some(port) = number("PRIVOKE_TEST_HOST_BRIDGE_PORT").and_then(|v| u16::try_from(v).ok()) {
-        host.bridge_port = port;
-    }
-    if let Some(port) = number("PRIVOKE_TEST_HOST_CONTROL_PORT").and_then(|v| u16::try_from(v).ok()) {
-        host.control_port = port;
-    }
-    if let Some(entry) = environment.get("PRIVOKE_TEST_HOST_ENTRY") {
-        host.supervisor_entry = PathBuf::from(entry);
-    }
-    if let Some(arguments) = environment.get("PRIVOKE_TEST_HOST_ARGS") {
-        host.supervisor_args = arguments.split('\u{1f}').filter(|part| !part.is_empty()).map(Into::into).collect();
-    }
-    if let Some(seconds) = number("PRIVOKE_TEST_HOST_TIMEOUT_SECONDS") {
-        host.startup_timeout = Duration::from_secs(seconds);
-    }
-}
-
-fn run_serve() -> Result<(), String> {
     let mut environment = config::process_environment();
     let root = repository_root(&environment)?;
-    let runtime_root = root.join("extension").join("client-runtime");
-    config::load_runtime_environment(&runtime_root, &mut environment);
-
-    let runtime_port = u16::try_from(config::positive_int(&environment, "PRIVOKE_LOCAL_RUNTIME_PORT", u64::from(DEFAULT_RUNTIME_PORT))?)
-        .map_err(|_| "PRIVOKE_LOCAL_RUNTIME_PORT is not a port.".to_string())?;
-    let control_port = u16::try_from(config::positive_int(&environment, "PRIVOKE_CONTROL_GRPC_PORT", 50056)?)
-        .map_err(|_| "PRIVOKE_CONTROL_GRPC_PORT is not a port.".to_string())?;
-    let health_timeout = config::positive_seconds(&environment, "MODEL_STREAMING_HEALTH_TIMEOUT_SECONDS", 3.0)?;
-    let start_timeout = config::positive_seconds(&environment, "PRIVOKE_RUNTIME_START_TIMEOUT_SECONDS", 30.0)?;
-    let stop_timeout = config::positive_seconds(&environment, "PRIVOKE_RUNTIME_STOP_TIMEOUT_SECONDS", 10.0)?;
-    let start_enabled = config::boolean(&environment, "PRIVOKE_RUNTIME_START_ENABLED", true)?;
-
-    // The runtime's argv is fixed. Only a test build can replace it.
+    config::load_runtime_environment(&root.join("extension").join("client-runtime"), &mut environment);
     #[allow(unused_mut)]
-    let mut command: Option<Vec<String>> = None;
+    let mut settings = WorkerSettings::from_environment(&environment, &root)?;
     #[cfg(feature = "test-helpers")]
-    if let Some(text) = environment.get("PRIVOKE_TEST_RUNTIME_COMMAND") {
-        command = Some(text.split('\u{1f}').map(str::to_string).collect());
-    }
-    let mut settings = SupervisorSettings::new(&runtime_root, environment, runtime_port, command);
-    settings.startup_timeout = start_timeout;
-    settings.stop_timeout = stop_timeout;
-    let supervisor = Arc::new(RuntimeProcessSupervisor::new(settings, Box::new(OsLauncher)));
-
-    if start_enabled {
-        let status = supervisor.start().map_err(|error| error.to_string())?;
-        println!("{}", status.message);
-    }
-    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().map_err(|error| error.to_string())?;
-    let outcome = runtime.block_on(async {
-        let service = ControlService::new(Arc::clone(&supervisor), Arc::new(EndpointHealth::new(Arc::clone(&supervisor), health_timeout)));
-        let address = std::net::SocketAddr::from(([127, 0, 0, 1], control_port));
-        let (bound, listening) = tokio::sync::oneshot::channel();
-        let server = tokio::spawn(serve_loopback(address, service, bound, shutdown_signal()));
-        if let Ok(local) = listening.await {
-            println!("PriVoke runtime supervisor listening on {local}");
-            let _ = io::stdout().flush();
-        }
-        server.await.map_err(|error| error.to_string())?.map_err(|error| error.to_string())
-    });
-    // Stop the child on every exit path; the confinement also stops it if this process is killed instead.
-    let stopped = supervisor.stop();
-    outcome?;
-    stopped.map(|_| ()).map_err(|error| error.to_string())
+    apply_test_overrides(&mut settings, &environment);
+    let health_timeout = config::positive_seconds(&environment, "MODEL_STREAMING_HEALTH_TIMEOUT_SECONDS", 3.0)?;
+    let runtime = Arc::new(RuntimeController::new(settings, environment));
+    let health = Arc::new(EndpointHealth::new(Arc::clone(&runtime), health_timeout));
+    let controller = Controller::new(runtime, health);
+    // The pool starts its workers from this runtime's threads; they live as long as the session does.
+    let threads = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().map_err(|error| error.to_string())?;
+    threads.block_on(run_session(io::stdin(), io::stdout(), controller)).map_err(|error| error.to_string())
 }
 
-async fn shutdown_signal() {
-    #[cfg(unix)]
-    {
-        use tokio::signal::unix::{SignalKind, signal};
-        if let Ok(mut terminate) = signal(SignalKind::terminate()) {
-            tokio::select! {
-                _ = tokio::signal::ctrl_c() => {}
-                _ = terminate.recv() => {}
-            }
-            return;
+/// Replaces the worker program, so tests can run the controller against a stand-in. Compiled only with the
+/// `test-helpers` feature; a normal build has no way to change the program it starts.
+#[cfg(feature = "test-helpers")]
+fn apply_test_overrides(settings: &mut WorkerSettings, environment: &Environment) {
+    if let Some(text) = environment.get("PRIVOKE_TEST_WORKER_COMMAND") {
+        let mut parts = text.split('\u{1f}').filter(|part| !part.is_empty());
+        if let Some(program) = parts.next() {
+            settings.command = PathBuf::from(program);
+            settings.args = parts.map(Into::into).collect();
         }
     }
-    let _ = tokio::signal::ctrl_c().await;
 }
 
 fn run_fetch(model_id: &str) -> Result<(), String> {

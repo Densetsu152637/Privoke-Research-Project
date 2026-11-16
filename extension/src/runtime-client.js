@@ -1,11 +1,7 @@
 import { privoke } from "./generated/runtime.js";
 import { requireExplicitLayers } from "./analysis-request.js";
-import { frameGrpcWebMessage, parseGrpcWebResponse } from "./grpc-web.js";
+import { NativePortTransport } from "./native-port-transport.js";
 
-const RPC_PATH = "/privoke.v1.PrivokeRuntimeService/AnalyzePrompt";
-const STREAMING_HEALTH_PATH = "/privoke.v1.PrivokeRuntimeControlService/ModelStreamingHealth";
-const RUNTIME_CONTROL_PATH = "/privoke.v1.PrivokeRuntimeControlService/SetRuntimeEnabled";
-const RUNTIME_STATUS_PATH = "/privoke.v1.PrivokeRuntimeControlService/Status";
 const {
   AnalyzePromptRequest: Request,
   AnalyzePromptResponse: Response,
@@ -15,29 +11,27 @@ const {
   RuntimeControlStatus,
 } = privoke.v1;
 
+// The runtime client keeps the request and response messages of the gRPC-Web client it replaced
+// (PrivokeRuntimeService.AnalyzePrompt and PrivokeRuntimeControlService); only the carrier changed, from
+// loopback HTTP to a native-messaging port to the controller. The transport rejects on any failure,
+// so a caller never sees a response that did not come from the runtime.
 export class RuntimeClient {
-  constructor(baseUrl = "http://127.0.0.1:8080") {
-    this.baseUrl = baseUrl.replace(/\/$/, "");
+  constructor(transport = new NativePortTransport()) {
+    this.transport = transport;
   }
 
   async analyzePrompt(values, { signal } = {}) {
     requireExplicitLayers(values);
-    return this.#unary(RPC_PATH, Request, Response, values, { signal });
+    return this.#unary("AnalyzePrompt", Request, Response, values, { signal });
   }
 
   async streamingHealth({ signal } = {}) {
-    return this.#unary(
-      STREAMING_HEALTH_PATH,
-      RuntimeHealthRequest,
-      RuntimeHealthResponse,
-      {},
-      { signal },
-    );
+    return this.#unary("ModelStreamingHealth", RuntimeHealthRequest, RuntimeHealthResponse, {}, { signal });
   }
 
   async setRuntimeEnabled(enabled, { signal, useLocalStack } = {}) {
     return this.#unary(
-      RUNTIME_CONTROL_PATH,
+      "SetRuntimeEnabled",
       SetRuntimeEnabledRequest,
       RuntimeControlStatus,
       { enabled, ...(typeof useLocalStack === "boolean" ? { useLocalStack } : {}) },
@@ -46,44 +40,13 @@ export class RuntimeClient {
   }
 
   async runtimeStatus({ signal } = {}) {
-    return this.#unary(
-      RUNTIME_STATUS_PATH,
-      RuntimeHealthRequest,
-      RuntimeControlStatus,
-      {},
-      { signal },
-    );
+    return this.#unary("Status", RuntimeHealthRequest, RuntimeControlStatus, {}, { signal });
   }
 
-  async #unary(path, requestType, responseType, values, { signal } = {}) {
+  async #unary(method, requestType, responseType, values, { signal } = {}) {
     const request = requestType.fromObject(values);
-    const body = frameGrpcWebMessage(requestType.encode(request).finish());
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/grpc-web+proto",
-        "X-Grpc-Web": "1",
-        "X-User-Agent": "privoke-extension/0.1",
-      },
-      body,
-      signal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Runtime bridge returned HTTP ${response.status}.`);
-    }
-
-    const { messages, trailers } = parseGrpcWebResponse(await response.arrayBuffer());
-    const grpcStatus = trailers["grpc-status"] ?? response.headers.get("grpc-status") ?? "0";
-    if (grpcStatus !== "0") {
-      const grpcMessage = trailers["grpc-message"] ?? response.headers.get("grpc-message");
-      throw new Error(grpcMessage ? decodeURIComponent(grpcMessage) : `gRPC status ${grpcStatus}.`);
-    }
-    if (messages.length !== 1) {
-      throw new Error(`Expected one runtime response, received ${messages.length}.`);
-    }
-
-    return responseType.toObject(responseType.decode(messages[0]), {
+    const reply = await this.transport.request(method, requestType.encode(request).finish(), { signal });
+    return responseType.toObject(responseType.decode(reply), {
       defaults: true,
       enums: String,
       arrays: true,

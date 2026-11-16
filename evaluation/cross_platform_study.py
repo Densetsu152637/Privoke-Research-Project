@@ -20,6 +20,7 @@ import platform
 import re
 import shutil
 import socket
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -36,6 +37,7 @@ from cross_platform_probes import (  # noqa: E402
     load_shapes, score_probe, sha256_hex, summarise,
 )
 from cross_platform_receiver import Receiver, generate_certificate  # noqa: E402
+import w4_transport as w4  # noqa: E402
 
 SCHEMA = "privoke-cross-platform-v1"
 STUDY_ID = "XPLAT-20261117"
@@ -105,6 +107,16 @@ class Supervisor:
 
     def wait_ready(self, timeout: float = 120.0) -> bool:
         return wait_for(lambda: port_open(BRIDGE_PORT) and port_open(DETECTOR_PORT), timeout)
+
+    def running(self) -> bool:
+        return self.process is not None and self.process.poll() is None
+
+    def pids(self) -> set[int]:
+        pids = {self.process.pid} if self.process else set()
+        detector = listener_pid(DETECTOR_PORT)
+        if detector:
+            pids.add(detector)
+        return pids
 
     def stop(self, wait: bool = True) -> None:
         if self.process and self.process.poll() is None:
@@ -247,16 +259,17 @@ def foreign_runtime_processes() -> list[dict[str, Any]]:
             and "t.py" not in row["CommandLine"]]
 
 
-def reap_foreign_runtime(own_pid: int | None) -> list[dict[str, Any]]:
-    """Kill and report runtime trees that this study did not start; returns what was found."""
+def reap_foreign_runtime(own_pid: int | None, kill: bool = False) -> list[dict[str, Any]]:
+    """Report (and, only when `kill` is set) stop runtime trees that this study did not start."""
     rows = foreign_runtime_processes()
     ids = {row["ProcessId"] for row in rows}
     found = []
     for row in rows:
         if row["ParentProcessId"] in ids or row["ProcessId"] == own_pid:
             continue
-        found.append({"pid": row["ProcessId"], "command": row["CommandLine"][:200]})
-        subprocess.run(["taskkill", "/F", "/T", "/PID", str(row["ProcessId"])], capture_output=True, check=False)
+        found.append({"pid": row["ProcessId"], "command": row["CommandLine"][:200], "killed": kill})
+        if kill:
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(row["ProcessId"])], capture_output=True, check=False)
     return found
 
 
@@ -294,8 +307,18 @@ class Study:
         self.bodies = dump_bodies(self.node)
         cert, key, self.spki = generate_certificate(self.workdir / "cert", args.openssl)
         self.receiver = Receiver(cert, key, args.receiver_port)
-        self.supervisor = Supervisor(self.python, self.workdir / "supervisor.log")
+        self.transport = getattr(args, "transport", "bridge")
+        if self.transport == "native":
+            identities = json.loads((REPO_ROOT / "extension" / "extension-identities.json").read_text(encoding="utf8"))
+            self.supervisor = w4.NativeRuntime(Path(args.controller_exe), self.workdir, identities)
+            # The browser starts the controller, which inherits the browser's environment.
+            os.environ.update({"PRIVOKE_RUNTIME_PYTHON": self.python, "PRIVOKE_USE_LOCAL_STACK": "true",
+                               "PRIVOKE_REPOSITORY_ROOT": str(REPO_ROOT)})
+        else:
+            self.supervisor = Supervisor(self.python, self.workdir / "supervisor.log")
         self.native_launches: list[dict[str, Any]] = []
+        self.reap = False
+        self.decoy = None
 
     # --- helpers
     def run_probe(self, driver: Driver, state: dict[str, Any], probe: ProbeDef, stage: str) -> dict[str, Any]:
@@ -357,7 +380,7 @@ class Study:
         return rows
 
     def ensure_runtime(self) -> bool:
-        if not self.supervisor.process or self.supervisor.process.poll() is not None:
+        if not self.supervisor.running():
             self.supervisor.start()
         return self.supervisor.wait_ready()
 
@@ -471,14 +494,109 @@ class Study:
             shutil.rmtree(profile, ignore_errors=True)
             os.environ.pop("PRIVOKE_USE_LOCAL_STACK", None)
 
+    def check_orphans(self, wait: float = 20.0) -> dict[str, Any]:
+        """What of PriVoke is still running after the browser closed (native transport only)."""
+        if self.transport != "native":
+            return {"checked": False}
+        started = time.monotonic()
+        remaining = w4.privoke_processes(self.supervisor.exe)
+        while remaining and time.monotonic() - started < wait:
+            time.sleep(0.5)
+            remaining = w4.privoke_processes(self.supervisor.exe)
+        return {"checked": True, "waited_s": round(time.monotonic() - started, 1), "orphans": remaining}
+
+    def latency_run(self, key: str, index: int) -> dict[str, Any]:
+        spec = BROWSERS[key]
+        exe = next((path for path in spec["exe"] if Path(path).is_file()), None)
+        if exe is None:
+            return {"status": "not_run", "reason": "browser not installed on this host"}
+        dist = REPO_ROOT / "extension" / spec["dist"]
+        profile = Path(tempfile.mkdtemp(prefix=f"latency-{key}-", dir=str(self.workdir)))
+        driver = Driver(self.node)
+        state: dict[str, Any] = {}
+        try:
+            launched = driver.request("launch", family=spec["family"], exe=exe, userDataDir=str(profile),
+                                      extensionDir=str(dist), hosts=list(FIXTURE_HOSTS), spki=self.spki)
+            if launched.get("ok") is not True:
+                return {"status": "not_run", "reason": str(launched.get("error"))}
+            if not self.ensure_runtime():
+                return {"status": "not_run", "reason": "local runtime did not become ready"}
+            warm = self.warm_up(driver, state)
+            if not warm["ready"]:
+                return {"status": "failed", "reason": "no successful ALLOW decision", "warm_up": warm}
+            base = next(p for p in self.catalogue if p.shape_id == "chatgpt-conversation"
+                        and p.transport == "fetch" and p.expected_action == "ALLOW")
+            # Untimed settling samples first, so lazy start-up costs are not in the measurement.
+            for settle in range(self.args.settle_samples):
+                self.run_probe(driver, state, ProbeDef(**{**base.__dict__, "id": f"latency.{index}.settle.{settle}"}), "latency")
+            values, failed = [], 0
+            for sample in range(self.args.samples):
+                record = self.run_probe(driver, state, ProbeDef(**{**base.__dict__, "id": f"latency.{index}.{sample}"}),
+                                        "latency")
+                elapsed = (record.get("raw") or {}).get("elapsedMs")
+                if record["passed"] and isinstance(elapsed, (int, float)):
+                    values.append(float(elapsed))
+                else:
+                    failed += 1
+            return {"status": "run", "run": index, "warm_up": warm, "failed_samples": failed,
+                    "summary": w4.latency_summary(values), "samples_ms": [round(v, 2) for v in values]}
+        finally:
+            driver.close()
+            time.sleep(1)
+            shutil.rmtree(profile, ignore_errors=True)
+            # Independent runs: a fresh runtime (and, natively, a fresh controller) each time.
+            self.supervisor.stop()
+            if self.transport == "native":
+                self.supervisor.start()
+
+    def latency(self) -> dict[str, Any]:
+        self.catalogue = build_catalogue(self.bodies)
+        self.receiver.start()
+        retired = (BRIDGE_PORT, CONTROL_PORT, DETECTOR_PORT, STUDY_CONTROL_PORT)
+        busy = [port for port in retired if port_open(port)]
+        if busy:
+            raise SystemExit(f"loopback ports already in use, refusing to touch another runtime: {busy}")
+        self.decoy = HeldPort(CONTROL_PORT) if self.transport == "bridge" else None
+        key = self.args.browsers[0]
+        runs = []
+        started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        try:
+            for index in range(self.args.runs):
+                runs.append(self.latency_run(key, index))
+        finally:
+            self.supervisor.stop()
+            if self.decoy:
+                self.decoy.close()
+            self.receiver.stop()
+        medians = [run["summary"]["median_ms"] for run in runs if run.get("status") == "run" and run["summary"]["count"]]
+        result: dict[str, Any] = {
+            "schema": "privoke-latency-v1", "transport": self.transport, "browser": key, "started_utc": started,
+            "revision": git("rev-parse", "HEAD"),
+            "method": ("End-to-end page latency of one synthetic ALLOW prompt: time from the page's fetch() call "
+                       "(intercepted by the extension, analysed by the local runtime with the regex and NER layers, "
+                       "then forwarded to the loopback receiver) to the response, measured in the page with "
+                       "performance.now(). Each run is a fresh browser profile and a fresh runtime; the run "
+                       "median is the median of the timed samples; run-to-run spread is the range of run medians."),
+            "settle_samples": self.args.settle_samples, "samples_per_run": self.args.samples,
+            "host": {"platform": platform.platform(), "machine": platform.machine()},
+            "runs": runs, "run_medians_ms": medians,
+            "median_of_run_medians_ms": round(statistics.median(medians), 2) if medians else None,
+            "run_spread_ms": [round(min(medians), 2), round(max(medians), 2)] if medians else None,
+        }
+        if self.args.baseline and medians:
+            baseline = json.loads(Path(self.args.baseline).read_text(encoding="utf8"))
+            result["against_baseline"] = {"file": str(self.args.baseline), "baseline_transport": baseline["transport"],
+                                          **w4.spread_verdict(baseline["run_medians_ms"], medians)}
+        return result
+
     def fault_stages(self, driver: Driver, state: dict[str, Any]) -> list[dict[str, Any]]:
         groups = build_failure_probes(self.bodies)
         records: list[dict[str, Any]] = []
         # Runtime unreachable. Hold 50056 so a registered native launcher cannot revive it.
         self.supervisor.stop()
-        self.native_launches += [dict(event, stage="fault-unavailable-start") for event in reap_foreign_runtime(None)]
+        self.native_launches += [dict(event, stage="fault-unavailable-start") for event in reap_foreign_runtime(None, self.reap)]
         records += self.run_group(driver, state, groups["unavailable"], "fault-unavailable")
-        self.native_launches += [dict(event, stage="fault-unavailable-end") for event in reap_foreign_runtime(None)]
+        self.native_launches += [dict(event, stage="fault-unavailable-end") for event in reap_foreign_runtime(None, self.reap)]
         self.ensure_runtime()
         self.warm_up(driver, state)
         records += self.run_group(driver, state, groups["recovered"], "recovered-after-unavailable")
@@ -498,22 +616,26 @@ class Study:
         busy = [port for port in (BRIDGE_PORT, CONTROL_PORT, DETECTOR_PORT, STUDY_CONTROL_PORT) if port_open(port)]
         if busy:
             raise SystemExit(f"loopback ports already in use, refusing to touch another runtime: {busy}")
-        self.decoy = HeldPort(CONTROL_PORT)
+        native = self.transport == "native"
+        self.decoy = None if native else HeldPort(CONTROL_PORT)
+        sampler = w4.ListenSampler(self.supervisor.exe) if native else None
+        if sampler:
+            sampler.start()
         started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         results: list[dict[str, Any]] = []
         outbound: list[str] = []
         results_native: list[dict[str, Any]] = []
         try:
             for key in self.args.browsers:
-                results.append(self.run_browser(key))
-                pids = {self.supervisor.process.pid} if self.supervisor.process else set()
-                detector = listener_pid(DETECTOR_PORT)
-                if detector:
-                    pids.add(detector)
-                outbound += outbound_connections(pids)
+                entry = self.run_browser(key)
+                results.append(entry)
+                if not native:
+                    outbound += outbound_connections(self.supervisor.pids()) if self.supervisor.running() else []
+                entry["after_browser_close"] = self.check_orphans()
             self.supervisor.stop()
-            self.decoy.close()
-            self.decoy = None
+            if self.decoy:
+                self.decoy.close()
+                self.decoy = None
             for key in self.args.native_smoke:
                 results_native.append(self.native_smoke(key))
         finally:
@@ -521,6 +643,9 @@ class Study:
             if self.decoy:
                 self.decoy.close()
             self.receiver.stop()
+        listening = sampler.finish() if sampler else None
+        if listening:
+            outbound += listening["non_loopback_connections_of_controller_tree"]
         harness = unit_harness(self.node)
         return {
             "schema": SCHEMA, "study_id": STUDY_ID, "started_utc": started,
@@ -536,8 +661,14 @@ class Study:
                          "tls": "self-signed, SPKI pinned in Chromium; acceptInsecureCerts in Firefox"},
             "native_launcher_events": self.native_launches,
             "native_launch_smoke": results_native,
-            "runtime": {"mode": "manual supervisor start (documented development path); native messaging not used for probes",
-                        "local_stack": True, "outbound_non_loopback_connections": outbound},
+            "runtime": ({"mode": "native messaging: the browser starts the Rust controller and the controller starts "
+                                 "its sandboxed Python worker; no PriVoke process is started by the study; the "
+                                 "native-host registration is temporary",
+                         "transport": "native", "controller": str(self.supervisor.exe), "local_stack": True,
+                         "outbound_non_loopback_connections": outbound, "listening_ports": listening}
+                        if native else
+                        {"mode": "manual supervisor start (documented development path); native messaging not used for probes",
+                         "transport": "bridge", "local_stack": True, "outbound_non_loopback_connections": outbound}),
             "cases": CASES,
             "browsers": results,
             "page_hook_harness": harness,
@@ -581,6 +712,25 @@ def main() -> None:
     run.add_argument("--receiver-port", type=int, default=443)
     run.add_argument("--native-smoke", default="", help="browsers to try the registered native launcher with")
     run.add_argument("--skip-faults", action="store_true")
+    run.add_argument("--baseline", default=None)
+    run.add_argument("--transport", choices=("bridge", "native"), default="bridge",
+                     help="bridge: the Python supervisor and gRPC-Web bridge on 8080 (oracle); native: the Rust "
+                          "controller started by the browser over native messaging (stage W4)")
+    run.add_argument("--controller-exe", default=str(REPO_ROOT / "rust" / "target" / "release" / "privoke-supervisor.exe"))
+    latency = sub.add_parser("latency", help="run-to-run end-to-end latency of one synthetic ALLOW prompt")
+    latency.add_argument("--out", required=True)
+    latency.add_argument("--browsers", default="chrome", help="the first browser is measured")
+    latency.add_argument("--workdir", default=str(Path(tempfile.gettempdir()) / "privoke-latency"))
+    latency.add_argument("--runtime-python", required=True)
+    latency.add_argument("--openssl", default="openssl")
+    latency.add_argument("--receiver-port", type=int, default=443)
+    latency.add_argument("--transport", choices=("bridge", "native"), default="bridge")
+    latency.add_argument("--controller-exe", default=str(REPO_ROOT / "rust" / "target" / "release" / "privoke-supervisor.exe"))
+    latency.add_argument("--runs", type=int, default=5)
+    latency.add_argument("--samples", type=int, default=40)
+    latency.add_argument("--settle-samples", type=int, default=5)
+    latency.add_argument("--baseline", default=None, help="a baseline file to compare the run medians with")
+    latency.add_argument("--playwright-firefox", default=None)
     run.add_argument("--playwright-firefox", default=None,
                      help="path to a Playwright-managed firefox.exe, enabling the 'firefox-playwright' entry")
     derive_parser = sub.add_parser("derive")
@@ -590,12 +740,18 @@ def main() -> None:
         derive(Path(args.results))
         return
     args.browsers = [name.strip() for name in args.browsers.split(",") if name.strip()]
-    args.native_smoke = [name.strip() for name in args.native_smoke.split(",") if name.strip()]
+    args.native_smoke = [name.strip() for name in getattr(args, "native_smoke", "").split(",") if name.strip()]
     if args.playwright_firefox:
         BROWSERS[PLAYWRIGHT_FIREFOX] = {"label": "Firefox (Playwright-managed build, not the installed browser)",
                                         "family": "firefox", "dist": "dist-firefox",
                                         "exe": [args.playwright_firefox]}
     study = Study(args)
+    if args.command == "latency":
+        payload = study.latency()
+        Path(args.out).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf8")
+        print(json.dumps({key: payload[key] for key in ("transport", "run_medians_ms", "median_of_run_medians_ms",
+                                                         "run_spread_ms", "against_baseline") if key in payload}, indent=2))
+        return
     payload = study.run()
     Path(args.out).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf8")
     derive(Path(args.out))

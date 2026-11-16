@@ -1322,14 +1322,17 @@ dependencies = [
 name = "privoke-runtime-supervisor"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "clap",
- "libc",
  "privoke-contracts",
  "privoke-model-streaming",
  "privoke-pki",
  "privoke-runtime-supervisor",
  "privoke-transport",
+ "privoke-worker-pool",
+ "prost",
  "rcgen",
+ "serde",
  "serde_json",
  "sha2",
  "tempfile",
@@ -1338,8 +1341,8 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tonic",
+ "tracing",
  "uuid",
- "windows-sys 0.61.2",
 ]
 
 [[package]]

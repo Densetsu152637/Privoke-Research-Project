@@ -1,6 +1,6 @@
 [package]
 name = "privoke-runtime-supervisor"
-description = "Workstation runtime supervisor: native-messaging host, runtime child supervision, control service, model fetch and enrolment commands (stage 7)"
+description = "Workstation runtime controller: native-messaging host that owns the sandboxed worker pool, model fetch and enrolment commands (stages 7 and W4)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -16,20 +16,27 @@ name = "privoke-supervisor"
 path = "src/main.rs"
 
 [[bin]]
-name = "privoke-supervisor-test-child"
-path = "src/bin/test_child.rs"
+name = "privoke-supervisor-test-worker"
+path = "src/bin/test_worker.rs"
 required-features = ["test-helpers"]
 
 [features]
 default = []
-# Test-only helpers: the stand-in runtime child and the runtime-command override of `serve`. Never enabled by a normal build.
+# Test-only helpers: the stand-in W1 worker and the worker-command override of `native-host`. Never enabled by a normal build.
 test-helpers = []
 
 [dependencies]
 privoke-contracts = { path = "../../crates/privoke-contracts" }
-# The plaintext loopback listener is for exactly this crate: the control service on 127.0.0.1.
+# Plaintext loopback is only for the local development stack's model-streaming target and the fetch tests' in-process
+# server. The controller itself opens no listener.
 privoke-transport = { path = "../../crates/privoke-transport", features = ["workstation-loopback"] }
 privoke-pki = { path = "../../tools/privoke-pki" }
+privoke-worker-pool = { path = "../../crates/privoke-worker-pool" }
+prost = { workspace = true }
+base64 = { workspace = true }
+tracing = { workspace = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 tonic = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "time", "sync", "fs", "signal"] }
 tokio-stream = { workspace = true }
@@ -39,29 +46,15 @@ sha2 = { workspace = true }
 time = { version = "0.3", default-features = false, features = ["std"] }
 uuid = { version = "1", default-features = false, features = ["v4"] }
 
-[target.'cfg(unix)'.dependencies]
-libc = "0.2"
-
-[target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = [
-    "Win32_Foundation",
-    "Win32_Security",
-    "Win32_System_Diagnostics_ToolHelp",
-    "Win32_System_JobObjects",
-    "Win32_System_Threading",
-] }
-
 [dev-dependencies]
 privoke-runtime-supervisor = { path = ".", features = ["test-helpers"] }
 privoke-model-streaming = { path = "../model-streaming" }
 tempfile = { workspace = true }
 time = { workspace = true }
 rcgen = { workspace = true }
-serde_json = "1"
 
-# `confine.rs` needs `unsafe` for the operating-system calls and opts in explicitly; everything else keeps the ban.
 [lints.rust]
-unsafe_code = "deny"
+unsafe_code = "forbid"
 missing_debug_implementations = "warn"
 
 [lints.clippy]
