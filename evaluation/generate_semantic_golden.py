@@ -281,7 +281,7 @@ def build_synthetic_v3(directory: Path):
         elif "embeddings" in name:
             state[name] = 0.8 * torch.randn(value.shape, generator=generator)
         else:
-            state[name] = 0.6 * torch.randn(value.shape, generator=generator)
+            state[name] = 0.2 * torch.randn(value.shape, generator=generator)
     heads = {}
     for task, labels in LABELS.items():
         heads[task + "_weight"] = 1.0 * torch.randn((len(labels), config["hidden_size"]), generator=generator)

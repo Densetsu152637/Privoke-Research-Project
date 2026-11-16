@@ -155,9 +155,9 @@ impl V3Model {
     pub fn logits_for_ids(&self, ids: &[u32]) -> Result<V3Logits, SemanticError> {
         let pooled = self.encoder.pooled(ids, self.threads)?;
         Ok(V3Logits {
-            sensitivity: self.sensitivity.apply(&pooled, 1, 1),
-            visibility: self.visibility.apply(&pooled, 1, 1),
-            category: self.category.apply(&pooled, 1, 1),
+            sensitivity: self.sensitivity.apply_to_f32(&pooled),
+            visibility: self.visibility.apply_to_f32(&pooled),
+            category: self.category.apply_to_f32(&pooled),
             pooled,
         })
     }

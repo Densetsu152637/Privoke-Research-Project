@@ -19,7 +19,7 @@ use crate::labels::{
     visibility_value,
 };
 use crate::layer::{Finding, SemanticClassifier};
-use crate::math::{Dense, attention, gelu_tanh, layer_norm_plain, softmax_f32, softmax_in_place};
+use crate::math::{Dense, attention, dot, gelu_tanh, layer_norm_plain, softmax_f32, softmax_in_place};
 
 /// Architecture of the legacy readout.
 pub const LEGACY_ARCHITECTURE: &str = "privoke_tiny_transformer_v1";
@@ -342,17 +342,15 @@ impl TinyModel {
         let hidden_states = self.encode(&ids);
         let hidden = self.config.hidden_size;
         let n = ids.len();
-        let mean: Vec<f32> = (0..hidden)
-            .map(|j| (hidden_states.iter().skip(j).step_by(hidden).map(|v| f64::from(*v)).sum::<f64>() / n as f64) as f32)
-            .collect();
-        let pooled: Vec<f32> = hidden_states[..hidden].iter().zip(&mean).map(|(first, mean)| *first * 0.5 + *mean * 0.5).collect();
+        let mean: Vec<f64> = (0..hidden).map(|j| hidden_states.iter().skip(j).step_by(hidden).sum::<f64>() / n as f64).collect();
+        let pooled: Vec<f64> = hidden_states[..hidden].iter().zip(&mean).map(|(first, mean)| first * 0.5 + mean * 0.5).collect();
         let mut logits: Vec<Vec<f32>> = Vec::with_capacity(3);
         for (index, head) in self.heads.iter().enumerate() {
             let features = match &self.queries {
                 None => pooled.clone(),
                 Some(queries) => self.task_feature(&hidden_states, &queries[index], &pooled, &mean),
             };
-            logits.push(head.apply(&features, 1, 1));
+            logits.push(head.apply(&features, 1, 1).into_iter().map(|value| value as f32).collect());
         }
         let (sensitivity, visibility, category) = (softmax_f32(&logits[0]), softmax_f32(&logits[1]), numpy_sigmoid(&logits[2]));
         let sensitivity_name = &self.config.sensitivity_labels[argmax(&sensitivity)];
@@ -382,7 +380,7 @@ impl TinyModel {
         let [first, second, third] = <[Vec<f32>; 3]>::try_from(logits).unwrap_or_default();
         TinyPrediction {
             ids,
-            pooled,
+            pooled: pooled.into_iter().map(|value| value as f32).collect(),
             logits: [first, second, third],
             sensitivity_probabilities: sensitivity,
             visibility_probabilities: visibility,
@@ -391,15 +389,15 @@ impl TinyModel {
         }
     }
 
-    fn encode(&self, ids: &[usize]) -> Vec<f32> {
+    fn encode(&self, ids: &[usize]) -> Vec<f64> {
         let hidden = self.config.hidden_size;
         let n = ids.len();
-        let mut x = vec![0f32; n * hidden];
+        let mut x = vec![0f64; n * hidden];
         for (position, (row, id)) in x.chunks_mut(hidden).zip(ids).enumerate() {
             let token = &self.token_embedding[id * hidden..(id + 1) * hidden];
             let place = &self.position_embedding[position * hidden..(position + 1) * hidden];
             for ((slot, t), p) in row.iter_mut().zip(token).zip(place) {
-                *slot = *t + *p;
+                *slot = f64::from(*t) + f64::from(*p);
             }
         }
         let heads = self.config.num_attention_heads;
@@ -428,19 +426,18 @@ impl TinyModel {
     }
 
     /// `pooled + (alpha @ hidden - mean)` with `alpha = softmax(hidden @ query / sqrt(hidden))`.
-    fn task_feature(&self, states: &[f32], query: &[f32], pooled: &[f32], mean: &[f32]) -> Vec<f32> {
+    fn task_feature(&self, states: &[f64], query: &[f32], pooled: &[f64], mean: &[f64]) -> Vec<f64> {
         let hidden = self.config.hidden_size;
         let scale = (hidden as f64).sqrt();
-        let mut alpha: Vec<f64> =
-            states.chunks(hidden).map(|row| f64::from((crate::math::dot(row, query) as f32) / scale as f32)).collect();
+        let mut alpha: Vec<f64> = states.chunks(hidden).map(|row| dot(row, query) / scale).collect();
         softmax_in_place(&mut alpha);
         let mut attended = vec![0f64; hidden];
         for (weight, row) in alpha.iter().zip(states.chunks(hidden)) {
             for (slot, value) in attended.iter_mut().zip(row) {
-                *slot += weight * f64::from(*value);
+                *slot += weight * value;
             }
         }
-        pooled.iter().zip(attended).zip(mean).map(|((pooled, attended), mean)| *pooled + (attended as f32 - *mean)).collect()
+        pooled.iter().zip(attended).zip(mean).map(|((pooled, attended), mean)| pooled + (attended - mean)).collect()
     }
 }
 

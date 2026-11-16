@@ -64,7 +64,7 @@ pub fn parse(bytes: &[u8]) -> Result<BTreeMap<String, Tensor>, SemanticError> {
             return Err(invalid(&format!("{name} has inconsistent offsets")));
         }
         let raw = &data[start..end];
-        let values: Vec<f32> = raw.chunks_exact(4).map(|word| f32::from_le_bytes([word[0], word[1], word[2], word[3]])).collect();
+        let values: Vec<f32> = raw.as_chunks::<4>().0.iter().map(|word| f32::from_le_bytes(*word)).collect();
         if values.iter().any(|value| !value.is_finite()) {
             return Err(invalid(&format!("{name} is not finite")));
         }

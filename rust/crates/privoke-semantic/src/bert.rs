@@ -177,7 +177,7 @@ impl Encoder {
                 self.config.max_position_embeddings
             )));
         }
-        let mut x = vec![0f32; n * hidden];
+        let mut x = vec![0f64; n * hidden];
         let token_type = &self.token_type[..hidden];
         for (position, (row, id)) in x.chunks_mut(hidden).zip(ids).enumerate() {
             let id = usize::try_from(*id).unwrap_or(usize::MAX);
@@ -188,7 +188,7 @@ impl Encoder {
             let place = &self.position[position * hidden..(position + 1) * hidden];
             for (((slot, w), t), p) in row.iter_mut().zip(word).zip(token_type).zip(place) {
                 // BertEmbeddings: (inputs_embeds + token_type_embeddings) + position_embeddings.
-                *slot = (*w + *t) + *p;
+                *slot = f64::from(*w) + f64::from(*t) + f64::from(*p);
             }
         }
         layer_norm_affine(&mut x, hidden, &self.embedding_norm.gamma, &self.embedding_norm.beta, self.config.layer_norm_eps);
@@ -196,14 +196,11 @@ impl Encoder {
         for layer in &self.layers {
             x = self.layer_forward(layer, &x, n, heads, threads);
         }
-        let mut first = self.pooler.apply(&x[..hidden], 1, 1);
-        for value in &mut first {
-            *value = f64::from(*value).tanh() as f32;
-        }
-        Ok(first)
+        let first = self.pooler.apply(&x[..hidden], 1, 1);
+        Ok(first.into_iter().map(|value| value.tanh() as f32).collect())
     }
 
-    fn layer_forward(&self, layer: &Layer, x: &[f32], n: usize, heads: usize, threads: usize) -> Vec<f32> {
+    fn layer_forward(&self, layer: &Layer, x: &[f64], n: usize, heads: usize, threads: usize) -> Vec<f64> {
         let hidden = self.config.hidden_size;
         let eps = self.config.layer_norm_eps;
         let q = layer.query.apply(x, n, threads);
@@ -264,7 +261,9 @@ mod tests {
         let mut tensors = BTreeMap::new();
         tensors.insert("x".to_string(), Tensor { shape: vec![2], data: vec![1.0, 2.0], sha256: String::new() });
         assert!(take(&mut tensors, "y", &[2]).is_err());
-        assert!(take(&mut tensors, "x", &[3]).is_err());
+        let mut other = tensors.clone();
+        assert!(take(&mut other, "x", &[3]).is_err());
         assert_eq!(take(&mut tensors, "x", &[2]).unwrap(), vec![1.0, 2.0]);
+        assert!(tensors.is_empty());
     }
 }

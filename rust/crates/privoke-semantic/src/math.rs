@@ -1,8 +1,10 @@
-//! Numeric kernels of the reference backend: float32 storage, float64 accumulation.
+//! Numeric kernels of the reference backend: float32 weights, float64 activations.
 //!
-//! Every tensor is stored as `f32`, as in torch. Sums and transcendental functions are evaluated in `f64` and rounded to
-//! `f32` once per operation, so each operation is within one float32 rounding of the exact value. torch's own float32
-//! kernels are within a few float32 roundings of it as well, which is what the 1e-5 logit tolerance of the stage covers.
+//! The weights are exactly the float32 values of the checkpoint. Every activation is carried in `f64` from the embeddings
+//! to the head output, which is rounded to `f32` once (the logits torch returns). This keeps the backend as close as it
+//! can be to the exact value of the model; a float32 implementation such as torch's differs from that exact value by a few
+//! 1e-6 on the pinned releases (measured in `docs/runtime/rust-workspace.md#privoke-semantic-stage-14`), so the distance
+//! between the two is bounded by torch's own rounding error instead of the sum of two errors.
 
 use std::thread;
 
@@ -50,9 +52,10 @@ impl Dense {
         self.output
     }
 
-    /// Apply the layer to `rows` rows of `x`, on up to `threads` threads.
-    pub fn apply(&self, x: &[f32], rows: usize, threads: usize) -> Vec<f32> {
-        let mut out = vec![0f32; rows * self.output];
+    /// Apply the layer to `rows` rows of `x`, on up to `threads` threads. Every row is computed independently, so the
+    /// result does not depend on the thread count.
+    pub fn apply(&self, x: &[f64], rows: usize, threads: usize) -> Vec<f64> {
+        let mut out = vec![0f64; rows * self.output];
         if rows == 0 || x.len() < rows * self.input {
             return out;
         }
@@ -70,58 +73,80 @@ impl Dense {
         out
     }
 
-    fn apply_rows(&self, x: &[f32], first: usize, out: &mut [f32]) {
+    /// The layer applied to one row and rounded to `f32` (a classification head).
+    pub fn apply_to_f32(&self, row: &[f32]) -> Vec<f32> {
+        let wide: Vec<f64> = row.iter().map(|v| f64::from(*v)).collect();
+        self.apply(&wide, 1, 1).into_iter().map(|v| v as f32).collect()
+    }
+
+    fn apply_rows(&self, x: &[f64], first: usize, out: &mut [f64]) {
         for (offset, out_row) in out.chunks_mut(self.output).enumerate() {
             let start = (first + offset) * self.input;
             let row = &x[start..start + self.input];
             for ((slot, weights), bias) in out_row.iter_mut().zip(self.weight.chunks(self.input)).zip(&self.bias) {
-                *slot = (dot(row, weights) + f64::from(*bias)) as f32;
+                *slot = dot(row, weights) + f64::from(*bias);
             }
         }
     }
 }
 
-/// `sum(a[i] * b[i])` in `f64`, with four independent accumulators (a fixed summation order).
-pub fn dot(a: &[f32], b: &[f32]) -> f64 {
+/// `sum(a[i] * w[i])` with four independent accumulators (a fixed summation order).
+pub fn dot(a: &[f64], w: &[f32]) -> f64 {
     let mut acc = [0f64; 4];
-    for (x, y) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        acc[0] += f64::from(x[0]) * f64::from(y[0]);
-        acc[1] += f64::from(x[1]) * f64::from(y[1]);
-        acc[2] += f64::from(x[2]) * f64::from(y[2]);
-        acc[3] += f64::from(x[3]) * f64::from(y[3]);
+    let (a_blocks, a_tail) = a.as_chunks::<4>();
+    let (w_blocks, w_tail) = w.as_chunks::<4>();
+    for (x, y) in a_blocks.iter().zip(w_blocks) {
+        acc[0] += x[0] * f64::from(y[0]);
+        acc[1] += x[1] * f64::from(y[1]);
+        acc[2] += x[2] * f64::from(y[2]);
+        acc[3] += x[3] * f64::from(y[3]);
     }
-    let tail: f64 =
-        a.chunks_exact(4).remainder().iter().zip(b.chunks_exact(4).remainder()).map(|(x, y)| f64::from(*x) * f64::from(*y)).sum();
+    let tail: f64 = a_tail.iter().zip(w_tail).map(|(x, y)| x * f64::from(*y)).sum();
+    (acc[0] + acc[1]) + (acc[2] + acc[3]) + tail
+}
+
+/// `sum(a[i] * b[i])` of two `f64` vectors, in the same fixed order.
+pub fn dot_wide(a: &[f64], b: &[f64]) -> f64 {
+    let mut acc = [0f64; 4];
+    let (a_blocks, a_tail) = a.as_chunks::<4>();
+    let (b_blocks, b_tail) = b.as_chunks::<4>();
+    for (x, y) in a_blocks.iter().zip(b_blocks) {
+        acc[0] += x[0] * y[0];
+        acc[1] += x[1] * y[1];
+        acc[2] += x[2] * y[2];
+        acc[3] += x[3] * y[3];
+    }
+    let tail: f64 = a_tail.iter().zip(b_tail).map(|(x, y)| x * y).sum();
     (acc[0] + acc[1]) + (acc[2] + acc[3]) + tail
 }
 
 /// `layer_norm` with an affine transform over every row of width `width`, biased variance, as torch computes it.
-pub fn layer_norm_affine(x: &mut [f32], width: usize, gamma: &[f32], beta: &[f32], eps: f64) {
+pub fn layer_norm_affine(x: &mut [f64], width: usize, gamma: &[f32], beta: &[f32], eps: f64) {
     for row in x.chunks_mut(width) {
         let (mean, inv) = moments(row, eps);
         for ((value, g), b) in row.iter_mut().zip(gamma).zip(beta) {
-            *value = ((f64::from(*value) - mean) * inv * f64::from(*g) + f64::from(*b)) as f32;
+            *value = (*value - mean) * inv * f64::from(*g) + f64::from(*b);
         }
     }
 }
 
 /// `layer_norm` without an affine transform (the Tiny model's).
-pub fn layer_norm_plain(x: &mut [f32], width: usize, eps: f64) {
+pub fn layer_norm_plain(x: &mut [f64], width: usize, eps: f64) {
     for row in x.chunks_mut(width) {
         let (mean, inv) = moments(row, eps);
         for value in row.iter_mut() {
-            *value = ((f64::from(*value) - mean) * inv) as f32;
+            *value = (*value - mean) * inv;
         }
     }
 }
 
-fn moments(row: &[f32], eps: f64) -> (f64, f64) {
+fn moments(row: &[f64], eps: f64) -> (f64, f64) {
     let count = row.len() as f64;
-    let mean = row.iter().map(|v| f64::from(*v)).sum::<f64>() / count;
+    let mean = row.iter().sum::<f64>() / count;
     let variance = row
         .iter()
         .map(|v| {
-            let centred = f64::from(*v) - mean;
+            let centred = v - mean;
             centred * centred
         })
         .sum::<f64>()
@@ -153,20 +178,18 @@ pub fn erf(x: f64) -> f64 {
     value.copysign(x)
 }
 
-/// torch's exact (`erf`) GELU, the activation of BERT.
-pub fn gelu_erf(x: f32) -> f32 {
-    let v = f64::from(x);
-    (0.5 * v * (1.0 + erf(v * std::f64::consts::FRAC_1_SQRT_2))) as f32
+/// The exact (`erf`) GELU of BERT: `x * 0.5 * (1 + erf(x / sqrt(2)))`.
+pub fn gelu_erf(x: f64) -> f64 {
+    0.5 * x * (1.0 + erf(x * std::f64::consts::FRAC_1_SQRT_2))
 }
 
 /// The tanh approximation of GELU (`approximate="tanh"`), used by the Tiny model.
-pub fn gelu_tanh(x: f32) -> f32 {
-    let v = f64::from(x);
-    let inner = (2.0 / std::f64::consts::PI).sqrt() * (v + 0.044715 * v * v * v);
-    (0.5 * v * (1.0 + inner.tanh())) as f32
+pub fn gelu_tanh(x: f64) -> f64 {
+    let inner = (2.0 / std::f64::consts::PI).sqrt() * (x + 0.044715 * x * x * x);
+    0.5 * x * (1.0 + inner.tanh())
 }
 
-/// Softmax of `scores` in place (`f64`), shifted by the maximum.
+/// Softmax of `scores` in place, shifted by the maximum.
 pub fn softmax_in_place(scores: &mut [f64]) {
     let max = scores.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let mut sum = 0.0;
@@ -194,10 +217,10 @@ pub fn sigmoid_f32(logits: &[f32]) -> Vec<f32> {
 /// Multi-head self-attention without a mask over one sequence: `softmax(Q K^T / sqrt(d)) V`.
 ///
 /// `q`, `k` and `v` hold `n` rows of `heads * head_size` values; the result has the same shape.
-pub fn attention(q: &[f32], k: &[f32], v: &[f32], n: usize, heads: usize, head_size: usize) -> Vec<f32> {
+pub fn attention(q: &[f64], k: &[f64], v: &[f64], n: usize, heads: usize, head_size: usize) -> Vec<f64> {
     let width = heads * head_size;
     let scale = (head_size as f64).sqrt();
-    let mut out = vec![0f32; n * width];
+    let mut out = vec![0f64; n * width];
     let mut scores = vec![0f64; n];
     let mut context = vec![0f64; head_size];
     for head in 0..heads {
@@ -205,19 +228,16 @@ pub fn attention(q: &[f32], k: &[f32], v: &[f32], n: usize, heads: usize, head_s
         for row in 0..n {
             let query = &q[row * width + offset..row * width + offset + head_size];
             for (score, key_row) in scores.iter_mut().zip(k.chunks(width)) {
-                *score = dot(query, &key_row[offset..offset + head_size]) / scale;
+                *score = dot_wide(query, &key_row[offset..offset + head_size]) / scale;
             }
             softmax_in_place(&mut scores);
             context.fill(0.0);
             for (probability, value_row) in scores.iter().zip(v.chunks(width)) {
                 for (slot, value) in context.iter_mut().zip(&value_row[offset..offset + head_size]) {
-                    *slot += probability * f64::from(*value);
+                    *slot += probability * value;
                 }
             }
-            let target = &mut out[row * width + offset..row * width + offset + head_size];
-            for (slot, value) in target.iter_mut().zip(&context) {
-                *slot = *value as f32;
-            }
+            out[row * width + offset..row * width + offset + head_size].copy_from_slice(&context);
         }
     }
     out
@@ -251,9 +271,9 @@ mod tests {
     #[test]
     fn gelu_is_zero_at_zero_and_identity_for_large_inputs() {
         assert_eq!(gelu_erf(0.0), 0.0);
-        assert!((gelu_erf(10.0) - 10.0).abs() < 1e-6);
-        assert!(gelu_erf(-10.0).abs() < 1e-6);
-        assert!((gelu_erf(1.0) - 0.841_344_75).abs() < 1e-6);
+        assert!((gelu_erf(10.0) - 10.0).abs() < 1e-9);
+        assert!(gelu_erf(-10.0).abs() < 1e-9);
+        assert!((gelu_erf(1.0) - 0.841_344_746_068_542_9).abs() < 1e-14);
         assert!((gelu_tanh(1.0) - 0.841_192).abs() < 1e-5);
     }
 
@@ -268,26 +288,29 @@ mod tests {
         }
         let transposed = Dense::from_input_major(&[1.0, 0.0, 1.0, 0.0, 1.0, 1.0], vec![0.5, 0.0, -1.0], 2, 3).unwrap();
         assert_eq!(transposed.apply(&x, 3, 1), expected);
+        assert_eq!(layer.apply_to_f32(&[1.0, 2.0]), vec![1.5, 2.0, 2.0]);
         assert!(Dense::new(vec![1.0], vec![0.0], 2, 3).is_err());
     }
 
     #[test]
     fn dot_covers_tails() {
-        let a: Vec<f32> = (1..=7).map(|v| v as f32).collect();
-        assert_eq!(dot(&a, &a), 140.0);
+        let a: Vec<f64> = (1..=7).map(f64::from).collect();
+        let w: Vec<f32> = (1..=7).map(|v| v as f32).collect();
+        assert_eq!(dot(&a, &w), 140.0);
+        assert_eq!(dot_wide(&a, &a), 140.0);
     }
 
     #[test]
     fn layer_norm_normalises_rows() {
-        let mut x = vec![1.0f32, 2.0, 3.0, 4.0, 10.0, 10.0, 10.0, 10.0];
+        let mut x = vec![1.0, 2.0, 3.0, 4.0, 10.0, 10.0, 10.0, 10.0];
         layer_norm_plain(&mut x, 4, 1e-12);
-        let mean: f32 = x[..4].iter().sum::<f32>() / 4.0;
-        assert!(mean.abs() < 1e-6);
-        assert!((x[0] + 1.341_640_8).abs() < 1e-6);
+        let mean: f64 = x[..4].iter().sum::<f64>() / 4.0;
+        assert!(mean.abs() < 1e-12);
+        assert!((x[0] + 1.341_640_786_499_873_8).abs() < 1e-9);
         assert_eq!(&x[4..], &[0.0, 0.0, 0.0, 0.0]);
-        let mut y = vec![1.0f32, 2.0, 3.0, 4.0];
+        let mut y = vec![1.0, 2.0, 3.0, 4.0];
         layer_norm_affine(&mut y, 4, &[2.0; 4], &[1.0; 4], 1e-12);
-        assert!((y[0] - (1.0 - 2.0 * 1.341_640_8)).abs() < 1e-5);
+        assert!((y[0] - (1.0 - 2.0 * 1.341_640_786_499_873_8)).abs() < 1e-9);
     }
 
     #[test]
@@ -302,9 +325,9 @@ mod tests {
 
     #[test]
     fn attention_of_one_token_is_its_value() {
-        let q = [0.3f32, -0.2, 0.9, 0.1];
-        let k = [0.5f32, 0.5, -0.5, 0.25];
-        let v = [1.0f32, 2.0, 3.0, 4.0];
+        let q = [0.3, -0.2, 0.9, 0.1];
+        let k = [0.5, 0.5, -0.5, 0.25];
+        let v = [1.0, 2.0, 3.0, 4.0];
         assert_eq!(attention(&q, &k, &v, 1, 2, 2), v.to_vec());
     }
 }
