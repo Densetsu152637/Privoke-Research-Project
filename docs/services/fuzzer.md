@@ -4,11 +4,11 @@
 
 `privoke-fuzzer` is a Python gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, asks `client-runtime` to execute a bounded semantic training batch, submits the returned head-only or full-Tiny encoder-and-head deltas to `param-update-service`, and runs ad hoc prompt tests through the same runtime service.
 
-It is not in the hosted prompt decision path. Training cycles deliberately target the streamed semantic model path rather than the full regex + NER + semantic pipeline.
+It is not in the hosted prompt decision path. Its automatic training cycles target explicit legacy V1 model IDs; the standard V3 packages are inference-only and the runtime's legacy gradient APIs reject them (see [client runtime](../runtime/client-runtime.md#standard-pretrained-v3-runtime)). Training cycles deliberately target the streamed semantic model path rather than the full regex + NER + semantic pipeline.
 
 For LLM study comparisons, use the semantic-only curriculum-improvement runner. Older combined-protocol study commands require `--allow-product-pipeline` solely for separately authorized product/detector analysis; their pipeline selection rules and historical scores retain that scope. See the [evaluation entrypoint policy](../../evaluation/README.md).
 
-Normal deployments enable the updater's automatic requester by default: 32
+Deployments that enable the opt-in `legacy-training` Compose profile run the updater's automatic requester by default: 32
 prompts per stage at startup and another cycle every hour after completion.
 Its default random source now uses the shipped, pinned AU3 audience coverage
 release, with all six audiences and all ten primary categories represented in

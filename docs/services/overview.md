@@ -2,7 +2,7 @@
 
 > Source area: `services`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
 
-This directory contains PriVoke's research-support services. Both production and development server deployments also include an always-on server instance of `extension/client-runtime`, for a total of five gRPC services. That instance is distinct from the workstation detector started for the WebExtension.
+This directory contains PriVoke's research-support services. Both production and development server deployments also include an always-on server instance of `extension/client-runtime`, for a total of five gRPC services when the opt-in `legacy-training` Compose profile is enabled; without it only `model-streaming-service`, `client-runtime` and `telemetry-service` start, because `param-update-service` and `privoke-fuzzer` carry that profile in every Compose file. That instance is distinct from the workstation detector started for the WebExtension.
 
 ## Service Map
 

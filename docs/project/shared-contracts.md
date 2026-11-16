@@ -26,12 +26,15 @@ Services:
   - `GetModelParameters(ModelParametersRequest) -> ModelParametersResponse`
   - `StreamModelParameters(ModelParametersRequest) -> stream ModelParameterChunk`
   - `Health(HealthRequest) -> HealthResponse`
+  - `GetModelPackage(ModelParametersRequest) -> ModelPackageResponse`
+  - `StreamModelAsset(ModelAssetRequest) -> stream ModelAssetChunk`
 - `ParamUpdateService`
   - `SubmitParameterUpdate(ParameterUpdateRequest) -> ParameterUpdateAck`
   - `GetParameterUpdateStatus(ParameterUpdateStatusRequest) -> ParameterUpdateStatus`
   - `Health(HealthRequest) -> HealthResponse`
 - `FuzzerService`
   - `RunTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
+  - `RunUnderlyingTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
   - `RunPresenceTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
   - `Health(HealthRequest) -> HealthResponse`
 
@@ -40,6 +43,7 @@ Services:
 - `PrivokeRuntimeService`
   - `AnalyzePrompt(AnalyzePromptRequest) -> AnalyzePromptResponse`
   - `ComputeSemanticGradients(ComputeSemanticGradientsRequest) -> ComputeSemanticGradientsResponse`
+  - `ComputeUnderlyingModelGradients(ComputeSemanticGradientsRequest) -> ComputeSemanticGradientsResponse`
   - `DetectAnnotationPresence(DetectAnnotationPresenceRequest) -> DetectAnnotationPresenceResponse`
   - `ComputePresenceGradients(ComputePresenceGradientsRequest) -> ComputePresenceGradientsResponse`
   - `Health(RuntimeHealthRequest) -> RuntimeHealthResponse`

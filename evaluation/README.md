@@ -84,7 +84,7 @@ Browser tests run without network access. The deployment smoke runner invokes
 
 For live measurements, start the five server services and their storage
 initializer. The research override publishes all five gRPC ports on `127.0.0.1`;
-the development override also publishes the fuzzer on `50053`. No test
+the default development `docker-compose.yml` also publishes the fuzzer on `50053` when the `legacy-training` profile is enabled. No test
 container is needed for these checks:
 
 ```powershell
@@ -100,6 +100,28 @@ The evaluator sends gRPC directly to `127.0.0.1:50054` and writes reports under
 `FUZZER_TARGET` or `run-fuzzer-tests.py --target` overrides `127.0.0.1:50053`.
 The fuzzer serves health and training RPCs; prompt analysis uses the runtime RPC.
 Prompt-probe dumps go to `dumps/privoke-fuzzer` on the host.
+
+### Detector-layer evaluation tools (regex and NER only)
+
+These host scripts evaluate the regex and NER detector layers in process, through
+`pipeline.analyse_text(layers=["regex", "ner"], regex_first=False)` with an explicit
+layer list. They are explicit detector-ablation or product-analysis tools, not
+LLM-only evidence, and their results stay separate from semantic-only results.
+Each script's module docstring gives its subcommands and scope.
+
+| Script | Purpose |
+| --- | --- |
+| `evaluate_installed_detectors.py` | Scores one source tree's shipped (default) detector configuration; `--per-row-dir` writes per-row outputs |
+| `detector_stats.py`, `detector_uncertainty_report.py` | Paired grouped-bootstrap uncertainty for old-versus-new detector comparisons |
+| `span_scoring.py` | Span-level scoring against character-offset gold spans |
+| `compare_ner_postfilter.py`, `compare_ner_pattern_detector.py` | NER post-filter and experimental pattern-detector ablations |
+| `ner_model_study.py`, `ner_role_study.py` | NER model candidates (spaCy sm/lg/trf, GLiNER) and NER-role policies |
+| `robustness_probe.py` | Input-perturbation robustness of regex, NER and their union |
+| `detector_latency.py` | Host-process detector latency |
+| `fresh_set_plan.py`, `build_fresh_sets.py` | Plan and build fresh, never-scored evaluation sets and their power tables |
+| `w3_scoring.py`, `w3_analysis.py`, `w3_followup.py`, `v3_scoring.py`, `v3_analysis.py` | Pre-registered Wave 3 and v3 scoring drivers and analyses (`w3_run.sh`, `v3_run.sh` run the frozen stages) |
+| `run-product-rerun.py` | Separately authorized full-product rerun (not detector-layer or semantic-only) |
+| `annotation/` | Blinded double-annotation sampling and agreement tooling |
 
 For controlled TW01 runs, execute `evaluation/run-task-query-window-study.py`
 with host Python. The `teacher` phase requires `--target 127.0.0.1:PORT`,
