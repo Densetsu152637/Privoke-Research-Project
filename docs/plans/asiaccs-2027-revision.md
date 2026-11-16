@@ -215,7 +215,8 @@ Revision: 2026-11-16 (base `bca457df` on `feat/nick-branch`; plan-gate findings 
   - **Pipeline:** run the full product pipeline, recording which layers executed. Report the shipped defaults and the default-off robustness flags as paired arms.
   - **Labelling:** results are product-pipeline evidence, never LLM-only. Do not use the legacy `--allow-product-pipeline` study commands.
 - **Acceptance checks:** G6. The seed is deterministic, and the set's hash is frozen before scoring.
-- **Status:** pending.
+- **Status:** done.
+- **Outcome:** merged in `af6262b` (ADVEVADE-20261116).
 - **Outcome:** none yet.
 - **Handoff notes:** paraphrase, indirect-reference and multilingual variants must come from declared templates or from a generator whose revision is recorded. They must never be hand-tuned against PriVoke's outputs.
 
@@ -293,7 +294,8 @@ Revision: 2026-11-16 (base `bca457df` on `feat/nick-branch`; plan-gate findings 
 - **Depends on:** Stages 2–5.
 - **Owned paths:** `paper/`.
 - **Acceptance checks:** G1–G6, G9, and an updated claims ledger.
-- **Status:** pending.
+- **Status:** done.
+- **Outcome:** merged in `d3e133c` and `aaa6945`; implementation gate converged with 5 accepted findings.
 - **Outcome:** none yet.
 - **Handoff notes:** none.
 
@@ -329,7 +331,8 @@ The user stated that nginx is not needed because the system uses microservices, 
   - Check the RQ formatting (`\textbf{RQ1}:`) and the authors of former reference 9.
   - Keep the page limits.
 - **Acceptance checks:** G1–G5 and G14.
-- **Status:** pending.
+- **Status:** done.
+- **Outcome:** merged in `9a3f6db` (section order exactly as G14).
 
 ## Stage 11: Cross-platform and provider validation (supervisor, 17 Oct)
 
@@ -346,7 +349,8 @@ The user stated that nginx is not needed because the system uses microservices, 
   - Test the provider request-shape fixtures through the page-interceptor test harness.
   - Do not send any prompt to a real provider without user approval.
 - **Acceptance checks:** G15.
-- **Status:** pending.
+- **Status:** done.
+- **Outcome:** merged in `896a76b` (XPLAT-20261117); Edge Copilot cause and coverage warning in `449edce`; full rerun in `972578c`.
 
 ## Stage 12: Fold in the Stage 11 results
 
@@ -354,7 +358,8 @@ The user stated that nginx is not needed because the system uses microservices, 
 - **Depends on:** Stages 10 and 11. The paper stages run strictly in the order 7, 10, 12.
 - **Owned paths:** `paper/main.tex`, plus the claims and scope index files.
 - **Acceptance checks:** G1–G5, G14 and G15. Any added content is offset by an equal cut, and the G3 check is re-run.
-- **Status:** pending.
+- **Status:** done.
+- **Outcome:** merged in `1af8491` and `c082175`; page check PASS.
 
 ## Stage 9: Validation, review gate and push
 
