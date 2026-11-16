@@ -207,7 +207,11 @@ fn telemetry_audit_fixtures_match_the_python_store() {
             store.record(packet).unwrap();
         }
         let summary = store.summary().unwrap();
-        let (compared, worst) = compare_summary(&summary, &case["summary"]);
+        // `exp` is not correctly rounded, so each platform's libm gives its own bits. The Python store was run on
+        // Windows (UCRT) for `summary` and on Linux (glibc) for `summary_glibc`; Rust calls the platform libm, so it
+        // is compared with the Python run on the same libm, at the same tolerance.
+        let recorded = if cfg!(windows) || name != "exp_stress" { &case["summary"] } else { &case["summary_glibc"] };
+        let (compared, worst) = compare_summary(&summary, recorded);
         report.push(format!("{name}: packets={} values={compared} worst_ulp={worst}", packets.len()));
         if name == "audit_store_parity" {
             // The audit's own count: nine packets over three strata give 26 estimates.

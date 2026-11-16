@@ -22,6 +22,7 @@ use privoke_model_streaming::service::ModelService;
 use prost::Message;
 use tonic::Code;
 
+const PIN_REQUIRED: &str = "explicit standard model and manifest pin required";
 const LEGACY_MODELS: [&str; 4] = ["privoke-balanced", "privoke-baseline", "privoke-efficient", "privoke-quality"];
 
 fn corpus() -> Value {
@@ -104,7 +105,11 @@ struct Harness {
 fn harness() -> Harness {
     let models = tempfile::tempdir().unwrap();
     for model in LEGACY_MODELS {
-        std::fs::copy(common::model_path(&model["privoke-".len()..]), models.path().join(format!("{model}.json"))).unwrap();
+        // The corpus was recorded from a Windows checkout whose `models/*.json` carry CRLF, and the recorded
+        // `artifact_file_checksum` and `model_config` embed those bytes. Git checks the same files out with LF on
+        // Linux, so the replay always serves the CRLF form the corpus was captured from.
+        let bytes = std::fs::read(common::model_path(&model["privoke-".len()..])).unwrap();
+        std::fs::write(models.path().join(format!("{model}.json")), crlf(&bytes)).unwrap();
     }
     let mut catalog = Catalog::load(models.path(), "privoke-v3-balanced").unwrap();
     let mut with_releases = false;
@@ -113,6 +118,20 @@ fn harness() -> Harness {
         with_releases = true;
     }
     Harness { service: ModelService::new(Arc::new(catalog)), _models: models, with_releases }
+}
+
+/// The bytes with every line ending as CRLF, whichever form they arrive in.
+fn crlf(bytes: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(bytes.len() + bytes.len() / 32);
+    let mut previous = 0u8;
+    for &byte in bytes {
+        if byte == b'\n' && previous != b'\r' {
+            out.push(b'\r');
+        }
+        out.push(byte);
+        previous = byte;
+    }
+    out
 }
 
 fn legacy_request(model: &str) -> ModelParametersRequest {
@@ -199,6 +218,7 @@ fn recorded_requests_answer_with_the_recorded_status_and_details() {
     let corpus = corpus();
     let harness = harness();
     let mut replayed = 0;
+    let mut skipped = Vec::new();
     for row in array(get(&corpus, "requests")) {
         let label = text(get(row, "label"));
         let rpc = text(get(row, "rpc"));
@@ -211,12 +231,19 @@ fn recorded_requests_answer_with_the_recorded_status_and_details() {
             }
             "GetModelPackage" => {
                 if !harness.with_releases && label.contains("latest") || !harness.with_releases && label.contains("empty") {
+                    skipped.push(label.to_string());
                     continue;
                 }
                 let request = ModelParametersRequest::decode(raw.as_slice()).unwrap();
                 harness.service.get_model_package_core(&request).map(Some)
             }
             "StreamModelAsset" => {
+                // Without the release store every asset request is refused at the pin check, so the rows the Go
+                // service answered past the pin check (an allowlist verdict) need the store to reproduce.
+                if !harness.with_releases && text(get(row, "details")) != PIN_REQUIRED {
+                    skipped.push(label.to_string());
+                    continue;
+                }
                 let request = ModelAssetRequest::decode(raw.as_slice()).unwrap();
                 harness.service.check_asset_request(&request).map(|()| None)
             }
@@ -245,7 +272,12 @@ fn recorded_requests_answer_with_the_recorded_status_and_details() {
         }
         replayed += 1;
     }
-    assert!(replayed >= 18, "only {replayed} recorded requests were replayed");
+    let total = array(get(&corpus, "requests")).len();
+    assert_eq!(replayed + skipped.len(), total, "every recorded request is replayed or skipped with a reason");
+    assert!(replayed >= if harness.with_releases { 18 } else { 17 }, "only {replayed} recorded requests were replayed");
+    if !skipped.is_empty() {
+        eprintln!("corpus requests skipped (the prepared standard releases are not available): {}", skipped.join(", "));
+    }
     eprintln!(
         "corpus requests: {replayed} of {} recorded requests replayed with identical status and details",
         array(get(&corpus, "requests")).len()

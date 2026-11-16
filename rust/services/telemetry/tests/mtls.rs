@@ -67,6 +67,9 @@ async fn r10_requests_without_a_certificate_or_with_an_installation_certificate_
     let installation = env.installation("alice", true);
     let stranger = env.installation("mallory", false);
     let foreign = env.foreign("foreign");
+    // Registered before the server starts: the registry file is reloaded by polling, so a service added after the
+    // start is admitted only once a poll lands, and a fast machine reaches the call first.
+    let runtime = env.service("client-runtime", "runtime");
     let server = env.start(generous(), 100).await;
 
     // No client certificate: the handshake or the first call fails; the server answers nothing.
@@ -95,7 +98,6 @@ async fn r10_requests_without_a_certificate_or_with_an_installation_certificate_
     // The positive control: the reporter credential works on the same listener.
     let mut client = env.client(server.public_addr, Some(&reporter)).await;
     assert!(client.record_telemetry(valid_packet()).await.unwrap().into_inner().accepted);
-    let runtime = env.service("client-runtime", "runtime");
     let mut internal = env.client(server.internal_addr, Some(&runtime)).await;
     assert_eq!(
         internal.get_telemetry_summary(GetTelemetrySummaryRequest {}).await.unwrap().into_inner().sample_count,

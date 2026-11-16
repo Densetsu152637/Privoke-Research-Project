@@ -10050,6 +10050,192 @@
     }
    ],
    "sample_count": 1200
+  },
+  "summary_glibc": {
+   "dimensions": [
+    {
+     "dimension": "action",
+     "values": [
+      {
+       "estimated_count_bits": "40742d818918861f",
+       "estimated_count_repr": "322.84412488536503",
+       "observed_noisy_count": 402,
+       "value": "ALLOW"
+      },
+      {
+       "estimated_count_bits": "4079ab614ec84dbd",
+       "estimated_count_repr": "410.711256773411",
+       "observed_noisy_count": 397,
+       "value": "BLOCK"
+      },
+      {
+       "estimated_count_bits": "407d271d281f2c28",
+       "estimated_count_repr": "466.4446183412242",
+       "observed_noisy_count": 401,
+       "value": "WARN"
+      }
+     ]
+    },
+    {
+     "dimension": "risk_bucket",
+     "values": [
+      {
+       "estimated_count_bits": "404038f0750c5baa",
+       "estimated_count_repr": "32.44483817199155",
+       "observed_noisy_count": 287,
+       "value": "0.0-0.2"
+      },
+      {
+       "estimated_count_bits": "40705f1b16b41640",
+       "estimated_count_repr": "261.944113448586",
+       "observed_noisy_count": 299,
+       "value": "0.2-0.5"
+      },
+      {
+       "estimated_count_bits": "407a639a51778a87",
+       "estimated_count_repr": "422.225175349195",
+       "observed_noisy_count": 304,
+       "value": "0.5-0.8"
+      },
+      {
+       "estimated_count_bits": "407e362c8932d3cc",
+       "estimated_count_repr": "483.3858730302279",
+       "observed_noisy_count": 310,
+       "value": "0.8-1.0"
+      }
+     ]
+    },
+    {
+     "dimension": "primary_category",
+     "values": [
+      {
+       "estimated_count_bits": "4072e7c0e1fd71da",
+       "estimated_count_repr": "302.4845905208764",
+       "observed_noisy_count": 115,
+       "value": "CHILD"
+      },
+      {
+       "estimated_count_bits": "4083c283ccada844",
+       "estimated_count_repr": "632.3143552367187",
+       "observed_noisy_count": 117,
+       "value": "CRIMINAL"
+      },
+      {
+       "estimated_count_bits": "40912e18fc778023",
+       "estimated_count_repr": "1099.5244005844077",
+       "observed_noisy_count": 131,
+       "value": "FINANCIAL"
+      },
+      {
+       "estimated_count_bits": "408441e63b656cfa",
+       "estimated_count_repr": "648.2374179767496",
+       "observed_noisy_count": 124,
+       "value": "HEALTH"
+      },
+      {
+       "estimated_count_bits": "0000000000000000",
+       "estimated_count_repr": "0.0",
+       "observed_noisy_count": 94,
+       "value": "IDENTITY"
+      },
+      {
+       "estimated_count_bits": "0000000000000000",
+       "estimated_count_repr": "0.0",
+       "observed_noisy_count": 95,
+       "value": "LOCATION"
+      },
+      {
+       "estimated_count_bits": "0000000000000000",
+       "estimated_count_repr": "0.0",
+       "observed_noisy_count": 90,
+       "value": "NONE"
+      },
+      {
+       "estimated_count_bits": "407574c0f687efbf",
+       "estimated_count_repr": "343.2971101102848",
+       "observed_noisy_count": 115,
+       "value": "POLITICS"
+      },
+      {
+       "estimated_count_bits": "40743f02b89f12e0",
+       "estimated_count_repr": "323.93816434992004",
+       "observed_noisy_count": 115,
+       "value": "RELIGION"
+      },
+      {
+       "estimated_count_bits": "0000000000000000",
+       "estimated_count_repr": "0.0",
+       "observed_noisy_count": 101,
+       "value": "SEXUAL"
+      },
+      {
+       "estimated_count_bits": "403fa0cfab16c488",
+       "estimated_count_repr": "31.628168767031212",
+       "observed_noisy_count": 103,
+       "value": "THIRD_PARTY"
+      }
+     ]
+    },
+    {
+     "dimension": "model_version",
+     "values": [
+      {
+       "estimated_count_bits": "4087f9bb996ffe68",
+       "estimated_count_repr": "767.2166012525095",
+       "observed_noisy_count": 624,
+       "value": "OTHER"
+      },
+      {
+       "estimated_count_bits": "407b0c88cd200337",
+       "estimated_count_repr": "432.78339874749093",
+       "observed_noisy_count": 576,
+       "value": "v0.3.0"
+      }
+     ]
+    },
+    {
+     "dimension": "time_bucket",
+     "values": [
+      {
+       "estimated_count_bits": "4092c00000000000",
+       "estimated_count_repr": "1200.0",
+       "observed_noisy_count": 224,
+       "value": "00-04_UTC"
+      },
+      {
+       "estimated_count_bits": "0000000000000000",
+       "estimated_count_repr": "0.0",
+       "observed_noisy_count": 179,
+       "value": "04-08_UTC"
+      },
+      {
+       "estimated_count_bits": "40765dafb93b29e3",
+       "estimated_count_repr": "357.8554012595252",
+       "observed_noisy_count": 209,
+       "value": "08-12_UTC"
+      },
+      {
+       "estimated_count_bits": "0000000000000000",
+       "estimated_count_repr": "0.0",
+       "observed_noisy_count": 204,
+       "value": "12-16_UTC"
+      },
+      {
+       "estimated_count_bits": "40555bdac9d8fb35",
+       "estimated_count_repr": "85.43522878827646",
+       "observed_noisy_count": 204,
+       "value": "16-20_UTC"
+      },
+      {
+       "estimated_count_bits": "0000000000000000",
+       "estimated_count_repr": "0.0",
+       "observed_noisy_count": 180,
+       "value": "20-24_UTC"
+      }
+     ]
+    }
+   ],
+   "sample_count": 1200
   }
  },
  "provenance": "Generated by running services/telemetry-service/app/storage.py (the Python oracle) over the packets below; audit_store_parity mirrors evaluation/analysis/audit-telemetry-mechanism.py store_parity().",
