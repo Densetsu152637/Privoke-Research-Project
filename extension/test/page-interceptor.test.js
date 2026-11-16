@@ -5,6 +5,7 @@ import vm from "node:vm";
 import { extractPrompt, promptTarget } from "../src/prompt-interception.js";
 import { ANALYSIS_TIMEOUT_MS, STREAMING_HEALTH_TIMEOUT_MS, RESPONSE_TIMEOUT_MS } from "../src/analysis-timeouts.js";
 import { runtimeFailureResponse } from "../src/interception-failure.js";
+import { maskText, rewritePromptBody } from "../src/redaction.js";
 
 const source = (await readFile(new URL("../src/page-interceptor.js", import.meta.url), "utf8"))
   .replace(/^import .*;\r?\n/gm, "");
@@ -60,16 +61,17 @@ function harness(RequestClass = Request, nativeError = null) {
     RESPONSE_TIMEOUT_MS, runtimeFailureResponse, window, location: { href: url }, XMLHttpRequest: Xhr,
     Request: RequestClass, Response, URL, URLSearchParams, FormData, Blob, ReadableStream,
     Uint8Array, ArrayBuffer, TextEncoder, TextDecoder, DOMException, AbortController,
-    Event, ProgressEvent: Event, TypeError, crypto, extractPrompt, promptTarget,
+    Event, ProgressEvent: Event, TypeError, crypto, extractPrompt, promptTarget, maskText, rewritePromptBody,
     setTimeout(callback, ms) { const id = Symbol(); timers.set(id, { callback, ms }); return id; },
     clearTimeout(id) { timers.delete(id); },
   });
   function decide(action, requestId = messages.filter((message) => message.type === "ANALYZE_PROMPT").at(-1).requestId,
-    { legacy = false } = {}) {
+    { legacy = false, maskSpans } = {}) {
     for (const listener of [...listeners]) listener({
       source: window,
       data: {
         channel: "privoke-extension-v1", type: "ANALYZE_RESULT", requestId, action,
+        ...(maskSpans ? { maskSpans } : {}),
         ...(!legacy ? { observation: {
           schema_version: 1,
           notice_status: action === "ALLOW" ? "NOT_REQUESTED" : "RENDERED",
@@ -604,4 +606,100 @@ test("aborting streamed fetch during analysis cancels its unforwarded upload bra
   assert.equal(h.sent.length, 0);
   assert.equal(h.listeners.size, 0);
   assert.equal(h.timers.size, 0);
+});
+
+const maskSpans = [{ start: 3, end: 10, categories: ["IDENTITY"] }];
+const maskedPrompt = "My [PRIVOKE_IDENTITY] prompt";
+
+test("WARN+MASK replaces the sensitive span in a fetch body before native handoff", async () => {
+  const h = harness();
+  const request = h.window.fetch(url, { method: "POST", body });
+  await flush();
+  h.decide("WARN", undefined, { maskSpans });
+  assert.equal(await request, h.response);
+  assert.equal(h.sent.length, 1);
+  assert.equal(h.sent[0].args[0], url);
+  assert.equal(h.sent[0].args[1].method, "POST");
+  assert.deepEqual(JSON.parse(h.sent[0].args[1].body), { prompt: maskedPrompt });
+  assert.equal(h.sent[0].args[1].body.includes("private"), false);
+  assert.equal(outcomes(h)[0].action, "WARN");
+  assert.equal(outcomes(h)[0].observation.request_disposition, "MASKED_REQUEST_HANDED_OFF");
+  assert.equal(JSON.stringify(outcomes(h)[0]).includes("My private prompt"), false);
+});
+
+test("WARN+MASK replaces the span in an asynchronous XHR body", async () => {
+  const h = harness();
+  const { xhr } = startXhr(h);
+  xhr.send(body);
+  h.decide("WARN", undefined, { maskSpans });
+  await flush();
+  assert.equal(h.sent.length, 1);
+  assert.deepEqual(JSON.parse(h.sent[0].body), { prompt: maskedPrompt });
+  assert.equal(outcomes(h)[0].observation.request_disposition, "MASKED_REQUEST_HANDED_OFF");
+});
+
+test("WARN+MASK masks a Request input without altering other request fields", async () => {
+  const h = harness();
+  const input = new Request(url, { method: "POST", body, headers: { "x-test": "1" } });
+  const result = h.window.fetch(input);
+  await flush();
+  h.decide("WARN", undefined, { maskSpans });
+  await result;
+  const sentRequest = h.sent[0].args[0];
+  assert.equal(sentRequest.method, "POST");
+  assert.equal(sentRequest.headers.get("x-test"), "1");
+  assert.deepEqual(JSON.parse(await sentRequest.text()), { prompt: maskedPrompt });
+});
+
+for (const action of ["ALLOW", "BLOCK"]) {
+  test(`mask spans never alter an ${action} decision`, async () => {
+    const h = harness();
+    const init = { method: "POST", body };
+    const request = h.window.fetch(url, init);
+    await flush();
+    h.decide(action, undefined, { maskSpans });
+    if (action === "BLOCK") {
+      await assert.rejects(request, /Prompt blocked/);
+      assert.equal(h.sent.length, 0);
+    } else {
+      await request;
+      assert.deepEqual(h.sent[0].args, [url, init]);
+      assert.equal(outcomes(h)[0].observation.request_disposition, "ORIGINAL_REQUEST_HANDED_OFF");
+    }
+  });
+}
+
+test("WARN without spans, or with unusable spans, forwards the original request", async () => {
+  for (const spans of [undefined, [], [{ start: 5, end: 5 }], [{ start: 0, end: 9999, categories: [] }], "x"]) {
+    const h = harness();
+    const init = { method: "POST", body };
+    const request = h.window.fetch(url, init);
+    await flush();
+    h.decide("WARN", undefined, { maskSpans: spans });
+    await request;
+    assert.deepEqual(h.sent[0].args, [url, init]);
+    assert.equal(outcomes(h)[0].observation.request_disposition, "ORIGINAL_REQUEST_HANDED_OFF");
+  }
+});
+
+test("WARN+MASK falls back to the original request when the body cannot be rewritten", async () => {
+  const h = harness();
+  const init = { method: "POST", body: new URLSearchParams({ prompt: "My private prompt" }) };
+  const request = h.window.fetch(url, init);
+  await flush();
+  h.decide("WARN", undefined, { maskSpans });
+  await request;
+  assert.deepEqual(h.sent[0].args, [url, init]);
+  assert.equal(outcomes(h)[0].observation.request_disposition, "ORIGINAL_REQUEST_HANDED_OFF");
+});
+
+test("default WARN (no mask spans in the decision) hands the identical init object to native fetch", async () => {
+  const h = harness();
+  const init = { method: "POST", body };
+  const request = h.window.fetch(url, init);
+  await flush();
+  h.decide("WARN");
+  await request;
+  assert.equal(h.sent[0].args[1], init);
+  assert.equal(h.sent[0].args[1].body, body);
 });

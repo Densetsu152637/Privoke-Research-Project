@@ -26,6 +26,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
   useLocalStack: false,
   layers: Object.freeze({ regex: true, ner: true, llm: true }),
   waitForRegex: true,
+  // WARN+MASK: replace detected spans with typed placeholders before sending.
+  // Off by default: a WARN forwards the original request unchanged.
+  warnMasking: false,
   modelQuality: MODEL_QUALITY.LATEST,
 });
 
@@ -48,6 +51,7 @@ export function normaliseSettings(value = {}) {
       value.waitForRegex,
       DEFAULT_SETTINGS.waitForRegex,
     ),
+    warnMasking: booleanOrDefault(value.warnMasking, DEFAULT_SETTINGS.warnMasking),
     modelQuality,
   };
 }

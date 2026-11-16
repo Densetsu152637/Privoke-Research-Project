@@ -203,3 +203,20 @@ test("invalid unlocated evidence leaves source excerpt unhighlighted", () => {
   assert.equal(highlighted(children).length, 0);
   assert.equal(rendered(children), "😀 original prompt");
 });
+
+test("mask spans reach the page only with a WARN decision that carries them", async () => {
+  const spans = [{ start: 3, end: 9, categories: ["IDENTITY"] }];
+  const warned = relay(async () => ({ ok: true, response: { action: "WARN", maskSpans: spans } }), workingDocument());
+  await flush();
+  assert.deepEqual(JSON.parse(JSON.stringify(warned[0].maskSpans)), spans);
+
+  const defaults = relay(async () => ({ ok: true, response: { action: "WARN" } }), workingDocument());
+  await flush();
+  assert.equal(Object.hasOwn(defaults[0], "maskSpans"), false);
+
+  for (const action of ["ALLOW", "BLOCK"]) {
+    const other = relay(async () => ({ ok: true, response: { action, maskSpans: spans } }), workingDocument());
+    await flush();
+    assert.equal(Object.hasOwn(other[0], "maskSpans"), false);
+  }
+});

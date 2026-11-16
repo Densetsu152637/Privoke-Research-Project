@@ -37,7 +37,8 @@ window.addEventListener("message", (event) => {
         noticeStatus = "FAILED";
       }
     }
-    postResult(data.requestId, action, noticeStatus);
+    postResult(data.requestId, action, noticeStatus,
+      action === "WARN" ? response?.maskSpans : undefined);
   }).catch((error) => {
     const response = runtimeFailureResponse(error);
     let noticeStatus = "UNKNOWN";
@@ -74,12 +75,13 @@ function updateSemanticAvailability(response) {
   if (!existing) (document.documentElement || document).append(notice);
 }
 
-function postResult(requestId, action, noticeStatus) {
+function postResult(requestId, action, noticeStatus, maskSpans) {
   window.postMessage({
     channel: CHANNEL,
     type: "ANALYZE_RESULT",
     requestId,
     action,
+    ...(Array.isArray(maskSpans) && maskSpans.length > 0 ? { maskSpans } : {}),
     observation: {
       schema_version: 1,
       notice_status: noticeStatus,

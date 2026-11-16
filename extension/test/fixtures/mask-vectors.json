@@ -1,0 +1,17 @@
+{
+  "description": "Shared WARN+MASK vectors. Offsets are Unicode code points, half-open. Consumed by extension/test/redaction.test.js and evaluation/tests/test_warn_intervention.py to prove the extension and the measurement port implement one algorithm.",
+  "vectors": [
+    {"name": "single span, single category", "text": "Call Alice on 555-0100 today", "spans": [{"start": 14, "end": 22, "categories": ["CONTACT"]}], "masked": "Call Alice on [PRIVOKE_CONTACT] today", "masked_chars": 8},
+    {"name": "no spans leaves the text unchanged", "text": "Nothing sensitive here", "spans": [], "masked": "Nothing sensitive here", "masked_chars": 0},
+    {"name": "span at start and end", "text": "abcdef", "spans": [{"start": 0, "end": 2, "categories": ["IDENTITY"]}, {"start": 4, "end": 6, "categories": ["IDENTITY"]}], "masked": "[PRIVOKE_IDENTITY]cd[PRIVOKE_IDENTITY]", "masked_chars": 4},
+    {"name": "overlapping spans merge and union their categories", "text": "0123456789", "spans": [{"start": 4, "end": 8, "categories": ["FINANCIAL"]}, {"start": 2, "end": 5, "categories": ["IDENTITY"]}], "masked": "01[PRIVOKE_SENSITIVE]89", "masked_chars": 6},
+    {"name": "nested span is absorbed", "text": "0123456789", "spans": [{"start": 1, "end": 9, "categories": ["IDENTITY"]}, {"start": 3, "end": 5, "categories": ["IDENTITY"]}], "masked": "0[PRIVOKE_IDENTITY]9", "masked_chars": 8},
+    {"name": "adjacent spans stay separate", "text": "abcdef", "spans": [{"start": 0, "end": 3, "categories": ["IDENTITY"]}, {"start": 3, "end": 6, "categories": ["IDENTITY"]}], "masked": "[PRIVOKE_IDENTITY][PRIVOKE_IDENTITY]", "masked_chars": 6},
+    {"name": "duplicate spans collapse", "text": "abcdef", "spans": [{"start": 1, "end": 3, "categories": ["CONTACT"]}, {"start": 1, "end": 3, "categories": ["CONTACT"]}], "masked": "a[PRIVOKE_CONTACT]def", "masked_chars": 2},
+    {"name": "invalid spans are dropped", "text": "abcdef", "spans": [{"start": 3, "end": 3, "categories": ["CONTACT"]}, {"start": 4, "end": 99, "categories": ["CONTACT"]}, {"start": -1, "end": 2, "categories": ["CONTACT"]}, {"start": 2, "end": 1, "categories": ["CONTACT"]}, {"start": 1, "end": 2, "categories": ["CONTACT"]}], "masked": "a[PRIVOKE_CONTACT]cdef", "masked_chars": 1},
+    {"name": "missing categories give the generic type", "text": "abcdef", "spans": [{"start": 1, "end": 3, "categories": []}], "masked": "a[PRIVOKE_SENSITIVE]def", "masked_chars": 2},
+    {"name": "category names are sanitised", "text": "abcdef", "spans": [{"start": 1, "end": 3, "categories": ["gov id!"]}], "masked": "a[PRIVOKE_GOV_ID_]def", "masked_chars": 2},
+    {"name": "offsets count code points, not UTF-16 units", "text": "😀 Bob 😀 secret", "spans": [{"start": 8, "end": 14, "categories": ["IDENTITY"]}], "masked": "😀 Bob 😀 [PRIVOKE_IDENTITY]", "masked_chars": 6},
+    {"name": "span covering astral characters", "text": "a😀😀b", "spans": [{"start": 1, "end": 3, "categories": ["CONTACT"]}], "masked": "a[PRIVOKE_CONTACT]b", "masked_chars": 2}
+  ]
+}

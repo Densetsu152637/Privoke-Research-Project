@@ -85,3 +85,14 @@ test("selects each standard V3 tier and preserves all explicit older choices", a
     assert.equal(semanticModelId(oldId), `privoke-${tier}`);
   }
 });
+
+test("WARN+MASK is off by default and only an explicit boolean enables it", async () => {
+  const storage = memoryStorage();
+  assert.equal((await loadSettings(storage)).warnMasking, false);
+  assert.equal((await loadSettings(memoryStorage({ privokeSettings: { enabled: true } }))).warnMasking, false);
+  await updateSettings({ warnMasking: true }, storage);
+  assert.equal((await loadSettings(storage)).warnMasking, true);
+  await updateSettings({ warnMasking: "true" }, storage);
+  assert.equal((await loadSettings(storage)).warnMasking, false);
+  assert.equal(mergeSettings({ warnMasking: true }, { enabled: false }).warnMasking, true);
+});
