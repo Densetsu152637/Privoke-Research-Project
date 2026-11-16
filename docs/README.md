@@ -57,6 +57,7 @@ Commands in these guides retain their original working-directory assumptions. St
 | Guide | Contents |
 | --- | --- |
 | [Google Cloud deployment](deployment/google-cloud.md) | Compute Engine, IAM, GitHub Actions, certificates, backups and recovery |
+| [Anonymous code artifact](deployment/anonymous-artifact.md) | Double-blind export, redaction, verification and manifest |
 
 ## Research plans and results
 

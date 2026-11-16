@@ -96,6 +96,17 @@ class SamplerTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             sa.main(["--input", str(self.input), "--output-dir", str(Path(self.tmp.name) / "x")])
 
+    def test_blinding_audit_flags_dataset_markers(self):
+        clean = sa.blinding_audit(synthetic_rows())
+        self.assertEqual(clean["items_with_marker"], 0)
+        rows = synthetic_rows()
+        rows[0]["text"] += " fresh_eval-folio-03"
+        rows[1]["text"] += " see release-07"
+        audit = sa.blinding_audit(rows)
+        self.assertEqual(audit["items_with_marker"], 2)
+        out = self.run_sampler("audit")
+        self.assertEqual(json.loads((out / "key/manifest.json").read_text())["blinding_audit"]["items_with_marker"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
