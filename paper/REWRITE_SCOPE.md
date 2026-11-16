@@ -83,6 +83,7 @@ The user instructed: **"Implement the plans that you have created now. Also ensu
 
 Boundaries:
 
+- **Record.** [XPLAT-20261117](research/cross-platform-20261117.md) is the unit 12 record; it is installed-extension enforcement on Windows with a synthetic receiver and the regex and NER runtime, and is kept separate from every other unit.
 - **No live providers.** No prompt is sent to a real LLM provider, and none of the user's accounts are used, without separate approval.
 - **Not representative of real providers.** Fixtures are synthetic or derived from code; they do not establish real-provider compatibility.
 - **Same separation rules** as the other units.
