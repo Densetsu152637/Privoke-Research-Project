@@ -12,6 +12,7 @@ import {
   addRuntimeMessageListener,
 } from "./webextension-api.js";
 import { SemanticAvailability } from "./semantic-availability.js";
+import { ANALYSIS_TIMEOUT_MS, STREAMING_HEALTH_TIMEOUT_MS } from "./analysis-timeouts.js";
 
 const client = new RuntimeClient();
 const semanticAvailability = new SemanticAvailability(checkStreamingHealth);
@@ -45,7 +46,7 @@ async function handleMessage(message, sender) {
 async function checkStreamingHealth() {
   try {
     const response = await client.streamingHealth({
-      signal: AbortSignal.timeout(3_500),
+      signal: AbortSignal.timeout(STREAMING_HEALTH_TIMEOUT_MS),
     });
     const serving = response.status?.toUpperCase() === "SERVING";
     return {
@@ -184,7 +185,7 @@ async function analyzePrompt(message, sender) {
       client_version: "0.1.0",
       intercepted: message.source === "manual" ? "false" : "true",
     },
-  }, { signal: AbortSignal.timeout(30_000) });
+  }, { signal: AbortSignal.timeout(ANALYSIS_TIMEOUT_MS) });
 
   return {
     ok: true,

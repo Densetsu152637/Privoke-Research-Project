@@ -1,6 +1,6 @@
 """Exercise the cloud Compose deployment with disposable volumes and TLS identities.
 
-Run after `docker compose build`, using Python with grpcio and grpcio-tools.
+Run after `docker compose -f docker-compose.prod.yml build`, using Python with grpcio and grpcio-tools.
 Only resources belonging to the unique smoke-test project are removed.
 """
 from __future__ import annotations

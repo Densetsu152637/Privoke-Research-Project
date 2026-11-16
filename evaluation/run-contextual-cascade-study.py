@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RESULTS = (ROOT / "evaluation/results").resolve()
 sys.path.insert(0, str(ROOT / "shared/python"))
 sys.path.insert(0, str(ROOT / "evaluation"))
-COMPOSE = ["docker", "compose", "-f", "docker-compose.yml", "-f", "evaluation/compose.tests.yml",
+COMPOSE = ["docker", "compose", "-f", "docker-compose.prod.yml", "-f", "evaluation/compose.tests.yml",
            "-f", "evaluation/compose.public-negatives.yml", "-f", "evaluation/compose.presence.yml"]
 PROFILES = ("efficient", "balanced", "quality")
 CONTROLS = ("original", "current")

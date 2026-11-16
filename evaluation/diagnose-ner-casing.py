@@ -28,7 +28,7 @@ def main():
         raise SystemExit("Refusing to overwrite a diagnostic run.")
     examples = [json.loads(line) for line in (RESULTS / "locked-public/development.jsonl")
                 .read_text(encoding="utf-8").splitlines() if line.strip()]
-    command = ["docker", "compose", "-f", "docker-compose.yml", "-f", "evaluation/compose.tests.yml",
+    command = ["docker", "compose", "-f", "docker-compose.prod.yml", "-f", "evaluation/compose.tests.yml",
                "run", "--rm", "--no-deps", "-T", "--entrypoint", "python", "client-runtime", "-c", PROGRAM]
     result = subprocess.run(command, input=json.dumps(examples), capture_output=True, text=True, cwd=ROOT)
     if result.returncode:

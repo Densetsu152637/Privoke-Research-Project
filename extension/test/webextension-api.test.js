@@ -66,22 +66,38 @@ test("adapts callback messaging through the chrome-compatible namespace", async 
   });
 });
 
-test("adapts asynchronous listeners for both namespace styles", async () => {
-  let browserListener;
-  addRuntimeMessageListener(async (message) => ({ value: message.value + 1 }), {
-    browser: { runtime: { onMessage: { addListener(listener) { browserListener = listener; } } } },
-  });
-  assert.deepEqual(await browserListener({ value: 1 }, {}), { value: 2 });
+for (const namespace of ["browser", "chrome", "both"]) {
+  test(`keeps asynchronous callback replies open with ${namespace} namespace`, async () => {
+    let listener;
+    const runtime = { onMessage: { addListener(value) { listener = value; } } };
+    const root = namespace === "both"
+      ? { browser: { runtime }, chrome: { runtime } }
+      : { [namespace]: { runtime } };
+    addRuntimeMessageListener(async (message) => ({ value: message.value + 1 }), root);
 
-  let chromeListener;
-  addRuntimeMessageListener(async (message) => ({ value: message.value + 1 }), {
-    chrome: { runtime: { onMessage: { addListener(listener) { chromeListener = listener; } } } },
+    const responses = [];
+    // Callback-only hosts ignore returned promises and close the port unless
+    // the listener returns the literal boolean true.
+    assert.equal(listener({ value: 1 }, {}, (value) => responses.push(value)), true);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(responses, [{ value: 2 }]);
   });
-  const response = await new Promise((resolve) => {
-    assert.equal(chromeListener({ value: 2 }, {}, resolve), true);
+}
+
+for (const synchronous of [false, true]) {
+  test(`normalizes ${synchronous ? "thrown" : "rejected"} background handler errors`, async () => {
+    let listener;
+    const runtime = { onMessage: { addListener(value) { listener = value; } } };
+    const handler = synchronous
+      ? () => { throw new Error("Analysis unavailable"); }
+      : async () => { throw new Error("Analysis unavailable"); };
+    addRuntimeMessageListener(handler, { browser: { runtime }, chrome: { runtime } });
+    const responses = [];
+    assert.equal(listener({}, {}, (value) => responses.push(value)), true);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(responses, [{ ok: false, error: "Analysis unavailable" }]);
   });
-  assert.deepEqual(response, { value: 3 });
-});
+}
 
 test("uses injected promise storage without a browser global", async () => {
   const values = {};

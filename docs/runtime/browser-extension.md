@@ -21,8 +21,9 @@ Docker is optional for the extension's regex and NER layers. It is used only whe
 
 - The master toggle starts or stops the client-runtime detector process through `PrivokeRuntimeControlService`. The lightweight supervisor stays online so an off runtime can be started again.
 - **Regex**, **NER**, and **LLM (streamed)** can be enabled independently; all three start enabled.
+- The popup greys out and disables the LLM control until its availability check succeeds. Failed checks show **Unavailable**; the popup retries every five seconds while open and checks again after turning PriVoke on or changing servers. A saved LLM selection is retained during an outage for automatic recovery, but the disabled control cannot be changed. Regex and NER controls remain usable.
 - When semantic protection is configured, analysis checks streaming availability through the supervisor. Health results are cached for five seconds and concurrent checks are coalesced. An outage uses other enabled layers temporarily; semantic remains configured and resumes automatically after a successful later check.
-- If semantic is the only enabled layer, unavailable streaming keeps the request protected by a runtime error and blocks it. Disabling the master toggle or all layers explicitly bypasses analysis.
+- If semantic is the only enabled layer, unavailable streaming produces an analysis error. Website interception warns and continues the original request; manual popup analysis still reports the error. Disabling the master toggle or all layers explicitly bypasses analysis.
 - Manual analysis reports a compact `PASS`, `WARN`, or `ERROR` badge beside the **Analyse prompt** button. `BLOCK` maps to `ERROR` in this compact UI.
 - Website notifications are shown only for `WARN` and `BLOCK`. The detected evidence span is rendered in red; `ALLOW` stays silent.
 - A warning allows the original web request to continue. A block cancels it before it is sent.
@@ -39,7 +40,15 @@ The page-network hook currently recognises prompt POSTs for:
 - Microsoft Copilot,
 - OpenAI Chat Completions and Responses API requests made from a matching browser page.
 
-Both `fetch` and `XMLHttpRequest` are intercepted at `document_start`. If the extension bridge or runtime is unavailable, website requests are blocked and a notice reports that analysis could not complete safely. A streamed semantic outage falls back to other enabled detection layers; when no fallback layer is enabled, prompts remain blocked until semantic analysis recovers.
+Both `fetch` and `XMLHttpRequest` are intercepted at `document_start`. Website interception allows the original request to continue when analysis cannot complete: unavailable bridge/runtime, analysis timeout, missing/invalid replies, detector execution failure without a genuine blocking finding, or unreadable/oversized inspection bodies. A warning says the prompt will be sent without a complete privacy check. A streamed semantic outage still uses other enabled layers when available. A successful detector BLOCK remains blocked, including blocking evidence returned alongside an independent layer error. The runtime's own error policy and manual popup error reporting are unchanged.
+
+Known analysis timeouts, disconnected extension contexts, and local runtime connection failures show fixed recovery guidance: check the runtime in the popup, reload the AI page, or start/check the local runtime respectively. Unknown failures retain a generic analysis-unavailable warning; raw error details are never copied into notices. A failure warning does not mean sensitive content was detected. Warning rendering failures cannot prevent handoff.
+
+The page waits 35.5 seconds for the extension decision, covering the sequential 3.5-second semantic health check and unchanged 30-second analysis deadline plus 2 seconds for messaging. A missing decision after that outer deadline warns and permits handoff. Synchronous XHR also warns and sends without awaiting analysis. Caller cancellation, native network failures, and invalid or consumed request bodies retain their normal browser behavior. Stream inspection reads a clone; on inspection failure the untouched upload branch is handed to native fetch.
+
+For ChatGPT, analysis requires text from a recognized prompt field or user message. Metadata-only conversation requests (for example model, action, and identifier fields) and assistant/system-only messages do not trigger analysis or a prompt notice. Conversation subpaths remain eligible when their bodies contain user prompt text; there is no blanket preparation-path exclusion. This uses the supported structured payload shapes, not a captured inventory of ChatGPT's current background requests, so future payload changes still require compatibility validation.
+
+Background listeners use callback replies and keep the message channel open until analysis finishes in both `browser` and `chrome` namespaces, including browsers exposing both. Sending messages through the `browser` namespace continues to use its Promise API.
 
 ## Request path
 
@@ -67,8 +76,10 @@ The extension itself is not deployed with Docker. Install its native messaging l
 
 ```bash
 python models/prepare_standard_releases.py
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build model-streaming-service
+docker compose up --build model-streaming-service
 ```
+
+The default development stack publishes `127.0.0.1:50051` to the workstation for the extension's Dev setting. The explicitly selected `docker-compose.prod.yml` keeps this port internal to Docker and is not reachable by the browser's local supervisor. In `docker compose ps`, `50051/tcp` alone is internal exposure; Dev requires `127.0.0.1:50051->50051/tcp`.
 
 2. Prepare the detector and supervisor. The commands below use one virtual environment, but each process keeps its own source and generated protobuf bindings:
 
@@ -147,7 +158,7 @@ For development without native messaging, start the supervisor manually from `ex
 ../client-runtime/.venv/bin/python src/main.py
 ```
 
-The repository does not include a separate extension Compose file. If neither the registered native launcher nor a manually started supervisor is available, intercepted website requests are blocked and the popup reports that the native messaging host must be installed.
+The repository does not include a separate extension Compose file. If neither the registered native launcher nor a manually started supervisor is available, intercepted website requests continue with an incomplete-check warning and the popup reports that the native messaging host must be installed.
 
 5. Load `extension/dist` using the target browser's development-extension page:
 

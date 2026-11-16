@@ -74,7 +74,7 @@ Detector output is represented by `extension/client-runtime/src/classification`.
 - `client-runtime`: always-on server detector gRPC on `50054`.
 - `telemetry-service`: gRPC on `50055`.
 
-Production Compose keeps all five ports internal to its service network. The development and research-test overrides publish `50051` through `50055` on host loopback (`127.0.0.1`) for Python evaluation and integration scripts. Run fuzzer checks with `python evaluation/run-fuzzer-tests.py`; see [host test setup](../../evaluation/README.md). A real external API must be exposed explicitly through an authenticated TLS ingress rather than by publishing these plaintext gRPC ports.
+Production Compose keeps all five ports internal to its service network. The default development stack and research-test override publish `50051` through `50055` on host loopback (`127.0.0.1`) for Python evaluation and integration scripts. Run fuzzer checks with `python evaluation/run-fuzzer-tests.py`; see [host test setup](../../evaluation/README.md). A real external API must be exposed explicitly through an authenticated TLS ingress rather than by publishing these plaintext gRPC ports.
 
 The extension-local ports `8080`, `50056`, and `50057` are not Compose service ports. They are owned by the workstation supervisor and remain bound to loopback.
 
@@ -83,15 +83,15 @@ The extension-local ports `8080`, `50056`, and `50057` are not Compose service p
 Run the development server simulation with bind-mounted sources and generated stubs. This has the same five-service topology as the production deployment; it does not run the WebExtension or its local supervisor/bridge:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+docker compose up --build
 ```
 
-The override assigns separate development image tags, so a later `up -d` cannot accidentally reuse a production runtime image that omits protobuf build tooling. All service healthchecks call their public gRPC `Health` methods.
+The default file extends the shared service definitions in `docker-compose.prod.yml` and assigns separate development image tags, so a later `up -d` cannot accidentally reuse a production runtime image that omits protobuf build tooling. All service healthchecks call their public gRPC `Health` methods. The former `docker-compose.dev.yml` override has been removed; use the default file directly.
 
 Run the production-style server deployment:
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 ## Continuous Integration
@@ -165,7 +165,7 @@ curl -X POST http://127.0.0.1:8765/config/llm \
 Run prompt tests through the deployed runtime gRPC service:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml exec privoke-fuzzer \
+docker compose exec privoke-fuzzer \
   python src/cli.py test-prompts \
   --layer runtime \
   --prompt "My email is alex@example.com"
@@ -174,7 +174,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml exec privoke-fuzz
 Run layer probes:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml exec privoke-fuzzer \
+docker compose exec privoke-fuzzer \
   python src/cli.py test-prompts \
   --layer regex \
   --layer ner \

@@ -14,6 +14,8 @@ The supervisor stays running on port `50056` while it starts and stops the exten
 - `Status` to report the detector process state and PID;
 - `ModelStreamingHealth` to check the configured parameter-streaming endpoint on demand when the extension enables its LLM layer.
 
+On Windows, stopping the detector terminates the process tree rooted at its owned Python launcher. Virtual-environment Python can spawn a second interpreter; stopping only the launcher would leave that interpreter occupying port `50057` and prevent the next start. A failed termination is reported as an error. The supervisor still refuses to adopt or terminate an unrelated process merely because it occupies that port.
+
 The supervisor and detector start without contacting `model-streaming-service`. The detector is launched from `../client-runtime/src/grpc_main.py` with the supervisor's Python interpreter and inherited environment. Consequently, GPU inference for extension traffic requires PyTorch from `../client-runtime/requirements-gpu.txt` to be installed in the interpreter selected for the supervisor (normally `../client-runtime/.venv`). `PRIVOKE_MODEL_DEVICE=auto` then selects CUDA or Apple MPS and falls back to CPU. The Compose GPU override applies to the separate server runtime, not this child. The portable WebExtension can start the supervisor through the fixed-purpose native messaging launcher in `src/native_messaging_host.py`.
 
 The supervisor always owns the gRPC-Web bridge on `127.0.0.1:8080`. There is no external proxy mode: bridge startup and shutdown follow the supervisor lifecycle. The bridge, control service, and detector are forced to loopback rather than merely defaulting to it.
@@ -54,6 +56,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-native-host.ps1 -Brow
 ```
 
 Use `-Browser OperaGX` for an explicit Opera GX registration. Other values are `Chrome`, `Edge`, `Chromium`, `Firefox`, and `All`.
+
+The Windows installer checks that the runtime Python interpreter can execute before changing the installation. After moving the checkout to another drive or directory, recreate its Python virtual environment and reinstall the runtime dependencies, then rerun this installer from the new checkout. The installed launcher stores absolute paths; an old path can cause the browser to report "Error when communicating with the native messaging host" even when the host is registered.
 
 Linux or macOS:
 

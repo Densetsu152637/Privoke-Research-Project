@@ -8,13 +8,10 @@ export function webExtensionApi(root = globalThis) {
 
 export function addRuntimeMessageListener(handler, root = globalThis) {
   const api = webExtensionApi(root);
-  if (root.browser) {
-    api.runtime.onMessage.addListener((message, sender) => handler(message, sender));
-    return;
-  }
-
+  // A browser namespace can alias Chromium APIs without supporting Promise
+  // listener responses. The callback contract also works in Firefox.
   api.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    Promise.resolve(handler(message, sender)).then(
+    Promise.resolve().then(() => handler(message, sender)).then(
       sendResponse,
       (error) => sendResponse({ ok: false, error: errorMessage(error) }),
     );

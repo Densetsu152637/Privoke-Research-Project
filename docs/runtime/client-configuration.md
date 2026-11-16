@@ -31,7 +31,7 @@ All `.env` files, `secrets/` folders, `.key`, `.pem`, and `.p12` files are ignor
 
 ## Reveal the hidden toggle
 
-1. Start the local stack with `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build`.
+1. Start the local stack with `docker compose up --build`.
 2. Focus the extension popup and press **Ctrl+Shift+D** to reveal developer settings.
 3. Turn on **Use local development servers**. Model streaming connects to `127.0.0.1:50051`; telemetry connects to `127.0.0.1:50055`. Local connections need no cloud certificate.
 4. Turn it off to return to `PRIVOKE_CLOUD_TARGET` with authenticated TLS.

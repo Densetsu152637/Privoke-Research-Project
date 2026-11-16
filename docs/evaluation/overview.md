@@ -49,8 +49,8 @@ Use `prompt_detection_recall_by_source_category` in the JSON report to see which
 Complete the [host Python setup](../../evaluation/README.md), then start the server stack with loopback ports and leave it running in the background:
 
 ```bash
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml up -d --build --wait model-streaming-service telemetry-service client-runtime privoke-fuzzer param-update-service
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml ps
+docker compose -f docker-compose.prod.yml -f evaluation/compose.tests.yml up -d --build --wait model-streaming-service telemetry-service client-runtime privoke-fuzzer param-update-service
+docker compose -f docker-compose.prod.yml -f evaluation/compose.tests.yml ps
 ```
 
 Continue when the five services are healthy. Evaluation calls the published runtime port directly; fuzzer checks call `127.0.0.1:50053`. Generated clients live locally under `extension/client-runtime/generated`. Detector execution stays in the running service.

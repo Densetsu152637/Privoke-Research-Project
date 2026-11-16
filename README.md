@@ -8,8 +8,12 @@ Start with the [documentation index](docs/README.md), the [project architecture]
 
 ```bash
 python models/prepare_standard_releases.py
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+docker compose up --build
 ```
+
+The default `docker-compose.yml` runs development images with source mounts and
+loopback ports. For production images and internal-only service ports, use
+`docker compose -f docker-compose.prod.yml up -d --build`.
 
 The standard `latest` profile is the selected AU3 V3 balanced package. Preparation
 verifies existing local exports and copies their original bytes into an ignored,

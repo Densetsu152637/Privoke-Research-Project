@@ -17,6 +17,11 @@ const stackToggle = document.querySelector("#stack-toggle");
 const layerButtons = [...document.querySelectorAll(".layer-toggle")];
 
 let settings;
+let streamingAvailable = null;
+let availabilityRevision = 0;
+let healthCheck;
+let connectionChanging = false;
+let runtimeAvailable = false;
 
 analyze.addEventListener("click", inspectPrompt);
 masterToggle.addEventListener("click", toggleMaster);
@@ -30,13 +35,17 @@ modelQuality.addEventListener("change", () => savePatch({ modelQuality: modelQua
 stackToggle.addEventListener("click", async () => {
   if (!settings) return;
   stackToggle.disabled = true;
+  connectionChanging = true;
+  invalidateStreamingHealth();
   setStatus("Changing server connection…");
   await savePatch({ useLocalStack: !settings.useLocalStack });
+  connectionChanging = false;
   stackToggle.disabled = false;
-  serverWarning.hidden = true;
+  await refreshStreamingHealth();
 });
 
 void initialise();
+setInterval(() => { void refreshStreamingHealth(); }, 5_000);
 
 async function initialise() {
   const response = await sendMessage({ type: "GET_SETTINGS" });
@@ -49,19 +58,14 @@ async function initialise() {
 
   if (settings.enabled) {
     const runtimeStatus = await sendMessage({ type: "GET_RUNTIME_STATUS" });
+    runtimeAvailable = Boolean(runtimeStatus?.ok && runtimeStatus.runtime?.enabled);
     if (!runtimeStatus?.ok || !runtimeStatus.runtime?.enabled) {
       showRuntimeWarning(
         runtimeStatus?.runtime?.message
           || "The client runtime is not running. Toggle PriVoke off and on to retry.",
       );
     }
-    if (settings.layers.llm) {
-      const health = await sendMessage({ type: "CHECK_STREAMING_HEALTH" });
-      if (!health?.ok) showSemanticWarning({
-        fallbackLayers: selectedFallbackLayers(settings.layers),
-        failClosedOnly: !settings.layers.regex && !settings.layers.ner,
-      });
-    }
+    await refreshStreamingHealth();
   } else {
     const stopped = await sendMessage({ type: "SET_MASTER_ENABLED", enabled: false });
     if (stopped?.warning) showRuntimeWarning(stopped.warning);
@@ -72,8 +76,12 @@ async function toggleMaster() {
   if (!settings) return;
   const enabled = !settings.enabled;
   masterToggle.disabled = true;
+  connectionChanging = true;
+  invalidateStreamingHealth();
   runtimeWarning.hidden = true;
   const response = await sendMessage({ type: "SET_MASTER_ENABLED", enabled });
+  connectionChanging = false;
+  runtimeAvailable = Boolean(response?.ok && response.runtime?.enabled);
   masterToggle.disabled = false;
 
   if (response?.settings) settings = response.settings;
@@ -83,29 +91,43 @@ async function toggleMaster() {
       response?.error || response?.warning || "The client runtime could not be controlled.",
     );
   }
+  await refreshStreamingHealth();
 }
 
 async function toggleLayer(event) {
-  if (!settings) return;
+  if (!settings?.enabled || event.currentTarget.disabled) return;
   const button = event.currentTarget;
   const layer = button.dataset.layer;
   const enabled = !settings.layers[layer];
 
-  let streamingHealth;
   if (layer === "llm" && enabled) {
     button.disabled = true;
-    streamingHealth = await sendMessage({ type: "CHECK_STREAMING_HEALTH" });
-    button.disabled = false;
+    await refreshStreamingHealth();
+    if (button.disabled || streamingAvailable !== true) return;
   }
 
   await savePatch({ layers: { [layer]: enabled } });
-  if (layer === "llm") {
-    if (enabled && !streamingHealth?.ok) showSemanticWarning({
-      fallbackLayers: selectedFallbackLayers(settings.layers),
-      failClosedOnly: !settings.layers.regex && !settings.layers.ner,
-    });
-    else serverWarning.hidden = true;
-  }
+}
+
+function invalidateStreamingHealth() {
+  availabilityRevision += 1;
+  streamingAvailable = null;
+  renderSettings();
+}
+
+async function refreshStreamingHealth() {
+  if (!settings?.enabled || connectionChanging || !runtimeAvailable) return;
+  const revision = availabilityRevision;
+  if (healthCheck?.revision === revision) return healthCheck.promise;
+  const promise = (async () => {
+    const health = await sendMessage({ type: "CHECK_STREAMING_HEALTH" });
+    if (revision !== availabilityRevision || !settings.enabled) return;
+    streamingAvailable = Boolean(health?.ok);
+    renderSettings();
+  })();
+  healthCheck = { revision, promise };
+  await promise;
+  if (healthCheck?.promise === promise) healthCheck = null;
 }
 
 async function savePatch(patch) {
@@ -123,8 +145,17 @@ async function savePatch(patch) {
 function renderSettings() {
   for (const button of layerButtons) {
     button.setAttribute("aria-pressed", String(settings.layers[button.dataset.layer]));
-    button.disabled = !settings.enabled;
+    const isLlm = button.dataset.layer === "llm";
+    button.disabled = !settings.enabled || (isLlm && streamingAvailable !== true);
+    if (isLlm) button.querySelector(".layer-copy small").textContent = streamingAvailable === null
+      ? "Checking…" : streamingAvailable ? "Streamed" : "Unavailable";
   }
+  if (settings.enabled && settings.layers.llm && streamingAvailable === false) {
+    showSemanticWarning({
+      fallbackLayers: selectedFallbackLayers(settings.layers),
+      failClosedOnly: !settings.layers.regex && !settings.layers.ner,
+    });
+  } else serverWarning.hidden = true;
   waitRegex.checked = settings.waitForRegex;
   stackToggle.setAttribute("aria-pressed", String(settings.useLocalStack));
   stackToggle.setAttribute("aria-label", settings.useLocalStack ? "Use cloud servers" : "Use development servers");
@@ -152,6 +183,7 @@ async function inspectPrompt() {
   setFeedback("CHECKING", "checking");
   setStatus("");
 
+  const revision = availabilityRevision;
   const resultMessage = await sendMessage({
     type: "ANALYZE_PROMPT",
     source: "manual",
@@ -167,8 +199,15 @@ async function inspectPrompt() {
   }
 
   const response = resultMessage.response;
-  if (response.semanticUnavailable) showSemanticWarning(response);
-  else if (response.semanticStateTransition === "available") serverWarning.hidden = true;
+  if (revision === availabilityRevision && typeof response.semanticUnavailable === "boolean" && settings.layers.llm) {
+    availabilityRevision += 1;
+    streamingAvailable = !response.semanticUnavailable;
+    renderSettings();
+    if (response.semanticUnavailable) showSemanticWarning({
+      fallbackLayers: response.semanticFallbackLayers,
+      failClosedOnly: response.semanticFailClosedOnly,
+    });
+  }
   const action = String(response.action || "ALLOW").toUpperCase();
   if (response.disabled) setFeedback("ERROR", "error");
   else if (action === "BLOCK") setFeedback("ERROR", "error");
