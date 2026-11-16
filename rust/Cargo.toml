@@ -4,6 +4,7 @@ members = [
     "crates/privoke-proto",
     "crates/privoke-contracts",
     "crates/privoke-transport",
+    "crates/privoke-rules",
 ]
 
 [workspace.package]
