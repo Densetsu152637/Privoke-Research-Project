@@ -289,6 +289,7 @@ def prepare_fixture(state_dir, revision):
     arrays["head.visibility.bias"][:] = [4, -2, -2, -2, -2, -2]
     arrays["head.category.bias"][:] = -4
     arrays["head.category.bias"][0] = 4
+    # Canonical artifact/runtime form: legacy readout is implicit (ModelConfig.to_mapping).
     original = {"schema_version":1,"model_id":"privoke-balanced","version":"smoke-synthetic-96",
         "generated_at_unix":1,"architecture":ARCHITECTURE_NAME,"config":config.to_mapping(),
         "metadata":{"purpose":"fixed_synthetic_transport_fixture_no_optimization_no_quality_claim"},

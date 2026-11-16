@@ -1,24 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from pathlib import Path
 
-from json_records import first_value, load_json_records, string_metadata
+from json_records import first_value, string_metadata
 
 from .classifications import classification_from_mapping
 from .types import BatchTrainingExample
 
 JsonMapping = Mapping[str, object]
-
-
-def load_training_examples(path: str | Path) -> list[BatchTrainingExample]:
-    items = load_json_records(
-        path,
-        collection_keys=("examples", "samples", "data"),
-        missing_message="Training batch does not exist",
-        shape_message="Training batch must be a list or contain examples/samples/data.",
-    )
-    return [training_example_from_mapping(item) for item in items]
 
 
 def training_example_from_mapping(item: JsonMapping) -> BatchTrainingExample:
