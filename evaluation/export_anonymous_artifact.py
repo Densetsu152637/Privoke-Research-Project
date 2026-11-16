@@ -20,6 +20,7 @@ import hashlib
 import json
 import re
 import shutil
+import io
 import subprocess
 import sys
 import tarfile
@@ -160,31 +161,28 @@ def rewrite_text(text, relpath):
 
 def extract(repo, revision, dest, excludes):
     """Stream `git archive` into dest. Returns (files, excluded, skipped_links)."""
-    proc = subprocess.Popen(["git", "-C", str(repo), "archive", "--format=tar", revision],
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # Read the whole archive before parsing: a streaming reader stops at the
+    # end-of-archive marker and closing the pipe early makes git exit non-zero.
+    proc = subprocess.run(["git", "-C", str(repo), "archive", "--format=tar", revision],
+                          capture_output=True)
+    if proc.returncode != 0:
+        raise ExportError(f"git archive failed: {proc.stderr.decode('utf8', 'replace').strip()}")
     files, excluded, links = {}, [], []
-    try:
-        with tarfile.open(fileobj=proc.stdout, mode="r|") as tar:
-            for member in tar:
-                name = member.name
-                parts = PurePosixPath(name).parts
-                if PurePosixPath(name).is_absolute() or ".." in parts:
-                    raise ExportError(f"unsafe archive path: {name!r}")
-                if member.isdir():
-                    continue
-                if not member.isfile():
-                    links.append(name)
-                    continue
-                if is_excluded(name, excludes):
-                    excluded.append(name)
-                    continue
-                files[name] = tar.extractfile(member).read()
-    finally:
-        proc.stdout.close()
-        err = proc.stderr.read().decode("utf8", "replace")
-        proc.stderr.close()
-        if proc.wait() != 0:
-            raise ExportError(f"git archive failed: {err.strip()}")
+    with tarfile.open(fileobj=io.BytesIO(proc.stdout), mode="r:") as tar:
+        for member in tar:
+            name = member.name
+            parts = PurePosixPath(name).parts
+            if PurePosixPath(name).is_absolute() or ".." in parts:
+                raise ExportError(f"unsafe archive path: {name!r}")
+            if member.isdir():
+                continue
+            if not member.isfile():
+                links.append(name)
+                continue
+            if is_excluded(name, excludes):
+                excluded.append(name)
+                continue
+            files[name] = tar.extractfile(member).read()
     return files, sorted(excluded), sorted(links)
 
 
