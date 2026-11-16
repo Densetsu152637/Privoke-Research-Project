@@ -20,6 +20,7 @@ import hashlib
 import json
 import math
 import random
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -118,6 +119,15 @@ def blinded_ids(case_ids, salt):
         width += 2
 
 
+DATASET_MARKER = re.compile(r"fresh_eval|release-\d+|AU3|folio-\d+", re.IGNORECASE)
+
+
+def blinding_audit(items):
+    """Annotator-facing texts that embed dataset or partition markers (coordinator decision needed)."""
+    flagged = [r["id"] for r in items if DATASET_MARKER.search(r["text"])]
+    return {"marker_pattern": DATASET_MARKER.pattern, "items_checked": len(items), "items_with_marker": len(flagged)}
+
+
 def provisional_targets(row):
     return {
         "disclosure": "yes" if row["required_sensitive"] else "no",
@@ -176,8 +186,12 @@ def build(args):
                 "provisional": provisional_targets(r),
             })
     schema.write_jsonl(out / "key" / "sampling_key.jsonl", key)
+    audit = blinding_audit(main + pilot)
+    if audit["items_with_marker"]:
+        print(f"warning: {audit['items_with_marker']} of {audit['items_checked']} annotator-facing texts embed a dataset "
+              "marker (partition name or scenario token); see blinding_audit in key/manifest.json", file=sys.stderr)
     manifest = {
-        "version": VERSION, "seed": args.seed, "id_salt_commitment": hashlib.sha256(salt.encode()).hexdigest(),
+        "version": VERSION, "blinding_audit": audit, "seed": args.seed, "id_salt_commitment": hashlib.sha256(salt.encode()).hexdigest(),
         "input_sha256": digest, "input_rows": len(rows), "annotators": args.annotators, "format": args.format,
         "main_size": len(main), "pilot_size": len(pilot), "min_per_cell": args.min_per_cell,
         "population_by_stratum": dict(sorted(population.items())),
