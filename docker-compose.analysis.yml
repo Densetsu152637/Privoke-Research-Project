@@ -141,6 +141,9 @@ services:
     networks: [default, analysis-fuzzer]
     environment:
       PRIVOKE_RUNTIME_TARGET: analysis-service:50054
+      # The Rust parameter-update service binds `source_id` to the certificate name (stage 5), so the fuzzer publishes as
+      # `fuzzer`, the name of its certificate, instead of the production file's `server-fuzzer`.
+      FUZZER_ID: fuzzer
       PRIVOKE_TLS_CERT_FILE: /run/privoke/svc/fuzzer.crt
       PRIVOKE_TLS_KEY_FILE: /run/privoke/svc/fuzzer.key
       PRIVOKE_TLS_CA_FILE: /run/privoke/server-ca.pem
@@ -148,7 +151,7 @@ services:
       PRIVOKE_SERVER_TLS_KEY_FILE: /run/privoke/server/server.key
       PRIVOKE_SERVER_TLS_CLIENT_CA_FILE: /run/privoke/client-ca.pem
       PRIVOKE_SERVER_REGISTRY_FILE: /run/privoke/registry.toml
-      PRIVOKE_SERVER_ALLOWED_IDENTITIES: urn:privoke:service:fuzzer,urn:privoke:service:w3-driver
+      PRIVOKE_SERVER_ALLOWED_IDENTITIES: urn:privoke:service:fuzzer,urn:privoke:service:w3-driver,urn:privoke:service:param-update
     volumes:
       - *pki
 

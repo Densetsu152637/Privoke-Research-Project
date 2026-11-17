@@ -261,6 +261,7 @@ class RecordedResultTests(unittest.TestCase):
 
 OPENSSL_AVAILABLE = bool(shutil.which("openssl") or Path(r"C:\Program Files\Git\usr\bin\openssl.exe").exists())
 RUST_BINARY = os.environ.get("PRIVOKE_RUST_MODEL_STREAMING_BINARY")
+RUST_UPDATE_BINARY = os.environ.get("PRIVOKE_RUST_PARAM_UPDATE_BINARY")
 RELEASE_STORE = Path(os.environ.get("PRIVOKE_STANDARD_RELEASES") or ROOT / "models/standard-releases")
 
 
@@ -321,6 +322,27 @@ class RustTargetOptionTests(unittest.TestCase):
         self.assertEqual(set(harness.RUST_ROW_IDS), {f"T{n}" for n in range(1, 13)} | {"R3", "R4", "R7", "R8", "R9", "X8"})
         self.assertEqual(harness.rust_row_family("R7-no-cert"), "R7")
         self.assertEqual(harness.rust_row_family("T12"), "T12")
+
+    def test_stage_5_options_are_additive_and_default_to_the_stage_3_rows(self):
+        args = harness.build_parser().parse_args(["--target", "rust"])
+        self.assertEqual((args.rust_service, args.rust_update_image), ("model-streaming", harness.RUST_UPDATE_DEFAULT_IMAGE))
+        args = harness.build_parser().parse_args(["--target", "rust", "--rust-service", "param-update", "--rust-update-image", "u:1", "--rust-binary", "bin"])
+        self.assertEqual((args.rust_service, args.rust_update_image, args.rust_binary), ("param-update", "u:1", Path("bin")))
+        with self.assertRaises(SystemExit):
+            harness.build_parser().parse_args(["--target", "rust", "--rust-service", "telemetry"])
+
+    def test_the_stage_5_row_families_are_declared_and_the_record_has_its_own_default_path(self):
+        self.assertEqual(set(harness.RUST_UPDATE_ROW_IDS), {"A1", "A2", "A3", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "T14", "R1", "R2", "R5"})
+        self.assertEqual(harness.rust_row_family("R5-replay"), "R5")
+        source = Path(harness.__file__).read_text(encoding="utf-8")
+        self.assertIn('args.output or ROOT / ".tmp/update-security-rust-s05.json"', source)
+        self.assertNotEqual(harness.RUST_UPDATE_RECORD_ID, harness.RUST_RECORD_ID)
+
+    def test_the_budgets_of_the_drift_rows_sit_below_what_the_rows_send(self):
+        # E6 sends 25 updates of norm 2.0 (50 in total) and needs a budget under that to see a refusal.
+        self.assertLess(harness.RUST_UPDATE_E6_BUDGET, 25 * 2.0)
+        self.assertEqual(harness.RUST_UPDATE_E6_BUDGET % 2, 0)
+        self.assertEqual(harness.RUST_UPDATE_R5_BUDGET % 1, 0)
 
 
 @unittest.skipUnless(OPENSSL_AVAILABLE, "OpenSSL unavailable")
@@ -402,6 +424,51 @@ class RustTargetRowsTests(unittest.TestCase):
         self.assertEqual(record["summary"]["property_unmet_ids"], [])
         self.assertEqual(record["missing_row_families"], [])
         self.assertTrue(record["standard_release_store_unchanged"])
+        self.assertEqual(code, 0)
+        self.assertNotIn("PRIVATE KEY", json.dumps(record))
+
+
+@unittest.skipUnless(OPENSSL_AVAILABLE, "OpenSSL unavailable")
+class RustUpdatePkiTests(unittest.TestCase):
+    """The stage 5 PKI registers the fuzzer's publisher identity, a second publisher and a trainer, and leaves one service unregistered."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.directory = tempfile.TemporaryDirectory()
+        cls.pki = harness.RustUpdatePki(Path(cls.directory.name))
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.directory.cleanup()
+
+    def test_registry_names_the_publishers_and_the_trainer_but_not_the_stranger(self):
+        with tempfile.TemporaryDirectory() as directory:
+            registry = (self.pki.publish(Path(directory)) / "registry.toml").read_text(encoding="utf-8")
+        for name, role in (("server-fuzzer", "publisher"), ("test-trainer", "publisher"), ("trainer", "trainer")):
+            self.assertIn(f'name = "{name}"' + chr(10) + f'role = "{role}"', registry)
+        self.assertNotIn("stranger", registry)
+        self.assertIn(self.pki.ids["registered"], registry)
+
+    def test_every_stage_5_identity_is_a_single_service_urn(self):
+        for identity, name in (("publisher", "server-fuzzer"), ("impostor", "test-trainer"), ("trainer", "trainer"), ("stranger", "stranger")):
+            certificate, _ = self.pki.certs[identity]
+            text = subprocess.run([__import__("update_security_pki").find_openssl(), "x509", "-noout", "-text"], input=certificate, stdout=subprocess.PIPE,
+                                  check=True).stdout.decode()
+            self.assertEqual(text.count("urn:privoke:"), 1, identity)
+            self.assertIn(f"urn:privoke:service:{name}", text)
+            self.assertIn("TLS Web Client Authentication", text)
+
+
+@unittest.skipUnless(RUST_UPDATE_BINARY and Path(RUST_UPDATE_BINARY).exists() and OPENSSL_AVAILABLE,
+                     "set PRIVOKE_RUST_PARAM_UPDATE_BINARY to run the stage 5 rows against a host binary")
+class RustUpdateRowsTests(unittest.TestCase):
+    def test_every_stage_5_row_passes_against_a_host_binary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "record.json"
+            code = harness.main(["--target", "rust", "--rust-service", "param-update", "--rust-binary", RUST_UPDATE_BINARY, "--output", str(output)])
+            record = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual(record["summary"]["property_unmet_ids"], [])
+        self.assertEqual(record["missing_row_families"], [])
         self.assertEqual(code, 0)
         self.assertNotIn("PRIVATE KEY", json.dumps(record))
 

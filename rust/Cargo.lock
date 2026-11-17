@@ -1308,6 +1308,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "privoke-param-update"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "clap",
+ "privoke-contracts",
+ "privoke-model-streaming",
+ "privoke-pki",
+ "privoke-transport",
+ "prost",
+ "rusqlite",
+ "serde_json",
+ "tempfile",
+ "time",
+ "tokio",
+ "tonic",
+ "uuid",
+]
+
+[[package]]
 name = "privoke-pki"
 version = "0.1.0"
 dependencies = [

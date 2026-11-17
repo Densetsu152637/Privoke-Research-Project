@@ -1591,6 +1591,369 @@ def run_rust_rows(service: RustService, models_dir: Path, release_dir: Path) -> 
     return rows
 
 
+# --------------------------------------------------------------------------------------
+# Rust target, stage 5: the Rust parameter-update service behind its own mutual TLS. Selected with
+# `--target rust --rust-service param-update`; the default `go` target and the model-streaming rows are untouched.
+# --------------------------------------------------------------------------------------
+
+RUST_UPDATE_RECORD_ID = "UPDSEC-RUST-S5"
+RUST_UPDATE_DEFAULT_IMAGE = "privoke-param-update-rust:dev"
+RUST_UPDATE_CONTAINER_PORT = 50052
+RUST_UPDATE_ROW_IDS = ("A1", "A2", "A3", "E1", "E2", "E3", "E4", "E5", "E6", "E7", "T14", "R1", "R2", "R5")
+# The cumulative budget of the E6 and R5 groups. The product default (512 per anchored release) is a structural bound
+# from the recorded studies; 25 updates of norm 2.0 only exceed a budget below 50, so those groups name their own.
+RUST_UPDATE_E6_BUDGET = 40
+RUST_UPDATE_R5_BUDGET = 8
+SOURCE_FUZZER = "server-fuzzer"
+
+
+class RustUpdatePki(RustPki):
+    """The PKI of the stage 5 rows: the fuzzer's publisher identity, a second registered publisher that is not the fuzzer
+    (R2), a trainer, a signed but unregistered service, and the stage 3 installation identities (a consumer, R1)."""
+
+    def __init__(self, work: Path):
+        super().__init__(work)
+
+        def service(name: str):
+            return self.client_ca.issue(name, cn=f"service-{name}", usage="clientAuth", san=f"URI:{URN_SERVICE}{name}")
+
+        self.certs["publisher"] = service(SOURCE_FUZZER)
+        self.certs["impostor"] = service("test-trainer")
+        self.certs["trainer"] = service("trainer")
+        self.certs["stranger"] = service("stranger")  # signed by the client CA, never registered
+
+    def publish(self, directory: Path) -> Path:
+        directory.mkdir(parents=True, exist_ok=True)
+        services = [("client-runtime", "runtime"), (SOURCE_FUZZER, "publisher"), ("test-trainer", "publisher"), ("trainer", "trainer")]
+        files = {"server.crt": self.server[0], "server.key": self.server[1], "client-ca.pem": self.client_ca.cert, "crl.pem": self.crl,
+                 "registry.toml": registry_toml(self.registered_ids, services).encode()}
+        for name, content in files.items():
+            path = directory / name
+            path.write_bytes(content)
+            path.chmod(0o644)
+        return directory
+
+
+class RustUpdateService:
+    """One instance of the Rust update service on a fresh copy of the legacy artifact: bootstrapped as a deployment does
+    (`param-update-service bootstrap`), then served in its container (or, for development, as a host process)."""
+
+    def __init__(self, work: Path, pki: RustUpdatePki, name: str, *, image: str, binary: Path | None, environment: dict[str, str] | None = None):
+        self.pki, self.image, self.binary = pki, image, binary
+        self.root = work / name
+        self.models_dir, self.data_dir = self.root / "models", self.root / "data"
+        for directory in (self.models_dir, self.data_dir):
+            directory.mkdir(parents=True)
+            directory.chmod(0o777)  # the container runs as a non-root user
+        self.artifact = self.models_dir / f"{LEGACY_MODEL}.json"
+        shutil.copyfile(ROOT / "models" / f"{LEGACY_MODEL}.json", self.artifact)
+        self.artifact.chmod(0o666)
+        self.pki_dir = pki.publish(self.root / "pki")
+        self.port = free_port()
+        self.container = f"updsec-rust-update-{os.getpid()}-{self.port}"
+        self.environment = environment or {}
+        self.process: subprocess.Popen | None = None
+
+    def _settings(self, models: str, data: str) -> dict[str, str]:
+        # Generous request rates: the rows send tens of updates in a burst; the transport limits are not under test here.
+        return {"MODEL_ARTIFACT_PATH": f"{models}/{LEGACY_MODEL}.json", "PARAM_UPDATE_STORAGE_PATH": f"{data}/updates.jsonl", "MODEL_ID": LEGACY_MODEL,
+                "FUZZER_PROMPT_COUNT": "0", "PARAM_UPDATE_RATE_PER_SECOND": "500", "PARAM_UPDATE_RATE_BURST": "1000", **self.environment}
+
+    def command_arguments(self, base: str) -> list[str]:
+        return ["--cert", f"{base}/server.crt", "--key", f"{base}/server.key", "--client-ca", f"{base}/client-ca.pem", "--crl", f"{base}/crl.pem",
+                "--registry", f"{base}/registry.toml"]
+
+    def _volumes(self) -> list[str]:
+        return ["-v", f"{self.models_dir}:/models", "-v", f"{self.data_dir}:/data", "-v", f"{self.pki_dir}:/pki:ro"]
+
+    def bootstrap(self):
+        if self.binary:
+            environment = {**os.environ, **self._settings(str(self.models_dir), str(self.data_dir)), "PARAM_UPDATE_BIND": "127.0.0.1"}
+            result = subprocess.run([str(self.binary), "bootstrap"], env=environment, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        else:
+            command = ["docker", "run", "--rm", *self._volumes()]
+            for key, value in self._settings("/models", "/data").items():
+                command += ["-e", f"{key}={value}"]
+            result = subprocess.run([*command, self.image, "bootstrap"], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if result.returncode:
+            raise RuntimeError(f"bootstrap failed: {result.stdout[-600:]}")
+
+    def start(self):
+        self.bootstrap()
+        if self.binary:
+            environment = {**os.environ, **self._settings(str(self.models_dir), str(self.data_dir)), "PARAM_UPDATE_BIND": "127.0.0.1",
+                           "PARAM_UPDATE_PORT": str(self.port)}
+            self.process = subprocess.Popen([str(self.binary), *self.command_arguments(str(self.pki_dir))], env=environment,
+                                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            command = ["docker", "run", "-d", "--rm", "--name", self.container, "-p", f"127.0.0.1:{self.port}:{RUST_UPDATE_CONTAINER_PORT}",
+                       "-e", "PARAM_UPDATE_BIND=0.0.0.0", *self._volumes()]
+            for key, value in self._settings("/models", "/data").items():
+                command += ["-e", f"{key}={value}"]
+            subprocess.run([*command, self.image, *self.command_arguments("/pki")], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.wait_serving()
+
+    def wait_serving(self, timeout: float = 120.0):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if self.process and self.process.poll() is not None:
+                raise RuntimeError("the Rust update service exited during startup")
+            client = RustUpdateClient(self, "publisher")
+            try:
+                if client.updates.Health(client.pb.HealthRequest(), timeout=3).status == "SERVING":
+                    return
+            except Exception:  # noqa: BLE001 - not ready yet
+                pass
+            finally:
+                client.close()
+            time.sleep(0.5)
+        raise RuntimeError(f"the Rust update service did not serve: {self.logs()[-600:]}")
+
+    def logs(self) -> str:
+        if self.binary:
+            return ""
+        return subprocess.run(["docker", "logs", "--tail", "30", self.container], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+
+    def stop(self):
+        if self.process and self.process.poll() is None:
+            self.process.kill()
+            self.process.wait(10)
+        if not self.binary:
+            subprocess.run(["docker", "rm", "-f", self.container], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def version(self) -> str:
+        return json.loads(self.artifact.read_text(encoding="utf-8"))["version"]
+
+    def digest(self) -> str:
+        return sha256_file(self.artifact)
+
+
+class RustUpdateClient:
+    """A gRPC client of the update service that presents one named certificate (or none)."""
+
+    def __init__(self, service: RustUpdateService, identity: str | None):
+        import grpc
+        from privoke.v1 import parameters_pb2 as pb, parameters_pb2_grpc as rpc
+
+        self.grpc, self.pb = grpc, pb
+        certificate, key = service.pki.certs[identity] if identity else (None, None)
+        credentials = grpc.ssl_channel_credentials(root_certificates=service.pki.server_ca.cert, private_key=key, certificate_chain=certificate)
+        options = (("grpc.enable_http_proxy", 0), ("grpc.max_receive_message_length", 64 * 1024 * 1024), ("grpc.max_send_message_length", 64 * 1024 * 1024))
+        self.channel = grpc.secure_channel(f"127.0.0.1:{service.port}", credentials, options=options)
+        self.updates = rpc.ParamUpdateServiceStub(self.channel)
+
+    def close(self):
+        self.channel.close()
+
+    def request(self, version: str, gradients, *, source: str = SOURCE_FUZZER, metadata=None):
+        message = self.pb.ParameterUpdateRequest(source_id=source, model_id=LEGACY_MODEL, base_version=version, metadata=metadata or {})
+        for name, shape, values in gradients:
+            message.gradients.add(name=name, shape=list(shape), values=list(values))
+        return message
+
+    def outcome(self, fn):
+        try:
+            result = fn()
+            return {"observed": "accepted", "code": "OK", "message": type(result).__name__}
+        except self.grpc.RpcError as error:
+            return {"observed": "rejected", "code": error.code().name, "message": short(error.details())}
+
+
+def run_rust_update_rows(args, work: Path, pki: RustUpdatePki) -> list[dict]:
+    """Every row of the stage 5 gate against the running Rust update service. Each row is a live call; the E6 and R5 groups run
+    on their own fresh service instance so that one exhausted budget cannot affect another row."""
+    rows: list[dict] = []
+    bias = ("head.sensitivity.bias", (4,), [0.01] * 4)
+    refused, denied = ("UNAVAILABLE",), ("PERMISSION_DENIED",)
+    rejected_args = ("INVALID_ARGUMENT",)
+    current: list[RustUpdateService] = []
+
+    def group(name: str, environment: dict[str, str] | None = None) -> RustUpdateService:
+        service = RustUpdateService(work, pki, name, image=args.rust_update_image, binary=args.rust_binary, environment=environment)
+        service.start()
+        current[:] = [service]
+        return service
+
+    def row(service, row_id, cls, description, expected, identity, call, *, codes=None, gap=None, evidence=None, check=None):
+        before = service.digest()
+        started = time.time()
+        client = RustUpdateClient(service, identity)
+        try:
+            result = client.outcome(lambda: call(client))
+        except Exception as error:  # a harness failure must be visible, never a silent pass
+            result = {"observed": "not_run", "code": "HARNESS_ERROR", "message": short(f"{type(error).__name__}: {error}")}
+        finally:
+            client.close()
+        unchanged = service.digest() == before
+        met = evaluate_rust_row(expected, result["observed"], result["code"], codes, unchanged)
+        if met and check is not None:
+            met = bool(check(result))
+        rows.append({"id": row_id, "class": cls, "path": "rust-update", "description": description, "expected": expected, "observed": result["observed"],
+                     "code": result["code"], "message": result["message"], "model_unchanged": unchanged, "expected_codes": list(codes) if codes else None,
+                     "identity": identity or "no client certificate", "property_met": met, "gap": gap, "evidence": evidence or [],
+                     "duration_s": round(time.time() - started, 3)})
+
+    def submit(gradients, *, source=SOURCE_FUZZER, metadata=None, headers=None):
+        def call(client):
+            request = client.request(current[0].version(), gradients, source=source, metadata=metadata)
+            return client.updates.SubmitParameterUpdate(request, timeout=30, metadata=headers)
+        return call
+
+    # ---- group 1: authentication, identity binding, malformed and over-bound updates (product defaults)
+    service = group("default")
+    try:
+        row(service, "C1", "control", "A registered publisher submits a small update naming itself (positive control).", "positive_control", "publisher",
+            submit([bias]))
+        row(service, "A1", "unauthorized_publication", "Valid update from a peer with no client certificate.", "rejected_unchanged", None,
+            submit([bias], source="updsec-unregistered-peer"), codes=refused, gap="GAP-NO-PUBLISHER-AUTH")
+        row(service, "A2", "impersonation", "Update from a peer with no certificate that claims the trainer's source_id.", "rejected_unchanged", None,
+            submit([bias], source=SOURCE_FUZZER), codes=refused, gap="GAP-IDENTITY-SELF-ASSERTED")
+        row(service, "A3", "invalid_credentials", "Update presenting an invalid bearer token and API key in gRPC metadata and no certificate.",
+            "rejected_unchanged", None,
+            submit([bias], headers=(("authorization", "Bearer invalid-test-token-not-real"), ("x-api-key", "invalid-test-key-not-real"))),
+            codes=refused, gap="GAP-NO-CREDENTIAL-MECHANISM")
+        row(service, "T14", "unauthorized_update", "Unauthenticated update-receipt status lookup.", "rejected_unchanged", None,
+            lambda client: client.updates.GetParameterUpdateStatus(client.pb.ParameterUpdateStatusRequest(
+                source_id="updsec-unknown", request_id="never-issued", model_id=LEGACY_MODEL), timeout=30), codes=refused, gap="GAP-NO-PUBLISHER-AUTH")
+        row(service, "R1", "unauthorized_publication", "A valid consumer installation certificate submits an update.", "rejected_unchanged", "registered",
+            submit([bias], source="updsec-consumer"), codes=denied, gap="GAP-NO-PUBLISHER-AUTH")
+        row(service, "R1-trainer", "unauthorized_publication", "A registered trainer service submits an update.", "rejected_unchanged", "trainer",
+            submit([bias], source="trainer"), codes=denied, gap="GAP-NO-PUBLISHER-AUTH")
+        row(service, "R1-unregistered", "unauthorized_publication", "A service certificate signed by the client CA but not registered submits an update.",
+            "rejected_unchanged", "stranger", submit([bias], source="stranger"), codes=denied, gap="GAP-NO-PER-INSTALLATION-AUTHZ")
+        row(service, "R2", "impersonation", "A registered publisher (test-trainer) claims source_id=server-fuzzer.", "rejected_unchanged", "impostor",
+            submit([bias], source=SOURCE_FUZZER), codes=denied, gap="GAP-IDENTITY-SELF-ASSERTED")
+        for row_id, text, values in (("E1", "One coordinate at 1.0000001 (just above the 1.0 per-coordinate bound).", [1.0000001, 0, 0, 0]),
+                                     ("E2", "Coordinate magnitude 100.", [100.0, 0, 0, 0]),
+                                     ("E3", "Coordinate magnitude 3.4e38 (largest finite float32).", [3.4e38, 0, 0, 0]),
+                                     ("E4", "Negative coordinate -2.0.", [-2.0, 0, 0, 0])):
+            row(service, row_id, "excessive_change", text, "rejected_unchanged", "publisher", submit([("head.sensitivity.bias", (4,), values)]),
+                codes=rejected_args)
+        row(service, "E5", "excessive_change", "Update with every coordinate exactly at the 1.0 bound (boundary value, norm 2.0; positive control).",
+            "positive_control", "publisher", submit([("head.sensitivity.bias", (4,), [1.0, -1.0, 1.0, -1.0])]))
+
+        parameters = json.loads(service.artifact.read_text(encoding="utf-8"))["parameters"]
+        widest, total = [], 0
+        for name, tensor in parameters.items():
+            count = math.prod(tensor["shape"])
+            if tensor.get("trainable") and total + count <= 65536 and count <= 24576:
+                widest.append((name, tuple(tensor["shape"]), [1.0] * count))
+                total += count
+        row(service, "E7", "excessive_change",
+            f"Single update moving every trainable coordinate ({total} values, L2 norm {math.sqrt(total):.1f}) by the 1.0 bound.", "rejected_unchanged",
+            "publisher", submit(widest), codes=rejected_args, gap="GAP-NO-CUMULATIVE-BOUND", check=lambda result: "per-update bound" in result["message"])
+    finally:
+        service.stop()
+
+    # ---- group 2: E6, twenty-five valid updates at the per-coordinate bound against a cumulative budget
+    service = group("e6", {"PARAM_UPDATE_MAX_CUMULATIVE_L2": str(RUST_UPDATE_E6_BUDGET)})
+    try:
+        started = time.time()
+        client = RustUpdateClient(service, "publisher")
+        accepted, first_refusal, digest_at_refusal, first_request = 0, None, None, None
+        try:
+            for index in range(25):
+                request = client.request(service.version(), [("head.sensitivity.bias", (4,), [1.0, 1.0, 1.0, 1.0])],
+                                         metadata={"request_id": f"updsec-drift-{index}"})
+                first_request = request if first_request is None else first_request
+                result = client.outcome(lambda: client.updates.SubmitParameterUpdate(request, timeout=30))
+                if result["observed"] == "accepted":
+                    accepted += 1
+                elif first_refusal is None:
+                    first_refusal, digest_at_refusal = result, service.digest()
+        finally:
+            client.close()
+        held = first_refusal is not None and service.digest() == digest_at_refusal
+        rows.append({"id": "E6", "class": "excessive_change", "path": "rust-update", "expected": "bounded_cumulative", "identity": "publisher",
+                     "description": f"Twenty-five successive valid updates (norm 2.0 each) against a cumulative budget of {RUST_UPDATE_E6_BUDGET}.",
+                     "observed": "accepted" if accepted == 25 else "rejected", "code": first_refusal["code"] if first_refusal else "OK",
+                     "message": f"{accepted}/25 accepted; first refusal: {first_refusal['message'] if first_refusal else 'none'}",
+                     "accepted_updates": accepted, "model_unchanged": held, "expected_codes": ["FAILED_PRECONDITION"],
+                     "property_met": bool(accepted == RUST_UPDATE_E6_BUDGET // 2 and first_refusal and first_refusal["code"] == "FAILED_PRECONDITION" and held),
+                     "gap": "GAP-NO-CUMULATIVE-BOUND", "evidence": [], "duration_s": round(time.time() - started, 3)})
+        # After exhaustion, an exact replay of the first update is still answered from its receipt (no bound is re-applied to a
+        # committed request id), and the same id with a different payload is refused. Neither changes the model.
+        replay_client = RustUpdateClient(service, "publisher")
+        try:
+            digest_before = service.digest()
+            replayed = replay_client.outcome(lambda: replay_client.updates.SubmitParameterUpdate(first_request, timeout=30))
+            changed = replay_client.request(first_request.base_version, [("head.sensitivity.bias", (4,), [0.5, 0.5, 0.5, 0.5])],
+                                            metadata={"request_id": "updsec-drift-0"})
+            conflict = replay_client.outcome(lambda: replay_client.updates.SubmitParameterUpdate(changed, timeout=30))
+        finally:
+            replay_client.close()
+        unchanged = service.digest() == digest_before
+        rows.append({"id": "R5-replay", "class": "replayed", "path": "rust-update", "expected": "idempotent_noop_unchanged", "identity": "publisher",
+                     "description": "After the budget is exhausted, an exact replay of an accepted request is answered from its receipt and changes nothing.",
+                     "observed": "idempotent_noop" if replayed["observed"] == "accepted" else "rejected", "code": replayed["code"], "message": replayed["message"],
+                     "model_unchanged": unchanged, "expected_codes": None, "property_met": replayed["observed"] == "accepted" and unchanged,
+                     "gap": "GAP-NO-CUMULATIVE-BOUND", "evidence": [], "duration_s": 0.0})
+        rows.append({"id": "R5-conflict", "class": "replayed", "path": "rust-update", "expected": "rejected_unchanged", "identity": "publisher",
+                     "description": "After the budget is exhausted, a request id reused with a different payload is refused and changes nothing.",
+                     "observed": conflict["observed"], "code": conflict["code"], "message": conflict["message"], "model_unchanged": unchanged,
+                     "expected_codes": ["INVALID_ARGUMENT"],
+                     "property_met": conflict["observed"] == "rejected" and conflict["code"] == "INVALID_ARGUMENT" and unchanged,
+                     "gap": "GAP-NO-CUMULATIVE-BOUND", "evidence": [], "duration_s": 0.0})
+    finally:
+        service.stop()
+
+    # ---- group 3: R5, drift spread over many small updates, each under the per-update bound
+    service = group("r5", {"PARAM_UPDATE_MAX_CUMULATIVE_L2": str(RUST_UPDATE_R5_BUDGET)})
+    try:
+        started = time.time()
+        client = RustUpdateClient(service, "publisher")
+        accepted, refusal, held = 0, None, None
+        try:
+            for index in range(RUST_UPDATE_R5_BUDGET * 3):
+                request = client.request(service.version(), [("head.sensitivity.bias", (4,), [0.5, 0.5, 0.5, 0.5])], metadata={"request_id": f"updsec-r5-{index}"})
+                before = service.digest()
+                result = client.outcome(lambda: client.updates.SubmitParameterUpdate(request, timeout=30))
+                if result["observed"] == "accepted":
+                    accepted += 1
+                else:
+                    refusal, held = result, service.digest() == before
+                    break
+        finally:
+            client.close()
+        rows.append({"id": "R5", "class": "excessive_change", "path": "rust-update", "expected": "rejected_at_budget", "identity": "publisher",
+                     "description": f"Updates of norm 1.0 (each far under the per-update bound) are refused once their sum passes the budget of {RUST_UPDATE_R5_BUDGET}.",
+                     "observed": "rejected" if refusal else "accepted", "code": refusal["code"] if refusal else "OK",
+                     "message": f"{accepted} accepted before the refusal: {refusal['message'] if refusal else 'none'}", "accepted_updates": accepted,
+                     "model_unchanged": held, "expected_codes": ["FAILED_PRECONDITION"],
+                     "property_met": bool(refusal and refusal["code"] == "FAILED_PRECONDITION" and accepted == RUST_UPDATE_R5_BUDGET and held),
+                     "gap": "GAP-NO-CUMULATIVE-BOUND", "evidence": [], "duration_s": round(time.time() - started, 3)})
+    finally:
+        service.stop()
+    return rows
+
+
+def run_rust_update_target(args) -> int:
+    """`--target rust --rust-service param-update`: host the Rust update service, run the rows, write the record."""
+    import platform
+
+    scratch_parent = ROOT / ".tmp" if (ROOT / ".tmp").is_dir() else None
+    work = Path(tempfile.mkdtemp(prefix="updsec-rust-update-", dir=scratch_parent))
+    pki = RustUpdatePki(work)
+    rows = run_rust_update_rows(args, work, pki)
+    missing = sorted(set(RUST_UPDATE_ROW_IDS) - {rust_row_family(row["id"]) for row in rows})
+    record = {
+        "id": RUST_UPDATE_RECORD_ID, "title": "Rust parameter-update service: guarded-update and authentication negative rows", "target": "rust",
+        "service": "param-update", "revision": git_revision(), "generated_unix": int(time.time()),
+        "environment": {"python": sys.version.split()[0], "platform": platform.platform(), "grpc": __import__("grpc").__version__,
+                        "image": args.rust_update_image if not args.rust_binary else None, "host_binary": str(args.rust_binary) if args.rust_binary else None},
+        "fixture": {"legacy_model": LEGACY_MODEL, "bootstrap": "param-update-service bootstrap (full-capability preparation, as the deployment does)"},
+        "budgets": {"e6_cumulative_l2": RUST_UPDATE_E6_BUDGET, "r5_cumulative_l2": RUST_UPDATE_R5_BUDGET, "default_per_update_l2": 16.0,
+                    "default_cumulative_l2": 512.0},
+        "required_row_families": list(RUST_UPDATE_ROW_IDS), "missing_row_families": missing, "attacks": rows, "summary": summarize(rows),
+    }
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    shutil.rmtree(work, ignore_errors=True)
+    unmet = record["summary"]["property_unmet_ids"]
+    print(f"{record['summary']['total_rows']} rows; property unmet: {unmet}; missing row families: {missing}")
+    return 0 if not unmet and not missing else 1
+
+
 def run_rust_target(args) -> int:
     """`--target rust`: host the Rust service (container or `--rust-binary`), run the rows, write the record."""
     import platform
@@ -1646,11 +2009,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--rust-image", default=RUST_DEFAULT_IMAGE, help="--target rust: the built Rust model-streaming image")
     parser.add_argument("--rust-binary", type=Path, default=None,
                         help="--target rust: run this host binary instead of the container (development only; the stage 3 gate uses the container)")
+    parser.add_argument("--rust-service", choices=("model-streaming", "param-update"), default="model-streaming",
+                        help="--target rust: which Rust service's rows to run (model-streaming: stage 3, the default; param-update: stage 5)")
+    parser.add_argument("--rust-update-image", default=RUST_UPDATE_DEFAULT_IMAGE,
+                        help="--target rust --rust-service param-update: the built Rust parameter-update image")
     return parser
 
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
+    if args.target == "rust" and args.rust_service == "param-update":
+        args.output = args.output or ROOT / ".tmp/update-security-rust-s05.json"
+        return run_rust_update_target(args)
     if args.target == "rust":
         args.output = args.output or ROOT / ".tmp/update-security-rust-s03.json"
         return run_rust_target(args)

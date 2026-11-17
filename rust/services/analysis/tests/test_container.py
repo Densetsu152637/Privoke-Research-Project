@@ -39,7 +39,7 @@ from privoke.v1 import parameters_pb2, parameters_pb2_grpc, runtime_pb2, runtime
 
 PROJECT = "privoke-w3-analysis"
 COMPOSE_FILES = ("docker-compose.prod.yml", "docker-compose.analysis.yml", "docker-compose.analysis-test.yml")
-SERVICES = ("analysis-service", "analysis-model-streaming", "analysis-test-gateway", "privoke-fuzzer", "param-update-service", "param-update-front")
+SERVICES = ("analysis-service", "analysis-model-streaming", "analysis-test-gateway", "privoke-fuzzer", "param-update-service")
 PORTS = {"analysis": 50754, "fuzzer": 50753, "models": 50752}
 SEMANTIC = [runtime_pb2.DETECTION_LAYER_SEMANTIC]
 CAPTURE = ROOT / "tests/conformance/worker-frames"
@@ -63,7 +63,7 @@ def compose(*arguments, check=True, timeout=1800):
 
 
 def build_pki(tool: Path) -> tuple[PkiFixture, Path]:
-    names = ("localhost", "127.0.0.1", "analysis-service", "analysis-model-streaming", "privoke-fuzzer", "param-update-front")
+    names = ("localhost", "127.0.0.1", "analysis-service", "analysis-model-streaming", "privoke-fuzzer", "param-update-service")
     pki = PkiFixture(tool, server_names=names)
     for name, role in (("fuzzer", "publisher"), ("analysis", "runtime"), ("w3-driver", "publisher"), ("param-update", "publisher")):
         pki.service(name, role)
