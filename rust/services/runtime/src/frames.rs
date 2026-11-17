@@ -127,6 +127,11 @@ pub mod code {
     pub const INVALID_LAYERS: &str = "INVALID_LAYERS";
     /// A layer selection this worker does not serve (the supervisor routes it to the Python worker).
     pub const UNSUPPORTED_LAYERS: &str = "UNSUPPORTED_LAYERS";
+    /// A malformed metadata block (gradient methods).
+    pub const INVALID_METADATA: &str = "INVALID_METADATA";
+    /// A request this worker declines before it executes anything: the shape is not one this worker serves, so the
+    /// controller sends the same call to the Python worker. Nothing has run when this code is sent.
+    pub const UNSUPPORTED_ROUTE: &str = "UNSUPPORTED_ROUTE";
     /// A response above the method's limit.
     pub const RESPONSE_TOO_LARGE: &str = "RESPONSE_TOO_LARGE";
     /// A handler that finished after its deadline.
@@ -167,8 +172,67 @@ pub struct Request {
     pub request_id: u64,
     /// The deadline in milliseconds, clamped to the method's maximum; the default when the frame names none.
     pub deadline_ms: u32,
+    /// The metadata block of a gradient request (the training admission header), empty when the frame has none.
+    pub metadata: Vec<(String, String)>,
     /// The protobuf message.
     pub payload: Vec<u8>,
+}
+
+/// The most entries, the longest key and the longest value of a metadata block (`worker_protocol.py`).
+pub const METADATA_MAX_ENTRIES: usize = 16;
+/// The longest metadata key in bytes.
+pub const METADATA_MAX_KEY_BYTES: usize = 64;
+/// The longest metadata value in bytes.
+pub const METADATA_MAX_VALUE_BYTES: usize = 16 * 1024;
+
+fn take<'a>(payload: &'a [u8], offset: &mut usize, count: usize) -> Option<&'a [u8]> {
+    let end = offset.checked_add(count)?;
+    let slice = payload.get(*offset..end)?;
+    *offset = end;
+    Some(slice)
+}
+
+/// Builds the metadata block that precedes the protobuf message when the frame's metadata flag is set.
+pub fn encode_metadata(pairs: &[(&str, &str)]) -> Vec<u8> {
+    let mut out = Vec::new();
+    out.extend_from_slice(&u16::try_from(pairs.len()).unwrap_or(u16::MAX).to_be_bytes());
+    for (key, value) in pairs {
+        out.extend_from_slice(&u16::try_from(key.len()).unwrap_or(u16::MAX).to_be_bytes());
+        out.extend_from_slice(key.as_bytes());
+        out.extend_from_slice(&u32::try_from(value.len()).unwrap_or(u32::MAX).to_be_bytes());
+        out.extend_from_slice(value.as_bytes());
+    }
+    out
+}
+
+/// `split_metadata`: the pairs and the protobuf bytes behind them.
+pub fn split_metadata(payload: &[u8], request_id: u64) -> Result<(Vec<(String, String)>, &[u8]), FrameError> {
+    let bad = |reason: &str| FrameError::new(code::INVALID_METADATA, format!("Malformed metadata block: {reason}"), request_id);
+    let mut offset = 0usize;
+    let head = take(payload, &mut offset, 2).ok_or_else(|| bad("truncated"))?;
+    let count = usize::from(u16::from_be_bytes([head[0], head[1]]));
+    if count > METADATA_MAX_ENTRIES {
+        return Err(bad("too many entries"));
+    }
+    let mut pairs = Vec::with_capacity(count);
+    for _ in 0..count {
+        let head = take(payload, &mut offset, 2).ok_or_else(|| bad("truncated"))?;
+        let key_length = usize::from(u16::from_be_bytes([head[0], head[1]]));
+        if key_length == 0 || key_length > METADATA_MAX_KEY_BYTES {
+            return Err(bad("bad key length"));
+        }
+        let key = take(payload, &mut offset, key_length).ok_or_else(|| bad("bad key length"))?;
+        let key = std::str::from_utf8(key).map_err(|_| bad("key is not UTF-8"))?;
+        let head = take(payload, &mut offset, 4).ok_or_else(|| bad("truncated"))?;
+        let value_length = u32::from_be_bytes([head[0], head[1], head[2], head[3]]) as usize;
+        if value_length > METADATA_MAX_VALUE_BYTES {
+            return Err(bad("bad value length"));
+        }
+        let value = take(payload, &mut offset, value_length).ok_or_else(|| bad("bad value length"))?;
+        let value = std::str::from_utf8(value).map_err(|_| bad("value is not UTF-8"))?;
+        pairs.push((key.to_string(), value.to_string()));
+    }
+    Ok((pairs, &payload[offset..]))
 }
 
 /// Builds a frame.
@@ -256,7 +320,9 @@ pub fn decode_request(frame: &[u8]) -> Result<Request, FrameError> {
         ));
     }
     let deadline_ms = if deadline == 0 { limits.default_deadline_ms } else { deadline.min(limits.max_deadline_ms) };
-    Ok(Request { method, request_id, deadline_ms, payload: frame[HEADER_LEN..].to_vec() })
+    let body = &frame[HEADER_LEN..];
+    let (metadata, payload) = if flags & 1 != 0 { split_metadata(body, request_id)? } else { (Vec::new(), body) };
+    Ok(Request { method, request_id, deadline_ms, metadata, payload: payload.to_vec() })
 }
 
 #[cfg(test)]
@@ -298,6 +364,35 @@ mod tests {
         short.pop();
         assert_eq!(code_of(short).code, code::MALFORMED_FRAME);
         assert_eq!(code_of(vec![0; 5]).code, code::MALFORMED_FRAME);
+    }
+
+    #[test]
+    fn a_metadata_block_is_split_off_gradient_requests() {
+        let mut payload = encode_metadata(&[("x-privoke-training-admission-v1", "{\"schema\": 2}"), ("k", "")]);
+        payload.extend_from_slice(b"proto");
+        let request = decode_request(&request_frame(4, 1, &payload)).unwrap();
+        assert_eq!(request.payload, b"proto");
+        assert_eq!(
+            request.metadata,
+            vec![("x-privoke-training-admission-v1".to_string(), "{\"schema\": 2}".to_string()), ("k".to_string(), String::new())]
+        );
+        // Without the flag the payload is the message and nothing is split off.
+        let plain = decode_request(&request_frame(4, 0, b"proto")).unwrap();
+        assert!(plain.metadata.is_empty() && plain.payload == b"proto");
+    }
+
+    #[test]
+    fn a_malformed_metadata_block_is_invalid_metadata_with_the_request_id() {
+        let code_of = |payload: &[u8]| decode_request(&request_frame(4, 1, payload)).unwrap_err();
+        assert_eq!(code_of(&[0]).code, code::INVALID_METADATA);
+        assert_eq!(code_of(&[0, 1, 0, 0]).code, code::INVALID_METADATA);
+        assert_eq!(code_of(&[0, 17]).code, code::INVALID_METADATA);
+        let mut truncated = encode_metadata(&[("key", "value")]);
+        truncated.pop();
+        let error = code_of(&truncated);
+        assert_eq!((error.code, error.request_id), (code::INVALID_METADATA, 77));
+        let long_key = "k".repeat(65);
+        assert_eq!(code_of(&encode_metadata(&[(long_key.as_str(), "v")])).code, code::INVALID_METADATA);
     }
 
     #[test]

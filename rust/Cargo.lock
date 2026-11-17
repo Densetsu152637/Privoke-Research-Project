@@ -1913,6 +1913,7 @@ dependencies = [
  "privoke-runtime",
  "privoke-semantic",
  "privoke-spacy",
+ "privoke-training",
  "privoke-worker-pool",
  "prost",
  "serde_json",

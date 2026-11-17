@@ -7,7 +7,12 @@
 use std::io::{BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
-use privoke_contracts::proto::v1::{AnalyzePromptRequest, AnalyzePromptResponse, RuntimeHealthRequest, RuntimeHealthResponse};
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD;
+use privoke_contracts::proto::v1::{
+    AnalyzePromptRequest, AnalyzePromptResponse, ComputeSemanticGradientsResponse, DetectAnnotationPresenceRequest,
+    DetectAnnotationPresenceResponse, RuntimeHealthRequest, RuntimeHealthResponse,
+};
 use privoke_runtime::frames::{self, HEADER_LEN, Kind, code};
 use privoke_worker_pool::{read_frame_sync, write_frame_sync};
 use prost::Message;
@@ -126,8 +131,19 @@ fn never_runs_an_implicit_pipeline_and_refuses_what_it_does_not_serve() {
     assert_eq!(error_code(&worker.analyze(&prompt("hello", &[]))), code::INVALID_LAYERS);
     assert_eq!(error_code(&worker.analyze(&prompt("hello", &[1]))), code::INVALID_LAYERS);
     assert_eq!(error_code(&worker.analyze(&prompt("hello", &[2, 4]))), code::UNSUPPORTED_LAYERS);
-    assert_eq!(error_code(&worker.call(2, b"")), code::UNKNOWN_METHOD);
-    assert_eq!(error_code(&worker.call(4, b"")), code::UNKNOWN_METHOD);
+    // Without model roots the worker reads no model: what needs one is refused before it runs, and the controller sends it
+    // to the Python worker. An empty layer list is refused whatever the roots are.
+    let presence = DetectAnnotationPresenceRequest {
+        request_id: "p".into(),
+        text: "my passport".into(),
+        model_id: "privoke-presence-efficient".into(),
+        layers: vec![4],
+    };
+    assert_eq!(error_code(&worker.call(2, &presence.encode_to_vec())), code::UNSUPPORTED_ROUTE);
+    assert_eq!(error_code(&worker.call(2, b"")), code::INVALID_LAYERS);
+    for method in [4, 5, 6] {
+        assert_eq!(error_code(&worker.call(method, b"")), code::UNSUPPORTED_ROUTE);
+    }
     assert_eq!(error_code(&worker.call(1, &[0xff, 0xff, 0xff])), code::INVALID_PAYLOAD);
     // A validation failure is an ordinary response with its error set, under the request's own id.
     let empty = worker.analyze(&prompt("   ", &[2]));
@@ -222,4 +238,74 @@ fn with_model_roots_the_worker_serves_and_warms_the_semantic_layer() {
     // A gate and the pretrained contextual encoder are Python's: refused here, never answered wrongly.
     request.semantic_model_id = "privoke-pretrained-context-minilm".into();
     assert_eq!(error_code(&worker.analyze(&request)), code::UNSUPPORTED_LAYERS);
+}
+
+fn golden_case(id: &str) -> serde_json::Value {
+    let fixture: serde_json::Value = serde_json::from_str(include_str!("fixtures/worker_golden.json")).unwrap();
+    fixture["cases"].as_array().unwrap().iter().find(|case| case["id"] == id).unwrap_or_else(|| panic!("no case {id}")).clone()
+}
+
+impl Worker {
+    /// Sends a recorded request (its metadata block included) and returns the answer frame.
+    fn replay(&mut self, case: &serde_json::Value) -> Frame {
+        self.next_id += 1;
+        let id = self.next_id;
+        let method = u8::try_from(case["method"].as_u64().unwrap()).unwrap();
+        let payload = STANDARD.decode(case["request"].as_str().unwrap()).unwrap();
+        let metadata: Vec<(String, String)> = case["metadata"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|pair| (pair[0].as_str().unwrap().to_owned(), pair[1].as_str().unwrap().to_owned()))
+            .collect();
+        let pairs: Vec<(&str, &str)> = metadata.iter().map(|(key, value)| (key.as_str(), value.as_str())).collect();
+        let mut body = if pairs.is_empty() { Vec::new() } else { frames::encode_metadata(&pairs) };
+        body.extend_from_slice(&payload);
+        let mut frame = frames::encode_frame(Kind::Request, method, id, &body);
+        if !pairs.is_empty() {
+            frame[7] = 1;
+        }
+        self.send_raw(&frame);
+        let answer = self.read();
+        assert_eq!(answer.request_id, id);
+        answer
+    }
+}
+
+#[test]
+fn with_model_roots_the_worker_serves_presence_and_gradients_and_declines_the_rest() {
+    let models = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/worker_models");
+    let models = models.to_string_lossy().into_owned();
+    let mut worker = spawn(&["--model-root", &models], &[]);
+    let ready = worker.read();
+    assert_eq!(ready.kind, Kind::Ready as u8, "{}", String::from_utf8_lossy(&ready.payload));
+
+    let presence = worker.replay(&golden_case("privoke-presence-efficient/0"));
+    assert_eq!(presence.kind, Kind::Response as u8);
+    let presence = DetectAnnotationPresenceResponse::decode(presence.payload.as_slice()).unwrap();
+    assert_eq!((presence.error.as_str(), presence.model_id.as_str()), ("", "privoke-presence-efficient"));
+    assert!(presence.probability > 0.0 && presence.elapsed_ms > 0.0, "{presence:?}");
+    assert_eq!(presence.executions.len(), 1);
+
+    // A gradient request with its admission header in the metadata block, over the pool's framing.
+    let gradients = worker.replay(&golden_case("synthetic-legacy-sum/full_encoder"));
+    assert_eq!(gradients.kind, Kind::Response as u8, "{}", String::from_utf8_lossy(&gradients.payload));
+    let gradients = ComputeSemanticGradientsResponse::decode(gradients.payload.as_slice()).unwrap();
+    assert_eq!(gradients.error, "");
+    assert_eq!(gradients.metadata.get("training_scope").map(String::as_str), Some("full_encoder"));
+    assert!(!gradients.gradients.is_empty() && !gradients.metrics.is_empty());
+
+    // The same request without its header is Python's refusal, as a response.
+    let mut without = golden_case("synthetic-legacy-sum/full_encoder");
+    without["metadata"] = serde_json::json!([]);
+    let refused = ComputeSemanticGradientsResponse::decode(worker.replay(&without).payload.as_slice()).unwrap();
+    assert_eq!(refused.error, "Summed-category decision-margin training requires explicit objective admission.");
+
+    // A malformed metadata block is a protocol fault: an error frame, and the worker survives.
+    let mut bad = frames::encode_frame(Kind::Request, 4, 5, &[0, 1, 0]);
+    bad[7] = 1;
+    worker.send_raw(&bad);
+    let answer = worker.read();
+    assert_eq!((error_code(&answer), answer.request_id), (code::INVALID_METADATA.to_string(), 5));
+    assert_eq!(worker.call(3, b"").kind, Kind::Response as u8);
 }

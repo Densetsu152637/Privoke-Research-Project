@@ -13,7 +13,9 @@ use privoke_ner_layer::{EntityNerDetector, LayerOptions as NerLayerOptions, Laye
 use privoke_rules::preprocessing::env_bool;
 use privoke_rules::{Detector, LayerOptions as RegexLayerOptions, LayerOutcome as RegexOutcome, analyse_regex_layer};
 
+use crate::gate::{Gate, GateTrace};
 use crate::model::{Action, Finding, InvalidVisibility, strongest_result};
+use crate::presence::PresenceModels;
 use crate::request::Layer;
 use crate::semantic::SemanticLayer;
 
@@ -52,15 +54,17 @@ pub struct LayerExecution {
     pub error: Option<String>,
     /// The identity of the model that classified (`LayerExecution.semantic_model_identity`), for a semantic layer that ran.
     pub identity: Option<BTreeMap<String, String>>,
+    /// The presence gate's trace (`LayerExecution.semantic_presence_gate`), for a gated semantic layer.
+    pub gate: Option<GateTrace>,
 }
 
 impl LayerExecution {
     fn ok(layer: Layer, results: Vec<Finding>) -> Self {
-        Self { layer, status: Status::Ok, results, error: None, identity: None }
+        Self { layer, status: Status::Ok, results, error: None, identity: None, gate: None }
     }
 
     fn failed(layer: Layer, message: String) -> Self {
-        Self { layer, status: Status::Error, results: Vec::new(), error: Some(message), identity: None }
+        Self { layer, status: Status::Error, results: Vec::new(), error: Some(message), identity: None, gate: None }
     }
 }
 
@@ -109,6 +113,7 @@ pub struct Pipeline<A> {
     regex: Detector,
     ner: EntityNerDetector<A>,
     semantic: Option<SemanticLayer>,
+    presence: Option<PresenceModels>,
     options: PipelineOptions,
 }
 
@@ -120,7 +125,7 @@ fn error_message(message: String, kind: &str) -> String {
 impl<A: SpacyBackend> Pipeline<A> {
     /// A pipeline over a built regex detector and an NER detector.
     pub fn new(regex: Detector, ner: EntityNerDetector<A>, options: PipelineOptions) -> Self {
-        Self { regex, ner, semantic: None, options }
+        Self { regex, ner, semantic: None, presence: None, options }
     }
 
     /// Adds the semantic layer over the model roots.
@@ -130,9 +135,26 @@ impl<A: SpacyBackend> Pipeline<A> {
         self
     }
 
+    /// Adds the presence models: a semantic layer behind a presence gate, and `DetectAnnotationPresence`.
+    #[must_use]
+    pub fn with_presence(mut self, presence: PresenceModels) -> Self {
+        self.presence = Some(presence);
+        self
+    }
+
     /// True when the semantic layer is configured.
     pub fn serves_semantic(&self) -> bool {
         self.semantic.is_some()
+    }
+
+    /// True when a gated semantic layer can run (the semantic layer and the presence models are configured).
+    pub fn serves_gate(&self) -> bool {
+        self.semantic.is_some() && self.presence.is_some()
+    }
+
+    /// The presence models, when configured.
+    pub fn presence(&self) -> Option<&PresenceModels> {
+        self.presence.as_ref()
     }
 
     /// The NER detector (its spaCy source).
@@ -199,6 +221,19 @@ impl<A: SpacyBackend> Pipeline<A> {
         regex_first: Option<bool>,
         semantic_model_id: Option<&str>,
     ) -> Result<Vec<LayerExecution>, PipelineError> {
+        self.analyse_gated(text, layers, regex_first, semantic_model_id, None).await
+    }
+
+    /// [`Pipeline::analyse`] with the semantic layer behind a presence gate. The gate applies to the semantic layer only;
+    /// a skipped semantic layer carries the gate's `NOT_RUN` trace.
+    pub async fn analyse_gated(
+        &self,
+        text: &str,
+        layers: &[Layer],
+        regex_first: Option<bool>,
+        semantic_model_id: Option<&str>,
+        gate: Option<&Gate>,
+    ) -> Result<Vec<LayerExecution>, PipelineError> {
         if self.semantic.is_none()
             && let Some(layer) = layers.iter().find(|layer| **layer == Layer::Semantic)
         {
@@ -220,6 +255,9 @@ impl<A: SpacyBackend> Pipeline<A> {
                             results: Vec::new(),
                             error: Some("Skipped after regex returned BLOCK.".to_string()),
                             identity: None,
+                            gate: gate
+                                .filter(|_| *layer == Layer::Semantic)
+                                .map(|gate| GateTrace::not_run(gate, Some("Skipped after regex returned BLOCK.".to_string()))),
                         },
                     );
                 }
@@ -233,9 +271,10 @@ impl<A: SpacyBackend> Pipeline<A> {
             let execution = match layer {
                 Layer::Regex => self.regex_layer(text),
                 Layer::Ner => self.ner_layer(text).await,
-                Layer::Semantic => match &self.semantic {
-                    Some(semantic) => semantic.run(text, semantic_model_id),
-                    None => return Err(PipelineError::Unsupported(*layer)),
+                Layer::Semantic => match (&self.semantic, gate, &self.presence) {
+                    (Some(semantic), Some(gate), Some(presence)) => semantic.run_gated(presence, text, semantic_model_id, gate),
+                    (Some(_), Some(_), None) | (None, _, _) => return Err(PipelineError::Unsupported(*layer)),
+                    (Some(semantic), None, _) => semantic.run(text, semantic_model_id),
                 },
             };
             completed.insert(*layer, execution);

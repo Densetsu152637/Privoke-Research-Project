@@ -10,7 +10,9 @@ use std::time::Duration;
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
-use privoke_contracts::proto::v1::{AnalyzePromptRequest, AnalyzePromptResponse, RuntimeControlStatus, SetRuntimeEnabledRequest};
+use privoke_contracts::proto::v1::{
+    AnalyzePromptRequest, AnalyzePromptResponse, RuntimeControlStatus, SemanticPresenceGate, SetRuntimeEnabledRequest,
+};
 use prost::Message;
 use serde_json::{Value, json};
 
@@ -141,6 +143,22 @@ impl Host {
 
     pub fn analyze(&mut self, id: u64, text: &str, layers: &[i32]) -> Value {
         self.analyze_request(id, text, layers);
+        let reply = self.recv(Duration::from_secs(90)).expect("a reply");
+        assert_eq!(reply["id"], id);
+        reply
+    }
+
+    /// An analysis behind a presence gate: `privoke-balanced` is the semantic model a gate requires.
+    pub fn analyze_gated(&mut self, id: u64, text: &str, layers: &[i32], gate_model: &str) -> Value {
+        let request = AnalyzePromptRequest {
+            text: text.into(),
+            request_id: format!("r{id}"),
+            layers: layers.to_vec(),
+            semantic_model_id: "privoke-balanced".into(),
+            semantic_presence_gate: Some(SemanticPresenceGate { model_id: gate_model.into(), threshold: None }),
+            ..Default::default()
+        };
+        self.request(id, "AnalyzePrompt", Some(&request.encode_to_vec()));
         let reply = self.recv(Duration::from_secs(90)).expect("a reply");
         assert_eq!(reply["id"], id);
         reply

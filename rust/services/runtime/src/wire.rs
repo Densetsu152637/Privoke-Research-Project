@@ -76,6 +76,48 @@ pub fn double(out: &mut Vec<u8>, field: u32, value: f64) {
     }
 }
 
+/// A `double` that is written even at zero: a proto3 `optional` field that is set, and a map value.
+pub fn double_always(out: &mut Vec<u8>, field: u32, value: f64) {
+    key(out, field, 1);
+    out.extend_from_slice(&value.to_le_bytes());
+}
+
+/// A packed `repeated float` field: one length-delimited run of little-endian floats; left out when empty.
+pub fn packed_f32(out: &mut Vec<u8>, field: u32, values: &[f32]) {
+    if values.is_empty() {
+        return;
+    }
+    key(out, field, 2);
+    varint(out, (values.len() * 4) as u64);
+    for value in values {
+        out.extend_from_slice(&value.to_le_bytes());
+    }
+}
+
+/// A packed `repeated uint32` field: one length-delimited run of varints; left out when empty.
+pub fn packed_u32(out: &mut Vec<u8>, field: u32, values: &[u32]) {
+    if values.is_empty() {
+        return;
+    }
+    let mut body = Vec::with_capacity(values.len());
+    for value in values {
+        varint(&mut body, u64::from(*value));
+    }
+    message(out, field, &body);
+}
+
+/// A `map<string, double>` field: one entry per key in byte order, each with its key and its value (zero included).
+pub fn double_map<'a>(out: &mut Vec<u8>, field: u32, entries: impl IntoIterator<Item = (&'a String, &'a f64)>) {
+    let mut sorted: Vec<(&String, &f64)> = entries.into_iter().collect();
+    sorted.sort_by(|a, b| a.0.as_bytes().cmp(b.0.as_bytes()));
+    for (name, value) in sorted {
+        let mut entry = Vec::with_capacity(name.len() + 12);
+        string_always(&mut entry, 1, name);
+        double_always(&mut entry, 2, *value);
+        message(out, field, &entry);
+    }
+}
+
 /// A `map<string, string>` field: one entry per key in byte order, each with its key and its value.
 pub fn string_map<'a>(out: &mut Vec<u8>, field: u32, entries: impl IntoIterator<Item = (&'a String, &'a String)>) {
     let mut sorted: Vec<(&String, &String)> = entries.into_iter().collect();
@@ -104,6 +146,27 @@ mod tests {
         string_map(&mut out, 8, &map);
         // Verified against `SerializeToString(deterministic=True)` of the Python runtime.
         assert_eq!(out, [0x0a, 0x01, b'x', 0x42, 0x05, 0x0a, 0x01, b'a', 0x12, 0x00, 0x42, 0x06, 0x0a, 0x01, b'b', 0x12, 0x01, b'c']);
+    }
+
+    #[test]
+    fn packed_fields_and_double_maps_keep_zero_values() {
+        let mut out = Vec::new();
+        packed_f32(&mut out, 2, &[]);
+        packed_u32(&mut out, 3, &[]);
+        assert!(out.is_empty());
+        packed_f32(&mut out, 2, &[1.0, -2.5]);
+        assert_eq!(out, [0x12, 8, 0, 0, 0x80, 0x3f, 0, 0, 0x20, 0xc0]);
+        let mut out = Vec::new();
+        packed_u32(&mut out, 3, &[8, 300]);
+        assert_eq!(out, [0x1a, 3, 8, 0xac, 0x02]);
+        let mut map = BTreeMap::new();
+        map.insert("z".to_string(), 0.0f64);
+        map.insert("a".to_string(), 1.0f64);
+        let mut out = Vec::new();
+        double_map(&mut out, 5, &map);
+        assert_eq!(&out[..2], &[0x2a, 12]);
+        assert_eq!(&out[2..7], &[0x0a, 1, b'a', 0x11, 0]);
+        assert_eq!(&out[out.len() - 12..], &[0x0a, 1, b'z', 0x11, 0, 0, 0, 0, 0, 0, 0, 0]);
     }
 
     #[test]

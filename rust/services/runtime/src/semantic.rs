@@ -22,8 +22,12 @@ use privoke_semantic::layer::{Finding as ModelFinding, LayerOutcome, SemanticCla
 use privoke_semantic::{SemanticError, TinyModel, V3Model};
 use serde_json::Value;
 
+use privoke_rules::preprocessing::normalize_text;
+
+use crate::gate::{Gate, GateStatus, GateTrace, Label};
 use crate::model::Finding;
 use crate::pipeline::{LayerExecution, Status};
+use crate::presence::PresenceModels;
 use crate::request::Layer;
 
 /// `ARCHITECTURE` of `privoke_model/v3_contract.py`.
@@ -160,6 +164,7 @@ impl SemanticLayer {
             results: Vec::new(),
             error: Some(message),
             identity: None,
+            gate: None,
         };
         let loaded = match self.fetch(model_id.unwrap_or("latest")) {
             Ok(loaded) => loaded,
@@ -168,23 +173,125 @@ impl SemanticLayer {
         let adapter = Adapter { model: &loaded, metadata: RefCell::new(BTreeMap::new()) };
         match analyse_semantic_layer(&adapter, text) {
             LayerOutcome::Ok(hits) => {
-                let metadata = adapter.metadata.into_inner();
-                let results = hits
-                    .into_iter()
-                    .map(|hit| Finding {
-                        classification: hit.classification,
-                        section: hit.text,
-                        reasoning: hit.reasoning,
-                        span: hit.span,
-                        confidence: Some(hit.confidence),
-                        metadata: metadata.clone(),
-                    })
-                    .collect();
-                LayerExecution { layer: Layer::Semantic, status: Status::Ok, results, error: None, identity: Some(loaded.identity.clone()) }
+                let results = findings(hits, &adapter.metadata.into_inner());
+                LayerExecution {
+                    layer: Layer::Semantic,
+                    status: Status::Ok,
+                    results,
+                    error: None,
+                    identity: Some(loaded.identity.clone()),
+                    gate: None,
+                }
             }
             LayerOutcome::Error(message) => failed(message),
         }
     }
+
+    /// The semantic layer behind a presence gate (`pipeline._execute_semantic_with_presence_gate`). The semantic model
+    /// classifies first; the gate model's probability for the normalised prompt, against the request's threshold or the
+    /// model's own, decides whether the findings are kept. The trace says what happened in every case, and a gated
+    /// execution carries no model identity (Python attaches none).
+    pub fn run_gated(&self, presence: &PresenceModels, text: &str, model_id: Option<&str>, gate: &Gate) -> LayerExecution {
+        let mut trace = GateTrace::not_run(gate, None);
+        let failed = |trace: GateTrace, message: String, results: Vec<Finding>| LayerExecution {
+            layer: Layer::Semantic,
+            status: Status::Error,
+            results,
+            error: Some(message),
+            identity: None,
+            gate: Some(trace),
+        };
+        let loaded = match self.fetch(model_id.unwrap_or("latest")) {
+            Ok(loaded) => loaded,
+            Err(message) => {
+                trace.error = Some(message.clone());
+                return failed(trace, message, Vec::new());
+            }
+        };
+        let identity = |key: &str| loaded.identity.get(key).cloned().unwrap_or_default();
+        trace.contextual_model_id = identity("model_id");
+        trace.contextual_model_version = identity("model_version");
+        trace.contextual_artifact_checksum = identity("artifact_checksum");
+        trace.contextual_parameter_fingerprint = identity("parameter_fingerprint");
+        let adapter = Adapter { model: &loaded, metadata: RefCell::new(BTreeMap::new()) };
+        let results = match analyse_semantic_layer(&adapter, text) {
+            LayerOutcome::Ok(hits) => findings(hits, &adapter.metadata.into_inner()),
+            LayerOutcome::Error(message) => {
+                trace.error = Some(message.clone());
+                return failed(trace, message, Vec::new());
+            }
+        };
+        match decide_presence(presence, text, gate) {
+            Ok(decision) => {
+                let present = decision.probability >= decision.decision_threshold;
+                trace.status = GateStatus::Applied;
+                trace.model_id.clone_from(&decision.model.model_id);
+                trace.model_version.clone_from(&decision.model.version);
+                trace.artifact_checksum.clone_from(&decision.model.artifact_checksum);
+                trace.parameter_fingerprint.clone_from(&decision.model.parameter_fingerprint);
+                trace.probability = Some(decision.probability);
+                trace.model_threshold = Some(decision.model_threshold);
+                trace.decision_threshold = Some(decision.decision_threshold);
+                trace.predicted_label = Some(if present { Label::Present } else { Label::Absent });
+                trace.semantic_results.clone_from(&results);
+                LayerExecution {
+                    layer: Layer::Semantic,
+                    status: Status::Ok,
+                    results: if present { results } else { Vec::new() },
+                    error: None,
+                    identity: None,
+                    gate: Some(trace),
+                }
+            }
+            Err(message) => {
+                trace.status = GateStatus::Error;
+                trace.semantic_results.clone_from(&results);
+                trace.error = Some(message.clone());
+                failed(trace, message, results)
+            }
+        }
+    }
+}
+
+/// What the gate model decided for a prompt.
+struct Decision {
+    model: Arc<crate::presence::LoadedPresence>,
+    probability: f64,
+    model_threshold: f64,
+    decision_threshold: f64,
+}
+
+/// The gate's probability for the normalised prompt and the checks on its three numbers.
+fn decide_presence(presence: &PresenceModels, text: &str, gate: &Gate) -> Result<Decision, String> {
+    let model = presence.fetch(&gate.model_id)?;
+    let normalised = normalize_text(text).map_err(|error| error.to_string())?;
+    let probability = model.model.predict_probability(&normalised);
+    let model_threshold = model.threshold;
+    let decision_threshold = gate.threshold.unwrap_or(model_threshold);
+    for (name, value) in [
+        ("presence probability", probability),
+        ("presence model threshold", model_threshold),
+        ("presence decision threshold", decision_threshold),
+    ] {
+        if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+            return Err(format!("{name} must be finite and in [0, 1]."));
+        }
+    }
+    Ok(Decision { model, probability, model_threshold, decision_threshold })
+}
+
+/// The findings of a semantic layer that ran: the layer's hits with the model's metadata on each.
+fn findings(hits: Vec<privoke_semantic::LayerHit>, metadata: &BTreeMap<String, String>) -> Vec<Finding> {
+    hits.into_iter()
+        .map(|hit| Finding {
+            classification: hit.classification,
+            section: hit.text,
+            reasoning: hit.reasoning,
+            span: hit.span,
+            confidence: Some(hit.confidence),
+            metadata: metadata.clone(),
+        })
+        .collect()
 }
 
 fn load_tiny(model_id: &str, bytes: &[u8]) -> Result<Loaded, String> {

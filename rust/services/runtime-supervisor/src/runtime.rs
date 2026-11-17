@@ -119,7 +119,7 @@ impl RuntimeController {
     fn rust_capabilities(&self) -> Option<Capabilities> {
         self.rust_settings
             .as_ref()
-            .map(|settings| if settings.serves_semantic { Capabilities::RUST.with_semantic() } else { Capabilities::RUST })
+            .map(|settings| if settings.serves_semantic { Capabilities::RUST.with_semantic() } else { Capabilities::RUST.without_models() })
     }
 
     /// The live environment: it changes with the stack choice, and the model-streaming health check reads it.
