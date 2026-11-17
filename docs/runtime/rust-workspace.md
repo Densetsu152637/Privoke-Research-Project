@@ -992,7 +992,7 @@ Two inputs need care. The AU3 manifest pins its two catalogs as CRLF bytes but t
 
 `privoke-training` ports the Tiny transformer's gradients and the FULL projected Adam fit. It is LLM-only (it never runs a detector layer) and it does not use libtorch: the backward pass is written by hand over the stage 14 style reference arithmetic (float32 weights, float64 activations and gradients). CUDA is out of scope.
 
-**Status: partial.** Done: checkpoint 1 (below). Not done: the three gradient RPC computations, the window, supervised-wrapper, presence and sensitive-retention paths, `reference_preparation.py` and `v3/training.py`. See the stage 19 handoff in `docs/plans/rust-server-rewrite.md`.
+**Status: partial.** Done: checkpoint 1 and the single-update gradient RPC computation (`rpc`, below). Not done: the window, supervised-wrapper, presence and sensitive-retention paths, `reference_preparation.py` and `v3/training.py`. See the stage 19 handoff in `docs/plans/rust-server-rewrite.md`.
 
 ### What is ported
 
@@ -1014,6 +1014,14 @@ Two inputs need care. The AU3 manifest pins its two catalogs as CRLF bytes but t
 | Chained Rust fit (Rust gradients, 64 steps) | 1 run, 1,308 candidate coordinates | all within 1e-6 (max 1.34e-7); 1,139 bitwise equal; final fingerprint not identical |
 
 By the stage's artifact rule, the replay run (gradients bitwise Python's) is in the byte-equal category and the chained run is in the tolerance category (same inventory and shapes, every coordinate within 1e-6). The torch gradients are float32, so about 80 percent of gradient coordinates differ from the float64 value by float32 rounding; the Adam update bounds the effect at the scale seen above.
+
+### Gradient RPC computation (`rpc`)
+
+`rpc::compute_gradients(&Snapshot, &Request)` is `training._compute_training_gradients` on the single-update route, for `ComputeSemanticGradients` (head scope: heads and, with the task-query readout, the queries) and `ComputeUnderlyingModelGradients` (full-encoder scope: every tensor, on a full-capable artifact only). It ports the request validation, canonical text normalisation (`privoke_rules::normalize_text`), class balancing, the transported update `float32(clamp(delta * lr, +-cap))` with the inward float32 cap on full-capable artifacts, the candidate (`updated_parameter_values`), the no-encoder-change check, the held-out guard (`training_text_key` with NFKC, exact match, sensitive recall, clean specificity, and the safety-regression rate from the policy action mapping) and the response metrics, executions and scope.
+
+Golden: the product's `_compute_training_gradients` runs on a fake streamed snapshot (the streamer and cache are replaced; nothing else is). `tests/rpc_parity.rs` checks 12 cases (2 models x legacy, mean-category and sum-margin objectives x head and full-encoder scopes), 8 held-out rows each: the transported update (all coordinates within 1e-6; the 12 cases hold 8928 coordinates), the metric names and values (302 metrics: decision counts and rates exact, losses and weights within 1e-5 relative), the executions, and the guard outcome: the candidate safety-regression rate is equal in all 12 cases, and the accept (rate 0) or reject decision is identical in all 12 (2 rejected, 10 accepted).
+
+Not ported on this route: admission headers and the pre-gradient admission checks, local-SGD, backtracking and diagnostics routes, window and retention routes, FULL Adam admission (the fit is `adam`), `reject_overlength`, and the response metadata strings. The streamed protobuf envelope is stage 17 and 22's.
 
 ### Known differences
 
