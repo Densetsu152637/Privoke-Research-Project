@@ -14,9 +14,11 @@
 #![allow(clippy::needless_range_loop)]
 
 pub mod adam;
+pub mod admission;
 pub mod error;
 pub mod net;
 pub mod objective;
+pub mod presence;
 pub mod rpc;
 
 pub use error::TrainingError;

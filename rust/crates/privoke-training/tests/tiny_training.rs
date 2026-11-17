@@ -111,7 +111,7 @@ fn gradients_of_every_objective_match_torch() {
             compare.add(&result.deltas[tensor], expected);
         }
         let loss = case["loss"].as_f64().unwrap();
-        println!(
+        eprintln!(
             "{model}/{name}: {} coordinates, bitwise {}, within 1e-6 {}, max error {:.3e}, loss {:.9} (python {loss:.9})",
             compare.coordinates, compare.bitwise, compare.within, compare.max_error, result.loss
         );
@@ -134,7 +134,7 @@ fn gradients_of_every_objective_match_torch() {
         total.within += compare.within;
         total.max_error = total.max_error.max(compare.max_error);
     }
-    println!(
+    eprintln!(
         "gradients: {} cases, {} coordinates, bitwise {}, within 1e-6 {}, max error {:.3e}",
         golden["gradient_cases"].as_array().unwrap().len(),
         total.coordinates,
@@ -165,7 +165,7 @@ fn adam_recurrence_with_recorded_gradients_is_exact() {
         delta += usize::from(rust.delta == python["delta"].as_str().unwrap());
         clipped += usize::from(rust.clipped as u64 == python["clipped"].as_u64().unwrap());
     }
-    println!("adam replay: {} steps; before {before}, after {after}, delta {delta}, clipped {clipped}", fit.steps.len());
+    eprintln!("adam replay: {} steps; before {before}, after {after}, delta {delta}, clipped {clipped}", fit.steps.len());
     assert_eq!((fit.steps.len(), before, after, delta, clipped), (64, 64, 64, 64, 64));
     assert_eq!(fit.final_fingerprint, record["final_fingerprint"].as_str().unwrap());
     assert_eq!(fit.delta, record["delta_fingerprint"].as_str().unwrap());
@@ -205,7 +205,7 @@ fn rust_gradients_follow_the_python_trajectory() {
     })
     .unwrap();
     assert_eq!(replay.final_fingerprint, record["final_fingerprint"].as_str().unwrap());
-    println!(
+    eprintln!(
         "trajectory gradients: {visited} steps, {} coordinates, bitwise {}, within 1e-6 {}, max error {:.3e}",
         compare.coordinates, compare.bitwise, compare.within, compare.max_error
     );
@@ -232,7 +232,7 @@ fn chained_rust_fit_reports_its_deviation_from_python() {
         }
     }
     let identical = fit.final_fingerprint == record["final_fingerprint"].as_str().unwrap();
-    println!(
+    eprintln!(
         "chained fit: {coordinates} candidate coordinates, bitwise {bitwise}, within 1e-6 {within}, max error {max_error:.3e}, fingerprint identical {identical}"
     );
     assert_eq!(fit.steps.len(), 64);

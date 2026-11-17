@@ -83,6 +83,9 @@ jobs:
           key: rust-test-${{ runner.os }}-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('rust/Cargo.lock') }}
       - name: Test
         run: cargo test --workspace --locked --no-fail-fast
+      - name: Training parity report (stage 19)
+        # Prints the per-case gradient error and bitwise counts of privoke-training (eprintln).
+        run: cargo test -p privoke-training --locked -- --nocapture --test-threads=1
 
   embed-check:
     # The PyO3 spaCy worker and the in-process spaCy backend (stage 11b) need a

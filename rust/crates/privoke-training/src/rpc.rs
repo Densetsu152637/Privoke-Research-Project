@@ -64,7 +64,7 @@ fn invalid(message: &str) -> TrainingError {
     TrainingError::invalid(message)
 }
 
-/// `training_text_key`: NFKC, lower case, `[at]` and `(at)` as `@`, digit-adjacent blanks removed, whitespace collapsed.
+/// `training_text_key` (`\d` is Unicode `Nd`, whitespace is Python's `str.isspace`): NFKC, lower case, `[at]` and `(at)` as `@`, digit-adjacent blanks removed, whitespace collapsed.
 pub fn training_text_key(text: &str) -> String {
     let lowered = pyunicode::lower(&pyunicode::nfkc(text)).replace("[at]", "@").replace("(at)", "@");
     let chars: Vec<char> = lowered.chars().collect();
@@ -76,8 +76,8 @@ pub fn training_text_key(text: &str) -> String {
             while index < chars.len() && (chars[index] == ' ' || chars[index] == '\t') {
                 index += 1;
             }
-            let digit_before = start > 0 && chars[start - 1].is_numeric();
-            let digit_after = index < chars.len() && chars[index].is_numeric();
+            let digit_before = start > 0 && pyunicode::is_decimal(chars[start - 1]);
+            let digit_after = index < chars.len() && pyunicode::is_decimal(chars[index]);
             if !(digit_before && digit_after) {
                 joined.extend(&chars[start..index]);
             }
@@ -86,7 +86,8 @@ pub fn training_text_key(text: &str) -> String {
             index += 1;
         }
     }
-    joined.split_whitespace().collect::<Vec<_>>().join(" ")
+    // `str.split()`: runs of Python whitespace (`str.isspace`) separate the words.
+    joined.split(pyunicode::is_space).filter(|word| !word.is_empty()).collect::<Vec<_>>().join(" ")
 }
 
 fn sensitivity_value(name: &str) -> i64 {
