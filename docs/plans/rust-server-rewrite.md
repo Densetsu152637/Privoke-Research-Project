@@ -991,9 +991,12 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
   - Request bodies are byte-identical for the corpus prompts.
   - Recorded responses parse identically.
   - Tests use no live API calls.
-- Status: pending
+- Status: done (17 Nov 2026), CI run 44008142104 on `wt/rust-s16`.
 - Outcome:
-- Handoff notes: an API key is supplied by the user only at run time and is never recorded.
+  - **Code** (`rust/crates/privoke-semantic/src/open_prompt.rs`, `open_classifier.rs`, `open_response.rs`): the prompts (generated text files), `OpenConfig::resolve` (the `OPENAI_*` rules and error texts), the SDK-identical request, strict response validation and result building, and a blocking `reqwest` client (rustls, no OpenSSL; SDK retry rules) that implements the stage 14 `SemanticClassifier` trait, so `analyse_semantic_layer` runs it. `ExternalResult` keeps the optional confidence.
+  - **Golden**: `evaluation/generate_open_classifier_golden.py` runs the unchanged Python `OpenClassifier` against an in-process `httpx.MockTransport` (`openai` 3.3.1, `httpx` 0.28.1, host Python 3.13; `.venv-v1-v3-pipeline` cannot import `openai`) and records 23 requests (19 stage 0 prompts, 4 configurations), 83 responses and 15 environment resolutions in `tests/fixtures/open_classifier_golden.json`.
+  - **Checks**: request bodies byte-identical (and SHA-256, length, method, URL, `accept`, `content-type`, `authorization` scheme); the 83 recorded responses parse identically or fail with the same text; a loopback server exercises the real `reqwest` path (retries, status errors, timeout, closed port, layer hits). No live API call. Details and known differences in [`docs/runtime/rust-workspace.md`](../runtime/rust-workspace.md#external-classifier-client-stage-16).
+- Handoff notes: an API key is supplied by the user only at run time and is never recorded. For stage 17: build the classifier with `OpenConfig::from_env(OpenOptions::default())` (or `OpenOptions` from `/config/llm`), call it from a blocking context (it is a blocking client), and read `classify_detailed` when the missing-confidence distinction matters (the trait impl maps it to 1.0). The `secret-key` corpus prompt was not recorded (credential-shaped); the user-agent and SDK telemetry headers are not reproduced.
 
 ## Stage 17: Rust analysis runtime (integrates D1 to D3, D9, D10)
 

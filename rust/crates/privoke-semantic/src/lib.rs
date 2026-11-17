@@ -4,6 +4,8 @@
 //!   `tokenizers` crate (the same implementation, at the same version, as the Python wheel the reference runtime uses).
 //! * [`tiny`]: the legacy Tiny transformer, both readouts.
 //! * [`layer`]: the semantic layer as the pipeline runs it (normalise, classify, remap spans).
+//! * [`open_classifier`], [`open_prompt`], [`open_response`]: the external OpenAI-compatible classifier client (stage 16),
+//!   which implements the same [`SemanticClassifier`] trait over `reqwest` with rustls.
 //!
 //! # Backend
 //!
@@ -23,6 +25,9 @@ pub mod error;
 pub mod labels;
 pub mod layer;
 pub mod math;
+pub mod open_classifier;
+pub mod open_prompt;
+pub mod open_response;
 pub mod safetensors;
 pub mod tiny;
 pub mod v3;
@@ -30,5 +35,7 @@ pub mod v3;
 pub use error::SemanticError;
 pub use labels::Prediction;
 pub use layer::{Finding, LayerHit, LayerOutcome, SemanticClassifier, analyse_semantic_layer};
+pub use open_classifier::{OpenClassifier, OpenConfig, OpenOptions, OpenRequest};
+pub use open_response::ExternalResult;
 pub use tiny::{TinyModel, TinyPrediction};
 pub use v3::{V3Logits, V3Model};

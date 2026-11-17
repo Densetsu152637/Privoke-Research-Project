@@ -18,7 +18,7 @@ The workspace holds the Rust side of the server rewrite. Stages 1 and 2 added th
 | `privoke-rules` | The regex rule layer (300 rules including the ported Presidio recognisers and the Gitleaks catalogue) and the canonical-text preprocessing with offset maps, identical to the Python client runtime (stage 12). |
 | `privoke-analysis` (`rust/services/analysis`) | The quarantined analysis microservice for the fuzzer (stage W3): mutual TLS, a fuzzer-only policy, and a pool of W1 Python workers. See [below](#privoke-analysis-stage-w3). |
 | `privoke-param-update` (`rust/services/param-update`) | The parameter-update service and training-cycle scheduler (stage 5): guarded compare-and-swap publication, durable receipts, publisher identities over mutual TLS, drift bounds. See [below](#privoke-param-update-stage-5). |
-| `privoke-semantic` | Semantic inference (stage 14): the V3 pretrained BERT encoder with its heads, the legacy Tiny transformer and the semantic layer, on a dependency-free float64 reference backend and the `tokenizers` crate. See [below](#privoke-semantic-stage-14). |
+| `privoke-semantic` | Semantic inference (stage 14): the V3 pretrained BERT encoder with its heads, the legacy Tiny transformer and the semantic layer, on a dependency-free float64 reference backend and the `tokenizers` crate. See [below](#privoke-semantic-stage-14). It also holds the external classifier client (stage 16), see [below](#external-classifier-client-stage-16). |
 
 ## Build and test
 
@@ -886,6 +886,45 @@ Without the two variables the tests write why they skipped to stderr and pass.
 - `reject_overlength` (the strict mode of full-encoder contextual artifacts) and the batch `predict_many` are not ported; one text is classified at a time, as the pipeline does.
 - Loading from the model-streaming protobuf (`GetModelParameters`, `GetModelPackage`) is stage 17 (D11). The crate reads a prepared release directory or an artifact JSON.
 - The tolerance claim covers CPU float32 torch and NumPy; GPU results differ by more.
+
+## External classifier client (stage 16)
+
+> Plan: [Rust server rewrite](../plans/rust-server-rewrite.md#stage-16-external-classifier-client-d10).
+
+`privoke_semantic::open_*` ports the external (OpenAI-compatible) semantic classifier of the client runtime (`LLM/open_classifier.py`, `LLM/prompt.py`, `classification/external_output.py` and the result building of `classification_results.py`). It is LLM-only and implements the `SemanticClassifier` trait of stage 14, so `analyse_semantic_layer` runs it unchanged.
+
+| Module | Python source |
+| --- | --- |
+| `open_prompt` | `prompt.py`: `system_prompt` and `user_prompt(text)`. The two long texts are `open_system_prompt.txt` and `open_user_prompt_tail.txt`, generated from the Python constants (trailing spaces included). |
+| `open_classifier` | `OpenClassifier.__init__` (`OpenConfig::resolve`: explicit options, then `OPENAI_API_KEY`, `OPENAI_BASE_URL` then `OPENAI_API_BASE`, `OPENAI_MODEL`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_TEMPERATURE`, `OPENAI_MAX_TOKENS`, same defaults and error texts), the request (`build_request`) and the blocking `reqwest` client (`OpenClassifier`). |
+| `open_response` | `classify` after the call and `build_external_results`: strict validation (the exact `{"results": []}` envelope is "no risk"; bare empty arrays, missing fields, unknown enum names, out-of-range confidence and bad spans are errors) and `parse_result` (packed classification, metadata without `signal`, `signals`, `source`). |
+
+- **HTTP.** `reqwest` 0.12 with `default-features = false, features = ["blocking", "rustls-tls"]`: rustls with the bundled webpki roots, no OpenSSL or native-tls (a test asserts both are absent from `Cargo.lock`). The client is blocking, like `classify`; call it from a thread that is not an async runtime worker (stage 17: `spawn_blocking` or the worker's own thread).
+- **Request.** `POST <base_url>/chat/completions` (the base URL gets a trailing slash, as in the SDK; default `https://api.openai.com/v1`). Headers `accept` and `content-type` (both `application/json`) and `authorization: Bearer <key>`. The body is compact JSON with the SDK's key order `messages`, `model`, `max_tokens`, `response_format`, `temperature`, and text unescaped (`ensure_ascii=False`). The SDK retries a failed request twice (408, 409, 429, 5xx, timeouts, connection errors) with a doubling delay from 0.5 s to 8 s and honours a `retry-after` of 0 to 60 s; so does the Rust client (no jitter).
+- **API key.** Only from the options or `OPENAI_API_KEY` at run time. The `Debug` output of the options, the configuration and the request redacts it, the header value is marked sensitive, and no fixture or test records a key (tests use the literal `PLACEHOLDER`).
+- **Errors.** The layer error text is `str(exception)`: the classifier's own `RuntimeError` texts are identical to Python's. A non-2xx status is `Error code: <status>` (the SDK appends the response body, which could echo the prompt; this client never does). A timeout is `Request timed out.` and a transport failure `Connection error.`, as in the SDK.
+- **Findings.** `classify_detailed` returns `ExternalResult` with `confidence: Option<f64>` (Python keeps `None`) and the metadata. The `SemanticClassifier` impl maps a missing confidence to `1.0`, which the Python policy treats the same (never low); stage 17 can read the detailed results when it needs the distinction.
+
+### Parity with Python
+
+`evaluation/generate_open_classifier_golden.py` runs the unchanged `OpenClassifier` against an in-process `httpx.MockTransport` (no network, key `PLACEHOLDER`) and writes `tests/fixtures/open_classifier_golden.json`: the request the SDK builds for the 19 stage 0 prompts of `tests/conformance/worker-frames/prompts.json` (the `secret-key` prompt is left out because it holds a credential-shaped example; `overlong` is recorded by hash only) and for four configurations, 83 recorded HTTP answers with the outcome Python produced (valid, empty envelope, every malformed case of `build_external_results`, bad JSON, no choices, refusals, HTTP errors), and 15 environment resolutions. The reference was `openai` 3.3.1 and `httpx` 0.28.1 on the host interpreter (Python 3.13.2); `evaluation/.venv-v1-v3-pipeline` lists `openai` but cannot import it (`httpx` is missing there), and the other evaluation environments do not have it.
+
+| Check | Test |
+| --- | --- |
+| Method, URL, body bytes, SHA-256 and length equal for every request case; `accept` and `content-type` equal, `authorization` is `Bearer` plus the key | `tests/open_request.rs` |
+| Configuration resolution (defaults, precedence, error texts) | `tests/open_request.rs` |
+| 83 recorded answers parse to the same packed classification, section, reasoning, span, confidence and metadata, or the same error text | `tests/open_response.rs` |
+| The same request on a real `reqwest` exchange (loopback server in the test binary), retries, status errors, timeout, closed port, layer integration | `tests/open_http.rs` |
+
+Known differences, none of which changes a request or a parsed result:
+
+- Host-dependent SDK headers (`user-agent`, `x-stainless-*`) are not reproduced; the client sends `privoke-semantic/<version>` as its user agent. `host`, `content-length`, `connection` and `accept-encoding` are the transport's.
+- The timeout is one total budget per attempt (plus the connect budget), where `httpx` applies it to each phase.
+- A `NaN` or `Infinity` token in the model's JSON, which Python's `json.loads` accepts, is read as a string of the same name. It can only matter as a confidence or span (both rejected either way) or an ignored extra.
+- A lone-surrogate escape in the model's JSON is accepted by Python and rejected by `serde_json` (reported as invalid JSON). The SDK's retry jitter is not reproduced, and a `temperature` below 1e-4 is written as `1e-5` where Python writes `1e-05`.
+- Non-finite `OPENAI_*` numbers (`nan`, `inf`) are refused; Python accepts them by accident.
+
+No test makes a live API call.
 
 ## GLiNER backend (stage 15)
 
