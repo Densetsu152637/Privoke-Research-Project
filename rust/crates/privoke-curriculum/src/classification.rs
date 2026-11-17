@@ -235,7 +235,7 @@ fn first_present<'a>(item: &'a Value, payload: Option<&'a Value>, keys: &[&str])
     None
 }
 
-fn enum_name(value: Option<&Value>, members: &[(&str, u16)]) -> Option<&'static str> {
+fn enum_name(value: Option<&Value>, members: &[(&'static str, u16)]) -> Option<&'static str> {
     let value = value?;
     if matches!(value, Value::Null) {
         return None;
