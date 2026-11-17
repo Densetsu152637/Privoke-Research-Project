@@ -79,7 +79,7 @@ class CommittedGoldenTest(unittest.TestCase):
         for sequence in self.document["sequences"]:
             for cycle in sequence["cycles"]:
                 self.assertTrue(cycle["runtime_rpc"].startswith("/privoke.v1.PrivokeRuntimeService/Compute"))
-                self.assertIn(cycle["status_request"] is not None, (True,))
+                self.assertIsNotNone(cycle["status_request"])
                 wire = base64.b64decode(cycle["runtime_request"])
                 # Field 7 (layers), packed varint [4]: tag 0x3a, length 1, value 4.
                 self.assertIn(bytes((0x3A, 0x01, 0x04)), wire)
