@@ -99,6 +99,14 @@ jobs:
         # Prints the per-scope byte-parity counts of the Rust analysis runtime against the Python servicer (eprintln).
         run: cargo test -p privoke-runtime --test golden --test semantic_golden --locked -- --nocapture --test-threads=1
 
+      - name: Fetch parity and contextual encoder reports (RUST-S17B)
+        # Prints the counts of the model fetch goldens (V3 package and legacy snapshot) and the contextual encoder goldens (eprintln).
+        run: |
+          cargo test -p privoke-runtime-supervisor --test fetch_golden --locked -- --nocapture --test-threads=1
+          cargo test -p privoke-analysis --test fetch_golden --locked -- --nocapture --test-threads=1
+          cargo test -p privoke-semantic --test context_golden --locked -- --nocapture --test-threads=1
+          cargo test -p privoke-runtime --test context_semantic --locked -- --nocapture --test-threads=1
+
   embed-check:
     # The PyO3 spaCy worker and the in-process spaCy backend (stage 11b) need a
     # CPython 3.11 development install. The full embed tests, the real-interpreter
