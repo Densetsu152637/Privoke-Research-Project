@@ -145,7 +145,14 @@ fn run_native_host() -> Result<(), String> {
     #[cfg(feature = "test-helpers")]
     apply_test_overrides(&mut settings, &environment);
     let health_timeout = config::positive_seconds(&environment, "MODEL_STREAMING_HEALTH_TIMEOUT_SECONDS", 3.0)?;
-    let runtime = Arc::new(RuntimeController::new(settings, environment));
+    // The Rust analysis worker serves what it claims (see `routing`); the Python worker serves the rest. It is
+    // configured only when PRIVOKE_RUNTIME_ANALYSIS_ENGINE=rust.
+    let rust_worker = WorkerSettings::rust_from_environment(&environment, &root)?;
+    let mut controller_runtime = RuntimeController::new(settings, environment);
+    if let Some(rust_worker) = rust_worker {
+        controller_runtime = controller_runtime.with_rust_worker(rust_worker);
+    }
+    let runtime = Arc::new(controller_runtime);
     let health = Arc::new(EndpointHealth::new(Arc::clone(&runtime), health_timeout));
     let controller = Controller::new(runtime, health);
     // The pool starts its workers from this runtime's threads; they live as long as the session does.

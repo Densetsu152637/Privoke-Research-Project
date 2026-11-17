@@ -9,6 +9,7 @@
 //! | [`native_host`] | Native-messaging framing: length-prefixed JSON on stdio. |
 //! | [`controller`] | The session: request envelope, methods, fail-closed replies, shutdown with the port. |
 //! | [`runtime`] | The worker pool's lifecycle: enable, disable, status, one analysis. |
+//! | [`routing`] | Which worker serves a call: the Rust analysis worker (stage 17) or the Python worker. |
 //! | [`worker`] | The W1 worker behind the W2 pool: frame codec, pool protocol, settings and sandbox policy. |
 //! | [`health`] | The model-streaming health check. |
 //! | [`channel`], [`fetch`] | Model fetch over mutual TLS with the installation certificate, pin checks, user cache. |
@@ -22,5 +23,6 @@ pub mod credentials;
 pub mod fetch;
 pub mod health;
 pub mod native_host;
+pub mod routing;
 pub mod runtime;
 pub mod worker;

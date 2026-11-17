@@ -1,6 +1,6 @@
 # Rust workspace
 
-> Source area: `rust`. Plan: [Rust server rewrite](../plans/rust-server-rewrite.md), stages 0 to 5, 7, 11 to 16, 18, 19 (partial), 20, 21 (partial), W2 and W3. Run every command from the repository root unless stated.
+> Source area: `rust`. Plan: [Rust server rewrite](../plans/rust-server-rewrite.md), stages 0 to 5, 7, 11 to 16, 17 (partial), 18, 19 (partial), 20, 21 (partial), W2 and W3. Run every command from the repository root unless stated.
 
 > Source area: `rust`. Plan: [Rust server rewrite](../plans/rust-server-rewrite.md), stages 0 to 5, 7, 11 to 14, 18, W2 and W3. Run every command from the repository root unless stated.
 
@@ -25,6 +25,7 @@ The workspace holds the Rust side of the server rewrite. Stages 1 and 2 added th
 | `privoke-training` | Gradients and local training of the Tiny transformer (stage 19, partial): reverse-mode kernels, the supervised objectives and the FULL projected Adam, on the stage 14 float64 reference backend. See [below](#privoke-training-stage-19). |
 | `privoke-telemetry-client` | The client telemetry reporter (stage 18): CPython-identical random draws on an injectable byte source, binary64 GRR thresholds, the persistent daily epsilon ledger, the report builder and the delivery worker over mutual TLS. See [below](#privoke-telemetry-client-stage-18). |
 | `privoke-fuzzer` (`rust/services/fuzzer`) | The fuzzer service that replaces `services/privoke-fuzzer` (stage 21, partial): one bounded training cycle per request with the stage 20 samplers in process, a mutual-TLS client of the runtime and of the parameter-update service, durable evidence and reservations, and the SQLite curriculum cursor state. See [below](#privoke-fuzzer-stage-21). |
+| `privoke-runtime` (`rust/services/runtime`) | The Rust analysis runtime (stage 17, partial): `AnalyzePrompt` for the regex and NER layers and `Health` as a W1 worker for the W2 pool, with spaCy in process, the pipeline and policy aggregation, and a response encoder that writes Python's deterministic bytes. See [below](#privoke-runtime-stage-17). |
 
 ## Build and test
 
@@ -702,6 +703,8 @@ Failure policy: every failure is an error reply with a gRPC-style code (`INVALID
 
 `worker.rs` holds the W1 frame codec and the pool `Protocol`; `runtime.rs` the lifecycle (enable, disable, status, cancel on stop); `python/worker_shim.py` adapts the pool's `u32` framing to the W1 worker's pipe descriptors and lets the worker read the controller's cache layout (`<cache>/<model_id>/<pin>/`) read-only. W3 has a similar shim; reconcile the two when both merge. The pool runs one worker under `SandboxPolicy`: dies with the controller, 6 GiB memory limit (`PRIVOKE_WORKER_MEMORY_MB`, 0 for none), at most 8 processes, a clean environment limited to named variables (no credentials). Network denial is enforced on Linux only; on Windows none is claimed. Analysis deadline 27 s (`PRIVOKE_RUNTIME_REQUEST_TIMEOUT_SECONDS`), worker start 30 s (`PRIVOKE_RUNTIME_START_TIMEOUT_SECONDS`). The Linux code path was not compiled or run here.
 
+**Routing (stage 17).** `routing.rs` sends each call to the worker that serves it. With `PRIVOKE_RUNTIME_ANALYSIS_ENGINE=rust` the controller starts a second pool, `privoke-runtime-worker` (beside the supervisor, or `PRIVOKE_RUNTIME_RUST_WORKER`), under the same sandbox policy, environment allow-list and deadlines; `AnalyzePrompt` for the regex and NER layers goes to it and everything else to the Python worker. The default (`python`) starts no second pool. Details and the table are in [`privoke-runtime`](#privoke-runtime-stage-17).
+
 ### Tests
 
 `tests/controller_session.rs` (16) runs the real host process against a stand-in worker (`privoke-supervisor-test-worker`, `test-helpers` feature): round trip, fail-closed errors, layer pass-through, malformed frames, concurrency, closing the port and killing the controller both kill the worker, crash, hang deadline, start failure, oversize, no listening socket. `tests/real_worker.rs` runs the real Python worker (skips without the runtime virtual environment). `tests/health.rs` ports the model-health tests. 18 unit tests; fetch and enrolment tests are unchanged.
@@ -1164,3 +1167,74 @@ docker build -f rust/services/fuzzer/Dockerfile -t privoke-fuzzer-rust:<tag> .
 ```
 
 The service reads the `FUZZ_*`, `MODEL_ID`, `FUZZER_ID`, `PARAM_UPDATE_TARGET` and `PRIVOKE_RUNTIME_TARGET` variables of the Python service, plus `FUZZER_BIND`, `FUZZER_REQUEST_TIMEOUT_SECONDS`, `PRIVOKE_TLS_CA_FILE`, `PRIVOKE_TLS_CERT_FILE`, `PRIVOKE_TLS_KEY_FILE` and the optional `PRIVOKE_RUNTIME_TLS_SERVER_NAME` and `PARAM_UPDATE_TLS_SERVER_NAME` (default: the target host). Cloud flags as for the other services: `--cert`, `--key`, `--client-ca`, `--crl`, `--registry`.
+
+## `privoke-runtime` (stage 17)
+
+> Status: checkpoint 1 of stage 17. The regex and NER layers, `Health`, the pipeline and policy aggregation and the supervisor routing are done and green in CI. The semantic layer, the model fetch (D11), `DetectAnnotationPresence`, GLiNER selection, the gradient RPCs and the telemetry wiring are **not** done; the Python worker serves them, and the routing keeps every call that the Rust worker does not claim on it. What remains is listed at the end of this section.
+
+`rust/services/runtime` (`privoke-runtime`, binary `privoke-runtime-worker`) is the `PrivokeRuntimeService` analysis path of `extension/client-runtime/src` as a worker behind the W1 frame protocol ([worker protocol](worker-protocol.md#the-rust-worker-stage-17)). The pool (W2) starts it where it starts `worker_shim.py`; spaCy runs in the same process through the stage 11b `InProcess` backend (no spaCy process), so the W2 sandbox and restart cover the whole thing, and an interpreter crash kills this worker only.
+
+| Module | Ports |
+| --- | --- |
+| `model` | `privoke_contracts/classification.py`, `classification_policy.py`, `ClassificationResult` and `pipeline.strongest_result`: the packed classification, the action policy with its below-0.5 confidence rule, the combined evidence, and the first-of-equals tie rule of Python's `max`. |
+| `request` | `hosting/serialization.parse_prompt_request` and the layer, regex-order and presence-gate checks of `hosting/grpc_server.py`, with Python's messages (`str.strip`, code point lengths, the `json.dumps` length of metadata values). |
+| `pipeline` | `pipeline.analyse_text` for the regex and NER layers: regex first by default (`PRIVOKE_WAIT_FOR_REGEX`) and the other layers skipped after a `BLOCK`, a failing layer reported as that layer's `error` and blocking an otherwise ALLOW. Composes `privoke-rules` and `privoke-ner-layer`; the NER layer reads spaCy through `SpacyBackend`. |
+| `response` | The visibility hint, the masked prompt, the `reason`, the metadata map and the `AnalyzePromptResponse` bytes. |
+| `wire` | A small protobuf encoder that writes what `upb` writes with `SerializeToString(deterministic=True)`: field order, proto3 defaults left out, and **every map entry written with its key and its value**. `prost` leaves the value out of an entry whose value is the default (the W3 finding), so responses are not built with it; `prost` only decodes requests. |
+| `frames`, `service`, `worker` | The W1 codec and limits, the request handling (one frame in, one frame out), the READY announcement, the sandbox self-check and the serve loop. |
+
+### Behaviour kept, and where it differs
+
+- A validation failure, an unsupported layer value and a bad regex order are ordinary responses with `error` set under the request's own `request_id`, as in Python; `ERROR` frames are for protocol faults. An empty layer list and `DETECTION_LAYER_RUNTIME` are `INVALID_LAYERS` before anything runs.
+- A selection that names the semantic layer gets `UNSUPPORTED_LAYERS`, and the gradient methods and `DetectAnnotationPresence` get `UNKNOWN_METHOD`, so a mis-routed call fails visibly and is never answered wrongly.
+- The NER layer's own errors differ in wording only where Python's come from the spaCy library (a worker `Unavailable` replaces a Python exception); both are layer errors that block an ALLOW.
+- No parallelism between regex and NER (Python runs them on a thread pool when regex-first is off); the results do not depend on it.
+- The worker has no telemetry code and no network code. Its sandbox self-check opens and closes loopback sockets to test that it cannot, and `privoke-contracts` brings the `tonic` types in as a dependency, but no code path here opens a connection.
+
+### Supervisor routing
+
+`rust/services/runtime-supervisor/src/routing.rs` decides which worker serves a call, by RPC path (`Rpc::from_path("/privoke.v1.PrivokeRuntimeService/...")`) and, for `AnalyzePrompt`, by layer selection. `PRIVOKE_RUNTIME_ANALYSIS_ENGINE=rust` adds a second pool (`privoke-runtime-worker`, found beside the supervisor or at `PRIVOKE_RUNTIME_RUST_WORKER`); the default `python` starts none, so nothing changes by default. The Python worker is always started, because it serves what the Rust worker does not.
+
+| Call | Engine |
+| --- | --- |
+| `AnalyzePrompt`, every layer regex or NER | Rust |
+| `AnalyzePrompt`, any other selection (semantic, empty, runtime, unknown value) | Python |
+| `Health` | Rust |
+| `DetectAnnotationPresence` | Python (not ported) |
+| `ComputeSemanticGradients`, `ComputeUnderlyingModelGradients`, `ComputePresenceGradients` | Python. The stage 19 crate computes the single-update gradient RPCs (head and full-encoder scopes, presence) as a library; it is not yet a worker, so these are not claimed. |
+
+The claim is one constant (`Capabilities::RUST`); a later stage that ports another part changes it and the router follows. A call is never retried on the other engine, and a Rust worker that is down is a failed call (`UNAVAILABLE`), not a silent fallback. The controller reports the runtime as running only when every configured pool is ready. The W3 analysis service (`rust/services/analysis`) is not changed: it still starts the Python shim, and can start this worker with the same routing table when its owner wires a second pool.
+
+### Parity with Python
+
+`evaluation/generate_runtime_golden.py write` runs the unchanged `PrivokeRuntimeService.AnalyzePrompt` (host Python, `evaluation/.venv-v1-v3-pipeline`, read only) on 238 requests with explicit layer selections and records the response, serialised deterministically with `elapsed_ms` and `metadata["elapsed_ms"]` cleared (the normal form of the W1 capture), plus every spaCy result the NER layer saw and the lexicon words the post-filter asked about. No request has an empty layer list or names the semantic layer. The fixture is synthetic (the W1 capture's 20 prompts, nine more generic sentences and 17 validation cases); nothing from a recorded dataset is read.
+
+| Scope | Requests | Byte-identical in Rust |
+| --- | ---: | ---: |
+| detector ablation (one layer) | 99 | 99 |
+| product pipeline (regex and NER) | 122 | 122 |
+| validation and policy | 17 | 17 |
+| of which: requests taken from the W1 capture, whose recorded Python digests are matched | 60 | 60 |
+
+The 238 are 5 selections for each of 29 prompts (regex, NER, both, both with the parallel order, both with the first order), the six visibility hints on a NER finding and on a regex finding, context-field stripping, duplicate layers, an ignored semantic model id, and the validation cases (empty, blank, over and at the length limit, a bad hint, control characters, over-long fields, metadata limits, unsupported layer and order values, and the presence-gate checks). The 60 W1 capture requests are among the 238. Regeneration is byte-identical (`evaluation/tests/test_generate_runtime_golden.py`). The Rust test is `rust/services/runtime/tests/golden.rs`; CI prints the counts (`Runtime golden report`).
+
+The spaCy results are replayed, so this is parity of the Rust logic with Python given the same spaCy output, and spaCy itself is identical by construction (stage 11b). The real-interpreter run needs the bundle and is pending for stage 23.
+
+**Floats.** The regex and NER findings carry confidences from tables, so no float rounding is involved here and the responses are byte-equal, including the product pipeline of both layers (the plan requires byte equality only for regex-only and NER-only; it holds for the pair as well, where no model float exists). The rule for selections that do involve model floats is declared in `tests/conformance/normalization.toml`, section `analysis_runtime`: decisions exact, floats equal after rounding to 6 decimal places or within an absolute 1e-5, only the wall-clock fields cleared.
+
+### Tests
+
+- `tests/golden.rs`: the 238 byte comparisons through the frame codec, the W1 capture digests, and the declared float rule.
+- `tests/worker_process.rs`: the real worker binary as a child process on the pool framing, with the Python-free stand-in spaCy engine (`--spacy fake`, feature `fake-spacy`): READY, `Health`, regex and NER analysis, `INVALID_LAYERS`, `UNSUPPORTED_LAYERS`, `UNKNOWN_METHOD`, `INVALID_PAYLOAD`, malformed frames, the text limit, a clean exit when the pipe closes, the sandbox self-check, and a usage error. Every child is killed in a drop guard.
+- Unit tests in `model`, `request`, `response`, `wire` and `frames`.
+- Supervisor: `routing.rs` unit tests (paths, layers, capabilities, the engine setting), `worker.rs` (the Rust worker settings), and `tests/routing.rs`, which runs the real controller process with two stand-in workers and checks that each call reaches the engine that serves it.
+- CI (`rust-ci.yml`): the `embed-check` job lints the worker with `--features in-process` (CPython 3.11 development install), and the test job prints the golden counts.
+
+### Not in this checkpoint
+
+- **Semantic layer** (V3, Tiny, and the external classifier through `SemanticClassifier`), with the response metadata of its results (model identity, fingerprint, category probabilities) and the presence gate.
+- **D11**, the model package and legacy stream fetch into the same cache layout, with the pin, shape and finite checks and the byte-identical cache (the supervisor's `fetch.rs` and the analysis service's `models.rs` already fetch for the Python worker).
+- **`DetectAnnotationPresence`** (the sparse presence model lives in `privoke-training` as part of stage 19) and the gradient RPCs as a Rust worker.
+- GLiNER selection (`PRIVOKE_NER_BACKEND=gliner`): the worker builds the spaCy detector only.
+- Telemetry: the worker has none by design; the controller-side reporter wiring of stage 18 is not done.
+- The real-interpreter run (the stage 23 bundle) and the extension tests, which are pending for stage 23.

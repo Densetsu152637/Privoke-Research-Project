@@ -9,10 +9,13 @@
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
+use privoke_contracts::proto::v1::AnalyzePromptRequest;
 use privoke_worker_pool::{PoolError, WorkerPool};
+use prost::Message;
 use tokio::sync::watch;
 
 use crate::config::{Environment, boolean};
+use crate::routing::{self, Capabilities, Engine, Rpc};
 use crate::worker::{self, MAX_ANALYZE_REQUEST_BYTES, Method, WorkerProtocol, WorkerSettings};
 
 /// What the control methods report, mirroring `RuntimeControlStatus`.
@@ -56,11 +59,23 @@ struct Generation {
 #[derive(Debug)]
 pub struct RuntimeController {
     settings: WorkerSettings,
+    /// The Rust analysis worker (stage 17), when `PRIVOKE_RUNTIME_ANALYSIS_ENGINE=rust`. The Python worker above is
+    /// always started: it serves everything the Rust worker does not (see `routing`).
+    rust_settings: Option<WorkerSettings>,
     environment: Mutex<Environment>,
     current: Mutex<Option<Arc<Generation>>>,
+    rust_current: Mutex<Option<Arc<Generation>>>,
     message: Mutex<String>,
     /// Serialises start and stop, as the Python supervisor's lock did.
     lifecycle: tokio::sync::Mutex<()>,
+}
+
+/// Why a pool did not start.
+enum StartFailure {
+    /// The pool could not be created.
+    Create(CallError),
+    /// The worker did not become ready in time, or failed to start.
+    NotReady(PoolError),
 }
 
 impl std::fmt::Debug for Generation {
@@ -84,11 +99,25 @@ impl RuntimeController {
     pub fn new(settings: WorkerSettings, environment: Environment) -> Self {
         Self {
             settings,
+            rust_settings: None,
             environment: Mutex::new(environment),
             current: Mutex::new(None),
+            rust_current: Mutex::new(None),
             message: Mutex::new("Client runtime has not been started.".into()),
             lifecycle: tokio::sync::Mutex::new(()),
         }
+    }
+
+    /// Adds the Rust analysis worker: calls it serves go to it, everything else to the Python worker.
+    #[must_use]
+    pub fn with_rust_worker(mut self, settings: WorkerSettings) -> Self {
+        self.rust_settings = Some(settings);
+        self
+    }
+
+    /// What the Rust worker serves, `None` when none is configured.
+    fn rust_capabilities(&self) -> Option<Capabilities> {
+        self.rust_settings.as_ref().map(|_| Capabilities::RUST)
     }
 
     /// The live environment: it changes with the stack choice, and the model-streaming health check reads it.
@@ -103,8 +132,9 @@ impl RuntimeController {
     /// The current status. Never blocks on a start in progress.
     pub fn status(&self) -> RuntimeStatus {
         let generation = lock(&self.current).clone();
+        let rust_ready = self.rust_settings.is_none() || lock(&self.rust_current).as_ref().is_some_and(|rust| rust.pool.is_ready());
         if let Some(generation) = generation {
-            if generation.pool.is_ready() {
+            if generation.pool.is_ready() && rust_ready {
                 let process_id = generation.pool.worker_pids().first().copied().unwrap_or(0);
                 return RuntimeStatus { enabled: true, status: "RUNNING", message: lock(&self.message).clone(), process_id };
             }
@@ -137,24 +167,18 @@ impl RuntimeController {
     }
 
     async fn start(&self) -> Result<RuntimeStatus, CallError> {
-        let existing = lock(&self.current).clone();
-        let generation = match existing {
-            Some(generation) => generation,
-            None => {
-                let pool = WorkerPool::start(WorkerProtocol, self.settings.pool_config())
-                    .map_err(|error| CallError::new("INTERNAL", format!("Client runtime failed to start: {error}")))?;
-                let generation = Arc::new(Generation { pool, cancel: watch::channel(false).0 });
-                *lock(&self.current) = Some(Arc::clone(&generation));
-                generation
-            }
-        };
-        match generation.pool.wait_ready(self.settings.start_timeout).await {
+        let mut started = self.start_generation(&self.current, &self.settings).await;
+        if let (Ok(()), Some(rust)) = (&started, &self.rust_settings) {
+            started = self.start_generation(&self.rust_current, rust).await;
+        }
+        match started {
             Ok(()) => {
                 self.set_message("Client runtime started.");
                 Ok(self.status())
             }
-            Err(error) => {
-                drop(generation);
+            // The pool could not be created at all: the caller learns why.
+            Err(StartFailure::Create(error)) => Err(error),
+            Err(StartFailure::NotReady(error)) => {
                 self.stop().await;
                 self.set_message(format!("Client runtime failed to start: {error}"));
                 Ok(self.status())
@@ -162,9 +186,33 @@ impl RuntimeController {
         }
     }
 
-    /// Stop the pool and wait until its workers are gone. Callers hold the lifecycle lock.
+    /// Starts the pool in `slot` unless it exists, and waits until its worker is ready.
+    async fn start_generation(&self, slot: &Mutex<Option<Arc<Generation>>>, settings: &WorkerSettings) -> Result<(), StartFailure> {
+        let existing = lock(slot).clone();
+        let generation = match existing {
+            Some(generation) => generation,
+            None => {
+                let pool = WorkerPool::start(WorkerProtocol, settings.pool_config()).map_err(|error| {
+                    StartFailure::Create(CallError::new("INTERNAL", format!("Client runtime failed to start: {error}")))
+                })?;
+                let generation = Arc::new(Generation { pool, cancel: watch::channel(false).0 });
+                *lock(slot) = Some(Arc::clone(&generation));
+                generation
+            }
+        };
+        generation.pool.wait_ready(settings.start_timeout).await.map_err(StartFailure::NotReady)
+    }
+
+    /// Stop the pools and wait until their workers are gone. Callers hold the lifecycle lock.
     async fn stop(&self) {
-        let Some(generation) = lock(&self.current).take() else { return };
+        let python = lock(&self.current).take();
+        let rust = lock(&self.rust_current).take();
+        for generation in [python, rust].into_iter().flatten() {
+            Self::stop_generation(generation).await;
+        }
+    }
+
+    async fn stop_generation(generation: Arc<Generation>) {
         generation.cancel.send_replace(true);
         let mut generation = generation;
         // In-flight requests drop their handles as soon as they see the cancel; wait for the last one.
@@ -200,9 +248,15 @@ impl RuntimeController {
         if request.len() > MAX_ANALYZE_REQUEST_BYTES {
             return Err(CallError::new("RESOURCE_EXHAUSTED", "The analysis request is too large."));
         }
-        let generation = lock(&self.current)
-            .clone()
-            .ok_or_else(|| CallError::new("FAILED_PRECONDITION", "The PriVoke client runtime is not running."))?;
+        // The layer selection decides the worker. A request that does not decode goes to the Python worker, which
+        // answers it with `INVALID_PAYLOAD` as it always has.
+        let layers = AnalyzePromptRequest::decode(request).map(|message| message.layers).unwrap_or_default();
+        let slot = match routing::route(self.rust_capabilities(), Rpc::AnalyzePrompt, &layers) {
+            Engine::Rust => &self.rust_current,
+            Engine::Python => &self.current,
+        };
+        let generation =
+            lock(slot).clone().ok_or_else(|| CallError::new("FAILED_PRECONDITION", "The PriVoke client runtime is not running."))?;
         let id = generation.pool.next_id();
         let frame =
             worker::encode_request(Method::AnalyzePrompt, id, 0, request).map_err(|message| CallError::new("INVALID_ARGUMENT", message))?;
