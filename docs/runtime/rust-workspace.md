@@ -764,19 +764,19 @@ On a Windows host the worker's socket self-check cannot pass (W2 provides no net
 
 ### Compose
 
-`docker-compose.analysis.yml` is additive: nothing in `docker-compose.prod.yml` or `docker-compose.yml` changes. Layer it over the production file with the `legacy-training` and `quarantined-analysis` profiles:
+Since stage 8a the analysis services (`analysis-service`, `analysis-model-streaming`) and the fuzzer override belong to `docker-compose.prod.yml` under the `legacy-training` profile; the former `docker-compose.analysis.yml` overlay is gone. The test-only gateway overlay layers over the production file:
 
 ```
-docker build -f rust/services/model-streaming/Dockerfile -t privoke-model-streaming-rust:s03 .
-docker compose -f docker-compose.prod.yml -f docker-compose.analysis.yml \
-    --profile legacy-training --profile quarantined-analysis up -d --build
+docker build -f extension/client-runtime/Dockerfile --target runtime -t privoke-client-runtime-base:local .
+PRIVOKE_PKI_DIR=<dir> docker compose -f docker-compose.prod.yml -f docker-compose.analysis-test.yml \
+    --profile legacy-training up -d --build
 ```
 
-`PRIVOKE_W3_PKI_DIR` names a directory of certificates made by `privoke-pki` (`server-ca.pem`, `client-ca.pem`, `crl.pem`, `registry.toml`, `server/server.{crt,key}`, `svc/{fuzzer,analysis}.{crt,key}`); the test builds one per run and deletes it. The server certificate must carry the names `analysis-service`, `analysis-model-streaming` and `privoke-fuzzer`. The analysis image is built on the client-runtime image (`PRIVOKE_PYTHON_RUNTIME_IMAGE`), so the worker runs on the dependency set of the runtime it replaces.
+`PRIVOKE_PKI_DIR` names a directory laid out as `docker-compose.prod.yml` describes, made by `privoke-pki` (`server-ca.pem`, `client-ca.pem`, `live/{crl.pem,registry.toml}`, `server/server.{crt,key}`, `svc/{probe,param-update,fuzzer,analysis}.{crt,key}`); the test builds one per run and deletes it. The server certificate must carry the names `analysis-service`, `analysis-model-streaming` and `privoke-fuzzer`. The analysis image is built on the client-runtime image (`PRIVOKE_PYTHON_RUNTIME_IMAGE`), so the worker runs on the dependency set of the runtime it replaces.
 
 | Service | What it is |
 | --- | --- |
-| `analysis-service` (profile `quarantined-analysis`) | Networks: only `analysis-fuzzer` and `analysis-models`, both `internal: true`, so there is no route out and no published port. `read_only: true`, a `/tmp` tmpfs (`noexec,nosuid,nodev`), user 10001, `cap_drop: [ALL]`, `no-new-privileges`, Docker's default seccomp profile (never `unconfined`), `mem_limit` and `memswap_limit` 3 GiB, 2 CPUs, `pids_limit` 256. The model cache is the named volume `analysis-model-cache`. |
+| `analysis-service` (profile `legacy-training`) | Networks: only `analysis-fuzzer` and `analysis-models`, both `internal: true`, so there is no route out and no published port. `read_only: true`, a `/tmp` tmpfs (`noexec,nosuid,nodev`), user 10001, `cap_drop: [ALL]`, `no-new-privileges`, Docker's default seccomp profile (never `unconfined`), `mem_limit` and `memswap_limit` 3 GiB, 2 CPUs, `pids_limit` 256. The model cache is the named volume `analysis-model-cache`. |
 | `analysis-model-streaming` | The stage 3 Rust service on `analysis-models`, reading the same `model-data` volume the param-update service writes, read-only. |
 | `privoke-fuzzer` (override) | `PRIVOKE_RUNTIME_TARGET=analysis-service:50054` with the fuzzer's service certificate, so the unchanged stage 6 `service_channel` speaks mutual TLS to it; the dependency on the plaintext `client-runtime` is removed. Its own listener gets server credentials (stage 6) and admits the fuzzer and the test driver. |
 

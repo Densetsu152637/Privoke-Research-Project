@@ -1076,7 +1076,18 @@ def run_client_factory(stand_in, valid, server_ca_cert, lan, work: Path):
 # Static evidence
 # --------------------------------------------------------------------------------------
 
+# The recorded (legacy) static checks describe the Python, Go and reverse-proxy build. Stages 8a and 8b replaced three of the files they
+# read, so the legacy target reads those from the reference revision (the local tag made in stage 0), which is the tree UPDSEC-20261116
+# was recorded against. At that revision itself the tree and the reference are the same.
+LEGACY_REFERENCE = "rust-reference-20261117"
+REPLACED_BY_RUST_CUTOVER = ("deploy/gce/nginx.conf", "docker-compose.prod.yml", "deploy/gce/tests/smoke.py")
+
+
 def read(path):
+    if path in REPLACED_BY_RUST_CUTOVER:
+        shown = subprocess.run(["git", "show", f"{LEGACY_REFERENCE}:{path}"], cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        if shown.returncode == 0:
+            return shown.stdout.decode("utf-8", errors="replace")
     return (ROOT / path).read_text(encoding="utf-8", errors="replace")
 
 
@@ -1334,29 +1345,34 @@ class RustPki:
 class RustService:
     """The Rust server under test, in its container (or, for development, as a host process)."""
 
-    def __init__(self, work: Path, pki: RustPki, models_dir: Path, release_dir: Path, *, image: str, binary: Path | None = None):
+    def __init__(self, work: Path, pki: RustPki, models_dir: Path, release_dir: Path, *, image: str, binary: Path | None = None,
+                 no_v3: bool = False, reload_poll_secs: int | None = None, name: str = "pki"):
         self.pki, self.work, self.image, self.binary = pki, work, image, binary
         self.models_dir, self.release_dir = models_dir, release_dir
+        self.no_v3, self.reload_poll_secs = no_v3, reload_poll_secs
         self.public_port, self.internal_port = free_port(), free_port()
         self.container = f"updsec-rust-{os.getpid()}-{self.public_port}"
         self.process: subprocess.Popen | None = None
-        self.pki_dir = pki.publish(work / "pki")
+        self.pki_dir = pki.publish(work / name)
 
     def command_arguments(self, base: str) -> list[str]:
-        return ["--cert", f"{base}/server.crt", "--key", f"{base}/server.key", "--client-ca", f"{base}/client-ca.pem", "--crl", f"{base}/crl.pem",
-                "--registry", f"{base}/registry.toml"]
+        arguments = ["--cert", f"{base}/server.crt", "--key", f"{base}/server.key", "--client-ca", f"{base}/client-ca.pem", "--crl", f"{base}/crl.pem",
+                     "--registry", f"{base}/registry.toml"]
+        if self.reload_poll_secs:
+            arguments += ["--reload-poll-secs", str(self.reload_poll_secs)]
+        return arguments
 
     def start(self):
         if self.binary:
             environment = {**os.environ, "MODEL_ARTIFACT_DIR": str(self.models_dir), "MODEL_RELEASE_DIR": str(self.release_dir),
-                           "MODEL_LATEST_ID": V3_MODEL, "MODEL_STREAMING_BIND": "127.0.0.1", "MODEL_STREAMING_PORT": str(self.internal_port),
+                           "MODEL_LATEST_ID": LEGACY_MODEL if self.no_v3 else V3_MODEL, "MODEL_STREAMING_BIND": "127.0.0.1", "MODEL_STREAMING_PORT": str(self.internal_port),
                            "MODEL_STREAMING_PUBLIC_PORT": str(self.public_port)}
             self.process = subprocess.Popen([str(self.binary), *self.command_arguments(str(self.pki_dir))], env=environment,
                                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:
             command = ["docker", "run", "-d", "--rm", "--name", self.container,
                        "-p", f"127.0.0.1:{self.public_port}:{RUST_PUBLIC_CONTAINER_PORT}", "-p", f"127.0.0.1:{self.internal_port}:{RUST_INTERNAL_CONTAINER_PORT}",
-                       "-e", f"MODEL_LATEST_ID={V3_MODEL}", "-e", "MODEL_STREAMING_BIND=0.0.0.0",
+                       "-e", f"MODEL_LATEST_ID={LEGACY_MODEL if self.no_v3 else V3_MODEL}", "-e", "MODEL_STREAMING_BIND=0.0.0.0",
                        "-v", f"{self.models_dir}:/models:ro", "-v", f"{self.release_dir}:/model-releases:ro", "-v", f"{self.pki_dir}:/pki:ro",
                        self.image, *self.command_arguments("/pki")]
             subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -1424,9 +1440,22 @@ class RustClient:
             return {"observed": "rejected", "code": error.code().name, "message": short(error.details())}
 
 
+def skipped_row(row_id, cls, path, description, expected, identity, reason, gap=None) -> dict:
+    """A row the environment cannot run. It is recorded as `not_run` with the reason, never as a pass."""
+    return {"id": row_id, "class": cls, "path": path, "description": description, "expected": expected, "observed": "not_run", "code": "NOT_RUN",
+            "message": reason, "model_unchanged": None, "expected_codes": None, "identity": identity or "no client certificate", "property_met": None,
+            "gap": gap, "evidence": [], "duration_s": 0.0}
+
+
+NO_V3_REASON = "needs the standard V3 packages, which are ignored by Git and absent from this environment"
+
+
 def run_rust_rows(service: RustService, models_dir: Path, release_dir: Path) -> list[dict]:
-    """Every row of the stage 3 gate against the running Rust service. Nothing here is inferred: each row is a live call."""
+    """Every row of the stage 3 gate against the running Rust service. Nothing here is inferred: each row is a live call.
+    With `service.no_v3` the rows that need the standard V3 packages are recorded as `not_run`."""
     from privoke.v1 import parameters_pb2 as pb
+
+    no_v3 = service.no_v3
 
     rows: list[dict] = []
     ids = service.pki.ids
@@ -1435,7 +1464,11 @@ def run_rust_rows(service: RustService, models_dir: Path, release_dir: Path) -> 
     def snapshot_store():
         return release_fingerprint(release_dir), sha256_file(models_dir / f"{legacy}.json")
 
-    def row(row_id, cls, path, description, expected, identity, call, *, codes=None, gap=None, internal=False, stream=False, root=None, evidence=None):
+    def row(row_id, cls, path, description, expected, identity, call, *, codes=None, gap=None, internal=False, stream=False, root=None, evidence=None,
+            needs_v3=False):
+        if needs_v3 and no_v3:
+            rows.append(skipped_row(row_id, cls, path, description, expected, identity, NO_V3_REASON, gap))
+            return
         before = snapshot_store()
         started = time.time()
         client = RustClient(service, identity, internal=internal, root=root)
@@ -1451,6 +1484,9 @@ def run_rust_rows(service: RustService, models_dir: Path, release_dir: Path) -> 
                      "code": result["code"], "message": result["message"], "model_unchanged": unchanged, "expected_codes": list(codes) if codes else None,
                      "identity": identity or "no client certificate", "property_met": evaluate_rust_row(expected, result["observed"], result["code"], codes, unchanged),
                      "gap": gap, "evidence": evidence or [], "duration_s": round(time.time() - started, 3)})
+
+    def row_v3(*arguments, **keywords):
+        return row(*arguments, needs_v3=True, **keywords)
 
     R, U, S = "unauthorized_retrieval", "rust-public", "rust-internal"
     refused = ("UNAVAILABLE",)  # a refused handshake: the peer never reaches a handler
@@ -1473,16 +1509,24 @@ def run_rust_rows(service: RustService, models_dir: Path, release_dir: Path) -> 
                                                              manifest_sha256=manifest if manifest is not None else pin, asset_name=name), timeout=30)
 
     # The pin comes from a positive fetch by a registered installation: this is also the G8 default-package check.
-    probe = RustClient(service, "registered")
-    try:
-        manifest = probe.models.GetModelPackage(request(mine, V3_MODEL), timeout=30)
-        pin = manifest.manifest_sha256
-        fetched = {"assets": {a.name: (a.sha256, a.size_bytes) for a in manifest.assets}, "manifest_sha256": pin}
-    finally:
-        probe.close()
+    if no_v3:
+        # The pinned digest is a repository constant, so the rows that must be refused before any lookup can still present it.
+        text = (ROOT / "shared/python/privoke_model/standard_v3.py").read_text(encoding="utf-8")
+        pin = re.search(rf'"{re.escape(V3_MODEL)}"\s*:\s*"([0-9a-f]{{64}})"', text).group(1)
+    else:
+        probe = RustClient(service, "registered")
+        try:
+            manifest = probe.models.GetModelPackage(request(mine, V3_MODEL), timeout=30)
+            pin = manifest.manifest_sha256
+            fetched = {"assets": {a.name: (a.sha256, a.size_bytes) for a in manifest.assets}, "manifest_sha256": pin}
+        finally:
+            probe.close()
 
-    row("X1", "invalid_certificate", U, "Registered installation certificate from the client CA (positive control): fetch the default V3 manifest.", "positive_control",
+    row_v3("X1", "invalid_certificate", U, "Registered installation certificate from the client CA (positive control): fetch the default V3 manifest.", "positive_control",
         "registered", package(mine), gap="GAP-NO-RETRIEVAL-AUTH")
+
+    row("X1d", "invalid_certificate", U, "Registered installation streams the legacy catalogue model over mutual TLS (positive control that needs no V3 package).",
+        "positive_control", "registered", stream_params(mine), stream=True, gap="GAP-NO-RETRIEVAL-AUTH")
 
     def verified_asset(name):
         def fetch(client):
@@ -1496,9 +1540,9 @@ def run_rust_rows(service: RustService, models_dir: Path, release_dir: Path) -> 
             return type("Verified", (), {})()
         return fetch
 
-    row("X1b", "invalid_certificate", U, "Registered installation streams config.json of the default V3 package and verifies its pin (G8 positive control).",
+    row_v3("X1b", "invalid_certificate", U, "Registered installation streams config.json of the default V3 package and verifies its pin (G8 positive control).",
         "positive_control", "registered", verified_asset("config.json"), gap="GAP-NO-RETRIEVAL-AUTH")
-    row("X1c", "invalid_certificate", U, "Registered installation streams the whole model.safetensors of the default V3 package over mutual TLS and verifies its pin.",
+    row_v3("X1c", "invalid_certificate", U, "Registered installation streams the whole model.safetensors of the default V3 package over mutual TLS and verifies its pin.",
         "positive_control", "registered", verified_asset("model.safetensors"), gap="GAP-NO-RETRIEVAL-AUTH")
 
     # T1 to T12: the original retrieval rows, now against the public listener with mutual TLS.
@@ -1514,13 +1558,13 @@ def run_rust_rows(service: RustService, models_dir: Path, release_dir: Path) -> 
         stream_params(mine, "privoke-not-a-model"), stream=True, codes=("NOT_FOUND",))
     row("T6", R, U, "Download with a path-traversal model id (registered installation).", "rejected_unchanged", "registered",
         stream_params(mine, "../etc/passwd"), stream=True, codes=("NOT_FOUND",))
-    row("T7", R, "standard-v3", "Legacy float-tensor download of the standard V3 model (registered installation).", "rejected_unchanged", "registered",
+    row_v3("T7", R, "standard-v3", "Legacy float-tensor download of the standard V3 model (registered installation).", "rejected_unchanged", "registered",
         stream_params(mine, V3_MODEL), stream=True, codes=("FAILED_PRECONDITION",))
     row("T8", R, "standard-v3", "Standard V3 package manifest requested by an unauthenticated consumer.", "rejected_unchanged", None, package(""),
         codes=refused, gap="GAP-NO-RETRIEVAL-AUTH")
-    row("T9", R, "standard-v3", "Asset stream with a wrong manifest pin (registered installation).", "rejected_unchanged", "registered",
+    row_v3("T9", R, "standard-v3", "Asset stream with a wrong manifest pin (registered installation).", "rejected_unchanged", "registered",
         asset(manifest="0" * 64, consumer=mine), stream=True, codes=("INVALID_ARGUMENT",))
-    row("T10", R, "standard-v3", "Asset stream for a non-allowlisted asset name (path traversal).", "rejected_unchanged", "registered",
+    row_v3("T10", R, "standard-v3", "Asset stream for a non-allowlisted asset name (path traversal).", "rejected_unchanged", "registered",
         asset(name="../preparation.json", consumer=mine), stream=True, codes=("INVALID_ARGUMENT",))
     row("T11", R, "standard-v3", "Asset stream for a legacy model id (registered installation).", "rejected_unchanged", "registered",
         asset(model=legacy, consumer=mine), stream=True, codes=("INVALID_ARGUMENT",))
@@ -1555,9 +1599,9 @@ def run_rust_rows(service: RustService, models_dir: Path, release_dir: Path) -> 
     row("R8-unregistered", R, "standard-v3", "StreamModelAsset by a valid, unregistered installation certificate.", "rejected_unchanged", "second",
         asset(), stream=True, codes=denied, gap="GAP-NO-PER-INSTALLATION-AUTHZ")
     row("R8-reporter", R, "standard-v3", "StreamModelAsset with the telemetry reporter credential.", "rejected_unchanged", "reporter", asset(), stream=True, codes=denied)
-    row("R8-wrong-pin", R, "standard-v3", "StreamModelAsset with a wrong pin (registered installation).", "rejected_unchanged", "registered",
+    row_v3("R8-wrong-pin", R, "standard-v3", "StreamModelAsset with a wrong pin (registered installation).", "rejected_unchanged", "registered",
         asset(manifest="0" * 64, consumer=mine), stream=True, codes=("INVALID_ARGUMENT",))
-    row("R8-not-allowlisted", R, "standard-v3", "StreamModelAsset for a non-allowlisted asset name (registered installation).", "rejected_unchanged",
+    row_v3("R8-not-allowlisted", R, "standard-v3", "StreamModelAsset for a non-allowlisted asset name (registered installation).", "rejected_unchanged",
         "registered", asset(name="../manifest.json", consumer=mine), stream=True, codes=("INVALID_ARGUMENT",))
 
     # R9: the private RPCs are not served on the public listener at all.
@@ -1575,15 +1619,16 @@ def run_rust_rows(service: RustService, models_dir: Path, release_dir: Path) -> 
     # X8 variant: per-installation authorisation.
     row("X8", "impersonation", U, "A second, distinct installation certificate from the same client CA whose id is not registered.", "rejected_unchanged",
         "second", package(""), codes=denied, gap="GAP-NO-PER-INSTALLATION-AUTHZ")
+    second = ids["second-registered"]
     row("X8b", "impersonation", U, "A second installation certificate from the same client CA whose id is registered (positive control).", "positive_control",
-        "second-registered", package(ids["second-registered"]), gap="GAP-NO-PER-INSTALLATION-AUTHZ")
+        "second-registered", stream_params(second) if no_v3 else package(second), stream=no_v3, gap="GAP-NO-PER-INSTALLATION-AUTHZ")
 
     # The internal listener, for the rows that need GetModelParameters to be reached.
     row("I1", R, S, "A registered service identity downloads a legacy model on the internal listener (positive control).", "positive_control", "runtime",
         lambda client: client.models.GetModelParameters(request("param-update"), timeout=30), internal=True)
     row("I2", R, S, "A registered installation (consumer role) on the internal listener.", "rejected_unchanged", "registered",
         lambda client: client.models.GetModelParameters(request(mine), timeout=30), internal=True, codes=denied)
-    row("I3", R, S, "A registered service identity asks the internal listener for the V3 model through the legacy float RPC.", "rejected_unchanged",
+    row_v3("I3", R, S, "A registered service identity asks the internal listener for the V3 model through the legacy float RPC.", "rejected_unchanged",
         "runtime", lambda client: client.models.GetModelParameters(request("param-update", V3_MODEL), timeout=30), internal=True,
         codes=("FAILED_PRECONDITION",))
     row("I4", R, S, "A registered service identity calls a consumer RPC on the internal listener.", "rejected_unchanged", "runtime", package(""),
@@ -1823,6 +1868,8 @@ def run_rust_update_rows(args, work: Path, pki: RustUpdatePki) -> list[dict]:
             "rejected_unchanged", "stranger", submit([bias], source="stranger"), codes=denied, gap="GAP-NO-PER-INSTALLATION-AUTHZ")
         row(service, "R2", "impersonation", "A registered publisher (test-trainer) claims source_id=server-fuzzer.", "rejected_unchanged", "impostor",
             submit([bias], source=SOURCE_FUZZER), codes=denied, gap="GAP-IDENTITY-SELF-ASSERTED")
+        rows.append(plaintext_row("R6-update", "A plaintext (non-TLS) call to the update service port, as a peer on the Compose network could make.",
+                                  "rust-update", service.port, "update"))
         for row_id, text, values in (("E1", "One coordinate at 1.0000001 (just above the 1.0 per-coordinate bound).", [1.0000001, 0, 0, 0]),
                                      ("E2", "Coordinate magnitude 100.", [100.0, 0, 0, 0]),
                                      ("E3", "Coordinate magnitude 3.4e38 (largest finite float32).", [3.4e38, 0, 0, 0]),
@@ -1959,19 +2006,22 @@ def run_rust_target(args) -> int:
     import platform
 
     release_dir = args.release_dir
-    if not release_dir.is_dir():
+    if not args.no_v3 and not release_dir.is_dir():
         print(f"standard release store not found: {release_dir}", file=sys.stderr)
         return 2
-    release_before = release_fingerprint(release_dir)
     scratch_parent = ROOT / ".tmp" if (ROOT / ".tmp").is_dir() else None
     work = Path(tempfile.mkdtemp(prefix="updsec-rust-", dir=scratch_parent))
+    if args.no_v3:
+        release_dir = work / "no-v3-releases"
+        release_dir.mkdir()
+    release_before = release_fingerprint(release_dir)
     models_dir = work / "models"
     models_dir.mkdir()
     shutil.copyfile(ROOT / "models" / f"{LEGACY_MODEL}.json", models_dir / f"{LEGACY_MODEL}.json")
     service = None
     try:
         pki = RustPki(work)
-        service = RustService(work, pki, models_dir.resolve(), release_dir.resolve(), image=args.rust_image, binary=args.rust_binary)
+        service = RustService(work, pki, models_dir.resolve(), release_dir.resolve(), image=args.rust_image, binary=args.rust_binary, no_v3=args.no_v3)
         service.start()
         rows = run_rust_rows(service, models_dir, release_dir)
         logs = service.logs()
@@ -1997,6 +2047,588 @@ def run_rust_target(args) -> int:
     return 0 if not unmet and not missing and record["standard_release_store_unchanged"] else 1
 
 
+# --------------------------------------------------------------------------------------
+# Rust target, stage 9: the whole Rust server stack. Selected with `--target rust --rust-service all`. It runs the stage 3 and
+# stage 5 rows, adds the telemetry rows (R10), the live revocation rows (X13), the plaintext rows (R6), the start-up refusal
+# rows and the static rows over the Rust deployment configuration, and writes one record with the eight-gap table (G3).
+# --------------------------------------------------------------------------------------
+
+STACK_RECORD_ID = "UPDSEC-RUST-STACK"
+RUST_TELEMETRY_DEFAULT_IMAGE = "privoke-telemetry-rust:dev"
+RUST_TELEMETRY_PUBLIC_PORT = 58443
+RUST_TELEMETRY_INTERNAL_PORT = 50055
+X13_POLL_SECONDS = 1
+X13_DEADLINE_SECONDS = 45
+PRIVACY_MODULE = ROOT / "extension/client-runtime/src/telemetry/privacy.py"
+DEPLOYMENT_COMPOSE_FILES = ("docker-compose.prod.yml", "deploy/gce/compose.yml", "docker-compose.yml")
+TLS_FLAGS = ("--cert=", "--key=", "--client-ca=", "--crl=", "--registry=")
+STACK_TLS_SERVICES = ("model-streaming-service", "telemetry-service", "param-update-service", "analysis-model-streaming", "analysis-service")
+STACK_PUBLIC_PORTS = {"model-streaming-service": 50443, "telemetry-service": 58443}
+STACK_INTERNAL_PORTS = {50051, 50052, 50053, 50054, 50055}
+LOOPBACK_DEFAULT = re.compile(r"127\.0\.0\.1:\d+|\$\{[A-Z_]+:-127\.0\.0\.1:\d+\}")
+X13_NAMES = ("x13-revoked", "x13-denied", "x13-bystander")
+
+
+class RustStackPki(RustUpdatePki):
+    """The stage 5 PKI plus three registered installations for the X13 revocation rows."""
+
+    def __init__(self, work: Path):
+        import uuid
+
+        super().__init__(work)
+        for name in X13_NAMES:
+            self.ids[name] = str(uuid.uuid4())
+            self.certs[name] = self.client_ca.issue(name, cn=f"installation-{name}", usage="clientAuth", san=f"URI:{URN_INSTALLATION}{self.ids[name]}")
+            self.registered_ids.append(self.ids[name])
+
+
+def replace_atomically(path: Path, content: bytes) -> None:
+    """Swap a hot-reloaded file the way `privoke-pki-sync` does: write beside it, then rename over it."""
+    temporary = path.with_name(path.name + ".new")
+    temporary.write_bytes(content)
+    temporary.chmod(0o644)
+    os.replace(temporary, path)
+
+
+def revoke_certificate(authority, label: str) -> bytes:
+    """Revoke one issued certificate in the CA database and return the new signed CRL (the CRL number advances)."""
+    authority._run("ca", "-config", "ca.cnf", "-revoke", f"{label}.crt", "-keyfile", "ca.key", "-cert", "ca.crt", "-crl_reason", "keyCompromise")
+    authority._run("ca", "-config", "crl.cnf", "-gencrl", "-keyfile", "ca.key", "-cert", "ca.crt", "-out", "crl.pem")
+    return (authority.dir / "crl.pem").read_bytes()
+
+
+def plaintext_row(row_id: str, description: str, path: str, port: int, kind: str, *, gap: str = "GAP-LOOPBACK-PLAINTEXT-POLICY") -> dict:
+    """R6: a call without TLS to a mutual-TLS listener must fail at the connection, never reach a handler."""
+    import grpc
+
+    started = time.time()
+    channel = grpc.insecure_channel(f"127.0.0.1:{port}", options=(("grpc.enable_http_proxy", 0),))
+    try:
+        if kind == "telemetry":
+            from privoke.v1 import telemetry_pb2 as tpb, telemetry_pb2_grpc as trpc
+
+            def call():
+                return trpc.TelemetryServiceStub(channel).Health(tpb.TelemetryHealthRequest(), timeout=10)
+        else:
+            from privoke.v1 import parameters_pb2 as pb, parameters_pb2_grpc as rpc
+            stub = rpc.ParamUpdateServiceStub if kind == "update" else rpc.ModelStreamingServiceStub
+
+            def call():
+                return stub(channel).Health(pb.HealthRequest(), timeout=10)
+        try:
+            call()
+            observed, code, message = "accepted", "OK", "a plaintext call was served"
+        except grpc.RpcError as error:
+            observed, code, message = "rejected", error.code().name, short(error.details())
+    finally:
+        channel.close()
+    return {"id": row_id, "class": "invalid_certificate", "path": path, "description": description, "expected": "rejected_unchanged", "observed": observed,
+            "code": code, "message": message, "model_unchanged": True, "expected_codes": ["UNAVAILABLE"], "identity": "no TLS at all",
+            "property_met": observed == "rejected" and code == "UNAVAILABLE", "gap": gap, "evidence": [], "duration_s": round(time.time() - started, 3)}
+
+
+class RustTelemetryService:
+    """The Rust telemetry service in its container, on loopback ports and a fresh data directory."""
+
+    def __init__(self, work: Path, pki: RustPki, *, image: str):
+        self.pki, self.image = pki, image
+        self.root = work / "telemetry"
+        self.data_dir = self.root / "data"
+        self.data_dir.mkdir(parents=True)
+        self.data_dir.chmod(0o777)  # the container runs as a non-root user
+        self.pki_dir = pki.publish(self.root / "pki")
+        self.public_port, self.internal_port = free_port(), free_port()
+        self.container = f"updsec-rust-telemetry-{os.getpid()}-{self.public_port}"
+
+    def start(self):
+        command = ["docker", "run", "-d", "--rm", "--name", self.container,
+                   "-p", f"127.0.0.1:{self.public_port}:{RUST_TELEMETRY_PUBLIC_PORT}", "-p", f"127.0.0.1:{self.internal_port}:{RUST_TELEMETRY_INTERNAL_PORT}",
+                   "-e", "TELEMETRY_BIND=0.0.0.0", "-v", f"{self.data_dir}:/data", "-v", f"{self.pki_dir}:/pki:ro", self.image,
+                   "--cert", "/pki/server.crt", "--key", "/pki/server.key", "--client-ca", "/pki/client-ca.pem", "--crl", "/pki/crl.pem",
+                   "--registry", "/pki/registry.toml"]
+        subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        deadline = time.time() + 120
+        while time.time() < deadline:
+            client = RustTelemetryClient(self, "runtime", internal=True)
+            try:
+                if client.stub.Health(client.pb.TelemetryHealthRequest(), timeout=3).status == "SERVING":
+                    return
+            except Exception:  # noqa: BLE001 - not ready yet
+                pass
+            finally:
+                client.close()
+            time.sleep(0.5)
+        raise RuntimeError(f"the Rust telemetry service did not serve: {self.logs()[-600:]}")
+
+    def logs(self) -> str:
+        return subprocess.run(["docker", "logs", "--tail", "60", self.container], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+
+    def stop(self):
+        subprocess.run(["docker", "rm", "-f", self.container], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+class RustTelemetryClient:
+    def __init__(self, service: RustTelemetryService, identity: str | None, *, internal: bool = False):
+        import grpc
+        from privoke.v1 import telemetry_pb2 as pb, telemetry_pb2_grpc as rpc
+
+        self.grpc, self.pb = grpc, pb
+        certificate, key = service.pki.certs[identity] if identity else (None, None)
+        credentials = grpc.ssl_channel_credentials(root_certificates=service.pki.server_ca.cert, private_key=key, certificate_chain=certificate)
+        port = service.internal_port if internal else service.public_port
+        self.channel = grpc.secure_channel(f"127.0.0.1:{port}", credentials, options=(("grpc.enable_http_proxy", 0),))
+        self.stub = rpc.TelemetryServiceStub(self.channel)
+
+    def close(self):
+        self.channel.close()
+
+    def packet(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("privoke_updsec_privacy", PRIVACY_MODULE)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        truth = {"action": "ALLOW", "risk_bucket": "0.0-0.2", "primary_category": "NONE", "model_version": "v0.3.0", "time_bucket": "08-12_UTC"}
+        values = module.randomize_report(truth, 1.0, rng=random.Random(20261117))
+        return self.pb.TelemetryPacket(**values, privacy_mechanism=module.MECHANISM, privacy_epsilon=1.0)
+
+    def outcome(self, fn):
+        try:
+            result = fn()
+            return {"observed": "accepted", "code": "OK", "message": type(result).__name__}
+        except self.grpc.RpcError as error:
+            return {"observed": "rejected", "code": error.code().name, "message": short(error.details())}
+
+
+def run_telemetry_rows(args, work: Path, pki: RustStackPki) -> list[dict]:
+    """R10 and the telemetry half of R6 against the Rust telemetry container. The "store unchanged" check is the exact sample count."""
+    rows: list[dict] = []
+    service = RustTelemetryService(work, pki, image=args.rust_telemetry_image)
+    refused, denied, unimplemented = ("UNAVAILABLE",), ("PERMISSION_DENIED",), ("UNIMPLEMENTED",)
+    try:
+        service.start()
+
+        def samples() -> int:
+            client = RustTelemetryClient(service, "runtime", internal=True)
+            try:
+                return client.stub.GetTelemetrySummary(client.pb.GetTelemetrySummaryRequest(), timeout=10).sample_count
+            finally:
+                client.close()
+
+        def row(row_id, description, expected, identity, call, *, internal=False, codes=None, gap=None):
+            before, started = samples(), time.time()
+            client = RustTelemetryClient(service, identity, internal=internal)
+            try:
+                result = client.outcome(lambda: call(client))
+            except Exception as error:  # a harness failure must be visible, never a silent pass
+                result = {"observed": "not_run", "code": "HARNESS_ERROR", "message": short(f"{type(error).__name__}: {error}")}
+            finally:
+                client.close()
+            unchanged = samples() == before
+            rows.append({"id": row_id, "class": "unauthorized_retrieval" if "summary" in row_id else "invalid_credentials", "path": "rust-telemetry",
+                         "description": description, "expected": expected, "observed": result["observed"], "code": result["code"], "message": result["message"],
+                         "model_unchanged": unchanged, "expected_codes": list(codes) if codes else None, "identity": identity or "no client certificate",
+                         "property_met": evaluate_rust_row(expected, result["observed"], result["code"], codes, unchanged), "gap": gap, "evidence": [],
+                         "duration_s": round(time.time() - started, 3)})
+
+        def record(client):
+            return client.stub.RecordTelemetry(client.packet(), timeout=10)
+
+        def summary(client):
+            return client.stub.GetTelemetrySummary(client.pb.GetTelemetrySummaryRequest(), timeout=10)
+
+        row("R10-no-cert", "RecordTelemetry on the public listener without a client certificate.", "rejected_unchanged", None, record, codes=refused,
+            gap="GAP-NO-PER-INSTALLATION-AUTHZ")
+        row("R10-installation", "RecordTelemetry on the public listener with a registered installation certificate (not the reporter credential).",
+            "rejected_unchanged", "registered", record, codes=denied, gap="GAP-NO-PER-INSTALLATION-AUTHZ")
+        row("R10-unregistered", "RecordTelemetry on the public listener with a valid but unregistered installation certificate.", "rejected_unchanged",
+            "second", record, codes=denied, gap="GAP-NO-PER-INSTALLATION-AUTHZ")
+        row("R10-summary-no-cert", "GetTelemetrySummary on the internal listener without a client certificate.", "rejected_unchanged", None, summary,
+            internal=True, codes=refused)
+        row("R10-summary-installation", "GetTelemetrySummary on the internal listener with a registered installation certificate.", "rejected_unchanged",
+            "registered", summary, internal=True, codes=denied)
+        row("R10-summary-unregistered", "GetTelemetrySummary on the internal listener with an unregistered installation certificate.", "rejected_unchanged",
+            "second", summary, internal=True, codes=denied)
+        row("R10-summary-reporter", "GetTelemetrySummary on the internal listener with the shared reporter credential.", "rejected_unchanged", "reporter",
+            summary, internal=True, codes=denied)
+        row("R10-summary-public", "GetTelemetrySummary on the public listener with the reporter credential.", "rejected_unchanged", "reporter", summary,
+            codes=unimplemented)
+        row("R10-reporter", "The shared reporter credential records a randomised report (positive control).", "positive_control", "reporter", record,
+            gap="GAP-NO-PER-INSTALLATION-AUTHZ")
+        row("R10-summary-service", "A registered service identity reads the aggregate summary on the internal listener (positive control).",
+            "positive_control", "runtime", summary, internal=True)
+        rows.append(plaintext_row("R6-telemetry-public", "A plaintext call to the public telemetry port.", "rust-telemetry", service.public_port, "telemetry"))
+        rows.append(plaintext_row("R6-telemetry-internal", "A plaintext call to the internal telemetry port.", "rust-telemetry", service.internal_port, "telemetry"))
+        log = service.logs()
+        leaks = [identifier for identifier in (pki.ids["registered"], pki.ids["second"]) if identifier in log]
+        rows.append({"id": "R10-no-identity-in-log", "class": "invalid_credentials", "path": "rust-telemetry", "expected": "no_identity_logged", "observed": "rejected",
+                     "code": "OK", "message": "no installation id in the container log" if not leaks else "an installation id was logged",
+                     "description": "After refused and accepted requests from named identities, the container log holds none of their installation ids.",
+                     "model_unchanged": None, "expected_codes": None, "identity": "registered, unregistered, reporter", "property_met": not leaks,
+                     "gap": "GAP-IDENTITY-SELF-ASSERTED", "evidence": [], "duration_s": 0.0})
+    finally:
+        service.stop()
+    return rows
+
+
+def run_x13_rows(args, work: Path, pki: RustStackPki, models_dir: Path, release_dir: Path) -> list[dict]:
+    """X13 live: revocation, a corrupt CRL and the registry deny list take effect without restarting the real service."""
+    from privoke.v1 import parameters_pb2 as pb
+
+    service = RustService(work, pki, models_dir, release_dir, image=args.rust_image, binary=args.rust_binary, no_v3=True,
+                          reload_poll_secs=X13_POLL_SECONDS, name="pki-x13")
+    rows: list[dict] = []
+
+    def legacy_request(identity):
+        return pb.ModelParametersRequest(consumer_id=pki.ids[identity], model_id=LEGACY_MODEL)
+
+    def attempt(identity: str) -> dict:
+        client = RustClient(service, identity)
+        try:
+            return client.outcome(lambda: client.models.StreamModelParameters(legacy_request(identity), timeout=30), stream=True)
+        finally:
+            client.close()
+
+    def until(identity: str, observed: str, code: str | None = None) -> tuple[dict, float]:
+        started, result = time.time(), attempt(identity)
+        while time.time() - started < X13_DEADLINE_SECONDS and not (result["observed"] == observed and (code is None or result["code"] == code)):
+            time.sleep(0.5)
+            result = attempt(identity)
+        return result, time.time() - started
+
+    def add(row_id, description, expected, identity, result, met, *, seconds=0.0, codes=None):
+        rows.append({"id": row_id, "class": "expired_credentials" if "revoked" in row_id else "invalid_credentials", "path": "rust-public", "description": description,
+                     "expected": expected, "observed": result["observed"], "code": result["code"], "message": result["message"], "model_unchanged": True,
+                     "expected_codes": list(codes) if codes else None, "identity": identity, "property_met": bool(met), "gap": "GAP-NO-REVOCATION",
+                     "evidence": [], "duration_s": round(seconds, 3)})
+
+    def started_at() -> str:
+        if args.rust_binary:
+            return str(service.process.pid) if service.process else ""
+        return subprocess.run(["docker", "inspect", "-f", "{{.State.StartedAt}}", service.container], text=True, stdout=subprocess.PIPE).stdout.strip()
+
+    try:
+        service.start()
+        first_start = started_at()
+        crl_path, registry_path = service.pki_dir / "crl.pem", service.pki_dir / "registry.toml"
+        for name in X13_NAMES:
+            result = attempt(name)
+            add(f"X13-baseline-{name}", f"A registered installation ({name}) is served before any revocation (positive control).", "positive_control", name, result,
+                result["observed"] == "accepted")
+        held = RustClient(service, "x13-denied")
+        try:
+            result = held.outcome(lambda: held.models.StreamModelParameters(legacy_request("x13-denied"), timeout=30), stream=True)
+            add("X13-open-connection-baseline", "The installation that will be deny-listed has an open, working connection (positive control).", "positive_control",
+                "x13-denied", result, result["observed"] == "accepted")
+
+            # 1. Revoke one installation in the CA and swap the CRL atomically; no restart.
+            replace_atomically(crl_path, revoke_certificate(pki.client_ca, "x13-revoked"))
+            result, seconds = until("x13-revoked", "rejected", "UNAVAILABLE")
+            add("X13-revoked", "A revoked installation's new handshake fails after the CRL is swapped, without a restart.", "rejected_unchanged", "x13-revoked",
+                result, result["observed"] == "rejected" and result["code"] == "UNAVAILABLE", seconds=seconds, codes=("UNAVAILABLE",))
+            result = attempt("x13-bystander")
+            add("X13-bystander", "An installation that was not revoked is still served after the CRL swap (positive control).", "positive_control",
+                "x13-bystander", result, result["observed"] == "accepted")
+
+            # 2. A corrupt CRL must not replace the working configuration.
+            valid_crl = crl_path.read_bytes()
+            replace_atomically(crl_path, b"-----BEGIN X509 CRL-----\nnot a crl\n-----END X509 CRL-----\n")
+            time.sleep(X13_POLL_SECONDS * 5)
+            result = attempt("x13-revoked")
+            add("X13-corrupt-crl-keeps-revocation", "After the CRL file is replaced by garbage, the revoked installation is still refused (the old configuration is kept).",
+                "rejected_unchanged", "x13-revoked", result, result["observed"] == "rejected" and result["code"] == "UNAVAILABLE", codes=("UNAVAILABLE",))
+            result = attempt("x13-bystander")
+            add("X13-corrupt-crl-keeps-serving", "After the CRL file is replaced by garbage, the service keeps serving a valid installation (positive control).",
+                "positive_control", "x13-bystander", result, result["observed"] == "accepted")
+            replace_atomically(crl_path, valid_crl)
+
+            # 3. The registry deny list wins on an open connection and on a new one.
+            deny = f'\n[[deny]]\nurn = "{URN_INSTALLATION}{pki.ids["x13-denied"]}"\nreason = "update-security X13"\n'
+            replace_atomically(registry_path, registry_path.read_bytes() + deny.encode())
+            started, result = time.time(), None
+            while time.time() - started < X13_DEADLINE_SECONDS:
+                result = held.outcome(lambda: held.models.StreamModelParameters(legacy_request("x13-denied"), timeout=30), stream=True)
+                if result["observed"] == "rejected":
+                    break
+                time.sleep(0.5)
+            add("X13-denylist-open-connection", "A deny-listed identity gets PERMISSION_DENIED on a connection that was already open.", "rejected_unchanged",
+                "x13-denied", result, result["observed"] == "rejected" and result["code"] == "PERMISSION_DENIED", seconds=time.time() - started,
+                codes=("PERMISSION_DENIED",))
+        finally:
+            held.close()
+        result = attempt("x13-denied")
+        add("X13-denylist-new-connection", "The same deny-listed identity is also refused on a new connection.", "rejected_unchanged", "x13-denied", result,
+            result["observed"] == "rejected" and result["code"] == "PERMISSION_DENIED", codes=("PERMISSION_DENIED",))
+        result = attempt("x13-bystander")
+        add("X13-bystander-after-denylist", "A registered installation that is not deny-listed is still served (positive control).", "positive_control",
+            "x13-bystander", result, result["observed"] == "accepted")
+        unchanged = started_at() == first_start
+        rows.append({"id": "X13-no-restart", "class": "expired_credentials", "path": "rust-public", "expected": "same_process", "observed": "rejected" if unchanged else "accepted",
+                     "code": "OK", "message": "the service was never restarted" if unchanged else "the service restarted during the run",
+                     "description": "None of the changes above needed a restart: the service process is the one that started the run.", "model_unchanged": None,
+                     "expected_codes": None, "identity": "operator", "property_met": unchanged, "gap": "GAP-NO-REVOCATION", "evidence": [], "duration_s": 0.0})
+        for label, port in (("public", service.public_port), ("internal", service.internal_port)):
+            rows.append(plaintext_row(f"R6-model-{label}", f"A plaintext call to the {label} model-streaming port.", "rust-public", port, "model"))
+    finally:
+        service.stop()
+    return rows
+
+
+def run_startup_rows(args, pki: RustStackPki, work: Path) -> list[dict]:
+    """G2 start-up check: each cloud image started without `--client-ca` (and, separately, without `--crl`) exits non-zero."""
+    rows: list[dict] = []
+    images = {"model-streaming-service": args.rust_image, "param-update-service": args.rust_update_image, "telemetry-service": args.rust_telemetry_image}
+    if args.rust_analysis_image:
+        images["analysis-service"] = args.rust_analysis_image
+    pki_dir = pki.publish(work / "pki-startup")
+    full = ["--cert=/pki/server.crt", "--key=/pki/server.key", "--client-ca=/pki/client-ca.pem", "--crl=/pki/crl.pem", "--registry=/pki/registry.toml"]
+    for name, image in images.items():
+        for missing in ("client-ca", "crl"):
+            arguments = [flag for flag in full if not flag.startswith(f"--{missing}=")]
+            container = f"updsec-startup-{os.getpid()}-{name}-{missing}"
+            started, code, output = time.time(), None, ""
+            command = ["docker", "run", "--rm", "--name", container, "--network", "none", "-v", f"{pki_dir}:/pki:ro", image, *arguments]
+            try:
+                result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
+                code, output = result.returncode, result.stdout[-160:]
+            except subprocess.TimeoutExpired:
+                output = "still running after 60 s"
+                subprocess.run(["docker", "rm", "-f", container], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            refused = code not in (None, 0)
+            rows.append({"id": f"S-startup-{name}-no-{missing}", "class": "invalid_certificate", "path": "container-startup",
+                         "description": f"{name} started without --{missing} must exit non-zero before serving.", "expected": "refuses_to_start",
+                         "observed": "rejected" if refused else "accepted", "code": f"exit {code}" if code is not None else "TIMEOUT",
+                         "message": short(output.strip().splitlines()[-1] if output.strip() else ""), "model_unchanged": None, "expected_codes": None,
+                         "identity": "operator", "property_met": refused, "gap": "GAP-NO-PUBLISHER-AUTH", "evidence": [], "duration_s": round(time.time() - started, 3)})
+    return rows
+
+
+def compose_json(*files: str) -> dict:
+    environment = {key: value for key, value in os.environ.items() if key not in {"COMPOSE_FILE", "COMPOSE_PROFILES"}}
+    command = ["docker", "compose", "--profile", "*"]
+    for file in files:
+        command += ["-f", file]
+    result = subprocess.run(command + ["config", "--no-interpolate", "--no-env-resolution", "--format", "json"], cwd=ROOT, env=environment,
+                            capture_output=True, text=True, timeout=60)
+    if result.returncode:
+        raise RuntimeError(f"docker compose config failed for {files}: {result.stderr.strip()[:300]}")
+    return json.loads(result.stdout)
+
+
+def published_ports(service: dict) -> list[tuple[str, int]]:
+    ports = []
+    for entry in service.get("ports", []):
+        if isinstance(entry, dict):
+            ports.append((f"{entry['host_ip']}:{entry['published']}", int(entry["target"])))
+        else:
+            host, _, target = str(entry).rpartition(":")
+            ports.append((host, int(target)))
+    return ports
+
+
+def rust_static_evidence() -> list[dict]:
+    """Static rows over the Rust deployment configuration. They replace the checks of the reverse-proxy configuration of the recorded
+    harness; each one is a check of files, not a behaviour test, and is labelled `static`."""
+    evidence: list[dict] = []
+
+    def add(row_id: str, claim: str, detail: list[str]) -> None:
+        evidence.append({"id": row_id, "claim": claim, "holds": not detail, "detail": detail or ["every rendered service satisfies it"]})
+
+    try:
+        configs = {file: compose_json(file) for file in DEPLOYMENT_COMPOSE_FILES}
+    except (RuntimeError, OSError) as error:
+        return [{"id": "ST0", "claim": "the Compose files render", "holds": False, "detail": [str(error)]}]
+    problems: dict[str, list[str]] = {key: [] for key in ("ST1", "ST2", "ST3", "ST5")}
+    for file, config in configs.items():
+        development = file == "docker-compose.yml"
+        for name, service in config["services"].items():
+            published = published_ports(service)
+            if name in STACK_TLS_SERVICES and not development:
+                command = [str(item) for item in service.get("command", [])]
+                for flag in TLS_FLAGS:
+                    if not any(item.startswith(flag) for item in command):
+                        problems["ST1"].append(f"{file}:{name} has no {flag}")
+                problems["ST1"].extend(f"{file}:{name} passes {item}" for item in command if re.search(r"insecure|plaintext|no-tls", item, re.I))
+            environment = service.get("environment") or {}
+            names = list(environment) if isinstance(environment, dict) else [str(item).split("=", 1)[0] for item in environment]
+            problems["ST1"].extend(f"{file}:{name} sets {key}" for key in names if "ALLOW_INSECURE" in key or "PLAINTEXT" in key)
+            for host, target in published:
+                if not LOOPBACK_DEFAULT.fullmatch(host):
+                    problems["ST2"].append(f"{file}:{name} publishes {host}:{target} outside loopback by default")
+                if not development and STACK_PUBLIC_PORTS.get(name) != target:
+                    problems["ST2"].append(f"{file}:{name} publishes the unexpected port {target}")
+                if not development and target in STACK_INTERNAL_PORTS:
+                    problems["ST3"].append(f"{file}:{name} publishes the internal port {target}")
+            if not development and name in ("analysis-service", "analysis-model-streaming") and published:
+                problems["ST3"].append(f"{file}:{name} must not publish a port")
+            if not development:
+                for needed, ok in (("read_only", bool(service.get("read_only"))), ("cap_drop ALL", "ALL" in (service.get("cap_drop") or [])),
+                                   ("no-new-privileges", "no-new-privileges:true" in (service.get("security_opt") or []))):
+                    if not ok:
+                        problems["ST5"].append(f"{file}:{name} lacks {needed}")
+                if service.get("privileged") or any(str(item).startswith("seccomp") for item in service.get("security_opt") or []):
+                    problems["ST5"].append(f"{file}:{name} is privileged or changes seccomp")
+    add("ST1", "Every Rust server in the production and deployment Compose files starts with the five TLS flags (--cert, --key, --client-ca, --crl, --registry), "
+        "passes no plaintext or insecure flag and sets no plaintext opt-out variable.", problems["ST1"])
+    add("ST2", "The only published ports are the two public listeners, 50443 and 58443, on loopback unless the operator overrides them.", problems["ST2"])
+    add("ST3", "No internal listener (50051, 50052, 50053, 50054, 50055) is published, and the quarantined analysis services publish nothing.", problems["ST3"])
+    grep = subprocess.run(["git", "grep", "-n", "-i", "ngin[x]", "--", "deploy", ".github", "docker-compose.yml", "docker-compose.prod.yml", "docker-compose.gpu.yml"],
+                          cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    proxy = grep.stdout.splitlines() + (["a proxy configuration file exists under deploy/gce"] if list((ROOT / "deploy/gce").glob("ngin*.conf")) else [])
+    add("ST4", "No reverse proxy is referenced in any deployment path (G1).", proxy)
+    add("ST5", "Every deployed container has a read-only root, drops all capabilities, sets no-new-privileges and keeps Docker's default seccomp profile.",
+        problems["ST5"])
+    features = []
+    for dockerfile in sorted((ROOT / "rust/services").glob("*/Dockerfile")):
+        for number, line in enumerate(dockerfile.read_text(encoding="utf-8").splitlines(), 1):
+            if line.lstrip().startswith("RUN cargo build") and re.search(r"--(all-)?features|workstation-loopback", line):
+                features.append(f"{dockerfile.relative_to(ROOT).as_posix()}:{number}")
+    add("ST6", "The cloud images are built with no cargo feature, so the workstation-loopback listener is never compiled in.", features)
+    surface = []
+    for service_name, private in (("model-streaming", "GetModelParameters"), ("telemetry", "GetTelemetrySummary")):
+        text = "\n".join(path.read_text(encoding="utf-8", errors="replace") for path in (ROOT / f"rust/services/{service_name}/src").glob("*.rs"))
+        if private not in text:
+            surface.append(f"{service_name}: private RPC {private} is not referenced, so the public/internal split cannot be checked")
+    add("ST7", "The model and telemetry servers still name their private RPCs, so the public/internal split that R9 and R10 exercise live is present in the source.", surface)
+    return evidence
+
+
+STACK_GAPS = [
+    {"id": "GAP-NO-PUBLISHER-AUTH", "status": "met", "families": ["A1", "T14", "R1", "S-startup"], "static": ["ST1", "ST3"],
+     "reason": "The update service serves only on the internal listener, requires mutual TLS and the publisher role for SubmitParameterUpdate, and exits without a client CA or CRL."},
+    {"id": "GAP-IDENTITY-SELF-ASSERTED", "status": "kept (telemetry)", "families": ["A2", "T2", "R2", "R10-no-identity-in-log"], "static": [],
+     "reason": "source_id and consumer_id come from the certificate for update and model retrieval (met). Telemetry reports carry no identity field and the shared reporter credential is deliberately not individual, so nothing is bound there (kept)."},
+    {"id": "GAP-NO-CREDENTIAL-MECHANISM", "status": "met", "families": ["A3", "R3"], "static": [],
+     "reason": "Client certificates are checked by the service itself: a bearer token is ignored, and expired, not-yet-valid, wrong-usage and foreign-CA certificates are refused at the handshake."},
+    {"id": "GAP-NO-RETRIEVAL-AUTH", "status": "met", "families": ["T1", "T3", "T8", "T12", "R4", "R7", "R8", "R9"], "static": ["ST2", "ST7"],
+     "reason": "Every model RPC except Health needs the consumer role; the private RPCs answer UNIMPLEMENTED on the public listener. GetModelPackage and StreamModelAsset are public by design (G8)."},
+    {"id": "GAP-NO-PER-INSTALLATION-AUTHZ", "status": "kept (telemetry)", "families": ["X8", "X8b", "R7", "R10"], "static": [],
+     "reason": "Model retrieval admits only registered installations (met). Telemetry accepts the one shared reporter credential, which avoids linkable reports and is revocable only as a whole (kept)."},
+    {"id": "GAP-NO-REVOCATION", "status": "met", "families": ["X13"], "static": [],
+     "reason": "A revoked installation's new handshake fails after an atomic CRL swap, a corrupt CRL keeps the old configuration, and a deny-list entry takes effect on an open connection, all without a restart."},
+    {"id": "GAP-NO-CUMULATIVE-BOUND", "status": "met", "families": ["E6", "E7", "R5"], "static": [],
+     "reason": "A per-update L2 bound and a rolling cumulative L2 budget refuse drift that the per-coordinate bound allowed."},
+    {"id": "GAP-LOOPBACK-PLAINTEXT-POLICY", "status": "kept", "families": ["R6"], "static": ["ST1"],
+     "reason": "Plaintext is refused on every Compose-network listener (closed). Workstation loopback traffic between the supervisor, the worker and the bridge stays plaintext because it never leaves the host (kept; row X16)."},
+]
+
+
+def row_family(row_id: str) -> str:
+    """The family of a stack row: `R10-installation` is `R10`, `S-startup-x-no-crl` is `S-startup`."""
+    if row_id.startswith("S-startup"):
+        return "S-startup"
+    return row_id.split("-", 1)[0]
+
+
+def gap_table(rows: list[dict], static: list[dict]) -> list[dict]:
+    """The eight-gap table of G3. A gap keeps its claimed status only if a linked row ran and none is unmet; otherwise it is `unverified`."""
+    holds = {item["id"]: item["holds"] for item in static}
+    table = []
+    for gap in STACK_GAPS:
+        linked = [row for row in rows if row_family(row["id"]) in gap["families"] or row["id"] in gap["families"]]
+        ran = [row for row in linked if row["observed"] not in ("not_run", "not_applicable")]
+        unmet = [row["id"] for row in linked if row["property_met"] is False]
+        verified = bool(ran) and not unmet and all(holds.get(item, False) for item in gap["static"])
+        table.append({"id": gap["id"], "status": gap["status"] if verified else "unverified", "claimed_status": gap["status"], "reason": gap["reason"],
+                      "rows": [row["id"] for row in linked], "rows_that_ran": [row["id"] for row in ran], "rows_unmet": unmet, "static": gap["static"]})
+    return table
+
+
+def run_stack_target(args) -> int:
+    """`--target rust --rust-service all`: every Rust service and the deployment configuration, one record."""
+    import platform
+
+    scratch_parent = ROOT / ".tmp" if (ROOT / ".tmp").is_dir() else None
+    work = Path(tempfile.mkdtemp(prefix="updsec-rust-stack-", dir=scratch_parent))
+    release_dir = work / "no-v3-releases" if args.no_v3 else args.release_dir
+    if args.no_v3:
+        release_dir.mkdir()
+    elif not release_dir.is_dir():
+        print(f"standard release store not found: {release_dir} (pass --no-v3 when the packages are unavailable)", file=sys.stderr)
+        return 2
+    release_before = release_fingerprint(release_dir)
+    pki = RustStackPki(work)
+    rows: list[dict] = []
+
+    models_dir = work / "models"
+    models_dir.mkdir()
+    shutil.copyfile(ROOT / "models" / f"{LEGACY_MODEL}.json", models_dir / f"{LEGACY_MODEL}.json")
+    model = RustService(work, pki, models_dir.resolve(), release_dir.resolve(), image=args.rust_image, binary=args.rust_binary, no_v3=args.no_v3)
+    try:
+        model.start()
+        rows.extend(run_rust_rows(model, models_dir, release_dir))
+        for label, port in (("public", model.public_port), ("internal", model.internal_port)):
+            rows.append(plaintext_row(f"R6-model-main-{label}", f"A plaintext call to the {label} model-streaming port.", "rust-public", port, "model"))
+        logs = model.logs()
+    finally:
+        model.stop()
+    for row in rows:
+        row["service"] = "model-streaming"
+    for label, produce in (("param-update", lambda: run_rust_update_rows(args, work, pki)), ("telemetry", lambda: run_telemetry_rows(args, work, pki)),
+                           ("model-streaming", lambda: run_x13_rows(args, work, pki, models_dir.resolve(), release_dir.resolve())),
+                           ("startup", lambda: run_startup_rows(args, pki, work))):
+        produced = produce()
+        for row in produced:
+            row["service"] = label
+        rows.extend(produced)
+    rows.append({"id": "X16", "class": "invalid_certificate", "path": "workstation-loopback", "service": "client", "expected": "kept", "observed": "not_applicable",
+                 "code": "n/a", "description": "Workstation loopback (supervisor to worker, bridge to supervisor) stays plaintext by design; internal Compose mode refuses it.",
+                 "message": "kept: traffic never leaves the host and any local process can already reach the loopback bridge; the refusal in internal mode is covered by the stage 6 component tests (CI job supervisor-tests)",
+                 "model_unchanged": None, "expected_codes": None, "identity": "n/a", "property_met": None, "gap": "GAP-LOOPBACK-PLAINTEXT-POLICY",
+                 "evidence": ["evaluation/run-component-tests.py shared"], "duration_s": 0.0})
+    static = rust_static_evidence()
+    gaps = gap_table(rows, static)
+    families = {row_family(row["id"]) for row in rows}
+    required = sorted(set(RUST_ROW_IDS) | set(RUST_UPDATE_ROW_IDS) | {"R6", "R10", "X13", "S-startup"})
+    missing = sorted(set(required) - families)
+    summary = summarize(rows)
+    g2_families = ("A1", "A3", "T1", "T3", "T8", "T12", "T14", "R7")
+    g2_rows = [row for row in rows if row_family(row["id"]) in g2_families]
+    skipped = [row["id"] for row in rows if row["observed"] == "not_run"]
+    startup = [row for row in rows if row["id"].startswith("S-startup")]
+    goal_checks = {
+        "G2": {"rows": [row["id"] for row in g2_rows],
+               "all_rejected_with_model_unchanged": all(row["observed"] == "rejected" and row["model_unchanged"] is not False for row in g2_rows),
+               "families_present": not set(g2_families) - {row_family(row["id"]) for row in g2_rows},
+               "static_rows_hold": all(item["holds"] for item in static if item["id"] in ("ST1", "ST2", "ST3", "ST5", "ST6")),
+               "startup_rows": [row["id"] for row in startup], "startup_all_refused": bool(startup) and all(row["property_met"] for row in startup)},
+        "G3": {"gaps": len(gaps), "all_verified": all(gap["status"] != "unverified" for gap in gaps)},
+    }
+    v3_note = ("The standard V3 packages are ignored by Git and absent from CI. Rows that need them are recorded as not_run with the reason and are not evidence; "
+               "G8 (package fetch and pin verification over mutual TLS) is not covered by this record." if args.no_v3 else "The standard V3 packages were present.")
+    record = {
+        "id": STACK_RECORD_ID, "title": "Rust server stack: authentication, authorisation, revocation and guarded-update negative rows", "target": "rust",
+        "service": "all", "revision": git_revision(), "generated_unix": int(time.time()),
+        "environment": {"python": sys.version.split()[0], "platform": platform.platform(), "grpc": __import__("grpc").__version__,
+                        "openssl": subprocess.run([__import__("update_security_pki").find_openssl(), "version"], text=True, stdout=subprocess.PIPE).stdout.strip(),
+                        "images": {"model-streaming": args.rust_image, "param-update": args.rust_update_image, "telemetry": args.rust_telemetry_image,
+                                   "analysis": args.rust_analysis_image},
+                        "host_binary": str(args.rust_binary) if args.rust_binary else None,
+                        "github_run": os.environ.get("GITHUB_RUN_ID"), "github_sha": os.environ.get("GITHUB_SHA")},
+        "fixture": {"legacy_model": LEGACY_MODEL, "v3_model": V3_MODEL, "standard_v3_packages": "absent" if args.no_v3 else "present"},
+        "standard_release_store_unchanged": release_before == release_fingerprint(release_dir),
+        "required_row_families": required, "missing_row_families": missing, "rows_not_run": skipped, "goal_checks": goal_checks,
+        "gaps": gaps, "static_evidence": static, "attacks": rows, "summary": summary,
+        "limitations": [
+            "Each service is hosted by its own container started by this harness on loopback ports with a disposable OpenSSL PKI; the Compose stack is exercised by deploy/gce/tests/smoke.py in the same CI job.",
+            "The Python fuzzer and the quarantined analysis service are not driven by these rows; their start-up refusal and TLS behaviour are covered by the smoke test, and their client policy by the stage 6 component tests.",
+            v3_note,
+        ],
+        "container_log_tail": logs[-2000:],
+    }
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    shutil.rmtree(work, ignore_errors=True)
+    unmet = summary["property_unmet_ids"]
+    failing_static = [item["id"] for item in static if not item["holds"]]
+    unverified = [gap["id"] for gap in gaps if gap["status"] == "unverified"]
+    print(f"{summary['total_rows']} rows ({len(skipped)} not run); property unmet: {unmet}; missing row families: {missing}; "
+          f"static rows not holding: {failing_static}; unverified gaps: {unverified}")
+    ok = not unmet and not missing and not failing_static and not unverified and record["standard_release_store_unchanged"]
+    ok = ok and goal_checks["G2"]["all_rejected_with_model_unchanged"] and goal_checks["G2"]["startup_all_refused"] and goal_checks["G2"]["families_present"]
+    return 0 if ok else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--target", choices=("go", "rust"), default="go",
@@ -2009,8 +2641,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--rust-image", default=RUST_DEFAULT_IMAGE, help="--target rust: the built Rust model-streaming image")
     parser.add_argument("--rust-binary", type=Path, default=None,
                         help="--target rust: run this host binary instead of the container (development only; the stage 3 gate uses the container)")
-    parser.add_argument("--rust-service", choices=("model-streaming", "param-update"), default="model-streaming",
-                        help="--target rust: which Rust service's rows to run (model-streaming: stage 3, the default; param-update: stage 5)")
+    parser.add_argument("--rust-service", choices=("model-streaming", "param-update", "all"), default="model-streaming",
+                        help="--target rust: which Rust service's rows to run (model-streaming: stage 3, the default; param-update: stage 5; "
+                             "all: the whole stack, stage 9)")
+    parser.add_argument("--rust-telemetry-image", default=RUST_TELEMETRY_DEFAULT_IMAGE,
+                        help="--target rust --rust-service all: the built Rust telemetry image")
+    parser.add_argument("--rust-analysis-image", default=None,
+                        help="--target rust --rust-service all: the built analysis image (adds its start-up refusal rows)")
+    parser.add_argument("--no-v3", action="store_true",
+                        help="--target rust: the standard V3 packages are unavailable (CI); rows that need them are recorded as not_run")
     parser.add_argument("--rust-update-image", default=RUST_UPDATE_DEFAULT_IMAGE,
                         help="--target rust --rust-service param-update: the built Rust parameter-update image")
     return parser
@@ -2018,6 +2657,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
+    if args.target == "rust" and args.rust_service == "all":
+        args.output = args.output or ROOT / ".tmp/update-security-rust-stack.json"
+        return run_stack_target(args)
     if args.target == "rust" and args.rust_service == "param-update":
         args.output = args.output or ROOT / ".tmp/update-security-rust-s05.json"
         return run_rust_update_target(args)
