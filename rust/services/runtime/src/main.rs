@@ -46,6 +46,9 @@ fn parse_arguments() -> Result<Arguments, String> {
         max_text_chars: DEFAULT_MAX_TEXT_CHARS,
         warm_layers: vec![Layer::Regex, Layer::Ner],
         fake_spacy: false,
+        model_roots: Vec::new(),
+        latest_model_id: None,
+        warm_models: Vec::new(),
     };
     let mut args = std::env::args().skip(1);
     while let Some(name) = args.next() {
