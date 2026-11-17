@@ -20,6 +20,7 @@ use privoke_worker_pool::{Hello, PoolConfig, Protocol, Reply, SandboxPolicy, net
 use serde::Deserialize;
 
 use crate::config::{Environment, boolean, cache_root, positive_int, positive_seconds};
+use crate::routing::Selection;
 
 /// Header size of a W1 frame.
 pub const HEADER_LEN: usize = 20;
@@ -257,6 +258,24 @@ impl WorkerSettings {
         })
     }
 
+    /// The Rust analysis worker (`privoke-runtime-worker`, stage 17), configured like the Python worker (the same
+    /// environment allow-list, limits and deadlines). `None` unless `PRIVOKE_RUNTIME_ANALYSIS_ENGINE=rust`; the Python
+    /// worker is always started, because it serves everything the Rust worker does not (see `routing`).
+    ///
+    /// The binary is `PRIVOKE_RUNTIME_RUST_WORKER`, else the file `privoke-runtime-worker` beside this executable. It is
+    /// installed in the spaCy bundle directory, where CPython finds its `_pth` file, so the bundle needs no setting.
+    pub fn rust_from_environment(environment: &Environment, repository_root: &Path) -> Result<Option<Self>, String> {
+        let selection = Selection::parse(environment.get("PRIVOKE_RUNTIME_ANALYSIS_ENGINE").map(String::as_str))?;
+        if selection != Selection::Rust {
+            return Ok(None);
+        }
+        let command = rust_worker_path(environment)?;
+        let mut settings = Self::from_environment(environment, repository_root)?;
+        settings.command = command;
+        settings.args = vec!["--warm-layers".into(), "regex,ner".into()];
+        Ok(Some(settings))
+    }
+
     /// The pool configuration: one sandboxed worker, a short queue, and the worker's own deadlines underneath.
     pub fn pool_config(&self) -> PoolConfig {
         let mut config = PoolConfig::new(&self.command);
@@ -300,6 +319,23 @@ pub fn runtime_python(runtime_root: &Path, environment: &Environment) -> PathBuf
         }
     }
     PathBuf::from(if cfg!(windows) { "python" } else { "python3" })
+}
+
+/// `PRIVOKE_RUNTIME_RUST_WORKER`, else `privoke-runtime-worker` next to the running executable.
+pub fn rust_worker_path(environment: &Environment) -> Result<PathBuf, String> {
+    let name = if cfg!(windows) { "privoke-runtime-worker.exe" } else { "privoke-runtime-worker" };
+    let candidate = match environment.get("PRIVOKE_RUNTIME_RUST_WORKER").map(|v| v.trim()).filter(|v| !v.is_empty()) {
+        Some(configured) => PathBuf::from(configured),
+        None => std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(|directory| directory.join(name)))
+            .ok_or_else(|| "The Rust analysis worker cannot be located: set PRIVOKE_RUNTIME_RUST_WORKER.".to_string())?,
+    };
+    if candidate.is_file() {
+        Ok(candidate)
+    } else {
+        Err(format!("The Rust analysis worker {} does not exist (PRIVOKE_RUNTIME_ANALYSIS_ENGINE=rust).", candidate.display()))
+    }
 }
 
 /// `PRIVOKE_RUNTIME_START_ENABLED`: whether the runtime starts without the extension asking. Default false for the
@@ -369,6 +405,27 @@ mod tests {
         assert!(config.sandbox.clean_env && config.sandbox.kill_with_parent);
         assert_eq!(config.sandbox.memory_limit_bytes, Some(6144 * 1024 * 1024));
         assert_eq!(config.workers, 1);
+    }
+
+    #[test]
+    fn the_rust_worker_is_configured_only_when_selected_and_present() {
+        let mut environment = Environment::new();
+        assert!(WorkerSettings::rust_from_environment(&environment, Path::new("/repo")).unwrap().is_none());
+        environment.insert("PRIVOKE_RUNTIME_ANALYSIS_ENGINE".into(), "rust".into());
+        environment.insert("PRIVOKE_RUNTIME_RUST_WORKER".into(), "/definitely/not/here".into());
+        assert!(WorkerSettings::rust_from_environment(&environment, Path::new("/repo")).unwrap_err().contains("does not exist"));
+        let directory = std::env::temp_dir().join(format!("privoke-rust-worker-test-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let binary = directory.join("worker");
+        std::fs::write(&binary, b"").unwrap();
+        environment.insert("PRIVOKE_RUNTIME_RUST_WORKER".into(), binary.to_string_lossy().into_owned());
+        let settings = WorkerSettings::rust_from_environment(&environment, Path::new("/repo")).unwrap().unwrap();
+        std::fs::remove_dir_all(&directory).unwrap();
+        assert_eq!(settings.command, binary);
+        assert_eq!(settings.args, vec![OsString::from("--warm-layers"), OsString::from("regex,ner")]);
+        assert_eq!(settings.memory_limit_bytes, Some(6144 * 1024 * 1024));
+        environment.insert("PRIVOKE_RUNTIME_ANALYSIS_ENGINE".into(), "both".into());
+        assert!(WorkerSettings::rust_from_environment(&environment, Path::new("/repo")).is_err());
     }
 
     #[test]

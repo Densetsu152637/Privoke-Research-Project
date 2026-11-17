@@ -110,3 +110,18 @@ async fn the_measured_elapsed_time_is_the_only_difference() {
     let (a, b) = (cleared.handle_frame(&request).await, measured.handle_frame(&request).await);
     assert!(b.len() > a.len(), "the measured response carries elapsed_ms twice");
 }
+
+#[test]
+fn the_float_rule_and_the_byte_equal_selections_are_declared() {
+    let declared = include_str!("../../../../tests/conformance/normalization.toml");
+    let section = declared.split("[analysis_runtime]").nth(1).expect("the analysis_runtime section exists");
+    for line in [
+        "float_decimal_places = 6",
+        "float_absolute_tolerance = 1e-5",
+        r#"cleared_fields = ["elapsed_ms", "metadata.elapsed_ms"]"#,
+        r#"byte_equal_selections = ["regex", "ner", "regex+ner"]"#,
+        r#"llm_only_selections = ["semantic"]"#,
+    ] {
+        assert!(section.contains(line), "normalization.toml does not declare {line}");
+    }
+}

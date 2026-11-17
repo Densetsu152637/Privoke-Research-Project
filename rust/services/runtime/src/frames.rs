@@ -306,6 +306,6 @@ mod tests {
         assert_eq!(&frame[..4], &((frame.len() - HEADER_LEN) as u32).to_be_bytes());
         assert_eq!(&frame[4..8], &[1, 3, 0, 0]);
         let body = std::str::from_utf8(&frame[HEADER_LEN..]).unwrap();
-        assert_eq!(body, r#"{"code": "INVALID_LAYERS", "message": "no \"layers\" é😀"}"#);
+        assert_eq!(body, "{\"code\": \"INVALID_LAYERS\", \"message\": \"no \\\"layers\\\" \\u00e9\\ud83d\\ude00\"}");
     }
 }

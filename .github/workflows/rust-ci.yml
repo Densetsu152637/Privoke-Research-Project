@@ -86,6 +86,9 @@ jobs:
       - name: Training parity report (stage 19)
         # Prints the per-case gradient error and bitwise counts of privoke-training (eprintln).
         run: cargo test -p privoke-training --locked -- --nocapture --test-threads=1
+      - name: Runtime golden report (stage 17)
+        # Prints the per-scope byte-parity counts of the Rust analysis runtime against the Python servicer (eprintln).
+        run: cargo test -p privoke-runtime --test golden --locked -- --nocapture --test-threads=1
 
   embed-check:
     # The PyO3 spaCy worker and the in-process spaCy backend (stage 11b) need a
@@ -125,6 +128,10 @@ jobs:
         run: |
           PYO3_PYTHON="$(python -c 'import sys; print(sys.executable)')" \
             cargo clippy -p privoke-spacy --features in-process,test-hooks,fake-worker --all-targets --locked -- -D warnings
+      - name: Clippy runtime worker with in-process spaCy
+        run: |
+          PYO3_PYTHON="$(python -c 'import sys; print(sys.executable)')" \
+            cargo clippy -p privoke-runtime --features in-process --all-targets --locked -- -D warnings
 
   gliner-check:
     # The optional GLiNER ONNX backend (stage 15, cargo feature gliner-ort) is off by
