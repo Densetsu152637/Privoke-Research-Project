@@ -5,10 +5,13 @@
 services:
   client-runtime:
     environment:
+      PRIVOKE_STACK_MODE: internal
       PRIVOKE_ALLOW_INSECURE_INTERNAL_PLAINTEXT: "true"
   privoke-fuzzer:
     environment:
+      PRIVOKE_STACK_MODE: internal
       PRIVOKE_ALLOW_INSECURE_INTERNAL_PLAINTEXT: "true"
   param-update-service:
     environment:
+      PRIVOKE_STACK_MODE: internal
       PRIVOKE_ALLOW_INSECURE_INTERNAL_PLAINTEXT: "true"
