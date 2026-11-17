@@ -191,6 +191,32 @@ def setup_oracle(generated: Path):
     import common  # noqa: F401,PLC0415 - extends sys.path with the fuzzer, client runtime and shared sources
 
 
+CRLF = bytes((13, 10))
+LF = bytes((10,))
+
+
+def au3_release(audience):
+    """Load the bundled AU3 release from fixtures that hold exactly the bytes its manifest pins.
+
+    The manifest and guard are pinned as LF bytes, the two catalogs as CRLF bytes, so a checkout with either line
+    ending fails the Python pin check for some file; the fixtures keep the pinned bytes under `-text`.
+    """
+    target = FIXTURES / "au3"
+    target.mkdir(parents=True, exist_ok=True)
+    data = ROOT / "services/privoke-fuzzer/data"
+    names = ["audience-v3-manifest-v1.json", "audience-v3-guard-v1.json", "audience-v3-train-v1.json", "privacy-heads-v3-train-replay-v1.json"]
+    manifest_raw = (data / names[0]).read_bytes()
+    manifest_lf = manifest_raw.replace(CRLF, LF)
+    assert sha(manifest_lf) == audience.BUNDLED_MANIFEST_SHA256, "the manifest is pinned as LF bytes"
+    (target / names[0]).write_bytes(manifest_lf)
+    for descriptor in json.loads(manifest_lf)["files"].values():
+        raw = (data / descriptor["path"]).read_bytes()
+        chosen = [candidate for candidate in (raw, raw.replace(CRLF, LF)) if sha(candidate) == descriptor["sha256"]]
+        assert chosen, f"no line-ending variant of {descriptor['path']} matches its pin"
+        (target / descriptor["path"]).write_bytes(chosen[0])
+    return audience.load_release(str(target / names[0]), audience.BUNDLED_MANIFEST_SHA256)
+
+
 def canon(value) -> bytes:
     return (json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False) + "\n").encode()
 
@@ -214,7 +240,7 @@ def recorded_golden(results: Path) -> dict:
     import audience_schedule  # noqa: PLC0415
     from privoke_model.v3_contract import POLICY  # noqa: PLC0415
 
-    release = audience.load_release()
+    release = au3_release(audience)
     sources = []
     for relative in RECORDED_SOURCES:
         data = json.loads((results / relative).read_text(encoding="utf-8"))
@@ -270,8 +296,16 @@ def recorded_audits(results: Path) -> list:
                     for name, key in (("pool-authored.json", "pool_utf8"), ("benign-manifest.json", "manifest_utf8"),
                                       ("exclusion-proof.json", "proof_utf8")):
                         (target / name).write_bytes(record[key].encode("utf-8"))
-                    use = benign.load_release(target / "pool-authored.json", target / "benign-manifest.json",
-                                              target / "exclusion-proof.json", dataset)
+                    try:
+                        use = benign.load_release(target / "pool-authored.json", target / "benign-manifest.json",
+                                                  target / "exclusion-proof.json", dataset)
+                    except ValueError as error:
+                        # A manifest of a superseded benign release: the maintained Python itself refuses it, so no
+                        # port can reproduce it. Recorded as such, not as a mismatch.
+                        entries.append({"file": path.name, "strategy": audit["contextual_sampling_strategy"], "seed": seed,
+                                        "variant": variant, "audit_sha256": sha(canon(audit)), "oracle_refuses": str(error),
+                                        "keys": len(audit)})
+                        continue
                 training, guard = benign.generate_partition(dataset, use, seed)
                 expanded = list(iter_training_examples(training, (), config))
                 live = benign.audit_expanded(dataset, use, training, expanded, guard, config)
@@ -320,7 +354,7 @@ def live_golden(results: Path) -> dict:
     out["legacy_snapshot_commitment"] = benign.legacy_snapshot_commitment(dataset)
 
     # (c) AU3 partitions, expansions and schedules
-    audience_release = audience.load_release()
+    audience_release = au3_release(audience)
     au3 = []
     for seed in (1, 2, 3, 42, 43, 44, 99, 2026):
         for count in (32, 64):
@@ -396,7 +430,7 @@ def role_quota_golden(generator):
         for variant in range(2):
             add(group, variant, "authored_contrastive_context", True)
             add(group + 100, variant, "authored_contrastive_context", False)
-    for group in range(100):
+    for group in range(140):
         add(group, 0, "public_annotation_negative", False)
         add(group, 0, "existing_bootstrap_replay", group % 2 == 1)
     path = FIXTURES / "role-quota-synthetic.json"
