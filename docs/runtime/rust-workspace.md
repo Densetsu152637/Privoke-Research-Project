@@ -1,6 +1,6 @@
 # Rust workspace
 
-> Source area: `rust`. Plan: [Rust server rewrite](../plans/rust-server-rewrite.md), stages 0 to 5, 7, 11 to 14, W2 and W3. Run every command from the repository root unless stated.
+> Source area: `rust`. Plan: [Rust server rewrite](../plans/rust-server-rewrite.md), stages 0 to 5, 7, 11 to 14, 18, W2 and W3. Run every command from the repository root unless stated.
 
 The workspace holds the Rust side of the server rewrite. Stages 1 and 2 added three libraries and the PKI tool; stage 3 adds the first service, `privoke-model-streaming`; stage 11 adds the spaCy client crate and the spaCy worker. The Python and Go services are unchanged and remain the measured system until a later stage replaces them.
 
@@ -19,6 +19,7 @@ The workspace holds the Rust side of the server rewrite. Stages 1 and 2 added th
 | `privoke-analysis` (`rust/services/analysis`) | The quarantined analysis microservice for the fuzzer (stage W3): mutual TLS, a fuzzer-only policy, and a pool of W1 Python workers. See [below](#privoke-analysis-stage-w3). |
 | `privoke-param-update` (`rust/services/param-update`) | The parameter-update service and training-cycle scheduler (stage 5): guarded compare-and-swap publication, durable receipts, publisher identities over mutual TLS, drift bounds. See [below](#privoke-param-update-stage-5). |
 | `privoke-semantic` | Semantic inference (stage 14): the V3 pretrained BERT encoder with its heads, the legacy Tiny transformer and the semantic layer, on a dependency-free float64 reference backend and the `tokenizers` crate. See [below](#privoke-semantic-stage-14). It also holds the external classifier client (stage 16), see [below](#external-classifier-client-stage-16). |
+| `privoke-telemetry-client` | The client telemetry reporter (stage 18): CPython-identical random draws on an injectable byte source, binary64 GRR thresholds, the persistent daily epsilon ledger, the report builder and the delivery worker over mutual TLS. See [below](#privoke-telemetry-client-stage-18). |
 
 ## Build and test
 
@@ -350,6 +351,68 @@ Subcommands: `healthcheck` (mutual-TLS `Health`) and `bootstrap`. Build: `docker
 ### Tests
 
 `cargo test -p privoke-param-update --locked --manifest-path rust/Cargo.toml` (CI: 26 unit tests plus `corpus.rs` 3, `guarded.rs` 21, `mtls.rs` 7, `scheduler.rs` 18). `corpus.rs` replays the stage 0 sequence (bootstrap, 19 updates, 6 lookups) byte for byte; `guarded.rs` ports `test_security_validation.py`, `test_update_receipts.py`, the injected crash windows and `test_model_bootstrap.py`; `mtls.rs` covers A1 to A3, T14, R1, R2, R5, R9 and fail-closed startup in process; `scheduler.rs` covers the dual-cycle tests and one cycle against an in-process mutual-TLS fuzzer. Container rows: `python evaluation/update_security.py --target rust --rust-service param-update --rust-update-image <image>`.
+
+## `privoke-telemetry-client` (stage 18)
+
+> Plan: [Rust server rewrite](../plans/rust-server-rewrite.md#stage-18-telemetry-reporter-in-rust-d8). Audit record: [rust-telemetry-epsilon-audit-20261117](../../paper/research/rust-telemetry-epsilon-audit-20261117.md).
+
+The Rust port of the client telemetry reporter, `extension/client-runtime/src/telemetry/{privacy,event_emitter}.py`, which stay in place as the parity oracle. It is a library; stage 17 wires it in. Dependencies: `privoke-contracts` (the packet), `privoke-transport` (client mutual TLS), `rusqlite` (bundled), `getrandom`, `tonic` and `tokio` (a current-thread runtime on the worker thread only).
+
+| Module | Python source |
+| --- | --- |
+| `random` | The draws of `random.SystemRandom`: `random_unit` (7 bytes, `>> 3`, times 2^-53), `random_bits` (`getrandbits`) and `random_below` (`_randbelow` rejection sampling), over a `RandomSource` trait. `OsRandom` reads the operating system; `ReplayRandom` replays fixed bytes and counts them (tests). |
+| `privacy` | `generalized_randomized_response`, `grr_kernel` / `grr_probabilities` (binary64: `exp(x) / ((exp(x) + K) - 1)`), `randomize_report`, `validate_privacy_config`, the five domains in the oracle order. Messages are the Python texts. |
+| `ledger` | `DailyPrivacyBudget`: one SQLite file with the Python table text, `BEGIN IMMEDIATE`, UTC day, `+1e-12` cap tolerance, never refunded, fail closed (`LedgerUnavailable`) on corruption, a bad row, a backwards clock or any I/O fault. `default_ledger_path` follows the Python rules. |
+| `event` | `StructuredEventEmitter::true_values`, `assemble_packet`, `build_packet` over `AnalysisInput` (action name, optional classification with sensitivity and category names, optional model version string). |
+| `reporter` | `TelemetryReporter`: reserve, build, bounded queue (`try_send`), one worker thread (`privoke-telemetry-reporter`), the Python log texts, `close(timeout)`. `ReportOutcome` and `DeliveryOutcome` expose what happened; `ReporterParts` injects the transport, random source, clock and an observer. |
+| `grpc` | `GrpcTransport` (a `PacketTransport`) and `ReporterEndpoint::from_environment`: a loopback target is plaintext; any other target needs `PRIVOKE_TELEMETRY_TLS_CERT_FILE`, `PRIVOKE_TELEMETRY_TLS_KEY_FILE` and `PRIVOKE_TLS_CA_FILE`, with the host part of the target as the certificate name. The channel is made on first use and again after a connection failure. |
+
+### What is identical, and the decisions that matter
+
+- **Same bytes, same draws.** One `random()` (7 bytes) per dimension, then, if the answer is not truthful, one `_randbelow(K - 1)` (rejection sampling on `bit_length(K - 1)` bits, at least one byte per attempt). Dimensions are drawn in the order `action, risk_bucket, primary_category, model_version, time_bucket`, alternatives in domain order. The tests assert the output and the exact byte count of 485 single draws, 160 full reports and 40 packets.
+- **Same thresholds.** The binary64 threshold of every (event epsilon, domain size) cell equals Python's bit for bit on the Linux CI host (65 grid cells and 35 real cells in `tests/golden.rs`, 25 audited cells in `tests/audit_thresholds.rs`). `f64::exp` calls the platform libm, as CPython's `math.exp` does, so another libm can differ in the last bit: the tests would fail there and the audit record would not apply.
+- **Budget before packet, never refunded.** `report` reserves first, builds second, queues last; a failed build, a full queue, a closed worker and a failed delivery keep the spend, as in Python.
+- **Ledger.** The Python file opens and continues in Rust (fixture `python_written_ledger.sqlite3`), the table text is the same, and 15 scenarios (cap, reopen, UTC conversion, rollover, rollback, bad rows, corruption, a blocked parent directory and its recovery) give the same result and the same rows operation by operation.
+
+### Known differences
+
+None changes a decision, a draw or a packet:
+
+- `report` takes both the reservation day and the time bucket from one injectable clock (Python reads `datetime.now` twice); a report that straddles a four-hour boundary between the two reads could differ by that.
+- A ledger value that is not text or a number (a hand-edited file) is a ledger fault in Rust; Python lets a `TypeError` escape `reserve` (the reporter catches it all the same).
+- A directory created for the ledger gets mode `0700` for every component created (Python: the last one). The file mode is `0600`, set after the file is created, as in Python. Neither is applied on Windows.
+- The `PRIVOKE_ALLOW_INSECURE_INTERNAL_PLAINTEXT` research opt-out of the oracle is not offered, and a CA bundle file is required for a non-loopback target (no system roots).
+- `Closed` is a new `ReportOutcome` (Python has no closed state; its worker is a daemon thread). `close` waits for the worker up to the timeout and, like Python, does nothing when the queue is full.
+
+### Integration notes for stage 17
+
+1. Build one reporter at runtime start: `TelemetryReporter::start(settings, Box::new(GrpcTransport::new(ReporterEndpoint::from_environment(target, &|name| std::env::var(name).ok())?)?))`, with `ReporterSettings { event_epsilon, daily_epsilon, ledger_path, ..Default::default() }`. The defaults are the Python ones (epsilon 1, daily 8, timeout 1 s, queue 1024).
+2. After each analysis, map the result to `AnalysisInput { action: "ALLOW" | "WARN" | "BLOCK", result: Some(AnalysisResult { classification: Some(Classification { sensitivity: "S0" to "S3", categories: [names] }), model_version: the metadata value }) }` and call `report(&input)`. Only these fields can reach a packet. Ignore the returned `ReportOutcome` unless a test wants it.
+3. `report` does a short blocking SQLite transaction. Call it from a worker thread or `spawn_blocking`, not directly from a tokio task.
+4. Call `close(Duration)` on shutdown. A telemetry failure must never fail an analysis: nothing `report` does returns an error or panics.
+5. The stage 7 supervisor owns the reporter credential files (`PRIVOKE_TELEMETRY_TLS_*`); the reporter only reads their paths.
+
+### Tests
+
+Run on the host or in CI: `cargo test -p privoke-telemetry-client --locked --manifest-path rust/Cargo.toml`.
+
+| File | Covers |
+| --- | --- |
+| `tests/golden.rs` | Everything above against `tests/fixtures/golden.json`, written by `evaluation/generate_telemetry_client_golden.py` from the unmodified Python (standard library only; its random source is a recorded byte stream). Python test: `evaluation/tests/test_generate_telemetry_client_golden.py` (the committed fixture equals a fresh run). |
+| `tests/audit_thresholds.rs` | The finite-epsilon audit record against the crate thresholds and sampler (see below). |
+| `tests/service.rs` | The Rust reporter against the stage 4 Rust service in process over mutual TLS: delivery and the daily cap, refusal of a non-reporter credential, outage and recovery. |
+
+Regenerate the fixture only if the oracle or the scenario list changes deliberately:
+
+```
+python evaluation/generate_telemetry_client_golden.py \
+    --out rust/crates/privoke-telemetry-client/tests/fixtures/golden.json \
+    --ledger-out rust/crates/privoke-telemetry-client/tests/fixtures/python_written_ledger.sqlite3
+```
+
+### Finite-epsilon audit of the Rust kernel
+
+`evaluation/audit_rust_telemetry_epsilon.py` (new code, standard library only) computes the exact likelihood ratios of the Rust thresholds and writes `paper/research/rust-telemetry-epsilon-audit-20261117.json`; the record explains the method. The result at event epsilon 0.5, 0.75, 1, 1.5 and 2: the actual maximum log ratio exceeds the nominal epsilon by 1.294e-15, 4.882e-16, 1.503e-15, 4.427e-16 and 1.226e-15 (all strictly positive), the thresholds equal the Python kernel's, and at 0.5, 1 and 2 the numbers equal C34's. C34 keeps describing the CPython kernel; this record describes the Rust one wherever `tests/audit_thresholds.rs` passes (Linux CI run 44013270917).
 
 ## Not in this stage
 
