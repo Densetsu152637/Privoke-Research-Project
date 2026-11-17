@@ -1088,6 +1088,10 @@ Golden: the product's `_compute_training_gradients` runs on a fake streamed snap
 
 Not ported on this route: admission headers and the pre-gradient admission checks, local-SGD, backtracking and diagnostics routes, window and retention routes, FULL Adam admission (the fit is `adam`), `reject_overlength`, and the response metadata strings. The streamed protobuf envelope is stage 17 and 22's.
 
+### Presence gradients and admission
+
+`presence` ports `privoke_model/presence.py` (the sparse TF-IDF presence model, which stage 14 did not port; additive, `privoke-semantic` is unchanged) and `compute_presence_gradients`. On the synthetic golden every one of 606 transported coordinates is bitwise equal to Python, as are the probabilities, 18 of 18 metrics and the 4 fingerprints (the arithmetic is float64 with `fsum`, no torch). `admission` ports the FULL Adam artifact policy and pre-gradient admission: 9 of 9 scenarios give the same outcome and error text; window and retention policies are reported as unsupported. `training_text_key` follows Python's `\d` (`Nd`) and `str.split()` whitespace through `privoke_rules::pyunicode`. CI prints the per-case numbers in the `Training parity report` step of `rust-ci.yml`.
+
 ### Known differences
 
 - The FULL trace's `gradient` and `moments` identities hash the float64 bytes of the gradients, so they are bit-sensitive and Rust does not reproduce them unless the gradients are bitwise equal; the Rust fit reports the before, after and delta fingerprints, the loss and the clipped count of each step, and the counters derived from the fixed schedule.
