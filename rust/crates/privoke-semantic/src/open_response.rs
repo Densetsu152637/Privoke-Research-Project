@@ -116,10 +116,11 @@ pub fn parse_completion_content(content: &str, text: &str) -> Result<Vec<Externa
 
 /// `build_external_results(content, text)`: strict validation, then `build_results`.
 pub fn build_external_results(content: &Value, text: &str) -> Result<Vec<ExternalResult>, SemanticError> {
-    if let Value::Object(map) = content {
-        if map.len() == 1 && matches!(map.get("results"), Some(Value::Array(items)) if items.is_empty()) {
-            return Ok(Vec::new());
-        }
+    if let Value::Object(map) = content
+        && map.len() == 1
+        && matches!(map.get("results"), Some(Value::Array(items)) if items.is_empty())
+    {
+        return Ok(Vec::new());
     }
     let raw: &[Value] = match content {
         Value::Object(map) => match map.get("results").or_else(|| map.get("classification_results")) {

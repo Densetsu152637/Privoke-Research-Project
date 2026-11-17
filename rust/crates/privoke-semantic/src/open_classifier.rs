@@ -316,10 +316,11 @@ impl OpenClassifier {
 
     fn delay(&self, attempt: u32, retry_after: Option<&str>) -> Duration {
         // The SDK honours a `retry-after` of 0 to 60 seconds, and otherwise backs off exponentially.
-        if let Some(seconds) = retry_after.and_then(|value| value.trim().parse::<f64>().ok()) {
-            if seconds > 0.0 && seconds <= 60.0 {
-                return Duration::from_secs_f64(seconds);
-            }
+        if let Some(seconds) = retry_after.and_then(|value| value.trim().parse::<f64>().ok())
+            && seconds > 0.0
+            && seconds <= 60.0
+        {
+            return Duration::from_secs_f64(seconds);
         }
         let base = self.config.retry_base_delay.as_secs_f64();
         Duration::from_secs_f64((base * 2f64.powi(attempt as i32)).min(RETRY_MAX_SECONDS.max(base)))
