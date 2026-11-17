@@ -151,7 +151,8 @@ fn parse_tensor(bytes: &[u8]) -> Result<(String, Initializer), SemanticError> {
     if raw.len() != count.checked_mul(4).ok_or_else(|| refuse("a tensor is too large"))? {
         return Err(refuse(format!("{name} holds {} bytes for {count} values", raw.len())));
     }
-    let data: Vec<f32> = raw.chunks_exact(4).map(|chunk| f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]])).collect();
+    let (words, _) = raw.as_chunks::<4>();
+    let data: Vec<f32> = words.iter().map(|word| f32::from_le_bytes(*word)).collect();
     if data.iter().any(|value| !value.is_finite()) {
         return Err(refuse(format!("{name} holds a value that is not finite")));
     }
