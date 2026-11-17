@@ -13,7 +13,6 @@
 
 mod support;
 
-use privoke_curriculum::audience;
 use privoke_curriculum::benign;
 use privoke_curriculum::taxonomy;
 use privoke_curriculum::trainer::iter_training_examples;
