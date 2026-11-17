@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh the PriVoke CRL and registry from Secret Manager
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=HOME=/root
+ExecStart=/usr/local/sbin/privoke-pki-sync
+# Exit status 2 means the CRL is valid but close to lapsing, 3 that it has lapsed; both show the unit as failed.

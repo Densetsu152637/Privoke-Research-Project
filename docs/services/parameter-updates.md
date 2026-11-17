@@ -80,17 +80,16 @@ Not present, as current properties:
 - No cumulative or aggregate bound. The magnitude limit is per coordinate per update,
   so repeated updates at the limit are each accepted, and one update may move up to
   65,536 coordinates by the limit (`MAX_UPDATE_VALUES`). Nothing limits update rate or L2 norm.
-- No application authentication. The service binds a plaintext gRPC port
-  (`server.add_insecure_port` in `app/server.py`) and checks no credential, token, expiry
-  or peer identity. Any peer that can reach the port can publish an update. `source_id`
-  is caller-asserted: it is recorded as `last_update_source` in the artifact and in the
-  audit line, and is not verified. `GetParameterUpdateStatus` is likewise unauthenticated.
-- Access is limited by network placement only. The production and Compute Engine Compose
-  files publish this service with `expose` and no host port mapping, behind the
-  `legacy-training` profile, and the nginx ingress routes no `ParamUpdateService` method.
-  The ingress's mutual TLS authenticates a client certificate, not a `source_id`, and does
-  not apply to traffic inside the Compose network. No certificate revocation list is
-  configured.
+- Authentication is in the service. The deployed update service is the Rust `param-update-service`
+  (`rust/services/param-update`): one mutual-TLS listener (`50052`, never published) that admits only registered
+  `publisher` services for `SubmitParameterUpdate` and `publisher` and `trainer` services for
+  `GetParameterUpdateStatus`, and refuses to start without a client CA, a CRL and a registry. A non-empty
+  `source_id` must equal the caller's service name, so the fuzzer publishes as `fuzzer`, the name of its certificate.
+  Per-update (16.0) and cumulative (512.0 per release) L2 bounds are enforced by default
+  (`PARAM_UPDATE_DRIFT_POLICY`). It runs only in the `legacy-training` profile, behind the same placement controls as
+  before (`expose` only, no host port), and no public listener routes any `ParamUpdateService` method. The Python
+  service described by the earlier behaviour list (plaintext port, no peer identity, no bound) is retired from
+  deployment and kept as the parity oracle.
 - No startup cleanup of stray temporary files left by an interrupted write; the active
   artifact stays valid.
 

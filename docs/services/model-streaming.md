@@ -108,29 +108,32 @@ consumers retain the contextual path.
 
 ## Transport and access control
 
-The service opens a plaintext gRPC listener (`net.Listen("tcp", ...)` and
-`grpc.NewServer` with message-size and concurrent-stream options only, in
-`cmd/server/main.go`). It has no application authentication: no token, API key,
-credential expiry or peer-identity check. `consumer_id` is a caller-asserted
-label that is length- and character-validated and echoed in response metadata
-(`cmd/server/streaming_server.go`), not an authenticated identity. An arbitrary
-or empty `consumer_id` is served the legacy model, the V3 manifest and the V3
-assets. Retrieval is read-only: no RPC on this service writes the model
-directory or the pinned V3 release store.
+The deployed service is the Rust `model-streaming-service` (`rust/services/model-streaming`, built from
+`rust/services/model-streaming/Dockerfile`). It has no plaintext mode: every listener is mutual TLS, built from a
+client CA, a CRL and a registry, and the binary exits before binding if any of `--cert`, `--key`, `--client-ca`,
+`--crl` or `--registry` is missing or invalid. There is no reverse proxy; the service terminates TLS itself. The Go
+service (`services/model-streaming-service`) is retired from deployment and kept as the parity oracle. It opened a
+plaintext listener with no authentication and relied on a reverse proxy for client certificates.
 
-Authentication exists only at the cloud ingress. `deploy/gce/nginx.conf` requires
-and verifies a client certificate (`ssl_verify_client on`), configures no
-certificate revocation list, grants every certificate from the client CA the same
-access, and routes only `ModelStreamingService/StreamModelParameters`,
-`ModelStreamingService/Health` and `TelemetryService/RecordTelemetry`; every other
-path returns 404. `GetModelParameters`, `GetModelPackage` and `StreamModelAsset`
-are therefore not reachable through that ingress. The default `latest` model is
-V3, and the legacy tensor RPCs reject V3 (including an empty or `latest` ID that
-resolves to it) with `FAILED_PRECONDITION` (`streaming_server.go`), so V3 is served
-only by the two unrouted package RPCs (see
-[Google Cloud deployment](../deployment/google-cloud.md#ingress-routing)).
+| Listener | Port | RPCs | Callers |
+| --- | --- | --- | --- |
+| Public | `50443` in the container, published as `443` | `Health`, `StreamModelParameters`, `GetModelPackage`, `StreamModelAsset` | registered installations (role `consumer`); rate-limited per installation identity |
+| Internal | `50051`, never published | `GetModelParameters`, `Health` | registered services (`publisher`, `trainer`, `runtime`) |
 
-Measured behaviour of these properties, with the legacy and V3 paths exercised
+An RPC that a listener does not list is `UNIMPLEMENTED` there, so the private RPCs (`GetModelParameters` and every
+`ParamUpdateService`, runtime and fuzzer method) are not reachable from the network. `GetModelPackage` and
+`StreamModelAsset` are public, so a cloud client can fetch the default `privoke-v3-balanced` package and verify its
+pin. On the public listener a request that names a `consumer_id` is refused unless it is the caller's own
+installation UUID (an empty one is accepted), so the label is no longer self-asserted. The reporter credential and
+unregistered certificates are refused. Revocation is a CRL applied at the handshake plus a registry deny list checked on
+every request. The default `latest` model is V3, and the legacy tensor RPCs reject V3 (including an empty or `latest`
+ID that resolves to it) with `FAILED_PRECONDITION`, so V3 is served only by the two package RPCs. Retrieval is
+read-only: no RPC on this service writes the model directory or the pinned V3 release store. The full description,
+including the environment and the health-check subcommand, is in
+[the Rust workspace document](../runtime/rust-workspace.md#privoke-model-streaming) and the deployment topology in
+[Google Cloud deployment](../deployment/google-cloud.md#architecture-and-prerequisites).
+
+The measured behaviour of the retired Go service, with the legacy and V3 paths exercised
 separately, is recorded in
 [UPDSEC-20261116](../../paper/research/update-security-20261116.md)
 (rows T1 to T14 and X1 to X16; gaps `GAP-NO-RETRIEVAL-AUTH`,
