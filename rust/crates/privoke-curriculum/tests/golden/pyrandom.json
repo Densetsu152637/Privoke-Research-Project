@@ -1,0 +1,939 @@
+{
+ "python": "3.11.9",
+ "string_seeds": [
+  {
+   "seed": "",
+   "kind": "str",
+   "draws": 100000,
+   "sha256": "786bc956577a1b6ae04accf2570727c8e3955c6e0cf211626cab4bb8873ded97"
+  },
+  {
+   "seed": "",
+   "kind": "bytes",
+   "draws": 100000,
+   "sha256": "786bc956577a1b6ae04accf2570727c8e3955c6e0cf211626cab4bb8873ded97"
+  },
+  {
+   "seed": "abc",
+   "kind": "str",
+   "draws": 100000,
+   "sha256": "1d2388ee4383109240ca4ac7a0915a019c90c264458bc5c1464389a709f09695"
+  },
+  {
+   "seed": "abc",
+   "kind": "bytes",
+   "draws": 100000,
+   "sha256": "1d2388ee4383109240ca4ac7a0915a019c90c264458bc5c1464389a709f09695"
+  },
+  {
+   "seed": "na\u00efve \u2603",
+   "kind": "str",
+   "draws": 100000,
+   "sha256": "c4873d7a5112da330eca70be5c80da07cd26c32ae8d6838c449d878012cc824c"
+  },
+  {
+   "seed": "na\u00efve \u2603",
+   "kind": "bytes",
+   "draws": 100000,
+   "sha256": "c4873d7a5112da330eca70be5c80da07cd26c32ae8d6838c449d878012cc824c"
+  },
+  {
+   "seed": "afc9b31d9f3f3645ae563606e1ddbe4b0e72b247e3bc9dff6251f5ee8961ae48",
+   "kind": "str",
+   "draws": 100000,
+   "sha256": "9cf2a87b5d160723247a66213b465e9da5caba45ad590718de9148967a557823"
+  },
+  {
+   "seed": "afc9b31d9f3f3645ae563606e1ddbe4b0e72b247e3bc9dff6251f5ee8961ae48",
+   "kind": "bytes",
+   "draws": 100000,
+   "sha256": "9cf2a87b5d160723247a66213b465e9da5caba45ad590718de9148967a557823"
+  },
+  {
+   "seed": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "kind": "str",
+   "draws": 100000,
+   "sha256": "9cb0bda8f1c43b5d2b3effc26352076bc2830e2f018e0d0601e8b643d681eb35"
+  },
+  {
+   "seed": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "kind": "bytes",
+   "draws": 100000,
+   "sha256": "9cb0bda8f1c43b5d2b3effc26352076bc2830e2f018e0d0601e8b643d681eb35"
+  }
+ ],
+ "layout": "little-endian stream of each call's output; see the Rust test",
+ "draws_per_method": 1000000,
+ "seeds": [
+  "0",
+  "42",
+  "4294967296",
+  "18446744073709551557"
+ ],
+ "entries": [
+  {
+   "seed": 0,
+   "method": "random",
+   "draws": 1000000,
+   "sha256": "844f7ee4eb9b67fbc6ad89117b6931b6c4682f2d48b87b25aa45f8866aa962c1"
+  },
+  {
+   "seed": 0,
+   "method": "getrandbits_1",
+   "draws": 1000000,
+   "sha256": "6b769a143c6f4b6c32982cc582ddda1fe67e6ccdb26a9c60ec0a582d41bf7d6f"
+  },
+  {
+   "seed": 0,
+   "method": "getrandbits_7",
+   "draws": 1000000,
+   "sha256": "9744cae9c679bf4105d8537d309e7da28e00c1712a1ad4550ad6f79e2b953daa"
+  },
+  {
+   "seed": 0,
+   "method": "getrandbits_31",
+   "draws": 1000000,
+   "sha256": "f120089080646c8ee32e56e4b1c2f410e1c8b8ebd2e448290aaa6360a5cf81a2"
+  },
+  {
+   "seed": 0,
+   "method": "getrandbits_32",
+   "draws": 1000000,
+   "sha256": "9d5d0f0c268b851ffcb008852b5d47fc234bc88f614f440a19feee56d9030799"
+  },
+  {
+   "seed": 0,
+   "method": "getrandbits_33",
+   "draws": 1000000,
+   "sha256": "14375ae675a5ee6979929497e795931ce15262f72bbb2b397efbbf83b4ad3267"
+  },
+  {
+   "seed": 0,
+   "method": "getrandbits_53",
+   "draws": 1000000,
+   "sha256": "838842b203da8788a5d12138b5e08118ab60479153567bcf53cddfe305b6a6ba"
+  },
+  {
+   "seed": 0,
+   "method": "getrandbits_64",
+   "draws": 1000000,
+   "sha256": "bafcbe35c0ce60a8f1ccf50ae453d531f5fd204f6785d22aff0c0478945d08bd"
+  },
+  {
+   "seed": 0,
+   "method": "randbelow_1",
+   "draws": 1000000,
+   "sha256": "6506614505e113daab08b3f894ca46d4d61867c7b007c413b47a669abe8aae67"
+  },
+  {
+   "seed": 0,
+   "method": "randbelow_2",
+   "draws": 1000000,
+   "sha256": "ae343c31ae572776fe8bbed72439e2de6c9e99008755769e89d1ac3001060623"
+  },
+  {
+   "seed": 0,
+   "method": "randbelow_3",
+   "draws": 1000000,
+   "sha256": "c1f6036c8a07d30cbd6ab03515f90525e5aec22743528df14eab171747270432"
+  },
+  {
+   "seed": 0,
+   "method": "randbelow_10",
+   "draws": 1000000,
+   "sha256": "15cdbd4dbd4f6d61f816da5d1b8a16177e2f0e03f07a51910c37da1f80deb47c"
+  },
+  {
+   "seed": 0,
+   "method": "randbelow_1000",
+   "draws": 1000000,
+   "sha256": "0fd2800559e6d42f4a6ad989bd2f316a07b1b3e6c9968a3ccffded745db47fe4"
+  },
+  {
+   "seed": 0,
+   "method": "randbelow_2147483649",
+   "draws": 1000000,
+   "sha256": "e50de7dea8d20963bb4ec89f17aed5314d05690cdc1e908ffbe49528da71d078"
+  },
+  {
+   "seed": 0,
+   "method": "randbelow_1099511627779",
+   "draws": 1000000,
+   "sha256": "f894d765586c5007db436cb3d8a23ed0e330f6c7b42f1c9081430c8db5c60bfa"
+  },
+  {
+   "seed": 0,
+   "method": "randbelow_9223372036854775813",
+   "draws": 1000000,
+   "sha256": "d45bc5cdddd6a1ca85730c27bd66909e28671b6992ea7178b421020309f88a02"
+  },
+  {
+   "seed": 0,
+   "method": "choice_1",
+   "draws": 1000000,
+   "sha256": "6506614505e113daab08b3f894ca46d4d61867c7b007c413b47a669abe8aae67"
+  },
+  {
+   "seed": 0,
+   "method": "choice_5",
+   "draws": 1000000,
+   "sha256": "fdce9d14312aef2b58c863ff16eb518e978acea9c43099ab81ac0917c0e59d5d"
+  },
+  {
+   "seed": 0,
+   "method": "choice_100003",
+   "draws": 1000000,
+   "sha256": "68ee96f75342be83afc9d8cae08a576a251e9387bb057e7b728a2e58d6e3c414"
+  },
+  {
+   "seed": 0,
+   "method": "shuffle_7",
+   "draws": 1000000,
+   "sha256": "c98468d0c7619c3323a5c3aa047d0e48b894024231496ed10f73656258165559"
+  },
+  {
+   "seed": 0,
+   "method": "shuffle_100",
+   "draws": 1000000,
+   "sha256": "9a1093d45cb567e1e041699a09632696a73325cb2cfd19bcef7d3b4c1006bc73"
+  },
+  {
+   "seed": 0,
+   "method": "shuffle_1000",
+   "draws": 1000000,
+   "sha256": "357bd3a40934fe824f2e639b4fe6315ea81dc4982be8c553a48e1203612e52ef"
+  },
+  {
+   "seed": 0,
+   "method": "sample_10_3",
+   "draws": 1000000,
+   "sha256": "a0dd000eb409951ff3cb7482f9ec889d3d6ace82bd45f21ed2aecb77516d891b"
+  },
+  {
+   "seed": 0,
+   "method": "sample_50_10",
+   "draws": 1000000,
+   "sha256": "61a57406c207e173a12eabc4f2df79046ce2ff8ff84571711faa03b4417fc025"
+  },
+  {
+   "seed": 0,
+   "method": "sample_1000_20",
+   "draws": 1000000,
+   "sha256": "4e972286d2b1c25f3e200365418f1b7f04d8ab74af870aa2f526b26c9b24ec17"
+  },
+  {
+   "seed": 0,
+   "method": "sample_100_100",
+   "draws": 1000000,
+   "sha256": "472c841fd7023ba9ae9faa37b29415b3f07b5d9e27da284bb6ca760a48243845"
+  },
+  {
+   "seed": 0,
+   "method": "randrange_10",
+   "draws": 1000000,
+   "sha256": "15cdbd4dbd4f6d61f816da5d1b8a16177e2f0e03f07a51910c37da1f80deb47c"
+  },
+  {
+   "seed": 0,
+   "method": "randrange_5_1000003",
+   "draws": 1000000,
+   "sha256": "bfc6461bd18f5aac46d32e1f3a0be854e91844da68ebf70564a46bbd861d1ece"
+  },
+  {
+   "seed": 0,
+   "method": "randrange_m50_50_7",
+   "draws": 1000000,
+   "sha256": "0d64f8bc72a06b177de7b53e2ba5fac893a3ff90ad1d94dc05a6a7037b73d507"
+  },
+  {
+   "seed": 0,
+   "method": "randrange_100_m100_m9",
+   "draws": 1000000,
+   "sha256": "ecc1ccaa2cfcdda0d145ebf1af4ab509a1f300c45236b2172af0eee1fabf7822"
+  },
+  {
+   "seed": 0,
+   "method": "randint_m3_3",
+   "draws": 1000000,
+   "sha256": "b152a518d5a7d7718e51cf8be7b4d18cbc933b4c6ae2e4a52ef5c7c10360adb0"
+  },
+  {
+   "seed": 0,
+   "method": "uniform_0_1",
+   "draws": 1000000,
+   "sha256": "844f7ee4eb9b67fbc6ad89117b6931b6c4682f2d48b87b25aa45f8866aa962c1"
+  },
+  {
+   "seed": 0,
+   "method": "uniform_m3.5_7.25",
+   "draws": 1000000,
+   "sha256": "a8ec1484e5a4f830d9cbf45b1bd2c20c4570c20c2df991b3aad82191e9b44b5f"
+  },
+  {
+   "seed": 0,
+   "method": "choices_cum_5_k10",
+   "draws": 1000000,
+   "sha256": "d5622851916aef2d119534e4de43f600edbfdd811f2ac122ed49ca7914762055"
+  },
+  {
+   "seed": 0,
+   "method": "choices_weights_5_k1",
+   "draws": 1000000,
+   "sha256": "d5622851916aef2d119534e4de43f600edbfdd811f2ac122ed49ca7914762055"
+  },
+  {
+   "seed": 0,
+   "method": "choices_uniform_17_k4",
+   "draws": 1000000,
+   "sha256": "006a5379f5b512d552629dcf9229311a5fed6d507100cc0bffd9e411d3c8ccdf"
+  },
+  {
+   "seed": 42,
+   "method": "random",
+   "draws": 1000000,
+   "sha256": "6c2b22aec198f65076b069e6d6866b914e04f116ea952567aa6aee6d8e04ea3e"
+  },
+  {
+   "seed": 42,
+   "method": "getrandbits_1",
+   "draws": 1000000,
+   "sha256": "dbec537a5015ab55508720a97edb200c2b3481fd6ad16dd0bcd8330ed6e9b95d"
+  },
+  {
+   "seed": 42,
+   "method": "getrandbits_7",
+   "draws": 1000000,
+   "sha256": "52fef3c197c29cb513d36a32f4fbe6c6a5a1e2ccc22c7b43ba33ccca7dcef56f"
+  },
+  {
+   "seed": 42,
+   "method": "getrandbits_31",
+   "draws": 1000000,
+   "sha256": "d8803cf2945454ebf3dc1ae1cc9d6559216d1dc75c6e8c3f5e8165a5d5e0bb53"
+  },
+  {
+   "seed": 42,
+   "method": "getrandbits_32",
+   "draws": 1000000,
+   "sha256": "857b7da7ca38d8dc25da13697563abd00cf3458e3c876dffc768435b82387f2d"
+  },
+  {
+   "seed": 42,
+   "method": "getrandbits_33",
+   "draws": 1000000,
+   "sha256": "d4dc3b4291fa37fc24c48ab410b064203f9db157ac566ac2b6c0e5c280285390"
+  },
+  {
+   "seed": 42,
+   "method": "getrandbits_53",
+   "draws": 1000000,
+   "sha256": "c36fcc1507c72af6220f7c3a43dcf8f4437cc1e4c5af8f03b6897433e697527d"
+  },
+  {
+   "seed": 42,
+   "method": "getrandbits_64",
+   "draws": 1000000,
+   "sha256": "a7c1785c5990850d78e3a4e06e60525f8d313729c82b7c208c9685ab702f62cb"
+  },
+  {
+   "seed": 42,
+   "method": "randbelow_1",
+   "draws": 1000000,
+   "sha256": "6506614505e113daab08b3f894ca46d4d61867c7b007c413b47a669abe8aae67"
+  },
+  {
+   "seed": 42,
+   "method": "randbelow_2",
+   "draws": 1000000,
+   "sha256": "d5c777e139fb083ccbf2cf2ac95141d2c83c169f63f90a0454299fcb3aace27f"
+  },
+  {
+   "seed": 42,
+   "method": "randbelow_3",
+   "draws": 1000000,
+   "sha256": "7176c34a701e769fc93a88baa7173105fe5f2fe2bb3a4c8eb710bce32775d5e3"
+  },
+  {
+   "seed": 42,
+   "method": "randbelow_10",
+   "draws": 1000000,
+   "sha256": "1835a6a02225ecb15d2dc38168cb9032027755b93e87ee174b90d78c9bcd5649"
+  },
+  {
+   "seed": 42,
+   "method": "randbelow_1000",
+   "draws": 1000000,
+   "sha256": "1e7268644a1950d805096712e7b095ba8e2aa6ed2617d6068d7b96b5bec7b3c4"
+  },
+  {
+   "seed": 42,
+   "method": "randbelow_2147483649",
+   "draws": 1000000,
+   "sha256": "c8d75606987e4900289e1563ce37cba786fc067f0709e069e2edec48d291db55"
+  },
+  {
+   "seed": 42,
+   "method": "randbelow_1099511627779",
+   "draws": 1000000,
+   "sha256": "45c1c344a27f0977aec6a63bdeebdecce6bb5291a443ff2df23d07d30dd58953"
+  },
+  {
+   "seed": 42,
+   "method": "randbelow_9223372036854775813",
+   "draws": 1000000,
+   "sha256": "626c2689e81f676515141f8c2a49ea20ac345e39933c35093cb8a4fac46fe7af"
+  },
+  {
+   "seed": 42,
+   "method": "choice_1",
+   "draws": 1000000,
+   "sha256": "6506614505e113daab08b3f894ca46d4d61867c7b007c413b47a669abe8aae67"
+  },
+  {
+   "seed": 42,
+   "method": "choice_5",
+   "draws": 1000000,
+   "sha256": "8a4b2802aca4219b95d1b8d4a057de75ea3949af00557d4fe3ffec01445b101d"
+  },
+  {
+   "seed": 42,
+   "method": "choice_100003",
+   "draws": 1000000,
+   "sha256": "f7e0f668044a9442e4ae09c2c8196e32d6fc9a7bdbe934f839b7319a17b5570b"
+  },
+  {
+   "seed": 42,
+   "method": "shuffle_7",
+   "draws": 1000000,
+   "sha256": "fbd5f307cc487ba9acc9329fea948be8f508ff4adc1ea277e6bf2d2532edd4f0"
+  },
+  {
+   "seed": 42,
+   "method": "shuffle_100",
+   "draws": 1000000,
+   "sha256": "8caa22a338063a3ff4565e752247e2e12c06df19d8e438bb992447f6b3dfc936"
+  },
+  {
+   "seed": 42,
+   "method": "shuffle_1000",
+   "draws": 1000000,
+   "sha256": "c8f0977bb3828e9f889e4b8849ef3d9851de8c0f0d3eaf89dc5a9dc48a82fe5e"
+  },
+  {
+   "seed": 42,
+   "method": "sample_10_3",
+   "draws": 1000000,
+   "sha256": "71605cb911f736f6c2523268bfc6273e0a77147bf02fc8fca7ef575a9de830ca"
+  },
+  {
+   "seed": 42,
+   "method": "sample_50_10",
+   "draws": 1000000,
+   "sha256": "ad8a4193e4712274753f8ef7c54706f5249700c0897d1b997e67bcef78776149"
+  },
+  {
+   "seed": 42,
+   "method": "sample_1000_20",
+   "draws": 1000000,
+   "sha256": "5c00a1f1059dbdc5602f4b5252282d7f13819a6b79b1033f3cfd83db9e155372"
+  },
+  {
+   "seed": 42,
+   "method": "sample_100_100",
+   "draws": 1000000,
+   "sha256": "d6f8ff80ae46fc94d2fc02e576240f9aaa9a9b3c8f0a6813989a69d8ea3de8f8"
+  },
+  {
+   "seed": 42,
+   "method": "randrange_10",
+   "draws": 1000000,
+   "sha256": "1835a6a02225ecb15d2dc38168cb9032027755b93e87ee174b90d78c9bcd5649"
+  },
+  {
+   "seed": 42,
+   "method": "randrange_5_1000003",
+   "draws": 1000000,
+   "sha256": "ffea2a1debcb4c2ac346bfb5ee5d73093d985b0d723289992d50ad6778c83317"
+  },
+  {
+   "seed": 42,
+   "method": "randrange_m50_50_7",
+   "draws": 1000000,
+   "sha256": "812a61c0edcd08d709cb0a521b2c5d47bdd3c615f008e64e9c35dcf6cabfd3ce"
+  },
+  {
+   "seed": 42,
+   "method": "randrange_100_m100_m9",
+   "draws": 1000000,
+   "sha256": "b22bdce14316b29093ad61d14190334d2dfbf570ccad2ac43ad248398ed73db5"
+  },
+  {
+   "seed": 42,
+   "method": "randint_m3_3",
+   "draws": 1000000,
+   "sha256": "4b45510e8c1ca671182f9b2f1f1f12a34b21ea88c0fa636585311705edb6d25a"
+  },
+  {
+   "seed": 42,
+   "method": "uniform_0_1",
+   "draws": 1000000,
+   "sha256": "6c2b22aec198f65076b069e6d6866b914e04f116ea952567aa6aee6d8e04ea3e"
+  },
+  {
+   "seed": 42,
+   "method": "uniform_m3.5_7.25",
+   "draws": 1000000,
+   "sha256": "766827a8d83a1fcaa31c162e98b0256161c0b9b55baf65b8b27a12719c7bf316"
+  },
+  {
+   "seed": 42,
+   "method": "choices_cum_5_k10",
+   "draws": 1000000,
+   "sha256": "dd48cc000de8545215ef6955eeda7ac3bba7becea9656dfc749b5b69523fce03"
+  },
+  {
+   "seed": 42,
+   "method": "choices_weights_5_k1",
+   "draws": 1000000,
+   "sha256": "dd48cc000de8545215ef6955eeda7ac3bba7becea9656dfc749b5b69523fce03"
+  },
+  {
+   "seed": 42,
+   "method": "choices_uniform_17_k4",
+   "draws": 1000000,
+   "sha256": "183c4fcb20fbaf18c56ba2b96e9170c8b3b18a4677255c4bc68b504b5111a020"
+  },
+  {
+   "seed": 4294967296,
+   "method": "random",
+   "draws": 1000000,
+   "sha256": "2d19cbd5af3356b59de7c4f1c3b961f779c1ec08ced85af71d309aa7e608ec7b"
+  },
+  {
+   "seed": 4294967296,
+   "method": "getrandbits_1",
+   "draws": 1000000,
+   "sha256": "04be0ceb81e84962a43b4a2d78695030f956fa046f2e16a76e0aaec79027da72"
+  },
+  {
+   "seed": 4294967296,
+   "method": "getrandbits_7",
+   "draws": 1000000,
+   "sha256": "32bdc2f46b399cb09c62442d2498396b1b682bead4dfe2508423258c08eb207f"
+  },
+  {
+   "seed": 4294967296,
+   "method": "getrandbits_31",
+   "draws": 1000000,
+   "sha256": "19220826e530b5fbc3eb4c2ed324d1021ebca31cde26e1243cc5d456b5743888"
+  },
+  {
+   "seed": 4294967296,
+   "method": "getrandbits_32",
+   "draws": 1000000,
+   "sha256": "a7f638eac1dcea7010795579e6646db215924a3b3adc217c1cff92e08b52b07c"
+  },
+  {
+   "seed": 4294967296,
+   "method": "getrandbits_33",
+   "draws": 1000000,
+   "sha256": "d97fb3e21f6de2d3f7511a19d69a5d5bf71ecd009a59def7886c62fbb3a6008c"
+  },
+  {
+   "seed": 4294967296,
+   "method": "getrandbits_53",
+   "draws": 1000000,
+   "sha256": "78f2099dd9e977997a2f3366fa213ac8f729a84ae7197250e9009d2135c404e9"
+  },
+  {
+   "seed": 4294967296,
+   "method": "getrandbits_64",
+   "draws": 1000000,
+   "sha256": "3b96b7da5d47ba260297262a6a61e95d887b31288353547d4b57bbf33ecbbb73"
+  },
+  {
+   "seed": 4294967296,
+   "method": "randbelow_1",
+   "draws": 1000000,
+   "sha256": "6506614505e113daab08b3f894ca46d4d61867c7b007c413b47a669abe8aae67"
+  },
+  {
+   "seed": 4294967296,
+   "method": "randbelow_2",
+   "draws": 1000000,
+   "sha256": "0cbede831f790acf2a15b1427bdb77b8557b6310d80bc41aacd0305355ae3ecc"
+  },
+  {
+   "seed": 4294967296,
+   "method": "randbelow_3",
+   "draws": 1000000,
+   "sha256": "a049882bae24267f01f8de3f37c4393174245e4e2ed04edd2ce274a4ff768691"
+  },
+  {
+   "seed": 4294967296,
+   "method": "randbelow_10",
+   "draws": 1000000,
+   "sha256": "7dc72a16a0b86a05cb30d51ad86eae3f3f680e2fd16efdc772053ee4404076f8"
+  },
+  {
+   "seed": 4294967296,
+   "method": "randbelow_1000",
+   "draws": 1000000,
+   "sha256": "845ccc0552684ad0999fba3f180dba4d3cd689b7d4b9291dfec2c3ac3d403af0"
+  },
+  {
+   "seed": 4294967296,
+   "method": "randbelow_2147483649",
+   "draws": 1000000,
+   "sha256": "dd32e0e553fd99ffa19cdd8887cb2605c74508d630d396abd2bad8971b63821c"
+  },
+  {
+   "seed": 4294967296,
+   "method": "randbelow_1099511627779",
+   "draws": 1000000,
+   "sha256": "2dfe276d78ddd569bb2bd523dd80aad8f652b8838409e45a1902dee553e7c34c"
+  },
+  {
+   "seed": 4294967296,
+   "method": "randbelow_9223372036854775813",
+   "draws": 1000000,
+   "sha256": "e106053ac0b9882956909a08f74f29a2b9de25634781f23220eeabebfe9c2f6e"
+  },
+  {
+   "seed": 4294967296,
+   "method": "choice_1",
+   "draws": 1000000,
+   "sha256": "6506614505e113daab08b3f894ca46d4d61867c7b007c413b47a669abe8aae67"
+  },
+  {
+   "seed": 4294967296,
+   "method": "choice_5",
+   "draws": 1000000,
+   "sha256": "40ab3ac73ebb1cdbb456fc1b202a001961045df8982f54913e5b26d61c3fbbef"
+  },
+  {
+   "seed": 4294967296,
+   "method": "choice_100003",
+   "draws": 1000000,
+   "sha256": "68e94b36d168edea685911fab04e1910f9ef5f5e720d9702c75b9d78b413d91f"
+  },
+  {
+   "seed": 4294967296,
+   "method": "shuffle_7",
+   "draws": 1000000,
+   "sha256": "0eab48d512c29f2e680b2756b1f45c2fbce01c4376b08f929c41ab3a010cbcfd"
+  },
+  {
+   "seed": 4294967296,
+   "method": "shuffle_100",
+   "draws": 1000000,
+   "sha256": "dad93e4d0d5ef121d6acc123f42ce6c139b3296ae1d4b69eb6eb0ba5734e1ed4"
+  },
+  {
+   "seed": 4294967296,
+   "method": "shuffle_1000",
+   "draws": 1000000,
+   "sha256": "25b55f3d39cf136c19e6db7db2b3e45a54fe2bda4f21581ca4038f9fc0d65340"
+  },
+  {
+   "seed": 4294967296,
+   "method": "sample_10_3",
+   "draws": 1000000,
+   "sha256": "58bff6b14bdd9790996acb36fbf8d2bd479d4e288854e987c14a0d3122e61793"
+  },
+  {
+   "seed": 4294967296,
+   "method": "sample_50_10",
+   "draws": 1000000,
+   "sha256": "49856433a1b68ef9f641aed8eaaac6226af1d64fa0bb60fe975f5671eaf64712"
+  },
+  {
+   "seed": 4294967296,
+   "method": "sample_1000_20",
+   "draws": 1000000,
+   "sha256": "bef870ed6bd8086ca751e834628ca52692bfe3b997b5029cf81ea48524bfa483"
+  },
+  {
+   "seed": 4294967296,
+   "method": "sample_100_100",
+   "draws": 1000000,
+   "sha256": "e99c32795217fb1cd8fe8ae6d024ad1299241ff0ec2af84dfa061809dbc05a65"
+  },
+  {
+   "seed": 4294967296,
+   "method": "randrange_10",
+   "draws": 1000000,
+   "sha256": "7dc72a16a0b86a05cb30d51ad86eae3f3f680e2fd16efdc772053ee4404076f8"
+  },
+  {
+   "seed": 4294967296,
+   "method": "randrange_5_1000003",
+   "draws": 1000000,
+   "sha256": "2f6d6c5fd6e2f80af853a2a9aed0c5c1ce87cfb306cc7362947e1af9b149a1b7"
+  },
+  {
+   "seed": 4294967296,
+   "method": "randrange_m50_50_7",
+   "draws": 1000000,
+   "sha256": "b651e765d12c35b9702426845effc90634868f77d0e32150a0a2d52edb85d358"
+  },
+  {
+   "seed": 4294967296,
+   "method": "randrange_100_m100_m9",
+   "draws": 1000000,
+   "sha256": "0ccb01a4faf3eb0fd96ffa60c07b0c5acd4d77a08d54e732269325005b4cdc30"
+  },
+  {
+   "seed": 4294967296,
+   "method": "randint_m3_3",
+   "draws": 1000000,
+   "sha256": "139cb314e4c6d59751d9ec66f1d693660d3c3601463063c9d9b73430f44d216d"
+  },
+  {
+   "seed": 4294967296,
+   "method": "uniform_0_1",
+   "draws": 1000000,
+   "sha256": "2d19cbd5af3356b59de7c4f1c3b961f779c1ec08ced85af71d309aa7e608ec7b"
+  },
+  {
+   "seed": 4294967296,
+   "method": "uniform_m3.5_7.25",
+   "draws": 1000000,
+   "sha256": "1c61172a0f9d1fe8fb5727c407cde504ea7e319171ccf6c7d5f3d79e00cb75a3"
+  },
+  {
+   "seed": 4294967296,
+   "method": "choices_cum_5_k10",
+   "draws": 1000000,
+   "sha256": "abf6636d617c32c5d61c13bbde2af371b0489e9097c15b9cd09891de65e41ffa"
+  },
+  {
+   "seed": 4294967296,
+   "method": "choices_weights_5_k1",
+   "draws": 1000000,
+   "sha256": "abf6636d617c32c5d61c13bbde2af371b0489e9097c15b9cd09891de65e41ffa"
+  },
+  {
+   "seed": 4294967296,
+   "method": "choices_uniform_17_k4",
+   "draws": 1000000,
+   "sha256": "ff13824307045a3f02e4c64c3cfcbec4adaaa11b68a0f8fe86acc2a9feab2f57"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "random",
+   "draws": 1000000,
+   "sha256": "089188a882d681fdfec5558cb4f43b137a1908756c6f96b3bcc59ef65e9a06f7"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "getrandbits_1",
+   "draws": 1000000,
+   "sha256": "f42f10a975246eba0d18b60f788e3f4bdcb76eb2d177f6da74b7514bbbce8ec9"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "getrandbits_7",
+   "draws": 1000000,
+   "sha256": "e7c239e6c84fb80977a6f68d5b8be3388ea44b3b0e6ef015129095b81ebdea2a"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "getrandbits_31",
+   "draws": 1000000,
+   "sha256": "676cfa8627838fcaf7dc6f8f410a2eb9bd35e59b040d93a65f4c59a8cb194a8e"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "getrandbits_32",
+   "draws": 1000000,
+   "sha256": "8b7db866f066e124678e03549dbca345f10f4e4b00326df81c8390a56cf742e0"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "getrandbits_33",
+   "draws": 1000000,
+   "sha256": "ffe2d4f6e1d4ce25bc338efb9c5783bddb22864cd804a2fcd3742d319e0657bf"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "getrandbits_53",
+   "draws": 1000000,
+   "sha256": "faaf5002fc6ba340a52923608ce7124d0cb96a3e2a833223dc1879df6d78f6b2"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "getrandbits_64",
+   "draws": 1000000,
+   "sha256": "d35deeb97bba222edab3292f1e4d679a105734ce6588fc6d0bbb9cfc6928344d"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "randbelow_1",
+   "draws": 1000000,
+   "sha256": "6506614505e113daab08b3f894ca46d4d61867c7b007c413b47a669abe8aae67"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "randbelow_2",
+   "draws": 1000000,
+   "sha256": "05712b381a40d2637f0f794465ad5d58700b23d4eba2d80d86796df31ee8aa01"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "randbelow_3",
+   "draws": 1000000,
+   "sha256": "dc42c380b0f1236924d02af8fc9a53e935aedc0a345a2abe9a378d0f3702cacc"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "randbelow_10",
+   "draws": 1000000,
+   "sha256": "c7e9f2b20f2f8cdf85ed1cedb5459ee433dae9038b39daef00881b2c9597d996"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "randbelow_1000",
+   "draws": 1000000,
+   "sha256": "04ee1df263a3be1624f8856cc5fec0d14129c000f8512d189e862807ada54a23"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "randbelow_2147483649",
+   "draws": 1000000,
+   "sha256": "ddcc2fea6dc7ac78630abf33bf0815b649cc52da20578638ef06a9be80e9c862"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "randbelow_1099511627779",
+   "draws": 1000000,
+   "sha256": "46aad53bc21d9f1ae5c6ba3f2edaeee27a210e46b64fc5683b3eadff0468fab2"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "randbelow_9223372036854775813",
+   "draws": 1000000,
+   "sha256": "721626b320c200b05649337c67e75a044dab0c15a846eaa4c1a20046053a7574"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "choice_1",
+   "draws": 1000000,
+   "sha256": "6506614505e113daab08b3f894ca46d4d61867c7b007c413b47a669abe8aae67"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "choice_5",
+   "draws": 1000000,
+   "sha256": "4826e88f07f59ffb4f764c5ea1747d8adc686ce1706ed4ea4a030c5866a3f450"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "choice_100003",
+   "draws": 1000000,
+   "sha256": "9b33072c310acbe5b3948952090ef9f0f9533c9dc9fdf2cd04bfd651b9a911b8"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "shuffle_7",
+   "draws": 1000000,
+   "sha256": "d66f29079cbd124b6974fef296c5a6e33847ecc0d72a0c76d16e38ab180dab63"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "shuffle_100",
+   "draws": 1000000,
+   "sha256": "1c636ef8a3c6c51a1419a89e9b735c97d0e82ebe94f58e4af6450de4081b966e"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "shuffle_1000",
+   "draws": 1000000,
+   "sha256": "0129b43fb7ca1b62ba39350d6cd36e3d0130880d9e09aaf0189b65c61b286078"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "sample_10_3",
+   "draws": 1000000,
+   "sha256": "113e1353ca689b5a69926e757707b83e9ad3f6cd125f8964bfcf7b01f47dcb83"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "sample_50_10",
+   "draws": 1000000,
+   "sha256": "70ddd929a3c71eeed60e6bd20d7a3fb195d49b17509f6a86a6599b5f8827d5fe"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "sample_1000_20",
+   "draws": 1000000,
+   "sha256": "bf992d6e18c7701dd121fab254592cd87efed30314ff7bea9413f58c406f6a67"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "sample_100_100",
+   "draws": 1000000,
+   "sha256": "9fec3753bb2f833633e69155de6e07948384c211840ef4b1463d3c80b2852d58"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "randrange_10",
+   "draws": 1000000,
+   "sha256": "c7e9f2b20f2f8cdf85ed1cedb5459ee433dae9038b39daef00881b2c9597d996"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "randrange_5_1000003",
+   "draws": 1000000,
+   "sha256": "df98e8840473b1bd067036872d8e5e6684b80f48f8ef5254d1d7c517de7575ce"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "randrange_m50_50_7",
+   "draws": 1000000,
+   "sha256": "4fa3175849cba9497736cadedeebb2561b6692da121cd7497a8eef2501add10f"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "randrange_100_m100_m9",
+   "draws": 1000000,
+   "sha256": "af8eb044df29486ae298210c629a932dd03a4a38af7d7e98bc23a68cd67585a3"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "randint_m3_3",
+   "draws": 1000000,
+   "sha256": "e33da3f5a6a1ef12c1654b6cf06ef7c116cb4356158fd5779c8ca74eb70428e0"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "uniform_0_1",
+   "draws": 1000000,
+   "sha256": "089188a882d681fdfec5558cb4f43b137a1908756c6f96b3bcc59ef65e9a06f7"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "uniform_m3.5_7.25",
+   "draws": 1000000,
+   "sha256": "84c2fda628457e6d699af0dd3716fc7506c3b35811819e2db8296707e640aabc"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "choices_cum_5_k10",
+   "draws": 1000000,
+   "sha256": "2c6e61f3baa8c72acc3041deaf1bf855a2eb6ba0f3f09770189d25003e531ad7"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "choices_weights_5_k1",
+   "draws": 1000000,
+   "sha256": "2c6e61f3baa8c72acc3041deaf1bf855a2eb6ba0f3f09770189d25003e531ad7"
+  },
+  {
+   "seed": 18446744073709551557,
+   "method": "choices_uniform_17_k4",
+   "draws": 1000000,
+   "sha256": "b34f47832516f07628ef1a867d37af784f07349309942ebb275fe0b3f8b64c7c"
+  }
+ ]
+}
