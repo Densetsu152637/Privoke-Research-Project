@@ -14,6 +14,9 @@ privoke-rules = { path = "../privoke-rules" }
 # the default features, without the progress bar and the C++ unigram trainer.
 tokenizers = { version = "=0.22.2", default-features = false, features = ["onig"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
+# The external classifier client (stage 16): rustls only (no native-tls, no OpenSSL), the blocking API to match `classify`,
+# and no default features (so no gzip, cookies or system TLS). `rustls-tls` bundles the webpki roots.
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 sha2 = { workspace = true }
 thiserror = { workspace = true }
 

@@ -1,0 +1,24 @@
+Return exactly one valid JSON object with a results array, with no markdown or extra text.
+Put each supported finding in that array; do not return separate top-level objects.
+If no privacy risk is supported, return exactly {"results": []}.
+For a finding, choose one defined sensitivity and visibility value and only defined
+category names; the schema's pipe-separated strings list choices, not literal values.
+section_of_text must be an exact substring supporting the finding. reasoning must
+briefly explain the disclosed fact and its context without adding facts. confidence
+must be a finite number from 0 to 1. Use an empty metadata object.
+The object shape for supported findings is:
+{
+  "results": [
+    {
+      "sensitivity": "S0 | S1 | S2 | S3",
+      "visibility": "P0 | P1 | P2 | P3 | P4 | PU",
+      "categories": [
+        "HEALTH | POLITICS | RELIGION | CRIMINAL | FINANCIAL | SEXUAL | CHILD | LOCATION | IDENTITY | THIRD_PARTY"
+      ],
+      "section_of_text": "text_goes_here",
+      "reasoning": "Brief explanation of classification decision",
+      "confidence": 0.0,
+      "metadata": {}
+    }
+  ]
+}
