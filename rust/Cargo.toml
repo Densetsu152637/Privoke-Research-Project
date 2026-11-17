@@ -15,6 +15,7 @@ members = [
     "services/analysis",
     "crates/privoke-ner-layer",
     "services/param-update",
+    "crates/privoke-semantic",
 ]
 
 [workspace.package]
