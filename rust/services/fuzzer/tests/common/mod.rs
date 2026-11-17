@@ -126,10 +126,16 @@ impl Wire {
     }
 }
 
-/// The runtime answers every call with the bytes it was given (a recorded response), or with a function of the request.
+/// How the scripted runtime answers: a function of the scope and the request.
+pub type RuntimeAnswer = Box<dyn FnMut(Scope, &ComputeSemanticGradientsRequest) -> Result<ComputeSemanticGradientsResponse, Status> + Send>;
+
+/// How the scripted updater acknowledges a publication.
+pub type AckAnswer = Box<dyn FnMut(&ParameterUpdateRequest) -> ParameterUpdateAck + Send>;
+
+/// The runtime answers every call from a recorded response, or from a function of the request.
 pub struct ScriptedRuntime {
     pub wire: Arc<Wire>,
-    pub answer: Mutex<Box<dyn FnMut(Scope, &ComputeSemanticGradientsRequest) -> Result<ComputeSemanticGradientsResponse, Status> + Send>>,
+    pub answer: Mutex<RuntimeAnswer>,
 }
 
 impl ScriptedRuntime {
@@ -160,7 +166,7 @@ impl RuntimeBackend for ScriptedRuntime {
 /// The parameter-update service: no earlier receipt, and a scripted acknowledgement.
 pub struct ScriptedUpdates {
     pub wire: Arc<Wire>,
-    pub ack: Mutex<Box<dyn FnMut(&ParameterUpdateRequest) -> ParameterUpdateAck + Send>>,
+    pub ack: Mutex<AckAnswer>,
 }
 
 impl ScriptedUpdates {

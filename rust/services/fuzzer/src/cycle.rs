@@ -20,7 +20,6 @@ use privoke_curriculum::trainer::{merge_publication_metadata, prepare_trainer_ex
 use privoke_curriculum::types::BatchTrainingConfig;
 use privoke_curriculum::value::{self, Value};
 use privoke_curriculum::{Example, anchor, audience, benign, train_window};
-use prost::Message;
 use tokio::sync::Semaphore;
 use tonic::{Code, Status};
 
@@ -94,11 +93,11 @@ fn gap(feature: &str) -> Status {
 
 /// `_training_request_fingerprint`.
 pub fn plain_fingerprint(request: &FuzzerTrainingRequest) -> String {
-    value::sha256(&request.encode_to_vec())
+    value::sha256(&crate::pywire::fuzzer_request_bytes(request))
 }
 
 fn settings_fingerprint(request: &FuzzerTrainingRequest, settings: &Value) -> Result<String, Error> {
-    let document = Value::Array(vec![value::string(&hex(&request.encode_to_vec())), settings.clone()]);
+    let document = Value::Array(vec![value::string(&hex(&crate::pywire::fuzzer_request_bytes(request))), settings.clone()]);
     Ok(value::sha256(value::dumps_compact(&document)?.as_bytes()))
 }
 

@@ -1,6 +1,6 @@
 # Rust workspace
 
-> Source area: `rust`. Plan: [Rust server rewrite](../plans/rust-server-rewrite.md), stages 0 to 5, 7, 11 to 16, 18, 19 (partial), 20, W2 and W3. Run every command from the repository root unless stated.
+> Source area: `rust`. Plan: [Rust server rewrite](../plans/rust-server-rewrite.md), stages 0 to 5, 7, 11 to 16, 18, 19 (partial), 20, 21 (partial), W2 and W3. Run every command from the repository root unless stated.
 
 > Source area: `rust`. Plan: [Rust server rewrite](../plans/rust-server-rewrite.md), stages 0 to 5, 7, 11 to 14, 18, W2 and W3. Run every command from the repository root unless stated.
 
@@ -24,6 +24,7 @@ The workspace holds the Rust side of the server rewrite. Stages 1 and 2 added th
 | `privoke-curriculum` | Curricula, schedules and update aggregation (stage 20): exact CPython `random`, the fuzzer prompt curricula and the frozen V3 AU3 and BC01 schedules. See [below](#privoke-curriculum-stage-20). |
 | `privoke-training` | Gradients and local training of the Tiny transformer (stage 19, partial): reverse-mode kernels, the supervised objectives and the FULL projected Adam, on the stage 14 float64 reference backend. See [below](#privoke-training-stage-19). |
 | `privoke-telemetry-client` | The client telemetry reporter (stage 18): CPython-identical random draws on an injectable byte source, binary64 GRR thresholds, the persistent daily epsilon ledger, the report builder and the delivery worker over mutual TLS. See [below](#privoke-telemetry-client-stage-18). |
+| `privoke-fuzzer` (`rust/services/fuzzer`) | The fuzzer service that replaces `services/privoke-fuzzer` (stage 21, partial): one bounded training cycle per request with the stage 20 samplers in process, a mutual-TLS client of the runtime and of the parameter-update service, durable evidence and reservations, and the SQLite curriculum cursor state. See [below](#privoke-fuzzer-stage-21). |
 
 ## Build and test
 
@@ -1086,3 +1087,68 @@ By the stage's artifact rule, the replay run (gradients bitwise Python's) is in 
 - `round(x, 8)` is `format!("{x:.8}")`; the two differ only on an exact decimal tie.
 - `reject_overlength`, cancellation hooks, the retention auxiliary and the observed NumPy work counters are not ported.
 - Gradient and loss reductions are float64; torch accumulates in float32, so losses agree to about 1e-6 relative.
+
+## `privoke-fuzzer` (stage 21)
+
+> Plan: [Rust server rewrite](../plans/rust-server-rewrite.md#stage-21-fuzzer-orchestration-in-rust-d6). Binary: `fuzzer-service`. Dockerfile: `rust/services/fuzzer/Dockerfile`.
+
+**Status: partial.** `rust/services/fuzzer` replaces `services/privoke-fuzzer/src/{fuzzer_service,runtime_client,main,cli,config,json_records}.py` for the cycles that need only what stages 19 and 20 provide. The Python service stays in place as the oracle and for the historical study runners. `rust/services/v3-fuzzer` (the port of `services/pretrained-v3/src/fuzzer_server.py`) is **not started**; see the stage 21 handoff in the plan.
+
+| Module | Python source |
+| --- | --- |
+| `config` | `config.py` (`FuzzerConfig`, `validated()`, the same messages) and the credentials of the outbound channels. |
+| `validate` | `privoke_service.validate_text`, `validate_training_request`, `validate_presence_training_request`. |
+| `runtime` | `runtime_client.py`: `compute_semantic_gradients` (request construction, the explicit `[SEMANTIC]` layer list, `validate_training_response` with the tensor inventory derived from the model configuration) and a mutual-TLS client. |
+| `updates` | `training/parameter_updates.py` (publication metadata and tensors) and the receipt lookup of `fuzzer_service.py`, with a mutual-TLS client of the parameter-update service. |
+| `evidence` | `training/evidence.py`: the reservation table, the complete cycle record, recovery of a lost acknowledgement. |
+| `state` | The SQLite `CursorState` of the fixed curriculum (`batches` and `cursors` tables), one `BEGIN IMMEDIATE` transaction per reservation. |
+| `pywire` | Protobuf bytes as Python writes them for the two messages whose bytes are hashed or retained (see below). |
+| `cycle` | `fuzzer_service.py`: validation, the concurrency bound, the FULL scope namespace, fingerprints, sampling, the publication guard, submission and the response. |
+| `service`, `server` | The gRPC shell and its policy: the training RPCs for `publisher` and `trainer` services, `Health` also for `runtime`; everything else `UNIMPLEMENTED`. No plaintext listener. |
+| `cli` | `cli.py` `train` (over mutual TLS) and a `healthcheck` subcommand. |
+
+`json_records.py` is the stage 20 `privoke-curriculum` loader (`prompt_seed::load_prompt_dataset`); it needed no port here.
+
+### Behaviour kept from the Python service
+
+Request validation order and messages; `max_concurrent_cycles` as a try-acquire (`RESOURCE_EXHAUSTED`); the prompt cap and the `request.seed or config.seed` rule; the FULL scope derived `source_id` and `original_request_source_id`; the request fingerprints (`sha256` of the request, of `[hex(request), settings]`, and the curriculum fingerprint); the receipt lookup before any work, with `ALREADY_EXISTS` and `UNAVAILABLE` mapped as Python maps them and a found receipt answered as `{"replayed": "true"}`; the held-out guard (`validate_training_update`) and its messages; the gRPC status of each failure (`FAILED_PRECONDITION` for a `ValueError`, `UNAVAILABLE` for the runtime and the updater); the retained record written whole (temporary file, flush, rename, directory flush) and rewritten with the acknowledgement; the response `metadata` (update metadata, then `str(metric)`).
+
+Every gradient request names exactly `[DETECTION_LAYER_SEMANTIC]` and no constructor can produce an empty list, which the runtime would read as the complete detector pipeline. A response that does not report exactly the three semantic executions (`training`, `base_heldout`, `candidate_heldout`) is refused.
+
+### Deliberate differences
+
+- **Mutual TLS everywhere.** The listener, the runtime client, the updater client and the CLI present a registered certificate; the fuzzer certificate name must equal `FUZZER_ID`, the `source_id` it publishes as (stage 5 binds them). The Python service used `service_channel`, which can fall back to plaintext on the Compose network.
+- **The listener deadline.** One RPC is one whole cycle, so `FUZZER_REQUEST_TIMEOUT_SECONDS` (default 1800) replaces the transport 60 s default, and connections drain only after it.
+- **Curriculum allocation text.** The `allocation` column holds `json.dumps(sort_keys=True)` of the allocation; Python wrote the keys in insertion order. Both read back as the same value (the replay compares parsed rows).
+- **Python map encoding (`pywire`).** Python writes every protobuf map entry with its key and value fields, even a default value (an empty string or `0.0`); `prost` leaves a default value out. The messages decode identically, but a fingerprint over the request and the retained `response_protobuf_base64` must be the bytes Python wrote, so those two are encoded by `pywire`. The first CI run found this: a recorded response carries `candidate_heldout_safety_regression_rate = 0.0`. **Finding for stage 20:** `privoke_curriculum::curriculum::request_fingerprint` hashes `request.encode_to_vec()`, which differs from Python for a request whose metadata has an empty value; the fuzzer never reaches that call with such a request in any recorded cycle, and the stage 20 crate was left unchanged.
+- **Named gaps instead of different cycles** (below).
+
+### Not ported (each answers `UNIMPLEMENTED` and names the gap)
+
+- Policy-admitted cycles: any `expected_contextual_*`, `expected_full_projected_adam*` or `expected_original_train_retention*` metadata (FULL Adam, ORIGINAL retention, backtracking, TRAIN diagnostics), FULL Adam gate and publication evidence, and the study gate diagnostics record. They need the `privoke_model.full_adam`, `sensitive_retention` and `contextual_training` contracts and the FULL Adam evidence files.
+- The window cycle (`training/window_cycle.py`, `window_evidence.py`) and the window sampler: they need the stage 19 window trainer.
+- The audience (AU3, the default when no dataset is configured), taxonomy, rehearsal and benign samplers: the stage 20 functions exist, but audience needs the hashed implementation closure of the Python sources and the others need the policy admission above. Configure `FUZZ_CONTEXTUAL_SAMPLING_STRATEGY=legacy_random_v1` (the Dockerfile does).
+- The presence cycle (`RunPresenceTrainingCycle`): the presence gradient RPC, its guard and its attempt records.
+- `cli.py test-prompts` (`prompt_testing.py`), a study helper outside this service.
+
+### Parity with Python
+
+`evaluation/generate_fuzzer_golden.py` runs the maintained `FuzzerTrainingService` in process on the host (`evaluation/.venv-v1-v3-pipeline`, generated protobuf clients) with the runtime replaced by the response bytes of a real recorded cycle (`execution_evidence.response_protobuf_base64` of the retained `accelerated_all_surfaces_20261010` cells) and the updater replaced by a fake. It writes `rust/services/fuzzer/tests/fixtures/fuzzer_cycles_golden.json`; no detector layer runs and no stack is needed. The recorded legacy cell runtime request is not reproduced by any seed, because the study used a prompt dataset that is not in the repository; its request is generated by the Python oracle for the same configuration instead, and the golden marks that (`runtime_request_matches_recorded`). `cargo test -p privoke-fuzzer` replays the same requests through the Rust engine against scripted backends:
+
+| Check | Result |
+| --- | --- |
+| Cycles replayed (2 legacy-sampler cycles, 3 fixed-curriculum cycles over the SQLite state, one of them the retry of the first) | 5 cycles: 4 accepted and 1 refused by the guard |
+| Wire messages (gradient request, receipt lookup, publication), after the same decode | 14 of 14 identical, in the same order |
+| Response of accepted cycles, abort code and message of the refused one | 5 of 5 identical |
+| Retained cycle records, byte for byte | 4 of 4 identical |
+| Reservation rows; curriculum `batches` and `cursors` rows (parsed) | 4 of 4 and 10 of 10 identical |
+
+The G5 normalisation (`tests/conformance/normalization.toml`) replaces timestamps and server-generated identifiers; these records contain none, so the comparison is exact. `tests/scheduler_mtls.rs` runs the stage 5 scheduler (its `GrpcFuzzer` and journal) against the real Rust fuzzer service over mutual TLS through one dual cycle (heads, then the full encoder on the published version; the runtime behind it is scripted, the full-encoder tensors synthesised from the model configuration), and checks that an unregistered certificate, a certificate registered only for health probes and a server certificate from an untrusted CA are refused before any cycle is served.
+
+### Build and run
+
+```
+docker build -f rust/services/fuzzer/Dockerfile -t privoke-fuzzer-rust:<tag> .
+```
+
+The service reads the `FUZZ_*`, `MODEL_ID`, `FUZZER_ID`, `PARAM_UPDATE_TARGET` and `PRIVOKE_RUNTIME_TARGET` variables of the Python service, plus `FUZZER_BIND`, `FUZZER_REQUEST_TIMEOUT_SECONDS`, `PRIVOKE_TLS_CA_FILE`, `PRIVOKE_TLS_CERT_FILE`, `PRIVOKE_TLS_KEY_FILE` and the optional `PRIVOKE_RUNTIME_TLS_SERVER_NAME` and `PARAM_UPDATE_TLS_SERVER_NAME` (default: the target host). Cloud flags as for the other services: `--cert`, `--key`, `--client-ca`, `--crl`, `--registry`.

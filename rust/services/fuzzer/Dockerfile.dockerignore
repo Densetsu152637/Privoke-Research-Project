@@ -1,0 +1,11 @@
+# BuildKit reads this file instead of the repository-root .dockerignore for rust/services/fuzzer/Dockerfile.
+# The root file drops every `bin` directory, which would remove privoke-transport/src/bin. Allow-list only what the
+# build needs, so the build context stays small and holds no database, key or certificate.
+*
+!rust
+!shared/proto
+rust/target
+**/*.key
+**/*.pem
+**/*.p12
+**/*.sqlite3

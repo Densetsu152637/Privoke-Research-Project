@@ -21,7 +21,9 @@ use std::path::Path;
 use std::sync::Arc;
 
 use common::{FULL_PATH, HEADS_PATH, STATUS_PATH, SUBMIT_PATH, ScriptedRuntime, ScriptedUpdates, Wire, b64, read_golden, repo_root};
-use privoke_contracts::proto::v1::{FuzzerTrainingRequest, FuzzerTrainingResponse};
+use privoke_contracts::proto::v1::{
+    ComputeSemanticGradientsRequest, FuzzerTrainingRequest, FuzzerTrainingResponse, ParameterUpdateRequest, ParameterUpdateStatusRequest,
+};
 use privoke_fuzzer::config::{FuzzerConfig, Scope};
 use privoke_fuzzer::cycle::Engine;
 use prost::Message;
@@ -68,7 +70,9 @@ fn reservations(directory: &Path) -> Vec<(String, String)> {
     statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?))).unwrap().map(Result::unwrap).collect()
 }
 
-fn curriculum_rows(path: &Path) -> (Vec<(String, String, Value)>, Vec<(String, i64)>) {
+type CurriculumRows = (Vec<(String, String, Value)>, Vec<(String, i64)>);
+
+fn curriculum_rows(path: &Path) -> CurriculumRows {
     let connection = rusqlite::Connection::open(path).unwrap();
     let mut batches = connection.prepare("SELECT identity, fingerprint, allocation FROM batches ORDER BY identity").unwrap();
     let batches: Vec<(String, String, Value)> = batches
@@ -144,17 +148,23 @@ async fn replay(sequence: &Value, counts: &mut Counts) {
         let observed_paths: Vec<&str> = observed.iter().map(|(path, _)| path.as_str()).collect();
         assert_eq!(observed_paths, expected.iter().map(|(path, _)| *path).collect::<Vec<_>>(), "{context}: call order");
         for ((path, bytes), (_, want)) in observed.iter().zip(&expected) {
-            assert!(bytes == want, "{context}: {path} request bytes differ ({} against {})", bytes.len(), want.len());
+            // Python writes default-valued map entries that prost leaves out; both decode to the same message, so the
+            // recorded bytes are compared after the same decode and re-encode.
+            let normalised = match path.as_str() {
+                STATUS_PATH => ParameterUpdateStatusRequest::decode(want.as_slice()).unwrap().encode_to_vec(),
+                SUBMIT_PATH => ParameterUpdateRequest::decode(want.as_slice()).unwrap().encode_to_vec(),
+                _ => ComputeSemanticGradientsRequest::decode(want.as_slice()).unwrap().encode_to_vec(),
+            };
+            assert!(bytes == &normalised, "{context}: {path} request bytes differ ({} against {})", bytes.len(), normalised.len());
         }
         assert!(matches!(observed_paths.first(), Some(&STATUS_PATH)), "{context}: the receipt lookup comes first");
         assert!(observed_paths.iter().all(|path| [STATUS_PATH, SUBMIT_PATH, HEADS_PATH, FULL_PATH].contains(path)));
 
         // The outcome.
         match (&cycle["outcome"]["ok"], &cycle["outcome"]["abort"]) {
-            (Value::String(response), _) => {
-                let response_bytes = outcome.unwrap_or_else(|status| panic!("{context}: aborted {status}")).encode_to_vec();
-                assert!(response_bytes == b64(response), "{context}: response bytes differ");
-                let _ = FuzzerTrainingResponse::decode(response_bytes.as_slice()).unwrap();
+            (Value::String(response_text), _) => {
+                let response = outcome.unwrap_or_else(|status| panic!("{context}: aborted {status}"));
+                assert_eq!(response, FuzzerTrainingResponse::decode(b64(response_text).as_slice()).unwrap(), "{context}: response");
                 counts.ok += 1;
             }
             (_, Value::Array(abort)) => {

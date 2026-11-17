@@ -526,7 +526,7 @@ pub fn admit_response(
         ("rpc", value::string(rpc)),
         ("request_layers", Value::Array(request.layers.iter().map(|layer| value::int(i64::from(*layer))).collect())),
         ("request_protobuf_base64", value::string(&encoder.encode(request.encode_to_vec()))),
-        ("response_protobuf_base64", value::string(&encoder.encode(response.encode_to_vec()))),
+        ("response_protobuf_base64", value::string(&encoder.encode(crate::pywire::compute_response_bytes(response)))),
         ("executions", Value::Array(executions)),
     ]);
     Ok(BatchUpdate {
@@ -606,7 +606,7 @@ mod tests {
     fn a_response_without_the_three_executions_is_refused() {
         use privoke_curriculum::classification::Classification;
         let train = Example::new("a", Classification(28), 1.0, BTreeMap::new());
-        let request = gradient_request(&[train.clone()], &[train], "m", "r", 0.03, 0.05).unwrap();
+        let request = gradient_request(std::slice::from_ref(&train), std::slice::from_ref(&train), "m", "r", 0.03, 0.05).unwrap();
         let response = ComputeSemanticGradientsResponse {
             request_id: "r".into(),
             model_id: "m".into(),
