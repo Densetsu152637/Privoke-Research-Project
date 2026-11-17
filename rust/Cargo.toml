@@ -20,6 +20,7 @@ members = [
     "crates/privoke-training",
     "crates/privoke-telemetry-client",
     "services/fuzzer",
+    "services/runtime",
 ]
 
 [workspace.package]
