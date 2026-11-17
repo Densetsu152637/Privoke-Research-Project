@@ -1,0 +1,21 @@
+[package]
+name = "privoke-curriculum"
+description = "Curricula, frozen schedules and update aggregation of the PriVoke fuzzer, with an exact CPython random (stage 20)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+privoke-contracts = { path = "../privoke-contracts" }
+privoke-rules = { path = "../privoke-rules" }
+prost = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = "1"
+
+[lints]
+workspace = true

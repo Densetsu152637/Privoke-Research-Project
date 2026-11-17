@@ -1215,9 +1215,13 @@ The worker is the same binary and pipe protocol everywhere. It never opens a soc
 - Acceptance checks:
   - Every recorded schedule and curriculum digest, for every recorded seed, is reproduced exactly.
   - A per-call test against CPython `random` covers 10^6 draws per method.
-- Status: pending
+- Status: done (RUST-S20, 2026-11-17; branch `wt/rust-s20`, not merged).
 - Outcome:
-- Handoff notes: any digest mismatch blocks the stage. Approximate parity is not acceptable for frozen schedules.
+  - **Crate** `privoke-curriculum` (`rust/crates/privoke-curriculum`): exact CPython `random` and the ports of `prompt_generation/*`, the pure half of `training/*`, and `pretrained-v3/src/{fuzzer_training,audience_schedule}.py`. Module map in `docs/runtime/rust-workspace.md`.
+  - **Digests.** 10^6 draws per method and seed against CPython (4 seeds, 36 variants, str and bytes seeds); recorded AU3 sources for seeds 42, 43 and 44 (pilot and 8-batch); 52 retained sampling audits (49 rehearsal, 3 benign) identical; live Python on further seeds identical. No mismatch.
+  - **Not reproducible by the oracle itself:** 3 retained benign audits of a superseded manifest (`7d9b12f0...`), refused by the maintained Python.
+  - **CI:** run 44010764772 green on 8d2f0fc (format, clippy, workspace tests including the curriculum parity tests). The 3 `oracle_refuses` benign audits were accepted as non-blocking by root.
+- Handoff notes: stage 21 owns the gRPC and SQLite side (`CursorState`) and the model-bound training contracts. Pinned inputs are committed byte-exact under `tests/fixtures` (`-text`). The AU3 manifest pins CRLF catalogs and LF manifest/guard, which fails the Python check on any single checkout; recorded `source_hashes` are inputs. Python `str.format` specs are not supported (plain fields only).
 
 ## Stage 21: Fuzzer orchestration in Rust (D6)
 

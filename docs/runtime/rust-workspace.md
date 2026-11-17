@@ -949,3 +949,39 @@ PRIVOKE_GLINER_GOLDEN=<ignored dir> cargo test -p privoke-ner-layer --test gline
 ```
 
 The checkpoint is `knowledgator/gliner-pii-small-v1.0` at revision `d21aad5b4a7ec82b3d0970fd1ac74a12c087d85e` (Apache-2.0); its weights were deleted after the study (`docs/experiments/ner-models-20261024.md`). A run of the model with ONNX Runtime is a separate check from Python parity: the ONNX export and the torch checkpoint agree only to float tolerance, and the model's own span scores can differ near the threshold.
+
+## `privoke-curriculum` (stage 20)
+
+> Plan: [Rust server rewrite](../plans/rust-server-rewrite.md#stage-20-curricula-schedules-and-update-aggregation-in-rust-d5).
+
+`privoke-curriculum` ports the fuzzer's curricula and the frozen V3 schedules, on top of an exact reimplementation of CPython `random`. A seed reproduces the Python selection, order, metadata and every digest.
+
+| Module | Python source |
+| --- | --- |
+| `pyrandom` | CPython `random.Random`: MT19937 seeded from int, str and bytes (version 2), `random`, `getrandbits`, `_randbelow`, `choice`, `shuffle`, `sample`, `randrange`, `randint`, `uniform`, `choices` (weights and cumulative weights). |
+| `generator`, `defaults`, `templates`, `prompt_seed` | `prompt_generation/{generator,defaults,templates,vocabulary,loader,types}.py` with `json_records` and `training/classifications.py`: the legacy prompt generator, the held-out partition and the contextual role-quota sampler. |
+| `taxonomy`, `anchor`, `benign` | `taxonomy_coverage.py`, `anchor_rehearsal.py`, `benign_coverage.py`: releases, partitions, audits and retained-audit evidence. |
+| `audience`, `privacy_heads` | `audience_coverage.py` (AU3) and `privacy_heads_curriculum.py` (PH3 rows, `build`, `audit`). |
+| `presence`, `curriculum`, `train_window` | `presence.py`, `curriculum.py` (the SQLite state is the `CursorState` trait; `MemoryState` for tests), `train_window.py` with the window contract of `window_training.py`. |
+| `trainer` | The pure half of `training/trainer.py` and `parameter_updates.py`: seeded augmentation, request validation, publication metadata and the compact audit. |
+| `v3` | `pretrained-v3/src/{fuzzer_training,audience_schedule}.py`: the AU3 and BC01 frozen streams, sidecars and wire digests. |
+
+### Parity with Python
+
+`evaluation/generate_curriculum_golden.py` (`random`, `recorded`, `live`; host Python `evaluation/.venv-v1-v3-pipeline`, read only) writes `tests/golden/*.json`. All of it runs in `cargo test` (CI).
+
+| Check | Result |
+| --- | --- |
+| CPython `random`: 4 seeds (0, 42, 2^32, 2^64-59) x 36 method variants x 10^6 draws, digest of each draw stream; plus str and bytes seeds | identical |
+| Recorded AU3 source records (seeds 42, 43, 44; pilot and 8-batch): train and guard wire digests, sidecar digest, whole-record digest, exposure counts | identical (6 of 6) |
+| Retained BC01 and rehearsal sampling audits, including expanded wire commitments | 52 of 52 reproducible audits identical (49 rehearsal, 3 benign) |
+| Live Python on further seeds: legacy generator, taxonomy, anchor, benign, AU3 partitions and audits, AU3 and BC01 V3 schedules, PH3 pools, augmentation, role quota, presence, curriculum reservations and fingerprints | identical |
+
+Three retained benign audits (manifest `7d9b12f0...`, seed 42) come from a superseded manifest that the maintained Python itself refuses; they are recorded as `oracle_refuses` and cannot be reproduced by any port.
+
+Two inputs need care. The AU3 manifest pins its two catalogs as CRLF bytes but the manifest and guard as LF bytes, so no single checkout line-ending setting passes the Python pin check; `tests/fixtures/au3` holds the pinned bytes under `-text`. The recorded `source_hashes` pin the Python bytes of the time, so tests take them as inputs.
+
+### Not in this stage
+
+- The gRPC submission, SQLite cursor storage, retained-evidence files of the service and the model-bound `privoke_model` contracts (stage 21 and later). The email and phone redaction transforms, which no curriculum uses.
+- `str.format` is supported for plain `{name}` fields and `{{ }}` escapes only.

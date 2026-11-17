@@ -1771,6 +1771,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "privoke-curriculum"
+version = "0.1.0"
+dependencies = [
+ "privoke-contracts",
+ "privoke-rules",
+ "prost",
+ "serde_json",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
 name = "privoke-model-streaming"
 version = "0.1.0"
 dependencies = [
