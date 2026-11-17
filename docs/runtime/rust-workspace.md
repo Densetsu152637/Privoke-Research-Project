@@ -886,3 +886,27 @@ Without the two variables the tests write why they skipped to stderr and pass.
 - `reject_overlength` (the strict mode of full-encoder contextual artifacts) and the batch `predict_many` are not ported; one text is classified at a time, as the pipeline does.
 - Loading from the model-streaming protobuf (`GetModelParameters`, `GetModelPackage`) is stage 17 (D11). The crate reads a prepared release directory or an artifact JSON.
 - The tolerance claim covers CPU float32 torch and NumPy; GPU results differ by more.
+
+## GLiNER backend (stage 15)
+
+`privoke_ner_layer::gliner` ports `NER/gliner_detector.py`, the optional GLiNER NER backend (`PRIVOKE_NER_BACKEND=gliner`). It is not shipped by default, as in Python: the model backend is behind the cargo feature `gliner-ort` of `privoke-ner-layer` (off by default), and nothing in the product wires the backend in.
+
+| Part | What it ports |
+| --- | --- |
+| `LabelPreset`, `CORE_LABELS`, `pii_extra_use_case` | The pre-registered `core` and `pii` label presets, the mapping of `core` labels onto `PERSON`, `GPE`, `FAC`, `ORG`, and the fixed identifier use cases. |
+| `word_windows`, `split_words` | Windows of at most 300 whitespace separated words, and GLiNER's `\w+(?:[-_]\w+)*|\S` word splitter, with Python's `isspace` and `\w`. |
+| `prompt_words`, `words_mask`, `span_inputs`, `decode_spans` | The model-side input layout and the flat-NER decoder (sigmoid above the threshold, greedy by descending score, overlap removal), so a backend only runs the network. |
+| `GlinerDetector` | `predict_raw` (threshold and label filters, order), `extract_entities`: core spans go through the NER post-filter on the spaCy `Doc` (`char_span(..., "expand")`), identifier spans are emitted directly, results sorted by span. |
+| `gliner_ort::GlinerOrt` (feature `gliner-ort`) | ONNX Runtime (`ort` 2.0.0-rc.10, `load-dynamic`: set `ORT_DYLIB_PATH`) plus `tokenizers` 0.22.2 over `tokenizer.json`, `gliner_config.json` and the ONNX export of the span model. |
+
+- **spaCy.** The tokens and parse come through the `SpacyBackend` trait (the in-process backend by default). The detector asks for `Selection::Full` and ignores the entities: `en_core_web_sm`'s tagger and parser do not read `ner`, so the tokens equal Python's ner-disabled parse. A ner-disabled selection in `privoke-spacy` would only save the NER compute.
+- **Settings.** `GlinerOptions` reads `PRIVOKE_NER_GLINER_THRESHOLD` (default 0.3, as Python) and `PRIVOKE_NER_GLINER_LABELS` (default `core`); `GlinerOptions::frozen()` is the study's frozen `core`, 0.5 (`gliner-core-t0.5-pf1`). The post-filter follows `NerOptions::postfilter`.
+- **Not ported.** The layer entry point (`analyse_ner_layer`) still builds the spaCy detector; selecting the GLiNER detector there is the analysis runtime's job (stage 17).
+- **Parity.** `evaluation/generate_gliner_golden.py` records, from Python, each model call, the spaCy analyses the post-filter read and the results with the post-filter on and off, for the C53 sets (development, `personalized`, `openai`). `tests/gliner_replay.rs` replays them without the weights when `PRIVOKE_GLINER_GOLDEN` points at the (ignored) output, and reports `PENDING` otherwise. The pure parts have unit tests with synthetic logits.
+
+```
+evaluation/.venv-ner-models/Scripts/python.exe evaluation/generate_gliner_golden.py --gliner-dir <checkpoint> --out <ignored dir> development openai
+PRIVOKE_GLINER_GOLDEN=<ignored dir> cargo test -p privoke-ner-layer --test gliner_replay --manifest-path rust/Cargo.toml -- --nocapture
+```
+
+The checkpoint is `knowledgator/gliner-pii-small-v1.0` at revision `d21aad5b4a7ec82b3d0970fd1ac74a12c087d85e` (Apache-2.0); its weights were deleted after the study (`docs/experiments/ner-models-20261024.md`). A run of the model with ONNX Runtime is a separate check from Python parity: the ONNX export and the torch checkpoint agree only to float tolerance, and the model's own span scores can differ near the threshold.
