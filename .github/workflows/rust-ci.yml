@@ -122,3 +122,31 @@ jobs:
         run: |
           PYO3_PYTHON="$(python -c 'import sys; print(sys.executable)')" \
             cargo clippy -p privoke-spacy --features in-process,test-hooks,fake-worker --all-targets --locked -- -D warnings
+
+  gliner-check:
+    # The optional GLiNER ONNX backend (stage 15, cargo feature gliner-ort) is off by
+    # default, so the jobs above do not build it. ONNX Runtime is loaded dynamically at
+    # run time (no download while building); this job proves the feature compiles and lints.
+    name: GLiNER ONNX backend build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal -c clippy
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: rust-gliner-${{ runner.os }}-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('rust/Cargo.lock') }}
+      - name: Clippy with gliner-ort
+        run: cargo clippy -p privoke-ner-layer --features gliner-ort --all-targets --locked -- -D warnings

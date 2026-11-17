@@ -974,9 +974,13 @@ The assessments in [port assessments](#port-assessments-d1-to-d11) give the Rust
 - Depends on: stages 11 and 13
 - Owned paths: `rust/crates/privoke-ner-layer/src/gliner*`
 - Acceptance checks: identical spans at the frozen label preset and threshold on the C53 sets.
-- Status: pending
+- Status: partial (17 Nov 2026): code and CI done, parity on the C53 sets pending (the checkpoint and the Python `gliner` environment are not on this host).
 - Outcome:
-- Handoff notes: not shipped by default, as in the Python build.
+  - **Code** (`rust/crates/privoke-ner-layer/src/gliner.rs`, `gliner_ort.rs`): presets and use cases, windows and word splitter, input layout and flat-NER decoder, `GlinerDetector` (post-filter on the spaCy `Doc` with `char_span` expand), and a feature-gated ONNX Runtime backend (`gliner-ort`, off by default). The spaCy parse is `Selection::Full` with the entities ignored (no ner-disabled selection exists; the parse does not depend on `ner`).
+  - **Parity harness**: `evaluation/generate_gliner_golden.py` (not run: no `gliner` package or weights on the host) and `tests/gliner_replay.rs`, which skips with a printed `PENDING` reason without `PRIVOKE_GLINER_GOLDEN`.
+  - **Unverified assumptions** (need the checkpoint's `gliner_config.json` and ONNX export): input names `input_ids`, `attention_mask`, `words_mask`, `text_lengths`, `span_idx`, `span_mask`, output `logits [1, words, max_width, classes]`, prompt `[<<ENT>> label ...] <<SEP>>`, truncation at `max_len`.
+  - Added a `gliner-check` job to `.github/workflows/rust-ci.yml` (outside the owned paths) so the feature compiles in CI.
+- Handoff notes: not shipped by default, as in the Python build. To close the acceptance check, restore the checkpoint to `models/experiments/ner-models-20261024/gliner-pii-small-v1.0/`, run the golden script, then the replay test (parity of the Rust logic with Python), then run `GlinerOrt` over the same texts and compare its spans with the golden `windows` (parity of the ONNX model). Stage 17 selects this detector when `PRIVOKE_NER_BACKEND=gliner`.
 
 ## Stage 16: External classifier client (D10)
 

@@ -6,6 +6,7 @@
 //!   a lower-cased phrase through the tagger-only selection and reads the lexicon from the model's `lemma_index`.
 //! * [`usecases`]: the label to classification table.
 //! * [`pattern`]: the experimental pattern entity detector (cues, shapes, recurrence, optional gazetteer).
+//! * [`gliner`]: the optional GLiNER backend (stage 15, off by default; the ONNX model needs the `gliner-ort` feature).
 //! * [`layer`]: the layer as the pipeline runs it, with normalisation from `privoke-rules` and span remapping to the
 //!   original prompt.
 //!
@@ -18,6 +19,9 @@
 
 pub mod analyzer;
 pub mod detector;
+pub mod gliner;
+#[cfg(feature = "gliner-ort")]
+pub mod gliner_ort;
 pub mod layer;
 pub(crate) mod pat;
 pub mod pattern;
