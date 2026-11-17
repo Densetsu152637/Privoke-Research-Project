@@ -140,6 +140,7 @@ impl TinyNet {
     }
 }
 
+#[derive(Debug)]
 struct LayerCache {
     input: Vec<f64>,
     q: Vec<f64>,
@@ -157,6 +158,7 @@ struct LayerCache {
 }
 
 /// Activations of one forward pass, kept for the backward pass.
+#[derive(Debug)]
 pub struct Forward {
     ids: Vec<usize>,
     layers: Vec<LayerCache>,
