@@ -17,6 +17,7 @@ members = [
     "services/param-update",
     "crates/privoke-semantic",
     "crates/privoke-curriculum",
+    "crates/privoke-training",
 ]
 
 [workspace.package]
