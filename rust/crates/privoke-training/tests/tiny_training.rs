@@ -142,7 +142,6 @@ fn gradients_of_every_objective_match_torch() {
         total.within,
         total.max_error
     );
-    panic!("TEMP-REPORT");  // TEMP
 }
 
 #[test]
@@ -159,7 +158,6 @@ fn adam_recurrence_with_recorded_gradients_is_exact() {
     })
     .unwrap();
     assert_eq!(fit.base, record["base_fingerprint"].as_str().unwrap());
-    println!("adam replay base ok");
     let (mut before, mut after, mut delta, mut clipped) = (0, 0, 0, 0);
     for (rust, python) in fit.steps.iter().zip(steps) {
         before += usize::from(rust.before == python["before"].as_str().unwrap());
@@ -212,7 +210,6 @@ fn rust_gradients_follow_the_python_trajectory() {
         compare.coordinates, compare.bitwise, compare.within, compare.max_error
     );
     assert_eq!(visited, 64);
-    panic!("TEMP-REPORT");  // TEMP
     assert_eq!(compare.within, compare.coordinates);
 }
 
@@ -240,5 +237,7 @@ fn chained_rust_fit_reports_its_deviation_from_python() {
     );
     assert_eq!(fit.steps.len(), 64);
     assert_eq!(fit.counts.parameter_states, 65);
-    panic!("TEMP-REPORT");  // TEMP
+    // The gradients are not bitwise torch's, so this run is in the tolerance category: same inventory and shapes,
+    // every coordinate within 1e-6.
+    assert_eq!(within, coordinates);
 }

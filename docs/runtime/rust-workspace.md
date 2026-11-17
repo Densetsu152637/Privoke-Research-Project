@@ -19,6 +19,7 @@ The workspace holds the Rust side of the server rewrite. Stages 1 and 2 added th
 | `privoke-analysis` (`rust/services/analysis`) | The quarantined analysis microservice for the fuzzer (stage W3): mutual TLS, a fuzzer-only policy, and a pool of W1 Python workers. See [below](#privoke-analysis-stage-w3). |
 | `privoke-param-update` (`rust/services/param-update`) | The parameter-update service and training-cycle scheduler (stage 5): guarded compare-and-swap publication, durable receipts, publisher identities over mutual TLS, drift bounds. See [below](#privoke-param-update-stage-5). |
 | `privoke-semantic` | Semantic inference (stage 14): the V3 pretrained BERT encoder with its heads, the legacy Tiny transformer and the semantic layer, on a dependency-free float64 reference backend and the `tokenizers` crate. See [below](#privoke-semantic-stage-14). It also holds the external classifier client (stage 16), see [below](#external-classifier-client-stage-16). |
+| `privoke-training` | Gradients and local training of the Tiny transformer (stage 19, partial): reverse-mode kernels, the supervised objectives and the FULL projected Adam, on the stage 14 float64 reference backend. See [below](#privoke-training-stage-19). |
 
 ## Build and test
 
@@ -949,3 +950,37 @@ PRIVOKE_GLINER_GOLDEN=<ignored dir> cargo test -p privoke-ner-layer --test gline
 ```
 
 The checkpoint is `knowledgator/gliner-pii-small-v1.0` at revision `d21aad5b4a7ec82b3d0970fd1ac74a12c087d85e` (Apache-2.0); its weights were deleted after the study (`docs/experiments/ner-models-20261024.md`). A run of the model with ONNX Runtime is a separate check from Python parity: the ONNX export and the torch checkpoint agree only to float tolerance, and the model's own span scores can differ near the threshold.
+
+## `privoke-training` (stage 19)
+
+`privoke-training` ports the Tiny transformer's gradients and the FULL projected Adam fit. It is LLM-only (it never runs a detector layer) and it does not use libtorch: the backward pass is written by hand over the stage 14 style reference arithmetic (float32 weights, float64 activations and gradients). CUDA is out of scope.
+
+**Status: partial.** Done: checkpoint 1 (below). Not done: the three gradient RPC computations, the window, supervised-wrapper, presence and sensitive-retention paths, `reference_preparation.py` and `v3/training.py`. See the stage 19 handoff in `docs/plans/rust-server-rewrite.md`.
+
+### What is ported
+
+- `net`: `TinyNet` (artifact loader with the inventory and shape checks; both readouts; multi-head attention, post-norm blocks without affine layer norm, tanh GELU) with `forward` and a reverse-mode `backward` over every tensor, including the embeddings. Rows are independent, so the Python microbatch padding (masked keys, masked readout) has no effect on a real row and is not reproduced.
+- `objective`: `supervised_deltas`, the port of `supervised_training.supervised_last_block_deltas` for the legacy summed-category objective (also `class_balanced_contextual_v1`), `..._mean_category_v1`, `..._decision_margin_v1` and `..._sum_category_decision_margin_v1`; the global weight denominator and the float32 weight rounding; `class_balanced` (`_class_balanced_examples`, with `math.fsum`).
+- `adam`: `adam_step` and `fit` for `full_projected_adam64_v1` (64 steps, eta 0.003, betas 0.9 and 0.999, epsilon 1e-8, float64 moments, cumulative float32 delta capped at the float32 value just inside 0.05, candidate `float32(round(float32(base) + float32(delta), 8))`), the per-step fingerprints (`privoke-contracts`) and the counters. `fit_with` takes any gradient source, so a recorded Python gradient replays the recurrence.
+
+### Golden and parity
+
+`evaluation/generate_training_golden.py synthetic` runs the product's own `supervised_last_block_deltas` and `full_adam_training.fit` (Torch 2.11.0 CPU, Python 3.11.9, `OMP_NUM_THREADS=MKL_NUM_THREADS=1`, one Torch thread) on two seeded synthetic Tiny models (legacy and task-query readout; hidden 8, two layers, vocabulary 24) and 12 rows, and writes `rust/crates/privoke-training/tests/fixtures/tiny_training_golden.json` (tensors as float32 bit patterns). The generated protobuf clients are needed to import `training.py` (`PRIVOKE_GENERATED`). Its test is `python -m unittest discover -s evaluation/tests -p test_generate_training_golden.py`.
+
+`cargo test -p privoke-training` (in `rust-ci.yml`) checks:
+
+| Check | Runs | Result |
+| --- | --- | --- |
+| Gradients, 5 objectives on 2 models | 10 cases, 12,960 coordinates | all within 1e-6 (max 3.07e-7); 2,595 bitwise equal to torch |
+| Gradients along Python's 64-step trajectory | 64 steps, 83,712 coordinates | all within 1e-6 (max 8.40e-7); 12,967 bitwise equal |
+| Adam recurrence fed Python's recorded gradients | 64 steps | before, after, delta fingerprints and clipped counts identical at 64 of 64; final candidate byte-equal |
+| Chained Rust fit (Rust gradients, 64 steps) | 1 run, 1,308 candidate coordinates | all within 1e-6 (max 1.34e-7); 1,139 bitwise equal; final fingerprint not identical |
+
+By the stage's artifact rule, the replay run (gradients bitwise Python's) is in the byte-equal category and the chained run is in the tolerance category (same inventory and shapes, every coordinate within 1e-6). The torch gradients are float32, so about 80 percent of gradient coordinates differ from the float64 value by float32 rounding; the Adam update bounds the effect at the scale seen above.
+
+### Known differences
+
+- The FULL trace's `gradient` and `moments` identities hash the float64 bytes of the gradients, so they are bit-sensitive and Rust does not reproduce them unless the gradients are bitwise equal; the Rust fit reports the before, after and delta fingerprints, the loss and the clipped count of each step, and the counters derived from the fixed schedule.
+- `round(x, 8)` is `format!("{x:.8}")`; the two differ only on an exact decimal tie.
+- `reject_overlength`, cancellation hooks, the retention auxiliary and the observed NumPy work counters are not ported.
+- Gradient and loss reductions are float64; torch accumulates in float32, so losses agree to about 1e-6 relative.
