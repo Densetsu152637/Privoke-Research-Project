@@ -1,0 +1,30 @@
+[package]
+name = "privoke-telemetry-client"
+description = "The client telemetry reporter (stage 18): generalised randomised response with a CPython-identical random draw, the persistent daily privacy-budget ledger, the report builder and the delivery worker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+privoke-contracts = { path = "../privoke-contracts" }
+privoke-transport = { path = "../privoke-transport" }
+tonic = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+time = { workspace = true }
+# The operating-system random source (CPython's `os.urandom`); the draw built on it is the crate's own, see `random`.
+getrandom = "0.3"
+# SQLite is compiled in, as in the telemetry service, and opens the ledgers the Python reporter wrote.
+rusqlite = { version = "0.37", features = ["bundled"] }
+
+[dev-dependencies]
+serde_json = "1"
+tempfile = { workspace = true }
+privoke-pki = { path = "../../tools/privoke-pki" }
+privoke-telemetry = { path = "../../services/telemetry" }
+
+[lints]
+workspace = true

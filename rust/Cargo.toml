@@ -18,6 +18,7 @@ members = [
     "crates/privoke-semantic",
     "crates/privoke-curriculum",
     "crates/privoke-training",
+    "crates/privoke-telemetry-client",
 ]
 
 [workspace.package]
