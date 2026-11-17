@@ -7,6 +7,10 @@ rust-version.workspace = true
 publish.workspace = true
 license.workspace = true
 
+[dev-dependencies]
+base64 = { workspace = true }
+tempfile = { workspace = true }
+
 [features]
 # The external classifier client (stage 16): the HTTP stack (reqwest, rustls). On by default so that the crate's own tests
 # and any front end that calls an external endpoint get it; the isolated inference worker (`privoke-runtime`) and the

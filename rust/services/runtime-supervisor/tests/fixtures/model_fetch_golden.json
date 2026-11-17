@@ -1,0 +1,1870 @@
+{
+ "legacy": {
+  "cases": [
+   {
+    "accepted": true,
+    "kind": "unary",
+    "name": "legacy_honest",
+    "spec": {
+     "generated_at_unix": 5,
+     "metadata": {
+      "artifact_checksum": "abababababababababababababababababababababababababababababababab"
+     },
+     "model_id": "privoke-test",
+     "tensors": [
+      {
+       "name": "a",
+       "shape": [
+        2,
+        2
+       ],
+       "values": [
+        1.0,
+        2.0,
+        3.0,
+        4.0
+       ]
+      },
+      {
+       "name": "b",
+       "shape": [
+        1
+       ],
+       "values": [
+        0.5
+       ]
+      }
+     ],
+     "version": "v1"
+    }
+   },
+   {
+    "accepted": false,
+    "error": "Streamed tensor 'a' shape does not match its values.",
+    "kind": "unary",
+    "name": "shape_mismatch",
+    "spec": {
+     "generated_at_unix": 5,
+     "metadata": {
+      "artifact_checksum": "abababababababababababababababababababababababababababababababab"
+     },
+     "model_id": "privoke-test",
+     "tensors": [
+      {
+       "name": "a",
+       "shape": [
+        3,
+        2
+       ],
+       "values": [
+        1.0,
+        2.0,
+        3.0,
+        4.0
+       ]
+      },
+      {
+       "name": "b",
+       "shape": [
+        1
+       ],
+       "values": [
+        0.5
+       ]
+      }
+     ],
+     "version": "v1"
+    }
+   },
+   {
+    "accepted": false,
+    "error": "Streamed tensor 'b' has non-finite values.",
+    "kind": "unary",
+    "name": "non_finite_nan",
+    "spec": {
+     "generated_at_unix": 5,
+     "metadata": {
+      "artifact_checksum": "abababababababababababababababababababababababababababababababab"
+     },
+     "model_id": "privoke-test",
+     "tensors": [
+      {
+       "name": "a",
+       "shape": [
+        2,
+        2
+       ],
+       "values": [
+        1.0,
+        2.0,
+        3.0,
+        4.0
+       ]
+      },
+      {
+       "name": "b",
+       "shape": [
+        1
+       ],
+       "values": [
+        "nan"
+       ]
+      }
+     ],
+     "version": "v1"
+    }
+   },
+   {
+    "accepted": false,
+    "error": "Streamed tensor 'a' has non-finite values.",
+    "kind": "unary",
+    "name": "non_finite_inf",
+    "spec": {
+     "generated_at_unix": 5,
+     "metadata": {
+      "artifact_checksum": "abababababababababababababababababababababababababababababababab"
+     },
+     "model_id": "privoke-test",
+     "tensors": [
+      {
+       "name": "a",
+       "shape": [
+        2,
+        2
+       ],
+       "values": [
+        1.0,
+        2.0,
+        "inf",
+        4.0
+       ]
+      },
+      {
+       "name": "b",
+       "shape": [
+        1
+       ],
+       "values": [
+        0.5
+       ]
+      }
+     ],
+     "version": "v1"
+    }
+   },
+   {
+    "accepted": false,
+    "error": "Streamed tensor 'a' has non-finite values.",
+    "kind": "unary",
+    "name": "non_finite_negative_inf",
+    "spec": {
+     "generated_at_unix": 5,
+     "metadata": {
+      "artifact_checksum": "abababababababababababababababababababababababababababababababab"
+     },
+     "model_id": "privoke-test",
+     "tensors": [
+      {
+       "name": "a",
+       "shape": [
+        2,
+        2
+       ],
+       "values": [
+        "-inf",
+        2.0,
+        3.0,
+        4.0
+       ]
+      },
+      {
+       "name": "b",
+       "shape": [
+        1
+       ],
+       "values": [
+        0.5
+       ]
+      }
+     ],
+     "version": "v1"
+    }
+   },
+   {
+    "accepted": false,
+    "error": "Model parameter stream has an unnamed tensor.",
+    "kind": "unary",
+    "name": "unnamed_tensor",
+    "spec": {
+     "generated_at_unix": 5,
+     "metadata": {
+      "artifact_checksum": "abababababababababababababababababababababababababababababababab"
+     },
+     "model_id": "privoke-test",
+     "tensors": [
+      {
+       "name": "",
+       "shape": [
+        2,
+        2
+       ],
+       "values": [
+        1.0,
+        2.0,
+        3.0,
+        4.0
+       ]
+      },
+      {
+       "name": "b",
+       "shape": [
+        1
+       ],
+       "values": [
+        0.5
+       ]
+      }
+     ],
+     "version": "v1"
+    }
+   },
+   {
+    "accepted": false,
+    "error": "Streamed tensor 'a' has an invalid shape.",
+    "kind": "unary",
+    "name": "zero_dimension",
+    "spec": {
+     "generated_at_unix": 5,
+     "metadata": {
+      "artifact_checksum": "abababababababababababababababababababababababababababababababab"
+     },
+     "model_id": "privoke-test",
+     "tensors": [
+      {
+       "name": "a",
+       "shape": [
+        0,
+        4
+       ],
+       "values": [
+        1.0,
+        2.0,
+        3.0,
+        4.0
+       ]
+      },
+      {
+       "name": "b",
+       "shape": [
+        1
+       ],
+       "values": [
+        0.5
+       ]
+      }
+     ],
+     "version": "v1"
+    }
+   },
+   {
+    "accepted": false,
+    "error": "Streamed tensor 'b' has no shape.",
+    "kind": "unary",
+    "name": "empty_shape",
+    "spec": {
+     "generated_at_unix": 5,
+     "metadata": {
+      "artifact_checksum": "abababababababababababababababababababababababababababababababab"
+     },
+     "model_id": "privoke-test",
+     "tensors": [
+      {
+       "name": "a",
+       "shape": [
+        2,
+        2
+       ],
+       "values": [
+        1.0,
+        2.0,
+        3.0,
+        4.0
+       ]
+      },
+      {
+       "name": "b",
+       "shape": [],
+       "values": [
+        0.5
+       ]
+      }
+     ],
+     "version": "v1"
+    }
+   },
+   {
+    "accepted": false,
+    "error": "Model parameter stream has invalid snapshot metadata.",
+    "kind": "unary",
+    "name": "no_version",
+    "spec": {
+     "generated_at_unix": 5,
+     "metadata": {
+      "artifact_checksum": "abababababababababababababababababababababababababababababababab"
+     },
+     "model_id": "privoke-test",
+     "tensors": [
+      {
+       "name": "a",
+       "shape": [
+        2,
+        2
+       ],
+       "values": [
+        1.0,
+        2.0,
+        3.0,
+        4.0
+       ]
+      },
+      {
+       "name": "b",
+       "shape": [
+        1
+       ],
+       "values": [
+        0.5
+       ]
+      }
+     ],
+     "version": ""
+    }
+   },
+   {
+    "accepted": false,
+    "error": "Model parameter stream has invalid snapshot metadata.",
+    "kind": "unary",
+    "name": "no_timestamp",
+    "spec": {
+     "generated_at_unix": 0,
+     "metadata": {
+      "artifact_checksum": "abababababababababababababababababababababababababababababababab"
+     },
+     "model_id": "privoke-test",
+     "tensors": [
+      {
+       "name": "a",
+       "shape": [
+        2,
+        2
+       ],
+       "values": [
+        1.0,
+        2.0,
+        3.0,
+        4.0
+       ]
+      },
+      {
+       "name": "b",
+       "shape": [
+        1
+       ],
+       "values": [
+        0.5
+       ]
+      }
+     ],
+     "version": "v1"
+    }
+   },
+   {
+    "accepted": false,
+    "error": "Model parameter stream is out of order.",
+    "kind": "stream_only",
+    "name": "out_of_order"
+   },
+   {
+    "accepted": false,
+    "error": "Streamed tensor 'a' has a discontinuous offset.",
+    "kind": "stream_only",
+    "name": "discontinuous_offset"
+   },
+   {
+    "accepted": false,
+    "error": "Model parameter stream changed snapshot mid-stream.",
+    "kind": "stream_only",
+    "name": "snapshot_changes_mid_stream"
+   },
+   {
+    "accepted": false,
+    "error": "Model parameter stream ended before all chunks arrived.",
+    "kind": "stream_only",
+    "name": "truncated_stream"
+   },
+   {
+    "accepted": false,
+    "error": "model-streaming-service returned model 'privoke-test' for requested model 'privoke-other'.",
+    "kind": "stream_only",
+    "name": "model_id_differs"
+   }
+  ],
+  "parameter_chunk_values": 1024,
+  "python_disk_cache": "none: the client keeps the streamed snapshot in memory only",
+  "tracked": [
+   {
+    "artifact_checksum": "703a8c0dd6cfc93a735bb6f7d7c950da55d9c357795211bece934b11b3896252",
+    "fingerprint": "96af95f9d9dd2755840fdb15e8b63e17add2457d7a17f2942762e1ba48c34720",
+    "generated_at_unix": 1788081234,
+    "model_id": "privoke-baseline",
+    "parameter_count": 19028,
+    "tensors": [
+     {
+      "count": 576,
+      "f32_sha256": "77ab4e79527d5c5750014eb58d0ab2ed28435261135c4a39965e1a126f5a5512",
+      "name": "attention.key.weight",
+      "shape": [
+       24,
+       24
+      ]
+     },
+     {
+      "count": 24,
+      "f32_sha256": "2ea9ab9198d1638007400cd2c3bef1cc745b864b76011a0e1bc52180ac6452d4",
+      "name": "attention.output.bias",
+      "shape": [
+       24
+      ]
+     },
+     {
+      "count": 576,
+      "f32_sha256": "bd778ea4183a04ffea054d3bbedb0f78e7aa6f33ab5f68e16e5a18c73d3315cb",
+      "name": "attention.output.weight",
+      "shape": [
+       24,
+       24
+      ]
+     },
+     {
+      "count": 576,
+      "f32_sha256": "c58e381784b730f25d68393ab0a7932134d94043df8a929844d80e500c0399b3",
+      "name": "attention.query.weight",
+      "shape": [
+       24,
+       24
+      ]
+     },
+     {
+      "count": 576,
+      "f32_sha256": "f8e402b9b4469d7304b89c23fce773d39094e67e8620a9ef68af3559e83c21e4",
+      "name": "attention.value.weight",
+      "shape": [
+       24,
+       24
+      ]
+     },
+     {
+      "count": 48,
+      "f32_sha256": "5d89f056865052bcb89c910d2d62872e029fb273c3db03f8968a52a41593c1b5",
+      "name": "ffn.input.bias",
+      "shape": [
+       48
+      ]
+     },
+     {
+      "count": 1152,
+      "f32_sha256": "aab4d30950d6e594bdcaa8ac5758b25aa5855cd02f7f909f8fad79a823778061",
+      "name": "ffn.input.weight",
+      "shape": [
+       24,
+       48
+      ]
+     },
+     {
+      "count": 24,
+      "f32_sha256": "2ea9ab9198d1638007400cd2c3bef1cc745b864b76011a0e1bc52180ac6452d4",
+      "name": "ffn.output.bias",
+      "shape": [
+       24
+      ]
+     },
+     {
+      "count": 1152,
+      "f32_sha256": "0d9aee78402b1ba58d9410a6fad8cb3bebba75588d3b39657c18447f87a93cc5",
+      "name": "ffn.output.weight",
+      "shape": [
+       48,
+       24
+      ]
+     },
+     {
+      "count": 10,
+      "f32_sha256": "bf2eb40d209c058e6b476965b9d9c4cb6403a98afc23b3ace3404220c17df7dc",
+      "name": "head.category.bias",
+      "shape": [
+       10
+      ]
+     },
+     {
+      "count": 240,
+      "f32_sha256": "d7ac675e57ce2203a7f8ba87b98eb5c00efc5c125f9ada949196e63242234d72",
+      "name": "head.category.weight",
+      "shape": [
+       24,
+       10
+      ]
+     },
+     {
+      "count": 4,
+      "f32_sha256": "f191a110bb10a2b02f827a5befb0b00b9ddbcbf1f5bf77105132d4a897550de6",
+      "name": "head.sensitivity.bias",
+      "shape": [
+       4
+      ]
+     },
+     {
+      "count": 96,
+      "f32_sha256": "0842b433fa3c8021cdd5367fd2cafb466fd6d144c2e6ad9051cf79384f1d2f20",
+      "name": "head.sensitivity.weight",
+      "shape": [
+       24,
+       4
+      ]
+     },
+     {
+      "count": 6,
+      "f32_sha256": "f88bfe5b559f7f7818f3537a9193e086402219dd6b7684a6b874e4ada6b385b4",
+      "name": "head.visibility.bias",
+      "shape": [
+       6
+      ]
+     },
+     {
+      "count": 144,
+      "f32_sha256": "c367478b4a0f00e3d1a717061a8d9eb4decf499ee2854dceec02bd1e1c8ed605",
+      "name": "head.visibility.weight",
+      "shape": [
+       24,
+       6
+      ]
+     },
+     {
+      "count": 1536,
+      "f32_sha256": "25256bf77f78b02e6b359194b19ec7dc59ee2267765d10886ddcb02d8c13628b",
+      "name": "position_embedding",
+      "shape": [
+       64,
+       24
+      ]
+     },
+     {
+      "count": 12288,
+      "f32_sha256": "8db00156f375f93a5a16eff6fd92819ba73e22a5da407d88c693f85775c3bb59",
+      "name": "token_embedding",
+      "shape": [
+       512,
+       24
+      ]
+     }
+    ],
+    "version": "v0.3.0"
+   },
+   {
+    "artifact_checksum": "a78e4fc8837a50e3fc1e70044f71a1490f7524454f84e86e6a82531f4c8059fe",
+    "fingerprint": "f12b8fcdaa3d123fd4bc6dd56dbb87d985aae4009bdefac92d04efb596fc551a",
+    "generated_at_unix": 1788081234,
+    "model_id": "privoke-efficient",
+    "parameter_count": 19028,
+    "tensors": [
+     {
+      "count": 576,
+      "f32_sha256": "2db92f761aead3ae990ff7c80b1729c76d746a3f820ab28342669291441c674e",
+      "name": "attention.key.weight",
+      "shape": [
+       24,
+       24
+      ]
+     },
+     {
+      "count": 24,
+      "f32_sha256": "2ea9ab9198d1638007400cd2c3bef1cc745b864b76011a0e1bc52180ac6452d4",
+      "name": "attention.output.bias",
+      "shape": [
+       24
+      ]
+     },
+     {
+      "count": 576,
+      "f32_sha256": "6c8a208ea04014f897975d1c4e374b20afe5b62e6aa4c4aa779672b4e1b312f0",
+      "name": "attention.output.weight",
+      "shape": [
+       24,
+       24
+      ]
+     },
+     {
+      "count": 576,
+      "f32_sha256": "5e54f1f26733652abd33589e814734af974cd80ba6c8bc9c641e0009e9f7dc24",
+      "name": "attention.query.weight",
+      "shape": [
+       24,
+       24
+      ]
+     },
+     {
+      "count": 576,
+      "f32_sha256": "13fc8a2ac51fd349b707e9db9f46c61fbd8fcd2a89bb463b67fd884c199412e4",
+      "name": "attention.value.weight",
+      "shape": [
+       24,
+       24
+      ]
+     },
+     {
+      "count": 48,
+      "f32_sha256": "5d89f056865052bcb89c910d2d62872e029fb273c3db03f8968a52a41593c1b5",
+      "name": "ffn.input.bias",
+      "shape": [
+       48
+      ]
+     },
+     {
+      "count": 1152,
+      "f32_sha256": "d63511a6fdd0b655ff009b566616c98f4ab36dbfb50deb218d2e4f92e4e80ef6",
+      "name": "ffn.input.weight",
+      "shape": [
+       24,
+       48
+      ]
+     },
+     {
+      "count": 24,
+      "f32_sha256": "2ea9ab9198d1638007400cd2c3bef1cc745b864b76011a0e1bc52180ac6452d4",
+      "name": "ffn.output.bias",
+      "shape": [
+       24
+      ]
+     },
+     {
+      "count": 1152,
+      "f32_sha256": "2babd507e060b03084fa2c86827ac89a16ec60421eface3835ceb11b17deeb01",
+      "name": "ffn.output.weight",
+      "shape": [
+       48,
+       24
+      ]
+     },
+     {
+      "count": 10,
+      "f32_sha256": "c4dfdba03ee7cd1b5036dc56b35646d462a02e0c56a83d2d1b90a86572224521",
+      "name": "head.category.bias",
+      "shape": [
+       10
+      ]
+     },
+     {
+      "count": 240,
+      "f32_sha256": "5c56e406ed27cfed2ac886637a0aa508674eadf86c377b31996af344f33f99c8",
+      "name": "head.category.weight",
+      "shape": [
+       24,
+       10
+      ]
+     },
+     {
+      "count": 4,
+      "f32_sha256": "639b5fa0cea04a8fa10f8a8d3284c981423a0aa64a48fdb19bbcef099a236d52",
+      "name": "head.sensitivity.bias",
+      "shape": [
+       4
+      ]
+     },
+     {
+      "count": 96,
+      "f32_sha256": "8b69b6482b3614f195d2c7d49897aa992c25e92ce3914622e6763182af3d3839",
+      "name": "head.sensitivity.weight",
+      "shape": [
+       24,
+       4
+      ]
+     },
+     {
+      "count": 6,
+      "f32_sha256": "2902ec5469633adf8cb4a5d9e262b076374867e88b738e299a8df6843faf4137",
+      "name": "head.visibility.bias",
+      "shape": [
+       6
+      ]
+     },
+     {
+      "count": 144,
+      "f32_sha256": "21087f41a937d0737715274eb10ff9dd1c8a7ef611d5858ffca6f5c392fc9e2d",
+      "name": "head.visibility.weight",
+      "shape": [
+       24,
+       6
+      ]
+     },
+     {
+      "count": 1536,
+      "f32_sha256": "9217477ef36498e488dd98b5f6bf0bc0c526fe5d9de3870f658d9906f16f10a4",
+      "name": "position_embedding",
+      "shape": [
+       64,
+       24
+      ]
+     },
+     {
+      "count": 12288,
+      "f32_sha256": "4edcff847d9fc59c289777d7b247c683f6eaeea436755a8423a2a5c9f55c3253",
+      "name": "token_embedding",
+      "shape": [
+       512,
+       24
+      ]
+     }
+    ],
+    "version": "v0.3.0"
+   },
+   {
+    "artifact_checksum": "8390b96871c6edd00916e3a6126da1b09c19f9fdbdda8214ebe667a893e5ee2c",
+    "fingerprint": "fec1a27b2252e01f659b5b856e5bdb124ef79b72f28995c7b3599f5ce0bd44c6",
+    "generated_at_unix": 1788081234,
+    "model_id": "privoke-balanced",
+    "parameter_count": 36756,
+    "tensors": [
+     {
+      "count": 10,
+      "f32_sha256": "42b9cbfa13a583028ca2e46344cb7ee2546109344eb3b5d8f3eac4ddf77fa00a",
+      "name": "head.category.bias",
+      "shape": [
+       10
+      ]
+     },
+     {
+      "count": 320,
+      "f32_sha256": "f506bef7ae99f589ff7ca15be718339ac4010c02e42e2053ae218a2e0305c3b1",
+      "name": "head.category.weight",
+      "shape": [
+       32,
+       10
+      ]
+     },
+     {
+      "count": 4,
+      "f32_sha256": "ebaf739c53f99bcd53e19eeb752147cfe59f4c43abaf5831e725f549ad6b6b24",
+      "name": "head.sensitivity.bias",
+      "shape": [
+       4
+      ]
+     },
+     {
+      "count": 128,
+      "f32_sha256": "622da3ca10ab158ed26a6b0eb08000f9915ddf7283dc52722a6ae7990af00398",
+      "name": "head.sensitivity.weight",
+      "shape": [
+       32,
+       4
+      ]
+     },
+     {
+      "count": 6,
+      "f32_sha256": "b110d6ffa5a60d62e4951cf577bbc105aa3eec65e68b43974ffc8e78143f2d8e",
+      "name": "head.visibility.bias",
+      "shape": [
+       6
+      ]
+     },
+     {
+      "count": 192,
+      "f32_sha256": "b04d034ab2b5764596670444624759db741933aa3696ea0108b318a6a38c1fa1",
+      "name": "head.visibility.weight",
+      "shape": [
+       32,
+       6
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "ac5d4920218430e537fffaa6e58350a673b87dded96c62a4570ac2539563df2b",
+      "name": "layers.0.attention.key.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 32,
+      "f32_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+      "name": "layers.0.attention.output.bias",
+      "shape": [
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "0cd3f73ed6cd8b431765850591fb7b79bbcdd89d82da1d55f18e2e831dc2888b",
+      "name": "layers.0.attention.output.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "c0a7a240fc386d097b0ad2efe268b8acaa246cbde3243951aa457d8d8305a813",
+      "name": "layers.0.attention.query.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "f167ea085aaa608155ceb6761d4ae0cfc329ac4d354a768f250e88a0348a2f4e",
+      "name": "layers.0.attention.value.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 64,
+      "f32_sha256": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+      "name": "layers.0.ffn.input.bias",
+      "shape": [
+       64
+      ]
+     },
+     {
+      "count": 2048,
+      "f32_sha256": "d9b6024b79fc657d19ff1d96a8863e3265f5464d389212baef32e17cc8cec01e",
+      "name": "layers.0.ffn.input.weight",
+      "shape": [
+       32,
+       64
+      ]
+     },
+     {
+      "count": 32,
+      "f32_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+      "name": "layers.0.ffn.output.bias",
+      "shape": [
+       32
+      ]
+     },
+     {
+      "count": 2048,
+      "f32_sha256": "2ddadf659d439d540783313467e21a038339b3c78b773cf94160c94546c81bd8",
+      "name": "layers.0.ffn.output.weight",
+      "shape": [
+       64,
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "1122517459b0b3db610b5653deb7599a5615a1736d3a74ab1542030093dc6e0f",
+      "name": "layers.1.attention.key.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 32,
+      "f32_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+      "name": "layers.1.attention.output.bias",
+      "shape": [
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "103caf76d3c14ada0e98ec62b2319f0ff96ba312c1b34295ddacc4c9cb235ded",
+      "name": "layers.1.attention.output.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "cba8c0dd1e897cb04581000a27a9ac4702138d4e4261e90459ec649001c8d57d",
+      "name": "layers.1.attention.query.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "758b1d13fe0ff133201979a6a83389048a56ff2ea3306a9e4e7fc386d1ccfd50",
+      "name": "layers.1.attention.value.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 64,
+      "f32_sha256": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+      "name": "layers.1.ffn.input.bias",
+      "shape": [
+       64
+      ]
+     },
+     {
+      "count": 2048,
+      "f32_sha256": "44a1413715ce348624b47879c239c4699090c931f1e7124a4d910b96ff82ab6d",
+      "name": "layers.1.ffn.input.weight",
+      "shape": [
+       32,
+       64
+      ]
+     },
+     {
+      "count": 32,
+      "f32_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+      "name": "layers.1.ffn.output.bias",
+      "shape": [
+       32
+      ]
+     },
+     {
+      "count": 2048,
+      "f32_sha256": "59c646a9380afb83d338eca54890d6f6f2ac4f8d94ae85a9258acb189758def7",
+      "name": "layers.1.ffn.output.weight",
+      "shape": [
+       64,
+       32
+      ]
+     },
+     {
+      "count": 3072,
+      "f32_sha256": "7fad8cbd73349510f974fe0bbaefabfe5bfddb5fba8c21c2a8e7007d0103fa9e",
+      "name": "position_embedding",
+      "shape": [
+       96,
+       32
+      ]
+     },
+     {
+      "count": 16384,
+      "f32_sha256": "e26f66be764ee7f16a6c30789dcfb287378a2836acd74d0a61d52543b6673460",
+      "name": "token_embedding",
+      "shape": [
+       512,
+       32
+      ]
+     }
+    ],
+    "version": "v0.3.0"
+   },
+   {
+    "artifact_checksum": "76bc059fee0d7d6dd2df02b05d8fee9f05ef0ddb949f74e69a0a38064bc644ab",
+    "fingerprint": "dae7f43f48c8197543b89d66349aca5f4fec2981d7a4145e9f6500b5aa287dea",
+    "generated_at_unix": 1788081234,
+    "model_id": "privoke-quality",
+    "parameter_count": 54292,
+    "tensors": [
+     {
+      "count": 10,
+      "f32_sha256": "e31020860690a4597b96e5ae3ef204de61c0aefb11d989193fd875d8878b47e8",
+      "name": "head.category.bias",
+      "shape": [
+       10
+      ]
+     },
+     {
+      "count": 320,
+      "f32_sha256": "203ad2469a54d5d38c3a8b79c0dc9c0b2ffedb127a8d7f5ac6799971157df64c",
+      "name": "head.category.weight",
+      "shape": [
+       32,
+       10
+      ]
+     },
+     {
+      "count": 4,
+      "f32_sha256": "9d3286a91f05460ac3651de5fea724e32873bb5e551a9ad99f73795f6086ec1c",
+      "name": "head.sensitivity.bias",
+      "shape": [
+       4
+      ]
+     },
+     {
+      "count": 128,
+      "f32_sha256": "1fabba2ab56478a9d787068c86af0693986001da178222667453558e08a7cbed",
+      "name": "head.sensitivity.weight",
+      "shape": [
+       32,
+       4
+      ]
+     },
+     {
+      "count": 6,
+      "f32_sha256": "c790811c00b4aea9dc24d75c6e55098ba74aa043db45796686b65575641c9c47",
+      "name": "head.visibility.bias",
+      "shape": [
+       6
+      ]
+     },
+     {
+      "count": 192,
+      "f32_sha256": "1fc3802ac3dc9b60a6b87a1853ba09c16b175594d48e41b078e685a569a4934a",
+      "name": "head.visibility.weight",
+      "shape": [
+       32,
+       6
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "502cb2641a60b66219676b9e0ded8575ffd923e2419f8829427219ea7ce390d6",
+      "name": "layers.0.attention.key.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 32,
+      "f32_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+      "name": "layers.0.attention.output.bias",
+      "shape": [
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "0f1000712096fa9ae50c450233c9b8a24000bb44910bc5deb071e27a636e60c6",
+      "name": "layers.0.attention.output.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "15d3495a09a1657d0eb5d077d42a906617cd007c9315e80f7fc478c495e8cbef",
+      "name": "layers.0.attention.query.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "8895e8772e7fdab99e48de90631a910ef46e23267b78f94068d2698ce76283f0",
+      "name": "layers.0.attention.value.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 64,
+      "f32_sha256": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+      "name": "layers.0.ffn.input.bias",
+      "shape": [
+       64
+      ]
+     },
+     {
+      "count": 2048,
+      "f32_sha256": "84639bc72a74ee0b2eac1f5a6773b2d76caa68f26f54a4a07db30ba85eea1705",
+      "name": "layers.0.ffn.input.weight",
+      "shape": [
+       32,
+       64
+      ]
+     },
+     {
+      "count": 32,
+      "f32_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+      "name": "layers.0.ffn.output.bias",
+      "shape": [
+       32
+      ]
+     },
+     {
+      "count": 2048,
+      "f32_sha256": "216934dbead885f4e73b49342f8e3e8968016a74c6bcbef5f767b4d47f46bac7",
+      "name": "layers.0.ffn.output.weight",
+      "shape": [
+       64,
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "649083b592284580794d4dad8edab9c3e15cf97dee63fdf594106000be3c3b64",
+      "name": "layers.1.attention.key.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 32,
+      "f32_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+      "name": "layers.1.attention.output.bias",
+      "shape": [
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "0e76a8665c092b4a0b1ef0ec3d8962945fc66b87da32a1f7e5bd1684818e737a",
+      "name": "layers.1.attention.output.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "49834cf40dd55cf74f4ead74ca1f717fffcbe5e7819b6df14a5e847358e65a8f",
+      "name": "layers.1.attention.query.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "d8f8ef606e5d0fb8b71e01f26e0c1019e89a7a39e004798fe9656cbdbc81b48a",
+      "name": "layers.1.attention.value.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 64,
+      "f32_sha256": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+      "name": "layers.1.ffn.input.bias",
+      "shape": [
+       64
+      ]
+     },
+     {
+      "count": 2048,
+      "f32_sha256": "c717d0f6d8a76c69f8c6c9b056167a7d6c90df70bb4e7768d4aacdc71712ce05",
+      "name": "layers.1.ffn.input.weight",
+      "shape": [
+       32,
+       64
+      ]
+     },
+     {
+      "count": 32,
+      "f32_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+      "name": "layers.1.ffn.output.bias",
+      "shape": [
+       32
+      ]
+     },
+     {
+      "count": 2048,
+      "f32_sha256": "0fef0785efe6abb1ec81029bef6a60e3e73e9eac9e54d38860ce78d4a6613fe3",
+      "name": "layers.1.ffn.output.weight",
+      "shape": [
+       64,
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "9f3fba2791cf43705529398d5ae5b0d51cfc625d561731a234b96f332b241cd8",
+      "name": "layers.2.attention.key.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 32,
+      "f32_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+      "name": "layers.2.attention.output.bias",
+      "shape": [
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "300c2a604c6e02728087893069734783fae7c965319122c9a92b008d646f063e",
+      "name": "layers.2.attention.output.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "d634ccc2a97458f353f62369df98bf2060a4dd8df3fbf7820123691e5ce5407d",
+      "name": "layers.2.attention.query.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 1024,
+      "f32_sha256": "e22c1c8a534c91fd9fd1215a3d536790316494c5bd5a340db174f90f7c81941e",
+      "name": "layers.2.attention.value.weight",
+      "shape": [
+       32,
+       32
+      ]
+     },
+     {
+      "count": 64,
+      "f32_sha256": "5341e6b2646979a70e57653007a1f310169421ec9bdd9f1a5648f75ade005af1",
+      "name": "layers.2.ffn.input.bias",
+      "shape": [
+       64
+      ]
+     },
+     {
+      "count": 2048,
+      "f32_sha256": "81d8be787babe76813d3df3dca36bb07d4ce7c60e39d5895989a96834617230a",
+      "name": "layers.2.ffn.input.weight",
+      "shape": [
+       32,
+       64
+      ]
+     },
+     {
+      "count": 32,
+      "f32_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+      "name": "layers.2.ffn.output.bias",
+      "shape": [
+       32
+      ]
+     },
+     {
+      "count": 2048,
+      "f32_sha256": "44315588b3f95fd729e78c9d491771d8230220f75b0a1422dc361922c30a7406",
+      "name": "layers.2.ffn.output.weight",
+      "shape": [
+       64,
+       32
+      ]
+     },
+     {
+      "count": 4096,
+      "f32_sha256": "a6e303aade7ee5614c65663a9bf50b46f2f14a36adf092f0f96a82f6b729658a",
+      "name": "position_embedding",
+      "shape": [
+       128,
+       32
+      ]
+     },
+     {
+      "count": 24576,
+      "f32_sha256": "c01d6b7d0314612c80458a17ad61a0b7ffe22554bc5d09d95cdcfb5e2fd4912a",
+      "name": "token_embedding",
+      "shape": [
+       768,
+       32
+      ]
+     }
+    ],
+    "version": "v0.3.0"
+   }
+  ]
+ },
+ "schema": "privoke-model-fetch-golden-1",
+ "source": "extension/client-runtime/src/LLM/privoke/v3_package.py and parameter_stream.py, unchanged, against an in-process fake client",
+ "v3": {
+  "architecture": "privoke_pretrained_bert_v3",
+  "asset_order": [
+   "model.safetensors",
+   "config.json",
+   "vocab.txt",
+   "evidence.json"
+  ],
+  "cases": [
+   {
+    "asset_calls": [
+     "model.safetensors",
+     "config.json",
+     "vocab.txt",
+     "evidence.json"
+    ],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "files": {
+     "config.json": {
+      "sha256": "57227ed1a3203d5bffbd167039e67a65c453d9492434c35330ebcb6bb0fd3785",
+      "size": 17
+     },
+     "evidence.json": {
+      "sha256": "f34a6486a244f4c296b294aa21052480e0dd3422a16c874546d1b115d95204dc",
+      "size": 17
+     },
+     "manifest.json": {
+      "sha256": "3493b3501477f9e09e1b429e1194fb609d2f89c0a3549656dfdcb650f5666f86",
+      "size": 313
+     },
+     "model.safetensors": {
+      "sha256": "35aeff7e048974ee23c365c8faf6bcb868ca0529c69309a00f6cde98bfbf89ce",
+      "size": 2621440
+     },
+     "vocab.txt": {
+      "sha256": "4391c02150b893f941df4a816951600240ddfa6b6cc6a751ecc04e33d0f97c67",
+      "size": 18
+     }
+    },
+    "hidden": [],
+    "name": "honest",
+    "outcome": "package",
+    "package": {
+     "model_id": "test-model",
+     "pin": "3493b3501477f9e09e1b429e1194fb609d2f89c0a3549656dfdcb650f5666f86"
+    },
+    "package_calls": 2,
+    "request_model_id": "latest",
+    "second_fetch_asset_calls": [],
+    "second_fetch_same_package": true
+   },
+   {
+    "asset_calls": [
+     "model.safetensors",
+     "config.json",
+     "vocab.txt",
+     "evidence.json"
+    ],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "files": {
+     "config.json": {
+      "sha256": "57227ed1a3203d5bffbd167039e67a65c453d9492434c35330ebcb6bb0fd3785",
+      "size": 17
+     },
+     "evidence.json": {
+      "sha256": "f34a6486a244f4c296b294aa21052480e0dd3422a16c874546d1b115d95204dc",
+      "size": 17
+     },
+     "manifest.json": {
+      "sha256": "3493b3501477f9e09e1b429e1194fb609d2f89c0a3549656dfdcb650f5666f86",
+      "size": 313
+     },
+     "model.safetensors": {
+      "sha256": "35aeff7e048974ee23c365c8faf6bcb868ca0529c69309a00f6cde98bfbf89ce",
+      "size": 2621440
+     },
+     "vocab.txt": {
+      "sha256": "4391c02150b893f941df4a816951600240ddfa6b6cc6a751ecc04e33d0f97c67",
+      "size": 18
+     }
+    },
+    "hidden": [],
+    "name": "honest_named_request",
+    "outcome": "package",
+    "package": {
+     "model_id": "test-model",
+     "pin": "3493b3501477f9e09e1b429e1194fb609d2f89c0a3549656dfdcb650f5666f86"
+    },
+    "package_calls": 2,
+    "request_model_id": "test-model",
+    "second_fetch_asset_calls": [],
+    "second_fetch_same_package": true
+   },
+   {
+    "asset_calls": [],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "files": {
+     "config.json": {
+      "sha256": "57227ed1a3203d5bffbd167039e67a65c453d9492434c35330ebcb6bb0fd3785",
+      "size": 17
+     },
+     "evidence.json": {
+      "sha256": "f34a6486a244f4c296b294aa21052480e0dd3422a16c874546d1b115d95204dc",
+      "size": 17
+     },
+     "manifest.json": {
+      "sha256": "3493b3501477f9e09e1b429e1194fb609d2f89c0a3549656dfdcb650f5666f86",
+      "size": 313
+     },
+     "model.safetensors": {
+      "sha256": "35aeff7e048974ee23c365c8faf6bcb868ca0529c69309a00f6cde98bfbf89ce",
+      "size": 2621440
+     },
+     "vocab.txt": {
+      "sha256": "4391c02150b893f941df4a816951600240ddfa6b6cc6a751ecc04e33d0f97c67",
+      "size": 18
+     }
+    },
+    "hidden": [],
+    "name": "cached_assets_complete",
+    "outcome": "package",
+    "package": {
+     "model_id": "test-model",
+     "pin": "3493b3501477f9e09e1b429e1194fb609d2f89c0a3549656dfdcb650f5666f86"
+    },
+    "package_calls": 2,
+    "request_model_id": "latest",
+    "second_fetch_asset_calls": [],
+    "second_fetch_same_package": true
+   },
+   {
+    "asset_calls": [],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "error": "Existing model cache asset is corrupted",
+    "files": {
+     "config.json": {
+      "sha256": "57227ed1a3203d5bffbd167039e67a65c453d9492434c35330ebcb6bb0fd3785",
+      "size": 17
+     },
+     "evidence.json": {
+      "sha256": "f34a6486a244f4c296b294aa21052480e0dd3422a16c874546d1b115d95204dc",
+      "size": 17
+     },
+     "model.safetensors": {
+      "sha256": "35aeff7e048974ee23c365c8faf6bcb868ca0529c69309a00f6cde98bfbf89ce",
+      "size": 2621440
+     },
+     "vocab.txt": {
+      "sha256": "3dbb3963d11aa418de8b61f846c3dbd5af43b40d252842adb823f90936fe6920",
+      "size": 9
+     }
+    },
+    "hidden": [],
+    "name": "cached_asset_corrupted",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "error": "Cached model manifest differs",
+    "files": {
+     "config.json": {
+      "sha256": "57227ed1a3203d5bffbd167039e67a65c453d9492434c35330ebcb6bb0fd3785",
+      "size": 17
+     },
+     "evidence.json": {
+      "sha256": "f34a6486a244f4c296b294aa21052480e0dd3422a16c874546d1b115d95204dc",
+      "size": 17
+     },
+     "manifest.json": {
+      "sha256": "7e324cb681053d599cfd221711f5eceafdf15663bdc6be99bd647d7295f5e4ec",
+      "size": 314
+     },
+     "model.safetensors": {
+      "sha256": "35aeff7e048974ee23c365c8faf6bcb868ca0529c69309a00f6cde98bfbf89ce",
+      "size": 2621440
+     },
+     "vocab.txt": {
+      "sha256": "4391c02150b893f941df4a816951600240ddfa6b6cc6a751ecc04e33d0f97c67",
+      "size": 18
+     }
+    },
+    "hidden": [],
+    "name": "cached_manifest_differs",
+    "outcome": "error",
+    "package_calls": 2,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": false,
+    "error": "Model is not a pinned standard AU3 release",
+    "files": {},
+    "hidden": [],
+    "name": "manifest_not_pinned",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": false,
+    "error": "Model package response identity differs from admitted manifest",
+    "files": {},
+    "hidden": [],
+    "name": "response_pin_differs",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": false,
+    "error": "Model package response identity differs from admitted manifest",
+    "files": {},
+    "hidden": [],
+    "name": "response_model_id_differs",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": false,
+    "error": "Model package must contain exactly the declared assets",
+    "files": {},
+    "hidden": [],
+    "name": "asset_missing",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": false,
+    "error": "Model package must contain exactly the declared assets",
+    "files": {},
+    "hidden": [],
+    "name": "asset_extra",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": false,
+    "error": "Model package must contain exactly the declared assets",
+    "files": {},
+    "hidden": [],
+    "name": "asset_duplicate",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": false,
+    "error": "Model package asset declarations differ",
+    "files": {},
+    "hidden": [],
+    "name": "asset_sha_differs",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": false,
+    "error": "Model package asset declarations differ",
+    "files": {},
+    "hidden": [],
+    "name": "asset_size_zero",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": false,
+    "error": "Model package asset declarations differ",
+    "files": {},
+    "hidden": [],
+    "name": "asset_size_too_large",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [
+     "model.safetensors"
+    ],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "error": "Model asset stream is incomplete or corrupted",
+    "files": {},
+    "hidden": [],
+    "name": "stream_flipped_byte",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [
+     "model.safetensors"
+    ],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "error": "Model asset stream is incomplete or corrupted",
+    "files": {},
+    "hidden": [],
+    "name": "stream_truncated",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [
+     "model.safetensors"
+    ],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "error": "Model asset stream changed identity, order or bounds",
+    "files": {},
+    "hidden": [],
+    "name": "stream_offset_gap",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [
+     "model.safetensors"
+    ],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "error": "Model asset stream changed identity, order or bounds",
+    "files": {},
+    "hidden": [],
+    "name": "stream_model_id",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [
+     "model.safetensors"
+    ],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "error": "Model asset stream changed identity, order or bounds",
+    "files": {},
+    "hidden": [],
+    "name": "stream_manifest_sha",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [
+     "model.safetensors"
+    ],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "error": "Model asset stream changed identity, order or bounds",
+    "files": {},
+    "hidden": [],
+    "name": "stream_asset_name",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [
+     "model.safetensors"
+    ],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "error": "Model asset stream changed identity, order or bounds",
+    "files": {},
+    "hidden": [],
+    "name": "stream_sha",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [
+     "model.safetensors"
+    ],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "error": "Model asset stream changed identity, order or bounds",
+    "files": {},
+    "hidden": [],
+    "name": "stream_total_bytes",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [
+     "model.safetensors"
+    ],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "error": "Model asset stream changed identity, order or bounds",
+    "files": {},
+    "hidden": [],
+    "name": "stream_empty_chunk",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [
+     "model.safetensors"
+    ],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "error": "Model asset stream changed identity, order or bounds",
+    "files": {},
+    "hidden": [],
+    "name": "stream_oversize_chunk",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [
+     "model.safetensors"
+    ],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "error": "Model asset stream changed identity, order or bounds",
+    "files": {},
+    "hidden": [],
+    "name": "stream_extra_data",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [
+     "model.safetensors",
+     "config.json",
+     "vocab.txt",
+     "evidence.json"
+    ],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": true,
+    "error": "Model manifest changed while assets were downloaded",
+    "files": {
+     "config.json": {
+      "sha256": "57227ed1a3203d5bffbd167039e67a65c453d9492434c35330ebcb6bb0fd3785",
+      "size": 17
+     },
+     "evidence.json": {
+      "sha256": "f34a6486a244f4c296b294aa21052480e0dd3422a16c874546d1b115d95204dc",
+      "size": 17
+     },
+     "model.safetensors": {
+      "sha256": "35aeff7e048974ee23c365c8faf6bcb868ca0529c69309a00f6cde98bfbf89ce",
+      "size": 2621440
+     },
+     "vocab.txt": {
+      "sha256": "4391c02150b893f941df4a816951600240ddfa6b6cc6a751ecc04e33d0f97c67",
+      "size": 18
+     }
+    },
+    "hidden": [],
+    "name": "manifest_changes_during_download",
+    "outcome": "error",
+    "package_calls": 2,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": false,
+    "files": {},
+    "hidden": [],
+    "name": "legacy_family_latest",
+    "outcome": "none",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": false,
+    "error": "V3 request returned a different model family",
+    "files": {},
+    "hidden": [],
+    "name": "legacy_family_with_manifest",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "latest"
+   },
+   {
+    "asset_calls": [],
+    "consumers": [
+     "installation-1"
+    ],
+    "directory_exists": false,
+    "error": "V3 request returned a different model family",
+    "files": {},
+    "hidden": [],
+    "name": "legacy_family_v3_request",
+    "outcome": "error",
+    "package_calls": 1,
+    "request_model_id": "privoke-v3-balanced"
+   }
+  ],
+  "chunk_bytes": 1048576,
+  "max_blob_bytes": 83886080,
+  "model": "test-model"
+ }
+}

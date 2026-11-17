@@ -3,6 +3,8 @@
 //! * [`v3`]: the pretrained BERT encoder of the standard V3 releases with its affine task heads, tokenised with the
 //!   `tokenizers` crate (the same implementation, at the same version, as the Python wheel the reference runtime uses).
 //! * [`tiny`]: the legacy Tiny transformer, both readouts.
+//! * [`context`], [`onnx`]: the pretrained contextual encoder (a frozen MiniLM backbone read from its ONNX export, with
+//!   three offline heads).
 //! * [`layer`]: the semantic layer as the pipeline runs it (normalise, classify, remap spans).
 //! * `open_classifier` (cargo feature `external-classifier`, on by default), [`open_prompt`], [`open_response`]: the external
 //!   OpenAI-compatible classifier client (stage 16), which implements the same [`SemanticClassifier`] trait over `reqwest`
@@ -18,14 +20,16 @@
 //!
 //! # Scope
 //!
-//! Everything here is LLM-only: it never runs the regex or NER layers. The sparse presence, scratch-presence and
-//! pretrained-context models are not ported (see the workspace document).
+//! Everything here is LLM-only: it never runs the regex or NER layers. The sparse presence and scratch-presence
+//! models are not ported (see the workspace document).
 
 pub mod bert;
+pub mod context;
 pub mod error;
 pub mod labels;
 pub mod layer;
 pub mod math;
+pub mod onnx;
 #[cfg(feature = "external-classifier")]
 pub mod open_classifier;
 pub mod open_prompt;
@@ -34,6 +38,7 @@ pub mod safetensors;
 pub mod tiny;
 pub mod v3;
 
+pub use context::{ContextEncoder, ContextModel, ContextPrediction};
 pub use error::SemanticError;
 pub use labels::Prediction;
 pub use layer::{Finding, LayerHit, LayerOutcome, SemanticClassifier, analyse_semantic_layer};

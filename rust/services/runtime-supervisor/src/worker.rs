@@ -286,6 +286,13 @@ impl WorkerSettings {
         if let Some(latest) = environment.get("PRIVOKE_LATEST_MODEL_ID").map(|v| v.trim()).filter(|v| !v.is_empty()) {
             args.extend(["--latest-model-id".into(), latest.into()]);
         }
+        // The frozen backbone and tokenizer of the pretrained contextual encoder, read-only (the Python runtime's
+        // `PRIVOKE_PRETRAINED_CONTEXT_DIR`). The worker verifies both files against their pins before it parses them.
+        if settings.serves_semantic
+            && let Some(directory) = environment.get("PRIVOKE_PRETRAINED_CONTEXT_DIR").map(|v| v.trim()).filter(|v| !v.is_empty())
+        {
+            args.extend(["--pretrained-context-dir".into(), directory.into()]);
+        }
         args.extend([
             "--warm-layers".into(),
             environment.get("PRIVOKE_WORKER_WARM_LAYERS").map_or("regex,ner", |layers| layers.trim()).into(),

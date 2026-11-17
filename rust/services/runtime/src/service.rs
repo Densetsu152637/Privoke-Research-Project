@@ -18,7 +18,6 @@ use crate::frames::{self, FrameError, Kind, Method, Request, code};
 use crate::pipeline::Pipeline;
 use crate::request::{DEFAULT_MAX_TEXT_CHARS, Layer, is_gate_model, parse_prompt_request, regex_first, requested_layers};
 use crate::response::{Elapsed, decide, encode_analysis, error_response, health_response};
-use crate::semantic::PRETRAINED_CONTEXT_MODEL_ID;
 
 /// Settings of the service.
 #[derive(Debug, Clone, Copy)]
@@ -117,11 +116,10 @@ impl<A: SpacyBackend> Service<A> {
                 request.request_id,
             ));
         }
-        // The presence gate and the pretrained contextual encoder are served by the Python worker only.
+        // The presence gate is served by the Python worker only. (The pretrained contextual encoder is a semantic model like
+        // the others: without its asset directory it is the layer's error, as in the Python runtime.)
         if message.layers.contains(&Layer::Semantic.proto_value())
-            && (!self.pipeline.serves_semantic()
-                || message.semantic_presence_gate.is_some()
-                || message.semantic_model_id == PRETRAINED_CONTEXT_MODEL_ID)
+            && (!self.pipeline.serves_semantic() || message.semantic_presence_gate.is_some())
         {
             return Err(FrameError::new(
                 code::UNSUPPORTED_LAYERS,
