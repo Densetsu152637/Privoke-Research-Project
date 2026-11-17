@@ -13,7 +13,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-COMPOSE = ["docker", "compose", "-f", "docker-compose.yml", "-f", "evaluation/compose.tests.yml"]
+COMPOSE = ["docker", "compose", "-f", "docker-compose.prod.yml", "-f", "evaluation/compose.tests.yml"]
 MODEL_PATH = "/models/privoke-balanced.json"
 
 

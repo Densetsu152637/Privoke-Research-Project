@@ -2,19 +2,20 @@
 
 > Source area: `services`. Commands retain their original working-directory assumptions; follow explicit directory instructions, or use this source area for component-local commands.
 
-This directory contains PriVoke's research-support services. Both production and development server deployments also include an always-on server instance of `extension/client-runtime`, for a total of five gRPC services. That instance is distinct from the workstation detector started for the WebExtension.
+This directory contains PriVoke's research-support services. The server stack is the Rust topology of the [server rewrite plan](../plans/rust-server-rewrite.md): `model-streaming-service` and `telemetry-service` always run, and the opt-in `legacy-training` Compose profile adds `param-update-service`, `privoke-fuzzer` and the quarantined `analysis-service`. Every listener is mutual TLS and there is no reverse proxy. The WebExtension detector is a separate workstation deployment of `extension/client-runtime`; the server no longer runs a `client-runtime` container.
 
 ## Service Map
 
-- `../extension/client-runtime`: Python gRPC service for server-side prompt privacy inspection. It owns detector selection/scheduling and also includes an optional local HTTP harness.
-- `model-streaming-service`: Go gRPC server that returns the current parameter snapshot used by the streamed semantic backend.
-- `param-update-service`: Python gRPC server that appends parameter updates to JSONL storage and can request fuzzer training cycles after startup.
+- `../extension/client-runtime`: Python package for prompt privacy inspection. It owns detector selection/scheduling. On the server its pipeline runs only inside the analysis service's sandboxed worker.
+- `model-streaming-service`: Rust gRPC server (`rust/services/model-streaming`) that serves the model catalog and standard V3 packages to registered installations (public listener) and to registered services (internal listener). The Go service in `services/model-streaming-service` is retired from deployment and kept as the parity oracle.
+- `param-update-service`: Rust gRPC server (`rust/services/param-update`) that appends parameter updates to JSONL storage with drift bounds and can request fuzzer training cycles after startup. The Python service is the retired oracle.
 - `privoke-fuzzer`: Python gRPC worker plus CLI for prompt generation, layer probes, runtime-delegated semantic training, and update submission.
-- `telemetry-service`: Python gRPC collector with SQLite persistence for privacy-minimal runtime events.
+- `analysis-service`: Rust gRPC service (`rust/services/analysis`) in a quarantined container (no route out, read-only root, no capabilities) that runs the Python worker for the fuzzer's semantic-only analysis and gradient requests.
+- `telemetry-service`: Rust gRPC collector (`rust/services/telemetry`) with SQLite persistence for privacy-minimal runtime events. The Python service is the retired oracle.
 
 ## Runtime Detection Path
 
-Prompt inspection implementation lives in `extension/client-runtime`. In the server topology, the fuzzer reaches it only through the Compose gRPC service:
+Prompt inspection implementation lives in `extension/client-runtime`. In the server topology, the fuzzer reaches it only through the quarantined `analysis-service`:
 
 ```text
 prompt
@@ -56,19 +57,17 @@ Do not create ad hoc JSON contracts between services when a protobuf boundary ex
 
 ## Compose Wiring
 
-Default ports:
+Ports (container side; the internal ones are never published, and the public ones are published only by the deployment):
 
-- `model-streaming-service`: `50051`
+- `model-streaming-service`: public `50443` (published as `443`), internal `50051`
+- `telemetry-service`: public `58443` (published as `8443`), internal `50055`
 - `param-update-service`: `50052`
 - `privoke-fuzzer`: `50053`
-- `client-runtime`: detector `50054`
-- `telemetry-service`: `50055`
+- `analysis-service`: `50054` (internal networks only)
 
-The production-style Compose file exposes these ports only to its internal service network and publishes none to the host. The development and research-test overrides publish all five ports on `127.0.0.1` for host Python tests, including the fuzzer on `50053`. `evaluation/compose.localhost.yml` adds the same loopback mappings to production-image integration checks.
+`docker-compose.prod.yml` is the explicitly selected production-style stack: non-root images, read-only root filesystems, dropped capabilities, `no-new-privileges` and restart policies. Each service takes `--cert`, `--key`, `--client-ca`, `--crl` and `--registry` from a certificate directory (`PRIVOKE_PKI_DIR`, with the hot-reloaded CRL and registry in `PRIVOKE_PKI_LIVE_DIR`) and exits before binding without them; the Python fuzzer takes the equivalent `PRIVOKE_SERVER_TLS_*` settings and an allow list. A one-shot `model-seed` copies the shipped model artifacts into an empty `model-data` volume; `param-update-bootstrap` prepares the mutable model before the update service starts. The two public listeners are published on `127.0.0.1` unless `MODEL_PUBLISH` and `TELEMETRY_PUBLISH` say otherwise. The analysis service sits on two `internal: true` networks, one shared with the fuzzer and one with its own model-streaming instance. The default `docker-compose.yml` extends those definitions, publishes the internal listeners on `127.0.0.1` for host test clients and disables restart loops; there is no separate development image. `deploy/gce/compose.yml` is the same topology on registry images. `docker-compose.legacy.yml` is the retired Python and Go stack, kept only for the historical study stacks and the parity oracle.
 
-`docker-compose.yml` is the production-style deployment: all five services are built into non-root runtime images with read-only root filesystems, dropped capabilities, `no-new-privileges`, and restart policies. A network-disabled one-shot initializer seeds missing model artifacts into the writable `model-data` volume and fixes named-volume ownership before the data-writing services start; existing artifacts are preserved. The streaming service mounts that volume read-only, while the updater mounts it read-write. Compose healthchecks exercise each gRPC `Health` contract rather than only checking that a TCP port is open. The fuzzer waits for `client-runtime` health, then reports healthy on `50053`, which allows `param-update-service` to start its optional requester without racing startup. `docker-compose.dev.yml` preserves that topology while using separately tagged development images, bind-mounting service source and `./models` (read-only for streaming, writable for the updater), regenerating protobuf bindings, disabling restart loops, and mounting fuzzer prompt-test dumps at `./dumps/privoke-fuzzer`.
-
-The WebExtension, its supervisor, bridge, and workstation detector are not Docker services and are not part of either server deployment.
+The WebExtension, its controller and the workstation detector are not Docker services and are not part of either server deployment.
 
 ## Documentation Scope
 

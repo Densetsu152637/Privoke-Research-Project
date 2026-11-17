@@ -191,7 +191,7 @@ def snapshot(model_stub, model_id):
 def check_inference(runtime_stub, model_id, expected_version, expected_fp):
     response = runtime_stub.AnalyzePrompt(R.AnalyzePromptRequest(text="My private diagnosis needs medication.",
         request_id="semantic-training-smoke-reload", semantic_model_id=model_id, layers=[R.DETECTION_LAYER_SEMANTIC]), timeout=30)
-    require(not response.error and len(response.layers) == 1, "Semantic reload probe failed")
+    require(not response.error and len(response.layers) == 1, f"Semantic reload probe failed: {response.error[:300]!r}, layers={len(response.layers)}")
     layer = response.layers[0]
     require(layer.layer == R.DETECTION_LAYER_SEMANTIC and layer.status == "ok" and not layer.error and not layer.HasField("semantic_presence_gate"), "Actual semantic reload execution differs")
     require(bool(layer.results), "Fixed synthetic model must provide reload finding identity")
@@ -272,7 +272,6 @@ def verify_boundaries(runtime, models, model_id, output):
 
 def prepare_fixture(state_dir, revision):
     """Fixed seeded random fixture; no optimization, model download or promotion."""
-    import dataclasses
     import numpy as np
     import sys
     from privoke_model.artifact import ARCHITECTURE_NAME, artifact_checksum, validate_artifact
@@ -290,8 +289,9 @@ def prepare_fixture(state_dir, revision):
     arrays["head.visibility.bias"][:] = [4, -2, -2, -2, -2, -2]
     arrays["head.category.bias"][:] = -4
     arrays["head.category.bias"][0] = 4
+    # Canonical artifact/runtime form: legacy readout is implicit (ModelConfig.to_mapping).
     original = {"schema_version":1,"model_id":"privoke-balanced","version":"smoke-synthetic-96",
-        "generated_at_unix":1,"architecture":ARCHITECTURE_NAME,"config":dataclasses.asdict(config),
+        "generated_at_unix":1,"architecture":ARCHITECTURE_NAME,"config":config.to_mapping(),
         "metadata":{"purpose":"fixed_synthetic_transport_fixture_no_optimization_no_quality_claim"},
         "parameters":{n:{"shape":list(a.shape),"values":[float32(v) for v in a.ravel()],"trainable":n in HEAD_NAMES} for n,a in arrays.items()}}
     original["checksum"] = artifact_checksum(original)

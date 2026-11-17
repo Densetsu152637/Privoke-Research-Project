@@ -82,13 +82,16 @@ The Go runner invokes the original service tests with the race detector.
 Browser tests run without network access. The deployment smoke runner invokes
 `deploy/gce/tests/smoke.py` and requires its documented Docker/TLS prerequisites.
 
+The study stacks below layer their overlays over `docker-compose.legacy.yml` (the retired Python and Go services that the recorded results used);
+`docker-compose.prod.yml` is the Rust deployment and does not accept these overlays.
+
 For live measurements, start the five server services and their storage
 initializer. The research override publishes all five gRPC ports on `127.0.0.1`;
-the development override also publishes the fuzzer on `50053`. No test
+the default development `docker-compose.yml` also publishes the fuzzer on `50053` when the `legacy-training` profile is enabled. No test
 container is needed for these checks:
 
 ```powershell
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml up -d --wait --wait-timeout 240 model-streaming-service telemetry-service client-runtime privoke-fuzzer param-update-service
+docker compose -f docker-compose.legacy.yml -f evaluation/compose.tests.yml up -d --wait --wait-timeout 240 model-streaming-service telemetry-service client-runtime privoke-fuzzer param-update-service
 python evaluation/run-fuzzer-tests.py health
 python evaluation/run-component-tests.py stack-smoke --skip-training
 python evaluation/evaluate.py --dataset piimb --samples 500 --sampling balanced --english-only --seed 42 --backend streamed --run-name pilot
@@ -100,6 +103,28 @@ The evaluator sends gRPC directly to `127.0.0.1:50054` and writes reports under
 `FUZZER_TARGET` or `run-fuzzer-tests.py --target` overrides `127.0.0.1:50053`.
 The fuzzer serves health and training RPCs; prompt analysis uses the runtime RPC.
 Prompt-probe dumps go to `dumps/privoke-fuzzer` on the host.
+
+### Detector-layer evaluation tools (regex and NER only)
+
+These host scripts evaluate the regex and NER detector layers in process, through
+`pipeline.analyse_text(layers=["regex", "ner"], regex_first=False)` with an explicit
+layer list. They are explicit detector-ablation or product-analysis tools, not
+LLM-only evidence, and their results stay separate from semantic-only results.
+Each script's module docstring gives its subcommands and scope.
+
+| Script | Purpose |
+| --- | --- |
+| `evaluate_installed_detectors.py` | Scores one source tree's shipped (default) detector configuration; `--per-row-dir` writes per-row outputs |
+| `detector_stats.py`, `detector_uncertainty_report.py` | Paired grouped-bootstrap uncertainty for old-versus-new detector comparisons |
+| `span_scoring.py` | Span-level scoring against character-offset gold spans |
+| `compare_ner_postfilter.py`, `compare_ner_pattern_detector.py` | NER post-filter and experimental pattern-detector ablations |
+| `ner_model_study.py`, `ner_role_study.py` | NER model candidates (spaCy sm/lg/trf, GLiNER) and NER-role policies |
+| `robustness_probe.py` | Input-perturbation robustness of regex, NER and their union |
+| `detector_latency.py` | Host-process detector latency |
+| `fresh_set_plan.py`, `build_fresh_sets.py` | Plan and build fresh, never-scored evaluation sets and their power tables |
+| `w3_scoring.py`, `w3_analysis.py`, `w3_followup.py`, `v3_scoring.py`, `v3_analysis.py` | Pre-registered Wave 3 and v3 scoring drivers and analyses (`w3_run.sh`, `v3_run.sh` run the frozen stages) |
+| `run-product-rerun.py` | Separately authorized full-product rerun (not detector-layer or semantic-only) |
+| `annotation/` | Blinded double-annotation sampling and agreement tooling |
 
 For controlled TW01 runs, execute `evaluation/run-task-query-window-study.py`
 with host Python. The `teacher` phase requires `--target 127.0.0.1:PORT`,
@@ -160,7 +185,7 @@ To test a real training publication and durable replay, run
 This changes the running model. A single training request is also available as
 `python evaluation/run-fuzzer-tests.py train --model-id privoke-balanced --prompt-count 32`.
 Rejected cycles exit with status 1. For production-image integration on the host,
-use `docker compose -f docker-compose.yml -f evaluation/compose.localhost.yml up -d --wait`;
+use `docker compose -f docker-compose.legacy.yml -f evaluation/compose.localhost.yml up -d --wait`;
 base production Compose continues to publish no ports. CI uses this loopback
 override for its host Python smoke checks. Internal server-to-server RPC uses
 explicit Compose service DNS targets.
@@ -257,8 +282,8 @@ for each seed remains the checked-in `models/privoke-balanced.json`; source/mode
 version and Docker image identity are distinct.
 
 ```powershell
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml -f evaluation/compose.original-runtime.yml -f evaluation/compose.learning-rate-001.yml build client-runtime
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml -f evaluation/compose.original-runtime.yml -f evaluation/compose.learning-rate-001.yml up -d --no-deps --force-recreate --wait privoke-fuzzer
+docker compose -f docker-compose.legacy.yml -f evaluation/compose.tests.yml -f evaluation/compose.original-runtime.yml -f evaluation/compose.learning-rate-001.yml build client-runtime
+docker compose -f docker-compose.legacy.yml -f evaluation/compose.tests.yml -f evaluation/compose.original-runtime.yml -f evaluation/compose.learning-rate-001.yml up -d --no-deps --force-recreate --wait privoke-fuzzer
 python evaluation/run-independent-updates.py --experiment-id UNIQUE_LR_RUN --compose-override evaluation/compose.original-runtime.yml --compose-override evaluation/compose.learning-rate-001.yml
 ```
 
@@ -318,7 +343,7 @@ It must not be presented as untouched official PIIMB benchmark-test evaluation.
 
 ```powershell
 python evaluation/prepare-public-negatives.py
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml -f evaluation/compose.public-negatives.yml build client-runtime privoke-fuzzer
+docker compose -f docker-compose.legacy.yml -f evaluation/compose.tests.yml -f evaluation/compose.public-negatives.yml build client-runtime privoke-fuzzer
 python evaluation/run-public-negative-study.py
 ```
 
@@ -408,7 +433,7 @@ or publish weights. It expects the runtime and evaluation images to be available
 and verifies their IDs before and after execution.
 
 ```powershell
-docker compose -f docker-compose.yml -f evaluation/compose.tests.yml -f evaluation/compose.public-negatives.yml up -d --wait --wait-timeout 240 client-runtime
+docker compose -f docker-compose.legacy.yml -f evaluation/compose.tests.yml -f evaluation/compose.public-negatives.yml up -d --wait --wait-timeout 240 client-runtime
 python evaluation/run-representation-diagnostic.py --output FRESH_RESULTS_CHILD
 ```
 
@@ -440,7 +465,7 @@ isolated evidence jobs to preserve their recorded execution identities. Use the
 four Compose files in order when starting their server stack:
 
 ```powershell
-$ComposeFiles = @('-f','docker-compose.yml','-f','evaluation/compose.tests.yml','-f','evaluation/compose.public-negatives.yml','-f','evaluation/compose.presence.yml')
+$ComposeFiles = @('-f','docker-compose.legacy.yml','-f','evaluation/compose.tests.yml','-f','evaluation/compose.public-negatives.yml','-f','evaluation/compose.presence.yml')
 $FitSourceSha = (git rev-parse HEAD).Trim()
 $ProtocolSha = (Get-FileHash paper/research/model-refactor-protocol.md -Algorithm SHA256).Hash.ToLowerInvariant()
 python evaluation/fit-presence-profiles.py --prepared evaluation/results/representation_20261004_v3/prepared --locked-root evaluation/results/locked-public --bootstrap-source models/generate_baseline.py --output evaluation/results/FRESHFIT --source-revision $FitSourceSha --protocol-sha256 $ProtocolSha

@@ -26,12 +26,15 @@ Services:
   - `GetModelParameters(ModelParametersRequest) -> ModelParametersResponse`
   - `StreamModelParameters(ModelParametersRequest) -> stream ModelParameterChunk`
   - `Health(HealthRequest) -> HealthResponse`
+  - `GetModelPackage(ModelParametersRequest) -> ModelPackageResponse`
+  - `StreamModelAsset(ModelAssetRequest) -> stream ModelAssetChunk`
 - `ParamUpdateService`
   - `SubmitParameterUpdate(ParameterUpdateRequest) -> ParameterUpdateAck`
   - `GetParameterUpdateStatus(ParameterUpdateStatusRequest) -> ParameterUpdateStatus`
   - `Health(HealthRequest) -> HealthResponse`
 - `FuzzerService`
   - `RunTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
+  - `RunUnderlyingTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
   - `RunPresenceTrainingCycle(FuzzerTrainingRequest) -> FuzzerTrainingResponse`
   - `Health(HealthRequest) -> HealthResponse`
 
@@ -40,6 +43,7 @@ Services:
 - `PrivokeRuntimeService`
   - `AnalyzePrompt(AnalyzePromptRequest) -> AnalyzePromptResponse`
   - `ComputeSemanticGradients(ComputeSemanticGradientsRequest) -> ComputeSemanticGradientsResponse`
+  - `ComputeUnderlyingModelGradients(ComputeSemanticGradientsRequest) -> ComputeSemanticGradientsResponse`
   - `DetectAnnotationPresence(DetectAnnotationPresenceRequest) -> DetectAnnotationPresenceResponse`
   - `ComputePresenceGradients(ComputePresenceGradientsRequest) -> ComputePresenceGradientsResponse`
   - `Health(RuntimeHealthRequest) -> RuntimeHealthResponse`
@@ -74,7 +78,7 @@ Each service keeps generated protobuf code locally:
 - Python bindings under each Python service's `generated` directory
 - Workstation control-plane bindings under `extension/runtime-supervisor/generated`
 
-The Dockerfiles generate these bindings at image build time. `docker-compose.dev.yml` regenerates them at container startup before running the service.
+The Dockerfiles generate these bindings at image build time. `docker-compose.yml` regenerates them at container startup before running the service.
 
 Host evaluation and integration scripts use `python evaluation/setup-host.py`
 from the repository root to generate all three Python contracts into

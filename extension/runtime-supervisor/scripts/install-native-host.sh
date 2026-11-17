@@ -17,6 +17,13 @@ extension_root="$repository_root/extension"
 identity_path="$extension_root/extension-identities.json"
 python_path="$extension_root/client-runtime/.venv/bin/python"
 source_host_path="$supervisor_root/src/native_messaging_host.py"
+# The Rust controller (rust/services/runtime-supervisor) is the native host when PRIVOKE_SUPERVISOR_BINARY names its
+# executable. Unset, the Python host stays the registered one.
+supervisor_binary="${PRIVOKE_SUPERVISOR_BINARY:-}"
+if [ -n "$supervisor_binary" ]; then
+  python_path="$supervisor_binary"
+  source_host_path="$supervisor_binary"
+fi
 
 for required_file in "$identity_path" "$python_path" "$source_host_path"; do
   if [ ! -f "$required_file" ]; then
@@ -69,13 +76,20 @@ if [ "$browser" = auto ]; then
   fi
 fi
 
-host_name=org.privoke.runtime_launcher
+# The Rust controller has its own host name so it can be registered beside the Python launcher.
+if [ -n "$supervisor_binary" ]; then
+  host_name=org.privoke.runtime_controller
+else
+  host_name=org.privoke.runtime_launcher
+fi
 mkdir -p "$install_root"
 installed_host_path="$install_root/native_messaging_host.py"
 launcher_path="$install_root/privoke-native-host"
 chromium_manifest_path="$install_root/$host_name.chromium.json"
 firefox_manifest_path="$install_root/$host_name.firefox.json"
-cp "$source_host_path" "$installed_host_path"
+if [ -z "$supervisor_binary" ]; then
+  cp "$source_host_path" "$installed_host_path"
+fi
 
 escape_shell_single_quotes() {
   printf '%s' "$1" | sed "s/'/'\\''/g"
@@ -87,7 +101,11 @@ escaped_root=$(escape_shell_single_quotes "$repository_root")
 {
   echo '#!/bin/sh'
   printf "export PRIVOKE_REPOSITORY_ROOT='%s'\n" "$escaped_root"
-  printf "exec '%s' '%s'\n" "$escaped_python" "$escaped_host"
+  if [ -n "$supervisor_binary" ]; then
+    printf "exec '%s' native-host\n" "$escaped_python"
+  else
+    printf "exec '%s' '%s'\n" "$escaped_python" "$escaped_host"
+  fi
 } > "$launcher_path"
 chmod 700 "$launcher_path"
 

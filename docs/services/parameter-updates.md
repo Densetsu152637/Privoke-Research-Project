@@ -53,6 +53,56 @@ Receipts persist in `<PARAM_UPDATE_STORAGE_PATH>.receipts.sqlite3` with SQLite w
 
 Retention enforcement and general metadata privacy filtering remain outside this contract; bounded metadata must exclude raw prompt text. There is no dedicated raw-prompt field.
 
+## Guards and access control (current properties)
+
+This service is the only model-update path. The standard V3 path is read-only: a
+V3 `model_id` is rejected because every update must name the configured `MODEL_ID`
+(`app/validation.py`), and the updater writes only the legacy JSON artifact.
+
+Update guards, in force on every `SubmitParameterUpdate`:
+
+- Compare-and-swap on `base_version`: a request whose base differs from the artifact's
+  current version is rejected as stale (`shared/python/privoke_model/artifact.py`,
+  `apply_parameter_update`), checked under the writer lock in `app/server.py`.
+- Publication writes a temporary file, fsyncs it and calls `os.replace`, then fsyncs the
+  directory where the platform supports it (`write_artifact_atomic`); an update touching
+  several tensors is applied whole or not at all.
+- With a `request_id`, a durable receipt keyed by updater source, request source and
+  request ID makes an identical replay return the original version, and a different
+  payload under the same key is rejected (`app/receipts.py`, `app/server.py`). Without a
+  `request_id`, an identical replay is rejected as stale rather than recognised.
+- Each gradient value must be finite with `abs(value) <= PARAM_UPDATE_MAX_ABS_GRADIENT`
+  (default `1.0`). Frozen, unknown and misshaped tensors, and value counts above the
+  limits, are rejected.
+
+Not present, as current properties:
+
+- No cumulative or aggregate bound. The magnitude limit is per coordinate per update,
+  so repeated updates at the limit are each accepted, and one update may move up to
+  65,536 coordinates by the limit (`MAX_UPDATE_VALUES`). Nothing limits update rate or L2 norm.
+- Authentication is in the service. The deployed update service is the Rust `param-update-service`
+  (`rust/services/param-update`): one mutual-TLS listener (`50052`, never published) that admits only registered
+  `publisher` services for `SubmitParameterUpdate` and `publisher` and `trainer` services for
+  `GetParameterUpdateStatus`, and refuses to start without a client CA, a CRL and a registry. A non-empty
+  `source_id` must equal the caller's service name, so the fuzzer publishes as `fuzzer`, the name of its certificate.
+  Per-update (16.0) and cumulative (512.0 per release) L2 bounds are enforced by default
+  (`PARAM_UPDATE_DRIFT_POLICY`). It runs only in the `legacy-training` profile, behind the same placement controls as
+  before (`expose` only, no host port), and no public listener routes any `ParamUpdateService` method. The Python
+  service described by the earlier behaviour list (plaintext port, no peer identity, no bound) is retired from
+  deployment and kept as the parity oracle.
+- No startup cleanup of stray temporary files left by an interrupted write; the active
+  artifact stays valid.
+
+These behaviours were exercised by negative tests on synthetic inputs and a synthetic
+model state, recorded in
+[UPDSEC-20261116](../../paper/research/update-security-20261116.md): stale, replayed,
+duplicate (eight concurrent submissions applied once), malformed, NaN/Inf, wrong-shape
+and interrupted updates were rejected or applied exactly once, and the model was
+unchanged after each rejection. Over-bound values were rejected, 25 successive
+maximum-magnitude updates were all accepted, and unauthenticated updates with a forged
+`source_id` were accepted. That record states its scope and limitations; it is not a
+penetration test.
+
 ## Runtime
 
 Default port: `50052`

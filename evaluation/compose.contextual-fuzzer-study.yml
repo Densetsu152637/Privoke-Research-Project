@@ -1,4 +1,4 @@
-# Use after docker-compose.yml and evaluation/compose.tests.yml, in the same project.
+# Use after docker-compose.prod.yml and evaluation/compose.tests.yml, in the same project.
 # The controller binds exact sha256 image IDs and a fresh task receipt volume.
 services:
   client-runtime:

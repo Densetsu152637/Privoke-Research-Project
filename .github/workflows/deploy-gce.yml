@@ -1,5 +1,10 @@
 name: Deploy Compute Engine
 
+# Inert until the repository variable GCP_DEPLOY_ENABLED is "true". Without it every job is skipped and the gate job prints
+# a notice. With it, the production environment must hold the secrets listed in docs/deployment/google-cloud.md; a missing
+# or malformed one fails the run before anything is published or changed. Nothing here fails open: a release that does not
+# pass the external smoke test is rolled back and the telemetry firewall rule is closed again.
+
 on:
   push:
     branches: [main]
@@ -13,12 +18,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify:
+  gate:
+    name: Deployment gate
     if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      enabled: ${{ steps.gate.outputs.enabled }}
+    steps:
+      - id: gate
+        name: Check that deployment is switched on
+        env:
+          ENABLED: ${{ vars.GCP_DEPLOY_ENABLED }}
+        run: |
+          if [[ "$ENABLED" == "true" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Deployment skipped::Set the repository variable GCP_DEPLOY_ENABLED to true and configure the production secrets (docs/deployment/google-cloud.md) to deploy."
+          fi
+
+  verify:
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true'
     uses: ./.github/workflows/service-stack-ci.yml
-    # Deployment validation explicitly includes the separate product pipeline.
-    with:
-      allow_product_pipeline: true
+    # Every job of service-stack-ci is required here, including container-smoke (the Rust images on a throwaway test PKI, smoke.py and
+    # the update-security rows): the reusable workflow fails this job, and so blocks publish and deploy, if any of them fails.
 
   publish:
     needs: verify
@@ -32,27 +57,47 @@ jobs:
       matrix:
         include:
           - service: model-streaming-service
-            dockerfile: services/model-streaming-service/Dockerfile
-          - service: param-update-service
-            dockerfile: services/param-update-service/Dockerfile
+            dockerfile: rust/services/model-streaming/Dockerfile
+            pull: --pull
+            build_args: ""
           - service: telemetry-service
-            dockerfile: services/telemetry-service/Dockerfile
+            dockerfile: rust/services/telemetry/Dockerfile
+            pull: --pull
+            build_args: ""
+          - service: param-update-service
+            dockerfile: rust/services/param-update/Dockerfile
+            pull: --pull
+            build_args: ""
           - service: privoke-fuzzer
             dockerfile: services/privoke-fuzzer/Dockerfile
-          - service: client-runtime
-            dockerfile: extension/client-runtime/Dockerfile
+            pull: --pull
+            build_args: ""
+          # The analysis image is built on the Python runtime image, which is built first and exists only locally.
+          - service: analysis-service
+            dockerfile: rust/services/analysis/Dockerfile
+            pull: ""
+            build_args: --build-arg PYTHON_RUNTIME_IMAGE=privoke-client-runtime-base:ci
     env:
       IMAGE_PREFIX: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}
       SERVICE: ${{ matrix.service }}
       DOCKERFILE: ${{ matrix.dockerfile }}
+      PULL: ${{ matrix.pull }}
+      BUILD_ARGS: ${{ matrix.build_args }}
     steps:
       - uses: actions/checkout@v6
       - name: Validate registry configuration
         shell: bash
         run: |
-          [[ "$IMAGE_PREFIX" =~ ^[a-z0-9-]+-docker.pkg.dev/[a-z0-9-]+/[a-z0-9_-]+$ ]] || { echo 'Configure the production GitHub secrets listed in .env.example.' >&2; exit 1; }
+          [[ "$IMAGE_PREFIX" =~ ^[a-z0-9-]+-docker.pkg.dev/[a-z0-9-]+/[a-z0-9_-]+$ ]] || { echo 'Configure the production GitHub secrets listed in docs/deployment/google-cloud.md.' >&2; exit 1; }
+      - name: Build the Python runtime base image
+        if: matrix.service == 'analysis-service'
+        run: docker build --pull --file extension/client-runtime/Dockerfile --target runtime --tag privoke-client-runtime-base:ci .
       - name: Build release image
-        run: docker build --pull --file "$DOCKERFILE" --tag "$IMAGE_PREFIX/$SERVICE:$GITHUB_SHA" .
+        shell: bash
+        run: |
+          read -r -a pull <<< "$PULL"
+          read -r -a extra <<< "$BUILD_ARGS"
+          docker build "${pull[@]}" "${extra[@]}" --file "$DOCKERFILE" --tag "$IMAGE_PREFIX/$SERVICE:$GITHUB_SHA" .
       # Authenticate after the potentially long image build.
       - uses: google-github-actions/auth@v3
         with:
@@ -67,7 +112,7 @@ jobs:
   deploy:
     needs: publish
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     environment: production
     permissions:
       contents: read
@@ -76,6 +121,9 @@ jobs:
       GCP_INSTANCE: ${{ secrets.GCP_INSTANCE }}
       GCP_ZONE: ${{ secrets.GCP_ZONE }}
       IMAGE_PREFIX: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY }}
+      STACK_HOST: ${{ secrets.GCP_STACK_HOST }}
+      TELEMETRY_FIREWALL_RULE: ${{ vars.GCP_TELEMETRY_FIREWALL_RULE || 'privoke-telemetry' }}
+      DEPLOY_SCRIPT: deploy/gce/deploy.sh
     steps:
       - uses: actions/checkout@v6
       - uses: google-github-actions/auth@v3
@@ -83,14 +131,76 @@ jobs:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
       - uses: google-github-actions/setup-gcloud@v3
-      - name: Transfer deployment files and deploy through IAP
+      - name: Validate deployment configuration
         shell: bash
         run: |
           [[ "$IMAGE_PREFIX" =~ ^[a-z0-9-]+-docker.pkg.dev/[a-z0-9-]+/[a-z0-9_-]+$ ]]
           [[ "$GCP_INSTANCE" =~ ^[a-z][a-z0-9-]+$ ]]
           [[ "$GCP_ZONE" =~ ^[a-z0-9-]+$ ]]
-          tar -czf "privoke-$GITHUB_SHA.tar.gz" -C deploy/gce compose.yml nginx.conf deploy.sh
+          [[ "$STACK_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$TELEMETRY_FIREWALL_RULE" =~ ^[a-z][a-z0-9-]*$ ]]
+
+      # Steps 1 to 4 of the 8a order, on the VM: verify and stage, smoke test on loopback, switch to 443 and 8443 (8443 is
+      # still closed in the firewall), then wait for confirmation. deploy.sh rolls itself back on any failure.
+      - name: Transfer deployment files, stage, smoke test on loopback and switch
+        shell: bash
+        run: |
+          tar -czf "privoke-$GITHUB_SHA.tar.gz" \
+            deploy/gce/compose.yml deploy/gce/deploy.sh deploy/gce/pki-sync.sh deploy/gce/tests/smoke.py \
+            deploy/gce/systemd/privoke-pki-sync.service deploy/gce/systemd/privoke-pki-sync.timer \
+            shared/proto/privoke/v1/parameters.proto shared/proto/privoke/v1/telemetry.proto \
+            shared/python/privoke_model/standard_v3.py extension/client-runtime/src/telemetry/privacy.py
           gcloud compute scp "privoke-$GITHUB_SHA.tar.gz" "$GCP_INSTANCE:~/privoke-$GITHUB_SHA.tar.gz" \
             --project="$GCP_PROJECT_ID" --zone="$GCP_ZONE" --tunnel-through-iap --quiet
           gcloud compute ssh "$GCP_INSTANCE" --project="$GCP_PROJECT_ID" --zone="$GCP_ZONE" --tunnel-through-iap --quiet \
-            --command="set -eu; mkdir -p ~/privoke-$GITHUB_SHA; tar -xzf ~/privoke-$GITHUB_SHA.tar.gz -C ~/privoke-$GITHUB_SHA; sudo bash ~/privoke-$GITHUB_SHA/deploy.sh '$GITHUB_SHA' '$IMAGE_PREFIX'"
+            --command="set -eu; mkdir -p ~/privoke-$GITHUB_SHA; tar -xzf ~/privoke-$GITHUB_SHA.tar.gz -C ~/privoke-$GITHUB_SHA; sudo bash ~/privoke-$GITHUB_SHA/$DEPLOY_SCRIPT '$GITHUB_SHA' '$IMAGE_PREFIX'"
+
+      # Step 4, second half: only now open the telemetry port.
+      - name: Open the telemetry port in the firewall
+        run: gcloud compute firewall-rules update "$TELEMETRY_FIREWALL_RULE" --project="$GCP_PROJECT_ID" --no-disabled --quiet
+
+      # Step 5: from outside the VM, against the public endpoints, with the smoke identities stored as environment secrets.
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: External smoke test
+        shell: bash
+        env:
+          SMOKE_SERVER_CA: ${{ secrets.SMOKE_SERVER_CA }}
+          SMOKE_INSTALLATION_CERT: ${{ secrets.SMOKE_INSTALLATION_CERT }}
+          SMOKE_INSTALLATION_KEY: ${{ secrets.SMOKE_INSTALLATION_KEY }}
+          SMOKE_REPORTER_CERT: ${{ secrets.SMOKE_REPORTER_CERT }}
+          SMOKE_REPORTER_KEY: ${{ secrets.SMOKE_REPORTER_KEY }}
+        run: |
+          for name in SMOKE_SERVER_CA SMOKE_INSTALLATION_CERT SMOKE_INSTALLATION_KEY SMOKE_REPORTER_CERT SMOKE_REPORTER_KEY; do
+            [[ -n "${!name}" ]] || { echo "Missing production secret $name; the release will be rolled back." >&2; exit 1; }
+          done
+          pip install grpcio==1.82.1 grpcio-tools==1.82.1 protobuf==7.35.1
+          creds="$RUNNER_TEMP/smoke-creds"
+          install -d -m 0700 "$creds"
+          printf '%s\n' "$SMOKE_SERVER_CA" > "$creds/server-ca.pem"
+          printf '%s\n' "$SMOKE_INSTALLATION_CERT" > "$creds/installation.crt"
+          printf '%s\n' "$SMOKE_INSTALLATION_KEY" > "$creds/installation.key"
+          printf '%s\n' "$SMOKE_REPORTER_CERT" > "$creds/reporter.crt"
+          printf '%s\n' "$SMOKE_REPORTER_KEY" > "$creds/reporter.key"
+          chmod 0600 "$creds"/*
+          python deploy/gce/tests/smoke.py --creds "$creds" \
+            --model-target "$STACK_HOST:443" --telemetry-target "$STACK_HOST:8443" \
+            --model-id "${MODEL_ID:-privoke-v3-balanced}"
+          rm -rf -- "$creds"
+
+      - name: Confirm the release
+        run: |
+          gcloud compute ssh "$GCP_INSTANCE" --project="$GCP_PROJECT_ID" --zone="$GCP_ZONE" --tunnel-through-iap --quiet \
+            --command="sudo bash ~/privoke-$GITHUB_SHA/$DEPLOY_SCRIPT confirm '$GITHUB_SHA'"
+
+      # Step 6: until the smoke test has passed, undo the switch. Close the port first. deploy.sh also rolls back by itself
+      # if no confirmation arrives within PENDING_TIMEOUT_MINUTES.
+      - name: Close the telemetry port and roll back
+        if: failure() || cancelled()
+        shell: bash
+        run: |
+          gcloud compute firewall-rules update "$TELEMETRY_FIREWALL_RULE" --project="$GCP_PROJECT_ID" --disabled --quiet || echo '::error::Could not close the telemetry firewall rule; close it by hand.'
+          gcloud compute ssh "$GCP_INSTANCE" --project="$GCP_PROJECT_ID" --zone="$GCP_ZONE" --tunnel-through-iap --quiet \
+            --command="sudo bash ~/privoke-$GITHUB_SHA/$DEPLOY_SCRIPT rollback external-smoke-failed" \
+            || echo '::error::Could not reach the VM to roll back; its watchdog rolls back unconfirmed releases.'

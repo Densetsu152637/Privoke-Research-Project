@@ -19,9 +19,10 @@ class StackConnectionTests(unittest.TestCase):
             grpc_channel("", environment={})
 
     def test_both_services_switch_together_without_cloud_credentials(self):
-        cloud = {"PRIVOKE_CLOUD_TARGET": "stack.example.com:443"}
+        cloud = {"PRIVOKE_CLOUD_TARGET": "stack.example.com:443", "PRIVOKE_CLOUD_TELEMETRY_TARGET": "stack.example.com:8443"}
+        self.assertEqual(stack_target("MODEL_STREAMING", cloud), "stack.example.com:443")
+        self.assertEqual(stack_target("TELEMETRY", cloud), "stack.example.com:8443")
         for service, port in (("MODEL_STREAMING", 50051), ("TELEMETRY", 50055)):
-            self.assertEqual(stack_target(service, cloud), "stack.example.com:443")
             self.assertEqual(stack_target(service, {**cloud, "PRIVOKE_USE_LOCAL_STACK": "true"}), f"127.0.0.1:{port}")
 
     def test_local_targets_can_be_overridden_from_shared_environment(self):
@@ -33,12 +34,12 @@ class StackConnectionTests(unittest.TestCase):
         self.assertEqual(stack_target("MODEL_STREAMING", env), "localhost:61051")
         self.assertEqual(stack_target("TELEMETRY", env), "localhost:61055")
 
-    def test_internal_mode_preserves_compose_routing(self):
+    def test_internal_mode_preserves_compose_routing_and_requires_mutual_tls(self):
         env = {"PRIVOKE_STACK_MODE": "internal", "MODEL_STREAMING_TARGET": "model-streaming-service:50051"}
         self.assertEqual(stack_target("MODEL_STREAMING", env), env["MODEL_STREAMING_TARGET"])
-        with patch("grpc.insecure_channel") as channel:
+        with patch("grpc.insecure_channel") as channel, self.assertRaisesRegex(ValueError, "PRIVOKE_TLS_CERT_FILE"):
             grpc_channel(env["MODEL_STREAMING_TARGET"], environment=env)
-            channel.assert_called_once_with(env["MODEL_STREAMING_TARGET"], options=())
+        channel.assert_not_called()
 
     def test_cloud_requires_client_identity(self):
         with self.assertRaisesRegex(ValueError, "PRIVOKE_TLS_CERT_FILE"):

@@ -1,0 +1,9 @@
+# Fresh-set data builders (evaluation/fresh_set_plan.py, evaluation/build_fresh_sets.py).
+# Venv: evaluation/.venv-fresh-data (Python 3.11). Install: python -m pip install -r evaluation/requirements-fresh-data.txt
+Faker==40.43.0
+numpy==2.4.6
+pandas==3.1.0
+pyarrow==26.0.0
+python-dateutil==3.0.0
+six==1.17.0
+tzdata==2026.5

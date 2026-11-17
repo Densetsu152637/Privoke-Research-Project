@@ -1,0 +1,162 @@
+name: Rust workspace CI
+
+# Runs the Rust workspace checks on GitHub-hosted runners so that agents and
+# developers do not run full cargo builds locally (see the CI-first rule).
+on:
+  pull_request:
+    paths:
+      - 'rust/**'
+      - 'shared/proto/**'
+      - 'tests/conformance/**'
+      - '.github/workflows/rust-ci.yml'
+  push:
+    branches:
+      - feat/rust-rewrite
+      - 'wt/**'
+      - 'fix/**'
+    paths:
+      - 'rust/**'
+      - 'shared/proto/**'
+      - 'tests/conformance/**'
+      - '.github/workflows/rust-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: '1.99.1'
+
+jobs:
+  lint:
+    name: Rust format and clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal -c clippy,rustfmt
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: rust-lint-${{ runner.os }}-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('rust/Cargo.lock') }}
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  test:
+    name: Rust workspace tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: rust-test-${{ runner.os }}-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('rust/Cargo.lock') }}
+      - name: Test
+        run: cargo test --workspace --locked --no-fail-fast
+      - name: Training parity report (stage 19)
+        # Prints the per-case gradient error and bitwise counts of privoke-training (eprintln).
+        run: cargo test -p privoke-training --locked -- --nocapture --test-threads=1
+      - name: Runtime golden report (stage 17)
+        # Prints the per-scope byte-parity counts of the Rust analysis runtime against the Python servicer (eprintln).
+        run: cargo test -p privoke-runtime --test golden --test semantic_golden --locked -- --nocapture --test-threads=1
+
+  embed-check:
+    # The PyO3 spaCy worker and the in-process spaCy backend (stage 11b) need a
+    # CPython 3.11 development install. The full embed tests, the real-interpreter
+    # crash test and the NER parity gate need the Linux bundle, which is still
+    # pending (stage 23), so this job only proves the embed and in-process
+    # features compile and lint on Linux.
+    name: spaCy worker embed build (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal -c clippy
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: rust-embed-${{ runner.os }}-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('rust/Cargo.lock') }}
+      - name: Clippy with embed
+        run: |
+          PYO3_PYTHON="$(python -c 'import sys; print(sys.executable)')" \
+            cargo clippy -p privoke-spacy-worker --features embed --all-targets --locked -- -D warnings
+      - name: Clippy with in-process
+        run: |
+          PYO3_PYTHON="$(python -c 'import sys; print(sys.executable)')" \
+            cargo clippy -p privoke-spacy --features in-process,test-hooks,fake-worker --all-targets --locked -- -D warnings
+      - name: Clippy runtime worker with in-process spaCy
+        run: |
+          PYO3_PYTHON="$(python -c 'import sys; print(sys.executable)')" \
+            cargo clippy -p privoke-runtime --features in-process --all-targets --locked -- -D warnings
+
+  gliner-check:
+    # The optional GLiNER ONNX backend (stage 15, cargo feature gliner-ort) is off by
+    # default, so the jobs above do not build it. ONNX Runtime is loaded dynamically at
+    # run time (no download while building); this job proves the feature compiles and lints.
+    name: GLiNER ONNX backend build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal -c clippy
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: rust-gliner-${{ runner.os }}-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('rust/Cargo.lock') }}
+      - name: Clippy with gliner-ort
+        run: cargo clippy -p privoke-ner-layer --features gliner-ort --all-targets --locked -- -D warnings

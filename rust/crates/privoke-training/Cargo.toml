@@ -1,0 +1,18 @@
+[package]
+name = "privoke-training"
+description = "Gradients and local training of the Tiny transformer in Rust: reverse-mode kernels, objectives and the FULL projected Adam fit (stage 19)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+privoke-contracts = { path = "../privoke-contracts" }
+privoke-rules = { path = "../privoke-rules" }
+privoke-semantic = { path = "../privoke-semantic" }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,5 +1,5 @@
 # Explicit opt-in prepared TRAIN-only window. No artifact is generated or promoted.
-# Compose with docker-compose.yml only against a separately prepared research model store.
+# Compose with docker-compose.prod.yml only against a separately prepared research model store.
 services:
   client-runtime:
     environment:

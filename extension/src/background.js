@@ -1,4 +1,5 @@
 import { RuntimeClient } from "./runtime-client.js";
+import { NativePortTransport } from "./native-port-transport.js";
 import { restoreConfiguredRuntime } from "./runtime-lifecycle.js";
 import {
   detectionLayers,
@@ -12,12 +13,19 @@ import {
   addRuntimeMessageListener,
 } from "./webextension-api.js";
 import { SemanticAvailability } from "./semantic-availability.js";
+import { collectMaskSpans } from "./redaction.js";
+import { ANALYSIS_TIMEOUT_MS, STREAMING_HEALTH_TIMEOUT_MS } from "./analysis-timeouts.js";
+import { watchTabCoverage } from "./page-coverage.js";
 
-const client = new RuntimeClient();
+// A controller that restarts has lost its runtime; restore the configured state when a later port opens.
+const client = new RuntimeClient(new NativePortTransport({
+  onReconnect: () => { void restoreEnabledRuntime().catch(reportStartupFailure); },
+}));
 const semanticAvailability = new SemanticAvailability(checkStreamingHealth);
 let runtimeControlTail = Promise.resolve();
 
 addRuntimeMessageListener(handleMessage);
+watchTabCoverage();
 addRuntimeLifecycleListeners(() => {
   void restoreEnabledRuntime().catch(reportStartupFailure);
 });
@@ -45,7 +53,7 @@ async function handleMessage(message, sender) {
 async function checkStreamingHealth() {
   try {
     const response = await client.streamingHealth({
-      signal: AbortSignal.timeout(3_500),
+      signal: AbortSignal.timeout(STREAMING_HEALTH_TIMEOUT_MS),
     });
     const serving = response.status?.toUpperCase() === "SERVING";
     return {
@@ -184,7 +192,7 @@ async function analyzePrompt(message, sender) {
       client_version: "0.1.0",
       intercepted: message.source === "manual" ? "false" : "true",
     },
-  }, { signal: AbortSignal.timeout(30_000) });
+  }, { signal: AbortSignal.timeout(ANALYSIS_TIMEOUT_MS) });
 
   return {
     ok: true,
@@ -194,6 +202,10 @@ async function analyzePrompt(message, sender) {
       semanticStateTransition: semanticStatus.transition,
       semanticFallbackLayers: semanticStatus.fallbackLayers,
       semanticFailClosedOnly: semanticStatus.failClosedOnly,
+      // Only populated when the opt-in WARN+MASK setting is on.
+      ...(settings.warnMasking && String(response.action).toUpperCase() === "WARN"
+        ? { maskSpans: collectMaskSpans(response) }
+        : {}),
     },
   };
 }

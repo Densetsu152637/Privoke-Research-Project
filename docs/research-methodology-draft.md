@@ -1,5 +1,7 @@
 # Research methodology draft
 
+> Status: historical record. It is not maintained as current state; the current revision plan is [asiaccs-2027-revision.md](plans/asiaccs-2027-revision.md).
+
 Prepared 3 October 2026 for the internal review manuscript. This text records the
 implemented evaluation design. Final-test results, deployment measurements and
 human confirmation remain pending. Update those statuses before incorporating

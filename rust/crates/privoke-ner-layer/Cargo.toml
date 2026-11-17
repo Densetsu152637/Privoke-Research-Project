@@ -1,0 +1,31 @@
+[package]
+name = "privoke-ner-layer"
+description = "NER layer of the client runtime: spaCy detector with caseless gate, post-filter, use cases and pattern detector (stage 13)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+privoke-rules = { path = "../privoke-rules" }
+privoke-spacy = { path = "../privoke-spacy" }
+thiserror = { workspace = true }
+# The recorded-analysis replay used by the parity tests decodes JSON.
+serde_json = "1"
+
+# The GLiNER ONNX backend (stage 15) is optional and off by default: `--features gliner-ort`.
+# `load-dynamic` loads ONNX Runtime from `ORT_DYLIB_PATH` at run time, so nothing is downloaded while building.
+ort = { version = "=2.0.0-rc.10", default-features = false, features = ["std"], optional = true }
+tokenizers = { version = "=0.22.2", default-features = false, features = ["onig"], optional = true }
+
+[features]
+default = []
+gliner-ort = ["dep:ort", "dep:tokenizers", "ort/load-dynamic"]
+
+[dev-dependencies]
+tokio = { workspace = true }
+base64 = { workspace = true }
+
+[lints]
+workspace = true

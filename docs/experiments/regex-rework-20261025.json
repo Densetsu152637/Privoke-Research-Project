@@ -1,0 +1,2078 @@
+{
+ "experiment": "regex-rework-20261025",
+ "scope": "detector-layer (regex, NER; union = regex OR NER); not LLM-only evidence; not full-product",
+ "freeze_commit": "b7e716c354d1f772e638a54a7433b12371627912",
+ "base_N": "42f8f529 (research/wt-k-rework base, PR #5 head fix/regex-fp-reduction)",
+ "reference_O": "e6c177ff clean export (pre-repair)",
+ "dataset_sha256": {
+  "dev": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095",
+  "personalized": "fd045ac1bd77fa278ad207a1bc1208f71fced017b9ab4fc174a2074f7d8f1281",
+  "openai": "8e8e611b9d40f7d554726d577449585faefb9aec97f5dd4ffb051af1a6da2c3b"
+ },
+ "observed_flags_K": {
+  "case_preserving_detectors": true,
+  "ner_postfilter": true
+ },
+ "design_splits": [
+  "dev-TUNE",
+  "personalized"
+ ],
+ "post_review_splits": [
+  "dev-CHECK",
+  "openai"
+ ],
+ "final_or_fresh_used": false,
+ "benign_sentence_bank": {
+  "n": 42,
+  "new_rule_hits": 1,
+  "hit": "policy number is a placeholder example value"
+ },
+ "units": {
+  "dev-TUNE": {
+   "n": 267,
+   "positives": 148,
+   "layers": {
+    "regex": {
+     "positive": {
+      "K": {
+       "tp": 96,
+       "tn": 117,
+       "fp": 2,
+       "fn": 52
+      },
+      "N": {
+       "tp": 95,
+       "tn": 117,
+       "fp": 2,
+       "fn": 53
+      },
+      "O": {
+       "tp": 96,
+       "tn": 115,
+       "fp": 4,
+       "fn": 52
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.006756756756756799,
+        "lo": 0.0,
+        "hi": 0.021428571428571352,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 1,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.01680672268907557,
+        "lo": 0.0,
+        "hi": 0.04310499875961301,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 2,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 0.5
+      }
+     },
+     "warn_or_block": {
+      "K": {
+       "tp": 80,
+       "tn": 118,
+       "fp": 1,
+       "fn": 68
+      },
+      "N": {
+       "tp": 78,
+       "tn": 118,
+       "fp": 1,
+       "fn": 70
+      },
+      "O": {
+       "tp": 79,
+       "tn": 117,
+       "fp": 2,
+       "fn": 69
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.013513513513513598,
+        "lo": 0.0,
+        "hi": 0.03472222222222221,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 2,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 0.5,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.006756756756756799,
+        "lo": 0.0,
+        "hi": 0.021739130434782594,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.008403361344537896,
+        "lo": 0.0,
+        "hi": 0.02703316953316939,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 1,
+       "tp_to_fn": 0,
+       "fp_to_tn": 1,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      }
+     },
+     "block": {
+      "K": {
+       "tp": 56,
+       "tn": 118,
+       "fp": 1,
+       "fn": 92
+      },
+      "N": {
+       "tp": 51,
+       "tn": 118,
+       "fp": 1,
+       "fn": 97
+      },
+      "O": {
+       "tp": 52,
+       "tn": 118,
+       "fp": 1,
+       "fn": 96
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.03378378378378383,
+        "lo": 0.00694444444444442,
+        "hi": 0.06493506493506496,
+        "n_undefined": 0,
+        "excludes_zero": true
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 5,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 0.0625,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.02702702702702703,
+        "lo": 0.0,
+        "hi": 0.06040268456375841,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 5,
+       "tp_to_fn": 1,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 0.21875,
+       "mcnemar_negatives_p": 1.0
+      }
+     }
+    },
+    "union": {
+     "positive": {
+      "K": {
+       "tp": 119,
+       "tn": 113,
+       "fp": 6,
+       "fn": 29
+      },
+      "N": {
+       "tp": 118,
+       "tn": 113,
+       "fp": 6,
+       "fn": 30
+      },
+      "O": {
+       "tp": 113,
+       "tn": 113,
+       "fp": 6,
+       "fn": 35
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.006756756756756799,
+        "lo": 0.0,
+        "hi": 0.021428571428571352,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 1,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.04054054054054057,
+        "lo": 0.0,
+        "hi": 0.08281581740976635,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": -0.04065040650406504,
+        "hi": 0.04166666666666663,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 8,
+       "tp_to_fn": 2,
+       "fp_to_tn": 4,
+       "tn_to_fp": 4,
+       "mcnemar_positives_p": 0.109375,
+       "mcnemar_negatives_p": 1.0
+      }
+     },
+     "warn_or_block": {
+      "K": {
+       "tp": 99,
+       "tn": 114,
+       "fp": 5,
+       "fn": 49
+      },
+      "N": {
+       "tp": 98,
+       "tn": 114,
+       "fp": 5,
+       "fn": 50
+      },
+      "O": {
+       "tp": 97,
+       "tn": 117,
+       "fp": 2,
+       "fn": 51
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.006756756756756799,
+        "lo": 0.0,
+        "hi": 0.021428571428571352,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 1,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.013513513513513598,
+        "lo": -0.027972027972027913,
+        "hi": 0.05590062111801242,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": -0.025210084033613356,
+        "lo": -0.05691637630662013,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 6,
+       "tp_to_fn": 4,
+       "fp_to_tn": 1,
+       "tn_to_fp": 4,
+       "mcnemar_positives_p": 0.75390625,
+       "mcnemar_negatives_p": 0.375
+      }
+     },
+     "block": {
+      "K": {
+       "tp": 56,
+       "tn": 118,
+       "fp": 1,
+       "fn": 92
+      },
+      "N": {
+       "tp": 51,
+       "tn": 118,
+       "fp": 1,
+       "fn": 97
+      },
+      "O": {
+       "tp": 52,
+       "tn": 118,
+       "fp": 1,
+       "fn": 96
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.03378378378378383,
+        "lo": 0.00694444444444442,
+        "hi": 0.06493506493506496,
+        "n_undefined": 0,
+        "excludes_zero": true
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 5,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 0.0625,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.02702702702702703,
+        "lo": 0.0,
+        "hi": 0.06040268456375841,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 5,
+       "tp_to_fn": 1,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 0.21875,
+       "mcnemar_negatives_p": 1.0
+      }
+     }
+    }
+   }
+  },
+  "dev-CHECK": {
+   "n": 235,
+   "positives": 116,
+   "layers": {
+    "regex": {
+     "positive": {
+      "K": {
+       "tp": 77,
+       "tn": 117,
+       "fp": 2,
+       "fn": 39
+      },
+      "N": {
+       "tp": 74,
+       "tn": 117,
+       "fp": 2,
+       "fn": 42
+      },
+      "O": {
+       "tp": 76,
+       "tn": 116,
+       "fp": 3,
+       "fn": 40
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.025862068965517238,
+        "lo": 0.0,
+        "hi": 0.05833333333333335,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 3,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 0.25,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.008620689655172487,
+        "lo": -0.027272727272727226,
+        "hi": 0.04800000000000004,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.008403361344537785,
+        "lo": 0.0,
+        "hi": 0.02777777777777779,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 3,
+       "tp_to_fn": 2,
+       "fp_to_tn": 1,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      }
+     },
+     "warn_or_block": {
+      "K": {
+       "tp": 63,
+       "tn": 117,
+       "fp": 2,
+       "fn": 53
+      },
+      "N": {
+       "tp": 60,
+       "tn": 117,
+       "fp": 2,
+       "fn": 56
+      },
+      "O": {
+       "tp": 63,
+       "tn": 116,
+       "fp": 3,
+       "fn": 53
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.025862068965517238,
+        "lo": 0.0,
+        "hi": 0.05833333333333335,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 3,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 0.25,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": -0.04166666666666663,
+        "hi": 0.04167542016806717,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.008403361344537785,
+        "lo": 0.0,
+        "hi": 0.02777777777777779,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 3,
+       "tp_to_fn": 3,
+       "fp_to_tn": 1,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      }
+     },
+     "block": {
+      "K": {
+       "tp": 53,
+       "tn": 119,
+       "fp": 0,
+       "fn": 63
+      },
+      "N": {
+       "tp": 50,
+       "tn": 119,
+       "fp": 0,
+       "fn": 66
+      },
+      "O": {
+       "tp": 53,
+       "tn": 119,
+       "fp": 0,
+       "fn": 63
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.025862068965517293,
+        "lo": 0.0,
+        "hi": 0.05833333333333329,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 3,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 0.25,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": -0.04201680672268909,
+        "hi": 0.04201680672268909,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 3,
+       "tp_to_fn": 3,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      }
+     }
+    },
+    "union": {
+     "positive": {
+      "K": {
+       "tp": 86,
+       "tn": 113,
+       "fp": 6,
+       "fn": 30
+      },
+      "N": {
+       "tp": 83,
+       "tn": 113,
+       "fp": 6,
+       "fn": 33
+      },
+      "O": {
+       "tp": 80,
+       "tn": 112,
+       "fp": 7,
+       "fn": 36
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.025862068965517238,
+        "lo": 0.0,
+        "hi": 0.05833333333333335,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 3,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 0.25,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.051724137931034475,
+        "lo": 0.008333333333333411,
+        "hi": 0.10169491525423724,
+        "n_undefined": 0,
+        "excludes_zero": true
+       },
+       "specificity": {
+        "estimate": 0.008403361344537785,
+        "lo": -0.03418803418803418,
+        "hi": 0.05217391304347829,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 7,
+       "tp_to_fn": 1,
+       "fp_to_tn": 4,
+       "tn_to_fp": 3,
+       "mcnemar_positives_p": 0.0703125,
+       "mcnemar_negatives_p": 1.0
+      }
+     },
+     "warn_or_block": {
+      "K": {
+       "tp": 73,
+       "tn": 113,
+       "fp": 6,
+       "fn": 43
+      },
+      "N": {
+       "tp": 70,
+       "tn": 113,
+       "fp": 6,
+       "fn": 46
+      },
+      "O": {
+       "tp": 68,
+       "tn": 115,
+       "fp": 4,
+       "fn": 48
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.025862068965517238,
+        "lo": 0.0,
+        "hi": 0.05833333333333335,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 3,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 0.25,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.0431034482758621,
+        "lo": 0.0,
+        "hi": 0.08943089430894308,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": -0.01680672268907568,
+        "lo": -0.050420168067226934,
+        "hi": 0.016129032258064502,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 6,
+       "tp_to_fn": 1,
+       "fp_to_tn": 1,
+       "tn_to_fp": 3,
+       "mcnemar_positives_p": 0.125,
+       "mcnemar_negatives_p": 0.625
+      }
+     },
+     "block": {
+      "K": {
+       "tp": 53,
+       "tn": 119,
+       "fp": 0,
+       "fn": 63
+      },
+      "N": {
+       "tp": 50,
+       "tn": 119,
+       "fp": 0,
+       "fn": 66
+      },
+      "O": {
+       "tp": 53,
+       "tn": 119,
+       "fp": 0,
+       "fn": 63
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.025862068965517293,
+        "lo": 0.0,
+        "hi": 0.05833333333333329,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 3,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 0.25,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": -0.04201680672268909,
+        "hi": 0.04201680672268909,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 3,
+       "tp_to_fn": 3,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      }
+     }
+    }
+   }
+  },
+  "personalized": {
+   "n": 2000,
+   "positives": 1000,
+   "layers": {
+    "regex": {
+     "positive": {
+      "K": {
+       "tp": 1000,
+       "tn": 1000,
+       "fp": 0,
+       "fn": 0
+      },
+      "N": {
+       "tp": 1000,
+       "tn": 1000,
+       "fp": 0,
+       "fn": 0
+      },
+      "O": {
+       "tp": 1000,
+       "tn": 977,
+       "fp": 23,
+       "fn": 0
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.02300000000000002,
+        "lo": 0.014184397163120588,
+        "hi": 0.03270646030959461,
+        "n_undefined": 0,
+        "excludes_zero": true
+       },
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 23,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 2.384185791015625e-07
+      }
+     },
+     "warn_or_block": {
+      "K": {
+       "tp": 1000,
+       "tn": 1000,
+       "fp": 0,
+       "fn": 0
+      },
+      "N": {
+       "tp": 1000,
+       "tn": 1000,
+       "fp": 0,
+       "fn": 0
+      },
+      "O": {
+       "tp": 1000,
+       "tn": 977,
+       "fp": 23,
+       "fn": 0
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.02300000000000002,
+        "lo": 0.014184397163120588,
+        "hi": 0.03270646030959461,
+        "n_undefined": 0,
+        "excludes_zero": true
+       },
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 23,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 2.384185791015625e-07
+      }
+     },
+     "block": {
+      "K": {
+       "tp": 1000,
+       "tn": 1000,
+       "fp": 0,
+       "fn": 0
+      },
+      "N": {
+       "tp": 1000,
+       "tn": 1000,
+       "fp": 0,
+       "fn": 0
+      },
+      "O": {
+       "tp": 1000,
+       "tn": 1000,
+       "fp": 0,
+       "fn": 0
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      }
+     }
+    },
+    "union": {
+     "positive": {
+      "K": {
+       "tp": 1000,
+       "tn": 1000,
+       "fp": 0,
+       "fn": 0
+      },
+      "N": {
+       "tp": 1000,
+       "tn": 1000,
+       "fp": 0,
+       "fn": 0
+      },
+      "O": {
+       "tp": 1000,
+       "tn": 977,
+       "fp": 23,
+       "fn": 0
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.02300000000000002,
+        "lo": 0.014184397163120588,
+        "hi": 0.03270646030959461,
+        "n_undefined": 0,
+        "excludes_zero": true
+       },
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 23,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 2.384185791015625e-07
+      }
+     },
+     "warn_or_block": {
+      "K": {
+       "tp": 1000,
+       "tn": 1000,
+       "fp": 0,
+       "fn": 0
+      },
+      "N": {
+       "tp": 1000,
+       "tn": 1000,
+       "fp": 0,
+       "fn": 0
+      },
+      "O": {
+       "tp": 1000,
+       "tn": 977,
+       "fp": 23,
+       "fn": 0
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.02300000000000002,
+        "lo": 0.014184397163120588,
+        "hi": 0.03270646030959461,
+        "n_undefined": 0,
+        "excludes_zero": true
+       },
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 23,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 2.384185791015625e-07
+      }
+     },
+     "block": {
+      "K": {
+       "tp": 1000,
+       "tn": 1000,
+       "fp": 0,
+       "fn": 0
+      },
+      "N": {
+       "tp": 1000,
+       "tn": 1000,
+       "fp": 0,
+       "fn": 0
+      },
+      "O": {
+       "tp": 1000,
+       "tn": 1000,
+       "fp": 0,
+       "fn": 0
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 0,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      }
+     }
+    }
+   }
+  },
+  "openai": {
+   "n": 1000,
+   "positives": 500,
+   "layers": {
+    "regex": {
+     "positive": {
+      "K": {
+       "tp": 449,
+       "tn": 466,
+       "fp": 34,
+       "fn": 51
+      },
+      "N": {
+       "tp": 448,
+       "tn": 466,
+       "fp": 34,
+       "fn": 52
+      },
+      "O": {
+       "tp": 460,
+       "tn": 346,
+       "fp": 154,
+       "fn": 40
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.0020000000000000018,
+        "lo": 0.0,
+        "hi": 0.006263048016701411,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 1,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": -0.02200000000000002,
+        "lo": -0.036810113187806165,
+        "hi": -0.008213131585148298,
+        "n_undefined": 0,
+        "excludes_zero": true
+       },
+       "specificity": {
+        "estimate": 0.2400000000000001,
+        "lo": 0.2020408163265306,
+        "hi": 0.27872413006511554,
+        "n_undefined": 0,
+        "excludes_zero": true
+       },
+       "fn_to_tp": 1,
+       "tp_to_fn": 12,
+       "fp_to_tn": 121,
+       "tn_to_fp": 1,
+       "mcnemar_positives_p": 0.00341796875,
+       "mcnemar_negatives_p": 4.6267457648365236e-35
+      }
+     },
+     "warn_or_block": {
+      "K": {
+       "tp": 440,
+       "tn": 466,
+       "fp": 34,
+       "fn": 60
+      },
+      "N": {
+       "tp": 439,
+       "tn": 466,
+       "fp": 34,
+       "fn": 61
+      },
+      "O": {
+       "tp": 448,
+       "tn": 405,
+       "fp": 95,
+       "fn": 52
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.0020000000000000018,
+        "lo": 0.0,
+        "hi": 0.006263048016701411,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 1,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": -0.016000000000000014,
+        "lo": -0.0291065337181842,
+        "hi": -0.004065040650406471,
+        "n_undefined": 0,
+        "excludes_zero": true
+       },
+       "specificity": {
+        "estimate": 0.122,
+        "lo": 0.09292929292929297,
+        "hi": 0.1518031366915318,
+        "n_undefined": 0,
+        "excludes_zero": true
+       },
+       "fn_to_tp": 1,
+       "tp_to_fn": 9,
+       "fp_to_tn": 62,
+       "tn_to_fp": 1,
+       "mcnemar_positives_p": 0.021484375,
+       "mcnemar_negatives_p": 1.3877787807814457e-17
+      }
+     },
+     "block": {
+      "K": {
+       "tp": 376,
+       "tn": 470,
+       "fp": 30,
+       "fn": 124
+      },
+      "N": {
+       "tp": 373,
+       "tn": 470,
+       "fp": 30,
+       "fn": 127
+      },
+      "O": {
+       "tp": 377,
+       "tn": 465,
+       "fp": 35,
+       "fn": 123
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.006000000000000005,
+        "lo": 0.0,
+        "hi": 0.013806706114398493,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 3,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 0.25,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": -0.0020000000000000018,
+        "lo": -0.012371134020618513,
+        "hi": 0.008146639511201648,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.009999999999999898,
+        "lo": 0.0020161290322581182,
+        "hi": 0.01949317738791423,
+        "n_undefined": 0,
+        "excludes_zero": true
+       },
+       "fn_to_tp": 3,
+       "tp_to_fn": 4,
+       "fp_to_tn": 5,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 0.0625
+      }
+     }
+    },
+    "union": {
+     "positive": {
+      "K": {
+       "tp": 460,
+       "tn": 463,
+       "fp": 37,
+       "fn": 40
+      },
+      "N": {
+       "tp": 459,
+       "tn": 463,
+       "fp": 37,
+       "fn": 41
+      },
+      "O": {
+       "tp": 471,
+       "tn": 343,
+       "fp": 157,
+       "fn": 29
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.0020000000000000018,
+        "lo": 0.0,
+        "hi": 0.006263048016701411,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 1,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": -0.02199999999999991,
+        "lo": -0.03792415169660679,
+        "hi": -0.007722007722007707,
+        "n_undefined": 0,
+        "excludes_zero": true
+       },
+       "specificity": {
+        "estimate": 0.24,
+        "lo": 0.20166277388499607,
+        "hi": 0.27845715195546533,
+        "n_undefined": 0,
+        "excludes_zero": true
+       },
+       "fn_to_tp": 2,
+       "tp_to_fn": 13,
+       "fp_to_tn": 121,
+       "tn_to_fp": 1,
+       "mcnemar_positives_p": 0.00738525390625,
+       "mcnemar_negatives_p": 4.6267457648365236e-35
+      }
+     },
+     "warn_or_block": {
+      "K": {
+       "tp": 451,
+       "tn": 466,
+       "fp": 34,
+       "fn": 49
+      },
+      "N": {
+       "tp": 450,
+       "tn": 466,
+       "fp": 34,
+       "fn": 50
+      },
+      "O": {
+       "tp": 456,
+       "tn": 400,
+       "fp": 100,
+       "fn": 44
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.0020000000000000018,
+        "lo": 0.0,
+        "hi": 0.006263048016701414,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 1,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": -0.010000000000000009,
+        "lo": -0.02235886195420007,
+        "hi": 0.001953125,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.132,
+        "lo": 0.10236056087978569,
+        "hi": 0.16274509803921577,
+        "n_undefined": 0,
+        "excludes_zero": true
+       },
+       "fn_to_tp": 2,
+       "tp_to_fn": 7,
+       "fp_to_tn": 67,
+       "tn_to_fp": 1,
+       "mcnemar_positives_p": 0.1796875,
+       "mcnemar_negatives_p": 4.675621868843738e-19
+      }
+     },
+     "block": {
+      "K": {
+       "tp": 376,
+       "tn": 470,
+       "fp": 30,
+       "fn": 124
+      },
+      "N": {
+       "tp": 373,
+       "tn": 470,
+       "fp": 30,
+       "fn": 127
+      },
+      "O": {
+       "tp": 377,
+       "tn": 465,
+       "fp": 35,
+       "fn": 123
+      },
+      "K-N": {
+       "recall": {
+        "estimate": 0.006000000000000005,
+        "lo": 0.0,
+        "hi": 0.013806706114398493,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "fn_to_tp": 3,
+       "tp_to_fn": 0,
+       "fp_to_tn": 0,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 0.25,
+       "mcnemar_negatives_p": 1.0
+      },
+      "K-O": {
+       "recall": {
+        "estimate": -0.0020000000000000018,
+        "lo": -0.012371134020618513,
+        "hi": 0.008146639511201648,
+        "n_undefined": 0,
+        "excludes_zero": false
+       },
+       "specificity": {
+        "estimate": 0.009999999999999898,
+        "lo": 0.0020161290322581182,
+        "hi": 0.01949317738791423,
+        "n_undefined": 0,
+        "excludes_zero": true
+       },
+       "fn_to_tp": 3,
+       "tp_to_fn": 4,
+       "fp_to_tn": 5,
+       "tn_to_fp": 0,
+       "mcnemar_positives_p": 1.0,
+       "mcnemar_negatives_p": 0.0625
+      }
+     }
+    }
+   }
+  }
+ },
+ "flips_by_rule": {
+  "dev-TUNE": {
+   "K vs N | regex | positive": {
+    "pos_gained": 1,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 1,
+     "concentrated_sensitive_data": 1
+    },
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs N | regex | block": {
+    "pos_gained": 5,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 5,
+     "concentrated_sensitive_data": 5
+    },
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs N | union | positive": {
+    "pos_gained": 1,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 1,
+     "concentrated_sensitive_data": 1
+    },
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs N | union | block": {
+    "pos_gained": 5,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 5,
+     "concentrated_sensitive_data": 5
+    },
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs O | regex | positive": {
+    "pos_gained": 0,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 2,
+    "pos_gained_by_rule": {},
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {
+     "personal_narrative": 1,
+     "presidio_uslicenserecognizer_driver license - alphanumeric (": 1
+    }
+   },
+   "K vs O | regex | block": {
+    "pos_gained": 5,
+    "pos_lost": 1,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 5,
+     "concentrated_sensitive_data": 5
+    },
+    "pos_lost_by_rule": {
+     "iban": 1,
+     "concentrated_sensitive_data": 1
+    },
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs O | union | positive": {
+    "pos_gained": 8,
+    "pos_lost": 2,
+    "neg_new_fp": 4,
+    "neg_removed_fp": 4,
+    "pos_gained_by_rule": {},
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {
+     "personal_narrative": 1,
+     "presidio_uslicenserecognizer_driver license - alphanumeric (": 1
+    }
+   },
+   "K vs O | union | block": {
+    "pos_gained": 5,
+    "pos_lost": 1,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 5,
+     "concentrated_sensitive_data": 5
+    },
+    "pos_lost_by_rule": {
+     "iban": 1,
+     "concentrated_sensitive_data": 1
+    },
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   }
+  },
+  "dev-CHECK": {
+   "K vs N | regex | positive": {
+    "pos_gained": 3,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 2,
+     "labelled_identifier_generic": 1,
+     "concentrated_sensitive_data": 1
+    },
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs N | regex | block": {
+    "pos_gained": 3,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 3,
+     "concentrated_sensitive_data": 2
+    },
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs N | union | positive": {
+    "pos_gained": 3,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 2,
+     "labelled_identifier_generic": 1,
+     "concentrated_sensitive_data": 1
+    },
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs N | union | block": {
+    "pos_gained": 3,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 3,
+     "concentrated_sensitive_data": 2
+    },
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs O | regex | positive": {
+    "pos_gained": 3,
+    "pos_lost": 2,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 1,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 2,
+     "labelled_identifier_generic": 1,
+     "concentrated_sensitive_data": 1
+    },
+    "pos_lost_by_rule": {
+     "iban": 2
+    },
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {
+     "presidio_uslicenserecognizer_driver license - alphanumeric (": 1
+    }
+   },
+   "K vs O | regex | block": {
+    "pos_gained": 3,
+    "pos_lost": 3,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 3,
+     "concentrated_sensitive_data": 2
+    },
+    "pos_lost_by_rule": {
+     "iban": 2,
+     "presidio_nhsrecognizer_nhs (medium)": 1
+    },
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs O | union | positive": {
+    "pos_gained": 7,
+    "pos_lost": 1,
+    "neg_new_fp": 3,
+    "neg_removed_fp": 4,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 2,
+     "labelled_identifier_generic": 1,
+     "concentrated_sensitive_data": 1
+    },
+    "pos_lost_by_rule": {
+     "iban": 1
+    },
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {
+     "presidio_uslicenserecognizer_driver license - alphanumeric (": 1
+    }
+   },
+   "K vs O | union | block": {
+    "pos_gained": 3,
+    "pos_lost": 3,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 3,
+     "concentrated_sensitive_data": 2
+    },
+    "pos_lost_by_rule": {
+     "iban": 2,
+     "presidio_nhsrecognizer_nhs (medium)": 1
+    },
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   }
+  },
+  "personalized": {
+   "K vs N | regex | positive": {
+    "pos_gained": 0,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {},
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs N | regex | block": {
+    "pos_gained": 0,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {},
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs N | union | positive": {
+    "pos_gained": 0,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {},
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs N | union | block": {
+    "pos_gained": 0,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {},
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs O | regex | positive": {
+    "pos_gained": 0,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 23,
+    "pos_gained_by_rule": {},
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {
+     "family_disclosure": 23
+    }
+   },
+   "K vs O | regex | block": {
+    "pos_gained": 0,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {},
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs O | union | positive": {
+    "pos_gained": 0,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 23,
+    "pos_gained_by_rule": {},
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {
+     "family_disclosure": 23
+    }
+   },
+   "K vs O | union | block": {
+    "pos_gained": 0,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {},
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   }
+  },
+  "openai": {
+   "K vs N | regex | positive": {
+    "pos_gained": 1,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {
+     "labelled_identifier_generic": 1
+    },
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs N | regex | block": {
+    "pos_gained": 3,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 3
+    },
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs N | union | positive": {
+    "pos_gained": 1,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {
+     "labelled_identifier_generic": 1
+    },
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs N | union | block": {
+    "pos_gained": 3,
+    "pos_lost": 0,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 0,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 3
+    },
+    "pos_lost_by_rule": {},
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {}
+   },
+   "K vs O | regex | positive": {
+    "pos_gained": 1,
+    "pos_lost": 12,
+    "neg_new_fp": 1,
+    "neg_removed_fp": 121,
+    "pos_gained_by_rule": {
+     "labelled_identifier_generic": 1
+    },
+    "pos_lost_by_rule": {
+     "financial_keyword": 8,
+     "personal_narrative": 3,
+     "child": 1
+    },
+    "neg_new_fp_by_rule": {
+     "financial_keyword": 1
+    },
+    "neg_removed_fp_by_rule": {
+     "personal_narrative": 72,
+     "financial_keyword": 54,
+     "child": 5,
+     "family_disclosure": 2,
+     "location_keyword": 2,
+     "structured_identity": 1
+    }
+   },
+   "K vs O | regex | block": {
+    "pos_gained": 3,
+    "pos_lost": 4,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 5,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 3
+    },
+    "pos_lost_by_rule": {
+     "child": 4
+    },
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {
+     "child": 5,
+     "family_disclosure": 2,
+     "personal_narrative": 2
+    }
+   },
+   "K vs O | union | positive": {
+    "pos_gained": 2,
+    "pos_lost": 13,
+    "neg_new_fp": 1,
+    "neg_removed_fp": 121,
+    "pos_gained_by_rule": {
+     "labelled_identifier_generic": 1
+    },
+    "pos_lost_by_rule": {
+     "financial_keyword": 5,
+     "personal_narrative": 3,
+     "child": 1
+    },
+    "neg_new_fp_by_rule": {
+     "financial_keyword": 1
+    },
+    "neg_removed_fp_by_rule": {
+     "personal_narrative": 69,
+     "financial_keyword": 52,
+     "child": 5,
+     "family_disclosure": 2,
+     "location_keyword": 2,
+     "structured_identity": 1
+    }
+   },
+   "K vs O | union | block": {
+    "pos_gained": 3,
+    "pos_lost": 4,
+    "neg_new_fp": 0,
+    "neg_removed_fp": 5,
+    "pos_gained_by_rule": {
+     "labelled_identifier_sensitive": 3
+    },
+    "pos_lost_by_rule": {
+     "child": 4
+    },
+    "neg_new_fp_by_rule": {},
+    "neg_removed_fp_by_rule": {
+     "child": 5,
+     "family_disclosure": 2,
+     "personal_narrative": 2
+    }
+   }
+  }
+ },
+ "bootstrap": {
+  "seed": 20261024,
+  "n_boot": 10000,
+  "grouping": {
+   "dev-TUNE": "group_id",
+   "dev-CHECK": "group_id",
+   "personalized": "row",
+   "openai": "row"
+  }
+ }
+}

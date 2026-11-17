@@ -14,10 +14,14 @@ If a `.env` already exists, edit it instead of replacing it. The runtime and sup
 
 | Variable | Purpose |
 | --- | --- |
-| `PRIVOKE_CLOUD_TARGET` | Cloud DNS name and port, such as `stack.example.com:443`; no URL scheme |
+| `PRIVOKE_CLOUD_TARGET` | Cloud DNS name and port, such as `stack.example.com:443`; no URL scheme. The model target when `PRIVOKE_CLOUD_MODEL_TARGET` is unset |
+| `PRIVOKE_CLOUD_MODEL_TARGET` | Model-streaming server, such as `stack.example.com:443`. Unset falls back to `PRIVOKE_CLOUD_TARGET` |
+| `PRIVOKE_CLOUD_TELEMETRY_TARGET` | Telemetry server, such as `stack.example.com:8443`. There is no fallback: telemetry listens on its own port, so with telemetry enabled and this unset the runtime starts with telemetry off and says so on stderr |
 | `PRIVOKE_TLS_CERT_FILE` | PEM client certificate chain issued for this installation |
 | `PRIVOKE_TLS_KEY_FILE` | PEM private key belonging to that client certificate |
 | `PRIVOKE_TLS_CA_FILE` | Optional private CA for the **server** certificate; empty uses gRPC's default trust roots |
+| `PRIVOKE_TELEMETRY_TLS_CERT_FILE` | PEM certificate of the shared telemetry reporter credential (`urn:privoke:reporter`), delivered with enrolment as `reporter.crt` |
+| `PRIVOKE_TELEMETRY_TLS_KEY_FILE` | PEM private key of that credential, delivered as `reporter.key`. The telemetry channel presents only this pair, never the installation certificate, so a report is not linkable to an installation at the transport |
 | `PRIVOKE_USE_LOCAL_STACK` | Standalone runtime's hidden developer switch; defaults to `false` |
 | `PRIVOKE_LOCAL_MODEL_STREAMING_TARGET` | Dev model-streaming target; defaults to `127.0.0.1:50051` |
 | `PRIVOKE_LOCAL_TELEMETRY_TARGET` | Dev telemetry target; defaults to `127.0.0.1:50055` |
@@ -29,9 +33,19 @@ Ship `.env.example` and the shared Python package with the workstation applicati
 
 All `.env` files, `secrets/` folders, `.key`, `.pem`, and `.p12` files are ignored by Git and excluded from Docker build contexts. The root `.env.example` lists deployment identities; it is not the client configuration. An actual value cannot be supplied by this repository until an operator provisions it.
 
+## Mutual TLS for the Python servers
+
+Every non-loopback gRPC connection between PriVoke components uses mutual TLS, including the Docker Compose network (`PRIVOKE_STACK_MODE=internal`). Loopback stays plaintext because the traffic never leaves the host.
+
+- **Clients.** `grpc_channel` opens loopback targets in plaintext and every other target with mutual TLS, presenting `PRIVOKE_TLS_CERT_FILE` and `PRIVOKE_TLS_KEY_FILE` (or the reporter pair, for telemetry). In internal mode a non-loopback target without those files is refused; plaintext is no longer the fallback. The fuzzer and the pretrained-v3 servers call each other and the runtime through `service_channel`: with `PRIVOKE_TLS_CERT_FILE` and `PRIVOKE_TLS_KEY_FILE` set (issued with `privoke-pki sign-service`) they use mutual TLS, and without them they keep the legacy plaintext channel and log a warning, because the servers refuse plaintext themselves.
+- **Servers.** The client runtime (`grpc_main`), the legacy fuzzer and the pretrained-v3 checkpoint and fuzzer servers refuse to bind a non-loopback address without server TLS. Set all three of `PRIVOKE_SERVER_TLS_CERT_FILE`, `PRIVOKE_SERVER_TLS_KEY_FILE` and `PRIVOKE_SERVER_TLS_CLIENT_CA_FILE` (the client CA; clients without a certificate it signed are refused at the handshake). A peer-identity check then runs on every RPC, including `Health`: the certificate must carry exactly one `urn:privoke:` SAN, and the identity must be listed in `PRIVOKE_SERVER_ALLOWED_IDENTITIES` (comma-separated URNs), or be a service in `PRIVOKE_SERVER_REGISTRY_FILE` (the `registry.toml` the Rust servers read) whose role is in `PRIVOKE_SERVER_ALLOWED_ROLES`. The registry deny list and expiry apply on the next call, and an unreadable edit keeps the previous registry. A server with TLS but no allow list does not start. The Python gRPC server cannot load a CRL, so revocation here is the registry deny list plus the 90-day service certificate lifetime.
+- **Health probes.** `shared/python/grpc_healthcheck.py` probes with mutual TLS when the server TLS variables are set in the same environment. It presents `PRIVOKE_TLS_CERT_FILE` and `PRIVOKE_TLS_KEY_FILE`, so that identity must be allowed, and `--server-name` (or `PRIVOKE_HEALTHCHECK_SERVER_NAME`) names the server certificate when the probe addresses it as `127.0.0.1`.
+- **Research opt-out.** `PRIVOKE_ALLOW_INSECURE_INTERNAL_PLAINTEXT=true` together with `PRIVOKE_STACK_MODE=internal` lets a server bind and a client connect without TLS on the Compose network, for evaluation Compose files that predate certificates. It is logged on every use and must not be set in a deployment.
+- **Not covered.** The V3 runtime server (`services/pretrained-v3/src/runtime_server.py`) and the fuzzer's training clients (`training/parameter_updates.py`, `training/window_evidence.py`) are inference and training code that stage G6 freezes, so their plaintext binds and channels are unchanged. A later stage that owns them must move them to the same helpers.
+
 ## Reveal the hidden toggle
 
-1. Start the local stack with `docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build`.
+1. Start the local stack with `docker compose up --build`.
 2. Focus the extension popup and press **Ctrl+Shift+D** to reveal developer settings.
 3. Turn on **Use local development servers**. Model streaming connects to `127.0.0.1:50051`; telemetry connects to `127.0.0.1:50055`. Local connections need no cloud certificate.
 4. Turn it off to return to `PRIVOKE_CLOUD_TARGET` with authenticated TLS.

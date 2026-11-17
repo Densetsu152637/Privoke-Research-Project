@@ -1,0 +1,48 @@
+[package]
+name = "privoke-spacy"
+description = "spaCy backends for the NER layer: in-process PyO3 interpreter thread (stage 11b, default) and the supervised worker pool (stage 11, test and parity oracle)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# Builds the protocol-compatible fake worker used by the pool tests, and the Python-free engine and runtime host that
+# the in-process tests drive (no Python).
+fake-worker = []
+# Embeds CPython 3.11 through PyO3 on the in-process interpreter thread (needs PYO3_PYTHON pointing at a 3.11
+# development install). Off by default so that `cargo test --workspace` needs no Python on the host; the runtime
+# (stage 17) enables it.
+in-process = ["dep:pyo3"]
+# Adds the test-only requests (interpreter crash, print, own child processes). Never part of a shipped bundle.
+test-hooks = []
+
+[[bin]]
+name = "privoke-spacy-fake-worker"
+path = "src/bin/privoke-spacy-fake-worker.rs"
+required-features = ["fake-worker"]
+
+# A stand-in for the stage 17 runtime worker: one process that hosts the in-process backend and speaks the worker frame
+# protocol, so that the W2 pool can supervise it. Fake engine by default, the real interpreter with `in-process`.
+[[bin]]
+name = "privoke-spacy-host"
+path = "src/bin/privoke-spacy-host.rs"
+required-features = ["fake-worker"]
+
+[dependencies]
+privoke-worker-pool = { path = "../privoke-worker-pool" }
+tokio = { workspace = true, features = ["process", "io-util", "time", "sync", "rt", "macros"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["raw_value"] }
+pyo3 = { version = "0.30", optional = true, default-features = false, features = ["auto-initialize"] }
+
+[dev-dependencies]
+privoke-spacy = { path = ".", features = ["fake-worker", "test-hooks"] }
+tokio = { workspace = true }
+
+[lints]
+workspace = true

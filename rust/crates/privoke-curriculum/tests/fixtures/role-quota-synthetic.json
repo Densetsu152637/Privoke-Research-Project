@@ -1,0 +1,6000 @@
+{
+"prompts": [
+{
+"template": "Record auth group 0 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-000"
+}
+},
+{
+"template": "Record auth group 100 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-100"
+}
+},
+{
+"template": "Record auth group 0 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-000"
+}
+},
+{
+"template": "Record auth group 100 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-100"
+}
+},
+{
+"template": "Record auth group 1 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-001"
+}
+},
+{
+"template": "Record auth group 101 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-101"
+}
+},
+{
+"template": "Record auth group 1 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-001"
+}
+},
+{
+"template": "Record auth group 101 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-101"
+}
+},
+{
+"template": "Record auth group 2 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-002"
+}
+},
+{
+"template": "Record auth group 102 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-102"
+}
+},
+{
+"template": "Record auth group 2 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-002"
+}
+},
+{
+"template": "Record auth group 102 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-102"
+}
+},
+{
+"template": "Record auth group 3 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-003"
+}
+},
+{
+"template": "Record auth group 103 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-103"
+}
+},
+{
+"template": "Record auth group 3 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-003"
+}
+},
+{
+"template": "Record auth group 103 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-103"
+}
+},
+{
+"template": "Record auth group 4 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-004"
+}
+},
+{
+"template": "Record auth group 104 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-104"
+}
+},
+{
+"template": "Record auth group 4 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-004"
+}
+},
+{
+"template": "Record auth group 104 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-104"
+}
+},
+{
+"template": "Record auth group 5 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-005"
+}
+},
+{
+"template": "Record auth group 105 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-105"
+}
+},
+{
+"template": "Record auth group 5 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-005"
+}
+},
+{
+"template": "Record auth group 105 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-105"
+}
+},
+{
+"template": "Record auth group 6 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-006"
+}
+},
+{
+"template": "Record auth group 106 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-106"
+}
+},
+{
+"template": "Record auth group 6 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-006"
+}
+},
+{
+"template": "Record auth group 106 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-106"
+}
+},
+{
+"template": "Record auth group 7 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-007"
+}
+},
+{
+"template": "Record auth group 107 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-107"
+}
+},
+{
+"template": "Record auth group 7 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-007"
+}
+},
+{
+"template": "Record auth group 107 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-107"
+}
+},
+{
+"template": "Record auth group 8 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-008"
+}
+},
+{
+"template": "Record auth group 108 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-108"
+}
+},
+{
+"template": "Record auth group 8 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-008"
+}
+},
+{
+"template": "Record auth group 108 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-108"
+}
+},
+{
+"template": "Record auth group 9 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-009"
+}
+},
+{
+"template": "Record auth group 109 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-109"
+}
+},
+{
+"template": "Record auth group 9 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-009"
+}
+},
+{
+"template": "Record auth group 109 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-109"
+}
+},
+{
+"template": "Record auth group 10 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-010"
+}
+},
+{
+"template": "Record auth group 110 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-110"
+}
+},
+{
+"template": "Record auth group 10 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-010"
+}
+},
+{
+"template": "Record auth group 110 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-110"
+}
+},
+{
+"template": "Record auth group 11 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-011"
+}
+},
+{
+"template": "Record auth group 111 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-111"
+}
+},
+{
+"template": "Record auth group 11 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-011"
+}
+},
+{
+"template": "Record auth group 111 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-111"
+}
+},
+{
+"template": "Record auth group 12 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-012"
+}
+},
+{
+"template": "Record auth group 112 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-112"
+}
+},
+{
+"template": "Record auth group 12 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-012"
+}
+},
+{
+"template": "Record auth group 112 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-112"
+}
+},
+{
+"template": "Record auth group 13 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-013"
+}
+},
+{
+"template": "Record auth group 113 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-113"
+}
+},
+{
+"template": "Record auth group 13 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-013"
+}
+},
+{
+"template": "Record auth group 113 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-113"
+}
+},
+{
+"template": "Record auth group 14 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-014"
+}
+},
+{
+"template": "Record auth group 114 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-114"
+}
+},
+{
+"template": "Record auth group 14 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-014"
+}
+},
+{
+"template": "Record auth group 114 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-114"
+}
+},
+{
+"template": "Record auth group 15 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-015"
+}
+},
+{
+"template": "Record auth group 115 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-115"
+}
+},
+{
+"template": "Record auth group 15 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-015"
+}
+},
+{
+"template": "Record auth group 115 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-115"
+}
+},
+{
+"template": "Record auth group 16 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-016"
+}
+},
+{
+"template": "Record auth group 116 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-116"
+}
+},
+{
+"template": "Record auth group 16 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-016"
+}
+},
+{
+"template": "Record auth group 116 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-116"
+}
+},
+{
+"template": "Record auth group 17 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-017"
+}
+},
+{
+"template": "Record auth group 117 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-117"
+}
+},
+{
+"template": "Record auth group 17 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-017"
+}
+},
+{
+"template": "Record auth group 117 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-117"
+}
+},
+{
+"template": "Record auth group 18 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-018"
+}
+},
+{
+"template": "Record auth group 118 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-118"
+}
+},
+{
+"template": "Record auth group 18 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-018"
+}
+},
+{
+"template": "Record auth group 118 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-118"
+}
+},
+{
+"template": "Record auth group 19 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-019"
+}
+},
+{
+"template": "Record auth group 119 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-119"
+}
+},
+{
+"template": "Record auth group 19 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-019"
+}
+},
+{
+"template": "Record auth group 119 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-119"
+}
+},
+{
+"template": "Record auth group 20 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-020"
+}
+},
+{
+"template": "Record auth group 120 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-120"
+}
+},
+{
+"template": "Record auth group 20 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-020"
+}
+},
+{
+"template": "Record auth group 120 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-120"
+}
+},
+{
+"template": "Record auth group 21 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-021"
+}
+},
+{
+"template": "Record auth group 121 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-121"
+}
+},
+{
+"template": "Record auth group 21 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-021"
+}
+},
+{
+"template": "Record auth group 121 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-121"
+}
+},
+{
+"template": "Record auth group 22 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-022"
+}
+},
+{
+"template": "Record auth group 122 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-122"
+}
+},
+{
+"template": "Record auth group 22 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-022"
+}
+},
+{
+"template": "Record auth group 122 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-122"
+}
+},
+{
+"template": "Record auth group 23 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-023"
+}
+},
+{
+"template": "Record auth group 123 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-123"
+}
+},
+{
+"template": "Record auth group 23 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-023"
+}
+},
+{
+"template": "Record auth group 123 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-123"
+}
+},
+{
+"template": "Record auth group 24 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-024"
+}
+},
+{
+"template": "Record auth group 124 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-124"
+}
+},
+{
+"template": "Record auth group 24 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-024"
+}
+},
+{
+"template": "Record auth group 124 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-124"
+}
+},
+{
+"template": "Record auth group 25 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-025"
+}
+},
+{
+"template": "Record auth group 125 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-125"
+}
+},
+{
+"template": "Record auth group 25 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-025"
+}
+},
+{
+"template": "Record auth group 125 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-125"
+}
+},
+{
+"template": "Record auth group 26 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-026"
+}
+},
+{
+"template": "Record auth group 126 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-126"
+}
+},
+{
+"template": "Record auth group 26 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-026"
+}
+},
+{
+"template": "Record auth group 126 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-126"
+}
+},
+{
+"template": "Record auth group 27 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-027"
+}
+},
+{
+"template": "Record auth group 127 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-127"
+}
+},
+{
+"template": "Record auth group 27 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-027"
+}
+},
+{
+"template": "Record auth group 127 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-127"
+}
+},
+{
+"template": "Record auth group 28 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-028"
+}
+},
+{
+"template": "Record auth group 128 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-128"
+}
+},
+{
+"template": "Record auth group 28 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-028"
+}
+},
+{
+"template": "Record auth group 128 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-128"
+}
+},
+{
+"template": "Record auth group 29 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-029"
+}
+},
+{
+"template": "Record auth group 129 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-129"
+}
+},
+{
+"template": "Record auth group 29 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-029"
+}
+},
+{
+"template": "Record auth group 129 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-129"
+}
+},
+{
+"template": "Record auth group 30 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-030"
+}
+},
+{
+"template": "Record auth group 130 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-130"
+}
+},
+{
+"template": "Record auth group 30 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-030"
+}
+},
+{
+"template": "Record auth group 130 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-130"
+}
+},
+{
+"template": "Record auth group 31 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-031"
+}
+},
+{
+"template": "Record auth group 131 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-131"
+}
+},
+{
+"template": "Record auth group 31 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-031"
+}
+},
+{
+"template": "Record auth group 131 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-131"
+}
+},
+{
+"template": "Record auth group 32 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-032"
+}
+},
+{
+"template": "Record auth group 132 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-132"
+}
+},
+{
+"template": "Record auth group 32 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-032"
+}
+},
+{
+"template": "Record auth group 132 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-132"
+}
+},
+{
+"template": "Record auth group 33 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-033"
+}
+},
+{
+"template": "Record auth group 133 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-133"
+}
+},
+{
+"template": "Record auth group 33 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-033"
+}
+},
+{
+"template": "Record auth group 133 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-133"
+}
+},
+{
+"template": "Record auth group 34 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-034"
+}
+},
+{
+"template": "Record auth group 134 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-134"
+}
+},
+{
+"template": "Record auth group 34 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-034"
+}
+},
+{
+"template": "Record auth group 134 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-134"
+}
+},
+{
+"template": "Record auth group 35 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-035"
+}
+},
+{
+"template": "Record auth group 135 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-135"
+}
+},
+{
+"template": "Record auth group 35 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-035"
+}
+},
+{
+"template": "Record auth group 135 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-135"
+}
+},
+{
+"template": "Record auth group 36 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-036"
+}
+},
+{
+"template": "Record auth group 136 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-136"
+}
+},
+{
+"template": "Record auth group 36 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-036"
+}
+},
+{
+"template": "Record auth group 136 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-136"
+}
+},
+{
+"template": "Record auth group 37 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-037"
+}
+},
+{
+"template": "Record auth group 137 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-137"
+}
+},
+{
+"template": "Record auth group 37 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-037"
+}
+},
+{
+"template": "Record auth group 137 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-137"
+}
+},
+{
+"template": "Record auth group 38 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-038"
+}
+},
+{
+"template": "Record auth group 138 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-138"
+}
+},
+{
+"template": "Record auth group 38 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-038"
+}
+},
+{
+"template": "Record auth group 138 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-138"
+}
+},
+{
+"template": "Record auth group 39 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-039"
+}
+},
+{
+"template": "Record auth group 139 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-139"
+}
+},
+{
+"template": "Record auth group 39 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-039"
+}
+},
+{
+"template": "Record auth group 139 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-139"
+}
+},
+{
+"template": "Record auth group 40 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-040"
+}
+},
+{
+"template": "Record auth group 140 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-140"
+}
+},
+{
+"template": "Record auth group 40 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-040"
+}
+},
+{
+"template": "Record auth group 140 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-140"
+}
+},
+{
+"template": "Record auth group 41 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-041"
+}
+},
+{
+"template": "Record auth group 141 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-141"
+}
+},
+{
+"template": "Record auth group 41 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-041"
+}
+},
+{
+"template": "Record auth group 141 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-141"
+}
+},
+{
+"template": "Record auth group 42 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-042"
+}
+},
+{
+"template": "Record auth group 142 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-142"
+}
+},
+{
+"template": "Record auth group 42 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-042"
+}
+},
+{
+"template": "Record auth group 142 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-142"
+}
+},
+{
+"template": "Record auth group 43 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-043"
+}
+},
+{
+"template": "Record auth group 143 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-143"
+}
+},
+{
+"template": "Record auth group 43 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-043"
+}
+},
+{
+"template": "Record auth group 143 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-143"
+}
+},
+{
+"template": "Record auth group 44 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-044"
+}
+},
+{
+"template": "Record auth group 144 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-144"
+}
+},
+{
+"template": "Record auth group 44 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-044"
+}
+},
+{
+"template": "Record auth group 144 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-144"
+}
+},
+{
+"template": "Record auth group 45 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-045"
+}
+},
+{
+"template": "Record auth group 145 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-145"
+}
+},
+{
+"template": "Record auth group 45 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-045"
+}
+},
+{
+"template": "Record auth group 145 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-145"
+}
+},
+{
+"template": "Record auth group 46 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-046"
+}
+},
+{
+"template": "Record auth group 146 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-146"
+}
+},
+{
+"template": "Record auth group 46 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-046"
+}
+},
+{
+"template": "Record auth group 146 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-146"
+}
+},
+{
+"template": "Record auth group 47 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-047"
+}
+},
+{
+"template": "Record auth group 147 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-147"
+}
+},
+{
+"template": "Record auth group 47 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "P2",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-047"
+}
+},
+{
+"template": "Record auth group 147 variant 1 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "P2",
+"categories": []
+},
+"metadata": {
+"training_role": "authored_contrastive_context",
+"group_id": "auth-147"
+}
+},
+{
+"template": "Record publ group 0 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-000"
+}
+},
+{
+"template": "Record exis group 0 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-000"
+}
+},
+{
+"template": "Record publ group 1 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-001"
+}
+},
+{
+"template": "Record exis group 1 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-001"
+}
+},
+{
+"template": "Record publ group 2 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-002"
+}
+},
+{
+"template": "Record exis group 2 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-002"
+}
+},
+{
+"template": "Record publ group 3 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-003"
+}
+},
+{
+"template": "Record exis group 3 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-003"
+}
+},
+{
+"template": "Record publ group 4 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-004"
+}
+},
+{
+"template": "Record exis group 4 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-004"
+}
+},
+{
+"template": "Record publ group 5 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-005"
+}
+},
+{
+"template": "Record exis group 5 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-005"
+}
+},
+{
+"template": "Record publ group 6 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-006"
+}
+},
+{
+"template": "Record exis group 6 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-006"
+}
+},
+{
+"template": "Record publ group 7 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-007"
+}
+},
+{
+"template": "Record exis group 7 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-007"
+}
+},
+{
+"template": "Record publ group 8 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-008"
+}
+},
+{
+"template": "Record exis group 8 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-008"
+}
+},
+{
+"template": "Record publ group 9 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-009"
+}
+},
+{
+"template": "Record exis group 9 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-009"
+}
+},
+{
+"template": "Record publ group 10 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-010"
+}
+},
+{
+"template": "Record exis group 10 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-010"
+}
+},
+{
+"template": "Record publ group 11 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-011"
+}
+},
+{
+"template": "Record exis group 11 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-011"
+}
+},
+{
+"template": "Record publ group 12 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-012"
+}
+},
+{
+"template": "Record exis group 12 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-012"
+}
+},
+{
+"template": "Record publ group 13 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-013"
+}
+},
+{
+"template": "Record exis group 13 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-013"
+}
+},
+{
+"template": "Record publ group 14 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-014"
+}
+},
+{
+"template": "Record exis group 14 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-014"
+}
+},
+{
+"template": "Record publ group 15 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-015"
+}
+},
+{
+"template": "Record exis group 15 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-015"
+}
+},
+{
+"template": "Record publ group 16 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-016"
+}
+},
+{
+"template": "Record exis group 16 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-016"
+}
+},
+{
+"template": "Record publ group 17 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-017"
+}
+},
+{
+"template": "Record exis group 17 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-017"
+}
+},
+{
+"template": "Record publ group 18 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-018"
+}
+},
+{
+"template": "Record exis group 18 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-018"
+}
+},
+{
+"template": "Record publ group 19 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-019"
+}
+},
+{
+"template": "Record exis group 19 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-019"
+}
+},
+{
+"template": "Record publ group 20 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-020"
+}
+},
+{
+"template": "Record exis group 20 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-020"
+}
+},
+{
+"template": "Record publ group 21 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-021"
+}
+},
+{
+"template": "Record exis group 21 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-021"
+}
+},
+{
+"template": "Record publ group 22 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-022"
+}
+},
+{
+"template": "Record exis group 22 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-022"
+}
+},
+{
+"template": "Record publ group 23 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-023"
+}
+},
+{
+"template": "Record exis group 23 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-023"
+}
+},
+{
+"template": "Record publ group 24 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-024"
+}
+},
+{
+"template": "Record exis group 24 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-024"
+}
+},
+{
+"template": "Record publ group 25 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-025"
+}
+},
+{
+"template": "Record exis group 25 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-025"
+}
+},
+{
+"template": "Record publ group 26 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-026"
+}
+},
+{
+"template": "Record exis group 26 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-026"
+}
+},
+{
+"template": "Record publ group 27 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-027"
+}
+},
+{
+"template": "Record exis group 27 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-027"
+}
+},
+{
+"template": "Record publ group 28 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-028"
+}
+},
+{
+"template": "Record exis group 28 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-028"
+}
+},
+{
+"template": "Record publ group 29 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-029"
+}
+},
+{
+"template": "Record exis group 29 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-029"
+}
+},
+{
+"template": "Record publ group 30 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-030"
+}
+},
+{
+"template": "Record exis group 30 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-030"
+}
+},
+{
+"template": "Record publ group 31 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-031"
+}
+},
+{
+"template": "Record exis group 31 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-031"
+}
+},
+{
+"template": "Record publ group 32 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-032"
+}
+},
+{
+"template": "Record exis group 32 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-032"
+}
+},
+{
+"template": "Record publ group 33 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-033"
+}
+},
+{
+"template": "Record exis group 33 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-033"
+}
+},
+{
+"template": "Record publ group 34 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-034"
+}
+},
+{
+"template": "Record exis group 34 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-034"
+}
+},
+{
+"template": "Record publ group 35 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-035"
+}
+},
+{
+"template": "Record exis group 35 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-035"
+}
+},
+{
+"template": "Record publ group 36 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-036"
+}
+},
+{
+"template": "Record exis group 36 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-036"
+}
+},
+{
+"template": "Record publ group 37 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-037"
+}
+},
+{
+"template": "Record exis group 37 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-037"
+}
+},
+{
+"template": "Record publ group 38 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-038"
+}
+},
+{
+"template": "Record exis group 38 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-038"
+}
+},
+{
+"template": "Record publ group 39 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-039"
+}
+},
+{
+"template": "Record exis group 39 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-039"
+}
+},
+{
+"template": "Record publ group 40 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-040"
+}
+},
+{
+"template": "Record exis group 40 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-040"
+}
+},
+{
+"template": "Record publ group 41 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-041"
+}
+},
+{
+"template": "Record exis group 41 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-041"
+}
+},
+{
+"template": "Record publ group 42 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-042"
+}
+},
+{
+"template": "Record exis group 42 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-042"
+}
+},
+{
+"template": "Record publ group 43 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-043"
+}
+},
+{
+"template": "Record exis group 43 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-043"
+}
+},
+{
+"template": "Record publ group 44 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-044"
+}
+},
+{
+"template": "Record exis group 44 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-044"
+}
+},
+{
+"template": "Record publ group 45 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-045"
+}
+},
+{
+"template": "Record exis group 45 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-045"
+}
+},
+{
+"template": "Record publ group 46 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-046"
+}
+},
+{
+"template": "Record exis group 46 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-046"
+}
+},
+{
+"template": "Record publ group 47 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-047"
+}
+},
+{
+"template": "Record exis group 47 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-047"
+}
+},
+{
+"template": "Record publ group 48 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-048"
+}
+},
+{
+"template": "Record exis group 48 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-048"
+}
+},
+{
+"template": "Record publ group 49 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-049"
+}
+},
+{
+"template": "Record exis group 49 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-049"
+}
+},
+{
+"template": "Record publ group 50 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-050"
+}
+},
+{
+"template": "Record exis group 50 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-050"
+}
+},
+{
+"template": "Record publ group 51 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-051"
+}
+},
+{
+"template": "Record exis group 51 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-051"
+}
+},
+{
+"template": "Record publ group 52 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-052"
+}
+},
+{
+"template": "Record exis group 52 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-052"
+}
+},
+{
+"template": "Record publ group 53 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-053"
+}
+},
+{
+"template": "Record exis group 53 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-053"
+}
+},
+{
+"template": "Record publ group 54 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-054"
+}
+},
+{
+"template": "Record exis group 54 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-054"
+}
+},
+{
+"template": "Record publ group 55 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-055"
+}
+},
+{
+"template": "Record exis group 55 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-055"
+}
+},
+{
+"template": "Record publ group 56 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-056"
+}
+},
+{
+"template": "Record exis group 56 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-056"
+}
+},
+{
+"template": "Record publ group 57 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-057"
+}
+},
+{
+"template": "Record exis group 57 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-057"
+}
+},
+{
+"template": "Record publ group 58 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-058"
+}
+},
+{
+"template": "Record exis group 58 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-058"
+}
+},
+{
+"template": "Record publ group 59 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-059"
+}
+},
+{
+"template": "Record exis group 59 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-059"
+}
+},
+{
+"template": "Record publ group 60 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-060"
+}
+},
+{
+"template": "Record exis group 60 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-060"
+}
+},
+{
+"template": "Record publ group 61 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-061"
+}
+},
+{
+"template": "Record exis group 61 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-061"
+}
+},
+{
+"template": "Record publ group 62 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-062"
+}
+},
+{
+"template": "Record exis group 62 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-062"
+}
+},
+{
+"template": "Record publ group 63 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-063"
+}
+},
+{
+"template": "Record exis group 63 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-063"
+}
+},
+{
+"template": "Record publ group 64 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-064"
+}
+},
+{
+"template": "Record exis group 64 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-064"
+}
+},
+{
+"template": "Record publ group 65 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-065"
+}
+},
+{
+"template": "Record exis group 65 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-065"
+}
+},
+{
+"template": "Record publ group 66 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-066"
+}
+},
+{
+"template": "Record exis group 66 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-066"
+}
+},
+{
+"template": "Record publ group 67 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-067"
+}
+},
+{
+"template": "Record exis group 67 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-067"
+}
+},
+{
+"template": "Record publ group 68 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-068"
+}
+},
+{
+"template": "Record exis group 68 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-068"
+}
+},
+{
+"template": "Record publ group 69 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-069"
+}
+},
+{
+"template": "Record exis group 69 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-069"
+}
+},
+{
+"template": "Record publ group 70 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-070"
+}
+},
+{
+"template": "Record exis group 70 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-070"
+}
+},
+{
+"template": "Record publ group 71 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-071"
+}
+},
+{
+"template": "Record exis group 71 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-071"
+}
+},
+{
+"template": "Record publ group 72 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-072"
+}
+},
+{
+"template": "Record exis group 72 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-072"
+}
+},
+{
+"template": "Record publ group 73 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-073"
+}
+},
+{
+"template": "Record exis group 73 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-073"
+}
+},
+{
+"template": "Record publ group 74 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-074"
+}
+},
+{
+"template": "Record exis group 74 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-074"
+}
+},
+{
+"template": "Record publ group 75 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-075"
+}
+},
+{
+"template": "Record exis group 75 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-075"
+}
+},
+{
+"template": "Record publ group 76 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-076"
+}
+},
+{
+"template": "Record exis group 76 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-076"
+}
+},
+{
+"template": "Record publ group 77 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-077"
+}
+},
+{
+"template": "Record exis group 77 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-077"
+}
+},
+{
+"template": "Record publ group 78 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-078"
+}
+},
+{
+"template": "Record exis group 78 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-078"
+}
+},
+{
+"template": "Record publ group 79 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-079"
+}
+},
+{
+"template": "Record exis group 79 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-079"
+}
+},
+{
+"template": "Record publ group 80 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-080"
+}
+},
+{
+"template": "Record exis group 80 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-080"
+}
+},
+{
+"template": "Record publ group 81 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-081"
+}
+},
+{
+"template": "Record exis group 81 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-081"
+}
+},
+{
+"template": "Record publ group 82 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-082"
+}
+},
+{
+"template": "Record exis group 82 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-082"
+}
+},
+{
+"template": "Record publ group 83 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-083"
+}
+},
+{
+"template": "Record exis group 83 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-083"
+}
+},
+{
+"template": "Record publ group 84 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-084"
+}
+},
+{
+"template": "Record exis group 84 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-084"
+}
+},
+{
+"template": "Record publ group 85 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-085"
+}
+},
+{
+"template": "Record exis group 85 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-085"
+}
+},
+{
+"template": "Record publ group 86 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-086"
+}
+},
+{
+"template": "Record exis group 86 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-086"
+}
+},
+{
+"template": "Record publ group 87 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-087"
+}
+},
+{
+"template": "Record exis group 87 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-087"
+}
+},
+{
+"template": "Record publ group 88 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-088"
+}
+},
+{
+"template": "Record exis group 88 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-088"
+}
+},
+{
+"template": "Record publ group 89 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-089"
+}
+},
+{
+"template": "Record exis group 89 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-089"
+}
+},
+{
+"template": "Record publ group 90 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-090"
+}
+},
+{
+"template": "Record exis group 90 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-090"
+}
+},
+{
+"template": "Record publ group 91 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-091"
+}
+},
+{
+"template": "Record exis group 91 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-091"
+}
+},
+{
+"template": "Record publ group 92 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-092"
+}
+},
+{
+"template": "Record exis group 92 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-092"
+}
+},
+{
+"template": "Record publ group 93 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-093"
+}
+},
+{
+"template": "Record exis group 93 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-093"
+}
+},
+{
+"template": "Record publ group 94 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-094"
+}
+},
+{
+"template": "Record exis group 94 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-094"
+}
+},
+{
+"template": "Record publ group 95 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-095"
+}
+},
+{
+"template": "Record exis group 95 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-095"
+}
+},
+{
+"template": "Record publ group 96 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-096"
+}
+},
+{
+"template": "Record exis group 96 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-096"
+}
+},
+{
+"template": "Record publ group 97 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-097"
+}
+},
+{
+"template": "Record exis group 97 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-097"
+}
+},
+{
+"template": "Record publ group 98 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-098"
+}
+},
+{
+"template": "Record exis group 98 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-098"
+}
+},
+{
+"template": "Record publ group 99 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-099"
+}
+},
+{
+"template": "Record exis group 99 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-099"
+}
+},
+{
+"template": "Record publ group 100 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-100"
+}
+},
+{
+"template": "Record exis group 100 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-100"
+}
+},
+{
+"template": "Record publ group 101 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-101"
+}
+},
+{
+"template": "Record exis group 101 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-101"
+}
+},
+{
+"template": "Record publ group 102 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-102"
+}
+},
+{
+"template": "Record exis group 102 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-102"
+}
+},
+{
+"template": "Record publ group 103 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-103"
+}
+},
+{
+"template": "Record exis group 103 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-103"
+}
+},
+{
+"template": "Record publ group 104 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-104"
+}
+},
+{
+"template": "Record exis group 104 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-104"
+}
+},
+{
+"template": "Record publ group 105 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-105"
+}
+},
+{
+"template": "Record exis group 105 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-105"
+}
+},
+{
+"template": "Record publ group 106 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-106"
+}
+},
+{
+"template": "Record exis group 106 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-106"
+}
+},
+{
+"template": "Record publ group 107 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-107"
+}
+},
+{
+"template": "Record exis group 107 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-107"
+}
+},
+{
+"template": "Record publ group 108 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-108"
+}
+},
+{
+"template": "Record exis group 108 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-108"
+}
+},
+{
+"template": "Record publ group 109 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-109"
+}
+},
+{
+"template": "Record exis group 109 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-109"
+}
+},
+{
+"template": "Record publ group 110 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-110"
+}
+},
+{
+"template": "Record exis group 110 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-110"
+}
+},
+{
+"template": "Record publ group 111 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-111"
+}
+},
+{
+"template": "Record exis group 111 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-111"
+}
+},
+{
+"template": "Record publ group 112 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-112"
+}
+},
+{
+"template": "Record exis group 112 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-112"
+}
+},
+{
+"template": "Record publ group 113 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-113"
+}
+},
+{
+"template": "Record exis group 113 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-113"
+}
+},
+{
+"template": "Record publ group 114 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-114"
+}
+},
+{
+"template": "Record exis group 114 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-114"
+}
+},
+{
+"template": "Record publ group 115 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-115"
+}
+},
+{
+"template": "Record exis group 115 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-115"
+}
+},
+{
+"template": "Record publ group 116 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-116"
+}
+},
+{
+"template": "Record exis group 116 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-116"
+}
+},
+{
+"template": "Record publ group 117 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-117"
+}
+},
+{
+"template": "Record exis group 117 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-117"
+}
+},
+{
+"template": "Record publ group 118 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-118"
+}
+},
+{
+"template": "Record exis group 118 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-118"
+}
+},
+{
+"template": "Record publ group 119 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-119"
+}
+},
+{
+"template": "Record exis group 119 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-119"
+}
+},
+{
+"template": "Record publ group 120 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-120"
+}
+},
+{
+"template": "Record exis group 120 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-120"
+}
+},
+{
+"template": "Record publ group 121 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-121"
+}
+},
+{
+"template": "Record exis group 121 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-121"
+}
+},
+{
+"template": "Record publ group 122 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-122"
+}
+},
+{
+"template": "Record exis group 122 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-122"
+}
+},
+{
+"template": "Record publ group 123 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-123"
+}
+},
+{
+"template": "Record exis group 123 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-123"
+}
+},
+{
+"template": "Record publ group 124 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-124"
+}
+},
+{
+"template": "Record exis group 124 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-124"
+}
+},
+{
+"template": "Record publ group 125 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-125"
+}
+},
+{
+"template": "Record exis group 125 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-125"
+}
+},
+{
+"template": "Record publ group 126 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-126"
+}
+},
+{
+"template": "Record exis group 126 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-126"
+}
+},
+{
+"template": "Record publ group 127 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-127"
+}
+},
+{
+"template": "Record exis group 127 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-127"
+}
+},
+{
+"template": "Record publ group 128 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-128"
+}
+},
+{
+"template": "Record exis group 128 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-128"
+}
+},
+{
+"template": "Record publ group 129 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-129"
+}
+},
+{
+"template": "Record exis group 129 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-129"
+}
+},
+{
+"template": "Record publ group 130 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-130"
+}
+},
+{
+"template": "Record exis group 130 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-130"
+}
+},
+{
+"template": "Record publ group 131 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-131"
+}
+},
+{
+"template": "Record exis group 131 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-131"
+}
+},
+{
+"template": "Record publ group 132 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-132"
+}
+},
+{
+"template": "Record exis group 132 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-132"
+}
+},
+{
+"template": "Record publ group 133 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-133"
+}
+},
+{
+"template": "Record exis group 133 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-133"
+}
+},
+{
+"template": "Record publ group 134 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-134"
+}
+},
+{
+"template": "Record exis group 134 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-134"
+}
+},
+{
+"template": "Record publ group 135 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-135"
+}
+},
+{
+"template": "Record exis group 135 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-135"
+}
+},
+{
+"template": "Record publ group 136 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-136"
+}
+},
+{
+"template": "Record exis group 136 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-136"
+}
+},
+{
+"template": "Record publ group 137 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-137"
+}
+},
+{
+"template": "Record exis group 137 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-137"
+}
+},
+{
+"template": "Record publ group 138 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-138"
+}
+},
+{
+"template": "Record exis group 138 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-138"
+}
+},
+{
+"template": "Record publ group 139 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S0",
+"visibility": "PU",
+"categories": []
+},
+"metadata": {
+"training_role": "public_annotation_negative",
+"group_id": "publ-139"
+}
+},
+{
+"template": "Record exis group 139 variant 0 mentions {city} and {relative}.",
+"classification": {
+"sensitivity": "S2",
+"visibility": "PU",
+"categories": [
+"FINANCIAL"
+]
+},
+"metadata": {
+"training_role": "existing_bootstrap_replay",
+"group_id": "exis-139"
+}
+}
+]
+}

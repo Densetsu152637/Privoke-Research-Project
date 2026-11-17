@@ -1,6 +1,16 @@
 from typing import List
 
-from .rule_types import RuleDefinition
+from .rule_types import Downgrade, RuleDefinition
+from .rule_validators import (
+    CARD_CONTEXT,
+    IBAN_CONTEXT,
+    alphanumeric_identifier_shape,
+    checksum_validator,
+    context_required_validator,
+    iban_valid,
+    luhn_valid,
+    match_shape_validator,
+)
 from ..classification import Category, Sensitivity, Visibility, initialise_unpacked
 
 
@@ -16,12 +26,42 @@ def financial_rules() -> List[RuleDefinition]:
                 [Category.FINANCIAL, Category.IDENTITY],
             ),
             "credit_card",
+            validator=checksum_validator(luhn_valid),
+            downgrades=(
+                # A card number that fails Luhn but is labelled as a card is still the
+                # user's card (typos, test and synthetic numbers). Unlabelled digit runs
+                # are left to the generic account-number patterns.
+                Downgrade(
+                    "credit_card_unverified",
+                    initialise_unpacked(
+                        Sensitivity.S3, Visibility.PU, [Category.FINANCIAL, Category.IDENTITY]
+                    ),
+                    "credit_card",
+                    accept=context_required_validator(CARD_CONTEXT),
+                ),
+            ),
         ),
         RuleDefinition(
             "iban",
             r"\b[A-Z]{2}\d{2}[A-Z0-9]{1,30}\b",
             initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.FINANCIAL]),
             "iban",
+            validator=checksum_validator(iban_valid),
+            downgrades=(
+                Downgrade(
+                    "iban_unverified",
+                    initialise_unpacked(Sensitivity.S3, Visibility.PU, [Category.FINANCIAL]),
+                    "iban",
+                    accept=context_required_validator(IBAN_CONTEXT),
+                ),
+                # Not a valid IBAN, but still a long letter-prefixed number-like token.
+                Downgrade(
+                    "unverified_number_identifier",
+                    initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.IDENTITY]),
+                    "number_identifier",
+                    accept=match_shape_validator(alphanumeric_identifier_shape),
+                ),
+            ),
         ),
         RuleDefinition(
             "bank_account",
@@ -49,7 +89,7 @@ def financial_rules() -> List[RuleDefinition]:
         ),
         RuleDefinition(
             "financial_keyword",
-            r"\b(?:my|his|her|their)\s+(?:salary|income|bonus|bank|account|credit|loan|mortgage|debt|investment|stock|crypto|bitcoin|ethereum|tax|paycheck|transaction|balance)\b",
+            r"\b(?:my|his|her|their)\s+(?:\w+\s+){0,2}(?:salary|income|bonus|loan|mortgage|debt|investment|stock|crypto|bitcoin|ethereum|tax|paycheck|transaction|balance|savings|net\s+worth|credit\s+(?:score|history|report))\b",
             initialise_unpacked(Sensitivity.S2, Visibility.PU, [Category.FINANCIAL]),
             "financial_info",
         ),

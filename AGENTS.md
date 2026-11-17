@@ -33,3 +33,15 @@ and independently pinned ORIGINAL weights there. Remove only disposable temporar
 copies after byte hashes and references are verified; preserve immutable evidence
 and failed-attempt records. Generated experiment weights are local and ignored by
 Git and Docker build context.
+
+# Paper page limits
+
+The ASIACCS manuscript (`paper/main.tex`, ACM `sigconf`, anonymous) has a hard
+limit: the main body ends by page 12, and references plus appendices together
+add at most 10 pages (22 pages in total). Every agent that edits the paper must
+rebuild it (`latexmk -pdf main.tex` in `paper/`) and run
+`python paper/scripts/check_pages.py` before committing; a non-`PASS` result
+blocks the commit. Make room by moving detail to the appendices or tightening
+prose, never by changing ACM typography or dropping retained evidence units or
+negative results. Supporting tables (for example the threat/defense table) may
+live in the appendices. Scope and evidence rules are in `paper/REWRITE_SCOPE.md`.

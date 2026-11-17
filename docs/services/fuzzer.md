@@ -4,11 +4,11 @@
 
 `privoke-fuzzer` is a Python gRPC worker and CLI for PriVoke research experiments. It generates labeled prompts, asks `client-runtime` to execute a bounded semantic training batch, submits the returned head-only or full-Tiny encoder-and-head deltas to `param-update-service`, and runs ad hoc prompt tests through the same runtime service.
 
-It is not in the hosted prompt decision path. Training cycles deliberately target the streamed semantic model path rather than the full regex + NER + semantic pipeline.
+It is not in the hosted prompt decision path. Its automatic training cycles target explicit legacy V1 model IDs; the standard V3 packages are inference-only and the runtime's legacy gradient APIs reject them (see [client runtime](../runtime/client-runtime.md#standard-pretrained-v3-runtime)). Training cycles deliberately target the streamed semantic model path rather than the full regex + NER + semantic pipeline.
 
 For LLM study comparisons, use the semantic-only curriculum-improvement runner. Older combined-protocol study commands require `--allow-product-pipeline` solely for separately authorized product/detector analysis; their pipeline selection rules and historical scores retain that scope. See the [evaluation entrypoint policy](../../evaluation/README.md).
 
-Normal deployments enable the updater's automatic requester by default: 32
+Deployments that enable the opt-in `legacy-training` Compose profile run the updater's automatic requester by default: 32
 prompts per stage at startup and another cycle every hour after completion.
 Its default random source now uses the shipped, pinned AU3 audience coverage
 release, with all six audiences and all ten primary categories represented in
@@ -273,7 +273,7 @@ checks of an unmeasured method, not model-quality evidence.
 ## Environment Variables
 
 - `PARAM_UPDATE_TARGET`, default `param-update-service:50052`
-- `PRIVOKE_RUNTIME_TARGET`, default `client-runtime:50054`
+- `PRIVOKE_RUNTIME_TARGET`, default `client-runtime:50054` (the Compose files set `analysis-service:50054`, the quarantined analysis service, over mutual TLS)
 - `MODEL_ID`, default `privoke-baseline`
 - `FUZZER_ID`, default `privoke-fuzzer`
 - `FUZZER_PORT`, default `50053`
@@ -311,7 +311,7 @@ rescaled by the fuzzer. See the [iterative training record](../iterative-fuzzer-
 
 ## Runtime Boundary
 
-The fuzzer has no source dependency on `extension/client-runtime`. Production and development Compose both deploy that code as the `client-runtime:50054` service, and the fuzzer waits for it to become healthy. It never calls `model-streaming-service`, the extension bridge on `8080`, its control plane on `50056`, or its workstation detector on `50057`. Prompt tests use `AnalyzePrompt`; contextual training uses `ComputeSemanticGradients`; annotation-presence training uses `ComputePresenceGradients`. Model selection, fetching, validation, caching, execution, descent, and model-version selection remain inside the runtime.
+The fuzzer has no source dependency on `extension/client-runtime`. Server Compose no longer runs that code as a service: the fuzzer reaches inference through the quarantined `analysis-service:50054`, a Rust service that owns a sandboxed worker pool of the same Python pipeline, and waits for it to become healthy. Only the semantic layer is admitted, the fuzzer holds a service certificate and its own listener requires mutual TLS with an allow list. It never calls `model-streaming-service`, the extension bridge on `8080`, its control plane on `50056`, or its workstation detector on `50057`. Prompt tests use `AnalyzePrompt`; contextual training uses `ComputeSemanticGradients`; annotation-presence training uses `ComputePresenceGradients`. Model selection, fetching, validation, caching, execution, descent, and model-version selection remain inside the runtime.
 
 ## CLI
 

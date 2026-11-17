@@ -1,0 +1,124 @@
+{
+ "configs": [
+  {
+   "expected": "{\"beta1\":0.9,\"beta2\":0.999,\"cpu_threads\":1,\"delta_cap\":0.05,\"device\":\"cpu\",\"epsilon\":1e-08,\"eta\":0.003,\"gradient_denominator\":1,\"margin_coefficient\":1,\"microbatch_size\":32,\"moment_dtype\":\"float64\",\"steps\":64}",
+   "input_json": "{\"steps\":64,\"eta\":0.003,\"beta1\":0.9,\"beta2\":0.999,\"epsilon\":1e-08,\"delta_cap\":0.05,\"margin_coefficient\":1,\"device\":\"cpu\",\"moment_dtype\":\"float64\",\"gradient_denominator\":1,\"microbatch_size\":32,\"cpu_threads\":1}",
+   "name": "full_adam.CONFIG",
+   "variant": "ascii"
+  },
+  {
+   "expected": "{\"adam\":{\"beta1\":0.9,\"beta2\":0.999,\"cpu_threads\":1,\"delta_cap\":0.05,\"device\":\"cpu\",\"epsilon\":1e-08,\"eta\":0.003,\"gradient_denominator\":1,\"margin_coefficient\":1,\"microbatch_size\":32,\"moment_dtype\":\"float64\",\"steps\":64},\"auxiliary_coefficient\":1,\"block_rows\":64,\"blocks\":8,\"candidate_seeds\":64,\"checkpoints\":[8,16,24,32,40,48,56,64],\"component_order\":[\"sensitivity\",\"severity\",\"category\",\"visibility\",\"action\"],\"epochs\":8,\"epsilon\":1e-06,\"main_normalization\":\"eight_times_block_over_frozen_window_weight_v1\",\"margin_cap\":1.0,\"normalization\":\"category_bits_then_components_then_rows_v1\",\"selector\":\"transported_train_component_rank_v1\"}",
+   "input_json": "{\"adam\":{\"steps\":64,\"eta\":0.003,\"beta1\":0.9,\"beta2\":0.999,\"epsilon\":1e-08,\"delta_cap\":0.05,\"margin_coefficient\":1,\"device\":\"cpu\",\"moment_dtype\":\"float64\",\"gradient_denominator\":1,\"microbatch_size\":32,\"cpu_threads\":1},\"blocks\":8,\"block_rows\":64,\"epochs\":8,\"candidate_seeds\":64,\"checkpoints\":[8,16,24,32,40,48,56,64],\"epsilon\":1e-06,\"margin_cap\":1.0,\"auxiliary_coefficient\":1,\"normalization\":\"category_bits_then_components_then_rows_v1\",\"main_normalization\":\"eight_times_block_over_frozen_window_weight_v1\",\"selector\":\"transported_train_component_rank_v1\",\"component_order\":[\"sensitivity\",\"severity\",\"category\",\"visibility\",\"action\"]}",
+   "name": "window_training.CONFIG",
+   "variant": "ascii"
+  },
+  {
+   "expected": "{\"decoded_sensitive\":true,\"epsilon\":1e-06,\"gold_non_s0\":true,\"packed_exact\":false,\"required_groups\":20,\"teacher_at_least_gold\":false,\"version\":\"original_sensitive_strict_margin_gap_v1\"}\n",
+   "input_json": "{\"version\":\"original_sensitive_strict_margin_gap_v1\",\"epsilon\":1e-06,\"gold_non_s0\":true,\"decoded_sensitive\":true,\"packed_exact\":false,\"teacher_at_least_gold\":false,\"required_groups\":20}",
+   "name": "sensitive_retention.BOUNDARY",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "{\"auxiliary\":\"unweighted_eligible_mean\",\"coefficient\":1,\"gradient_denominator\":1,\"main\":\"unchanged_class_balanced_weight_mean\",\"microbatch_size\":32}\n",
+   "input_json": "{\"main\":\"unchanged_class_balanced_weight_mean\",\"auxiliary\":\"unweighted_eligible_mean\",\"coefficient\":1,\"gradient_denominator\":1,\"microbatch_size\":32}",
+   "name": "sensitive_retention.NORMALIZATION",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "{\"batch_rows\":64,\"betas\":[0.9,0.999],\"category_threshold\":0.5,\"checkpoint_selection\":\"final_only\",\"clip_norm\":1.0,\"dropout\":false,\"encoder_lr\":2e-05,\"epochs\":8,\"eps\":1e-08,\"guard_rows\":16,\"head_lr\":0.001,\"max_tokens\":512,\"microbatch\":4,\"objective\":\"sensitivity_ce+visibility_ce+category_mean_bce\",\"optimizer\":\"adamw\",\"publication\":\"joint_improve_action_harm_zero_v1\",\"schema\":1,\"steps\":64,\"weight_decay\":0.0,\"window_batches\":8}\n",
+   "input_json": "{\"schema\":1,\"optimizer\":\"adamw\",\"head_lr\":0.001,\"encoder_lr\":2e-05,\"betas\":[0.9,0.999],\"eps\":1e-08,\"weight_decay\":0.0,\"clip_norm\":1.0,\"microbatch\":4,\"steps\":64,\"window_batches\":8,\"batch_rows\":64,\"epochs\":8,\"guard_rows\":16,\"dropout\":false,\"max_tokens\":512,\"category_threshold\":0.5,\"objective\":\"sensitivity_ce+visibility_ce+category_mean_bce\",\"checkpoint_selection\":\"final_only\",\"publication\":\"joint_improve_action_harm_zero_v1\"}",
+   "name": "v3_contract.POLICY",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "{\"batch_rows\":64,\"betas\":[0.9,0.999],\"category_threshold\":0.5,\"checkpoint_selection\":\"final_only\",\"clip_norm\":1.0,\"dropout\":false,\"encoder_lr\":2e-05,\"epochs\":2,\"eps\":1e-08,\"guard_rows\":16,\"head_lr\":0.001,\"max_tokens\":512,\"microbatch\":4,\"objective\":\"sensitivity_ce+visibility_ce+category_mean_bce\",\"optimizer\":\"adamw\",\"publication\":\"joint_improve_action_harm_zero_v1\",\"schema\":1,\"steps\":2,\"weight_decay\":0.0,\"window_batches\":1}\n",
+   "input_json": "{\"schema\":1,\"optimizer\":\"adamw\",\"head_lr\":0.001,\"encoder_lr\":2e-05,\"betas\":[0.9,0.999],\"eps\":1e-08,\"weight_decay\":0.0,\"clip_norm\":1.0,\"microbatch\":4,\"steps\":2,\"window_batches\":1,\"batch_rows\":64,\"epochs\":2,\"guard_rows\":16,\"dropout\":false,\"max_tokens\":512,\"category_threshold\":0.5,\"objective\":\"sensitivity_ce+visibility_ce+category_mean_bce\",\"checkpoint_selection\":\"final_only\",\"publication\":\"joint_improve_action_harm_zero_v1\"}",
+   "name": "v3_contract.POLICY[pilot]",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "{\"balanced\":{\"hidden_size\":256,\"num_attention_heads\":4,\"num_hidden_layers\":2,\"parameters\":9596180,\"repository\":\"google/bert_uncased_L-2_H-256_A-4\",\"revision\":\"4e937a8675e5afd9a4836735c186ec01695bc3ea\"},\"efficient\":{\"hidden_size\":128,\"num_attention_heads\":2,\"num_hidden_layers\":4,\"parameters\":4785044,\"repository\":\"google/bert_uncased_L-4_H-128_A-2\",\"revision\":\"c29bee83fc7f003ac8c5e6e135529da4ecddb7c3\"},\"quality\":{\"hidden_size\":256,\"num_attention_heads\":4,\"num_hidden_layers\":12,\"parameters\":17493780,\"repository\":\"google/bert_uncased_L-12_H-256_A-4\",\"revision\":\"2ab9a0f41435a4d23d4cbc11cc3e7c922545f13d\"}}\n",
+   "input_json": "{\"efficient\":{\"repository\":\"google/bert_uncased_L-4_H-128_A-2\",\"revision\":\"c29bee83fc7f003ac8c5e6e135529da4ecddb7c3\",\"hidden_size\":128,\"num_hidden_layers\":4,\"num_attention_heads\":2,\"parameters\":4785044},\"balanced\":{\"repository\":\"google/bert_uncased_L-2_H-256_A-4\",\"revision\":\"4e937a8675e5afd9a4836735c186ec01695bc3ea\",\"hidden_size\":256,\"num_hidden_layers\":2,\"num_attention_heads\":4,\"parameters\":9596180},\"quality\":{\"repository\":\"google/bert_uncased_L-12_H-256_A-4\",\"revision\":\"2ab9a0f41435a4d23d4cbc11cc3e7c922545f13d\",\"hidden_size\":256,\"num_hidden_layers\":12,\"num_attention_heads\":4,\"parameters\":17493780}}",
+   "name": "v3_contract.TIERS",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "{\"category\":[\"HEALTH\",\"POLITICS\",\"RELIGION\",\"CRIMINAL\",\"FINANCIAL\",\"SEXUAL\",\"CHILD\",\"LOCATION\",\"IDENTITY\",\"THIRD_PARTY\"],\"sensitivity\":[\"S0\",\"S1\",\"S2\",\"S3\"],\"visibility\":[\"P0\",\"P1\",\"P2\",\"P3\",\"P4\",\"PU\"]}\n",
+   "input_json": "{\"sensitivity\":[\"S0\",\"S1\",\"S2\",\"S3\"],\"visibility\":[\"P0\",\"P1\",\"P2\",\"P3\",\"P4\",\"PU\"],\"category\":[\"HEALTH\",\"POLITICS\",\"RELIGION\",\"CRIMINAL\",\"FINANCIAL\",\"SEXUAL\",\"CHILD\",\"LOCATION\",\"IDENTITY\",\"THIRD_PARTY\"]}",
+   "name": "v3_contract.LABELS",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "{\"balanced\":[\"67b710645b099510dba08b7605a60859fff59714628e1d9d1ffa9e0956b51783\",\"ba873b4875d069697fa5bab011ea9e3f63b7f8186701bdf5356b4d8622d8f5c1\"],\"efficient\":[\"2e37a60f99c30c244da3a2ada3653faf378689783c5b6500d7291acc2516e199\",\"191ec8105cc6eb8ce2d64c117f7c5830f6028c06da4d7a0d3672414f2c77ad98\"],\"quality\":[\"1be1c8c6a57894a139fdf526fb8435f6acb6ea01600569a4ac3cfd405dc5f875\",\"9efa18e50a359c542d79f9c00a23049c2d78aa07c1fd11827c6e2487b3333cd7\"]}\n",
+   "input_json": "{\"efficient\":[\"2e37a60f99c30c244da3a2ada3653faf378689783c5b6500d7291acc2516e199\",\"191ec8105cc6eb8ce2d64c117f7c5830f6028c06da4d7a0d3672414f2c77ad98\"],\"balanced\":[\"67b710645b099510dba08b7605a60859fff59714628e1d9d1ffa9e0956b51783\",\"ba873b4875d069697fa5bab011ea9e3f63b7f8186701bdf5356b4d8622d8f5c1\"],\"quality\":[\"1be1c8c6a57894a139fdf526fb8435f6acb6ea01600569a4ac3cfd405dc5f875\",\"9efa18e50a359c542d79f9c00a23049c2d78aa07c1fd11827c6e2487b3333cd7\"]}",
+   "name": "v3_contract.SOURCE_PINS",
+   "variant": "utf8_lf"
+  },
+  {
+   "expected": "{\"decrease\":2e-05,\"expected_backtracking_policy\":\"full_train_backtracking_v1\",\"expected_objective\":\"class_balanced_contextual_sum_category_decision_margin_v1\",\"expected_scales\":[1.0,0.25,0.0625,0.015625,0.00390625],\"schema\":1}",
+   "input_json": "{\"schema\":1,\"expected_backtracking_policy\":\"full_train_backtracking_v1\",\"expected_objective\":\"class_balanced_contextual_sum_category_decision_margin_v1\",\"expected_scales\":[1.0,0.25,0.0625,0.015625,0.00390625],\"decrease\":2e-05}",
+   "name": "contextual_training.admission-header-record",
+   "variant": "ascii"
+  }
+ ],
+ "constants": {
+  "v3_standard_pins": {
+   "privoke-v3-balanced": "99b36171056bb0398584a0b0556d9d7ff2640d0acac4b124a126327451a80589",
+   "privoke-v3-efficient": "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+   "privoke-v3-quality": "bb17d355fe1ad13c7052e922fb6de607d82cdafb1f4440fee1a47f35d42caf39"
+  }
+ },
+ "derived_seeds": [
+  {
+   "expected": 1265227123921354356,
+   "index": 0,
+   "purpose": "train",
+   "seed": 0
+  },
+  {
+   "expected": 10356989693654437831,
+   "index": 3,
+   "purpose": "guard",
+   "seed": 7
+  },
+  {
+   "expected": 6710040861974579141,
+   "index": 63,
+   "purpose": "window",
+   "seed": 20261117
+  },
+  {
+   "expected": 15839312357430219493,
+   "index": 1,
+   "purpose": "\u00e9",
+   "seed": 4294967295
+  }
+ ],
+ "receipt_keys": [
+  {
+   "expected": "f3606f6ed820eec92eb93b93c4703c073fc1da4961a05d08da752647249b610e",
+   "request_id": "req-1",
+   "request_source_id": "",
+   "source_id": "source"
+  },
+  {
+   "expected": "fe59ea50910902ac908b9b2fe00daf4b6667860e0fbd72c0017337a3e19eed49",
+   "request_id": "req-1",
+   "request_source_id": "origin",
+   "source_id": "source"
+  },
+  {
+   "expected": "83886476046adc3ce173dfdb7b87ed746b35192259ba28cb0f52ac6966b7e109",
+   "request_id": "r\u4e2d\ud83d\ude00",
+   "request_source_id": "",
+   "source_id": "s\u00e9"
+  },
+  {
+   "expected": "799c55d702efedb7750db18b36386fc3a3f4be7dddcfb649adeb41a3ed0da228",
+   "request_id": "",
+   "request_source_id": "",
+   "source_id": ""
+  }
+ ],
+ "schema": 1
+}

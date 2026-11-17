@@ -1,13 +1,14 @@
 import { extractPrompt, promptTarget } from "./prompt-interception.js";
+import { maskText, rewritePromptBody } from "./redaction.js";
 import { runtimeFailureResponse } from "./interception-failure.js";
+import { RESPONSE_TIMEOUT_MS } from "./analysis-timeouts.js";
 
 const CHANNEL = "privoke-extension-v1";
-const RESPONSE_TIMEOUT_MS = 32_000;
 const BODY_READ_TIMEOUT_MS = 5_000;
 const MAX_BODY_BYTES = 1_048_576;
 const NOTICE_STATUSES = new Set(["NOT_REQUESTED", "RENDERED", "FAILED", "UNKNOWN"]);
 const REQUEST_DISPOSITIONS = new Set([
-  "BLOCKED_LOCALLY", "ORIGINAL_REQUEST_HANDED_OFF", "UNKNOWN",
+  "BLOCKED_LOCALLY", "ORIGINAL_REQUEST_HANDED_OFF", "MASKED_REQUEST_HANDED_OFF", "UNKNOWN",
 ]);
 const nativeFetch = window.fetch;
 
@@ -21,7 +22,22 @@ window.fetch = async function privokeFetch(input, init) {
     : (input instanceof Request ? input.signal : undefined);
   signal?.throwIfAborted();
 
-  const { body, request } = await requestBody(input, init, signal);
+  let body;
+  let request;
+  let inspectionError;
+  try {
+    ({ body, request, inspectionError } = await requestBody(input, init, signal));
+  } catch (error) {
+    signal?.throwIfAborted();
+    // Let native fetch retain its own invalid/consumed Request failures.
+    notifyUnavailable();
+    return nativeFetch.apply(this, arguments);
+  }
+  if (inspectionError) {
+    signal?.throwIfAborted();
+    notifyUnavailable();
+    return nativeFetch.call(this, request);
+  }
   let forwarded = false;
   let decision;
   let outcomeEmitted = false;
@@ -32,13 +48,23 @@ window.fetch = async function privokeFetch(input, init) {
     emitOutcome(requestId, decision?.action ?? null, decision?.observation, disposition);
   };
   try {
-    const text = extractPrompt(body);
+    const text = extractPrompt(body, targetApp);
     if (text) requestId = crypto.randomUUID();
-    const forward = () => {
+    const forward = (maskedBody) => {
       forwarded = true;
       try {
-        const result = request ? nativeFetch.call(this, request) : nativeFetch.apply(this, arguments);
-        reportOutcome("ORIGINAL_REQUEST_HANDED_OFF");
+        let maskedArguments;
+        if (maskedBody !== undefined) {
+          try {
+            maskedArguments = maskedFetchArguments(input, init, request, maskedBody);
+          } catch {
+            // Masking failure fails open to the original request (plain WARN).
+          }
+        }
+        const result = maskedArguments
+          ? nativeFetch.apply(this, maskedArguments)
+          : request ? nativeFetch.call(this, request) : nativeFetch.apply(this, arguments);
+        reportOutcome(maskedArguments ? "MASKED_REQUEST_HANDED_OFF" : "ORIGINAL_REQUEST_HANDED_OFF");
         return result;
       } catch (error) {
         reportOutcome("UNKNOWN");
@@ -53,7 +79,14 @@ window.fetch = async function privokeFetch(input, init) {
       // Sites often suppress AbortError as an intentional user cancellation.
       throw new TypeError("Prompt blocked by PriVoke.");
     }
-    return forward();
+    // Opt-in WARN+MASK; maskedBodyFor is null unless that setting supplied spans.
+    let maskedBody = null;
+    try {
+      maskedBody = maskedBodyFor(body, text, decision);
+    } catch {
+      // Masking failure fails open to the original request (plain WARN).
+    }
+    return forward(maskedBody ?? undefined);
   } catch (error) {
     reportOutcome("UNKNOWN");
     if (!forwarded && request?.body) void request.body.cancel().catch(() => {});
@@ -62,6 +95,33 @@ window.fetch = async function privokeFetch(input, init) {
 };
 
 installXhrInterceptor();
+
+function maskedBodyFor(body, text, decision) {
+  if (decision?.action !== "WARN" || !decision.maskSpans?.length) return null;
+  const masked = maskText(text, decision.maskSpans);
+  if (masked.maskedChars === 0) return null;
+  return rewritePromptBody(body, text, masked.text);
+}
+
+function maskedFetchArguments(input, init, request, maskedBody) {
+  if (request) return [new Request(request, { body: maskedBody })];
+  if (input instanceof Request) return [new Request(input, { ...init, body: maskedBody })];
+  return [input, { ...init, body: maskedBody }];
+}
+
+function sanitizeMaskSpans(value) {
+  if (!Array.isArray(value)) return undefined;
+  const spans = value.slice(0, 1000).filter((span) => (
+    Number.isInteger(span?.start) && Number.isInteger(span?.end)
+  )).map((span) => ({
+    start: span.start,
+    end: span.end,
+    categories: Array.isArray(span.categories)
+      ? span.categories.filter((category) => typeof category === "string").slice(0, 16)
+      : [],
+  }));
+  return spans.length ? spans : undefined;
+}
 
 async function requestBody(input, init, signal) {
   if (init?.body != null) {
@@ -72,8 +132,11 @@ async function requestBody(input, init, signal) {
       try {
         return { body: await readRequestBody(request, signal), request };
       } catch (error) {
-        if (request.body) void request.body.cancel().catch(() => {});
-        throw error;
+        if (signal?.aborted) {
+          if (request.body) void request.body.cancel().catch(() => {});
+          throw error;
+        }
+        return { request, inspectionError: error };
       }
     }
     return { body: await inspectBody(init.body, signal) };
@@ -171,11 +234,14 @@ function analyze(text, targetApp, signal, requestId) {
       ) {
         const validAction = typeof data.action === "string"
           && ["ALLOW", "WARN", "BLOCK"].includes(data.action.toUpperCase());
-        const action = validAction ? data.action.toUpperCase() : "BLOCK";
+        const action = validAction ? data.action.toUpperCase() : "WARN";
         const observation = validAction
           ? normalizeObservation(data.observation)
           : { schema_version: 1, notice_status: "UNKNOWN" };
-        finish({ action, observation });
+        const maskSpans = validAction && action === "WARN" ? sanitizeMaskSpans(data.maskSpans) : undefined;
+        finish(validAction
+          ? { action, observation, ...(maskSpans ? { maskSpans } : {}) }
+          : runtimeFailureResponse());
       }
     }
 
@@ -193,6 +259,7 @@ function analyze(text, targetApp, signal, requestId) {
         requestId,
         observation: normalizeObservation(value?.observation),
       });
+      if (value?.inspectionUnavailable) notifyUnavailable();
     }
 
     window.addEventListener("message", onMessage);
@@ -209,6 +276,21 @@ function analyze(text, targetApp, signal, requestId) {
       finish(runtimeFailureResponse());
     }
   });
+}
+
+function notifyUnavailable() {
+  try {
+    const id = "privoke-inspection-unavailable";
+    document.getElementById(id)?.remove();
+    const notice = document.createElement("div");
+    notice.id = id;
+    notice.setAttribute("role", "status");
+    notice.textContent = "PriVoke could not complete analysis. Your prompt will be sent without a complete privacy check.";
+    notice.style.cssText = "position:fixed;z-index:2147483647;top:20px;right:20px;max-width:380px;padding:16px;background:#fff8df;color:#352900;border:1px solid #d7a42b;border-radius:8px;font:14px/1.4 system-ui,sans-serif";
+    (document.documentElement || document).append(notice);
+  } catch {
+    // A warning renderer must never prevent the requested website handoff.
+  }
 }
 
 function normalizeObservation(value) {
@@ -288,10 +370,11 @@ function installXhrInterceptor() {
     const xhr = this;
     const request = requests.get(xhr);
     const blob = body instanceof Blob;
-    const text = request?.targetApp ? extractPrompt(body) : "";
+    const text = request?.targetApp ? extractPrompt(body, request.targetApp) : "";
     if (!request?.targetApp || (!text && !blob)) return send.apply(xhr, arguments);
     if (request.synchronous) {
-      throw new DOMException("PriVoke cannot check a synchronous prompt request.", "NetworkError");
+      notifyUnavailable();
+      return send.apply(xhr, arguments);
     }
     if (request.pending || xhr.readyState !== XMLHttpRequest.OPENED) {
       throw new DOMException("The request is already sent or is not open.", "InvalidStateError");
@@ -306,18 +389,20 @@ function installXhrInterceptor() {
     if (blob) {
       decision = inspectBody(body, request.controller.signal).then((raw) => {
         if (request.cancelled || requests.get(xhr) !== request) return null;
-        const decodedText = extractPrompt(raw);
+        const decodedText = extractPrompt(raw, request.targetApp);
         if (!decodedText) return null;
         request.analysisStarted = true;
+        request.promptText = decodedText;
         request.requestId = crypto.randomUUID();
         return analyze(decodedText, request.targetApp, request.controller.signal, request.requestId);
       });
     } else {
       request.analysisStarted = true;
+      request.promptText = text;
       request.requestId = crypto.randomUUID();
       decision = analyze(text, request.targetApp, request.controller.signal, request.requestId);
     }
-    void decision.then((decision) => {
+    const handoff = (decision) => {
       if (request.cancelled || requests.get(xhr) !== request) return;
       if (decision?.action === "BLOCK") {
         reportXhrOutcome(request, decision.action, decision.observation, "BLOCKED_LOCALLY");
@@ -327,18 +412,29 @@ function installXhrInterceptor() {
       request.pending = false;
       clearTimeout(request.timeout);
       try {
-        send.call(xhr, body);
-        reportXhrOutcome(request, decision?.action ?? null, decision?.observation, "ORIGINAL_REQUEST_HANDED_OFF");
+        let maskedBody = null;
+        try {
+          maskedBody = maskedBodyFor(blob ? undefined : body, request.promptText, decision);
+        } catch {
+          // Masking failure fails open to the original request (plain WARN).
+        }
+        send.call(xhr, maskedBody ?? body);
+        reportXhrOutcome(request, decision?.action ?? null, decision?.observation,
+          maskedBody ? "MASKED_REQUEST_HANDED_OFF" : "ORIGINAL_REQUEST_HANDED_OFF");
       } catch {
         // An asynchronous native send failure must also settle the caller.
         reportXhrOutcome(request, decision?.action ?? null, decision?.observation, "UNKNOWN");
         request.pending = true;
         finishPending(xhr, request, "error");
       }
-    }, () => {
-      // Cancellation already emitted its terminal events; unreadable bodies
-      // must settle as a failure instead of bypassing prompt protection.
-      if (!request.cancelled && requests.get(xhr) === request) finishPending(xhr, request, "error");
+    };
+    void decision.then(handoff, () => {
+      // Cancellation already emitted its terminal events. Inspection failures
+      // permit native handoff under the website-only availability policy.
+      if (!request.cancelled && requests.get(xhr) === request) {
+        notifyUnavailable();
+        handoff(runtimeFailureResponse());
+      }
     });
     return undefined;
   };

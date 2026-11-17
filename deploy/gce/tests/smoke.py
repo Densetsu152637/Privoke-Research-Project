@@ -1,255 +1,317 @@
-"""Exercise the cloud Compose deployment with disposable volumes and TLS identities.
+#!/usr/bin/env python3
+"""Smoke test for the Rust cloud topology (stages 8a and 8b of docs/plans/rust-server-rewrite.md).
 
-Run after `docker compose build`, using Python with grpcio and grpcio-tools.
-Only resources belonging to the unique smoke-test project are removed.
+It talks to the two public listeners as a host client, so it runs unchanged against loopback ports (staging, CI) and
+against the public endpoints (external smoke). It starts no stack and runs no test inside a container; the optional
+start-up checks only run images with `docker run` and expect them to refuse to start.
+
+What it asserts, in order:
+
+* mutual TLS is required on both listeners: no client certificate, an untrusted server, and (when supplied) a certificate
+  from another CA all fail;
+* authorisation: an installation is served by the model listener and refused by the telemetry listener, the reporter
+  credential the other way round, and an unregistered installation (when supplied) is refused;
+* private RPCs are denied (R9): the internal and service RPCs answer UNIMPLEMENTED on both public listeners;
+* the standard V3 package is fetched over `GetModelPackage` and `StreamModelAsset` and its pin is verified (G8);
+* a locally randomised telemetry report is accepted with the reporter credential;
+* with `--images`, every cloud image started without its CA, CRL or client CA exits non-zero without serving (a container
+  that cannot authenticate its callers must not start).
+
+Credential directory (`--creds`): `server-ca.pem`, `installation.crt`, `installation.key`, `reporter.crt`,
+`reporter.key`; optional `unregistered.crt` and `unregistered.key` (signed by the client CA, not in the registry) and
+`foreign.crt` and `foreign.key` (signed by another CA). Nothing in this file is a credential.
+
+Requires Python with `grpcio`, `grpcio-tools` and `protobuf`. Exit status 0 only if every check passed; any unexpected
+accept is a failure.
+
+    python deploy/gce/tests/smoke.py --creds DIR --model-target 127.0.0.1:50443 --telemetry-target 127.0.0.1:58443 \\
+        --server-name stack.example.com [--images PREFIX:TAG --pki-dir DIR --live-dir DIR]
 """
 from __future__ import annotations
 
+import argparse
+import hashlib
 import importlib.util
-import json
-import math
-import os
 import random
-from pathlib import Path
-import shutil
+import re
 import subprocess
 import sys
 import tempfile
-import uuid
+import time
+from pathlib import Path
+from typing import Callable
 
 import grpc
 
 ROOT = Path(__file__).resolve().parents[3]
-_PRIVACY_SPEC = importlib.util.spec_from_file_location(
-    "privoke_smoke_privacy", ROOT / "extension/client-runtime/src/telemetry/privacy.py"
+PRIVACY_PATH = ROOT / "extension/client-runtime/src/telemetry/privacy.py"
+PINS_PATH = ROOT / "shared/python/privoke_model/standard_v3.py"
+PROTO_DIR = ROOT / "shared/proto"
+CHANNEL_OPTIONS = (("grpc.enable_http_proxy", 0), ("grpc.max_receive_message_length", 8 * 1024 * 1024))
+
+# Rust images take the five TLS flags and must refuse to start without them.
+RUST_IMAGES = ("model-streaming-service", "telemetry-service", "param-update-service", "analysis-service")
+PRIVATE_RPCS = (
+    "/privoke.v1.ModelStreamingService/GetModelParameters",
+    "/privoke.v1.ParamUpdateService/SubmitParameterUpdate",
+    "/privoke.v1.ParamUpdateService/GetParameterUpdateStatus",
+    "/privoke.v1.PrivokeRuntimeService/AnalyzePrompt",
+    "/privoke.v1.PrivokeRuntimeService/ComputeSemanticGradients",
+    "/privoke.v1.FuzzerService/RunTrainingCycle",
+    "/privoke.v1.TelemetryService/GetTelemetrySummary",
 )
-if _PRIVACY_SPEC is None or _PRIVACY_SPEC.loader is None:
-    raise RuntimeError("Could not load the client telemetry privacy mechanism.")
-_PRIVACY_MODULE = importlib.util.module_from_spec(_PRIVACY_SPEC)
-_PRIVACY_SPEC.loader.exec_module(_PRIVACY_MODULE)
 
 
-def run(*args, **kwargs):
-    return subprocess.run(args, check=True, text=True, **kwargs)
+class Results:
+    def __init__(self) -> None:
+        self.rows: list[tuple[str, bool, str]] = []
 
-
-def main():
-    project = "privoke-smoke-" + uuid.uuid4().hex[:10]
-    source_project = os.getenv("COMPOSE_PROJECT_NAME", ROOT.name.lower())
-    openssl = shutil.which("openssl")
-    if not openssl and os.name == "nt":
-        openssl = r"C:\Program Files\Git\usr\bin\openssl.exe"
-    if not openssl:
-        raise RuntimeError("OpenSSL is required for disposable test certificates.")
-    (ROOT / ".tmp").mkdir(exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="gce-smoke-", dir=ROOT / ".tmp") as directory:
-        temporary = Path(directory)
-        secrets = temporary / "secrets"
-        secrets.mkdir()
-        clients = temporary / "clients"
-        clients.mkdir()
-        def ssl(*args):
-            try:
-                run(openssl, *args, cwd=clients, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-            except subprocess.CalledProcessError as error:
-                raise RuntimeError(error.stderr) from error
-
-        (clients / "ca.cnf").write_text("[req]\ndistinguished_name=dn\nx509_extensions=ca\nprompt=no\n[dn]\nCN=Smoke CA\n[ca]\nbasicConstraints=critical,CA:TRUE\nkeyUsage=critical,keyCertSign,cRLSign\nsubjectKeyIdentifier=hash\n", encoding="utf-8")
-        ssl("req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1", "-config", "ca.cnf", "-keyout", "ca.key", "-out", "client-ca.crt")
-        for name, purpose in (("server", "serverAuth"), ("client", "clientAuth")):
-            ssl("req", "-newkey", "rsa:2048", "-nodes", "-subj", f"/CN={name}", "-keyout", f"{name}.key", "-out", f"{name}.csr")
-            (clients / f"{name}.ext").write_text(f"subjectAltName=DNS:localhost,IP:127.0.0.1\nextendedKeyUsage={purpose}\nbasicConstraints=CA:FALSE\n", encoding="utf-8")
-            ssl("x509", "-req", "-in", f"{name}.csr", "-CA", "client-ca.crt", "-CAkey", "ca.key", "-CAcreateserial", "-days", "1", "-extfile", f"{name}.ext", "-out", f"{name}.crt")
-        ssl("verify", "-CAfile", "client-ca.crt", "server.crt", "client.crt")
-        for name in ("server.key", "server.crt", "client-ca.crt"):
-            shutil.copyfile(clients / name, secrets / name)
-
-        for service in ("model-streaming-service", "param-update-service", "telemetry-service", "privoke-fuzzer", "client-runtime"):
-            run("docker", "tag", f"{source_project}-{service}:latest", f"{project}/{service}:test")
-        # Historical V1 TLS/topology coverage does not require or validate AU3 weights.
-        environment = {**os.environ, "IMAGE_PREFIX": project, "IMAGE_TAG": "test", "SECRETS_DIR": str(secrets),
-                       "FUZZER_PROMPT_COUNT": "0", "MODEL_RELEASE_DIR": str(temporary), "COMPOSE_PROFILES": "legacy-training"}
-        rendered = run("docker", "compose", "-f", str(ROOT / "deploy/gce/compose.yml"), "-f",
-                       str(ROOT / "evaluation/compose.legacy-ci.yml"), "config", "--format", "json",
-                       env=environment, capture_output=True)
-        config = json.loads(rendered.stdout)
-        config["name"] = project
-        # Keep the production routing/security, but reserve a random loopback port.
-        config["services"]["ingress"]["ports"] = [{"target": 443, "published": "0", "host_ip": "127.0.0.1", "protocol": "tcp"}]
-        for key, volume in config["volumes"].items():
-            volume["name"] = f"{project}_{key}"
-        for key, network in config.get("networks", {}).items():
-            network["name"] = f"{project}_{key}"
-        compose_file = temporary / "compose.json"
-        compose_file.write_text(json.dumps(config), encoding="utf-8")
-        compose = ["docker", "compose", "--project-name", project, "-f", str(compose_file)]
-        root_owned_secrets = None
+    def run(self, name: str, check: Callable[[], None]) -> None:
         try:
-            root_owned_secrets = ingress_secret_permissions_restore_token(secrets, temporary)
-            prepare_ingress_secret_permissions(root_owned_secrets)
-            run(*compose, "up", "-d", "--wait", "--wait-timeout", "240")
-            # Run the existing internal end-to-end checks against the cloud topology.
-            run(*compose, "exec", "-T", "client-runtime", "python", "/workspace/evaluation/run-component-tests.py", "stack-smoke")
-            endpoint = run(*compose, "port", "ingress", "443", capture_output=True).stdout.strip()
-            port = endpoint.rsplit(":", 1)[1]
-            generated = temporary / "generated"
-            generated.mkdir()
-            run(sys.executable, "-m", "grpc_tools.protoc", "-I", str(ROOT / "shared/proto"), f"--python_out={generated}", f"--grpc_python_out={generated}", str(ROOT / "shared/proto/privoke/v1/parameters.proto"), str(ROOT / "shared/proto/privoke/v1/telemetry.proto"))
-            sys.path.insert(0, str(generated))
-            from privoke.v1 import parameters_pb2 as parameters, parameters_pb2_grpc as parameter_rpc, telemetry_pb2 as telemetry, telemetry_pb2_grpc as telemetry_rpc
+            check()
+        except AssertionError as error:
+            self.rows.append((name, False, str(error) or "assertion failed"))
+        except Exception as error:  # noqa: BLE001 - a crashed check is a failed check
+            self.rows.append((name, False, f"{type(error).__name__}: {error}"))
+        else:
+            self.rows.append((name, True, ""))
+        status = "PASS" if self.rows[-1][1] else "FAIL"
+        print(f"{status}  {name}" + (f"  ({self.rows[-1][2]})" if not self.rows[-1][1] else ""), flush=True)
 
-            credentials = grpc.ssl_channel_credentials((clients / "client-ca.crt").read_bytes(), (clients / "client.key").read_bytes(), (clients / "client.crt").read_bytes())
-            # The test binds IPv4 loopback only; never route it through a host proxy.
-            with grpc.secure_channel(f"127.0.0.1:{port}", credentials, options=(("grpc.enable_http_proxy", 0),)) as channel:
-                models = parameter_rpc.ModelStreamingServiceStub(channel)
-                assert models.Health(parameters.HealthRequest(), timeout=10).status == "SERVING"
-                chunks = list(models.StreamModelParameters(parameters.ModelParametersRequest(consumer_id="cloud-smoke", model_id="latest"), timeout=20))
-                assert chunks and chunks[0].model_id
-                summary_before = read_telemetry_summary(compose)
-                epsilon = 1.0
-                synthetic_values = {
-                    "action": "ALLOW",
-                    "risk_bucket": "0.0-0.2",
-                    "primary_category": "NONE",
-                    "model_version": "v0.3.0",
-                    "time_bucket": "08-12_UTC",
-                }
-                protected_values = _PRIVACY_MODULE.randomize_report(
-                    synthetic_values, epsilon, rng=random.Random(2026)
-                )
-                packet = telemetry.TelemetryPacket(
-                    **protected_values,
-                    privacy_mechanism=_PRIVACY_MODULE.MECHANISM,
-                    privacy_epsilon=epsilon,
-                )
-                response = telemetry_rpc.TelemetryServiceStub(channel).RecordTelemetry(packet, timeout=10)
-                assert response.accepted, response.message
-                summary_after = read_telemetry_summary(compose)
-                validate_aggregate_summary(summary_before, summary_after, protected_values)
-                for path in ("ParamUpdateService/SubmitParameterUpdate", "ParamUpdateService/GetParameterUpdateStatus", "PrivokeRuntimeService/AnalyzePrompt", "FuzzerService/RunTrainingCycle"):
-                    try:
-                        channel.unary_unary(f"/privoke.v1.{path}")(b"", timeout=5)
-                    except grpc.RpcError as error:
-                        assert error.code() == grpc.StatusCode.UNIMPLEMENTED, (path, error)
-                    else:
-                        raise AssertionError(f"Private RPC was exposed: {path}")
-
-            for credentials in (
-                grpc.ssl_channel_credentials((clients / "client-ca.crt").read_bytes()),
-                grpc.ssl_channel_credentials(),  # Does not trust the private test CA.
-            ):
-                with grpc.secure_channel(f"127.0.0.1:{port}", credentials, options=(("grpc.enable_http_proxy", 0),)) as channel:
-                    try:
-                        parameter_rpc.ModelStreamingServiceStub(channel).Health(parameters.HealthRequest(), timeout=3)
-                    except grpc.RpcError:
-                        pass
-                    else:
-                        raise AssertionError("TLS accepted an untrusted server or missing client identity.")
-            # A recreation must retain seeded models and application data.
-            run(*compose, "exec", "-T", "param-update-service", "python", "-c", "from pathlib import Path; Path('/models/.smoke-persisted').write_text('retained')")
-            run(*compose, "up", "-d", "--force-recreate", "--wait", "--wait-timeout", "240")
-            run(*compose, "exec", "-T", "param-update-service", "python", "-c", "from pathlib import Path; assert Path('/models/.smoke-persisted').read_text() == 'retained'")
-            summary_recreated = read_telemetry_summary(compose)
-            assert summary_recreated["sample_count"] >= summary_after["sample_count"], "aggregate telemetry count decreased after recreation"
-            run(*compose, "exec", "-T", "client-runtime", "python", "/workspace/evaluation/run-component-tests.py", "stack-smoke", "--skip-training")
-            print("Cloud smoke passed: services, TLS identity, download, aggregate telemetry API, private RPC denial, and recreation.", flush=True)
-        except BaseException:
-            subprocess.run([*compose, "logs", "--tail", "80", "--no-color"], check=False)
-            raise
-        finally:
-            try:
-                run(*compose, "down", "--volumes", "--remove-orphans", "--timeout", "20")
-            finally:
-                try:
-                    restore_ingress_secret_directory_owner(root_owned_secrets)
-                finally:
-                    for service in ("model-streaming-service", "param-update-service", "telemetry-service", "privoke-fuzzer", "client-runtime"):
-                        run("docker", "image", "rm", "--no-prune", f"{project}/{service}:test", stdout=subprocess.DEVNULL)
+    @property
+    def failed(self) -> list[str]:
+        return [name for name, ok, _ in self.rows if not ok]
 
 
-def ingress_secret_permissions_restore_token(secrets: Path, temporary: Path):
-    """Capture the exact temporary secret directory and its original owner before mutation."""
-    if os.name == "nt":
-        # Docker Desktop translates bind-mount ownership from Windows filesystems.
-        return None
-    directory = secrets.resolve(strict=True)
-    temporary_root = temporary.resolve(strict=True)
-    server_key = (directory / "server.key").resolve(strict=True)
-    if directory.parent != temporary_root or server_key.parent != directory:
-        raise RuntimeError("TLS smoke secret paths must remain inside the temporary fixture directory.")
-    return (directory, (os.getuid(), os.getgid()))
+def load_stubs(directory: Path):
+    from grpc_tools import protoc
+
+    args = ["protoc", f"-I{PROTO_DIR}", f"--python_out={directory}", f"--grpc_python_out={directory}"]
+    args += [str(PROTO_DIR / "privoke/v1" / name) for name in ("parameters.proto", "telemetry.proto")]
+    if protoc.main(args) != 0:
+        raise RuntimeError("could not generate protobuf stubs")
+    sys.path.insert(0, str(directory))
+    from privoke.v1 import parameters_pb2, parameters_pb2_grpc, telemetry_pb2, telemetry_pb2_grpc
+
+    return parameters_pb2, parameters_pb2_grpc, telemetry_pb2, telemetry_pb2_grpc
 
 
-def prepare_ingress_secret_permissions(ownership):
-    """Match deploy.sh's root-only, non-recursive TLS key permissions on Linux."""
-    if ownership is None:
-        return
-    directory, _owner = ownership
-    server_key = directory / "server.key"
-    os.chmod(directory, 0o700)
-    os.chmod(server_key, 0o600)
-    os.chmod(directory / "server.crt", 0o644)
-    os.chmod(directory / "client-ca.crt", 0o644)
-    _run_as_root("chown", "0:0", str(server_key))
-    _run_as_root("chown", "0:0", str(directory))
+def channel(target: str, server_name: str, trust: bytes | None, identity: tuple[Path, Path] | None) -> grpc.Channel:
+    credentials = grpc.ssl_channel_credentials(
+        root_certificates=trust,
+        private_key=identity[1].read_bytes() if identity else None,
+        certificate_chain=identity[0].read_bytes() if identity else None,
+    )
+    options = CHANNEL_OPTIONS + ((("grpc.ssl_target_name_override", server_name),) if server_name else ())
+    return grpc.secure_channel(target, credentials, options=options)
 
 
-def restore_ingress_secret_directory_owner(ownership):
-    if ownership is None:
-        return
-    directory, (uid, gid) = ownership
-    _run_as_root("chown", f"{uid}:{gid}", str(directory))
-
-
-def _run_as_root(*args):
-    if os.name == "nt":
-        return
-    if hasattr(os, "geteuid") and os.geteuid() == 0:
-        command = list(args)
+def expect_code(code: grpc.StatusCode, call: Callable[[], object], what: str) -> None:
+    try:
+        call()
+    except grpc.RpcError as error:
+        assert error.code() == code, f"{what}: expected {code.name}, got {error.code().name}: {error.details()}"
     else:
-        sudo = shutil.which("sudo")
-        if sudo is None:
-            raise RuntimeError("TLS smoke requires root or non-interactive sudo to model the production-owned server key.")
-        command = [sudo, "-n", *args]
-    result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result.returncode:
-        detail = result.stderr.strip()
-        raise RuntimeError(f"Could not prepare restrictive TLS smoke permissions with {' '.join(command[:3])}: {detail}")
+        raise AssertionError(f"{what}: accepted, expected {code.name}")
 
 
-def read_telemetry_summary(compose):
-    code = (
-        "import json, grpc, sys; "
-        "sys.path.insert(0, '/workspace/services/telemetry-service/generated'); "
-        "from privoke.v1 import telemetry_pb2 as pb, telemetry_pb2_grpc as rpc; "
-        "channel = grpc.insecure_channel('127.0.0.1:50055'); "
-        "response = rpc.TelemetryServiceStub(channel).GetTelemetrySummary(pb.GetTelemetrySummaryRequest(), timeout=10); "
-        "print(json.dumps({'sample_count': response.sample_count, 'dimensions': "
-        "{dimension.dimension: {value.value: {'observed_noisy_count': value.observed_noisy_count, "
-        "'estimated_count': value.estimated_count} for value in dimension.values} "
-        "for dimension in response.dimensions}})); channel.close()"
-    )
-    result = run(
-        *compose, "exec", "-T", "telemetry-service", "python", "-c", code,
-        capture_output=True,
-    )
-    return json.loads(result.stdout.strip().splitlines()[-1])
+def pin_for(model_id: str, override: str | None) -> str:
+    if override:
+        return override
+    text = PINS_PATH.read_text(encoding="utf-8") if PINS_PATH.is_file() else ""
+    match = re.search(rf'"{re.escape(model_id)}"\s*:\s*"([0-9a-f]{{64}})"', text)
+    if not match:
+        raise AssertionError(f"no pin for {model_id}: pass --pin or provide {PINS_PATH.relative_to(ROOT)}")
+    return match.group(1)
 
 
-def validate_aggregate_summary(before, after, protected_values):
-    domains = _PRIVACY_MODULE.DOMAINS
-    dimensions = _PRIVACY_MODULE.DIMENSIONS
-    assert after["sample_count"] >= before["sample_count"] + 1, "synthetic report did not increase aggregate count"
-    assert set(after["dimensions"]) == set(dimensions), "aggregate API returned unexpected dimensions"
-    for dimension in dimensions:
-        assert set(after["dimensions"][dimension]) == set(domains[dimension]), f"wrong aggregate domain for {dimension}"
-        previous = before["dimensions"].get(dimension, {}).get(protected_values[dimension], {}).get("observed_noisy_count", 0)
-        current = after["dimensions"][dimension][protected_values[dimension]]["observed_noisy_count"]
-        assert current >= previous + 1, f"synthetic noisy {dimension} value missing from aggregate"
-        for value in after["dimensions"][dimension].values():
-            estimate = value["estimated_count"]
-            assert math.isfinite(estimate) and 0 <= estimate <= after["sample_count"], f"invalid estimate for {dimension}"
+def fetch_v3_package(models, pb, model_id: str, pin: str) -> int:
+    """Fetch the package and every asset over mutual TLS and verify the pin, sizes and digests. Returns the byte count."""
+    package = models.GetModelPackage(pb.ModelParametersRequest(consumer_id="", model_id=model_id), timeout=30)
+    assert package.model_id == model_id, f"package is for {package.model_id!r}"
+    manifest_digest = hashlib.sha256(package.manifest_json).hexdigest()
+    assert manifest_digest == package.manifest_sha256, "manifest bytes do not match the advertised digest"
+    assert manifest_digest == pin, "manifest digest is not the pinned release"
+    assert package.assets, "package declares no assets"
+    total = 0
+    for asset in package.assets:
+        digest, offset = hashlib.sha256(), 0
+        request = pb.ModelAssetRequest(consumer_id="", model_id=model_id, manifest_sha256=pin, asset_name=asset.name)
+        for chunk in models.StreamModelAsset(request, timeout=300):
+            assert chunk.asset_name == asset.name and chunk.offset == offset, f"{asset.name}: out-of-order chunk"
+            assert chunk.total_bytes == asset.size_bytes, f"{asset.name}: size differs from the declaration"
+            digest.update(chunk.data)
+            offset += len(chunk.data)
+        assert offset == asset.size_bytes, f"{asset.name}: {offset} bytes, declared {asset.size_bytes}"
+        assert digest.hexdigest() == asset.sha256, f"{asset.name}: digest differs from the declaration"
+        total += offset
+    return total
+
+
+def load_privacy():
+    spec = importlib.util.spec_from_file_location("privoke_smoke_privacy", PRIVACY_PATH)
+    if spec is None or spec.loader is None:
+        raise AssertionError(f"cannot load {PRIVACY_PATH}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def telemetry_packet(pb):
+    privacy = load_privacy()
+    epsilon = 1.0
+    truth = {"action": "ALLOW", "risk_bucket": "0.0-0.2", "primary_category": "NONE", "model_version": "v0.3.0",
+             "time_bucket": "08-12_UTC"}
+    values = privacy.randomize_report(truth, epsilon, rng=random.Random(20261117))
+    return pb.TelemetryPacket(**values, privacy_mechanism=privacy.MECHANISM, privacy_epsilon=epsilon)
+
+
+def docker_run(image: str, arguments: list[str], mounts: list[str], timeout: float) -> tuple[int | None, str]:
+    """Run an image once. Returns (exit code, output); the code is None if it was still running at the timeout."""
+    name = f"privoke-smoke-{int(time.time() * 1000) % 10**9}"
+    command = ["docker", "run", "--name", name, "--network", "none", "--read-only", "--cap-drop", "ALL",
+               "--security-opt", "no-new-privileges:true", "--group-add", "10010", *mounts, image, *arguments]
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    try:
+        output, _ = process.communicate(timeout=timeout)
+        return process.returncode, output[-400:]
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.communicate()
+        return None, "still running"
+    finally:
+        subprocess.run(["docker", "rm", "-f", name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+
+
+def startup_checks(results: Results, images: str, pki_dir: Path, live_dir: Path) -> None:
+    prefix, _, tag = images.rpartition(":")
+    assert prefix and tag, "--images must be PREFIX:TAG"
+    mounts = ["-v", f"{pki_dir.resolve()}:/pki:ro", "-v", f"{live_dir.resolve()}:/live:ro"]
+    full = ["--cert=/pki/server/server.crt", "--key=/pki/server/server.key", "--client-ca=/pki/client-ca.pem",
+            "--crl=/live/crl.pem", "--registry=/live/registry.toml"]
+    variants = {
+        "no arguments": [],
+        "no CRL": [a for a in full if not a.startswith("--crl")],
+        "missing CRL file": [a if not a.startswith("--crl") else "--crl=/live/absent-crl.pem" for a in full],
+        "no client CA": [a for a in full if not a.startswith("--client-ca")],
+        "missing client CA file": [a if not a.startswith("--client-ca") else "--client-ca=/pki/absent-ca.pem" for a in full],
+    }
+    for service in RUST_IMAGES:
+        for label, arguments in variants.items():
+            def check(service=service, arguments=arguments) -> None:
+                code, output = docker_run(f"{prefix}/{service}:{tag}", arguments, mounts, 60)
+                assert code not in (None, 0), f"started or exited 0 ({output.strip()[-120:]})"
+            results.run(f"{service} refuses to start: {label}", check)
+
+    def fuzzer_check() -> None:
+        code, output = docker_run(f"{prefix}/privoke-fuzzer:{tag}", [], [], 90)
+        assert code not in (None, 0), f"served plaintext or exited 0 ({output.strip()[-120:]})"
+    results.run("privoke-fuzzer refuses to serve without TLS", fuzzer_check)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--creds", type=Path, required=True, help="credential directory (see above)")
+    parser.add_argument("--model-target", required=True, help="host:port of the public model listener")
+    parser.add_argument("--telemetry-target", required=True, help="host:port of the public telemetry listener")
+    parser.add_argument("--server-name", default="", help="name in the server certificate (needed for loopback targets)")
+    parser.add_argument("--model-id", default="privoke-v3-balanced")
+    parser.add_argument("--no-v3-package", action="store_true",
+                        help="the stack serves no V3 package (CI): stream the legacy catalogue model instead; G8 is then not covered")
+    parser.add_argument("--legacy-model-id", default="privoke-balanced")
+    parser.add_argument("--pin", default=None, help="expected manifest SHA-256 (default: shared/python/privoke_model/standard_v3.py)")
+    parser.add_argument("--images", default=None, help="PREFIX:TAG of the cloud images, to run the start-up refusal checks")
+    parser.add_argument("--pki-dir", type=Path, default=None, help="with --images: the PKI directory the stack uses")
+    parser.add_argument("--live-dir", type=Path, default=None, help="with --images: directory holding crl.pem and registry.toml")
+    args = parser.parse_args()
+    if args.images and not (args.pki_dir and args.live_dir):
+        parser.error("--images needs --pki-dir and --live-dir")
+
+    creds = args.creds
+    ca = (creds / "server-ca.pem").read_bytes()
+    installation = (creds / "installation.crt", creds / "installation.key")
+    reporter = (creds / "reporter.crt", creds / "reporter.key")
+    unregistered = (creds / "unregistered.crt", creds / "unregistered.key")
+    foreign = (creds / "foreign.crt", creds / "foreign.key")
+    name = args.server_name
+    results = Results()
+
+    with tempfile.TemporaryDirectory(prefix="privoke-smoke-") as scratch:
+        pb, pb_rpc, tel, tel_rpc = load_stubs(Path(scratch))
+
+        def model_health(identity, trust=ca):
+            with channel(args.model_target, name, trust, identity) as ch:
+                return pb_rpc.ModelStreamingServiceStub(ch).Health(pb.HealthRequest(), timeout=10)
+
+        def telemetry_record(identity, trust=ca):
+            with channel(args.telemetry_target, name, trust, identity) as ch:
+                return tel_rpc.TelemetryServiceStub(ch).RecordTelemetry(telemetry_packet(tel), timeout=10)
+
+        # Mutual TLS is required on both listeners.
+        for label, call in (("model", model_health), ("telemetry", telemetry_record)):
+            results.run(f"{label}: a client without a certificate is refused",
+                        lambda call=call: expect_code(grpc.StatusCode.UNAVAILABLE, lambda: call(None), "no client certificate"))
+            results.run(f"{label}: a server that is not trusted is refused",
+                        lambda call=call: expect_code(grpc.StatusCode.UNAVAILABLE, lambda: call(installation, None), "untrusted server"))
+            if foreign[0].is_file():
+                results.run(f"{label}: a certificate from another CA is refused",
+                            lambda call=call: expect_code(grpc.StatusCode.UNAVAILABLE, lambda: call(foreign), "foreign CA"))
+
+        # Authorisation by role.
+        def installation_health() -> None:
+            response = model_health(installation)
+            assert response.service and response.status == "SERVING", f"{response.service!r} {response.status!r}"
+        results.run("model: a registered installation is served", installation_health)
+        results.run("model: the reporter credential is refused",
+                    lambda: expect_code(grpc.StatusCode.PERMISSION_DENIED, lambda: model_health(reporter), "reporter on model"))
+        results.run("telemetry: an installation certificate is refused",
+                    lambda: expect_code(grpc.StatusCode.PERMISSION_DENIED, lambda: telemetry_record(installation), "installation on telemetry"))
+        if unregistered[0].is_file():
+            results.run("model: an unregistered installation is refused",
+                        lambda: expect_code(grpc.StatusCode.PERMISSION_DENIED, lambda: model_health(unregistered), "unregistered"))
+
+        # R9: private RPCs are not served on the public listeners.
+        for label, target, identity in (("model", args.model_target, installation), ("telemetry", args.telemetry_target, reporter)):
+            def private(target=target, identity=identity) -> None:
+                with channel(target, name, ca, identity) as ch:
+                    for path in PRIVATE_RPCS:
+                        expect_code(grpc.StatusCode.UNIMPLEMENTED,
+                                    lambda path=path: ch.unary_unary(path)(b"", timeout=10), path)
+            results.run(f"{label}: private RPCs are denied (R9)", private)
+
+        # G8: the default V3 package is fetchable and verified against its pin. CI has no V3 weights (they are ignored by Git),
+        # so `--no-v3-package` replaces this row with a legacy catalogue stream and says so; it never counts as G8 evidence.
+        def legacy_stream() -> None:
+            with channel(args.model_target, name, ca, installation) as ch:
+                stream = pb_rpc.ModelStreamingServiceStub(ch).StreamModelParameters(
+                    pb.ModelParametersRequest(consumer_id="", model_id=args.legacy_model_id), timeout=60)
+                chunks = sum(1 for _ in stream)
+            assert chunks > 0, "the legacy model streamed no chunk"
+            print(f"      {args.legacy_model_id}: {chunks} chunks streamed (G8 NOT covered: no V3 package in this environment)", flush=True)
+
+        def v3() -> None:
+            pin = pin_for(args.model_id, args.pin)
+            with channel(args.model_target, name, ca, installation) as ch:
+                size = fetch_v3_package(pb_rpc.ModelStreamingServiceStub(ch), pb, args.model_id, pin)
+            print(f"      {args.model_id}: {size} asset bytes verified against pin {pin[:12]}", flush=True)
+        if args.no_v3_package:
+            results.run(f"model: {args.legacy_model_id} streamed by a registered installation (G8 skipped)", legacy_stream)
+        else:
+            results.run(f"model: {args.model_id} fetched and its pin verified (G8)", v3)
+
+        # Telemetry is accepted with the reporter credential.
+        def accepted() -> None:
+            response = telemetry_record(reporter)
+            assert response.accepted, response.message
+        results.run("telemetry: a randomised report is accepted with the reporter credential", accepted)
+
+    if args.images:
+        startup_checks(results, args.images, args.pki_dir, args.live_dir)
+
+    failed = results.failed
+    print(f"{len(results.rows) - len(failed)} passed, {len(failed)} failed", flush=True)
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

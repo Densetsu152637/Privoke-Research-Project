@@ -10,8 +10,8 @@ The extension checks prompts before supported AI websites send their network req
 
 The extension has its own workstation runtime process. Although that process and the server Compose `client-runtime` are built from the same `client-runtime` package, they are independent instances:
 
-- the extension reaches only its supervisor-owned bridge at `127.0.0.1:8080`;
-- the supervisor controls only its child detector on `127.0.0.1:50057`;
+- the extension reaches only the PriVoke controller, over a native-messaging port: there is no loopback listener (stage W4; the gRPC-Web bridge on `127.0.0.1:8080` is the retired path, kept as the oracle);
+- the controller owns one sandboxed worker (`worker_main.py`) that it reaches over pipes, never over a port;
 - the Compose detector remains at `client-runtime:50054` for the fuzzer and evaluation tooling; and
 - neither deployment discovers, controls, or falls back to the other.
 
@@ -19,17 +19,19 @@ Docker is optional for the extension's regex and NER layers. It is used only whe
 
 ## Behavior
 
-- The master toggle starts or stops the client-runtime detector process through `PrivokeRuntimeControlService`. The lightweight supervisor stays online so an off runtime can be started again.
+- The master toggle starts or stops the sandboxed client-runtime worker through the controller's `SetRuntimeEnabled` method. The controller itself stays online while the browser holds its port, so an off runtime can be started again.
 - **Regex**, **NER**, and **LLM (streamed)** can be enabled independently; all three start enabled.
-- When semantic protection is configured, analysis checks streaming availability through the supervisor. Health results are cached for five seconds and concurrent checks are coalesced. An outage uses other enabled layers temporarily; semantic remains configured and resumes automatically after a successful later check.
-- If semantic is the only enabled layer, unavailable streaming keeps the request protected by a runtime error and blocks it. Disabling the master toggle or all layers explicitly bypasses analysis.
+- The popup greys out and disables the LLM control until its availability check succeeds. Failed checks show **Unavailable**; the popup retries every five seconds while open and checks again after turning PriVoke on or changing servers. A saved LLM selection is retained during an outage for automatic recovery, but the disabled control cannot be changed. Regex and NER controls remain usable.
+- When semantic protection is configured, analysis checks streaming availability through the controller (`ModelStreamingHealth`). Health results are cached for five seconds and concurrent checks are coalesced. An outage uses other enabled layers temporarily; semantic remains configured and resumes automatically after a successful later check.
+- If semantic is the only enabled layer, unavailable streaming produces an analysis error. Website interception warns and continues the original request; manual popup analysis still reports the error. Disabling the master toggle or all layers explicitly bypasses analysis.
 - Manual analysis reports a compact `PASS`, `WARN`, or `ERROR` badge beside the **Analyse prompt** button. `BLOCK` maps to `ERROR` in this compact UI.
 - Website notifications are shown only for `WARN` and `BLOCK`. The detected evidence span is rendered in red; `ALLOW` stays silent.
-- A warning allows the original web request to continue. A block cancels it before it is sent.
+- By default a warning allows the original web request to continue (see the opt-in WARN+MASK setting above). A block cancels it before it is sent.
 - Blocked `fetch` calls reject with a `TypeError` so the site's normal failure handler can report the unsent prompt. Blocked XHR calls expose `DONE` with status `0` and emit `readystatechange`, `error`, and `loadend`, allowing the site's loading state to finish. Cancellation and XHR timeouts during the privacy check also emit their usual terminal events, and late analysis results cannot send a cancelled request.
 - Synchronous XHR prompt calls fail immediately with `NetworkError`, because the extension's privacy check requires asynchronous messaging. Unmatched requests retain their native behavior.
 - Settings persist in the standard WebExtensions local-storage API. **Wait for regex** selects first/short-circuit versus parallel execution. **Model profile** selects the three standard V3 tiers or explicit older V1 tiers; **Latest (V3 balanced)** is the default. Existing explicit V1 choices migrate to their labeled older profiles.
 - Every analysis request names the concrete enabled layers; the extension never relies on the runtime's omitted-layer default.
+- **WARN+MASK** (`warnMasking`, default `false`, no popup control; set `{ warnMasking: true }` through the `UPDATE_SETTINGS` message or the persisted `privokeSettings` object): when on, a `WARN` decision replaces every positive detector span that carries a character offset (from all executed layers' results and the evidence span) with a typed placeholder such as `[PRIVOKE_CONTACT]` in the prompt text of the outgoing `fetch` or asynchronous XHR body before native handoff. Overlapping spans merge (differing categories give `[PRIVOKE_SENSITIVE]`); offsets count Unicode code points. The request is handed off as `MASKED_REQUEST_HANDED_OFF`. If the prompt cannot be located as a single string value in a JSON or plain-text body (form-encoded, multi-part, Blob, or nested-JSON envelope bodies), or no span is available, the original request is forwarded as under plain WARN. `ALLOW` and `BLOCK` are unaffected. Masking is bounded by detector span recall: unlocated or missed sensitive text is still sent. The V3 semantic layer reports a whole-prompt span, so with the semantic layer on, a semantic-triggered WARN under WARN+MASK redacts the entire prompt. If building the masked request or rewriting the body throws, the original request is forwarded as under plain WARN. Measured effect: [WARN intervention experiment](../experiments/warn-intervention-20261116.md).
 
 The page-network hook currently recognises prompt POSTs for:
 
@@ -39,25 +41,45 @@ The page-network hook currently recognises prompt POSTs for:
 - Microsoft Copilot,
 - OpenAI Chat Completions and Responses API requests made from a matching browser page.
 
-Both `fetch` and `XMLHttpRequest` are intercepted at `document_start`. If the extension bridge or runtime is unavailable, website requests are blocked and a notice reports that analysis could not complete safely. A streamed semantic outage falls back to other enabled detection layers; when no fallback layer is enabled, prompts remain blocked until semantic analysis recovers.
+### Coverage gap: Microsoft Copilot in Edge
+
+Edge 157 refuses every extension script on `copilot.microsoft.com`: declarative content scripts in both worlds, `<all_urls>` scripts and `chrome.scripting.executeScript` all fail with Chromium's restricted-URL error `The extensions gallery cannot be scripted.`, the same treatment as `microsoftedge.microsoft.com` and the Chrome Web Store, even though the host permission is granted. No manifest, permission or extension code can lift it, and `--allow-scripting-gallery` does not. Chrome and Firefox are unaffected. On that page in Edge the hook cannot run, so prompts are sent without analysis, warning or blocking. Evidence: [Edge Copilot addendum](../../paper/research/cross-platform-edge-addendum-20261117.md).
+
+To keep the gap visible, the background pings the content script of every supported provider tab after it loads (three tries, 500 ms apart). A tab whose script never answers gets a red `!` action badge and the title "PriVoke cannot inspect this page", and the popup shows the same warning. The check reads the tab URL, so the supported provider hosts are also explicit `host_permissions` (Chromium does not expose a tab's URL to the background for content-script matches alone); this adds no install warning beyond the existing content-script hosts. The badge reports the gap; it does not block the page. Users who need enforcement for Copilot should use Chrome or Firefox.
+
+Both `fetch` and `XMLHttpRequest` are intercepted at `document_start`. Website interception allows the original request to continue when analysis cannot complete: unavailable bridge/runtime, analysis timeout, missing/invalid replies, detector execution failure without a genuine blocking finding, or unreadable/oversized inspection bodies. A warning says the prompt will be sent without a complete privacy check. A streamed semantic outage still uses other enabled layers when available. A successful detector BLOCK remains blocked, including blocking evidence returned alongside an independent layer error. The runtime's own error policy and manual popup error reporting are unchanged.
+
+Known analysis timeouts, disconnected extension contexts, and local runtime connection failures show fixed recovery guidance: check the runtime in the popup, reload the AI page, or start/check the local runtime respectively. Unknown failures retain a generic analysis-unavailable warning; raw error details are never copied into notices. A failure warning does not mean sensitive content was detected. Warning rendering failures cannot prevent handoff.
+
+The page waits 35.5 seconds for the extension decision, covering the sequential 3.5-second semantic health check and unchanged 30-second analysis deadline plus 2 seconds for messaging. A missing decision after that outer deadline warns and permits handoff. Synchronous XHR also warns and sends without awaiting analysis. Caller cancellation, native network failures, and invalid or consumed request bodies retain their normal browser behavior. Stream inspection reads a clone; on inspection failure the untouched upload branch is handed to native fetch.
+
+For ChatGPT, analysis requires text from a recognized prompt field or user message. Metadata-only conversation requests (for example model, action, and identifier fields) and assistant/system-only messages do not trigger analysis or a prompt notice. Conversation subpaths remain eligible when their bodies contain user prompt text; there is no blanket preparation-path exclusion. This uses the supported structured payload shapes, not a captured inventory of ChatGPT's current background requests, so future payload changes still require compatibility validation.
+
+Background listeners use callback replies and keep the message channel open until analysis finishes in both `browser` and `chrome` namespaces, including browsers exposing both. Sending messages through the `browser` namespace continues to use its Promise API.
 
 ## Request path
 
 ```text
-supported AI page fetch/XHR  ─┐
-extension popup manual check ─┴─> MV3 background worker or event page
-                                  -> gRPC-Web http://127.0.0.1:8080
-                                  -> supervisor-hosted loopback bridge
-                                      |-> lifecycle/model health -> control gRPC :50056
-                                      `-> prompt analysis -> detector gRPC :50057
+supported AI page fetch/XHR  -+
+extension popup manual check -+-> MV3 background worker or event page
+                                  -> native-messaging port (runtime.connectNative)
+                                  -> PriVoke controller (privoke-supervisor native-host, Rust)
+                                      |-> lifecycle, status, model health -> handled in the controller
+                                      `-> prompt analysis -> pipes -> sandboxed worker (worker_main.py)
                                                             -> regex / NER / semantic layers
 ```
 
-The LLM toggle health check goes through the Python supervisor's `ModelStreamingHealth` RPC. The browser bridge never routes directly to the parameter-streaming service; the supervisor performs the native gRPC health call on demand. Model parameters flow from that endpoint to the extension-local detector only when its streamed semantic layer is requested. The bridge, control service, and detector are forced to loopback and are not a remote deployment path.
+The carrier changed in stage W4; the messages did not. The extension still builds `AnalyzePromptRequest`, `SetRuntimeEnabledRequest` and the other `runtime.proto` messages with its static protobuf codec, and still decodes the same responses. Each message travels as base64 inside a small JSON envelope (`{"v":1,"id":7,"method":"AnalyzePrompt","payload":"..."}`), and each reply carries the request's `id` (see [Controller protocol](rust-workspace.md#controller-protocol)). The extension's runtime client is `src/runtime-client.js` over `src/native-port-transport.js`.
 
-The supervisor is intentionally separate from the detector runtime. A shutdown method hosted by the detector itself could stop the process, but could not receive the later start request. The supervisor owns the child process, waits for extension-local port `50057` on startup, terminates it on shutdown, and also stops it when the supervisor process is terminated. Port `50057` is deliberately distinct from the development Compose runtime published on `50054`, so the browser extension and server simulation can run together. The supervisor also hosts the loopback gRPC-Web bridge on port `8080`, so the normal workstation path does not require a separate proxy process.
+- **Host and port.** The browser starts the controller when the port opens and ends it when the port closes or the browser exits. The native host is `org.privoke.runtime_controller`; the Python launcher `org.privoke.runtime_launcher` is a different name, so both can stay registered.
+- **Timeouts.** The caller's `AbortSignal` ends a request exactly as it ended a `fetch`: 30 seconds for analysis, 3.5 seconds for the health check, 15 seconds to stop the runtime and 36 seconds to start it. The page still waits 35.5 seconds for the extension's decision. A request made with no signal ends at a 60-second ceiling.
+- **Failures.** Every failure rejects the request: an error reply, a malformed reply, a disconnect, a host that is not installed, a port that cannot be written, an abort. Nothing is retried or replayed on a new port, and nothing is turned into an analysis result. What the page then does is the website-interception policy below (warn and hand off), unchanged.
+- **Reconnect.** After a controller restart the new process has nothing running; the background worker restores the configured runtime when it sees the next port open.
+- **No loopback permissions.** The manifest no longer asks for `http://127.0.0.1/*` or `http://localhost/*`.
 
-Browsers cannot call a native gRPC HTTP/2 endpoint directly. The bridge translates gRPC-Web frames while keeping the shared protobuf files as the request and response contracts.
+The controller is intentionally separate from the worker. It owns the worker's process, starts it under the operating-system sandbox of `privoke-worker-pool` (dies with the controller, memory and process limits, clean environment; network denial on Linux only, none claimed on Windows), and stops it when the port closes. The worker never opens a socket and reads models only from the controller's read-only cache. The LLM toggle's health check is a `ModelStreamingHealth` call to the controller, which makes the model-streaming call itself over mutual TLS; the extension never reaches the parameter-streaming service directly.
+
+The Python supervisor, gRPC-Web bridge and native host (`extension/runtime-supervisor`) remain in the tree as the oracle for the stage 0 transcripts and the conformance tests. The current extension build does not speak to them.
 
 ## Run locally
 
@@ -67,8 +89,10 @@ The extension itself is not deployed with Docker. Install its native messaging l
 
 ```bash
 python models/prepare_standard_releases.py
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build model-streaming-service
+docker compose up --build model-streaming-service
 ```
+
+The default development stack publishes `127.0.0.1:50051` to the workstation for the extension's Dev setting. The explicitly selected `docker-compose.prod.yml` keeps this port internal to Docker and is not reachable by the browser's local supervisor. In `docker compose ps`, `50051/tcp` alone is internal exposure; Dev requires `127.0.0.1:50051->50051/tcp`.
 
 2. Prepare the detector and supervisor. The commands below use one virtual environment, but each process keeps its own source and generated protobuf bindings:
 
@@ -106,7 +130,7 @@ acceleration. Restart the browser and supervisor after environment changes.
 The default profile follows `latest` (V3 balanced); explicit V3 tiers are available.
 Older saved V1 choices retain V1 selection and are labeled as older models.
 
-The bridge, control service, and detector are forced to loopback. The supervisor prefers `client-runtime/.venv` for the detector process (or `PRIVOKE_RUNTIME_PYTHON` when explicitly set) and refuses to start it unless Presidio and the `en_core_web_sm` spaCy model load successfully. The extension JavaScript itself does not run the model: it sends requests to this workstation Python child, so the Compose GPU override does not affect extension traffic. Only explicit legacy V1 streamed-transformer models use the selected accelerator; regex and spaCy NER remain on CPU. The workstation uses `PRIVOKE_CLOUD_TARGET` with TLS by default; the hidden local-development setting selects `127.0.0.1:50051`. The separate Compose detector uses the internal service name. Streaming-service health is intentionally not part of the local dependency preflight.
+The controller opens no listening socket. It prefers `client-runtime/.venv` for the worker process (or `PRIVOKE_RUNTIME_PYTHON` when explicitly set) and the worker refuses to announce itself unless Presidio and the configured NER backend load successfully (by default the `en_core_web_sm` spaCy model named by `PRIVOKE_NER_MODEL`). The extension JavaScript itself does not run the model: it sends requests to this workstation Python worker through the controller, so the Compose GPU override does not affect extension traffic. Only explicit legacy V1 streamed-transformer models use the selected accelerator; regex and spaCy NER remain on CPU. The workstation uses `PRIVOKE_CLOUD_TARGET` with TLS by default; the hidden local-development setting selects `127.0.0.1:50051`. The separate Compose detector uses the internal service name. Streaming-service health is intentionally not part of the local dependency preflight.
 
 3. Build the portable extension:
 
@@ -137,17 +161,17 @@ cd extension/runtime-supervisor
 sh ./scripts/install-native-host.sh opera
 ```
 
-The installers generate the correct `allowed_origins` or `allowed_extensions` manifest and register it in the selected browser's native-messaging location. Opera GX uses its documented Chrome-compatible Windows registry location. The host accepts only the fixed `ensure_supervisor` action.
+The installers generate the correct `allowed_origins` or `allowed_extensions` manifest and register it in the selected browser's native-messaging location. Opera GX uses its documented Chrome-compatible Windows registry location. The controller's only interface is the versioned port protocol (`AnalyzePrompt`, `Status`, `SetRuntimeEnabled`, `ModelStreamingHealth`).
 
-When PriVoke is configured on, the background worker restores that state when it is loaded, installed, or notified of browser startup. Opening the popup also repairs a stopped supervisor/runtime instead of only reporting it. If the loopback bridge is unavailable, the worker invokes the native launcher, waits for the supervisor and bridge, and then asks the supervisor to start the detector. The launcher starts the supervisor with `PRIVOKE_RUNTIME_START_ENABLED=false` so these are two explicit stages. The supervisor and detector are operating-system processes independent of the popup lifecycle, so closing or minimising the popup does not stop them. Supervisor output is written to `%TEMP%\PriVoke\runtime-supervisor.log`.
+When PriVoke is configured on, the background worker restores that state when it is loaded, installed, or notified of browser startup. Opening the popup also repairs a stopped runtime instead of only reporting it. Restoring means opening the native port (which starts the controller), asking for its status, and then asking it to start the worker; a host that is not installed fails at once with the install hint. The controller and its worker end with the port, so closing the browser leaves no PriVoke process behind. Controller output goes to the browser's native-host log.
 
-For development without native messaging, start the supervisor manually from `extension/runtime-supervisor`:
+The native host registered by these scripts is the Python launcher (`org.privoke.runtime_launcher`) unless the Rust controller is named: pass `-SupervisorBinary <path to privoke-supervisor.exe>` (PowerShell) or set `PRIVOKE_SUPERVISOR_BINARY` (shell) to register `org.privoke.runtime_controller`, which is what the current extension build connects to. There is no manual-start development path for the controller: a browser has to start it, because the extension reaches it only through the native port. The Python supervisor can still be started by hand for the oracle tests:
 
 ```bash
 ../client-runtime/.venv/bin/python src/main.py
 ```
 
-The repository does not include a separate extension Compose file. If neither the registered native launcher nor a manually started supervisor is available, intercepted website requests are blocked and the popup reports that the native messaging host must be installed.
+The repository does not include a separate extension Compose file. If the controller's native host is not registered, intercepted website requests continue with an incomplete-check warning and the popup reports that the native messaging host must be installed.
 
 5. Load `extension/dist` using the target browser's development-extension page:
 
@@ -167,18 +191,18 @@ npm test
 npm run build
 ```
 
-The extension expects its single workstation-local HTTP endpoint at `127.0.0.1:8080`. The bridge routes internally to the supervisor control service and its detector child. The extension, supervisor, bridge, and detector process remain separate from both server Compose deployments.
+The extension has no network endpoint of its own on the workstation: it reaches the controller through the native-messaging port only, and the controller opens no listening socket. The extension, controller and worker remain separate from both server Compose deployments.
 
 For incremental builds, run `npm run dev` and reload the unpacked extension plus any supported website tabs after a change.
 
 ## Local boundaries
 
-- The runtime bridge permission is limited to HTTP loopback hosts. WebExtension host match patterns cannot scope this to only port `8080`, although the client endpoint is fixed to that port.
+- The extension has no loopback permission and the controller and worker listen on no port, so there is nothing on the workstation for another local process or a web page to connect to. The native host accepts only the extension origins named in its manifest (`allowed_origins` or `allowed_extensions`).
 - Website access is limited in the manifest to the supported AI hosts listed above.
-- The supervisor-hosted bridge binds only to `127.0.0.1`, routes runtime analysis and lifecycle control, and limits browser CORS to local pages and extension origins. It has no route to `model-streaming-service`.
-- Loopback binding prevents remote-network access, but CORS is not local-process authentication. Another application on the workstation can construct requests to these local services.
-- Prompt text is sent to the local bridge and runtime. Runtime telemetry excludes prompt text and identifiers, randomizes bounded event fields, and enforces a persistent daily privacy budget.
-- The browser bridge is local extension infrastructure and is deliberately absent from the server Docker deployments.
+- The controller has no route to `model-streaming-service` for the extension: it makes the model-health and model-fetch calls itself over mutual TLS.
+- Prompt text is sent to the controller and its worker over the browser's native-messaging pipe and the controller's pipes. Runtime telemetry excludes prompt text and identifiers, randomizes bounded event fields, and enforces a persistent daily privacy budget.
+- The worker's sandbox is lifetime and resource limits on every platform, plus network denial on Linux. On Windows no network denial is claimed: the worker's own self-check and the absence of network code in it are the controls there.
+- The controller is local extension infrastructure and is deliberately absent from the server Docker deployments.
 
 ## Layout
 
@@ -187,14 +211,16 @@ For incremental builds, run `npm run dev` and reload the unpacked extension plus
 - `src/content-script.js`: isolated-world extension messaging relay and WARN/BLOCK notice.
 - `src/background.js`: analysis, health, and settings message handling.
 - `src/prompt-interception.js`: supported endpoints and prompt extraction.
-- `src/runtime-client.js`: protobuf encoding plus analysis, lifecycle, and supervisor-mediated health gRPC-Web calls.
+- `src/runtime-client.js`: protobuf encoding plus analysis, lifecycle and health calls over the native port.
+- `src/native-port-transport.js`: the native-messaging port, request envelope, deadlines and fail-closed behavior.
 - `src/analysis-request.js`: enforces explicit concrete layers on every outgoing analysis RPC.
 - `src/settings.js`: defaults, validation, and persisted settings.
+- `src/redaction.js`: opt-in WARN+MASK span merging, placeholder text and request-body rewriting (shared test vectors in `test/fixtures/mask-vectors.json`).
 - `src/webextension-api.js`: promise/callback and `browser`/`chrome` namespace portability adapter.
 - `scripts/build.mjs`: esbuild bundles and static-file assembly into `dist`.
 - `client-runtime`: Python inspection runtime and detector layers.
-- `runtime-supervisor`: separate Python lifecycle process that owns the loopback gRPC-Web bridge, detector child, and model-health control RPC.
+- `runtime-supervisor`: the Python lifecycle process, gRPC-Web bridge and native host, kept as the oracle; the controller that replaces it is `rust/services/runtime-supervisor` ([Rust workspace](rust-workspace.md#privoke-runtime-supervisor-controller-stages-7-and-w4)).
 
-The two Python processes are documented in [Client runtime](client-runtime.md) and [Runtime supervisor](supervisor.md).
+The worker and the retired Python processes are documented in [Client runtime](client-runtime.md), [Runtime supervisor](supervisor.md) and [Worker protocol](worker-protocol.md).
 
-The hook covers recognized POST endpoint/body shapes through page `fetch` and asynchronous XHR. It does not claim coverage for WebSocket, `sendBeacon`, workers, every attachment payload, or future website endpoint changes. WARN continues the original request; returned `masked_text` is evidence for consumers and is not automatically substituted into website traffic. Live website/native-host compatibility requires release validation beyond the JavaScript harness.
+The hook covers recognized POST endpoint/body shapes through page `fetch` and asynchronous XHR. It does not claim coverage for WebSocket, `sendBeacon`, workers, every attachment payload, or future website endpoint changes. By default WARN continues the original request; returned `masked_text` (which masks only the single evidence span) is evidence for consumers and is not substituted into website traffic. Only the opt-in WARN+MASK setting above rewrites traffic, using all located spans rather than `masked_text`. Live website/native-host compatibility requires release validation beyond the JavaScript harness.

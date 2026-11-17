@@ -8,8 +8,12 @@ Start with the [documentation index](docs/README.md), the [project architecture]
 
 ```bash
 python models/prepare_standard_releases.py
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+docker compose up --build
 ```
+
+The default `docker-compose.yml` runs development images with source mounts and
+loopback ports. For production images and internal-only service ports, use
+`docker compose -f docker-compose.prod.yml up -d --build`.
 
 The standard `latest` profile is the selected AU3 V3 balanced package. Preparation
 verifies existing local exports and copies their original bytes into an ignored,
@@ -27,7 +31,7 @@ runtime on `127.0.0.1:50054` for those scripts.
 
 ## Compute Engine deployment
 
-After the one-time Google Cloud and GitHub setup, pushes to `main` run the full service CI, publish five commit-tagged images to Artifact Registry, and deploy them to a Compute Engine VM through IAP. A TLS ingress requires an installation-specific client certificate. The VM retains model artifacts and service data across releases.
+After the one-time Google Cloud and GitHub setup, pushes to `main` run the full service CI, publish five commit-tagged images to Artifact Registry, and deploy them to a Compute Engine VM through IAP (once the repository variable `GCP_DEPLOY_ENABLED` is set; the workflow is inert before that). The Rust model and telemetry services terminate mutual TLS themselves, with an installation-specific client certificate. The VM retains model artifacts and service data across releases.
 
 Copy [.env.example](.env.example) for the complete list of GitHub secret names. Runtime credentials have a separate [client template](extension/client-runtime/.env.example) and VM configuration has a [deployment template](deploy/gce/.env.example). Actual `.env` files and private keys are ignored and excluded from image builds.
 

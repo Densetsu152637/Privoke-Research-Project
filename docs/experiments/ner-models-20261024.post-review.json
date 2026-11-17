@@ -1,0 +1,1072 @@
+{
+ "configs": {
+  "gliner-core-t0.5-pf0": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": false,
+    "preset": "core",
+    "threshold": 0.5
+   },
+   "dataset_sha256": {
+    "check": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095",
+    "openai": "8e8e611b9d40f7d554726d577449585faefb9aec97f5dd4ffb051af1a6da2c3b"
+   },
+   "freeze_commit": "f4f07c3c492362c09e8f58a356e88ac5d26967ea",
+   "splits": {
+    "check": {
+     "mean_ms_per_prompt_indicative": 29.44485106382979,
+     "n": 235,
+     "ner": {
+      "block": {
+       "FN": 116,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 74,
+       "FP": 8,
+       "TN": 111,
+       "TP": 42,
+       "recall": 0.3620689655172414,
+       "specificity": 0.9327731092436975
+      }
+     },
+     "positives": 116,
+     "regex": {
+      "block": {
+       "FN": 66,
+       "FP": 0,
+       "TN": 119,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 42,
+       "FP": 2,
+       "TN": 117,
+       "TP": 74,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 66,
+       "FP": 0,
+       "TN": 119,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 26,
+       "FP": 10,
+       "TN": 109,
+       "TP": 90,
+       "recall": 0.7758620689655172,
+       "specificity": 0.9159663865546218
+      }
+     }
+    },
+    "openai": {
+     "mean_ms_per_prompt_indicative": 33.291750000000015,
+     "n": 1000,
+     "ner": {
+      "block": {
+       "FN": 500,
+       "FP": 0,
+       "TN": 500,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 268,
+       "FP": 90,
+       "TN": 410,
+       "TP": 232,
+       "recall": 0.464,
+       "specificity": 0.82
+      }
+     },
+     "positives": 500,
+     "regex": {
+      "block": {
+       "FN": 127,
+       "FP": 30,
+       "TN": 470,
+       "TP": 373,
+       "recall": 0.746,
+       "specificity": 0.94
+      },
+      "positive": {
+       "FN": 52,
+       "FP": 34,
+       "TN": 466,
+       "TP": 448,
+       "recall": 0.896,
+       "specificity": 0.932
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 127,
+       "FP": 30,
+       "TN": 470,
+       "TP": 373,
+       "recall": 0.746,
+       "specificity": 0.94
+      },
+      "positive": {
+       "FN": 29,
+       "FP": 116,
+       "TN": 384,
+       "TP": 471,
+       "recall": 0.942,
+       "specificity": 0.768
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "f4f07c3c492362c09e8f58a356e88ac5d26967ea"
+  },
+  "gliner-core-t0.5-pf1": {
+   "config": {
+    "backend": "gliner",
+    "postfilter": true,
+    "preset": "core",
+    "threshold": 0.5
+   },
+   "dataset_sha256": {
+    "check": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095",
+    "openai": "8e8e611b9d40f7d554726d577449585faefb9aec97f5dd4ffb051af1a6da2c3b"
+   },
+   "freeze_commit": "f4f07c3c492362c09e8f58a356e88ac5d26967ea",
+   "splits": {
+    "check": {
+     "mean_ms_per_prompt_indicative": 77.27672340425526,
+     "n": 235,
+     "ner": {
+      "block": {
+       "FN": 116,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 104,
+       "FP": 0,
+       "TN": 119,
+       "TP": 12,
+       "recall": 0.10344827586206896,
+       "specificity": 1.0
+      }
+     },
+     "positives": 116,
+     "regex": {
+      "block": {
+       "FN": 66,
+       "FP": 0,
+       "TN": 119,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 42,
+       "FP": 2,
+       "TN": 117,
+       "TP": 74,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 66,
+       "FP": 0,
+       "TN": 119,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 38,
+       "FP": 2,
+       "TN": 117,
+       "TP": 78,
+       "recall": 0.6724137931034483,
+       "specificity": 0.9831932773109243
+      }
+     }
+    },
+    "openai": {
+     "mean_ms_per_prompt_indicative": 97.54305999999995,
+     "n": 1000,
+     "ner": {
+      "block": {
+       "FN": 500,
+       "FP": 0,
+       "TN": 500,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 419,
+       "FP": 4,
+       "TN": 496,
+       "TP": 81,
+       "recall": 0.162,
+       "specificity": 0.992
+      }
+     },
+     "positives": 500,
+     "regex": {
+      "block": {
+       "FN": 127,
+       "FP": 30,
+       "TN": 470,
+       "TP": 373,
+       "recall": 0.746,
+       "specificity": 0.94
+      },
+      "positive": {
+       "FN": 52,
+       "FP": 34,
+       "TN": 466,
+       "TP": 448,
+       "recall": 0.896,
+       "specificity": 0.932
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 127,
+       "FP": 30,
+       "TN": 470,
+       "TP": 373,
+       "recall": 0.746,
+       "specificity": 0.94
+      },
+      "positive": {
+       "FN": 38,
+       "FP": 38,
+       "TN": 462,
+       "TP": 462,
+       "recall": 0.924,
+       "specificity": 0.924
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "f4f07c3c492362c09e8f58a356e88ac5d26967ea"
+  },
+  "lg-pf0": {
+   "config": {
+    "backend": "spacy",
+    "model": "en_core_web_lg",
+    "postfilter": false
+   },
+   "dataset_sha256": {
+    "check": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095",
+    "openai": "8e8e611b9d40f7d554726d577449585faefb9aec97f5dd4ffb051af1a6da2c3b"
+   },
+   "freeze_commit": "f4f07c3c492362c09e8f58a356e88ac5d26967ea",
+   "splits": {
+    "check": {
+     "mean_ms_per_prompt_indicative": 38.02714893617024,
+     "n": 235,
+     "ner": {
+      "block": {
+       "FN": 116,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 61,
+       "FP": 3,
+       "TN": 116,
+       "TP": 55,
+       "recall": 0.47413793103448276,
+       "specificity": 0.9747899159663865
+      }
+     },
+     "positives": 116,
+     "regex": {
+      "block": {
+       "FN": 66,
+       "FP": 0,
+       "TN": 119,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 42,
+       "FP": 2,
+       "TN": 117,
+       "TP": 74,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 66,
+       "FP": 0,
+       "TN": 119,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 23,
+       "FP": 5,
+       "TN": 114,
+       "TP": 93,
+       "recall": 0.8017241379310345,
+       "specificity": 0.957983193277311
+      }
+     }
+    },
+    "openai": {
+     "mean_ms_per_prompt_indicative": 38.86319000000001,
+     "n": 1000,
+     "ner": {
+      "block": {
+       "FN": 500,
+       "FP": 0,
+       "TN": 500,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 269,
+       "FP": 59,
+       "TN": 441,
+       "TP": 231,
+       "recall": 0.462,
+       "specificity": 0.882
+      }
+     },
+     "positives": 500,
+     "regex": {
+      "block": {
+       "FN": 127,
+       "FP": 30,
+       "TN": 470,
+       "TP": 373,
+       "recall": 0.746,
+       "specificity": 0.94
+      },
+      "positive": {
+       "FN": 52,
+       "FP": 34,
+       "TN": 466,
+       "TP": 448,
+       "recall": 0.896,
+       "specificity": 0.932
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 127,
+       "FP": 30,
+       "TN": 470,
+       "TP": 373,
+       "recall": 0.746,
+       "specificity": 0.94
+      },
+      "positive": {
+       "FN": 31,
+       "FP": 86,
+       "TN": 414,
+       "TP": 469,
+       "recall": 0.938,
+       "specificity": 0.828
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "f4f07c3c492362c09e8f58a356e88ac5d26967ea"
+  },
+  "lg-pf1": {
+   "config": {
+    "backend": "spacy",
+    "model": "en_core_web_lg",
+    "postfilter": true
+   },
+   "dataset_sha256": {
+    "check": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095",
+    "openai": "8e8e611b9d40f7d554726d577449585faefb9aec97f5dd4ffb051af1a6da2c3b"
+   },
+   "freeze_commit": "f4f07c3c492362c09e8f58a356e88ac5d26967ea",
+   "splits": {
+    "check": {
+     "mean_ms_per_prompt_indicative": 37.970382978723414,
+     "n": 235,
+     "ner": {
+      "block": {
+       "FN": 116,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 87,
+       "FP": 0,
+       "TN": 119,
+       "TP": 29,
+       "recall": 0.25,
+       "specificity": 1.0
+      }
+     },
+     "positives": 116,
+     "regex": {
+      "block": {
+       "FN": 66,
+       "FP": 0,
+       "TN": 119,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 42,
+       "FP": 2,
+       "TN": 117,
+       "TP": 74,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 66,
+       "FP": 0,
+       "TN": 119,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 29,
+       "FP": 2,
+       "TN": 117,
+       "TP": 87,
+       "recall": 0.75,
+       "specificity": 0.9831932773109243
+      }
+     }
+    },
+    "openai": {
+     "mean_ms_per_prompt_indicative": 42.501749999999944,
+     "n": 1000,
+     "ner": {
+      "block": {
+       "FN": 500,
+       "FP": 0,
+       "TN": 500,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 421,
+       "FP": 0,
+       "TN": 500,
+       "TP": 79,
+       "recall": 0.158,
+       "specificity": 1.0
+      }
+     },
+     "positives": 500,
+     "regex": {
+      "block": {
+       "FN": 127,
+       "FP": 30,
+       "TN": 470,
+       "TP": 373,
+       "recall": 0.746,
+       "specificity": 0.94
+      },
+      "positive": {
+       "FN": 52,
+       "FP": 34,
+       "TN": 466,
+       "TP": 448,
+       "recall": 0.896,
+       "specificity": 0.932
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 127,
+       "FP": 30,
+       "TN": 470,
+       "TP": 373,
+       "recall": 0.746,
+       "specificity": 0.94
+      },
+      "positive": {
+       "FN": 40,
+       "FP": 34,
+       "TN": 466,
+       "TP": 460,
+       "recall": 0.92,
+       "specificity": 0.932
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "f4f07c3c492362c09e8f58a356e88ac5d26967ea"
+  },
+  "sm-pf0": {
+   "config": {
+    "backend": "spacy",
+    "model": "en_core_web_sm",
+    "postfilter": false
+   },
+   "dataset_sha256": {
+    "check": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095",
+    "openai": "8e8e611b9d40f7d554726d577449585faefb9aec97f5dd4ffb051af1a6da2c3b"
+   },
+   "freeze_commit": "f4f07c3c492362c09e8f58a356e88ac5d26967ea",
+   "splits": {
+    "check": {
+     "mean_ms_per_prompt_indicative": 50.91093617021276,
+     "n": 235,
+     "ner": {
+      "block": {
+       "FN": 116,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 66,
+       "FP": 18,
+       "TN": 101,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 0.8487394957983193
+      }
+     },
+     "positives": 116,
+     "regex": {
+      "block": {
+       "FN": 66,
+       "FP": 0,
+       "TN": 119,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 42,
+       "FP": 2,
+       "TN": 117,
+       "TP": 74,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 66,
+       "FP": 0,
+       "TN": 119,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 21,
+       "FP": 20,
+       "TN": 99,
+       "TP": 95,
+       "recall": 0.8189655172413793,
+       "specificity": 0.8319327731092437
+      }
+     }
+    },
+    "openai": {
+     "mean_ms_per_prompt_indicative": 51.798640000000084,
+     "n": 1000,
+     "ner": {
+      "block": {
+       "FN": 500,
+       "FP": 0,
+       "TN": 500,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 259,
+       "FP": 66,
+       "TN": 434,
+       "TP": 241,
+       "recall": 0.482,
+       "specificity": 0.868
+      }
+     },
+     "positives": 500,
+     "regex": {
+      "block": {
+       "FN": 127,
+       "FP": 30,
+       "TN": 470,
+       "TP": 373,
+       "recall": 0.746,
+       "specificity": 0.94
+      },
+      "positive": {
+       "FN": 52,
+       "FP": 34,
+       "TN": 466,
+       "TP": 448,
+       "recall": 0.896,
+       "specificity": 0.932
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 127,
+       "FP": 30,
+       "TN": 470,
+       "TP": 373,
+       "recall": 0.746,
+       "specificity": 0.94
+      },
+      "positive": {
+       "FN": 29,
+       "FP": 93,
+       "TN": 407,
+       "TP": 471,
+       "recall": 0.942,
+       "specificity": 0.814
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "f4f07c3c492362c09e8f58a356e88ac5d26967ea"
+  },
+  "sm-pf1": {
+   "config": {
+    "backend": "spacy",
+    "model": "en_core_web_sm",
+    "postfilter": true
+   },
+   "dataset_sha256": {
+    "check": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095",
+    "openai": "8e8e611b9d40f7d554726d577449585faefb9aec97f5dd4ffb051af1a6da2c3b"
+   },
+   "freeze_commit": "f4f07c3c492362c09e8f58a356e88ac5d26967ea",
+   "splits": {
+    "check": {
+     "mean_ms_per_prompt_indicative": 51.29514893617022,
+     "n": 235,
+     "ner": {
+      "block": {
+       "FN": 116,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 92,
+       "FP": 4,
+       "TN": 115,
+       "TP": 24,
+       "recall": 0.20689655172413793,
+       "specificity": 0.9663865546218487
+      }
+     },
+     "positives": 116,
+     "regex": {
+      "block": {
+       "FN": 66,
+       "FP": 0,
+       "TN": 119,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 42,
+       "FP": 2,
+       "TN": 117,
+       "TP": 74,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 66,
+       "FP": 0,
+       "TN": 119,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 33,
+       "FP": 6,
+       "TN": 113,
+       "TP": 83,
+       "recall": 0.7155172413793104,
+       "specificity": 0.9495798319327731
+      }
+     }
+    },
+    "openai": {
+     "mean_ms_per_prompt_indicative": 59.84641000000003,
+     "n": 1000,
+     "ner": {
+      "block": {
+       "FN": 500,
+       "FP": 0,
+       "TN": 500,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 415,
+       "FP": 3,
+       "TN": 497,
+       "TP": 85,
+       "recall": 0.17,
+       "specificity": 0.994
+      }
+     },
+     "positives": 500,
+     "regex": {
+      "block": {
+       "FN": 127,
+       "FP": 30,
+       "TN": 470,
+       "TP": 373,
+       "recall": 0.746,
+       "specificity": 0.94
+      },
+      "positive": {
+       "FN": 52,
+       "FP": 34,
+       "TN": 466,
+       "TP": 448,
+       "recall": 0.896,
+       "specificity": 0.932
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 127,
+       "FP": 30,
+       "TN": 470,
+       "TP": 373,
+       "recall": 0.746,
+       "specificity": 0.94
+      },
+      "positive": {
+       "FN": 41,
+       "FP": 37,
+       "TN": 463,
+       "TP": 459,
+       "recall": 0.918,
+       "specificity": 0.926
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "f4f07c3c492362c09e8f58a356e88ac5d26967ea"
+  },
+  "trf-pf0": {
+   "config": {
+    "backend": "spacy",
+    "model": "en_core_web_trf",
+    "postfilter": false
+   },
+   "dataset_sha256": {
+    "check": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095",
+    "openai": "8e8e611b9d40f7d554726d577449585faefb9aec97f5dd4ffb051af1a6da2c3b"
+   },
+   "freeze_commit": "f4f07c3c492362c09e8f58a356e88ac5d26967ea",
+   "splits": {
+    "check": {
+     "mean_ms_per_prompt_indicative": 73.01429787234042,
+     "n": 235,
+     "ner": {
+      "block": {
+       "FN": 116,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 83,
+       "FP": 2,
+       "TN": 117,
+       "TP": 33,
+       "recall": 0.28448275862068967,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "positives": 116,
+     "regex": {
+      "block": {
+       "FN": 66,
+       "FP": 0,
+       "TN": 119,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 42,
+       "FP": 2,
+       "TN": 117,
+       "TP": 74,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 66,
+       "FP": 0,
+       "TN": 119,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 27,
+       "FP": 4,
+       "TN": 115,
+       "TP": 89,
+       "recall": 0.7672413793103449,
+       "specificity": 0.9663865546218487
+      }
+     }
+    },
+    "openai": {
+     "mean_ms_per_prompt_indicative": 92.53128000000008,
+     "n": 1000,
+     "ner": {
+      "block": {
+       "FN": 500,
+       "FP": 0,
+       "TN": 500,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 350,
+       "FP": 19,
+       "TN": 481,
+       "TP": 150,
+       "recall": 0.3,
+       "specificity": 0.962
+      }
+     },
+     "positives": 500,
+     "regex": {
+      "block": {
+       "FN": 127,
+       "FP": 30,
+       "TN": 470,
+       "TP": 373,
+       "recall": 0.746,
+       "specificity": 0.94
+      },
+      "positive": {
+       "FN": 52,
+       "FP": 34,
+       "TN": 466,
+       "TP": 448,
+       "recall": 0.896,
+       "specificity": 0.932
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 127,
+       "FP": 30,
+       "TN": 470,
+       "TP": 373,
+       "recall": 0.746,
+       "specificity": 0.94
+      },
+      "positive": {
+       "FN": 35,
+       "FP": 52,
+       "TN": 448,
+       "TP": 465,
+       "recall": 0.93,
+       "specificity": 0.896
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "f4f07c3c492362c09e8f58a356e88ac5d26967ea"
+  },
+  "trf-pf1": {
+   "config": {
+    "backend": "spacy",
+    "model": "en_core_web_trf",
+    "postfilter": true
+   },
+   "dataset_sha256": {
+    "check": "65bf02af1f9f7167a5aa5eaaa8aeac54111c90d009585ed36570d3ce0a635095",
+    "openai": "8e8e611b9d40f7d554726d577449585faefb9aec97f5dd4ffb051af1a6da2c3b"
+   },
+   "freeze_commit": "f4f07c3c492362c09e8f58a356e88ac5d26967ea",
+   "splits": {
+    "check": {
+     "mean_ms_per_prompt_indicative": 61.99127659574466,
+     "n": 235,
+     "ner": {
+      "block": {
+       "FN": 116,
+       "FP": 0,
+       "TN": 119,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 92,
+       "FP": 1,
+       "TN": 118,
+       "TP": 24,
+       "recall": 0.20689655172413793,
+       "specificity": 0.9915966386554622
+      }
+     },
+     "positives": 116,
+     "regex": {
+      "block": {
+       "FN": 66,
+       "FP": 0,
+       "TN": 119,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 42,
+       "FP": 2,
+       "TN": 117,
+       "TP": 74,
+       "recall": 0.6379310344827587,
+       "specificity": 0.9831932773109243
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 66,
+       "FP": 0,
+       "TN": 119,
+       "TP": 50,
+       "recall": 0.43103448275862066,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 31,
+       "FP": 3,
+       "TN": 116,
+       "TP": 85,
+       "recall": 0.7327586206896551,
+       "specificity": 0.9747899159663865
+      }
+     }
+    },
+    "openai": {
+     "mean_ms_per_prompt_indicative": 94.71656999999989,
+     "n": 1000,
+     "ner": {
+      "block": {
+       "FN": 500,
+       "FP": 0,
+       "TN": 500,
+       "TP": 0,
+       "recall": 0.0,
+       "specificity": 1.0
+      },
+      "positive": {
+       "FN": 426,
+       "FP": 0,
+       "TN": 500,
+       "TP": 74,
+       "recall": 0.148,
+       "specificity": 1.0
+      }
+     },
+     "positives": 500,
+     "regex": {
+      "block": {
+       "FN": 127,
+       "FP": 30,
+       "TN": 470,
+       "TP": 373,
+       "recall": 0.746,
+       "specificity": 0.94
+      },
+      "positive": {
+       "FN": 52,
+       "FP": 34,
+       "TN": 466,
+       "TP": 448,
+       "recall": 0.896,
+       "specificity": 0.932
+      }
+     },
+     "union": {
+      "block": {
+       "FN": 127,
+       "FP": 30,
+       "TN": 470,
+       "TP": 373,
+       "recall": 0.746,
+       "specificity": 0.94
+      },
+      "positive": {
+       "FN": 39,
+       "FP": 34,
+       "TN": 466,
+       "TP": 461,
+       "recall": 0.922,
+       "specificity": 0.932
+      }
+     }
+    }
+   },
+   "tree_commit_sha": "f4f07c3c492362c09e8f58a356e88ac5d26967ea"
+  }
+ },
+ "phase": "post-review",
+ "scope": "detector-layer (regex+NER); not LLM-only"
+}

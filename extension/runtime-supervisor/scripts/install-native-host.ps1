@@ -1,10 +1,13 @@
 param(
     [ValidateSet('Auto', 'OperaGX', 'Chrome', 'Edge', 'Chromium', 'Firefox', 'All')]
-    [string]$Browser = 'Auto'
+    [string]$Browser = 'Auto',
+    # The Rust controller (rust/services/runtime-supervisor, `privoke-supervisor`). Given, it is registered as the
+    # native host `org.privoke.runtime_controller`; omitted, the Python launcher stays registered as before.
+    [string]$SupervisorBinary = ''
 )
 
 $ErrorActionPreference = 'Stop'
-$hostName = 'org.privoke.runtime_launcher'
+$hostName = if ([string]::IsNullOrWhiteSpace($SupervisorBinary)) { 'org.privoke.runtime_launcher' } else { 'org.privoke.runtime_controller' }
 $supervisorRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $repositoryRoot = (Resolve-Path -LiteralPath (Join-Path $supervisorRoot '..\..')).Path
 $extensionRoot = Join-Path $repositoryRoot 'extension'
@@ -13,9 +16,24 @@ $pythonPath = Join-Path $extensionRoot 'client-runtime\.venv\Scripts\python.exe'
 $sourceHostPath = Join-Path $supervisorRoot 'src\native_messaging_host.py'
 $launcherSourcePath = Join-Path $supervisorRoot 'scripts\native-host-launcher.cs'
 
+$useRustHost = -not [string]::IsNullOrWhiteSpace($SupervisorBinary)
+if ($useRustHost) {
+    $pythonPath = (Resolve-Path -LiteralPath $SupervisorBinary).Path
+    $sourceHostPath = $pythonPath
+}
+
 foreach ($requiredFile in @($identityPath, $pythonPath, $sourceHostPath, $launcherSourcePath)) {
     if (-not (Test-Path -LiteralPath $requiredFile -PathType Leaf)) {
         throw "Required PriVoke file is missing: $requiredFile"
+    }
+}
+
+# A copied virtual environment can retain python.exe while losing its base
+# interpreter or pyvenv.cfg. Validate it before replacing a working installation.
+if (-not $useRustHost) {
+    & $pythonPath -c "import sys; sys.exit(0)"
+    if ($LASTEXITCODE -ne 0) {
+        throw "PriVoke Python cannot start. Recreate extension/client-runtime/.venv and install its dependencies, then rerun this installer."
     }
 }
 
@@ -44,12 +62,14 @@ $launcherPath = Join-Path $installRoot 'privoke-native-host.exe'
 $launcherConfigPath = Join-Path $installRoot 'privoke-native-host.config'
 $chromiumManifestPath = Join-Path $installRoot "$hostName.chromium.json"
 $firefoxManifestPath = Join-Path $installRoot "$hostName.firefox.json"
-Copy-Item -LiteralPath $sourceHostPath -Destination $installedHostPath -Force
+if (-not $useRustHost) {
+    Copy-Item -LiteralPath $sourceHostPath -Destination $installedHostPath -Force
+}
 
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllLines(
     $launcherConfigPath,
-    @($pythonPath, $installedHostPath, $repositoryRoot),
+    @($pythonPath, $(if ($useRustHost) { 'native-host' } else { $installedHostPath }), $repositoryRoot),
     $utf8NoBom
 )
 if (Test-Path -LiteralPath $launcherPath) {

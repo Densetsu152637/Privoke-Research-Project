@@ -11,12 +11,15 @@ This directory contains layer 2 of the PriVoke client-runtime detector pipeline:
 `EntityNERDetector`:
 
 - imports spaCy directly,
-- loads `en_core_web_sm` on the first runtime use and reuses the process-local cached pipeline for later detector instances,
+- loads the spaCy model named by `PRIVOKE_NER_MODEL` (default `en_core_web_sm`; any installed spaCy pipeline with the same label scheme, for example `en_core_web_lg` or `en_core_web_trf`, is a drop-in; the post-filter was designed on `en_core_web_sm`) on the first runtime use and reuses the process-local cached pipeline for later detector instances,
 - keeps a bounded least-recently-used cache of at most two model-name entries; a detector already holding an evicted entry can continue using it, so this is not a strict cap on total live model memory,
 - serializes each shared pipeline's inference and conversion to plain `ClassificationResult` values with a per-pipeline lock; `Doc` and `Span` objects remain request-local,
 - raises the normal spaCy import or model-load exception when dependencies are missing,
 - does not cache failed model loads, so a later construction may retry,
-- deduplicates by `(start_char, end_char, label, text)`.
+- deduplicates by `(start_char, end_char, label, text)`,
+- by default (`PRIVOKE_NER_POSTFILTER`, on; `0` disables) passes candidates through `ner_postfilter.py`: per-span cleaning (placeholders, identifiers, headings, short acronyms, common phrases) then category-combination rules that set the final sensitivity; dropped candidates are not emitted and kept results record `postfilter_rule` in metadata,
+- receives case-preserved text by default (`PRIVOKE_CASE_PRESERVING_DETECTORS`, on; `0` lowercases); the spaCy model is cased, so lowercased input degrades recognition. Results are in [installed detector precision](../experiments/detector-precision-installed-20261024.md).
+- optionally (`PRIVOKE_NER_CASELESS_GATE=1`, default off) lowercases a prompt that carries no case signal (all lower-case or all upper-case letters, ignoring the pronoun "I") before running spaCy, with length-preserving folding so spans stay valid. The post-filter's case-dependent checks (title-case heading detection, pluralised capital runs) are inert on the lowercased text, and the remaining rules are unchanged; `ner_postfilter.CASELESS_DISABLED_RULES` (empty) is the hook for skipping rules in caseless mode. Mixed-case prompts are never changed. Evidence: [robustness fixes](../experiments/robustness-fixes-20261024.md).
 
 The runtime has no per-request NER model-path selector. `model_name` is a
 construction-time argument for direct detector users; request text cannot choose or
@@ -31,6 +34,20 @@ Install runtime dependencies before running NER:
 ```bash
 pip install -r extension/client-runtime/requirements.txt
 ```
+
+## Optional GLiNER backend (default off)
+
+`PRIVOKE_NER_BACKEND=gliner` (default `spacy`) selects `GlinerEntityDetector` (`gliner_detector.py`) through `build_ner_detector()`. It needs the optional `gliner` package and a local or Hugging Face checkpoint (`PRIVOKE_NER_GLINER_MODEL`, default `knowledgator/gliner-pii-small-v1.0`); it is an evaluation candidate, not a shipped default (see [NER model candidates](../experiments/ner-models-20261024.md)).
+
+- `PRIVOKE_NER_GLINER_THRESHOLD` (default `0.3`): minimum span score.
+- `PRIVOKE_NER_GLINER_LABELS` (default `core`): label preset. `core` asks for `name`, `location city/state/country/street/address` and `organization`, mapped onto `PERSON`, `GPE`, `FAC` and `ORG`, so the label mapping above and the post-filter apply unchanged. `pii` adds identifier labels (phone number, email address, ip address, username, dob, ssn, passport number, driver license, password, credit card, account number, medical condition) that are emitted directly with fixed sensitivities (`PII_EXTRA_USE_CASES`) and bypass the post-filter; the regex layer already owns most of these, so `pii` overlaps it deliberately.
+- With the post-filter on, the text is parsed with the spaCy model from `PRIVOKE_NER_MODEL` (its `ner` component disabled) and GLiNER spans are attached with `Doc.char_span(..., alignment_mode="expand")`; with it off no spaCy model is loaded.
+- Texts are scored in windows of at most 300 whitespace-separated words so the checkpoint's length limit never truncates silently.
+- `pytorch_model.bin` checkpoints are loaded by GLiNER with `torch.load(weights_only=True)`.
+
+## Experimental pattern entity detector (not wired in)
+
+`pattern_entity_detector.py` holds `PatternEntityDetector`, a no-ML detector that keeps the `EntityNERDetector` contract and label mapping and records its mechanism (`cue`, `shape`, `gazetteer`, `recurrence`) in `metadata["mechanism"]`. It is not selectable through `PRIVOKE_NER_BACKEND` and is not part of the runtime pipeline; only its tests and the comparison script use it. Results: [pattern detector versus spaCy NER](../experiments/ner-pattern-detector-20261024.md).
 
 ## Label Mapping
 
@@ -52,13 +69,13 @@ Each mapped entity becomes:
 ClassificationResult(
     classification=use_case.classification,
     section_of_text=ent.text,
-    reasoning=f"spaCy labelled this span as {ent.label_}",
+    reasoning=f"spaCy labelled this span as {ent.label_}",   # "GLiNER labelled ..." for the GLiNER backend
     span=(ent.start_char, ent.end_char),
     confidence=use_case.confidence,
     metadata={
         "label": ent.label_,
         "entity_type": use_case.entity_type,
-        "model": "en_core_web_sm",
+        "model": "<PRIVOKE_NER_MODEL>",   # default en_core_web_sm
     },
 )
 ```

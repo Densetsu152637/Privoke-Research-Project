@@ -12,20 +12,6 @@ def heuristic_matches(
     generated = []
     word_count = len(text.split())
 
-    if word_count > 80:
-        generated.append(
-            synthetic_match(
-                "personal_narrative",
-                f"long_personal_narrative({word_count}_words)",
-                text,
-                (0, len(text)),
-                Sensitivity.S1,
-                Visibility.PU,
-                [Category.IDENTITY],
-                0.60,
-            )
-        )
-
     identity_field_count = len(
         re.findall(
             r"\b(name|email|phone|username|location|address)\s*[:=]\s*",

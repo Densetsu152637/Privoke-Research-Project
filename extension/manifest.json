@@ -52,7 +52,11 @@
     }
   ],
   "host_permissions": [
-    "http://127.0.0.1/*",
-    "http://localhost/*"
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*",
+    "https://copilot.microsoft.com/*",
+    "https://api.openai.com/*"
   ]
 }
