@@ -68,15 +68,20 @@ fn single_update_route_matches_python() {
         assert_eq!(batch.scope, case["scope"].as_str().unwrap(), "{label}");
         let python: BTreeMap<String, Vec<f32>> = case["gradients"].as_object().unwrap().iter().map(|(k, v)| (k.clone(), bits(v))).collect();
         assert_eq!(batch.gradients.keys().collect::<Vec<_>>(), python.keys().collect::<Vec<_>>(), "{label} inventory");
+        let (mut case_n, mut case_bits, mut case_max) = (0usize, 0usize, 0f64);
         for (name, expected) in &python {
             for (r, p) in batch.gradients[name].iter().zip(expected) {
                 coordinates += 1;
+                case_n += 1;
                 bitwise += usize::from(r.to_bits() == p.to_bits());
+                case_bits += usize::from(r.to_bits() == p.to_bits());
                 let error = f64::from(*r - *p).abs();
                 within += usize::from(error <= 1e-6);
                 max_error = max_error.max(error);
+                case_max = case_max.max(error);
             }
         }
+        eprintln!("rpc case {label}: {case_n} coordinates, bitwise {case_bits}, max error {case_max:.3e}");
         let expected_metrics = case["metrics"].as_object().unwrap();
         assert_eq!(
             batch.metrics.keys().map(String::as_str).collect::<Vec<_>>(),
@@ -115,7 +120,7 @@ fn single_update_route_matches_python() {
             "{label} executions"
         );
     }
-    println!(
+    eprintln!(
         "rpc: {} cases; transported coordinates {coordinates}, within 1e-6 {within}, bitwise {bitwise}, max error {max_error:.3e}; metrics {metrics_close}/{metrics_total}; guard rate equal {guard_equal}, accept/reject equal {accept_equal} (accepted {accepted}, rejected {rejected})",
         cases.len()
     );
