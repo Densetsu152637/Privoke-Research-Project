@@ -19,6 +19,7 @@ members = [
     "crates/privoke-curriculum",
     "crates/privoke-training",
     "crates/privoke-telemetry-client",
+    "services/fuzzer",
 ]
 
 [workspace.package]

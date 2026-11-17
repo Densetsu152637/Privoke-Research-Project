@@ -1,0 +1,38 @@
+[package]
+name = "privoke-fuzzer"
+description = "The PriVoke fuzzer service: one bounded training cycle per request, stages 19 and 20 in process, mutual TLS to the runtime and the parameter-update service"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+name = "privoke_fuzzer"
+path = "src/lib.rs"
+
+[[bin]]
+name = "fuzzer-service"
+path = "src/main.rs"
+
+[dependencies]
+privoke-contracts = { path = "../../crates/privoke-contracts" }
+privoke-transport = { path = "../../crates/privoke-transport" }
+privoke-curriculum = { path = "../../crates/privoke-curriculum" }
+tonic = { workspace = true }
+tokio = { workspace = true }
+clap = { workspace = true }
+prost = { workspace = true }
+# SQLite is compiled in: the curriculum cursor state and the reservation table are the Python service's databases.
+rusqlite = { version = "0.37", features = ["bundled"] }
+base64 = { workspace = true }
+
+[dev-dependencies]
+privoke-pki = { path = "../../tools/privoke-pki" }
+privoke-param-update = { path = "../param-update" }
+tempfile = { workspace = true }
+serde_json = "1"
+time = { workspace = true }
+
+[lints]
+workspace = true
