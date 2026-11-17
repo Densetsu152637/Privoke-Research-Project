@@ -273,7 +273,7 @@ checks of an unmeasured method, not model-quality evidence.
 ## Environment Variables
 
 - `PARAM_UPDATE_TARGET`, default `param-update-service:50052`
-- `PRIVOKE_RUNTIME_TARGET`, default `client-runtime:50054`
+- `PRIVOKE_RUNTIME_TARGET`, default `client-runtime:50054` (the Compose files set `analysis-service:50054`, the quarantined analysis service, over mutual TLS)
 - `MODEL_ID`, default `privoke-baseline`
 - `FUZZER_ID`, default `privoke-fuzzer`
 - `FUZZER_PORT`, default `50053`
@@ -311,7 +311,7 @@ rescaled by the fuzzer. See the [iterative training record](../iterative-fuzzer-
 
 ## Runtime Boundary
 
-The fuzzer has no source dependency on `extension/client-runtime`. Production and development Compose both deploy that code as the `client-runtime:50054` service, and the fuzzer waits for it to become healthy. It never calls `model-streaming-service`, the extension bridge on `8080`, its control plane on `50056`, or its workstation detector on `50057`. Prompt tests use `AnalyzePrompt`; contextual training uses `ComputeSemanticGradients`; annotation-presence training uses `ComputePresenceGradients`. Model selection, fetching, validation, caching, execution, descent, and model-version selection remain inside the runtime.
+The fuzzer has no source dependency on `extension/client-runtime`. Server Compose no longer runs that code as a service: the fuzzer reaches inference through the quarantined `analysis-service:50054`, a Rust service that owns a sandboxed worker pool of the same Python pipeline, and waits for it to become healthy. Only the semantic layer is admitted, the fuzzer holds a service certificate and its own listener requires mutual TLS with an allow list. It never calls `model-streaming-service`, the extension bridge on `8080`, its control plane on `50056`, or its workstation detector on `50057`. Prompt tests use `AnalyzePrompt`; contextual training uses `ComputeSemanticGradients`; annotation-presence training uses `ComputePresenceGradients`. Model selection, fetching, validation, caching, execution, descent, and model-version selection remain inside the runtime.
 
 ## CLI
 

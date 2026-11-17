@@ -74,7 +74,7 @@ Detector output is represented by `extension/client-runtime/src/classification`.
 - `client-runtime`: always-on server detector gRPC on `50054`.
 - `telemetry-service`: gRPC on `50055`.
 
-Production Compose keeps all five ports internal to its service network. The default development stack and research-test override publish `50051` through `50055` on host loopback (`127.0.0.1`) for Python evaluation and integration scripts. Run fuzzer checks with `python evaluation/run-fuzzer-tests.py`; see [host test setup](../../evaluation/README.md). A real external API must be exposed explicitly through an authenticated TLS ingress rather than by publishing these plaintext gRPC ports.
+Production Compose (the Rust stack) keeps every internal listener (`50051` to `50055`) inside its service network and publishes only the two mutual-TLS public listeners of the model and telemetry services, on loopback unless the deployment says otherwise. The default stack publishes the internal listeners on host loopback (`127.0.0.1`) for Python evaluation and integration scripts; every listener is mutual TLS, so those clients present a test certificate. The earlier Python and Go stack that the historical studies layer over is `docker-compose.legacy.yml`. Run fuzzer checks with `python evaluation/run-fuzzer-tests.py`; see [host test setup](../../evaluation/README.md). A real external endpoint is a service's own mutual-TLS listener, never a published plaintext gRPC port.
 
 The extension-local ports `8080`, `50056`, and `50057` are not Compose service ports. They are owned by the workstation supervisor and remain bound to loopback.
 
