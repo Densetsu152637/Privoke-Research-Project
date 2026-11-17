@@ -362,12 +362,14 @@ impl Artifact {
             metadata.insert("text_normalization".to_string(), normalization);
             metadata.insert("arithmetic".to_string(), "float32_parameters_float64_features_fsum_v1".to_string());
         }
+        // The borrows of `value` end here: `checksum` is owned before `value` moves into the artifact.
+        let checksum = checksum.to_string();
         Ok(Self {
             value,
             model_id: artifact_id,
             version,
             architecture,
-            checksum: checksum.to_string(),
+            checksum,
             file_sha256: sha256_hex(bytes),
             metadata,
             parameters,
