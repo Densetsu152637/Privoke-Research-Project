@@ -17,6 +17,7 @@ pub mod adam;
 pub mod error;
 pub mod net;
 pub mod objective;
+pub mod rpc;
 
 pub use error::TrainingError;
 pub use net::{Params, Tensor, TinyNet};

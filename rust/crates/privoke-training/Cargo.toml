@@ -9,6 +9,7 @@ license.workspace = true
 
 [dependencies]
 privoke-contracts = { path = "../privoke-contracts" }
+privoke-rules = { path = "../privoke-rules" }
 privoke-semantic = { path = "../privoke-semantic" }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 thiserror = { workspace = true }
