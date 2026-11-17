@@ -609,6 +609,9 @@ Before the paper deadline, the Python, Go and nginx build being assessed has to 
 
 ## Stage 8a: Fail-closed cutover with nginx rollback retained
 
+> **User decision, 17 November 2026:** "Oh the deployment is not currently live. So you can cutover any time, just ensure the architecture is ported correctly." No production VM exists yet, so stages 8a and 8b run together as one repository change: the Compose files, `deploy.sh`, the GCE workflow and the docs move to the Rust services and nginx is removed. The VM-only steps (the loopback negative gate over SSH, loopback and external smoke, firewall order, rollback) become container checks in CI: the stage 23 container smoke job runs the negative rows and `smoke.py` against the Rust containers. The step order and fail-closed rules still apply to the first real deployment, which `deploy.sh` must enforce. Stage 9 then runs against the Rust services in CI, not on a VM.
+
+
 - Objective: cut over from the nginx-fronted services to the Rust services without ever exposing an unauthenticated or untested listener. The order is fixed:
   1. **Stage the containers.** Deploy a release that runs the Rust containers alongside the current nginx release. The Rust public ports are published on `127.0.0.1` only (for example `127.0.0.1:50443` and `127.0.0.1:58443`). The firewall is unchanged, and nginx keeps serving `:443`.
   2. **Negative gate.** From the host Python harness, over an SSH tunnel to those loopback ports, run the stage 3 to 5 negative rows against the real containers on the VM: T1 to T14, A1 to A3, E6, E7, R1 to R10, X8 and X13. Any unexpected accept stops the cutover.
