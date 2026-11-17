@@ -151,6 +151,8 @@ jobs:
             exit 1
           fi
           test ! -e deploy/gce/ngin[x].conf
+      - name: Test the revalidation check
+        run: python -m unittest evaluation/tests/test_check_revalidation.py -v
       - name: Validate the stage 23 test helpers
         run: |
           python -m py_compile deploy/gce/tests/make_test_pki.py evaluation/update_security.py evaluation/update_security_report.py evaluation/check_revalidation.py
