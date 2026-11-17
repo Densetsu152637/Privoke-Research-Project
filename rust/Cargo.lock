@@ -1911,6 +1911,7 @@ dependencies = [
  "privoke-ner-layer",
  "privoke-rules",
  "privoke-runtime",
+ "privoke-semantic",
  "privoke-spacy",
  "privoke-worker-pool",
  "prost",

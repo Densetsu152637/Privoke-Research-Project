@@ -4,8 +4,8 @@
 //! regex layer first when `PRIVOKE_WAIT_FOR_REGEX` or the request says so, the other layers skipped when it returns
 //! `BLOCK`, and an error in a layer reported as that layer's outcome (which blocks an otherwise ALLOW decision).
 //!
-//! The semantic layer is not served by this worker yet (see the stage 17 record in the plan); a selection that names it
-//! is refused by the service before it reaches the pipeline, and the supervisor routes it to the Python worker.
+//! The semantic layer runs only when the pipeline was given model roots ([`Pipeline::with_semantic`]); without them a
+//! selection that names it is refused by the service, and the supervisor routes it to the Python worker.
 
 use std::collections::BTreeMap;
 
@@ -15,6 +15,7 @@ use privoke_rules::{Detector, LayerOptions as RegexLayerOptions, LayerOutcome as
 
 use crate::model::{Action, Finding, InvalidVisibility, strongest_result};
 use crate::request::Layer;
+use crate::semantic::SemanticLayer;
 
 /// The status of one layer's execution (`LayerExecution.status`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,15 +50,17 @@ pub struct LayerExecution {
     pub results: Vec<Finding>,
     /// The error text of an `Error` or `Skipped` layer.
     pub error: Option<String>,
+    /// The identity of the model that classified (`LayerExecution.semantic_model_identity`), for a semantic layer that ran.
+    pub identity: Option<BTreeMap<String, String>>,
 }
 
 impl LayerExecution {
     fn ok(layer: Layer, results: Vec<Finding>) -> Self {
-        Self { layer, status: Status::Ok, results, error: None }
+        Self { layer, status: Status::Ok, results, error: None, identity: None }
     }
 
     fn failed(layer: Layer, message: String) -> Self {
-        Self { layer, status: Status::Error, results: Vec::new(), error: Some(message) }
+        Self { layer, status: Status::Error, results: Vec::new(), error: Some(message), identity: None }
     }
 }
 
@@ -105,6 +108,7 @@ impl PipelineOptions {
 pub struct Pipeline<A> {
     regex: Detector,
     ner: EntityNerDetector<A>,
+    semantic: Option<SemanticLayer>,
     options: PipelineOptions,
 }
 
@@ -116,7 +120,19 @@ fn error_message(message: String, kind: &str) -> String {
 impl<A: SpacyBackend> Pipeline<A> {
     /// A pipeline over a built regex detector and an NER detector.
     pub fn new(regex: Detector, ner: EntityNerDetector<A>, options: PipelineOptions) -> Self {
-        Self { regex, ner, options }
+        Self { regex, ner, semantic: None, options }
+    }
+
+    /// Adds the semantic layer over the model roots.
+    #[must_use]
+    pub fn with_semantic(mut self, semantic: SemanticLayer) -> Self {
+        self.semantic = Some(semantic);
+        self
+    }
+
+    /// True when the semantic layer is configured.
+    pub fn serves_semantic(&self) -> bool {
+        self.semantic.is_some()
     }
 
     /// The NER detector (its spaCy source).
@@ -176,8 +192,16 @@ impl<A: SpacyBackend> Pipeline<A> {
 
     /// `analyse_text` for the named layers (in pipeline order, without duplicates). `regex_first` overrides
     /// `PRIVOKE_WAIT_FOR_REGEX`. The executions come back in the order of `layers`.
-    pub async fn analyse(&self, text: &str, layers: &[Layer], regex_first: Option<bool>) -> Result<Vec<LayerExecution>, PipelineError> {
-        if let Some(layer) = layers.iter().find(|layer| **layer == Layer::Semantic) {
+    pub async fn analyse(
+        &self,
+        text: &str,
+        layers: &[Layer],
+        regex_first: Option<bool>,
+        semantic_model_id: Option<&str>,
+    ) -> Result<Vec<LayerExecution>, PipelineError> {
+        if self.semantic.is_none()
+            && let Some(layer) = layers.iter().find(|layer| **layer == Layer::Semantic)
+        {
             return Err(PipelineError::Unsupported(*layer));
         }
         let run_regex_first = regex_first.unwrap_or(self.options.wait_for_regex);
@@ -195,6 +219,7 @@ impl<A: SpacyBackend> Pipeline<A> {
                             status: Status::Skipped,
                             results: Vec::new(),
                             error: Some("Skipped after regex returned BLOCK.".to_string()),
+                            identity: None,
                         },
                     );
                 }
@@ -208,7 +233,10 @@ impl<A: SpacyBackend> Pipeline<A> {
             let execution = match layer {
                 Layer::Regex => self.regex_layer(text),
                 Layer::Ner => self.ner_layer(text).await,
-                Layer::Semantic => return Err(PipelineError::Unsupported(*layer)),
+                Layer::Semantic => match &self.semantic {
+                    Some(semantic) => semantic.run(text, semantic_model_id),
+                    None => return Err(PipelineError::Unsupported(*layer)),
+                },
             };
             completed.insert(*layer, execution);
         }

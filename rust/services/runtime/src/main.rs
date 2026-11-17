@@ -1,7 +1,8 @@
 //! `privoke-runtime-worker`: the Rust analysis runtime as a W1 worker for the W2 pool.
 //!
 //! ```text
-//! privoke-runtime-worker [--bundle DIR] [--model NAME] [--max-text-chars N] [--warm-layers regex,ner] [--spacy fake]
+//! privoke-runtime-worker [--bundle DIR] [--model NAME] [--max-text-chars N] [--warm-layers regex,ner]
+//!     [--model-root DIR]... [--latest-model-id ID] [--warm-semantic-model ID]... [--spacy fake]
 //! ```
 //!
 //! The pool starts it with the stage 11 bundle directory as its working location (the executable sits in the bundle,
@@ -21,6 +22,7 @@ use privoke_ner_layer::EntityNerDetector;
 use privoke_rules::{Detector, RuleSetOptions};
 use privoke_runtime::frames::{self, code};
 use privoke_runtime::request::{DEFAULT_MAX_TEXT_CHARS, Layer};
+use privoke_runtime::semantic::SemanticLayer;
 use privoke_runtime::worker::{self, exit};
 use privoke_runtime::{Pipeline, PipelineOptions, Service, ServiceOptions};
 use privoke_spacy::{InProcess, InProcessConfig, Spacy};
@@ -32,6 +34,9 @@ struct Arguments {
     max_text_chars: usize,
     warm_layers: Vec<Layer>,
     fake_spacy: bool,
+    model_roots: Vec<String>,
+    latest_model_id: Option<String>,
+    warm_models: Vec<String>,
 }
 
 fn parse_arguments() -> Result<Arguments, String> {
@@ -62,10 +67,15 @@ fn parse_arguments() -> Result<Arguments, String> {
                     .map(|layer| match layer {
                         "regex" => Ok(Layer::Regex),
                         "ner" => Ok(Layer::Ner),
-                        other => Err(format!("--warm-layers: the Rust worker serves regex and ner, not {other:?}")),
+                        other => {
+                            Err(format!("--warm-layers: the Rust worker warms regex and ner, not {other:?} (use --warm-semantic-model)"))
+                        }
                     })
                     .collect::<Result<_, _>>()?;
             }
+            "--model-root" => arguments.model_roots.push(value("--model-root")?),
+            "--latest-model-id" => arguments.latest_model_id = Some(value("--latest-model-id")?),
+            "--warm-semantic-model" => arguments.warm_models.push(value("--warm-semantic-model")?),
             "--spacy" => match value("--spacy")?.as_str() {
                 "fake" => arguments.fake_spacy = true,
                 "real" => arguments.fake_spacy = false,
@@ -141,10 +151,12 @@ fn run() -> io::Result<i32> {
         spacy.wait_ready(Duration::from_secs(300)).await.map_err(|error| error.to_string())?;
         let regex = Detector::new(RuleSetOptions::from_env()).map_err(|error| error.to_string())?;
         let ner = EntityNerDetector::new(spacy, &model_name).await.map_err(|error| error.to_string())?;
-        Ok(Service::new(
-            Pipeline::new(regex, ner, PipelineOptions::from_env()),
-            ServiceOptions { max_text_chars: arguments.max_text_chars, clear_elapsed: false },
-        ))
+        let mut pipeline = Pipeline::new(regex, ner, PipelineOptions::from_env());
+        if !arguments.model_roots.is_empty() {
+            let roots = arguments.model_roots.iter().map(std::path::PathBuf::from).collect();
+            pipeline = pipeline.with_semantic(SemanticLayer::new(roots, arguments.latest_model_id.clone())?);
+        }
+        Ok(Service::new(pipeline, ServiceOptions { max_text_chars: arguments.max_text_chars, clear_elapsed: false }))
     });
     let service = match started {
         Ok(service) => service,
@@ -152,7 +164,7 @@ fn run() -> io::Result<i32> {
             return Ok(fail(&mut frames_out, code::STARTUP_FAILED, &format!("Worker startup failed: {message}"), exit::STARTUP));
         }
     };
-    let loaded = match runtime.block_on(worker::warm_up(&service, &arguments.warm_layers)) {
+    let loaded = match runtime.block_on(worker::warm_up(&service, &arguments.warm_layers, &arguments.warm_models)) {
         Ok(loaded) => loaded,
         Err(message) => {
             return Ok(fail(&mut frames_out, code::STARTUP_FAILED, &format!("Worker startup failed: {message}"), exit::STARTUP));

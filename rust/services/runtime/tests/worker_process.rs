@@ -190,3 +190,36 @@ fn a_bad_command_line_is_a_usage_error() {
         .expect("the worker runs");
     assert_eq!(status.code(), Some(2));
 }
+
+#[test]
+fn with_model_roots_the_worker_serves_and_warms_the_semantic_layer() {
+    let models = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../models");
+    let models = models.to_string_lossy().into_owned();
+    let mut worker = spawn(&["--model-root", &models, "--warm-semantic-model", "privoke-balanced"], &[]);
+    let ready = worker.read();
+    assert_eq!(ready.kind, Kind::Ready as u8, "{}", String::from_utf8_lossy(&ready.payload));
+    let announcement: serde_json::Value = serde_json::from_slice(&ready.payload).unwrap();
+    assert_eq!(announcement["loaded"], serde_json::json!(["regex", "semantic:privoke-balanced"]));
+
+    let mut request = prompt("I was diagnosed with type 2 diabetes last March and take metformin daily.", &[4]);
+    request.semantic_model_id = "privoke-balanced".into();
+    let answer = worker.analyze(&request);
+    let response = AnalyzePromptResponse::decode(answer.payload.as_slice()).unwrap();
+    assert_eq!(response.error, "");
+    assert_eq!(response.layers.len(), 1);
+    assert_eq!((response.layers[0].layer, response.layers[0].status.as_str()), (4, "ok"));
+    assert_eq!(response.metadata.get("privoke.semantic.model_id").map(String::as_str), Some("privoke-balanced"));
+    assert_eq!(response.metadata.get("privoke.semantic.architecture").map(String::as_str), Some("privoke_tiny_transformer_v1"));
+
+    // The model alias has no target, and an unknown model is the layer's error: both block an ALLOW.
+    let latest = AnalyzePromptResponse::decode(worker.analyze(&prompt("hello there", &[4])).payload.as_slice()).unwrap();
+    assert!(latest.error.contains("latest is not resolvable"), "{latest:?}");
+    assert_eq!(latest.action, "BLOCK");
+    request.semantic_model_id = "privoke-nope".into();
+    let unknown = AnalyzePromptResponse::decode(worker.analyze(&request).payload.as_slice()).unwrap();
+    assert!(unknown.error.contains("is not available in the worker model roots"), "{unknown:?}");
+
+    // A gate and the pretrained contextual encoder are Python's: refused here, never answered wrongly.
+    request.semantic_model_id = "privoke-pretrained-context-minilm".into();
+    assert_eq!(error_code(&worker.analyze(&request)), code::UNSUPPORTED_LAYERS);
+}

@@ -4,7 +4,7 @@
 //! Modes (the first argument): `ok` (default), `startup-fail`, `exit-early`, `hang`, `crash` (dies on the first
 //! analysis), `big` (answers with more than a native-messaging message may hold) and `slow` (answers after one second).
 //!
-//! Started with `--warm-layers ...` as its first argument (how the controller starts the Rust analysis worker) it answers
+//! Started with a `--warm-layers` argument (how the controller starts the Rust analysis worker) it answers
 //! with the reason `stand-in-rust`, so the routing tests can tell the two engines apart; otherwise the reason is `stand-in`.
 //!
 //! An `AnalyzePrompt` with no layers is refused with `INVALID_LAYERS`, as the real worker does. Otherwise the answer
@@ -26,7 +26,7 @@ fn send(out: &mut impl Write, kind: Kind, method: u8, id: u64, payload: &[u8]) {
 
 fn main() {
     let mode = std::env::args().nth(1).unwrap_or_else(|| "ok".into());
-    let reason = if mode == "--warm-layers" { "stand-in-rust" } else { "stand-in" };
+    let reason = if std::env::args().any(|argument| argument == "--warm-layers") { "stand-in-rust" } else { "stand-in" };
     let mut out = io::stdout().lock();
     let mut input = io::stdin().lock();
     match mode.as_str() {

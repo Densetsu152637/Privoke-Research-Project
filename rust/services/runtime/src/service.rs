@@ -4,8 +4,8 @@
 //! `AnalyzePromptResponse` with its `error` set, and `ERROR` frames are for protocol faults only. The worker never
 //! runs an implicit pipeline: an empty layer list, or `DETECTION_LAYER_RUNTIME`, is `INVALID_LAYERS`.
 //!
-//! Served here: `AnalyzePrompt` for the regex and NER layers, and `Health`. The semantic layer, `DetectAnnotationPresence`
-//! and the gradient methods are served by the Python worker; the supervisor's routing keeps them away from this one, and a
+//! Served here: `AnalyzePrompt` for the regex and NER layers and, when the worker was given model roots, the plain semantic
+//! layer, and `Health`. The presence gate, `DetectAnnotationPresence` and the gradient methods are served by the Python worker; the supervisor's routing keeps them away from this one, and a
 //! request that reaches it anyway is refused with an error frame, never answered wrongly.
 
 use std::time::Instant;
@@ -18,6 +18,7 @@ use crate::frames::{self, FrameError, Kind, Method, Request, code};
 use crate::pipeline::Pipeline;
 use crate::request::{DEFAULT_MAX_TEXT_CHARS, Layer, is_gate_model, parse_prompt_request, regex_first, requested_layers};
 use crate::response::{Elapsed, decide, encode_analysis, error_response, health_response};
+use crate::semantic::PRETRAINED_CONTEXT_MODEL_ID;
 
 /// Settings of the service.
 #[derive(Debug, Clone, Copy)]
@@ -116,10 +117,15 @@ impl<A: SpacyBackend> Service<A> {
                 request.request_id,
             ));
         }
-        if message.layers.contains(&Layer::Semantic.proto_value()) {
+        // The presence gate and the pretrained contextual encoder are served by the Python worker only.
+        if message.layers.contains(&Layer::Semantic.proto_value())
+            && (!self.pipeline.serves_semantic()
+                || message.semantic_presence_gate.is_some()
+                || message.semantic_model_id == PRETRAINED_CONTEXT_MODEL_ID)
+        {
             return Err(FrameError::new(
                 code::UNSUPPORTED_LAYERS,
-                "The semantic layer is served by the Python worker; the Rust worker serves the regex and NER layers.",
+                "This semantic selection is served by the Python worker; the Rust worker serves the regex and NER layers and, with model roots, plain semantic models.",
                 request.request_id,
             ));
         }
@@ -144,7 +150,11 @@ impl<A: SpacyBackend> Service<A> {
             }
         }
         let analysis_started = Instant::now();
-        let executions = self.pipeline.analyse(&prompt.text, &layers, order).await.map_err(|error| error.to_string())?;
+        let executions = self
+            .pipeline
+            .analyse(&prompt.text, &layers, order, (!message.semantic_model_id.is_empty()).then_some(message.semantic_model_id.as_str()))
+            .await
+            .map_err(|error| error.to_string())?;
         let analysis = decide(prompt, executions).map_err(|error| error.to_string())?;
         let elapsed = if self.options.clear_elapsed {
             Elapsed::Cleared
