@@ -40,7 +40,8 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          # The extension tests rely on AbortSignal.timeout keeping the event loop alive, which Node 24 does and Node 22 does not.
+          node-version: "24"
           cache: npm
           cache-dependency-path: extension/package-lock.json
       - name: Install extension dependencies
@@ -108,6 +109,8 @@ jobs:
             --grpc_python_out=generated \
             ../../shared/proto/privoke/v1/parameters.proto \
             ../../shared/proto/privoke/v1/runtime.proto
+      - name: Generate the host gRPC clients the shared tests import
+        run: python ../../evaluation/setup-host.py
       - name: Test runtime supervisor
         run: python ../../evaluation/run-component-tests.py supervisor
       - name: Test stack selection and credential loading
@@ -247,7 +250,7 @@ jobs:
     timeout-minutes: 35
     env:
       COMPOSE_PROJECT_NAME: privoke-semantic-ci-${{ github.run_id }}-${{ github.run_attempt }}
-      COMPOSE_FILE: evaluation/compose.underlying-training-smoke.yml
+      COMPOSE_FILE: evaluation/compose.underlying-training-smoke.yml:evaluation/compose.semantic-ci.yml
       CI_STATE_ROOT: /tmp/privoke-semantic-training-${{ github.run_id }}-${{ github.run_attempt }}
       FT5_STATE_DIR: /tmp/privoke-semantic-training-${{ github.run_id }}-${{ github.run_attempt }}/positive
     steps:

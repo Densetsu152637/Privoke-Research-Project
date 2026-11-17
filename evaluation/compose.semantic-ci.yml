@@ -1,0 +1,14 @@
+# CI-only overlay for the semantic-only training smoke job (service-stack-ci.yml). That stack is the retired Python and Go build
+# and predates the certificates every non-loopback Python connection now needs (stage 6), so it uses the documented research
+# opt-out (docs/runtime/client-configuration.md, "Research opt-out"). Never use this in a deployment: it is not referenced by
+# any Compose file under deploy/ or by docker-compose.prod.yml, and test_compose_defaults.py asserts that.
+services:
+  client-runtime:
+    environment:
+      PRIVOKE_ALLOW_INSECURE_INTERNAL_PLAINTEXT: "true"
+  privoke-fuzzer:
+    environment:
+      PRIVOKE_ALLOW_INSECURE_INTERNAL_PLAINTEXT: "true"
+  param-update-service:
+    environment:
+      PRIVOKE_ALLOW_INSECURE_INTERNAL_PLAINTEXT: "true"
