@@ -4,8 +4,9 @@
 //!   `tokenizers` crate (the same implementation, at the same version, as the Python wheel the reference runtime uses).
 //! * [`tiny`]: the legacy Tiny transformer, both readouts.
 //! * [`layer`]: the semantic layer as the pipeline runs it (normalise, classify, remap spans).
-//! * [`open_classifier`], [`open_prompt`], [`open_response`]: the external OpenAI-compatible classifier client (stage 16),
-//!   which implements the same [`SemanticClassifier`] trait over `reqwest` with rustls.
+//! * `open_classifier` (cargo feature `external-classifier`, on by default), [`open_prompt`], [`open_response`]: the external
+//!   OpenAI-compatible classifier client (stage 16), which implements the same [`SemanticClassifier`] trait over `reqwest`
+//!   with rustls. Without the feature the crate links no HTTP stack; the prompt and response code stay (they are pure).
 //!
 //! # Backend
 //!
@@ -25,6 +26,7 @@ pub mod error;
 pub mod labels;
 pub mod layer;
 pub mod math;
+#[cfg(feature = "external-classifier")]
 pub mod open_classifier;
 pub mod open_prompt;
 pub mod open_response;
@@ -35,6 +37,7 @@ pub mod v3;
 pub use error::SemanticError;
 pub use labels::Prediction;
 pub use layer::{Finding, LayerHit, LayerOutcome, SemanticClassifier, analyse_semantic_layer};
+#[cfg(feature = "external-classifier")]
 pub use open_classifier::{OpenClassifier, OpenConfig, OpenOptions, OpenRequest};
 pub use open_response::ExternalResult;
 pub use tiny::{TinyModel, TinyPrediction};

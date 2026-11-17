@@ -7,6 +7,13 @@ rust-version.workspace = true
 publish.workspace = true
 license.workspace = true
 
+[features]
+# The external classifier client (stage 16): the HTTP stack (reqwest, rustls). On by default so that the crate's own tests
+# and any front end that calls an external endpoint get it; the isolated inference worker (`privoke-runtime`) and the
+# training crate depend on this crate with `default-features = false`, so the worker links no HTTP stack.
+default = ["external-classifier"]
+external-classifier = ["dep:reqwest"]
+
 [dependencies]
 privoke-contracts = { path = "../privoke-contracts" }
 privoke-rules = { path = "../privoke-rules" }
@@ -16,9 +23,17 @@ tokenizers = { version = "=0.22.2", default-features = false, features = ["onig"
 serde_json = { version = "1", features = ["float_roundtrip"] }
 # The external classifier client (stage 16): rustls only (no native-tls, no OpenSSL), the blocking API to match `classify`,
 # and no default features (so no gzip, cookies or system TLS). `rustls-tls` bundles the webpki roots.
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+reqwest = { version = "0.12", optional = true, default-features = false, features = ["blocking", "rustls-tls"] }
 sha2 = { workspace = true }
 thiserror = { workspace = true }
+
+[[test]]
+name = "open_http"
+required-features = ["external-classifier"]
+
+[[test]]
+name = "open_request"
+required-features = ["external-classifier"]
 
 [lints]
 workspace = true

@@ -21,6 +21,7 @@ use privoke_supervisor::fetch::{FetchConfig, Fetcher, StandardAdmission};
 use privoke_supervisor::health::EndpointHealth;
 use privoke_supervisor::native_host;
 use privoke_supervisor::runtime::RuntimeController;
+use privoke_supervisor::telemetry::Telemetry;
 use privoke_supervisor::worker::WorkerSettings;
 use time::OffsetDateTime;
 
@@ -148,13 +149,20 @@ fn run_native_host() -> Result<(), String> {
     // The Rust analysis worker serves what it claims (see `routing`); the Python worker serves the rest. It is
     // configured only when PRIVOKE_RUNTIME_ANALYSIS_ENGINE=rust.
     let rust_worker = WorkerSettings::rust_from_environment(&environment, &root)?;
-    let mut controller_runtime = RuntimeController::new(settings, environment);
+    let mut controller_runtime = RuntimeController::new(settings, environment.clone());
     if let Some(rust_worker) = rust_worker {
         controller_runtime = controller_runtime.with_rust_worker(rust_worker);
     }
     let runtime = Arc::new(controller_runtime);
     let health = Arc::new(EndpointHealth::new(Arc::clone(&runtime), health_timeout));
-    let controller = Controller::new(runtime, health);
+    let mut controller = Controller::new(runtime, health);
+    // The controller owns the telemetry reporter (the worker has none). It is off unless configured; a configuration
+    // that cannot start a reporter leaves telemetry off and the controller running.
+    match Telemetry::from_environment(&environment) {
+        Ok(Some(telemetry)) => controller = controller.with_telemetry(telemetry),
+        Ok(None) => {}
+        Err(message) => eprintln!("Telemetry is off: {message}"),
+    }
     // The pool starts its workers from this runtime's threads; they live as long as the session does.
     let threads = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().map_err(|error| error.to_string())?;
     threads.block_on(run_session(io::stdin(), io::stdout(), controller)).map_err(|error| error.to_string())

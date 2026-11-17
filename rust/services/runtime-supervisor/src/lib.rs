@@ -14,6 +14,7 @@
 //! | [`health`] | The model-streaming health check. |
 //! | [`channel`], [`fetch`] | Model fetch over mutual TLS with the installation certificate, pin checks, user cache. |
 //! | [`credentials`] | `enrol`, `install-cert`, `renew` and `status`, on `privoke_pki::client`. |
+//! | [`telemetry`] | The stage 18 reporter, owned by the controller: maps each analysis result to the allowed facts and reports it. |
 //! | [`config`] | `.env` loading, cache and credential locations. |
 
 pub mod channel;
@@ -25,4 +26,5 @@ pub mod health;
 pub mod native_host;
 pub mod routing;
 pub mod runtime;
+pub mod telemetry;
 pub mod worker;

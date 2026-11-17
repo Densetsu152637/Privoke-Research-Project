@@ -38,6 +38,7 @@ use tokio::sync::mpsc;
 use crate::health::ModelHealth;
 use crate::native_host::{self, HostError, MAX_MESSAGE_BYTES};
 use crate::runtime::{CallError, RuntimeController, RuntimeStatus};
+use crate::telemetry::Telemetry;
 
 /// The envelope version.
 pub const PROTOCOL_VERSION: u32 = 1;
@@ -95,6 +96,8 @@ impl Reply {
 pub struct Controller {
     runtime: Arc<RuntimeController>,
     health: Arc<dyn ModelHealth>,
+    /// The reporter the controller owns; `None` when telemetry is off. The worker has none.
+    telemetry: Option<Telemetry>,
 }
 
 impl std::fmt::Debug for Controller {
@@ -124,7 +127,14 @@ fn decode_payload(request: &Request) -> Result<Vec<u8>, CallError> {
 impl Controller {
     /// A controller over a runtime and a health check.
     pub fn new(runtime: Arc<RuntimeController>, health: Arc<dyn ModelHealth>) -> Self {
-        Self { runtime, health }
+        Self { runtime, health, telemetry: None }
+    }
+
+    /// Reports every analysis that passes through this controller to `telemetry`.
+    #[must_use]
+    pub fn with_telemetry(mut self, telemetry: Telemetry) -> Self {
+        self.telemetry = Some(telemetry);
+        self
     }
 
     /// The runtime this controller drives.
@@ -137,7 +147,14 @@ impl Controller {
             return Err(CallError::new("INVALID_ARGUMENT", format!("Unsupported protocol version {}.", request.v)));
         }
         match request.method.as_str() {
-            "AnalyzePrompt" => self.runtime.analyze(&decode_payload(request)?).await,
+            "AnalyzePrompt" => {
+                let payload = self.runtime.analyze(&decode_payload(request)?).await?;
+                // Only a result that passed through here is reported; an error reply is not.
+                if let Some(telemetry) = &self.telemetry {
+                    telemetry.observe(&payload).await;
+                }
+                Ok(payload)
+            }
             "Status" => Ok(encode(&status_message(self.runtime.status()))),
             "SetRuntimeEnabled" => {
                 let message = SetRuntimeEnabledRequest::decode(decode_payload(request)?.as_slice())
@@ -254,6 +271,9 @@ pub async fn run_session(
 
     // Whatever ended the session, the worker goes with it.
     controller.runtime.shutdown().await;
+    if let Some(telemetry) = &controller.telemetry {
+        telemetry.close().await;
+    }
     drop(outgoing_tx);
     let _ = tokio::time::timeout(Duration::from_secs(2), tokio::task::spawn_blocking(move || writer.join())).await;
     outcome

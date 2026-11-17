@@ -83,6 +83,15 @@ jobs:
           key: rust-test-${{ runner.os }}-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('rust/Cargo.lock') }}
       - name: Test
         run: cargo test --workspace --locked --no-fail-fast
+      - name: Worker links no HTTP stack (stage 17)
+        # The isolated inference worker never opens a socket: the stage 16 external classifier is the cargo feature
+        # `external-classifier` of privoke-semantic, and the worker depends on that crate without it.
+        run: |
+          cargo check -p privoke-semantic --no-default-features --lib --locked
+          if cargo tree -p privoke-runtime -e normal --locked | grep -Ei 'reqwest|rustls|native-tls|openssl'; then
+            echo 'privoke-runtime links an HTTP or TLS stack' >&2
+            exit 1
+          fi
       - name: Training parity report (stage 19)
         # Prints the per-case gradient error and bitwise counts of privoke-training (eprintln).
         run: cargo test -p privoke-training --locked -- --nocapture --test-threads=1

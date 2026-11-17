@@ -30,7 +30,7 @@ privoke-ner-layer = { path = "../../crates/privoke-ner-layer" }
 privoke-spacy = { path = "../../crates/privoke-spacy" }
 # The semantic layer. The crate also holds the external classifier client (reqwest, rustls); this worker links it but never
 # builds or calls it (see `semantic.rs`).
-privoke-semantic = { path = "../../crates/privoke-semantic" }
+privoke-semantic = { path = "../../crates/privoke-semantic", default-features = false }
 privoke-worker-pool = { path = "../../crates/privoke-worker-pool" }
 prost = { workspace = true }
 tokio = { workspace = true, features = ["rt", "macros", "time", "sync"] }

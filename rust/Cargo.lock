@@ -1932,6 +1932,7 @@ dependencies = [
  "privoke-model-streaming",
  "privoke-pki",
  "privoke-runtime-supervisor",
+ "privoke-telemetry-client",
  "privoke-transport",
  "privoke-worker-pool",
  "prost",
