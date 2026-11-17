@@ -1960,6 +1960,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "privoke-training"
+version = "0.1.0"
+dependencies = [
+ "privoke-contracts",
+ "privoke-semantic",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "privoke-transport"
 version = "0.1.0"
 dependencies = [
