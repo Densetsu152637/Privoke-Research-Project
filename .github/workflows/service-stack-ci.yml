@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - feat/dev-testing
+      - feat/rust-rewrite
+      - 'wt/**'
   pull_request:
     branches:
       - main
@@ -38,7 +40,8 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          # The extension tests rely on AbortSignal.timeout keeping the event loop alive, which Node 24 does and Node 22 does not.
+          node-version: "24"
           cache: npm
           cache-dependency-path: extension/package-lock.json
       - name: Install extension dependencies
@@ -106,6 +109,8 @@ jobs:
             --grpc_python_out=generated \
             ../../shared/proto/privoke/v1/parameters.proto \
             ../../shared/proto/privoke/v1/runtime.proto
+      - name: Generate the host gRPC clients the shared tests import
+        run: python ../../evaluation/setup-host.py
       - name: Test runtime supervisor
         run: python ../../evaluation/run-component-tests.py supervisor
       - name: Test stack selection and credential loading
@@ -146,9 +151,100 @@ jobs:
             exit 1
           fi
           test ! -e deploy/gce/ngin[x].conf
-      # Stage 23 adds the container smoke job here: build the Rust images, generate a test PKI with privoke-pki, bring up
-      # docker-compose.prod.yml on loopback ports with PRIVOKE_PKI_DIR pointing at it, and run deploy/gce/tests/smoke.py
-      # with --images against the built images (see docs/deployment/google-cloud.md, "Stage 23 hook").
+      - name: Test the revalidation check
+        run: python -m unittest evaluation/tests/test_check_revalidation.py -v
+      - name: Validate the stage 23 test helpers
+        run: |
+          python -m py_compile deploy/gce/tests/make_test_pki.py evaluation/update_security.py evaluation/update_security_report.py evaluation/check_revalidation.py
+          PRIVOKE_W3_PKI_DIR=/tmp/privoke-ci-w3 PRIVOKE_PKI_DIR=/tmp/privoke-ci-pki             docker compose -f docker-compose.prod.yml -f docker-compose.analysis-test.yml --profile legacy-training config --quiet
+          python -m py_compile rust/services/analysis/tests/test_container.py
+
+  container-smoke:
+    name: Rust container smoke test and update-security rows
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      RUST_TOOLCHAIN: "1.99.1"
+      CI_ROOT: /tmp/privoke-ci
+      COMPOSE_PROJECT_NAME: privoke-rust-ci-${{ github.run_id }}-${{ github.run_attempt }}
+      COMPOSE_FILE: docker-compose.prod.yml
+      COMPOSE_PROFILES: legacy-training
+      PRIVOKE_PKI_DIR: /tmp/privoke-ci/pki
+      # The images are named as smoke.py --images expects: <prefix>/<service>:<tag>.
+      PRIVOKE_MODEL_STREAMING_IMAGE: ci/model-streaming-service:ci
+      PRIVOKE_TELEMETRY_IMAGE: ci/telemetry-service:ci
+      PRIVOKE_PARAM_UPDATE_IMAGE: ci/param-update-service:ci
+      PRIVOKE_FUZZER_IMAGE: ci/privoke-fuzzer:ci
+      PRIVOKE_ANALYSIS_IMAGE: ci/analysis-service:ci
+      PRIVOKE_PYTHON_RUNTIME_IMAGE: privoke-client-runtime-base:ci
+      # The standard V3 packages are ignored by Git and not available here, so the stack serves the tracked legacy catalogue
+      # model. smoke.py --no-v3-package and update_security.py --no-v3 say so in their output; G8 is not covered in CI.
+      MODEL_LATEST_ID: privoke-balanced
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install the host test clients
+        run: |
+          pip install -r extension/runtime-supervisor/requirements.txt
+          python evaluation/setup-host.py
+      - name: Install the Rust toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: rust-pki-${{ runner.os }}-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('rust/Cargo.lock') }}
+      - name: Build privoke-pki and generate the throwaway test PKI
+        run: |
+          cargo build --release --locked -p privoke-pki --manifest-path rust/Cargo.toml
+          umask 077
+          python deploy/gce/tests/make_test_pki.py --tool rust/target/release/privoke-pki             --out "$PRIVOKE_PKI_DIR" --creds "$CI_ROOT/smoke-creds" --work "$CI_ROOT/pki-work"
+          # The containers join group 10010 to read the key files; the files stay unreadable to everyone else.
+          sudo chgrp -R 10010 "$PRIVOKE_PKI_DIR"
+          sudo chmod -R g+rX,o-rwx "$PRIVOKE_PKI_DIR"
+      - name: Build the images
+        run: |
+          docker build --pull --file extension/client-runtime/Dockerfile --target runtime --tag privoke-client-runtime-base:ci .
+          docker compose build
+      - name: Start the stack and wait for every health check
+        run: |
+          mkdir -p models/standard-releases
+          docker compose config --quiet
+          docker compose up -d --wait --wait-timeout 900
+          docker compose ps --all
+      - name: Smoke test, with the start-up refusal checks against the built images
+        run: |
+          python deploy/gce/tests/smoke.py --creds "$CI_ROOT/smoke-creds"             --model-target 127.0.0.1:50443 --telemetry-target 127.0.0.1:58443 --server-name localhost             --no-v3-package --images ci:ci --pki-dir "$PRIVOKE_PKI_DIR" --live-dir "$PRIVOKE_PKI_DIR/live"
+      - name: Update-security negative rows against the Rust containers
+        run: |
+          mkdir -p "$CI_ROOT/out"
+          python evaluation/update_security.py --target rust --rust-service all --no-v3             --rust-image "$PRIVOKE_MODEL_STREAMING_IMAGE" --rust-update-image "$PRIVOKE_PARAM_UPDATE_IMAGE"             --rust-telemetry-image "$PRIVOKE_TELEMETRY_IMAGE" --rust-analysis-image "$PRIVOKE_ANALYSIS_IMAGE"             --output "$CI_ROOT/out/update-security-rust.json"
+      - name: Show the stack state and logs
+        if: always()
+        run: |
+          docker compose ps --all || true
+          docker compose logs --no-color --timestamps > "$CI_ROOT/out/compose.log" 2>&1 || true
+          tail -n 200 "$CI_ROOT/out/compose.log" || true
+      - name: Upload the update-security record and the stack logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-security-rust-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            /tmp/privoke-ci/out/update-security-rust.json
+            /tmp/privoke-ci/out/compose.log
+          if-no-files-found: warn
+      - name: Stop the stack and remove the test PKI
+        if: always()
+        run: |
+          docker compose down --volumes --remove-orphans --timeout 20
+          sudo rm -rf "$CI_ROOT"
 
   semantic-training:
     name: Semantic-only automatic HEAD and FULL training
@@ -156,7 +252,7 @@ jobs:
     timeout-minutes: 35
     env:
       COMPOSE_PROJECT_NAME: privoke-semantic-ci-${{ github.run_id }}-${{ github.run_attempt }}
-      COMPOSE_FILE: evaluation/compose.underlying-training-smoke.yml
+      COMPOSE_FILE: evaluation/compose.underlying-training-smoke.yml:evaluation/compose.semantic-ci.yml
       CI_STATE_ROOT: /tmp/privoke-semantic-training-${{ github.run_id }}-${{ github.run_attempt }}
       FT5_STATE_DIR: /tmp/privoke-semantic-training-${{ github.run_id }}-${{ github.run_attempt }}/positive
     steps:

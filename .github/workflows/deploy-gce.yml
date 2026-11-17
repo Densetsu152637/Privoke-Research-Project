@@ -42,7 +42,8 @@ jobs:
     needs: gate
     if: needs.gate.outputs.enabled == 'true'
     uses: ./.github/workflows/service-stack-ci.yml
-    # The Rust container smoke job that stage 23 adds to service-stack-ci becomes a required check here.
+    # Every job of service-stack-ci is required here, including container-smoke (the Rust images on a throwaway test PKI, smoke.py and
+    # the update-security rows): the reusable workflow fails this job, and so blocks publish and deploy, if any of them fails.
 
   publish:
     needs: verify

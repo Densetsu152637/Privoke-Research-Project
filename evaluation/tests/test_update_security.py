@@ -62,7 +62,15 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual(summary["gap_ids_exercised"], ["GAP-X"])
 
 
+def legacy_reference_available() -> bool:
+    return subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"{harness.LEGACY_REFERENCE}^{{commit}}"], cwd=ROOT,
+                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+
+
+@unittest.skipUnless(legacy_reference_available(), "the local reference tag rust-reference-20261117 is not in this clone")
 class StaticEvidenceTests(unittest.TestCase):
+    """The recorded legacy static checks read the proxy and Python-era files from the reference revision (stage 8 replaced them)."""
+
     def test_every_static_claim_holds_in_this_revision(self):
         for item in harness.static_evidence():
             self.assertTrue(item["holds"], item)
@@ -471,6 +479,113 @@ class RustUpdateRowsTests(unittest.TestCase):
         self.assertEqual(record["missing_row_families"], [])
         self.assertEqual(code, 0)
         self.assertNotIn("PRIVATE KEY", json.dumps(record))
+
+
+STACK_GAP_IDS = ("GAP-NO-PUBLISHER-AUTH", "GAP-IDENTITY-SELF-ASSERTED", "GAP-NO-CREDENTIAL-MECHANISM", "GAP-NO-RETRIEVAL-AUTH",
+                 "GAP-NO-PER-INSTALLATION-AUTHZ", "GAP-NO-REVOCATION", "GAP-NO-CUMULATIVE-BOUND", "GAP-LOOPBACK-PLAINTEXT-POLICY")
+GAP_STATUSES = ("met", "kept", "kept (telemetry)")
+
+
+def synthetic_row(row_id, observed="rejected", property_met=True):
+    return {"id": row_id, "class": "invalid_certificate", "path": "p", "description": "d", "expected": "rejected_unchanged", "observed": observed,
+            "code": "UNAVAILABLE", "message": "m", "model_unchanged": True, "expected_codes": None, "identity": "i", "property_met": property_met,
+            "gap": None, "evidence": [], "duration_s": 0.0}
+
+
+class RustStackTests(unittest.TestCase):
+    """Stage 9: the whole-stack target, its gap table (G3) and its static rows. No service is started here."""
+
+    def test_stack_options_parse_and_default_to_a_scratch_record(self):
+        args = harness.build_parser().parse_args(["--target", "rust", "--rust-service", "all", "--no-v3", "--rust-telemetry-image", "t:1"])
+        self.assertEqual((args.rust_service, args.no_v3, args.rust_telemetry_image), ("all", True, "t:1"))
+        self.assertIn('args.output or ROOT / ".tmp/update-security-rust-stack.json"', Path(harness.__file__).read_text(encoding="utf-8"))
+
+    def test_all_eight_gaps_are_declared_once_with_an_allowed_status(self):
+        self.assertEqual([gap["id"] for gap in harness.STACK_GAPS], list(STACK_GAP_IDS))
+        for gap in harness.STACK_GAPS:
+            self.assertIn(gap["status"], GAP_STATUSES, gap["id"])
+            self.assertTrue(gap["reason"] and gap["families"], gap["id"])
+
+    def test_row_families_group_sub_rows(self):
+        self.assertEqual([harness.row_family(item) for item in ("R10-summary-public", "S-startup-a-no-crl", "X13-revoked", "R5-replay", "T14")],
+                         ["R10", "S-startup", "X13", "R5", "T14"])
+
+    def test_a_gap_is_verified_only_by_a_row_that_ran_and_met_its_property(self):
+        gap = harness.STACK_GAPS[0]
+        rows = [synthetic_row(f"{family}-x") for family in gap["families"]]
+        static = [{"id": item, "holds": True} for item in gap["static"]]
+        by_id = {entry["id"]: entry for entry in harness.gap_table(rows, static)}
+        self.assertEqual(by_id[gap["id"]]["status"], gap["status"])
+        self.assertEqual(by_id["GAP-NO-REVOCATION"]["status"], "unverified")  # no X13 row at all
+        rows[0] = synthetic_row(gap["families"][0] + "-x", observed="not_run", property_met=None)
+        self.assertEqual({e["id"]: e for e in harness.gap_table(rows[:1], static)}[gap["id"]]["status"], "unverified")
+        rows = [synthetic_row("A1-x", property_met=False)]
+        self.assertEqual({e["id"]: e for e in harness.gap_table(rows, static)}[gap["id"]]["status"], "unverified")
+        self.assertEqual({e["id"]: e for e in harness.gap_table([synthetic_row("A1-x")], [{"id": "ST1", "holds": False}])}[gap["id"]]["status"], "unverified")
+
+    def test_skipped_rows_are_not_runs_and_carry_the_reason(self):
+        row = harness.skipped_row("T9", "c", "p", "d", "rejected_unchanged", "registered", harness.NO_V3_REASON)
+        self.assertEqual((row["observed"], row["property_met"]), ("not_run", None))
+        self.assertIn("V3", row["message"])
+
+    def test_crl_swap_is_an_atomic_rename(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "crl.pem"
+            path.write_bytes(b"old")
+            harness.replace_atomically(path, b"new")
+            self.assertEqual(path.read_bytes(), b"new")
+            self.assertEqual(sorted(item.name for item in Path(directory).iterdir()), ["crl.pem"])
+
+    @unittest.skipUnless(shutil.which("docker"), "Docker Compose CLI is unavailable")
+    def test_every_static_row_holds_over_the_rust_deployment_files(self):
+        rows = harness.rust_static_evidence()
+        self.assertEqual([item["id"] for item in rows], ["ST1", "ST2", "ST3", "ST4", "ST5", "ST6", "ST7"])
+        for item in rows:
+            self.assertTrue(item["holds"], f"{item['id']}: {item['detail']}")
+
+
+class RustStackRecordTests(unittest.TestCase):
+    """Every committed Rust-stack record (paper/research/update-security-<date>.json with `service` set to all) keeps its contract."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.records = [(path, json.loads(path.read_text(encoding="utf-8"))) for path in sorted((ROOT / "paper/research").glob("update-security-2*.json"))]
+        cls.records = [(path, record) for path, record in cls.records if record.get("service") == "all"]
+
+    def test_the_gap_table_lists_all_eight_gaps_each_backed_by_a_row_that_ran(self):
+        for path, record in self.records:
+            by_id = {row["id"]: row for row in record["attacks"]}
+            self.assertEqual([gap["id"] for gap in record["gaps"]], list(STACK_GAP_IDS), path.name)
+            for gap in record["gaps"]:
+                self.assertIn(gap["status"], GAP_STATUSES, f"{path.name} {gap['id']}")
+                self.assertTrue(gap["rows_that_ran"], f"{path.name} {gap['id']} has no row that ran")
+                for row_id in gap["rows_that_ran"]:
+                    self.assertNotIn(by_id[row_id]["observed"], ("not_run", "not_applicable"))
+                    self.assertIsNot(by_id[row_id]["property_met"], False)
+
+    def test_g2_rows_are_rejected_with_the_store_unchanged_and_no_property_is_unmet(self):
+        for path, record in self.records:
+            self.assertEqual(record["summary"]["property_unmet_ids"], [], path.name)
+            self.assertEqual(record["missing_row_families"], [], path.name)
+            g2 = record["goal_checks"]["G2"]
+            self.assertTrue(g2["all_rejected_with_model_unchanged"] and g2["families_present"] and g2["static_rows_hold"] and g2["startup_all_refused"], path.name)
+            for item in record["static_evidence"]:
+                self.assertTrue(item["holds"], f"{path.name} {item['id']}")
+
+    def test_the_record_holds_no_key_material_and_names_what_it_did_not_run(self):
+        for path, record in self.records:
+            self.assertNotIn("PRIVATE KEY", path.read_text(encoding="utf-8"))
+            self.assertEqual(record["rows_not_run"], [row["id"] for row in record["attacks"] if row["observed"] == "not_run"])
+            if record["fixture"]["standard_v3_packages"] == "absent":
+                self.assertTrue(record["rows_not_run"])
+                self.assertIn("G8", " ".join(record["limitations"]))
+
+    def test_the_markdown_tables_match_the_record(self):
+        for path, record in self.records:
+            document = path.with_suffix(".md")
+            self.assertTrue(document.is_file(), document.name)
+            text = chr(10).join(document.read_text(encoding="utf-8").splitlines()) + chr(10)
+            self.assertIn(report.render_tables(record), text, f"regenerate with: python evaluation/update_security_report.py --record {path.name} --document {document.name}")
 
 
 if __name__ == "__main__":

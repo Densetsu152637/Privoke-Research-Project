@@ -216,6 +216,9 @@ def main() -> int:
     parser.add_argument("--telemetry-target", required=True, help="host:port of the public telemetry listener")
     parser.add_argument("--server-name", default="", help="name in the server certificate (needed for loopback targets)")
     parser.add_argument("--model-id", default="privoke-v3-balanced")
+    parser.add_argument("--no-v3-package", action="store_true",
+                        help="the stack serves no V3 package (CI): stream the legacy catalogue model instead; G8 is then not covered")
+    parser.add_argument("--legacy-model-id", default="privoke-balanced")
     parser.add_argument("--pin", default=None, help="expected manifest SHA-256 (default: shared/python/privoke_model/standard_v3.py)")
     parser.add_argument("--images", default=None, help="PREFIX:TAG of the cloud images, to run the start-up refusal checks")
     parser.add_argument("--pki-dir", type=Path, default=None, help="with --images: the PKI directory the stack uses")
@@ -276,13 +279,25 @@ def main() -> int:
                                     lambda path=path: ch.unary_unary(path)(b"", timeout=10), path)
             results.run(f"{label}: private RPCs are denied (R9)", private)
 
-        # G8: the default V3 package is fetchable and verified against its pin.
+        # G8: the default V3 package is fetchable and verified against its pin. CI has no V3 weights (they are ignored by Git),
+        # so `--no-v3-package` replaces this row with a legacy catalogue stream and says so; it never counts as G8 evidence.
+        def legacy_stream() -> None:
+            with channel(args.model_target, name, ca, installation) as ch:
+                stream = pb_rpc.ModelStreamingServiceStub(ch).StreamModelParameters(
+                    pb.ModelParametersRequest(consumer_id="", model_id=args.legacy_model_id), timeout=60)
+                chunks = sum(1 for _ in stream)
+            assert chunks > 0, "the legacy model streamed no chunk"
+            print(f"      {args.legacy_model_id}: {chunks} chunks streamed (G8 NOT covered: no V3 package in this environment)", flush=True)
+
         def v3() -> None:
             pin = pin_for(args.model_id, args.pin)
             with channel(args.model_target, name, ca, installation) as ch:
                 size = fetch_v3_package(pb_rpc.ModelStreamingServiceStub(ch), pb, args.model_id, pin)
             print(f"      {args.model_id}: {size} asset bytes verified against pin {pin[:12]}", flush=True)
-        results.run(f"model: {args.model_id} fetched and its pin verified (G8)", v3)
+        if args.no_v3_package:
+            results.run(f"model: {args.legacy_model_id} streamed by a registered installation (G8 skipped)", legacy_stream)
+        else:
+            results.run(f"model: {args.model_id} fetched and its pin verified (G8)", v3)
 
         # Telemetry is accepted with the reporter credential.
         def accepted() -> None:

@@ -191,7 +191,7 @@ def snapshot(model_stub, model_id):
 def check_inference(runtime_stub, model_id, expected_version, expected_fp):
     response = runtime_stub.AnalyzePrompt(R.AnalyzePromptRequest(text="My private diagnosis needs medication.",
         request_id="semantic-training-smoke-reload", semantic_model_id=model_id, layers=[R.DETECTION_LAYER_SEMANTIC]), timeout=30)
-    require(not response.error and len(response.layers) == 1, "Semantic reload probe failed")
+    require(not response.error and len(response.layers) == 1, f"Semantic reload probe failed: {response.error[:300]!r}, layers={len(response.layers)}")
     layer = response.layers[0]
     require(layer.layer == R.DETECTION_LAYER_SEMANTIC and layer.status == "ok" and not layer.error and not layer.HasField("semantic_presence_gate"), "Actual semantic reload execution differs")
     require(bool(layer.results), "Fixed synthetic model must provide reload finding identity")

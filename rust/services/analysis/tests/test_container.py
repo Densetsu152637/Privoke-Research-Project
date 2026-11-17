@@ -1,7 +1,7 @@
 """Stage W3 checks against the hosted containers (host Python test client, no `docker compose run`).
 
-The stack is hosted with Docker Compose, from `docker-compose.prod.yml`, `docker-compose.analysis.yml` and
-`docker-compose.analysis-test.yml` with the `legacy-training` and `quarantined-analysis` profiles. Every certificate is
+The stack is hosted with Docker Compose, from `docker-compose.prod.yml` and `docker-compose.analysis-test.yml` with the
+`legacy-training` profile (the analysis services belong to the production file since stage 8a). Every certificate is
 issued at test time by the real `privoke-pki` into a temporary directory that is mounted read-only into the containers
 and deleted afterwards; none is committed. The test client reaches the services through the loopback ports of the
 test-only gateway (TCP only, TLS stays end to end).
@@ -38,7 +38,7 @@ from mtls_pki import PkiFixture, locate_pki_tool  # noqa: E402
 from privoke.v1 import parameters_pb2, parameters_pb2_grpc, runtime_pb2, runtime_pb2_grpc  # noqa: E402
 
 PROJECT = "privoke-w3-analysis"
-COMPOSE_FILES = ("docker-compose.prod.yml", "docker-compose.analysis.yml", "docker-compose.analysis-test.yml")
+COMPOSE_FILES = ("docker-compose.prod.yml", "docker-compose.analysis-test.yml")
 SERVICES = ("analysis-service", "analysis-model-streaming", "analysis-test-gateway", "privoke-fuzzer", "param-update-service")
 PORTS = {"analysis": 50754, "fuzzer": 50753, "models": 50752}
 SEMANTIC = [runtime_pb2.DETECTION_LAYER_SEMANTIC]
@@ -58,14 +58,14 @@ def compose(*arguments, check=True, timeout=1800):
     command = ["docker", "compose", "-p", PROJECT]
     for name in COMPOSE_FILES:
         command += ["-f", name]
-    command += ["--profile", "legacy-training", "--profile", "quarantined-analysis"]
+    command += ["--profile", "legacy-training"]
     return run(*command, *arguments, check=check, env=STATE["environment"], timeout=timeout)
 
 
 def build_pki(tool: Path) -> tuple[PkiFixture, Path]:
     names = ("localhost", "127.0.0.1", "analysis-service", "analysis-model-streaming", "privoke-fuzzer", "param-update-service")
     pki = PkiFixture(tool, server_names=names)
-    for name, role in (("fuzzer", "publisher"), ("analysis", "runtime"), ("w3-driver", "publisher"), ("param-update", "publisher")):
+    for name, role in (("fuzzer", "publisher"), ("analysis", "runtime"), ("w3-driver", "publisher"), ("param-update", "publisher"), ("probe", "runtime")):
         pki.service(name, role)
     pki._run("crl", "--ca-dir", pki.client_ca, "--out", pki.root / "crl.pem")
     # An installation identity (role consumer) for the negative checks.
@@ -77,20 +77,25 @@ def build_pki(tool: Path) -> tuple[PkiFixture, Path]:
     bundle = pki.root / "installation-signed"
     run(pki.tool, "sign", "--ca-dir", pki.client_ca, "--csr", csr, "--installation", installation, "--out-dir", bundle,
         "--registry", pki.registry, "--server-ca", pki.server_ca_pem)
-    # The mounted tree.
+    # The mounted tree: the PRIVOKE_PKI_DIR layout of docker-compose.prod.yml (live/ holds the hot-reloaded files).
     mount = pki.root / "mount"
     (mount / "svc").mkdir(parents=True)
     (mount / "server").mkdir()
+    (mount / "live").mkdir()
     shutil.copy(pki.server_ca_pem, mount / "server-ca.pem")
     shutil.copy(pki.client_ca_pem, mount / "client-ca.pem")
-    shutil.copy(pki.root / "crl.pem", mount / "crl.pem")
-    shutil.copy(pki.registry, mount / "registry.toml")
+    shutil.copy(pki.root / "crl.pem", mount / "live/crl.pem")
+    shutil.copy(pki.registry, mount / "live/registry.toml")
     shutil.copy(pki.server_cert, mount / "server/server.crt")
     shutil.copy(pki.server_key, mount / "server/server.key")
-    for name in ("fuzzer", "analysis", "w3-driver", "param-update"):
+    for name in ("fuzzer", "analysis", "w3-driver", "param-update", "probe"):
         certificate, key = pki.root / "service" / name / f"{name}.crt", pki.root / "service" / name / f"{name}.key"
         shutil.copy(certificate, mount / "svc" / f"{name}.crt")
         shutil.copy(key, mount / "svc" / f"{name}.key")
+    if os.name != "nt":
+        # The keys are synthetic and the containers run as other users; make the tree readable (and traversable) for them.
+        for path in (mount, *mount.rglob("*")):
+            path.chmod(0o755 if path.is_dir() else 0o644)
     STATE["installation"] = (bundle / "client.crt", enrolment / "client.key")
     return pki, mount
 
@@ -129,7 +134,7 @@ def setUpModule():
         raise unittest.SkipTest("privoke-pki or docker is unavailable")
     pki, mount = build_pki(tool)
     STATE.update(pki=pki, mount=mount)
-    STATE["environment"] = {**os.environ, "PRIVOKE_W3_PKI_DIR": str(mount), "COMPOSE_PROJECT_NAME": PROJECT,
+    STATE["environment"] = {**os.environ, "PRIVOKE_PKI_DIR": str(mount), "COMPOSE_PROJECT_NAME": PROJECT,
                             "FUZZER_PROMPT_COUNT": "32"}
     compose("down", "-v", "--remove-orphans", check=False)
     started = time.monotonic()

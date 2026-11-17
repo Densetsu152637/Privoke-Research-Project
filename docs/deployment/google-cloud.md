@@ -354,9 +354,26 @@ python deploy/gce/tests/smoke.py --creds smoke-credentials \
 
 `--creds` holds `server-ca.pem`, `installation.{crt,key}` and `reporter.{crt,key}` (and, optionally, `unregistered.*` and `foreign.*`). The same command with `--model-target 127.0.0.1:50443 --telemetry-target 127.0.0.1:58443 --server-name "$STACK_HOST"` checks a staged release on loopback, and `--images PREFIX:TAG --pki-dir DIR --live-dir DIR` adds the checks that each image refuses to start without its CA or CRL. It needs `grpcio`, `grpcio-tools` and `protobuf` (pinned in `deploy/gce/bootstrap.sh`).
 
-### Stage 23 hook
+### Continuous integration and automatic deployment
 
-The container smoke job and the main-branch auto-deploy (stage 23 of the plan) build on this section without changing it. The CI job `deployment-config` in `service-stack-ci.yml` already validates every Compose file and the deployment scripts and checks that no reverse proxy remains; stage 23 adds, at the marked comment there, a job that builds the Rust images, generates a test PKI with `privoke-pki`, brings `docker-compose.prod.yml` up on loopback with `PRIVOKE_PKI_DIR` pointing at it, and runs `smoke.py --images`, then requires that job in `deploy-gce.yml` (see the comment on the `verify` job). The deploy steps and their order already exist in the workflow.
+Two workflows own this. Nothing here needs a Google Cloud resource until you switch deployment on.
+
+**`service-stack-ci.yml`** runs on pushes to `main`, `feat/dev-testing`, `feat/rust-rewrite` and `wt/**`, on pull requests to `main`, and as the `verify` job of the deploy workflow. Its jobs relevant here:
+
+| Job | What it proves |
+| --- | --- |
+| `deployment-config` | Every Compose file renders, the three deployment scripts pass `bash -n` and `shellcheck`, `smoke.py` compiles, and no reverse proxy remains in a deployment path. |
+| `container-smoke` | Builds `privoke-pki` with cargo and generates a throwaway test PKI (`deploy/gce/tests/make_test_pki.py`, a new one per run, never committed), builds the base runtime image and every Compose image, brings `docker-compose.prod.yml --profile legacy-training` up on loopback with `--wait`, and runs `deploy/gce/tests/smoke.py --images` against it (mutual TLS, role gating, R9, telemetry, and each image refusing to start without its CA or CRL). It then runs `update_security.py --target rust --rust-service all` (the stage 9 negative rows, including live CRL reload) against the same images and uploads the JSON as the `update-security-rust-<run>` artifact. The job dumps the Compose logs and tears the stack down on every outcome. |
+| `extension-tests` | `npm test` and both extension builds. |
+
+In CI the stack serves the tracked legacy catalogue model (`MODEL_LATEST_ID=privoke-balanced`) because the standard V3 packages are ignored by Git and are not on the runner. `smoke.py --no-v3-package` and `update_security.py --no-v3` replace the V3 fetch with a legacy stream and record the V3 rows as `not_run`; the V3 package fetch with its pin (G8) is therefore verified only by the first deployment, whose smoke test runs without the flag, or by a local run with `models/standard-releases` present.
+
+**`deploy-gce.yml`** is inert unless the repository variable `GCP_DEPLOY_ENABLED` is exactly `true`: the `gate` job prints a notice and every other job is skipped. It also only ever acts on `main`. When enabled, a push to `main` (or a manual run on `main`) runs `verify`, which calls `service-stack-ci.yml`, so a failing container smoke test or any other job there stops the release before anything is published. It then builds and pushes the five commit-tagged images to Artifact Registry (`publish`) and rolls them out in the [deployment order](#the-deployment-order-fail-closed) (`deploy`), rolling back and closing the `8443` rule if the external smoke test fails. A missing or malformed secret fails the run before anything changes. To switch it on later:
+
+1. Create the Google Cloud resources and identities (sections 1 to 4) and upload the Secret Manager secrets.
+2. Add the `production` environment secrets listed in [section 5](#5-configure-vm-and-github-environments): `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_ARTIFACT_REPOSITORY`, `GCP_INSTANCE`, `GCP_ZONE`, `GCP_SA_KEY`, `GCP_STACK_HOST`, `SMOKE_SERVER_CA`, `SMOKE_INSTALLATION_CERT`, `SMOKE_INSTALLATION_KEY`, `SMOKE_REPORTER_CERT`, `SMOKE_REPORTER_KEY`.
+3. Add the repository variables `GCP_DEPLOY_ENABLED=true` and, optionally, `GCP_TELEMETRY_FIREWALL_RULE` (default `privoke-telemetry`).
+4. Protect `main` with the `service-stack-ci` jobs as required checks, and restrict the `production` environment to `main`.
 
 ## Rollback, backups and maintenance
 

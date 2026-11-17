@@ -17,7 +17,37 @@ def escape(text) -> str:
     return str(text if text is not None else "").replace("|", "\|").replace("\n", " ")
 
 
+def render_stack_tables(record: dict) -> str:
+    """The generated tables of a Rust-stack record (stage 9): goal checks, the eight-gap table, every row and the static rows."""
+    summary, checks = record["summary"], record["goal_checks"]
+    unmet = summary["property_unmet_ids"]
+    lines = [f"Rows: {summary['total_rows']}; not run: {len(record['rows_not_run'])}; rows whose security property was not met: {len(unmet)} "
+             f"({', '.join(unmet) or 'none'}). Missing row families: {', '.join(record['missing_row_families']) or 'none'}.", "",
+             "### Goal checks", "", "| Goal | Check | Result |", "| --- | --- | --- |",
+             f"| G2 | Rows A1, A3, T1, T3, T8, T12, T14 and R7 are rejected with the model unchanged | {'yes' if checks['G2']['all_rejected_with_model_unchanged'] and checks['G2']['families_present'] else 'NO'} |",
+             f"| G2 | Static rows ST1, ST2, ST3, ST5 and ST6 hold | {'yes' if checks['G2']['static_rows_hold'] else 'NO'} |",
+             f"| G2 | Every cloud image started without `--client-ca` or without `--crl` exits non-zero ({len(checks['G2']['startup_rows'])} rows) | {'yes' if checks['G2']['startup_all_refused'] else 'NO'} |",
+             f"| G3 | All {checks['G3']['gaps']} gaps are verified by at least one row that ran | {'yes' if checks['G3']['all_verified'] else 'NO'} |", ""]
+    lines += ["### Gap closure (G3)", "", "| Gap | Status | Reason | Rows that ran | Static rows |", "| --- | --- | --- | --- | --- |"]
+    for gap in record["gaps"]:
+        lines.append(f"| {gap['id']} | {escape(gap['status'])} | {escape(gap['reason'])} | {escape(', '.join(gap['rows_that_ran']))} | {escape(', '.join(gap['static']) or 'none')} |")
+    lines += ["", "### Rows", "", "| ID | Service | Path | Row | Observed | Code | Store unchanged | Property met | Gap |", "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
+    for row in record["attacks"]:
+        met = {True: "yes", False: "NO", None: "n/a"}[row["property_met"]]
+        unchanged = {True: "yes", False: "no", None: "n/a"}[row["model_unchanged"]]
+        lines.append(f"| {row['id']} | {escape(row.get('service'))} | {row['path']} | {escape(row['description'])} | {row['observed']} | {escape(row['code'])} | "
+                     f"{unchanged} | {met} | {escape(row.get('gap'))} |")
+    lines += ["", "### Static rows", "", "| ID | Claim | Holds | Detail |", "| --- | --- | --- | --- |"]
+    for item in record["static_evidence"]:
+        lines.append(f"| {item['id']} | {escape(item['claim'])} | {'yes' if item['holds'] else 'NO'} | {escape('; '.join(item['detail'])[:200])} |")
+    if record["rows_not_run"]:
+        lines += ["", "### Rows not run", "", f"{', '.join(record['rows_not_run'])}. {record['limitations'][-1]}"]
+    return "\n".join(lines) + "\n"
+
+
 def render_tables(record: dict) -> str:
+    if record.get("service") == "all":
+        return render_stack_tables(record)
     rows = {row["id"]: row for row in record["attacks"]}
     summary = record["summary"]
     lines = [f"Rows: {summary['total_rows']}. Rows whose security property was not met: "
