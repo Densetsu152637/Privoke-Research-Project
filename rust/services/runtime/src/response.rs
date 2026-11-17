@@ -176,6 +176,15 @@ pub fn encode_analysis(analysis: &Analysis, elapsed: Elapsed) -> Result<Vec<u8>,
         metadata.insert("visibility_hint".to_string(), name.to_string());
     }
     metadata.insert("text_length".to_string(), request.text.chars().count().to_string());
+    for execution in &analysis.executions {
+        if execution.status == Status::Ok
+            && let Some(identity) = &execution.identity
+        {
+            for (name, value) in identity {
+                metadata.insert(format!("privoke.semantic.{name}"), value.clone());
+            }
+        }
+    }
     if let Elapsed::Measured(milliseconds) = elapsed {
         metadata.insert("elapsed_ms".to_string(), elapsed_text(milliseconds));
     }
@@ -292,7 +301,9 @@ mod tests {
         let mut req = request("hello");
         req.visibility_hint = Some(0b01100);
         req.visibility_hint_name = Some("P2");
-        let analysis = decide(req, vec![LayerExecution { layer: Layer::Regex, status: Status::Ok, results: vec![], error: None }]).unwrap();
+        let analysis =
+            decide(req, vec![LayerExecution { layer: Layer::Regex, status: Status::Ok, results: vec![], error: None, identity: None }])
+                .unwrap();
         assert_eq!(analysis.action, Action::Allow);
         let bytes = encode_analysis(&analysis, Elapsed::Cleared).unwrap();
         assert!(bytes.windows(14).any(|w| w == b"No privacy ris"), "{bytes:?}");
@@ -300,7 +311,8 @@ mod tests {
 
     #[test]
     fn a_failed_layer_blocks_an_allow_and_names_itself() {
-        let failed = LayerExecution { layer: Layer::Ner, status: Status::Error, results: vec![], error: Some("boom".into()) };
+        let failed =
+            LayerExecution { layer: Layer::Ner, status: Status::Error, results: vec![], error: Some("boom".into()), identity: None };
         let analysis = decide(request("hello"), vec![failed]).unwrap();
         assert_eq!(analysis.action, Action::Block);
         let bytes = encode_analysis(&analysis, Elapsed::Cleared).unwrap();

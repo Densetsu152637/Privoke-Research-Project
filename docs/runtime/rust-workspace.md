@@ -1170,7 +1170,7 @@ The service reads the `FUZZ_*`, `MODEL_ID`, `FUZZER_ID`, `PARAM_UPDATE_TARGET` a
 
 ## `privoke-runtime` (stage 17)
 
-> Status: checkpoint 1 of stage 17. The regex and NER layers, `Health`, the pipeline and policy aggregation and the supervisor routing are done and green in CI. The semantic layer, the model fetch (D11), `DetectAnnotationPresence`, GLiNER selection, the gradient RPCs and the telemetry wiring are **not** done; the Python worker serves them, and the routing keeps every call that the Rust worker does not claim on it. What remains is listed at the end of this section.
+> Status: checkpoint 2 of stage 17. The regex, NER and semantic layers (legacy Tiny artifacts and pinned V3 packages from read-only model roots), `Health`, the pipeline and policy aggregation and the supervisor routing are done and green in CI. The presence gate, the pretrained contextual encoder, `DetectAnnotationPresence`, the gradient RPCs, GLiNER selection, the Rust-side model fetch (D11) and the telemetry wiring are **not** done; the Python worker serves them, and the routing keeps every call that the Rust worker does not claim on it. What remains is listed at the end of this section.
 
 `rust/services/runtime` (`privoke-runtime`, binary `privoke-runtime-worker`) is the `PrivokeRuntimeService` analysis path of `extension/client-runtime/src` as a worker behind the W1 frame protocol ([worker protocol](worker-protocol.md#the-rust-worker-stage-17)). The pool (W2) starts it where it starts `worker_shim.py`; spaCy runs in the same process through the stage 11b `InProcess` backend (no spaCy process), so the W2 sandbox and restart cover the whole thing, and an interpreter crash kills this worker only.
 
@@ -1181,6 +1181,7 @@ The service reads the `FUZZ_*`, `MODEL_ID`, `FUZZER_ID`, `PARAM_UPDATE_TARGET` a
 | `pipeline` | `pipeline.analyse_text` for the regex and NER layers: regex first by default (`PRIVOKE_WAIT_FOR_REGEX`) and the other layers skipped after a `BLOCK`, a failing layer reported as that layer's `error` and blocking an otherwise ALLOW. Composes `privoke-rules` and `privoke-ner-layer`; the NER layer reads spaCy through `SpacyBackend`. |
 | `response` | The visibility hint, the masked prompt, the `reason`, the metadata map and the `AnalyzePromptResponse` bytes. |
 | `wire` | A small protobuf encoder that writes what `upb` writes with `SerializeToString(deterministic=True)`: field order, proto3 defaults left out, and **every map entry written with its key and its value**. `prost` leaves the value out of an entry whose value is the default (the W3 finding), so responses are not built with it; `prost` only decodes requests. |
+| `semantic` | The semantic layer over read-only model roots: `<id>.json` legacy Tiny artifacts, `<id>/manifest.json` pinned V3 packages, and the controller's cache layout `<id>/<pin>/manifest.json`. A model is rebuilt only when its bytes change. It attaches the result metadata Python attaches (`classifier`, `architecture`, `model_id`, `model_version`, `parameter_count`, `parameter_fingerprint`, `artifact_checksum`, `compute_device`, `category_probabilities`; for V3 also `backbone_sha256`, `tokenizer_sha256`, `torch_threads`) and the response identity `privoke.semantic.*`. |
 | `frames`, `service`, `worker` | The W1 codec and limits, the request handling (one frame in, one frame out), the READY announcement, the sandbox self-check and the serve loop. |
 
 ### Behaviour kept, and where it differs
@@ -1198,12 +1199,13 @@ The service reads the `FUZZ_*`, `MODEL_ID`, `FUZZER_ID`, `PARAM_UPDATE_TARGET` a
 | Call | Engine |
 | --- | --- |
 | `AnalyzePrompt`, every layer regex or NER | Rust |
-| `AnalyzePrompt`, any other selection (semantic, empty, runtime, unknown value) | Python |
+| `AnalyzePrompt` naming the semantic layer | Rust when the Rust worker was given model roots (the controller's model cache exists) and the request has no presence gate and does not name the pretrained contextual encoder; otherwise Python |
+| `AnalyzePrompt`, any other selection (empty, runtime, unknown value) | Python |
 | `Health` | Rust |
 | `DetectAnnotationPresence` | Python (not ported) |
 | `ComputeSemanticGradients`, `ComputeUnderlyingModelGradients`, `ComputePresenceGradients` | Python. The stage 19 crate computes the single-update gradient RPCs (head and full-encoder scopes, presence) as a library; it is not yet a worker, so these are not claimed. |
 
-The claim is one constant (`Capabilities::RUST`); a later stage that ports another part changes it and the router follows. A call is never retried on the other engine, and a Rust worker that is down is a failed call (`UNAVAILABLE`), not a silent fallback. The controller reports the runtime as running only when every configured pool is ready. The W3 analysis service (`rust/services/analysis`) is not changed: it still starts the Python shim, and can start this worker with the same routing table when its owner wires a second pool.
+The claim is one constant (`Capabilities::RUST`, with `with_semantic()` when the worker has model roots); a later stage that ports another part changes it and the router follows. A call is never retried on the other engine, and a Rust worker that is down is a failed call (`UNAVAILABLE`), not a silent fallback. The controller reports the runtime as running only when every configured pool is ready. The W3 analysis service (`rust/services/analysis`) is not changed: it still starts the Python shim, and can start this worker with the same routing table when its owner wires a second pool.
 
 ### Parity with Python
 
@@ -1222,8 +1224,20 @@ The spaCy results are replayed, so this is parity of the Rust logic with Python 
 
 **Floats.** The regex and NER findings carry confidences from tables, so no float rounding is involved here and the responses are byte-equal, including the product pipeline of both layers (the plan requires byte equality only for regex-only and NER-only; it holds for the pair as well, where no model float exists). The rule for selections that do involve model floats is declared in `tests/conformance/normalization.toml`, section `analysis_runtime`: decisions exact, floats equal after rounding to 6 decimal places or within an absolute 1e-5, only the wall-clock fields cleared.
 
+### Semantic parity (LLM-only, reported apart)
+
+`evaluation/generate_runtime_golden.py semantic` serves the four tracked legacy models (`models/privoke-{baseline,efficient,balanced,quality}.json`) to the unchanged Python servicer the way the Python worker serves them (`worker_main.LocalModelProvider`, read-only files) and records 135 requests. Each `llm_only` request has `layers = [DETECTION_LAYER_SEMANTIC]` and nothing else; the generator asserts that the returned layer execution is exactly the semantic layer with status `ok`, and so does the Rust test for every Rust response. The `product_pipeline` rows (regex, NER and semantic, in both execution orders) are separate.
+
+| Scope | Requests | Within the declared rule | Byte-identical |
+| --- | ---: | ---: | ---: |
+| LLM-only (semantic only): 4 models on 29 prompts, a visibility hint, unknown, invalid and unresolvable model ids, a long prompt | 121 | 121 | 120 |
+| product pipeline (regex, NER and semantic) | 14 | 14 | 14 |
+
+The rule is the one of `tests/conformance/normalization.toml`: every decision field and text exactly, confidence after rounding to 6 decimal places or within 1e-5, and the 4-decimal `category_probabilities` within one unit of their last digit. The one response that is not byte-identical differs only inside that tolerance. These are tracked synthetic-prompt rows on legacy Tiny models; **the pinned V3 releases and the recorded sets are not covered** (the pinned-release parity run of stage 14 is still local-only and pending), and V3 loading in the worker is exercised only through its refusal paths here.
+
 ### Tests
 
+- `tests/semantic_golden.rs`: the 135 semantic comparisons above.
 - `tests/golden.rs`: the 238 byte comparisons through the frame codec, the W1 capture digests, and the declared float rule.
 - `tests/worker_process.rs`: the real worker binary as a child process on the pool framing, with the Python-free stand-in spaCy engine (`--spacy fake`, feature `fake-spacy`): READY, `Health`, regex and NER analysis, `INVALID_LAYERS`, `UNSUPPORTED_LAYERS`, `UNKNOWN_METHOD`, `INVALID_PAYLOAD`, malformed frames, the text limit, a clean exit when the pipe closes, the sandbox self-check, and a usage error. Every child is killed in a drop guard.
 - Unit tests in `model`, `request`, `response`, `wire` and `frames`.
@@ -1232,8 +1246,10 @@ The spaCy results are replayed, so this is parity of the Rust logic with Python 
 
 ### Not in this checkpoint
 
-- **Semantic layer** (V3, Tiny, and the external classifier through `SemanticClassifier`), with the response metadata of its results (model identity, fingerprint, category probabilities) and the presence gate.
-- **D11**, the model package and legacy stream fetch into the same cache layout, with the pin, shape and finite checks and the byte-identical cache (the supervisor's `fetch.rs` and the analysis service's `models.rs` already fetch for the Python worker).
+- **The external classifier** (`PRIVOKE_LLM_CHOICE=open`): it needs the network, which the worker never has, and the Python worker forces the streamed choice for the same reason. The stage 16 client stays in `privoke-semantic`; the worker links the crate (so reqwest and rustls are linked in) but never builds or calls it.
+- **The presence gate**, the pretrained contextual encoder (`privoke-pretrained-context-minilm`), scratch-presence artifacts, and a snapshot read from the analysis service's `<id>.snapshot.pb` cache layout: all stay on the Python worker.
+- **Pinned V3 releases**: the loader is in place but untested on a pinned release here (no pinned package in CI); the stage 14 local run is the prerequisite.
+- **D11**, a Rust model package and legacy stream fetch with a byte-identical cache. The worker has no network by design, so fetching belongs to its front end: the controller's `fetch.rs` (V3 packages, pins and checks, stage 7) and the analysis service's `models.rs` (legacy snapshots, W3) already fetch in Rust. Their cache bytes were not compared with the Python fetch in this checkpoint, and no new fetch code was written.
 - **`DetectAnnotationPresence`** (the sparse presence model lives in `privoke-training` as part of stage 19) and the gradient RPCs as a Rust worker.
 - GLiNER selection (`PRIVOKE_NER_BACKEND=gliner`): the worker builds the spaCy detector only.
 - Telemetry: the worker has none by design; the controller-side reporter wiring of stage 18 is not done.

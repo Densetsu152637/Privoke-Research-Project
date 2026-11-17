@@ -9,6 +9,8 @@
 //! No call is retried on the other engine: a Rust worker that is down is a failed call, not a silent fallback, because
 //! the routing table says which engine owns the call.
 
+use privoke_contracts::proto::v1::AnalyzePromptRequest;
+
 /// The gRPC service whose paths are routed.
 pub const SERVICE: &str = "privoke.v1.PrivokeRuntimeService";
 
@@ -70,8 +72,27 @@ pub struct Capabilities {
 }
 
 impl Capabilities {
-    /// What the Rust worker serves today (stage 17, checkpoint 1): `Health` and the regex and NER layers.
+    /// What the Rust worker serves (stage 17): `Health` and the regex and NER layers.
     pub const RUST: Self = Self { regex: true, ner: true, semantic: false, presence: false, gradients: false };
+
+    /// The Rust worker with the semantic layer, which it has when it is given model roots.
+    #[must_use]
+    pub const fn with_semantic(mut self) -> Self {
+        self.semantic = true;
+        self
+    }
+}
+
+/// `PRETRAINED_CONTEXT_MODEL_ID`: the pretrained contextual encoder is served by the Python worker only.
+const PRETRAINED_CONTEXT_MODEL_ID: &str = "privoke-pretrained-context-minilm";
+
+/// The engine for an `AnalyzePrompt`: the layer selection decides, except that a presence gate and the pretrained
+/// contextual encoder are Python's whatever the layers are.
+pub fn route_analysis(rust: Option<Capabilities>, request: &AnalyzePromptRequest) -> Engine {
+    if request.semantic_presence_gate.is_some() || request.semantic_model_id == PRETRAINED_CONTEXT_MODEL_ID {
+        return Engine::Python;
+    }
+    route(rust, Rpc::AnalyzePrompt, &request.layers)
 }
 
 /// The `DetectionLayer` enum values the layers use.
@@ -159,6 +180,22 @@ mod tests {
         assert_eq!(route(rust, Rpc::AnalyzePrompt, &[]), Engine::Python);
         assert_eq!(route(rust, Rpc::AnalyzePrompt, &[1]), Engine::Python);
         assert_eq!(route(rust, Rpc::AnalyzePrompt, &[0, REGEX]), Engine::Python);
+    }
+
+    #[test]
+    fn semantic_goes_to_rust_only_when_it_has_models_and_no_gate() {
+        let with_models = Some(Capabilities::RUST.with_semantic());
+        let request = |layers: Vec<i32>| AnalyzePromptRequest { layers, ..AnalyzePromptRequest::default() };
+        assert_eq!(route_analysis(with_models, &request(vec![SEMANTIC])), Engine::Rust);
+        assert_eq!(route_analysis(with_models, &request(vec![REGEX, NER, SEMANTIC])), Engine::Rust);
+        assert_eq!(route_analysis(Some(Capabilities::RUST), &request(vec![SEMANTIC])), Engine::Python);
+        let mut gated = request(vec![SEMANTIC]);
+        gated.semantic_presence_gate = Some(privoke_contracts::proto::v1::SemanticPresenceGate::default());
+        assert_eq!(route_analysis(with_models, &gated), Engine::Python);
+        let mut context = request(vec![SEMANTIC]);
+        context.semantic_model_id = PRETRAINED_CONTEXT_MODEL_ID.to_string();
+        assert_eq!(route_analysis(with_models, &context), Engine::Python);
+        assert_eq!(route_analysis(with_models, &request(vec![])), Engine::Python);
     }
 
     #[test]

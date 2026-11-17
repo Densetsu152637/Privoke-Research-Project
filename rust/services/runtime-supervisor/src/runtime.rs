@@ -15,7 +15,7 @@ use prost::Message;
 use tokio::sync::watch;
 
 use crate::config::{Environment, boolean};
-use crate::routing::{self, Capabilities, Engine, Rpc};
+use crate::routing::{self, Capabilities, Engine};
 use crate::worker::{self, MAX_ANALYZE_REQUEST_BYTES, Method, WorkerProtocol, WorkerSettings};
 
 /// What the control methods report, mirroring `RuntimeControlStatus`.
@@ -117,7 +117,9 @@ impl RuntimeController {
 
     /// What the Rust worker serves, `None` when none is configured.
     fn rust_capabilities(&self) -> Option<Capabilities> {
-        self.rust_settings.as_ref().map(|_| Capabilities::RUST)
+        self.rust_settings
+            .as_ref()
+            .map(|settings| if settings.serves_semantic { Capabilities::RUST.with_semantic() } else { Capabilities::RUST })
     }
 
     /// The live environment: it changes with the stack choice, and the model-streaming health check reads it.
@@ -250,8 +252,11 @@ impl RuntimeController {
         }
         // The layer selection decides the worker. A request that does not decode goes to the Python worker, which
         // answers it with `INVALID_PAYLOAD` as it always has.
-        let layers = AnalyzePromptRequest::decode(request).map(|message| message.layers).unwrap_or_default();
-        let slot = match routing::route(self.rust_capabilities(), Rpc::AnalyzePrompt, &layers) {
+        let engine = match AnalyzePromptRequest::decode(request) {
+            Ok(message) => routing::route_analysis(self.rust_capabilities(), &message),
+            Err(_) => Engine::Python,
+        };
+        let slot = match engine {
             Engine::Rust => &self.rust_current,
             Engine::Python => &self.current,
         };

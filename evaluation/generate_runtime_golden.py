@@ -39,6 +39,10 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 FRAMES = REPO / "tests" / "conformance" / "worker-frames"
 DEFAULT_OUT = REPO / "rust" / "services" / "runtime" / "tests" / "fixtures" / "runtime_golden.json"
+SEMANTIC_OUT = REPO / "rust" / "services" / "runtime" / "tests" / "fixtures" / "runtime_semantic_golden.json"
+MODELS = REPO / "models"
+TRACKED_MODELS = ("privoke-baseline", "privoke-efficient", "privoke-balanced", "privoke-quality")
+LAYER_VALUES_ALL = {"regex": 2, "ner": 3, "semantic": 4}
 HEADER = struct.Struct(">IBBBBQI")
 LAYER_VALUES = {"regex": 2, "ner": 3}
 
@@ -92,7 +96,12 @@ class Harness:
         ner.nlp = self.nlp
         self.records: dict[tuple[str, str], dict] = {}
 
+        original_detector_for = pipeline._detector_for
+        self.models_installed = False
+
         def detector_for(layer, semantic_model_id=None):
+            if layer == pipeline.SEMANTIC_LAYER and self.models_installed:
+                return original_detector_for(layer, semantic_model_id=semantic_model_id)
             if layer == pipeline.REGEX_LAYER:
                 return regex.analyze
             if layer == pipeline.NER_LAYER:
@@ -100,6 +109,13 @@ class Harness:
             raise AssertionError(f"layer {layer!r} requested by a regex or NER run")
 
         pipeline._detector_for = detector_for
+
+    def install_models(self, root: Path) -> None:
+        """Serve models the way the Python worker does: read-only files, no model-streaming."""
+        from src import worker_main
+
+        worker_main._install_offline_runtime(worker_main.LocalModelProvider([root], None))
+        self.models_installed = True
 
     def normalise(self, payload: bytes) -> bytes:
         message = self.pb.AnalyzePromptResponse.FromString(payload)
@@ -133,7 +149,7 @@ class Harness:
 
 
 def request_for(pb, text: str, layers: list[str], **fields):
-    message = pb.AnalyzePromptRequest(text=text, layers=[LAYER_VALUES[name] for name in layers], **fields)
+    message = pb.AnalyzePromptRequest(text=text, layers=[LAYER_VALUES_ALL[name] for name in layers], **fields)
     return message
 
 
@@ -236,6 +252,68 @@ def build_cases(harness: Harness) -> list[dict]:
     return cases
 
 
+def semantic_cases(harness: Harness) -> list[dict]:
+    """Semantic selections on the four tracked legacy models. LLM-only rows select exactly the semantic layer and the
+    returned layer execution is asserted; product rows add regex and NER and are labelled apart."""
+    pb = harness.pb
+    prompts = json.loads((FRAMES / "prompts.json").read_text(encoding="utf-8"))["prompts"]
+    texts = {item["id"]: item["text"] for item in prompts}
+    texts.update(EXTRA_TEXTS)
+    cases: list[dict] = []
+
+    def add(case_id, note, scope, request, expect=None):
+        payload = request.SerializeToString(deterministic=True)
+        expected = harness.run(request)
+        response = pb.AnalyzePromptResponse.FromString(expected)
+        if expect is not None:
+            executed = [(item.layer, item.status) for item in response.layers]
+            assert executed == expect, f"{case_id}: executed {executed}, expected {expect}"
+        cases.append({"id": case_id, "note": note, "scope": scope,
+                      "request": base64.b64encode(payload).decode("ascii"),
+                      "response": base64.b64encode(expected).decode("ascii")})
+
+    for model in TRACKED_MODELS:
+        for text_id, text in texts.items():
+            add(f"semantic/{model}/{text_id}", "explicit semantic-only selection", "llm_only",
+                request_for(pb, text, ["semantic"], semantic_model_id=model, request_id=f"{model}/{text_id}"),
+                expect=[(4, "ok")] if text.strip() and len(text) <= 20000 else None)
+    for text_id in ("person-organisation", "card", "health", "benign-weather", "email", "unicode", "ALL-CAPS"):
+        text = texts[text_id]
+        add(f"product/{text_id}/all-layers", "regex, NER and semantic, regex first", "product_pipeline",
+            request_for(pb, text, ["regex", "ner", "semantic"], semantic_model_id="privoke-balanced", request_id=f"all-{text_id}"))
+        add(f"product/{text_id}/parallel", "regex, NER and semantic, parallel order", "product_pipeline",
+            request_for(pb, text, ["regex", "ner", "semantic"], semantic_model_id="privoke-quality", request_id=f"par-{text_id}",
+                        regex_execution_order=pb.REGEX_EXECUTION_ORDER_PARALLEL))
+    add("hint/semantic", "visibility hint on a semantic finding", "llm_only",
+        request_for(pb, texts["health"], ["semantic"], semantic_model_id="privoke-balanced", visibility_hint="P3", request_id="hint-sem"),
+        expect=[(4, "ok")])
+    for case_id, request, note in (
+        ("semantic/latest-unresolvable", request_for(pb, "hello there", ["semantic"], request_id="s-latest"), "latest is refused without a latest model"),
+        ("semantic/unknown", request_for(pb, "hello there", ["semantic"], semantic_model_id="privoke-nope", request_id="s-unknown"), "unknown model"),
+        ("semantic/bad-id", request_for(pb, "hello there", ["semantic"], semantic_model_id="../x", request_id="s-bad"), "invalid model id"),
+        ("semantic/long", request_for(pb, "word " * 3000, ["semantic"], semantic_model_id="privoke-balanced", request_id="s-long"), "a long prompt"),
+    ):
+        add(case_id, note, "llm_only", request)
+    return cases
+
+
+def write_semantic(out: Path) -> dict:
+    harness = Harness()
+    harness.install_models(MODELS)
+    document = {
+        "schema": 1,
+        "python": sys.version.split()[0],
+        "scope_note": "explicit semantic selections on the four tracked legacy models; llm_only rows select exactly the semantic layer and the returned execution is asserted, product_pipeline rows are reported apart",
+        "models": list(TRACKED_MODELS),
+        "cases": semantic_cases(harness),
+    }
+    document["lexicon"] = harness.lexicon()
+    document["spacy"] = [record for _, record in sorted(harness.records.items(), key=lambda item: item[0])]
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(document, ensure_ascii=True, separators=(",", ":")) + "\n", encoding="utf-8", newline="\n")
+    return document
+
+
 def write(out: Path) -> dict:
     harness = Harness()
     cases = build_cases(harness)
@@ -258,7 +336,13 @@ def main(argv=None) -> None:
     sub = parser.add_subparsers(dest="command", required=True)
     writer = sub.add_parser("write", help="write the golden fixture")
     writer.add_argument("--out", default=str(DEFAULT_OUT))
+    semantic = sub.add_parser("semantic", help="write the semantic golden fixture")
+    semantic.add_argument("--out", default=str(SEMANTIC_OUT))
     args = parser.parse_args(argv)
+    if args.command == "semantic":
+        document = write_semantic(Path(args.out))
+        print(f"wrote {args.out}: {len(document['cases'])} cases, {len(document['spacy'])} spaCy records")
+        return
     document = write(Path(args.out))
     cases = document["cases"]
     matched = [case for case in cases if "capture_match" in case]

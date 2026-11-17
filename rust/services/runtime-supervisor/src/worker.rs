@@ -189,6 +189,8 @@ pub struct WorkerSettings {
     pub memory_limit_bytes: Option<u64>,
     /// Live-process ceiling (on Windows the venv launcher and the interpreter are two).
     pub max_processes: u32,
+    /// For the Rust worker: whether it is given model roots, and so serves the semantic layer.
+    pub serves_semantic: bool,
 }
 
 /// The variables a worker may inherit. Everything else, including credentials and the telemetry and TLS settings, stays
@@ -255,6 +257,7 @@ impl WorkerSettings {
             memory_limit_bytes: (memory_mb > 0).then(|| memory_mb.saturating_mul(1024 * 1024)),
             max_processes: u32::try_from(positive_int(environment, "PRIVOKE_WORKER_MAX_PROCESSES", 8)?)
                 .map_err(|_| "PRIVOKE_WORKER_MAX_PROCESSES is too large.".to_string())?,
+            serves_semantic: false,
         })
     }
 
@@ -272,7 +275,29 @@ impl WorkerSettings {
         let command = rust_worker_path(environment)?;
         let mut settings = Self::from_environment(environment, repository_root)?;
         settings.command = command;
-        settings.args = vec!["--warm-layers".into(), "regex,ner".into()];
+        // The same read-only roots, alias and warm-up the Python worker gets; the Rust worker reads the controller's cache
+        // layout (`<cache>/<model_id>/<pin>/`) directly.
+        let mut args: Vec<OsString> = Vec::new();
+        let cache = cache_root(environment);
+        if cache.is_dir() {
+            args.extend(["--model-root".into(), cache.into()]);
+            settings.serves_semantic = true;
+        }
+        if let Some(latest) = environment.get("PRIVOKE_LATEST_MODEL_ID").map(|v| v.trim()).filter(|v| !v.is_empty()) {
+            args.extend(["--latest-model-id".into(), latest.into()]);
+        }
+        args.extend([
+            "--warm-layers".into(),
+            environment.get("PRIVOKE_WORKER_WARM_LAYERS").map_or("regex,ner", |layers| layers.trim()).into(),
+        ]);
+        if settings.serves_semantic {
+            for model in environment.get("PRIVOKE_WORKER_WARM_MODELS").map(String::as_str).unwrap_or_default().split(',') {
+                if !model.trim().is_empty() {
+                    args.extend(["--warm-semantic-model".into(), model.trim().into()]);
+                }
+            }
+        }
+        settings.args = args;
         Ok(Some(settings))
     }
 
@@ -422,7 +447,9 @@ mod tests {
         let settings = WorkerSettings::rust_from_environment(&environment, Path::new("/repo")).unwrap().unwrap();
         std::fs::remove_dir_all(&directory).unwrap();
         assert_eq!(settings.command, binary);
+        // No model cache directory exists here, so the worker is given none and serves no semantic layer.
         assert_eq!(settings.args, vec![OsString::from("--warm-layers"), OsString::from("regex,ner")]);
+        assert!(!settings.serves_semantic);
         assert_eq!(settings.memory_limit_bytes, Some(6144 * 1024 * 1024));
         environment.insert("PRIVOKE_RUNTIME_ANALYSIS_ENGINE".into(), "both".into());
         assert!(WorkerSettings::rust_from_environment(&environment, Path::new("/repo")).is_err());

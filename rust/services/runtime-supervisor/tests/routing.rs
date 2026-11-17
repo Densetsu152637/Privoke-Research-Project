@@ -41,3 +41,18 @@ fn without_the_rust_worker_everything_stays_on_the_python_worker() {
     assert_eq!(reason(&mut host, 2, &[LAYER_REGEX]), "stand-in");
     assert_eq!(reason(&mut host, 3, &[LAYER_SEMANTIC]), "stand-in");
 }
+
+#[test]
+fn with_model_roots_the_rust_worker_also_serves_the_plain_semantic_layer() {
+    let cache = tempfile::tempdir().unwrap();
+    let env = vec![
+        ("PRIVOKE_RUNTIME_ANALYSIS_ENGINE", "rust".to_string()),
+        ("PRIVOKE_RUNTIME_RUST_WORKER", TEST_WORKER.to_string()),
+        ("MODEL_PACKAGE_CACHE_DIR", cache.path().to_string_lossy().into_owned()),
+    ];
+    let mut host = Host::start(HostOptions { env, ..HostOptions::default() });
+    assert!(host.set_enabled(1, true).enabled);
+    assert_eq!(reason(&mut host, 2, &[LAYER_SEMANTIC]), "stand-in-rust");
+    assert_eq!(reason(&mut host, 3, &[LAYER_REGEX, LAYER_NER, LAYER_SEMANTIC]), "stand-in-rust");
+    assert_eq!(reason(&mut host, 4, &[LAYER_REGEX]), "stand-in-rust");
+}

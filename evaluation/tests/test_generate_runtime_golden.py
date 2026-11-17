@@ -110,6 +110,24 @@ class FixtureTest(unittest.TestCase):
             self.assertTrue(any(fragment in case_id for case_id in ids), fragment)
 
 
+SEMANTIC_FIXTURE = REPO / "rust" / "services" / "runtime" / "tests" / "fixtures" / "runtime_semantic_golden.json"
+
+
+class SemanticFixtureTest(unittest.TestCase):
+    def test_llm_only_rows_select_exactly_the_semantic_layer(self) -> None:
+        document = json.loads(SEMANTIC_FIXTURE.read_text(encoding="utf-8"))
+        scopes = {case["scope"] for case in document["cases"]}
+        self.assertEqual(scopes, {"llm_only", "product_pipeline"})
+        for case in document["cases"]:
+            layers = request_layers(base64.b64decode(case["request"]))
+            self.assertTrue(layers, f"{case['id']} sends an empty layer list")
+            self.assertNotIn(1, layers)
+            if case["scope"] == "llm_only":
+                self.assertEqual(layers, [4], case["id"])
+            else:
+                self.assertEqual(sorted(layers), [2, 3, 4], case["id"])
+
+
 @unittest.skipUnless(runtime_available(), "the client runtime environment, the protobuf clients or spaCy are missing")
 class RegenerationTest(unittest.TestCase):
     def test_regeneration_is_byte_identical_to_the_committed_fixture(self) -> None:

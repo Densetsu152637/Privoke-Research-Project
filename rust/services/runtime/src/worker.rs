@@ -88,22 +88,31 @@ pub fn ready_frame(loaded: &[String], sandbox_self_check: &str) -> Vec<u8> {
     frames::encode_frame(Kind::Ready, 0, 0, ready.to_string().as_bytes())
 }
 
-/// Warms the layers up (`_warm_up`): each must run `ok` on the warm-up prompt. Returns the names of the loaded layers.
-pub async fn warm_up<A: SpacyBackend>(service: &Service<A>, layers: &[Layer]) -> Result<Vec<String>, String> {
-    if layers.is_empty() {
-        return Ok(Vec::new());
+/// Warms the layers up (`_warm_up`): each must run `ok` on the warm-up prompt, and each named semantic model must load
+/// and classify it. Returns what was loaded: layer names, then `semantic:<model>`.
+pub async fn warm_up<A: SpacyBackend>(service: &Service<A>, layers: &[Layer], semantic_models: &[String]) -> Result<Vec<String>, String> {
+    let mut loaded = Vec::new();
+    let mut plans: Vec<(Vec<Layer>, Option<&str>)> = Vec::new();
+    if !layers.is_empty() {
+        plans.push((layers.to_vec(), None));
     }
-    let executions = service.pipeline().analyse(WARMUP_TEXT, layers, None).await.map_err(|error| error.to_string())?;
-    let failed: Vec<String> = executions
-        .iter()
-        .filter(|execution| execution.status != crate::pipeline::Status::Ok)
-        .map(|execution| format!("{}: {}", execution.layer.name(), execution.error.clone().unwrap_or_default()))
-        .collect();
-    if failed.is_empty() {
-        Ok(layers.iter().map(|layer| layer.name().to_string()).collect())
-    } else {
-        Err(format!("Warm-up failed: {}", failed.join("; ")))
+    plans.extend(semantic_models.iter().map(|model| (vec![Layer::Semantic], Some(model.as_str()))));
+    for (plan_layers, model) in plans {
+        let executions = service.pipeline().analyse(WARMUP_TEXT, &plan_layers, None, model).await.map_err(|error| error.to_string())?;
+        let failed: Vec<String> = executions
+            .iter()
+            .filter(|execution| execution.status != crate::pipeline::Status::Ok)
+            .map(|execution| format!("{}: {}", execution.layer.name(), execution.error.clone().unwrap_or_default()))
+            .collect();
+        if !failed.is_empty() {
+            return Err(format!("Warm-up failed: {}", failed.join("; ")));
+        }
+        match model {
+            None => loaded.extend(plan_layers.iter().map(|layer| layer.name().to_string())),
+            Some(model) => loaded.push(format!("semantic:{model}")),
+        }
     }
+    Ok(loaded)
 }
 
 /// Serves pool frames until the controller closes the request pipe. Returns the exit code.
