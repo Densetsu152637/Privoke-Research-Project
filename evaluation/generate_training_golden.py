@@ -191,6 +191,64 @@ def adam_record(artifact: dict, rows: list[dict]) -> dict:
     }
 
 
+HELDOUT_WORDS = ["zeta", "omega", "ledger", "diagnosis", "visa", "ticket"]
+
+
+def make_heldout(count: int = 8) -> list[dict]:
+    import random
+
+    rng = random.Random(SEED + 7)
+    rows = []
+    for index in range(count):
+        text = f"heldout{index} " + " ".join(rng.choice(HELDOUT_WORDS) for _ in range(rng.randint(2, 5)))
+        sensitive = index % 2 == 0
+        rows.append({
+            "text": text,
+            "sensitivity": rng.choice(["S1", "S2", "S3"]) if sensitive else "S0",
+            "visibility": rng.choice(LABELS["visibility"]),
+            "categories": sorted(rng.sample(LABELS["category"], rng.randint(1, 3))) if sensitive else [],
+            "weight": 1.0,
+        })
+    return rows
+
+
+def rpc_case(artifact: dict, objective, full_encoder: bool, rows, heldout_rows, learning_rate: float, max_gradient: float) -> dict:
+    """Run the product's `_compute_training_gradients` on a fake streamed snapshot."""
+    import types
+
+    from src.LLM.privoke import training
+    from src.LLM.privoke.streamed_model import StreamedTransformerPrivacyModel
+
+    parameters = {name: tuple(t["values"]) for name, t in artifact["parameters"].items()}
+    shapes = {name: tuple(t["shape"]) for name, t in artifact["parameters"].items()}
+    metadata = {
+        "model_config": json.dumps(artifact["config"]), "architecture": artifact["architecture"], "artifact_checksum": "0" * 64,
+        "contextual_training_strategy": "contextual_full_encoder_sgd_v1",
+        "trainable_parameters": ",".join(sorted(parameters)),
+    }
+    if objective is not None:
+        metadata["contextual_training_objective"] = objective
+    snapshot = types.SimpleNamespace(model_id=artifact["model_id"], version=artifact["version"], parameters=parameters,
+                                     shapes=shapes, metadata=metadata, cache_key="golden", fingerprint="golden")
+    runtime = StreamedTransformerPrivacyModel(snapshot)
+    saved = training.ModelParameterStreamer, training.GLOBAL_STREAMED_MODEL_CACHE
+    training.ModelParameterStreamer = lambda model_id: types.SimpleNamespace(model_id=model_id)
+    training.GLOBAL_STREAMED_MODEL_CACHE = types.SimpleNamespace(model_for_training=lambda streamer: runtime)
+    admission = None if objective is None else {"expected_objective": objective, "expected_diagnostics_policy": None}
+    try:
+        batch = training._compute_training_gradients(
+            build_examples(rows), model_id=artifact["model_id"], learning_rate=learning_rate, max_gradient=max_gradient,
+            heldout_examples=build_examples(heldout_rows), full_encoder=full_encoder, admission=admission)
+    finally:
+        training.ModelParameterStreamer, training.GLOBAL_STREAMED_MODEL_CACHE = saved
+    return {
+        "full_encoder": full_encoder, "objective": objective, "learning_rate": learning_rate, "max_gradient": max_gradient,
+        "gradients": {n: bits(v) for n, v in sorted(batch.gradients.items())}, "metrics": batch.metrics,
+        "executions": [list(item) for item in batch.executions], "error": batch.error,
+        "scope": batch.metadata["training_scope"],
+    }
+
+
 def build() -> dict:
     bootstrap()
     import numpy as np
@@ -212,10 +270,18 @@ def build() -> dict:
             case["weights"] = [e.weight for e in use]
             cases.append(case)
     adam = adam_record(models["task_query"], rows)
+    heldout_rows = make_heldout()
+    rpc = []
+    for model_name, artifact in models.items():
+        for objective in (None, OBJECTIVES["mean_category"], OBJECTIVES["sum_margin"]):
+            for full_encoder in (False, True):
+                case = rpc_case(artifact, objective, full_encoder, rows, heldout_rows, 0.5, 0.05)
+                case["model"] = model_name
+                rpc.append(case)
     return {
         "meta": {"python": sys.version.split()[0], "numpy": np.__version__, "torch": torch.__version__,
                  "threads": torch.get_num_threads(), "seed": SEED, "tensor_encoding": "float32 bit patterns (uint32)"},
-        "models": models, "examples": rows, "gradient_cases": cases, "adam": adam,
+        "models": models, "examples": rows, "heldout": heldout_rows, "gradient_cases": cases, "adam": adam, "rpc_cases": rpc,
     }
 
 

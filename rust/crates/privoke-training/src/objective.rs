@@ -32,11 +32,11 @@ impl Objective {
         }
     }
 
-    fn mean_category(self) -> bool {
+    pub fn mean_category(self) -> bool {
         matches!(self, Self::MeanCategory | Self::DecisionMargin)
     }
 
-    fn decision_margin(self) -> bool {
+    pub fn decision_margin(self) -> bool {
         matches!(self, Self::DecisionMargin | Self::SumMargin)
     }
 }
