@@ -91,7 +91,7 @@ def emit_parameter_update(
     update: ParameterUpdatePayload,
     timeout_seconds: float = 10.0,
 ):
-    import grpc
+    from privoke_service.stack_connection import service_channel
 
     parameters_pb2, parameters_pb2_grpc = load_generated_grpc_modules()
 
@@ -104,7 +104,9 @@ def emit_parameter_update(
         for name, values in update.parameters.items()
     ]
 
-    with grpc.insecure_channel(target) as channel:
+    # Mutual TLS with this service's certificate when PRIVOKE_TLS_CERT_FILE and PRIVOKE_TLS_KEY_FILE are set (the Rust
+    # parameter-update service requires it); the legacy plaintext channel only for the Python oracle without certificates.
+    with service_channel(target) as channel:
         client = parameters_pb2_grpc.ParamUpdateServiceStub(channel)
         return client.SubmitParameterUpdate(
             parameters_pb2.ParameterUpdateRequest(

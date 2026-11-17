@@ -1,16 +1,17 @@
-# Test-only additions for the stage W3 checks. Never part of a deployment. Layer it over the other two files:
+# Test-only additions for the stage W3 and stage 5 checks. Never part of a deployment. Layer it over the other two files:
 #
-#   docker compose -f docker-compose.prod.yml -f docker-compose.analysis.yml -f docker-compose.analysis-test.yml \
-#       --profile legacy-training --profile quarantined-analysis up -d
+#   docker compose -f docker-compose.prod.yml -f docker-compose.analysis.yml -f docker-compose.analysis-test.yml #       --profile legacy-training --profile quarantined-analysis up -d
 #
-# Two things are missing from a plain stack, and both are the test's to supply:
+# Two things differ from a plain stack, and both are the test's to supply:
 #
 # * The host cannot reach a container whose only networks are `internal: true`. `analysis-test-gateway` copies TCP
 #   bytes from three loopback ports to the analysis service, the fuzzer and the model service. TLS stays end to end between
 #   the host client and the target, and the gateway holds no credential. The analysis service itself still has no route
 #   out and no published port.
-# * The Python param-update server cannot terminate TLS yet (the Rust service of stage 5 does), while the fuzzer's
-#   receipt lookup uses mutual TLS as soon as it holds a certificate. `param-update-front` accepts both on one port.
+# * The parameter-update service is the Rust one (stage 5). It terminates mutual TLS itself and admits only registered
+#   publishers and trainers, so the fuzzer's update and receipt channels are both mutual TLS and the stage W3 test front
+#   that accepted plaintext next to TLS is gone. The model is served as shipped (no bootstrap step) and the scheduler is
+#   off unless PRIVOKE_S5_PROMPT_COUNT is set, because the checks start their own training cycles.
 #
 # The scripts are plain Python from tests/support, mounted read-only into a stock interpreter image.
 
@@ -46,49 +47,44 @@ services:
     volumes:
       - *support
 
-  param-update-front:
-    profiles: [quarantined-analysis]
-    image: ${PRIVOKE_SUPPORT_IMAGE:-python:3.11-slim-bookworm}
-    container_name: param-update-front
-    init: true
-    read_only: true
-    cap_drop: [ALL]
-    security_opt:
-      - no-new-privileges:true
-    user: "10001:10001"
-    command:
-      - python
-      - /support/tls_front.py
-      - "50052"
-      - param-update-service:50052
-      - /run/privoke/server/server.crt
-      - /run/privoke/server/server.key
-      - /run/privoke/client-ca.pem
-    depends_on:
-      param-update-service:
-        condition: service_started
-    volumes:
-      - *support
-      - *pki
-
   param-update-service:
-    # The production command runs `app/bootstrap.py` first, which rewrites the tracked artifact as a prepared
-    # full-encoder release (v0.4.0-full-ctx256). The Rust model service of stage 3 refuses that file ("artifact checksum
-    # does not match its contents") although its checksum is self-consistent in Python, so this stack serves the tracked
-    # artifact and the fuzzer runs the head-only cycle. See docs/runtime/rust-workspace.md, W3 findings.
-    command: [sh, -ec, "exec python app/server.py"]
+    # The Rust service of stage 5 replaces the Python one. Its image has no shell, so the production command that runs
+    # `app/bootstrap.py` first does not apply: the stack serves the shipped artifact and the fuzzer runs the head-only
+    # cycle. (A deployment runs `param-update-service bootstrap` as its own step before this one.)
+    image: ${PRIVOKE_PARAM_UPDATE_RUST_IMAGE:-privoke-param-update-rust:s05}
+    build:
+      context: .
+      dockerfile: rust/services/param-update/Dockerfile
+    command:
+      - --cert=/run/privoke/server/server.crt
+      - --key=/run/privoke/server/server.key
+      - --client-ca=/run/privoke/client-ca.pem
+      - --crl=/run/privoke/crl.pem
+      - --registry=/run/privoke/registry.toml
     depends_on:
       model-streaming-service: !reset null
     environment:
-      # The scheduler's plaintext request to the fuzzer would be refused by the fuzzer's mutual-TLS listener; the
-      # checks start the cycle themselves.
+      MODEL_ARTIFACT_PATH: /models/privoke-balanced.json
+      PARAM_UPDATE_HEALTHCHECK_SERVER_CA: /run/privoke/server-ca.pem
+      PARAM_UPDATE_HEALTHCHECK_CERT: /run/privoke/svc/param-update.crt
+      PARAM_UPDATE_HEALTHCHECK_KEY: /run/privoke/svc/param-update.key
+      PARAM_UPDATE_HEALTHCHECK_SERVER_NAME: param-update-service
+      # The scheduler's own identity and trust, for the request to the fuzzer's mutual-TLS listener.
+      PRIVOKE_TLS_CA_FILE: /run/privoke/server-ca.pem
+      PRIVOKE_TLS_CERT_FILE: /run/privoke/svc/param-update.crt
+      PRIVOKE_TLS_KEY_FILE: /run/privoke/svc/param-update.key
+      FUZZER_TLS_SERVER_NAME: privoke-fuzzer
+      FUZZER_PROMPT_COUNT: ${PRIVOKE_S5_PROMPT_COUNT:-0}
       FUZZER_REQUEST_INTERVAL_SECONDS: "86400"
-      # The head-only cycle; the dual (full-encoder) cycle needs the prepared artifact described above.
+      # The head-only cycle; the dual (full-encoder) cycle needs the prepared artifact the bootstrap step writes.
       FUZZER_TRAIN_UNDERLYING: "false"
+    healthcheck:
+      test: ["CMD", "/param-update-service", "healthcheck"]
+    volumes:
+      - *pki
 
   privoke-fuzzer:
     environment:
-      PARAM_UPDATE_TARGET: param-update-front:50052
       PRIVOKE_HEALTHCHECK_SERVER_NAME: privoke-fuzzer
       # The default sampler (audience_coverage_v1) needs the pinned AU3 manifest, which the production file does not
       # supply and the repository does not carry; the legacy V1 sampler needs no external asset. This is the same choice
