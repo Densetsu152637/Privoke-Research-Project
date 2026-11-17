@@ -1960,6 +1960,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "privoke-telemetry-client"
+version = "0.1.0"
+dependencies = [
+ "getrandom 0.3.4",
+ "privoke-contracts",
+ "privoke-pki",
+ "privoke-telemetry",
+ "privoke-transport",
+ "rusqlite",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "time",
+ "tokio",
+ "tonic",
+ "tracing",
+]
+
+[[package]]
 name = "privoke-transport"
 version = "0.1.0"
 dependencies = [

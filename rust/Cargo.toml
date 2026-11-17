@@ -16,6 +16,7 @@ members = [
     "crates/privoke-ner-layer",
     "services/param-update",
     "crates/privoke-semantic",
+    "crates/privoke-telemetry-client",
 ]
 
 [workspace.package]
