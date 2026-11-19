@@ -370,3 +370,63 @@ The user stated that nginx is not needed because the system uses microservices, 
   - Reconcile the worktrees.
 - **Depends on:** Stages 1–8 and 10–12.
 - **Status:** pending.
+
+## Stage 13: Supervisor experiments for submission (queued 19 Nov 2026, last in the roadmap)
+
+- **Queue position:** after the Rust rewrite (`docs/plans/rust-server-rewrite.md`) and after the repeat of Stage 9. Nothing in this stage starts before then.
+- **Source:** supervisor request relayed by the user on 19 Nov 2026.
+- **Rule for every sub-stage:** each experiment answers one named security or privacy question in the paper, and its record follows the chain Threat → Defense → Experiment → Metric → Evidence. No experiment is added only to increase the result count.
+- **Priority order:** 13a, 13b, 13c, 13d, then 13e and 13f if time allows. The supervisor most strongly wants 13a–13d before submission.
+- **Relation to earlier stages:** 13a extends Stage 8; 13b extends Stage 3; 13c and 13d extend Stage 4 and re-run it against the Rust stack, whose mTLS and PKI address the missing mechanisms that Stage 4 recorded.
+
+### 13a: Independent human-annotated contextual privacy test set
+
+- **Question:** does PriVoke's accuracy hold against ground truth that no developer label influenced?
+- **Method:**
+  - Draw fresh prompts never used in development, tuning or earlier evaluation; record the source and a frozen hash of the set before annotation.
+  - At least two annotators label each prompt independently, blind to PriVoke's predictions. Fields: privacy-sensitive (yes/no), whose information, intended audience and context, privacy category, and expected action (ALLOW, WARN or BLOCK).
+  - Report inter-annotator agreement (Cohen's kappa per field; Fleiss' kappa if more than two annotators), adjudicate disagreements, freeze the final labels, then score PriVoke against them.
+- **Constraint:** agents cannot act as annotators. Agents prepare the packet, the blinding, the agreement and scoring scripts; the user recruits the human annotators. Resolve the Stage 8 `fresh_eval-folio-NN` partition leak first.
+- **Metric:** kappa per field; precision, recall, specificity, F1, under- and over-enforcement against the adjudicated labels.
+
+### 13b: End-to-end adversarial prompt evasion
+
+- **Question:** can a user rewrite a sensitive prompt so that it reaches the external receiver unprotected?
+- **Method:**
+  - Reuse the Stage 3 transforms (Unicode substitution, zero-width characters, inserted spaces, spelling perturbation, fragmented identifiers, paraphrase, indirect reference, long-context placement, encoded identifiers, multilingual and mixed-language variants), generated from declared templates, never tuned against PriVoke's outputs.
+  - Send each variant through the installed browser extension to the local synthetic HTTPS receiver (the Stage 11 harness), and record whether the receiver actually got the prompt.
+  - No prompt goes to a real provider without user approval.
+- **Metric:** end-to-end attack success rate (share of adversarial sensitive prompts that reach the receiver without the intended protection), conditional and unconditional, next to the Stage 3 detector-level ASR.
+
+### 13c: Active attacks on the guarded update path
+
+- **Question:** can an invalid, stale, replayed or behaviourally unsafe update replace the active model?
+- **Attacks:** stale parent, replay, duplicate, wrong model or version ID, wrong tensor name, wrong tensor shape, NaN or Inf values, excessive parameter change, truncated or corrupted artifact, interrupted publication, and an update that improves aggregate score but breaks one or more protected guard cases.
+- **Method:** run against the Rust param-update and model-streaming services. For each attack record the attempted update, accepted or rejected (with the rejecting check), and which model is active afterwards.
+- **Metric:** for each attack, whether the active model is unchanged (required property).
+
+### 13d: Authentication and authorisation
+
+- **Question:** can an unauthorised identity retrieve protected resources, submit updates or publish a candidate model?
+- **Attacks:** invalid credentials, expired certificate, missing credentials, wrong client identity, unauthorised model retrieval, unauthorised update submission, replayed authenticated request, tampered request, and cross-identity misuse.
+- **Method:** run against the Rust mTLS services with test PKI from `privoke-pki`; record the attempt, the identity used, and the outcome.
+- **Metric:** for each attack, denial (required) and the layer that denied it.
+
+### 13e: Full-pipeline ablation (if time allows)
+
+- **Question:** what does each detector layer contribute, and where do the trade-offs come from?
+- **Configurations:** rules only, NER only, semantic only, rules+NER, rules+semantic, NER+semantic, and the full pipeline.
+- **Labelling:** this is an explicitly requested detector ablation. Results are product-pipeline evidence, kept separate from LLM-only results. Every run sends an explicit non-empty layer list and asserts the layers that actually executed.
+- **Metric:** precision, recall, specificity, F1, under-enforcement and over-enforcement per configuration, on the 13a labels where available.
+
+### 13f: End-to-end runtime overhead and deployment breadth (if time allows)
+
+- **Question:** what does PriVoke cost a user in practice?
+- **Arms:** browser without PriVoke; PriVoke with detectors disabled; rules and NER only; semantic only; full pipeline.
+- **Metric:** p50, p95 and p99 latency, plus CPU and memory where measurable. Timing runs are serialised on one host.
+- **Breadth:** test more than one platform and more than one LLM web interface where feasible (building on Stage 11); otherwise add a short paper section explaining the single-platform or single-interface limit.
+
+### Paper integration
+
+- Fold each finished sub-stage into the paper under the page limits (`paper/scripts/check_pages.py` must PASS), in the Threat → Defense → Experiment → Metric → Evidence structure, then repeat Stage 9.
+- **Status:** queued.
