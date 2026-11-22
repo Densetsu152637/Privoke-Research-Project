@@ -534,7 +534,8 @@ async fn shapes_the_worker_does_not_serve_are_refused_before_anything_runs() {
     let sum_header = "{\"schema\": 2, \"expected_objective\": \"class_balanced_contextual_sum_category_decision_margin_v1\", \"expected_diagnostics_policy\": null}";
     let mut untargeted = base.clone();
     untargeted.examples[0].has_target = false;
-    let cases: Vec<(&str, u8, Vec<(&str, &str)>, Vec<u8>)> = vec![
+    type Refused<'a> = (&'a str, u8, Vec<(&'a str, &'a str)>, Vec<u8>);
+    let cases: Vec<Refused<'_>> = vec![
         ("an artifact that is not full-capable", 4, vec![], with_model("synthetic-legacy-heads")),
         ("the same on the full-encoder scope", 5, vec![], with_model("synthetic-legacy-heads")),
         ("an artifact that declares a local-SGD optimizer", 4, vec![], with_model("synthetic-legacy-sgd")),
