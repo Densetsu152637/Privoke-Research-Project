@@ -228,7 +228,7 @@ pub fn validate_window(window: &Value) -> Result<()> {
     if keys != top
         || value::get(window, "schema").and_then(value::as_i64) != Some(1)
         || value::get(window, "sampler").and_then(value::as_str) != Some(SAMPLER)
-        || value::get(window, "seed").and_then(value::as_i64).is_none()
+        || !matches!(value::get(window, "seed"), Some(Value::Int(_)))
         || value::get(window, "config") != Some(&config())
         || blocks.map(Vec::len) != Some(8)
         || guard.map(Vec::len) != Some(16)
@@ -243,7 +243,8 @@ pub fn validate_window(window: &Value) -> Result<()> {
         let block_keys: BTreeSet<&str> = value::as_object(block).map(|map| map.keys().map(String::as_str).collect()).unwrap_or_default();
         let rows = value::get(block, "rows").and_then(value::as_array);
         if block_keys != ["seed", "rows"].into_iter().collect()
-            || value::get(block, "seed").and_then(value::as_i64).is_none()
+            // A derived block seed is a 64-bit unsigned integer (Python's `int`): it may exceed `i64::MAX`.
+            || !matches!(value::get(block, "seed"), Some(Value::Int(_)))
             || rows.map(Vec::len) != Some(64)
         {
             return invalid("Invalid frozen TRAIN block.");

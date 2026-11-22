@@ -361,6 +361,24 @@ pub fn parse_training_admission_header(raw: &str) -> Result<Expectations> {
             result.0.extend(checked.0);
             Ok(result)
         }
+        Some(5) => {
+            let mut names = base_names.to_vec();
+            names.extend(["expected_window_manifest_sha256", "expected_component_manifest_sha256"]);
+            if !key_set(&names) || !matches!(object.and_then(|map| map.get("expected_diagnostics_policy")), Some(Value::Null)) {
+                return invalid("Unsupported frozen-window schema5 admission.");
+            }
+            put("expected_contextual_training_optimizer", text("expected_optimizer"));
+            put("expected_contextual_training_objective", text("expected_objective"));
+            put("expected_contextual_candidate_eligibility", text("expected_candidate_eligibility"));
+            put("expected_contextual_training_scope", text("expected_training_scope"));
+            put("expected_train_window_config_v1", text("expected_optimizer_config"));
+            put("expected_train_window_manifest_sha256", text("expected_window_manifest_sha256"));
+            put("expected_original_train_component_manifest_sha256", text("expected_component_manifest_sha256"));
+            match window_expectations(&metadata)? {
+                Some(checked) => Ok(checked),
+                None => invalid("Schema5 requires window optimizer."),
+            }
+        }
         _ => invalid("Unsupported backtracking admission contract."),
     }
 }
@@ -414,5 +432,24 @@ mod tests {
             training_policy_expectations(&half).unwrap_err().0,
             "FULL Adam admission requires exact optimizer, eligibility, config and objective."
         );
+    }
+
+    #[test]
+    fn a_window_header_parses_back_to_the_admitted_expectations() {
+        let mut request = Metadata::new();
+        for (key, text) in [
+            ("expected_contextual_training_optimizer", WINDOW_POLICY),
+            ("expected_contextual_training_objective", SUM_MARGIN),
+            ("expected_contextual_candidate_eligibility", WINDOW_ELIGIBILITY),
+            ("expected_contextual_training_scope", "full_encoder"),
+            ("expected_train_window_config_v1", WINDOW_CONFIG_CANONICAL),
+        ] {
+            request.insert(key.to_string(), text.to_string());
+        }
+        request.insert("expected_train_window_manifest_sha256".to_string(), "a".repeat(64));
+        request.insert("expected_original_train_component_manifest_sha256".to_string(), "b".repeat(64));
+        let admitted = window_expectations(&request).unwrap().unwrap();
+        let header = training_admission_header(&admitted).unwrap().unwrap();
+        assert_eq!(parse_training_admission_header(&header).unwrap(), admitted);
     }
 }
