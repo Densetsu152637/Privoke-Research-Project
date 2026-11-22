@@ -443,6 +443,20 @@ fn served_artifact(artifact: &Artifact, admission: Option<&Admission>, full_enco
     Ok(route)
 }
 
+/// The optional contract fields of `ParameterSnapshot.cache_key` (`parameter_stream.py`).
+const CACHE_KEY_OPTIONAL: [&str; 10] = [
+    "contextual_training_optimizer",
+    "contextual_training_diagnostics_policy",
+    "contextual_training_backtracking_policy",
+    "contextual_training_backtracking_preparation",
+    "contextual_candidate_eligibility",
+    "full_projected_adam_config_v1",
+    "original_train_retention_manifest_sha256",
+    "train_window_config_v1",
+    "train_window_manifest_sha256",
+    "original_train_component_manifest_sha256",
+];
+
 /// The training rows of a request. A row without an explicit target is Python's to answer.
 fn rows(items: &[RuntimeTrainingExample]) -> Result<Vec<Example>, Failure> {
     items
@@ -510,13 +524,20 @@ fn float_text(value: f64) -> Result<String, Failure> {
 fn cache_key(artifact: &Artifact) -> Result<String, Failure> {
     let fingerprint = parameter_fingerprint(&artifact.parameters, Some(&artifact.shapes)).map_err(|error| message(error.to_string()))?;
     let field = |name: &str| artifact.metadata.get(name).map_or(StrictValue::Null, |value| StrictValue::String(value.clone()));
-    let fields = StrictValue::Object(BTreeMap::from([
+    let mut fields = BTreeMap::from([
         ("architecture".to_string(), field("architecture")),
         ("model_config".to_string(), field("model_config")),
         ("trainable_parameters".to_string(), field("trainable_parameters")),
         ("contextual_training_strategy".to_string(), field("contextual_training_strategy")),
         ("contextual_training_objective".to_string(), field("contextual_training_objective")),
-    ]));
+    ]);
+    // The opt-in contract fields join the identity only when the artifact declares them (the legacy identity is unchanged).
+    for key in CACHE_KEY_OPTIONAL {
+        if let Some(value) = artifact.metadata.get(key) {
+            fields.insert(key.to_string(), StrictValue::String(value.clone()));
+        }
+    }
+    let fields = StrictValue::Object(fields);
     let contract = canonical::to_string(&fields, Variant::Utf8).map_err(|error| message(error.to_string()))?;
     Ok(format!("{}:{}:{}:{}", artifact.model_id, artifact.version, fingerprint, sha256_hex(contract.as_bytes())))
 }

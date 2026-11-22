@@ -548,7 +548,7 @@ pub fn diagnostics(
         let rates: Vec<f64> = hits.iter().zip(denominators).map(|(hit, denominator)| *hit as f64 / denominator).collect();
         accuracy.push(Json::floats(&rates));
     }
-    let fingerprints = vec![fingerprint(&values_of(&net.params), None)?, fingerprint(&widen(candidate), None)?];
+    let fingerprints = [fingerprint(&values_of(&net.params), None)?, fingerprint(&widen(candidate), None)?];
     let phase = |name: &str| Json::Array(vec![Json::text(name), Json::text("semantic"), Json::text("ok"), Json::count(examples.len())]);
     let record = Json::object(vec![
         ("schema", Json::Int(schema)),
