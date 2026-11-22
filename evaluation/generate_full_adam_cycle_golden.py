@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import os
 import re
@@ -101,6 +102,14 @@ def normalised_dump(directory: Path) -> dict:
             escaped = json.dumps(str(other))[1:-1]
             text = text.replace(escaped, "<DUMP>/" + other_key)
         result[key] = text
+    # Python writes these records in text mode, so on a Windows host every line ends in CRLF while `read_text` shows LF; the hash an
+    # admission verdict keeps of its attempt file is then the hash of the CRLF bytes. The Linux bytes (LF) are what Rust writes.
+    for path, (key, text) in texts.items():
+        if key.endswith("/admission/attempts/" + Path(key).name) and "physical_attempt_sha256" in text:
+            old = json.loads(text)["physical_attempt_sha256"]
+            attempt = next(other_text for other, (other_key, other_text) in texts.items()
+                           if other_key == key.replace("/admission/attempts/", "/attempts/"))
+            result[key] = result[key].replace(old, hashlib.sha256(attempt.encode("utf-8")).hexdigest())
     return result
 
 
