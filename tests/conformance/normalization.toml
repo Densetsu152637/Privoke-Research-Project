@@ -75,6 +75,12 @@ metric_relative_tolerance = 1e-5
 # fingerprint, the cache key and the model configuration are exact.
 metadata_float_relative_tolerance = 1e-5
 value_dependent_fingerprints = ["updated_parameter_fingerprint", "candidate_parameter_fingerprint", "publication_delta_fingerprint"]
+# Stage 19 item 2c: the route traces (`contextual_optimizer_trace`, `contextual_training_diagnostics`,
+# `contextual_training_backtracking_trace`, `contextual_training_backtracking_trials`) are JSON strings compared structurally:
+# the same keys and array lengths; integers, booleans, nulls and text exactly; floats within 1e-5 relative to max(1, |value|);
+# a 64-digit fingerprint is exact when it hashes no computed value (the base state, the inventory) and counted otherwise.
+json_metadata_keys = ["contextual_optimizer_trace", "contextual_training_diagnostics", "contextual_training_backtracking_trace", "contextual_training_backtracking_trials"]
+json_metadata_float_relative_tolerance = 1e-5
 # Presence probabilities and thresholds (inference, gate trace): after rounding to 6 decimal places or within an absolute
 # 1e-5, as `[analysis_runtime]`; the predicted label, the gate status and every identity field are exact.
 presence_float_places = 6

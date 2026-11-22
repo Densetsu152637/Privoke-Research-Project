@@ -41,6 +41,10 @@ fn fixture() -> Value {
     serde_json::from_str(include_str!("fixtures/worker_golden.json")).expect("the fixture is JSON")
 }
 
+fn routes_fixture() -> Value {
+    serde_json::from_str(include_str!("fixtures/worker_routes_golden.json")).expect("the fixture is JSON")
+}
+
 fn decode(value: &Value) -> Vec<u8> {
     STANDARD.decode(value.as_str().expect("base64 text")).expect("valid base64")
 }
@@ -258,6 +262,14 @@ fn is_decision_metric(key: &str) -> bool {
         || key.contains("clean_examples")
 }
 
+/// The metadata keys that carry a JSON trace (`[worker_gradients] json_metadata_keys`).
+const JSON_METADATA: [&str; 4] = [
+    "contextual_optimizer_trace",
+    "contextual_training_diagnostics",
+    "contextual_training_backtracking_trace",
+    "contextual_training_backtracking_trials",
+];
+
 #[derive(Default)]
 struct GradientTally {
     coordinates: usize,
@@ -268,6 +280,61 @@ struct GradientTally {
     metrics_close: usize,
     fingerprints_equal: usize,
     fingerprints: usize,
+    traces: usize,
+    traces_identical: usize,
+    trace_numbers: usize,
+    trace_max_relative: f64,
+    trace_hashes: usize,
+    trace_hashes_equal: usize,
+}
+
+fn is_hash(text: &str) -> bool {
+    text.len() == 64 && text.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+/// Structural comparison of two JSON traces under the declared rule.
+fn json_close(path: &str, got: &Value, want: &Value, tally: &mut GradientTally) -> Result<(), String> {
+    match (got, want) {
+        (Value::Number(a), Value::Number(b)) => {
+            if a.is_i64() != b.is_i64() {
+                return Err(format!("{path}: {a} against {b} (an integer against a float)"));
+            }
+            if a.is_i64() {
+                return if a == b { Ok(()) } else { Err(format!("{path}: {a} against {b}")) };
+            }
+            let (x, y) = (a.as_f64().unwrap(), b.as_f64().unwrap());
+            let relative = (x - y).abs() / y.abs().max(1.0);
+            tally.trace_numbers += 1;
+            tally.trace_max_relative = tally.trace_max_relative.max(relative);
+            if relative <= 1e-5 { Ok(()) } else { Err(format!("{path}: {x} against {y}, relative error {relative:e}")) }
+        }
+        (Value::String(a), Value::String(b)) if is_hash(a) && is_hash(b) => {
+            tally.trace_hashes += 1;
+            tally.trace_hashes_equal += usize::from(a == b);
+            let value_independent = path.ends_with("fingerprints[0]") || path.ends_with(".base[0]") || path.ends_with(".raw[1]");
+            if value_independent && a != b { Err(format!("{path}: {a} against {b}")) } else { Ok(()) }
+        }
+        (Value::Array(a), Value::Array(b)) => {
+            if a.len() != b.len() {
+                return Err(format!("{path}: {} items against {}", a.len(), b.len()));
+            }
+            for (index, (x, y)) in a.iter().zip(b).enumerate() {
+                json_close(&format!("{path}[{index}]"), x, y, tally)?;
+            }
+            Ok(())
+        }
+        (Value::Object(a), Value::Object(b)) => {
+            if a.keys().ne(b.keys()) {
+                return Err(format!("{path}: keys {:?} against {:?}", a.keys().collect::<Vec<_>>(), b.keys().collect::<Vec<_>>()));
+            }
+            for (key, x) in a {
+                json_close(&format!("{path}.{key}"), x, &b[key], tally)?;
+            }
+            Ok(())
+        }
+        _ if got == want => Ok(()),
+        _ => Err(format!("{path}: {got} against {want}")),
+    }
 }
 
 /// The shared shape of the two gradient responses.
@@ -381,6 +448,13 @@ fn gradients_match(got: &Gradients<'_>, want: &Gradients<'_>, tally: &mut Gradie
             if actual != expected && all_bitwise {
                 return Err(format!("{key} differs although every coordinate is bitwise equal: {actual} against {expected}"));
             }
+            continue;
+        }
+        if JSON_METADATA.contains(&key.as_str()) {
+            let (left, right): (Value, Value) = (serde_json::from_str(actual).unwrap(), serde_json::from_str(expected).unwrap());
+            tally.traces += 1;
+            tally.traces_identical += usize::from(actual == expected);
+            json_close("$", &left, &right, tally).map_err(|reason| format!("metadata {key}: {reason}"))?;
             continue;
         }
         if actual == expected {
@@ -502,6 +576,85 @@ async fn every_recorded_answer_matches_the_python_worker() {
     );
 }
 
+/// Stage 19 item 2c: the local-SGD, TRAIN diagnostics and FULL backtracking routes, and the policy and admission
+/// refusals, against the unchanged Python worker over W1 frames. The refusals are byte-identical responses.
+#[tokio::test(flavor = "current_thread")]
+async fn the_route_answers_match_the_python_worker() {
+    let fixture = routes_fixture();
+    let service = service().await;
+    let cases = fixture["cases"].as_array().unwrap();
+    assert_eq!(cases.len(), 18, "{} cases", cases.len());
+    let mut counts: BTreeMap<String, Counts> = BTreeMap::new();
+    let mut tally = GradientTally::default();
+    let mut failures = Vec::new();
+    for (index, case) in cases.iter().enumerate() {
+        let id = case["id"].as_str().unwrap();
+        let scope = case["scope"].as_str().unwrap();
+        let answer = service.handle_frame(&request_frame(case, index as u64 + 1)).await;
+        let entry = counts.entry(format!("{scope}/{}", case["method"].as_u64().unwrap())).or_default();
+        entry.total += 1;
+        if answer[5] != Kind::Response as u8 {
+            failures.push(format!("{id}: error frame {}", String::from_utf8_lossy(&answer[HEADER_LEN..])));
+            continue;
+        }
+        let payload = &answer[HEADER_LEN..];
+        let expected = decode(&case["response"]);
+        let (got, want) = (
+            ComputeSemanticGradientsResponse::decode(payload).unwrap(),
+            ComputeSemanticGradientsResponse::decode(expected.as_slice()).unwrap(),
+        );
+        if scope != "validation" {
+            // LLM only: every phase of the run executed exactly the semantic layer.
+            assert!(got.executions.iter().all(|e| e.layer == 4 && e.status == "ok"), "{id}: {:?}", got.executions);
+            if id.ends_with("/rejected") {
+                assert_eq!(got.error, "TRAIN_BACKTRACKING_NO_IMPROVEMENT_V1", "{id}");
+                assert!(got.gradients.is_empty(), "{id}: a rejection transports no tensor");
+            }
+        }
+        match gradients_match(&semantic_parts(&got), &semantic_parts(&want), &mut tally) {
+            Ok(()) => {
+                entry.matched += 1;
+                entry.identical += usize::from(payload == expected.as_slice());
+                if scope == "validation" && payload != expected.as_slice() {
+                    failures.push(format!("{id}: a refusal is not byte-identical"));
+                }
+            }
+            Err(reason) => failures.push(format!("{id}: {reason}")),
+        }
+    }
+    for (scope, counts) in &counts {
+        eprintln!(
+            "worker routes: {scope}: {} of {} within the declared rule, {} byte-identical",
+            counts.matched, counts.total, counts.identical
+        );
+    }
+    eprintln!(
+        "worker routes gradients: {} transported coordinates, {} within 1e-6, {} bitwise equal, max error {:.3e}; {} of {} metrics within the rule; {} of {} value-dependent fingerprints equal; {} trace strings ({} byte-identical), {} numbers within 1e-5 (max relative {:.3e}), {} of {} value-dependent trace fingerprints equal",
+        tally.coordinates,
+        tally.within,
+        tally.bitwise,
+        tally.max_error,
+        tally.metrics_close,
+        tally.metrics,
+        tally.fingerprints_equal,
+        tally.fingerprints,
+        tally.traces,
+        tally.traces_identical,
+        tally.trace_numbers,
+        tally.trace_max_relative,
+        tally.trace_hashes_equal,
+        tally.trace_hashes
+    );
+    assert!(tally.coordinates > 1_000, "{} coordinates", tally.coordinates);
+    assert!(tally.traces >= 12, "{} traces", tally.traces);
+    assert!(
+        failures.is_empty(),
+        "{} differences, first:\n{}",
+        failures.len(),
+        failures.iter().take(8).cloned().collect::<Vec<_>>().join("\n")
+    );
+}
+
 /// Frames for the shapes this worker does not serve, built from a recorded request.
 fn recorded(fixture: &Value, id: &str) -> Value {
     fixture["cases"].as_array().unwrap().iter().find(|case| case["id"] == id).unwrap_or_else(|| panic!("no case {id}")).clone()
@@ -538,7 +691,6 @@ async fn shapes_the_worker_does_not_serve_are_refused_before_anything_runs() {
     let cases: Vec<Refused<'_>> = vec![
         ("an artifact that is not full-capable", 4, vec![], with_model("synthetic-legacy-heads")),
         ("the same on the full-encoder scope", 5, vec![], with_model("synthetic-legacy-heads")),
-        ("an artifact that declares a local-SGD optimizer", 4, vec![], with_model("synthetic-legacy-sgd")),
         ("a header of another schema", 5, vec![("x-privoke-training-admission-v1", schema3)], with_model("synthetic-legacy-mean")),
         ("a header that is not JSON", 4, vec![("x-privoke-training-admission-v1", "{")], with_model("synthetic-legacy-mean")),
         (
@@ -592,6 +744,8 @@ fn the_gradient_and_presence_rules_are_declared() {
         "metric_decisions_exact = true",
         "metric_relative_tolerance = 1e-5",
         "metadata_float_relative_tolerance = 1e-5",
+        "json_metadata_float_relative_tolerance = 1e-5",
+        r#"json_metadata_keys = ["contextual_optimizer_trace", "contextual_training_diagnostics", "contextual_training_backtracking_trace", "contextual_training_backtracking_trials"]"#,
         r#"value_dependent_fingerprints = ["updated_parameter_fingerprint", "candidate_parameter_fingerprint", "publication_delta_fingerprint"]"#,
         "presence_float_places = 6",
         "presence_float_absolute_tolerance = 1e-5",

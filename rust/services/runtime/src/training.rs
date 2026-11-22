@@ -4,19 +4,22 @@
 //!
 //! The worker serves exactly the shapes stage 19 ported and verified against Python:
 //!
-//! * the single-update route (no local SGD, no backtracking, no diagnostics) on full-capable Tiny artifacts, in the head
-//!   scope and the full-encoder scope, with the held-out guard, for the legacy, class-balanced, mean-category,
-//!   decision-margin and summed-margin objectives, with no admission header or the objective-only header (schema 2);
-//! * the FULL Adam admission check: an artifact that declares FULL Adam and a request that lacks the matching header gets
-//!   Python's refusal, as a response;
+//! * the single-update route, the explicit local-SGD routes (`local_sgd_1_v1`, `local_sgd_4_v1`), the TRAIN diagnostics
+//!   route and the full-encoder backtracking route on full-capable Tiny artifacts, in the head scope (all but
+//!   backtracking) and the full-encoder scope, with the held-out guard, for the legacy, class-balanced, mean-category,
+//!   decision-margin and summed-margin objectives (each route admits the objectives Python admits), with no admission
+//!   header, the objective-only header (schema 2, with or without the diagnostics policy) or the backtracking header
+//!   (schema 1);
+//! * the policy and admission checks of FULL Adam, window and ORIGINAL-retention artifacts: a request that lacks the
+//!   matching header gets Python's refusal, as a response;
 //! * sparse presence gradients.
 //!
 //! Anything else is answered `UNSUPPORTED_ROUTE` **before any model is read or any gradient is computed**, so nothing has
-//! run and the controller sends the same request to the Python worker (never twice): a header of another schema
-//! (backtracking, FULL Adam, retention, window), an artifact that is not full-capable, one that declares an optimizer,
-//! diagnostics, backtracking, eligibility or window policy, a row without an explicit target, a pinned V3 package. The
-//! FULL Adam fit itself stays on the Python worker: its audit trace hashes the float64 gradient bytes, which match
-//! Python's only when the gradients are bitwise equal.
+//! run and the controller sends the same request to the Python worker (never twice): a header of another schema (FULL
+//! Adam, retention, window), an artifact that is not full-capable, one whose FULL Adam, window or retention policy admits
+//! the request (their training loops are Python's), a row without an explicit target, a pinned V3 package. The FULL Adam
+//! fit itself stays on the Python worker: its audit trace hashes the float64 gradient bytes, which match Python's only
+//! when the gradients are bitwise equal.
 //!
 //! The response metadata is Python's (`_compute_training_gradients`, `compute_presence_gradients`); the model cache key
 //! hashes the same contract fields and the fingerprints are the stage 1 contract over the same float32 values.
@@ -33,8 +36,7 @@ use privoke_contracts::pyfloat;
 use privoke_rules::preprocessing::normalize_text;
 use privoke_rules::pyunicode;
 use privoke_semantic::tiny::{Readout, TASK_QUERY_READOUT, TinyConfig};
-use privoke_training::adam;
-use privoke_training::admission::{self, Fields};
+use privoke_training::admission::{Admitted, BACKTRACKING_POLICY, Header, Route, TRAIN_DIAGNOSTICS_POLICY, admit};
 use privoke_training::objective::{Example, Target};
 use privoke_training::presence::{PresenceExample, PresenceRequest, PresenceSnapshot, compute_presence_gradients};
 use privoke_training::rpc::{self, Request as GradientRequest, Snapshot, compute_gradients};
@@ -52,29 +54,11 @@ use crate::wire;
 pub const ADMISSION_HEADER: &str = "x-privoke-training-admission-v1";
 const FULL_STRATEGY: &str = "contextual_full_encoder_sgd_v1";
 const OBJECTIVE_KEY: &str = "contextual_training_objective";
-const OPTIMIZER_KEY: &str = "contextual_training_optimizer";
 const LEGACY_OBJECTIVE: &str = "legacy_sum_category";
 const SUM_MARGIN: &str = "class_balanced_contextual_sum_category_decision_margin_v1";
-/// The objectives of the single-update route that the stage 19 golden verified.
-const SERVED_OBJECTIVES: [&str; 4] = [
-    "class_balanced_contextual_v1",
-    "class_balanced_contextual_mean_category_v1",
-    "class_balanced_contextual_decision_margin_v1",
-    SUM_MARGIN,
-];
 const MEAN_OBJECTIVES: [&str; 2] = ["class_balanced_contextual_mean_category_v1", "class_balanced_contextual_decision_margin_v1"];
-/// Artifact metadata that selects a route this worker does not serve.
-const POLICY_KEYS: [&str; 9] = [
-    "contextual_training_diagnostics_policy",
-    "contextual_training_backtracking_policy",
-    "contextual_training_backtracking_preparation",
-    "contextual_candidate_eligibility",
-    "full_projected_adam_config_v1",
-    "original_train_retention_manifest_sha256",
-    "train_window_config_v1",
-    "train_window_manifest_sha256",
-    "original_train_component_manifest_sha256",
-];
+/// The objectives that a backtracking admission header (schema 1) may name and this worker serves.
+const BACKTRACKING_OBJECTIVES: [&str; 3] = [LEGACY_OBJECTIVE, "class_balanced_contextual_v1", SUM_MARGIN];
 const AUDIT_KEYS: [&str; 9] = [
     "training_clean_examples",
     "training_sensitive_examples",
@@ -217,6 +201,9 @@ impl Trainer {
         full_encoder: bool,
     ) -> Result<Vec<u8>, Failure> {
         let admission = parse_admission(metadata)?;
+        if !full_encoder && admission.as_ref().is_some_and(|header| header.backtracking.is_some()) {
+            return Err(message("Backtracking admission is FULL-only."));
+        }
         self.check_semantic_request(request)?;
         let train = rows(&request.examples)?;
         let heldout = rows(&request.heldout_examples)?;
@@ -224,10 +211,18 @@ impl Trainer {
             return Err(message("Pretrained contextual online training is unsupported; use offline head fitting."));
         }
         let artifact = self.store.read(&request.model_id)?;
-        let objective = served_artifact(&artifact, admission.as_deref())?;
+        let route = served_artifact(&artifact, admission.as_ref(), full_encoder)?;
+        let objective = route.objective.clone();
         let config_value = artifact.value.get("config").ok_or_else(|| message("Model config must be a JSON object."))?;
         let config = TinyConfig::from_json(config_value, &artifact.architecture).map_err(|error| message(error.to_string()))?;
-        let snapshot = Snapshot { artifact: artifact.value.clone(), full_capable: true, objective: objective.clone() };
+        let snapshot = Snapshot {
+            artifact: artifact.value.clone(),
+            full_capable: true,
+            objective: objective.clone(),
+            optimizer: route.optimizer.clone(),
+            diagnostics: route.diagnostics,
+            backtracking: route.backtracking.clone(),
+        };
         let computation = GradientRequest {
             examples: train.clone(),
             heldout: heldout.clone(),
@@ -254,6 +249,7 @@ impl Trainer {
             metrics: &batch.metrics,
             metadata: &metadata,
             executions: &batch.executions,
+            error: &batch.error,
         }))
     }
 
@@ -322,6 +318,7 @@ impl Trainer {
             metrics: &batch.metrics,
             metadata: &metadata,
             executions: &batch.executions,
+            error: "",
         }))
     }
 }
@@ -334,9 +331,40 @@ enum Outcome {
     Failed { request_id: String, failure: Failure },
 }
 
-/// The objective-only admission header (schema 2): its objective, or `None` when the request carries no header. A header
-/// of any other schema, or a malformed one, is declined: Python decides what it means.
-fn parse_admission(metadata: &[(String, String)]) -> Result<Option<String>, Failure> {
+/// The admission header this worker serves: the objective-only record (schema 2, the summed-margin objective with the
+/// diagnostics policy or none) and the backtracking record (schema 1).
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Admission {
+    /// `expected_objective`.
+    objective: String,
+    /// `expected_diagnostics_policy` (`None` for JSON `null`).
+    diagnostics: Option<String>,
+    /// `expected_backtracking_preparation_sha256` of a backtracking record.
+    backtracking: Option<String>,
+}
+
+impl Admission {
+    /// The header as the Python `parse_training_admission_metadata` returns it.
+    fn header(&self) -> Header {
+        let mut header = Header::from([
+            ("expected_objective".to_string(), Some(self.objective.clone())),
+            ("expected_diagnostics_policy".to_string(), self.diagnostics.clone()),
+        ]);
+        if let Some(sha) = &self.backtracking {
+            header.insert("expected_backtracking_policy".to_string(), Some(BACKTRACKING_POLICY.to_string()));
+            header.insert("expected_backtracking_preparation_sha256".to_string(), Some(sha.clone()));
+        }
+        header
+    }
+}
+
+fn is_sha256(text: &str) -> bool {
+    text.len() == 64 && text.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+/// The admission header of the request, or `None` when it carries none. A header of any other schema, or a malformed
+/// one, is declined: Python decides what it means.
+fn parse_admission(metadata: &[(String, String)]) -> Result<Option<Admission>, Failure> {
     let mut headers = metadata.iter().filter(|(key, _)| key.as_str() == ADMISSION_HEADER).map(|(_, value)| value);
     let Some(header) = headers.next() else { return Ok(None) };
     if headers.next().is_some() {
@@ -351,55 +379,83 @@ fn parse_admission(metadata: &[(String, String)]) -> Result<Option<String>, Fail
     else {
         return Err(declined("the admission header is not a JSON object"));
     };
-    let keys_match =
-        record.len() == 3 && ["schema", "expected_objective", "expected_diagnostics_policy"].iter().all(|key| record.contains_key(*key));
-    match (record.get("schema"), record.get("expected_objective"), record.get("expected_diagnostics_policy")) {
-        (Some(StrictValue::Int(schema)), Some(StrictValue::String(objective)), Some(StrictValue::Null))
-            if keys_match && schema == "2" && objective == SUM_MARGIN =>
-        {
-            Ok(Some(objective.clone()))
+    let text = |key: &str| match record.get(key) {
+        Some(StrictValue::String(value)) => Some(value.as_str()),
+        _ => None,
+    };
+    let diagnostics = match record.get("expected_diagnostics_policy") {
+        Some(StrictValue::Null) => Some(None),
+        Some(StrictValue::String(policy)) if policy == TRAIN_DIAGNOSTICS_POLICY => Some(Some(policy.clone())),
+        _ => None,
+    };
+    let unserved = || declined("only the objective-only (schema 2) and backtracking (schema 1) admissions are served by the Rust worker");
+    match (record.get("schema"), diagnostics) {
+        (Some(StrictValue::Int(schema)), Some(diagnostics)) if schema == "2" => {
+            let keys = ["schema", "expected_objective", "expected_diagnostics_policy"];
+            if record.len() == keys.len()
+                && keys.iter().all(|key| record.contains_key(*key))
+                && text("expected_objective") == Some(SUM_MARGIN)
+            {
+                Ok(Some(Admission { objective: SUM_MARGIN.to_string(), diagnostics, backtracking: None }))
+            } else {
+                Err(unserved())
+            }
         }
-        _ => Err(declined("only the objective-only admission (schema 2) is served by the Rust worker")),
+        (Some(StrictValue::Int(schema)), Some(Some(policy))) if schema == "1" => {
+            let keys = [
+                "schema",
+                "expected_objective",
+                "expected_diagnostics_policy",
+                "expected_backtracking_policy",
+                "expected_backtracking_preparation_sha256",
+            ];
+            let objective = text("expected_objective").filter(|name| BACKTRACKING_OBJECTIVES.contains(name));
+            let preparation = text("expected_backtracking_preparation_sha256").filter(|sha| is_sha256(sha));
+            match (objective, preparation) {
+                (Some(objective), Some(sha))
+                    if record.len() == keys.len()
+                        && keys.iter().all(|key| record.contains_key(*key))
+                        && text("expected_backtracking_policy") == Some(BACKTRACKING_POLICY) =>
+                {
+                    Ok(Some(Admission { objective: objective.to_string(), diagnostics: Some(policy), backtracking: Some(sha.to_string()) }))
+                }
+                _ => Err(unserved()),
+            }
+        }
+        _ => Err(unserved()),
     }
 }
 
-/// Checks the artifact against what this worker serves and against the admission, in Python's order, and returns its
-/// objective name.
-fn served_artifact(artifact: &Artifact, admission: Option<&str>) -> Result<Option<String>, Failure> {
+/// Checks the artifact against what this worker serves and against the admission, in Python's order, and returns the
+/// route it selects.
+fn served_artifact(artifact: &Artifact, admission: Option<&Admission>, full_encoder: bool) -> Result<Route, Failure> {
     if artifact.architecture == PRESENCE_ARCHITECTURE {
         return Err(declined("the artifact is a presence model"));
     }
-    if let Some(optimizer) = artifact.metadata.get(OPTIMIZER_KEY) {
-        if optimizer.as_str() == adam::POLICY {
-            let header: Option<Fields> =
-                admission.map(|objective| Fields::from([("expected_objective".to_string(), objective.to_string())]));
-            admission::validate_admission(header.as_ref(), &artifact.metadata).map_err(|error| message(error.to_string()))?;
-            return Err(declined("the FULL Adam fit is served by the Python worker"));
-        }
-        return Err(declined("the artifact declares an optimizer policy"));
-    }
-    if let Some(key) = POLICY_KEYS.iter().find(|key| artifact.metadata.contains_key(**key)) {
-        return Err(declined(format!("the artifact declares {key}")));
-    }
+    let header = admission.map(Admission::header);
+    let route = match admit(header.as_ref(), &artifact.metadata, full_encoder).map_err(|error| message(error.to_string()))? {
+        Admitted::Elsewhere(reason) => return Err(declined(reason)),
+        Admitted::Route(route) => route,
+    };
     if artifact.metadata.get("contextual_training_strategy").map(String::as_str) != Some(FULL_STRATEGY) {
-        return Err(declined("the artifact is not full-capable; the single-update route is verified on full-capable artifacts"));
+        return Err(declined("the artifact is not full-capable; the routes are verified on full-capable artifacts"));
     }
-    let objective = artifact.metadata.get(OBJECTIVE_KEY).cloned();
-    if let Some(name) = &objective
-        && !SERVED_OBJECTIVES.contains(&name.as_str())
-    {
-        return Err(declined("the artifact declares an objective this worker does not serve"));
-    }
-    if let Some(expected) = admission {
-        let actual = objective.as_deref().unwrap_or(LEGACY_OBJECTIVE);
-        if expected != actual {
-            return Err(message("Actual artifact differs from pre-gradient objective admission."));
-        }
-    } else if objective.as_deref() == Some(SUM_MARGIN) {
-        return Err(message("Summed-category decision-margin training requires explicit objective admission."));
-    }
-    Ok(objective)
+    Ok(route)
 }
+
+/// The optional contract fields of `ParameterSnapshot.cache_key` (`parameter_stream.py`).
+const CACHE_KEY_OPTIONAL: [&str; 10] = [
+    "contextual_training_optimizer",
+    "contextual_training_diagnostics_policy",
+    "contextual_training_backtracking_policy",
+    "contextual_training_backtracking_preparation",
+    "contextual_candidate_eligibility",
+    "full_projected_adam_config_v1",
+    "original_train_retention_manifest_sha256",
+    "train_window_config_v1",
+    "train_window_manifest_sha256",
+    "original_train_component_manifest_sha256",
+];
 
 /// The training rows of a request. A row without an explicit target is Python's to answer.
 fn rows(items: &[RuntimeTrainingExample]) -> Result<Vec<Example>, Failure> {
@@ -468,13 +524,20 @@ fn float_text(value: f64) -> Result<String, Failure> {
 fn cache_key(artifact: &Artifact) -> Result<String, Failure> {
     let fingerprint = parameter_fingerprint(&artifact.parameters, Some(&artifact.shapes)).map_err(|error| message(error.to_string()))?;
     let field = |name: &str| artifact.metadata.get(name).map_or(StrictValue::Null, |value| StrictValue::String(value.clone()));
-    let fields = StrictValue::Object(BTreeMap::from([
+    let mut fields = BTreeMap::from([
         ("architecture".to_string(), field("architecture")),
         ("model_config".to_string(), field("model_config")),
         ("trainable_parameters".to_string(), field("trainable_parameters")),
         ("contextual_training_strategy".to_string(), field("contextual_training_strategy")),
         ("contextual_training_objective".to_string(), field("contextual_training_objective")),
-    ]));
+    ]);
+    // The opt-in contract fields join the identity only when the artifact declares them (the legacy identity is unchanged).
+    for key in CACHE_KEY_OPTIONAL {
+        if let Some(value) = artifact.metadata.get(key) {
+            fields.insert(key.to_string(), StrictValue::String(value.clone()));
+        }
+    }
+    let fields = StrictValue::Object(fields);
     let contract = canonical::to_string(&fields, Variant::Utf8).map_err(|error| message(error.to_string()))?;
     Ok(format!("{}:{}:{}:{}", artifact.model_id, artifact.version, fingerprint, sha256_hex(contract.as_bytes())))
 }
@@ -518,10 +581,10 @@ fn semantic_metadata(
     };
     let candidate: BTreeMap<String, Vec<f64>> =
         batch.candidate.iter().map(|(name, values)| (name.clone(), values.iter().map(|value| f64::from(*value)).collect())).collect();
-    let inventory: BTreeMap<String, Vec<f64>> = batch.gradients.keys().map(|name| (name.clone(), Vec::new())).collect();
+    let inventory: BTreeMap<String, Vec<f64>> = batch.inventory.iter().map(|name| (name.clone(), Vec::new())).collect();
     let inventory_shapes: BTreeMap<String, Vec<u64>> =
-        batch.gradients.keys().filter_map(|name| artifact.shapes.get(name).map(|shape| (name.clone(), shape.clone()))).collect();
-    let names: Vec<&String> = batch.gradients.keys().collect();
+        batch.inventory.iter().filter_map(|name| artifact.shapes.get(name).map(|shape| (name.clone(), shape.clone()))).collect();
+    let names: &Vec<String> = &batch.inventory;
     let mut metadata = BTreeMap::new();
     let mut put = |key: &str, value: String| {
         metadata.insert(key.to_string(), value);
@@ -537,11 +600,16 @@ fn semantic_metadata(
     put("architecture", artifact.architecture.clone());
     put("model_config", model_config_json(config)?);
     put("base_parameter_fingerprint", fingerprint(&artifact.parameters, None)?);
-    put("updated_parameter_fingerprint", fingerprint(&candidate, None)?);
+    if batch.error.is_empty() {
+        put("updated_parameter_fingerprint", fingerprint(&candidate, None)?);
+    }
     put("learning_rate", float_text(request.learning_rate)?);
     put("max_gradient", float_text(request.max_gradient)?);
     put("model_cache_key", cache_key(artifact)?);
     put("text_preprocessing", "canonical_detector_normalize_text".to_string());
+    for (key, value) in &batch.metadata {
+        put(key, value.clone());
+    }
     let metric = |name: &str| batch.metrics.get(name).copied().ok_or_else(|| message(format!("The computation reported no {name}.")));
     if let Some(name) = objective {
         put(OBJECTIVE_KEY, name.to_string());
@@ -571,6 +639,7 @@ struct Parts<'a> {
     metrics: &'a BTreeMap<String, f64>,
     metadata: &'a BTreeMap<String, String>,
     executions: &'a [(String, usize)],
+    error: &'a str,
 }
 
 fn gradient_response(parts: &Parts) -> Vec<u8> {
@@ -588,6 +657,9 @@ fn gradient_response(parts: &Parts) -> Vec<u8> {
     }
     wire::double_map(&mut out, 5, parts.metrics);
     wire::string_map(&mut out, 6, parts.metadata);
+    if !parts.error.is_empty() {
+        wire::string(&mut out, 7, parts.error);
+    }
     for (phase, examples) in parts.executions {
         let mut execution = Vec::new();
         wire::string(&mut execution, 1, phase);
@@ -624,19 +696,45 @@ mod tests {
         assert_eq!(token_count("one two three four five six seven eight nine ten eleven"), 11);
     }
 
+    const SHA: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    fn backtracking_header(objective: &str) -> String {
+        format!(
+            "{{\"schema\": 1, \"expected_objective\": \"{objective}\", \"expected_diagnostics_policy\": \"train_before_candidate_v1\", \"expected_backtracking_policy\": \"full_train_backtracking_v1\", \"expected_backtracking_preparation_sha256\": \"{SHA}\"}}"
+        )
+    }
+
     #[test]
-    fn only_the_objective_only_admission_is_served() {
+    fn the_objective_only_and_backtracking_admissions_are_served() {
         assert_eq!(parse_admission(&[]), Ok(None));
         let schema2 = format!("{{\"schema\": 2, \"expected_objective\": \"{SUM_MARGIN}\", \"expected_diagnostics_policy\": null}}");
-        assert_eq!(parse_admission(&header(&schema2)), Ok(Some(SUM_MARGIN.to_string())));
+        let objective_only = Admission { objective: SUM_MARGIN.to_string(), diagnostics: None, backtracking: None };
+        assert_eq!(parse_admission(&header(&schema2)), Ok(Some(objective_only)));
+        // The diagnostics policy of the objective-only record is served too.
+        let with_diagnostics =
+            Admission { objective: SUM_MARGIN.to_string(), diagnostics: Some(TRAIN_DIAGNOSTICS_POLICY.to_string()), backtracking: None };
+        assert_eq!(parse_admission(&header(&schema2.replace("null", "\"train_before_candidate_v1\""))), Ok(Some(with_diagnostics)));
+        for objective in [LEGACY_OBJECTIVE, "class_balanced_contextual_v1", SUM_MARGIN] {
+            let served = Admission {
+                objective: objective.to_string(),
+                diagnostics: Some(TRAIN_DIAGNOSTICS_POLICY.to_string()),
+                backtracking: Some(SHA.to_string()),
+            };
+            assert_eq!(parse_admission(&header(&backtracking_header(objective))), Ok(Some(served)), "{objective}");
+        }
         let others: Vec<String> = vec![
             "{\"schema\": 3}".to_string(),
             "not json".to_string(),
             "[]".to_string(),
-            schema2.replace("null", "\"train_before_candidate_v1\""),
             schema2.replace("\"schema\": 2", "\"schema\": 1"),
             schema2.replace("2,", "2, \"schema\": 2,"),
             schema2.replace(SUM_MARGIN, "class_balanced_contextual_v1"),
+            schema2.replace("null", "\"another_policy_v1\""),
+            backtracking_header("class_balanced_contextual_mean_category_v1"),
+            backtracking_header("x").replace(SHA, "00"),
+            backtracking_header(LEGACY_OBJECTIVE).replace("full_train_backtracking_v1", "other_v1"),
+            backtracking_header(LEGACY_OBJECTIVE).replace("\"train_before_candidate_v1\"", "null"),
+            backtracking_header(LEGACY_OBJECTIVE).replace(", \"expected_backtracking_policy\": \"full_train_backtracking_v1\"", ""),
         ];
         for other in &others {
             assert!(matches!(parse_admission(&header(other)), Err(Failure::Declined(_))), "{other}");

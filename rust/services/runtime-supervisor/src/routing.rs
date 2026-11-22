@@ -137,30 +137,59 @@ pub fn route_presence(rust: Option<Capabilities>, request: &DetectAnnotationPres
 
 /// The objective admission of the summed-margin objective (`expected_objective` of schema 2).
 const SUM_MARGIN_OBJECTIVE: &str = "class_balanced_contextual_sum_category_decision_margin_v1";
+/// The objectives a backtracking admission (schema 1) may name that the Rust worker serves.
+const BACKTRACKING_OBJECTIVES: [&str; 3] = ["legacy_sum_category", "class_balanced_contextual_v1", SUM_MARGIN_OBJECTIVE];
+/// The TRAIN diagnostics policy.
+const DIAGNOSTICS_POLICY: &str = "train_before_candidate_v1";
+/// The backtracking policy.
+const BACKTRACKING_POLICY: &str = "full_train_backtracking_v1";
 /// The longest admission header the Python parser reads.
 const MAX_ADMISSION_BYTES: usize = 2_048;
 
-/// True when a training admission header is the objective-only record (schema 2) the Rust worker serves: exactly the
-/// keys `schema`, `expected_objective` (the summed-margin objective) and `expected_diagnostics_policy` (null). Every other
-/// header (backtracking, FULL Adam, retention, window, or anything malformed) is Python's to read.
-pub fn admission_is_objective_only(header: &str) -> bool {
+fn is_sha256(text: &str) -> bool {
+    text.len() == 64 && text.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+/// True when a training admission header is one of the two records the Rust worker serves:
+///
+/// * the objective-only record (schema 2): exactly the keys `schema`, `expected_objective` (the summed-margin objective)
+///   and `expected_diagnostics_policy` (null or the TRAIN diagnostics policy);
+/// * the backtracking record (schema 1): exactly the keys `schema`, `expected_objective` (legacy, class-balanced or
+///   summed-margin), `expected_diagnostics_policy` (the TRAIN diagnostics policy), `expected_backtracking_policy` and
+///   `expected_backtracking_preparation_sha256` (64 lower-case hexadecimal digits).
+///
+/// Every other header (FULL Adam, retention, window, or anything malformed) is Python's to read.
+pub fn admission_is_served(header: &str) -> bool {
     if header.len() > MAX_ADMISSION_BYTES {
         return false;
     }
     let Ok(serde_json::Value::Object(record)) = serde_json::from_str::<serde_json::Value>(header) else { return false };
-    record.len() == 3
-        && record.get("schema").and_then(serde_json::Value::as_i64) == Some(2)
-        && record.get("expected_objective").and_then(serde_json::Value::as_str) == Some(SUM_MARGIN_OBJECTIVE)
-        && record.get("expected_diagnostics_policy").is_some_and(serde_json::Value::is_null)
+    let text = |key: &str| record.get(key).and_then(serde_json::Value::as_str);
+    let diagnostics = record.get("expected_diagnostics_policy");
+    match record.get("schema").and_then(serde_json::Value::as_i64) {
+        Some(2) => {
+            record.len() == 3
+                && text("expected_objective") == Some(SUM_MARGIN_OBJECTIVE)
+                && diagnostics.is_some_and(|value| value.is_null() || value.as_str() == Some(DIAGNOSTICS_POLICY))
+        }
+        Some(1) => {
+            record.len() == 5
+                && text("expected_objective").is_some_and(|objective| BACKTRACKING_OBJECTIVES.contains(&objective))
+                && diagnostics.and_then(serde_json::Value::as_str) == Some(DIAGNOSTICS_POLICY)
+                && text("expected_backtracking_policy") == Some(BACKTRACKING_POLICY)
+                && text("expected_backtracking_preparation_sha256").is_some_and(is_sha256)
+        }
+        _ => false,
+    }
 }
 
 /// The engine for a gradient RPC. `admission` is the value of the `x-privoke-training-admission-v1` header, when the
-/// request carries one. `ComputePresenceGradients` has no header; the other two go to Rust with no header or the
-/// objective-only one, and to Python with any other.
+/// request carries one. `ComputePresenceGradients` has no header; the other two go to Rust with no header, the
+/// objective-only one (schema 2) or the backtracking one (schema 1), and to Python with any other.
 pub fn route_gradients(rust: Option<Capabilities>, rpc: Rpc, admission: Option<&str>) -> Engine {
     let to_rust = match rpc {
         Rpc::ComputePresenceGradients => true,
-        Rpc::ComputeSemanticGradients | Rpc::ComputeUnderlyingModelGradients => admission.is_none_or(admission_is_objective_only),
+        Rpc::ComputeSemanticGradients | Rpc::ComputeUnderlyingModelGradients => admission.is_none_or(admission_is_served),
         Rpc::AnalyzePrompt | Rpc::DetectAnnotationPresence | Rpc::Health => false,
     };
     if to_rust { route(rust, rpc, &[]) } else { Engine::Python }
@@ -355,30 +384,54 @@ mod tests {
     }
 
     const OBJECTIVE_ONLY: &str = "{\"schema\": 2, \"expected_objective\": \"class_balanced_contextual_sum_category_decision_margin_v1\", \"expected_diagnostics_policy\": null}";
+    const WITH_DIAGNOSTICS: &str = "{\"schema\": 2, \"expected_objective\": \"class_balanced_contextual_sum_category_decision_margin_v1\", \"expected_diagnostics_policy\": \"train_before_candidate_v1\"}";
+    const SHA: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    fn backtracking(objective: &str, sha: &str) -> String {
+        format!(
+            "{{\"schema\": 1, \"expected_objective\": \"{objective}\", \"expected_diagnostics_policy\": \"train_before_candidate_v1\", \"expected_backtracking_policy\": \"full_train_backtracking_v1\", \"expected_backtracking_preparation_sha256\": \"{sha}\"}}"
+        )
+    }
 
     #[test]
     fn gradient_requests_are_routed_by_their_admission_header() {
         let rust = Some(Capabilities::RUST.with_semantic());
         let semantic = [Rpc::ComputeSemanticGradients, Rpc::ComputeUnderlyingModelGradients];
         for rpc in semantic {
+            // No header, the objective-only header with or without the diagnostics policy, and the backtracking header
+            // of each served objective: the Rust worker.
             assert_eq!(route_gradients(rust, rpc, None), Engine::Rust);
             assert_eq!(route_gradients(rust, rpc, Some(OBJECTIVE_ONLY)), Engine::Rust);
-            // Backtracking (1), FULL Adam (3), retention (4), window (5), other objectives, diagnostics and garbage.
+            assert_eq!(route_gradients(rust, rpc, Some(WITH_DIAGNOSTICS)), Engine::Rust);
+            for objective in ["legacy_sum_category", "class_balanced_contextual_v1", SUM_MARGIN_OBJECTIVE] {
+                assert_eq!(route_gradients(rust, rpc, Some(&backtracking(objective, SHA))), Engine::Rust, "{objective}");
+            }
+            // FULL Adam (3), retention (4), window (5), other objectives, a malformed backtracking record and garbage.
             for header in [
-                "{\"schema\": 1, \"expected_objective\": \"x\", \"expected_diagnostics_policy\": \"train_before_candidate_v1\", \"expected_backtracking_policy\": \"full_train_backtracking_v1\", \"expected_backtracking_preparation_sha256\": \"00\"}",
-                "{\"schema\": 3, \"expected_optimizer\": \"full_projected_adam64_v1\"}",
-                "{\"schema\": 4}",
-                "{\"schema\": 5}",
-                "{\"schema\": 2, \"expected_objective\": \"class_balanced_contextual_v1\", \"expected_diagnostics_policy\": null}",
-                "{\"schema\": 2, \"expected_objective\": \"class_balanced_contextual_sum_category_decision_margin_v1\", \"expected_diagnostics_policy\": \"train_before_candidate_v1\"}",
-                "not json",
-                "[]",
-                "",
+                backtracking("x", SHA),
+                backtracking("class_balanced_contextual_mean_category_v1", SHA),
+                backtracking("legacy_sum_category", "00"),
+                backtracking("legacy_sum_category", &SHA.to_uppercase()),
+                backtracking("legacy_sum_category", SHA).replace("full_train_backtracking_v1", "other_v1"),
+                backtracking("legacy_sum_category", SHA).replace("\"train_before_candidate_v1\"", "null"),
+                backtracking("legacy_sum_category", SHA).replace(", \"expected_backtracking_policy\": \"full_train_backtracking_v1\"", ""),
+                "{\"schema\": 3, \"expected_optimizer\": \"full_projected_adam64_v1\"}".to_string(),
+                "{\"schema\": 4}".to_string(),
+                "{\"schema\": 5}".to_string(),
+                "{\"schema\": 2, \"expected_objective\": \"class_balanced_contextual_v1\", \"expected_diagnostics_policy\": null}"
+                    .to_string(),
+                WITH_DIAGNOSTICS.replace("train_before_candidate_v1", "another_policy_v1"),
+                OBJECTIVE_ONLY.replace("\"schema\": 2", "\"schema\": 1"),
+                "not json".to_string(),
+                "[]".to_string(),
+                String::new(),
             ] {
-                assert_eq!(route_gradients(rust, rpc, Some(header)), Engine::Python, "{header}");
+                assert_eq!(route_gradients(rust, rpc, Some(&header)), Engine::Python, "{header}");
             }
             assert_eq!(route_gradients(None, rpc, None), Engine::Python);
             assert_eq!(route_gradients(Some(Capabilities::RUST.without_models()), rpc, None), Engine::Python);
+            assert_eq!(route_gradients(Some(Capabilities::RUST.without_models()), rpc, Some(OBJECTIVE_ONLY)), Engine::Python);
+            assert_eq!(route_gradients(None, rpc, Some(&backtracking("legacy_sum_category", SHA))), Engine::Python);
         }
         // Presence gradients read no header.
         assert_eq!(route_gradients(rust, Rpc::ComputePresenceGradients, None), Engine::Rust);
@@ -386,6 +439,13 @@ mod tests {
         assert_eq!(route_gradients(Some(Capabilities::RUST.without_models()), Rpc::ComputePresenceGradients, None), Engine::Python);
         // Other methods are not gradient requests.
         assert_eq!(route_gradients(rust, Rpc::AnalyzePrompt, None), Engine::Python);
+    }
+
+    #[test]
+    fn an_oversized_admission_header_is_pythons() {
+        let padded = OBJECTIVE_ONLY.replace('}', &format!(", \"pad\": \"{}\"}}", "x".repeat(2_100)));
+        assert!(padded.len() > MAX_ADMISSION_BYTES);
+        assert!(!admission_is_served(&padded));
     }
 
     #[test]

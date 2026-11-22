@@ -74,5 +74,54 @@ class FixtureTest(unittest.TestCase):
         self.assertEqual(fresh["meta"]["torch"].split("+")[0], self.data["meta"]["torch"].split("+")[0])
 
 
+class RoutesFixtureTest(unittest.TestCase):
+    """The local-SGD, backtracking and diagnostics routes (RUST-S19C)."""
+
+    def setUp(self) -> None:
+        self.data = json.loads(golden.ROUTES_FIXTURE.read_text(encoding="utf-8"))
+        self.served = [case for case in self.data["cases"] if "refusal" not in case]
+
+    def test_fixture_shape(self) -> None:
+        self.assertEqual(len(self.served), 44)
+        self.assertEqual({case["label"].split("/")[1] for case in self.served}, {"local-sgd", "diagnostics", "backtracking"})
+        self.assertEqual(self.data["meta"]["threads"], 1)
+        self.assertEqual(len(self.data["cases"]) - len(self.served), 26)
+
+    def test_backtracking_covers_every_outcome(self) -> None:
+        selected = set()
+        for case in self.served:
+            if case["backtracking"]:
+                trace = json.loads(case["metadata_out"]["contextual_training_backtracking_trace"])
+                selected.add(trace["selected"])
+                self.assertEqual(case["error"] != "", trace["selected"] is None)
+        self.assertEqual(selected, {0, 1, None})
+
+    def test_every_case_is_a_semantic_training_run(self) -> None:
+        for case in self.served:
+            phases = [phase for phase, _ in case["executions"]]
+            self.assertEqual(phases[0], "training", case["label"])
+            self.assertEqual(phases[1:], [] if case["error"] else ["base_heldout", "candidate_heldout"], case["label"])
+            self.assertEqual(sorted(case["gradients"]) == [] , bool(case["error"]), case["label"])
+
+    def test_refusals_carry_the_python_text(self) -> None:
+        texts = {case["label"].split("/", 2)[2]: case["refusal"] for case in self.data["cases"] if "refusal" in case}
+        self.assertEqual(texts["window-without-admission"], "Window artifact requires explicit matching pre-gradient admission.")
+        self.assertEqual(texts["backtracking-without-admission"],
+                         "FULL backtracking requires explicit matching pre-gradient admission.")
+        self.assertEqual(texts["unsupported-optimizer"], "Unsupported contextual training optimizer.")
+
+    @unittest.skipUnless(runtime_available(), "Torch or the generated protobuf clients are not available")
+    def test_regeneration_matches_the_committed_fixture(self) -> None:
+        fresh = golden.routes_build()
+        self.assertEqual([case["label"] for case in fresh["cases"]], [case["label"] for case in self.data["cases"]])
+        for new, old in zip(fresh["cases"], self.data["cases"]):
+            self.assertEqual(new.get("refusal"), old.get("refusal"), new["label"])
+            self.assertEqual(new.get("error"), old.get("error"), new["label"])
+            self.assertEqual(new.get("executions"), old.get("executions"), new["label"])
+            for name, values in old.get("gradients", {}).items():
+                # float32 bit patterns: one unit in the last place is allowed across machines
+                self.assertTrue(all(abs(a - b) <= 1 for a, b in zip(new["gradients"][name], values)), (new["label"], name))
+
+
 if __name__ == "__main__":
     unittest.main()
