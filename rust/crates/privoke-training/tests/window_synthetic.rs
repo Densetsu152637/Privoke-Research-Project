@@ -159,7 +159,7 @@ fn predicates_and_counts_follow_the_contract() {
     let dropped = component_predicates(gold, gold, 0.9, 0b10 | 0b00100, 0.9);
     assert_eq!(dropped, [true, true, false, true, true]);
     let clean_candidate = component_predicates(gold, gold, 0.9, 0, 0.9);
-    assert_eq!(clean_candidate[0], false);
+    assert!(!clean_candidate[0]);
     let totals = checkpoint_counts(&[gold, 0b00100], &[(gold, 0.9), (0b00100, 0.9)]).unwrap();
     assert_eq!(
         (totals["all_joint"], totals["sensitive_joint"], totals["clean_joint"], totals["sensitive_recall"], totals["clean_specificity"]),
