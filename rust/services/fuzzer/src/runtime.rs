@@ -379,11 +379,18 @@ pub fn validate_training_response(
     {
         return reject("Runtime training response identity is incomplete or mismatched.");
     }
-    let phases = [
+    let mut phases = vec![
         ("training", request.examples.len()),
         ("base_heldout", request.heldout_examples.len()),
         ("candidate_heldout", request.heldout_examples.len()),
     ];
+    if response
+        .metadata
+        .get("contextual_training_optimizer")
+        .is_some_and(|name| crate::full_adam::RETENTION_POLICIES.contains(&name.as_str()))
+    {
+        phases.extend(crate::retention::execution_phases(&response.metadata)?);
+    }
     if response.executions.len() != phases.len() {
         return reject("Runtime training requires all three actual semantic executions.");
     }

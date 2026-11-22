@@ -56,7 +56,7 @@ pub fn validate_trace(
 ) -> Result<Option<Value>> {
     let get = |key: &str| metadata.get(key).map(String::as_str);
     if get(OPTIMIZER_KEY).is_some_and(|policy| RETENTION_POLICIES.contains(&policy)) {
-        return invalid("ORIGINAL retention trace validation is not ported to the Rust fuzzer.");
+        return crate::retention::validate_trace(metadata, scope, examples, candidate_fingerprint, delta_fingerprint);
     }
     if get(OPTIMIZER_KEY) != Some(FULL_ADAM_POLICY) || get(CONFIG_KEY) != Some(CONFIG_CANONICAL) {
         return invalid("Missing FULL Adam artifact policy/config identity.");

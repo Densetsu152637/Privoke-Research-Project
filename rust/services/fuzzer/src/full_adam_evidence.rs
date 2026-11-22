@@ -81,6 +81,10 @@ fn evidence_text<'a>(evidence: &'a Value, key: &str) -> Result<&'a str> {
     value::get(evidence, key).and_then(value::as_str).ok_or_else(|| Error(format!("'{key}'")))
 }
 
+fn evidence_field<'a>(evidence: &'a Value, key: &str) -> Result<&'a Value> {
+    value::get(evidence, key).ok_or_else(|| Error(format!("'{key}'")))
+}
+
 fn decode(text: &str) -> Result<Vec<u8>> {
     base64::engine::general_purpose::STANDARD.decode(text).map_err(|error| Error(error.to_string()))
 }
@@ -107,9 +111,6 @@ pub fn validate_candidate_route(update: &BatchUpdate) -> Result<bool> {
             return invalid("Candidate eligibility evidence requires its explicit artifact optimizer.");
         }
         return Ok(false);
-    }
-    if retention_mode {
-        return invalid("ORIGINAL retention candidate eligibility is not ported to the Rust fuzzer (stage 21 gap).");
     }
     let evidence = &update.execution_evidence;
     let physical = evidence_text(evidence, "physical_attempt")?;
@@ -164,11 +165,21 @@ pub fn validate_candidate_route(update: &BatchUpdate) -> Result<bool> {
     if value::get(evidence, "rpc").and_then(value::as_str) != Some(rpc) {
         return invalid("FULL Adam scope differs from executed RPC.");
     }
-    let phases = [
+    let mut phases = vec![
         ("training", request.examples.len()),
         ("base_heldout", request.heldout_examples.len()),
         ("candidate_heldout", request.heldout_examples.len()),
     ];
+    if retention_mode {
+        phases.extend(crate::retention::execution_phases(meta)?);
+        if admitted.and_then(|admission| admission.get("expected_retention_manifest_sha256"))
+            != meta.get(RETENTION_MANIFEST_KEY).map(String::as_str)
+        {
+            return invalid("Retention raw admission manifest differs.");
+        }
+        let snapshot = crate::retention::retained_release(evidence_field(evidence, "retention_release")?, &update.model_id)?;
+        crate::retention::validate_source_bindings(meta, &snapshot.release)?;
+    }
     if response.executions.len() != phases.len()
         || response.executions.iter().zip(phases).any(|(execution, (phase, count))| {
             execution.phase != phase

@@ -65,8 +65,10 @@ fn normalised_dump(dump: &Path) -> BTreeMap<String, String> {
     folders.sort();
     folders.dedup();
     for folder in folders {
-        let mut stamped: Vec<&PathBuf> =
-            files.iter().filter(|path| path.parent() == Some(folder.as_path()) && is_timestamp(&path.file_name().unwrap().to_string_lossy())).collect();
+        let mut stamped: Vec<&PathBuf> = files
+            .iter()
+            .filter(|path| path.parent() == Some(folder.as_path()) && is_timestamp(&path.file_name().unwrap().to_string_lossy()))
+            .collect();
         stamped.sort();
         for (ordinal, path) in stamped.into_iter().enumerate() {
             keys.insert(path.clone(), format!("{ordinal:04}.json"));
@@ -90,6 +92,36 @@ fn normalised_dump(dump: &Path) -> BTreeMap<String, String> {
     result
 }
 
+/// `training_evidence_sha256` over this run's retained record for `request_id`, with the oracle's attempt path in its evidence.
+fn evidence_hash(dump: &Path, request_id: &str, python_path: &str) -> String {
+    use privoke_curriculum::value::{self, Value};
+    let mut files = Vec::new();
+    walk(&dump.join("training-cycles"), &mut files);
+    for path in files {
+        let record = value::parse_bytes(&std::fs::read(&path).unwrap()).unwrap();
+        if value::get(&record, "request_id").and_then(value::as_str) != Some(request_id) {
+            continue;
+        }
+        let mut evidence = value::get(&record, "execution_evidence").cloned().unwrap();
+        if let Value::Object(map) = &mut evidence {
+            map.insert("physical_attempt".to_string(), value::string(python_path));
+        }
+        let field = |name: &str| value::get(&record, name).cloned().unwrap();
+        let bound = value::object(vec![
+            ("metadata", field("metadata")),
+            ("metrics", field("metrics")),
+            ("execution_evidence", evidence),
+            ("gate_passed", field("gate_passed")),
+            ("request_id", field("request_id")),
+            ("source_id", field("source_id")),
+            ("model_id", field("model_id")),
+            ("base_version", field("base_version")),
+        ]);
+        return value::sha256(value::dumps_compact(&bound).unwrap().as_bytes());
+    }
+    panic!("no retained cycle for {request_id}");
+}
+
 fn reservations(directory: &Path) -> Vec<(String, String)> {
     let path = directory.join("training-reservations.sqlite3");
     if !path.exists() {
@@ -106,6 +138,7 @@ async fn the_full_adam_cycles_replay_identically_to_the_python_oracle() {
     let golden: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     assert_eq!(golden["schema"], 1);
     let (mut cycles, mut accepted, mut refused, mut wire_messages, mut calls_checked, mut files_checked) = (0, 0, 0, 0, 0, 0);
+    let (mut evidence_hashes, mut diagnostics_checked) = (0, 0);
     for sequence in golden["sequences"].as_array().unwrap() {
         let label = sequence["label"].as_str().unwrap();
         let directory = tempfile::tempdir().unwrap();
@@ -116,6 +149,7 @@ async fn the_full_adam_cycles_replay_identically_to_the_python_oracle() {
         let config = FuzzerConfig::from_lookup(|name| match name {
             "PRIVOKE_FUZZER_DUMP_DIR" => Some(dump.to_string_lossy().to_string()),
             "FUZZ_PROMPT_DATASET_PATH" => Some(taxonomy.to_string_lossy().to_string()),
+            "FUZZ_CURRICULUM_STATE_PATH" => Some(directory.path().join("curriculum.sqlite3").to_string_lossy().to_string()),
             other => env.get(other).cloned(),
         })
         .unwrap();
@@ -127,8 +161,9 @@ async fn the_full_adam_cycles_replay_identically_to_the_python_oracle() {
             let context = format!("{label} cycle {index}");
             let recorded = b64(cycle["runtime_response"].as_str().unwrap());
             let ack = b64(cycle["ack"].as_str().unwrap());
-            *runtime.answer.lock().unwrap() =
-                Box::new(move |_, _| Ok(privoke_contracts::proto::v1::ComputeSemanticGradientsResponse::decode(recorded.as_slice()).unwrap()));
+            *runtime.answer.lock().unwrap() = Box::new(move |_, _| {
+                Ok(privoke_contracts::proto::v1::ComputeSemanticGradientsResponse::decode(recorded.as_slice()).unwrap())
+            });
             *updates.ack.lock().unwrap() =
                 Box::new(move |_| privoke_contracts::proto::v1::ParameterUpdateAck::decode(ack.as_slice()).unwrap());
             wire.take();
@@ -156,12 +191,30 @@ async fn the_full_adam_cycles_replay_identically_to_the_python_oracle() {
             assert_eq!(observed_paths, expected.iter().map(|(path, _)| *path).collect::<Vec<_>>(), "{context}: call order");
             assert!(observed_paths.iter().all(|path| [STATUS_PATH, SUBMIT_PATH, HEADS_PATH, FULL_PATH].contains(path)));
             for ((path, bytes), (_, want)) in observed.iter().zip(&expected) {
-                let normalised = match path.as_str() {
-                    STATUS_PATH => ParameterUpdateStatusRequest::decode(want.as_slice()).unwrap().encode_to_vec(),
-                    SUBMIT_PATH => ParameterUpdateRequest::decode(want.as_slice()).unwrap().encode_to_vec(),
-                    _ => ComputeSemanticGradientsRequest::decode(want.as_slice()).unwrap().encode_to_vec(),
+                let (bytes, normalised) = match path.as_str() {
+                    STATUS_PATH => (bytes.clone(), ParameterUpdateStatusRequest::decode(want.as_slice()).unwrap().encode_to_vec()),
+                    SUBMIT_PATH => {
+                        // The retained cycle is bound by `training_evidence_sha256`, which hashes the absolute path of the attempt
+                        // file: compare the message without it, and the hash over this run's record with the oracle's path.
+                        let mut sent = ParameterUpdateRequest::decode(bytes.as_slice()).unwrap();
+                        let mut golden_message = ParameterUpdateRequest::decode(want.as_slice()).unwrap();
+                        let sent_hash = sent.metadata.insert("training_evidence_sha256".to_string(), String::new());
+                        let golden_hash = golden_message.metadata.insert("training_evidence_sha256".to_string(), String::new());
+                        if let Some(golden_hash) = golden_hash {
+                            let raw = cycle["physical_attempt_raw"].as_str().expect("the oracle's attempt path");
+                            assert_eq!(
+                                evidence_hash(&dump, &sent.metadata["request_id"], raw),
+                                golden_hash,
+                                "{context}: the evidence hash"
+                            );
+                            assert!(sent_hash.is_some(), "{context}: the publication binds its retained cycle");
+                            evidence_hashes += 1;
+                        }
+                        (sent.encode_to_vec(), golden_message.encode_to_vec())
+                    }
+                    _ => (bytes.clone(), ComputeSemanticGradientsRequest::decode(want.as_slice()).unwrap().encode_to_vec()),
                 };
-                assert!(bytes == &normalised, "{context}: {path} request bytes differ ({} against {})", bytes.len(), normalised.len());
+                assert!(bytes == normalised, "{context}: {path} request bytes differ ({} against {})", bytes.len(), normalised.len());
                 wire_messages += 1;
             }
 
@@ -219,9 +272,24 @@ async fn the_full_adam_cycles_replay_identically_to_the_python_oracle() {
             .map(|row| (row[0].as_str().unwrap().to_string(), row[1].as_str().unwrap().to_string()))
             .collect();
         assert_eq!(reservations(&dump), golden_reservations, "{label}: reservations");
+        // The study's gate diagnostics records, beside the curriculum state.
+        let mut diagnostics: BTreeMap<String, String> = BTreeMap::new();
+        if let Ok(entries) = std::fs::read_dir(directory.path().join("gate-diagnostics")) {
+            for entry in entries.map(Result::unwrap) {
+                diagnostics.insert(entry.file_name().to_string_lossy().to_string(), std::fs::read_to_string(entry.path()).unwrap());
+            }
+        }
+        let golden_diagnostics: BTreeMap<String, String> = sequence["gate_diagnostics"]
+            .as_object()
+            .unwrap()
+            .iter()
+            .map(|(name, text)| (name.clone(), text.as_str().unwrap().to_string()))
+            .collect();
+        assert_eq!(diagnostics, golden_diagnostics, "{label}: gate diagnostics");
+        diagnostics_checked += diagnostics.len();
     }
     assert!(accepted >= 1 && refused >= 5, "accepted and refused cycles are both replayed");
     eprintln!(
-        "fuzzer FULL Adam cycle replay: {cycles} cycles ({accepted} accepted, {refused} refused), {wire_messages} wire messages, {calls_checked} runtime calls (header and deadline), {files_checked} dump files: all identical to the Python oracle"
+        "fuzzer FULL Adam cycle replay: {cycles} cycles ({accepted} accepted, {refused} refused), {wire_messages} wire messages, {calls_checked} runtime calls (header and deadline), {files_checked} dump files, {evidence_hashes} publication evidence hashes, {diagnostics_checked} gate diagnostics records: all identical to the Python oracle"
     );
 }

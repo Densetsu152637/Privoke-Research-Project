@@ -8,6 +8,10 @@ The study's prompt dataset is not in the repository, so the sampler runs over th
 response is replayed for the request the oracle builds (the response is validated against its own configuration, trace and
 counts, not against the prompts).
 
+The published metadata binds the retained cycle by `training_evidence_sha256`, a hash over a record that names the attempt file by absolute
+path, so the hash depends on the oracle's scratch directory: the golden keeps the oracle's raw path per cycle, and the Rust replay
+recomputes the hash over its own retained record with that path substituted (and compares the rest of the message without it).
+
 The cycle writes more than the legacy one: the physical attempt reservation (`full-adam-runtime/<identity>/started.json`), the immutable
 attempt record and its admission verdict (`backtracking-attempts/<digest>/{attempts,admission}/<ns>.json`), a reservation rejection, and the
 complete cycle record, whose `execution_evidence` names the attempt file by absolute path. File names carry nanosecond timestamps and
@@ -100,6 +104,15 @@ def normalised_dump(directory: Path) -> dict:
     return result
 
 
+def raw_physical_attempt(dump: Path, request):
+    """The unnormalised `execution_evidence.physical_attempt` of the retained cycle of this request, which `training_evidence_sha256` binds."""
+    for path in sorted((dump / "training-cycles").rglob("*.json")) if (dump / "training-cycles").exists() else []:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if record["request_id"] == request.request_id:
+            return record["execution_evidence"].get("physical_attempt")
+    return None
+
+
 def reservations(directory: Path):
     database = directory / "training-reservations.sqlite3"
     if not database.exists():
@@ -124,7 +137,8 @@ def run_sequence(label, env, cycles, generated: Path) -> dict:
     with tempfile.TemporaryDirectory() as scratch:
         scratch_path = Path(scratch)
         dump = scratch_path / "dump"
-        full_env = {**base.BASE_ENV, **env, "PRIVOKE_FUZZER_DUMP_DIR": str(dump), "FUZZ_PROMPT_DATASET_PATH": str(base.TAXONOMY_DATASET)}
+        full_env = {**base.BASE_ENV, **env, "PRIVOKE_FUZZER_DUMP_DIR": str(dump), "FUZZ_PROMPT_DATASET_PATH": str(base.TAXONOMY_DATASET),
+                    "FUZZ_CURRICULUM_STATE_PATH": str(scratch_path / "curriculum.sqlite3")}
         saved = dict(os.environ)
         os.environ.update(full_env)
         try:
@@ -157,6 +171,7 @@ def run_sequence(label, env, cycles, generated: Path) -> dict:
                     fuzzer_service.service_channel, runtime_client.service_channel, stack.service_channel = originals
                 wire = {path: base.b64(raw) for path, raw in log}
                 results.append({
+                    "physical_attempt_raw": raw_physical_attempt(dump, request),
                     "scope": scope,
                     "request": base.b64(request.SerializeToString(deterministic=True)),
                     "runtime_rpc": runtime_path,
@@ -171,7 +186,9 @@ def run_sequence(label, env, cycles, generated: Path) -> dict:
                     "calls": [path for path, _ in log],
                     "outcome": outcome,
                 })
-            snapshot = {"files": normalised_dump(dump), "reservations": reservations(dump)}
+            diagnostics = scratch_path / "gate-diagnostics"
+            snapshot = {"files": normalised_dump(dump), "reservations": reservations(dump),
+                        "gate_diagnostics": {path.name: path.read_text(encoding="utf-8") for path in sorted(diagnostics.glob("*.json"))}}
         finally:
             os.environ.clear()
             os.environ.update(saved)
@@ -240,6 +257,7 @@ def golden(results: Path, generated: Path) -> dict:
         "expected_contextual_training_optimizer": RETENTION_GATE_POLICY,
         "expected_contextual_candidate_eligibility": RETENTION_ELIGIBILITY,
         "expected_original_train_retention_manifest_sha256": "0" * 64})
+    diagnostics = {"study_gate_diagnostics": "v1"}
     cycles = [
         first,
         second,
@@ -250,6 +268,11 @@ def golden(results: Path, generated: Path) -> dict:
         # The header names the full encoder but the cycle is the heads RPC: refused before any reservation.
         (heads_scope, "heads", response_bytes(passed, "full-adam-heads-header"), ack),
         (retention, "full_encoder", response_bytes(passed, "full-adam-retention"), ack),
+        # The study's gate diagnostics record, for a published update and for one the guard refuses.
+        (build(passed, request_id="full-adam-diagnostics-passed", **diagnostics), "full_encoder",
+         response_bytes(passed, "full-adam-diagnostics-passed"), ack),
+        (build(rejected, request_id="full-adam-diagnostics-refused", **diagnostics), "full_encoder",
+         response_bytes(rejected, "full-adam-diagnostics-refused"), ack),
     ]
     sequence = run_sequence("full-adam-taxonomy", {"MODEL_ID": passed["model_id"], **full_adam_env()}, cycles, generated)
     sequence["recorded"] = {
@@ -269,7 +292,8 @@ def main(argv=None) -> int:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(document, indent=1, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
     outcomes = [cycle["outcome"].get("abort", ["ok"])[:2] for cycle in document["sequences"][0]["cycles"]]
-    print(json.dumps({"output": str(args.output), "outcomes": outcomes, "files": len(document["sequences"][0]["files"])}))
+    print(json.dumps({"output": str(args.output), "outcomes": outcomes, "files": len(document["sequences"][0]["files"]),
+                      "gate_diagnostics": len(document["sequences"][0]["gate_diagnostics"])}))
     return 0
 
 

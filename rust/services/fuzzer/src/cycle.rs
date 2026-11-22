@@ -167,9 +167,7 @@ pub fn validate_training_update(update: &BatchUpdate, minimum_exact_match_rate: 
         }
     }
     let optimizer = update.metadata.get("contextual_training_optimizer").map(String::as_str);
-    if optimizer.is_some_and(|name| crate::full_adam::RETENTION_POLICIES.contains(&name)) {
-        return Err(Error("ORIGINAL retention admission is not ported to the Rust fuzzer (stage 21 gap).".to_string()));
-    }
+    crate::retention::require_no_violations(&update.metadata)?;
     let selected = crate::full_adam_evidence::eligibility_metric(update)?;
     let Some(exact) = metrics.get(selected).copied() else {
         return Err(Error("Training update did not report exact_match_rate.".to_string()));
@@ -433,7 +431,7 @@ impl Engine {
             return Err(precondition("Underlying stage base differs from the prior committed head stage."));
         }
         if request.metadata.get("study_gate_diagnostics").map(String::as_str) == Some("v1") {
-            return Err(gap("The study gate diagnostics record"));
+            crate::gate_diagnostics::write_gate_diagnostics(&request, &update, &self.config).map_err(precondition)?;
         }
         let dump = self.config.dump_dir.as_deref();
         if let Err(error) = validate_training_update(&update, self.config.minimum_exact_match_rate) {
