@@ -9,6 +9,7 @@
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use privoke_contracts::proto::experimental_v3 as v3;
@@ -23,8 +24,10 @@ use privoke_v3_fuzzer::source::Closure;
 use tonic::{Request, Response, Status};
 
 use crate::ROLE;
+use crate::assets::{Admission, Loaded};
 use crate::checkpoint::Checkpoint;
 use crate::error::{Error, Result, invalid};
+use crate::fit::ScheduleSources;
 use crate::state::FitStore;
 
 /// What an engine is built from.
@@ -36,6 +39,10 @@ pub struct RuntimeParts {
     pub threads: usize,
     /// The source of the `source_closure` capability.
     pub closure: Closure,
+    /// How strictly snapshot manifests are admitted (the binary always uses [`Admission::Pinned`]).
+    pub admission: Admission,
+    /// The pinned sources of the frozen schedules, and the checkout whose Python files the evidence commits to.
+    pub schedules: ScheduleSources,
 }
 
 /// The version of the tokenizer crate the Python `tokenizers` wheel is the binding of (`privoke-semantic` pins it).
@@ -57,11 +64,14 @@ pub fn capabilities(threads: usize, source_closure: &str) -> BTreeMap<String, St
 
 /// The V3 runtime engine.
 pub struct Runtime {
-    #[allow(dead_code)] // read by AnalyzePrompt and FitCandidate (checkpoints 2 and 3)
     pub(crate) checkpoint: Arc<dyn Checkpoint>,
     pub(crate) capabilities: BTreeMap<String, String>,
     pub(crate) directory: PathBuf,
     pub(crate) threads: usize,
+    pub(crate) admission: Admission,
+    pub(crate) schedules: ScheduleSources,
+    /// The last snapshot analysed. Its lock is also the serialisation of analyses and fits (the Python `RLock`).
+    pub(crate) cache: tokio::sync::Mutex<Option<(String, Arc<Loaded>)>>,
     store: Mutex<FitStore>,
 }
 
@@ -87,6 +97,9 @@ impl Runtime {
             capabilities: capabilities(parts.threads, &source_closure),
             directory: parts.directory,
             threads: parts.threads,
+            admission: parts.admission,
+            schedules: parts.schedules,
+            cache: tokio::sync::Mutex::new(None),
             store: Mutex::new(store),
         })
     }
@@ -106,6 +119,15 @@ impl Runtime {
         let row = self.store().status(request_id)?;
         let (status, candidate, reason) = row.unwrap_or_else(|| ("unknown".to_string(), String::new(), String::new()));
         Ok(v3::Receipt { status, request_id: request_id.to_string(), candidate, reason, ..Default::default() })
+    }
+}
+
+/// Flags the fit as abandoned when the RPC that started it ends.
+struct StopOnDrop(Arc<AtomicBool>);
+
+impl Drop for StopOnDrop {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
     }
 }
 
@@ -131,8 +153,15 @@ fn unserved(rpc: &str) -> Status {
 
 #[tonic::async_trait]
 impl TrainingService for V3RuntimeHandler {
-    async fn fit_candidate(&self, _request: Request<v3::FitRequest>) -> std::result::Result<Response<v3::FitResponse>, Status> {
-        Err(Status::unimplemented("FitCandidate is not ported yet (stage 22, checkpoint 3)."))
+    async fn fit_candidate(&self, request: Request<v3::FitRequest>) -> std::result::Result<Response<v3::FitResponse>, Status> {
+        // The fit runs in its own task: when the caller gives up (deadline, cancellation) this future is dropped, `active`
+        // goes false, and the fit stops at its next step and records `failed`, as the Python fit did on `is_active()`.
+        let active = Arc::new(AtomicBool::new(true));
+        let _caller = StopOnDrop(Arc::clone(&active));
+        let runtime = Arc::clone(&self.runtime);
+        let request = request.into_inner();
+        let task = tokio::spawn(async move { runtime.fit_candidate(request, active).await });
+        task.await.map_err(|error| Status::unknown(error.to_string()))?.map(Response::new)
     }
 
     async fn get_fit_status(&self, request: Request<v3::StatusRequest>) -> std::result::Result<Response<v3::Receipt>, Status> {

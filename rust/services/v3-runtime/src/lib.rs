@@ -10,14 +10,22 @@
 //! * `privoke.experimental.v3.TrainingService`: `FitCandidate` (one physical fit per request identity, over the stage 19
 //!   `privoke_training::v3_fit` port), `GetFitStatus` and `Health`.
 //!
+//! * [`assets`]: the snapshot fetch, the digest-keyed asset cache and the model load (`fetch`, `materialize`, `load`).
+//! * [`analyze`]: `AnalyzePrompt`; [`pyerr`]: the Python exception texts it reports.
+//! * [`fit`]: `FitCandidate`; [`evidence`]: the evidence value, the candidate's safetensors bytes and the source digests.
 //! * [`config`]: the environment of `runtime_server.py` (`__main__`), validated before anything is opened or bound.
 //! * [`state`]: the SQLite `fits` table (`id`, `fingerprint`, `status`, `candidate`, `reason`).
 //! * [`checkpoint`]: the checkpoint service as the runtime uses it, with its mutual-TLS client.
 //! * [`server`]: the mutual-TLS listener and its role policy.
 //! * [`service`]: the engine and the two gRPC shells.
 
+pub mod analyze;
+pub mod assets;
 pub mod checkpoint;
 pub mod config;
+pub mod evidence;
+pub mod fit;
+pub mod pyerr;
 pub mod server;
 pub mod service;
 pub mod state;

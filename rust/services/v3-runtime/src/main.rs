@@ -11,8 +11,10 @@ use clap::Parser;
 use privoke_fuzzer::config::client_tls_from_lookup;
 use privoke_transport::startup::CloudTlsArgs;
 use privoke_v3_fuzzer::source::Closure;
+use privoke_v3_runtime::assets::Admission;
 use privoke_v3_runtime::checkpoint::GrpcCheckpoint;
 use privoke_v3_runtime::config::RuntimeSettings;
+use privoke_v3_runtime::fit::ScheduleSources;
 use privoke_v3_runtime::server::{self, limits_for};
 use privoke_v3_runtime::service::{Runtime, RuntimeParts, V3RuntimeHandler};
 use privoke_v3_runtime::{Error, Result};
@@ -55,6 +57,11 @@ async fn serve(args: Args) -> Result<()> {
         directory: settings.directory.clone(),
         threads: settings.threads,
         closure: Closure::Root(settings.source_root.clone()),
+        admission: Admission::Pinned,
+        schedules: ScheduleSources {
+            root: settings.source_root.clone(),
+            audience: settings.audience_manifest_path.clone().zip(settings.audience_manifest_sha256.clone()),
+        },
     };
     let runtime = Arc::new(Runtime::new(parts, checkpoint).await?);
     let listen = SocketAddr::new(settings.bind, settings.port);

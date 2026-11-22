@@ -128,11 +128,19 @@ async fn a_checkpoint_service_that_is_not_ready_stops_the_runtime_at_startup() {
     use std::sync::Arc;
 
     use privoke_v3_fuzzer::source::Closure;
+    use privoke_v3_runtime::assets::Admission;
+    use privoke_v3_runtime::fit::ScheduleSources;
     use privoke_v3_runtime::service::{Runtime, RuntimeParts};
 
     let scripted = Arc::new(common::Scripted::default());
     let directory = tempfile::tempdir().unwrap();
-    let parts = RuntimeParts { directory: directory.path().join("state"), threads: 1, closure: Closure::Fixed("x".to_string()) };
+    let parts = RuntimeParts {
+        directory: directory.path().join("state"),
+        threads: 1,
+        closure: Closure::Fixed("x".to_string()),
+        admission: Admission::Pinned,
+        schedules: ScheduleSources { root: std::path::PathBuf::from("."), audience: None },
+    };
     let error = Runtime::new(parts, scripted).await.unwrap_err();
     assert_eq!(error.0, "Checkpoint server not ready.");
 }

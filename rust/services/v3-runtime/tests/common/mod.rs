@@ -7,15 +7,21 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use base64::Engine as _;
 use privoke_contracts::proto::experimental_v3 as v3;
+use privoke_contracts::proto::v1::{AnalyzePromptRequest, AnalyzePromptResponse};
 use privoke_pki::ca::{CaDir, Validity};
 use privoke_pki::{files::write_atomic, registry_edit};
 use privoke_transport::ClientTlsConfig;
 use privoke_transport::startup::CloudTlsArgs;
+use privoke_v3_fuzzer::backend::blob_chunks;
+use privoke_v3_fuzzer::contract::digest;
 use privoke_v3_fuzzer::source::Closure;
+use privoke_v3_runtime::assets::Admission;
 use privoke_v3_runtime::checkpoint::Checkpoint;
 use privoke_v3_runtime::server::{self, ServerHandle, limits_for};
 use privoke_v3_runtime::service::{Runtime, RuntimeParts, V3RuntimeHandler};
+use prost::Message;
 use tonic::Status;
 
 /// A credential on disk.
@@ -157,7 +163,13 @@ pub async fn start() -> Stack {
     let env = Env::new();
     let state = tempfile::tempdir().unwrap();
     let scripted = Scripted::ready();
-    let parts = RuntimeParts { directory: state.path().join("state"), threads: 2, closure: Closure::Fixed("test-closure".to_string()) };
+    let parts = RuntimeParts {
+        directory: state.path().join("state"),
+        threads: 2,
+        closure: Closure::Fixed("test-closure".to_string()),
+        admission: Admission::Structural,
+        schedules: no_schedules(),
+    };
     let runtime = Arc::new(Runtime::new(parts, scripted.clone()).await.unwrap());
     let transport = env.tls_args().into_config().unwrap();
     let handle = server::start(
@@ -170,4 +182,153 @@ pub async fn start() -> Stack {
     .await
     .unwrap();
     Stack { env, scripted, runtime, handle, state }
+}
+
+pub fn b64(text: &str) -> Vec<u8> {
+    base64::engine::general_purpose::STANDARD.decode(text).unwrap()
+}
+
+/// Print a line straight to stderr (the harness hides `println!` of a passing test; the counts must reach the CI log).
+pub fn say(text: &str) {
+    use std::io::Write;
+    let _ = writeln!(std::io::stderr(), "{text}");
+}
+
+/// A checkpoint service holding one snapshot: the manifest, and the three assets of the package directory.
+pub fn serve_package(scripted: &Scripted, package: &std::path::Path, model_id: &str, manifest: &[u8]) -> String {
+    let mut blobs = scripted.blobs.lock().unwrap();
+    for name in ["model.safetensors", "config.json", "vocab.txt"] {
+        let payload = std::fs::read(package.join(name)).unwrap();
+        blobs.insert(digest(&payload), blob_chunks(&payload));
+    }
+    let sha = digest(manifest);
+    blobs.insert(sha.clone(), blob_chunks(manifest));
+    scripted.current.lock().unwrap().insert(model_id.to_string(), sha.clone());
+    sha
+}
+
+/// A runtime over `scripted` with its own state directory.
+pub async fn runtime_over(scripted: &Arc<Scripted>, directory: &std::path::Path, admission: Admission) -> Arc<Runtime> {
+    let parts = RuntimeParts {
+        directory: directory.to_path_buf(),
+        threads: 4,
+        closure: Closure::Fixed("replay".to_string()),
+        admission,
+        schedules: no_schedules(),
+    };
+    Arc::new(Runtime::new(parts, scripted.clone()).await.unwrap())
+}
+
+/// What a replay of golden `AnalyzePrompt` rows measured.
+#[derive(Debug, Default)]
+pub struct Report {
+    pub rows: usize,
+    pub aborts: usize,
+    pub error_rows: usize,
+    pub finding_rows: usize,
+    pub wire_equal: usize,
+    pub boundary_confidences: usize,
+    pub failures: Vec<String>,
+}
+
+impl Report {
+    pub fn assert_clean(&self, label: &str) {
+        say(&format!(
+            "{label}: {} rows ({} aborts, {} error responses, {} with findings): {} byte-identical to the Python wire bytes (elapsed_ms cleared), {} confidences equal only under the rounding-boundary rule, {} failures",
+            self.rows,
+            self.aborts,
+            self.error_rows,
+            self.finding_rows,
+            self.wire_equal,
+            self.boundary_confidences,
+            self.failures.len()
+        ));
+        assert!(self.failures.is_empty(), "{label}: first failures: {:#?}", &self.failures[..self.failures.len().min(8)]);
+    }
+}
+
+/// The distance of an unrounded confidence from the nearest 3-decimal rounding boundary.
+fn boundary_distance(raw: f64) -> f64 {
+    (((raw * 1000.0).fract()).abs() - 0.5).abs() / 1000.0
+}
+
+/// Replay `rows` (the Python oracle's recorded requests and outcomes) through `runtime`. A confidence may differ from the
+/// oracle's by one rounding step only when both unrounded values agree within 1e-5 and one lies within 2e-5 of the boundary
+/// (the stage 14 rule); everything else, every decision, string and span, must be identical.
+pub async fn replay(runtime: &Runtime, rows: &[serde_json::Value], raw: &(dyn Fn(&str) -> f64 + Sync)) -> Report {
+    let mut report = Report::default();
+    for row in rows {
+        let id = row["id"].as_str().unwrap().to_string();
+        let request = AnalyzePromptRequest::decode(b64(row["request"].as_str().unwrap()).as_slice()).unwrap();
+        report.rows += 1;
+        let outcome = &row["outcome"];
+        let mine = runtime.analyze_prompt(request.clone()).await;
+        if let Some(abort) = outcome.get("abort") {
+            report.aborts += 1;
+            match mine {
+                Err(status) => {
+                    let got = [privoke_v3_runtime::pyerr::code_name(status.code()).to_string(), status.message().to_string()];
+                    if abort.as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect::<Vec<_>>() != got {
+                        report.failures.push(format!("{id}: abort {got:?} differs from {abort}"));
+                    }
+                }
+                Ok(_) => report.failures.push(format!("{id}: Rust answered, Python aborted with {abort}")),
+            }
+            continue;
+        }
+        let golden_bytes = b64(outcome["ok"].as_str().unwrap());
+        let golden = AnalyzePromptResponse::decode(golden_bytes.as_slice()).unwrap();
+        let Ok(mut response) = mine else {
+            report.failures.push(format!("{id}: Rust aborted, Python answered"));
+            continue;
+        };
+        response.elapsed_ms = 0.0;
+        report.error_rows += usize::from(!golden.error.is_empty());
+        report.finding_rows += usize::from(golden.evidence.is_some());
+        if response.encode_to_vec() == golden_bytes {
+            report.wire_equal += 1;
+            continue;
+        }
+        let mut mine_confidences: Vec<&mut f64> = Vec::new();
+        if let Some(evidence) = response.evidence.as_mut() {
+            mine_confidences.push(&mut evidence.confidence);
+        }
+        for layer in &mut response.layers {
+            for result in &mut layer.results {
+                mine_confidences.push(&mut result.confidence);
+            }
+        }
+        let mut golden_confidences: Vec<f64> = golden.evidence.iter().map(|evidence| evidence.confidence).collect();
+        golden_confidences.extend(golden.layers.iter().flat_map(|layer| layer.results.iter().map(|result| result.confidence)));
+        if mine_confidences.len() == golden_confidences.len() {
+            for (slot, expected) in mine_confidences.into_iter().zip(golden_confidences) {
+                if *slot == expected {
+                    continue;
+                }
+                let rust_raw = raw(&request.text);
+                let python_raw = row["raw_confidence"].as_f64();
+                let step = ((*slot - expected).abs() - 0.001).abs() < 1e-9;
+                let near = python_raw.is_some_and(|python| {
+                    (python - rust_raw).abs() < 1e-5 && boundary_distance(python).min(boundary_distance(rust_raw)) < 2e-5
+                });
+                if step && near {
+                    *slot = expected;
+                    report.boundary_confidences += 1;
+                }
+            }
+        }
+        if response != golden {
+            report.failures.push(format!(
+                "{id}: response differs:
+rust   {response:?}
+python {golden:?}"
+            ));
+        }
+    }
+    report
+}
+
+/// Schedule sources for tests that never fit (nothing is read from them).
+pub fn no_schedules() -> privoke_v3_runtime::fit::ScheduleSources {
+    privoke_v3_runtime::fit::ScheduleSources { root: PathBuf::from("."), audience: None }
 }

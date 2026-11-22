@@ -23,6 +23,14 @@ privoke-transport = { path = "../../crates/privoke-transport" }
 privoke-v3-fuzzer = { path = "../v3-fuzzer" }
 # `client_tls_from_lookup`: the outbound mutual-TLS credentials.
 privoke-fuzzer = { path = "../fuzzer" }
+# The frozen schedules (`validate_bc01`, `validate_au3`) and the wire encoding of the rows.
+privoke-curriculum = { path = "../../crates/privoke-curriculum" }
+# The V3 fit (`v3_fit::fit`).
+privoke-training = { path = "../../crates/privoke-training" }
+# The V3 model, the action policy and the finding aggregation of the analysis runtime (`privoke_runtime::model`).
+privoke-runtime = { path = "../runtime" }
+# `V3Model` (tokenizer, encoder, heads) and the safetensors reader, without the HTTP stack of the external classifier.
+privoke-semantic = { path = "../../crates/privoke-semantic", default-features = false }
 tonic = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
@@ -33,6 +41,7 @@ rusqlite = { version = "0.37", features = ["bundled"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 
 [dev-dependencies]
+privoke-rules = { path = "../../crates/privoke-rules" }
 privoke-pki = { path = "../../tools/privoke-pki" }
 tempfile = { workspace = true }
 base64 = { workspace = true }

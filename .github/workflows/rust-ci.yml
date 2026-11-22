@@ -115,6 +115,10 @@ jobs:
         # Prints the counts of the V3 fuzzer replay against the Python oracle (eprintln): cycles, wire messages, work-directory files, rows.
         run: cargo test -p privoke-v3-fuzzer --test replay --locked -- --nocapture --test-threads=1
 
+      - name: V3 runtime analysis replay report (stage 22)
+        # Prints the counts of the AnalyzePrompt replay against the Python RuntimeServer (eprintln): rows, aborts, byte-identical responses.
+        run: cargo test -p privoke-v3-runtime --test analyze_replay --locked -- --nocapture --test-threads=1
+
   embed-check:
     # The PyO3 spaCy worker and the in-process spaCy backend (stage 11b) need a
     # CPython 3.11 development install. The full embed tests, the real-interpreter

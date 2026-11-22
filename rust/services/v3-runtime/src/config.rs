@@ -8,6 +8,7 @@
 //! | `V3_PORT`, `V3_BIND` | the listener | `50171`, `127.0.0.1` |
 //! | `V3_TORCH_THREADS` | threads of the matrix kernels (the name is the Python variable's) | `4` |
 //! | `V3_SOURCE_ROOT` | the checkout whose Python sources the evidence's `source_hashes` and the `source_closure` commit to | required |
+//! | `V3_AUDIENCE_MANIFEST_PATH`, `V3_AUDIENCE_MANIFEST_SHA256` | a custom audience release and its pin (both or neither) | the bundled release |
 //! | `V3_REQUEST_TIMEOUT_SECONDS` | the per-RPC deadline of the listener (one RPC is one whole fit) | `7800` |
 //!
 //! `V3_SOURCE_ROOT` and `V3_REQUEST_TIMEOUT_SECONDS` are new: the Python service derived the repository root from its own
@@ -43,6 +44,10 @@ pub struct RuntimeSettings {
     pub threads: usize,
     /// `V3_SOURCE_ROOT`.
     pub source_root: PathBuf,
+    /// `V3_AUDIENCE_MANIFEST_PATH`.
+    pub audience_manifest_path: Option<PathBuf>,
+    /// `V3_AUDIENCE_MANIFEST_SHA256`.
+    pub audience_manifest_sha256: Option<String>,
     /// `V3_REQUEST_TIMEOUT_SECONDS`.
     pub request_timeout: Duration,
 }
@@ -82,6 +87,12 @@ impl RuntimeSettings {
             Ok(duration) if !duration.is_zero() => duration,
             _ => return invalid("V3_REQUEST_TIMEOUT_SECONDS must be finite and positive."),
         };
+        let present = |name: &str| get(name).filter(|value| !value.is_empty());
+        let audience_manifest_path = present("V3_AUDIENCE_MANIFEST_PATH").map(PathBuf::from);
+        let audience_manifest_sha256 = present("V3_AUDIENCE_MANIFEST_SHA256");
+        if audience_manifest_path.is_some() != audience_manifest_sha256.is_some() {
+            return invalid("Custom v3 audience release requires both trusted path and pin.");
+        }
         Ok(Self {
             checkpoint_target: required(&get, "V3_CHECKPOINT_TARGET")?,
             directory: PathBuf::from(required(&get, "V3_RUNTIME_STATE")?),
@@ -89,6 +100,8 @@ impl RuntimeSettings {
             bind: bind.trim().parse::<IpAddr>().map_err(|_| Error("V3_BIND must be an IP address.".to_string()))?,
             threads,
             source_root: PathBuf::from(required(&get, "V3_SOURCE_ROOT")?),
+            audience_manifest_path,
+            audience_manifest_sha256,
             request_timeout,
         })
     }
@@ -138,6 +151,7 @@ mod tests {
             (vec![("V3_REQUEST_TIMEOUT_SECONDS", "0")], "V3_REQUEST_TIMEOUT_SECONDS must be finite and positive."),
             (vec![("V3_REQUEST_TIMEOUT_SECONDS", "soon")], "V3_REQUEST_TIMEOUT_SECONDS must be a number."),
             (vec![("V3_RUNTIME_STATE", "")], "V3_RUNTIME_STATE is required."),
+            (vec![("V3_AUDIENCE_MANIFEST_PATH", "m.json")], "Custom v3 audience release requires both trusted path and pin."),
         ];
         for (pairs, message) in cases {
             assert_eq!(RuntimeSettings::from_lookup(lookup(&pairs)).unwrap_err().0, message, "{pairs:?}");
