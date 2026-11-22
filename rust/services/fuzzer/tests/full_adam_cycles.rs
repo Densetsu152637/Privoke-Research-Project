@@ -93,7 +93,9 @@ fn normalised_dump(dump: &Path) -> BTreeMap<String, String> {
 }
 
 /// `training_evidence_sha256` over this run's retained record for `request_id`, with the oracle's attempt path in its evidence.
-fn evidence_hash(dump: &Path, request_id: &str, python_path: &str) -> String {
+/// A FULL Adam publication binds eight fields of the record; the compact publication of an opted-in TRAIN diagnostics update binds
+/// its metadata, metrics and execution evidence.
+fn evidence_hash(dump: &Path, request_id: &str, python_paths: &BTreeMap<String, String>, compact: bool) -> String {
     use privoke_curriculum::value::{self, Value};
     let mut files = Vec::new();
     walk(&dump.join("training-cycles"), &mut files);
@@ -104,19 +106,27 @@ fn evidence_hash(dump: &Path, request_id: &str, python_path: &str) -> String {
         }
         let mut evidence = value::get(&record, "execution_evidence").cloned().unwrap();
         if let Value::Object(map) = &mut evidence {
-            map.insert("physical_attempt".to_string(), value::string(python_path));
+            // The oracle's absolute paths: the attempt, and the retained sampling audit or retention release (`{path, sha256}`).
+            for (name, path) in python_paths {
+                if name == "physical_attempt" {
+                    map.insert(name.clone(), value::string(path));
+                } else if let Some(Value::Object(reference)) = map.get_mut(name) {
+                    reference.insert("path".to_string(), value::string(path));
+                }
+            }
         }
         let field = |name: &str| value::get(&record, name).cloned().unwrap();
-        let bound = value::object(vec![
-            ("metadata", field("metadata")),
-            ("metrics", field("metrics")),
-            ("execution_evidence", evidence),
-            ("gate_passed", field("gate_passed")),
-            ("request_id", field("request_id")),
-            ("source_id", field("source_id")),
-            ("model_id", field("model_id")),
-            ("base_version", field("base_version")),
-        ]);
+        let mut pairs = vec![("metadata", field("metadata")), ("metrics", field("metrics")), ("execution_evidence", evidence)];
+        if !compact {
+            pairs.extend([
+                ("gate_passed", field("gate_passed")),
+                ("request_id", field("request_id")),
+                ("source_id", field("source_id")),
+                ("model_id", field("model_id")),
+                ("base_version", field("base_version")),
+            ]);
+        }
+        let bound = value::object(pairs);
         return value::sha256(value::dumps_compact(&bound).unwrap().as_bytes());
     }
     panic!("no retained cycle for {request_id}");
@@ -219,12 +229,21 @@ async fn replay(file: &str, title: &str) {
                         // file: compare the message without it, and the hash over this run's record with the oracle's path.
                         let mut sent = ParameterUpdateRequest::decode(bytes.as_slice()).unwrap();
                         let mut golden_message = ParameterUpdateRequest::decode(want.as_slice()).unwrap();
+                        let compact = golden_message.metadata.contains_key("training_audit_v1");
                         let sent_hash = sent.metadata.insert("training_evidence_sha256".to_string(), String::new());
                         let golden_hash = golden_message.metadata.insert("training_evidence_sha256".to_string(), String::new());
                         if let Some(golden_hash) = golden_hash {
-                            let raw = cycle["physical_attempt_raw"].as_str().expect("the oracle's attempt path");
+                            let raw: BTreeMap<String, String> = match cycle.get("evidence_paths_raw").and_then(Value::as_object) {
+                                Some(paths) => {
+                                    paths.iter().map(|(name, path)| (name.clone(), path.as_str().unwrap().to_string())).collect()
+                                }
+                                None => BTreeMap::from([(
+                                    "physical_attempt".to_string(),
+                                    cycle["physical_attempt_raw"].as_str().expect("the oracle's attempt path").to_string(),
+                                )]),
+                            };
                             assert_eq!(
-                                evidence_hash(&dump, &sent.metadata["request_id"], raw),
+                                evidence_hash(&dump, &sent.metadata["request_id"], &raw, compact),
                                 golden_hash,
                                 "{context}: the evidence hash"
                             );
