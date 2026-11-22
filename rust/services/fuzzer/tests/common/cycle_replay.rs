@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use privoke_contracts::proto::v1::{
-    ComputeSemanticGradientsRequest, FuzzerTrainingRequest, FuzzerTrainingResponse, ParameterUpdateStatusRequest,
+    ComputeSemanticGradientsRequest, FuzzerTrainingRequest, FuzzerTrainingResponse, ParameterUpdateRequest, ParameterUpdateStatusRequest,
 };
 use privoke_fuzzer::config::{FuzzerConfig, Scope};
 use privoke_fuzzer::cycle::Engine;
