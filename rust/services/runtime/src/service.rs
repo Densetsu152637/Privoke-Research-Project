@@ -73,6 +73,13 @@ impl<A: SpacyBackend> Service<A> {
         self
     }
 
+    /// Sets the retention route's trusted configuration on the gradient RPCs (`None` declines that route to Python).
+    #[must_use]
+    pub fn with_retention_config(mut self, config: Option<crate::training::RetentionConfig>) -> Self {
+        self.trainer = self.trainer.map(|trainer| trainer.with_retention(config));
+        self
+    }
+
     /// The pipeline.
     pub fn pipeline(&self) -> &Pipeline<A> {
         &self.pipeline

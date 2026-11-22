@@ -22,6 +22,7 @@ pub mod error;
 pub mod net;
 pub mod objective;
 pub mod presence;
+pub mod retention;
 pub mod routes;
 pub mod rpc;
 pub mod trace;

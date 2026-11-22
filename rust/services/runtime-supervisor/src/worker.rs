@@ -195,7 +195,7 @@ pub struct WorkerSettings {
 
 /// The variables a worker may inherit. Everything else, including credentials and the telemetry and TLS settings, stays
 /// in the controller.
-const WORKER_ENVIRONMENT: [&str; 21] = [
+const WORKER_ENVIRONMENT: [&str; 26] = [
     "TEMP",
     "TMP",
     "TMPDIR",
@@ -218,6 +218,12 @@ const WORKER_ENVIRONMENT: [&str; 21] = [
     "PRIVOKE_COMPONENT_TEACHER_PATH",
     "PRIVOKE_COMPONENT_MANIFEST_SHA256",
     "PRIVOKE_COMPONENT_TEACHER_SHA256",
+    // The ORIGINAL retention release of the retention training route (read by both workers).
+    "PRIVOKE_RETENTION_BANK_PATH",
+    "PRIVOKE_RETENTION_REFERENCE_PATH",
+    "PRIVOKE_RETENTION_MANIFEST_PATH",
+    "PRIVOKE_RETENTION_TEACHER_PATH",
+    "PRIVOKE_RETENTION_MANIFEST_SHA256",
 ];
 
 impl WorkerSettings {

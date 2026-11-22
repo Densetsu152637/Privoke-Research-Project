@@ -38,11 +38,12 @@ use privoke_rules::preprocessing::normalize_text;
 use privoke_rules::pyunicode;
 use privoke_semantic::tiny::{Readout, TASK_QUERY_READOUT, TinyConfig};
 use privoke_training::admission::{
-    Admitted, BACKTRACKING_POLICY, Header, Policy, Route, TRAIN_DIAGNOSTICS_POLICY, WINDOW_CONFIG_CANONICAL, WINDOW_ELIGIBILITY, admit,
-    policy_admission,
+    Admitted, BACKTRACKING_POLICY, CONFIG_CANONICAL, Header, Policy, Route, TRAIN_DIAGNOSTICS_POLICY, WINDOW_CONFIG_CANONICAL,
+    WINDOW_ELIGIBILITY, admit, policy_admission,
 };
 use privoke_training::objective::{Example, Target};
 use privoke_training::presence::{PresenceExample, PresenceRequest, PresenceSnapshot, compute_presence_gradients};
+use privoke_training::retention::{self, Release as RetentionRelease};
 use privoke_training::rpc::{self, Request as GradientRequest, Snapshot, compute_gradients};
 use privoke_training::window::{self, Release, Row, Window, compute_directions};
 
@@ -116,6 +117,37 @@ pub struct Trainer {
     store: Arc<ArtifactStore>,
     max_text_chars: usize,
     window: Option<WindowConfig>,
+    retention: Option<RetentionConfig>,
+}
+
+/// The trusted configuration of the retention route: the sidecar paths and the accepted manifest pin (the
+/// `PRIVOKE_RETENTION_*` variables `sensitive_retention_training.load_runtime_release` reads).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RetentionConfig {
+    /// `PRIVOKE_RETENTION_BANK_PATH`.
+    pub bank_path: PathBuf,
+    /// `PRIVOKE_RETENTION_REFERENCE_PATH`.
+    pub reference_path: PathBuf,
+    /// `PRIVOKE_RETENTION_MANIFEST_PATH`.
+    pub manifest_path: PathBuf,
+    /// `PRIVOKE_RETENTION_TEACHER_PATH`.
+    pub teacher_path: PathBuf,
+    /// `PRIVOKE_RETENTION_MANIFEST_SHA256`.
+    pub manifest_sha256: String,
+}
+
+impl RetentionConfig {
+    /// The configuration from a variable lookup; `None` unless every variable is set and non-empty.
+    pub fn from_lookup(lookup: &dyn Fn(&str) -> Option<String>) -> Option<Self> {
+        let get = |name: &str| lookup(name).map(|value| value.trim().to_string()).filter(|value| !value.is_empty());
+        Some(Self {
+            bank_path: PathBuf::from(get("PRIVOKE_RETENTION_BANK_PATH")?),
+            reference_path: PathBuf::from(get("PRIVOKE_RETENTION_REFERENCE_PATH")?),
+            manifest_path: PathBuf::from(get("PRIVOKE_RETENTION_MANIFEST_PATH")?),
+            teacher_path: PathBuf::from(get("PRIVOKE_RETENTION_TEACHER_PATH")?),
+            manifest_sha256: get("PRIVOKE_RETENTION_MANIFEST_SHA256")?,
+        })
+    }
 }
 
 /// The trusted configuration of the window route: the sidecar paths and the pins the operator accepts (the
@@ -161,7 +193,20 @@ impl Trainer {
     /// A trainer reading models from `store`; texts are limited to `max_text_chars` characters. The window route is
     /// configured from the environment.
     pub fn new(store: Arc<ArtifactStore>, max_text_chars: usize) -> Self {
-        Self { store, max_text_chars, window: WindowConfig::from_lookup(&|name| std::env::var(name).ok()) }
+        let environment = |name: &str| std::env::var(name).ok();
+        Self {
+            store,
+            max_text_chars,
+            window: WindowConfig::from_lookup(&environment),
+            retention: RetentionConfig::from_lookup(&environment),
+        }
+    }
+
+    /// The same trainer with an explicit retention configuration (`None` declines the retention route to Python).
+    #[must_use]
+    pub fn with_retention(mut self, retention: Option<RetentionConfig>) -> Self {
+        self.retention = retention;
+        self
     }
 
     /// The same trainer with an explicit window configuration (`None` declines the window route to the Python worker).
@@ -260,6 +305,9 @@ impl Trainer {
         if let Some(header) = admission.as_ref().filter(|header| header.window.is_some()) {
             return self.window_response(request, header, full_encoder);
         }
+        if let Some(header) = admission.as_ref().filter(|header| header.retention.is_some()) {
+            return self.retention_response(request, header, full_encoder);
+        }
         self.check_semantic_request(request)?;
         let train = rows(&request.examples)?;
         let heldout = rows(&request.heldout_examples)?;
@@ -306,6 +354,88 @@ impl Trainer {
             metadata: &metadata,
             executions: &batch.executions,
             error: &batch.error,
+        }))
+    }
+
+    /// `training._compute_training_gradients` for a schema 4 header: the ORIGINAL retention loop (gate or hinge).
+    fn retention_response(
+        &self,
+        request: &ComputeSemanticGradientsRequest,
+        admission: &Admission,
+        full_encoder: bool,
+    ) -> Result<Vec<u8>, Failure> {
+        let Some((policy, pin)) = admission.retention.clone() else { return Err(declined("the request carries no retention pin")) };
+        self.check_semantic_request(request)?;
+        if request.model_id == PRETRAINED_CONTEXT_MODEL_ID {
+            return Err(message("Pretrained contextual online training is unsupported; use offline head fitting."));
+        }
+        let train = rows(&request.examples)?;
+        let heldout = rows(&request.heldout_examples)?;
+        if !request.learning_rate.is_finite() || request.learning_rate <= 0.0 {
+            return Err(message("learning_rate must be finite and greater than zero."));
+        }
+        if !request.max_gradient.is_finite() || request.max_gradient <= 0.0 {
+            return Err(message("max_gradient must be finite and greater than zero."));
+        }
+        if train.iter().any(|row| !row.weight.is_finite() || row.weight <= 0.0) {
+            return Err(message("Training example weights must be finite and positive."));
+        }
+        if !full_encoder {
+            return Err(message("ORIGINAL retention is an opt-in FULL-only route."));
+        }
+        let Some(config) = &self.retention else { return Err(declined("the worker has no retention release configuration")) };
+        if pin != config.manifest_sha256 {
+            return Err(message("Runtime retention requires a distinct trusted configured accepted manifest SHA before model access."));
+        }
+        let release = RetentionRelease::load(
+            &read_file(&config.bank_path)?,
+            &read_file(&config.reference_path)?,
+            &read_file(&config.manifest_path)?,
+            &read_file(&config.teacher_path)?,
+            &config.manifest_sha256,
+        )
+        .map_err(|error| message(error.to_string()))?;
+        if request.learning_rate != 0.003 || request.max_gradient != 0.05 {
+            return Err(message("FULL Adam fixed request config differs before model access."));
+        }
+        let artifact = self.store.read(&request.model_id)?;
+        if artifact.architecture == PRESENCE_ARCHITECTURE {
+            return Err(declined("the artifact is a presence model"));
+        }
+        match policy_admission(Some(&admission.header()), &artifact.metadata).map_err(|error| message(error.to_string()))? {
+            Policy::Retention => {}
+            _ => return Err(declined("the artifact is not a retention artifact")),
+        }
+        if artifact.metadata.get("original_train_retention_manifest_sha256") != Some(&release.sha256)
+            || artifact.model_id != release.model_id
+        {
+            return Err(message("Retention profile or requested immutable manifest pin differs."));
+        }
+        let config_value = artifact.value.get("config").ok_or_else(|| message("Model config must be a JSON object."))?;
+        let model_config = TinyConfig::from_json(config_value, &artifact.architecture).map_err(|error| message(error.to_string()))?;
+        let limit = model_config.max_tokens;
+        if train.iter().chain(heldout.iter()).any(|row| token_count(&row.text) + 1 > limit) {
+            return Err(message(format!("Tiny full-training input exceeds its {limit}-token context including the start token.")));
+        }
+        let outcome = retention::run(&artifact.value, &release, &policy, &train, &heldout, &mut retention::compute_directions)
+            .map_err(|error| message(error.to_string()))?;
+        let mut metadata = outcome.metadata.clone();
+        metadata.insert("artifact_checksum".to_string(), artifact.checksum.clone());
+        metadata.insert("architecture".to_string(), artifact.architecture.clone());
+        metadata.insert("model_config".to_string(), model_config_json(&model_config)?);
+        metadata.insert("model_cache_key".to_string(), cache_key(&artifact)?);
+        let shapes: BTreeMap<String, Vec<u64>> =
+            outcome.gradients.keys().filter_map(|name| artifact.shapes.get(name).map(|shape| (name.clone(), shape.clone()))).collect();
+        Ok(gradient_response(&Parts {
+            request_id: &request.request_id,
+            model_id: &artifact.model_id,
+            version: &artifact.version,
+            gradients: &outcome.gradients,
+            shapes: &shapes,
+            metrics: &outcome.metrics,
+            metadata: &metadata,
+            executions: &outcome.executions,
+            error: "",
         }))
     }
 
@@ -549,6 +679,8 @@ struct Admission {
     backtracking: Option<String>,
     /// The two pins (window manifest, component manifest) of a window record (schema 5).
     window: Option<(String, String)>,
+    /// The policy and manifest pin of a retention record (schema 4).
+    retention: Option<(String, String)>,
 }
 
 impl Admission {
@@ -561,6 +693,17 @@ impl Admission {
         if let Some(sha) = &self.backtracking {
             header.insert("expected_backtracking_policy".to_string(), Some(BACKTRACKING_POLICY.to_string()));
             header.insert("expected_backtracking_preparation_sha256".to_string(), Some(sha.clone()));
+        }
+        if let Some((policy, pin)) = &self.retention {
+            for (key, value) in [
+                ("expected_optimizer", policy.as_str()),
+                ("expected_candidate_eligibility", retention::ELIGIBILITY),
+                ("expected_optimizer_config", CONFIG_CANONICAL),
+                ("expected_training_scope", "full_encoder"),
+                ("expected_retention_manifest_sha256", pin.as_str()),
+            ] {
+                header.insert(key.to_string(), Some(value.to_string()));
+            }
         }
         if let Some((window, component)) = &self.window {
             for (key, value) in [
@@ -610,7 +753,7 @@ fn parse_admission(metadata: &[(String, String)]) -> Result<Option<Admission>, F
     };
     let unserved = || {
         declined(
-            "only the objective-only (schema 2), backtracking (schema 1) and window (schema 5) admissions are served by the Rust worker",
+            "only the objective-only (schema 2), backtracking (schema 1), retention (schema 4) and window (schema 5) admissions are served by the Rust worker",
         )
     };
     match (record.get("schema"), diagnostics) {
@@ -620,7 +763,7 @@ fn parse_admission(metadata: &[(String, String)]) -> Result<Option<Admission>, F
                 && keys.iter().all(|key| record.contains_key(*key))
                 && text("expected_objective") == Some(SUM_MARGIN)
             {
-                Ok(Some(Admission { objective: SUM_MARGIN.to_string(), diagnostics, backtracking: None, window: None }))
+                Ok(Some(Admission { objective: SUM_MARGIN.to_string(), diagnostics, backtracking: None, window: None, retention: None }))
             } else {
                 Err(unserved())
             }
@@ -646,8 +789,38 @@ fn parse_admission(metadata: &[(String, String)]) -> Result<Option<Admission>, F
                         diagnostics: Some(policy),
                         backtracking: Some(sha.to_string()),
                         window: None,
+                        retention: None,
                     }))
                 }
+                _ => Err(unserved()),
+            }
+        }
+        (Some(StrictValue::Int(schema)), Some(None)) if schema == "4" => {
+            let keys = [
+                "schema",
+                "expected_objective",
+                "expected_diagnostics_policy",
+                "expected_optimizer",
+                "expected_candidate_eligibility",
+                "expected_optimizer_config",
+                "expected_training_scope",
+                "expected_retention_manifest_sha256",
+            ];
+            let policy = text("expected_optimizer").filter(|name| retention::objective_of(name).is_some());
+            let exact = record.len() == keys.len()
+                && keys.iter().all(|key| record.contains_key(*key))
+                && policy.and_then(retention::objective_of) == text("expected_objective")
+                && text("expected_candidate_eligibility") == Some(retention::ELIGIBILITY)
+                && text("expected_optimizer_config") == Some(CONFIG_CANONICAL)
+                && text("expected_training_scope") == Some("full_encoder");
+            match (exact, policy, text("expected_retention_manifest_sha256").filter(|value| is_sha256(value))) {
+                (true, Some(policy), Some(pin)) => Ok(Some(Admission {
+                    objective: retention::objective_of(policy).unwrap_or_default().to_string(),
+                    diagnostics: None,
+                    backtracking: None,
+                    window: None,
+                    retention: Some((policy.to_string(), pin.to_string())),
+                })),
                 _ => Err(unserved()),
             }
         }
@@ -677,6 +850,7 @@ fn parse_admission(metadata: &[(String, String)]) -> Result<Option<Admission>, F
                     diagnostics: None,
                     backtracking: None,
                     window: Some((window_pin.to_string(), component_pin.to_string())),
+                    retention: None,
                 })),
                 _ => Err(unserved()),
             }
@@ -967,7 +1141,8 @@ mod tests {
     fn the_objective_only_and_backtracking_admissions_are_served() {
         assert_eq!(parse_admission(&[]), Ok(None));
         let schema2 = format!("{{\"schema\": 2, \"expected_objective\": \"{SUM_MARGIN}\", \"expected_diagnostics_policy\": null}}");
-        let objective_only = Admission { objective: SUM_MARGIN.to_string(), diagnostics: None, backtracking: None, window: None };
+        let objective_only =
+            Admission { objective: SUM_MARGIN.to_string(), diagnostics: None, backtracking: None, window: None, retention: None };
         assert_eq!(parse_admission(&header(&schema2)), Ok(Some(objective_only)));
         // The diagnostics policy of the objective-only record is served too.
         let with_diagnostics = Admission {
@@ -975,6 +1150,7 @@ mod tests {
             diagnostics: Some(TRAIN_DIAGNOSTICS_POLICY.to_string()),
             backtracking: None,
             window: None,
+            retention: None,
         };
         assert_eq!(parse_admission(&header(&schema2.replace("null", "\"train_before_candidate_v1\""))), Ok(Some(with_diagnostics)));
         for objective in [LEGACY_OBJECTIVE, "class_balanced_contextual_v1", SUM_MARGIN] {
@@ -983,6 +1159,7 @@ mod tests {
                 diagnostics: Some(TRAIN_DIAGNOSTICS_POLICY.to_string()),
                 backtracking: Some(SHA.to_string()),
                 window: None,
+                retention: None,
             };
             assert_eq!(parse_admission(&header(&backtracking_header(objective))), Ok(Some(served)), "{objective}");
         }
@@ -1037,6 +1214,66 @@ mod tests {
             window_record(&[("{\"schema\": 5, ", "{\"schema\": 5, \"extra\": 1, ")]),
         ] {
             assert!(matches!(parse_admission(&header(&broken)), Err(Failure::Declined(_))), "{broken}");
+        }
+    }
+
+    fn retention_record(replace: &[(&str, &str)]) -> String {
+        let mut record = format!(
+            "{{\"schema\": 4, \"expected_objective\": \"{}\", \"expected_diagnostics_policy\": null, \"expected_optimizer\": \"{}\", \"expected_candidate_eligibility\": \"{}\", \"expected_optimizer_config\": {}, \"expected_training_scope\": \"full_encoder\", \"expected_retention_manifest_sha256\": \"{SHA}\"}}",
+            retention::GATE_OBJECTIVE,
+            retention::GATE_POLICY,
+            retention::ELIGIBILITY,
+            serde_json::to_string(CONFIG_CANONICAL).unwrap()
+        );
+        for (from, to) in replace {
+            record = record.replace(from, to);
+        }
+        record
+    }
+
+    #[test]
+    fn the_retention_admission_is_served_with_its_exact_record() {
+        let served = parse_admission(&header(&retention_record(&[]))).unwrap().unwrap();
+        assert_eq!(served.retention, Some((retention::GATE_POLICY.to_string(), SHA.to_string())));
+        assert_eq!(served.objective, retention::GATE_OBJECTIVE);
+        let expected = served.header();
+        assert_eq!(expected.len(), 7, "the keys of retention.expectations and the objective");
+        assert_eq!(expected["expected_optimizer"].as_deref(), Some(retention::GATE_POLICY));
+        let hinge =
+            retention_record(&[(retention::GATE_POLICY, retention::HINGE_POLICY), (retention::GATE_OBJECTIVE, retention::HINGE_OBJECTIVE)]);
+        assert_eq!(parse_admission(&header(&hinge)).unwrap().unwrap().retention.unwrap().0, retention::HINGE_POLICY);
+        for broken in [
+            retention_record(&[(retention::GATE_OBJECTIVE, retention::HINGE_OBJECTIVE)]),
+            retention_record(&[(retention::GATE_POLICY, "full_projected_adam64_v1")]),
+            retention_record(&[(retention::ELIGIBILITY, "other_v1")]),
+            retention_record(&[("full_encoder", "heads")]),
+            retention_record(&[(SHA, "00")]),
+            retention_record(&[("null", "\"train_before_candidate_v1\"")]),
+        ] {
+            assert!(matches!(parse_admission(&header(&broken)), Err(Failure::Declined(_))), "{broken}");
+        }
+    }
+
+    #[test]
+    fn the_retention_configuration_needs_every_variable() {
+        let all = [
+            ("PRIVOKE_RETENTION_BANK_PATH", "/r/bank.json"),
+            ("PRIVOKE_RETENTION_REFERENCE_PATH", "/r/references.json"),
+            ("PRIVOKE_RETENTION_MANIFEST_PATH", "/r/manifest.json"),
+            ("PRIVOKE_RETENTION_TEACHER_PATH", "/r/teacher.json"),
+            ("PRIVOKE_RETENTION_MANIFEST_SHA256", SHA),
+        ];
+        let lookup = |skip: Option<&str>| {
+            let map: BTreeMap<String, String> = all
+                .iter()
+                .filter(|(name, _)| Some(*name) != skip)
+                .map(|(name, value)| ((*name).to_string(), (*value).to_string()))
+                .collect();
+            RetentionConfig::from_lookup(&|name| map.get(name).cloned())
+        };
+        assert_eq!(lookup(None).unwrap().manifest_sha256, SHA);
+        for (name, _) in &all {
+            assert!(lookup(Some(*name)).is_none(), "{name} is required");
         }
     }
 
