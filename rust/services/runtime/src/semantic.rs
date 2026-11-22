@@ -441,8 +441,11 @@ fn validate_context(object: &serde_json::Map<String, Value>) -> Result<(f64, usi
     Ok((threshold, max_tokens))
 }
 
+/// Head tensors by name: shape and float32 values.
+type Heads = BTreeMap<String, (Vec<usize>, Vec<f32>)>;
+
 /// The six head tensors of a validated artifact: `(name, shape, values rounded to float32)`.
-fn context_heads(object: &serde_json::Map<String, Value>) -> Result<BTreeMap<String, (Vec<usize>, Vec<f32>)>, String> {
+fn context_heads(object: &serde_json::Map<String, Value>) -> Result<Heads, String> {
     let tensors = object
         .get("parameters")
         .and_then(Value::as_object)
