@@ -51,21 +51,27 @@ pub fn relative(a: f64, b: f64) -> f64 {
 /// candidate values that must agree within 1e-6.
 pub fn compare(scope: &str, python: &Value, result: &Fit, exported: &BTreeMap<String, Tensor>, min_fraction: f64) {
     let rust = &result.evidence;
-    for key in [
-        "counts",
-        "block_counts",
-        "phases",
-        "changes",
-        "changed_tensors",
-        "scope",
-        "layers",
-        "policy",
-        "trainable_count",
-        "parameter_count",
-        "tier",
-    ] {
+    for key in ["counts", "block_counts", "phases", "scope", "layers", "policy", "trainable_count", "parameter_count", "tier"] {
         assert_eq!(rust[key], python[key], "{scope}: {key}");
     }
+    // The changed tensors. The gradient of a key bias is exactly zero (softmax ignores a constant added to every score), so what
+    // Torch's float32 backward leaves there is rounding noise, which AdamW's normalisation turns into a real step; the float64
+    // backward leaves noise far below epsilon, which float32 storage rounds away. Those tensors may differ; nothing else may.
+    let names = |value: &Value| -> Vec<String> {
+        value["changed_tensors"].as_array().unwrap().iter().map(|n| n.as_str().unwrap().to_string()).collect()
+    };
+    let (rust_changed, python_changed) = (names(rust), names(python));
+    let missing: Vec<&String> = python_changed.iter().filter(|name| !rust_changed.contains(name)).collect();
+    assert!(rust_changed.iter().all(|name| python_changed.contains(name)), "{scope}: Rust changed a tensor Torch did not");
+    assert!(missing.iter().all(|name| name.ends_with("attention.self.key.bias")), "{scope}: tensors only Torch changed: {missing:?}");
+    assert_eq!(rust["changes"]["heads"], python["changes"]["heads"], "{scope}");
+    assert_eq!(rust["changes"]["embeddings"], python["changes"]["embeddings"], "{scope}");
+    assert_eq!(rust["changes"]["pooler"], python["changes"]["pooler"], "{scope}");
+    assert_eq!(
+        rust["changes"]["encoder"].as_u64().unwrap() + missing.len() as u64,
+        python["changes"]["encoder"].as_u64().unwrap(),
+        "{scope}"
+    );
     for (key, tolerance) in [("losses", 1e-4)] {
         for (a, b) in rust[key].as_array().unwrap().iter().zip(python[key].as_array().unwrap()) {
             assert!(relative(a.as_f64().unwrap(), b.as_f64().unwrap()) < tolerance, "{scope}: {key} {a} against {b}");
@@ -116,7 +122,8 @@ pub fn compare(scope: &str, python: &Value, result: &Fit, exported: &BTreeMap<St
         identical_tensors += usize::from(tensor.sha256 == reference.sha256);
     }
     eprintln!(
-        "v3 fit {scope}: counts, blocks, phases, changes and guards equal; losses {:?} against {:?}; candidate {values} values, {within} within 1e-6, {bitwise} bitwise, {identical_tensors} of {} tensors byte-identical, max abs error {worst:.3e}",
+        "v3 fit {scope}: counts, blocks, phases and guards equal, {} key-bias tensors changed only by Torch's noise; losses {:?} against {:?}; candidate {values} values, {within} within 1e-6, {bitwise} bitwise, {identical_tensors} of {} tensors byte-identical, max abs error {worst:.3e}",
+        missing.len(),
         rust["losses"],
         python["losses"],
         result.candidate.len()

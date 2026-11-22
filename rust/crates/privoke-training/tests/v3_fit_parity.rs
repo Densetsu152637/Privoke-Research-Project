@@ -80,6 +80,9 @@ fn the_policy_contract_is_exact() {
     assert_eq!(validate_policy(&forged, true).unwrap_err().to_string(), "Policy differs from the frozen v3 contract.");
 }
 
+/// A named mutation of the evidence and the refusal it must produce.
+type Breakage = (&'static str, Box<dyn Fn(&mut Value)>, &'static str);
+
 /// The synthetic package has three layers and its own parameter count, so its evidence is re-labelled as the two-layer
 /// `balanced` tier to exercise the acceptance path of `validate_execution`; every check below then breaks one reconciled fact.
 fn as_balanced(evidence: &Value, full: bool) -> Value {
@@ -106,7 +109,7 @@ fn validate_execution_reconciles_the_evidence() {
         let good = as_balanced(&golden["scopes"][scope], full);
         validate_execution(&good, false).unwrap();
         // The guard, the work counts and the identities are each reconciled; one broken fact each is refused.
-        let broken: [(&str, Box<dyn Fn(&mut Value)>, &str); 6] = [
+        let broken: [Breakage; 6] = [
             ("parameters", Box::new(|v| v["parameter_count"] = json!(1)), "Execution complete parameter count mismatch."),
             ("counts", Box::new(|v| v["counts"]["train_rows"] = json!(1)), "Actual work counters differ from frozen policy."),
             (
