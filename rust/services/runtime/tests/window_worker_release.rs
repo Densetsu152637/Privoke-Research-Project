@@ -112,7 +112,6 @@ fn the_worker_serves_the_window_loop_on_the_real_release() {
         learning_rate: 0.003,
         max_gradient: 0.05,
         layers: vec![4],
-        ..Default::default()
     };
     let header = serde_json::json!({
         "schema": 5, "expected_objective": OBJECTIVE, "expected_diagnostics_policy": null, "expected_optimizer": POLICY,

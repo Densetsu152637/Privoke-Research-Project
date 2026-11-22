@@ -68,7 +68,6 @@ fn call(trainer: &Trainer, method: Method, rate: f64, bound: f64) -> Result<Comp
         learning_rate: rate,
         max_gradient: bound,
         layers: vec![4],
-        ..Default::default()
     };
     let request = Request {
         method,
