@@ -22,18 +22,19 @@ const CLASS_BALANCED: &str = "class_balanced_contextual_v1";
 pub const SUM_MARGIN: &str = "class_balanced_contextual_sum_category_decision_margin_v1";
 const RETENTION_GATE_OBJECTIVE: &str = "class_balanced_contextual_sum_margin_original_gate_v1";
 const RETENTION_HINGE_OBJECTIVE: &str = "class_balanced_contextual_sum_margin_original_hinge_v1";
-const PROCESS_OBJECTIVES: [&str; 5] = [LEGACY_OBJECTIVE, CLASS_BALANCED, SUM_MARGIN, RETENTION_GATE_OBJECTIVE, RETENTION_HINGE_OBJECTIVE];
+pub(crate) const PROCESS_OBJECTIVES: [&str; 5] =
+    [LEGACY_OBJECTIVE, CLASS_BALANCED, SUM_MARGIN, RETENTION_GATE_OBJECTIVE, RETENTION_HINGE_OBJECTIVE];
 const TRAIN_DIAGNOSTICS_POLICY: &str = "train_before_candidate_v1";
 const BACKTRACKING_POLICY: &str = "full_train_backtracking_v1";
 /// `full_adam.POLICY`.
 pub const FULL_ADAM_POLICY: &str = "full_projected_adam64_v1";
-const FULL_ADAM_ELIGIBILITY: &str = "candidate_train_exact_eligibility_v1";
+pub(crate) const FULL_ADAM_ELIGIBILITY: &str = "candidate_train_exact_eligibility_v1";
 /// `window_training.POLICY`.
 pub const WINDOW_POLICY: &str = "full_projected_adam64_window_checkpoint_v1";
 const WINDOW_ELIGIBILITY: &str = "candidate_window_exact_component_retention_v1";
 const RETENTION_GATE_POLICY: &str = "full_projected_adam64_original_train_gate_v1";
 const RETENTION_HINGE_POLICY: &str = "full_projected_adam64_original_train_hinge_v1";
-const RETENTION_ELIGIBILITY: &str = "candidate_train_exact_original_target_capped_v1";
+pub(crate) const RETENTION_ELIGIBILITY: &str = "candidate_train_exact_original_target_capped_v1";
 
 /// The request metadata.
 pub type Metadata = BTreeMap<String, String>;
@@ -59,7 +60,7 @@ impl Expectations {
         self.0.contains_key(key)
     }
 
-    fn set(&mut self, key: &str, value: Option<&str>) {
+    pub(crate) fn set(&mut self, key: &str, value: Option<&str>) {
         self.0.insert(key.to_string(), value.map(str::to_string));
     }
 }
@@ -114,7 +115,7 @@ fn retention_objective(policy: &str) -> Option<&'static str> {
 }
 
 /// `sensitive_retention.expectations`.
-fn retention_expectations(metadata: &Metadata) -> Result<Option<Expectations>> {
+pub(crate) fn retention_expectations(metadata: &Metadata) -> Result<Option<Expectations>> {
     let policy = get(metadata, "expected_contextual_training_optimizer");
     let Some(objective) = policy.and_then(retention_objective) else {
         if metadata.contains_key("expected_original_train_retention_manifest_sha256") {
@@ -143,7 +144,7 @@ fn retention_expectations(metadata: &Metadata) -> Result<Option<Expectations>> {
 }
 
 /// `full_adam.expectations`: the window and retention contracts first, then the plain FULL Adam one.
-fn full_adam_expectations(metadata: &Metadata) -> Result<Expectations> {
+pub(crate) fn full_adam_expectations(metadata: &Metadata) -> Result<Expectations> {
     if let Some(window) = window_expectations(metadata)? {
         return Ok(window);
     }
@@ -247,6 +248,97 @@ pub fn training_admission_header(expectations: &Expectations) -> Result<Option<S
     record.insert("schema".to_string(), Value::Int(schema.to_string()));
     let bytes = canonical::to_bytes(&Value::Object(record), Variant::Ascii).map_err(|error| Error(error.to_string()))?;
     String::from_utf8(bytes).map(Some).map_err(|error| Error(error.to_string()))
+}
+
+impl Expectations {
+    /// The expectations as the JSON object Python records (`None` is `null`).
+    pub fn to_value(&self) -> Value {
+        Value::Object(self.0.iter().map(|(key, value)| (key.clone(), json_value(value))).collect())
+    }
+}
+
+/// `parse_training_admission_metadata` for the header value: the expectations the record encodes, checked against the
+/// contracts they name. Schemas 3 (FULL Adam) and 4 (ORIGINAL retention) are the ones an optimizer admission uses; the
+/// objective-only and backtracking schemas carry no optimizer and are validated by their own cycles.
+pub fn parse_training_admission_header(raw: &str) -> Result<Expectations> {
+    if raw.len() > 2048 {
+        return invalid("Training policy JSON exceeds its byte budget.");
+    }
+    let record = privoke_contracts::json::parse(raw).map_err(|error| Error(error.to_string()))?;
+    let object = match &record {
+        Value::Object(map) => Some(map),
+        _ => None,
+    };
+    let schema = object.and_then(|map| map.get("schema")).and_then(|value| match value {
+        Value::Int(digits) => digits.parse::<i64>().ok(),
+        _ => None,
+    });
+    let text = |key: &str| -> Option<String> {
+        match object.and_then(|map| map.get(key)) {
+            Some(Value::String(text)) => Some(text.clone()),
+            _ => None,
+        }
+    };
+    let key_set =
+        |names: &[&str]| -> bool { object.is_some_and(|map| map.len() == names.len() && names.iter().all(|name| map.contains_key(*name))) };
+    let base_names = [
+        "schema",
+        "expected_objective",
+        "expected_diagnostics_policy",
+        "expected_optimizer",
+        "expected_candidate_eligibility",
+        "expected_optimizer_config",
+        "expected_training_scope",
+    ];
+    let mut metadata = Metadata::new();
+    let mut put = |key: &str, value: Option<String>| {
+        if let Some(value) = value {
+            metadata.insert(key.to_string(), value);
+        }
+    };
+    match schema {
+        Some(3) => {
+            if !key_set(&base_names) {
+                return invalid("Unsupported FULL Adam admission contract.");
+            }
+            put("expected_contextual_training_optimizer", text("expected_optimizer"));
+            put("expected_contextual_candidate_eligibility", text("expected_candidate_eligibility"));
+            put("expected_full_projected_adam_config_v1", text("expected_optimizer_config"));
+            put("expected_contextual_training_scope", text("expected_training_scope"));
+            put("expected_contextual_training_objective", text("expected_objective"));
+            put("expected_contextual_training_diagnostics_policy", text("expected_diagnostics_policy"));
+            let mut result = Expectations::default();
+            result.set("expected_objective", text("expected_objective").as_deref());
+            result.set("expected_diagnostics_policy", None);
+            result.0.extend(full_adam_expectations(&metadata)?.0);
+            Ok(result)
+        }
+        Some(4) => {
+            let mut names = base_names.to_vec();
+            names.push("expected_retention_manifest_sha256");
+            if !key_set(&names)
+                || text("expected_diagnostics_policy").is_some()
+                || !matches!(object.and_then(|map| map.get("expected_diagnostics_policy")), Some(Value::Null))
+            {
+                return invalid("Unsupported ORIGINAL TRAIN retention admission contract.");
+            }
+            put("expected_contextual_training_optimizer", text("expected_optimizer"));
+            put("expected_contextual_candidate_eligibility", text("expected_candidate_eligibility"));
+            put("expected_full_projected_adam_config_v1", text("expected_optimizer_config"));
+            put("expected_contextual_training_scope", text("expected_training_scope"));
+            put("expected_contextual_training_objective", text("expected_objective"));
+            put("expected_original_train_retention_manifest_sha256", text("expected_retention_manifest_sha256"));
+            let Some(checked) = retention_expectations(&metadata)? else {
+                return invalid("Retention schema4 requires a retention optimizer.");
+            };
+            let mut result = Expectations::default();
+            result.set("expected_objective", text("expected_objective").as_deref());
+            result.set("expected_diagnostics_policy", None);
+            result.0.extend(checked.0);
+            Ok(result)
+        }
+        _ => invalid("Unsupported backtracking admission contract."),
+    }
 }
 
 #[cfg(test)]

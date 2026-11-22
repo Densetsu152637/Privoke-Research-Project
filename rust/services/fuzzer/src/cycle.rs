@@ -24,26 +24,21 @@ use privoke_curriculum::{Example, anchor, audience, benign, train_window};
 use tokio::sync::Semaphore;
 use tonic::{Code, Status};
 
+use crate::attempts::{
+    Failure, Recorded, persist_backtracking_admission, persist_backtracking_attempt, persist_policy_attempt, persist_reservation_rejection,
+    reserve_physical_attempt,
+};
 use crate::config::{FuzzerConfig, Scope};
 use crate::error::Error;
 use crate::evidence::{persist_cycle_evidence, recover_cycle_evidence_ack, reserve_training_request};
-use crate::runtime::{BatchUpdate, RuntimeBackend, admit_response, gradient_request};
+use crate::policy::{Expectations, training_admission_header};
+use crate::runtime::{BatchUpdate, CallOptions, RuntimeBackend, gradient_request, update_from_response, validate_response};
 use crate::state::SqliteState;
 use crate::updates::{PublicationContext, UpdateBackend, publication_request};
 use crate::validate::CONTEXTUAL_SAMPLING_STRATEGY_KEY;
 
 const TAXONOMY_STRATEGY: &str = "taxonomy_coverage_v1";
 const RUNTIME_UNAVAILABLE: &str = "Client runtime training evaluation is unavailable.";
-const FULL_ADAM_PREFIX: &str = "full_projected_adam64";
-/// Metadata a runtime attaches only when the artifact opted into candidate eligibility.
-const OPT_IN_EVIDENCE_KEYS: [&str; 6] = [
-    "contextual_candidate_eligibility",
-    "executed_contextual_training_optimizer",
-    "full_projected_adam_trace_v1",
-    "full_projected_adam_summary_v1",
-    "original_train_retention_trace_v1",
-    "original_train_retention_summary_v1",
-];
 
 /// `TrainingCycle`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -72,6 +67,32 @@ pub fn resolve_cycle(request: &FuzzerTrainingRequest, config: &FuzzerConfig) -> 
         seed: if request.seed == 0 { config.seed } else { u64::from(request.seed) },
     }
 }
+
+/// The status of a failed evidence write: a contract failure is `FAILED_PRECONDITION`, a disk failure `UNAVAILABLE`.
+fn failure_status(failure: &Failure) -> Status {
+    match failure {
+        Failure::Value(message) => Status::failed_precondition(message.clone()),
+        Failure::Os(_, message) => {
+            log(format_args!("client runtime semantic training failed: {message}"));
+            Status::unavailable(RUNTIME_UNAVAILABLE)
+        }
+    }
+}
+
+/// An exception the Python handler does not catch: the caller sees `UNKNOWN` with the exception text.
+fn unhandled(error: impl std::fmt::Display) -> Status {
+    Status::unknown(format!("Exception calling application: {error}"))
+}
+
+/// What the caller asked the runtime to admit: the resolved expectations and the header that carries them.
+struct Policy<'a> {
+    expectations: &'a Expectations,
+    header: Option<&'a str>,
+}
+
+/// `full_adam.CONFIG["eta"]` and `["delta_cap"]`: the fixed rate and cap of a FULL Adam fit.
+const FULL_ADAM_ETA: f64 = 0.003;
+const FULL_ADAM_DELTA_CAP: f64 = 0.05;
 
 /// `str(float)`.
 fn py_float_text(number: f64) -> String {
@@ -146,14 +167,14 @@ pub fn validate_training_update(update: &BatchUpdate, minimum_exact_match_rate: 
         }
     }
     let optimizer = update.metadata.get("contextual_training_optimizer").map(String::as_str);
-    if optimizer.is_some_and(|name| name.starts_with(FULL_ADAM_PREFIX)) {
-        return Err(Error("FULL Adam candidate eligibility is not ported to the Rust fuzzer (stage 21 gap).".to_string()));
+    if optimizer.is_some_and(|name| crate::full_adam::RETENTION_POLICIES.contains(&name)) {
+        return Err(Error("ORIGINAL retention admission is not ported to the Rust fuzzer (stage 21 gap).".to_string()));
     }
-    if OPT_IN_EVIDENCE_KEYS.iter().any(|key| update.metadata.contains_key(*key)) {
-        return Err(Error("Candidate eligibility evidence requires its explicit artifact optimizer.".to_string()));
-    }
+    let selected = crate::full_adam_evidence::eligibility_metric(update)?;
+    let Some(exact) = metrics.get(selected).copied() else {
+        return Err(Error("Training update did not report exact_match_rate.".to_string()));
+    };
     let metric = |name: &str| metrics.get(name).copied().unwrap_or(f64::NAN);
-    let exact = metric("exact_match_rate");
     if exact <= minimum_exact_match_rate {
         return Err(Error(format!(
             "Training update exact_match_rate {exact:.4} must be greater than the minimum {minimum_exact_match_rate:.4}."
@@ -248,10 +269,29 @@ impl Engine {
         }
         let cycle = resolve_cycle(&request, &self.config);
         let expectations = crate::policy::training_policy_expectations(&request.metadata).map_err(precondition)?;
-        if !expectations.is_empty() {
-            return Err(gap(
-                "Training policy admission (the admission header on the runtime request, the response trace validation and the FULL Adam gate and publication evidence)",
-            ));
+        let retention_mode =
+            expectations.get("expected_optimizer").is_some_and(|name| crate::full_adam::RETENTION_POLICIES.contains(&name));
+        let batch_config = self.config.batch_training_config(cycle.seed, scope);
+        if expectations.contains("expected_optimizer") && expectations.get("expected_training_scope") != Some(scope.name()) {
+            return Err(precondition("FULL Adam request header scope differs before reservation."));
+        }
+        if expectations.contains("expected_optimizer")
+            && scope == Scope::FullEncoder
+            && (batch_config.learning_rate != FULL_ADAM_ETA || batch_config.max_gradient != FULL_ADAM_DELTA_CAP)
+        {
+            return Err(precondition("FULL Adam fixed rate/cap must match before reservation or receipt recovery."));
+        }
+        if expectations.contains("expected_backtracking_policy") && scope != Scope::FullEncoder {
+            return Err(precondition("Backtracking admission is FULL-only."));
+        }
+        if !expectations.is_empty() && self.config.dump_dir.is_none() {
+            return Err(precondition("Training policy admission requires durable PRIVOKE_FUZZER_DUMP_DIR."));
+        }
+        if expectations.contains("expected_backtracking_policy") {
+            return Err(gap("Backtracking admission (the physical backtracking route, its trace and the known-rejection admission)"));
+        }
+        if expectations.get("expected_diagnostics_policy").is_some() {
+            return Err(gap("TRAIN diagnostics admission (the diagnostics validator and the compact publication)"));
         }
         let strategy: Option<String> = match strategy_key.unwrap_or(&self.config.contextual_sampling_strategy) {
             text if text == audience::LEGACY => None,
@@ -259,6 +299,9 @@ impl Engine {
         };
         if strategy.as_deref() == Some(audience::STRATEGY) {
             return Err(gap("Audience coverage sampling (the pinned AU3 release and its implementation closure)"));
+        }
+        if retention_mode && strategy.as_deref() != Some(benign::STRATEGY) {
+            return Err(precondition("ORIGINAL retention requires the unchanged BC01 main composition."));
         }
         if strategy.as_deref() != Some(anchor::STRATEGY)
             && [anchor::BANK_KEY, anchor::MANIFEST_KEY].iter().any(|key| request.metadata.contains_key(*key))
@@ -275,7 +318,6 @@ impl Engine {
                 "Rehearsal and benign coverage sampling (they require the authenticated FULL Adam policy admission and the FULL Adam gate)",
             ));
         }
-        let batch_config = self.config.batch_training_config(cycle.seed, scope);
         let mut taxonomy_dataset: Option<TaxonomyDataset> = None;
         let mut fingerprint: Option<String> = None;
         if strategy.as_deref() == Some(TAXONOMY_STRATEGY) {
@@ -332,9 +374,18 @@ impl Engine {
             fingerprint = Some(request_fingerprint(&request, curriculum, &value::object(pairs)).map_err(precondition)?);
         }
         let require_full = request.metadata.get("require_full_capability").map(String::as_str) == Some("true");
-        if scope == Scope::FullEncoder || require_full || taxonomy_dataset.is_some() {
+        let header = training_admission_header(&expectations).map_err(precondition)?;
+        if !expectations.is_empty() || scope == Scope::FullEncoder || require_full || taxonomy_dataset.is_some() {
             if curriculum.is_none() && taxonomy_dataset.is_none() {
-                fingerprint = Some(self.generic_fingerprint(&request, &batch_config, &cycle, scope).map_err(precondition)?);
+                fingerprint = Some(self.generic_fingerprint(&request, &batch_config, &cycle, scope, &expectations).map_err(precondition)?);
+            }
+            if let Some(header) = &header {
+                let document = Value::Array(vec![
+                    value::string(fingerprint.as_deref().unwrap_or_default()),
+                    crate::attempts::invocation_value(header),
+                ]);
+                let wrapped = value::dumps_compact(&document).map_err(precondition)?;
+                fingerprint = Some(value::sha256(wrapped.as_bytes()));
             }
             let reserved = fingerprint.as_deref().unwrap_or_default();
             reserve_training_request(self.config.dump_dir.as_deref(), &request, scope.name(), reserved).map_err(precondition)?;
@@ -364,14 +415,17 @@ impl Engine {
             fingerprint.as_deref(),
             &batch_config,
         )?;
-        let mut update = self.train(&request, &cycle, scope, &sampled, &batch_config, require_full, taxonomy_dataset.as_ref()).await?;
+        let policy = Policy { expectations: &expectations, header: header.as_deref() };
+        let mut update =
+            self.train(&request, &cycle, scope, &sampled, &batch_config, require_full, taxonomy_dataset.as_ref(), &policy).await?;
         if !sampled.audit.is_empty() {
             update.metadata.extend(sampled.audit.clone());
         }
-        if update.metadata.get("executed_contextual_training_optimizer").is_some_and(|name| name.starts_with(FULL_ADAM_PREFIX))
-            || update.metadata.get("contextual_training_optimizer").is_some_and(|name| name.starts_with(FULL_ADAM_PREFIX))
+        if crate::full_adam_evidence::is_full_adam_family(update.metadata.get("executed_contextual_training_optimizer").map(String::as_str))
         {
-            return Err(gap("FULL Adam gate and publication evidence"));
+            // Python lets a failure here escape the handler: the caller sees `UNKNOWN` with the exception text.
+            let gate = crate::full_adam_evidence::gate_text(&update, self.config.minimum_exact_match_rate).map_err(unhandled)?;
+            update.metadata.insert(crate::full_adam_evidence::GATE_KEY.to_string(), gate);
         }
         if let Some(expected) = request.metadata.get("expected_base_version").filter(|expected| !expected.is_empty())
             && &update.base_version != expected
@@ -415,20 +469,28 @@ impl Engine {
         batch_config: &BatchTrainingConfig,
         cycle: &TrainingCycle,
         scope: Scope,
+        expectations: &Expectations,
     ) -> Result<String, Error> {
         let dataset = match &self.config.prompt_dataset_path {
             Some(path) => value::sha256(&std::fs::read(path)?),
             None => "bundled_synthetic_generator_v1".to_string(),
         };
-        let settings = value::object(vec![
+        let mut pairs = vec![
             ("training", config_value(batch_config)),
             ("scope", value::string(scope.name())),
             ("prompt_count", value::int(cycle.prompt_count)),
             ("heldout_count", value::int(self.config.heldout_prompt_count)),
             ("minimum_exact_match_rate", Value::Float(self.config.minimum_exact_match_rate)),
             ("dataset_sha256", value::string(&dataset)),
-        ]);
-        settings_fingerprint(request, &settings)
+        ];
+        if !expectations.is_empty() {
+            pairs.push(("model_id", value::string(&cycle.model_id)));
+            pairs.push(("seed", value::uint(cycle.seed)));
+            pairs.push(("policy_admission", value::string("artifact_policy_v1")));
+            pairs.push(("expectations", expectations.to_value()));
+            pairs.push(("semantic_execution_contract", value::string("training_base_heldout_candidate_heldout_v1")));
+        }
+        settings_fingerprint(request, &value::object(pairs))
     }
 
     async fn previous_update(
@@ -527,6 +589,7 @@ impl Engine {
         batch_config: &BatchTrainingConfig,
         require_full_capability: bool,
         taxonomy_dataset: Option<&TaxonomyDataset>,
+        policy: &Policy<'_>,
     ) -> Result<BatchUpdate, Status> {
         let trainer_examples =
             prepare_trainer_examples(&sampled.examples, &sampled.replay, &sampled.heldout, batch_config).map_err(precondition)?;
@@ -549,20 +612,82 @@ impl Engine {
             batch_config.max_gradient,
         )
         .map_err(precondition)?;
-        let response = match self.runtime.compute_gradients(scope, wire.clone()).await {
+        let dump = self.config.dump_dir.as_deref();
+        let expectations = policy.expectations;
+        let header = policy.header;
+        let optimizer = expectations.contains("expected_optimizer");
+        if optimizer
+            && (expectations.get("expected_training_scope") != Some(scope.name())
+                || (scope == Scope::FullEncoder
+                    && (batch_config.learning_rate != FULL_ADAM_ETA || batch_config.max_gradient != FULL_ADAM_DELTA_CAP)))
+        {
+            return Err(precondition("FULL Adam scope/rate/cap differs before runtime compute."));
+        }
+        if expectations.contains("expected_backtracking_policy") && scope != Scope::FullEncoder {
+            return Err(precondition("Backtracking admission is FULL-only."));
+        }
+        if !expectations.is_empty() && dump.is_none() {
+            return Err(precondition("Training policy admission requires durable PRIVOKE_FUZZER_DUMP_DIR."));
+        }
+        if optimizer && let Err(failure) = reserve_physical_attempt(&wire, header.unwrap_or_default(), dump) {
+            if matches!(failure, Failure::Os(..)) {
+                let _ = persist_reservation_rejection(&wire, header.unwrap_or_default(), dump, &failure);
+            }
+            return Err(failure_status(&failure));
+        }
+        let options = CallOptions { header: header.map(str::to_string), long_deadline: optimizer && scope == Scope::FullEncoder };
+        let response = match self.runtime.compute_gradients(scope, wire.clone(), options).await {
             Ok(response) => response,
             Err(status) => {
                 log(format_args!("client runtime semantic training failed: {status}"));
+                let message = status.to_string();
+                let recorded = Recorded { type_name: "_InactiveRpcError", message: &message };
+                if let Some(header) = header {
+                    if let Ok(attempt) =
+                        persist_backtracking_attempt(dump, &wire, None, scope.name(), expectations, header, Some(&recorded))
+                    {
+                        let _ = persist_backtracking_admission(&attempt, None, "unadmitted", Some(&recorded));
+                    }
+                } else if !expectations.is_empty() {
+                    let _ = persist_policy_attempt(dump, &wire, None, scope.name(), expectations, Some(&recorded));
+                }
                 return Err(Status::unavailable(RUNTIME_UNAVAILABLE));
             }
         };
-        let mut update = match admit_response(&wire, &response, scope, batch_config.max_gradient, require_full_capability) {
+        let attempt = match header {
+            Some(header) => Some(
+                persist_backtracking_attempt(dump, &wire, Some(&response), scope.name(), expectations, header, None)
+                    .map_err(|failure| failure_status(&failure))?,
+            ),
+            None => None,
+        };
+        if let Err(error) = validate_response(&wire, &response, scope, batch_config.max_gradient, require_full_capability, expectations) {
+            log(format_args!("client runtime semantic training failed: {error}"));
+            let recorded = Recorded { type_name: "RuntimeAnalysisError", message: &error.0 };
+            if let Some(attempt) = &attempt {
+                let _ = persist_backtracking_admission(attempt, Some(&response), "unadmitted", Some(&recorded));
+            } else if !expectations.is_empty() {
+                let _ = persist_policy_attempt(dump, &wire, Some(&response), scope.name(), expectations, Some(&recorded));
+            }
+            return Err(Status::unavailable(RUNTIME_UNAVAILABLE));
+        }
+        if let Some(attempt) = &attempt {
+            persist_backtracking_admission(attempt, Some(&response), "accepted", None).map_err(|failure| failure_status(&failure))?;
+        } else if !expectations.is_empty() {
+            persist_policy_attempt(dump, &wire, Some(&response), scope.name(), expectations, None)
+                .map_err(|failure| failure_status(&failure))?;
+        }
+        let mut update = match update_from_response(&wire, &response, scope) {
             Ok(update) => update,
             Err(error) => {
                 log(format_args!("client runtime semantic training failed: {error}"));
                 return Err(Status::unavailable(RUNTIME_UNAVAILABLE));
             }
         };
+        if let (Some(attempt), Some(header), Value::Object(map)) = (&attempt, header, &mut update.execution_evidence) {
+            map.insert("invocation_metadata".to_string(), crate::attempts::invocation_value(header));
+            map.insert("physical_attempt".to_string(), value::string(&attempt.display().to_string()));
+        }
         update.metadata.extend(expanded_audit);
         update.metrics.insert("new_examples".to_string(), sampled.examples.len() as f64);
         update.metrics.insert("golden_examples".to_string(), sampled.replay.len() as f64);
@@ -600,7 +725,7 @@ impl Engine {
             pipeline,
             fingerprint,
         };
-        let message = publication_request(&self.config.fuzzer_id, update, &context.metadata())
+        let message = publication_request(&self.config.fuzzer_id, update, &context.metadata(), self.config.dump_dir.as_deref())
             .map_err(|_| precondition("Training publication evidence or metadata is invalid."))?;
         match self.updates.submit(message).await {
             Ok(ack) => Ok(ack),

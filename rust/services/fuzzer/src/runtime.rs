@@ -20,6 +20,7 @@ use privoke_curriculum::value;
 use privoke_transport::ClientTlsConfig;
 use privoke_transport::client::connect;
 use prost::Message;
+use tonic::metadata::MetadataValue;
 use tonic::{Request, Status};
 
 use crate::config::Scope;
@@ -66,6 +67,19 @@ pub struct BatchUpdate {
     pub execution_evidence: Value,
 }
 
+/// The per-call options of a gradient request: the pre-gradient admission header a policy cycle sends as gRPC metadata,
+/// and the long deadline of a FULL Adam fit.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CallOptions {
+    /// The value of `x-privoke-training-admission-v1`, when the cycle carries a policy admission.
+    pub header: Option<String>,
+    /// The 180 second deadline of a FULL Adam fit of the full encoder, instead of `FUZZ_TIMEOUT_SECONDS`.
+    pub long_deadline: bool,
+}
+
+/// `timeout=180.0` of `compute_semantic_gradients` for a FULL Adam fit of the full encoder.
+pub const FULL_ADAM_DEADLINE: Duration = Duration::from_secs(180);
+
 /// The client runtime as the fuzzer uses it.
 #[tonic::async_trait]
 pub trait RuntimeBackend: Send + Sync {
@@ -74,6 +88,7 @@ pub trait RuntimeBackend: Send + Sync {
         &self,
         scope: Scope,
         request: ComputeSemanticGradientsRequest,
+        options: CallOptions,
     ) -> std::result::Result<ComputeSemanticGradientsResponse, Status>;
 }
 
@@ -98,11 +113,16 @@ impl RuntimeBackend for GrpcRuntime {
         &self,
         scope: Scope,
         request: ComputeSemanticGradientsRequest,
+        options: CallOptions,
     ) -> std::result::Result<ComputeSemanticGradientsResponse, Status> {
         let channel = connect(&self.target, &self.tls).await.map_err(|error| Status::unavailable(error.to_string()))?;
         let mut client = PrivokeRuntimeServiceClient::new(channel).max_decoding_message_size(16 * 1024 * 1024);
         let mut message = Request::new(request);
-        message.set_timeout(self.timeout);
+        message.set_timeout(if options.long_deadline { FULL_ADAM_DEADLINE } else { self.timeout });
+        if let Some(header) = &options.header {
+            let value = MetadataValue::try_from(header.as_str()).map_err(|error| Status::internal(error.to_string()))?;
+            message.metadata_mut().insert(crate::policy::ADMISSION_HEADER, value);
+        }
         let response = match scope {
             Scope::Heads => client.compute_semantic_gradients(message).await?,
             Scope::FullEncoder => client.compute_underlying_model_gradients(message).await?,
@@ -233,7 +253,7 @@ fn validate_readout_identity(architecture: &str, config: &Value) -> Result<()> {
     Ok(())
 }
 
-fn head_names(config: &Value) -> Result<BTreeSet<String>> {
+pub(crate) fn head_names(config: &Value) -> Result<BTreeSet<String>> {
     let mut names: BTreeSet<String> =
         TASKS.iter().flat_map(|task| ["weight", "bias"].into_iter().map(move |part| format!("head.{task}.{part}"))).collect();
     if query_readout(config)? {
@@ -483,7 +503,28 @@ fn admit_tensors(
     Ok(())
 }
 
-/// `compute_semantic_gradients` after the call: admit the response and shape it as a [`BatchUpdate`].
+/// `compute_semantic_gradients` after the call, up to the admission of the response: a runtime error, the response contract
+/// and, for a policy cycle, the policy evidence (`validate_training_policy_response`). Every failure is Python's
+/// `RuntimeAnalysisError`.
+pub fn validate_response(
+    request: &ComputeSemanticGradientsRequest,
+    response: &ComputeSemanticGradientsResponse,
+    scope: Scope,
+    max_gradient: f64,
+    require_full_capability: bool,
+    expectations: &crate::policy::Expectations,
+) -> Result<()> {
+    if !response.error.is_empty() {
+        return reject(response.error.clone());
+    }
+    validate_training_response(request, response, scope, max_gradient, require_full_capability)?;
+    if !expectations.is_empty() {
+        crate::policy_response::validate_training_policy_response(request, response, expectations)?;
+    }
+    Ok(())
+}
+
+/// `compute_semantic_gradients` after the admission: admit the response and shape it as a [`BatchUpdate`].
 pub fn admit_response(
     request: &ComputeSemanticGradientsRequest,
     response: &ComputeSemanticGradientsResponse,
@@ -491,10 +532,16 @@ pub fn admit_response(
     max_gradient: f64,
     require_full_capability: bool,
 ) -> Result<BatchUpdate> {
-    if !response.error.is_empty() {
-        return reject(response.error.clone());
-    }
-    validate_training_response(request, response, scope, max_gradient, require_full_capability)?;
+    validate_response(request, response, scope, max_gradient, require_full_capability, &crate::policy::Expectations::default())?;
+    update_from_response(request, response, scope)
+}
+
+/// The gradients, shapes, metrics, metadata and execution evidence of an admitted response.
+pub fn update_from_response(
+    request: &ComputeSemanticGradientsRequest,
+    response: &ComputeSemanticGradientsResponse,
+    scope: Scope,
+) -> Result<BatchUpdate> {
     let mut gradients: Vec<(String, Vec<f64>)> = Vec::new();
     let mut shapes: BTreeMap<String, Vec<u32>> = BTreeMap::new();
     for parameter in &response.gradients {
