@@ -97,7 +97,7 @@ jobs:
         run: cargo test -p privoke-training --locked -- --nocapture --test-threads=1
       - name: Runtime golden report (stage 17)
         # Prints the per-scope byte-parity counts of the Rust analysis runtime against the Python servicer (eprintln).
-        run: cargo test -p privoke-runtime --test golden --test semantic_golden --locked -- --nocapture --test-threads=1
+        run: cargo test -p privoke-runtime --test golden --test semantic_golden --test worker_golden --locked -- --nocapture --test-threads=1
 
       - name: Fetch parity and contextual encoder reports (RUST-S17B)
         # Prints the counts of the model fetch goldens (V3 package and legacy snapshot) and the contextual encoder goldens (eprintln).

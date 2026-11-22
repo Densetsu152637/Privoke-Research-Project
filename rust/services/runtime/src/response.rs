@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 
 use privoke_contracts::pyfloat;
 
+use crate::gate::GateTrace;
 use crate::model::{
     Action, Finding, InvalidVisibility, PU, category_names, from_parts, strongest_result, strongest_visibility, visibility_name,
 };
@@ -150,6 +151,36 @@ fn layer_execution(execution: &LayerExecution) -> Result<Vec<u8>, InvalidVisibil
         wire::message(&mut out, 3, &detection_result(result)?);
     }
     wire::string(&mut out, 4, execution.error.as_deref().unwrap_or(""));
+    if let Some(trace) = &execution.gate {
+        wire::message(&mut out, 5, &gate_trace(trace)?);
+    }
+    Ok(out)
+}
+
+/// `SemanticPresenceGateTrace`: the three optional doubles are written whenever they are set, zero included.
+fn gate_trace(trace: &GateTrace) -> Result<Vec<u8>, InvalidVisibility> {
+    let mut out = Vec::new();
+    wire::enumeration(&mut out, 1, trace.status.proto_value());
+    wire::string(&mut out, 2, &trace.model_id);
+    wire::string(&mut out, 3, &trace.model_version);
+    wire::string(&mut out, 4, &trace.artifact_checksum);
+    wire::string(&mut out, 5, &trace.parameter_fingerprint);
+    for (field, value) in [(6, trace.probability), (7, trace.model_threshold), (8, trace.decision_threshold)] {
+        if let Some(value) = value {
+            wire::double_always(&mut out, field, value);
+        }
+    }
+    if let Some(label) = trace.predicted_label {
+        wire::enumeration(&mut out, 9, label.proto_value());
+    }
+    for result in &trace.semantic_results {
+        wire::message(&mut out, 10, &detection_result(result)?);
+    }
+    wire::string(&mut out, 11, trace.error.as_deref().unwrap_or(""));
+    wire::string(&mut out, 12, &trace.contextual_model_id);
+    wire::string(&mut out, 13, &trace.contextual_model_version);
+    wire::string(&mut out, 14, &trace.contextual_artifact_checksum);
+    wire::string(&mut out, 15, &trace.contextual_parameter_fingerprint);
     Ok(out)
 }
 
@@ -303,9 +334,11 @@ mod tests {
         let mut req = request("hello");
         req.visibility_hint = Some(0b01100);
         req.visibility_hint_name = Some("P2");
-        let analysis =
-            decide(req, vec![LayerExecution { layer: Layer::Regex, status: Status::Ok, results: vec![], error: None, identity: None }])
-                .unwrap();
+        let analysis = decide(
+            req,
+            vec![LayerExecution { layer: Layer::Regex, status: Status::Ok, results: vec![], error: None, identity: None, gate: None }],
+        )
+        .unwrap();
         assert_eq!(analysis.action, Action::Allow);
         let bytes = encode_analysis(&analysis, Elapsed::Cleared).unwrap();
         assert!(bytes.windows(14).any(|w| w == b"No privacy ris"), "{bytes:?}");
@@ -313,8 +346,14 @@ mod tests {
 
     #[test]
     fn a_failed_layer_blocks_an_allow_and_names_itself() {
-        let failed =
-            LayerExecution { layer: Layer::Ner, status: Status::Error, results: vec![], error: Some("boom".into()), identity: None };
+        let failed = LayerExecution {
+            layer: Layer::Ner,
+            status: Status::Error,
+            results: vec![],
+            error: Some("boom".into()),
+            identity: None,
+            gate: None,
+        };
         let analysis = decide(request("hello"), vec![failed]).unwrap();
         assert_eq!(analysis.action, Action::Block);
         let bytes = encode_analysis(&analysis, Elapsed::Cleared).unwrap();

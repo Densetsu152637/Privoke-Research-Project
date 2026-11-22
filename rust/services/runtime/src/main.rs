@@ -5,6 +5,10 @@
 //!     [--model-root DIR]... [--latest-model-id ID] [--warm-semantic-model ID]... [--pretrained-context-dir DIR] [--spacy fake]
 //! ```
 //!
+//! With `--model-root` the worker serves the semantic layer, the sparse presence gate, `DetectAnnotationPresence` and the
+//! gradient RPCs from those read-only directories; without it, the regex and NER layers and `Health` only (every other
+//! request is refused with `UNSUPPORTED_LAYERS` or `UNSUPPORTED_ROUTE`, and nothing has run).
+//!
 //! The pool starts it with the stage 11 bundle directory as its working location (the executable sits in the bundle,
 //! because CPython finds its `_pth` file next to its library); `--bundle` names another directory. `PRIVOKE_NER_MODEL`,
 //! `PRIVOKE_WAIT_FOR_REGEX`, the regex and NER switches and the robustness flags are read as the Python runtime reads
@@ -16,13 +20,16 @@
 
 use std::io::{self, Write};
 use std::process::ExitCode;
+use std::sync::Arc;
 use std::time::Duration;
 
 use privoke_ner_layer::EntityNerDetector;
 use privoke_rules::{Detector, RuleSetOptions};
 use privoke_runtime::frames::{self, code};
+use privoke_runtime::presence::PresenceModels;
 use privoke_runtime::request::{DEFAULT_MAX_TEXT_CHARS, Layer};
 use privoke_runtime::semantic::SemanticLayer;
+use privoke_runtime::store::ArtifactStore;
 use privoke_runtime::worker::{self, exit};
 use privoke_runtime::{Pipeline, PipelineOptions, Service, ServiceOptions};
 use privoke_spacy::{InProcess, InProcessConfig, Spacy};
@@ -158,15 +165,22 @@ fn run() -> io::Result<i32> {
         let regex = Detector::new(RuleSetOptions::from_env()).map_err(|error| error.to_string())?;
         let ner = EntityNerDetector::new(spacy, &model_name).await.map_err(|error| error.to_string())?;
         let mut pipeline = Pipeline::new(regex, ner, PipelineOptions::from_env());
+        let mut store = None;
         if !arguments.model_roots.is_empty() {
-            let roots = arguments.model_roots.iter().map(std::path::PathBuf::from).collect();
+            let roots: Vec<std::path::PathBuf> = arguments.model_roots.iter().map(std::path::PathBuf::from).collect();
+            let models = Arc::new(ArtifactStore::new(roots.clone(), arguments.latest_model_id.clone()));
             let mut semantic = SemanticLayer::new(roots, arguments.latest_model_id.clone())?;
             if let Some(directory) = &arguments.pretrained_context_dir {
                 semantic = semantic.with_pretrained_context_dir(directory);
             }
-            pipeline = pipeline.with_semantic(semantic);
+            pipeline = pipeline.with_semantic(semantic).with_presence(PresenceModels::new(Arc::clone(&models)));
+            store = Some(models);
         }
-        Ok(Service::new(pipeline, ServiceOptions { max_text_chars: arguments.max_text_chars, clear_elapsed: false }))
+        let service = Service::new(pipeline, ServiceOptions { max_text_chars: arguments.max_text_chars, clear_elapsed: false });
+        Ok(match store {
+            Some(models) => service.with_training(models),
+            None => service,
+        })
     });
     let service = match started {
         Ok(service) => service,

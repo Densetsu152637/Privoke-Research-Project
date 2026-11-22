@@ -32,6 +32,8 @@ privoke-spacy = { path = "../../crates/privoke-spacy" }
 # builds or calls it (see `semantic.rs`).
 privoke-semantic = { path = "../../crates/privoke-semantic", default-features = false }
 privoke-worker-pool = { path = "../../crates/privoke-worker-pool" }
+# The gradient and presence computations of stage 19 (additive: `PresenceModel::threshold`).
+privoke-training = { path = "../../crates/privoke-training" }
 prost = { workspace = true }
 tokio = { workspace = true, features = ["rt", "macros", "time", "sync"] }
 thiserror = { workspace = true }

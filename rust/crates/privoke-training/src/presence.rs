@@ -109,6 +109,11 @@ impl PresenceModel {
         Ok(Self { threshold, profile, vocabularies, sizes, parameters, shapes, coefficients })
     }
 
+    /// The model's decision threshold (`SparsePresenceModel.threshold`): a text is `PRESENT` at or above it.
+    pub fn threshold(&self) -> f64 {
+        self.threshold
+    }
+
     /// The same vocabulary with other parameters (float32-exact values).
     pub fn with_parameters(&self, parameters: BTreeMap<String, Vec<f64>>) -> Result<Self, TrainingError> {
         let weights: Vec<&String> = parameters.keys().filter(|n| n.starts_with(WEIGHT_PREFIX)).collect();

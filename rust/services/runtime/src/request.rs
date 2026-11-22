@@ -65,7 +65,8 @@ pub struct PromptRequest {
     pub visibility_hint_name: Option<&'static str>,
 }
 
-fn py_strip(value: &str) -> String {
+/// `str.strip()`.
+pub(crate) fn py_strip(value: &str) -> String {
     let chars: Vec<char> = value.chars().collect();
     let (start, end) = pyunicode::strip_range(&chars);
     chars[start..end].iter().collect()

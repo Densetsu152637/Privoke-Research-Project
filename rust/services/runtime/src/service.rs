@@ -4,20 +4,30 @@
 //! `AnalyzePromptResponse` with its `error` set, and `ERROR` frames are for protocol faults only. The worker never
 //! runs an implicit pipeline: an empty layer list, or `DETECTION_LAYER_RUNTIME`, is `INVALID_LAYERS`.
 //!
-//! Served here: `AnalyzePrompt` for the regex and NER layers and, when the worker was given model roots, the plain semantic
-//! layer, and `Health`. The presence gate, `DetectAnnotationPresence` and the gradient methods are served by the Python worker; the supervisor's routing keeps them away from this one, and a
-//! request that reaches it anyway is refused with an error frame, never answered wrongly.
+//! Served here: `AnalyzePrompt` for the regex and NER layers and, when the worker was given model roots, the semantic layer
+//! (behind a sparse presence gate too), `DetectAnnotationPresence`, the three gradient methods for the request shapes
+//! stage 19 ported, and `Health`. A request this worker does not serve is refused with an error frame
+//! (`UNSUPPORTED_LAYERS`, or `UNSUPPORTED_ROUTE` before anything has run), never answered wrongly; the controller sends
+//! the same call to the Python worker.
 
+use std::sync::Arc;
 use std::time::Instant;
 
-use privoke_contracts::proto::v1::{AnalyzePromptRequest, RuntimeHealthRequest};
+use privoke_contracts::proto::v1::{AnalyzePromptRequest, DetectAnnotationPresenceRequest, RuntimeHealthRequest};
 use privoke_ner_layer::SpacyBackend;
 use prost::Message;
 
 use crate::frames::{self, FrameError, Kind, Method, Request, code};
+use crate::gate::{Gate, is_scratch_presence_model};
 use crate::pipeline::Pipeline;
+use crate::presence;
 use crate::request::{DEFAULT_MAX_TEXT_CHARS, Layer, is_gate_model, parse_prompt_request, regex_first, requested_layers};
 use crate::response::{Elapsed, decide, encode_analysis, error_response, health_response};
+use crate::store::ArtifactStore;
+use crate::training::Trainer;
+
+/// The semantic model a presence gate requires (`ORIGINAL_SEMANTIC_MODEL_ID`).
+const GATE_SEMANTIC_MODEL_ID: &str = "privoke-balanced";
 
 /// Settings of the service.
 #[derive(Debug, Clone, Copy)]
@@ -39,12 +49,20 @@ impl Default for ServiceOptions {
 pub struct Service<A> {
     pipeline: Pipeline<A>,
     options: ServiceOptions,
+    trainer: Option<Trainer>,
 }
 
 impl<A: SpacyBackend> Service<A> {
     /// A service over a pipeline.
     pub fn new(pipeline: Pipeline<A>, options: ServiceOptions) -> Self {
-        Self { pipeline, options }
+        Self { pipeline, options, trainer: None }
+    }
+
+    /// Adds the gradient RPCs over the model store (the same roots the pipeline's models are read from).
+    #[must_use]
+    pub fn with_training(mut self, store: Arc<ArtifactStore>) -> Self {
+        self.trainer = Some(Trainer::new(store, self.options.max_text_chars));
+        self
     }
 
     /// The pipeline.
@@ -75,12 +93,9 @@ impl<A: SpacyBackend> Service<A> {
                 health_response()
             }
             Method::AnalyzePrompt => self.analyze_prompt(&request).await?,
-            other => {
-                return Err(FrameError::new(
-                    code::UNKNOWN_METHOD,
-                    format!("{} is not served by the Rust worker; the supervisor routes it to the Python worker.", other.name()),
-                    request.request_id,
-                ));
+            Method::DetectAnnotationPresence => self.detect_presence(&request)?,
+            Method::ComputeSemanticGradients | Method::ComputeUnderlyingModelGradients | Method::ComputePresenceGradients => {
+                self.compute_gradients(&request)?
             }
         };
         if started.elapsed().as_millis() > u128::from(request.deadline_ms) {
@@ -116,14 +131,18 @@ impl<A: SpacyBackend> Service<A> {
                 request.request_id,
             ));
         }
-        // The presence gate is served by the Python worker only. (The pretrained contextual encoder is a semantic model like
-        // the others: without its asset directory it is the layer's error, as in the Python runtime.)
+        // The scratch presence gates are served by the Python worker only; a gate
+        // needs the presence models as well as the semantic ones.
         if message.layers.contains(&Layer::Semantic.proto_value())
-            && (!self.pipeline.serves_semantic() || message.semantic_presence_gate.is_some())
+            && (!self.pipeline.serves_semantic()
+                || message
+                    .semantic_presence_gate
+                    .as_ref()
+                    .is_some_and(|gate| is_scratch_presence_model(&gate.model_id) || !self.pipeline.serves_gate()))
         {
             return Err(FrameError::new(
                 code::UNSUPPORTED_LAYERS,
-                "This semantic selection is served by the Python worker; the Rust worker serves the regex and NER layers and, with model roots, plain semantic models.",
+                "This semantic selection is served by the Python worker; the Rust worker serves the regex and NER layers and, with model roots, semantic models, sparse presence gates and presence inference.",
                 request.request_id,
             ));
         }
@@ -135,22 +154,63 @@ impl<A: SpacyBackend> Service<A> {
         Ok(bytes)
     }
 
+    fn detect_presence(&self, request: &Request) -> Result<Vec<u8>, FrameError> {
+        let message = decode::<DetectAnnotationPresenceRequest>(request, "DetectAnnotationPresenceRequest")?;
+        if message.layers.is_empty() {
+            return Err(empty_layers(request));
+        }
+        let Some(models) = self.pipeline.presence() else {
+            return Err(FrameError::new(
+                code::UNSUPPORTED_ROUTE,
+                "This worker was given no model roots, so the Python worker serves DetectAnnotationPresence.",
+                request.request_id,
+            ));
+        };
+        Ok(presence::detect(models, &message, self.options.max_text_chars, self.options.clear_elapsed))
+    }
+
+    fn compute_gradients(&self, request: &Request) -> Result<Vec<u8>, FrameError> {
+        match &self.trainer {
+            Some(trainer) => trainer.handle(request),
+            None => Err(FrameError::new(
+                code::UNSUPPORTED_ROUTE,
+                "This worker was given no model roots, so the Python worker serves the gradient RPCs.",
+                request.request_id,
+            )),
+        }
+    }
+
     async fn analyse(&self, message: &AnalyzePromptRequest) -> Result<Vec<u8>, String> {
         let prompt = parse_prompt_request(message, self.options.max_text_chars)?;
         let layers = requested_layers(&message.layers)?;
         let order = regex_first(message.regex_execution_order)?;
-        if let Some(gate) = &message.semantic_presence_gate {
-            if !is_gate_model(&gate.model_id) {
+        // `_semantic_presence_gate`, then the checks `analyse_text` repeats.
+        let mut gate = None;
+        if let Some(requested) = &message.semantic_presence_gate {
+            if !is_gate_model(&requested.model_id) {
                 return Err("Gate model_id must explicitly name a supported presence model.".to_string());
             }
             if !layers.contains(&Layer::Semantic) {
                 return Err("Semantic presence gate requires the semantic layer.".to_string());
             }
+            if message.semantic_model_id != GATE_SEMANTIC_MODEL_ID {
+                return Err("Semantic presence gate requires explicit semantic_model_id='privoke-balanced'.".to_string());
+            }
+            if requested.threshold.is_some_and(|threshold| !threshold.is_finite() || !(0.0..=1.0).contains(&threshold)) {
+                return Err("Gate threshold must be finite and in [0, 1].".to_string());
+            }
+            gate = Some(Gate { model_id: requested.model_id.clone(), threshold: requested.threshold });
         }
         let analysis_started = Instant::now();
         let executions = self
             .pipeline
-            .analyse(&prompt.text, &layers, order, (!message.semantic_model_id.is_empty()).then_some(message.semantic_model_id.as_str()))
+            .analyse_gated(
+                &prompt.text,
+                &layers,
+                order,
+                (!message.semantic_model_id.is_empty()).then_some(message.semantic_model_id.as_str()),
+                gate.as_ref(),
+            )
             .await
             .map_err(|error| error.to_string())?;
         let analysis = decide(prompt, executions).map_err(|error| error.to_string())?;
@@ -163,7 +223,16 @@ impl<A: SpacyBackend> Service<A> {
     }
 }
 
-fn decode<M: Message + Default>(request: &Request, name: &str) -> Result<M, FrameError> {
+/// The refusal of an empty layer list, which would select the complete detector pipeline.
+pub(crate) fn empty_layers(request: &Request) -> FrameError {
+    FrameError::new(
+        code::INVALID_LAYERS,
+        "An explicit non-empty layer selection is required; an empty list would select the complete detector pipeline.",
+        request.request_id,
+    )
+}
+
+pub(crate) fn decode<M: Message + Default>(request: &Request, name: &str) -> Result<M, FrameError> {
     M::decode(request.payload.as_slice())
         .map_err(|error| FrameError::new(code::INVALID_PAYLOAD, format!("Payload is not a valid {name}: {error}"), request.request_id))
 }
