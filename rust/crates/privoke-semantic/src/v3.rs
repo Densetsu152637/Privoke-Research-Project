@@ -128,6 +128,27 @@ impl V3Model {
         Self::from_parts(&config_text, tensors, &dir.join("vocab.txt"))
     }
 
+    /// The same model (tokenizer and thread count) over other weights: `tensors` holds every checkpoint tensor (`encoder.*`
+    /// and `heads.*`), as `from_parts` reads them. Used to assess a fitted candidate without reloading the vocabulary.
+    pub fn with_tensors(&self, mut tensors: BTreeMap<String, Tensor>) -> Result<Self, SemanticError> {
+        let config = self.encoder.config().clone();
+        let hidden = config.hidden_size;
+        let encoder = Encoder::from_tensors(config, &mut tensors, "encoder.")?;
+        let [sensitivity, visibility, category] = HEAD_WIDTHS;
+        let model = Self {
+            sensitivity: head(&mut tensors, "sensitivity", sensitivity, hidden)?,
+            visibility: head(&mut tensors, "visibility", visibility, hidden)?,
+            category: head(&mut tensors, "category", category, hidden)?,
+            encoder,
+            tokenizer: self.tokenizer.clone(),
+            threads: self.threads,
+        };
+        if !tensors.is_empty() {
+            return Err(SemanticError::artifact("Checkpoint includes unsupported or missing model keys."));
+        }
+        Ok(model)
+    }
+
     /// Set the number of threads of the matrix kernels.
     #[must_use]
     pub fn with_threads(mut self, threads: usize) -> Self {
