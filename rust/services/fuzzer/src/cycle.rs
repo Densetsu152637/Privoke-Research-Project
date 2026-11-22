@@ -139,11 +139,6 @@ pub(crate) fn precondition(error: impl std::fmt::Display) -> Status {
     Status::failed_precondition(error.to_string())
 }
 
-/// The named gap: the path is not ported, and says so.
-fn gap(feature: &str) -> Status {
-    Status::unimplemented(format!("{feature} is not ported to the Rust fuzzer (stage 21 gap)."))
-}
-
 /// `_training_request_fingerprint`.
 pub fn plain_fingerprint(request: &FuzzerTrainingRequest) -> String {
     value::sha256(&crate::pywire::fuzzer_request_bytes(request))
@@ -703,7 +698,6 @@ impl Engine {
             rehearsal_manifest: sources.rehearsal.as_ref(),
             benign_release: sources.benign.as_ref(),
             audience_release: sources.audience.as_ref().map(|source| &source.release),
-            ..PartitionSources::default()
         };
         let (examples, heldout) = generate_training_partition(cycle.prompt_count, self.config.heldout_prompt_count, cycle.seed, &partition)
             .map_err(precondition)?;
