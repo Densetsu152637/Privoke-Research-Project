@@ -144,6 +144,7 @@ pub async fn replay(golden_path: &Path, title: &str, results: Option<&Path>) {
     assert_eq!(golden["schema"], 1);
     let (mut cycles, mut accepted, mut refused, mut wire_messages, mut calls_checked, mut files_checked) = (0, 0, 0, 0, 0, 0);
     let (mut evidence_hashes, mut diagnostics_checked) = (0, 0);
+    let mut hash_failures: Vec<String> = Vec::new();
     for sequence in golden["sequences"].as_array().unwrap() {
         let label = sequence["label"].as_str().unwrap();
         let directory = tempfile::tempdir().unwrap();
@@ -236,11 +237,11 @@ pub async fn replay(golden_path: &Path, title: &str, results: Option<&Path>) {
                                     cycle["physical_attempt_raw"].as_str().expect("the oracle's attempt path").to_string(),
                                 )]),
                             };
-                            assert_eq!(
-                                evidence_hash(&dump, &sent.metadata["request_id"], &raw, compact),
-                                golden_hash,
-                                "{context}: the evidence hash"
-                            );
+                            // Reported after the dump comparison, which names the differing file and byte.
+                            let ours = evidence_hash(&dump, &sent.metadata["request_id"], &raw, compact);
+                            if ours != golden_hash {
+                                hash_failures.push(format!("{context}: the evidence hash {ours} against {golden_hash}"));
+                            }
                             assert!(sent_hash.is_some(), "{context}: the publication binds its retained cycle");
                             evidence_hashes += 1;
                         }
@@ -312,6 +313,7 @@ pub async fn replay(golden_path: &Path, title: &str, results: Option<&Path>) {
             })
             .collect();
         assert!(differing.is_empty(), "{label}: {} dump files differ\n{}", differing.len(), differing.join("\n"));
+        assert!(hash_failures.is_empty(), "{}", hash_failures.join(" | "));
         files_checked += files.len();
         let golden_reservations: Vec<(String, String)> = sequence["reservations"]
             .as_array()
