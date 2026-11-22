@@ -141,6 +141,11 @@ const SUM_MARGIN_OBJECTIVE: &str = "class_balanced_contextual_sum_category_decis
 const BACKTRACKING_OBJECTIVES: [&str; 3] = ["legacy_sum_category", "class_balanced_contextual_v1", SUM_MARGIN_OBJECTIVE];
 /// The window optimizer policy (`expected_optimizer` of schema 5).
 const WINDOW_POLICY: &str = "full_projected_adam64_window_checkpoint_v1";
+/// The ORIGINAL-retention optimizer policies and their objectives (`expected_optimizer`, `expected_objective` of schema 4).
+const RETENTION_POLICIES: [(&str, &str); 2] = [
+    ("full_projected_adam64_original_train_gate_v1", "class_balanced_contextual_sum_margin_original_gate_v1"),
+    ("full_projected_adam64_original_train_hinge_v1", "class_balanced_contextual_sum_margin_original_hinge_v1"),
+];
 /// The TRAIN diagnostics policy.
 const DIAGNOSTICS_POLICY: &str = "train_before_candidate_v1";
 /// The backtracking policy.
@@ -165,7 +170,13 @@ fn is_sha256(text: &str) -> bool {
 ///   hexadecimal digits each). The worker checks the eligibility and configuration texts and the pins against its own
 ///   configuration, and declines to Python when it has none.
 ///
-/// Every other header (FULL Adam, retention, window, or anything malformed) is Python's to read.
+/// * the retention record (schema 4): exactly the eight keys `schema`, `expected_objective` and `expected_optimizer` (a
+///   retention policy and its own objective), a null `expected_diagnostics_policy`, `expected_candidate_eligibility`,
+///   `expected_optimizer_config`, `expected_training_scope` (`full_encoder`) and `expected_retention_manifest_sha256`
+///   (64 lower-case hexadecimal digits). The worker checks the eligibility and configuration texts and the pin against
+///   its own configuration, and declines to Python when it has none.
+///
+/// Every other header (FULL Adam, or anything malformed) is Python's to read.
 pub fn admission_is_served(header: &str) -> bool {
     if header.len() > MAX_ADMISSION_BYTES {
         return false;
@@ -185,6 +196,17 @@ pub fn admission_is_served(header: &str) -> bool {
                 && diagnostics.and_then(serde_json::Value::as_str) == Some(DIAGNOSTICS_POLICY)
                 && text("expected_backtracking_policy") == Some(BACKTRACKING_POLICY)
                 && text("expected_backtracking_preparation_sha256").is_some_and(is_sha256)
+        }
+        Some(4) => {
+            record.len() == 8
+                && diagnostics.is_some_and(serde_json::Value::is_null)
+                && RETENTION_POLICIES.iter().any(|(policy, objective)| {
+                    text("expected_optimizer") == Some(*policy) && text("expected_objective") == Some(*objective)
+                })
+                && text("expected_candidate_eligibility").is_some()
+                && text("expected_optimizer_config").is_some()
+                && text("expected_training_scope") == Some("full_encoder")
+                && text("expected_retention_manifest_sha256").is_some_and(is_sha256)
         }
         Some(5) => {
             record.len() == 9
@@ -488,6 +510,47 @@ mod tests {
             }
             assert_eq!(route_gradients(Some(Capabilities::RUST.without_models()), rpc, Some(&window_header(&[]))), Engine::Python);
             assert_eq!(route_gradients(None, rpc, Some(&window_header(&[]))), Engine::Python);
+        }
+    }
+
+    const GATE: &str = "full_projected_adam64_original_train_gate_v1";
+    const GATE_OBJECTIVE: &str = "class_balanced_contextual_sum_margin_original_gate_v1";
+
+    fn retention_header(replace: &[(&str, &str)]) -> String {
+        let mut header = format!(
+            "{{\"schema\": 4, \"expected_objective\": \"{GATE_OBJECTIVE}\", \"expected_diagnostics_policy\": null, \"expected_optimizer\": \"{GATE}\", \"expected_candidate_eligibility\": \"candidate_train_exact_original_target_capped_v1\", \"expected_optimizer_config\": \"{{}}\", \"expected_training_scope\": \"full_encoder\", \"expected_retention_manifest_sha256\": \"{SHA}\"}}"
+        );
+        for (from, to) in replace {
+            header = header.replace(from, to);
+        }
+        header
+    }
+
+    #[test]
+    fn a_retention_header_goes_to_rust_and_a_malformed_one_does_not() {
+        let rust = Some(Capabilities::RUST.with_semantic());
+        let hinge = "full_projected_adam64_original_train_hinge_v1";
+        let hinge_objective = "class_balanced_contextual_sum_margin_original_hinge_v1";
+        for rpc in [Rpc::ComputeSemanticGradients, Rpc::ComputeUnderlyingModelGradients] {
+            assert_eq!(route_gradients(rust, rpc, Some(&retention_header(&[]))), Engine::Rust);
+            assert_eq!(
+                route_gradients(rust, rpc, Some(&retention_header(&[(GATE_OBJECTIVE, hinge_objective), (GATE, hinge)]))),
+                Engine::Rust
+            );
+            for broken in [
+                retention_header(&[(GATE, hinge)]),
+                retention_header(&[(GATE_OBJECTIVE, "class_balanced_contextual_v1")]),
+                retention_header(&[("full_encoder", "heads")]),
+                retention_header(&[(SHA, "00")]),
+                retention_header(&[("null", "\"train_before_candidate_v1\"")]),
+                retention_header(&[(GATE, "full_projected_adam64_v1")]),
+                retention_header(&[("\"expected_training_scope\": \"full_encoder\", ", "")]),
+                "{\"schema\": 4}".to_string(),
+            ] {
+                assert_eq!(route_gradients(rust, rpc, Some(&broken)), Engine::Python, "{broken}");
+            }
+            assert_eq!(route_gradients(None, rpc, Some(&retention_header(&[]))), Engine::Python);
+            assert_eq!(route_gradients(Some(Capabilities::RUST.without_models()), rpc, Some(&retention_header(&[]))), Engine::Python);
         }
     }
 

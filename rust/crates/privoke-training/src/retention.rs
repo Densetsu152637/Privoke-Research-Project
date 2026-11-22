@@ -108,6 +108,8 @@ pub struct Release {
     pub teacher_fingerprint: String,
     /// The ORIGINAL teacher configuration.
     pub teacher_config: Value,
+    /// The ORIGINAL teacher's model id (`privoke-<profile>`).
+    pub model_id: String,
     /// The eligible references, in bank order.
     pub references: Vec<Reference>,
 }
@@ -229,6 +231,7 @@ impl Release {
             sha256: trusted_sha256.to_string(),
             teacher_fingerprint: parameter_fingerprint_text,
             teacher_config: artifact["config"].clone(),
+            model_id: format!("privoke-{profile}"),
             references: eligible,
         })
     }

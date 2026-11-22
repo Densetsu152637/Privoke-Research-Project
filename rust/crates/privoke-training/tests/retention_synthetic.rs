@@ -68,6 +68,7 @@ fn release(artifact: &Value, margin: f64) -> Release {
         sha256: "c".repeat(64),
         teacher_fingerprint: "d".repeat(64),
         teacher_config: artifact["config"].clone(),
+        model_id: "privoke-synthetic".to_string(),
         references: references(margin),
     }
 }
