@@ -122,7 +122,8 @@ mod tests {
 
     #[test]
     fn only_the_three_rpcs_are_served_and_health_is_open_to_probes() {
-        let mut paths: Vec<&str> = policy().paths().collect();
+        let served = policy();
+        let mut paths: Vec<&str> = served.paths().collect();
         paths.sort_unstable();
         assert_eq!(paths, vec![HEALTH, RUN, RUN_UNDERLYING]);
     }
