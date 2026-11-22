@@ -25,6 +25,7 @@ The workspace holds the Rust side of the server rewrite. Stages 1 and 2 added th
 | `privoke-training` | Gradients and local training of the Tiny transformer (stage 19, partial): reverse-mode kernels, the supervised objectives, the FULL projected Adam, the gradient RPC computation with its local-SGD, backtracking and diagnostics routes, and the policy and admission checks, on the stage 14 float64 reference backend. See [below](#privoke-training-stage-19). |
 | `privoke-telemetry-client` | The client telemetry reporter (stage 18): CPython-identical random draws on an injectable byte source, binary64 GRR thresholds, the persistent daily epsilon ledger, the report builder and the delivery worker over mutual TLS. See [below](#privoke-telemetry-client-stage-18). |
 | `privoke-fuzzer` (`rust/services/fuzzer`) | The fuzzer service that replaces `services/privoke-fuzzer` (stage 21, partial): one bounded training cycle per request with the stage 20 samplers in process, a mutual-TLS client of the runtime and of the parameter-update service, durable evidence and reservations, and the SQLite curriculum cursor state. See [below](#privoke-fuzzer-stage-21). |
+| `privoke-v3-fuzzer` (`rust/services/v3-fuzzer`) | The experimental V3 fuzzer service that replaces `services/pretrained-v3/src/fuzzer_server.py` (stage 21, second half): one frozen-schedule fit per request, mutual-TLS clients of the V3 runtime and the checkpoint service, the SQLite `cycles` table and the work directory of every wire message. See [below](#privoke-v3-fuzzer-stage-21). |
 | `privoke-runtime` (`rust/services/runtime`) | The Rust analysis runtime (stage 17, partial): `AnalyzePrompt` for the regex and NER layers and `Health` as a W1 worker for the W2 pool, with spaCy in process, the pipeline and policy aggregation, and a response encoder that writes Python's deterministic bytes. See [below](#privoke-runtime-stage-17). |
 
 ## Build and test
@@ -1159,7 +1160,7 @@ Reference preparation (`reference.rs`, checkpoint 8, RUST-S19G) is an offline to
 
 > Plan: [Rust server rewrite](../plans/rust-server-rewrite.md#stage-21-fuzzer-orchestration-in-rust-d6). Binary: `fuzzer-service`. Dockerfile: `rust/services/fuzzer/Dockerfile`.
 
-**Status: partial.** `rust/services/fuzzer` replaces `services/privoke-fuzzer/src/{fuzzer_service,runtime_client,main,cli,config,json_records}.py` for the cycles that need only what stages 19 and 20 provide. The Python service stays in place as the oracle and for the historical study runners. `rust/services/v3-fuzzer` (the port of `services/pretrained-v3/src/fuzzer_server.py`) is **not started**; see the stage 21 handoff in the plan.
+**Status: partial.** `rust/services/fuzzer` replaces `services/privoke-fuzzer/src/{fuzzer_service,runtime_client,main,cli,config,json_records}.py` for the cycles that need only what stages 19 and 20 provide. The Python service stays in place as the oracle and for the historical study runners. `rust/services/v3-fuzzer` (the port of `services/pretrained-v3/src/fuzzer_server.py`) is the second half of the stage and is described [below](#privoke-v3-fuzzer-stage-21).
 
 | Module | Python source |
 | --- | --- |
@@ -1219,6 +1220,48 @@ docker build -f rust/services/fuzzer/Dockerfile -t privoke-fuzzer-rust:<tag> .
 ```
 
 The service reads the `FUZZ_*`, `MODEL_ID`, `FUZZER_ID`, `PARAM_UPDATE_TARGET` and `PRIVOKE_RUNTIME_TARGET` variables of the Python service, plus `FUZZER_BIND`, `FUZZER_REQUEST_TIMEOUT_SECONDS`, `PRIVOKE_TLS_CA_FILE`, `PRIVOKE_TLS_CERT_FILE`, `PRIVOKE_TLS_KEY_FILE` and the optional `PRIVOKE_RUNTIME_TLS_SERVER_NAME` and `PARAM_UPDATE_TLS_SERVER_NAME` (default: the target host). Cloud flags as for the other services: `--cert`, `--key`, `--client-ca`, `--crl`, `--registry`.
+
+## `privoke-v3-fuzzer` (stage 21)
+
+> Plan: [Rust server rewrite](../plans/rust-server-rewrite.md#stage-21-fuzzer-orchestration-in-rust-d6). Binary: `v3-fuzzer-service`. RUST-S21B.
+
+`rust/services/v3-fuzzer` replaces `services/pretrained-v3/src/fuzzer_server.py`, the experimental fuzzer of the V3 pretrained models. One request runs one fit of a frozen schedule: the sampler's rows are fitted by the V3 runtime (`TrainingService.FitCandidate`), the candidate manifest is checked against the checkpoint service (`CheckpointService.FetchBlob`), and the checkpoint service judges and publishes it (`CommitCandidate`). Only checkpoint references and their evidence leave the runtime. The Python file stays in place as the oracle and for the historical study runners.
+
+| Module | Python source |
+| --- | --- |
+| `contract` | `shared/python/privoke_model/v3_contract.py` as the fuzzer uses it. Nothing is reimplemented: `parse` (duplicate rejection, finite numbers, canonical bytes) is `privoke_contracts::v3::parse_canonical`, `validate_policy` is `privoke_curriculum::v3::Policy::from_value`, `validate_manifest` is `privoke_contracts::v3::validate_manifest`, and `validate_execution` (with `validate_guard`) and `publication_passes` are the stage 19 ports in `privoke_training::v3_fit`. The module converts a strictly parsed document to `serde_json` for those and carries the Python error texts. |
+| `backend` | The two dependencies as traits, their mutual-TLS clients (`GrpcFit`, `GrpcCheckpoint`) with the Python deadlines (15 s for health, resolution and status, 120 s for a fetch or a commit, `V3_FIT_TIMEOUT` for a fit) and the 2 MiB message limits, and `fetch` of `common.py` (`assemble_blob`: ordered, bounded, hash-checked chunks). |
+| `state` | The SQLite `cycles(id, fingerprint, response)` table of `cycles.sqlite`, `synchronous=FULL`, identities reserved before the fit and answered from the row afterwards. |
+| `source` | The two frozen samplers over `privoke_curriculum::v3` (`schedule_bc01`; `build_au3` followed by `validate_au3`) and the `source_inventory()` identity reported by `Health`. |
+| `cycle` | `FuzzerServer.run`: the frozen budget, the fingerprint (scope, request bytes and, for AU3, sampler and release), the lock, the work directory, the expected base, the schedule and the host's policy and source commitments, the fit, the evidence and manifest checks, the commit and the response. |
+| `config`, `pywire`, `service`, `server`, `main` | The environment of `__main__`, Python-identical request and response bytes (reusing `privoke_fuzzer::pywire` for the request), the gRPC shell and the mutual-TLS listener, and the binary. |
+
+### The cycle and its work directory
+
+The files written under `<V3_FUZZER_STATE>/<sha256(request_id)>/`, in this order, are the contract that a retried identity depends on: `cycle-request.pb`, `source.json`, `fit-request.pb`, then either `fit-status-after-error.pb` (a failed fit call is never retried) or, after the evidence and the manifest are validated, `fit-response.pb`, `evidence.json`, `commit-request.pb`, `unknown-commit.pb` (a commit whose outcome cannot be established) and `receipt.pb`. A known identity answers from its row (`ALREADY_EXISTS` for different content or scope, `FAILED_PRECONDITION` while the outcome is unknown, never a second fit). Every fit request lists exactly `[SEMANTIC]` (4); no constructor can produce an empty layer list, which the runtime would read as the complete detector pipeline. A cycle that stops after the row was reserved leaves its row without a response, as in Python.
+
+An exception that the Python servicer does not catch (a `ValueError`, a `RuntimeError`, an `OSError`) is `UNKNOWN` with the message as its text; `context.abort` is the named status.
+
+### Configuration
+
+`V3_POLICY_FILE`, `V3_RUNTIME_TARGET`, `V3_CHECKPOINT_TARGET`, `V3_FUZZER_STATE`, `V3_PORT` (50172), `V3_BIND` (127.0.0.1), `V3_SAMPLING_STRATEGY` (`existing_taxonomy_benign_common_frozen_stream_v1` or `audience_common_frozen_stream_v1`), `V3_FIT_TIMEOUT` (7200), `V3_AUDIENCE_MANIFEST_PATH` and `V3_AUDIENCE_MANIFEST_SHA256` (both or neither) are the variables of the Python server. New: `V3_SOURCE_ROOT` (the checkout whose Python sources and pinned BC01 inputs the host committed to; the Python service derived it from its own location), `V3_REQUEST_TIMEOUT_SECONDS` (the listener deadline, default the fit timeout plus 600 s) and, for the outbound credentials, `PRIVOKE_TLS_CA_FILE`, `PRIVOKE_TLS_CERT_FILE`, `PRIVOKE_TLS_KEY_FILE`, `V3_RUNTIME_TLS_SERVER_NAME` and `V3_CHECKPOINT_TLS_SERVER_NAME`.
+
+### Deliberate differences
+
+- **Mutual TLS everywhere.** The listener refuses a peer without a registered certificate (`publisher` and `trainer` may run a cycle, `runtime` may probe `Health`) and the clients present the fuzzer's own registered certificate. The Python server allowed plaintext on loopback and `service_channel` could fall back to plaintext. Stage 8a supplies the certificate (`privoke-pki sign-service`); the `deploy/` files are untouched.
+- **Source root.** The `source_hashes` of the source record, the pinned BC01 inputs and the `source_closure` of `Health` come from `V3_SOURCE_ROOT` instead of the module location. A host whose checkout differs from the root's bytes fails the source commitment, as it does against the Python server.
+- **Dependency on `privoke-training`.** The validators stay in their stage 19 owner (`privoke_training::v3_fit`) instead of moving to `privoke-contracts`: they are written against `serde_json`, and a contracts dependency on it would be wider than the move is worth. `privoke-training` is unchanged.
+- **Message text of propagated RPC errors.** A dependency failure that Python lets escape as `grpc.RpcError` is `UNKNOWN` here with the code and message of the status; the text is not compared with Python's.
+- **Not ported:** a container image (`deploy/` is out of scope) and a CLI; the Python server had neither.
+
+### Parity with Python
+
+`evaluation/generate_v3_fuzzer_golden.py` runs the maintained `FuzzerServer` in process on the host (`evaluation/.venv-v1-v3-pipeline`; `PRIVOKE_GENERATED` names the generated protobuf clients) with the runtime and the checkpoint service replaced by scripted answers, and records the response or abort of every cycle, every wire message, every work-directory file (name, length, SHA-256) and the `cycles` rows. The fit request that crosses the fake channel is the oracle's own frozen schedule over the committed pinned inputs of `privoke-curriculum`.
+
+- `synthetic` (committed, `tests/fixtures/v3_fuzzer_cycles_golden.json`, no study data beyond the committed fixtures): the runtime evidence and the manifest are synthesised to satisfy `validate_execution` and `validate_manifest`. 3 sequences and 19 cycles cover both samplers, both scopes, a replay, scope reuse, a bad budget, a stale base, an unknown-outcome retry, policy and source commitment mismatches, a lost fit, tampered evidence, a manifest mismatch, a lost commit acknowledgement, an unknown commit and a mismatched receipt. `tests/replay.rs` runs in the Rust workspace CI and prints the counts (the "V3 fuzzer replay report" step).
+- `recorded` (LOCAL and git-ignored, `tests/local/recorded_cycles_golden.json`, 22 MB; the files hold prompt text): the 23 retained real fits, that is the work directories of the 2 audience pilots (`audience_v3_20261013`, AU3) and of the 18 pretrained cells and 3 pilots (`pretrained_v3_20261012`, BC01), answered from their recorded fit responses, manifests and receipts. The Python oracle reproduced all 23 cycles with every file (`cycle-request.pb`, `source.json`, `fit-request.pb`, `fit-response.pb`, `evidence.json`, `commit-request.pb`, `receipt.pb`) and the recorded host response byte-identical to what the retained run wrote (the `source_hashes` of the retained records are inputs, because they pin the Python bytes of the time). `tests/replay.rs` replays it when `PRIVOKE_V3_FUZZER_RECORDED_GOLDEN` names the file; otherwise it is skipped. Regenerate it with `python evaluation/generate_v3_fuzzer_golden.py recorded --models <checkout>/models/experiments --results <checkout>/evaluation/results`.
+
+The G5 normalisation (`tests/conformance/normalization.toml`) replaces timestamps and server-generated identifiers; none occurs in these records, so every comparison is exact. `tests/mtls.rs` runs the real listener: a registered publisher or trainer runs a complete cycle (the fit request has 64 training rows, 16 guard rows and exactly `[SEMANTIC]`); an unregistered certificate and a `runtime`-role certificate are `PERMISSION_DENIED` before any cycle (no call reaches a dependency, no `cycles` row, no work directory); a peer with no certificate and a server certificate from an untrusted CA are refused.
 
 ## `privoke-runtime` (stage 17)
 
