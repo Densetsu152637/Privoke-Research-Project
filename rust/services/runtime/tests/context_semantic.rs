@@ -18,6 +18,9 @@ use privoke_runtime::semantic::{CONTEXT_IDENTITY_PREFIX, PRETRAINED_CONTEXT_MODE
 use privoke_semantic::bert::BertConfig;
 use serde_json::Value;
 
+/// A named way to break the artifact.
+type Breaker = (&'static str, fn(&mut Value));
+
 fn fixture() -> Value {
     serde_json::from_str(include_str!("../../../crates/privoke-semantic/tests/fixtures/context_golden.json")).expect("the fixture is JSON")
 }
@@ -165,7 +168,7 @@ fn without_verified_assets_the_model_is_the_layers_error() {
 fn an_artifact_that_breaks_the_contract_is_refused() {
     let rig = rig(&["artifact"]);
     let original: Value = serde_json::from_str(rig.document["artifact"].as_str().unwrap()).unwrap();
-    let breakers: [(&str, fn(&mut Value)); 7] = [
+    let breakers: [Breaker; 7] = [
         ("an unknown key", |artifact| artifact["extra"] = Value::from(1)),
         ("a wrong constant", |artifact| artifact["config"]["pooling"] = Value::from("cls")),
         ("a label order", |artifact| artifact["config"]["category_labels"].as_array_mut().unwrap().swap(0, 1)),
