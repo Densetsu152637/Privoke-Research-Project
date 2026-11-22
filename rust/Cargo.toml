@@ -22,6 +22,7 @@ members = [
     "services/fuzzer",
     "services/runtime",
     "services/v3-fuzzer",
+    "services/v3-runtime",
 ]
 
 [workspace.package]

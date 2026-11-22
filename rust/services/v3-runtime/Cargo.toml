@@ -1,0 +1,42 @@
+[package]
+name = "privoke-v3-runtime"
+description = "The experimental V3 runtime service: V3 semantic inference (PrivokeRuntimeService.AnalyzePrompt) and one physical fit per request (TrainingService), over mutual TLS, with a durable fits table and a checkpoint service client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+name = "privoke_v3_runtime"
+path = "src/lib.rs"
+
+[[bin]]
+name = "v3-runtime-service"
+path = "src/main.rs"
+
+[dependencies]
+privoke-contracts = { path = "../../crates/privoke-contracts" }
+privoke-transport = { path = "../../crates/privoke-transport" }
+# The contract helpers (`parse`, `canonical`, `digest`), the bounded blob transport and the frozen source records of the V3
+# fuzzer are reused, not copied: this service is the runtime that the fuzzer's fit request is addressed to.
+privoke-v3-fuzzer = { path = "../v3-fuzzer" }
+# `client_tls_from_lookup`: the outbound mutual-TLS credentials.
+privoke-fuzzer = { path = "../fuzzer" }
+tonic = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+clap = { workspace = true }
+prost = { workspace = true }
+# SQLite is compiled in: the `fits` table is the Python service's database.
+rusqlite = { version = "0.37", features = ["bundled"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+
+[dev-dependencies]
+privoke-pki = { path = "../../tools/privoke-pki" }
+tempfile = { workspace = true }
+base64 = { workspace = true }
+time = { workspace = true }
+
+[lints]
+workspace = true

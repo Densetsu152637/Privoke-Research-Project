@@ -2099,6 +2099,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "privoke-v3-runtime"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "clap",
+ "privoke-contracts",
+ "privoke-fuzzer",
+ "privoke-pki",
+ "privoke-transport",
+ "privoke-v3-fuzzer",
+ "prost",
+ "rusqlite",
+ "serde_json",
+ "tempfile",
+ "time",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+]
+
+[[package]]
 name = "privoke-worker-pool"
 version = "0.1.0"
 dependencies = [
