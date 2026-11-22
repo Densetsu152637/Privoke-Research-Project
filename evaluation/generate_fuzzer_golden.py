@@ -36,6 +36,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "rust/services/fuzzer/tests/fixtures/fuzzer_cycles_golden.json"
 CURRICULUM_MANIFEST = ROOT / "rust/crates/privoke-curriculum/tests/fixtures/curriculum/manifest.json"
+TAXONOMY_DATASET = ROOT / "rust/crates/privoke-curriculum/tests/fixtures/bc01/taxonomy-coverage-v1.json"
+TAXONOMY = "taxonomy_coverage_v1"
 STUDY_V2 = "accelerated_all_surfaces_20261010/execution-study-v2/cells/main-baseline-heads-42"
 STUDY_V3 = "accelerated_all_surfaces_20261010/execution-study-v3/cells/curriculum-balanced-dual-42"
 SEED_CANDIDATES = (42, 43, 44, 0, 1337)
@@ -150,6 +152,8 @@ def run_sequence(label, env, cycles, generated: Path) -> dict:
         scratch_path = Path(scratch)
         dump = scratch_path / "dump"
         full_env = {**BASE_ENV, **env, "PRIVOKE_FUZZER_DUMP_DIR": str(dump)}
+        if "taxonomy" in label:
+            full_env["FUZZ_PROMPT_DATASET_PATH"] = str(TAXONOMY_DATASET)
         if "curriculum" in label:
             full_env["FUZZ_CURRICULUM_MANIFEST_PATH"] = str(CURRICULUM_MANIFEST)
             full_env["FUZZ_CURRICULUM_STATE_PATH"] = str(scratch_path / "curriculum.sqlite3")
@@ -283,9 +287,35 @@ def curriculum_golden(results: Path, generated: Path) -> list:
     return [sequence]
 
 
+def taxonomy_golden(results: Path, generated: Path) -> list:
+    """Taxonomy-coverage cycles (RUST-S21C): the sampler, its audit, the dataset pin and the replay identity over the fixture."""
+    bootstrap(generated)
+    from privoke.v1 import parameters_pb2, runtime_pb2  # noqa: PLC0415
+
+    record = next(r for r in recorded_records(results, STUDY_V2)
+                  if r["training_stage"] == "heads" and r["gate_passed"] and r.get("ack"))
+    runtime_bytes = base64.b64decode(record["execution_evidence"]["response_protobuf_base64"])
+    ack = ack_bytes_for(parameters_pb2, record)
+
+    def make(index, prompt_count=32, **metadata):
+        metadata = {"contextual_sampling_strategy": TAXONOMY, **metadata}
+        request = build_request(parameters_pb2, {**record, "request_id": f"taxonomy-cycle-{index}"}, 42)
+        request.model_id = record["model_id"]
+        request.prompt_count = prompt_count
+        request.metadata.update(metadata)
+        response = runtime_pb2.ComputeSemanticGradientsResponse.FromString(runtime_bytes)
+        response.request_id = request.request_id
+        return (request, "heads", response.SerializeToString(deterministic=True), ack)
+
+    first = make(1)
+    cycles = [first, make(2), first,
+              make(3, taxonomy_dataset_sha256="0" * 64), make(4, prompt_count=16)]
+    return [run_sequence("taxonomy-sampler", {"MODEL_ID": record["model_id"]}, cycles, generated)]
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("recorded", "curriculum", "all"))
+    parser.add_argument("command", choices=("recorded", "curriculum", "taxonomy", "all"))
     parser.add_argument("--results", type=Path, required=True, help="evaluation/results of a checkout holding the retained studies")
     parser.add_argument("--generated", type=Path, required=True, help="directory with the generated protobuf clients (privoke/v1)")
     parser.add_argument("--output", type=Path, default=OUTPUT)
@@ -295,6 +325,8 @@ def main(argv=None) -> int:
         sequences += recorded_golden(args.results, args.generated)
     if args.command in ("curriculum", "all"):
         sequences += curriculum_golden(args.results, args.generated)
+    if args.command in ("taxonomy", "all"):
+        sequences += taxonomy_golden(args.results, args.generated)
     document = {"schema": 1, "oracle": "services/privoke-fuzzer/src/fuzzer_service.py", "python": sys.version.split()[0],
                 "normalisation": "tests/conformance/normalization.toml: no timestamp or generated identifier appears in these records",
                 "sequences": sequences}

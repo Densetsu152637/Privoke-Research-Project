@@ -106,8 +106,10 @@ async fn replay(sequence: &Value, counts: &mut Counts) {
         sequence["env"].as_object().unwrap().iter().map(|(key, value)| (key.clone(), value.as_str().unwrap().to_string())).collect();
     let curriculum = label.contains("curriculum");
     let manifest = repo_root().join("rust/crates/privoke-curriculum/tests/fixtures/curriculum/manifest.json");
+    let taxonomy = repo_root().join("rust/crates/privoke-curriculum/tests/fixtures/bc01/taxonomy-coverage-v1.json");
     let config = FuzzerConfig::from_lookup(|name| match name {
         "PRIVOKE_FUZZER_DUMP_DIR" => Some(dump.to_string_lossy().to_string()),
+        "FUZZ_PROMPT_DATASET_PATH" if label.contains("taxonomy") => Some(taxonomy.to_string_lossy().to_string()),
         "FUZZ_CURRICULUM_MANIFEST_PATH" if curriculum => Some(manifest.to_string_lossy().to_string()),
         "FUZZ_CURRICULUM_STATE_PATH" if curriculum => Some(state.to_string_lossy().to_string()),
         other => env.get(other).cloned(),
@@ -157,7 +159,11 @@ async fn replay(sequence: &Value, counts: &mut Counts) {
             };
             assert!(bytes == &normalised, "{context}: {path} request bytes differ ({} against {})", bytes.len(), normalised.len());
         }
-        assert!(matches!(observed_paths.first(), Some(&STATUS_PATH)), "{context}: the receipt lookup comes first");
+        // A cycle refused at admission (the taxonomy checks) sends nothing at all.
+        assert!(
+            observed_paths.is_empty() || matches!(observed_paths.first(), Some(&STATUS_PATH)),
+            "{context}: the receipt lookup comes first"
+        );
         assert!(observed_paths.iter().all(|path| [STATUS_PATH, SUBMIT_PATH, HEADS_PATH, FULL_PATH].contains(path)));
 
         // The outcome.

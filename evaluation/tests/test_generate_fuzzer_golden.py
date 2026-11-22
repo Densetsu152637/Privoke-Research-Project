@@ -70,15 +70,21 @@ class CommittedGoldenTest(unittest.TestCase):
 
     def test_both_outcomes_and_the_curriculum_state_are_recorded(self) -> None:
         sequences = {sequence["label"]: sequence for sequence in self.document["sequences"]}
-        self.assertEqual(set(sequences), {"recorded-passed", "recorded-rejected", "curriculum-sqlite"})
+        self.assertEqual(set(sequences), {"recorded-passed", "recorded-rejected", "curriculum-sqlite", "taxonomy-sampler"})
         self.assertIn("ok", sequences["recorded-passed"]["cycles"][0]["outcome"])
         self.assertEqual(sequences["recorded-rejected"]["cycles"][0]["outcome"]["abort"][0], "FAILED_PRECONDITION")
         self.assertTrue(sequences["curriculum-sqlite"]["curriculum"]["cursors"])
+        taxonomy = [cycle["outcome"] for cycle in sequences["taxonomy-sampler"]["cycles"]]
+        self.assertEqual([next(iter(outcome)) for outcome in taxonomy], ["ok", "ok", "ok", "abort", "abort"])
+        self.assertEqual(len(sequences["taxonomy-sampler"]["evidence"]), 2)
 
     def test_every_cycle_carries_semantic_only_gradient_requests(self) -> None:
         for sequence in self.document["sequences"]:
             for cycle in sequence["cycles"]:
                 self.assertTrue(cycle["runtime_rpc"].startswith("/privoke.v1.PrivokeRuntimeService/Compute"))
+                if cycle["runtime_request"] is None:  # refused before any call (the taxonomy admission aborts)
+                    self.assertIn("abort", cycle["outcome"])
+                    continue
                 self.assertIsNotNone(cycle["status_request"])
                 wire = base64.b64decode(cycle["runtime_request"])
                 # Field 7 (layers), packed varint [4]: tag 0x3a, length 1, value 4.
