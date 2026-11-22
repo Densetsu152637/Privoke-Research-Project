@@ -2,6 +2,8 @@
 //! recorded wire bytes, and the golden file. No key or certificate is committed; every run issues its own.
 #![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
 
+pub mod cycle_replay;
+
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 

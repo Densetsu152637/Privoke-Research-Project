@@ -15,7 +15,11 @@
 //! retention release) retains that release before compute and binds the response to it.
 //!
 //! Not ported, and refused with `UNIMPLEMENTED` and the name of the gap instead of running a different cycle:
-//! backtracking and TRAIN diagnostics admission, the window cycle, the audience sampler and the presence cycle.
+//! the window cycle, the audience sampler and the presence cycle.
+//!
+//! TRAIN diagnostics and FULL TRAIN backtracking (RUST-S21G item 3) are admitted by [`crate::diagnostics`]: the diagnostics record,
+//! the backtracking trace and its five trials, the known one-fit rejection (retained as evidence, answered `FAILED_PRECONDITION`)
+//! and the compact publication of an update whose metadata exceeds the 64 entries.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -313,12 +317,6 @@ impl Engine {
         }
         if !expectations.is_empty() && self.config.dump_dir.is_none() {
             return Err(precondition("Training policy admission requires durable PRIVOKE_FUZZER_DUMP_DIR."));
-        }
-        if expectations.contains("expected_backtracking_policy") {
-            return Err(gap("Backtracking admission (the physical backtracking route, its trace and the known-rejection admission)"));
-        }
-        if expectations.get("expected_diagnostics_policy").is_some() {
-            return Err(gap("TRAIN diagnostics admission (the diagnostics validator and the compact publication)"));
         }
         let strategy: Option<String> = match strategy_key.unwrap_or(&self.config.contextual_sampling_strategy) {
             text if text == audience::LEGACY => None,
@@ -776,6 +774,27 @@ impl Engine {
             ),
             None => None,
         };
+        // The typed one-fit rejection of FULL TRAIN backtracking: admitted as evidence of a known step rejection, never as an update.
+        if let Some(attempt) = &attempt
+            && expectations.contains("expected_backtracking_policy")
+            && response.error == crate::diagnostics::BACKTRACKING_REJECTION
+        {
+            let admitted = crate::diagnostics::validate_backtracking_response(&wire, &response, expectations, true);
+            return Err(match admitted {
+                Ok(()) => {
+                    let message = "FULL TRAIN backtracking found no meaningful improving candidate.";
+                    let recorded = Recorded { type_name: "TrainingStepRejected", message };
+                    let _ = persist_backtracking_admission(attempt, Some(&response), "known_train_rejection", Some(&recorded));
+                    precondition(message)
+                }
+                Err(error) => {
+                    log(format_args!("client runtime semantic training failed: {error}"));
+                    let recorded = Recorded { type_name: "RuntimeAnalysisError", message: &error.0 };
+                    let _ = persist_backtracking_admission(attempt, Some(&response), "unadmitted", Some(&recorded));
+                    Status::unavailable(RUNTIME_UNAVAILABLE)
+                }
+            });
+        }
         // The response contract and the policy evidence are `RuntimeAnalysisError`s (the caller sees the runtime as unavailable);
         // the binding of a retention response to the authenticated release is a `ValueError` (`FAILED_PRECONDITION`).
         let verdict: Result<(), (&'static str, String)> =
