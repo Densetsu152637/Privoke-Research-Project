@@ -17,6 +17,7 @@
 #![allow(clippy::needless_range_loop)]
 
 pub mod adam;
+pub mod adamw;
 pub mod admission;
 pub mod bert_backward;
 pub mod error;
