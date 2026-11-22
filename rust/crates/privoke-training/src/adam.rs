@@ -33,6 +33,9 @@ pub const DELTA_CAP: f64 = 0.05;
 /// Rows per microbatch.
 pub const MICROBATCH: usize = 32;
 
+/// Float64 moments of every tensor, by name.
+pub type Moments = BTreeMap<String, Vec<f64>>;
+
 /// Float32 values of every tensor, by name.
 pub type F32Map = BTreeMap<String, Vec<f32>>;
 
@@ -52,6 +55,11 @@ pub struct AdamState {
 }
 
 impl AdamState {
+    /// The first and second moments (float64), by tensor name.
+    pub fn moments(&self) -> (&Moments, &Moments) {
+        (&self.moment, &self.variance)
+    }
+
     /// Zero delta and zero moments over the inventory of `base`.
     pub fn new(base: &F32Map) -> Self {
         let zeros = |n: usize| vec![0.0f64; n];
