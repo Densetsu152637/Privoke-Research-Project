@@ -80,10 +80,22 @@ fn the_hinge_gradient_matches_finite_differences() {
     let refs = references(60.0);
     let (deltas, loss, diagnostics) = hinge_deltas(&net, &refs).unwrap();
     assert!(loss > 0.0 && diagnostics.active_rows == refs.len(), "{diagnostics:?}");
-    for name in ["head.sensitivity.weight", "head.category.bias", "layers.0.ffn.input.bias", "token_embedding"] {
+    let mut checked = 0;
+    for name in [
+        "head.sensitivity.weight",
+        "head.sensitivity.bias",
+        "head.category.weight",
+        "head.category.bias",
+        "layers.0.ffn.input.bias",
+        "token_embedding",
+    ] {
         let values = &deltas[name];
         let (index, delta) = values.iter().copied().enumerate().max_by(|a, b| a.1.abs().partial_cmp(&b.1.abs()).unwrap()).unwrap();
-        assert!(delta != 0.0, "{name} has no gradient");
+        if delta == 0.0 {
+            // The winning margin of every row is a category (or a severity): the other head has no gradient.
+            continue;
+        }
+        checked += 1;
         let probe = |shift: f64| {
             let mut params = net.params.clone();
             params.get_mut(name).unwrap().data[index] += shift;
@@ -93,6 +105,7 @@ fn the_hinge_gradient_matches_finite_differences() {
         let numeric = (probe(h) - probe(-h)) / (2.0 * h);
         assert!((numeric + delta).abs() <= 1e-5 * delta.abs().max(1.0), "{name}[{index}]: finite difference {numeric}, direction {delta}");
     }
+    assert!(checked >= 3, "only {checked} tensors had a gradient to check");
     // A reference margin the model already exceeds contributes nothing.
     let (zero, zero_loss, inactive) = hinge_deltas(&net, &references(-60.0)).unwrap();
     assert_eq!((zero_loss, inactive.active_rows), (0.0, 0));
