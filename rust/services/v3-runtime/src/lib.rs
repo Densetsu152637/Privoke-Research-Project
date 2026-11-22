@@ -22,6 +22,7 @@ pub mod server;
 pub mod service;
 pub mod state;
 
+pub use privoke_v3_fuzzer::error;
 pub use privoke_v3_fuzzer::error::{Error, Result, invalid};
 
 /// The role reported by `Health`.
