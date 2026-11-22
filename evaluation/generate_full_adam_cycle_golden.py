@@ -178,6 +178,8 @@ def run_sequence(label, env, cycles, generated: Path) -> dict:
         # A sequence may name its own taxonomy dataset (the window cycle reads the study's); the dump and the state stay scratch.
         full_env = {**base.BASE_ENV, "FUZZ_PROMPT_DATASET_PATH": str(base.TAXONOMY_DATASET), **env,
                     "PRIVOKE_FUZZER_DUMP_DIR": str(dump), "FUZZ_CURRICULUM_STATE_PATH": str(scratch_path / "curriculum.sqlite3")}
+        # A value of None leaves the variable unset (the audience sampler needs no dataset path; an empty one is not unset in Python).
+        full_env = {key: value for key, value in full_env.items() if value is not None}
         saved = dict(os.environ)
         os.environ.update(full_env)
         try:
@@ -241,7 +243,7 @@ def run_sequence(label, env, cycles, generated: Path) -> dict:
         finally:
             os.environ.clear()
             os.environ.update(saved)
-    return {"label": label, "env": {**base.BASE_ENV, **env}, "cycles": results, **snapshot}
+    return {"label": label, "env": {**base.BASE_ENV, **{key: value for key, value in env.items() if value is not None}}, "cycles": results, **snapshot}
 
 
 def full_records(results: Path):

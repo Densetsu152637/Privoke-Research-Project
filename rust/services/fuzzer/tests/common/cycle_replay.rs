@@ -186,6 +186,8 @@ pub async fn replay(golden_path: &Path, title: &str, results: Option<&Path>) {
         }
         let config = FuzzerConfig::from_lookup(|name| match name {
             "PRIVOKE_FUZZER_DUMP_DIR" => Some(dump.to_string_lossy().to_string()),
+            // The audience implementation closure hashes the Python sources of this checkout.
+            "AUDIENCE_SOURCE_ROOT" => Some(repo_root().to_string_lossy().to_string()),
             "FUZZ_CURRICULUM_STATE_PATH" => Some(directory.path().join("curriculum.sqlite3").to_string_lossy().to_string()),
             // A sequence may name its own taxonomy dataset (the window cycle reads the study's); the others use the fixture.
             "FUZZ_PROMPT_DATASET_PATH" => {

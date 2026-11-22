@@ -101,6 +101,9 @@ pub struct FuzzerConfig {
     pub retention_teacher_path: Option<PathBuf>,
     /// `retention_manifest_sha256` (`FUZZ_RETENTION_MANIFEST_SHA256`): the server's trusted manifest pin.
     pub retention_manifest_sha256: Option<String>,
+    /// `AUDIENCE_SOURCE_ROOT` (new): the checkout whose Python files the audience implementation closure hashes
+    /// (`audience_coverage.implementation_closure` reads them relative to its own repository root).
+    pub audience_source_root: Option<PathBuf>,
     /// `window_path` (`FUZZ_WINDOW_PATH`).
     pub window_path: Option<PathBuf>,
     /// `window_manifest_sha256` (`FUZZ_WINDOW_MANIFEST_SHA256`): the server's pin of the frozen window.
@@ -192,6 +195,7 @@ impl FuzzerConfig {
             retention_manifest_path: path("FUZZ_RETENTION_MANIFEST_PATH"),
             retention_teacher_path: path("FUZZ_RETENTION_TEACHER_PATH"),
             retention_manifest_sha256: present(&get, "FUZZ_RETENTION_MANIFEST_SHA256"),
+            audience_source_root: path("AUDIENCE_SOURCE_ROOT"),
             window_path: path("FUZZ_WINDOW_PATH"),
             window_manifest_sha256: present(&get, "FUZZ_WINDOW_MANIFEST_SHA256"),
             component_bank_path: path("FUZZ_COMPONENT_BANK_PATH"),

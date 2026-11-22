@@ -16,8 +16,11 @@
 //!
 //! The frozen window cycle (RUST-S21H) lives in [`crate::window_cycle`] over the contract of [`crate::window`].
 //!
+//! The audience sampler (RUST-S21H item 2) runs over the pinned AU3 release; its implementation closure (the digest over the Python
+//! files that define the sampler, which Python binds into the fingerprint and the audit) is read from `AUDIENCE_SOURCE_ROOT`.
+//!
 //! Not ported, and refused with `UNIMPLEMENTED` and the name of the gap instead of running a different cycle:
-//! the audience sampler and the presence cycle.
+//! the presence cycle.
 //!
 //! TRAIN diagnostics and FULL TRAIN backtracking (RUST-S21G item 3) are admitted by [`crate::diagnostics`]: the diagnostics record,
 //! the backtracking trace and its five trials, the known one-fit rejection (retained as evidence, answered `FAILED_PRECONDITION`)
@@ -28,6 +31,7 @@ use std::sync::Arc;
 
 use privoke_contracts::proto::v1::{FuzzerTrainingRequest, FuzzerTrainingResponse, ParameterUpdateStatusRequest};
 use privoke_curriculum::anchor::RehearsalManifest;
+use privoke_curriculum::audience::AudienceRelease;
 use privoke_curriculum::benign::BenignRelease;
 use privoke_curriculum::curriculum::{ReserveOptions, load_curriculum, request_fingerprint, reserve_batch, sampler_settings};
 use privoke_curriculum::generator::{PartitionSources, contextual_sampling_audit, generate_training_partition};
@@ -253,6 +257,14 @@ struct Sources {
     rehearsal: Option<RehearsalManifest>,
     benign: Option<BenignRelease>,
     retention: Option<crate::retention::Snapshot>,
+    audience: Option<AudienceSource>,
+}
+
+/// The authenticated AU3 release and the digest and files of the implementation closure that binds the sampler.
+struct AudienceSource {
+    release: AudienceRelease,
+    implementation_sha256: String,
+    implementation_files: Value,
 }
 
 /// What the sampling step produced.
@@ -324,8 +336,34 @@ impl Engine {
             text if text == audience::LEGACY => None,
             text => Some(text.to_string()),
         };
+        let mut sources = Sources::default();
+        let mut fingerprint: Option<String> = None;
         if strategy.as_deref() == Some(audience::STRATEGY) {
-            return Err(gap("Audience coverage sampling (the pinned AU3 release and its implementation closure)"));
+            if self.config.curriculum_manifest_path.is_some() || self.config.prompt_dataset_path.is_some() || !expectations.is_empty() {
+                return Err(precondition("Audience mode cannot override explicit legacy curriculum/dataset/policy."));
+            }
+            audience::validate_count(cycle.prompt_count, self.config.heldout_prompt_count).map_err(precondition)?;
+            let release =
+                audience::load_release(self.config.audience_manifest_path.as_deref(), self.config.audience_manifest_sha256.as_deref())
+                    .map_err(precondition)?;
+            let root = self.config.audience_source_root.as_deref().ok_or_else(|| {
+                precondition(
+                    "Audience coverage hashes the implementation closure of the sampler: set AUDIENCE_SOURCE_ROOT to the checkout.",
+                )
+            })?;
+            let (implementation_sha256, implementation_files) = audience::implementation_closure(root).map_err(precondition)?;
+            let settings = value::object(vec![
+                ("training", config_value(&batch_config)),
+                ("scope", value::string(scope.name())),
+                ("prompt_count", value::int(cycle.prompt_count)),
+                ("heldout_count", value::int(self.config.heldout_prompt_count)),
+                ("strategy", value::string(audience::STRATEGY)),
+                ("audience_manifest_sha256", value::string(&release.sha256)),
+                ("audience_implementation_sha256", value::string(&implementation_sha256)),
+                ("minimum_exact_match_rate", Value::Float(self.config.minimum_exact_match_rate)),
+            ]);
+            fingerprint = Some(settings_fingerprint(&request, &settings).map_err(precondition)?);
+            sources.audience = Some(AudienceSource { release, implementation_sha256, implementation_files });
         }
         if retention_mode && strategy.as_deref() != Some(benign::STRATEGY) {
             return Err(precondition("ORIGINAL retention requires the unchanged BC01 main composition."));
@@ -340,8 +378,6 @@ impl Engine {
         {
             return Err(precondition("Orphan benign pins require the explicit benign strategy."));
         }
-        let mut sources = Sources::default();
-        let mut fingerprint: Option<String> = None;
         if matches!(strategy.as_deref(), Some(TAXONOMY_STRATEGY | anchor::STRATEGY | benign::STRATEGY)) {
             if self.config.curriculum_manifest_path.is_some() {
                 return Err(precondition("Taxonomy coverage cannot override a fixed curriculum."));
@@ -472,8 +508,13 @@ impl Engine {
         }
         let require_full = request.metadata.get("require_full_capability").map(String::as_str) == Some("true");
         let header = training_admission_header(&expectations).map_err(precondition)?;
-        if !expectations.is_empty() || scope == Scope::FullEncoder || require_full || sources.taxonomy.is_some() {
-            if curriculum.is_none() && sources.taxonomy.is_none() {
+        if !expectations.is_empty()
+            || scope == Scope::FullEncoder
+            || require_full
+            || sources.taxonomy.is_some()
+            || sources.audience.is_some()
+        {
+            if curriculum.is_none() && sources.taxonomy.is_none() && sources.audience.is_none() {
                 fingerprint = Some(self.generic_fingerprint(&request, &batch_config, &cycle, scope, &expectations).map_err(precondition)?);
             }
             if let Some(header) = &header {
@@ -657,12 +698,16 @@ impl Engine {
             taxonomy_dataset: sources.taxonomy.as_ref(),
             rehearsal_manifest: sources.rehearsal.as_ref(),
             benign_release: sources.benign.as_ref(),
+            audience_release: sources.audience.as_ref().map(|source| &source.release),
             ..PartitionSources::default()
         };
         let (examples, heldout) = generate_training_partition(cycle.prompt_count, self.config.heldout_prompt_count, cycle.seed, &partition)
             .map_err(precondition)?;
         let audit = if strategy.is_none() {
             BTreeMap::new()
+        } else if let Some(source) = &sources.audience {
+            audience::audit_originals(&source.release, &examples, &heldout, Some(cycle.seed), Some(&source.implementation_sha256))
+                .map_err(precondition)?
         } else if let (Some(release), Some(dataset)) = (&sources.benign, &sources.taxonomy) {
             benign::audit_originals(dataset, release, &examples, &heldout, cycle.seed).map_err(precondition)?
         } else if let (Some(manifest), Some(dataset)) = (&sources.rehearsal, &sources.taxonomy) {
@@ -713,6 +758,58 @@ impl Engine {
             }
             expanded_audit = taxonomy::audit_expanded(dataset, &sampled.examples, &trainer_examples, &sampled.heldout, batch_config)
                 .map_err(precondition)?;
+        }
+        if let Some(source) = &sources.audience {
+            if !sampled.replay.is_empty()
+                || sources.taxonomy.is_some()
+                || sources.benign.is_some()
+                || sources.rehearsal.is_some()
+                || batch_config.new_example_weight != 1.0
+            {
+                return Err(precondition("Audience coverage cannot mix legacy replay/policies or nonunit source weights."));
+            }
+            expanded_audit = audience::audit_expanded(
+                &source.release,
+                &sampled.examples,
+                &trainer_examples,
+                &sampled.heldout,
+                batch_config,
+                Some(&source.implementation_sha256),
+            )
+            .map_err(precondition)?;
+            let ids = |rows: &[Example]| {
+                value::strings(&rows.iter().map(|row| row.metadata.get("example_id").cloned().unwrap_or_default()).collect::<Vec<_>>())
+            };
+            let originals = Value::Array(
+                sampled
+                    .examples
+                    .iter()
+                    .map(|row| {
+                        value::object(vec![
+                            ("text", value::string(&row.text)),
+                            ("packed", value::int(i64::from(row.target.map_or(0, |target| target.pack())))),
+                            ("weight", Value::Float(row.weight)),
+                            ("metadata", value::from_string_map(&row.metadata)),
+                        ])
+                    })
+                    .collect(),
+            );
+            audit_evidence.push((
+                "audience_audit",
+                value::object(vec![
+                    ("release_sha256", value::string(&source.release.sha256)),
+                    (
+                        "implementation",
+                        value::object(vec![
+                            ("sha256", value::string(&source.implementation_sha256)),
+                            ("files", source.implementation_files.clone()),
+                        ]),
+                    ),
+                    ("selected_ids", ids(&sampled.examples)),
+                    ("originals", originals),
+                    ("guard_ids", ids(&sampled.heldout)),
+                ]),
+            ));
         }
         // The ORIGINAL retention release is retained immutably before compute.
         if let Some(snapshot) = &sources.retention {

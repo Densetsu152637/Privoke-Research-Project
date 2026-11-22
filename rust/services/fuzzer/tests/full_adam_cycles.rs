@@ -42,3 +42,11 @@ async fn the_diagnostics_and_backtracking_cycles_replay_identically_to_the_pytho
 async fn the_window_refusals_replay_identically_to_the_python_oracle() {
     replay_fixture("window_refusals_golden.json", "fuzzer window admission refusals replay").await;
 }
+
+/// The audience coverage sampler (RUST-S21H item 2): the pinned AU3 release, the implementation closure bound into the fingerprint and
+/// the audit, the expanded-stream audit retained in the cycle evidence, the guard refusal, a count the response does not match and the
+/// admission refusals, against the Python oracle's golden over the committed release fixture.
+#[tokio::test]
+async fn the_audience_cycles_replay_identically_to_the_python_oracle() {
+    replay_fixture("audience_cycles_golden.json", "fuzzer audience coverage cycle replay").await;
+}
