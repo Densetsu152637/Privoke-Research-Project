@@ -1072,7 +1072,7 @@ mod tests {
         assert_eq!(without.len(), 2 + 18);
         assert_eq!(without[2], ("checkpoint_0_window".to_string(), 7));
         assert_eq!(without[19], ("checkpoint_64_original_train".to_string(), 7));
-        let with = execution_phases(&trace(value::object(vec![]))).unwrap();
+        let with = execution_phases(&trace(value::object::<&str>(vec![]))).unwrap();
         assert_eq!(&with[20..], [("base_heldout".to_string(), 16), ("candidate_heldout".to_string(), 16)]);
     }
 }
