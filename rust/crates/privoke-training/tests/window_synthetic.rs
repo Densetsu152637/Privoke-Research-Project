@@ -78,12 +78,12 @@ fn references(artifact: &Value) -> Vec<Reference> {
             original: row.packed,
             confidence: 0.9,
             components: vec![
-                vec![Entry { slot: 0, target: 1.0, index: 0, sign: 0.0, offset: 0.0, positive: vec![1, 2, 3], negative: vec![0] }],
+                vec![Entry { slot: 0, target: 40.0, index: 0, sign: 0.0, offset: 0.0, positive: vec![1, 2, 3], negative: vec![0] }],
                 vec![
-                    Entry { slot: 2, target: 0.7, index: 0, sign: -1.0, offset, positive: vec![], negative: vec![] },
-                    Entry { slot: 2, target: 1.0, index: 8, sign: 1.0, offset, positive: vec![], negative: vec![] },
+                    Entry { slot: 2, target: 30.0, index: 0, sign: -1.0, offset, positive: vec![], negative: vec![] },
+                    Entry { slot: 2, target: 25.0, index: 8, sign: 1.0, offset, positive: vec![], negative: vec![] },
                 ],
-                vec![Entry { slot: 1, target: 0.5, index: 0, sign: 0.0, offset: 0.0, positive: vec![2], negative: vec![0, 1, 3, 4, 5] }],
+                vec![Entry { slot: 1, target: 20.0, index: 0, sign: 0.0, offset: 0.0, positive: vec![2], negative: vec![0, 1, 3, 4, 5] }],
             ],
         })
         .collect()
