@@ -1792,6 +1792,7 @@ dependencies = [
  "privoke-curriculum",
  "privoke-param-update",
  "privoke-pki",
+ "privoke-training",
  "privoke-transport",
  "prost",
  "rusqlite",
