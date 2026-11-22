@@ -235,7 +235,12 @@ pub async fn replay(golden_path: &Path, title: &str, results: Option<&Path>) {
                 })
                 .collect();
             let observed_paths: Vec<&str> = observed.iter().map(|(path, _)| path.as_str()).collect();
-            assert_eq!(observed_paths, expected.iter().map(|(path, _)| *path).collect::<Vec<_>>(), "{context}: call order");
+            // A cycle that refused before any call says why: the status it answered is the diagnosis.
+            let answered = match &outcome {
+                Ok(_) => "answered ok".to_string(),
+                Err(status) => format!("answered {} {:?}", code_name(status.code()), status.message()),
+            };
+            assert_eq!(observed_paths, expected.iter().map(|(path, _)| *path).collect::<Vec<_>>(), "{context}: call order ({answered})");
             assert!(observed_paths.iter().all(|path| [STATUS_PATH, SUBMIT_PATH, HEADS_PATH, FULL_PATH, PRESENCE_PATH].contains(path)));
             for ((path, bytes), (_, want)) in observed.iter().zip(&expected) {
                 let (bytes, normalised) = match path.as_str() {
