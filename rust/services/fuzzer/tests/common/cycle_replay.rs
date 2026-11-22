@@ -83,7 +83,13 @@ fn normalised_dump(dump: &Path) -> BTreeMap<String, String> {
 /// `training_evidence_sha256` over this run's retained record for `request_id`, with the oracle's attempt path in its evidence.
 /// A FULL Adam publication binds eight fields of the record; the compact publication of an opted-in TRAIN diagnostics update binds
 /// its metadata, metrics and execution evidence.
-fn evidence_hash(dump: &Path, request_id: &str, python_paths: &BTreeMap<String, String>, compact: bool) -> String {
+fn evidence_hash(
+    dump: &Path,
+    request_id: &str,
+    python_paths: &BTreeMap<String, String>,
+    python_hashes: &BTreeMap<String, String>,
+    compact: bool,
+) -> String {
     use privoke_curriculum::value::{self, Value};
     let mut files = Vec::new();
     walk(&dump.join("training-cycles"), &mut files);
@@ -100,6 +106,12 @@ fn evidence_hash(dump: &Path, request_id: &str, python_paths: &BTreeMap<String, 
                     map.insert(name.clone(), value::string(path));
                 } else if let Some(Value::Object(reference)) = map.get_mut(name) {
                     reference.insert("path".to_string(), value::string(path));
+                }
+            }
+            // Python wrote the retained window inputs in text mode: on a Windows host the hash it recorded is of the CRLF bytes.
+            for (name, hash) in python_hashes {
+                if let Some(Value::Object(reference)) = map.get_mut(name) {
+                    reference.insert("sha256".to_string(), value::string(hash));
                 }
             }
         }
@@ -174,8 +186,11 @@ pub async fn replay(golden_path: &Path, title: &str, results: Option<&Path>) {
         }
         let config = FuzzerConfig::from_lookup(|name| match name {
             "PRIVOKE_FUZZER_DUMP_DIR" => Some(dump.to_string_lossy().to_string()),
-            "FUZZ_PROMPT_DATASET_PATH" => Some(taxonomy.to_string_lossy().to_string()),
             "FUZZ_CURRICULUM_STATE_PATH" => Some(directory.path().join("curriculum.sqlite3").to_string_lossy().to_string()),
+            // A sequence may name its own taxonomy dataset (the window cycle reads the study's); the others use the fixture.
+            "FUZZ_PROMPT_DATASET_PATH" => {
+                paths.get(name).or_else(|| env.get(name)).cloned().or_else(|| Some(taxonomy.to_string_lossy().to_string()))
+            }
             other => paths.get(other).or_else(|| env.get(other)).cloned(),
         })
         .unwrap();
@@ -238,7 +253,13 @@ pub async fn replay(golden_path: &Path, title: &str, results: Option<&Path>) {
                                 )]),
                             };
                             // Reported after the dump comparison, which names the differing file and byte.
-                            let ours = evidence_hash(&dump, &sent.metadata["request_id"], &raw, compact);
+                            let raw_hashes: BTreeMap<String, String> = match cycle.get("evidence_sha256_raw").and_then(Value::as_object) {
+                                Some(hashes) => {
+                                    hashes.iter().map(|(name, hash)| (name.clone(), hash.as_str().unwrap().to_string())).collect()
+                                }
+                                None => BTreeMap::new(),
+                            };
+                            let ours = evidence_hash(&dump, &sent.metadata["request_id"], &raw, &raw_hashes, compact);
                             if ours != golden_hash {
                                 hash_failures.push(format!("{context}: the evidence hash {ours} against {golden_hash}"));
                             }
@@ -268,7 +289,10 @@ pub async fn replay(golden_path: &Path, title: &str, results: Option<&Path>) {
                 if let Some(pair) = header.first() {
                     assert_eq!(pair[0], "x-privoke-training-admission-v1");
                 }
-                assert_eq!(option.long_deadline, call["timeout"].as_f64() == Some(180.0), "{context}: the deadline class");
+                // A FULL Adam fit waits exactly 180 seconds; the window route waits the larger of the configured timeout and 180.
+                let timeout = call["timeout"].as_f64().unwrap();
+                assert_eq!(option.long_deadline, timeout >= 180.0, "{context}: the deadline class");
+                assert!(!option.long_deadline || timeout == 180.0 || option.deadline_floor, "{context}: the deadline floor");
                 calls_checked += 1;
             }
 
@@ -339,7 +363,8 @@ pub async fn replay(golden_path: &Path, title: &str, results: Option<&Path>) {
         diagnostics_checked += diagnostics.len();
     }
     std::env::set_current_dir(original_directory).unwrap();
-    assert!(accepted >= 1 && refused >= 1, "accepted and refused cycles are both replayed");
+    let refusals_only = golden.get("refusals_only") == Some(&Value::Bool(true));
+    assert!(refused >= 1 && (accepted >= 1 || refusals_only), "accepted and refused cycles are both replayed");
     eprintln!(
         "{title}: {cycles} cycles ({accepted} accepted, {refused} refused), {wire_messages} wire messages, {calls_checked} runtime calls (header and deadline), {files_checked} dump files, {evidence_hashes} publication evidence hashes, {diagnostics_checked} gate diagnostics records: all identical to the Python oracle"
     );

@@ -14,8 +14,10 @@
 //! retained before the runtime call, and a complete ORIGINAL retention cycle (the benign strategy over the authenticated
 //! retention release) retains that release before compute and binds the response to it.
 //!
+//! The frozen window cycle (RUST-S21H) lives in [`crate::window_cycle`] over the contract of [`crate::window`].
+//!
 //! Not ported, and refused with `UNIMPLEMENTED` and the name of the gap instead of running a different cycle:
-//! the window cycle, the audience sampler and the presence cycle.
+//! the audience sampler and the presence cycle.
 //!
 //! TRAIN diagnostics and FULL TRAIN backtracking (RUST-S21G item 3) are admitted by [`crate::diagnostics`]: the diagnostics record,
 //! the backtracking trace and its five trials, the known one-fit rejection (retained as evidence, answered `FAILED_PRECONDITION`)
@@ -124,12 +126,12 @@ fn py_float_text(number: f64) -> String {
     privoke_contracts::pyfloat::repr(number).unwrap_or_default()
 }
 
-fn log(message: std::fmt::Arguments<'_>) {
+pub(crate) fn log(message: std::fmt::Arguments<'_>) {
     eprintln!("{message}");
 }
 
 /// A `ValueError` of the cycle: `FAILED_PRECONDITION` with its message.
-fn precondition(error: impl std::fmt::Display) -> Status {
+pub(crate) fn precondition(error: impl std::fmt::Display) -> Status {
     Status::failed_precondition(error.to_string())
 }
 
@@ -143,7 +145,7 @@ pub fn plain_fingerprint(request: &FuzzerTrainingRequest) -> String {
     value::sha256(&crate::pywire::fuzzer_request_bytes(request))
 }
 
-fn settings_fingerprint(request: &FuzzerTrainingRequest, settings: &Value) -> Result<String, Error> {
+pub(crate) fn settings_fingerprint(request: &FuzzerTrainingRequest, settings: &Value) -> Result<String, Error> {
     let document = Value::Array(vec![value::string(&hex(&crate::pywire::fuzzer_request_bytes(request))), settings.clone()]);
     Ok(value::sha256(value::dumps_compact(&document)?.as_bytes()))
 }
@@ -153,7 +155,7 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 /// `asdict(BatchTrainingConfig)`.
-fn config_value(config: &BatchTrainingConfig) -> Value {
+pub(crate) fn config_value(config: &BatchTrainingConfig) -> Value {
     value::object(vec![
         ("learning_rate", Value::Float(config.learning_rate)),
         ("max_gradient", Value::Float(config.max_gradient)),
@@ -232,9 +234,9 @@ pub fn build_training_response(
 
 /// The cycle engine: the configuration, the two backends and the concurrency bound.
 pub struct Engine {
-    config: FuzzerConfig,
-    runtime: Arc<dyn RuntimeBackend>,
-    updates: Arc<dyn UpdateBackend>,
+    pub(crate) config: FuzzerConfig,
+    pub(crate) runtime: Arc<dyn RuntimeBackend>,
+    pub(crate) updates: Arc<dyn UpdateBackend>,
     slots: Semaphore,
 }
 
@@ -296,7 +298,7 @@ impl Engine {
             == Some("full_projected_adam64_window_checkpoint_v1")
             || strategy_key == Some(train_window::SAMPLER)
         {
-            return Err(gap("The window training cycle"));
+            return self.window_cycle(request, scope).await;
         }
         let cycle = resolve_cycle(&request, &self.config);
         let expectations = crate::policy::training_policy_expectations(&request.metadata).map_err(precondition)?;
@@ -580,7 +582,7 @@ impl Engine {
         settings_fingerprint(request, &value::object(pairs))
     }
 
-    async fn previous_update(
+    pub(crate) async fn previous_update(
         &self,
         request: &FuzzerTrainingRequest,
         cycle: &TrainingCycle,
@@ -748,7 +750,11 @@ impl Engine {
             }
             return Err(failure_status(&failure));
         }
-        let options = CallOptions { header: header.map(str::to_string), long_deadline: optimizer && scope == Scope::FullEncoder };
+        let options = CallOptions {
+            header: header.map(str::to_string),
+            long_deadline: optimizer && scope == Scope::FullEncoder,
+            ..CallOptions::default()
+        };
         let response = match self.runtime.compute_gradients(scope, wire.clone(), options).await {
             Ok(response) => response,
             Err(status) => {
@@ -849,7 +855,7 @@ impl Engine {
     }
 
     /// `_submit_update`.
-    async fn submit(
+    pub(crate) async fn submit(
         &self,
         request: &FuzzerTrainingRequest,
         cycle: &TrainingCycle,
@@ -878,7 +884,8 @@ impl Engine {
             pipeline,
             fingerprint,
         };
-        let message = publication_request(&self.config.fuzzer_id, update, &context.metadata(), self.config.dump_dir.as_deref())
+        let pins = crate::window::Pins::of(&self.config);
+        let message = publication_request(&self.config.fuzzer_id, update, &context.metadata(), self.config.dump_dir.as_deref(), &pins)
             .map_err(|_| precondition("Training publication evidence or metadata is invalid."))?;
         match self.updates.submit(message).await {
             Ok(ack) => Ok(ack),

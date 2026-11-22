@@ -40,7 +40,7 @@ pub struct TrainArgs {
     /// Originals to train on (8; 256 for the window policy).
     #[arg(long)]
     pub prompt_count: Option<u32>,
-    /// The window training policy (not ported).
+    /// The window training policy (the frozen TRAIN window with exact checkpoint selection; implies the FULL endpoint).
     #[arg(long, value_parser = [WINDOW_POLICY])]
     pub training_policy: Option<String>,
     /// Use the FULL underlying-model endpoint.
@@ -82,18 +82,37 @@ pub struct HealthcheckArgs {
 
 /// The request `train` sends.
 pub fn build_request(args: &TrainArgs, request_id: String) -> Result<FuzzerTrainingRequest> {
+    let mut metadata = BTreeMap::from([("initiator".to_string(), "privoke-fuzzer-cli".to_string())]);
     if args.training_policy.is_some() {
-        return Err(Error("The window training policy is not ported to the Rust fuzzer (stage 21 gap).".to_string()));
-    }
-    if args.window_manifest_sha256.is_some() || args.component_manifest_sha256.is_some() {
+        let (Some(window), Some(component)) = (
+            args.window_manifest_sha256.as_ref().filter(|pin| !pin.is_empty()),
+            args.component_manifest_sha256.as_ref().filter(|pin| !pin.is_empty()),
+        ) else {
+            return Err(Error("Window policy requires both explicit prepared manifest pins.".to_string()));
+        };
+        for (key, text) in [
+            ("contextual_sampling_strategy", privoke_curriculum::train_window::SAMPLER),
+            ("expected_contextual_training_optimizer", WINDOW_POLICY),
+            ("expected_contextual_training_objective", crate::policy::SUM_MARGIN),
+            ("expected_contextual_candidate_eligibility", crate::policy::WINDOW_ELIGIBILITY),
+            ("expected_contextual_training_scope", "full_encoder"),
+            ("expected_train_window_config_v1", privoke_training::admission::WINDOW_CONFIG_CANONICAL),
+            ("expected_train_window_manifest_sha256", window),
+            ("expected_original_train_component_manifest_sha256", component),
+        ] {
+            metadata.insert(key.to_string(), text.to_string());
+        }
+        crate::policy::window_expectations(&metadata)?;
+    } else if args.window_manifest_sha256.as_ref().is_some_and(|pin| !pin.is_empty())
+        || args.component_manifest_sha256.as_ref().is_some_and(|pin| !pin.is_empty())
+    {
         return Err(Error("Manifest pins require an explicit window training policy.".to_string()));
     }
-    let metadata = BTreeMap::from([("initiator".to_string(), "privoke-fuzzer-cli".to_string())]);
     Ok(FuzzerTrainingRequest {
         request_id,
         source_id: args.source_id.clone(),
         model_id: args.model_id.clone(),
-        prompt_count: args.prompt_count.unwrap_or(8),
+        prompt_count: args.prompt_count.unwrap_or(if args.training_policy.is_some() { 256 } else { 8 }),
         seed: args.seed,
         metadata,
     })
@@ -137,11 +156,15 @@ pub async fn run_train(args: TrainArgs) -> Result<bool> {
     let channel = connect(&args.target, &tls).await.map_err(|error| Error(error.to_string()))?;
     let mut message = Request::new(request);
     message.set_timeout(
-        Duration::try_from_secs_f64(args.timeout.unwrap_or(60.0)).map_err(|_| Error("--timeout must be positive.".to_string()))?,
+        Duration::try_from_secs_f64(args.timeout.unwrap_or(if args.training_policy.is_some() { 1800.0 } else { 60.0 }))
+            .map_err(|_| Error("--timeout must be positive.".to_string()))?,
     );
     let mut client = FuzzerServiceClient::new(channel);
-    let outcome =
-        if args.underlying { client.run_underlying_training_cycle(message).await } else { client.run_training_cycle(message).await };
+    let outcome = if args.underlying || args.training_policy.is_some() {
+        client.run_underlying_training_cycle(message).await
+    } else {
+        client.run_training_cycle(message).await
+    };
     let response = outcome.map_err(|status| Error(format!("{}: {}", status.code(), status.message())))?.into_inner();
     println!("{}", render_response(&response)?);
     Ok(response.accepted)
@@ -205,10 +228,24 @@ mod tests {
     }
 
     #[test]
-    fn the_window_policy_is_a_named_gap_and_pins_need_it() {
+    fn the_window_policy_needs_both_pins_and_pins_need_the_policy() {
         let mut policy = args();
         policy.training_policy = Some(WINDOW_POLICY.into());
-        assert!(build_request(&policy, "id".into()).unwrap_err().0.contains("not ported"));
+        assert_eq!(build_request(&policy, "id".into()).unwrap_err().0, "Window policy requires both explicit prepared manifest pins.");
+        policy.window_manifest_sha256 = Some("a".repeat(64));
+        policy.component_manifest_sha256 = Some("b".repeat(64));
+        let request = build_request(&policy, "id".into()).unwrap();
+        assert_eq!(request.prompt_count, 256);
+        assert_eq!(request.metadata["contextual_sampling_strategy"], "taxonomy_benign_train_window_v1");
+        assert_eq!(request.metadata["expected_train_window_manifest_sha256"], "a".repeat(64));
+        assert_eq!(request.metadata["expected_original_train_component_manifest_sha256"], "b".repeat(64));
+        assert_eq!(request.metadata.len(), 9);
+        let mut malformed = policy.clone();
+        malformed.window_manifest_sha256 = Some("short".into());
+        assert_eq!(
+            build_request(&malformed, "id".into()).unwrap_err().0,
+            "Window admission requires exact FULL policy/config and independent release pins."
+        );
         let mut pins = args();
         pins.window_manifest_sha256 = Some("x".into());
         assert_eq!(build_request(&pins, "id".into()).unwrap_err().0, "Manifest pins require an explicit window training policy.");

@@ -31,7 +31,7 @@ pub const FULL_ADAM_POLICY: &str = "full_projected_adam64_v1";
 pub(crate) const FULL_ADAM_ELIGIBILITY: &str = "candidate_train_exact_eligibility_v1";
 /// `window_training.POLICY`.
 pub const WINDOW_POLICY: &str = "full_projected_adam64_window_checkpoint_v1";
-const WINDOW_ELIGIBILITY: &str = "candidate_window_exact_component_retention_v1";
+pub(crate) const WINDOW_ELIGIBILITY: &str = "candidate_window_exact_component_retention_v1";
 const RETENTION_GATE_POLICY: &str = "full_projected_adam64_original_train_gate_v1";
 const RETENTION_HINGE_POLICY: &str = "full_projected_adam64_original_train_hinge_v1";
 pub(crate) const RETENTION_ELIGIBILITY: &str = "candidate_train_exact_original_target_capped_v1";
@@ -74,7 +74,7 @@ fn get<'a>(metadata: &'a Metadata, key: &str) -> Option<&'a str> {
 }
 
 /// `window_training.expectations`.
-fn window_expectations(metadata: &Metadata) -> Result<Option<Expectations>> {
+pub(crate) fn window_expectations(metadata: &Metadata) -> Result<Option<Expectations>> {
     if get(metadata, "expected_contextual_training_optimizer") != Some(WINDOW_POLICY) {
         if ["train_window_manifest_sha256", "original_train_component_manifest_sha256", "train_window_config_v1"]
             .iter()

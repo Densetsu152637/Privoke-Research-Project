@@ -35,3 +35,10 @@ async fn the_rehearsal_and_benign_cycles_replay_identically_to_the_python_oracle
 async fn the_diagnostics_and_backtracking_cycles_replay_identically_to_the_python_oracle() {
     replay_fixture("backtracking_cycles_golden.json", "fuzzer TRAIN diagnostics and backtracking cycle replay").await;
 }
+
+/// The frozen window cycle's admission and the checks before any source is read (RUST-S21H item 1): the Python oracle's golden of
+/// eight refusals that need no window, no component release and no study data. The recorded fits are `tests/window_cycles.rs`.
+#[tokio::test]
+async fn the_window_refusals_replay_identically_to_the_python_oracle() {
+    replay_fixture("window_refusals_golden.json", "fuzzer window admission refusals replay").await;
+}

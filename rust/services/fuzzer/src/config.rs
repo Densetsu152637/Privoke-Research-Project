@@ -101,6 +101,22 @@ pub struct FuzzerConfig {
     pub retention_teacher_path: Option<PathBuf>,
     /// `retention_manifest_sha256` (`FUZZ_RETENTION_MANIFEST_SHA256`): the server's trusted manifest pin.
     pub retention_manifest_sha256: Option<String>,
+    /// `window_path` (`FUZZ_WINDOW_PATH`).
+    pub window_path: Option<PathBuf>,
+    /// `window_manifest_sha256` (`FUZZ_WINDOW_MANIFEST_SHA256`): the server's pin of the frozen window.
+    pub window_manifest_sha256: Option<String>,
+    /// `component_bank_path` (`FUZZ_COMPONENT_BANK_PATH`).
+    pub component_bank_path: Option<PathBuf>,
+    /// `component_reference_path` (`FUZZ_COMPONENT_REFERENCE_PATH`).
+    pub component_reference_path: Option<PathBuf>,
+    /// `component_manifest_path` (`FUZZ_COMPONENT_MANIFEST_PATH`).
+    pub component_manifest_path: Option<PathBuf>,
+    /// `component_teacher_path` (`FUZZ_COMPONENT_TEACHER_PATH`).
+    pub component_teacher_path: Option<PathBuf>,
+    /// `component_teacher_sha256` (`FUZZ_COMPONENT_TEACHER_SHA256`): the accepted raw-file pin of the ORIGINAL teacher.
+    pub component_teacher_sha256: Option<String>,
+    /// `component_manifest_sha256` (`FUZZ_COMPONENT_MANIFEST_SHA256`): the server's trusted component manifest pin.
+    pub component_manifest_sha256: Option<String>,
     /// `PRIVOKE_FUZZER_DUMP_DIR`: the durable evidence directory.
     pub dump_dir: Option<PathBuf>,
     /// Where the listener binds (`FUZZER_BIND`).
@@ -176,6 +192,14 @@ impl FuzzerConfig {
             retention_manifest_path: path("FUZZ_RETENTION_MANIFEST_PATH"),
             retention_teacher_path: path("FUZZ_RETENTION_TEACHER_PATH"),
             retention_manifest_sha256: present(&get, "FUZZ_RETENTION_MANIFEST_SHA256"),
+            window_path: path("FUZZ_WINDOW_PATH"),
+            window_manifest_sha256: present(&get, "FUZZ_WINDOW_MANIFEST_SHA256"),
+            component_bank_path: path("FUZZ_COMPONENT_BANK_PATH"),
+            component_reference_path: path("FUZZ_COMPONENT_REFERENCE_PATH"),
+            component_manifest_path: path("FUZZ_COMPONENT_MANIFEST_PATH"),
+            component_teacher_path: path("FUZZ_COMPONENT_TEACHER_PATH"),
+            component_teacher_sha256: present(&get, "FUZZ_COMPONENT_TEACHER_SHA256"),
+            component_manifest_sha256: present(&get, "FUZZ_COMPONENT_MANIFEST_SHA256"),
             port: u16::try_from(port).map_err(|_| Error("FUZZER_PORT must be between 1 and 65535.".to_string()))?,
             timeout_seconds: env_float(&get, "FUZZ_TIMEOUT_SECONDS", 10.0)?,
             seed: u64::try_from(seed).map_err(|_| Error("FUZZ_SEED must not be negative.".to_string()))?,
