@@ -208,10 +208,12 @@ pub fn encode_analysis(analysis: &Analysis, elapsed: Elapsed) -> Result<Vec<u8>,
     }
     metadata.insert("text_length".to_string(), request.text.chars().count().to_string());
     for execution in &analysis.executions {
-        if execution.status == Status::Ok
-            && let Some(identity) = &execution.identity
-        {
-            for (name, value) in identity {
+        let Some(identity) = &execution.identity else { continue };
+        for (name, value) in identity {
+            if name.starts_with(crate::semantic::CONTEXT_IDENTITY_PREFIX) {
+                // `pretrained_context_identity` is attached whatever the layer's outcome.
+                metadata.insert(name.clone(), value.clone());
+            } else if execution.status == Status::Ok {
                 metadata.insert(format!("privoke.semantic.{name}"), value.clone());
             }
         }

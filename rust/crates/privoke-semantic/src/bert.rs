@@ -111,7 +111,8 @@ pub struct Encoder {
     token_type: Vec<f32>,
     embedding_norm: Norm,
     layers: Vec<Layer>,
-    pooler: Dense,
+    /// `None` for an encoder that is used for its last hidden state only (the contextual MiniLM export has no pooler).
+    pooler: Option<Dense>,
 }
 
 /// Take a tensor of a given shape out of `tensors`.
@@ -139,6 +140,19 @@ impl Encoder {
     /// Build the encoder from the tensors whose names start with `encoder.` (the prefix is part of `prefix`),
     /// removing them from `tensors`.
     pub fn from_tensors(config: BertConfig, tensors: &mut BTreeMap<String, Tensor>, prefix: &str) -> Result<Self, SemanticError> {
+        Self::build(config, tensors, prefix, true)
+    }
+
+    /// As [`Encoder::from_tensors`], for a checkpoint without a pooler: only [`Encoder::hidden_states`] is available.
+    pub fn from_tensors_without_pooler(
+        config: BertConfig,
+        tensors: &mut BTreeMap<String, Tensor>,
+        prefix: &str,
+    ) -> Result<Self, SemanticError> {
+        Self::build(config, tensors, prefix, false)
+    }
+
+    fn build(config: BertConfig, tensors: &mut BTreeMap<String, Tensor>, prefix: &str, with_pooler: bool) -> Result<Self, SemanticError> {
         let hidden = config.hidden_size;
         let word = take(tensors, &format!("{prefix}embeddings.word_embeddings.weight"), &[config.vocab_size, hidden])?;
         let position = take(tensors, &format!("{prefix}embeddings.position_embeddings.weight"), &[config.max_position_embeddings, hidden])?;
@@ -158,7 +172,7 @@ impl Encoder {
                 output_norm: norm(tensors, &format!("{base}.output.LayerNorm"), hidden)?,
             });
         }
-        let pooler = dense(tensors, &format!("{prefix}pooler.dense"), hidden, hidden)?;
+        let pooler = if with_pooler { Some(dense(tensors, &format!("{prefix}pooler.dense"), hidden, hidden)?) } else { None };
         Ok(Self { config, word, position, token_type, embedding_norm, layers, pooler })
     }
 
@@ -169,6 +183,16 @@ impl Encoder {
 
     /// `pooler_output` for one sequence of token ids (no padding, all-zero token types): `tanh(W h[0] + b)`.
     pub fn pooled(&self, ids: &[u32], threads: usize) -> Result<Vec<f32>, SemanticError> {
+        let pooler = self.pooler.as_ref().ok_or_else(|| SemanticError::artifact("This encoder has no pooler."))?;
+        let hidden = self.config.hidden_size;
+        let x = self.hidden_states(ids, threads)?;
+        let first = pooler.apply(&x[..hidden], 1, 1);
+        Ok(first.into_iter().map(|value| value.tanh() as f32).collect())
+    }
+
+    /// `last_hidden_state` for one sequence of token ids (no padding, all-zero token types): `ids.len() * hidden_size`
+    /// values, row-major, in float64.
+    pub fn hidden_states(&self, ids: &[u32], threads: usize) -> Result<Vec<f64>, SemanticError> {
         let hidden = self.config.hidden_size;
         let n = ids.len();
         if n == 0 || n > self.config.max_position_embeddings {
@@ -196,8 +220,7 @@ impl Encoder {
         for layer in &self.layers {
             x = self.layer_forward(layer, &x, n, heads, threads);
         }
-        let first = self.pooler.apply(&x[..hidden], 1, 1);
-        Ok(first.into_iter().map(|value| value.tanh() as f32).collect())
+        Ok(x)
     }
 
     fn layer_forward(&self, layer: &Layer, x: &[f64], n: usize, heads: usize, threads: usize) -> Vec<f64> {

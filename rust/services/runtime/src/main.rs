@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! privoke-runtime-worker [--bundle DIR] [--model NAME] [--max-text-chars N] [--warm-layers regex,ner]
-//!     [--model-root DIR]... [--latest-model-id ID] [--warm-semantic-model ID]... [--spacy fake]
+//!     [--model-root DIR]... [--latest-model-id ID] [--warm-semantic-model ID]... [--pretrained-context-dir DIR] [--spacy fake]
 //! ```
 //!
 //! With `--model-root` the worker serves the semantic layer, the sparse presence gate, `DetectAnnotationPresence` and the
@@ -42,6 +42,7 @@ struct Arguments {
     warm_layers: Vec<Layer>,
     fake_spacy: bool,
     model_roots: Vec<String>,
+    pretrained_context_dir: Option<String>,
     latest_model_id: Option<String>,
     warm_models: Vec<String>,
 }
@@ -54,6 +55,7 @@ fn parse_arguments() -> Result<Arguments, String> {
         warm_layers: vec![Layer::Regex, Layer::Ner],
         fake_spacy: false,
         model_roots: Vec::new(),
+        pretrained_context_dir: None,
         latest_model_id: None,
         warm_models: Vec::new(),
     };
@@ -84,6 +86,7 @@ fn parse_arguments() -> Result<Arguments, String> {
                     .collect::<Result<_, _>>()?;
             }
             "--model-root" => arguments.model_roots.push(value("--model-root")?),
+            "--pretrained-context-dir" => arguments.pretrained_context_dir = Some(value("--pretrained-context-dir")?),
             "--latest-model-id" => arguments.latest_model_id = Some(value("--latest-model-id")?),
             "--warm-semantic-model" => arguments.warm_models.push(value("--warm-semantic-model")?),
             "--spacy" => match value("--spacy")?.as_str() {
@@ -166,9 +169,11 @@ fn run() -> io::Result<i32> {
         if !arguments.model_roots.is_empty() {
             let roots: Vec<std::path::PathBuf> = arguments.model_roots.iter().map(std::path::PathBuf::from).collect();
             let models = Arc::new(ArtifactStore::new(roots.clone(), arguments.latest_model_id.clone()));
-            pipeline = pipeline
-                .with_semantic(SemanticLayer::new(roots, arguments.latest_model_id.clone())?)
-                .with_presence(PresenceModels::new(Arc::clone(&models)));
+            let mut semantic = SemanticLayer::new(roots, arguments.latest_model_id.clone())?;
+            if let Some(directory) = &arguments.pretrained_context_dir {
+                semantic = semantic.with_pretrained_context_dir(directory);
+            }
+            pipeline = pipeline.with_semantic(semantic).with_presence(PresenceModels::new(Arc::clone(&models)));
             store = Some(models);
         }
         let service = Service::new(pipeline, ServiceOptions { max_text_chars: arguments.max_text_chars, clear_elapsed: false });

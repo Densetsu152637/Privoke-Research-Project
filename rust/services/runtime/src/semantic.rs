@@ -7,6 +7,11 @@
 //! artifact) or `<model_id>/manifest.json` with the four assets of a pinned V3 package, or the controller's cache layout
 //! `<model_id>/<pin>/manifest.json`. The external classifier (`PRIVOKE_LLM_CHOICE=open`) is not served here, as in the
 //! Python worker, which forces the streamed choice: it needs the network, which the worker never has.
+//!
+//! The pretrained contextual encoder (`privoke-pretrained-context-minilm`) is served too: its `<model_id>.json` holds
+//! the three offline heads, and its frozen MiniLM backbone and tokenizer are read from a read-only directory of verified
+//! assets (`model.onnx`, `tokenizer.json`; the Python runtime's `PRIVOKE_PRETRAINED_CONTEXT_DIR`). Without that directory
+//! the model is the layer's error, as in the Python runtime.
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
@@ -17,6 +22,8 @@ use privoke_contracts::digest::sha256_hex;
 use privoke_contracts::fingerprint::parameter_fingerprint;
 use privoke_contracts::pyfloat;
 use privoke_contracts::v3::admitted_manifest;
+use privoke_semantic::bert::BertConfig;
+use privoke_semantic::context::{self, ContextEncoder, ContextModel};
 use privoke_semantic::labels::{is_empty_classification, visibility_value};
 use privoke_semantic::layer::{Finding as ModelFinding, LayerOutcome, SemanticClassifier, analyse_semantic_layer};
 use privoke_semantic::{SemanticError, TinyModel, V3Model};
@@ -36,12 +43,15 @@ const V3_ARCHITECTURE: &str = "privoke_pretrained_bert_v3";
 const COMPUTE_DEVICE: &str = "cpu";
 /// Threads of the V3 kernels (the stage 14 default), reported as `torch_threads`.
 const V3_THREADS: usize = privoke_semantic::v3::DEFAULT_THREADS;
-/// `PRETRAINED_CONTEXT_MODEL_ID`: served by the Python worker only.
-pub const PRETRAINED_CONTEXT_MODEL_ID: &str = "privoke-pretrained-context-minilm";
+/// `PRETRAINED_CONTEXT_MODEL_ID`.
+pub const PRETRAINED_CONTEXT_MODEL_ID: &str = context::MODEL_ID;
+/// The prefix of the response metadata that names the pretrained contextual model (`privoke.pretrained_context.*`).
+pub const CONTEXT_IDENTITY_PREFIX: &str = "privoke.pretrained_context.";
 
 enum Kind {
     Tiny(Box<TinyModel>),
     V3(Box<V3Model>),
+    Context(Box<ContextModel>),
 }
 
 /// A loaded model and the identity its results carry.
@@ -51,6 +61,9 @@ pub struct Loaded {
     result_metadata: BTreeMap<String, String>,
     /// `privoke.semantic.*` of the response (`_semantic_snapshot_identity`), without the prefix.
     identity: BTreeMap<String, String>,
+    /// `privoke.pretrained_context.*` of the response, with the prefix: present for a pretrained contextual model even
+    /// when its layer failed (`pretrained_context_identity`), empty for every other model.
+    context_identity: BTreeMap<String, String>,
     model_id: String,
     version: String,
     category_labels: Vec<String>,
@@ -67,11 +80,21 @@ enum Source {
     Package(PathBuf),
 }
 
+/// Where the frozen contextual backbone is read from, and what admits it.
+#[derive(Debug, Clone)]
+struct ContextAssets {
+    directory: PathBuf,
+    model_sha256: String,
+    tokenizer_sha256: String,
+    config: BertConfig,
+}
+
 /// The model roots of the worker and the models loaded from them.
 #[derive(Debug)]
 pub struct SemanticLayer {
     roots: Vec<PathBuf>,
     latest: Option<String>,
+    context: Option<ContextAssets>,
     cache: Mutex<HashMap<String, (String, Arc<Loaded>)>>,
 }
 
@@ -99,7 +122,34 @@ impl SemanticLayer {
                 return Err(format!("Model root is not a directory: {}", root.display()));
             }
         }
-        Ok(Self { roots, latest, cache: Mutex::new(HashMap::new()) })
+        Ok(Self { roots, latest, context: None, cache: Mutex::new(HashMap::new()) })
+    }
+
+    /// Serves the pretrained contextual encoder from `directory`, which holds `model.onnx` and `tokenizer.json`: both are
+    /// verified against the pins of the contract (`BACKBONE_SHA256`, `TOKENIZER_SHA256`) before they are parsed.
+    #[must_use]
+    pub fn with_pretrained_context_dir(self, directory: impl Into<PathBuf>) -> Self {
+        self.with_pretrained_context_assets(directory, context::BACKBONE_SHA256, context::TOKENIZER_SHA256, context::minilm_config())
+    }
+
+    /// As [`SemanticLayer::with_pretrained_context_dir`], admitting the two files by the given SHA-256 values and reading
+    /// the backbone with the given configuration. The product passes the pinned values; the tests a small synthetic
+    /// backbone, whose heads still have the pinned width.
+    #[must_use]
+    pub fn with_pretrained_context_assets(
+        mut self,
+        directory: impl Into<PathBuf>,
+        model_sha256: &str,
+        tokenizer_sha256: &str,
+        config: BertConfig,
+    ) -> Self {
+        self.context = Some(ContextAssets {
+            directory: directory.into(),
+            model_sha256: model_sha256.to_string(),
+            tokenizer_sha256: tokenizer_sha256.to_string(),
+            config,
+        });
+        self
     }
 
     fn locate(&self, model_id: &str) -> Result<Source, String> {
@@ -149,7 +199,7 @@ impl SemanticLayer {
         }
         let loaded = Arc::new(match path_for_package {
             Some(directory) => load_package(&model_id, &directory, &bytes, &key)?,
-            None => load_tiny(&model_id, &bytes)?,
+            None => self.load_artifact(&model_id, &bytes)?,
         });
         self.cache.lock().unwrap_or_else(PoisonError::into_inner).insert(model_id, (key, Arc::clone(&loaded)));
         Ok(loaded)
@@ -158,33 +208,39 @@ impl SemanticLayer {
     /// The layer for one prompt: normalise, classify, map spans back (`analyse_semantic_layer`), and attach the metadata
     /// and the identity. A model that cannot be read, or cannot classify the text, is the layer's error.
     pub fn run(&self, text: &str, model_id: Option<&str>) -> LayerExecution {
-        let failed = |message: String| LayerExecution {
+        let failed = |message: String, identity: Option<BTreeMap<String, String>>| LayerExecution {
             layer: Layer::Semantic,
             status: Status::Error,
             results: Vec::new(),
             error: Some(message),
-            identity: None,
+            identity,
             gate: None,
         };
         let loaded = match self.fetch(model_id.unwrap_or("latest")) {
             Ok(loaded) => loaded,
-            Err(message) => return failed(message),
+            Err(message) => return failed(message, None),
         };
         let adapter = Adapter { model: &loaded, metadata: RefCell::new(BTreeMap::new()) };
         match analyse_semantic_layer(&adapter, text) {
             LayerOutcome::Ok(hits) => {
                 let results = findings(hits, &adapter.metadata.into_inner());
-                LayerExecution {
-                    layer: Layer::Semantic,
-                    status: Status::Ok,
-                    results,
-                    error: None,
-                    identity: Some(loaded.identity.clone()),
-                    gate: None,
-                }
+                let mut identity = loaded.identity.clone();
+                identity.extend(loaded.context_identity.clone());
+                LayerExecution { layer: Layer::Semantic, status: Status::Ok, results, error: None, identity: Some(identity), gate: None }
             }
-            LayerOutcome::Error(message) => failed(message),
+            // A pretrained contextual model that was loaded names itself even when it could not classify the prompt.
+            LayerOutcome::Error(message) => failed(message, (!loaded.context_identity.is_empty()).then(|| loaded.context_identity.clone())),
         }
+    }
+
+    /// An artifact that is not a V3 package: the pretrained contextual heads, or a legacy Tiny model.
+    fn load_artifact(&self, model_id: &str, bytes: &[u8]) -> Result<Loaded, String> {
+        let value: Value = serde_json::from_slice(bytes).map_err(|error| format!("Could not load model artifact: {error}"))?;
+        let architecture = value.get("architecture").and_then(Value::as_str).unwrap_or_default();
+        if architecture == context::ARCHITECTURE || model_id == PRETRAINED_CONTEXT_MODEL_ID {
+            return load_context(model_id, &value, self.context.as_ref());
+        }
+        load_tiny(model_id, &value)
     }
 
     /// The semantic layer behind a presence gate (`pipeline._execute_semantic_with_presence_gate`). The semantic model
@@ -294,22 +350,17 @@ fn findings(hits: Vec<privoke_semantic::LayerHit>, metadata: &BTreeMap<String, S
         .collect()
 }
 
-fn load_tiny(model_id: &str, bytes: &[u8]) -> Result<Loaded, String> {
-    let value: Value = serde_json::from_slice(bytes).map_err(|error| format!("Could not load model artifact: {error}"))?;
+fn load_tiny(model_id: &str, value: &Value) -> Result<Loaded, String> {
     let object = value.as_object().ok_or_else(|| "Model artifact must be a JSON object.".to_string())?;
     let text = |name: &str| object.get(name).and_then(Value::as_str);
     let architecture = text("architecture").unwrap_or_default();
-    if architecture == "privoke_scratch_presence_transformer_v1"
-        || architecture == "privoke_pretrained_context_v1"
-        || model_id.starts_with("privoke-scratch-presence-")
-        || model_id == PRETRAINED_CONTEXT_MODEL_ID
-    {
-        return Err("Scratch-presence and pretrained-context artifacts are not served by the W1 worker.".to_string());
+    if architecture == "privoke_scratch_presence_transformer_v1" || model_id.starts_with("privoke-scratch-presence-") {
+        return Err("Scratch-presence artifacts are not served by the W1 worker.".to_string());
     }
     if text("model_id") != Some(model_id) {
         return Err("Artifact model_id differs from its file name.".to_string());
     }
-    let model = TinyModel::from_artifact(&value).map_err(|error| error.to_string())?;
+    let model = TinyModel::from_artifact(value).map_err(|error| error.to_string())?;
     let mut parameters: BTreeMap<String, Vec<f64>> = BTreeMap::new();
     let mut shapes: BTreeMap<String, Vec<u64>> = BTreeMap::new();
     let mut count = 0usize;
@@ -348,7 +399,15 @@ fn load_tiny(model_id: &str, bytes: &[u8]) -> Result<Loaded, String> {
         ("architecture".to_string(), architecture.to_string()),
     ]);
     let category_labels = model.config().category_labels.clone();
-    Ok(Loaded { kind: Kind::Tiny(Box::new(model)), result_metadata, identity, model_id: model_id.to_string(), version, category_labels })
+    Ok(Loaded {
+        kind: Kind::Tiny(Box::new(model)),
+        result_metadata,
+        identity,
+        context_identity: BTreeMap::new(),
+        model_id: model_id.to_string(),
+        version,
+        category_labels,
+    })
 }
 
 fn load_package(model_id: &str, directory: &Path, manifest_bytes: &[u8], pin: &str) -> Result<Loaded, String> {
@@ -379,9 +438,246 @@ fn load_package(model_id: &str, directory: &Path, manifest_bytes: &[u8], pin: &s
         kind: Kind::V3(Box::new(model)),
         result_metadata,
         identity,
+        context_identity: BTreeMap::new(),
         model_id: model_id.to_string(),
         version: pin.to_string(),
         category_labels: Vec::new(),
+    })
+}
+
+/// The labels of the three heads in the order of the contract (`LABELS`), as the config of an artifact lists them.
+fn context_labels() -> [(&'static str, Vec<&'static str>); 3] {
+    [
+        ("sensitivity_labels", privoke_semantic::labels::SENSITIVITY.iter().map(|(name, _)| *name).collect()),
+        ("visibility_labels", privoke_semantic::labels::VISIBILITY.iter().map(|(name, _)| *name).collect()),
+        ("category_labels", privoke_semantic::labels::CATEGORY.iter().map(|(name, _)| *name).collect()),
+    ]
+}
+
+/// `validate_pretrained_artifact` (and the generic part of `validate_artifact`, except the checksum, which the fetch that
+/// delivered the file has verified, as for the Tiny artifacts): the exact key sets, the pinned constants of the config,
+/// the label order, the threshold, the release identity and the six frozen head tensors.
+fn validate_context(object: &serde_json::Map<String, Value>) -> Result<(f64, usize), String> {
+    let fail = |message: &str| Err::<(), String>(message.to_string());
+    const ARTIFACT_KEYS: [&str; 9] =
+        ["schema_version", "model_id", "version", "generated_at_unix", "architecture", "config", "parameters", "metadata", "checksum"];
+    if object.len() != ARTIFACT_KEYS.len() || ARTIFACT_KEYS.iter().any(|key| !object.contains_key(*key)) {
+        fail("Pretrained contextual artifact has unsupported fields/architecture.")?;
+    }
+    if object.get("architecture").and_then(Value::as_str) != Some(context::ARCHITECTURE) {
+        fail("Pretrained contextual artifact has unsupported fields/architecture.")?;
+    }
+    let config = object.get("config").and_then(Value::as_object);
+    let constants = [
+        ("task", Value::from("contextual_privacy")),
+        ("backbone_model_id", Value::from("sentence-transformers/all-MiniLM-L6-v2")),
+        ("backbone_revision", Value::from("1110a243fdf4706b3f48f1d95db1a4f5529b4d41")),
+        ("backbone_sha256", Value::from(context::BACKBONE_SHA256)),
+        ("tokenizer_sha256", Value::from(context::TOKENIZER_SHA256)),
+        ("hidden_size", Value::from(context::HIDDEN_SIZE)),
+        ("pooling", Value::from("masked_mean_l2_v1")),
+        ("normalization", Value::from("detector_normalize_text_v1")),
+        ("category_semantics", Value::from("asserted_personal_disclosure_v1")),
+        ("arithmetic", Value::from("float32_onnx_numpy_heads_v1")),
+    ];
+    let labels = context_labels();
+    let config_keys = constants.len() + 1 + labels.len() + 1; // constants, max_tokens, the label lists, the threshold
+    let Some(config) = config.filter(|config| config.len() == config_keys) else {
+        return Err("Pretrained contextual config/model ID is unsupported.".to_string());
+    };
+    if object.get("model_id").and_then(Value::as_str) != Some(PRETRAINED_CONTEXT_MODEL_ID)
+        || config.keys().any(|key| {
+            !(constants.iter().any(|(name, _)| *name == key.as_str())
+                || key == "max_tokens"
+                || key == "category_threshold"
+                || labels.iter().any(|(name, _)| *name == key.as_str()))
+        })
+    {
+        return Err("Pretrained contextual config/model ID is unsupported.".to_string());
+    }
+    for (name, expected) in &constants {
+        if config.get(*name) != Some(expected) {
+            return Err("Pretrained contextual encoder contract does not match.".to_string());
+        }
+    }
+    let max_tokens = config.get("max_tokens").and_then(Value::as_u64).and_then(|value| usize::try_from(value).ok());
+    let Some(max_tokens) = max_tokens.filter(|value| context::SUPPORTED_MAX_TOKENS.contains(value)) else {
+        return Err("Pretrained contextual max_tokens must be exactly 256 or 512.".to_string());
+    };
+    for (name, expected) in &labels {
+        let listed: Option<Vec<&str>> =
+            config.get(*name).and_then(Value::as_array).map(|items| items.iter().filter_map(Value::as_str).collect());
+        if listed.as_deref() != Some(expected.as_slice())
+            || config.get(*name).and_then(Value::as_array).map(Vec::len) != Some(expected.len())
+        {
+            return Err("Pretrained contextual label order does not match.".to_string());
+        }
+    }
+    let threshold = match config.get("category_threshold") {
+        Some(Value::Number(number)) => number.as_f64().filter(|value| value.is_finite() && *value > 0.0 && *value < 1.0),
+        _ => None,
+    };
+    let Some(threshold) = threshold else {
+        return Err("Pretrained category threshold must be finite and between zero and one.".to_string());
+    };
+    if object.get("schema_version").and_then(Value::as_i64) != Some(1) {
+        return Err("Pretrained contextual schema is unsupported.".to_string());
+    }
+    let version = object.get("version").and_then(Value::as_str).unwrap_or_default();
+    let mut chars = version.chars();
+    let version_ok = chars.next().is_some_and(|first| first.is_ascii_alphanumeric())
+        && version.len() <= 128
+        && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '+' | '_' | '-'));
+    if !version_ok || object.get("generated_at_unix").and_then(Value::as_i64).is_none_or(|stamp| stamp <= 0) {
+        return Err("Pretrained contextual version is invalid.".to_string());
+    }
+    let strings = object.get("metadata").and_then(Value::as_object).is_some_and(|metadata| metadata.values().all(Value::is_string));
+    if !strings {
+        return Err("Pretrained contextual metadata must contain strings.".to_string());
+    }
+    if object.get("checksum").and_then(Value::as_str).is_none_or(|checksum| checksum.len() != 64) {
+        return Err("Model artifact has no valid checksum.".to_string());
+    }
+    Ok((threshold, max_tokens))
+}
+
+/// Head tensors by name: shape and float32 values.
+type Heads = BTreeMap<String, (Vec<usize>, Vec<f32>)>;
+
+/// The six head tensors of a validated artifact: `(name, shape, values rounded to float32)`.
+fn context_heads(object: &serde_json::Map<String, Value>) -> Result<Heads, String> {
+    let tensors = object
+        .get("parameters")
+        .and_then(Value::as_object)
+        .ok_or_else(|| "Pretrained contextual tensor fields do not match.".to_string())?;
+    let mut expected: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+    for (task, labels) in [("sensitivity", 4usize), ("visibility", 6), ("category", 10)] {
+        expected.insert(format!("head.{task}.weight"), vec![context::HIDDEN_SIZE, labels]);
+        expected.insert(format!("head.{task}.bias"), vec![labels]);
+    }
+    if tensors.len() != expected.len() || expected.keys().any(|name| !tensors.contains_key(name)) {
+        return Err("Pretrained contextual model requires exactly six head tensors.".to_string());
+    }
+    let mut heads = BTreeMap::new();
+    for (name, shape) in &expected {
+        let tensor = tensors.get(name).and_then(Value::as_object).filter(|tensor| tensor.len() == 3);
+        let Some(tensor) = tensor else { return Err("Pretrained contextual tensor fields do not match.".to_string()) };
+        let (Some(listed), Some(values), Some(trainable)) =
+            (tensor.get("shape").and_then(Value::as_array), tensor.get("values").and_then(Value::as_array), tensor.get("trainable"))
+        else {
+            return Err("Pretrained contextual tensor fields do not match.".to_string());
+        };
+        let listed: Option<Vec<usize>> = listed.iter().map(|size| size.as_u64().and_then(|size| usize::try_from(size).ok())).collect();
+        if listed.as_ref() != Some(shape) {
+            return Err("Pretrained contextual head shape does not match.".to_string());
+        }
+        if *trainable != Value::Bool(false) {
+            return Err("Pretrained contextual heads permit offline fitting only.".to_string());
+        }
+        if values.len() != shape.iter().product::<usize>() {
+            return Err("Pretrained contextual head length does not match.".to_string());
+        }
+        let mut rounded = Vec::with_capacity(values.len());
+        for value in values {
+            let number = match value {
+                Value::Number(number) => number.as_f64(),
+                _ => None,
+            };
+            let Some(number) = number else { return Err("Pretrained contextual head values must be numeric.".to_string()) };
+            let narrowed = number as f32;
+            if !narrowed.is_finite() {
+                return Err("Parameter is outside finite float32 range.".to_string());
+            }
+            rounded.push(narrowed);
+        }
+        heads.insert(name.clone(), (shape.clone(), rounded));
+    }
+    Ok(heads)
+}
+
+/// A pretrained contextual model: the heads of the artifact over the frozen encoder of the asset directory.
+fn load_context(model_id: &str, value: &Value, assets: Option<&ContextAssets>) -> Result<Loaded, String> {
+    let object = value.as_object().ok_or_else(|| "Model artifact must be a JSON object.".to_string())?;
+    if object.get("model_id").and_then(Value::as_str) != Some(model_id) {
+        return Err("Artifact model_id differs from its file name.".to_string());
+    }
+    let (threshold, max_tokens) = validate_context(object)?;
+    let heads = context_heads(object)?;
+    let assets = assets.ok_or_else(|| "PRIVOKE_PRETRAINED_CONTEXT_DIR must name verified local encoder assets.".to_string())?;
+    let encoder = ContextEncoder::load_directory_admitted_by(
+        &assets.directory,
+        max_tokens,
+        &assets.model_sha256,
+        &assets.tokenizer_sha256,
+        &assets.config,
+    )
+    .map_err(|error| error.to_string())?;
+    let head = |task: &str, part: &str| heads.get(&format!("head.{task}.{part}")).map(|(_, values)| values.as_slice()).unwrap_or_default();
+    let model = ContextModel::new(
+        encoder,
+        [head("sensitivity", "weight"), head("visibility", "weight"), head("category", "weight")],
+        [head("sensitivity", "bias"), head("visibility", "bias"), head("category", "bias")],
+        threshold,
+    )
+    .map_err(|error| error.to_string())?;
+
+    let mut parameters: BTreeMap<String, Vec<f64>> = BTreeMap::new();
+    let mut shapes: BTreeMap<String, Vec<u64>> = BTreeMap::new();
+    let mut count = 0usize;
+    for (name, (shape, values)) in &heads {
+        count += values.len();
+        parameters.insert(name.clone(), values.iter().map(|value| f64::from(*value)).collect());
+        shapes.insert(name.clone(), shape.iter().map(|size| *size as u64).collect());
+    }
+    let fingerprint = parameter_fingerprint(&parameters, Some(&shapes)).map_err(|error| error.to_string())?;
+    let text = |name: &str| object.get(name).and_then(Value::as_str).unwrap_or_default().to_string();
+    let (version, checksum) = (text("version"), text("checksum"));
+    let result_metadata = BTreeMap::from([
+        ("classifier".to_string(), "privoke_pretrained_context".to_string()),
+        ("architecture".to_string(), context::ARCHITECTURE.to_string()),
+        ("model_id".to_string(), model_id.to_string()),
+        ("model_version".to_string(), version.clone()),
+        ("parameter_count".to_string(), count.to_string()),
+        ("parameter_fingerprint".to_string(), fingerprint.clone()),
+        ("artifact_checksum".to_string(), checksum.clone()),
+        ("compute_device".to_string(), COMPUTE_DEVICE.to_string()),
+        ("backbone_sha256".to_string(), context::BACKBONE_SHA256.to_string()),
+        ("tokenizer_sha256".to_string(), context::TOKENIZER_SHA256.to_string()),
+    ]);
+    // `_semantic_snapshot_identity`: the backbone and tokenizer digests only when the snapshot metadata carries them.
+    let mut identity = BTreeMap::from([
+        ("model_id".to_string(), model_id.to_string()),
+        ("model_version".to_string(), version.clone()),
+        ("artifact_checksum".to_string(), checksum.clone()),
+        ("parameter_fingerprint".to_string(), fingerprint.clone()),
+        ("architecture".to_string(), context::ARCHITECTURE.to_string()),
+    ]);
+    for name in ["backbone_sha256", "tokenizer_sha256"] {
+        if let Some(digest) = object.get("metadata").and_then(|metadata| metadata.get(name)).and_then(Value::as_str) {
+            identity.insert(name.to_string(), digest.to_string());
+        }
+    }
+    // `pipeline._execute_pretrained_context`: the identity the response carries whatever the layer's outcome.
+    let context_identity = [
+        ("model_id", model_id.to_string()),
+        ("model_version", version.clone()),
+        ("artifact_checksum", checksum),
+        ("parameter_fingerprint", fingerprint),
+        ("backbone_sha256", context::BACKBONE_SHA256.to_string()),
+        ("tokenizer_sha256", context::TOKENIZER_SHA256.to_string()),
+    ]
+    .into_iter()
+    .map(|(name, value)| (format!("{CONTEXT_IDENTITY_PREFIX}{name}"), value))
+    .collect();
+    let category_labels = privoke_semantic::labels::CATEGORY.iter().map(|(name, _)| (*name).to_string()).collect();
+    Ok(Loaded {
+        kind: Kind::Context(Box::new(model)),
+        result_metadata,
+        identity,
+        context_identity,
+        model_id: model_id.to_string(),
+        version,
+        category_labels,
     })
 }
 
@@ -398,40 +694,53 @@ impl SemanticClassifier for Adapter<'_> {
         let findings = match &loaded.kind {
             Kind::V3(model) => model.classify(text)?,
             Kind::Tiny(model) => {
-                // `StreamedTransformerPrivacyModel.classify`.
                 let prediction = model.predict(text);
-                let decision = &prediction.decision;
-                let classification = decision.classification;
-                let visibility = visibility_value(&decision.visibility).unwrap_or(0);
-                if is_empty_classification(classification.sensitivity(), classification.categories(), visibility) {
-                    Vec::new()
-                } else {
-                    let mut probabilities: Vec<(&String, f64)> = loaded
-                        .category_labels
-                        .iter()
-                        .zip(&prediction.category_probabilities)
-                        .map(|(label, probability)| (label, round(f64::from(*probability), 4)))
-                        .collect();
-                    probabilities.sort_by(|a, b| a.0.cmp(b.0));
-                    let body: Vec<String> = probabilities
-                        .iter()
-                        .map(|(label, value)| format!("\"{label}\": {}", pyfloat::repr(*value).unwrap_or_else(|_| "0.0".to_string())))
-                        .collect();
-                    metadata.insert("category_probabilities".to_string(), format!("{{{}}}", body.join(", ")));
-                    vec![ModelFinding {
-                        classification,
-                        confidence: decision.confidence,
-                        reasoning: format!(
-                            "Streamed transformer {} {} predicted {}/{}.",
-                            loaded.model_id, loaded.version, decision.sensitivity, decision.visibility
-                        ),
-                        span: if text.is_empty() { None } else { Some((0, text.chars().count())) },
-                        section: text.to_string(),
-                    }]
-                }
+                streamed_findings(loaded, text, &prediction.decision, &prediction.category_probabilities, &mut metadata)
+            }
+            Kind::Context(model) => {
+                let prediction = model.predict(text)?;
+                streamed_findings(loaded, text, &prediction.prediction, &prediction.category_probabilities, &mut metadata)
             }
         };
         *self.metadata.borrow_mut() = metadata;
         Ok(findings)
     }
+}
+
+/// `StreamedTransformerPrivacyModel.classify`: the one finding of a streamed transformer, or none for the empty
+/// classification, with the rounded category probabilities in the metadata.
+fn streamed_findings(
+    loaded: &Loaded,
+    text: &str,
+    decision: &privoke_semantic::Prediction,
+    category_probabilities: &[f32],
+    metadata: &mut BTreeMap<String, String>,
+) -> Vec<ModelFinding> {
+    let classification = decision.classification;
+    let visibility = visibility_value(&decision.visibility).unwrap_or(0);
+    if is_empty_classification(classification.sensitivity(), classification.categories(), visibility) {
+        return Vec::new();
+    }
+    let mut probabilities: Vec<(&String, f64)> = loaded
+        .category_labels
+        .iter()
+        .zip(category_probabilities)
+        .map(|(label, probability)| (label, round(f64::from(*probability), 4)))
+        .collect();
+    probabilities.sort_by(|a, b| a.0.cmp(b.0));
+    let body: Vec<String> = probabilities
+        .iter()
+        .map(|(label, value)| format!("\"{label}\": {}", pyfloat::repr(*value).unwrap_or_else(|_| "0.0".to_string())))
+        .collect();
+    metadata.insert("category_probabilities".to_string(), format!("{{{}}}", body.join(", ")));
+    vec![ModelFinding {
+        classification,
+        confidence: decision.confidence,
+        reasoning: format!(
+            "Streamed transformer {} {} predicted {}/{}.",
+            loaded.model_id, loaded.version, decision.sensitivity, decision.visibility
+        ),
+        span: if text.is_empty() { None } else { Some((0, text.chars().count())) },
+        section: text.to_string(),
+    }]
 }

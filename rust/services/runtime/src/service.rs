@@ -23,7 +23,6 @@ use crate::pipeline::Pipeline;
 use crate::presence;
 use crate::request::{DEFAULT_MAX_TEXT_CHARS, Layer, is_gate_model, parse_prompt_request, regex_first, requested_layers};
 use crate::response::{Elapsed, decide, encode_analysis, error_response, health_response};
-use crate::semantic::PRETRAINED_CONTEXT_MODEL_ID;
 use crate::store::ArtifactStore;
 use crate::training::Trainer;
 
@@ -132,11 +131,10 @@ impl<A: SpacyBackend> Service<A> {
                 request.request_id,
             ));
         }
-        // The pretrained contextual encoder and the scratch presence gates are served by the Python worker only; a gate
+        // The scratch presence gates are served by the Python worker only; a gate
         // needs the presence models as well as the semantic ones.
         if message.layers.contains(&Layer::Semantic.proto_value())
             && (!self.pipeline.serves_semantic()
-                || message.semantic_model_id == PRETRAINED_CONTEXT_MODEL_ID
                 || message
                     .semantic_presence_gate
                     .as_ref()

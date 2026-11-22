@@ -83,12 +83,29 @@ jobs:
           key: rust-test-${{ runner.os }}-${{ env.RUST_TOOLCHAIN }}-${{ hashFiles('rust/Cargo.lock') }}
       - name: Test
         run: cargo test --workspace --locked --no-fail-fast
+      - name: Worker links no HTTP stack (stage 17)
+        # The isolated inference worker never opens a socket: the stage 16 external classifier is the cargo feature
+        # `external-classifier` of privoke-semantic, and the worker depends on that crate without it.
+        run: |
+          cargo check -p privoke-semantic --no-default-features --lib --locked
+          if cargo tree -p privoke-runtime -e normal --locked | grep -Ei 'reqwest|rustls|native-tls|openssl'; then
+            echo 'privoke-runtime links an HTTP or TLS stack' >&2
+            exit 1
+          fi
       - name: Training parity report (stage 19)
         # Prints the per-case gradient error and bitwise counts of privoke-training (eprintln).
         run: cargo test -p privoke-training --locked -- --nocapture --test-threads=1
       - name: Runtime golden report (stage 17)
         # Prints the per-scope byte-parity counts of the Rust analysis runtime against the Python servicer (eprintln).
         run: cargo test -p privoke-runtime --test golden --test semantic_golden --test worker_golden --locked -- --nocapture --test-threads=1
+
+      - name: Fetch parity and contextual encoder reports (RUST-S17B)
+        # Prints the counts of the model fetch goldens (V3 package and legacy snapshot) and the contextual encoder goldens (eprintln).
+        run: |
+          cargo test -p privoke-runtime-supervisor --test fetch_golden --locked -- --nocapture --test-threads=1
+          cargo test -p privoke-analysis --test fetch_golden --locked -- --nocapture --test-threads=1
+          cargo test -p privoke-semantic --test context_golden --locked -- --nocapture --test-threads=1
+          cargo test -p privoke-runtime --test context_semantic --locked -- --nocapture --test-threads=1
 
   embed-check:
     # The PyO3 spaCy worker and the in-process spaCy backend (stage 11b) need a

@@ -1933,6 +1933,7 @@ dependencies = [
  "privoke-model-streaming",
  "privoke-pki",
  "privoke-runtime-supervisor",
+ "privoke-telemetry-client",
  "privoke-transport",
  "privoke-worker-pool",
  "prost",
@@ -1954,11 +1955,13 @@ dependencies = [
 name = "privoke-semantic"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "privoke-contracts",
  "privoke-rules",
  "reqwest",
  "serde_json",
  "sha2",
+ "tempfile",
  "thiserror",
  "tokenizers",
 ]

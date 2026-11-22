@@ -104,19 +104,19 @@ impl Capabilities {
     }
 }
 
-/// `PRETRAINED_CONTEXT_MODEL_ID`: the pretrained contextual encoder is served by the Python worker only.
+/// `PRETRAINED_CONTEXT_MODEL_ID`: the pretrained contextual encoder, a semantic model the Rust worker serves (RUST-S17B)
+/// when it has model roots and the encoder assets; without the assets it answers the layer's error, as the Python worker
+/// does (which does not serve that model at all).
+#[cfg(test)]
 const PRETRAINED_CONTEXT_MODEL_ID: &str = "privoke-pretrained-context-minilm";
 
 /// The scratch presence models, which only the Python worker names (and then refuses, as no W1 worker serves them).
 const SCRATCH_PRESENCE_PREFIX: &str = "privoke-scratch-presence-";
 
-/// The engine for an `AnalyzePrompt`: the layer selection decides, except that the pretrained contextual encoder and a
-/// scratch presence gate are Python's whatever the layers are, and a sparse presence gate is the Rust worker's only when it
+/// The engine for an `AnalyzePrompt`: the layer selection decides, except that a
+/// scratch presence gate is Python's whatever the layers are, and a sparse presence gate is the Rust worker's only when it
 /// serves both the semantic layer and presence.
 pub fn route_analysis(rust: Option<Capabilities>, request: &AnalyzePromptRequest) -> Engine {
-    if request.semantic_model_id == PRETRAINED_CONTEXT_MODEL_ID {
-        return Engine::Python;
-    }
     if let Some(gate) = &request.semantic_presence_gate {
         let served = rust.is_some_and(|capabilities| capabilities.semantic && capabilities.presence);
         if !served || gate.model_id.starts_with(SCRATCH_PRESENCE_PREFIX) {
@@ -303,7 +303,8 @@ mod tests {
         assert_eq!(route_analysis(Some(Capabilities::RUST), &request(vec![SEMANTIC])), Engine::Python);
         let mut context = request(vec![SEMANTIC]);
         context.semantic_model_id = PRETRAINED_CONTEXT_MODEL_ID.to_string();
-        assert_eq!(route_analysis(with_models, &context), Engine::Python);
+        assert_eq!(route_analysis(with_models, &context), Engine::Rust, "the contextual encoder is a semantic model of the Rust worker");
+        assert_eq!(route_analysis(Some(Capabilities::RUST), &context), Engine::Python, "no model roots: Python");
         assert_eq!(route_analysis(with_models, &request(vec![])), Engine::Python);
     }
 

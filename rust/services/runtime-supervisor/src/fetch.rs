@@ -178,7 +178,10 @@ impl Fetcher {
             }
             return Ok(Some(done));
         }
-        for (name, asset) in &descriptors {
+        // In the order the server declared the assets, as the Python fetch does: when one asset is refused, the same
+        // assets are already in the cache.
+        for asset in &package.assets {
+            let name = asset.name.as_str();
             let destination = directory.join(name);
             if exists_or_link(&destination)? {
                 if digest_file(&safe_file(&directory, name)?)? != asset.sha256 {

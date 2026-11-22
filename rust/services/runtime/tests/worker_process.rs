@@ -235,9 +235,12 @@ fn with_model_roots_the_worker_serves_and_warms_the_semantic_layer() {
     let unknown = AnalyzePromptResponse::decode(worker.analyze(&request).payload.as_slice()).unwrap();
     assert!(unknown.error.contains("is not available in the worker model roots"), "{unknown:?}");
 
-    // A gate and the pretrained contextual encoder are Python's: refused here, never answered wrongly.
+    // The pretrained contextual encoder is a semantic model like the others: with no artifact in the roots it is the
+    // layer's error, never a decision.
     request.semantic_model_id = "privoke-pretrained-context-minilm".into();
-    assert_eq!(error_code(&worker.analyze(&request)), code::UNSUPPORTED_LAYERS);
+    let contextual = AnalyzePromptResponse::decode(worker.analyze(&request).payload.as_slice()).unwrap();
+    assert!(contextual.error.contains("is not available in the worker model roots"), "{contextual:?}");
+    assert_eq!(contextual.action, "BLOCK");
 }
 
 fn golden_case(id: &str) -> serde_json::Value {
