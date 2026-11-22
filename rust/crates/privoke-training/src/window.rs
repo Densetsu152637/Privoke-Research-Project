@@ -48,9 +48,9 @@ const CATEGORY_MASK: u16 = 0x7FE0;
 const VISIBILITY_MASK: u16 = 0b1_1100;
 const PU: u16 = 0b1_1100;
 const IDENTIFIERS: u16 = 0b001_0000_0000_0000 | 0b010_0000_0000_0000;
-const VISIBILITIES: [(&str, u16); 6] =
+pub(crate) const VISIBILITIES: [(&str, u16); 6] =
     [("P0", 0b00100), ("P1", 0b01000), ("P2", 0b01100), ("P3", 0b10000), ("P4", 0b10100), ("PU", 0b11100)];
-const CATEGORIES: [(&str, u16); 10] = [
+pub(crate) const CATEGORIES: [(&str, u16); 10] = [
     ("HEALTH", 0b000_0000_0010_0000),
     ("POLITICS", 0b000_0000_0100_0000),
     ("RELIGION", 0b000_0000_1000_0000),
@@ -399,7 +399,7 @@ impl Release {
     }
 }
 
-fn teacher_tensors(artifact: &Value) -> Result<(Values, Shapes), TrainingError> {
+pub(crate) fn teacher_tensors(artifact: &Value) -> Result<(Values, Shapes), TrainingError> {
     let bad = || invalid("Component ORIGINAL teacher differs from independently configured accepted raw-file SHA.");
     let entries = artifact["parameters"].as_object().ok_or_else(bad)?;
     let (mut values, mut shapes) = (Values::new(), Shapes::new());
@@ -413,6 +413,15 @@ fn teacher_tensors(artifact: &Value) -> Result<(Values, Shapes), TrainingError> 
         shapes.insert(name.clone(), shape.iter().filter_map(Value::as_u64).collect());
     }
     Ok((values, shapes))
+}
+
+/// The packed classification of a target's label names.
+pub(crate) fn packed_of_target(target: &Target) -> u16 {
+    let sensitivity = ["S0", "S1", "S2", "S3"].iter().position(|name| *name == target.sensitivity).unwrap_or(0) as u16;
+    let visibility = VISIBILITIES.iter().find(|(name, _)| *name == target.visibility).map_or(0, |(_, bits)| *bits);
+    let categories: u16 =
+        CATEGORIES.iter().filter(|(name, _)| target.categories.iter().any(|c| c == name)).map(|(_, bit)| *bit).fold(0, |a, b| a | b);
+    sensitivity | visibility | categories
 }
 
 fn names_of(packed: u16) -> Target {
@@ -489,11 +498,11 @@ pub fn component_deltas(net: &TinyNet, references: &[Reference]) -> Result<(Valu
     Ok((deltas, loss))
 }
 
-fn sensitivity_bits(packed: u16) -> u16 {
+pub(crate) fn sensitivity_bits(packed: u16) -> u16 {
     packed & 0b11
 }
 
-fn is_sensitive(packed: u16) -> bool {
+pub(crate) fn is_sensitive(packed: u16) -> bool {
     sensitivity_bits(packed) != 0 || packed & CATEGORY_MASK != 0
 }
 
@@ -688,19 +697,19 @@ pub struct Outcome {
     pub guard_run: bool,
 }
 
-fn node_object(entries: Vec<(&str, Node)>) -> Node {
+pub(crate) fn node_object(entries: Vec<(&str, Node)>) -> Node {
     Node::Object(entries.into_iter().map(|(key, value)| (key.to_string(), value)).collect())
 }
 
-fn node_int(value: usize) -> Node {
+pub(crate) fn node_int(value: usize) -> Node {
     Node::Int(value.to_string())
 }
 
-fn node_text(value: &str) -> Node {
+pub(crate) fn node_text(value: &str) -> Node {
     Node::String(value.to_string())
 }
 
-fn node_rows(rows: &[(u16, f64)]) -> Node {
+pub(crate) fn node_rows(rows: &[(u16, f64)]) -> Node {
     Node::Array(
         rows.iter().map(|(packed, confidence)| Node::Array(vec![node_int(usize::from(*packed)), Node::Float(*confidence)])).collect(),
     )
@@ -719,18 +728,18 @@ pub fn array_identity(arrays: &Values) -> String {
     sha256_hex(&bytes)
 }
 
-fn shapes_of(params: &Params) -> Shapes {
+pub(crate) fn shapes_of(params: &Params) -> Shapes {
     params
         .iter()
         .map(|(name, tensor)| (name.clone(), tensor.shape.iter().map(|size| u64::try_from(*size).unwrap_or(u64::MAX)).collect()))
         .collect()
 }
 
-fn widen(values: &F32Map) -> Values {
+pub(crate) fn widen(values: &F32Map) -> Values {
     values.iter().map(|(name, list)| (name.clone(), list.iter().map(|value| f64::from(*value)).collect())).collect()
 }
 
-fn params_of(net: &TinyNet, values: &F32Map) -> Params {
+pub(crate) fn params_of(net: &TinyNet, values: &F32Map) -> Params {
     values
         .iter()
         .map(|(name, list)| {
@@ -740,11 +749,11 @@ fn params_of(net: &TinyNet, values: &F32Map) -> Params {
         .collect()
 }
 
-fn fingerprint(values: &F32Map, shapes: &Shapes) -> Result<String, TrainingError> {
+pub(crate) fn fingerprint(values: &F32Map, shapes: &Shapes) -> Result<String, TrainingError> {
     Ok(parameter_fingerprint(&widen(values), Some(shapes))?)
 }
 
-fn predict(artifact: &Value, params: &Params, texts: &[String]) -> Result<Vec<(u16, f64)>, TrainingError> {
+pub(crate) fn predict(artifact: &Value, params: &Params, texts: &[String]) -> Result<Vec<(u16, f64)>, TrainingError> {
     let model = TinyModel::from_artifact(&artifact_with(artifact, params))?;
     Ok(texts
         .iter()

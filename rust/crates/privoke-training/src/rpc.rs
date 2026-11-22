@@ -216,7 +216,7 @@ pub(crate) fn predictions(snapshot: &Snapshot, params: &Params, examples: &[Exam
 }
 
 /// `_heldout_metrics`, with the safety-regression rate when a reference is given.
-fn heldout_metrics(
+pub(crate) fn heldout_metrics(
     snapshot: &Snapshot,
     params: &Params,
     examples: &[Example],
