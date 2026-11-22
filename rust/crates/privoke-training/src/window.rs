@@ -680,6 +680,12 @@ pub struct Outcome {
     pub identities: Vec<(String, String)>,
     /// The response metrics.
     pub metrics: BTreeMap<String, f64>,
+    /// The fingerprint of the base state (`base` of the trace).
+    pub base: String,
+    /// The fingerprint of the published state (`published` of the trace).
+    pub published: String,
+    /// Whether the unchanged guard ran.
+    pub guard_run: bool,
 }
 
 fn node_object(entries: Vec<(&str, Node)>) -> Node {
@@ -1103,5 +1109,8 @@ pub fn run(
         checkpoints,
         identities,
         metrics,
+        base: base_fingerprint,
+        published,
+        guard_run,
     })
 }

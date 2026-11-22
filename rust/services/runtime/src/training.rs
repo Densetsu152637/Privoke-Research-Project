@@ -25,6 +25,7 @@
 //! hashes the same contract fields and the fingerprints are the stage 1 contract over the same float32 values.
 
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use privoke_contracts::canonical::{self, Variant};
@@ -36,10 +37,14 @@ use privoke_contracts::pyfloat;
 use privoke_rules::preprocessing::normalize_text;
 use privoke_rules::pyunicode;
 use privoke_semantic::tiny::{Readout, TASK_QUERY_READOUT, TinyConfig};
-use privoke_training::admission::{Admitted, BACKTRACKING_POLICY, Header, Route, TRAIN_DIAGNOSTICS_POLICY, admit};
+use privoke_training::admission::{
+    Admitted, BACKTRACKING_POLICY, Header, Policy, Route, TRAIN_DIAGNOSTICS_POLICY, WINDOW_CONFIG_CANONICAL, WINDOW_ELIGIBILITY, admit,
+    policy_admission,
+};
 use privoke_training::objective::{Example, Target};
 use privoke_training::presence::{PresenceExample, PresenceRequest, PresenceSnapshot, compute_presence_gradients};
 use privoke_training::rpc::{self, Request as GradientRequest, Snapshot, compute_gradients};
+use privoke_training::window::{self, Release, Row, Window, compute_directions};
 
 use crate::frames::{FrameError, Method, Request, code};
 use crate::model::{category_names, visibility_name};
@@ -110,12 +115,60 @@ fn declined(reason: impl Into<String>) -> Failure {
 pub struct Trainer {
     store: Arc<ArtifactStore>,
     max_text_chars: usize,
+    window: Option<WindowConfig>,
+}
+
+/// The trusted configuration of the window route: the sidecar paths and the pins the operator accepts (the
+/// `PRIVOKE_WINDOW_*` and `PRIVOKE_COMPONENT_*` variables `window_training.load_inputs` reads).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WindowConfig {
+    /// `PRIVOKE_WINDOW_PATH`.
+    pub window_path: PathBuf,
+    /// `PRIVOKE_WINDOW_MANIFEST_SHA256`.
+    pub window_sha256: String,
+    /// `PRIVOKE_COMPONENT_BANK_PATH`.
+    pub bank_path: PathBuf,
+    /// `PRIVOKE_COMPONENT_REFERENCE_PATH`.
+    pub reference_path: PathBuf,
+    /// `PRIVOKE_COMPONENT_MANIFEST_PATH`.
+    pub manifest_path: PathBuf,
+    /// `PRIVOKE_COMPONENT_TEACHER_PATH`.
+    pub teacher_path: PathBuf,
+    /// `PRIVOKE_COMPONENT_MANIFEST_SHA256`.
+    pub manifest_sha256: String,
+    /// `PRIVOKE_COMPONENT_TEACHER_SHA256`.
+    pub teacher_sha256: String,
+}
+
+impl WindowConfig {
+    /// The configuration from a variable lookup; `None` unless every variable is set and non-empty.
+    pub fn from_lookup(lookup: &dyn Fn(&str) -> Option<String>) -> Option<Self> {
+        let get = |name: &str| lookup(name).map(|value| value.trim().to_string()).filter(|value| !value.is_empty());
+        Some(Self {
+            window_path: PathBuf::from(get("PRIVOKE_WINDOW_PATH")?),
+            window_sha256: get("PRIVOKE_WINDOW_MANIFEST_SHA256")?,
+            bank_path: PathBuf::from(get("PRIVOKE_COMPONENT_BANK_PATH")?),
+            reference_path: PathBuf::from(get("PRIVOKE_COMPONENT_REFERENCE_PATH")?),
+            manifest_path: PathBuf::from(get("PRIVOKE_COMPONENT_MANIFEST_PATH")?),
+            teacher_path: PathBuf::from(get("PRIVOKE_COMPONENT_TEACHER_PATH")?),
+            manifest_sha256: get("PRIVOKE_COMPONENT_MANIFEST_SHA256")?,
+            teacher_sha256: get("PRIVOKE_COMPONENT_TEACHER_SHA256")?,
+        })
+    }
 }
 
 impl Trainer {
-    /// A trainer reading models from `store`; texts are limited to `max_text_chars` characters.
+    /// A trainer reading models from `store`; texts are limited to `max_text_chars` characters. The window route is
+    /// configured from the environment.
     pub fn new(store: Arc<ArtifactStore>, max_text_chars: usize) -> Self {
-        Self { store, max_text_chars }
+        Self { store, max_text_chars, window: WindowConfig::from_lookup(&|name| std::env::var(name).ok()) }
+    }
+
+    /// The same trainer with an explicit window configuration (`None` declines the window route to the Python worker).
+    #[must_use]
+    pub fn with_window(mut self, window: Option<WindowConfig>) -> Self {
+        self.window = window;
+        self
     }
 
     /// One gradient request: the serialised response, or `UNSUPPORTED_ROUTE` when the shape is not served here.
@@ -204,6 +257,9 @@ impl Trainer {
         if !full_encoder && admission.as_ref().is_some_and(|header| header.backtracking.is_some()) {
             return Err(message("Backtracking admission is FULL-only."));
         }
+        if let Some(header) = admission.as_ref().filter(|header| header.window.is_some()) {
+            return self.window_response(request, header, full_encoder);
+        }
         self.check_semantic_request(request)?;
         let train = rows(&request.examples)?;
         let heldout = rows(&request.heldout_examples)?;
@@ -250,6 +306,99 @@ impl Trainer {
             metadata: &metadata,
             executions: &batch.executions,
             error: &batch.error,
+        }))
+    }
+
+    /// `training._compute_training_gradients` and `window_training.compute` for a schema 5 header: the frozen window loop.
+    fn window_response(
+        &self,
+        request: &ComputeSemanticGradientsRequest,
+        admission: &Admission,
+        full_encoder: bool,
+    ) -> Result<Vec<u8>, Failure> {
+        let Some((window_pin, component_pin)) = admission.window.clone() else {
+            return Err(declined("the request carries no window pins"));
+        };
+        self.check_semantic_request(request)?;
+        if request.model_id == PRETRAINED_CONTEXT_MODEL_ID {
+            return Err(message("Pretrained contextual online training is unsupported; use offline head fitting."));
+        }
+        let train = rows(&request.examples)?;
+        rows(&request.heldout_examples)?;
+        if !request.learning_rate.is_finite() || request.learning_rate <= 0.0 {
+            return Err(message("learning_rate must be finite and greater than zero."));
+        }
+        if !request.max_gradient.is_finite() || request.max_gradient <= 0.0 {
+            return Err(message("max_gradient must be finite and greater than zero."));
+        }
+        if train.iter().any(|row| !row.weight.is_finite() || row.weight <= 0.0) {
+            return Err(message("Training example weights must be finite and positive."));
+        }
+        if !full_encoder {
+            return Err(message("Frozen window/checkpoint training is FULL-only."));
+        }
+        if request.learning_rate != 0.003 || request.max_gradient != 0.05 {
+            return Err(message("Window optimizer requires explicit FULL scope/fixed rate/cap."));
+        }
+        let Some(config) = &self.window else { return Err(declined("the worker has no window release configuration")) };
+        if window_pin != config.window_sha256 || component_pin != config.manifest_sha256 {
+            return Err(message("Request pins differ from trusted runtime window/component configuration."));
+        }
+        let window = Window::parse(&read_file(&config.window_path)?, &config.window_sha256).map_err(|error| message(error.to_string()))?;
+        let release = Release::load(
+            &read_file(&config.bank_path)?,
+            &read_file(&config.reference_path)?,
+            &read_file(&config.manifest_path)?,
+            &read_file(&config.teacher_path)?,
+            &config.manifest_sha256,
+            &config.teacher_sha256,
+        )
+        .map_err(|error| message(error.to_string()))?;
+        let frozen_train = window.rows();
+        let frozen_guard: Vec<&Row> = window.guard.iter().collect();
+        if !same_rows(&request.examples, &frozen_train) || !same_rows(&request.heldout_examples, &frozen_guard) {
+            return Err(message("Actual ordered request texts/targets/raw weights differ from frozen window."));
+        }
+        let artifact = self.store.read(&request.model_id)?;
+        if artifact.architecture == PRESENCE_ARCHITECTURE {
+            return Err(declined("the artifact is a presence model"));
+        }
+        match policy_admission(Some(&admission.header()), &artifact.metadata).map_err(|error| message(error.to_string()))? {
+            Policy::Window => {}
+            _ => return Err(declined("the artifact is not a window artifact")),
+        }
+        let config_value = artifact.value.get("config").ok_or_else(|| message("Model config must be a JSON object."))?;
+        let model_config = TinyConfig::from_json(config_value, &artifact.architecture).map_err(|error| message(error.to_string()))?;
+        let limit = model_config.max_tokens;
+        if frozen_train.iter().chain(frozen_guard.iter()).any(|row| token_count(&row.text) + 1 > limit) {
+            return Err(message(format!("Tiny full-training input exceeds its {limit}-token context including the start token.")));
+        }
+        let outcome =
+            window::run(&artifact.value, &window, &release, &mut compute_directions).map_err(|error| message(error.to_string()))?;
+        let metadata = window_metadata(&artifact, &model_config, &outcome, &window, &release)?;
+        let shapes: BTreeMap<String, Vec<u64>> =
+            outcome.gradients.keys().filter_map(|name| artifact.shapes.get(name).map(|shape| (name.clone(), shape.clone()))).collect();
+        let references = release.references.len();
+        let mut executions: Vec<(String, usize)> =
+            vec![("training".to_string(), 64 * 64), ("original_train_component_backward".to_string(), 64 * references)];
+        for step in std::iter::once(0).chain(window::CHECKPOINTS) {
+            executions.push((format!("checkpoint_{step}_window"), window.rows().len()));
+            executions.push((format!("checkpoint_{step}_original_train"), references));
+        }
+        if outcome.guard_run {
+            executions.push(("base_heldout".to_string(), window.guard.len()));
+            executions.push(("candidate_heldout".to_string(), window.guard.len()));
+        }
+        Ok(gradient_response(&Parts {
+            request_id: &request.request_id,
+            model_id: &artifact.model_id,
+            version: &artifact.version,
+            gradients: &outcome.gradients,
+            shapes: &shapes,
+            metrics: &outcome.metrics,
+            metadata: &metadata,
+            executions: &executions,
+            error: "",
         }))
     }
 
@@ -323,6 +472,63 @@ impl Trainer {
     }
 }
 
+fn read_file(path: &Path) -> Result<Vec<u8>, Failure> {
+    std::fs::read(path).map_err(|error| message(format!("{}: {error}", path.display())))
+}
+
+/// `wire_rows(rows) == row_wire(frozen rows)`: texts, packed targets and raw weights, in order.
+fn same_rows(items: &[RuntimeTrainingExample], frozen: &[&Row]) -> bool {
+    items.len() == frozen.len()
+        && items.iter().zip(frozen).all(|(item, row)| {
+            item.has_target
+                && item.text == row.text
+                && item.target.as_ref().is_some_and(|target| target.packed == u32::from(row.packed))
+                && item.weight == row.weight
+        })
+}
+
+/// The response metadata of `window_training.compute`.
+fn window_metadata(
+    artifact: &Artifact,
+    config: &TinyConfig,
+    outcome: &window::Outcome,
+    window: &Window,
+    release: &Release,
+) -> Result<BTreeMap<String, String>, Failure> {
+    let names: Vec<&String> = artifact.parameters.keys().collect();
+    let inventory: BTreeMap<String, Vec<f64>> = artifact.parameters.keys().map(|name| (name.clone(), Vec::new())).collect();
+    let inventory_fingerprint = parameter_fingerprint(&inventory, Some(&artifact.shapes)).map_err(|error| message(error.to_string()))?;
+    let entries: [(&str, String); 24] = [
+        ("contextual_training_optimizer", window::POLICY.to_string()),
+        ("executed_contextual_training_optimizer", window::POLICY.to_string()),
+        ("contextual_training_objective", SUM_MARGIN.to_string()),
+        ("executed_contextual_training_objective", SUM_MARGIN.to_string()),
+        ("contextual_training_strategy", FULL_STRATEGY.to_string()),
+        ("strategy", FULL_STRATEGY.to_string()),
+        ("artifact_training_strategy", FULL_STRATEGY.to_string()),
+        ("training_scope", "full_encoder".to_string()),
+        ("underlying_training_available", "true".to_string()),
+        ("contextual_candidate_eligibility", WINDOW_ELIGIBILITY.to_string()),
+        ("train_window_config_v1", WINDOW_CONFIG_CANONICAL.to_string()),
+        ("train_window_manifest_sha256", window.sha256.clone()),
+        ("original_train_component_manifest_sha256", release.sha256.clone()),
+        ("train_window_trace_v1", outcome.trace.clone()),
+        ("train_window_summary_v1", outcome.summary.clone()),
+        ("window_outcome", outcome.status.to_string()),
+        ("base_parameter_fingerprint", outcome.base.clone()),
+        ("updated_parameter_fingerprint", outcome.published.clone()),
+        ("artifact_checksum", artifact.checksum.clone()),
+        ("architecture", artifact.architecture.clone()),
+        ("model_config", model_config_json(config)?),
+        ("trained_parameter_names", serde_json::to_string(&names).map_err(|error| message(error.to_string()))?),
+        ("trained_parameter_inventory_fingerprint", inventory_fingerprint),
+        ("learning_rate", ".003".to_string()),
+    ];
+    let mut metadata: BTreeMap<String, String> = entries.into_iter().map(|(key, value)| (key.to_string(), value)).collect();
+    metadata.insert("max_gradient".to_string(), ".05".to_string());
+    Ok(metadata)
+}
+
 /// How a request ended without a response payload.
 enum Outcome {
     /// A protocol fault: an error frame.
@@ -341,6 +547,8 @@ struct Admission {
     diagnostics: Option<String>,
     /// `expected_backtracking_preparation_sha256` of a backtracking record.
     backtracking: Option<String>,
+    /// The two pins (window manifest, component manifest) of a window record (schema 5).
+    window: Option<(String, String)>,
 }
 
 impl Admission {
@@ -353,6 +561,18 @@ impl Admission {
         if let Some(sha) = &self.backtracking {
             header.insert("expected_backtracking_policy".to_string(), Some(BACKTRACKING_POLICY.to_string()));
             header.insert("expected_backtracking_preparation_sha256".to_string(), Some(sha.clone()));
+        }
+        if let Some((window, component)) = &self.window {
+            for (key, value) in [
+                ("expected_optimizer", window::POLICY),
+                ("expected_candidate_eligibility", WINDOW_ELIGIBILITY),
+                ("expected_optimizer_config", WINDOW_CONFIG_CANONICAL),
+                ("expected_training_scope", "full_encoder"),
+                ("expected_window_manifest_sha256", window.as_str()),
+                ("expected_component_manifest_sha256", component.as_str()),
+            ] {
+                header.insert(key.to_string(), Some(value.to_string()));
+            }
         }
         header
     }
@@ -388,7 +608,11 @@ fn parse_admission(metadata: &[(String, String)]) -> Result<Option<Admission>, F
         Some(StrictValue::String(policy)) if policy == TRAIN_DIAGNOSTICS_POLICY => Some(Some(policy.clone())),
         _ => None,
     };
-    let unserved = || declined("only the objective-only (schema 2) and backtracking (schema 1) admissions are served by the Rust worker");
+    let unserved = || {
+        declined(
+            "only the objective-only (schema 2), backtracking (schema 1) and window (schema 5) admissions are served by the Rust worker",
+        )
+    };
     match (record.get("schema"), diagnostics) {
         (Some(StrictValue::Int(schema)), Some(diagnostics)) if schema == "2" => {
             let keys = ["schema", "expected_objective", "expected_diagnostics_policy"];
@@ -396,7 +620,7 @@ fn parse_admission(metadata: &[(String, String)]) -> Result<Option<Admission>, F
                 && keys.iter().all(|key| record.contains_key(*key))
                 && text("expected_objective") == Some(SUM_MARGIN)
             {
-                Ok(Some(Admission { objective: SUM_MARGIN.to_string(), diagnostics, backtracking: None }))
+                Ok(Some(Admission { objective: SUM_MARGIN.to_string(), diagnostics, backtracking: None, window: None }))
             } else {
                 Err(unserved())
             }
@@ -417,8 +641,43 @@ fn parse_admission(metadata: &[(String, String)]) -> Result<Option<Admission>, F
                         && keys.iter().all(|key| record.contains_key(*key))
                         && text("expected_backtracking_policy") == Some(BACKTRACKING_POLICY) =>
                 {
-                    Ok(Some(Admission { objective: objective.to_string(), diagnostics: Some(policy), backtracking: Some(sha.to_string()) }))
+                    Ok(Some(Admission {
+                        objective: objective.to_string(),
+                        diagnostics: Some(policy),
+                        backtracking: Some(sha.to_string()),
+                        window: None,
+                    }))
                 }
+                _ => Err(unserved()),
+            }
+        }
+        (Some(StrictValue::Int(schema)), Some(None)) if schema == "5" => {
+            let keys = [
+                "schema",
+                "expected_objective",
+                "expected_diagnostics_policy",
+                "expected_optimizer",
+                "expected_candidate_eligibility",
+                "expected_optimizer_config",
+                "expected_training_scope",
+                "expected_window_manifest_sha256",
+                "expected_component_manifest_sha256",
+            ];
+            let exact = record.len() == keys.len()
+                && keys.iter().all(|key| record.contains_key(*key))
+                && text("expected_objective") == Some(SUM_MARGIN)
+                && text("expected_optimizer") == Some(window::POLICY)
+                && text("expected_candidate_eligibility") == Some(WINDOW_ELIGIBILITY)
+                && text("expected_optimizer_config") == Some(WINDOW_CONFIG_CANONICAL)
+                && text("expected_training_scope") == Some("full_encoder");
+            let pin = |key: &str| text(key).filter(|value| is_sha256(value));
+            match (exact, pin("expected_window_manifest_sha256"), pin("expected_component_manifest_sha256")) {
+                (true, Some(window_pin), Some(component_pin)) => Ok(Some(Admission {
+                    objective: SUM_MARGIN.to_string(),
+                    diagnostics: None,
+                    backtracking: None,
+                    window: Some((window_pin.to_string(), component_pin.to_string())),
+                })),
                 _ => Err(unserved()),
             }
         }
@@ -708,17 +967,22 @@ mod tests {
     fn the_objective_only_and_backtracking_admissions_are_served() {
         assert_eq!(parse_admission(&[]), Ok(None));
         let schema2 = format!("{{\"schema\": 2, \"expected_objective\": \"{SUM_MARGIN}\", \"expected_diagnostics_policy\": null}}");
-        let objective_only = Admission { objective: SUM_MARGIN.to_string(), diagnostics: None, backtracking: None };
+        let objective_only = Admission { objective: SUM_MARGIN.to_string(), diagnostics: None, backtracking: None, window: None };
         assert_eq!(parse_admission(&header(&schema2)), Ok(Some(objective_only)));
         // The diagnostics policy of the objective-only record is served too.
-        let with_diagnostics =
-            Admission { objective: SUM_MARGIN.to_string(), diagnostics: Some(TRAIN_DIAGNOSTICS_POLICY.to_string()), backtracking: None };
+        let with_diagnostics = Admission {
+            objective: SUM_MARGIN.to_string(),
+            diagnostics: Some(TRAIN_DIAGNOSTICS_POLICY.to_string()),
+            backtracking: None,
+            window: None,
+        };
         assert_eq!(parse_admission(&header(&schema2.replace("null", "\"train_before_candidate_v1\""))), Ok(Some(with_diagnostics)));
         for objective in [LEGACY_OBJECTIVE, "class_balanced_contextual_v1", SUM_MARGIN] {
             let served = Admission {
                 objective: objective.to_string(),
                 diagnostics: Some(TRAIN_DIAGNOSTICS_POLICY.to_string()),
                 backtracking: Some(SHA.to_string()),
+                window: None,
             };
             assert_eq!(parse_admission(&header(&backtracking_header(objective))), Ok(Some(served)), "{objective}");
         }
@@ -742,6 +1006,81 @@ mod tests {
         let mut twice = header(&schema2);
         twice.extend(header(&schema2));
         assert!(matches!(parse_admission(&twice), Err(Failure::Declined(_))));
+    }
+
+    fn window_record(replace: &[(&str, &str)]) -> String {
+        let mut record = format!(
+            "{{\"schema\": 5, \"expected_objective\": \"{SUM_MARGIN}\", \"expected_diagnostics_policy\": null, \"expected_optimizer\": \"{}\", \"expected_candidate_eligibility\": \"{WINDOW_ELIGIBILITY}\", \"expected_optimizer_config\": {}, \"expected_training_scope\": \"full_encoder\", \"expected_window_manifest_sha256\": \"{SHA}\", \"expected_component_manifest_sha256\": \"{SHA}\"}}",
+            window::POLICY,
+            serde_json::to_string(WINDOW_CONFIG_CANONICAL).unwrap()
+        );
+        for (from, to) in replace {
+            record = record.replace(from, to);
+        }
+        record
+    }
+
+    #[test]
+    fn the_window_admission_is_served_with_its_exact_record() {
+        let served = parse_admission(&header(&window_record(&[]))).unwrap().unwrap();
+        assert_eq!(served.window, Some((SHA.to_string(), SHA.to_string())));
+        let expected = served.header();
+        assert_eq!(expected.len(), 8, "the keys of window.expectations");
+        assert_eq!(expected["expected_diagnostics_policy"], None);
+        assert_eq!(expected["expected_training_scope"].as_deref(), Some("full_encoder"));
+        for broken in [
+            window_record(&[("full_encoder", "heads")]),
+            window_record(&[(window::POLICY, "full_projected_adam64_v1")]),
+            window_record(&[(WINDOW_ELIGIBILITY, "other_v1")]),
+            window_record(&[(SHA, "00")]),
+            window_record(&[("null", "\"train_before_candidate_v1\"")]),
+            window_record(&[("{\"schema\": 5, ", "{\"schema\": 5, \"extra\": 1, ")]),
+        ] {
+            assert!(matches!(parse_admission(&header(&broken)), Err(Failure::Declined(_))), "{broken}");
+        }
+    }
+
+    #[test]
+    fn the_window_configuration_needs_every_variable() {
+        let all = [
+            ("PRIVOKE_WINDOW_PATH", "/w/window.json"),
+            ("PRIVOKE_WINDOW_MANIFEST_SHA256", SHA),
+            ("PRIVOKE_COMPONENT_BANK_PATH", "/w/bank.json"),
+            ("PRIVOKE_COMPONENT_REFERENCE_PATH", "/w/references.json"),
+            ("PRIVOKE_COMPONENT_MANIFEST_PATH", "/w/manifest.json"),
+            ("PRIVOKE_COMPONENT_TEACHER_PATH", "/w/teacher.json"),
+            ("PRIVOKE_COMPONENT_MANIFEST_SHA256", SHA),
+            ("PRIVOKE_COMPONENT_TEACHER_SHA256", SHA),
+        ];
+        let lookup = |skip: Option<&str>| {
+            let map: BTreeMap<String, String> = all
+                .iter()
+                .filter(|(name, _)| Some(*name) != skip)
+                .map(|(name, value)| ((*name).to_string(), (*value).to_string()))
+                .collect();
+            WindowConfig::from_lookup(&|name| map.get(name).cloned())
+        };
+        let config = lookup(None).unwrap();
+        assert_eq!((config.window_sha256.as_str(), config.teacher_path.to_str()), (SHA, Some("/w/teacher.json")));
+        for (name, _) in &all {
+            assert!(lookup(Some(*name)).is_none(), "{name} is required");
+        }
+    }
+
+    #[test]
+    fn request_rows_must_be_the_frozen_rows_in_order() {
+        let frozen = Row { text: "a b".into(), packed: 0b10 | 0b00100, weight: 1.5, id: "i".into(), group: "g".into(), taxonomy: true };
+        let item = |text: &str, packed: u32, weight: f64| RuntimeTrainingExample {
+            text: text.into(),
+            has_target: true,
+            target: Some(privoke_contracts::proto::v1::RuntimeClassification { packed, ..Default::default() }),
+            weight,
+        };
+        assert!(same_rows(&[item("a b", 0b10 | 0b00100, 1.5)], &[&frozen]));
+        assert!(!same_rows(&[item("a c", 0b10 | 0b00100, 1.5)], &[&frozen]));
+        assert!(!same_rows(&[item("a b", 0b11 | 0b00100, 1.5)], &[&frozen]));
+        assert!(!same_rows(&[item("a b", 0b10 | 0b00100, 1.0)], &[&frozen]));
+        assert!(!same_rows(&[], &[&frozen]));
     }
 
     #[test]
