@@ -204,7 +204,7 @@ fn label_set(config: &Value, task: &str) -> Option<Vec<String>> {
     }
 }
 
-fn exact_labels(config: &Value, task: &str) -> bool {
+pub(crate) fn exact_labels(config: &Value, task: &str) -> bool {
     let expected: BTreeSet<&str> = match task {
         "sensitivity" => sensitivity_names().collect(),
         "visibility" => visibility_names().collect(),

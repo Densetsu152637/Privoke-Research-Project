@@ -11,7 +11,9 @@ use std::path::Path;
 
 use base64::Engine as _;
 use privoke_contracts::fingerprint::parameter_fingerprint;
-use privoke_contracts::proto::v1::{ComputeSemanticGradientsRequest, ComputeSemanticGradientsResponse, DetectionLayer};
+use privoke_contracts::proto::v1::{
+    ComputeSemanticGradientsRequest, ComputeSemanticGradientsResponse, DetectionLayer, RuntimeTrainingExample,
+};
 use privoke_curriculum::value::{self, Value};
 use privoke_training::admission::CONFIG_CANONICAL;
 use prost::Message;
@@ -357,10 +359,14 @@ pub fn publication_metadata(
     );
     match projected.get("contextual_sampling_strategy").map(String::as_str) {
         Some("taxonomy_benign_coverage_v1") => {
-            return invalid("FULL Adam benign audit projection is not ported to the Rust fuzzer (stage 21 gap).");
+            let (path, sha256) = retained_audit_reference(evidence, "benign_audit")?;
+            privoke_curriculum::benign::validate_retained_audit(Path::new(&path), &sha256, &projected)?;
+            projected = project_audit(projected, &request, &BENIGN)?;
         }
         Some("taxonomy_anchor_rehearsal_v1") => {
-            return invalid("FULL Adam rehearsal audit projection is not ported to the Rust fuzzer (stage 21 gap).");
+            let (path, sha256) = retained_audit_reference(evidence, "rehearsal_audit")?;
+            privoke_curriculum::anchor::validate_retained_audit(Path::new(&path), &sha256, &projected)?;
+            projected = project_audit(projected, &request, &REHEARSAL)?;
         }
         Some("taxonomy_coverage_v1") => {
             if projected.contains_key(TAXONOMY_KEY) {
@@ -396,6 +402,144 @@ pub fn publication_metadata(
     projected.insert("training_evidence_sha256".to_string(), value::sha256(canonical(&bound)?.as_bytes()));
     if projected.len() > 64 || projected.values().any(|text| text.len() > 2048) {
         return invalid("FULL Adam publication exceeds unchanged64-entry/2048-byte limits.");
+    }
+    Ok(projected)
+}
+
+/// The packed audit of a sampling strategy: the keys, the extra fields beyond the taxonomy ones, the pins and the messages.
+struct AuditShape {
+    key: &'static str,
+    extra: &'static [&'static str],
+    dataset: &'static str,
+    pins: &'static [&'static str],
+    guard_wire: bool,
+    differs: &'static str,
+    schema: &'static str,
+    lossless: &'static str,
+}
+
+/// `BENIGN_KEY`, `BENIGN_FIELDS` and `project_benign_audit`: bind the exact source and the ordered TRAIN and guard wire commitments.
+const BENIGN: AuditShape = AuditShape {
+    key: "full_adam_benign_audit_v1",
+    extra: &[
+        "sampling_ordinary_benign_rows",
+        "sampling_fiction_rows",
+        "sampling_original_order_sha256",
+        "sampling_seed",
+        "sampling_expanded_wire_sha256",
+        "sampling_guard_wire_sha256",
+    ],
+    dataset: privoke_curriculum::benign::DATASET_SHA256,
+    pins: &[privoke_curriculum::benign::POOL_KEY, privoke_curriculum::benign::MANIFEST_KEY, privoke_curriculum::benign::PROOF_KEY],
+    guard_wire: true,
+    differs: "FULL Adam benign audit/pins/actual ordered TRAIN/guard wire differs.",
+    schema: "FULL Adam benign summary schema differs.",
+    lossless: "FULL Adam benign summary is not lossless.",
+};
+
+/// `REHEARSAL_KEY`, `REHEARSAL_FIELDS` and `project_rehearsal_audit`.
+const REHEARSAL: AuditShape = AuditShape {
+    key: "full_adam_rehearsal_audit_v1",
+    extra: &[
+        "sampling_table_version",
+        "sampling_anchor_rows",
+        "sampling_complement_rows",
+        "sampling_anchor_clean_rows",
+        "sampling_anchor_sensitive_rows",
+        "sampling_original_order_sha256",
+        "sampling_seed",
+        "sampling_expanded_wire_sha256",
+    ],
+    dataset: privoke_curriculum::anchor::DATASET_SHA256,
+    pins: &[privoke_curriculum::anchor::BANK_KEY, privoke_curriculum::anchor::MANIFEST_KEY],
+    guard_wire: false,
+    differs: "FULL Adam rehearsal audit/pins/actual wire commitment differs.",
+    schema: "FULL Adam rehearsal summary schema differs.",
+    lossless: "FULL Adam rehearsal publication summary is not lossless.",
+};
+
+/// `wire_commitment(rows)` over the actual protobuf rows: the ordered text, target flag, weight and named target.
+fn wire_commitment(rows: &[RuntimeTrainingExample]) -> Result<String> {
+    let items: Vec<Value> = rows
+        .iter()
+        .map(|row| {
+            let target = row.target.clone().unwrap_or_default();
+            value::object(vec![
+                ("text", value::string(&row.text)),
+                ("has_target", Value::Bool(row.has_target)),
+                ("weight", Value::Float(row.weight)),
+                (
+                    "target",
+                    value::object(vec![
+                        ("packed", value::int(i64::from(target.packed))),
+                        ("sensitivity", value::string(&target.sensitivity)),
+                        ("visibility", value::string(&target.visibility)),
+                        ("categories", value::strings(&target.categories)),
+                    ]),
+                ),
+            ])
+        })
+        .collect();
+    Ok(privoke_curriculum::anchor::digest(&Value::Array(items))?)
+}
+
+/// `evidence[name]` of a retained sampling audit: its path and checksum.
+fn retained_audit_reference(evidence: &Value, name: &str) -> Result<(String, String)> {
+    let reference = evidence_field(evidence, name)?;
+    let text = |key: &str| value::get(reference, key).and_then(value::as_str).map(str::to_string).ok_or_else(|| Error(format!("'{key}'")));
+    Ok((text("path")?, text("sha256")?))
+}
+
+fn is_hex64(text: &str) -> bool {
+    text.len() == 64 && text.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+/// `project_benign_audit` and `project_rehearsal_audit`: pack the exact outgoing strings under one key and independently restore
+/// them before publication.
+fn project_audit(
+    metadata: BTreeMap<String, String>,
+    request: &ComputeSemanticGradientsRequest,
+    shape: &AuditShape,
+) -> Result<BTreeMap<String, String>> {
+    let fields: BTreeSet<&str> = TAXONOMY_FIELDS.iter().chain(shape.extra).copied().collect();
+    let sampled: BTreeSet<&str> = metadata.keys().filter(|key| key.starts_with("sampling_")).map(String::as_str).collect();
+    let pinned = shape.pins.iter().all(|key| metadata.get(*key).is_some_and(|text| is_hex64(text.as_str())));
+    let expanded_wire = wire_commitment(&request.examples)?;
+    let guard_wire_ok = !shape.guard_wire
+        || metadata.get("sampling_guard_wire_sha256").map(String::as_str) == Some(wire_commitment(&request.heldout_examples)?.as_str());
+    if metadata.contains_key(shape.key)
+        || sampled != fields
+        || metadata.get("taxonomy_dataset_sha256").map(String::as_str) != Some(shape.dataset)
+        || !pinned
+        || request.examples.len() != 64
+        || request.heldout_examples.len() != 16
+        || metadata.get("sampling_expanded_wire_sha256").map(String::as_str) != Some(expanded_wire.as_str())
+        || !guard_wire_ok
+    {
+        return invalid(shape.differs);
+    }
+    let mut projected = metadata.clone();
+    let mut packed: BTreeMap<String, String> = BTreeMap::new();
+    for key in &fields {
+        if let Some(text) = projected.remove(*key) {
+            packed.insert((*key).to_string(), text);
+        }
+    }
+    let text = canonical(&value::object(vec![("schema", value::int(1)), ("fields", string_map_value(&packed))]))?;
+    projected.insert(shape.key.to_string(), text.clone());
+    let mut restored = projected.clone();
+    restored.remove(shape.key);
+    let document = value::parse_bytes(text.as_bytes())?;
+    let restored_fields = value::get(&document, "fields").and_then(value::string_map);
+    let schema_ok = value::as_object(&document).is_some_and(|map| map.len() == 2)
+        && value::get(&document, "schema") == Some(&value::int(1))
+        && restored_fields.as_ref().is_some_and(|map| map.keys().map(String::as_str).collect::<BTreeSet<_>>() == fields);
+    if !schema_ok {
+        return invalid(shape.schema);
+    }
+    restored.extend(restored_fields.unwrap_or_default());
+    if restored != metadata {
+        return invalid(shape.lossless);
     }
     Ok(projected)
 }

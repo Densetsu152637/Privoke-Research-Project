@@ -83,6 +83,14 @@ pub struct FuzzerConfig {
     pub audience_manifest_path: Option<PathBuf>,
     /// `audience_manifest_sha256`.
     pub audience_manifest_sha256: Option<String>,
+    /// `rehearsal_manifest_path` (`FUZZ_REHEARSAL_MANIFEST_PATH`).
+    pub rehearsal_manifest_path: Option<PathBuf>,
+    /// `benign_pool_path` (`FUZZ_BENIGN_POOL_PATH`).
+    pub benign_pool_path: Option<PathBuf>,
+    /// `benign_manifest_path` (`FUZZ_BENIGN_MANIFEST_PATH`).
+    pub benign_manifest_path: Option<PathBuf>,
+    /// `benign_exclusion_proof_path` (`FUZZ_BENIGN_EXCLUSION_PROOF_PATH`).
+    pub benign_exclusion_proof_path: Option<PathBuf>,
     /// `retention_bank_path` (`FUZZ_RETENTION_BANK_PATH`).
     pub retention_bank_path: Option<PathBuf>,
     /// `retention_reference_path` (`FUZZ_RETENTION_REFERENCE_PATH`).
@@ -159,6 +167,10 @@ impl FuzzerConfig {
             contextual_sampling_strategy: env_string(&get, "FUZZ_CONTEXTUAL_SAMPLING_STRATEGY", default_strategy, true),
             audience_manifest_path: path("FUZZ_AUDIENCE_MANIFEST_PATH"),
             audience_manifest_sha256: present(&get, "FUZZ_AUDIENCE_MANIFEST_SHA256"),
+            rehearsal_manifest_path: path("FUZZ_REHEARSAL_MANIFEST_PATH"),
+            benign_pool_path: path("FUZZ_BENIGN_POOL_PATH"),
+            benign_manifest_path: path("FUZZ_BENIGN_MANIFEST_PATH"),
+            benign_exclusion_proof_path: path("FUZZ_BENIGN_EXCLUSION_PROOF_PATH"),
             retention_bank_path: path("FUZZ_RETENTION_BANK_PATH"),
             retention_reference_path: path("FUZZ_RETENTION_REFERENCE_PATH"),
             retention_manifest_path: path("FUZZ_RETENTION_MANIFEST_PATH"),

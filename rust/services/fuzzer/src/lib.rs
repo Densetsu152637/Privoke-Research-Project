@@ -22,6 +22,7 @@ pub mod attempts;
 pub mod cli;
 pub mod config;
 pub mod cycle;
+pub mod diagnostics;
 pub mod error;
 pub mod evidence;
 pub mod full_adam;

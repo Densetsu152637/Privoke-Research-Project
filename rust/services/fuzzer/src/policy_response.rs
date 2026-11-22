@@ -2,8 +2,7 @@
 //! gradients (the executed objective, the TRAIN diagnostics, the optimizer identity and the 64-step trace) against what the
 //! caller asked for. Every failure is Python's `RuntimeAnalysisError`.
 //!
-//! The TRAIN diagnostics and the backtracking evidence are validated by their own port (RUST-S21E item 3); until then a request
-//! that expects them fails admission here with a message that names the gap, so no such response is ever admitted.
+//! The TRAIN diagnostics and the backtracking evidence are admitted by [`crate::diagnostics`] (RUST-S21G item 3).
 
 use std::collections::BTreeMap;
 
@@ -57,11 +56,16 @@ pub fn validate_training_policy_response(
     {
         return reject("Runtime unexpectedly enabled TRAIN diagnostics.");
     }
-    if diagnostics.is_some() {
-        return reject("TRAIN diagnostics admission is not ported to the Rust fuzzer (stage 21 gap).");
+    if let Some(diagnostics) = diagnostics {
+        if metadata.get(DIAGNOSTICS_POLICY_KEY).map(String::as_str) != Some(diagnostics) {
+            return reject("Runtime executed a different or missing TRAIN diagnostic policy.");
+        }
+        if crate::diagnostics::validate_response_diagnostics(request, response).is_err() {
+            return reject("Runtime TRAIN diagnostics failed admission.");
+        }
     }
     if expectations.get("expected_backtracking_policy").is_some() {
-        return reject("Backtracking response admission is not ported to the Rust fuzzer (stage 21 gap).");
+        crate::diagnostics::validate_backtracking_response(request, response, expectations, false)?;
     }
     let Some(optimizer) = expectations.get("expected_optimizer") else { return Ok(()) };
     let retention = crate::full_adam::RETENTION_POLICIES.contains(&optimizer);

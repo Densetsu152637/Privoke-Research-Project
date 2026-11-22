@@ -122,6 +122,24 @@ def raw_physical_attempt(dump: Path, request):
     return None
 
 
+def raw_evidence_paths(dump: Path, request):
+    """Every absolute path of the retained cycle's `execution_evidence` (the attempt, the retained sampling audit, the retention release),
+    unnormalised: `training_evidence_sha256` hashes them, so the replay recomputes the hash over its own record with these."""
+    paths = {}
+    for path in sorted((dump / "training-cycles").rglob("*.json")) if (dump / "training-cycles").exists() else []:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if record["request_id"] != request.request_id:
+            continue
+        evidence = record["execution_evidence"]
+        if "physical_attempt" in evidence:
+            paths["physical_attempt"] = evidence["physical_attempt"]
+        for name in ("rehearsal_audit", "benign_audit", "retention_release"):
+            if name in evidence:
+                paths[name] = evidence[name]["path"]
+        return paths
+    return paths
+
+
 def reservations(directory: Path):
     database = directory / "training-reservations.sqlite3"
     if not database.exists():
@@ -153,10 +171,18 @@ def run_sequence(label, env, cycles, generated: Path) -> dict:
         try:
             config = FuzzerConfig.from_env()
             for request, scope, runtime_bytes, ack_bytes in cycles:
-                log, calls = [], []
+                log, calls, answers = [], [], []
                 runtime_path = base.RUNTIME_PATHS[scope]
+
+                def runtime_answer(_request, raw=runtime_bytes):
+                    # A cycle may script its answer as a function of the request the oracle built (the response of a policy cycle
+                    # carries counts derived from that request).
+                    data = raw(_request) if callable(raw) else raw
+                    answers.append(data)
+                    return runtime_pb2.ComputeSemanticGradientsResponse.FromString(data)
+
                 handlers = {
-                    runtime_path: lambda _request, raw=runtime_bytes: runtime_pb2.ComputeSemanticGradientsResponse.FromString(raw),
+                    runtime_path: runtime_answer,
                     base.STATUS_PATH: lambda _request: parameters_pb2.ParameterUpdateStatus(found=False),
                     base.SUBMIT_PATH: lambda _request, raw=ack_bytes: parameters_pb2.ParameterUpdateAck.FromString(raw),
                 }
@@ -181,11 +207,12 @@ def run_sequence(label, env, cycles, generated: Path) -> dict:
                 wire = {path: base.b64(raw) for path, raw in log}
                 results.append({
                     "physical_attempt_raw": raw_physical_attempt(dump, request),
+                    "evidence_paths_raw": raw_evidence_paths(dump, request),
                     "scope": scope,
                     "request": base.b64(request.SerializeToString(deterministic=True)),
                     "runtime_rpc": runtime_path,
                     "runtime_request": wire.get(runtime_path),
-                    "runtime_response": base.b64(runtime_bytes),
+                    "runtime_response": base.b64(answers[-1] if answers else (b"" if callable(runtime_bytes) else runtime_bytes)),
                     "runtime_calls": [call for call in calls if call["path"] == runtime_path],
                     "status_request": wire.get(base.STATUS_PATH),
                     "submit_request": wire.get(base.SUBMIT_PATH),

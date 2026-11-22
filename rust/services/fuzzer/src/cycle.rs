@@ -9,14 +9,24 @@
 //! physical attempt, admits the 64-step trace, selects the candidate TRAIN metric through the retained attempt, states the exact
 //! gate and publishes the projected metadata bound to the retained cycle (`full_adam_evidence`, `attempts`, `policy_response`).
 //!
+//! The rehearsal and benign coverage samplers (RUST-S21G) run over their authenticated snapshots: the manifest, pool and
+//! exclusion proof are loaded and pinned before any reservation, the audits of the originals and of the expanded rows are
+//! retained before the runtime call, and a complete ORIGINAL retention cycle (the benign strategy over the authenticated
+//! retention release) retains that release before compute and binds the response to it.
+//!
 //! Not ported, and refused with `UNIMPLEMENTED` and the name of the gap instead of running a different cycle:
-//! backtracking and TRAIN diagnostics admission, the window cycle, the audience, rehearsal and benign samplers (and with them a
-//! complete ORIGINAL retention cycle, which requires the benign sampler) and the presence cycle.
+//! the window cycle, the audience sampler and the presence cycle.
+//!
+//! TRAIN diagnostics and FULL TRAIN backtracking (RUST-S21G item 3) are admitted by [`crate::diagnostics`]: the diagnostics record,
+//! the backtracking trace and its five trials, the known one-fit rejection (retained as evidence, answered `FAILED_PRECONDITION`)
+//! and the compact publication of an update whose metadata exceeds the 64 entries.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use privoke_contracts::proto::v1::{FuzzerTrainingRequest, FuzzerTrainingResponse, ParameterUpdateStatusRequest};
+use privoke_curriculum::anchor::RehearsalManifest;
+use privoke_curriculum::benign::BenignRelease;
 use privoke_curriculum::curriculum::{ReserveOptions, load_curriculum, request_fingerprint, reserve_batch, sampler_settings};
 use privoke_curriculum::generator::{PartitionSources, contextual_sampling_audit, generate_training_partition};
 use privoke_curriculum::taxonomy::{self, TaxonomyDataset};
@@ -79,6 +89,18 @@ fn failure_status(failure: &Failure) -> Status {
             log(format_args!("client runtime semantic training failed: {message}"));
             Status::unavailable(RUNTIME_UNAVAILABLE)
         }
+    }
+}
+
+/// A failed write of sampling evidence inside `_train`: a contract failure is a `ValueError` (`FAILED_PRECONDITION`), a disk failure
+/// an `OSError` (`UNAVAILABLE`).
+fn persist_status(error: &privoke_curriculum::Error) -> Status {
+    match error {
+        privoke_curriculum::Error::Io { .. } => {
+            log(format_args!("client runtime semantic training failed: {error}"));
+            Status::unavailable(RUNTIME_UNAVAILABLE)
+        }
+        other => precondition(other),
     }
 }
 
@@ -222,6 +244,15 @@ impl std::fmt::Debug for Engine {
     }
 }
 
+/// The authenticated snapshots a cycle trains on, loaded and pinned before any reservation.
+#[derive(Default)]
+struct Sources {
+    taxonomy: Option<TaxonomyDataset>,
+    rehearsal: Option<RehearsalManifest>,
+    benign: Option<BenignRelease>,
+    retention: Option<crate::retention::Snapshot>,
+}
+
 /// What the sampling step produced.
 struct Sampled {
     examples: Vec<Example>,
@@ -287,12 +318,6 @@ impl Engine {
         if !expectations.is_empty() && self.config.dump_dir.is_none() {
             return Err(precondition("Training policy admission requires durable PRIVOKE_FUZZER_DUMP_DIR."));
         }
-        if expectations.contains("expected_backtracking_policy") {
-            return Err(gap("Backtracking admission (the physical backtracking route, its trace and the known-rejection admission)"));
-        }
-        if expectations.get("expected_diagnostics_policy").is_some() {
-            return Err(gap("TRAIN diagnostics admission (the diagnostics validator and the compact publication)"));
-        }
         let strategy: Option<String> = match strategy_key.unwrap_or(&self.config.contextual_sampling_strategy) {
             text if text == audience::LEGACY => None,
             text => Some(text.to_string()),
@@ -313,14 +338,9 @@ impl Engine {
         {
             return Err(precondition("Orphan benign pins require the explicit benign strategy."));
         }
-        if matches!(strategy.as_deref(), Some(anchor::STRATEGY | benign::STRATEGY)) {
-            return Err(gap(
-                "Rehearsal and benign coverage sampling (they require the authenticated FULL Adam policy admission and the FULL Adam gate)",
-            ));
-        }
-        let mut taxonomy_dataset: Option<TaxonomyDataset> = None;
+        let mut sources = Sources::default();
         let mut fingerprint: Option<String> = None;
-        if strategy.as_deref() == Some(TAXONOMY_STRATEGY) {
+        if matches!(strategy.as_deref(), Some(TAXONOMY_STRATEGY | anchor::STRATEGY | benign::STRATEGY)) {
             if self.config.curriculum_manifest_path.is_some() {
                 return Err(precondition("Taxonomy coverage cannot override a fixed curriculum."));
             }
@@ -334,7 +354,65 @@ impl Engine {
             if request.metadata.get("taxonomy_dataset_sha256").is_some_and(|expected| expected != &dataset.sha256) {
                 return Err(precondition("Requested taxonomy dataset hash differs from the server release."));
             }
-            let settings = value::object(vec![
+            if strategy.as_deref() == Some(anchor::STRATEGY) {
+                if scope != Scope::FullEncoder
+                    || expectations != crate::policy::exact_full_adam(None)
+                    || batch_config.new_example_weight != 1.0
+                {
+                    return Err(precondition("Rehearsal requires exact authenticated FULL Adam and unit raw weights before reservation."));
+                }
+                let manifest = anchor::load_manifest(self.config.rehearsal_manifest_path.as_deref(), &dataset).map_err(precondition)?;
+                anchor::validate_pins(&request.metadata, &manifest, &dataset).map_err(precondition)?;
+                // Validate the selected rows and the unchanged guard before the reservation and the receipt lookup.
+                anchor::generate_partition(&dataset, &manifest, cycle.seed).map_err(precondition)?;
+                sources.rehearsal = Some(manifest);
+            }
+            if strategy.as_deref() == Some(benign::STRATEGY) {
+                let required = match (
+                    retention_mode,
+                    expectations.get("expected_optimizer"),
+                    expectations.get("expected_retention_manifest_sha256"),
+                ) {
+                    (true, Some(policy), Some(pin)) => crate::policy::exact_full_adam(Some((policy, pin))),
+                    _ => crate::policy::exact_full_adam(None),
+                };
+                if scope != Scope::FullEncoder || expectations != required || batch_config.new_example_weight != 1.0 {
+                    return Err(precondition(
+                        "Benign coverage requires exact authenticated FULL Adam and unit weights before reservation.",
+                    ));
+                }
+                let (Some(pool), Some(manifest), Some(proof)) = (
+                    self.config.benign_pool_path.as_deref(),
+                    self.config.benign_manifest_path.as_deref(),
+                    self.config.benign_exclusion_proof_path.as_deref(),
+                ) else {
+                    return Err(precondition("Benign coverage requires explicit pool, manifest and exclusion-proof paths."));
+                };
+                let release = benign::load_release(pool, manifest, proof, &dataset).map_err(precondition)?;
+                benign::validate_pins(&request.metadata, &release, &dataset).map_err(precondition)?;
+                benign::generate_partition(&dataset, &release, cycle.seed).map_err(precondition)?;
+                if retention_mode {
+                    benign::validate_legacy_snapshot(&dataset).map_err(precondition)?;
+                    let pin = expectations.get("expected_retention_manifest_sha256").unwrap_or_default();
+                    let config = &self.config;
+                    sources.retention = Some(
+                        crate::retention::load_requested(
+                            [
+                                config.retention_bank_path.as_deref(),
+                                config.retention_reference_path.as_deref(),
+                                config.retention_manifest_path.as_deref(),
+                                config.retention_teacher_path.as_deref(),
+                            ],
+                            &cycle.model_id,
+                            pin,
+                            config.retention_manifest_sha256.as_deref(),
+                        )
+                        .map_err(precondition)?,
+                    );
+                }
+                sources.benign = Some(release);
+            }
+            let mut pairs = vec![
                 ("training", config_value(&batch_config)),
                 ("scope", value::string(scope.name())),
                 ("model_id", value::string(&cycle.model_id)),
@@ -344,9 +422,26 @@ impl Engine {
                 ("minimum_exact_match_rate", Value::Float(self.config.minimum_exact_match_rate)),
                 ("dataset_sha256", value::string(&dataset.sha256)),
                 ("policy", taxonomy::policy_contract()),
-            ]);
-            fingerprint = Some(settings_fingerprint(&request, &settings).map_err(precondition)?);
-            taxonomy_dataset = Some(dataset);
+            ];
+            if let Some(manifest) = &sources.rehearsal {
+                pairs.push(("sampling_strategy", value::string(anchor::STRATEGY)));
+                pairs.push(("rehearsal_manifest_sha256", value::string(&manifest.sha256)));
+                pairs.push(("rehearsal_bank_sha256", value::string(&manifest.bank_sha256)));
+                pairs.push(("rehearsal_manifest", value::parse_bytes(&manifest.payload).map_err(precondition)?));
+            }
+            if let Some(release) = &sources.benign {
+                pairs.push(("sampling_strategy", value::string(benign::STRATEGY)));
+                pairs.push(("benign_pool_sha256", value::string(&release.pool.sha256)));
+                pairs.push(("benign_manifest", value::parse_bytes(&release.payload).map_err(precondition)?));
+                pairs.push(("benign_exclusion_proof_sha256", value::string(&release.proof_sha256)));
+                pairs.push(("benign_policy", benign::policy_contract()));
+            }
+            if let Some(snapshot) = &sources.retention {
+                pairs.push(("original_train_retention_manifest", value::parse_bytes(&snapshot.manifest).map_err(precondition)?));
+                pairs.push(("original_train_retention_manifest_sha256", value::string(&snapshot.release.sha256)));
+            }
+            fingerprint = Some(settings_fingerprint(&request, &value::object(pairs)).map_err(precondition)?);
+            sources.taxonomy = Some(dataset);
         }
         let curriculum = match &self.config.curriculum_manifest_path {
             Some(path) => Some(load_curriculum(path).map_err(precondition)?),
@@ -375,8 +470,8 @@ impl Engine {
         }
         let require_full = request.metadata.get("require_full_capability").map(String::as_str) == Some("true");
         let header = training_admission_header(&expectations).map_err(precondition)?;
-        if !expectations.is_empty() || scope == Scope::FullEncoder || require_full || taxonomy_dataset.is_some() {
-            if curriculum.is_none() && taxonomy_dataset.is_none() {
+        if !expectations.is_empty() || scope == Scope::FullEncoder || require_full || sources.taxonomy.is_some() {
+            if curriculum.is_none() && sources.taxonomy.is_none() {
                 fingerprint = Some(self.generic_fingerprint(&request, &batch_config, &cycle, scope, &expectations).map_err(precondition)?);
             }
             if let Some(header) = &header {
@@ -406,18 +501,10 @@ impl Engine {
             cycle.model_id,
             cycle.prompt_count
         ));
-        let sampled = self.sample(
-            &request,
-            &cycle,
-            strategy.as_deref(),
-            curriculum.as_ref(),
-            taxonomy_dataset.as_ref(),
-            fingerprint.as_deref(),
-            &batch_config,
-        )?;
+        let sampled =
+            self.sample(&request, &cycle, strategy.as_deref(), curriculum.as_ref(), &sources, fingerprint.as_deref(), &batch_config)?;
         let policy = Policy { expectations: &expectations, header: header.as_deref() };
-        let mut update =
-            self.train(&request, &cycle, scope, &sampled, &batch_config, require_full, taxonomy_dataset.as_ref(), &policy).await?;
+        let mut update = self.train(&request, &cycle, scope, &sampled, &batch_config, require_full, &sources, &policy).await?;
         if !sampled.audit.is_empty() {
             update.metadata.extend(sampled.audit.clone());
         }
@@ -537,7 +624,7 @@ impl Engine {
         cycle: &TrainingCycle,
         strategy: Option<&str>,
         curriculum: Option<&privoke_curriculum::curriculum::Curriculum>,
-        taxonomy_dataset: Option<&TaxonomyDataset>,
+        sources: &Sources,
         fingerprint: Option<&str>,
         batch_config: &BatchTrainingConfig,
     ) -> Result<Sampled, Status> {
@@ -562,18 +649,26 @@ impl Engine {
             batch.audit.insert("curriculum_replay_weight".to_string(), py_float_text(batch_config.golden_example_weight));
             return Ok(Sampled { examples: batch.examples, heldout: batch.heldout, replay: batch.replay, audit: batch.audit });
         }
-        let sources = PartitionSources {
+        let partition = PartitionSources {
             dataset_path: self.config.prompt_dataset_path.as_deref(),
             sampling_strategy: strategy,
-            taxonomy_dataset,
+            taxonomy_dataset: sources.taxonomy.as_ref(),
+            rehearsal_manifest: sources.rehearsal.as_ref(),
+            benign_release: sources.benign.as_ref(),
             ..PartitionSources::default()
         };
-        let (examples, heldout) = generate_training_partition(cycle.prompt_count, self.config.heldout_prompt_count, cycle.seed, &sources)
+        let (examples, heldout) = generate_training_partition(cycle.prompt_count, self.config.heldout_prompt_count, cycle.seed, &partition)
             .map_err(precondition)?;
-        let audit = match (strategy, taxonomy_dataset) {
-            (None, _) => BTreeMap::new(),
-            (Some(_), Some(dataset)) => taxonomy::audit_originals(dataset, &examples, &heldout).map_err(precondition)?,
-            (Some(_), None) => contextual_sampling_audit(&examples).map_err(precondition)?,
+        let audit = if strategy.is_none() {
+            BTreeMap::new()
+        } else if let (Some(release), Some(dataset)) = (&sources.benign, &sources.taxonomy) {
+            benign::audit_originals(dataset, release, &examples, &heldout, cycle.seed).map_err(precondition)?
+        } else if let (Some(manifest), Some(dataset)) = (&sources.rehearsal, &sources.taxonomy) {
+            anchor::audit_originals(dataset, manifest, &examples, &heldout, cycle.seed).map_err(precondition)?
+        } else if let Some(dataset) = &sources.taxonomy {
+            taxonomy::audit_originals(dataset, &examples, &heldout).map_err(precondition)?
+        } else {
+            contextual_sampling_audit(&examples).map_err(precondition)?
         };
         Ok(Sampled { examples, heldout, replay: Vec::new(), audit })
     }
@@ -588,21 +683,40 @@ impl Engine {
         sampled: &Sampled,
         batch_config: &BatchTrainingConfig,
         require_full_capability: bool,
-        taxonomy_dataset: Option<&TaxonomyDataset>,
+        sources: &Sources,
         policy: &Policy<'_>,
     ) -> Result<BatchUpdate, Status> {
+        let dump = self.config.dump_dir.as_deref();
         let trainer_examples =
             prepare_trainer_examples(&sampled.examples, &sampled.replay, &sampled.heldout, batch_config).map_err(precondition)?;
-        let expanded_audit = match taxonomy_dataset {
-            Some(dataset) => {
-                if !sampled.replay.is_empty() {
-                    return Err(precondition("Taxonomy coverage requires its dataset snapshot and no extra replay rows."));
-                }
-                taxonomy::audit_expanded(dataset, &sampled.examples, &trainer_examples, &sampled.heldout, batch_config)
-                    .map_err(precondition)?
+        // `train_parameter_batch`: the rehearsal, benign or taxonomy audit of the expanded rows, retained before the physical RPC.
+        let mut expanded_audit: BTreeMap<String, String> = BTreeMap::new();
+        let mut audit_evidence: Vec<(&str, Value)> = Vec::new();
+        let reference =
+            |path: String, sha256: String| value::object(vec![("path", value::string(&path)), ("sha256", value::string(&sha256))]);
+        if let (Some(dataset), Some(release)) = (&sources.taxonomy, &sources.benign) {
+            expanded_audit = benign::audit_expanded(dataset, release, &sampled.examples, &trainer_examples, &sampled.heldout, batch_config)
+                .map_err(precondition)?;
+            let (path, sha256) = benign::persist_audit(release, &expanded_audit, dump).map_err(|error| persist_status(&error))?;
+            audit_evidence.push(("benign_audit", reference(path, sha256)));
+        } else if let (Some(dataset), Some(manifest)) = (&sources.taxonomy, &sources.rehearsal) {
+            expanded_audit =
+                anchor::audit_expanded(dataset, manifest, &sampled.examples, &trainer_examples, &sampled.heldout, batch_config)
+                    .map_err(precondition)?;
+            let (path, sha256) = anchor::persist_audit(manifest, &expanded_audit, dump).map_err(|error| persist_status(&error))?;
+            audit_evidence.push(("rehearsal_audit", reference(path, sha256)));
+        } else if let Some(dataset) = &sources.taxonomy {
+            if !sampled.replay.is_empty() {
+                return Err(precondition("Taxonomy coverage requires its dataset snapshot and no extra replay rows."));
             }
-            None => BTreeMap::new(),
-        };
+            expanded_audit = taxonomy::audit_expanded(dataset, &sampled.examples, &trainer_examples, &sampled.heldout, batch_config)
+                .map_err(precondition)?;
+        }
+        // The ORIGINAL retention release is retained immutably before compute.
+        if let Some(snapshot) = &sources.retention {
+            audit_evidence
+                .push(("retention_release", crate::retention::persist_release(snapshot, &cycle.model_id, dump).map_err(precondition)?));
+        }
         let wire = gradient_request(
             &trainer_examples,
             &sampled.heldout,
@@ -612,7 +726,6 @@ impl Engine {
             batch_config.max_gradient,
         )
         .map_err(precondition)?;
-        let dump = self.config.dump_dir.as_deref();
         let expectations = policy.expectations;
         let header = policy.header;
         let optimizer = expectations.contains("expected_optimizer");
@@ -661,14 +774,49 @@ impl Engine {
             ),
             None => None,
         };
-        if let Err(error) = validate_response(&wire, &response, scope, batch_config.max_gradient, require_full_capability, expectations) {
-            log(format_args!("client runtime semantic training failed: {error}"));
-            let recorded = Recorded { type_name: "RuntimeAnalysisError", message: &error.0 };
+        // The typed one-fit rejection of FULL TRAIN backtracking: admitted as evidence of a known step rejection, never as an update.
+        if let Some(attempt) = &attempt
+            && expectations.contains("expected_backtracking_policy")
+            && response.error == crate::diagnostics::BACKTRACKING_REJECTION
+        {
+            let admitted = crate::diagnostics::validate_backtracking_response(&wire, &response, expectations, true);
+            return Err(match admitted {
+                Ok(()) => {
+                    let message = "FULL TRAIN backtracking found no meaningful improving candidate.";
+                    let recorded = Recorded { type_name: "TrainingStepRejected", message };
+                    let _ = persist_backtracking_admission(attempt, Some(&response), "known_train_rejection", Some(&recorded));
+                    precondition(message)
+                }
+                Err(error) => {
+                    log(format_args!("client runtime semantic training failed: {error}"));
+                    let recorded = Recorded { type_name: "RuntimeAnalysisError", message: &error.0 };
+                    let _ = persist_backtracking_admission(attempt, Some(&response), "unadmitted", Some(&recorded));
+                    Status::unavailable(RUNTIME_UNAVAILABLE)
+                }
+            });
+        }
+        // The response contract and the policy evidence are `RuntimeAnalysisError`s (the caller sees the runtime as unavailable);
+        // the binding of a retention response to the authenticated release is a `ValueError` (`FAILED_PRECONDITION`).
+        let verdict: Result<(), (&'static str, String)> =
+            match validate_response(&wire, &response, scope, batch_config.max_gradient, require_full_capability, expectations) {
+                Err(error) => Err(("RuntimeAnalysisError", error.0)),
+                Ok(()) => match &sources.retention {
+                    Some(snapshot) => crate::retention::validate_source_bindings(&response.metadata, &snapshot.release)
+                        .map_err(|error| ("ValueError", error.0)),
+                    None => Ok(()),
+                },
+            };
+        if let Err((type_name, message)) = verdict {
+            let recorded = Recorded { type_name, message: &message };
             if let Some(attempt) = &attempt {
                 let _ = persist_backtracking_admission(attempt, Some(&response), "unadmitted", Some(&recorded));
             } else if !expectations.is_empty() {
                 let _ = persist_policy_attempt(dump, &wire, Some(&response), scope.name(), expectations, Some(&recorded));
             }
+            if type_name == "ValueError" {
+                return Err(precondition(message));
+            }
+            log(format_args!("client runtime semantic training failed: {message}"));
             return Err(Status::unavailable(RUNTIME_UNAVAILABLE));
         }
         if let Some(attempt) = &attempt {
@@ -687,6 +835,11 @@ impl Engine {
         if let (Some(attempt), Some(header), Value::Object(map)) = (&attempt, header, &mut update.execution_evidence) {
             map.insert("invocation_metadata".to_string(), crate::attempts::invocation_value(header));
             map.insert("physical_attempt".to_string(), value::string(&attempt.display().to_string()));
+        }
+        if let Value::Object(map) = &mut update.execution_evidence {
+            for (name, evidence) in audit_evidence {
+                map.insert(name.to_string(), evidence);
+            }
         }
         update.metadata.extend(expanded_audit);
         update.metrics.insert("new_examples".to_string(), sampled.examples.len() as f64);

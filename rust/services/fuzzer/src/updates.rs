@@ -9,11 +9,12 @@ use privoke_contracts::proto::v1::{
     Parameter, ParameterUpdateAck, ParameterUpdateRequest, ParameterUpdateStatus, ParameterUpdateStatusRequest,
 };
 use privoke_curriculum::trainer::merge_publication_metadata;
+use privoke_curriculum::value::{self, Value};
 use privoke_transport::ClientTlsConfig;
 use privoke_transport::client::connect;
 use tonic::{Request, Status};
 
-use crate::error::Result;
+use crate::error::{Error, Result, invalid};
 use crate::runtime::BatchUpdate;
 
 /// The parameter-update service as the fuzzer uses it.
@@ -65,8 +66,8 @@ impl UpdateBackend for GrpcUpdates {
 /// caller's extra metadata; the gradients as float32 tensors with their shapes.
 ///
 /// A FULL Adam update publishes the projection of [`crate::full_adam_evidence::publication_metadata`], bound to the retained
-/// complete cycle under `directory`. The compact opt-in publication of `train_before_candidate_v1` and the window
-/// publication metadata are not built here: the cycle refuses those updates before it gets this far.
+/// complete cycle under `directory`. The compact opt-in publication of `train_before_candidate_v1` (RUST-S21G) is built here;
+/// the window publication metadata is not: the cycle refuses those updates before it gets this far.
 pub fn publication_request(
     source_id: &str,
     update: &BatchUpdate,
@@ -76,6 +77,15 @@ pub fn publication_request(
     let mut metadata = merge_publication_metadata(&update.metadata, &update.metrics, extra)?;
     if crate::full_adam_evidence::is_full_adam_family(update.metadata.get("contextual_training_optimizer").map(String::as_str)) {
         metadata = crate::full_adam_evidence::publication_metadata(update, metadata, extra, directory)?;
+    }
+    let opted_in = update.metadata.get("contextual_training_diagnostics_policy").map(String::as_str)
+        == Some(crate::diagnostics::TRAIN_DIAGNOSTICS_POLICY);
+    if metadata.len() > 64 && opted_in {
+        // The physical RPC and the complete unprojected cycle must exist before the compact publication.
+        metadata = compact_publication(update, metadata, extra, directory)?;
+    }
+    if opted_in && (metadata.len() > 64 || metadata.values().any(|text| text.len() > 2048)) {
+        return invalid("Opt-in training publication metadata exceeds its unchanged limits.");
     }
     let gradients = update
         .gradients
@@ -93,6 +103,66 @@ pub fn publication_request(
         gradients,
         metadata: metadata.into_iter().collect(),
     })
+}
+
+/// The sampling and weight audit fields that a compact publication packs under `training_audit_v1`.
+const COMPACT_WEIGHT_KEYS: [&str; 10] = [
+    "training_clean_examples",
+    "training_sensitive_examples",
+    "raw_clean_weight",
+    "raw_sensitive_weight",
+    "raw_total_weight",
+    "effective_clean_weight",
+    "effective_sensitive_weight",
+    "clean_objective_mass",
+    "sensitive_objective_mass",
+    "objective_strata",
+];
+
+/// The compact publication of an opted-in TRAIN diagnostics update (`emit_training_update`): the audit fields move into one
+/// bounded string and the retained complete cycle is bound by `training_evidence_sha256` (the hash of its metadata, metrics and
+/// execution evidence).
+fn compact_publication(
+    update: &BatchUpdate,
+    metadata: BTreeMap<String, String>,
+    extra: &BTreeMap<String, String>,
+    directory: Option<&std::path::Path>,
+) -> Result<BTreeMap<String, String>> {
+    let key = |map: &BTreeMap<String, String>, name: &str| map.get(name).cloned().ok_or_else(|| Error(format!("'{name}'")));
+    let scope = key(&update.metadata, "training_scope")?;
+    let identity = value::sha256(
+        value::dumps_compact(&value::strings(&[scope, key(extra, "request_source_id")?, key(extra, "request_id")?]))?.as_bytes(),
+    );
+    let Some(directory) = directory else { return invalid("Compact training publication requires durable complete evidence.") };
+    let base = key(&update.metadata, "base_parameter_fingerprint")?;
+    let retained = value::parse_bytes(&std::fs::read(directory.join("training-cycles").join(identity).join(format!("{base}.json")))?)?;
+    let metrics = Value::Object(update.metrics.iter().map(|(name, number)| (name.clone(), Value::Float(*number))).collect());
+    if value::get(&retained, "metadata") != Some(&value::from_string_map(&update.metadata))
+        || value::get(&retained, "metrics") != Some(&metrics)
+        || value::get(&retained, "execution_evidence") != Some(&update.execution_evidence)
+        || value::get(&retained, "gate_passed") != Some(&Value::Bool(true))
+    {
+        return invalid("Compact publication differs from retained complete evidence.");
+    }
+    let audit: BTreeMap<String, String> = metadata
+        .iter()
+        .filter(|(name, _)| name.starts_with("sampling_") || COMPACT_WEIGHT_KEYS.contains(&name.as_str()))
+        .map(|(name, text)| (name.clone(), text.clone()))
+        .collect();
+    let compact = format!("{{\"schema\":1,\"fields\":{}}}", value::dumps_compact(&value::from_string_map(&audit))?);
+    if compact.len() > 2048 {
+        return invalid("Compact training audit exceeds publication byte budget.");
+    }
+    let mut projected: BTreeMap<String, String> = metadata.into_iter().filter(|(name, _)| !audit.contains_key(name)).collect();
+    projected.insert("training_audit_v1".to_string(), compact);
+    let bound = value::object(
+        ["metadata", "metrics", "execution_evidence"]
+            .iter()
+            .map(|name| value::get(&retained, name).cloned().map(|item| (*name, item)).ok_or_else(|| Error(format!("'{name}'"))))
+            .collect::<Result<Vec<_>>>()?,
+    );
+    projected.insert("training_evidence_sha256".to_string(), value::sha256(value::dumps_compact(&bound)?.as_bytes()));
+    Ok(projected)
 }
 
 /// The extra metadata of one publication (`_submit_update`).
