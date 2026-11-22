@@ -7,6 +7,9 @@
 //!   category BCE, mean category BCE, and the two decision-margin objectives) and the class-balanced reweighting.
 //! * [`adam`]: the FULL projected Adam of `full_adam_training.py` (float64 moments, one thread, 64 fixed steps, a
 //!   float32 cumulative delta capped at 0.05).
+//! * [`rpc`], [`routes`] and [`admission`]: the gradient RPC computation of `_compute_training_gradients`, its local-SGD,
+//!   backtracking and TRAIN-diagnostics routes (with the Python trace strings of [`trace`]), and the artifact policy and
+//!   admission checks that choose the route.
 //!
 //! The crate never loads libtorch. CUDA is out of scope. Everything is LLM-only (it never runs a detector layer).
 
@@ -19,7 +22,9 @@ pub mod error;
 pub mod net;
 pub mod objective;
 pub mod presence;
+pub mod routes;
 pub mod rpc;
+pub mod trace;
 
 pub use error::TrainingError;
 pub use net::{Params, Tensor, TinyNet};

@@ -56,6 +56,7 @@ fn single_update_route_matches_python() {
             artifact: golden["models"][model].clone(),
             full_capable: true,
             objective: case["objective"].as_str().map(str::to_string),
+            ..Snapshot::default()
         };
         let request = Request {
             examples: examples.clone(),

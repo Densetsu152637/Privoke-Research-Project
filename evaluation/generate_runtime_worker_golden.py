@@ -18,6 +18,7 @@ the W1 reference) answers for the same W1 frames, so that the Rust test can repl
 Usage (host Python with the client runtime requirements and Torch; the protobuf clients must exist)::
 
     python evaluation/generate_runtime_worker_golden.py write
+    python evaluation/generate_runtime_worker_golden.py routes    # the local-SGD, diagnostics and backtracking routes (RUST-S19C)
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ REPO = Path(__file__).resolve().parents[1]
 CRATE = REPO / "rust" / "services" / "runtime"
 MODELS_OUT = CRATE / "tests" / "fixtures" / "worker_models"
 DEFAULT_OUT = CRATE / "tests" / "fixtures" / "worker_golden.json"
+ROUTES_OUT = CRATE / "tests" / "fixtures" / "worker_routes_golden.json"
 TRACKED_MODELS = REPO / "models"
 SEED = 20261120
 FULL_STRATEGY = "contextual_full_encoder_sgd_v1"
@@ -445,6 +447,126 @@ def gradient_cases(worker: Worker) -> list[dict]:
     return cases
 
 
+# --- the local-SGD, diagnostics and backtracking routes (RUST-S19C) ---------------------------------------------------
+def route_models(out: Path) -> dict:
+    """Synthetic artifacts whose metadata selects a route beyond the single update (and artifacts the checks refuse)."""
+    training = importlib.import_module("generate_training_golden")
+    from privoke_model import contextual_training as ct
+    from privoke_model import full_adam, sensitive_retention, window_training
+
+    margin, summed = training.OBJECTIVES["decision_margin"], training.OBJECTIVES["sum_margin"]
+    diagnostics = {ct.DIAGNOSTICS_POLICY_KEY: ct.TRAIN_DIAGNOSTICS_POLICY}
+    backtracking = {ct.BACKTRACKING_KEY: ct.BACKTRACKING_POLICY, ct.BACKTRACKING_PREPARATION_KEY: training.preparation_text(),
+                    ct.DIAGNOSTICS_POLICY_KEY: ct.TRAIN_DIAGNOSTICS_POLICY}
+    window = {ct.OPTIMIZER_KEY: window_training.POLICY, ct.OBJECTIVE_KEY: window_training.OBJECTIVE,
+              "contextual_candidate_eligibility": window_training.ELIGIBILITY,
+              window_training.CONFIG_KEY: window_training.canonical(window_training.CONFIG),
+              window_training.WINDOW_KEY: "a" * 64, window_training.REFERENCE_KEY: "b" * 64}
+    policy = sorted(sensitive_retention.POLICIES)[0]
+    retention = {ct.OPTIMIZER_KEY: policy, ct.OBJECTIVE_KEY: sensitive_retention.OBJECTIVES[policy],
+                 "contextual_candidate_eligibility": sensitive_retention.ELIGIBILITY,
+                 full_adam.CONFIG_KEY: full_adam.canonical(full_adam.CONFIG), sensitive_retention.MANIFEST_KEY: "c" * 64}
+    taskquery = "residual_task_query_v1"
+    artifacts = {
+        "synthetic-taskquery-sgd4": tiny_artifact("synthetic-taskquery-sgd4", taskquery, margin, SEED + 2,
+                                                  metadata={ct.OPTIMIZER_KEY: "local_sgd_4_v1"}),
+        "synthetic-legacy-diagsum": tiny_artifact("synthetic-legacy-diagsum", None, summed, SEED + 1, metadata=diagnostics),
+        "synthetic-taskquery-diag": tiny_artifact("synthetic-taskquery-diag", taskquery, None, SEED + 2, metadata=diagnostics),
+        "synthetic-legacy-bt": tiny_artifact("synthetic-legacy-bt", None, None, SEED + 1, metadata=backtracking),
+        "synthetic-taskquery-btsum": tiny_artifact("synthetic-taskquery-btsum", taskquery, summed, SEED + 2, metadata=backtracking),
+        "synthetic-legacy-window": tiny_artifact("synthetic-legacy-window", None, None, SEED + 1, metadata=window),
+        "synthetic-legacy-retention": tiny_artifact("synthetic-legacy-retention", None, None, SEED + 1, metadata=retention),
+    }
+    out.mkdir(parents=True, exist_ok=True)
+    for model_id, payload in artifacts.items():
+        (out / f"{model_id}.json").write_text(json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n",
+                                              encoding="utf-8", newline="\n")
+    return artifacts
+
+
+def route_cases(worker: Worker) -> list[dict]:
+    import hashlib
+
+    pb = worker.pb
+    training = importlib.import_module("generate_training_golden")
+    from privoke_model import contextual_training as ct
+
+    rows = training.make_examples()
+    heldout_rows = training.make_heldout()
+    cases = []
+
+    def build(items):
+        return [example(pb, r["text"], r["sensitivity"], r["visibility"], r["categories"], r["weight"]) for r in items]
+
+    def request(model_id, **fields):
+        values = dict(request_id="t1", model_id=model_id, examples=build(rows), heldout_examples=build(heldout_rows),
+                      learning_rate=0.5, max_gradient=0.05, layers=[SEMANTIC])
+        values.update(fields)
+        return pb.ComputeSemanticGradientsRequest(**values)
+
+    def add(case_id, note, scope, method, message, metadata=()):
+        record = worker.call(method, message, metadata)
+        record.update({"id": case_id, "note": note, "scope": scope})
+        cases.append(record)
+
+    sha = hashlib.sha256(training.preparation_text().encode()).hexdigest()
+    summed = training.OBJECTIVES["sum_margin"]
+
+    def objective_header(diagnostics=None):
+        return ((ADMISSION_HEADER, json.dumps({"schema": 2, "expected_objective": summed, "expected_diagnostics_policy": diagnostics})),)
+
+    def backtracking_header(objective):
+        return ((ADMISSION_HEADER, json.dumps({
+            "schema": 1, "expected_objective": objective, "expected_diagnostics_policy": ct.TRAIN_DIAGNOSTICS_POLICY,
+            "expected_backtracking_policy": ct.BACKTRACKING_POLICY, "expected_backtracking_preparation_sha256": sha})),)
+
+    for method, scope in ((4, "heads"), (5, "full_encoder")):
+        add(f"local-sgd-1/mean/{scope}", "explicit local_sgd_1_v1, mean-category objective", "local_sgd", method,
+            request("synthetic-legacy-sgd"))
+        add(f"local-sgd-4/decision-margin/{scope}", "explicit local_sgd_4_v1, decision-margin objective, task-query readout",
+            "local_sgd", method, request("synthetic-taskquery-sgd4", learning_rate=0.05))
+        add(f"diagnostics/summed-margin/{scope}", "TRAIN diagnostics with the summed-margin objective and its header",
+            "diagnostics", method, request("synthetic-legacy-diagsum"), objective_header(ct.TRAIN_DIAGNOSTICS_POLICY))
+        add(f"diagnostics/legacy/{scope}", "TRAIN diagnostics on the legacy objective, no header", "diagnostics", method,
+            request("synthetic-taskquery-diag", learning_rate=0.1))
+    for tag, rate in (("first-scale", 0.5), ("rejected", 1e-9), ("second-scale", 1.7e308)):
+        add(f"backtracking/legacy/{tag}", "FULL backtracking, legacy objective", "backtracking", 5,
+            request("synthetic-legacy-bt", learning_rate=rate), backtracking_header(ct.LEGACY_OBJECTIVE))
+    add("backtracking/summed-margin/first-scale", "FULL backtracking, summed-margin objective, task-query readout",
+        "backtracking", 5, request("synthetic-taskquery-btsum"), backtracking_header(summed))
+    # Refusals: the Python texts, as responses.
+    add("refusal/backtracking-header-on-heads", "a backtracking header on the head scope", "validation", 4,
+        request("synthetic-legacy-bt"), backtracking_header(ct.LEGACY_OBJECTIVE))
+    add("refusal/backtracking-without-header", "a backtracking artifact without its header", "validation", 5,
+        request("synthetic-legacy-bt"))
+    add("refusal/diagnostics-header-differs", "a diagnostics artifact against an objective-only header without the policy",
+        "validation", 5, request("synthetic-legacy-diagsum"), objective_header(None))
+    add("refusal/window-without-header", "a window artifact without its header", "validation", 5,
+        request("synthetic-legacy-window"))
+    add("refusal/window-objective-header", "a window artifact with the objective-only header", "validation", 5,
+        request("synthetic-legacy-window"), objective_header(None))
+    add("refusal/retention-objective-header", "an ORIGINAL-retention artifact with the objective-only header", "validation", 5,
+        request("synthetic-legacy-retention"), objective_header(None))
+    return cases
+
+
+def write_routes(out: Path, models_out: Path = MODELS_OUT) -> dict:
+    bootstrap()
+    artifacts = route_models(models_out)
+    worker = Worker([models_out, TRACKED_MODELS])
+    document = {
+        "schema": 1,
+        "python": sys.version.split()[0],
+        "scope_note": "local-SGD, TRAIN diagnostics and FULL backtracking gradient RPCs over W1 frames; every request names "
+                      "exactly the semantic layer",
+        "models": sorted(artifacts),
+        "cases": route_cases(worker),
+    }
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(document, ensure_ascii=True, separators=(",", ":")) + "\n", encoding="utf-8", newline="\n")
+    return document
+
+
 def write(out: Path, models_out: Path = MODELS_OUT) -> dict:
     bootstrap()
     artifacts = write_models(models_out)
@@ -467,8 +589,10 @@ def main(argv=None) -> None:
     sub = parser.add_subparsers(dest="command", required=True)
     writer = sub.add_parser("write", help="write the models and the golden fixture")
     writer.add_argument("--out", default=str(DEFAULT_OUT))
+    router = sub.add_parser("routes", help="write the route models and the route golden fixture")
+    router.add_argument("--out", default=str(ROUTES_OUT))
     args = parser.parse_args(argv)
-    document = write(Path(args.out))
+    document = write_routes(Path(args.out)) if args.command == "routes" else write(Path(args.out))
     counts: dict[str, int] = {}
     for case in document["cases"]:
         counts[case["scope"]] = counts.get(case["scope"], 0) + 1

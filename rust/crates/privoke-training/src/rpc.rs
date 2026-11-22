@@ -1,26 +1,33 @@
 //! The gradient RPC computation of `training._compute_training_gradients` (`ComputeSemanticGradients` for the head
-//! scope, `ComputeUnderlyingModelGradients` for the full-encoder scope) on the single-update route.
+//! scope, `ComputeUnderlyingModelGradients` for the full-encoder scope).
 //!
 //! Ported: request validation, canonical text normalisation, class balancing, the objectives of
 //! [`crate::objective`], the transported update `float32(clamp(delta * learning_rate, +-cap))` with the inward float32
 //! cap on full-capable artifacts, the candidate (`updated_parameter_values`), the held-out guard metrics (exact match,
-//! sensitive recall, clean specificity and the safety-regression rate that decides accept or reject) and the response
-//! metrics. Not ported: admission headers, the local-SGD, backtracking and diagnostics routes, FULL Adam admission
-//! (the fit itself is [`crate::adam`]), window and retention routes, and `reject_overlength`.
+//! sensitive recall, clean specificity and the safety-regression rate that decides accept or reject), the response
+//! metrics, and the three routes of [`crate::routes`] (local SGD, backtracking and TRAIN diagnostics) with their
+//! metadata strings. The artifact and admission checks that choose the route are [`crate::admission::admit`]. Not
+//! ported: the FULL Adam fit (the fit itself is [`crate::adam`]), the window and retention training loops, and
+//! `reject_overlength`.
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use privoke_contracts::pyfloat;
 use privoke_rules::preprocessing::normalize_text;
 use privoke_rules::pyunicode;
 use privoke_semantic::{TinyModel, TinyPrediction};
 use serde_json::Value;
 
+use crate::admission::{
+    BACKTRACKING_KEY, BACKTRACKING_POLICY, BACKTRACKING_PREPARATION_KEY, DIAGNOSTICS_POLICY_KEY, LEGACY_OBJECTIVE, TRAIN_DIAGNOSTICS_POLICY,
+};
 use crate::error::TrainingError;
 use crate::net::{Params, Tensor, TinyNet};
 use crate::objective::{Example, Objective, class_balanced, fsum, supervised_deltas};
+use crate::routes::{self, BACKTRACKING_REJECTION, Plan};
 
 /// The served snapshot of a Tiny model, as the training endpoint sees it.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Snapshot {
     /// Artifact JSON object (`architecture`, `config`, `parameters`, `model_id`, `version`).
     pub artifact: Value,
@@ -28,6 +35,13 @@ pub struct Snapshot {
     pub full_capable: bool,
     /// The artifact's `contextual_training_objective`, if any.
     pub objective: Option<String>,
+    /// The artifact's explicit local-SGD optimizer (`local_sgd_1_v1`, `local_sgd_4_v1`), if any.
+    pub optimizer: Option<String>,
+    /// The artifact declares the TRAIN diagnostics policy.
+    pub diagnostics: bool,
+    /// The SHA-256 of the artifact's backtracking preparation record when it declares the policy (used on the
+    /// full-encoder scope only).
+    pub backtracking: Option<String>,
 }
 
 /// One gradient request.
@@ -56,8 +70,15 @@ pub struct Batch {
     pub executions: Vec<(String, usize)>,
     /// `training_scope`.
     pub scope: &'static str,
-    /// The candidate parameters after the transported update.
+    /// The candidate parameters after the transported update (the base itself after a backtracking rejection).
     pub candidate: BTreeMap<String, Vec<f32>>,
+    /// The response `error`: `TRAIN_BACKTRACKING_NO_IMPROVEMENT_V1` after a backtracking rejection, else empty.
+    pub error: String,
+    /// The tensors the update was computed over (`trained_parameter_names`); a rejection transports none of them.
+    pub inventory: Vec<String>,
+    /// The metadata this route adds: `contextual_optimizer_trace`, the backtracking policy, preparation, trace, trials and
+    /// `effective_learning_rate`, the diagnostics policy and record.
+    pub metadata: BTreeMap<String, String>,
 }
 
 fn invalid(message: &str) -> TrainingError {
@@ -112,14 +133,14 @@ fn visibility_rank(name: &str) -> i64 {
 
 /// A classification: sensitivity, visibility and category names.
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct Class {
-    sensitivity: String,
-    visibility: String,
-    categories: BTreeSet<String>,
+pub(crate) struct Class {
+    pub(crate) sensitivity: String,
+    pub(crate) visibility: String,
+    pub(crate) categories: BTreeSet<String>,
 }
 
 impl Class {
-    fn of_target(target: &crate::objective::Target) -> Self {
+    pub(crate) fn of_target(target: &crate::objective::Target) -> Self {
         Self {
             sensitivity: target.sensitivity.clone(),
             visibility: target.visibility.clone(),
@@ -127,12 +148,12 @@ impl Class {
         }
     }
 
-    fn of_prediction(prediction: &TinyPrediction) -> Self {
+    pub(crate) fn of_prediction(prediction: &TinyPrediction) -> Self {
         let d = &prediction.decision;
         Self { sensitivity: d.sensitivity.clone(), visibility: d.visibility.clone(), categories: d.categories.iter().cloned().collect() }
     }
 
-    fn is_sensitive(&self) -> bool {
+    pub(crate) fn is_sensitive(&self) -> bool {
         self.sensitivity != "S0" || !self.categories.is_empty()
     }
 }
@@ -180,7 +201,7 @@ fn artifact_with(artifact: &Value, params: &Params) -> Value {
     value
 }
 
-fn params_from_f32(base: &Params, values: &BTreeMap<String, Vec<f32>>) -> Params {
+pub(crate) fn params_from_f32(base: &Params, values: &BTreeMap<String, Vec<f32>>) -> Params {
     base.iter()
         .map(|(name, tensor)| {
             let data = values.get(name).map_or_else(|| tensor.data.clone(), |v| v.iter().map(|x| f64::from(*x)).collect());
@@ -189,7 +210,7 @@ fn params_from_f32(base: &Params, values: &BTreeMap<String, Vec<f32>>) -> Params
         .collect()
 }
 
-fn predictions(snapshot: &Snapshot, params: &Params, examples: &[Example]) -> Result<Vec<TinyPrediction>, TrainingError> {
+pub(crate) fn predictions(snapshot: &Snapshot, params: &Params, examples: &[Example]) -> Result<Vec<TinyPrediction>, TrainingError> {
     let model = TinyModel::from_artifact(&artifact_with(&snapshot.artifact, params))?;
     Ok(examples.iter().map(|e| model.predict(&e.text)).collect())
 }
@@ -252,7 +273,7 @@ pub fn inward_float32_bound(bound: f64) -> f64 {
     f64::from(rounded)
 }
 
-fn round8(x: f64) -> f64 {
+pub(crate) fn round8(x: f64) -> f64 {
     format!("{x:.8}").parse().unwrap_or(x)
 }
 
@@ -304,6 +325,14 @@ pub fn compute_gradients(snapshot: &Snapshot, request: &Request) -> Result<Batch
     }
     let name = snapshot.objective.as_deref();
     let objective = Objective::from_name(name)?;
+    if snapshot.diagnostics {
+        if snapshot.optimizer.is_some() || objective.mean_category() {
+            return Err(invalid("TRAIN process diagnostics require one legacy update with summed category BCE."));
+        }
+        if raw.iter().all(|e| e.target.is_sensitive()) || raw.iter().all(|e| !e.target.is_sensitive()) {
+            return Err(invalid("TRAIN diagnostics require both clean and sensitive targets."));
+        }
+    }
     let balanced = !matches!(name, None | Some("legacy_sum_category"));
     let net = TinyNet::from_artifact(&snapshot.artifact)?;
     let mean = objective.mean_category();
@@ -347,12 +376,52 @@ pub fn compute_gradients(snapshot: &Snapshot, request: &Request) -> Result<Batch
     let trainable: BTreeSet<String> =
         net.params.keys().filter(|n| request.full_encoder || n.starts_with("head.") || n.starts_with("readout.")).cloned().collect();
     let cap = if snapshot.full_capable { inward_float32_bound(request.max_gradient) } else { request.max_gradient };
-    let gradients: BTreeMap<String, Vec<f32>> = result
-        .deltas
-        .iter()
-        .filter(|(n, _)| trainable.contains(*n))
-        .map(|(n, d)| (n.clone(), d.iter().map(|v| (v * request.learning_rate).clamp(-cap, cap) as f32).collect()))
-        .collect();
+    let direction: BTreeMap<String, Vec<f64>> =
+        result.deltas.iter().filter(|(n, _)| trainable.contains(*n)).map(|(n, d)| (n.clone(), d.clone())).collect();
+    let plan = Plan {
+        examples: &examples,
+        objective,
+        objective_name: name.unwrap_or(LEGACY_OBJECTIVE),
+        rate: request.learning_rate,
+        bound: request.max_gradient,
+    };
+    let mut route_metadata: BTreeMap<String, String> = BTreeMap::new();
+    let mut route_metrics: BTreeMap<String, f64> = BTreeMap::new();
+    let mut effective_rate = request.learning_rate;
+    let mut error = String::new();
+    let preparation = snapshot.backtracking.as_ref().filter(|_| request.full_encoder);
+    let gradients: BTreeMap<String, Vec<f32>> = if let Some(preparation) = preparation {
+        let baseline = routes::local_training_losses(&net, &examples, objective)?;
+        let found = routes::backtracking(&net, &plan, &direction, &baseline)?;
+        route_metadata.insert(BACKTRACKING_KEY.to_string(), BACKTRACKING_POLICY.to_string());
+        route_metadata.insert(BACKTRACKING_PREPARATION_KEY.to_string(), preparation.clone());
+        route_metadata.insert("contextual_training_backtracking_trace".to_string(), found.trace.clone());
+        route_metadata.insert("contextual_training_backtracking_trials".to_string(), found.trials.clone());
+        match found.effective_rate {
+            Some(rate) => {
+                effective_rate = rate;
+                let text = pyfloat::repr(rate).map_err(|_| invalid("Parameter must be finite."))?;
+                route_metadata.insert("effective_learning_rate".to_string(), text);
+            }
+            None => error = BACKTRACKING_REJECTION.to_string(),
+        }
+        route_metrics.insert("gradient_fits".to_string(), 1.0);
+        route_metrics.insert("backtracking_trials".to_string(), found.trial_count as f64);
+        route_metrics.insert("backtracking_semantic_examples".to_string(), found.semantic_examples as f64);
+        route_metrics.insert("backtracking_forward_attempts".to_string(), found.forward_attempts as f64);
+        route_metrics.insert("backtracking_attempted_semantic_examples".to_string(), found.attempted_examples as f64);
+        found.delta
+    } else if let Some(optimizer) = snapshot.optimizer.as_deref() {
+        let local = routes::local_sgd(&net, &plan, &trainable, optimizer, &direction)?;
+        route_metadata.insert("contextual_optimizer_trace".to_string(), local.trace);
+        local.accumulated
+    } else {
+        direction
+            .iter()
+            .map(|(n, d)| (n.clone(), d.iter().map(|v| (v * request.learning_rate).clamp(-cap, cap) as f32).collect()))
+            .collect()
+    };
+    let rejected = !error.is_empty();
     let base_f32: BTreeMap<String, Vec<f32>> =
         net.params.iter().map(|(n, t)| (n.clone(), t.data.iter().map(|v| *v as f32).collect())).collect();
     let candidate: BTreeMap<String, Vec<f32>> = base_f32
@@ -369,7 +438,7 @@ pub fn compute_gradients(snapshot: &Snapshot, request: &Request) -> Result<Batch
         return Err(invalid("Parameter must be finite."));
     }
     let outputs: BTreeSet<&String> = net.params.keys().filter(|n| n.starts_with("head.") || n.starts_with("readout.")).collect();
-    if request.full_encoder && !candidate.iter().any(|(n, v)| !outputs.contains(n) && *v != base_f32[n]) {
+    if request.full_encoder && !rejected && !candidate.iter().any(|(n, v)| !outputs.contains(n) && *v != base_f32[n]) {
         return Err(invalid("Underlying training produced no transported encoder weight update."));
     }
     let candidate_params = params_from_f32(&net.params, &candidate);
@@ -378,13 +447,16 @@ pub fn compute_gradients(snapshot: &Snapshot, request: &Request) -> Result<Batch
     metrics.insert("average_loss".to_string(), if mean { total_loss } else { total_loss / total_weight });
     metrics.insert("exact_match_rate".to_string(), exact as f64 / examples.len() as f64);
     metrics.insert("total_weight".to_string(), total_weight);
-    metrics.extend(heldout_metrics(snapshot, &net.params, &heldout, None)?);
-    if !heldout.is_empty() {
-        for (key, value) in heldout_metrics(snapshot, &candidate_params, &heldout, Some(&net.params))? {
-            metrics.insert(format!("candidate_{key}"), value);
+    if !rejected {
+        metrics.extend(heldout_metrics(snapshot, &net.params, &heldout, None)?);
+        if !heldout.is_empty() {
+            for (key, value) in heldout_metrics(snapshot, &candidate_params, &heldout, Some(&net.params))? {
+                metrics.insert(format!("candidate_{key}"), value);
+            }
         }
     }
     metrics.extend(audit);
+    metrics.extend(route_metrics);
     if let Some(totals) = result.task_totals.filter(|_| mean || request.full_encoder) {
         for (key, value) in
             ["supervised_sensitivity_ce_loss", "supervised_visibility_ce_loss", "supervised_category_bce_loss"].into_iter().zip(totals)
@@ -395,10 +467,27 @@ pub fn compute_gradients(snapshot: &Snapshot, request: &Request) -> Result<Batch
     if mean || request.full_encoder {
         metrics.insert("supervised_objective_loss".to_string(), result.loss);
     }
+    if snapshot.diagnostics {
+        route_metadata.insert(DIAGNOSTICS_POLICY_KEY.to_string(), TRAIN_DIAGNOSTICS_POLICY.to_string());
+        if !rejected {
+            let unclipped: Vec<f64> = direction.values().flatten().map(|v| v * effective_rate).collect();
+            let record = routes::diagnostics(snapshot, &plan, &net, &candidate, &unclipped, &gradients, cap)?;
+            route_metadata.insert("contextual_training_diagnostics".to_string(), record);
+        }
+    }
     let mut executions = vec![("training".to_string(), examples.len())];
-    if !heldout.is_empty() {
+    if !heldout.is_empty() && !rejected {
         executions.push(("base_heldout".to_string(), heldout.len()));
         executions.push(("candidate_heldout".to_string(), heldout.len()));
     }
-    Ok(Batch { gradients, metrics, executions, scope: if request.full_encoder { "full_encoder" } else { "heads" }, candidate })
+    Ok(Batch {
+        gradients,
+        metrics,
+        executions,
+        scope: if request.full_encoder { "full_encoder" } else { "heads" },
+        candidate,
+        error,
+        inventory: direction.keys().cloned().collect(),
+        metadata: route_metadata,
+    })
 }
