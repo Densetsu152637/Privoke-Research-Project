@@ -18,6 +18,7 @@
 
 pub mod adam;
 pub mod admission;
+pub mod bert_backward;
 pub mod error;
 pub mod net;
 pub mod objective;
