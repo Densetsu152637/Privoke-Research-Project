@@ -62,6 +62,7 @@ def build(release: Path, out: Path) -> dict:
 
     torch.set_num_threads(1)
     from privoke_contracts.classification import Classification
+    from privoke_model.artifact import float32
     from privoke_model import contextual_training as ct
     from privoke_model import full_adam
     from privoke_model import window_training as contract
@@ -78,7 +79,8 @@ def build(release: Path, out: Path) -> dict:
         "PRIVOKE_COMPONENT_MANIFEST_SHA256": pins["manifest"], "PRIVOKE_COMPONENT_TEACHER_SHA256": pins["teacher"]})
     artifact = json.loads(paths["teacher"].read_text(encoding="utf-8"))
     window = json.loads(paths["window"].read_text(encoding="utf-8"))
-    parameters = {n: tuple(t["values"]) for n, t in artifact["parameters"].items()}
+    # A streamed snapshot holds float32 values (as doubles); the trace's base fingerprint hashes them as such.
+    parameters = {n: tuple(float32(v) for v in t["values"]) for n, t in artifact["parameters"].items()}
     shapes = {n: tuple(t["shape"]) for n, t in artifact["parameters"].items()}
     names = sorted(parameters)
     metadata = {

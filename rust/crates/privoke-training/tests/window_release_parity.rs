@@ -109,8 +109,15 @@ fn the_window_loop_matches_python_on_the_real_release() {
     .expect("the replay runs");
     let rust_trace: Value = serde_json::from_str(&replayed.trace).unwrap();
     let (mut identical_steps, mut clipped_equal) = (0usize, 0usize);
-    for (rust, python) in rust_trace["steps"].as_array().unwrap().iter().zip(python_steps) {
-        let same = ["step", "block", "before", "after", "gradient", "moments", "delta"].iter().all(|key| rust[*key] == python[*key]);
+    for (index, (rust, python)) in rust_trace["steps"].as_array().unwrap().iter().zip(python_steps).enumerate() {
+        let differing: Vec<&str> = ["step", "block", "before", "after", "gradient", "moments", "delta"]
+            .into_iter()
+            .filter(|key| rust[*key] != python[*key])
+            .collect();
+        for key in &differing {
+            eprintln!("window replay: step {} field {key} differs: Rust {} against Python {}", index + 1, rust[*key], python[*key]);
+        }
+        let same = differing.is_empty();
         identical_steps += usize::from(same);
         clipped_equal += usize::from(rust["clipped"] == python["clipped"]);
     }
