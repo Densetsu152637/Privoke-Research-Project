@@ -352,6 +352,34 @@ pub fn load_snapshot(bank: &Path, references: &Path, manifest: &Path, teacher: &
     Ok(Snapshot { bank, references, manifest, teacher_path: teacher.display().to_string(), release })
 }
 
+fn is_sha256(text: &str) -> bool {
+    text.len() == 64 && text.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+/// The release of a cycle: `load_release(bank, reference, manifest, teacher, model_id=..., expected_sha256=<the request's pin>)`
+/// and then `validate_trusted_release(..., trusted_sha256=<the server's configured pin>)`, in the Python order.
+///
+/// [`Release::load`] fuses the structure checks with the trust anchor, so it runs with the manifest's own hash (which passes its
+/// anchor) to check the structure, and the request pin, the model and the configured trust pin are compared afterwards with the
+/// Python messages.
+pub fn load_requested(paths: [Option<&Path>; 4], model_id: &str, request_pin: &str, trusted_sha256: Option<&str>) -> Result<Snapshot> {
+    let given: Vec<&Path> = paths.iter().flatten().copied().collect();
+    if given.len() != 4 || given.iter().any(|path| std::fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink())) {
+        return invalid("Retention requires four explicit non-symlink read-only sidecar paths.");
+    }
+    let (bank, references, manifest) = (std::fs::read(given[0])?, std::fs::read(given[1])?, std::fs::read(given[2])?);
+    let teacher_bytes = std::fs::read(given[3])?;
+    let release = Release::load(&bank, &references, &manifest, &teacher_bytes, &value::sha256(&manifest))
+        .map_err(|error| Error(error.to_string()))?;
+    if release.model_id != model_id || release.sha256 != request_pin {
+        return invalid("Retention profile or requested immutable manifest pin differs.");
+    }
+    if !trusted_sha256.is_some_and(is_sha256) || trusted_sha256 != Some(request_pin) {
+        return invalid("Retention requires a distinct trusted configured accepted manifest SHA, matching the request.");
+    }
+    Ok(Snapshot { bank, references, manifest, teacher_path: given[3].display().to_string(), release })
+}
+
 /// `persist_release(release, model_id)`: the immutable release evidence, retained before any compute.
 pub fn persist_release(snapshot: &Snapshot, model_id: &str, directory: Option<&Path>) -> Result<Value> {
     if snapshot.release.model_id != model_id {

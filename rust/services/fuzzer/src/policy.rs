@@ -106,7 +106,7 @@ fn window_expectations(metadata: &Metadata) -> Result<Option<Expectations>> {
     Ok(Some(result))
 }
 
-fn retention_objective(policy: &str) -> Option<&'static str> {
+pub(crate) fn retention_objective(policy: &str) -> Option<&'static str> {
     match policy {
         RETENTION_GATE_POLICY => Some(RETENTION_GATE_OBJECTIVE),
         RETENTION_HINGE_POLICY => Some(RETENTION_HINGE_OBJECTIVE),
@@ -248,6 +248,30 @@ pub fn training_admission_header(expectations: &Expectations) -> Result<Option<S
     record.insert("schema".to_string(), Value::Int(schema.to_string()));
     let bytes = canonical::to_bytes(&Value::Object(record), Variant::Ascii).map_err(|error| Error(error.to_string()))?;
     String::from_utf8(bytes).map(Some).map_err(|error| Error(error.to_string()))
+}
+
+/// The exact expectations of an authenticated plain FULL Adam request, as the rehearsal and benign admissions require them
+/// (`{expected_objective, expected_diagnostics_policy: None, expected_optimizer, expected_candidate_eligibility,
+/// expected_optimizer_config, expected_training_scope}`), or, for `retention`, the ORIGINAL retention variant of the policy.
+pub(crate) fn exact_full_adam(retention: Option<(&str, &str)>) -> Expectations {
+    let mut required = Expectations::default();
+    match retention {
+        None => {
+            required.set("expected_objective", Some(SUM_MARGIN));
+            required.set("expected_optimizer", Some(FULL_ADAM_POLICY));
+            required.set("expected_candidate_eligibility", Some(FULL_ADAM_ELIGIBILITY));
+        }
+        Some((policy, pin)) => {
+            required.set("expected_objective", retention_objective(policy));
+            required.set("expected_optimizer", Some(policy));
+            required.set("expected_candidate_eligibility", Some(RETENTION_ELIGIBILITY));
+            required.set("expected_retention_manifest_sha256", Some(pin));
+        }
+    }
+    required.set("expected_diagnostics_policy", None);
+    required.set("expected_optimizer_config", Some(CONFIG_CANONICAL));
+    required.set("expected_training_scope", Some("full_encoder"));
+    required
 }
 
 impl Expectations {

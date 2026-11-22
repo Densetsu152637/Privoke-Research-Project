@@ -134,7 +134,18 @@ fn reservations(directory: &Path) -> Vec<(String, String)> {
 
 #[tokio::test]
 async fn the_full_adam_cycles_replay_identically_to_the_python_oracle() {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/full_adam_cycles_golden.json");
+    replay("full_adam_cycles_golden.json", "fuzzer FULL Adam cycle replay").await;
+}
+
+/// The rehearsal and benign coverage cycles and the ORIGINAL retention refusals before the release is read (RUST-S21G item 5):
+/// the same replay, over the Python oracle's golden of the strategies' admission, audits, retained evidence and projections.
+#[tokio::test]
+async fn the_rehearsal_and_benign_cycles_replay_identically_to_the_python_oracle() {
+    replay("coverage_cycles_golden.json", "fuzzer rehearsal and benign coverage cycle replay").await;
+}
+
+async fn replay(file: &str, title: &str) {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(file);
     let golden: Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     assert_eq!(golden["schema"], 1);
     let (mut cycles, mut accepted, mut refused, mut wire_messages, mut calls_checked, mut files_checked) = (0, 0, 0, 0, 0, 0);
@@ -146,11 +157,21 @@ async fn the_full_adam_cycles_replay_identically_to_the_python_oracle() {
         let taxonomy = repo_root().join("rust/crates/privoke-curriculum/tests/fixtures/bc01/taxonomy-coverage-v1.json");
         let env: BTreeMap<String, String> =
             sequence["env"].as_object().unwrap().iter().map(|(key, value)| (key.clone(), value.as_str().unwrap().to_string())).collect();
+        // The fixture paths of a coverage sequence are repo-relative in the golden (the oracle ran on absolute ones).
+        let paths: BTreeMap<String, String> = sequence
+            .get("paths")
+            .and_then(Value::as_object)
+            .map(|map| {
+                map.iter()
+                    .map(|(name, path)| (name.clone(), repo_root().join(path.as_str().unwrap()).to_string_lossy().to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
         let config = FuzzerConfig::from_lookup(|name| match name {
             "PRIVOKE_FUZZER_DUMP_DIR" => Some(dump.to_string_lossy().to_string()),
             "FUZZ_PROMPT_DATASET_PATH" => Some(taxonomy.to_string_lossy().to_string()),
             "FUZZ_CURRICULUM_STATE_PATH" => Some(directory.path().join("curriculum.sqlite3").to_string_lossy().to_string()),
-            other => env.get(other).cloned(),
+            other => paths.get(other).or_else(|| env.get(other)).cloned(),
         })
         .unwrap();
         let wire = Arc::new(Wire::default());
@@ -304,6 +325,6 @@ async fn the_full_adam_cycles_replay_identically_to_the_python_oracle() {
     }
     assert!(accepted >= 1 && refused >= 5, "accepted and refused cycles are both replayed");
     eprintln!(
-        "fuzzer FULL Adam cycle replay: {cycles} cycles ({accepted} accepted, {refused} refused), {wire_messages} wire messages, {calls_checked} runtime calls (header and deadline), {files_checked} dump files, {evidence_hashes} publication evidence hashes, {diagnostics_checked} gate diagnostics records: all identical to the Python oracle"
+        "{title}: {cycles} cycles ({accepted} accepted, {refused} refused), {wire_messages} wire messages, {calls_checked} runtime calls (header and deadline), {files_checked} dump files, {evidence_hashes} publication evidence hashes, {diagnostics_checked} gate diagnostics records: all identical to the Python oracle"
     );
 }
