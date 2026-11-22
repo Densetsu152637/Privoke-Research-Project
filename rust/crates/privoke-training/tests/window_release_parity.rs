@@ -47,6 +47,33 @@ fn relative(a: f64, b: f64) -> f64 {
     (a - b).abs() / b.abs().max(1.0)
 }
 
+/// Compares a direction with Python's and prints the totals and the worst tensors; returns the largest relative error
+/// (relative to max(1, |value|)).
+fn compare_directions(label: &str, step: usize, rust: &Values, python: &Values) -> f64 {
+    let (mut n, mut within, mut bitwise, mut max_error) = (0usize, 0usize, 0usize, 0f64);
+    let mut tensors: Vec<(f64, String, usize)> = Vec::new();
+    for (name, values) in python {
+        let (mut worst, mut bad) = (0f64, 0usize);
+        for (r, p) in rust[name].iter().zip(values) {
+            n += 1;
+            let error = relative(*r, *p);
+            within += usize::from(error <= 1e-6);
+            bitwise += usize::from((*r as f32).to_bits() == (*p as f32).to_bits());
+            bad += usize::from(error > 1e-6);
+            worst = worst.max(error);
+        }
+        max_error = max_error.max(worst);
+        tensors.push((worst, name.clone(), bad));
+    }
+    tensors.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
+    let worst: Vec<String> = tensors.iter().take(3).map(|(error, name, bad)| format!("{name} max {error:.3e} ({bad} over 1e-6)")).collect();
+    eprintln!(
+        "window direction at step {step} ({label}): {n} coordinates, {within} within 1e-6 (relative to max(1, |v|)), {bitwise} bitwise equal, max relative error {max_error:.3e}; worst tensors: {}",
+        worst.join("; ")
+    );
+    max_error
+}
+
 #[test]
 fn the_window_loop_matches_python_on_the_real_release() {
     let Some(golden) = std::env::var_os("PRIVOKE_WINDOW_GOLDEN").map(PathBuf::from) else {
@@ -95,9 +122,24 @@ fn the_window_loop_matches_python_on_the_real_release() {
 
     // 2. Replay: Python's directions through the Rust recurrence, scoring and selection.
     let mut replay_step = 0;
-    let replayed = run(&artifact, &window, &release, &mut |_| {
+    let mut failures: Vec<String> = Vec::new();
+    let replayed = run(&artifact, &window, &release, &mut |step| {
         replay_step += 1;
         let (main, auxiliary) = recorded(replay_step);
+        // The Rust directions at Python's own state of this step. At step 1 the base is the ORIGINAL teacher, so every
+        // capped component margin (target below 1) sits exactly on the hinge kink and its activity is decided by rounding:
+        // that direction is reported, not asserted. From step 2 on the margins have moved and the directions must agree.
+        if [1, 2, 3, 8, 16, 32, 64].contains(&replay_step) {
+            let computed = compute_directions(step)?;
+            let main_error = compare_directions("main", replay_step, &computed.main, &main);
+            let hinge_error = compare_directions("component hinge", replay_step, &computed.auxiliary, &auxiliary);
+            if main_error > 1e-5 {
+                failures.push(format!("main direction at step {replay_step}: relative error {main_error:.3e}"));
+            }
+            if replay_step > 1 && hinge_error > 1e-4 {
+                failures.push(format!("component hinge direction at step {replay_step}: relative error {hinge_error:.3e}"));
+            }
+        }
         let row = &python_steps[replay_step - 1];
         Ok(Directions {
             main,
@@ -198,22 +240,8 @@ fn the_window_loop_matches_python_on_the_real_release() {
     })
     .unwrap();
     let (python_main, python_aux) = recorded(1);
-    for (label, rust, python) in [("main", &first.main, &python_main), ("component hinge", &first.auxiliary, &python_aux)] {
-        let (mut n, mut within, mut bitwise, mut max_error) = (0usize, 0usize, 0usize, 0f64);
-        for (name, values) in python {
-            for (r, p) in rust[name].iter().zip(values) {
-                n += 1;
-                let error = (*r as f32 - *p as f32).abs();
-                within += usize::from(f64::from(error) <= 1e-6 * p.abs().max(1.0));
-                bitwise += usize::from((*r as f32).to_bits() == (*p as f32).to_bits());
-                max_error = max_error.max(relative(*r, *p));
-            }
-        }
-        eprintln!(
-            "window first direction ({label}): {n} coordinates, {within} within 1e-6 (relative to max(1, |v|)), {bitwise} bitwise equal, max relative error {max_error:.3e}"
-        );
-        assert!(max_error <= 1e-4, "{label} direction at the base state");
-    }
+    compare_directions("main, Rust call outside the loop", 1, &first.main, &python_main);
+    compare_directions("component hinge, Rust call outside the loop", 1, &first.auxiliary, &python_aux);
     eprintln!(
         "window first losses: main {:.6} (Python {:.6}), component hinge {:.3e} (Python {:.3e})",
         first.main_loss,
@@ -242,4 +270,5 @@ fn the_window_loop_matches_python_on_the_real_release() {
         full.checkpoints.iter().map(|c| c.violations).collect::<Vec<_>>()
     );
     assert_eq!((full.status, full.selected_step), (replayed.status, replayed.selected_step), "the selection of the Rust loop");
+    assert!(failures.is_empty(), "direction comparisons: {failures:?}");
 }
