@@ -469,6 +469,7 @@ impl Engine {
         }))
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn sample(
         &self,
         request: &FuzzerTrainingRequest,
