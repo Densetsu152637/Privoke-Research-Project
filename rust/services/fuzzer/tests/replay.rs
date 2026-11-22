@@ -159,7 +159,11 @@ async fn replay(sequence: &Value, counts: &mut Counts) {
             };
             assert!(bytes == &normalised, "{context}: {path} request bytes differ ({} against {})", bytes.len(), normalised.len());
         }
-        assert!(matches!(observed_paths.first(), Some(&STATUS_PATH)), "{context}: the receipt lookup comes first");
+        // A cycle refused at admission (the taxonomy checks) sends nothing at all.
+        assert!(
+            observed_paths.is_empty() || matches!(observed_paths.first(), Some(&STATUS_PATH)),
+            "{context}: the receipt lookup comes first"
+        );
         assert!(observed_paths.iter().all(|path| [STATUS_PATH, SUBMIT_PATH, HEADS_PATH, FULL_PATH].contains(path)));
 
         // The outcome.
