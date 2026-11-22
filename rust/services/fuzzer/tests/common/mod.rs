@@ -10,7 +10,7 @@ use privoke_contracts::proto::v1::{
     ParameterUpdateStatusRequest,
 };
 use privoke_fuzzer::config::Scope;
-use privoke_fuzzer::runtime::RuntimeBackend;
+use privoke_fuzzer::runtime::{CallOptions, RuntimeBackend};
 use privoke_fuzzer::updates::UpdateBackend;
 use privoke_pki::ca::{CaDir, Validity};
 use privoke_pki::{files::write_atomic, registry_edit};
@@ -114,11 +114,17 @@ impl Env {
 #[derive(Debug, Default)]
 pub struct Wire {
     pub calls: Mutex<Vec<(String, Vec<u8>)>>,
+    /// The options (admission header, deadline class) of each runtime call, in order.
+    pub options: Mutex<Vec<CallOptions>>,
 }
 
 impl Wire {
     pub fn take(&self) -> Vec<(String, Vec<u8>)> {
         std::mem::take(&mut *self.calls.lock().unwrap())
+    }
+
+    pub fn take_options(&self) -> Vec<CallOptions> {
+        std::mem::take(&mut *self.options.lock().unwrap())
     }
 
     fn push(&self, path: &str, bytes: Vec<u8>) {
@@ -157,7 +163,9 @@ impl RuntimeBackend for ScriptedRuntime {
         &self,
         scope: Scope,
         request: ComputeSemanticGradientsRequest,
+        options: CallOptions,
     ) -> Result<ComputeSemanticGradientsResponse, Status> {
+        self.wire.options.lock().unwrap().push(options);
         self.wire.push(if scope == Scope::Heads { HEADS_PATH } else { FULL_PATH }, request.encode_to_vec());
         (self.answer.lock().unwrap())(scope, &request)
     }

@@ -107,6 +107,10 @@ jobs:
           cargo test -p privoke-semantic --test context_golden --locked -- --nocapture --test-threads=1
           cargo test -p privoke-runtime --test context_semantic --locked -- --nocapture --test-threads=1
 
+      - name: Fuzzer FULL Adam policy cycle report (stage 21, RUST-S21F)
+        # Prints the counts of the FULL Adam cycle replay, the trace admission and the ORIGINAL retention evidence against the Python oracle (eprintln).
+        run: cargo test -p privoke-fuzzer --test full_adam_cycles --test full_adam_trace --test retention_trace --locked -- --nocapture --test-threads=1
+
       - name: V3 fuzzer replay report (stage 21)
         # Prints the counts of the V3 fuzzer replay against the Python oracle (eprintln): cycles, wire messages, work-directory files, rows.
         run: cargo test -p privoke-v3-fuzzer --test replay --locked -- --nocapture --test-threads=1

@@ -64,10 +64,19 @@ impl UpdateBackend for GrpcUpdates {
 /// `emit_training_update` without the transport: the update's metadata, then `str(metric)` of every metric, then the
 /// caller's extra metadata; the gradients as float32 tensors with their shapes.
 ///
-/// The compact opt-in publication of `train_before_candidate_v1` and the FULL Adam and window publication metadata are
-/// not built here: the cycle refuses those updates before it gets this far.
-pub fn publication_request(source_id: &str, update: &BatchUpdate, extra: &BTreeMap<String, String>) -> Result<ParameterUpdateRequest> {
-    let metadata = merge_publication_metadata(&update.metadata, &update.metrics, extra)?;
+/// A FULL Adam update publishes the projection of [`crate::full_adam_evidence::publication_metadata`], bound to the retained
+/// complete cycle under `directory`. The compact opt-in publication of `train_before_candidate_v1` and the window
+/// publication metadata are not built here: the cycle refuses those updates before it gets this far.
+pub fn publication_request(
+    source_id: &str,
+    update: &BatchUpdate,
+    extra: &BTreeMap<String, String>,
+    directory: Option<&std::path::Path>,
+) -> Result<ParameterUpdateRequest> {
+    let mut metadata = merge_publication_metadata(&update.metadata, &update.metrics, extra)?;
+    if crate::full_adam_evidence::is_full_adam_family(update.metadata.get("contextual_training_optimizer").map(String::as_str)) {
+        metadata = crate::full_adam_evidence::publication_metadata(update, metadata, extra, directory)?;
+    }
     let gradients = update
         .gradients
         .iter()

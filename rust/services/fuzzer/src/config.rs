@@ -83,6 +83,16 @@ pub struct FuzzerConfig {
     pub audience_manifest_path: Option<PathBuf>,
     /// `audience_manifest_sha256`.
     pub audience_manifest_sha256: Option<String>,
+    /// `retention_bank_path` (`FUZZ_RETENTION_BANK_PATH`).
+    pub retention_bank_path: Option<PathBuf>,
+    /// `retention_reference_path` (`FUZZ_RETENTION_REFERENCE_PATH`).
+    pub retention_reference_path: Option<PathBuf>,
+    /// `retention_manifest_path` (`FUZZ_RETENTION_MANIFEST_PATH`).
+    pub retention_manifest_path: Option<PathBuf>,
+    /// `retention_teacher_path` (`FUZZ_RETENTION_TEACHER_PATH`).
+    pub retention_teacher_path: Option<PathBuf>,
+    /// `retention_manifest_sha256` (`FUZZ_RETENTION_MANIFEST_SHA256`): the server's trusted manifest pin.
+    pub retention_manifest_sha256: Option<String>,
     /// `PRIVOKE_FUZZER_DUMP_DIR`: the durable evidence directory.
     pub dump_dir: Option<PathBuf>,
     /// Where the listener binds (`FUZZER_BIND`).
@@ -149,6 +159,11 @@ impl FuzzerConfig {
             contextual_sampling_strategy: env_string(&get, "FUZZ_CONTEXTUAL_SAMPLING_STRATEGY", default_strategy, true),
             audience_manifest_path: path("FUZZ_AUDIENCE_MANIFEST_PATH"),
             audience_manifest_sha256: present(&get, "FUZZ_AUDIENCE_MANIFEST_SHA256"),
+            retention_bank_path: path("FUZZ_RETENTION_BANK_PATH"),
+            retention_reference_path: path("FUZZ_RETENTION_REFERENCE_PATH"),
+            retention_manifest_path: path("FUZZ_RETENTION_MANIFEST_PATH"),
+            retention_teacher_path: path("FUZZ_RETENTION_TEACHER_PATH"),
+            retention_manifest_sha256: present(&get, "FUZZ_RETENTION_MANIFEST_SHA256"),
             port: u16::try_from(port).map_err(|_| Error("FUZZER_PORT must be between 1 and 65535.".to_string()))?,
             timeout_seconds: env_float(&get, "FUZZ_TIMEOUT_SECONDS", 10.0)?,
             seed: u64::try_from(seed).map_err(|_| Error("FUZZ_SEED must not be negative.".to_string()))?,

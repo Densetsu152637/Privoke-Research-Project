@@ -18,14 +18,15 @@ use privoke_training::admission::CONFIG_CANONICAL;
 use crate::error::{Error, Result, invalid};
 use crate::policy::{FULL_ADAM_POLICY, Metadata};
 
-const ELIGIBILITY: &str = "candidate_train_exact_eligibility_v1";
-const ELIGIBILITY_KEY: &str = "contextual_candidate_eligibility";
-const EXECUTED_KEY: &str = "executed_contextual_training_optimizer";
-const TRACE_KEY: &str = "full_projected_adam_trace_v1";
-const SUMMARY_KEY: &str = "full_projected_adam_summary_v1";
-const CONFIG_KEY: &str = "full_projected_adam_config_v1";
-const OPTIMIZER_KEY: &str = "contextual_training_optimizer";
-const RETENTION_POLICIES: [&str; 2] = ["full_projected_adam64_original_train_gate_v1", "full_projected_adam64_original_train_hinge_v1"];
+pub(crate) const ELIGIBILITY: &str = "candidate_train_exact_eligibility_v1";
+pub(crate) const ELIGIBILITY_KEY: &str = "contextual_candidate_eligibility";
+pub(crate) const EXECUTED_KEY: &str = "executed_contextual_training_optimizer";
+pub(crate) const TRACE_KEY: &str = "full_projected_adam_trace_v1";
+pub(crate) const SUMMARY_KEY: &str = "full_projected_adam_summary_v1";
+pub(crate) const CONFIG_KEY: &str = "full_projected_adam_config_v1";
+pub(crate) const OPTIMIZER_KEY: &str = "contextual_training_optimizer";
+pub(crate) const RETENTION_POLICIES: [&str; 2] =
+    ["full_projected_adam64_original_train_gate_v1", "full_projected_adam64_original_train_hinge_v1"];
 const MAX_TRACE_BYTES: usize = 131_072;
 
 fn canonical_text(document: &Value) -> Result<String> {
@@ -55,7 +56,7 @@ pub fn validate_trace(
 ) -> Result<Option<Value>> {
     let get = |key: &str| metadata.get(key).map(String::as_str);
     if get(OPTIMIZER_KEY).is_some_and(|policy| RETENTION_POLICIES.contains(&policy)) {
-        return invalid("ORIGINAL retention trace validation is not ported to the Rust fuzzer.");
+        return crate::retention::validate_trace(metadata, scope, examples, candidate_fingerprint, delta_fingerprint);
     }
     if get(OPTIMIZER_KEY) != Some(FULL_ADAM_POLICY) || get(CONFIG_KEY) != Some(CONFIG_CANONICAL) {
         return invalid("Missing FULL Adam artifact policy/config identity.");
