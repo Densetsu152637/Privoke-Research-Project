@@ -271,6 +271,9 @@ fn the_retention_loops_match_python_on_the_real_release() {
             wanted.sort_unstable();
             assert_eq!(rust_keys, wanted, "the metadata keys the loop writes");
             for (key, value) in &replayed.metadata {
+                if key == "original_train_retention_trace_v1" {
+                    continue; // compared above as a trace
+                }
                 let want = python_metadata[key].as_str().unwrap();
                 if key == "original_train_retention_summary_v1" {
                     let (a, b): (Value, Value) = (serde_json::from_str(value).unwrap(), serde_json::from_str(want).unwrap());
