@@ -48,6 +48,69 @@ pub struct LayerParams {
     pub output_norm: Norm,
 }
 
+/// The suffixes of the sixteen layer tensors, in [`LayerParams::parts_mut`] order (the BERT state-dict names inside a layer).
+pub const LAYER_SUFFIXES: [&str; 16] = [
+    "attention.self.query.weight",
+    "attention.self.query.bias",
+    "attention.self.key.weight",
+    "attention.self.key.bias",
+    "attention.self.value.weight",
+    "attention.self.value.bias",
+    "attention.output.dense.weight",
+    "attention.output.dense.bias",
+    "attention.output.LayerNorm.weight",
+    "attention.output.LayerNorm.bias",
+    "intermediate.dense.weight",
+    "intermediate.dense.bias",
+    "output.dense.weight",
+    "output.dense.bias",
+    "output.LayerNorm.weight",
+    "output.LayerNorm.bias",
+];
+
+impl LayerParams {
+    /// The sixteen tensors in [`LAYER_SUFFIXES`] order.
+    pub fn parts_mut(&mut self) -> [&mut Vec<f64>; 16] {
+        [
+            &mut self.query.weight,
+            &mut self.query.bias,
+            &mut self.key.weight,
+            &mut self.key.bias,
+            &mut self.value.weight,
+            &mut self.value.bias,
+            &mut self.attention_output.weight,
+            &mut self.attention_output.bias,
+            &mut self.attention_norm.gamma,
+            &mut self.attention_norm.beta,
+            &mut self.intermediate.weight,
+            &mut self.intermediate.bias,
+            &mut self.output.weight,
+            &mut self.output.bias,
+            &mut self.output_norm.gamma,
+            &mut self.output_norm.beta,
+        ]
+    }
+
+    /// The same layout filled with zeros.
+    #[must_use]
+    pub fn zeros_like(&self) -> Self {
+        let mut zeros = self.clone();
+        for part in zeros.parts_mut() {
+            part.fill(0.0);
+        }
+        zeros
+    }
+
+    /// `self += other`.
+    pub fn add_assign(&mut self, mut other: Self) {
+        for (slot, value) in self.parts_mut().into_iter().zip(other.parts_mut()) {
+            for (a, b) in slot.iter_mut().zip(value.iter()) {
+                *a += b;
+            }
+        }
+    }
+}
+
 /// What the forward pass keeps for the backward.
 #[derive(Debug, Clone)]
 pub struct LayerCache {
@@ -71,7 +134,7 @@ pub struct LayerCache {
 }
 
 /// `y = x W^T + b` over `rows` rows.
-fn linear(x: &[f64], rows: usize, dense: &Dense, input: usize, output: usize) -> Vec<f64> {
+pub(crate) fn linear(x: &[f64], rows: usize, dense: &Dense, input: usize, output: usize) -> Vec<f64> {
     let mut out = vec![0.0; rows * output];
     for (row, dst) in x.chunks(input).zip(out.chunks_mut(output)).take(rows) {
         for (slot, (weights, bias)) in dst.iter_mut().zip(dense.weight.chunks(input).zip(&dense.bias)) {
@@ -82,7 +145,7 @@ fn linear(x: &[f64], rows: usize, dense: &Dense, input: usize, output: usize) ->
 }
 
 /// The gradient of [`linear`]: `(dx, dense gradient)`.
-fn linear_back(dy: &[f64], x: &[f64], rows: usize, dense: &Dense, input: usize, output: usize) -> (Vec<f64>, Dense) {
+pub(crate) fn linear_back(dy: &[f64], x: &[f64], rows: usize, dense: &Dense, input: usize, output: usize) -> (Vec<f64>, Dense) {
     let mut dx = vec![0.0; rows * input];
     let mut dw = vec![0.0; output * input];
     let mut db = vec![0.0; output];
@@ -99,7 +162,7 @@ fn linear_back(dy: &[f64], x: &[f64], rows: usize, dense: &Dense, input: usize, 
 }
 
 /// The affine layer norm: the output, the normalised rows and `1 / sigma` per row.
-fn norm_forward(x: &[f64], width: usize, norm: &Norm, eps: f64) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+pub(crate) fn norm_forward(x: &[f64], width: usize, norm: &Norm, eps: f64) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
     let mut out = vec![0.0; x.len()];
     let mut xhat = vec![0.0; x.len()];
     let mut inv = Vec::with_capacity(x.len() / width);
@@ -118,7 +181,7 @@ fn norm_forward(x: &[f64], width: usize, norm: &Norm, eps: f64) -> (Vec<f64>, Ve
 }
 
 /// The gradient of [`norm_forward`]: `(dx, gamma and beta gradients)`.
-fn norm_back(dy: &[f64], xhat: &[f64], inv: &[f64], width: usize, norm: &Norm) -> (Vec<f64>, Norm) {
+pub(crate) fn norm_back(dy: &[f64], xhat: &[f64], inv: &[f64], width: usize, norm: &Norm) -> (Vec<f64>, Norm) {
     let mut dx = vec![0.0; dy.len()];
     let mut dgamma = vec![0.0; width];
     let mut dbeta = vec![0.0; width];

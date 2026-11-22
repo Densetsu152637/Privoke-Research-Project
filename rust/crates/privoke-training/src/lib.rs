@@ -28,6 +28,7 @@ pub mod retention;
 pub mod routes;
 pub mod rpc;
 pub mod trace;
+pub mod v3_model;
 pub mod window;
 
 pub use error::TrainingError;
