@@ -4,8 +4,12 @@
 //! out of Git and CI). No golden is generated: the committed release file is the Python output.
 //!
 //! Compared per row: the packed prediction, the rounded confidence and the eligibility exactly; the float32 margin and gap
-//! within 1e-6 (relative to max(1, |v|)), with the bitwise count reported (the logits are float32 in numpy and float64
-//! cast to float32 here); and the teacher identity. The payload bytes equal the file's only when every float is bitwise equal.
+//! within the absolute tolerance the semantic-layer rule of `tests/conformance/normalization.toml` sets
+//! (`[analysis_runtime] float_absolute_tolerance`, read from the file), with the bitwise count reported; and the teacher
+//! identity. Every Python margin and gap is a float32 value (the reference run computes the logits in float32 torch), while
+//! this port computes the forward pass in float64 over float32 weights and casts the logits to float32, so the last float32
+//! digits differ and the payload bytes are NOT expected to equal the file's. The error is also split by magnitude and sign
+//! to show that it is rounding noise (no growth with the margin, no systematic sign).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -13,6 +17,21 @@ use std::path::PathBuf;
 
 use privoke_training::reference::prepare_references;
 use serde_json::Value;
+
+/// `float_absolute_tolerance` of the `[analysis_runtime]` table of the conformance normalisation rules.
+fn semantic_tolerance() -> f64 {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../tests/conformance/normalization.toml");
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+    let mut in_table = false;
+    for line in text.lines().map(str::trim) {
+        if line.starts_with('[') {
+            in_table = line == "[analysis_runtime]";
+        } else if in_table && let Some(value) = line.strip_prefix("float_absolute_tolerance") {
+            return value.trim_start_matches([' ', '=']).trim().parse().expect("a float tolerance");
+        }
+    }
+    panic!("[analysis_runtime] float_absolute_tolerance is not set in {}", path.display());
+}
 
 fn read(path: &PathBuf) -> Vec<u8> {
     std::fs::read(path).unwrap_or_else(|error| panic!("{}: {error}", path.display()))
@@ -44,7 +63,10 @@ fn the_prepared_references_match_the_balanced_release() {
     }
     let (rows, expected) = (rust["rows"].as_array().unwrap(), python["rows"].as_array().unwrap());
     assert_eq!(rows.len(), expected.len());
+    let tolerance = semantic_tolerance();
     let (mut exact, mut bitwise, mut within, mut max_error, mut eligible) = (0usize, 0usize, 0usize, 0f64, 0usize);
+    // Signed error (Rust - Python): the count of positive and negative errors, and the worst absolute error below and from 1.
+    let (mut positive, mut negative, mut small, mut large) = (0usize, 0usize, 0f64, 0f64);
     let mut failures = Vec::new();
     for (rust_row, python_row) in rows.iter().zip(expected) {
         let same = ["id", "packed", "confidence", "eligible"].iter().all(|key| rust_row[*key] == python_row[*key]);
@@ -55,18 +77,25 @@ fn the_prepared_references_match_the_balanced_release() {
         eligible += usize::from(python_row["eligible"].as_bool().unwrap());
         for key in ["margin", "sensitivity_gap"] {
             let (a, b) = (rust_row[key].as_f64().unwrap(), python_row[key].as_f64().unwrap());
-            let error = (a - b).abs() / b.abs().max(1.0);
+            let error = (a - b).abs();
             bitwise += usize::from(a.to_bits() == b.to_bits());
-            within += usize::from(error <= 1e-6);
+            within += usize::from(error <= tolerance);
             max_error = max_error.max(error);
+            positive += usize::from(a > b);
+            negative += usize::from(a < b);
+            if b.abs() < 1.0 {
+                small = small.max(error);
+            } else {
+                large = large.max(error);
+            }
         }
     }
     eprintln!(
-        "reference preparation: {} rows ({eligible} eligible), packed/confidence/eligibility equal {exact}; margins and gaps: {within} of {} within 1e-6, {bitwise} bitwise equal, max relative error {max_error:.3e}; payload byte-equal: {}",
+        "reference preparation: {} rows ({eligible} eligible), packed/confidence/eligibility equal {exact}; margins and gaps: {within} of {} within {tolerance:e} absolute, {bitwise} bitwise equal, max absolute error {max_error:.3e} (|v| below 1: {small:.3e}, from 1: {large:.3e}), Rust above Python {positive}, below {negative}; payload byte-equal: {} (not expected: float32 torch against float64 forward)",
         rows.len(),
         2 * rows.len(),
         payload.as_bytes() == file.as_slice()
     );
     assert!(failures.is_empty(), "{} rows differ, first: {:?}", failures.len(), failures.iter().take(5).collect::<Vec<_>>());
-    assert_eq!(within, 2 * rows.len(), "margins and gaps within 1e-6");
+    assert_eq!(within, 2 * rows.len(), "margins and gaps within the semantic-layer tolerance");
 }
