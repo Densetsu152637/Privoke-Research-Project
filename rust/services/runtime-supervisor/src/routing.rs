@@ -389,8 +389,8 @@ mod tests {
 
     #[test]
     fn the_rust_worker_claims_presence_and_gradients_and_nothing_else_changed() {
-        assert!(Capabilities::RUST.presence && Capabilities::RUST.gradients);
-        assert!(!Capabilities::RUST.semantic);
+        let claimed = Capabilities::RUST;
+        assert_eq!((claimed.presence, claimed.gradients, claimed.semantic), (true, true, false));
         let without = Capabilities::RUST.without_models();
         assert_eq!((without.regex, without.ner, without.semantic, without.presence, without.gradients), (true, true, false, false, false));
         let rust = Some(Capabilities::RUST);
