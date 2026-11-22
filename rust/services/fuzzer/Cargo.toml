@@ -19,6 +19,7 @@ path = "src/main.rs"
 privoke-contracts = { path = "../../crates/privoke-contracts" }
 privoke-transport = { path = "../../crates/privoke-transport" }
 privoke-curriculum = { path = "../../crates/privoke-curriculum" }
+privoke-training = { path = "../../crates/privoke-training" }
 tonic = { workspace = true }
 tokio = { workspace = true }
 clap = { workspace = true }

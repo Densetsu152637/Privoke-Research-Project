@@ -247,12 +247,11 @@ impl Engine {
             return Err(gap("The window training cycle"));
         }
         let cycle = resolve_cycle(&request, &self.config);
-        if request.metadata.keys().any(|key| {
-            key.starts_with("expected_contextual_")
-                || key.starts_with("expected_full_projected_adam")
-                || key.starts_with("expected_original_train_retention")
-        }) {
-            return Err(gap("Training policy admission (FULL Adam, ORIGINAL retention, backtracking, TRAIN diagnostics)"));
+        let expectations = crate::policy::training_policy_expectations(&request.metadata).map_err(precondition)?;
+        if !expectations.is_empty() {
+            return Err(gap(
+                "Training policy admission (the admission header on the runtime request, the response trace validation and the FULL Adam gate and publication evidence)",
+            ));
         }
         let strategy: Option<String> = match strategy_key.unwrap_or(&self.config.contextual_sampling_strategy) {
             text if text == audience::LEGACY => None,
