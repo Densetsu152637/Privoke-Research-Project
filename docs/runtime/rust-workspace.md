@@ -1090,7 +1090,7 @@ By the stage's artifact rule, the replay run (gradients bitwise Python's) is in 
 
 Golden: the product's `_compute_training_gradients` runs on a fake streamed snapshot (the streamer and cache are replaced; nothing else is). `tests/rpc_parity.rs` checks 12 cases (2 models x legacy, mean-category and sum-margin objectives x head and full-encoder scopes), 8 held-out rows each: the transported update (all coordinates within 1e-6; the 12 cases hold 8928 coordinates), the metric names and values (302 metrics: decision counts and rates exact, losses and weights within 1e-5 relative), the executions, and the guard outcome: the candidate safety-regression rate is equal in all 12 cases, and the accept (rate 0) or reject decision is identical in all 12 (2 rejected, 10 accepted).
 
-Not ported on this route: admission headers and the pre-gradient admission checks, local-SGD, backtracking and diagnostics routes, window and retention routes, FULL Adam admission (the fit is `adam`), `reject_overlength`, and the response metadata strings. The streamed protobuf envelope is stage 17 and 22's.
+Checkpoint 3a serves this computation from the Rust worker (`privoke-runtime`, `training.rs`), which builds the response metadata strings and the objective-only admission and FULL Adam refusal around it. Not ported on this route: other admission headers, local-SGD, backtracking and diagnostics routes, window and retention routes and the FULL Adam fit in an RPC (the fit is `adam`); `reject_overlength` is reproduced by the worker. The streamed protobuf envelope is stage 17 and 22's.
 
 ### Presence gradients and admission
 
@@ -1170,6 +1170,8 @@ The service reads the `FUZZ_*`, `MODEL_ID`, `FUZZER_ID`, `PARAM_UPDATE_TARGET` a
 
 ## `privoke-runtime` (stage 17)
 
+> Checkpoint 3a (RUST-S17A, [below](#presence-the-presence-gate-and-the-gradient-rpcs-checkpoint-3a)) adds the presence gate, `DetectAnnotationPresence` and the gradient RPCs for the shapes stage 19 ported; where this paragraph says they are not done, read that section.
+>
 > Status: checkpoint 2 of stage 17. The regex, NER and semantic layers (legacy Tiny artifacts and pinned V3 packages from read-only model roots), `Health`, the pipeline and policy aggregation and the supervisor routing are done and green in CI. The presence gate, the pretrained contextual encoder, `DetectAnnotationPresence`, the gradient RPCs, GLiNER selection, the Rust-side model fetch (D11) and the telemetry wiring are **not** done; the Python worker serves them, and the routing keeps every call that the Rust worker does not claim on it. What remains is listed at the end of this section.
 
 `rust/services/runtime` (`privoke-runtime`, binary `privoke-runtime-worker`) is the `PrivokeRuntimeService` analysis path of `extension/client-runtime/src` as a worker behind the W1 frame protocol ([worker protocol](worker-protocol.md#the-rust-worker-stage-17)). The pool (W2) starts it where it starts `worker_shim.py`; spaCy runs in the same process through the stage 11b `InProcess` backend (no spaCy process), so the W2 sandbox and restart cover the whole thing, and an interpreter crash kills this worker only.
@@ -1182,12 +1184,13 @@ The service reads the `FUZZ_*`, `MODEL_ID`, `FUZZER_ID`, `PARAM_UPDATE_TARGET` a
 | `response` | The visibility hint, the masked prompt, the `reason`, the metadata map and the `AnalyzePromptResponse` bytes. |
 | `wire` | A small protobuf encoder that writes what `upb` writes with `SerializeToString(deterministic=True)`: field order, proto3 defaults left out, and **every map entry written with its key and its value**. `prost` leaves the value out of an entry whose value is the default (the W3 finding), so responses are not built with it; `prost` only decodes requests. |
 | `semantic` | The semantic layer over read-only model roots: `<id>.json` legacy Tiny artifacts, `<id>/manifest.json` pinned V3 packages, and the controller's cache layout `<id>/<pin>/manifest.json`. A model is rebuilt only when its bytes change. It attaches the result metadata Python attaches (`classifier`, `architecture`, `model_id`, `model_version`, `parameter_count`, `parameter_fingerprint`, `artifact_checksum`, `compute_device`, `category_probabilities`; for V3 also `backbone_sha256`, `tokenizer_sha256`, `torch_threads`) and the response identity `privoke.semantic.*`. |
+| `store`, `presence`, `gate`, `training` | Checkpoint 3a: the read-only artifact reader (`LocalModelProvider` and `load_artifact`), `DetectAnnotationPresence` and the presence models, the gate trace, and the three gradient RPCs over `privoke-training` with Python's response metadata. See the section below. |
 | `frames`, `service`, `worker` | The W1 codec and limits, the request handling (one frame in, one frame out), the READY announcement, the sandbox self-check and the serve loop. |
 
 ### Behaviour kept, and where it differs
 
 - A validation failure, an unsupported layer value and a bad regex order are ordinary responses with `error` set under the request's own `request_id`, as in Python; `ERROR` frames are for protocol faults. An empty layer list and `DETECTION_LAYER_RUNTIME` are `INVALID_LAYERS` before anything runs.
-- A selection that names the semantic layer gets `UNSUPPORTED_LAYERS`, and the gradient methods and `DetectAnnotationPresence` get `UNKNOWN_METHOD`, so a mis-routed call fails visibly and is never answered wrongly.
+- A selection the worker does not serve gets `UNSUPPORTED_LAYERS`, and a presence or gradient request it does not serve gets `UNSUPPORTED_ROUTE` (checkpoint 3a), before anything runs, so a mis-routed call fails visibly and is never answered wrongly.
 - The NER layer's own errors differ in wording only where Python's come from the spaCy library (a worker `Unavailable` replaces a Python exception); both are layer errors that block an ALLOW.
 - No parallelism between regex and NER (Python runs them on a thread pool when regex-first is off); the results do not depend on it.
 - The worker has no telemetry code and no network code. Its sandbox self-check opens and closes loopback sockets to test that it cannot, and `privoke-contracts` brings the `tonic` types in as a dependency, but no code path here opens a connection.
@@ -1202,10 +1205,12 @@ The service reads the `FUZZ_*`, `MODEL_ID`, `FUZZER_ID`, `PARAM_UPDATE_TARGET` a
 | `AnalyzePrompt` naming the semantic layer | Rust when the Rust worker was given model roots (the controller's model cache exists) and the request has no presence gate and does not name the pretrained contextual encoder; otherwise Python |
 | `AnalyzePrompt`, any other selection (empty, runtime, unknown value) | Python |
 | `Health` | Rust |
-| `DetectAnnotationPresence` | Python (not ported) |
-| `ComputeSemanticGradients`, `ComputeUnderlyingModelGradients`, `ComputePresenceGradients` | Python. The stage 19 crate computes the single-update gradient RPCs (head and full-encoder scopes, presence) as a library; it is not yet a worker, so these are not claimed. |
+| `DetectAnnotationPresence`, semantic-only selection, sparse presence model | Rust with model roots; a scratch model, any other selection, or no model roots: Python |
+| `AnalyzePrompt` with a sparse presence gate | Rust when the worker serves the semantic layer and presence; a scratch gate: Python |
+| `ComputeSemanticGradients`, `ComputeUnderlyingModelGradients` | Rust with model roots and no admission header or the objective-only header (schema 2); any other header: Python |
+| `ComputePresenceGradients` | Rust with model roots |
 
-The claim is one constant (`Capabilities::RUST`, with `with_semantic()` when the worker has model roots); a later stage that ports another part changes it and the router follows. A call is never retried on the other engine, and a Rust worker that is down is a failed call (`UNAVAILABLE`), not a silent fallback. The controller reports the runtime as running only when every configured pool is ready. The W3 analysis service (`rust/services/analysis`) is not changed: it still starts the Python shim, and can start this worker with the same routing table when its owner wires a second pool.
+The claim is one constant (`Capabilities::RUST` claims presence and gradients; `with_semantic()` when the worker has model roots, `without_models()` when it has none); a later stage that ports another part changes it and the router follows. A call is never retried on the other engine, and a Rust worker that is down is a failed call (`UNAVAILABLE`), not a silent fallback. The controller reports the runtime as running only when every configured pool is ready. The W3 analysis service (`rust/services/analysis`) is not changed: it still starts the Python shim, and can start this worker with the same routing table when its owner wires a second pool.
 
 ### Parity with Python
 
@@ -1235,8 +1240,34 @@ The spaCy results are replayed, so this is parity of the Rust logic with Python 
 
 The rule is the one of `tests/conformance/normalization.toml`: every decision field and text exactly, confidence after rounding to 6 decimal places or within 1e-5, and the 4-decimal `category_probabilities` within one unit of their last digit. The one response that is not byte-identical differs only inside that tolerance. These are tracked synthetic-prompt rows on legacy Tiny models; **the pinned V3 releases and the recorded sets are not covered** (the pinned-release parity run of stage 14 is still local-only and pending), and V3 loading in the worker is exercised only through its refusal paths here.
 
+### Presence, the presence gate and the gradient RPCs (checkpoint 3a)
+
+RUST-S17A. The worker serves `DetectAnnotationPresence`, the sparse presence gate of `AnalyzePrompt` and the three gradient RPCs, reading models from `--model-root` directories the way `LocalModelProvider` does (`store.rs`: size budget, schema, tensor checks, the checksum over the canonical content, the raw `config` text; a pinned V3 package or non-string metadata is declined, not served).
+
+- **Presence.** `presence.rs` builds `privoke_training::presence::PresenceModel` from the artifact with the `StreamedPresenceModel` checks and the provider's identity (version, artifact checksum, parameter fingerprint). `DetectAnnotationPresence` follows `grpc_server.py` check for check. A scratch model id is the Python worker's error ("not available").
+- **Gate.** `Pipeline::analyse_gated` and `SemanticLayer::run_gated` follow `_execute_semantic_with_presence_gate`: the semantic model classifies the normalised prompt, the gate probability against the request's threshold or the model's own keeps or drops the findings, and the layer carries the `SemanticPresenceGateTrace` in every case Python reports one (applied, error after the layer ran, not run, skipped after a regex BLOCK). A gated execution carries no `privoke.semantic.*` identity, as in Python. The request checks (gate model, semantic layer, `semantic_model_id='privoke-balanced'`, threshold in [0, 1]) have Python's messages. A scratch gate is refused with `UNSUPPORTED_LAYERS`.
+- **Gradients (`training.rs`).** Served: the single-update route on full-capable Tiny artifacts, head and full-encoder scopes, legacy, class-balanced, mean-category, decision-margin and summed-margin objectives, with no admission header or the objective-only header (schema 2); the FULL Adam admission refusal (an artifact that declares FULL Adam and a request without the matching header gets Python's error, via `privoke_training::admission`); sparse presence gradients. The response metadata is Python's (`strategy`, scope, inventory and base/updated fingerprints, `model_config`, `model_cache_key`, the weight audit, the mean-category block) and the `reject_overlength` token check of full-capable artifacts is reproduced.
+- **Declined before anything runs (`UNSUPPORTED_ROUTE`).** A header of another schema (backtracking, FULL Adam, retention, window) or a malformed or repeated header; an artifact that is not full-capable, that declares an optimizer (local SGD, FULL Adam with its own admission, window, retention), diagnostics, backtracking, eligibility or window policy, or an objective outside the verified set; a row without an explicit target; a pinned V3 package; a worker without model roots. The FULL Adam fit itself stays on Python: its audit trace hashes the float64 gradient bytes, which match only for bitwise-equal gradients.
+- **Routing.** `routing.rs`: `Capabilities::RUST` now claims `presence` and `gradients` (with `without_models()` for a worker without roots); `route_analysis`, `route_presence` and `route_gradients` decide per request (gate model, presence model, admission header); `call_routed` sends a call the Rust worker refused (`Attempt::Refused`) once to the Python worker, and never retries a failure, so no call runs twice. The controller itself still dispatches only `AnalyzePrompt`; the gradient and presence dispatcher is the analysis service's (W3), which was not changed.
+
+**Golden.** `evaluation/generate_runtime_worker_golden.py write` hands the unchanged Python `worker_main.Dispatcher` W1 frames (with the admission header in a metadata block) over synthetic artifacts committed in `rust/services/runtime/tests/fixtures/worker_models/` and the tracked legacy models (the gate's semantic model), and records 190 answers. Every request names its layers explicitly and non-empty (semantic only; the 11 `product_pipeline` gate rows add regex and are reported apart); no empty list is ever sent to Python. Regeneration is byte-identical (`evaluation/tests/test_generate_runtime_worker_golden.py`, 7 tests).
+
+| Scope (method) | Rows | Within the rule | Byte-identical |
+| --- | ---: | ---: | ---: |
+| LLM-only gated `AnalyzePrompt` | 61 | 61 | 61 |
+| Gate, regex plus semantic (product pipeline) | 11 | 11 | 11 |
+| `DetectAnnotationPresence` | 27 | 27 | 27 |
+| Gradients, single update (heads 7, full encoder 6) | 13 | 13 | 0 |
+| Presence gradients | 6 | 6 | 6 |
+| Validation and refusals | 72 | 72 | 72 |
+
+Gradients: 13,518 transported coordinates, all within 1e-6 (max 1.12e-7), 8,518 bitwise equal; 440 of 440 metrics within the rule; the fingerprints of the updated floats equal in 18 of 31 (they may differ only when a coordinate is not bitwise equal, which the test enforces). The rule is `[worker_gradients]` of `tests/conformance/normalization.toml`. These are LLM-only rows except where labelled; the declined shapes are tested for `UNSUPPORTED_ROUTE` (`shapes_the_worker_does_not_serve_are_refused_before_anything_runs`).
+
+**API changes.** `privoke_training::presence::PresenceModel::threshold()` (additive). `privoke-runtime`: `frames::Request.metadata`, `frames::{encode_metadata, split_metadata}`, codes `INVALID_METADATA` and `UNSUPPORTED_ROUTE`, `pipeline::LayerExecution.gate`, `Pipeline::{with_presence, analyse_gated, serves_gate, presence}`, `Service::with_training`, `wire::{double_always, packed_f32, packed_u32, double_map}`, modules `store`, `presence`, `gate`, `training`. `privoke-supervisor`: `routing::{route_presence, route_gradients, call_routed, Attempt, is_refusal, Capabilities::without_models}` and `Capabilities::RUST` (presence and gradients now true).
+
 ### Tests
 
+- `tests/worker_golden.rs` (checkpoint 3a): 190 presence, gate and gradient comparisons with the Python worker, the refusals and the declared rule.
 - `tests/semantic_golden.rs`: the 135 semantic comparisons above.
 - `tests/golden.rs`: the 238 byte comparisons through the frame codec, the W1 capture digests, and the declared float rule.
 - `tests/worker_process.rs`: the real worker binary as a child process on the pool framing, with the Python-free stand-in spaCy engine (`--spacy fake`, feature `fake-spacy`): READY, `Health`, regex and NER analysis, `INVALID_LAYERS`, `UNSUPPORTED_LAYERS`, `UNKNOWN_METHOD`, `INVALID_PAYLOAD`, malformed frames, the text limit, a clean exit when the pipe closes, the sandbox self-check, and a usage error. Every child is killed in a drop guard.
@@ -1247,10 +1278,9 @@ The rule is the one of `tests/conformance/normalization.toml`: every decision fi
 ### Not in this checkpoint
 
 - **The external classifier** (`PRIVOKE_LLM_CHOICE=open`): it needs the network, which the worker never has, and the Python worker forces the streamed choice for the same reason. The stage 16 client stays in `privoke-semantic`; the worker links the crate (so reqwest and rustls are linked in) but never builds or calls it.
-- **The presence gate**, the pretrained contextual encoder (`privoke-pretrained-context-minilm`), scratch-presence artifacts, and a snapshot read from the analysis service's `<id>.snapshot.pb` cache layout: all stay on the Python worker.
+- The pretrained contextual encoder (`privoke-pretrained-context-minilm`), scratch-presence artifacts, and a snapshot read from the analysis service's `<id>.snapshot.pb` cache layout: all stay on the Python worker.
 - **Pinned V3 releases**: the loader is in place but untested on a pinned release here (no pinned package in CI); the stage 14 local run is the prerequisite.
 - **D11**, a Rust model package and legacy stream fetch with a byte-identical cache. The worker has no network by design, so fetching belongs to its front end: the controller's `fetch.rs` (V3 packages, pins and checks, stage 7) and the analysis service's `models.rs` (legacy snapshots, W3) already fetch in Rust. Their cache bytes were not compared with the Python fetch in this checkpoint, and no new fetch code was written.
-- **`DetectAnnotationPresence`** (the sparse presence model lives in `privoke-training` as part of stage 19) and the gradient RPCs as a Rust worker.
 - GLiNER selection (`PRIVOKE_NER_BACKEND=gliner`): the worker builds the spaCy detector only.
 - Telemetry: the worker has none by design; the controller-side reporter wiring of stage 18 is not done.
 - The real-interpreter run (the stage 23 bundle) and the extension tests, which are pending for stage 23.
