@@ -65,6 +65,14 @@ impl<A: SpacyBackend> Service<A> {
         self
     }
 
+    /// Sets the window route's trusted configuration on the gradient RPCs (`None` declines that route to Python). A service
+    /// without `with_training` has none to set.
+    #[must_use]
+    pub fn with_window_config(mut self, config: Option<crate::training::WindowConfig>) -> Self {
+        self.trainer = self.trainer.map(|trainer| trainer.with_window(config));
+        self
+    }
+
     /// The pipeline.
     pub fn pipeline(&self) -> &Pipeline<A> {
         &self.pipeline

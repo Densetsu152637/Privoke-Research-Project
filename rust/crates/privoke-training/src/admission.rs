@@ -45,7 +45,8 @@ const CONFIG_KEY: &str = "full_projected_adam_config_v1";
 const STRATEGY: &str = "contextual_full_encoder_sgd_v1";
 
 const WINDOW_POLICY: &str = "full_projected_adam64_window_checkpoint_v1";
-const WINDOW_ELIGIBILITY: &str = "candidate_window_exact_component_retention_v1";
+/// `window_training.ELIGIBILITY`.
+pub const WINDOW_ELIGIBILITY: &str = "candidate_window_exact_component_retention_v1";
 const WINDOW_CONFIG_KEY: &str = "train_window_config_v1";
 const WINDOW_KEY: &str = "train_window_manifest_sha256";
 const REFERENCE_KEY: &str = "original_train_component_manifest_sha256";

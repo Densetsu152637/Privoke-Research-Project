@@ -139,6 +139,8 @@ pub fn route_presence(rust: Option<Capabilities>, request: &DetectAnnotationPres
 const SUM_MARGIN_OBJECTIVE: &str = "class_balanced_contextual_sum_category_decision_margin_v1";
 /// The objectives a backtracking admission (schema 1) may name that the Rust worker serves.
 const BACKTRACKING_OBJECTIVES: [&str; 3] = ["legacy_sum_category", "class_balanced_contextual_v1", SUM_MARGIN_OBJECTIVE];
+/// The window optimizer policy (`expected_optimizer` of schema 5).
+const WINDOW_POLICY: &str = "full_projected_adam64_window_checkpoint_v1";
 /// The TRAIN diagnostics policy.
 const DIAGNOSTICS_POLICY: &str = "train_before_candidate_v1";
 /// The backtracking policy.
@@ -156,7 +158,12 @@ fn is_sha256(text: &str) -> bool {
 ///   and `expected_diagnostics_policy` (null or the TRAIN diagnostics policy);
 /// * the backtracking record (schema 1): exactly the keys `schema`, `expected_objective` (legacy, class-balanced or
 ///   summed-margin), `expected_diagnostics_policy` (the TRAIN diagnostics policy), `expected_backtracking_policy` and
-///   `expected_backtracking_preparation_sha256` (64 lower-case hexadecimal digits).
+///   `expected_backtracking_preparation_sha256` (64 lower-case hexadecimal digits);
+/// * the window record (schema 5): exactly the nine keys `schema`, `expected_objective` (summed-margin), a null
+///   `expected_diagnostics_policy`, `expected_optimizer` (the window policy), `expected_candidate_eligibility`,
+///   `expected_optimizer_config`, `expected_training_scope` (`full_encoder`) and the two manifest pins (64 lower-case
+///   hexadecimal digits each). The worker checks the eligibility and configuration texts and the pins against its own
+///   configuration, and declines to Python when it has none.
 ///
 /// Every other header (FULL Adam, retention, window, or anything malformed) is Python's to read.
 pub fn admission_is_served(header: &str) -> bool {
@@ -179,13 +186,25 @@ pub fn admission_is_served(header: &str) -> bool {
                 && text("expected_backtracking_policy") == Some(BACKTRACKING_POLICY)
                 && text("expected_backtracking_preparation_sha256").is_some_and(is_sha256)
         }
+        Some(5) => {
+            record.len() == 9
+                && text("expected_objective") == Some(SUM_MARGIN_OBJECTIVE)
+                && diagnostics.is_some_and(serde_json::Value::is_null)
+                && text("expected_optimizer") == Some(WINDOW_POLICY)
+                && text("expected_candidate_eligibility").is_some()
+                && text("expected_optimizer_config").is_some()
+                && text("expected_training_scope") == Some("full_encoder")
+                && text("expected_window_manifest_sha256").is_some_and(is_sha256)
+                && text("expected_component_manifest_sha256").is_some_and(is_sha256)
+        }
         _ => false,
     }
 }
 
 /// The engine for a gradient RPC. `admission` is the value of the `x-privoke-training-admission-v1` header, when the
 /// request carries one. `ComputePresenceGradients` has no header; the other two go to Rust with no header, the
-/// objective-only one (schema 2) or the backtracking one (schema 1), and to Python with any other.
+/// objective-only one (schema 2), the backtracking one (schema 1) or the window one (schema 5), and to Python with any
+/// other (FULL Adam, retention, malformed).
 pub fn route_gradients(rust: Option<Capabilities>, rpc: Rpc, admission: Option<&str>) -> Engine {
     let to_rust = match rpc {
         Rpc::ComputePresenceGradients => true,
@@ -439,6 +458,37 @@ mod tests {
         assert_eq!(route_gradients(Some(Capabilities::RUST.without_models()), Rpc::ComputePresenceGradients, None), Engine::Python);
         // Other methods are not gradient requests.
         assert_eq!(route_gradients(rust, Rpc::AnalyzePrompt, None), Engine::Python);
+    }
+
+    fn window_header(replace: &[(&str, &str)]) -> String {
+        let mut header = format!(
+            "{{\"schema\": 5, \"expected_objective\": \"{SUM_MARGIN_OBJECTIVE}\", \"expected_diagnostics_policy\": null, \"expected_optimizer\": \"{WINDOW_POLICY}\", \"expected_candidate_eligibility\": \"candidate_window_exact_component_retention_v1\", \"expected_optimizer_config\": \"{{}}\", \"expected_training_scope\": \"full_encoder\", \"expected_window_manifest_sha256\": \"{SHA}\", \"expected_component_manifest_sha256\": \"{SHA}\"}}"
+        );
+        for (from, to) in replace {
+            header = header.replace(from, to);
+        }
+        header
+    }
+
+    #[test]
+    fn a_window_header_goes_to_rust_and_a_malformed_one_does_not() {
+        let rust = Some(Capabilities::RUST.with_semantic());
+        for rpc in [Rpc::ComputeSemanticGradients, Rpc::ComputeUnderlyingModelGradients] {
+            assert_eq!(route_gradients(rust, rpc, Some(&window_header(&[]))), Engine::Rust);
+            for broken in [
+                window_header(&[("full_encoder", "heads")]),
+                window_header(&[(WINDOW_POLICY, "full_projected_adam64_v1")]),
+                window_header(&[(SHA, "00")]),
+                window_header(&[("null", "\"train_before_candidate_v1\"")]),
+                window_header(&[(SUM_MARGIN_OBJECTIVE, "class_balanced_contextual_v1")]),
+                window_header(&[("\"expected_training_scope\": \"full_encoder\", ", "")]),
+                "{\"schema\": 5}".to_string(),
+            ] {
+                assert_eq!(route_gradients(rust, rpc, Some(&broken)), Engine::Python, "{broken}");
+            }
+            assert_eq!(route_gradients(Some(Capabilities::RUST.without_models()), rpc, Some(&window_header(&[]))), Engine::Python);
+            assert_eq!(route_gradients(None, rpc, Some(&window_header(&[]))), Engine::Python);
+        }
     }
 
     #[test]
