@@ -232,7 +232,10 @@ fn bce_with_logits(logits: &[f64], targets: &[f64]) -> (f64, Vec<f64>) {
 }
 
 /// The backward of one sequence given the gradient of its three logits, added into `grads`.
-pub fn sequence_backward(params: &V3Params, cache: &SequenceCache, dlogits: &[Vec<f64>; 3], grads: &mut V3Params) {
+///
+/// With `full` false only the heads receive a gradient (the HEADS scope: the encoder is frozen, so nothing is propagated
+/// below the pooled output).
+pub fn sequence_backward(params: &V3Params, cache: &SequenceCache, dlogits: &[Vec<f64>; 3], full: bool, grads: &mut V3Params) {
     let hidden = params.hidden;
     let n = cache.ids.len();
     let mut dpooled = vec![0.0; hidden];
@@ -243,6 +246,9 @@ pub fn sequence_backward(params: &V3Params, cache: &SequenceCache, dlogits: &[Ve
         }
         add(&mut head_grads.weight, &grad.weight);
         add(&mut head_grads.bias, &grad.bias);
+    }
+    if !full {
+        return;
     }
     let dz: Vec<f64> = dpooled.iter().zip(&cache.pooled).map(|(d, p)| d * (1.0 - p * p)).collect();
     let (dfirst, pooler) = linear_back(&dz, &cache.first, 1, &params.pooler, hidden, hidden);
@@ -275,6 +281,17 @@ fn add(slot: &mut [f64], values: &[f64]) {
 /// The loss of one microbatch, `(CE_sensitivity_sum + CE_visibility_sum + BCE_category_sum / 10) / scale` (`scale` is the
 /// 64 of a full training batch), with its gradient added into `grads`.
 pub fn microbatch(params: &V3Params, examples: &[Example], scale: f64, grads: &mut V3Params) -> Result<f64, TrainingError> {
+    microbatch_with(params, examples, scale, true, grads)
+}
+
+/// [`microbatch`] with the scope: `full` false trains the heads only.
+pub fn microbatch_with(
+    params: &V3Params,
+    examples: &[Example],
+    scale: f64,
+    full: bool,
+    grads: &mut V3Params,
+) -> Result<f64, TrainingError> {
     let categories = HEAD_WIDTHS[2] as f64;
     let mut total = 0.0;
     for example in examples {
@@ -289,7 +306,7 @@ pub fn microbatch(params: &V3Params, examples: &[Example], scale: f64, grads: &m
         grad_s.iter_mut().for_each(|g| *g /= scale);
         grad_v.iter_mut().for_each(|g| *g /= scale);
         grad_c.iter_mut().for_each(|g| *g /= categories * scale);
-        sequence_backward(params, &cache, &[grad_s, grad_v, grad_c], grads);
+        sequence_backward(params, &cache, &[grad_s, grad_v, grad_c], full, grads);
     }
     Ok(total / scale)
 }
