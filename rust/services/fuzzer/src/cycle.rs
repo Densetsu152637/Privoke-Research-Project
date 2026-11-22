@@ -5,10 +5,13 @@
 //! metrics, applies the publication guard, retains the complete record and submits the update. A step that fails answers
 //! the gRPC status the Python service answered with.
 //!
+//! A policy-admitted FULL Adam cycle (RUST-S21F) sends the admission header with the gradient request, reserves and retains the
+//! physical attempt, admits the 64-step trace, selects the candidate TRAIN metric through the retained attempt, states the exact
+//! gate and publishes the projected metadata bound to the retained cycle (`full_adam_evidence`, `attempts`, `policy_response`).
+//!
 //! Not ported, and refused with `UNIMPLEMENTED` and the name of the gap instead of running a different cycle:
-//! policy-admitted cycles (FULL Adam, ORIGINAL retention, backtracking, TRAIN diagnostics), the window cycle, the audience,
-//! rehearsal and benign samplers (they need the authenticated FULL Adam policy admission), the study gate
-//! diagnostics and the presence cycle. Those paths need parts of the stage 19 training crate that another stage ports.
+//! backtracking and TRAIN diagnostics admission, the window cycle, the audience, rehearsal and benign samplers (and with them a
+//! complete ORIGINAL retention cycle, which requires the benign sampler) and the presence cycle.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -166,7 +169,6 @@ pub fn validate_training_update(update: &BatchUpdate, minimum_exact_match_rate: 
             return Err(Error("Held-out evaluation needs both clean and sensitive examples.".to_string()));
         }
     }
-    let optimizer = update.metadata.get("contextual_training_optimizer").map(String::as_str);
     crate::retention::require_no_violations(&update.metadata)?;
     let selected = crate::full_adam_evidence::eligibility_metric(update)?;
     let Some(exact) = metrics.get(selected).copied() else {

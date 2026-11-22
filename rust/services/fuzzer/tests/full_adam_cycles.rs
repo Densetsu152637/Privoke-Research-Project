@@ -261,9 +261,23 @@ async fn the_full_adam_cycles_replay_identically_to_the_python_oracle() {
         let golden_files: BTreeMap<String, String> =
             sequence["files"].as_object().unwrap().iter().map(|(path, text)| (path.clone(), text.as_str().unwrap().to_string())).collect();
         assert_eq!(files.keys().collect::<Vec<_>>(), golden_files.keys().collect::<Vec<_>>(), "{label}: dump file names");
-        for (path, text) in &golden_files {
-            assert!(&files[path] == text, "{label}: {path} differs\nrust:   {}\npython: {text}", files[path]);
-        }
+        let differing: Vec<String> = golden_files
+            .iter()
+            .filter(|(path, text)| &&files[*path] != text)
+            .map(|(path, text)| {
+                let ours = &files[path];
+                let at = ours.bytes().zip(text.bytes()).position(|(left, right)| left != right).unwrap_or(ours.len().min(text.len()));
+                let window = |source: &str| source.chars().skip(at.saturating_sub(80)).take(200).collect::<String>();
+                format!(
+                    "{path} differs at byte {at} ({} against {} bytes)\nrust:   {}\npython: {}",
+                    ours.len(),
+                    text.len(),
+                    window(ours),
+                    window(text)
+                )
+            })
+            .collect();
+        assert!(differing.is_empty(), "{label}: {} dump files differ\n{}", differing.len(), differing.join("\n"));
         files_checked += files.len();
         let golden_reservations: Vec<(String, String)> = sequence["reservations"]
             .as_array()
