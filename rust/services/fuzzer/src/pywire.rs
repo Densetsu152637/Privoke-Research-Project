@@ -9,6 +9,23 @@
 use privoke_contracts::proto::v1::{ComputeSemanticGradientsResponse, FuzzerTrainingRequest};
 use prost::Message;
 
+/// The order in which Python's deterministic serialization writes the entries of a string-keyed map: bytewise, except that a key
+/// that is a prefix of another sorts after it (`contextual_training_diagnostics_policy` before `contextual_training_diagnostics`).
+fn python_order(left: &str, right: &str) -> std::cmp::Ordering {
+    let (left, right) = (left.as_bytes(), right.as_bytes());
+    let shared = left.len().min(right.len());
+    left[..shared].cmp(&right[..shared]).then(right.len().cmp(&left.len()))
+}
+
+fn sorted<'a, V>(map: impl IntoIterator<Item = (&'a String, &'a V)>) -> Vec<(&'a String, &'a V)>
+where
+    V: 'a,
+{
+    let mut entries: Vec<_> = map.into_iter().collect();
+    entries.sort_by(|left, right| python_order(left.0, right.0));
+    entries
+}
+
 fn varint(mut number: usize, out: &mut Vec<u8>) {
     loop {
         let low = (number & 0x7f) as u8;
@@ -49,7 +66,7 @@ pub fn fuzzer_request_bytes(request: &FuzzerTrainingRequest) -> Vec<u8> {
     let mut scalars = request.clone();
     scalars.metadata.clear();
     let mut out = scalars.encode_to_vec();
-    for (key, value) in &request.metadata {
+    for (key, value) in sorted(&request.metadata) {
         text_entry(0x32, key, value, &mut out);
     }
     out
@@ -66,10 +83,10 @@ pub fn compute_response_bytes(response: &ComputeSemanticGradientsResponse) -> Ve
     let tail =
         ComputeSemanticGradientsResponse { error: response.error.clone(), executions: response.executions.clone(), ..Default::default() };
     let mut out = head.encode_to_vec();
-    for (key, number) in &response.metrics {
+    for (key, number) in sorted(&response.metrics) {
         double_entry(0x2a, key, *number, &mut out);
     }
-    for (key, value) in &response.metadata {
+    for (key, value) in sorted(&response.metadata) {
         text_entry(0x32, key, value, &mut out);
     }
     out.extend(tail.encode_to_vec());
@@ -94,6 +111,13 @@ mod tests {
         // `one` sorts before `zero`; its entry is `0a 03 one 11 <1.0>`.
         let expected: Vec<u8> = [&[0x2a, 0x0e, 0x0a, 0x03][..], b"one", &[0x11], &1.0f64.to_le_bytes()].concat();
         assert!(python.windows(expected.len()).any(|window| window == expected.as_slice()));
+    }
+
+    #[test]
+    fn a_key_that_is_a_prefix_of_another_sorts_after_it_as_in_python() {
+        let mut keys = vec!["a", "b", "ab", "aa", "diagnostics", "diagnostics_policy"];
+        keys.sort_by(|left, right| python_order(left, right));
+        assert_eq!(keys, ["aa", "ab", "a", "b", "diagnostics_policy", "diagnostics"]);
     }
 
     #[test]
