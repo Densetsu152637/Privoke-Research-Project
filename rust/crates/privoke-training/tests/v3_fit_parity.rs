@@ -88,11 +88,14 @@ fn as_balanced(evidence: &Value, full: bool) -> Value {
     value["model_id"] = json!("privoke-v3-balanced");
     value["tier"] = json!("balanced");
     value["parameter_count"] = json!(9_596_180);
-    value["trainable_count"] = json!(if full { 9_596_180 } else { 20 * 257 });
+    let backward = if full { microbatches } else { 0 };
+    let trainable: u64 = if full { 9_596_180 } else { 20 * 257 };
+    let blocks: [u64; 2] = if full { [16, 16] } else { [0, 0] };
+    value["trainable_count"] = json!(trainable);
     value["counts"]["encoder_block_forward"] = json!(microbatches * 2);
-    value["counts"]["encoder_block_backward"] = json!(if full { microbatches * 2 } else { 0 });
-    value["block_counts"] = json!({"forward": [microbatches, microbatches], "backward": [if full { microbatches } else { 0 }; 2]});
-    value["changes"]["blocks"] = json!(if full { [16, 16] } else { [0, 0] });
+    value["counts"]["encoder_block_backward"] = json!(backward * 2);
+    value["block_counts"] = json!({"forward": [microbatches, microbatches], "backward": [backward, backward]});
+    value["changes"]["blocks"] = json!(blocks);
     value
 }
 
