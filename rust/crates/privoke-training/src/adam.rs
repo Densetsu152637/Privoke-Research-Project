@@ -52,6 +52,11 @@ pub struct AdamState {
 }
 
 impl AdamState {
+    /// The first and second moments (float64), by tensor name.
+    pub fn moments(&self) -> (&BTreeMap<String, Vec<f64>>, &BTreeMap<String, Vec<f64>>) {
+        (&self.moment, &self.variance)
+    }
+
     /// Zero delta and zero moments over the inventory of `base`.
     pub fn new(base: &F32Map) -> Self {
         let zeros = |n: usize| vec![0.0f64; n];

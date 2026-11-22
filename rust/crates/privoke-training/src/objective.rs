@@ -152,6 +152,17 @@ fn label_index(labels: &[String], name: &str) -> Result<usize, TrainingError> {
 /// All rows share one global weight denominator (the sum of the weights), as the Python microbatches do. A weight is
 /// rounded to float32 after the division, as torch builds its weight tensor.
 pub fn supervised_deltas(net: &TinyNet, examples: &[Example], objective: Objective) -> Result<Deltas, TrainingError> {
+    supervised_deltas_with(net, examples, objective, None)
+}
+
+/// [`supervised_deltas`] with an explicit global weight denominator (`normalization_denominator` of
+/// `supervised_last_block_deltas`, which the window loop sets to an eighth of the frozen window weight).
+pub fn supervised_deltas_with(
+    net: &TinyNet,
+    examples: &[Example],
+    objective: Objective,
+    denominator: Option<f64>,
+) -> Result<Deltas, TrainingError> {
     if examples.is_empty() {
         return Err(TrainingError::invalid("Encoder adaptation requires explicit contextual targets for every row."));
     }
@@ -165,8 +176,8 @@ pub fn supervised_deltas(net: &TinyNet, examples: &[Example], objective: Objecti
             return Err(TrainingError::invalid("Decision-margin training requires S0 and non-S0 sensitivity labels."));
         }
     }
-    let total = fsum(examples.iter().map(|e| e.weight));
-    if !total.is_finite() {
+    let total = denominator.unwrap_or_else(|| fsum(examples.iter().map(|e| e.weight)));
+    if !total.is_finite() || total <= 0.0 {
         return Err(TrainingError::invalid("Training total weight must remain finite."));
     }
     let mut grads = net.zero_grads();

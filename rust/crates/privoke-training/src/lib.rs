@@ -25,6 +25,7 @@ pub mod presence;
 pub mod routes;
 pub mod rpc;
 pub mod trace;
+pub mod window;
 
 pub use error::TrainingError;
 pub use net::{Params, Tensor, TinyNet};

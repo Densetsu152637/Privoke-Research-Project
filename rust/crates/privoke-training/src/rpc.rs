@@ -189,7 +189,7 @@ fn classification_loss(target: &Class, predicted: &Class) -> f64 {
     sensitivity + 0.5 * visibility + 0.25 * category
 }
 
-fn artifact_with(artifact: &Value, params: &Params) -> Value {
+pub(crate) fn artifact_with(artifact: &Value, params: &Params) -> Value {
     let mut value = artifact.clone();
     if let Some(Value::Object(entries)) = value.get_mut("parameters") {
         for (name, tensor) in params {
