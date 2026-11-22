@@ -133,11 +133,22 @@ def raw_evidence_paths(dump: Path, request):
         evidence = record["execution_evidence"]
         if "physical_attempt" in evidence:
             paths["physical_attempt"] = evidence["physical_attempt"]
-        for name in ("rehearsal_audit", "benign_audit", "retention_release"):
+        for name in ("rehearsal_audit", "benign_audit", "retention_release", "window_inputs"):
             if name in evidence:
                 paths[name] = evidence[name]["path"]
         return paths
     return paths
+
+
+def raw_evidence_hashes(dump: Path, request):
+    """The recorded sha256 of every retained reference of the cycle's `execution_evidence` that Python wrote in text mode: only the
+    window inputs (the other references are hashed over bytes Python wrote in binary mode). Unnormalised, like the paths."""
+    for path in sorted((dump / "training-cycles").rglob("*.json")) if (dump / "training-cycles").exists() else []:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if record["request_id"] == request.request_id:
+            evidence = record["execution_evidence"]
+            return {name: evidence[name]["sha256"] for name in ("window_inputs",) if name in evidence}
+    return {}
 
 
 def reservations(directory: Path):
@@ -164,22 +175,26 @@ def run_sequence(label, env, cycles, generated: Path) -> dict:
     with tempfile.TemporaryDirectory() as scratch:
         scratch_path = Path(scratch)
         dump = scratch_path / "dump"
-        full_env = {**base.BASE_ENV, **env, "PRIVOKE_FUZZER_DUMP_DIR": str(dump), "FUZZ_PROMPT_DATASET_PATH": str(base.TAXONOMY_DATASET),
-                    "FUZZ_CURRICULUM_STATE_PATH": str(scratch_path / "curriculum.sqlite3")}
+        # A sequence may name its own taxonomy dataset (the window cycle reads the study's); the dump and the state stay scratch.
+        full_env = {**base.BASE_ENV, "FUZZ_PROMPT_DATASET_PATH": str(base.TAXONOMY_DATASET), **env,
+                    "PRIVOKE_FUZZER_DUMP_DIR": str(dump), "FUZZ_CURRICULUM_STATE_PATH": str(scratch_path / "curriculum.sqlite3")}
+        # A value of None leaves the variable unset (the audience sampler needs no dataset path; an empty one is not unset in Python).
+        full_env = {key: value for key, value in full_env.items() if value is not None}
         saved = dict(os.environ)
         os.environ.update(full_env)
         try:
             config = FuzzerConfig.from_env()
             for request, scope, runtime_bytes, ack_bytes in cycles:
                 log, calls, answers = [], [], []
-                runtime_path = base.RUNTIME_PATHS[scope]
+                runtime_path = {**base.RUNTIME_PATHS, "presence": "/privoke.v1.PrivokeRuntimeService/ComputePresenceGradients"}[scope]
 
                 def runtime_answer(_request, raw=runtime_bytes):
                     # A cycle may script its answer as a function of the request the oracle built (the response of a policy cycle
                     # carries counts derived from that request).
                     data = raw(_request) if callable(raw) else raw
                     answers.append(data)
-                    return runtime_pb2.ComputeSemanticGradientsResponse.FromString(data)
+                    kind = runtime_pb2.ComputePresenceGradientsResponse if scope == "presence" else runtime_pb2.ComputeSemanticGradientsResponse
+                    return kind.FromString(data)
 
                 handlers = {
                     runtime_path: runtime_answer,
@@ -194,7 +209,8 @@ def run_sequence(label, env, cycles, generated: Path) -> dict:
                 fuzzer_service.service_channel = runtime_client.service_channel = stack.service_channel = channel
                 try:
                     service = fuzzer_service.FuzzerTrainingService(config)
-                    method = service.RunUnderlyingTrainingCycle if scope == "full_encoder" else service.RunTrainingCycle
+                    method = (service.RunPresenceTrainingCycle if scope == "presence" else
+                              service.RunUnderlyingTrainingCycle if scope == "full_encoder" else service.RunTrainingCycle)
                     try:
                         response = method(request, base.Context())
                         outcome = {"ok": base.b64(response.SerializeToString(deterministic=True))}
@@ -208,6 +224,7 @@ def run_sequence(label, env, cycles, generated: Path) -> dict:
                 results.append({
                     "physical_attempt_raw": raw_physical_attempt(dump, request),
                     "evidence_paths_raw": raw_evidence_paths(dump, request),
+                    "evidence_sha256_raw": raw_evidence_hashes(dump, request),
                     "scope": scope,
                     "request": base.b64(request.SerializeToString(deterministic=True)),
                     "runtime_rpc": runtime_path,
@@ -228,7 +245,7 @@ def run_sequence(label, env, cycles, generated: Path) -> dict:
         finally:
             os.environ.clear()
             os.environ.update(saved)
-    return {"label": label, "env": {**base.BASE_ENV, **env}, "cycles": results, **snapshot}
+    return {"label": label, "env": {**base.BASE_ENV, **{key: value for key, value in env.items() if value is not None}}, "cycles": results, **snapshot}
 
 
 def full_records(results: Path):

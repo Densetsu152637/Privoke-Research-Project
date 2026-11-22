@@ -16,7 +16,7 @@
 //! * [`cycle`] (`fuzzer_service.py`): the orchestration, [`service`] and [`server`] (the gRPC shell and its policy).
 //!
 //! Paths that need parts of the stage 19 training crate that are not ported yet, and the policy-admitted FULL Adam,
-//! retention and window cycles, answer `UNIMPLEMENTED` with the name of the gap instead of running a different cycle.
+//! retention cycles, answer `UNIMPLEMENTED` with the name of the gap instead of running a different cycle.
 
 pub mod attempts;
 pub mod cli;
@@ -30,6 +30,7 @@ pub mod full_adam_evidence;
 pub mod gate_diagnostics;
 pub mod policy;
 pub mod policy_response;
+pub mod presence_cycle;
 pub mod pywire;
 pub mod retention;
 pub mod runtime;
@@ -38,6 +39,8 @@ pub mod service;
 pub mod state;
 pub mod updates;
 pub mod validate;
+pub mod window;
+pub mod window_cycle;
 
 pub use error::{Error, Result};
 

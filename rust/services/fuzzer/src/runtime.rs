@@ -46,7 +46,7 @@ const BLOCK_NAMES: [&str; 9] = [
     "ffn.output.weight",
     "ffn.output.bias",
 ];
-const SEMANTIC_LAYER: i32 = DetectionLayer::Semantic as i32;
+pub(crate) const SEMANTIC_LAYER: i32 = DetectionLayer::Semantic as i32;
 
 /// `BatchTrainingUpdate`: what the runtime computed, ready for the guard and for publication.
 #[derive(Debug, Clone, PartialEq)]
@@ -75,6 +75,8 @@ pub struct CallOptions {
     pub header: Option<String>,
     /// The 180 second deadline of a FULL Adam fit of the full encoder, instead of `FUZZ_TIMEOUT_SECONDS`.
     pub long_deadline: bool,
+    /// The window route's deadline is the larger of `FUZZ_TIMEOUT_SECONDS` and 180 seconds (`max(timeout, 180.)`), not the fixed 180.
+    pub deadline_floor: bool,
 }
 
 /// `timeout=180.0` of `compute_semantic_gradients` for a FULL Adam fit of the full encoder.
@@ -83,6 +85,14 @@ pub const FULL_ADAM_DEADLINE: Duration = Duration::from_secs(180);
 /// The client runtime as the fuzzer uses it.
 #[tonic::async_trait]
 pub trait RuntimeBackend: Send + Sync {
+    /// `ComputePresenceGradients` (the binary annotation-presence head).
+    async fn compute_presence_gradients(
+        &self,
+        _request: privoke_contracts::proto::v1::ComputePresenceGradientsRequest,
+    ) -> std::result::Result<privoke_contracts::proto::v1::ComputePresenceGradientsResponse, Status> {
+        Err(Status::unimplemented("This runtime backend does not serve ComputePresenceGradients."))
+    }
+
     /// `ComputeSemanticGradients` (heads) or `ComputeUnderlyingModelGradients` (full encoder).
     async fn compute_gradients(
         &self,
@@ -109,6 +119,17 @@ impl GrpcRuntime {
 
 #[tonic::async_trait]
 impl RuntimeBackend for GrpcRuntime {
+    async fn compute_presence_gradients(
+        &self,
+        request: privoke_contracts::proto::v1::ComputePresenceGradientsRequest,
+    ) -> std::result::Result<privoke_contracts::proto::v1::ComputePresenceGradientsResponse, Status> {
+        let channel = connect(&self.target, &self.tls).await.map_err(|error| Status::unavailable(error.to_string()))?;
+        let mut client = PrivokeRuntimeServiceClient::new(channel).max_decoding_message_size(16 * 1024 * 1024);
+        let mut message = Request::new(request);
+        message.set_timeout(self.timeout);
+        Ok(client.compute_presence_gradients(message).await?.into_inner())
+    }
+
     async fn compute_gradients(
         &self,
         scope: Scope,
@@ -118,7 +139,12 @@ impl RuntimeBackend for GrpcRuntime {
         let channel = connect(&self.target, &self.tls).await.map_err(|error| Status::unavailable(error.to_string()))?;
         let mut client = PrivokeRuntimeServiceClient::new(channel).max_decoding_message_size(16 * 1024 * 1024);
         let mut message = Request::new(request);
-        message.set_timeout(if options.long_deadline { FULL_ADAM_DEADLINE } else { self.timeout });
+        let deadline = match (options.long_deadline, options.deadline_floor) {
+            (true, true) => self.timeout.max(FULL_ADAM_DEADLINE),
+            (true, false) => FULL_ADAM_DEADLINE,
+            (false, _) => self.timeout,
+        };
+        message.set_timeout(deadline);
         if let Some(header) = &options.header {
             let value = MetadataValue::try_from(header.as_str()).map_err(|error| Status::internal(error.to_string()))?;
             message.metadata_mut().insert(crate::policy::ADMISSION_HEADER, value);
@@ -242,7 +268,7 @@ fn validate_query_config(config: &Value) -> Result<()> {
 }
 
 /// `validate_readout_identity(architecture, config)`.
-fn validate_readout_identity(architecture: &str, config: &Value) -> Result<()> {
+pub(crate) fn validate_readout_identity(architecture: &str, config: &Value) -> Result<()> {
     let enabled = query_readout(config)?;
     if architecture != if enabled { TASK_QUERY_ARCHITECTURE } else { LEGACY_ARCHITECTURE } {
         return reject("Tiny architecture and readout configuration disagree.");

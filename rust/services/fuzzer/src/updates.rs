@@ -67,14 +67,18 @@ impl UpdateBackend for GrpcUpdates {
 ///
 /// A FULL Adam update publishes the projection of [`crate::full_adam_evidence::publication_metadata`], bound to the retained
 /// complete cycle under `directory`. The compact opt-in publication of `train_before_candidate_v1` (RUST-S21G) is built here;
-/// the window publication metadata is not: the cycle refuses those updates before it gets this far.
+/// the window route publishes the compact projection of [`crate::window::publication_metadata`].
 pub fn publication_request(
     source_id: &str,
     update: &BatchUpdate,
     extra: &BTreeMap<String, String>,
     directory: Option<&std::path::Path>,
+    pins: &crate::window::Pins,
 ) -> Result<ParameterUpdateRequest> {
     let mut metadata = merge_publication_metadata(&update.metadata, &update.metrics, extra)?;
+    if update.metadata.get("contextual_training_optimizer").map(String::as_str) == Some(crate::policy::WINDOW_POLICY) {
+        metadata = crate::window::publication_metadata(update, metadata, extra, directory, pins)?;
+    }
     if crate::full_adam_evidence::is_full_adam_family(update.metadata.get("contextual_training_optimizer").map(String::as_str)) {
         metadata = crate::full_adam_evidence::publication_metadata(update, metadata, extra, directory)?;
     }

@@ -34,7 +34,7 @@ fn validate_metadata(request: &FuzzerTrainingRequest) -> Result<()> {
     Ok(())
 }
 
-/// `validate_training_request`. A window sampling request passes here: the cycle refuses it as a named gap.
+/// `validate_training_request`, including the window sampling admission (256 originals, the exact policy, no extra policies).
 pub fn validate_training_request(request: &FuzzerTrainingRequest, expected_model_id: &str) -> Result<()> {
     validate_text(&request.request_id, "request_id", true, 128)?;
     validate_text(&request.source_id, "source_id", true, 128)?;
@@ -46,10 +46,23 @@ pub fn validate_training_request(request: &FuzzerTrainingRequest, expected_model
         return invalid("prompt_count must be greater than zero.");
     }
     validate_metadata(request)?;
-    if let Some(strategy) = request.metadata.get(CONTEXTUAL_SAMPLING_STRATEGY_KEY)
-        && strategy != train_window::SAMPLER
-    {
-        validate_contextual_sampling_strategy(strategy, i64::from(request.prompt_count))?;
+    if let Some(strategy) = request.metadata.get(CONTEXTUAL_SAMPLING_STRATEGY_KEY) {
+        if strategy == train_window::SAMPLER {
+            if request.prompt_count != 256 {
+                return invalid("Window sampling requires exactly 256 originals.");
+            }
+            if crate::policy::window_expectations(&request.metadata)?.is_none() {
+                return invalid("Window sampling requires its exact FULL policy and release pins.");
+            }
+            if ["expected_contextual_training_backtracking_policy", "expected_contextual_training_diagnostics_policy"]
+                .iter()
+                .any(|key| request.metadata.contains_key(*key))
+            {
+                return invalid("Window sampling excludes backtracking and diagnostics policies.");
+            }
+        } else {
+            validate_contextual_sampling_strategy(strategy, i64::from(request.prompt_count))?;
+        }
     }
     Ok(())
 }
