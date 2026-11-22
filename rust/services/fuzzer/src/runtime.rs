@@ -85,6 +85,14 @@ pub const FULL_ADAM_DEADLINE: Duration = Duration::from_secs(180);
 /// The client runtime as the fuzzer uses it.
 #[tonic::async_trait]
 pub trait RuntimeBackend: Send + Sync {
+    /// `ComputePresenceGradients` (the binary annotation-presence head).
+    async fn compute_presence_gradients(
+        &self,
+        _request: privoke_contracts::proto::v1::ComputePresenceGradientsRequest,
+    ) -> std::result::Result<privoke_contracts::proto::v1::ComputePresenceGradientsResponse, Status> {
+        Err(Status::unimplemented("This runtime backend does not serve ComputePresenceGradients."))
+    }
+
     /// `ComputeSemanticGradients` (heads) or `ComputeUnderlyingModelGradients` (full encoder).
     async fn compute_gradients(
         &self,
@@ -111,6 +119,17 @@ impl GrpcRuntime {
 
 #[tonic::async_trait]
 impl RuntimeBackend for GrpcRuntime {
+    async fn compute_presence_gradients(
+        &self,
+        request: privoke_contracts::proto::v1::ComputePresenceGradientsRequest,
+    ) -> std::result::Result<privoke_contracts::proto::v1::ComputePresenceGradientsResponse, Status> {
+        let channel = connect(&self.target, &self.tls).await.map_err(|error| Status::unavailable(error.to_string()))?;
+        let mut client = PrivokeRuntimeServiceClient::new(channel).max_decoding_message_size(16 * 1024 * 1024);
+        let mut message = Request::new(request);
+        message.set_timeout(self.timeout);
+        Ok(client.compute_presence_gradients(message).await?.into_inner())
+    }
+
     async fn compute_gradients(
         &self,
         scope: Scope,

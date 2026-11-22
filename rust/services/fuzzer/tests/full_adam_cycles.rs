@@ -50,3 +50,11 @@ async fn the_window_refusals_replay_identically_to_the_python_oracle() {
 async fn the_audience_cycles_replay_identically_to_the_python_oracle() {
     replay_fixture("audience_cycles_golden.json", "fuzzer audience coverage cycle replay").await;
 }
+
+/// The presence training cycle (RUST-S21H item 3): the presence partition, the explicit `[SEMANTIC]` presence request, the response
+/// admission and its retained attempts, the presence guard and its retained refusal, the publication and the request refusals, against
+/// the Python oracle with a scripted contract-valid runtime over the committed synthetic presence dataset.
+#[tokio::test]
+async fn the_presence_cycles_replay_identically_to_the_python_oracle() {
+    replay_fixture("presence_cycles_golden.json", "fuzzer presence cycle replay").await;
+}

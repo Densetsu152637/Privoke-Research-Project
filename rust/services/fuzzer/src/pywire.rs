@@ -93,6 +93,26 @@ pub fn compute_response_bytes(response: &ComputeSemanticGradientsResponse) -> Ve
     out
 }
 
+/// `response.SerializeToString(deterministic=True)` of a `ComputePresenceGradientsResponse` (the same layout as the semantic one).
+pub fn presence_response_bytes(response: &privoke_contracts::proto::v1::ComputePresenceGradientsResponse) -> Vec<u8> {
+    use privoke_contracts::proto::v1::ComputePresenceGradientsResponse as Response;
+    let mut head = response.clone();
+    head.metrics.clear();
+    head.metadata.clear();
+    head.error.clear();
+    head.executions.clear();
+    let tail = Response { error: response.error.clone(), executions: response.executions.clone(), ..Default::default() };
+    let mut out = head.encode_to_vec();
+    for (key, number) in sorted(&response.metrics) {
+        double_entry(0x2a, key, *number, &mut out);
+    }
+    for (key, value) in sorted(&response.metadata) {
+        text_entry(0x32, key, value, &mut out);
+    }
+    out.extend(tail.encode_to_vec());
+    out
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {

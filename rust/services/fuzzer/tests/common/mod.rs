@@ -144,6 +144,8 @@ pub type AckAnswer = Box<dyn FnMut(&ParameterUpdateRequest) -> ParameterUpdateAc
 pub struct ScriptedRuntime {
     pub wire: Arc<Wire>,
     pub answer: Mutex<RuntimeAnswer>,
+    /// The presence answer (a recorded `ComputePresenceGradientsResponse`), when a sequence replays presence cycles.
+    pub presence: Mutex<Option<Vec<u8>>>,
 }
 
 impl ScriptedRuntime {
@@ -151,7 +153,7 @@ impl ScriptedRuntime {
         wire: Arc<Wire>,
         answer: impl FnMut(Scope, &ComputeSemanticGradientsRequest) -> Result<ComputeSemanticGradientsResponse, Status> + Send + 'static,
     ) -> Self {
-        Self { wire, answer: Mutex::new(Box::new(answer)) }
+        Self { wire, answer: Mutex::new(Box::new(answer)), presence: Mutex::new(None) }
     }
 
     pub fn replaying(wire: Arc<Wire>, response: Vec<u8>) -> Self {
@@ -159,8 +161,20 @@ impl ScriptedRuntime {
     }
 }
 
+pub const PRESENCE_PATH: &str = "/privoke.v1.PrivokeRuntimeService/ComputePresenceGradients";
+
 #[tonic::async_trait]
 impl RuntimeBackend for ScriptedRuntime {
+    async fn compute_presence_gradients(
+        &self,
+        request: privoke_contracts::proto::v1::ComputePresenceGradientsRequest,
+    ) -> Result<privoke_contracts::proto::v1::ComputePresenceGradientsResponse, Status> {
+        self.wire.options.lock().unwrap().push(CallOptions::default());
+        self.wire.push(PRESENCE_PATH, request.encode_to_vec());
+        let bytes = self.presence.lock().unwrap().clone().ok_or_else(|| Status::internal("no presence answer"))?;
+        Ok(privoke_contracts::proto::v1::ComputePresenceGradientsResponse::decode(bytes.as_slice()).unwrap())
+    }
+
     async fn compute_gradients(
         &self,
         scope: Scope,

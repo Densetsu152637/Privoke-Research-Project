@@ -30,6 +30,7 @@ pub mod full_adam_evidence;
 pub mod gate_diagnostics;
 pub mod policy;
 pub mod policy_response;
+pub mod presence_cycle;
 pub mod pywire;
 pub mod retention;
 pub mod runtime;

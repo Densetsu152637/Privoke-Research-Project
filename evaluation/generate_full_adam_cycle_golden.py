@@ -186,14 +186,15 @@ def run_sequence(label, env, cycles, generated: Path) -> dict:
             config = FuzzerConfig.from_env()
             for request, scope, runtime_bytes, ack_bytes in cycles:
                 log, calls, answers = [], [], []
-                runtime_path = base.RUNTIME_PATHS[scope]
+                runtime_path = {**base.RUNTIME_PATHS, "presence": "/privoke.v1.PrivokeRuntimeService/ComputePresenceGradients"}[scope]
 
                 def runtime_answer(_request, raw=runtime_bytes):
                     # A cycle may script its answer as a function of the request the oracle built (the response of a policy cycle
                     # carries counts derived from that request).
                     data = raw(_request) if callable(raw) else raw
                     answers.append(data)
-                    return runtime_pb2.ComputeSemanticGradientsResponse.FromString(data)
+                    kind = runtime_pb2.ComputePresenceGradientsResponse if scope == "presence" else runtime_pb2.ComputeSemanticGradientsResponse
+                    return kind.FromString(data)
 
                 handlers = {
                     runtime_path: runtime_answer,
@@ -208,7 +209,8 @@ def run_sequence(label, env, cycles, generated: Path) -> dict:
                 fuzzer_service.service_channel = runtime_client.service_channel = stack.service_channel = channel
                 try:
                     service = fuzzer_service.FuzzerTrainingService(config)
-                    method = service.RunUnderlyingTrainingCycle if scope == "full_encoder" else service.RunTrainingCycle
+                    method = (service.RunPresenceTrainingCycle if scope == "presence" else
+                              service.RunUnderlyingTrainingCycle if scope == "full_encoder" else service.RunTrainingCycle)
                     try:
                         response = method(request, base.Context())
                         outcome = {"ok": base.b64(response.SerializeToString(deterministic=True))}

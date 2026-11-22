@@ -20,7 +20,7 @@
 //! files that define the sampler, which Python binds into the fingerprint and the audit) is read from `AUDIENCE_SOURCE_ROOT`.
 //!
 //! Not ported, and refused with `UNIMPLEMENTED` and the name of the gap instead of running a different cycle:
-//! the presence cycle.
+//! nothing: the presence cycle is [`crate::presence_cycle`] (RUST-S21H item 3).
 //!
 //! TRAIN diagnostics and FULL TRAIN backtracking (RUST-S21G item 3) are admitted by [`crate::diagnostics`]: the diagnostics record,
 //! the backtracking trace and its five trials, the known one-fit rejection (retained as evidence, answered `FAILED_PRECONDITION`)
@@ -241,7 +241,7 @@ pub struct Engine {
     pub(crate) config: FuzzerConfig,
     pub(crate) runtime: Arc<dyn RuntimeBackend>,
     pub(crate) updates: Arc<dyn UpdateBackend>,
-    slots: Semaphore,
+    pub(crate) slots: Semaphore,
 }
 
 impl std::fmt::Debug for Engine {
@@ -294,13 +294,6 @@ impl Engine {
             return Err(Status::resource_exhausted("The maximum number of concurrent training cycles is already running."));
         };
         self.cycle(request, scope).await
-    }
-
-    /// `RunPresenceTrainingCycle`: validated like Python, then refused as a gap.
-    pub async fn run_presence_cycle(&self, request: FuzzerTrainingRequest) -> Result<FuzzerTrainingResponse, Status> {
-        crate::validate::validate_presence_training_request(&request, &self.config.presence_model_id)
-            .map_err(|error| Status::invalid_argument(error.0))?;
-        Err(gap("The presence training cycle (the presence gradient RPC and its guard)"))
     }
 
     async fn cycle(&self, request: FuzzerTrainingRequest, scope: Scope) -> Result<FuzzerTrainingResponse, Status> {
@@ -630,6 +623,17 @@ impl Engine {
         scope: Scope,
         fingerprint: &str,
     ) -> Result<Option<FuzzerTrainingResponse>, Status> {
+        self.previous_stage(request, cycle, scope.name(), fingerprint).await
+    }
+
+    /// `_previous_update_for_fingerprint` for a named evidence stage (`heads`, `full_encoder` or `presence`).
+    pub(crate) async fn previous_stage(
+        &self,
+        request: &FuzzerTrainingRequest,
+        cycle: &TrainingCycle,
+        stage: &str,
+        fingerprint: &str,
+    ) -> Result<Option<FuzzerTrainingResponse>, Status> {
         let lookup = ParameterUpdateStatusRequest {
             source_id: self.config.fuzzer_id.clone(),
             request_id: request.request_id.clone(),
@@ -647,7 +651,7 @@ impl Engine {
         if !status.found {
             return Ok(None);
         }
-        recover_cycle_evidence_ack(self.config.dump_dir.as_deref(), request, scope.name(), &status).map_err(precondition)?;
+        recover_cycle_evidence_ack(self.config.dump_dir.as_deref(), request, stage, &status).map_err(precondition)?;
         let ack = status.ack.clone().unwrap_or_default();
         Ok(Some(FuzzerTrainingResponse {
             accepted: ack.accepted,

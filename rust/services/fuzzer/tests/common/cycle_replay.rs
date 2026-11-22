@@ -14,7 +14,7 @@ use privoke_fuzzer::cycle::Engine;
 use prost::Message;
 use serde_json::Value;
 
-use super::{FULL_PATH, HEADS_PATH, STATUS_PATH, SUBMIT_PATH, ScriptedRuntime, ScriptedUpdates, Wire, b64, repo_root};
+use super::{FULL_PATH, HEADS_PATH, PRESENCE_PATH, STATUS_PATH, SUBMIT_PATH, ScriptedRuntime, ScriptedUpdates, Wire, b64, repo_root};
 
 fn code_name(code: tonic::Code) -> String {
     match code {
@@ -211,9 +211,13 @@ pub async fn replay(golden_path: &Path, title: &str, results: Option<&Path>) {
                 Box::new(move |_| privoke_contracts::proto::v1::ParameterUpdateAck::decode(ack.as_slice()).unwrap());
             wire.take();
             wire.take_options();
+            let presence = cycle["scope"] == "presence";
+            if presence {
+                *runtime.presence.lock().unwrap() = Some(b64(cycle["runtime_response"].as_str().unwrap()));
+            }
             let scope = if cycle["scope"] == "full_encoder" { Scope::FullEncoder } else { Scope::Heads };
             let request = FuzzerTrainingRequest::decode(b64(cycle["request"].as_str().unwrap()).as_slice()).unwrap();
-            let outcome = engine.run_training_cycle(request, scope).await;
+            let outcome = if presence { engine.run_presence_cycle(request).await } else { engine.run_training_cycle(request, scope).await };
 
             let observed = wire.take();
             let expected: Vec<(&str, Vec<u8>)> = cycle["calls"]
@@ -232,7 +236,7 @@ pub async fn replay(golden_path: &Path, title: &str, results: Option<&Path>) {
                 .collect();
             let observed_paths: Vec<&str> = observed.iter().map(|(path, _)| path.as_str()).collect();
             assert_eq!(observed_paths, expected.iter().map(|(path, _)| *path).collect::<Vec<_>>(), "{context}: call order");
-            assert!(observed_paths.iter().all(|path| [STATUS_PATH, SUBMIT_PATH, HEADS_PATH, FULL_PATH].contains(path)));
+            assert!(observed_paths.iter().all(|path| [STATUS_PATH, SUBMIT_PATH, HEADS_PATH, FULL_PATH, PRESENCE_PATH].contains(path)));
             for ((path, bytes), (_, want)) in observed.iter().zip(&expected) {
                 let (bytes, normalised) = match path.as_str() {
                     STATUS_PATH => (bytes.clone(), ParameterUpdateStatusRequest::decode(want.as_slice()).unwrap().encode_to_vec()),
@@ -270,6 +274,10 @@ pub async fn replay(golden_path: &Path, title: &str, results: Option<&Path>) {
                         }
                         (sent.encode_to_vec(), golden_message.encode_to_vec())
                     }
+                    PRESENCE_PATH => (
+                        bytes.clone(),
+                        privoke_contracts::proto::v1::ComputePresenceGradientsRequest::decode(want.as_slice()).unwrap().encode_to_vec(),
+                    ),
                     _ => (bytes.clone(), ComputeSemanticGradientsRequest::decode(want.as_slice()).unwrap().encode_to_vec()),
                 };
                 assert!(bytes == normalised, "{context}: {path} request bytes differ ({} against {})", bytes.len(), normalised.len());
