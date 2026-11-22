@@ -365,7 +365,7 @@ impl Engine {
             fingerprint.as_deref(),
             &batch_config,
         )?;
-        let mut update = self.train(&request, &cycle, scope, &sampled, &batch_config, require_full).await?;
+        let mut update = self.train(&request, &cycle, scope, &sampled, &batch_config, require_full, taxonomy_dataset.as_ref()).await?;
         if !sampled.audit.is_empty() {
             update.metadata.extend(sampled.audit.clone());
         }
@@ -518,6 +518,7 @@ impl Engine {
     }
 
     /// `_train`: prepare the examples, have the runtime compute, admit the response.
+    #[allow(clippy::too_many_arguments)]
     async fn train(
         &self,
         request: &FuzzerTrainingRequest,
@@ -526,9 +527,20 @@ impl Engine {
         sampled: &Sampled,
         batch_config: &BatchTrainingConfig,
         require_full_capability: bool,
+        taxonomy_dataset: Option<&TaxonomyDataset>,
     ) -> Result<BatchUpdate, Status> {
         let trainer_examples =
             prepare_trainer_examples(&sampled.examples, &sampled.replay, &sampled.heldout, batch_config).map_err(precondition)?;
+        let expanded_audit = match taxonomy_dataset {
+            Some(dataset) => {
+                if !sampled.replay.is_empty() {
+                    return Err(precondition("Taxonomy coverage requires its dataset snapshot and no extra replay rows."));
+                }
+                taxonomy::audit_expanded(dataset, &sampled.examples, &trainer_examples, &sampled.heldout, batch_config)
+                    .map_err(precondition)?
+            }
+            None => BTreeMap::new(),
+        };
         let wire = gradient_request(
             &trainer_examples,
             &sampled.heldout,
@@ -552,6 +564,7 @@ impl Engine {
                 return Err(Status::unavailable(RUNTIME_UNAVAILABLE));
             }
         };
+        update.metadata.extend(expanded_audit);
         update.metrics.insert("new_examples".to_string(), sampled.examples.len() as f64);
         update.metrics.insert("golden_examples".to_string(), sampled.replay.len() as f64);
         update.metadata.insert("transformations_per_example".to_string(), batch_config.transformations_per_example.to_string());
