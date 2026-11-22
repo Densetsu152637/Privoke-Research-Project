@@ -694,10 +694,6 @@ fn node_text(value: &str) -> Node {
     Node::String(value.to_string())
 }
 
-fn node_floats(values: &[f64]) -> Node {
-    Node::Array(values.iter().map(|value| Node::Float(*value)).collect())
-}
-
 fn node_rows(rows: &[(u16, f64)]) -> Node {
     Node::Array(
         rows.iter().map(|(packed, confidence)| Node::Array(vec![node_int(usize::from(*packed)), Node::Float(*confidence)])).collect(),
