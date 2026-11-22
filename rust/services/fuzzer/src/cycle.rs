@@ -7,7 +7,7 @@
 //!
 //! Not ported, and refused with `UNIMPLEMENTED` and the name of the gap instead of running a different cycle:
 //! policy-admitted cycles (FULL Adam, ORIGINAL retention, backtracking, TRAIN diagnostics), the window cycle, the audience,
-//! taxonomy, rehearsal and benign samplers (they need the policy contracts or the pinned release closure), the study gate
+//! rehearsal and benign samplers (they need the authenticated FULL Adam policy admission), the study gate
 //! diagnostics and the presence cycle. Those paths need parts of the stage 19 training crate that another stage ports.
 
 use std::collections::BTreeMap;
@@ -16,6 +16,7 @@ use std::sync::Arc;
 use privoke_contracts::proto::v1::{FuzzerTrainingRequest, FuzzerTrainingResponse, ParameterUpdateStatusRequest};
 use privoke_curriculum::curriculum::{ReserveOptions, load_curriculum, request_fingerprint, reserve_batch, sampler_settings};
 use privoke_curriculum::generator::{PartitionSources, contextual_sampling_audit, generate_training_partition};
+use privoke_curriculum::taxonomy::{self, TaxonomyDataset};
 use privoke_curriculum::trainer::{merge_publication_metadata, prepare_trainer_examples};
 use privoke_curriculum::types::BatchTrainingConfig;
 use privoke_curriculum::value::{self, Value};
@@ -270,15 +271,46 @@ impl Engine {
         {
             return Err(precondition("Orphan benign pins require the explicit benign strategy."));
         }
-        if matches!(strategy.as_deref(), Some(TAXONOMY_STRATEGY | anchor::STRATEGY | benign::STRATEGY)) {
-            return Err(gap("Taxonomy, rehearsal and benign coverage sampling"));
+        if matches!(strategy.as_deref(), Some(anchor::STRATEGY | benign::STRATEGY)) {
+            return Err(gap(
+                "Rehearsal and benign coverage sampling (they require the authenticated FULL Adam policy admission and the FULL Adam gate)",
+            ));
         }
         let batch_config = self.config.batch_training_config(cycle.seed, scope);
+        let mut taxonomy_dataset: Option<TaxonomyDataset> = None;
+        let mut fingerprint: Option<String> = None;
+        if strategy.as_deref() == Some(TAXONOMY_STRATEGY) {
+            if self.config.curriculum_manifest_path.is_some() {
+                return Err(precondition("Taxonomy coverage cannot override a fixed curriculum."));
+            }
+            if self.config.dump_dir.is_none() {
+                return Err(precondition("Taxonomy coverage requires durable PRIVOKE_FUZZER_DUMP_DIR."));
+            }
+            if cycle.prompt_count != 32 || self.config.heldout_prompt_count != 16 || batch_config.transformations_per_example != 1 {
+                return Err(precondition("Taxonomy coverage requires 32 originals, 16 guard rows and one transformation."));
+            }
+            let dataset = taxonomy::load_dataset(self.config.prompt_dataset_path.as_deref()).map_err(precondition)?;
+            if request.metadata.get("taxonomy_dataset_sha256").is_some_and(|expected| expected != &dataset.sha256) {
+                return Err(precondition("Requested taxonomy dataset hash differs from the server release."));
+            }
+            let settings = value::object(vec![
+                ("training", config_value(&batch_config)),
+                ("scope", value::string(scope.name())),
+                ("model_id", value::string(&cycle.model_id)),
+                ("prompt_count", value::int(cycle.prompt_count)),
+                ("seed", value::uint(cycle.seed)),
+                ("heldout_count", value::int(self.config.heldout_prompt_count)),
+                ("minimum_exact_match_rate", Value::Float(self.config.minimum_exact_match_rate)),
+                ("dataset_sha256", value::string(&dataset.sha256)),
+                ("policy", taxonomy::policy_contract()),
+            ]);
+            fingerprint = Some(settings_fingerprint(&request, &settings).map_err(precondition)?);
+            taxonomy_dataset = Some(dataset);
+        }
         let curriculum = match &self.config.curriculum_manifest_path {
             Some(path) => Some(load_curriculum(path).map_err(precondition)?),
             None => None,
         };
-        let mut fingerprint: Option<String> = None;
         if let Some(curriculum) = &curriculum {
             sampler_settings(&request.metadata).map_err(precondition)?;
             for (key, actual) in [("curriculum_id", &curriculum.curriculum_id), ("curriculum_manifest_sha256", &curriculum.manifest_sha256)]
@@ -301,8 +333,8 @@ impl Engine {
             fingerprint = Some(request_fingerprint(&request, curriculum, &value::object(pairs)).map_err(precondition)?);
         }
         let require_full = request.metadata.get("require_full_capability").map(String::as_str) == Some("true");
-        if scope == Scope::FullEncoder || require_full {
-            if curriculum.is_none() {
+        if scope == Scope::FullEncoder || require_full || taxonomy_dataset.is_some() {
+            if curriculum.is_none() && taxonomy_dataset.is_none() {
                 fingerprint = Some(self.generic_fingerprint(&request, &batch_config, &cycle, scope).map_err(precondition)?);
             }
             let reserved = fingerprint.as_deref().unwrap_or_default();
@@ -324,7 +356,15 @@ impl Engine {
             cycle.model_id,
             cycle.prompt_count
         ));
-        let sampled = self.sample(&request, &cycle, strategy.as_deref(), curriculum.as_ref(), fingerprint.as_deref(), &batch_config)?;
+        let sampled = self.sample(
+            &request,
+            &cycle,
+            strategy.as_deref(),
+            curriculum.as_ref(),
+            taxonomy_dataset.as_ref(),
+            fingerprint.as_deref(),
+            &batch_config,
+        )?;
         let mut update = self.train(&request, &cycle, scope, &sampled, &batch_config, require_full).await?;
         if !sampled.audit.is_empty() {
             update.metadata.extend(sampled.audit.clone());
@@ -435,6 +475,7 @@ impl Engine {
         cycle: &TrainingCycle,
         strategy: Option<&str>,
         curriculum: Option<&privoke_curriculum::curriculum::Curriculum>,
+        taxonomy_dataset: Option<&TaxonomyDataset>,
         fingerprint: Option<&str>,
         batch_config: &BatchTrainingConfig,
     ) -> Result<Sampled, Status> {
@@ -462,11 +503,16 @@ impl Engine {
         let sources = PartitionSources {
             dataset_path: self.config.prompt_dataset_path.as_deref(),
             sampling_strategy: strategy,
+            taxonomy_dataset,
             ..PartitionSources::default()
         };
         let (examples, heldout) = generate_training_partition(cycle.prompt_count, self.config.heldout_prompt_count, cycle.seed, &sources)
             .map_err(precondition)?;
-        let audit = if strategy.is_some() { contextual_sampling_audit(&examples).map_err(precondition)? } else { BTreeMap::new() };
+        let audit = match (strategy, taxonomy_dataset) {
+            (None, _) => BTreeMap::new(),
+            (Some(_), Some(dataset)) => taxonomy::audit_originals(dataset, &examples, &heldout).map_err(precondition)?,
+            (Some(_), None) => contextual_sampling_audit(&examples).map_err(precondition)?,
+        };
         Ok(Sampled { examples, heldout, replay: Vec::new(), audit })
     }
 
