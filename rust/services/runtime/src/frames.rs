@@ -206,7 +206,11 @@ pub fn encode_metadata(pairs: &[(&str, &str)]) -> Vec<u8> {
 }
 
 /// `split_metadata`: the pairs and the protobuf bytes behind them.
-pub fn split_metadata(payload: &[u8], request_id: u64) -> Result<(Vec<(String, String)>, &[u8]), FrameError> {
+/// A metadata block's key and value pairs.
+pub type MetadataPairs = Vec<(String, String)>;
+
+/// `split_metadata`, as above.
+pub fn split_metadata(payload: &[u8], request_id: u64) -> Result<(MetadataPairs, &[u8]), FrameError> {
     let bad = |reason: &str| FrameError::new(code::INVALID_METADATA, format!("Malformed metadata block: {reason}"), request_id);
     let mut offset = 0usize;
     let head = take(payload, &mut offset, 2).ok_or_else(|| bad("truncated"))?;
