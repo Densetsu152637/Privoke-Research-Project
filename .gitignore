@@ -45,3 +45,6 @@ extension/dist-firefox/
 !/AGENTS.md
 /models/experiments/
 /models/standard-releases/
+
+# Local goldens of retained study fits (prompt text; RUST-S21B)
+/rust/services/v3-fuzzer/tests/local/

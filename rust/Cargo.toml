@@ -21,6 +21,7 @@ members = [
     "crates/privoke-telemetry-client",
     "services/fuzzer",
     "services/runtime",
+    "services/v3-fuzzer",
 ]
 
 [workspace.package]
