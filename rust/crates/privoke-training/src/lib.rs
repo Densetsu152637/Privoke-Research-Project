@@ -18,14 +18,17 @@
 
 pub mod adam;
 pub mod admission;
+pub mod bert_backward;
 pub mod error;
 pub mod net;
 pub mod objective;
 pub mod presence;
+pub mod reference;
 pub mod retention;
 pub mod routes;
 pub mod rpc;
 pub mod trace;
+pub mod v3_model;
 pub mod window;
 
 pub use error::TrainingError;

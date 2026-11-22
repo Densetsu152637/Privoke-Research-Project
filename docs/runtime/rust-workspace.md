@@ -1141,6 +1141,8 @@ The worker serves the window route since RUST-S19E: `training.rs` parses the sch
 
 The retention loops are ported in `retention.rs` (checkpoint 7, RUST-S19F): the release loader, the hinge direction, the fit with the safety audit and the trace; the worker serves the schema 4 header from the `PRIVOKE_RETENTION_*` configuration and `routing::admission_is_served` accepts the eight-key record. See the checkpoint 7 entry of the stage 19 plan for the tests and the gated commands.
 
+Reference preparation (`reference.rs`, checkpoint 8, RUST-S19G) is an offline tool without a route: `prepare_references` authenticates the approved bank and the ORIGINAL teacher and returns the canonical reference payload and the teacher identity; see the checkpoint 8 entry of the stage 19 plan for the gated command.
+
 ### Presence gradients and admission
 
 `presence` ports `privoke_model/presence.py` (the sparse TF-IDF presence model, which stage 14 did not port; additive, `privoke-semantic` is unchanged) and `compute_presence_gradients`. On the synthetic golden every one of 606 transported coordinates is bitwise equal to Python, as are the probabilities, 18 of 18 metrics and the 4 fingerprints (the arithmetic is float64 with `fsum`, no torch). `admission` ports the FULL Adam artifact policy and pre-gradient admission: 9 of 9 scenarios give the same outcome and error text (the window and retention policies are ported at checkpoint 4, above). `training_text_key` follows Python's `\d` (`Nd`) and `str.split()` whitespace through `privoke_rules::pyunicode`. CI prints the per-case numbers in the `Training parity report` step of `rust-ci.yml`.
