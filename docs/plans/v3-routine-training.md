@@ -97,8 +97,8 @@ Root defaults, which the user may override:
   - The golden replay of admit, stage and commit outcomes and reasons (including `stale_base`, `guard_rejected` and request-id reuse) equals the Python oracle.
   - The v3-fuzzer recorded replay (23 fits) passes against the Rust store.
   - Rust CI is green.
-- Status: in progress (RUST-V3R1, 23 Nov 2026; plan gate converged in 4 rounds).
-- Outcome:
+- Status: done (RUST-V3R1, 23 Nov 2026; plan gate converged in 4 rounds).
+- Outcome: `74dfdae` (merged). Rust CI run 45129063820 green. Golden replay equals the Python oracle (3 stories, 98 steps, 6 applied, 3 stale_base, 2 guard_rejected, 2107 blob listings and 339 receipt rows identical). The 23 recorded v3-fuzzer fits replay identically against the Rust store (10 applied, 13 rejected; re-run by root in Docker). R2 seam: `CommitObserver::before_swap` inside the commit transaction. Admission still runs under the commit lock; V3-R9 must hoist it.
 - Handoff notes: the sqlite `current` table is the single authority for every later stage. R2 signs inside the commit transaction through `CommitObserver::before_swap` (`rust/services/param-update/src/v3_store/store.rs`). Roles on `CheckpointService`: `CommitCandidate` publisher and trainer only; stage, read and health also `runtime`. The golden needs the public official `config.json` and `vocab.txt` as fixtures (`tests/fixtures/v3_store/`).
 
 ## Stage V3-P: Pre-flight checks for the two user stop points
