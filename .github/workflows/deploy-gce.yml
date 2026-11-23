@@ -148,7 +148,7 @@ jobs:
             shared/proto/privoke/v1/parameters.proto shared/proto/privoke/v1/telemetry.proto \
             shared/python/privoke_model/standard_v3.py extension/client-runtime/src/telemetry/privacy.py \
             shared/python shared/proto extension/client-runtime/src services/privoke-fuzzer/src services/pretrained-v3/src \
-            services/privoke-fuzzer/data
+            rust/crates/privoke-curriculum/tests/fixtures/au3 rust/crates/privoke-curriculum/tests/fixtures/bc01
           gcloud compute scp "privoke-$GITHUB_SHA.tar.gz" "$GCP_INSTANCE:~/privoke-$GITHUB_SHA.tar.gz" \
             --project="$GCP_PROJECT_ID" --zone="$GCP_ZONE" --tunnel-through-iap --quiet
           gcloud compute ssh "$GCP_INSTANCE" --project="$GCP_PROJECT_ID" --zone="$GCP_ZONE" --tunnel-through-iap --quiet \

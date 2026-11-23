@@ -128,13 +128,12 @@ model_id=${MODEL_LATEST_ID:-privoke-v3-balanced}
 # Copies of the operator values: they are unset before Compose runs, and the release file is written twice.
 model_release_dir=$MODEL_RELEASE_DIR
 compose_profiles=${COMPOSE_PROFILES:-}
-fuzzer_prompt_count=${FUZZER_PROMPT_COUNT:-32}
+fuzzer_prompt_count=${FUZZER_PROMPT_COUNT:-256}
 fuzzer_interval=${FUZZER_REQUEST_INTERVAL_SECONDS:-10800}
 fuzzer_seed=${FUZZER_REQUEST_SEED:-1337}
 # The V3 routine-training stack (profile v3-training). The directories are staged by the operator and mounted read-only; none of
 # them, and not the publication key, is part of an image. Without the profile Compose still needs a value for each variable.
 v3_original_dir=${V3_ORIGINAL_DIR:-/opt/privoke/unused}
-v3_inputs_dir=${V3_INPUTS_DIR:-}
 v3_bank_dir=${V3_RETENTION_BANK_DIR:-/opt/privoke/unused}
 v3_key_secret=${V3_PUBLICATION_KEY_SECRET:-}
 v3_key_id=${V3_PUBLICATION_KEY_ID:-privoke-v3-pub-2026-11}
@@ -142,9 +141,9 @@ v3_tiers=${V3_TIERS:-efficient,balanced,quality}
 training=0
 [[ ,$compose_profiles, == *,v3-training,* ]] && training=1
 if (( training )); then
-  : "${V3_ORIGINAL_DIR:?Stage the ORIGINAL packages (one directory per tier) first}" "${V3_INPUTS_DIR:?Stage the pinned BC01 inputs first}"
+  : "${V3_ORIGINAL_DIR:?Stage the ORIGINAL packages (one directory per tier) first}"
   : "${V3_RETENTION_BANK_DIR:?Stage the approved retention bank first}" "${V3_PUBLICATION_KEY_SECRET:?Create the publication key secret first}"
-  for dir in "$V3_ORIGINAL_DIR" "$V3_INPUTS_DIR" "$V3_RETENTION_BANK_DIR"; do
+  for dir in "$V3_ORIGINAL_DIR" "$V3_RETENTION_BANK_DIR"; do
     [[ $dir = /* && -d $dir ]] || { echo "$dir must be an existing absolute directory." >&2; exit 1; }
   done
   [[ -f $V3_RETENTION_BANK_DIR/approved-train-bank.json ]] || { echo 'approved-train-bank.json is missing from V3_RETENTION_BANK_DIR.' >&2; exit 1; }
@@ -226,14 +225,22 @@ done
 if (( training )); then
   fetch "$v3_key_secret" "$pki/v3-publication.key"
   [[ $(tr -d '[:space:]' < "$pki/v3-publication.key") =~ ^[0-9a-f]{64}$ ]] || { echo 'The publication key secret is not 64 hexadecimal characters.' >&2; exit 1; }
-  # The source directory the evidence commits to: the operator's pinned BC01 inputs plus the tracked Python closure and the bundled
-  # audience data of this commit. One copy per release, read-only in every container that names V3_SOURCE_ROOT.
+  # The source directory the evidence commits to (V3_SOURCE_ROOT of all three services): the tracked Python closure of this commit,
+  # the four pinned BC01 inputs and the pinned AU3 release. The frozen releases are tracked in the repository as the curriculum
+  # crate's fixtures; each service checks their SHA-256 against its compiled pins when it loads them, so a wrong byte stops the
+  # container before it serves. One copy per release, read-only in every container.
   v3_source=$release_dir/v3-source
-  install -d -m 0750 "$v3_source"
-  cp -a -- "$v3_inputs_dir"/. "$v3_source"/
+  fixtures=$tree/rust/crates/privoke-curriculum/tests/fixtures
+  bc01=evaluation/results/iterative_fuzzer_20261011
+  install -d -m 0750 "$v3_source" "$v3_source/$bc01/taxonomy-coverage/release" "$v3_source/$bc01/train-benign-coverage/r1" \
+    "$v3_source/services/privoke-fuzzer/data"
   (cd -- "$tree" && find shared/python shared/proto extension/client-runtime/src services/privoke-fuzzer/src \
-    services/pretrained-v3/src services/privoke-fuzzer/data -type f \( -name '*.py' -o -name '*.proto' -o -name '*.json' \) \
-    -not -path '*/__pycache__/*' -exec cp --parents -t "$v3_source" {} +)
+    services/pretrained-v3/src -type f \( -name '*.py' -o -name '*.proto' \) -not -path '*/__pycache__/*' \
+    -exec cp --parents -t "$v3_source" {} +)
+  install -m 0640 "$fixtures/bc01/taxonomy-coverage-v1.json" "$v3_source/$bc01/taxonomy-coverage/release/"
+  install -m 0640 "$fixtures/bc01/pool-authored.json" "$v3_source/$bc01/train-benign-coverage/"
+  install -m 0640 "$fixtures/bc01/benign-manifest.json" "$fixtures/bc01/exclusion-proof.json" "$v3_source/$bc01/train-benign-coverage/r1/"
+  install -m 0640 "$fixtures"/au3/*.json "$v3_source/services/privoke-fuzzer/data/"
   chgrp -R "$pki_group" "$v3_source"
   find "$v3_source" -type d -exec chmod 0750 {} +
   find "$v3_source" -type f -exec chmod 0640 {} +
@@ -282,7 +289,7 @@ write_release_env "$model_publish_staging" "$telemetry_publish_staging"
 # Compose must use the saved release values, including during rollback.
 unset IMAGE_PREFIX IMAGE_TAG PRIVOKE_PKI_DIR PRIVOKE_PKI_LIVE_DIR MODEL_RELEASE_DIR MODEL_LATEST_ID MODEL_PUBLISH TELEMETRY_PUBLISH \
   COMPOSE_PROFILES FUZZER_PROMPT_COUNT FUZZER_REQUEST_INTERVAL_SECONDS FUZZER_REQUEST_SEED \
-  V3_SOURCE_DIR V3_ORIGINAL_DIR V3_INPUTS_DIR V3_RETENTION_BANK_DIR V3_PUBLICATION_KEY_SECRET V3_PUBLICATION_KEY_ID V3_TIERS
+  V3_SOURCE_DIR V3_ORIGINAL_DIR V3_RETENTION_BANK_DIR V3_PUBLICATION_KEY_SECRET V3_PUBLICATION_KEY_ID V3_TIERS
 
 export DOCKER_CONFIG
 DOCKER_CONFIG=$(mktemp -d)

@@ -44,6 +44,29 @@ if [ -n "$pretrained_context_dir" ]; then
   fi
 fi
 
+# The V3 models the Rust controller keeps fresh (V3_PACKAGE_REFRESH_MODELS, comma-separated `privoke-v3-<tier>` ids; see
+# docs/runtime/v3-publication.md, Refresh). The browser starts the host with a clean environment, so the value in effect when
+# this installer runs is stored in the launcher. Unset, the default is the standard model `privoke-v3-balanced`; set to an empty
+# string, the controller starts no refresh loop. The interval V3_PACKAGE_REFRESH_SECONDS is stored the same way when set.
+refresh_models=''
+refresh_seconds=''
+if [ -n "$supervisor_binary" ]; then
+  refresh_models="${V3_PACKAGE_REFRESH_MODELS-privoke-v3-balanced}"
+  refresh_seconds="${V3_PACKAGE_REFRESH_SECONDS:-}"
+  case "$refresh_models" in
+    *[!a-z0-9,-]*)
+      echo "V3_PACKAGE_REFRESH_MODELS must be a comma-separated list of model ids: $refresh_models" >&2
+      exit 1
+      ;;
+  esac
+  case "$refresh_seconds" in
+    *[!0-9]*)
+      echo "V3_PACKAGE_REFRESH_SECONDS must be a positive number of seconds: $refresh_seconds" >&2
+      exit 1
+      ;;
+  esac
+fi
+
 for required_file in "$identity_path" "$python_path" "$source_host_path"; do
   if [ ! -f "$required_file" ]; then
     echo "Required PriVoke file is missing: $required_file" >&2
@@ -124,6 +147,12 @@ escaped_root=$(escape_shell_single_quotes "$repository_root")
   printf "export PRIVOKE_REPOSITORY_ROOT='%s'\n" "$escaped_root"
   if [ -n "$pretrained_context_dir" ]; then
     printf "export PRIVOKE_PRETRAINED_CONTEXT_DIR='%s'\n" "$(escape_shell_single_quotes "$pretrained_context_dir")"
+  fi
+  if [ -n "$refresh_models" ]; then
+    printf "export V3_PACKAGE_REFRESH_MODELS='%s'\n" "$refresh_models"
+  fi
+  if [ -n "$refresh_seconds" ]; then
+    printf "export V3_PACKAGE_REFRESH_SECONDS='%s'\n" "$refresh_seconds"
   fi
   if [ -n "$supervisor_binary" ]; then
     printf "exec '%s' native-host\n" "$escaped_python"

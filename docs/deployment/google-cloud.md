@@ -8,11 +8,10 @@ The deployment runs the Rust services of the [server rewrite](../plans/rust-serv
 | --- | --- | --- | --- | --- |
 | `model-streaming-service` | Rust (`rust/services/model-streaming`) | `443` (container `50443`) | `50051`, not published | public: registered installations (`consumer`); internal: registered services |
 | `telemetry-service` | Rust (`rust/services/telemetry`) | `8443` (container `58443`) | `50055`, not published | public: the shared reporter credential only; internal: registered services |
-| `param-update-service`, `param-update-bootstrap` | Rust (`rust/services/param-update`) | none | `50052`, not published | registered `publisher` and `trainer` services (profile `legacy-training`) |
-| `privoke-fuzzer` | Python (`services/privoke-fuzzer`) | none | `50053`, not published | the update service and the fuzzer itself, on an allow list (profile `legacy-training`) |
-| `analysis-service`, `analysis-model-streaming` | Rust on the Python runtime image (`rust/services/analysis`) | none | `50054`, no route out | only the fuzzer (profile `legacy-training`) |
+| `param-update-service` | Rust (`rust/services/param-update`) | none | `50052`, not published | registered `publisher`, `trainer` and `runtime` services: the V3 checkpoint store, the routine scheduler and the signed publication (profile `v3-training`) |
+| `v3-fuzzer`, `v3-runtime` | Rust (`rust/services/v3-fuzzer`, `rust/services/v3-runtime`) | none | `50172`, `50171`, not published, on an `internal: true` network with no route out | the scheduler (`publisher`) and the fuzzer (`trainer`) for the runtime; the fuzzer for the checkpoint service (profile `v3-training`) |
 
-Only ports `443` and `8443` are public. IAP carries administrative SSH traffic to port `22`; the internal ports are never published. Docker volumes retain telemetry, update history, fuzzer output, the quarantined service's model cache and the mutable model artifacts. Each workstation authenticates with its own client certificate, downloads models and, separately, reports telemetry with the shared reporter credential. Prompt analysis stays on the workstation. `model-streaming-service` and `telemetry-service` always run; the other services start only with the opt-in `legacy-training` Compose profile (see the training note below). The server no longer runs a `client-runtime` container: the fuzzer reaches inference only through the quarantined `analysis-service` (two `internal: true` networks, a read-only root, no capabilities, resource limits), which emits no telemetry.
+Only ports `443` and `8443` are public. IAP carries administrative SSH traffic to port `22`; the internal ports are never published. Docker volumes retain telemetry, update history, the V3 checkpoint store and published tree, and the fuzzer and runtime state. Each workstation authenticates with its own client certificate, downloads models and, separately, reports telemetry with the shared reporter credential. Prompt analysis stays on the workstation. `model-streaming-service` and `telemetry-service` always run; the other services start only with the opt-in `v3-training` Compose profile (see the training note below). The server runs no `client-runtime` container and no V1 training: the V3 fuzzer reaches the V3 runtime over the internal `training` network (`internal: true`, a read-only root, no capabilities), which emits no telemetry. The quarantined V1 `analysis-service` is not deployed (it remains in `docker-compose.prod.yml` under the `legacy-analysis` profile for the oracle checks).
 
 This is the supported cloud shape in this repository: a single VM running `deploy/gce/compose.yml`. It is not a managed Kubernetes, Cloud Run, or multi-VM deployment, and nothing may sit in front of the two public ports: the telemetry service's per-source rate limit and daily cap read the connecting address. The browser extension, its native-messaging host and the client detector run on each user's workstation. The VM does not receive browser prompts for the extension's local detector.
 
@@ -133,7 +132,7 @@ Every server authenticates its callers itself, with mutual TLS and a registry. T
 | Principal | Certificate identity (URI SAN) | Role | Issued by |
 | --- | --- | --- | --- |
 | Installation | `urn:privoke:installation:<uuid>` | `consumer` | the operator, on a CSR the installation made |
-| Service (param-update, fuzzer, runtime) | `urn:privoke:service:<name>` | `publisher`, `trainer` or `runtime`, set in the registry | the operator |
+| Service (param-update, v3-fuzzer, v3-runtime) | `urn:privoke:service:<name>` | `publisher`, `trainer` or `runtime`, set in the registry | the operator |
 | Telemetry reporter | `urn:privoke:reporter` | `reporter`; one credential shared by every installation | the operator, delivered with each enrolment |
 
 Every client certificate is a leaf with the `clientAuth` extended key usage only and exactly one `urn:privoke:` URI SAN. Installation and reporter certificates last 180 days, service and server certificates 90 days. The servers refuse anything else at the handshake (`privoke-transport`), then consult the registry on every RPC.
@@ -149,7 +148,7 @@ Every file in this table is either a secret or says it is public.
 | `ca/client/reporter/reporter.key` | operator, offline; copied to every installation | yes, but shared by design, so treat it as extractable |
 | `ca/client/ledger.toml` | operator | no secrets, but it is the revocation record: back it up |
 | `server.key` | the VM, from Secret Manager (a root-owned, group-readable file in the release directory) | yes |
-| `svc/<name>.key` for `probe`, `param-update`, `fuzzer`, `analysis` | the VM, from Secret Manager | yes |
+| `svc/<name>.key` for `probe`, `param-update`, `v3-fuzzer`, `v3-runtime` | the VM, from Secret Manager | yes |
 | smoke identity keys (`<prefix>-installation-key`, `<prefix>-reporter-key`) | the VM and the `production` GitHub environment | yes, but they are a dedicated test installation and the shared reporter credential |
 | `client.key`, `client.next.key`, `client.prev.key`, `reporter.key` | the installation's credential directory, owner-only | yes |
 | `*.crt`, `*.csr`, `server-ca.pem`, `crl.pem`, `registry.toml`, `installation.id` | various | no |
@@ -167,13 +166,13 @@ privoke-pki init-ca --dir ca/server --name "PriVoke Server CA"
 # reach each other, and deploy.sh refuses a certificate that lacks any of them.
 privoke-pki issue-server --ca-dir ca/server --out-dir out/server --dns "$STACK_HOST" \
   --dns model-streaming-service --dns telemetry-service --dns param-update-service \
-  --dns privoke-fuzzer --dns analysis-service --dns analysis-model-streaming
+  --dns v3-fuzzer --dns v3-runtime
 privoke-pki issue-reporter --ca-dir ca/client
 # Service identities and their registry roles. `probe` is the health-check identity of the model and telemetry containers.
 privoke-pki sign-service --ca-dir ca/client --name probe --role runtime --out-dir out/services --registry out/registry.toml
 privoke-pki sign-service --ca-dir ca/client --name param-update --role publisher --out-dir out/services --registry out/registry.toml
-privoke-pki sign-service --ca-dir ca/client --name fuzzer --role publisher --out-dir out/services --registry out/registry.toml
-privoke-pki sign-service --ca-dir ca/client --name analysis --role runtime --out-dir out/services --registry out/registry.toml
+privoke-pki sign-service --ca-dir ca/client --name v3-fuzzer --role trainer --out-dir out/services --registry out/registry.toml
+privoke-pki sign-service --ca-dir ca/client --name v3-runtime --role runtime --out-dir out/services --registry out/registry.toml
 privoke-pki crl --ca-dir ca/client --out out/crl.pem --days 7
 ```
 
@@ -189,7 +188,7 @@ put privoke-client-ca ca/client/ca.crt
 put privoke-server-ca ca/server/ca.crt
 put privoke-crl out/crl.pem
 put privoke-registry out/registry.toml
-for name in probe param-update fuzzer analysis; do
+for name in probe param-update v3-fuzzer v3-runtime; do
   put "privoke-svc-$name-cert" "out/services/$name.crt"
   put "privoke-svc-$name-key" "out/services/$name.key"
 done
@@ -205,7 +204,7 @@ done
 
 Optional extra negative checks: add `privoke-smoke-unregistered-{cert,key}` (an installation signed by the client CA but absent from the registry) and `privoke-smoke-foreign-{cert,key}` (signed by another CA). CA private keys never go to the VM, GitHub or clients. The deployer needs no Secret Manager access: the VM reads the secrets directly. A rollback restores the previous release's certificate snapshot, so confirm it is still valid.
 
-Each server starts with `--cert`, `--key`, `--client-ca`, `--crl` and `--registry`; without any one of them it exits before binding. The Python fuzzer refuses to serve without its server credentials and an allow list.
+Each server starts with `--cert`, `--key`, `--client-ca`, `--crl` and `--registry`; without any one of them it exits before binding. The V3 fuzzer and the V3 runtime refuse to serve without their server credentials and the registry (the V3 fuzzer admits registered `publisher` and `trainer` services; the scheduler is the `param-update` identity).
 
 #### Publish the CRL
 
@@ -297,41 +296,30 @@ them and refuses a missing staging directory. `MODEL_LATEST_ID` defaults to
 `privoke-v3-balanced`; the path and alias are saved into release.env for rollback.
 No deployment or V3 GPU support is implied by local validation.
 
-Legacy V1 training requires the explicit `legacy-training` Compose profile: set `COMPOSE_PROFILES=legacy-training` in the VM `.env`, which `deploy.sh` saves into each release. It adds the update service, the fuzzer and the quarantined analysis service.
-Within that opt-in profile, requests default to 32 prompts at startup and hourly.
-`FUZZER_PROMPT_COUNT=0` in the VM `.env` disables it. Accepted model updates write
-persistent state. Workstation OpenAI/LM Studio keys are unrelated to these
-deployment identities and are never required for the streamed server stack.
+V3 routine training (stage V3-R7 of `docs/plans/v3-routine-training.md`) requires the explicit `v3-training` Compose profile: set `COMPOSE_PROFILES=v3-training` in the VM `.env`, which `deploy.sh` saves into each release. It adds the update service (checkpoint store, scheduler, signed publication), the V3 fuzzer in routine mode and the V3 runtime. V1 training is retired: there is no V1 fuzzer, no V1 `MODEL_ID` or `FUZZER_TARGET`, and no quarantined analysis service in the deployment. `FUZZER_PROMPT_COUNT=0` in the VM `.env` switches the scheduler off.
 
-### Training cycles and telemetry boundary
+Inputs the operator stages on the VM (read-only mounts, never part of an image; `deploy/gce/.env.example` lists the variables):
 
-The fuzzer and parameter-update service request supervised Tiny training only in the explicit legacy profile. The fuzzer asks the quarantined analysis service for semantic-only inference and gradients over mutual TLS; the service rejects any other layer selection. Each automatic cycle performs head training followed by full encoder-and-head training on the same selected model ID. The maintained Compose file sets `FUZZER_TRAIN_UNDERLYING=true` (the one-shot `param-update-bootstrap` prepares the full-encoder release first); a reviewed Compose override setting it to `false` selects the head stage only (this value is not one of the release `.env` substitutions below). Each stage has an independent quality gate and atomic publication: if the second fails, an accepted first update remains. Both use explicit semantic-only runtime execution; regex and NER are not part of these training/guard phases.
-Configure `FUZZER_PROMPT_COUNT`, `FUZZER_REQUEST_INTERVAL_SECONDS` and
-`FUZZER_REQUEST_SEED` in the VM `.env`; defaults are `32`, `3600` and `1337`.
-Count `0` disables training, while interval `0` requests one startup cycle.
-New cycles advance the seed; retries retain the same identity and seed. Failed
-cycles exhaust their bounded retries before waiting for the next interval.
-All three values are saved into each release's `release.env`; changing the VM
-`.env` affects a later deployment, not an already running release. The service
-writes update history to `param-update-data` and the resulting model to
-`model-data`. The durable `FUZZER_CYCLE_STATE_PATH=/data/training-cycles.sqlite3` journal resumes uncertain stages with the same IDs and seed, skips acknowledged stages and preserves completed one-shot status across restarts. Definite rejection records a partial/rejected cycle; the next periodic cycle uses a new seed. The second stage requires the first stage's committed base, so an intervening update is rejected rather than overwritten. The analysis image is built on the client-runtime image, which includes CPU Torch 2.11.0. The fuzzer uses the legacy random sampler (`FUZZ_CONTEXTUAL_SAMPLING_STRATEGY=legacy_random_v1`) because the deployment carries no pinned AU3 manifest; override it in the Compose file only after supplying one. Disable automatic training before a controlled research study. Source and local-test validation do not imply these changes have been deployed to a VM.
+| Input | Where | Holds |
+| --- | --- | --- |
+| `MODEL_RELEASE_DIR` | `/opt/privoke/model-releases` | the standard releases `privoke-v3-<tier>/` (already needed for serving); also the routine root of each tier |
+| `V3_ORIGINAL_DIR` | `/opt/privoke/v3-originals` | `<tier>/`: the independently prepared ORIGINAL each pinned release descends from (`manifest.json`, `model.safetensors`, `config.json`, `vocab.txt`) |
+| (from the commit) | the release's `v3-source` directory | `deploy.sh` assembles the `V3_SOURCE_ROOT` of all three services from the deployed commit: the tracked Python closure, the four frozen BC01 inputs and the pinned AU3 release (tracked as `rust/crates/privoke-curriculum/tests/fixtures/{bc01,au3}`); every service checks their SHA-256 against its compiled pins when it loads them |
+| `V3_RETENTION_BANK_DIR` | `/opt/privoke/v3-retention-bank` | `approved-train-bank.json` (prompt text; hashed against its compiled pin by param-update) |
+| `V3_PUBLICATION_KEY_SECRET` | Secret Manager | the Ed25519 publication seed (64 hexadecimal characters); `deploy.sh` writes it to the release's PKI directory (group 10010, like the TLS keys) and param-update reads it as `V3_PUBLICATION_KEY_FILE` |
+
+The image of param-update carries the calibrated drift bounds, the frozen routine policy and the three V3 retention reference releases (`/config`); the V3 fuzzer image carries the same policy file. Param-update seeds its checkpoint store at startup with `V3_PINNED` (each tier's pinned standard release and its ORIGINAL, `bootstrap_pinned`) and then runs the scheduler: each round (`FUZZER_REQUEST_INTERVAL_SECONDS`, default 10800 s; a full round takes about 30 to 45 minutes on 8 CPUs) trains the tiers of `V3_TIERS` through HEADS then FULL_ENCODER, every candidate passing admission, the drift bounds, the recomputed guard and the retention gate before the publisher signs it. Model-streaming serves the published versions from the shared `v3-store` and `v3-published` volumes. `FUZZER_PROMPT_COUNT` is the frozen original-prompt budget of the 64-step policy, 256 (eight window batches of 32); the fuzzer refuses any other value, and `0` disables the scheduler. Interval `0` requests one round. The journal `FUZZER_CYCLE_STATE_PATH=/data/training-cycles.sqlite3` resumes uncertain stages after a restart (see `docs/runtime/rust-workspace.md`).
 
 This stack does not train on browser-extension traffic. The server no longer runs a runtime that emits telemetry; reports come only from workstations that enable telemetry (disabled by default) and hold the reporter credential. Each report contains randomized action, risk bucket, primary category, fixed model release, and randomized four-hour time-of-day bucket. It excludes prompts, identifiers, target app names, exact timestamps, exact scores, text length, and layer timings. The event-level local-DP guarantee, daily installation-local budget, exact aggregate sample count, transport metadata limits, and legacy database handling are documented in [Telemetry service](../services/telemetry.md). This is not user-level or event-existence privacy: report presence, timing, IP address and operational logs remain outside the guarantee.
 
-To run one deliberate cycle, first back up the model and update volumes, then
-configure the explicit legacy training profile with a reviewed `.env` containing (for example) `FUZZER_PROMPT_COUNT=8`
-and `FUZZER_REQUEST_INTERVAL_SECONDS=0`. Verify the fuzzer and parameter-update
-logs, inspect the update artifact, and record the resulting model ID/fingerprint.
-Stop the legacy profile services to disable training afterward; setting count to
-`0` disables its request scheduler. The standard V3 serving path is inference-only. Do not delete `model-data` to force an
-update; that removes the persistent model and causes the one-time seed copy to
-run again.
+To run one deliberate round, first back up the `v3-store`, `v3-published` and `param-update-data` volumes, then set `COMPOSE_PROFILES=v3-training`, `FUZZER_PROMPT_COUNT=256` and `FUZZER_REQUEST_INTERVAL_SECONDS=0` (with `V3_TIERS=efficient` for a short one) in a reviewed `.env`. Verify the update service, fuzzer and runtime logs, read the receipts with `CheckpointService.GetCommitStatus`, and compare the served statement (`GetModelPackage`) with the key id and sequence you expect. Stop the profile's services to disable training; count `0` disables the scheduler. An intentional rollback is a `RollbackModel` call by a `publisher` identity (see `docs/runtime/v3-publication.md`). Do not delete the `v3-store` volume to force a reseed: it is the single authority of what clients are served.
+
 
 ## 6. Deploy and verify
 
 Set the repository variable `GCP_DEPLOY_ENABLED=true`, then push the prepared repository changes to `main` or run **Actions → Deploy Compute Engine → Run workflow** on `main`. The workflow verifies the stack, builds and publishes the five images, authenticates with the `GCP_SA_KEY` secret, transfers the deployment files through IAP and runs the [deployment order](#the-deployment-order-fail-closed): `deploy.sh` stages and smoke-tests on loopback and switches to the public ports, the workflow opens the `8443` rule and runs the external smoke test, and `deploy.sh confirm` completes the release. The successful release lives at `/opt/privoke/current`; Compose always uses the project name `privoke` so volume identities are stable. It does not automatically delete old releases or data.
 
-Model seeds are copied from the model service image into the `model-data` volume only when the volume is empty (`model-seed`, relying on Docker's copy-up of an image directory into a new named volume); learned weights are never overwritten. Normal startup does not migrate learned weights. In the `legacy-training` profile the one-shot `param-update-bootstrap` prepares the Tiny capability model idempotently before the update service starts; it preserves legacy learned coordinates and writes recovery receipts under its writer lock. It cannot update the pinned read-only V3 packages or change the configured V3 alias.
+Model seeds are copied from the model service image into the `model-data` volume only when the volume is empty (`model-seed`, relying on Docker's copy-up of an image directory into a new named volume); learned weights are never overwritten. Normal startup does not migrate learned weights. V3 training never changes `model-data` or the pinned packages: trained versions live in the `v3-store` and `v3-published` volumes, and each pinned ORIGINAL stays fetchable by its pin.
 
 On the VM:
 
@@ -363,7 +351,7 @@ Two workflows own this. Nothing here needs a Google Cloud resource until you swi
 | Job | What it proves |
 | --- | --- |
 | `deployment-config` | Every Compose file renders, the three deployment scripts pass `bash -n` and `shellcheck`, `smoke.py` compiles, and no reverse proxy remains in a deployment path. |
-| `container-smoke` | Builds `privoke-pki` with cargo and generates a throwaway test PKI (`deploy/gce/tests/make_test_pki.py`, a new one per run, never committed), builds the base runtime image and every Compose image, brings `docker-compose.prod.yml --profile legacy-training` up on loopback with `--wait`, and runs `deploy/gce/tests/smoke.py --images` against it (mutual TLS, role gating, R9, telemetry, and each image refusing to start without its CA or CRL). It then runs `update_security.py --target rust --rust-service all` (the stage 9 negative rows, including live CRL reload) against the same images and uploads the JSON as the `update-security-rust-<run>` artifact. The job dumps the Compose logs and tears the stack down on every outcome. |
+| `container-smoke` | Builds `privoke-pki` with cargo and generates a throwaway test PKI (`deploy/gce/tests/make_test_pki.py`, a new one per run, never committed), builds the base runtime image and every Compose image, brings the base `docker-compose.prod.yml` stack (model and telemetry) up on loopback with `--wait`, builds the V3 training and quarantine images and start-up checks them (the V3 profile needs the real weights, which CI does not have), and runs `deploy/gce/tests/smoke.py --images` against it (mutual TLS, role gating, R9, telemetry, and each image refusing to start without its CA or CRL). It then runs `update_security.py --target rust --rust-service all` (the stage 9 negative rows, including live CRL reload) against the same images and uploads the JSON as the `update-security-rust-<run>` artifact. The job dumps the Compose logs and tears the stack down on every outcome. |
 | `extension-tests` | `npm test` and both extension builds. |
 
 In CI the stack serves the tracked legacy catalogue model (`MODEL_LATEST_ID=privoke-balanced`) because the standard V3 packages are ignored by Git and are not on the runner. `smoke.py --no-v3-package` and `update_security.py --no-v3` replace the V3 fetch with a legacy stream and record the V3 rows as `not_run`; the V3 package fetch with its pin (G8) is therefore verified only by the first deployment, whose smoke test runs without the flag, or by a local run with `models/standard-releases` present.
@@ -393,13 +381,13 @@ sudo bash /opt/privoke/releases/NEW_RELEASE_DIRECTORY/deploy.sh confirm PREVIOUS
 
 This creates a new release using the old compose files and images, with the current Secret Manager certificate versions, and goes through the same loopback smoke test and pending state as any deployment (open the `8443` firewall rule yourself for the external check, and close it again if you roll back). Rolling back past the Rust cutover is not possible: earlier releases ran a reverse proxy that no longer exists in the repository, so redeploy only commits from the cutover onward. Retain Artifact Registry images for every release you might restore. Re-running the same SHA may republish its tag: the tags identify source commits but are not registry-enforced immutable digests. Protect registry write access. If strict reproducibility is required, pin base images and deploy application digests before enabling immutable tags.
 
-Back up `privoke_model-data`, `privoke_param-update-data`, `privoke_telemetry-data`, `privoke_fuzzer-dumps` and `privoke_analysis-model-cache`, plus operator configuration, `/opt/privoke/pki-live` and release metadata. The Rust services run as user 65532 and the Python fuzzer as 10001, so a volume that an earlier (Python and Go) stack created is owned by 10001 and must be changed once with `chown -R 65532:65532` on the volume's `_data` directory before the Rust services can write it (`fuzzer-dumps` stays 10001). For consistent persistent-disk snapshots, stop the stack's writers during the snapshot or use an application-aware backup (SQLite's backup API for telemetry). Test restoring into a separate VM. Never use `docker compose down --volumes` on the production deployment. Code rollback does not undo parameter updates or database writes.
+Back up `privoke_model-data`, `privoke_param-update-data`, `privoke_telemetry-data`, `privoke_v3-store`, `privoke_v3-published`, `privoke_v3-fuzzer-state` and `privoke_v3-runtime-state`, plus operator configuration, `/opt/privoke/pki-live` and release metadata. The Rust services run as user 65532 and the Python fuzzer as 10001, so a volume that an earlier (Python and Go) stack created is owned by 10001 and must be changed once with `chown -R 65532:65532` on the volume's `_data` directory before the Rust services can write it (`fuzzer-dumps` stays 10001). For consistent persistent-disk snapshots, stop the stack's writers during the snapshot or use an application-aware backup (SQLite's backup API for telemetry). Test restoring into a separate VM. Never use `docker compose down --volumes` on the production deployment. Code rollback does not undo parameter updates or database writes.
 
 Monitor free disk, certificate expiry, VM health, container restarts and deployment failures. Container logs rotate at 10 MB with three files. Prune old images and root-only release/certificate snapshots according to a retention policy after verifying backups and preserving rollback candidates. Patch the VM and refresh base images regularly. The scripts do not provision alerting, scheduled backups, automatic certificate issuance or high availability.
 
 ### Persistence, cost control and teardown
 
-The checked-in deployment stores its named Docker volumes on the VM's persistent boot disk: `model-data`, `param-update-data`, `telemetry-data`, `fuzzer-dumps`, and `analysis-model-cache`. The example VM uses a 100 GB `pd-balanced` boot disk and sets `--no-boot-disk-auto-delete`, so deleting the VM does not delete that disk. This is the repository's supported persistence arrangement; it is not a separate managed database or automatically replicated backup. If you attach a separate persistent disk, mount it before bootstrap and relocate Docker's data root using an operator-managed procedure; do not change volume paths casually because the deployment scripts assume stable Compose volume names.
+The checked-in deployment stores its named Docker volumes on the VM's persistent boot disk: `model-data`, `param-update-data`, `telemetry-data`, `v3-store`, `v3-published`, `v3-fuzzer-state` and `v3-runtime-state`. The example VM uses a 100 GB `pd-balanced` boot disk and sets `--no-boot-disk-auto-delete`, so deleting the VM does not delete that disk. This is the repository's supported persistence arrangement; it is not a separate managed database or automatically replicated backup. If you attach a separate persistent disk, mount it before bootstrap and relocate Docker's data root using an operator-managed procedure; do not change volume paths casually because the deployment scripts assume stable Compose volume names.
 
 Google Cloud bills the VM, boot disk, reserved static address, Artifact Registry storage, and Secret Manager storage while they exist. Before teardown, export and verify required backups, record the release/model metadata, and revoke client certificates or rotate the client CA. Then stop the stack and remove the VM resources when they are no longer needed:
 

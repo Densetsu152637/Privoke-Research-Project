@@ -14,8 +14,9 @@ internal static class NativeHostLauncher
             string installRoot = AppDomain.CurrentDomain.BaseDirectory;
             string[] config = File.ReadAllLines(Path.Combine(installRoot, ConfigFileName));
             // Three lines: the host executable, its argument, the repository root. A fourth, when present, is the
-            // directory of the pretrained contextual encoder's assets.
-            if (config.Length != 3 && config.Length != 4)
+            // directory of the pretrained contextual encoder's assets (empty when there is none). A fifth, when present, is
+            // the comma-separated V3 models the Rust controller keeps fresh (V3_PACKAGE_REFRESH_MODELS).
+            if (config.Length < 3 || config.Length > 5)
             {
                 Console.Error.WriteLine("PriVoke native host configuration is invalid.");
                 return 2;
@@ -33,9 +34,13 @@ internal static class NativeHostLauncher
                 RedirectStandardError = true,
             };
             startInfo.EnvironmentVariables["PRIVOKE_REPOSITORY_ROOT"] = config[2];
-            if (config.Length == 4 && config[3].Length > 0)
+            if (config.Length >= 4 && config[3].Length > 0)
             {
                 startInfo.EnvironmentVariables["PRIVOKE_PRETRAINED_CONTEXT_DIR"] = config[3];
+            }
+            if (config.Length == 5 && config[4].Length > 0)
+            {
+                startInfo.EnvironmentVariables["V3_PACKAGE_REFRESH_MODELS"] = config[4];
             }
 
             using (Process process = Process.Start(startInfo))

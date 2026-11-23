@@ -226,9 +226,11 @@ services:
       # The scheduler: the tiers by two stages (HEADS, FULL_ENCODER) per round, through the V3 fuzzer. Count 0 switches it off.
       FUZZER_TARGET: v3-fuzzer:50172
       FUZZER_TLS_SERVER_NAME: v3-fuzzer
-      FUZZER_PROMPT_COUNT: ${FUZZER_PROMPT_COUNT:-32}
+      FUZZER_PROMPT_COUNT: ${FUZZER_PROMPT_COUNT:-256}
       FUZZER_REQUEST_TIMEOUT_SECONDS: ${FUZZER_REQUEST_TIMEOUT_SECONDS:-3600}
-      FUZZER_REQUEST_MAX_ATTEMPTS: 3
+      # The fuzzer is healthy only after the runtime is, and the runtime only after this service answers, so the first request waits.
+      FUZZER_REQUEST_INITIAL_DELAY_SECONDS: ${FUZZER_REQUEST_INITIAL_DELAY_SECONDS:-60}
+      FUZZER_REQUEST_MAX_ATTEMPTS: 5
       FUZZER_REQUEST_INTERVAL_SECONDS: ${FUZZER_REQUEST_INTERVAL_SECONDS:-10800}
       FUZZER_REQUEST_SEED: ${FUZZER_REQUEST_SEED:-1337}
       # The scheduler's own identity (registered, role publisher) and trust, for its mutual-TLS request to the fuzzer.

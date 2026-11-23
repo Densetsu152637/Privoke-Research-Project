@@ -6,7 +6,10 @@ param(
     [string]$SupervisorBinary = '',
     # The directory of the pretrained contextual encoder's verified assets (the runtime's PRIVOKE_PRETRAINED_CONTEXT_DIR).
     # Given, the launcher sets it for the host; omitted, the value of that variable in this session is used, if any.
-    [string]$PretrainedContextDir = $env:PRIVOKE_PRETRAINED_CONTEXT_DIR
+    [string]$PretrainedContextDir = $env:PRIVOKE_PRETRAINED_CONTEXT_DIR,
+    # The V3 models the Rust controller keeps fresh (V3_PACKAGE_REFRESH_MODELS, comma-separated `privoke-v3-<tier>` ids). The
+    # default is the standard model; an empty string starts no refresh loop. Only used with -SupervisorBinary.
+    [string]$RefreshModels = $(if ($null -ne $env:V3_PACKAGE_REFRESH_MODELS) { $env:V3_PACKAGE_REFRESH_MODELS } else { 'privoke-v3-balanced' })
 )
 
 $ErrorActionPreference = 'Stop'
@@ -80,7 +83,7 @@ if (-not $useRustHost) {
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllLines(
     $launcherConfigPath,
-    @($pythonPath, $(if ($useRustHost) { 'native-host' } else { $installedHostPath }), $repositoryRoot) + $(if ($pretrainedContextPath) { @($pretrainedContextPath) } else { @() }),
+    @($pythonPath, $(if ($useRustHost) { 'native-host' } else { $installedHostPath }), $repositoryRoot) + $(if ($pretrainedContextPath -or ($useRustHost -and $RefreshModels)) { @($pretrainedContextPath) } else { @() }) + $(if ($useRustHost -and $RefreshModels) { @($RefreshModels) } else { @() }),
     $utf8NoBom
 )
 if (Test-Path -LiteralPath $launcherPath) {
