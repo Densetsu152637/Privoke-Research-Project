@@ -91,9 +91,11 @@ impl SourceEvidence for PinnedSources {
     fn validate(&self, evidence: &Value) -> Result<(), StoreError> {
         let source = value::require(evidence, "source")?;
         if value::get(source, "sampler").and_then(value::as_str) == Some(AU3_SAMPLER) {
-            v3::validate_source_evidence_au3(evidence, &self.release()?)?;
+            let release = self.release()?;
+            v3::validate_source_evidence_au3(evidence, &release)?;
         } else {
-            v3::validate_source_evidence_bc01(evidence, &self.sources()?)?;
+            let sources = self.sources()?;
+            v3::validate_source_evidence_bc01(evidence, &sources)?;
         }
         guard_targets(evidence)
     }
