@@ -1,5 +1,6 @@
 """Tests for evaluation/export_anonymous_artifact.py on a throwaway git repository."""
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -121,13 +122,14 @@ class ExportTests(unittest.TestCase):
     def test_user_home_paths_rewritten_and_verified(self):
         real = Path(__file__).resolve().parents[2] / exp.DEFAULT_PATTERNS
         home = [line for line in real.read_text(encoding="utf8").splitlines() if "Users" in line and not line.startswith("#")]
-        self.assertEqual(len(home), 2)
+        self.assertEqual(len(home), 3)
         self.patterns.write_text(PATTERNS + "\n".join(home) + "\n", encoding="utf8")
         account = "Someone" + "42"
         paths = {
             "plain.md": f"Ran C:\\Users\\{account}\\AppData\\x.exe and c:/users/{account}/.cache\n",
             "escaped.json": '{"command": "\\"C:\\\\Users\\\\' + account + '\\\\AppData\\\\py.exe\\""}\n',
             "mac.txt": f"see /Users/{account}/work and (/Users/{account})\n",
+            "bash.sh": f"cd /c/Users/{account}/src && ls /mnt/d/Users/{account}\n",
             "rule.toml": "regex = '''/Users/(?i)[a-z0-9]+'''\nurl = 'https://example.com/api/users/5'\n",
         }
         for rel, text in paths.items():
@@ -136,19 +138,51 @@ class ExportTests(unittest.TestCase):
         git(self.repo, "commit", "-q", "-m", "paths")
         dest, manifest = self.run_export()
         self.assertTrue(manifest["verification"]["passed"], manifest["verification"])
-        for rel in ("plain.md", "escaped.json", "mac.txt"):
+        for rel in ("plain.md", "escaped.json", "mac.txt", "bash.sh"):
             text = (dest / rel).read_text(encoding="utf8")
             self.assertNotIn(account, text)
             self.assertIn(exp.PLACEHOLDER_USER, text)
         self.assertEqual(json.loads((dest / "escaped.json").read_text())["command"].count("<user>"), 1)
         self.assertEqual((dest / "rule.toml").read_text(encoding="utf8"), paths["rule.toml"])
 
+    def test_residual_account_name_is_reported_not_failed(self):
+        first = "Zelphine"
+        (self.repo / "names.py").write_text(f"NAMES = 'alice {first.lower()} bob'\nzelphineX = 1\n",
+                                            encoding="utf8", newline="\n")
+        git(self.repo, "add", "names.py")
+        git(self.repo, "commit", "-q", "-m", "names")
+        dest, manifest = self.run_export(account_names=[first])
+        self.assertTrue(manifest["verification"]["passed"])
+        warnings = manifest["residual_name_warnings"]
+        self.assertEqual(warnings["names_checked"], 1)
+        self.assertEqual(list(warnings["files"]), ["names.py"])
+        info = warnings["files"]["names.py"]
+        self.assertEqual(info["count"], 1)  # "zelphineX" is not a whole-word match
+        self.assertIn("alice <account-name> bob", info["occurrences"][0]["excerpt"])
+        on_disk = (dest / exp.MANIFEST_NAME).read_text(encoding="utf8")
+        self.assertNotIn(first.lower(), on_disk.lower())
+        _, none = self.run_export(account_names=[], clean=True)
+        self.assertEqual(none["residual_name_warnings"], {"names_checked": 0, "files": {}})
+
+    def test_account_names_from_environment_and_git(self):
+        git(self.repo, "config", "user.name", "Zelphine Q")
+        saved = {k: os.environ.get(k) for k in ("USERNAME", "USER")}
+        try:
+            os.environ["USERNAME"], os.environ["USER"] = "zelphine", "ab"
+            self.assertEqual(exp.exporting_account_names(self.repo), ["zelphine"])
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
     def test_user_home_pattern_flags_unrewritten_path(self):
         real = Path(__file__).resolve().parents[2] / exp.DEFAULT_PATTERNS
         patterns = [p for p in exp.load_patterns(real) if "Users" in p.pattern]
-        for text in ("C:\\Users\\abc", "C:\\\\Users\\\\abc", "C:/Users/abc", " /Users/abc"):
+        for text in ("C:\\Users\\abc", "C:\\\\Users\\\\abc", "C:/Users/abc", " /Users/abc", "/c/Users/abc", "x /mnt/c/Users/abc"):
             self.assertTrue(any(p.search(text) for p in patterns), text)
-        for text in ("C:\\Users\\<user>", "/Users/<user>", "/Users/(?i)[a-z]", "api/users/5"):
+        for text in ("C:\\Users\\<user>", "/Users/<user>", "/Users/(?i)[a-z]", "api/users/5", "/c/Users/<user>", "/mnt/c/Users/<user>"):
             self.assertFalse(any(p.search(text) for p in patterns), text)
 
     def test_checkout_paths_and_go_module_rewritten_consistently(self):
@@ -221,6 +255,13 @@ class RuleOrderTests(unittest.TestCase):
     def test_web_route_users_unchanged(self):
         for text in ('fetch("/users/me")', "const url = '/users/me/profile';"):
             self.assertEqual(self.rewrite(text), text)
+
+    def test_git_bash_and_wsl_user_homes_rewritten(self):
+        self.assertEqual(self.rewrite("/c/Users/X/y"), "/c/Users/<user>/y")
+        self.assertEqual(self.rewrite("/mnt/c/Users/X"), "/mnt/c/Users/<user>")
+        self.assertEqual(self.rewrite('cd "/d/Users/Some.One/src"'), 'cd "/d/Users/<user>/src"')
+        self.assertEqual(self.rewrite('fetch("/users/me")'), 'fetch("/users/me")')
+        self.assertEqual(self.rewrite("/api/v/users/me"), "/api/v/users/me")
 
     def test_json_escaped_user_home_rewritten(self):
         out = self.rewrite('{"p": "C:\\\\Users\\\\abc\\\\x"}')
