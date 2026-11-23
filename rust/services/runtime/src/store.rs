@@ -18,6 +18,8 @@ use privoke_contracts::digest::{artifact_checksum_of_artifact, sha256_hex};
 use privoke_contracts::json as strict_json;
 use serde_json::Value;
 
+use crate::snapshot;
+
 /// `MAX_ARTIFACT_BYTES`.
 pub const MAX_ARTIFACT_BYTES: usize = 8 * 1024 * 1024;
 /// `MAX_PARAMETER_VALUES`.
@@ -95,21 +97,29 @@ impl ArtifactStore {
         &self.roots
     }
 
-    fn locate(&self, model_id: &str) -> Result<PathBuf, LoadError> {
+    /// The file of a model: a cached snapshot (`<id>.snapshot.pb`, which the Python worker's shim prefers too) in any
+    /// root, else an artifact file. The flag says which.
+    fn locate(&self, model_id: &str) -> Result<(PathBuf, bool), LoadError> {
+        for root in &self.roots {
+            let cached = snapshot::path(root, model_id);
+            if cached.is_file() {
+                return Ok((cached, true));
+            }
+        }
         for root in &self.roots {
             if root.join(model_id).join("manifest.json").is_file() {
                 return Err(LoadError::Declined(format!("{model_id} is a pinned V3 package")));
             }
             let artifact = root.join(format!("{model_id}.json"));
             if artifact.is_file() {
-                return Ok(artifact);
+                return Ok((artifact, false));
             }
         }
         Err(message(format!("Model {model_id} is not available in the worker model roots.")))
     }
 
-    /// The bytes of the artifact for a model id (`latest` resolved), with the resolved id.
-    pub fn read_bytes(&self, requested: &str) -> Result<(String, Vec<u8>), LoadError> {
+    /// The bytes of the file for a model id (`latest` resolved), with the resolved id and whether the file is a snapshot.
+    pub fn read_source(&self, requested: &str) -> Result<(String, Vec<u8>, bool), LoadError> {
         let model_id = if requested == "latest" {
             self.latest.clone().ok_or_else(|| message("latest is not resolvable in the worker; name the model explicitly."))?
         } else {
@@ -118,15 +128,20 @@ impl ArtifactStore {
         if !valid_model_id(&model_id) {
             return Err(message("model_id is not a valid model identifier."));
         }
-        let path = self.locate(&model_id)?;
+        let (path, snapshot) = self.locate(&model_id)?;
         let bytes = std::fs::read(&path).map_err(|error| message(format!("{}: {error}", path.display())))?;
-        Ok((model_id, bytes))
+        Ok((model_id, bytes, snapshot))
+    }
+
+    /// The bytes of the file for a model id (`latest` resolved), with the resolved id.
+    pub fn read_bytes(&self, requested: &str) -> Result<(String, Vec<u8>), LoadError> {
+        self.read_source(requested).map(|(model_id, bytes, _)| (model_id, bytes))
     }
 
     /// Reads and validates the artifact for a model id.
     pub fn read(&self, requested: &str) -> Result<Artifact, LoadError> {
-        let (model_id, bytes) = self.read_bytes(requested)?;
-        Artifact::parse(&model_id, &bytes)
+        let (model_id, bytes, cached) = self.read_source(requested)?;
+        if cached { Artifact::from_snapshot(&model_id, &bytes) } else { Artifact::parse(&model_id, &bytes) }
     }
 }
 
@@ -234,6 +249,34 @@ fn validate_text_field(value: &Value, name: &str) -> Result<String, LoadError> {
 }
 
 impl Artifact {
+    /// The provider's snapshot for the bytes of a cached `<model_id>.snapshot.pb` (see [`snapshot`]). The identity and the
+    /// metadata are the response's, as for the Python worker; the same architecture checks as for a file apply.
+    pub fn from_snapshot(model_id: &str, bytes: &[u8]) -> Result<Self, LoadError> {
+        if model_id.starts_with("privoke-scratch-presence-") || model_id == PRETRAINED_CONTEXT_MODEL_ID {
+            return Err(message(NOT_SERVED));
+        }
+        let read = snapshot::decode(model_id, bytes).map_err(message)?;
+        if !KNOWN_ARCHITECTURES.contains(&read.architecture.as_str()) {
+            let scratch = read.architecture.contains("scratch") || read.architecture.contains("pretrained_context");
+            return Err(message(if scratch {
+                NOT_SERVED.to_string()
+            } else {
+                format!("Unsupported model architecture: '{}'.", read.architecture)
+            }));
+        }
+        Ok(Self {
+            value: read.value,
+            model_id: read.model_id,
+            version: read.version,
+            architecture: read.architecture,
+            checksum: read.checksum,
+            file_sha256: read.file_sha256,
+            metadata: read.metadata,
+            parameters: read.parameters,
+            shapes: read.shapes,
+        })
+    }
+
     /// `load_artifact` and the provider's snapshot, for the bytes of the file of `model_id`.
     pub fn parse(model_id: &str, bytes: &[u8]) -> Result<Self, LoadError> {
         if bytes.len() > MAX_ARTIFACT_BYTES {

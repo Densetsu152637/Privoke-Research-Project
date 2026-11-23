@@ -1747,6 +1747,7 @@ dependencies = [
  "privoke-contracts",
  "privoke-model-streaming",
  "privoke-pki",
+ "privoke-runtime",
  "privoke-runtime-supervisor",
  "privoke-transport",
  "privoke-worker-pool",

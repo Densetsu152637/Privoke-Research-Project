@@ -99,14 +99,15 @@ impl PresenceModels {
 
     /// The model for an id, or the text the Python worker reports.
     pub fn fetch(&self, requested: &str) -> Result<Arc<LoadedPresence>, String> {
-        let (model_id, bytes) = self.store.read_bytes(requested).map_err(declined_as_message)?;
+        let (model_id, bytes, cached) = self.store.read_source(requested).map_err(declined_as_message)?;
         let key = sha256_hex(&bytes);
         if let Some((cached_key, loaded)) = self.cache.lock().unwrap_or_else(PoisonError::into_inner).get(&model_id)
             && *cached_key == key
         {
             return Ok(Arc::clone(loaded));
         }
-        let artifact = Artifact::parse(&model_id, &bytes).map_err(declined_as_message)?;
+        let artifact = if cached { Artifact::from_snapshot(&model_id, &bytes) } else { Artifact::parse(&model_id, &bytes) }
+            .map_err(declined_as_message)?;
         let loaded = Arc::new(build_presence(&artifact)?);
         self.cache.lock().unwrap_or_else(PoisonError::into_inner).insert(model_id, (key, Arc::clone(&loaded)));
         Ok(loaded)
