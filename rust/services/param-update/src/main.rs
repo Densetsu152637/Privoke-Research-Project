@@ -163,13 +163,15 @@ async fn serve(tls: CloudTlsArgs, poll_secs: u64, config: ServiceConfig) -> Resu
     // Authentication inputs first: nothing is opened or bound until the verifier exists.
     let transport = tls.into_config().map_err(|error| Error(error.to_string()))?;
     let fuzzer = FuzzerRequestConfig::from_env()?;
-    let scheduler_client = if fuzzer.prompt_count > 0 {
-        if config.v3.is_none() {
-            return Err(Error("Routine V3 training (FUZZER_PROMPT_COUNT > 0) requires the V3 checkpoint store (V3_STORE).".to_string()));
-        }
+    // The routine scheduler needs the V3 store it shares with the guard gate. A deployment that still carries the V1 scheduler
+    // settings but no V3 store (until the V3-R7 cutover) runs without one, loudly: V1 training is retired.
+    let scheduler_client = if fuzzer.prompt_count > 0 && config.v3.is_some() {
         let spec = scheduler::client_tls_from_lookup(&fuzzer, |key| std::env::var(key).ok())?;
         Some(GrpcFuzzer::new(fuzzer.target.clone(), spec))
     } else {
+        if fuzzer.prompt_count > 0 {
+            log(format_args!("routine V3 training is OFF: FUZZER_PROMPT_COUNT is set but V3_STORE is not (the V1 scheduler is retired)"));
+        }
         None
     };
     let engine = Arc::new(Engine::with_system_clock(config.engine_config()).map_err(|failure| Error(failure.detail()))?);
