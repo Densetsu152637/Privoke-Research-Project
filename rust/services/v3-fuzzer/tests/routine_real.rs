@@ -22,15 +22,15 @@ mod common;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use common::{Inputs, fixtures};
 use privoke_contracts::proto::experimental_v3 as v3;
 use privoke_contracts::proto::v1::FuzzerTrainingRequest;
 use privoke_curriculum::audience::BUNDLED_MANIFEST_SHA256;
-use privoke_curriculum::v3::{BC01_SOURCE_FILES, INPUTS, Policy};
+use privoke_curriculum::v3::{AU3_SOURCE_FILES, BC01_SOURCE_FILES, INPUTS, Policy};
 use privoke_param_update::v3_store::{AudienceSource, CheckpointStore, PinnedSources};
 use privoke_semantic::safetensors::{Tensor, parse};
 use privoke_v3_fuzzer::backend::{CheckpointBackend, FitBackend, blob_chunks};
@@ -49,27 +49,101 @@ fn say(text: &str) {
     let _ = writeln!(std::io::stderr(), "{text}");
 }
 
-/// The real store as the runtime's and the fuzzer's checkpoint service.
-struct StoreService(Arc<CheckpointStore>);
+/// The checkpoint service of the run: the real param-update store, or an in-memory one whose only gate is the compare-and-swap
+/// (it applies every candidate when `force` is set, so that the size of consecutive updates is observed whatever the guard says).
+/// The memory service exists because the store bootstraps only an ORIGINAL-scope manifest, and the pinned standard releases are
+/// full-encoder-scope manifests.
+enum Service {
+    Store(Arc<CheckpointStore>),
+    Memory {
+        blobs: Mutex<BTreeMap<String, Vec<u8>>>,
+        current: Mutex<BTreeMap<String, String>>,
+        commits: Mutex<BTreeMap<String, v3::Receipt>>,
+        force: bool,
+    },
+}
+
+struct StoreService(Service);
 
 fn status_of(error: privoke_param_update::v3_store::StoreError) -> Status {
     privoke_param_update::v3_store::service::status_of(error)
 }
 
+impl StoreService {
+    fn read(&self, sha: &str) -> Result<Vec<u8>, Status> {
+        match &self.0 {
+            Service::Store(store) => store.read(sha).map_err(status_of),
+            Service::Memory { blobs, .. } => blobs.lock().unwrap().get(sha).cloned().ok_or_else(|| Status::not_found("no such blob")),
+        }
+    }
+
+    fn put(&self, payload: &[u8]) -> String {
+        let sha = digest(payload);
+        if let Service::Memory { blobs, .. } = &self.0 {
+            blobs.lock().unwrap().insert(sha.clone(), payload.to_vec());
+        }
+        sha
+    }
+
+    fn current(&self, model_id: &str) -> Result<String, Status> {
+        match &self.0 {
+            Service::Store(store) => store.resolve(model_id).map_err(status_of),
+            Service::Memory { current, .. } => {
+                current.lock().unwrap().get(model_id).cloned().ok_or_else(|| Status::invalid_argument("not in this catalog"))
+            }
+        }
+    }
+
+    fn memory_commit(&self, commit: &v3::Commit) -> v3::Receipt {
+        let Service::Memory { current, commits, force, .. } = &self.0 else { unreachable!() };
+        let mut current = current.lock().unwrap();
+        let mut receipt = v3::Receipt {
+            status: "applied".to_string(),
+            request_id: commit.request_id.clone(),
+            model_id: commit.model_id.clone(),
+            base: commit.expected_base.clone(),
+            candidate: commit.candidate.clone(),
+            reason: "applied".to_string(),
+        };
+        let evidence: serde_json::Value = serde_json::from_slice(&self.read(&commit.evidence).unwrap()).unwrap();
+        let passes = privoke_v3_fuzzer::contract::publication_passes(&evidence).unwrap();
+        if current.get(&commit.model_id) != Some(&commit.expected_base) {
+            receipt.status = "rejected".to_string();
+            receipt.reason = "stale_base".to_string();
+        } else if !passes && !*force {
+            receipt.status = "rejected".to_string();
+            receipt.reason = "guard_rejected".to_string();
+        } else {
+            current.insert(commit.model_id.clone(), commit.candidate.clone());
+            if !passes {
+                receipt.reason = "applied (forced; the guard did not pass)".to_string();
+            }
+        }
+        commits.lock().unwrap().insert(commit.request_id.clone(), receipt.clone());
+        receipt
+    }
+}
+
 #[tonic::async_trait]
 impl Checkpoint for StoreService {
     async fn resolve_current(&self, model_id: &str) -> Result<v3::Ref, Status> {
-        self.0.resolve(model_id).map(|sha256| v3::Ref { sha256 }).map_err(status_of)
+        self.current(model_id).map(|sha256| v3::Ref { sha256 })
     }
 
     async fn fetch_blob(&self, sha256: &str) -> Result<Vec<v3::Chunk>, Status> {
-        self.0.read(sha256).map(|payload| blob_chunks(&payload)).map_err(status_of)
+        self.read(sha256).map(|payload| blob_chunks(&payload))
     }
 
     async fn stage_checkpoint(&self, chunks: Vec<v3::Chunk>) -> Result<v3::Ref, Status> {
         let payload: Vec<u8> = chunks.iter().flat_map(|chunk| chunk.data.iter().copied()).collect();
         let manifest = chunks.first().map(|chunk| chunk.manifest_json.clone()).unwrap_or_default();
-        self.0.stage(&payload, &manifest).map(|sha256| v3::Ref { sha256 }).map_err(status_of)
+        match &self.0 {
+            Service::Store(store) => store.stage(&payload, &manifest).map(|sha256| v3::Ref { sha256 }).map_err(status_of),
+            Service::Memory { .. } => {
+                let sha = self.put(&payload);
+                Ok(v3::Ref { sha256: if manifest.is_empty() { sha } else { self.put(&manifest) } })
+            }
+        }
     }
 
     async fn health(&self) -> Result<v3::HealthResponse, Status> {
@@ -88,11 +162,21 @@ impl CheckpointBackend for StoreService {
     }
 
     async fn commit_candidate(&self, commit: v3::Commit) -> Result<v3::Receipt, Status> {
-        self.0.commit(&commit).map_err(status_of)
+        match &self.0 {
+            Service::Store(store) => store.commit(&commit).map_err(status_of),
+            Service::Memory { .. } => Ok(self.memory_commit(&commit)),
+        }
     }
 
     async fn commit_status(&self, request_id: &str) -> Result<v3::Receipt, Status> {
-        self.0.status(request_id).map_err(status_of)
+        match &self.0 {
+            Service::Store(store) => store.status(request_id).map_err(status_of),
+            Service::Memory { commits, .. } => Ok(commits.lock().unwrap().get(request_id).cloned().unwrap_or(v3::Receipt {
+                status: "unknown".to_string(),
+                request_id: request_id.to_string(),
+                ..v3::Receipt::default()
+            })),
+        }
     }
 
     async fn health(&self) -> Result<v3::HealthResponse, Status> {
@@ -140,7 +224,7 @@ fn l2(reference: &BTreeMap<String, Tensor>, candidate: &BTreeMap<String, Tensor>
     })
 }
 
-fn weights_of(store: &CheckpointStore, manifest_sha: &str) -> (Vec<u8>, BTreeMap<String, Tensor>) {
+fn weights_of(store: &StoreService, manifest_sha: &str) -> (Vec<u8>, BTreeMap<String, Tensor>) {
     let manifest: serde_json::Value = serde_json::from_slice(&store.read(manifest_sha).unwrap()).unwrap();
     let bytes = store.read(manifest["blob"].as_str().unwrap()).unwrap();
     let tensors = parse(&bytes).unwrap();
@@ -149,7 +233,7 @@ fn weights_of(store: &CheckpointStore, manifest_sha: &str) -> (Vec<u8>, BTreeMap
 
 fn copy_checkout(root: &Path) {
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
-    for relative in EVIDENCE_SOURCES.iter().copied().chain(BC01_SOURCE_FILES) {
+    for relative in EVIDENCE_SOURCES.iter().copied().chain(BC01_SOURCE_FILES).chain(AU3_SOURCE_FILES) {
         let target = root.join(relative);
         std::fs::create_dir_all(target.parent().unwrap()).unwrap();
         std::fs::copy(repo.join(relative), target).unwrap();
@@ -188,15 +272,34 @@ async fn routine_cycles_on_real_weights_are_timed_and_their_drift_measured() {
 
     for tier in &tiers {
         let model = format!("privoke-v3-{tier}");
-        let package = packages.join(&model);
+        let package = if packages.join(&model).exists() { packages.join(&model) } else { packages.join(tier) };
         let state = tempfile::tempdir().unwrap();
-        let pinned = PinnedSources::new(
-            INPUTS.iter().map(|(key, relative, _)| (*key, root.path().join(relative))).collect(),
-            AudienceSource::Trusted { path: audience.0.clone(), sha256: audience.1.clone() },
-        );
-        let store = Arc::new(CheckpointStore::open(state.path().join("store"), Arc::new(pinned)).unwrap());
-        store.bootstrap(&package).unwrap();
-        let service = Arc::new(StoreService(store.clone()));
+        let memory = env("PRIVOKE_V3_ROUTINE_STORE", "store") == "memory";
+        let service = if memory {
+            let manifest = std::fs::read(package.join("manifest.json")).unwrap();
+            let mut blobs = BTreeMap::new();
+            for name in ["model.safetensors", "config.json", "vocab.txt"] {
+                let payload = std::fs::read(package.join(name)).unwrap();
+                blobs.insert(digest(&payload), payload);
+            }
+            let sha = digest(&manifest);
+            blobs.insert(sha.clone(), manifest);
+            Arc::new(StoreService(Service::Memory {
+                blobs: Mutex::new(blobs),
+                current: Mutex::new([(model.clone(), sha)].into_iter().collect()),
+                commits: Mutex::default(),
+                force: env("PRIVOKE_V3_ROUTINE_FORCE_APPLY", "1") == "1",
+            }))
+        } else {
+            let pinned = PinnedSources::new(
+                INPUTS.iter().map(|(key, relative, _)| (*key, root.path().join(relative))).collect(),
+                AudienceSource::Trusted { path: audience.0.clone(), sha256: audience.1.clone() },
+            );
+            let store = Arc::new(CheckpointStore::open(state.path().join("store"), Arc::new(pinned)).unwrap());
+            store.bootstrap(&package).unwrap();
+            Arc::new(StoreService(Service::Store(store)))
+        };
+        let store = service.clone();
         let runtime_parts = RuntimeParts {
             directory: state.path().join("runtime"),
             threads,
