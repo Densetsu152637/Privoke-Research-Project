@@ -15,6 +15,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 use privoke_contracts::digest::sha256_hex;
+use privoke_contracts::v3 as contract;
+use privoke_contracts::v3::action_value;
 use privoke_rules::preprocessing::normalize_text;
 use privoke_semantic::V3Model;
 use privoke_semantic::labels::{CATEGORY, VISIBILITY};
@@ -24,51 +26,21 @@ use serde_json::{Map, Value, json};
 use crate::adamw::{AdamW, clip_grad_norm};
 use crate::error::TrainingError;
 use crate::v3_model::{Example, V3Params, microbatch_with};
-use crate::window::action_value;
 
 fn invalid(message: &str) -> TrainingError {
     TrainingError::invalid(message)
 }
 
-/// The admitted tiers: `(name, hidden size, layers, attention heads, parameters)`.
-pub const TIERS: [(&str, usize, usize, usize, usize); 3] =
-    [("efficient", 128, 4, 2, 4_785_044), ("balanced", 256, 2, 4, 9_596_180), ("quality", 256, 12, 4, 17_493_780)];
-
 /// The frozen policy of `validate_policy`: the pilot variant has two steps over one block, otherwise `steps` is 64, 256 or 512.
-pub fn frozen_policy(steps: i64, pilot: bool) -> Value {
-    let (window_batches, epochs) = if pilot { (1, 2) } else { (8, steps / 8) };
-    json!({
-        "schema": 1, "optimizer": "adamw", "head_lr": 0.001, "encoder_lr": 0.00002, "betas": [0.9, 0.999], "eps": 1e-8,
-        "weight_decay": 0.0, "clip_norm": 1.0, "microbatch": 4, "steps": steps, "window_batches": window_batches, "batch_rows": 64,
-        "epochs": epochs, "guard_rows": 16, "dropout": false, "max_tokens": 512, "category_threshold": 0.5,
-        "objective": "sensitivity_ce+visibility_ce+category_mean_bce", "checkpoint_selection": "final_only",
-        "publication": "joint_improve_action_harm_zero_v1"
-    })
-}
+/// The contract lives in [`privoke_contracts::v3`], shared with the V3 fuzzer and the param-update checkpoint store.
+pub use privoke_contracts::v3::frozen_policy;
 
 /// `validate_policy`.
 pub fn validate_policy(policy: &Value, pilot: bool) -> Result<(), TrainingError> {
-    let steps = if pilot {
-        2
-    } else {
-        match policy["steps"].as_i64() {
-            Some(steps @ (64 | 256 | 512)) => steps,
-            _ => return Err(invalid("Predeclared v3 work budget must be 64, 256 or 512 steps.")),
-        }
-    };
-    if *policy != frozen_policy(steps, pilot) {
-        return Err(invalid("Policy differs from the frozen v3 contract."));
-    }
-    Ok(())
+    contract::validate_policy(policy, pilot).map_err(|error| TrainingError::invalid(error.0))
 }
 
 const ACTIONS: [&str; 3] = ["ALLOW", "WARN", "BLOCK"];
-
-/// Whether `packed` is a classification the contract can name (`Classification(packed).pack() == packed`, `to_dict()`).
-fn valid_packed(packed: u64) -> bool {
-    let Ok(packed) = u16::try_from(packed) else { return false };
-    packed & 0x8000 == 0 && VISIBILITY.iter().any(|(_, value)| packed & 0b11100 == *value)
-}
 
 /// One labelled row of the frozen window or guard.
 #[derive(Debug, Clone, PartialEq)]
@@ -115,7 +87,7 @@ pub struct Fit {
 
 fn example(model: &V3Model, row: &Row) -> Result<Example, TrainingError> {
     let packed = row.packed;
-    if !valid_packed(u64::from(packed)) {
+    if !contract::valid_packed(u64::from(packed)) {
         return Err(invalid("Named and packed training targets disagree."));
     }
     let visibility = VISIBILITY.iter().position(|(_, value)| packed & 0b11100 == *value).ok_or_else(|| invalid("Invalid visibility."))?;
@@ -151,18 +123,12 @@ fn tensor_bytes(values: &[f32]) -> Vec<u8> {
     values.iter().flat_map(|value| value.to_le_bytes()).collect()
 }
 
-/// `tensor_changes`: the changed tensor names and the counts per group.
+/// `tensor_changes`: the changed tensor names and the counts per group ([`privoke_contracts::v3::tensor_changes`]).
 fn tensor_changes(before: &BTreeMap<String, Tensor>, after: &BTreeMap<String, Tensor>, layers: usize) -> (Vec<String>, Value) {
-    let changed: Vec<String> =
-        before.iter().filter(|(name, tensor)| after[*name].sha256 != tensor.sha256).map(|(name, _)| name.clone()).collect();
-    let under = |prefix: &str| changed.iter().filter(|name| name.starts_with(prefix)).count();
-    let blocks: Vec<usize> = (0..layers).map(|index| under(&format!("encoder.encoder.layer.{index}."))).collect();
-    let counts = json!({
-        "heads": under("heads."), "encoder": under("encoder."), "embeddings": under("encoder.embeddings."),
-        "first_block": under("encoder.encoder.layer.0."), "last_block": under(&format!("encoder.encoder.layer.{}.", layers - 1)),
-        "pooler": under("encoder.pooler."), "blocks": blocks
-    });
-    (changed, counts)
+    let digests = |tensors: &BTreeMap<String, Tensor>| -> BTreeMap<String, String> {
+        tensors.iter().map(|(name, tensor)| (name.clone(), tensor.sha256.clone())).collect()
+    };
+    contract::tensor_changes(&digests(before), &digests(after), layers)
 }
 
 fn require_f64(policy: &Value, key: &str) -> Result<f64, TrainingError> {
@@ -307,7 +273,7 @@ pub fn fit_unchecked(
     let candidate_model = model.with_tensors(candidate.clone())?;
     let candidate_guard = assess(&candidate_model, &input.guard)?;
     let (changed, changes) = tensor_changes(base, &candidate, layers);
-    let harms = harm_count(&base_guard["rows"], &candidate_guard["rows"]);
+    let harms = contract::harm_count(&base_guard["rows"], &candidate_guard["rows"]);
     counts.insert("optimizer_steps".into(), optimizer_steps.into());
     counts.insert("train_rows".into(), train_rows.into());
     counts.insert("microbatch_forward".into(), forward.into());
@@ -332,183 +298,13 @@ pub fn fit_unchecked(
     Ok(Fit { evidence, candidate })
 }
 
-/// Rows where a candidate action is farther from the target than the base's, in either direction.
-fn harm_count(base: &Value, candidate: &Value) -> usize {
-    let value = |row: &Value, key: &str| row[key].as_i64().unwrap_or(0);
-    base.as_array()
-        .into_iter()
-        .flatten()
-        .zip(candidate.as_array().into_iter().flatten())
-        .filter(|(a, b)| {
-            let (a, b) = (*a, *b);
-            [-1i64, 1].iter().any(|direction| {
-                (direction * (value(b, "action_value") - value(b, "target_action_value"))).max(0)
-                    > (direction * (value(a, "action_value") - value(a, "target_action_value"))).max(0)
-            })
-        })
-        .count()
-}
-
-fn validate_guard(value: &Value, denominator: usize) -> Result<Vec<Value>, TrainingError> {
-    let rows = value["rows"].as_array().cloned().unwrap_or_default();
-    if value["examples"].as_u64() != Some(denominator as u64) || rows.len() != denominator {
-        return Err(invalid("Guard row denominator differs from policy."));
-    }
-    for row in &rows {
-        for key in ["target", "prediction"] {
-            if !row[key].as_u64().is_some_and(valid_packed) {
-                return Err(invalid("Invalid packed guard classification."));
-            }
-        }
-        for key in ["action", "target_action"] {
-            let name = row[key].as_str().unwrap_or_default();
-            let position = ACTIONS.iter().position(|candidate| *candidate == name);
-            if position.map(|p| p as i64) != row[format!("{key}_value")].as_i64() {
-                return Err(invalid("Guard action name/value mismatch."));
-            }
-        }
-        let confidence = row["confidence"]
-            .as_f64()
-            .filter(|c| c.is_finite() && (0.0..=1.0).contains(c))
-            .ok_or_else(|| invalid("Actual guard confidence required."))?;
-        for (packed, score, action) in [("prediction", confidence, "action"), ("target", 0.999, "target_action")] {
-            let packed = u16::try_from(row[packed].as_u64().unwrap_or(0)).unwrap_or(0);
-            if ACTIONS[usize::try_from(action_value(packed, Some(score))).unwrap_or(0)] != row[action].as_str().unwrap_or_default() {
-                return Err(invalid("Guard action differs from production classification policy."));
-            }
-        }
-        let joint = row["target"] == row["prediction"] && row["action"] == row["target_action"];
-        if row["joint_correct"].as_bool() != Some(joint) {
-            return Err(invalid("Guard joint correctness differs from rows."));
-        }
-    }
-    let joint = rows.iter().filter(|row| row["joint_correct"] == true).count() as u64;
-    if value["joint_correct"].as_u64() != Some(joint) {
-        return Err(invalid("Guard joint count differs from rows."));
-    }
-    if value["action_correct"].as_u64() != Some(rows.iter().filter(|row| row["action"] == row["target_action"]).count() as u64) {
-        return Err(invalid("Guard action count differs from rows."));
-    }
-    Ok(rows)
-}
-
-fn is_sha(value: &Value) -> bool {
-    value.as_str().is_some_and(|text| text.len() == 64 && text.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)))
-}
-
-/// `validate_execution`: the evidence must reconcile the actual work, every block and the guard arithmetic.
+/// `validate_execution`: the evidence must reconcile the actual work, every block and the guard arithmetic
+/// ([`privoke_contracts::v3::validate_execution`]).
 pub fn validate_execution(evidence: &Value, finalized: bool) -> Result<(), TrainingError> {
-    let scope = evidence["scope"].as_str().unwrap_or_default();
-    if evidence["schema"] != 1 || evidence["layers"] != json!([4]) || !matches!(scope, "heads" | "full_encoder") {
-        return Err(invalid("Actual explicit semantic-only training evidence required."));
-    }
-    let policy = &evidence["policy"];
-    validate_policy(policy, policy["steps"] == 2)?;
-    for key in ["base", "source_commitment", "train_wire_sha256", "guard_wire_sha256"] {
-        if !is_sha(&evidence[key]) {
-            return Err(invalid("Expected a lowercase SHA-256 identity."));
-        }
-    }
-    if evidence["request_id"].as_str().is_none_or(str::is_empty) {
-        return Err(invalid("Execution request identity required."));
-    }
-    let tier_name = evidence["tier"].as_str().unwrap_or_default();
-    let Some((_, hidden, layers, _, parameters)) = TIERS.iter().find(|tier| tier.0 == tier_name) else {
-        return Err(invalid("Execution model/tier identity required."));
-    };
-    if evidence["model_id"] != format!("privoke-v3-{tier_name}") {
-        return Err(invalid("Execution model/tier identity required."));
-    }
-    if evidence["parameter_count"].as_u64() != Some(*parameters as u64) {
-        return Err(invalid("Execution complete parameter count mismatch."));
-    }
-    let full = scope == "full_encoder";
-    // The head width is 20 = 4 + 6 + 10 labels; the parameters are `20 * (hidden + 1)`.
-    let expected_trainable = if full { *parameters } else { 20 * (hidden + 1) };
-    if evidence["trainable_count"].as_u64() != Some(expected_trainable as u64) {
-        return Err(invalid("Execution trainable parameter count mismatch."));
-    }
-    let (steps, rows, micro, guard_rows) = (
-        policy["steps"].as_u64().unwrap_or(0),
-        policy["batch_rows"].as_u64().unwrap_or(0),
-        policy["microbatch"].as_u64().unwrap_or(1),
-        policy["guard_rows"].as_u64().unwrap_or(0),
-    );
-    let microbatches = steps * rows / micro;
-    let layer_count = *layers;
-    let layers = layer_count as u64;
-    let expected = json!({
-        "optimizer_steps": steps, "train_rows": steps * rows, "microbatch_forward": microbatches, "microbatch_backward": microbatches,
-        "encoder_block_forward": microbatches * layers, "encoder_block_backward": if full { microbatches * layers } else { 0 }
-    });
-    if evidence["counts"] != expected {
-        return Err(invalid("Actual work counters differ from frozen policy."));
-    }
-    let blocks = json!({
-        "forward": vec![microbatches; layer_count], "backward": vec![if full { microbatches } else { 0 }; layer_count]
-    });
-    if evidence["block_counts"] != blocks {
-        return Err(invalid("Every encoder block must attest actual forward/backward work."));
-    }
-    let phases = &evidence["phases"];
-    let expected_phases = [("training", steps * rows), ("base_heldout", guard_rows), ("candidate_heldout", guard_rows)];
-    if phases.as_object().map(Map::len) != Some(3)
-        || expected_phases.iter().any(|(name, n)| phases[*name] != json!({"layer": 4, "status": "ok", "examples": n}))
-    {
-        return Err(invalid("Successful exact-denominator semantic phases required."));
-    }
-    let changes = &evidence["changes"];
-    let block_changes: Vec<u64> = changes["blocks"].as_array().map(|b| b.iter().filter_map(Value::as_u64).collect()).unwrap_or_default();
-    if changes["heads"].as_u64().unwrap_or(0) == 0 || block_changes.len() as u64 != layers {
-        return Err(invalid("Observed head and complete block changes required."));
-    }
-    if !full && (changes["encoder"] != 0 || block_changes.iter().any(|n| *n != 0)) {
-        return Err(invalid("HEADS changed pretrained encoder."));
-    }
-    if full
-        && (["encoder", "embeddings", "first_block", "last_block", "pooler"].iter().any(|key| changes[*key].as_u64().unwrap_or(0) == 0)
-            || block_changes.contains(&0))
-    {
-        return Err(invalid("FULL requires changes in embeddings, every encoder block, and pooler."));
-    }
-    let losses = evidence["losses"].as_array().cloned().unwrap_or_default();
-    if losses.len() as u64 != steps || losses.iter().any(|v| !v.as_f64().is_some_and(f64::is_finite)) {
-        return Err(invalid("Finite per-step loss trace required."));
-    }
-    let trace = evidence["gradient_trace"].as_array().cloned().unwrap_or_default();
-    if trace.len() as u64 != steps
-        || trace
-            .iter()
-            .enumerate()
-            .any(|(i, row)| row["step"].as_u64() != Some(i as u64 + 1) || !row["norm_before_clip"].as_f64().is_some_and(f64::is_finite))
-    {
-        return Err(invalid("Complete finite per-step gradient trace required."));
-    }
-    if full && !trace.iter().skip(1).any(|row| row["encoder_nonzero_gradients"].as_u64().unwrap_or(0) > 0) {
-        return Err(invalid("FULL requires observed encoder gradients after the zero-head step."));
-    }
-    let before = validate_guard(&evidence["base_guard"], guard_rows as usize)?;
-    let after = validate_guard(&evidence["candidate_guard"], guard_rows as usize)?;
-    if before.iter().zip(&after).any(|(a, b)| a["target"] != b["target"] || a["target_action"] != b["target_action"]) {
-        return Err(invalid("Base/candidate guard targets differ."));
-    }
-    if evidence["action_harms"].as_u64() != Some(harm_count(&json!(before), &json!(after)) as u64) {
-        return Err(invalid("Action harm count differs from guard rows."));
-    }
-    if finalized {
-        if !is_sha(&evidence["candidate_blob"]) {
-            return Err(invalid("Expected a lowercase SHA-256 identity."));
-        }
-        if evidence["serialized_guard_parity"] != true {
-            return Err(invalid("Serialized guard parity required."));
-        }
-    }
-    Ok(())
+    contract::validate_execution(evidence, finalized).map_err(|error| TrainingError::invalid(error.0))
 }
 
 /// `publication_passes`: the candidate improves the joint count and harms no action.
 pub fn publication_passes(evidence: &Value) -> Result<bool, TrainingError> {
-    validate_execution(evidence, true)?;
-    Ok(evidence["candidate_guard"]["joint_correct"].as_u64() > evidence["base_guard"]["joint_correct"].as_u64()
-        && evidence["action_harms"] == 0)
+    contract::publication_passes(evidence).map_err(|error| TrainingError::invalid(error.0))
 }

@@ -24,6 +24,41 @@ pub const DEFAULT_MAX_MESSAGE_BYTES: usize = 1_048_576;
 /// Default per-identity rate: the nginx values of the cloud deployment.
 pub const DEFAULT_RATE: RateLimit = RateLimit { per_second: 20, burst: 40 };
 
+/// The V3 checkpoint store (stage V3-R1): enabled by `V3_STORE`, which is the oracle's variable.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct V3Config {
+    /// The store directory (`V3_STORE`): `blobs/` and `catalog.sqlite`.
+    pub store: PathBuf,
+    /// ORIGINAL packages to admit at startup (`V3_INITIAL`, separated like `PATH`): each a directory with `manifest.json`,
+    /// `model.safetensors`, `config.json` and `vocab.txt`. A model that already has a version is left as it is.
+    pub initial: Vec<PathBuf>,
+    /// The checkout that holds the pinned BC01 inputs and the bundled AU3 release (`V3_SOURCE_ROOT`).
+    pub source_root: PathBuf,
+    /// A custom AU3 release and its pin (`V3_AUDIENCE_MANIFEST_PATH` and `V3_AUDIENCE_MANIFEST_SHA256`, both or neither).
+    pub audience: Option<(PathBuf, String)>,
+}
+
+impl V3Config {
+    fn from_lookup(get: &impl Fn(&str) -> Option<String>) -> Result<Option<Self>> {
+        let Some(store) = get("V3_STORE").filter(|value| !value.is_empty()) else { return Ok(None) };
+        let source_root = get("V3_SOURCE_ROOT")
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| Error("V3_SOURCE_ROOT is required when V3_STORE is set.".to_string()))?;
+        let path = get("V3_AUDIENCE_MANIFEST_PATH").filter(|value| !value.is_empty());
+        let sha256 = get("V3_AUDIENCE_MANIFEST_SHA256").filter(|value| !value.is_empty());
+        let audience = match (path, sha256) {
+            (Some(path), Some(sha256)) => Some((PathBuf::from(path), sha256)),
+            (None, None) => None,
+            _ => return Err(Error("Custom v3 audience release requires both trusted path and pin.".to_string())),
+        };
+        let initial: Vec<PathBuf> = get("V3_INITIAL")
+            .filter(|value| !value.is_empty())
+            .map(|value| std::env::split_paths(&value).filter(|path| !path.as_os_str().is_empty()).collect())
+            .unwrap_or_default();
+        Ok(Some(Self { store: PathBuf::from(store), initial, source_root: PathBuf::from(source_root), audience }))
+    }
+}
+
 /// What the environment configures for the server.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ServiceConfig {
@@ -47,6 +82,8 @@ pub struct ServiceConfig {
     pub drift: DriftPolicy,
     /// Context the `bootstrap` subcommand prepares (`MODEL_TRAINING_MAX_TOKENS`).
     pub bootstrap_max_tokens: i64,
+    /// The V3 checkpoint store, when `V3_STORE` is set.
+    pub v3: Option<V3Config>,
 }
 
 fn text(get: &impl Fn(&str) -> Option<String>, key: &str, fallback: &str) -> String {
@@ -120,6 +157,7 @@ impl ServiceConfig {
             rate,
             drift,
             bootstrap_max_tokens,
+            v3: V3Config::from_lookup(&get)?,
         })
     }
 
@@ -161,6 +199,27 @@ mod tests {
         assert_eq!(configured.max_message_bytes, 1_048_576);
         assert_eq!(configured.drift, DriftPolicy::default());
         assert_eq!(configured.bootstrap_max_tokens, 256);
+        assert_eq!(configured.v3, None, "the V3 store is off unless V3_STORE is set");
+    }
+
+    #[test]
+    fn the_v3_store_is_configured_by_the_oracles_variables() {
+        let configured = config(&[("V3_STORE", "/store"), ("V3_SOURCE_ROOT", "/repo")]).unwrap().v3.unwrap();
+        assert_eq!(configured.store, PathBuf::from("/store"));
+        assert_eq!(configured.source_root, PathBuf::from("/repo"));
+        assert!(configured.initial.is_empty() && configured.audience.is_none());
+        assert!(config(&[("V3_STORE", "/store")]).is_err(), "the pinned sources are required");
+        assert!(config(&[("V3_STORE", "/store"), ("V3_SOURCE_ROOT", "/repo"), ("V3_AUDIENCE_MANIFEST_PATH", "/release.json")]).is_err());
+        let pinned = config(&[
+            ("V3_STORE", "/store"),
+            ("V3_SOURCE_ROOT", "/repo"),
+            ("V3_AUDIENCE_MANIFEST_PATH", "/release.json"),
+            ("V3_AUDIENCE_MANIFEST_SHA256", "abc"),
+        ])
+        .unwrap()
+        .v3
+        .unwrap();
+        assert_eq!(pinned.audience, Some((PathBuf::from("/release.json"), "abc".to_string())));
     }
 
     #[test]

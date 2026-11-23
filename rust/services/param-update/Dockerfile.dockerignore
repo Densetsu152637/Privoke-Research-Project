@@ -4,6 +4,7 @@
 *
 !rust
 !shared/proto
+!extension/client-runtime/src/regex/external_rules
 rust/target
 **/*.key
 **/*.pem

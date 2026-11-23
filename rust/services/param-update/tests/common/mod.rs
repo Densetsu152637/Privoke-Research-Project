@@ -14,6 +14,7 @@ use privoke_param_update::engine::{Engine, EngineConfig, no_hook, system_clock};
 use privoke_param_update::policy::DriftPolicy;
 use privoke_param_update::server::{self, ServerHandle};
 use privoke_param_update::service::ParamUpdateHandler;
+use privoke_param_update::v3_store::CheckpointHandler;
 use privoke_pki::ca::{CaDir, Validity};
 use privoke_pki::{client as enrolment, files::write_atomic, registry_edit};
 use privoke_transport::startup::CloudTlsArgs;
@@ -121,6 +122,14 @@ impl Env {
         let transport = self.tls_args().into_config().unwrap();
         let any: SocketAddr = "127.0.0.1:0".parse().unwrap();
         server::start(any, ParamUpdateHandler::new(engine), transport, limits, Duration::from_millis(50)).await.unwrap()
+    }
+
+    /// Start the in-process server over `engine` with the V3 `CheckpointService` on the same listener.
+    pub async fn start_with_checkpoint(&self, engine: Arc<Engine>, checkpoint: CheckpointHandler, limits: Limits) -> ServerHandle {
+        let transport = self.tls_args().into_config().unwrap();
+        let any: SocketAddr = "127.0.0.1:0".parse().unwrap();
+        let handler = ParamUpdateHandler::new(engine);
+        server::start_with_checkpoint(any, handler, Some(checkpoint), transport, limits, Duration::from_millis(50)).await.unwrap()
     }
 
     pub async fn updates(&self, address: SocketAddr, creds: Option<&Creds>) -> ParamUpdateServiceClient<Channel> {

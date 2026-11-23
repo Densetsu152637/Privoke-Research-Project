@@ -20,6 +20,11 @@ privoke-contracts = { path = "../../crates/privoke-contracts" }
 privoke-transport = { path = "../../crates/privoke-transport" }
 # The artifact loader and per-architecture validators are the stage 3 ones; the update path publishes only what they accept.
 privoke-model-streaming = { path = "../model-streaming" }
+# The V3 checkpoint store (stage V3-R1): the pinned frozen sources its admission validates against, and the safetensors reader.
+privoke-curriculum = { path = "../../crates/privoke-curriculum" }
+privoke-semantic = { path = "../../crates/privoke-semantic", default-features = false }
+serde_json = "1"
+tokio-stream = { workspace = true }
 tonic = { workspace = true }
 tokio = { workspace = true }
 clap = { workspace = true }

@@ -12,6 +12,9 @@
 //! * [`engine`] (`server.py`'s service class without the transport) and [`service`] plus [`server`] (the transport);
 //! * [`journal`] (`training_cycles.py`) and [`scheduler`] (`fuzzer_requests.py`): the training-cycle scheduler.
 //!
+//! The V3 checkpoint store ([`v3_store`], `checkpoint_store.py` and `checkpoint_server.py`) is served on the same listener to the
+//! publisher and trainer roles.
+//!
 //! New here: [`policy`] (the per-update and cumulative drift bounds), publisher authorisation and identity binding
 //! (`privoke-transport`), fail-closed startup, and the [`healthcheck`] subcommand. [`pyfmt`] holds the Python text and
 //! number behaviour the artifact, receipt and journal formats depend on.
@@ -32,6 +35,7 @@ pub mod scheduler;
 pub mod server;
 pub mod service;
 pub mod util;
+pub mod v3_store;
 pub mod validate;
 pub mod window;
 

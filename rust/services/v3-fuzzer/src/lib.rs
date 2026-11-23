@@ -8,8 +8,8 @@
 //! request is semantic-only: the layer list is always exactly `[SEMANTIC]` and never empty.
 //!
 //! * [`contract`]: `v3_contract.py` as the fuzzer uses it. Strict parsing (duplicate fields, canonical bytes) and the policy
-//!   come from [`privoke_contracts::v3`] and [`privoke_curriculum::v3`]; `validate_execution` and `publication_passes` are the
-//!   stage 19 ports of [`privoke_training::v3_fit`].
+//!   come from [`privoke_contracts::v3`] and [`privoke_curriculum::v3`], which also own `validate_execution` and
+//!   `publication_passes` (one copy, shared with the param-update checkpoint store and `privoke_training::v3_fit`).
 //! * [`backend`]: the two dependencies as traits, their mutual-TLS gRPC clients and the bounded blob transport of `common.py`.
 //! * [`state`]: the SQLite `cycles` table (`id`, `fingerprint`, `response`).
 //! * [`source`]: the frozen schedules and the identity of the Python source closure.
