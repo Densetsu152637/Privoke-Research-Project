@@ -49,8 +49,8 @@ PINS_PATH = ROOT / "shared/python/privoke_model/standard_v3.py"
 PROTO_DIR = ROOT / "shared/proto"
 CHANNEL_OPTIONS = (("grpc.enable_http_proxy", 0), ("grpc.max_receive_message_length", 8 * 1024 * 1024))
 
-# Rust images take the five TLS flags and must refuse to start without them.
-RUST_IMAGES = ("model-streaming-service", "telemetry-service", "param-update-service", "analysis-service")
+# Rust images take the five TLS flags and must refuse to start without them. The V3 training services (stage V3-R7) are among them.
+RUST_IMAGES = ("model-streaming-service", "telemetry-service", "param-update-service", "v3-runtime-service", "v3-fuzzer-service")
 PRIVATE_RPCS = (
     "/privoke.v1.ModelStreamingService/GetModelParameters",
     "/privoke.v1.ParamUpdateService/SubmitParameterUpdate",
@@ -59,6 +59,12 @@ PRIVATE_RPCS = (
     "/privoke.v1.PrivokeRuntimeService/ComputeSemanticGradients",
     "/privoke.v1.FuzzerService/RunTrainingCycle",
     "/privoke.v1.TelemetryService/GetTelemetrySummary",
+    # The V3 training surface (stage V3-R7): checkpoint commits, rollback and fits are for registered services only.
+    "/privoke.experimental.v3.CheckpointService/ResolveCurrent",
+    "/privoke.experimental.v3.CheckpointService/CommitCandidate",
+    "/privoke.experimental.v3.CheckpointService/RollbackModel",
+    "/privoke.experimental.v3.TrainingService/FitCandidate",
+    "/privoke.experimental.v3.V3FuzzerService/RunTrainingCycle",
 )
 
 
@@ -183,7 +189,7 @@ def docker_run(image: str, arguments: list[str], mounts: list[str], timeout: flo
         subprocess.run(["docker", "rm", "-f", name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
 
 
-def startup_checks(results: Results, images: str, pki_dir: Path, live_dir: Path) -> None:
+def startup_checks(results: Results, images: str, pki_dir: Path, live_dir: Path, extra_images: tuple[str, ...] = ()) -> None:
     prefix, _, tag = images.rpartition(":")
     assert prefix and tag, "--images must be PREFIX:TAG"
     mounts = ["-v", f"{pki_dir.resolve()}:/pki:ro", "-v", f"{live_dir.resolve()}:/live:ro"]
@@ -196,17 +202,12 @@ def startup_checks(results: Results, images: str, pki_dir: Path, live_dir: Path)
         "no client CA": [a for a in full if not a.startswith("--client-ca")],
         "missing client CA file": [a if not a.startswith("--client-ca") else "--client-ca=/pki/absent-ca.pem" for a in full],
     }
-    for service in RUST_IMAGES:
+    for service in (*RUST_IMAGES, *extra_images):
         for label, arguments in variants.items():
             def check(service=service, arguments=arguments) -> None:
                 code, output = docker_run(f"{prefix}/{service}:{tag}", arguments, mounts, 60)
                 assert code not in (None, 0), f"started or exited 0 ({output.strip()[-120:]})"
             results.run(f"{service} refuses to start: {label}", check)
-
-    def fuzzer_check() -> None:
-        code, output = docker_run(f"{prefix}/privoke-fuzzer:{tag}", [], [], 90)
-        assert code not in (None, 0), f"served plaintext or exited 0 ({output.strip()[-120:]})"
-    results.run("privoke-fuzzer refuses to serve without TLS", fuzzer_check)
 
 
 def main() -> int:
@@ -221,6 +222,8 @@ def main() -> int:
     parser.add_argument("--legacy-model-id", default="privoke-balanced")
     parser.add_argument("--pin", default=None, help="expected manifest SHA-256 (default: shared/python/privoke_model/standard_v3.py)")
     parser.add_argument("--images", default=None, help="PREFIX:TAG of the cloud images, to run the start-up refusal checks")
+    parser.add_argument("--also-image", action="append", default=[], metavar="NAME",
+                        help="with --images: another Rust image (by service name) to start-up check, for example analysis-service in CI")
     parser.add_argument("--pki-dir", type=Path, default=None, help="with --images: the PKI directory the stack uses")
     parser.add_argument("--live-dir", type=Path, default=None, help="with --images: directory holding crl.pem and registry.toml")
     args = parser.parse_args()
@@ -306,7 +309,7 @@ def main() -> int:
         results.run("telemetry: a randomised report is accepted with the reporter credential", accepted)
 
     if args.images:
-        startup_checks(results, args.images, args.pki_dir, args.live_dir)
+        startup_checks(results, args.images, args.pki_dir, args.live_dir, tuple(args.also_image))
 
     failed = results.failed
     print(f"{len(results.rows) - len(failed)} passed, {len(failed)} failed", flush=True)

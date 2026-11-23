@@ -205,9 +205,11 @@ pub fn verify(keys: &KeySet, encoded: &[u8]) -> Result<Statement, PublicationErr
 }
 
 /// The publication public keys compiled into this build, as `(key_id, 64 lowercase hexadecimal characters)`. A rotation overlap
-/// lists both keys (see `docs/runtime/v3-publication.md`). Empty until the first publication key is generated: a client then
-/// admits no signed version and keeps the pinned ORIGINAL.
-pub const PRODUCTION_KEYS: &[(&str, &str)] = &[];
+/// lists both keys (see `docs/runtime/v3-publication.md`). With no entry a client admits no signed version and keeps the pinned
+/// ORIGINAL. `privoke-v3-pub-2026-11` is the first production key (stage V3-R7, 24 November 2026): the operator holds the private
+/// seed and mounts it as the `V3_PUBLICATION_KEY_FILE` secret of param-update; only this public half is in the repository.
+pub const PRODUCTION_KEYS: &[(&str, &str)] =
+    &[("privoke-v3-pub-2026-11", "867b106cf01cdd94e745efc536c57bdc8d7f36c7f11ffef1e3065c564969160c")];
 
 /// The key set of this build: [`PRODUCTION_KEYS`]. An entry that does not parse is left out (fewer keys, never more).
 pub fn production_key_set() -> KeySet {

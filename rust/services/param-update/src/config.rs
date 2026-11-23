@@ -32,6 +32,10 @@ pub struct V3Config {
     /// ORIGINAL packages to admit at startup (`V3_INITIAL`, separated like `PATH`): each a directory with `manifest.json`,
     /// `model.safetensors`, `config.json` and `vocab.txt`. A model that already has a version is left as it is.
     pub initial: Vec<PathBuf>,
+    /// Pinned bootstraps (`V3_PINNED`, entries `<original dir>=<pinned release dir>` separated like `PATH`): the routine root of a
+    /// tier is its pinned standard release, admitted with the independently prepared ORIGINAL it descends from
+    /// (`CheckpointStore::bootstrap_pinned`). A model that already has a version is left as it is.
+    pub pinned: Vec<(PathBuf, PathBuf)>,
     /// The checkout that holds the pinned BC01 inputs and the bundled AU3 release (`V3_SOURCE_ROOT`).
     pub source_root: PathBuf,
     /// A custom AU3 release and its pin (`V3_AUDIENCE_MANIFEST_PATH` and `V3_AUDIENCE_MANIFEST_SHA256`, both or neither).
@@ -84,6 +88,24 @@ impl V3Config {
             .filter(|value| !value.is_empty())
             .map(|value| std::env::split_paths(&value).filter(|path| !path.as_os_str().is_empty()).collect())
             .unwrap_or_default();
+        let pinned = get("V3_PINNED")
+            .filter(|value| !value.is_empty())
+            .map(|value| {
+                std::env::split_paths(&value)
+                    .filter(|entry| !entry.as_os_str().is_empty())
+                    .map(|entry| {
+                        let text = entry.to_string_lossy().to_string();
+                        match text.split_once('=') {
+                            Some((original, release)) if !original.is_empty() && !release.is_empty() => {
+                                Ok((PathBuf::from(original), PathBuf::from(release)))
+                            }
+                            _ => Err(Error("V3_PINNED entries are <original dir>=<release dir>.".to_string())),
+                        }
+                    })
+                    .collect::<Result<Vec<_>>>()
+            })
+            .transpose()?
+            .unwrap_or_default();
         let drift_bounds = get("V3_DRIFT_BOUNDS")
             .filter(|value| !value.is_empty())
             .map(PathBuf::from)
@@ -114,6 +136,7 @@ impl V3Config {
         Ok(Some(Self {
             store: PathBuf::from(store),
             initial,
+            pinned,
             source_root: PathBuf::from(source_root),
             audience,
             drift_bounds,
@@ -316,6 +339,27 @@ mod tests {
         .v3
         .unwrap();
         assert_eq!(pinned.audience, Some((PathBuf::from("/release.json"), "abc".to_string())));
+    }
+
+    #[test]
+    fn pinned_bootstraps_are_original_release_pairs() {
+        let base = [("V3_STORE", "/store"), ("V3_SOURCE_ROOT", "/repo"), ("V3_DRIFT_BOUNDS", "/b.toml")];
+        let with = |value: &'static str| {
+            let mut pairs = base.to_vec();
+            pairs.push(("V3_PINNED", value));
+            config(&pairs)
+        };
+        assert!(with("").unwrap().v3.unwrap().pinned.is_empty());
+        let both = with("/o/efficient=/r/privoke-v3-efficient:/o/balanced=/r/privoke-v3-balanced").unwrap().v3.unwrap().pinned;
+        assert_eq!(
+            both,
+            vec![
+                (PathBuf::from("/o/efficient"), PathBuf::from("/r/privoke-v3-efficient")),
+                (PathBuf::from("/o/balanced"), PathBuf::from("/r/privoke-v3-balanced"))
+            ]
+        );
+        assert!(with("/o/efficient").is_err(), "an entry names both directories");
+        assert!(with("=/r/x").is_err());
     }
 
     #[test]

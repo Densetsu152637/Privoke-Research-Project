@@ -13,9 +13,11 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 LOOPBACK_DEFAULT = re.compile(r"127\.0\.0\.1:\d+|\$\{[A-Z_]+:-127\.0\.0\.1:\d+\}")
 TLS_FLAGS = ("--cert=", "--key=", "--client-ca=", "--crl=", "--registry=")
-ONE_SHOT = {"model-seed", "param-update-bootstrap"}
+ONE_SHOT = {"model-seed"}
 PUBLIC = {"model-streaming-service": 50443, "telemetry-service": 58443}
-INTERNAL = {50051, 50052, 50053, 50055}
+INTERNAL = {50051, 50052, 50055, 50171, 50172}
+V3_TRAINING = {"param-update-service", "v3-runtime", "v3-fuzzer"}
+ANALYSIS = {"analysis-service", "analysis-model-streaming"}
 
 
 def bindings(service: dict) -> list[tuple[str, int]]:
@@ -47,7 +49,7 @@ class ComposeDefaultsTests(unittest.TestCase):
     def test_default_publishes_the_rust_services_on_loopback_only(self) -> None:
         config = self.render()
         expected = {"model-streaming-service": {50443, 50051}, "telemetry-service": {58443, 50055},
-                    "param-update-service": {50052}, "privoke-fuzzer": {50053}}
+                    "param-update-service": {50052}, "v3-fuzzer": {50172}, "v3-runtime": {50171}}
         for name, ports in expected.items():
             with self.subTest(service=name):
                 service = config["services"][name]
@@ -66,8 +68,8 @@ class ComposeDefaultsTests(unittest.TestCase):
         config = self.render("docker-compose.prod.yml")
         self.assertEqual(
             set(config["services"]),
-            {"model-seed", "model-streaming-service", "telemetry-service", "param-update-bootstrap", "param-update-service",
-             "privoke-fuzzer", "analysis-model-streaming", "analysis-service"},
+            {"model-seed", "model-streaming-service", "telemetry-service", "param-update-service", "v3-runtime", "v3-fuzzer",
+             "analysis-model-streaming", "analysis-service"},
         )
         for name, service in config["services"].items():
             with self.subTest(service=name):
@@ -84,13 +86,40 @@ class ComposeDefaultsTests(unittest.TestCase):
                 else:
                     self.assertEqual(published, [])
                 self.assertFalse(INTERNAL & {target for _, target in published})
-                if name in {"model-streaming-service", "telemetry-service", "param-update-service",
+                if name in {"model-streaming-service", "telemetry-service", "param-update-service", "v3-runtime", "v3-fuzzer",
                             "analysis-model-streaming", "analysis-service"}:
                     command = service["command"]
                     for flag in TLS_FLAGS:
                         self.assertTrue(any(item.startswith(flag) for item in command), (name, flag))
-        for network in ("analysis-fuzzer", "analysis-models"):
+        for network in ("training", "analysis-fuzzer", "analysis-models"):
             self.assertTrue(config["networks"][network]["internal"])
+        # The V3 routine-training stack (stage V3-R7): behind the V3 profile only, the fuzzer and the runtime on the internal
+        # network alone (no route out, no published port), V1 training and the V1 fuzzer gone, the store and the published tree
+        # shared with model-streaming, and every secret or staged input a mount rather than an image layer.
+        for name in V3_TRAINING:
+            self.assertEqual(config["services"][name]["profiles"], ["v3-training"], name)
+        for name in ANALYSIS:
+            self.assertEqual(config["services"][name]["profiles"], ["legacy-analysis"], name)
+        for name in ("v3-runtime", "v3-fuzzer"):
+            self.assertEqual(set(config["services"][name]["networks"]), {"training"}, name)
+        self.assertEqual(set(config["services"]["param-update-service"]["networks"]), {"default", "training"})
+        update = config["services"]["param-update-service"]["environment"]
+        for key in ("V3_STORE", "V3_PINNED", "V3_PUBLISH_ROOT", "V3_PUBLICATION_KEY_FILE", "V3_PUBLICATION_KEY_ID", "V3_DRIFT_BOUNDS",
+                    "V3_RETENTION_ROOT", "V3_RETENTION_BANK", "V3_POLICY_FILE", "V3_SOURCE_ROOT", "V3_TIERS", "FUZZER_TARGET"):
+            self.assertIn(key, update, key)
+        for key in ("MODEL_ID", "MODEL_ARTIFACT_PATH", "FUZZER_TRAIN_UNDERLYING"):
+            self.assertNotIn(key, update, f"{key} is the V1 training model")
+        self.assertEqual(update["FUZZER_TARGET"], "v3-fuzzer:50172")
+        self.assertEqual(config["services"]["v3-fuzzer"]["environment"]["V3_MODE"], "routine")
+        streaming = config["services"]["model-streaming-service"]["environment"]
+        # Rendered without interpolation: on by default, switched off by an empty MODEL_V3_STORE (a stack without staged releases).
+        self.assertEqual((streaming["V3_STORE"], streaming["V3_PUBLISH_ROOT"]),
+                         ("${MODEL_V3_STORE-/v3-store}", "${MODEL_V3_PUBLISH_ROOT-/v3-published}"))
+        for name in ("param-update-service", "v3-runtime", "v3-fuzzer"):
+            for mount in config["services"][name]["volumes"]:
+                if mount["target"] in {"/v3-source", "/v3-originals", "/model-releases", "/v3-retention-bank",
+                                       "/run/privoke/v3-publication.key"}:
+                    self.assertTrue(mount["read_only"], (name, mount["target"]))
         # The quarantined analysis service has no route out: only internal networks, no capabilities, bounded resources.
         analysis = config["services"]["analysis-service"]
         self.assertEqual(set(analysis["networks"]), {"analysis-fuzzer", "analysis-models"})
@@ -106,7 +135,10 @@ class ComposeDefaultsTests(unittest.TestCase):
                 self.assertNotIn("allow_insecure", text)
         deploy = self.render("deploy/gce/compose.yml")
         self.assertNotIn("ingress", deploy["services"])
-        self.assertEqual(set(deploy["services"]), set(self.render("docker-compose.prod.yml")["services"]))
+        # The deployment carries the same services except the quarantined V1 analysis service, which only the oracle checks use.
+        self.assertEqual(set(deploy["services"]), set(self.render("docker-compose.prod.yml")["services"]) - ANALYSIS)
+        self.assertFalse(ANALYSIS & set(deploy["services"]))
+        self.assertTrue(deploy["networks"]["training"]["internal"])
         for name, service in deploy["services"].items():
             with self.subTest(service=name):
                 self.assertNotIn("build", service)

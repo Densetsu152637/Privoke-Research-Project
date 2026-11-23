@@ -62,6 +62,23 @@ class PosixInstallerTests(unittest.TestCase):
         self.assertEqual(self.install(**{VARIABLE: str(assets)}).returncode, 0)
         self.assertIn(f"export {VARIABLE}='{str(assets).replace(chr(39), chr(39) + chr(92) + chr(39) + chr(39))}'\n", self.launcher())
 
+    def test_the_launcher_refreshes_the_standard_model_by_default_and_honours_the_environment(self) -> None:
+        # V3-R7: the Rust controller keeps the V3 models fresh; the browser's clean environment is why the launcher stores it.
+        self.assertEqual(self.install().returncode, 0)
+        self.assertIn("export V3_PACKAGE_REFRESH_MODELS='privoke-v3-balanced'\n", self.launcher())
+        self.assertNotIn("V3_PACKAGE_REFRESH_SECONDS", self.launcher())
+        self.assertEqual(self.install(V3_PACKAGE_REFRESH_MODELS="privoke-v3-efficient,privoke-v3-quality", V3_PACKAGE_REFRESH_SECONDS="900").returncode, 0)
+        self.assertIn("export V3_PACKAGE_REFRESH_MODELS='privoke-v3-efficient,privoke-v3-quality'\n", self.launcher())
+        self.assertIn("export V3_PACKAGE_REFRESH_SECONDS='900'\n", self.launcher())
+        self.assertEqual(self.install(V3_PACKAGE_REFRESH_MODELS="").returncode, 0)
+        self.assertNotIn("V3_PACKAGE_REFRESH_MODELS", self.launcher(), "an empty value starts no refresh loop")
+
+    def test_a_malformed_refresh_setting_is_refused(self) -> None:
+        for extra in ({"V3_PACKAGE_REFRESH_MODELS": "privoke-v3-balanced; rm -rf /"}, {"V3_PACKAGE_REFRESH_SECONDS": "soon"}):
+            result = self.install(**extra)
+            self.assertNotEqual(result.returncode, 0, extra)
+            self.assertIn("V3_PACKAGE_REFRESH", result.stderr)
+
     def test_a_relative_path_or_a_missing_directory_is_refused_before_anything_is_installed(self) -> None:
         for value in ("assets", str(self.scratch / "missing")):
             result = self.install(**{VARIABLE: value})
@@ -79,8 +96,16 @@ class WindowsInstallerTests(unittest.TestCase):
 
     def test_the_launcher_sets_the_variable_from_a_fourth_config_line_and_still_takes_three(self) -> None:
         launcher = (SCRIPTS / "native-host-launcher.cs").read_text(encoding="utf-8")
-        self.assertIn("config.Length != 3 && config.Length != 4", launcher)
+        self.assertIn("config.Length < 3 || config.Length > 5", launcher)
         self.assertIn('EnvironmentVariables["' + VARIABLE + '"] = config[3]', launcher)
+        # The fifth line (V3-R7): the models the Rust controller keeps fresh.
+        self.assertIn('EnvironmentVariables["V3_PACKAGE_REFRESH_MODELS"] = config[4]', launcher)
+
+    def test_the_installer_stores_the_refresh_models_as_the_launchers_fifth_line(self) -> None:
+        script = (SCRIPTS / "install-native-host.ps1").read_text(encoding="utf-8")
+        self.assertIn("[string]$RefreshModels", script)
+        self.assertIn("privoke-v3-balanced", script)
+        self.assertIn("$useRustHost -and $RefreshModels", script)
 
 
 if __name__ == "__main__":

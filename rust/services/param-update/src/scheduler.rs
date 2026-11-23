@@ -75,7 +75,8 @@ impl FuzzerRequestConfig {
     pub fn defaults() -> Self {
         Self {
             target: "v3-fuzzer:50053".to_string(),
-            prompt_count: 32,
+            // The frozen 64-step policy has eight window batches of 32 original prompts; the V3 fuzzer refuses any other budget.
+            prompt_count: 256,
             source_id: "param-update-service".to_string(),
             timeout_seconds: 3600.0,
             interval_seconds: 10_800.0,

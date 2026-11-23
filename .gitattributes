@@ -23,3 +23,7 @@ docs/evidence/semantic-pretrained-20261010/reproduce.py text eol=lf
 
 docs/evidence/all-surfaces-20261010/*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 docs/evidence/all-surfaces-20261010/*.py text eol=lf
+
+# Hash-pinned deployment inputs (V3-R7): byte-exact on every platform.
+rust/services/param-update/config/v3-retention/** -text
+rust/services/param-update/config/v3-policy.json -text

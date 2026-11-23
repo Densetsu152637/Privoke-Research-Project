@@ -25,6 +25,7 @@ pub mod checkpoint;
 pub mod config;
 pub mod evidence;
 pub mod fit;
+pub mod healthcheck;
 pub mod pyerr;
 pub mod server;
 pub mod service;
