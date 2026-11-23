@@ -22,9 +22,9 @@ The workspace holds the Rust side of the server rewrite. Stages 1 and 2 added th
 | `privoke-param-update` (`rust/services/param-update`) | The parameter-update service and training-cycle scheduler (stage 5): guarded compare-and-swap publication, durable receipts, publisher identities over mutual TLS, drift bounds. See [below](#privoke-param-update-stage-5). |
 | `privoke-semantic` | Semantic inference (stage 14): the V3 pretrained BERT encoder with its heads, the legacy Tiny transformer and the semantic layer, on a dependency-free float64 reference backend and the `tokenizers` crate. See [below](#privoke-semantic-stage-14). It also holds the external classifier client (stage 16), see [below](#external-classifier-client-stage-16). |
 | `privoke-curriculum` | Curricula, schedules and update aggregation (stage 20): exact CPython `random`, the fuzzer prompt curricula and the frozen V3 AU3 and BC01 schedules. See [below](#privoke-curriculum-stage-20). |
-| `privoke-training` | Gradients and local training of the Tiny transformer (stage 19, partial): reverse-mode kernels, the supervised objectives, the FULL projected Adam, the gradient RPC computation with its local-SGD, backtracking and diagnostics routes, and the policy and admission checks, on the stage 14 float64 reference backend. See [below](#privoke-training-stage-19). |
+| `privoke-training` | The V3 encoder fit and retention reference, the presence model (inference only) and Python text helpers. The V1 gradient and Adam code was deleted in stage V3-R8b. See [below](#privoke-training-stage-19). |
 | `privoke-telemetry-client` | The client telemetry reporter (stage 18): CPython-identical random draws on an injectable byte source, binary64 GRR thresholds, the persistent daily epsilon ledger, the report builder and the delivery worker over mutual TLS. See [below](#privoke-telemetry-client-stage-18). |
-| `privoke-fuzzer` (`rust/services/fuzzer`) | The fuzzer service that replaces `services/privoke-fuzzer` (stage 21, partial): one bounded training cycle per request with the stage 20 samplers in process, a mutual-TLS client of the runtime and of the parameter-update service, durable evidence and reservations, and the SQLite curriculum cursor state. See [below](#privoke-fuzzer-stage-21). |
+| `privoke-fuzzer` (`rust/services/fuzzer`) | Deleted in stage V3-R8b (V1 training retired); [historical record below](#privoke-fuzzer-stage-21). |
 | `privoke-v3-fuzzer` (`rust/services/v3-fuzzer`) | The experimental V3 fuzzer service that replaces `services/pretrained-v3/src/fuzzer_server.py` (stage 21, second half): one frozen-schedule fit per request, mutual-TLS clients of the V3 runtime and the checkpoint service, the SQLite `cycles` table and the work directory of every wire message. See [below](#privoke-v3-fuzzer-stage-21). |
 | `privoke-v3-runtime` (`rust/services/v3-runtime`) | The experimental V3 runtime that replaces `services/pretrained-v3/src/runtime_server.py` (stage 22): semantic-only `AnalyzePrompt`, `FitCandidate`, `GetFitStatus` and `Health` over mutual TLS, the SQLite `fits` table and a checkpoint-service client. See [below](#privoke-v3-runtime-stage-22). |
 | `privoke-runtime` (`rust/services/runtime`) | The Rust analysis runtime (stage 17, partial): `AnalyzePrompt` for the regex and NER layers and `Health` as a W1 worker for the W2 pool, with spaCy in process, the pipeline and policy aggregation, and a response encoder that writes Python's deterministic bytes. See [below](#privoke-runtime-stage-17). |
@@ -874,7 +874,7 @@ Tests (CI): `snapshot` unit tests and `runtime/tests/snapshot_models.rs` (every 
 
 ### Compose
 
-Since stage 8a the analysis services (`analysis-service`, `analysis-model-streaming`) and the fuzzer override belong to `docker-compose.prod.yml` under the `legacy-training` profile; the former `docker-compose.analysis.yml` overlay is gone. The test-only gateway overlay layers over the production file:
+The `analysis-service` and `analysis-model-streaming` Compose services, the GPU overlay, the test gateway overlay and `test_container.py` were removed in stage V3-R8b with the V1 fuzzer, the service's only caller. The crate, its Dockerfile and its Rust tests stay (it still answers `AnalyzePrompt`, `DetectAnnotationPresence` and `Health`, and the stage W3 history below describes it). The historical stage W3 and stage 8a record follows.
 
 ```
 docker build -f extension/client-runtime/Dockerfile --target runtime -t privoke-client-runtime-base:local .
@@ -1180,6 +1180,8 @@ Two inputs need care. The AU3 manifest pins its two catalogs as CRLF bytes but t
 
 ## `privoke-training` (stage 19)
 
+> **Stage V3-R8b (23 Nov 2026 decision).** V1 training is retired. The crate now holds `presence` (inference only), `pycompat`, the V3 modules `adamw`, `bert_backward`, `v3_model`, `v3_fit`, and the V3 retention (`reference`, `retention_common`, `retention_v3`, the `privoke-v3-retention-reference` binary). The modules `net`, `objective`, `adam`, `trace`, `window`, `retention`, `routes`, `rpc` and `admission`, their tests and the golden `tiny_training_routes_golden.json` were deleted; the Python oracles and golden generators stay. `runtime` answers the three gradient methods `UNKNOWN_METHOD`, and param-update's `SubmitParameterUpdate` is `UNIMPLEMENTED` (status, `Health` and the V3 checkpoint service stay). Everything below describing the deleted modules is the historical record of stage 19.
+
 `privoke-training` ports the Tiny transformer's gradients and the FULL projected Adam fit. It is LLM-only (it never runs a detector layer) and it does not use libtorch: the backward pass is written by hand over the stage 14 style reference arithmetic (float32 weights, float64 activations and gradients). CUDA is out of scope.
 
 **Status: partial.** Done: checkpoint 1, the gradient RPC computation (`rpc`) with the local-SGD, backtracking and TRAIN-diagnostics routes (`routes`, `trace`) and the policy and admission checks (`admission`), presence gradients. Not done: the window, supervised-wrapper and sensitive-retention training loops, `reference_preparation.py` and `v3/training.py`. See the stage 19 handoff in `docs/plans/rust-server-rewrite.md`.
@@ -1248,6 +1250,8 @@ Reference preparation (`reference.rs`, checkpoint 8, RUST-S19G) is an offline to
 - Gradient and loss reductions are float64; torch accumulates in float32, so losses agree to about 1e-6 relative.
 
 ## `privoke-fuzzer` (stage 21)
+
+> **Deleted in stage V3-R8b (23 Nov 2026 decision).** `rust/services/fuzzer` and its CI step no longer exist; `rust/services/v3-fuzzer` is the live fuzzer. The record below is historical.
 
 > Plan: [Rust server rewrite](../plans/rust-server-rewrite.md#stage-21-fuzzer-orchestration-in-rust-d6). Binary: `fuzzer-service`. Dockerfile: `rust/services/fuzzer/Dockerfile`.
 
