@@ -31,6 +31,13 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PATTERNS = "paper/scripts/anonymity-patterns.txt"
 MANIFEST_NAME = "ARTIFACT-MANIFEST.json"
 MANIFEST_VERSION = 1
+HASH_NOTE = (
+    "File, commit and artifact hashes quoted inside research records refer to the source "
+    "commit. Files listed under redactions.per_file were rewritten only to remove identity "
+    "strings (names, handles, user-home and checkout paths, module and project names), so "
+    "their bytes, and hashes computed over them, differ from the source; unlisted files keep "
+    "the source commit's archived bytes."
+)
 
 # Declared exclusions: build outputs, pre-anonymization submissions, third-party source
 # PDFs (large, not needed to run the code) and the tooling that must name the identity
@@ -56,6 +63,8 @@ PLACEHOLDER_USER = "<user>"
 # or digit, so regular expressions such as "/Users/(?i)[a-z]+" in rule files stay intact
 # and the "<user>" placeholder never matches again.
 USER_SEGMENT = r"[A-Za-z0-9][A-Za-z0-9._-]*"
+# A drive letter that is not the tail of a word, so the "s:" of "https://" never starts a path.
+DRIVE_LETTER = r"(?<![A-Za-z0-9])[A-Za-z]:"
 # Local checkout paths up to and including the repository folder (and worktree folders
 # named after it, e.g. "...-wt-a-stats") become "<repo>"; the rest of the path is kept.
 # Drive-letter paths may contain spaces ("Git Repositories") and use \, \\ (JSON-escaped)
@@ -71,13 +80,14 @@ ANONYMOUS_PROJECT_NAME = "privoke-artifact"
 
 # Ordered rewrite rules (pattern, replacement). Longer, more specific forms come first.
 REWRITE_RULES = [
-    (r"([A-Za-z]:(?:\\|/)+Users(?:\\|/)+)" + USER_SEGMENT, r"\g<1>" + PLACEHOLDER_USER),
-    (r"(?<![A-Za-z0-9_.\-])(/Users/)" + USER_SEGMENT, r"\g<1>" + PLACEHOLDER_USER),
+    (r"(" + DRIVE_LETTER + r"(?:\\|/)+Users(?:\\|/)+)" + USER_SEGMENT, r"\g<1>" + PLACEHOLDER_USER),
+    # Case-sensitive: a macOS home is "/Users/NAME"; web routes such as "/users/me" stay.
+    (r"(?<![A-Za-z0-9_.\-])((?-i:/Users/))" + USER_SEGMENT, r"\g<1>" + PLACEHOLDER_USER),
     (r"\[git4san\]\(https?://github\.com/git4san\)", "the supervising professor"),
     (r"https?://github\.com/git4san" + URL_TAIL, "https://anonymous.invalid/supervisor"),
     (r"https?://(?:www\.)?github\.com/Densetsu152637" + URL_TAIL, PLACEHOLDER_URL),
     (r"https?://(?:www\.)?huggingface\.co/Densetsu152637" + URL_TAIL, PLACEHOLDER_URL),
-    (r"[A-Za-z]:(?:(?:\\|/)+" + WINDOWS_SEGMENT + r")*?(?:\\|/)+" + REPO_FOLDER, PLACEHOLDER_REPO),
+    (DRIVE_LETTER + r"(?:(?:\\|/)+" + WINDOWS_SEGMENT + r")*?(?:\\|/)+" + REPO_FOLDER, PLACEHOLDER_REPO),
     (r"(?<![A-Za-z0-9_.~/-])(?:~|\.{1,2})?(?:/[A-Za-z0-9_.-]+)*/" + REPO_FOLDER, PLACEHOLDER_REPO),
     (r"github\.com/privoke/research-project", ANONYMOUS_GO_MODULE),
     (r"Privoke-Research-Project", ANONYMOUS_PROJECT_NAME),
@@ -298,6 +308,7 @@ def export(repo, revision, dest, patterns_path, extra_excludes=(), clean=False):
         "file_count": len(hashes),
         "tree_sha256": tree_digest(hashes),
         "tree_sha256_definition": "sha256 of the sorted lines '<file sha256>  <path>\\n'; this manifest excluded",
+        "hash_note": HASH_NOTE,
         "exclusions": {"globs": excludes, "excluded_files": excluded, "skipped_links": links},
         "redactions": {"total": sum(redactions.values()), "files": len(redactions), "per_file": redactions},
         "verification": {

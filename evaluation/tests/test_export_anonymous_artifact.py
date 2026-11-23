@@ -78,6 +78,8 @@ class ExportTests(unittest.TestCase):
         self.assertEqual(on_disk["tree_sha256"], manifest["tree_sha256"])
         self.assertIn("blob.bin", on_disk["verification"]["binary_files"])
         self.assertNotIn("commit", json.dumps(on_disk["source_revision_commitment"]))
+        self.assertEqual(on_disk["hash_note"], exp.HASH_NOTE)
+        self.assertIn("source commit", on_disk["hash_note"])
 
     def test_extra_exclude_and_determinism(self):
         _, first = self.run_export(extra_excludes=["untouched.txt"])
@@ -199,6 +201,40 @@ class ExportTests(unittest.TestCase):
         self.assertEqual(exp.main(argv), 2)  # non-empty destination
         self.assertEqual(exp.main(["--repo", str(self.repo), "--dest", str(self.repo / "e"),
                                    "--patterns", str(self.patterns)]), 2)
+
+
+class RuleOrderTests(unittest.TestCase):
+    """Lock the interaction of the ordered rewrite rules on single strings."""
+    NAME = "Privoke-" + "Research-Project"
+    MODULE = "github.com/" + "privoke/research-project"
+
+    def rewrite(self, text):
+        return exp.rewrite_text(text, "src/file.txt")[0]
+
+    def test_url_with_repository_name_is_not_a_drive_path(self):
+        out = self.rewrite(f"see https://github.com/other/{self.NAME}/x and http://h.example/{self.NAME}")
+        self.assertNotIn("http<repo>", out)
+        self.assertNotIn("<repo>", out)
+        self.assertIn(f"https://github.com/other/{exp.ANONYMOUS_PROJECT_NAME}/x", out)
+        self.assertNotIn(self.NAME.lower(), out.lower())
+
+    def test_web_route_users_unchanged(self):
+        for text in ('fetch("/users/me")', "const url = '/users/me/profile';"):
+            self.assertEqual(self.rewrite(text), text)
+
+    def test_json_escaped_user_home_rewritten(self):
+        out = self.rewrite('{"p": "C:\\\\Users\\\\abc\\\\x"}')
+        self.assertEqual(out, '{"p": "C:\\\\Users\\\\<user>\\\\x"}')
+        self.assertEqual(json.loads(out)["p"], "C:\\Users\\<user>\\x")
+
+    def test_go_module_identical_in_go_mod_and_imports(self):
+        go_mod = self.rewrite(f"module {self.MODULE}/services/svc\n")
+        imp = self.rewrite(f'import pb "{self.MODULE}/services/svc/gen/v1"\n')
+        proto = self.rewrite(f'option go_package = "{self.MODULE}/services/svc/gen/v1;pb";\n')
+        module = go_mod.split()[1]
+        self.assertEqual(module, f"{exp.ANONYMOUS_GO_MODULE}/services/svc")
+        self.assertIn(f'"{module}/gen/v1"', imp)
+        self.assertIn(f'"{module}/gen/v1;pb"', proto)
 
 
 if __name__ == "__main__":
