@@ -11,6 +11,8 @@ FROM rust:1.99.1-slim-bookworm AS builder
 WORKDIR /workspace
 COPY rust /workspace/rust
 COPY shared/proto /workspace/shared/proto
+# The V3 checkpoint store links privoke-semantic and so privoke-rules, which embeds this rule file at compile time.
+COPY extension/client-runtime/src/regex/external_rules /workspace/extension/client-runtime/src/regex/external_rules
 
 WORKDIR /workspace/rust
 # The cloud build enables no cargo feature: `workstation-loopback` is never compiled in. SQLite is compiled in.
