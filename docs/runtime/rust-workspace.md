@@ -363,7 +363,7 @@ Subcommands: `healthcheck` (mutual-TLS `Health`) and `bootstrap`. Build: `docker
 
 > Plan: [Rust server rewrite](../plans/rust-server-rewrite.md#stage-18-telemetry-reporter-in-rust-d8). Audit record: [rust-telemetry-epsilon-audit-20261117](../../paper/research/rust-telemetry-epsilon-audit-20261117.md).
 
-The Rust port of the client telemetry reporter, `extension/client-runtime/src/telemetry/{privacy,event_emitter}.py`, which stay in place as the parity oracle. It is a library; stage 17 wires it in. Dependencies: `privoke-contracts` (the packet), `privoke-transport` (client mutual TLS), `rusqlite` (bundled), `getrandom`, `tonic` and `tokio` (a current-thread runtime on the worker thread only).
+The Rust port of the client telemetry reporter, `extension/client-runtime/src/telemetry/{privacy,event_emitter}.py`, which stay in place as the parity oracle. It is a library; the controller wires it in (`privoke-runtime-supervisor`, [Telemetry](#telemetry-stage-18-wired-in-rust-s17b)). Dependencies: `privoke-contracts` (the packet), `privoke-transport` (client mutual TLS), `rusqlite` (bundled), `getrandom`, `tonic` and `tokio` (a current-thread runtime on the worker thread only).
 
 | Module | Python source |
 | --- | --- |
