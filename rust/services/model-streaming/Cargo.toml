@@ -25,10 +25,13 @@ clap = { workspace = true }
 thiserror = { workspace = true }
 sha2 = { workspace = true }
 same-file = "1"
+rusqlite = { version = "0.37", features = ["bundled"] }
 unicode-properties = { version = "0.1", default-features = false, features = ["general-category"] }
 
 [dev-dependencies]
 privoke-pki = { path = "../../tools/privoke-pki" }
+privoke-contracts = { path = "../../crates/privoke-contracts", features = ["test-keys"] }
+serde_json = "1"
 tempfile = { workspace = true }
 base64 = { workspace = true }
 prost = { workspace = true }

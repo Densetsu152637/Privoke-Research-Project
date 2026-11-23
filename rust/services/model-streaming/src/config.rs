@@ -34,6 +34,10 @@ pub struct ServiceConfig {
     pub artifact_dir: PathBuf,
     /// Directory of standard V3 releases (`MODEL_RELEASE_DIR`).
     pub release_dir: PathBuf,
+    /// The published V3 root of param-update (`V3_PUBLISH_ROOT`); set together with `v3_store`, or not at all.
+    pub publish_root: Option<PathBuf>,
+    /// The V3 checkpoint store directory whose `catalog.sqlite` is the authority for published versions (`V3_STORE`).
+    pub v3_store: Option<PathBuf>,
 }
 
 fn env_string(get: &impl Fn(&str) -> Option<String>, key: &str, fallback: &str) -> String {
@@ -64,7 +68,12 @@ impl ServiceConfig {
             latest_model_id: env_string(&get, "MODEL_LATEST_ID", DEFAULT_LATEST_MODEL_ID),
             artifact_dir: env_string(&get, "MODEL_ARTIFACT_DIR", DEFAULT_ARTIFACT_DIR).into(),
             release_dir: env_string(&get, "MODEL_RELEASE_DIR", DEFAULT_RELEASE_DIR).into(),
+            publish_root: get("V3_PUBLISH_ROOT").filter(|value| !value.is_empty()).map(PathBuf::from),
+            v3_store: get("V3_STORE").filter(|value| !value.is_empty()).map(PathBuf::from),
         };
+        if config.publish_root.is_some() != config.v3_store.is_some() {
+            fail!("V3_PUBLISH_ROOT and V3_STORE must be set together");
+        }
         if config.internal_port == config.public_port {
             fail!("MODEL_STREAMING_PORT and MODEL_STREAMING_PUBLIC_PORT must differ");
         }

@@ -3,6 +3,9 @@
 //! The store is a read-only directory `<root>/<model-id>/{manifest.json,model.safetensors,config.json,vocab.txt,
 //! evidence.json}`. Every manifest is pinned by SHA-256, every asset by the digest the manifest names, and every path
 //! is refused if it crosses a symlink. Assets are hashed once at admission and again before they are streamed.
+//!
+//! The per-directory readers ([`open_file_in`], [`package_in`], [`stream_in`]) are shared with
+//! [`crate::published`], which serves trained versions from the published tree with the same checks.
 
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -64,32 +67,184 @@ impl FileInfo {
         let metadata = file.metadata()?;
         Ok(Self { handle: Handle::from_file(file.try_clone()?)?, size: metadata.len(), modified: metadata.modified()? })
     }
+
+    /// Whether `other` is the same file, unchanged: same identity on disk, size and modification time.
+    pub fn same_as(&self, other: &Self) -> bool {
+        self.handle == other.handle && self.size == other.size && self.modified == other.modified
+    }
 }
 
 /// An admitted release store.
 #[derive(Debug)]
 pub struct StandardReleases {
     root: PathBuf,
+    pins: BTreeMap<String, String>,
     identities: BTreeMap<String, FileInfo>,
 }
 
-fn unsafe_directory(path: &Path) -> bool {
+pub(crate) fn unsafe_directory(path: &Path) -> bool {
     std::fs::symlink_metadata(path).map_or(true, |info| !info.is_dir() || info.file_type().is_symlink())
+}
+
+/// The compiled manifest pins of the three standard models.
+fn compiled_pins() -> BTreeMap<String, String> {
+    STANDARD_IDS.iter().filter_map(|id| standard_pin(id).map(|pin| ((*id).to_string(), pin.to_string()))).collect()
+}
+
+/// `directory` as an absolute path, refusing a symlink on it or on any ancestor and a missing or non-directory root.
+pub(crate) fn real_directory(directory: &Path, missing: &str) -> Result<PathBuf> {
+    let absolute = std::path::absolute(directory).map_err(|error| Error(error.to_string()))?;
+    for current in absolute.ancestors() {
+        if unsafe_directory(current) {
+            fail!("standard release path must not traverse symlinks");
+        }
+    }
+    if unsafe_directory(directory) {
+        fail!("{missing}");
+    }
+    Ok(absolute)
+}
+
+/// `openAsset` for one directory: a regular, non-symlink file of 1 to 80 MiB, named `manifest.json` or an allowlisted asset.
+pub(crate) fn open_file_in(directory: &Path, name: &str) -> Result<(File, FileInfo)> {
+    if name != "manifest.json" && !is_allowlisted_asset(name) {
+        fail!("unknown model asset");
+    }
+    if unsafe_directory(directory) {
+        fail!("unsafe model directory");
+    }
+    let path = directory.join(name);
+    let info = std::fs::symlink_metadata(&path).map_err(|_| Error("unsafe or oversized model asset".into()))?;
+    if !info.is_file() || info.len() == 0 || info.len() > MAX_MODEL_ASSET_BYTES {
+        fail!("unsafe or oversized model asset");
+    }
+    let file = File::open(&path)?;
+    let actual = FileInfo::of(&file)?;
+    let on_disk = Handle::from_path(&path).map_err(|_| Error("model asset changed while opening".into()))?;
+    if actual.handle != on_disk {
+        fail!("model asset changed while opening");
+    }
+    Ok((file, actual))
+}
+
+/// `manifest` for one directory: the manifest must hash to `expected_sha` and describe model `id`; the asset table comes from
+/// the digests it names and the sizes on disk.
+pub(crate) fn package_in(directory: &Path, id: &str, expected_sha: &str) -> Result<ModelPackageResponse> {
+    let (file, _) = open_file_in(directory, "manifest.json")?;
+    let mut raw = Vec::new();
+    file.take(MAX_MANIFEST_BYTES + 1).read_to_end(&mut raw)?;
+    if raw.len() as u64 > MAX_MANIFEST_BYTES {
+        fail!("invalid model manifest size");
+    }
+    let pin = privoke_contracts::digest::sha256_hex(&raw);
+    if pin != expected_sha {
+        fail!("standard V3 manifest pin mismatch");
+    }
+    let text = std::str::from_utf8(&raw).map_err(|_| Error("standard V3 manifest is not UTF-8".into()))?;
+    let manifest = jsonx::object_of(text)?;
+    let field = |key: &str| -> String {
+        match manifest.get(key) {
+            Some(Value::String(text)) => text.clone(),
+            _ => String::new(),
+        }
+    };
+    if field("model_id") != id || field("architecture") != V3_ARCHITECTURE {
+        fail!("standard V3 manifest identity mismatch");
+    }
+    let mut package = ModelPackageResponse {
+        model_id: id.to_string(),
+        architecture: V3_ARCHITECTURE.to_string(),
+        manifest_sha256: pin,
+        manifest_json: raw,
+        assets: Vec::new(),
+        publication_statement: Vec::new(),
+    };
+    let mut names: Vec<(&str, &str)> = ASSET_KEYS.to_vec();
+    names.sort_unstable();
+    for (name, key) in names {
+        let (_, info) = open_file_in(directory, name)?;
+        let expected = field(key);
+        if expected.len() != 64 {
+            fail!("invalid asset digest");
+        }
+        package.assets.push(ModelPackageAsset { name: name.to_string(), sha256: expected, size_bytes: info.size });
+    }
+    Ok(package)
+}
+
+/// `StreamModelAsset` for one directory after request validation: re-hash the asset, then send it in 1 MiB chunks, then
+/// verify that neither the asset nor the manifest changed. `send` returns `false` when the client has gone away.
+pub(crate) fn stream_in(
+    directory: &Path,
+    id: &str,
+    manifest_sha256: &str,
+    asset_name: &str,
+    mut send: impl FnMut(ModelAssetChunk) -> bool,
+) -> std::result::Result<(), Status> {
+    let package = package_in(directory, id, manifest_sha256).map_err(|_| Status::unavailable("model manifest changed"))?;
+    let Some(selected) = package.assets.iter().find(|asset| asset.name == asset_name) else {
+        return Err(Status::invalid_argument("asset is not allowlisted"));
+    };
+    let (mut file, info) = open_file_in(directory, asset_name).map_err(|_| Status::unavailable("model asset unavailable"))?;
+    match bounded_file_hash(&mut file) {
+        Ok(digest) if digest == selected.sha256 => {}
+        _ => return Err(Status::data_loss("model asset hash mismatch")),
+    }
+    file.seek(SeekFrom::Start(0)).map_err(|error| Status::internal(error.to_string()))?;
+    let mut hash = Sha256::new();
+    let mut buffer = vec![0u8; MODEL_ASSET_CHUNK_BYTES];
+    let mut offset = 0u64;
+    loop {
+        let filled = read_full(&mut file, &mut buffer).map_err(|error| Status::internal(error.to_string()))?;
+        if filled == 0 {
+            break;
+        }
+        hash.update(&buffer[..filled]);
+        if offset + filled as u64 > selected.size_bytes {
+            return Err(Status::data_loss("model asset grew while streaming"));
+        }
+        let chunk = ModelAssetChunk {
+            model_id: id.to_string(),
+            manifest_sha256: manifest_sha256.to_string(),
+            asset_name: asset_name.to_string(),
+            sha256: selected.sha256.clone(),
+            offset,
+            total_bytes: selected.size_bytes,
+            data: buffer[..filled].to_vec(),
+        };
+        if !send(chunk) {
+            return Err(Status::cancelled("client went away"));
+        }
+        offset += filled as u64;
+        if filled < buffer.len() {
+            break;
+        }
+    }
+    let changed = FileInfo::of(&file).map_or(true, |after| !after.same_as(&info));
+    if changed || offset != selected.size_bytes || crate::util::hex(&hash.finalize()) != selected.sha256 {
+        return Err(Status::data_loss("model asset changed while streaming"));
+    }
+    if package_in(directory, id, manifest_sha256).is_err() {
+        return Err(Status::data_loss("model manifest changed while streaming"));
+    }
+    Ok(())
 }
 
 impl StandardReleases {
     /// `openStandardReleases`: refuse any symlink on the path, then verify every manifest pin and every asset digest.
     pub fn open(directory: &Path) -> Result<Self> {
-        let absolute = std::path::absolute(directory).map_err(|error| Error(error.to_string()))?;
-        for current in absolute.ancestors() {
-            if unsafe_directory(current) {
-                fail!("standard release path must not traverse symlinks");
-            }
+        Self::open_with_pins(directory, compiled_pins())
+    }
+
+    /// [`open`](Self::open) against explicit manifest pins (one per standard model) instead of the compiled ones. The service
+    /// uses the compiled pins; this exists so that tests can serve small packages whose pins they know.
+    pub fn open_with_pins(directory: &Path, pins: BTreeMap<String, String>) -> Result<Self> {
+        let absolute =
+            real_directory(directory, "standard V3 release directory is missing or unsafe; run models/prepare_standard_releases.py")?;
+        if STANDARD_IDS.iter().any(|id| pins.get(*id).is_none_or(|pin| pin.len() != 64)) {
+            fail!("standard V3 manifest pins must name every standard model");
         }
-        if unsafe_directory(directory) {
-            fail!("standard V3 release directory is missing or unsafe; run models/prepare_standard_releases.py");
-        }
-        let mut releases = Self { root: absolute, identities: BTreeMap::new() };
+        let mut releases = Self { root: absolute, pins, identities: BTreeMap::new() };
         for id in STANDARD_IDS {
             let package = releases.manifest(id)?;
             for asset in &package.assets {
@@ -104,10 +259,15 @@ impl StandardReleases {
         Ok(releases)
     }
 
+    /// The manifest pin of a standard model in this store.
+    pub fn pin(&self, id: &str) -> Option<&str> {
+        self.pins.get(id).map(String::as_str)
+    }
+
     /// A store over `root` that has not been admitted (test support for the unit tests that call `manifest` and
     /// `open_asset` directly, as the Go tests build `standardReleases{root: root}`).
     pub fn unadmitted(root: &Path) -> Self {
-        Self { root: root.to_path_buf(), identities: BTreeMap::new() }
+        Self { root: root.to_path_buf(), pins: compiled_pins(), identities: BTreeMap::new() }
     }
 
     /// `openAsset`: a regular, non-symlink file of 1 to 80 MiB inside a real model directory.
@@ -115,69 +275,13 @@ impl StandardReleases {
         if !is_standard_v3(id) {
             fail!("unknown standard model");
         }
-        if name != "manifest.json" && !is_allowlisted_asset(name) {
-            fail!("unknown model asset");
-        }
-        let directory = self.root.join(id);
-        if unsafe_directory(&directory) {
-            fail!("unsafe model directory");
-        }
-        let path = directory.join(name);
-        let info = std::fs::symlink_metadata(&path).map_err(|_| Error("unsafe or oversized model asset".into()))?;
-        if !info.is_file() || info.len() == 0 || info.len() > MAX_MODEL_ASSET_BYTES {
-            fail!("unsafe or oversized model asset");
-        }
-        let file = File::open(&path)?;
-        let actual = FileInfo::of(&file)?;
-        let on_disk = Handle::from_path(&path).map_err(|_| Error("model asset changed while opening".into()))?;
-        if actual.handle != on_disk {
-            fail!("model asset changed while opening");
-        }
-        Ok((file, actual))
+        open_file_in(&self.root.join(id), name)
     }
 
     /// `manifest`: the pinned manifest and the asset table it describes.
     pub fn manifest(&self, id: &str) -> Result<ModelPackageResponse> {
-        let (file, _) = self.open_asset(id, "manifest.json")?;
-        let mut raw = Vec::new();
-        file.take(MAX_MANIFEST_BYTES + 1).read_to_end(&mut raw)?;
-        if raw.len() as u64 > MAX_MANIFEST_BYTES {
-            fail!("invalid model manifest size");
-        }
-        let pin = privoke_contracts::digest::sha256_hex(&raw);
-        if Some(pin.as_str()) != standard_pin(id) {
-            fail!("standard V3 manifest pin mismatch");
-        }
-        let text = std::str::from_utf8(&raw).map_err(|_| Error("standard V3 manifest is not UTF-8".into()))?;
-        let manifest = jsonx::object_of(text)?;
-        let field = |key: &str| -> String {
-            match manifest.get(key) {
-                Some(Value::String(text)) => text.clone(),
-                _ => String::new(),
-            }
-        };
-        if field("model_id") != id || field("architecture") != V3_ARCHITECTURE {
-            fail!("standard V3 manifest identity mismatch");
-        }
-        let mut package = ModelPackageResponse {
-            model_id: id.to_string(),
-            architecture: V3_ARCHITECTURE.to_string(),
-            manifest_sha256: pin,
-            manifest_json: raw,
-            assets: Vec::new(),
-            publication_statement: Vec::new(),
-        };
-        let mut names: Vec<(&str, &str)> = ASSET_KEYS.to_vec();
-        names.sort_unstable();
-        for (name, key) in names {
-            let (_, info) = self.open_asset(id, name)?;
-            let expected = field(key);
-            if expected.len() != 64 {
-                fail!("invalid asset digest");
-            }
-            package.assets.push(ModelPackageAsset { name: name.to_string(), sha256: expected, size_bytes: info.size });
-        }
-        Ok(package)
+        let Some(pin) = self.pins.get(id).filter(|_| is_standard_v3(id)) else { fail!("unknown standard model") };
+        package_in(&self.root.join(id), id, pin)
     }
 
     /// `validate`: every manifest still pins, and no admitted asset has been replaced or modified.
@@ -189,7 +293,7 @@ impl StandardReleases {
                 let Some(before) = self.identities.get(&format!("{id}/{}", asset.name)) else {
                     fail!("standard asset changed after admission")
                 };
-                if before.handle != info.handle || before.size != info.size || before.modified != info.modified {
+                if !before.same_as(&info) {
                     fail!("standard asset changed after admission");
                 }
             }
@@ -204,56 +308,12 @@ impl StandardReleases {
         id: &str,
         manifest_sha256: &str,
         asset_name: &str,
-        mut send: impl FnMut(ModelAssetChunk) -> bool,
+        send: impl FnMut(ModelAssetChunk) -> bool,
     ) -> std::result::Result<(), Status> {
-        let package = self.manifest(id).map_err(|_| Status::unavailable("model manifest changed"))?;
-        let Some(selected) = package.assets.iter().find(|asset| asset.name == asset_name) else {
-            return Err(Status::invalid_argument("asset is not allowlisted"));
-        };
-        let (mut file, info) = self.open_asset(id, asset_name).map_err(|_| Status::unavailable("model asset unavailable"))?;
-        match bounded_file_hash(&mut file) {
-            Ok(digest) if digest == selected.sha256 => {}
-            _ => return Err(Status::data_loss("model asset hash mismatch")),
+        if self.pin(id) != Some(manifest_sha256) {
+            return Err(Status::invalid_argument("explicit standard model and manifest pin required"));
         }
-        file.seek(SeekFrom::Start(0)).map_err(|error| Status::internal(error.to_string()))?;
-        let mut hash = Sha256::new();
-        let mut buffer = vec![0u8; MODEL_ASSET_CHUNK_BYTES];
-        let mut offset = 0u64;
-        loop {
-            let filled = read_full(&mut file, &mut buffer).map_err(|error| Status::internal(error.to_string()))?;
-            if filled == 0 {
-                break;
-            }
-            hash.update(&buffer[..filled]);
-            if offset + filled as u64 > selected.size_bytes {
-                return Err(Status::data_loss("model asset grew while streaming"));
-            }
-            let chunk = ModelAssetChunk {
-                model_id: id.to_string(),
-                manifest_sha256: manifest_sha256.to_string(),
-                asset_name: asset_name.to_string(),
-                sha256: selected.sha256.clone(),
-                offset,
-                total_bytes: selected.size_bytes,
-                data: buffer[..filled].to_vec(),
-            };
-            if !send(chunk) {
-                return Err(Status::cancelled("client went away"));
-            }
-            offset += filled as u64;
-            if filled < buffer.len() {
-                break;
-            }
-        }
-        let changed = FileInfo::of(&file)
-            .map_or(true, |after| after.handle != info.handle || after.size != info.size || after.modified != info.modified);
-        if changed || offset != selected.size_bytes || crate::util::hex(&hash.finalize()) != selected.sha256 {
-            return Err(Status::data_loss("model asset changed while streaming"));
-        }
-        if self.manifest(id).is_err() {
-            return Err(Status::data_loss("model manifest changed while streaming"));
-        }
-        Ok(())
+        stream_in(&self.root.join(id), id, manifest_sha256, asset_name, send)
     }
 }
 

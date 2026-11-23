@@ -1,6 +1,6 @@
 # V3 publication: signed versions, custody and rotation
 
-> Plan: [V3 routine training](../plans/v3-routine-training.md), stage V3-R2 (publication), with the client side in V3-R4a and V3-R4b. Implementation: `rust/services/param-update/src/{v3_publish,v3_policy,v3_guard}.rs`, `rust/crates/privoke-contracts/src/publication.rs`. Fixtures: `rust/crates/privoke-contracts/tests/fixtures/v3_signed_chain/chain.json`, written by `evaluation/generate_v3_signed_chain_fixtures.py`.
+> Plan: [V3 routine training](../plans/v3-routine-training.md), stage V3-R2 (publication), serving in V3-R3 (`rust/services/model-streaming/src/published.rs`), the client side in V3-R4a and V3-R4b. Implementation: `rust/services/param-update/src/{v3_publish,v3_policy,v3_guard}.rs`, `rust/crates/privoke-contracts/src/publication.rs`. Fixtures: `rust/crates/privoke-contracts/tests/fixtures/v3_signed_chain/chain.json`, written by `evaluation/generate_v3_signed_chain_fixtures.py`.
 
 A trained V3 version reaches a client only with a **publication statement**: a signature by param-update's publication key over the version's identity and lineage. The signature attests param-update's own admission of the version: lineage, bytes, the execution evidence and its source record, the drift bounds and, once the scheduler's allocation journal exists (stage V3-R6 attaches the guard gate), the guard it recomputed itself. Until V3-R6 a signature does **not** attest a recomputed guard: the guard gate is implemented and tested but not installed by the service, so a published version has passed the trainer-evidence guard of the oracle and the drift gate only. It never attests anything the trainer reported about itself beyond that.
 
@@ -45,6 +45,35 @@ Each refusal is a durable `rejected` receipt with a reason, and changes nothing 
 | `guard_recomputed` | scored by the Rust V3 encoder on those rows (base, and the candidate loaded through `V3Model::with_tensors`), the candidate does not improve the joint count without harming an action |
 
 The guard gate is not installed by `main.rs` until the scheduler's allocation journal exists (stage V3-R6); until then a deployment publishes with the drift gate and the trainer-evidence gate only (see the first section). The drift gate is always on when the store is: `V3_DRIFT_BOUNDS` is required with `V3_STORE`, published or not. The allocation names the release (`sampler`) and the scope too: evidence that names another one is `allocation_mismatch`, so a trainer cannot pick the guard release (the AU3 guard ignores the seed). `drift_exceeded` uses provisional bounds until stage V3-R5 calibrates them (`status` and `evidence_sha256` of the file say which).
+
+## Serving
+
+Stage V3-R3. `privoke-model-streaming` (`src/published.rs`) serves published versions; the client side is V3-R4a and V3-R4b.
+
+**How model-streaming reads the authority.** It opens `<V3_STORE>/catalog.sqlite` read-only (`SQLITE_OPEN_READ_ONLY`, one snapshot per request, nothing cached) and reads the `current` and `publications` rows of the model. It needs `V3_STORE` and `V3_PUBLISH_ROOT`, both or neither, checked at startup (a symlink on either path is refused). The catalog is in WAL mode, so the store directory must be mounted where SQLite can maintain its `-shm` file for a reader (the same user as param-update, or a read-write mount of that directory); the service never writes a table. A missing catalog file means nothing is published. The published tree is a byte source only: a directory is read only after the authority names its manifest, so a directory the authority does not reference (a straggler before reconciliation, a quarantine leftover, a hand-made copy) is never served.
+
+**What is servable.** The pinned ORIGINAL of each tier, always, from the standard release store; and every manifest that has a publication row (the current version and the rollback history, a rolled-back-to ORIGINAL included). A version that went live without a signature (a `versions` row with no publication) is not servable.
+
+| Request | Nothing published | Published |
+| --- | --- | --- |
+| `GetModelPackage(privoke-v3-<tier>)` and `latest` (balanced) | the pinned ORIGINAL, empty statement | the newest publication's manifest with its wire statement; after a signed rollback to the ORIGINAL, the pinned bytes with the rollback's statement |
+| `GetModelPackage(privoke-v3-<tier>@<sha>)` | the pinned ORIGINAL if `<sha>` is the pin, else `INVALID_ARGUMENT` | the pin: the ORIGINAL with an empty statement; a published `<sha>`: that version with its newest statement; else `INVALID_ARGUMENT` |
+| `StreamModelAsset(model, sha, asset)` | only the pin | the pin or any published `<sha>`; else `INVALID_ARGUMENT` |
+
+If the authority serves a manifest other than its newest publication's, the plain request is `UNAVAILABLE` (the state param-update refuses to start in) rather than serving a possibly unsigned version; the pin-addressed forms keep working. A statement that does not decode, or names another model or manifest, is `UNAVAILABLE`. Published files are verified against the digests their manifest names (hashed once, again whenever the file changes, and again before every stream), so a modified file is `DATA_LOSS`. The service does not check signatures: it has no keys, and clients verify the statement under their compiled key set.
+
+**Pin-addressed fetches.** The request message has no pin field, so the pin rides in the model id: `privoke-v3-<tier>@<64 lowercase hex manifest sha>`. With the ORIGINAL's pin it returns the ORIGINAL with an empty statement, which is what a historical evaluation or the frozen Python client needs once something is published. A client that wants the signed rollback to the ORIGINAL (the current version after a rollback) asks by the plain id.
+
+**Python consumers that fetch V3 by model id** (bounded grep of `extension`, `evaluation`, `services`, `shared`; the Rust clients are not listed):
+
+| Consumer | Path | After the first publication |
+| --- | --- | --- |
+| `extension/client-runtime/src/LLM/privoke/v3_package.py` (`fetch_package`, called from `parameter_stream.py`; `worker_main.py` and `streamed_model.py` only load the cached directory) | `GetModelPackage` with the plain id, then `StreamModelAsset` by the compiled pin | **Affected.** It refuses a manifest that is not the compiled pin (`admitted_manifest`, `STANDARD_PINS`), so with the plain id it fails closed once a tier is published. It is frozen by plan decision. To keep running it, its owner must send `privoke-v3-<tier>@<pin>` on the wire and keep the bare id for `admitted_manifest` (which compares the id string); this stage does not touch it. Until then plain-id runs are valid only while nothing is published. |
+| `evaluation/update_security.py` (V3 fetch rows) | plain id, then assets by the manifest it received | Unaffected while nothing is published; against a store with publications, the ORIGINAL rows use `<id>@<pin>`. V3-R4a adds the signed-chain rows. |
+| `evaluation/capture_conformance.py` (Go-parity capture) | plain ids against the Go service or a fresh Rust service | Unaffected: it records a service with nothing published (the Go-parity claim ends at the pinned set). |
+| `evaluation/generate_model_fetch_golden.py` | a scripted stub, not a service | Unaffected. |
+| `evaluation/run-rq3-semantic-cost.py`, `evaluation/adversarial_evasion.py`, `extension/src/settings.js`, `extension/test/rq3-v3-browser-cost.*` | name V3 model ids, but load from a local release directory or through the client-runtime row above | Unaffected by the server; the client-runtime row applies wherever they fetch. |
+| `services/model-streaming-service` (Go) | serves only the pinned set | Unaffected (never reads the published root). |
 
 ## Rollback
 
