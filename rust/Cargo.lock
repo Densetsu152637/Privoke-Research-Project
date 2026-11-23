@@ -2092,6 +2092,7 @@ dependencies = [
  "privoke-contracts",
  "privoke-curriculum",
  "privoke-fuzzer",
+ "privoke-param-update",
  "privoke-pki",
  "privoke-training",
  "privoke-transport",

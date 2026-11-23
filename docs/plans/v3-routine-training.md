@@ -99,7 +99,7 @@ Root defaults, which the user may override:
   - Rust CI is green.
 - Status: in progress (RUST-V3R1, 23 Nov 2026; plan gate converged in 4 rounds).
 - Outcome:
-- Handoff notes: the sqlite `current` table is the single authority for every later stage.
+- Handoff notes: the sqlite `current` table is the single authority for every later stage. R2 signs inside the commit transaction through `CommitObserver::before_swap` (`rust/services/param-update/src/v3_store/store.rs`). Roles on `CheckpointService`: `CommitCandidate` publisher and trainer only; stage, read and health also `runtime`. The golden needs the public official `config.json` and `vocab.txt` as fixtures (`tests/fixtures/v3_store/`).
 
 ## Stage V3-R2: Signed publication, derived directory and drift bounds
 

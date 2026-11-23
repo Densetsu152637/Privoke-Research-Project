@@ -152,7 +152,7 @@ impl Scripted {
         std::mem::take(&mut *self.calls.lock().unwrap())
     }
 
-    fn log(&self, path: &str, bytes: &[u8]) {
+    pub fn log(&self, path: &str, bytes: &[u8]) {
         self.calls.lock().unwrap().push((path.to_string(), digest(bytes), bytes.len()));
     }
 
@@ -274,6 +274,17 @@ pub fn code_name(code: Code) -> String {
 
 /// The engine of one golden sequence: its policy, its sampler, its recorded source digests and the scripted services.
 pub async fn engine_for(sequence: &serde_json::Value, inputs: &Inputs, directory: &Path, scripted: &Arc<Scripted>) -> Engine {
+    engine_with(sequence, inputs, directory, scripted, scripted.clone()).await
+}
+
+/// [`engine_for`] with the checkpoint service of the caller's choice (the runtime stays scripted).
+pub async fn engine_with(
+    sequence: &serde_json::Value,
+    inputs: &Inputs,
+    directory: &Path,
+    scripted: &Arc<Scripted>,
+    checkpoint: Arc<dyn CheckpointBackend>,
+) -> Engine {
     let policy = contract::parse(&b64(sequence["policy_json"].as_str().unwrap()), MAX_MANIFEST_BYTES).unwrap();
     let sampler = Sampler::parse(sequence["sampler"].as_str().unwrap()).unwrap();
     let hashes = value::parse_bytes(sequence["source_hashes"].to_string().as_bytes()).unwrap();
@@ -284,7 +295,7 @@ pub async fn engine_for(sequence: &serde_json::Value, inputs: &Inputs, directory
         fit_timeout: Duration::from_secs(60),
         closure: Closure::Fixed(sequence["source_closure"].as_str().unwrap().to_string()),
     };
-    Engine::new(parts, scripted.clone(), scripted.clone()).await.unwrap()
+    Engine::new(parts, scripted.clone(), checkpoint).await.unwrap()
 }
 
 pub fn scope_of(cycle: &serde_json::Value) -> v3::Scope {
@@ -324,10 +335,21 @@ impl Counts {
 /// abort, every wire message (path, length and SHA-256, in order), every file of the work directory (name, length and SHA-256)
 /// and the rows of the `cycles` table.
 pub async fn replay_sequence(sequence: &serde_json::Value, inputs: &Inputs) -> Counts {
+    replay_sequence_with(sequence, inputs, |scripted| scripted.clone()).await
+}
+
+/// [`replay_sequence`] against the checkpoint service that `checkpoint` builds over the scripted services (which log every wire
+/// message the cycle sends, whoever answers it).
+pub async fn replay_sequence_with(
+    sequence: &serde_json::Value,
+    inputs: &Inputs,
+    checkpoint: impl FnOnce(&Arc<Scripted>) -> Arc<dyn CheckpointBackend>,
+) -> Counts {
     let label = sequence["label"].as_str().unwrap();
     let state = tempfile::tempdir().unwrap();
     let scripted = Arc::new(Scripted::default());
-    let engine = engine_for(sequence, inputs, &state.path().join("state"), &scripted).await;
+    let service = checkpoint(&scripted);
+    let engine = engine_with(sequence, inputs, &state.path().join("state"), &scripted, service).await;
     let mut counts = Counts { sequences: 1, ..Counts::default() };
     assert_eq!(engine.health().unwrap().encode_to_vec(), b64(sequence["health"].as_str().unwrap()), "{label}: health");
 
