@@ -21,8 +21,6 @@ privoke-transport = { path = "../../crates/privoke-transport" }
 privoke-curriculum = { path = "../../crates/privoke-curriculum" }
 # `v3_fit` carries the stage 19 ports of `validate_execution` and `publication_passes`; they are reused, not copied.
 privoke-training = { path = "../../crates/privoke-training" }
-# `pywire` (Python-identical request bytes) and `client_tls_from_lookup` (the outbound mutual-TLS credentials).
-privoke-fuzzer = { path = "../fuzzer" }
 tonic = { workspace = true }
 tokio = { workspace = true }
 clap = { workspace = true }

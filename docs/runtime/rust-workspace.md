@@ -68,6 +68,7 @@ git diff --exit-code tests/conformance
   - `Utf8Lf`: `Utf8` plus one LF (V3 and retention contracts).
 - **Float repr.** `pyfloat::repr` reproduces `repr(float)`, for example `1e-08` and `1e+16`. This is the lexical gotcha that Go's encoder and `serde_json` get wrong.
 - **Checksums and fingerprints.** `digest::artifact_checksum`, `receipt_key`, `derived_seed` and `fingerprint::parameter_fingerprint`.
+- **Python protobuf bytes.** `pywire` (stage V3-R8a, moved from the V1 fuzzer crate) writes `FuzzerTrainingRequest` the way Python's `SerializeToString(deterministic=True)` does, with every map entry's value field present and keys in Python's order; the V3 fuzzer hashes and retains those bytes.
 - **V3 manifests.** `v3::parse_canonical`, `validate_manifest` and `admitted_manifest` apply the tier tables, source pins and manifest pins of `v3_contract.py` and `standard_v3.py`.
 
 Known limits, each covered by a corpus case: lone surrogates are errors (Python's ASCII variant would emit them, but every UTF-8 variant fails), and integers longer than 4300 digits are errors, as in Python.
@@ -112,6 +113,8 @@ cargo test -p privoke-pki --locked --manifest-path rust/Cargo.toml
 ### Fail-closed startup
 
 `startup::CloudTlsArgs` is the flag set every cloud binary flattens into its arguments: `--cert`, `--key`, `--client-ca`, `--crl` and `--registry`. `into_config` returns an error naming the first missing or unusable input, and the binary must exit non-zero before binding. There is no insecure flag. `privoke-listener-probe` (built with the `probe` feature) is the reference binary, and `cargo test -p privoke-transport fail_closed` runs it.
+
+`startup::client_tls_from_lookup` (stage V3-R8a, moved from the V1 fuzzer crate) is the matching client side: it reads `PRIVOKE_TLS_CA_FILE`, `PRIVOKE_TLS_CERT_FILE` and `PRIVOKE_TLS_KEY_FILE` (each a non-empty file) and an optional server-name variable, and returns the `ClientTlsConfig` an outbound channel presents, or the operator-facing message. The V3 fuzzer and runtime use it.
 
 ### Plaintext loopback
 
@@ -829,11 +832,15 @@ Without `PRIVOKE_ANALYSIS_TEST_PYTHON` the two real-worker tests print that they
 
 | Layer | Rule | Result |
 | --- | --- | --- |
-| Transport policy | The six `PrivokeRuntimeService` RPCs (`AnalyzePrompt`, `DetectAnnotationPresence`, `ComputeSemanticGradients`, `ComputeUnderlyingModelGradients`, `ComputePresenceGradients`, `Health`) for the `publisher`, `trainer` and `runtime` registry roles | Any other path, including every publisher RPC and the model RPCs, is `UNIMPLEMENTED`. An installation or the reporter is `PERMISSION_DENIED`. A missing or untrusted client certificate fails the handshake. |
+| Transport policy | The three `PrivokeRuntimeService` RPCs `AnalyzePrompt`, `DetectAnnotationPresence` and `Health` for the `publisher`, `trainer` and `runtime` registry roles | Any other path, including every publisher RPC, the model RPCs and the three gradient RPCs (`ComputeSemanticGradients`, `ComputeUnderlyingModelGradients`, `ComputePresenceGradients`, removed in stage V3-R8a), is `UNIMPLEMENTED`. An installation or the reporter is `PERMISSION_DENIED`. A missing or untrusted client certificate fails the handshake. |
 | Service allow list | Only the service names in `ANALYSIS_ALLOWED_SERVICES` (default `fuzzer`) | Another registered service, and the service's own model credential, get `PERMISSION_DENIED`. `ANALYSIS_HEALTH_SERVICES` names identities that may call `Health` only (the container's own probe). |
 | Layer selection | Every layer-bearing request must name exactly `[DETECTION_LAYER_SEMANTIC]` | An empty list, regex, NER, the whole pipeline, or a mixed list is `INVALID_ARGUMENT` before any worker sees it. The fuzzer's own `_validate_requested_execution` therefore holds through the service. |
 
 There is no `fuzzer` value in the `Role` enum. The fuzzer is a registered service (`urn:privoke:service:fuzzer`, role `publisher`, because it also publishes updates), and "fuzzer only" is the service-name allow list on top of the role policy. The transport crate is unchanged.
+
+### Gradient RPCs removed (stage V3-R8a)
+
+V1 models are served for detection and no longer trained (decision U4 and goal G5 of the [V3 routine-training plan](../plans/v3-routine-training.md)). `ComputeSemanticGradients`, `ComputeUnderlyingModelGradients` and `ComputePresenceGradients` are not in the transport policy and have no `service::Rpc` variant, so the listener and the router both answer `UNIMPLEMENTED` before a model is fetched or a worker is chosen. `privoke_supervisor::routing` has no gradient route, no admission-header parsing and no `UNSUPPORTED_ROUTE` refusal, so nothing falls back to the Python worker. `tests/gradients_removed.rs` proves it with the real `RuntimeServer` over a real `WorkerPool` of a stand-in worker (`privoke-analysis-test-worker`, feature `test-helpers`) that logs every request frame: after a control request the log holds one line, and the three gradient calls add none. The Rust runtime worker answers a presence-gradient frame `UNKNOWN_METHOD`; its semantic gradient code (`runtime::training`) still compiles and is deleted with stage V3-R8b.
 
 ### Responses are the worker's bytes
 
@@ -859,7 +866,7 @@ On a Windows host the worker's socket self-check cannot pass (W2 provides no net
 
 `ANALYSIS_RUST_WORKER` (the `privoke-runtime-worker` executable) adds a second pool beside the Python one. `ANALYSIS_RUST_MODEL_ROOT` is optional and defaults to the service's own `ANALYSIS_CACHE_DIR`; `ANALYSIS_RUST_BUNDLE` and `ANALYSIS_RUST_PRETRAINED_CONTEXT_DIR` are optional too (`config::RustWorkerSettings`), and any of those three without the worker is a configuration error. Unset, the service is what it was: one Python pool. The Rust pool has the same sandbox, memory and process limits, queue and deadlines as the Python pool, warms no layer, warms the start-up models only when its root is the cache, and the service reports `SERVING` only while both pools are ready.
 
-Each call is routed per request by `privoke_supervisor::routing` (`route_analysis`, `route_presence`, `route_gradients`, with the Rust claim `Capabilities::RUST.with_semantic()`) and made through `routing::call_routed`: a call the Rust worker declines before executing anything (`UNSUPPORTED_ROUTE` or `UNSUPPORTED_LAYERS`) is sent once to the Python pool, and every other failure is the call's result (never retried on the other engine). A repeated or non-text admission header, a scratch presence model and a gate on one are the Python worker's. The semantic-only rule is checked before routing, so the Rust worker only ever sees `layers=[SEMANTIC]`.
+Each call is routed per request by `privoke_supervisor::routing` (`route_analysis` and `route_presence`, with the Rust claim `Capabilities::RUST.with_semantic()`; there is no gradient route since stage V3-R8a) and made through `routing::call_routed`: a call the Rust worker declines before executing anything (`UNSUPPORTED_LAYERS`; `UNSUPPORTED_ROUTE` was the gradient refusal and is final now) is sent once to the Python pool, and every other failure is the call's result (never retried on the other engine). A repeated or non-text admission header, a scratch presence model and a gate on one are the Python worker's. The semantic-only rule is checked before routing, so the Rust worker only ever sees `layers=[SEMANTIC]`.
 
 **The model root (RUST-S17E).** The service stores each fetched model as `<id>.snapshot.pb` (the `ModelParametersResponse` it checked), replaced atomically, and the Rust worker now reads that file (`privoke_runtime::snapshot`, used by `ArtifactStore`, `PresenceModels` and `SemanticLayer`): a model a training cycle publishes reaches the Rust pool through the file the service already writes, and the worker, like the Python shim, prefers a snapshot to an artifact file or package of the same id in any root. Reading the snapshot was chosen over writing a `<id>.json` for the worker because the artifact file cannot be rebuilt from a snapshot: its float64 values, its bytes (`artifact_file_checksum`) and the checksum over its contents are gone, so a rebuilt file would have an identity different from the Python worker's. The snapshot's metadata is used verbatim, as the Python provider does (`artifact_checksum`, `artifact_file_checksum`, `model_config`, `trainable_parameters`, and the presence keys), the identity and the tensors are the response's float32 values, and what the model code reads as JSON (`config` from `model_config`, the tensors with `trainable` from the manifest, `checksum`) is rebuilt from them. The checksum over the file contents is not recomputed (the service has checked the snapshot, as the worker does not recompute it for Tiny artifacts). Snapshots of the pretrained contextual model are not served through `Artifact` (as for files); `SemanticLayer` would read one.
 
@@ -1176,6 +1183,10 @@ Two inputs need care. The AU3 manifest pins its two catalogs as CRLF bytes but t
 `privoke-training` ports the Tiny transformer's gradients and the FULL projected Adam fit. It is LLM-only (it never runs a detector layer) and it does not use libtorch: the backward pass is written by hand over the stage 14 style reference arithmetic (float32 weights, float64 activations and gradients). CUDA is out of scope.
 
 **Status: partial.** Done: checkpoint 1, the gradient RPC computation (`rpc`) with the local-SGD, backtracking and TRAIN-diagnostics routes (`routes`, `trace`) and the policy and admission checks (`admission`), presence gradients. Not done: the window, supervised-wrapper and sensitive-retention training loops, `reference_preparation.py` and `v3/training.py`. See the stage 19 handoff in `docs/plans/rust-server-rewrite.md`.
+
+### Stage V3-R8a: what moved out of the V1 modules
+
+Presence training is retired (decision U4), so `presence` is inference only: `PresenceModel` stays (the presence gate and `DetectAnnotationPresence` serve it) and `compute_presence_gradients` with its request and response types is deleted. `fsum` and `training_text_key`, which the model needs, now live in `pycompat` (`objective::fsum` and `rpc::training_text_key` re-export them). The ORIGINAL teacher pins (`TEACHERS`) moved to `retention_common`, so the V3 `reference` and `retention_v3` modules import no V1 training module. `window::action_value` was already the shared `privoke_contracts::v3::action_value` for V3. The remaining V1 modules (`net`, `objective`, `adam`, `trace`, `window`, `retention`, `routes`, `rpc`, `admission`) have no importer outside the crate except the V1 runtime worker (`runtime::training`) and the V1 fuzzer, both deleted in stage V3-R8b.
 
 ### What is ported
 

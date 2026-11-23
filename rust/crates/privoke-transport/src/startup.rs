@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use crate::error::TransportError;
 use crate::registry::RegistryFileReloader;
 use crate::reload::ReloadableTls;
-use crate::tls::ServerTlsConfig;
+use crate::tls::{ClientTlsConfig, ServerTlsConfig};
 
 /// The command-line flags every cloud server flattens into its own arguments.
 #[derive(Debug, Clone, Default, clap::Args)]
@@ -66,3 +66,59 @@ impl CloudTlsArgs {
 
 /// The five flags, for diagnostics.
 pub const REQUIRED_FLAGS: [&str; 5] = ["--cert", "--key", "--client-ca", "--crl", "--registry"];
+
+/// The credentials every outbound channel presents: the service's registered certificate and the server CA
+/// (`PRIVOKE_TLS_CA_FILE`, `PRIVOKE_TLS_CERT_FILE`, `PRIVOKE_TLS_KEY_FILE`). A missing or empty file is an error, so a
+/// deployment without credentials fails at startup instead of sending plaintext.
+///
+/// `server_name_variable` names the optional override of the name the server certificate must carry; without it the host of
+/// `target` is used. The error is the message to show the operator.
+pub fn client_tls_from_lookup(
+    target: &str,
+    server_name_variable: &str,
+    get: impl Fn(&str) -> Option<String>,
+) -> Result<ClientTlsConfig, String> {
+    let file = |variable: &str| -> Result<PathBuf, String> {
+        let path =
+            get(variable).filter(|value| !value.trim().is_empty()).map(PathBuf::from).ok_or_else(|| format!("{variable} is required."))?;
+        match std::fs::metadata(&path) {
+            Ok(metadata) if metadata.is_file() && metadata.len() > 0 => Ok(path),
+            _ => Err(format!("{variable} {} is not a non-empty file.", path.display())),
+        }
+    };
+    let host = target.rsplit_once(':').map_or(target, |(host, _)| host).trim_matches(['[', ']']).to_string();
+    let server_name = get(server_name_variable).filter(|value| !value.trim().is_empty()).unwrap_or(host);
+    Ok(ClientTlsConfig {
+        server_ca: file("PRIVOKE_TLS_CA_FILE")?,
+        identity: Some((file("PRIVOKE_TLS_CERT_FILE")?, file("PRIVOKE_TLS_KEY_FILE")?)),
+        server_name,
+    })
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod client_credentials {
+    use super::*;
+
+    #[test]
+    fn client_credentials_are_required_files() {
+        let directory = tempfile::tempdir().unwrap();
+        assert!(client_tls_from_lookup("runtime:50054", "X", |_| None).is_err());
+        let file = directory.path().join("c.pem");
+        std::fs::write(&file, b"synthetic").unwrap();
+        let path = file.to_string_lossy().to_string();
+        let credentials = |key: &str| match key {
+            "PRIVOKE_TLS_CA_FILE" | "PRIVOKE_TLS_CERT_FILE" | "PRIVOKE_TLS_KEY_FILE" => Some(path.clone()),
+            _ => None,
+        };
+        let spec = client_tls_from_lookup("runtime:50054", "X", credentials).unwrap();
+        assert_eq!(spec.server_name, "runtime");
+        let named = |key: &str| if key == "N" { Some("custom".to_string()) } else { credentials(key) };
+        assert_eq!(client_tls_from_lookup("[::1]:1", "N", named).unwrap().server_name, "custom");
+        let empty = directory.path().join("e.pem");
+        std::fs::write(&empty, b"").unwrap();
+        let empty_path = empty.to_string_lossy().to_string();
+        let broken = |key: &str| if key == "PRIVOKE_TLS_KEY_FILE" { Some(empty_path.clone()) } else { credentials(key) };
+        assert!(client_tls_from_lookup("runtime:50054", "X", broken).unwrap_err().contains("PRIVOKE_TLS_KEY_FILE"));
+    }
+}

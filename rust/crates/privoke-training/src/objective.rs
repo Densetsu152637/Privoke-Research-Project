@@ -81,29 +81,7 @@ pub struct Deltas {
     pub task_totals: Option<[f64; 3]>,
 }
 
-/// `math.fsum`: the exactly rounded sum (Shewchuk's partials).
-pub fn fsum(values: impl IntoIterator<Item = f64>) -> f64 {
-    let mut partials: Vec<f64> = Vec::new();
-    for mut x in values {
-        let mut kept = 0;
-        for index in 0..partials.len() {
-            let mut y = partials[index];
-            if x.abs() < y.abs() {
-                std::mem::swap(&mut x, &mut y);
-            }
-            let hi = x + y;
-            let lo = y - (hi - x);
-            if lo != 0.0 {
-                partials[kept] = lo;
-                kept += 1;
-            }
-            x = hi;
-        }
-        partials.truncate(kept);
-        partials.push(x);
-    }
-    partials.iter().rev().fold(0.0, |acc, p| acc + p)
-}
+pub use crate::pycompat::fsum;
 
 /// `_class_balanced_examples`: give each target class half of the total weight.
 pub fn class_balanced(examples: &[Example]) -> Result<Vec<Example>, TrainingError> {

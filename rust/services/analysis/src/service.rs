@@ -1,9 +1,14 @@
 //! The gRPC service: `PrivokeRuntimeService`, for the fuzzer only.
 //!
-//! Two layers decide who may call and what. The transport policy ([`policy`]) lists exactly the six runtime RPCs for
+//! Two layers decide who may call and what. The transport policy ([`policy`]) lists exactly the three runtime RPCs for
 //! the service roles; every other path, including every publisher RPC, is `UNIMPLEMENTED` before this code runs, and
 //! installations and the reporter are `PERMISSION_DENIED`. This service then admits only the service names it was
 //! configured with (default `fuzzer`): another registered service gets `PERMISSION_DENIED`.
+//!
+//! The three gradient RPCs (`ComputeSemanticGradients`, `ComputeUnderlyingModelGradients`, `ComputePresenceGradients`) are not
+//! served (stage V3-R8a of `docs/plans/v3-routine-training.md`, goals G5 and U4): V1 models are served for detection but not
+//! trained. They are outside the policy and outside [`Rpc`], so the transport and the router both answer `UNIMPLEMENTED`
+//! before any model is fetched or any worker is chosen, and there is no Python fallback.
 //!
 //! Every layer-bearing request must name exactly the semantic layer. The fuzzer's assertion that only the semantic layer
 //! ran therefore holds through the service, and a request for regex, NER or the whole pipeline is
@@ -11,15 +16,12 @@
 //!
 //! With the Rust analysis worker configured (`ANALYSIS_RUST_WORKER`) the service holds a second pool and routes each
 //! call per request with `privoke_supervisor::routing`: the model-reading calls the Rust worker serves go to it, and
-//! [`routing::call_routed`] sends a call it declines before executing anything (`UNSUPPORTED_ROUTE`) once to the Python
+//! [`routing::call_routed`] sends a call it declines before executing anything (`UNSUPPORTED_LAYERS`) once to the Python
 //! worker. Any other failure is the call's result; nothing is retried on the other engine.
 
 use std::sync::Arc;
 
-use privoke_contracts::proto::v1::{
-    AnalyzePromptRequest, ComputePresenceGradientsRequest, ComputeSemanticGradientsRequest, DetectAnnotationPresenceRequest,
-    DetectionLayer, RuntimeHealthResponse,
-};
+use privoke_contracts::proto::v1::{AnalyzePromptRequest, DetectAnnotationPresenceRequest, DetectionLayer, RuntimeHealthResponse};
 use privoke_supervisor::routing::{self, Attempt, Capabilities, Engine};
 use privoke_transport::{Identity, LimiterKey, Policy, Principal, Role};
 use privoke_worker_pool::{PoolError, WorkerPool};
@@ -34,39 +36,27 @@ use crate::util::log;
 /// The service name `Health` reports.
 pub const SERVICE_NAME: &str = "privoke-analysis-service";
 
-/// The invocation metadata key the training RPCs read (`training_admission_metadata`).
-pub const ADMISSION_HEADER: &str = "x-privoke-training-admission-v1";
-
 const ANALYZE: &str = "/privoke.v1.PrivokeRuntimeService/AnalyzePrompt";
 const PRESENCE: &str = "/privoke.v1.PrivokeRuntimeService/DetectAnnotationPresence";
-const SEMANTIC_GRADIENTS: &str = "/privoke.v1.PrivokeRuntimeService/ComputeSemanticGradients";
-const UNDERLYING_GRADIENTS: &str = "/privoke.v1.PrivokeRuntimeService/ComputeUnderlyingModelGradients";
-const PRESENCE_GRADIENTS: &str = "/privoke.v1.PrivokeRuntimeService/ComputePresenceGradients";
 const HEALTH: &str = "/privoke.v1.PrivokeRuntimeService/Health";
 
-/// The transport policy: the analysis, presence, gradient and health RPCs for registered services, and nothing else.
+/// The transport policy: the analysis, presence and health RPCs for registered services, and nothing else.
 ///
 /// Installations (`consumer`) and the reporter are not in any rule, so they are `PERMISSION_DENIED`. A path outside
-/// the list (any publisher RPC, the control service) is `UNIMPLEMENTED`.
+/// the list (any publisher RPC, the control service, and the three removed gradient RPCs) is `UNIMPLEMENTED`.
 pub fn policy() -> Policy {
-    [ANALYZE, PRESENCE, SEMANTIC_GRADIENTS, UNDERLYING_GRADIENTS, PRESENCE_GRADIENTS, HEALTH]
+    [ANALYZE, PRESENCE, HEALTH]
         .into_iter()
         .fold(Policy::new(), |policy, path| policy.allow(path, &[Role::Publisher, Role::Trainer, Role::Runtime], LimiterKey::Identity))
 }
 
-/// The six RPCs of the runtime service.
+/// The three RPCs of the runtime service this service still answers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Rpc {
     /// `AnalyzePrompt`.
     Analyze,
     /// `DetectAnnotationPresence`.
     Presence,
-    /// `ComputeSemanticGradients`.
-    SemanticGradients,
-    /// `ComputeUnderlyingModelGradients`.
-    UnderlyingGradients,
-    /// `ComputePresenceGradients`.
-    PresenceGradients,
     /// `Health`.
     Health,
 }
@@ -77,9 +67,6 @@ impl Rpc {
         Some(match path {
             ANALYZE => Self::Analyze,
             PRESENCE => Self::Presence,
-            SEMANTIC_GRADIENTS => Self::SemanticGradients,
-            UNDERLYING_GRADIENTS => Self::UnderlyingGradients,
-            PRESENCE_GRADIENTS => Self::PresenceGradients,
             HEALTH => Self::Health,
             _ => return None,
         })
@@ -89,9 +76,6 @@ impl Rpc {
         Some(match self {
             Self::Analyze => Method::AnalyzePrompt,
             Self::Presence => Method::DetectAnnotationPresence,
-            Self::SemanticGradients => Method::ComputeSemanticGradients,
-            Self::UnderlyingGradients => Method::ComputeUnderlyingModelGradients,
-            Self::PresenceGradients => Method::ComputePresenceGradients,
             Self::Health => return None,
         })
     }
@@ -126,25 +110,9 @@ struct Inspected {
     engine: Engine,
 }
 
-/// The training admission value of a request as the router reads it. A duplicate, or a value that is not text, is the
-/// Python worker's to reject, as on the gRPC path, so it has no value to route by.
-fn admission_for_routing<'a>(values: &[Option<&'a str>]) -> Option<Option<&'a str>> {
-    match values {
-        [] => Some(None),
-        [Some(value)] => Some(Some(value)),
-        _ => None,
-    }
-}
-
-/// The layers and model ids a request names, and the engine that serves it, read from its bytes. `admission` holds every
-/// value of the admission header (`None` for one that is not text).
-fn inspect(rpc: Rpc, bytes: &[u8], rust: Option<Capabilities>, admission: &[Option<&str>]) -> Result<Inspected, Status> {
+/// The layers and model ids a request names, and the engine that serves it, read from its bytes.
+fn inspect(rpc: Rpc, bytes: &[u8], rust: Option<Capabilities>) -> Result<Inspected, Status> {
     let invalid = |error: prost::DecodeError| Status::invalid_argument(format!("the request is not a valid message: {error}"));
-    // Both header-bearing gradient RPCs read the same message and the same header.
-    let gradients = |routed: routing::Rpc| match admission_for_routing(admission) {
-        Some(header) => routing::route_gradients(rust, routed, header),
-        None => Engine::Python,
-    };
     Ok(match rpc {
         Rpc::Analyze => {
             let message = AnalyzePromptRequest::decode(bytes).map_err(invalid)?;
@@ -160,25 +128,12 @@ fn inspect(rpc: Rpc, bytes: &[u8], rust: Option<Capabilities>, admission: &[Opti
             let engine = routing::route_presence(rust, &message);
             Inspected { layers: message.layers, models: vec![message.model_id], engine }
         }
-        Rpc::SemanticGradients | Rpc::UnderlyingGradients => {
-            let message = ComputeSemanticGradientsRequest::decode(bytes).map_err(invalid)?;
-            let routed = if rpc == Rpc::SemanticGradients {
-                routing::Rpc::ComputeSemanticGradients
-            } else {
-                routing::Rpc::ComputeUnderlyingModelGradients
-            };
-            Inspected { layers: message.layers, models: vec![message.model_id], engine: gradients(routed) }
-        }
-        Rpc::PresenceGradients => {
-            let message = ComputePresenceGradientsRequest::decode(bytes).map_err(invalid)?;
-            Inspected { layers: message.layers, models: vec![message.model_id], engine: gradients(routing::Rpc::ComputePresenceGradients) }
-        }
         Rpc::Health => Inspected { layers: Vec::new(), models: Vec::new(), engine: Engine::Python },
     })
 }
 
-/// A pool failure as the router sees it: a worker's refusal before it executed anything may be sent to the other engine;
-/// every other failure is final.
+/// A pool failure as the router sees it: a worker's refusal of a layer selection before it executed anything may be sent to
+/// the other engine; every other failure is final (`UNSUPPORTED_ROUTE` included: it belonged to the removed gradient RPCs).
 fn attempt(error: PoolError) -> Attempt<PoolError> {
     let refused = matches!(&error, PoolError::WorkerReported(text) if routing::is_refusal(split_reported(text).0));
     if refused { Attempt::Refused(error) } else { Attempt::Failed(error) }
@@ -255,19 +210,14 @@ impl AnalysisService {
             let health = RuntimeHealthResponse { service: SERVICE_NAME.to_string(), status: status.to_string() };
             return Ok(Response::new(health.encode_to_vec()));
         };
-        let admission: Vec<Option<&str>> = request.metadata().get_all(ADMISSION_HEADER).iter().map(|value| value.to_str().ok()).collect();
-        let Inspected { layers, models, engine } = inspect(rpc, request.get_ref(), self.rust_capabilities(), &admission)?;
+        let Inspected { layers, models, engine } = inspect(rpc, request.get_ref(), self.rust_capabilities())?;
         if layers != [DetectionLayer::Semantic as i32] {
             return Err(Status::invalid_argument(
                 "the analysis service serves the semantic layer only; send layers=[DETECTION_LAYER_SEMANTIC]",
             ));
         }
-        // Every value of the admission header travels (a duplicate is the worker's to reject, as on the gRPC path).
-        let mut metadata = Vec::new();
-        for value in request.metadata().get_all(ADMISSION_HEADER) {
-            let text = value.to_str().map_err(|_| Status::invalid_argument("the training admission header is not ASCII"))?;
-            metadata.push((ADMISSION_HEADER.to_string(), text.to_string()));
-        }
+        // No call carries metadata any more: the training admission header belonged to the removed gradient RPCs.
+        let metadata: Vec<(String, String)> = Vec::new();
         for requested in &models {
             match self.inner.cache.ensure(requested).await {
                 Ok(_) | Err(SyncError::NotFound(_) | SyncError::Unsupported(_)) => {}
@@ -309,23 +259,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_policy_lists_exactly_the_six_runtime_rpcs() {
+    fn the_policy_lists_exactly_the_three_runtime_rpcs_and_no_gradient_rpc() {
         let policy = policy();
         let mut paths: Vec<&str> = policy.paths().collect();
         paths.sort_unstable();
-        assert_eq!(paths.len(), 6);
+        assert_eq!(paths.len(), 3);
+        for removed in ["ComputeSemanticGradients", "ComputeUnderlyingModelGradients", "ComputePresenceGradients"] {
+            let path = format!("/privoke.v1.PrivokeRuntimeService/{removed}");
+            assert!(!paths.contains(&path.as_str()), "{removed}");
+            assert_eq!(Rpc::from_path(&path), None, "{removed}");
+        }
         assert!(paths.iter().all(|path| path.starts_with("/privoke.v1.PrivokeRuntimeService/")));
     }
-
-    const SCHEMA_2: &str = r#"{"schema":2,"expected_objective":"class_balanced_contextual_sum_category_decision_margin_v1","expected_diagnostics_policy":null}"#;
-    const FULL_ADAM: &str = r#"{"schema":3}"#;
 
     fn semantic_layers() -> Vec<i32> {
         vec![DetectionLayer::Semantic as i32]
     }
 
-    fn engine(rpc: Rpc, bytes: &[u8], rust: Option<Capabilities>, admission: &[Option<&str>]) -> Engine {
-        inspect(rpc, bytes, rust, admission).unwrap().engine
+    fn engine(rpc: Rpc, bytes: &[u8], rust: Option<Capabilities>) -> Engine {
+        inspect(rpc, bytes, rust).unwrap().engine
     }
 
     fn rust() -> Option<Capabilities> {
@@ -336,42 +288,26 @@ mod tests {
     fn without_a_rust_worker_everything_is_the_python_workers() {
         let analyze = AnalyzePromptRequest { layers: semantic_layers(), ..AnalyzePromptRequest::default() }.encode_to_vec();
         let presence = DetectAnnotationPresenceRequest { layers: semantic_layers(), ..Default::default() }.encode_to_vec();
-        let gradients = ComputeSemanticGradientsRequest { layers: semantic_layers(), ..Default::default() }.encode_to_vec();
-        assert_eq!(engine(Rpc::Analyze, &analyze, None, &[]), Engine::Python);
-        assert_eq!(engine(Rpc::Presence, &presence, None, &[]), Engine::Python);
-        assert_eq!(engine(Rpc::SemanticGradients, &gradients, None, &[None]), Engine::Python);
-        assert_eq!(engine(Rpc::PresenceGradients, &gradients, None, &[]), Engine::Python);
+        assert_eq!(engine(Rpc::Analyze, &analyze, None), Engine::Python);
+        assert_eq!(engine(Rpc::Presence, &presence, None), Engine::Python);
     }
 
     #[test]
     fn the_semantic_calls_the_rust_worker_serves_go_to_it() {
         let analyze =
             AnalyzePromptRequest { layers: semantic_layers(), semantic_model_id: "privoke-balanced".into(), ..Default::default() };
-        let inspected = inspect(Rpc::Analyze, &analyze.encode_to_vec(), rust(), &[]).unwrap();
+        let inspected = inspect(Rpc::Analyze, &analyze.encode_to_vec(), rust()).unwrap();
         assert_eq!(inspected, Inspected { layers: semantic_layers(), models: vec!["privoke-balanced".into()], engine: Engine::Rust });
 
         let presence =
             DetectAnnotationPresenceRequest { layers: semantic_layers(), model_id: "privoke-sparse".into(), ..Default::default() };
-        assert_eq!(engine(Rpc::Presence, &presence.encode_to_vec(), rust(), &[]), Engine::Rust);
+        assert_eq!(engine(Rpc::Presence, &presence.encode_to_vec(), rust()), Engine::Rust);
         let scratch = DetectAnnotationPresenceRequest {
             layers: semantic_layers(),
             model_id: "privoke-scratch-presence-a".into(),
             ..Default::default()
         };
-        assert_eq!(engine(Rpc::Presence, &scratch.encode_to_vec(), rust(), &[]), Engine::Python);
-
-        let gradients = ComputeSemanticGradientsRequest { layers: semantic_layers(), ..Default::default() }.encode_to_vec();
-        assert_eq!(engine(Rpc::SemanticGradients, &gradients, rust(), &[]), Engine::Rust);
-        assert_eq!(engine(Rpc::UnderlyingGradients, &gradients, rust(), &[Some(SCHEMA_2)]), Engine::Rust);
-        assert_eq!(engine(Rpc::PresenceGradients, &gradients, rust(), &[]), Engine::Rust);
-    }
-
-    #[test]
-    fn an_admission_the_rust_worker_does_not_serve_goes_to_python() {
-        let gradients = ComputeSemanticGradientsRequest { layers: semantic_layers(), ..Default::default() }.encode_to_vec();
-        for admission in [vec![Some(FULL_ADAM)], vec![Some(SCHEMA_2), Some(SCHEMA_2)], vec![None]] {
-            assert_eq!(engine(Rpc::SemanticGradients, &gradients, rust(), &admission), Engine::Python, "{admission:?}");
-        }
+        assert_eq!(engine(Rpc::Presence, &scratch.encode_to_vec(), rust()), Engine::Python);
     }
 
     #[test]
@@ -379,23 +315,28 @@ mod tests {
         use privoke_contracts::proto::v1::SemanticPresenceGate;
         let gate = SemanticPresenceGate { model_id: "privoke-scratch-presence-a".into(), ..Default::default() };
         let analyze = AnalyzePromptRequest { layers: semantic_layers(), semantic_presence_gate: Some(gate), ..Default::default() };
-        let inspected = inspect(Rpc::Analyze, &analyze.encode_to_vec(), rust(), &[]).unwrap();
+        let inspected = inspect(Rpc::Analyze, &analyze.encode_to_vec(), rust()).unwrap();
         assert_eq!(inspected.engine, Engine::Python);
         assert_eq!(inspected.models.len(), 2);
     }
 
     #[test]
     fn a_message_that_does_not_decode_is_invalid_argument_whatever_the_workers() {
-        let status = inspect(Rpc::Analyze, &[0xff, 0xff, 0xff], rust(), &[]).unwrap_err();
+        let status = inspect(Rpc::Analyze, &[0xff, 0xff, 0xff], rust()).unwrap_err();
         assert_eq!(status.code(), tonic::Code::InvalidArgument);
     }
 
     #[test]
     fn only_a_refusal_before_execution_is_sent_to_the_other_engine() {
         let reported = |code: &str| PoolError::WorkerReported(format!("{code}\u{1f}m"));
-        assert!(matches!(attempt(reported("UNSUPPORTED_ROUTE")), Attempt::Refused(_)));
         assert!(matches!(attempt(reported("UNSUPPORTED_LAYERS")), Attempt::Refused(_)));
-        for failure in [reported("INTERNAL"), reported("INVALID_LAYERS"), PoolError::Shutdown, PoolError::WorkerFailed("died".into())] {
+        for failure in [
+            reported("UNSUPPORTED_ROUTE"),
+            reported("INTERNAL"),
+            reported("INVALID_LAYERS"),
+            PoolError::Shutdown,
+            PoolError::WorkerFailed("died".into()),
+        ] {
             assert!(matches!(attempt(failure), Attempt::Failed(_)));
         }
     }
@@ -421,7 +362,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_refused_call_runs_once_on_python_and_a_failed_one_does_not() {
-        let refusal = PoolError::WorkerReported("UNSUPPORTED_ROUTE\u{1f}an artifact that declares an optimizer".into());
+        let refusal = PoolError::WorkerReported("UNSUPPORTED_LAYERS\u{1f}a layer selection the Rust worker does not serve".into());
         let (tried, result) = route_with(refusal).await;
         assert_eq!(tried, [Engine::Rust, Engine::Python]);
         assert_eq!(result.unwrap(), "python");

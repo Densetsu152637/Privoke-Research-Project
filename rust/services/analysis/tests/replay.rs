@@ -1,4 +1,5 @@
-//! The recorded W1 gradient and presence responses, reproduced through the service. The inputs are the frames in
+//! The recorded W1 presence-inference responses, reproduced through the service, and the recorded gradient requests, which
+//! the service no longer serves (stage V3-R8a: `UNIMPLEMENTED`, no worker call). The inputs are the frames in
 //! `tests/conformance/worker-frames/training.json` and the models are the ones that capture used (the prepared
 //! full-encoder Tiny release and a presence release), built with the W1 helper. Needs the same optional Python
 //! environment as `service.rs`; the digests are valid for the torch build that recorded them.
@@ -69,7 +70,7 @@ fn split_metadata(block: &[u8]) -> (Vec<(String, String)>, &[u8]) {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn gradients_and_presence_equal_the_recorded_w1_responses() {
+async fn presence_equals_the_recorded_w1_responses_and_gradients_are_unimplemented() {
     let Some(python) = worker_python() else {
         eprintln!("PRIVOKE_ANALYSIS_TEST_PYTHON is not set; the gradient parity scenario is skipped");
         return;
@@ -95,7 +96,7 @@ async fn gradients_and_presence_equal_the_recorded_w1_responses() {
 
     let capture: serde_json::Value =
         serde_json::from_slice(&std::fs::read(repo_root().join("tests/conformance/worker-frames/training.json")).unwrap()).unwrap();
-    let mut compared = 0;
+    let (mut compared, mut refused) = (0, 0);
     for case in capture["cases"].as_array().unwrap() {
         let label = case["label"].as_str().unwrap();
         let frame = hex_decode(case["request_frame_hex"].as_str().unwrap());
@@ -110,8 +111,10 @@ async fn gradients_and_presence_equal_the_recorded_w1_responses() {
             other => panic!("{label}: method {other}"),
         };
         let outcome = raw_call(channel.clone(), path, message.to_vec(), &entries).await;
-        if label.contains("wrong-layers") {
-            assert_eq!(outcome.unwrap_err().code(), Code::InvalidArgument, "{label}");
+        if method != 2 {
+            // The three gradient RPCs were removed with V1 training: every recorded request is `UNIMPLEMENTED`.
+            assert_eq!(outcome.unwrap_err().code(), Code::Unimplemented, "{label}");
+            refused += 1;
             continue;
         }
         let answer = outcome.unwrap_or_else(|status| panic!("{label}: {status}"));
@@ -123,8 +126,10 @@ async fn gradients_and_presence_equal_the_recorded_w1_responses() {
         assert_eq!(normalised.len() as u64, case["response_payload_bytes"].as_u64().unwrap(), "{label}");
         compared += 1;
     }
-    eprintln!("{compared} recorded W1 gradient and presence responses reproduced byte for byte through the service");
-    assert_eq!(compared, 9);
+    eprintln!(
+        "{compared} recorded W1 presence responses reproduced byte for byte through the service; {refused} gradient requests refused"
+    );
+    assert_eq!((compared, refused), (4, 6));
     server.shutdown().await.unwrap();
     models.shutdown().await.unwrap();
 }

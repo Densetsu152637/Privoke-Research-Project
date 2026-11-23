@@ -30,7 +30,7 @@ use crate::admission::CONFIG_CANONICAL as CONFIG_CANONICAL_TEXT;
 use crate::error::TrainingError;
 use crate::net::TinyNet;
 use crate::objective::{Example, Objective, class_balanced, fsum, supervised_deltas_with};
-use crate::retention_common::{BANK_SHA256, BOUNDARY, EPSILON, is_sensitive, safety_margin, sensitivity_bits, teacher_tensors};
+use crate::retention_common::{BANK_SHA256, BOUNDARY, EPSILON, TEACHERS, is_sensitive, safety_margin, sensitivity_bits, teacher_tensors};
 use crate::routes::local_training_losses;
 use crate::rpc::{Snapshot, artifact_with, heldout_metrics};
 use crate::window::{action_value, array_identity, fingerprint, node_int, node_object, node_text, packed_of_target, params_of, shapes_of};
@@ -50,11 +50,6 @@ const ADAM_POLICY: &str = crate::adam::POLICY;
 const DATASET_SHA256: &str = "3b777f328a8e08140ee964facbd559c694673336b4c5655320befdd84aef66e0";
 const LEGACY_SHA256: &str = "04db8a469aa5c430f9333829da015f01b4377eb5268c58c1451c63b0a51dcced";
 const LABEL_REVIEW_SHA256: &str = "7ddca38130b65c167945f8c0f822caee3012b25787000edfbf311f6d89a0a7fe";
-pub(crate) const TEACHERS: [(&str, &str); 3] = [
-    ("quality", "50657f82e52bb2df56e0ce57c3124a7d7b97a9d9ea338e5eac3c42552fb40733"),
-    ("balanced", "4e991e8f1c3e6211e824613fa8eee2fdc6f0cec6ec9a5e817dbf1c17802cf8a1"),
-    ("efficient", "a23e986915225373663ed7a017d13fa82aac8c3a266ff5a3f4943b129d92e4ef"),
-];
 const NORMALIZATION: &str = "{\"main\":\"unchanged_class_balanced_weight_mean\",\"auxiliary\":\"unweighted_eligible_mean\",\"coefficient\":1,\"gradient_denominator\":1,\"microbatch_size\":32}";
 const STRATEGY: &str = "contextual_full_encoder_sgd_v1";
 

@@ -7,11 +7,13 @@
 //! part changes one constant, not the router.
 //!
 //! A route is decided **per request**, from what the request itself says: the layer selection and the presence gate of an
-//! `AnalyzePrompt`, the model of a `DetectAnnotationPresence`, the training admission header of a gradient RPC. What only
-//! the model's own metadata can tell (an artifact that declares an optimizer or diagnostics policy, a row without an
-//! explicit target) the Rust worker finds out before it executes anything and answers `UNSUPPORTED_ROUTE`; [`call_routed`]
-//! then sends the same call to the Python worker. Nothing has run when that answer is sent, so a call is never executed
-//! twice.
+//! `AnalyzePrompt`, the model of a `DetectAnnotationPresence`. What only the worker can tell (a layer selection it does not
+//! serve) it finds out before it executes anything and answers `UNSUPPORTED_LAYERS`; [`call_routed`] then sends the same
+//! call to the Python worker. Nothing has run when that answer is sent, so a call is never executed twice.
+//!
+//! The gradient RPCs (`ComputeSemanticGradients`, `ComputeUnderlyingModelGradients`, `ComputePresenceGradients`) are not
+//! routed at all since stage V3-R8a: V1 models are served for detection but no longer trained (decision U4 and the V3 plan's
+//! G5), so the public service answers them `UNIMPLEMENTED` before any worker is chosen, and there is no Python fallback.
 //!
 //! A Rust worker that is down, or that fails after it started executing, is a failed call, not a silent fallback: the
 //! routing table says which engine owns the call.
@@ -41,12 +43,6 @@ pub enum Rpc {
     DetectAnnotationPresence,
     /// `Health`.
     Health,
-    /// `ComputeSemanticGradients`.
-    ComputeSemanticGradients,
-    /// `ComputeUnderlyingModelGradients`.
-    ComputeUnderlyingModelGradients,
-    /// `ComputePresenceGradients`.
-    ComputePresenceGradients,
 }
 
 impl Rpc {
@@ -57,9 +53,6 @@ impl Rpc {
             "AnalyzePrompt" => Self::AnalyzePrompt,
             "DetectAnnotationPresence" => Self::DetectAnnotationPresence,
             "Health" => Self::Health,
-            "ComputeSemanticGradients" => Self::ComputeSemanticGradients,
-            "ComputeUnderlyingModelGradients" => Self::ComputeUnderlyingModelGradients,
-            "ComputePresenceGradients" => Self::ComputePresenceGradients,
             _ => return None,
         })
     }
@@ -77,15 +70,12 @@ pub struct Capabilities {
     /// `DetectAnnotationPresence` and the sparse presence gate of `AnalyzePrompt`. The worker reads the presence models
     /// from its model roots, like the semantic ones.
     pub presence: bool,
-    /// The gradient RPCs, for the request shapes the Rust worker serves (see [`route_gradients`]); the rest it declines
-    /// before it executes them. The worker reads the models from its model roots.
-    pub gradients: bool,
 }
 
 impl Capabilities {
     /// What the Rust worker serves: `Health`, the regex and NER layers, and, when it is given model roots (see
-    /// [`Capabilities::without_models`] and [`Capabilities::with_semantic`]), presence and the gradient RPCs.
-    pub const RUST: Self = Self { regex: true, ner: true, semantic: false, presence: true, gradients: true };
+    /// [`Capabilities::without_models`] and [`Capabilities::with_semantic`]), presence.
+    pub const RUST: Self = Self { regex: true, ner: true, semantic: false, presence: true };
 
     /// The Rust worker with the semantic layer, which it has when it is given model roots.
     #[must_use]
@@ -99,7 +89,6 @@ impl Capabilities {
     pub const fn without_models(mut self) -> Self {
         self.semantic = false;
         self.presence = false;
-        self.gradients = false;
         self
     }
 }
@@ -135,115 +124,13 @@ pub fn route_presence(rust: Option<Capabilities>, request: &DetectAnnotationPres
     route(rust, Rpc::DetectAnnotationPresence, &request.layers)
 }
 
-/// The objective admission of the summed-margin objective (`expected_objective` of schema 2).
-const SUM_MARGIN_OBJECTIVE: &str = "class_balanced_contextual_sum_category_decision_margin_v1";
-/// The objectives a backtracking admission (schema 1) may name that the Rust worker serves.
-const BACKTRACKING_OBJECTIVES: [&str; 3] = ["legacy_sum_category", "class_balanced_contextual_v1", SUM_MARGIN_OBJECTIVE];
-/// The window optimizer policy (`expected_optimizer` of schema 5).
-const WINDOW_POLICY: &str = "full_projected_adam64_window_checkpoint_v1";
-/// The ORIGINAL-retention optimizer policies and their objectives (`expected_optimizer`, `expected_objective` of schema 4).
-const RETENTION_POLICIES: [(&str, &str); 2] = [
-    ("full_projected_adam64_original_train_gate_v1", "class_balanced_contextual_sum_margin_original_gate_v1"),
-    ("full_projected_adam64_original_train_hinge_v1", "class_balanced_contextual_sum_margin_original_hinge_v1"),
-];
-/// The TRAIN diagnostics policy.
-const DIAGNOSTICS_POLICY: &str = "train_before_candidate_v1";
-/// The backtracking policy.
-const BACKTRACKING_POLICY: &str = "full_train_backtracking_v1";
-/// The longest admission header the Python parser reads.
-const MAX_ADMISSION_BYTES: usize = 2_048;
-
-fn is_sha256(text: &str) -> bool {
-    text.len() == 64 && text.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-}
-
-/// True when a training admission header is one of the two records the Rust worker serves:
-///
-/// * the objective-only record (schema 2): exactly the keys `schema`, `expected_objective` (the summed-margin objective)
-///   and `expected_diagnostics_policy` (null or the TRAIN diagnostics policy);
-/// * the backtracking record (schema 1): exactly the keys `schema`, `expected_objective` (legacy, class-balanced or
-///   summed-margin), `expected_diagnostics_policy` (the TRAIN diagnostics policy), `expected_backtracking_policy` and
-///   `expected_backtracking_preparation_sha256` (64 lower-case hexadecimal digits);
-/// * the window record (schema 5): exactly the nine keys `schema`, `expected_objective` (summed-margin), a null
-///   `expected_diagnostics_policy`, `expected_optimizer` (the window policy), `expected_candidate_eligibility`,
-///   `expected_optimizer_config`, `expected_training_scope` (`full_encoder`) and the two manifest pins (64 lower-case
-///   hexadecimal digits each). The worker checks the eligibility and configuration texts and the pins against its own
-///   configuration, and declines to Python when it has none.
-///
-/// * the retention record (schema 4): exactly the eight keys `schema`, `expected_objective` and `expected_optimizer` (a
-///   retention policy and its own objective), a null `expected_diagnostics_policy`, `expected_candidate_eligibility`,
-///   `expected_optimizer_config`, `expected_training_scope` (`full_encoder`) and `expected_retention_manifest_sha256`
-///   (64 lower-case hexadecimal digits). The worker checks the eligibility and configuration texts and the pin against
-///   its own configuration, and declines to Python when it has none.
-///
-/// Every other header (FULL Adam, or anything malformed) is Python's to read.
-pub fn admission_is_served(header: &str) -> bool {
-    if header.len() > MAX_ADMISSION_BYTES {
-        return false;
-    }
-    let Ok(serde_json::Value::Object(record)) = serde_json::from_str::<serde_json::Value>(header) else { return false };
-    let text = |key: &str| record.get(key).and_then(serde_json::Value::as_str);
-    let diagnostics = record.get("expected_diagnostics_policy");
-    match record.get("schema").and_then(serde_json::Value::as_i64) {
-        Some(2) => {
-            record.len() == 3
-                && text("expected_objective") == Some(SUM_MARGIN_OBJECTIVE)
-                && diagnostics.is_some_and(|value| value.is_null() || value.as_str() == Some(DIAGNOSTICS_POLICY))
-        }
-        Some(1) => {
-            record.len() == 5
-                && text("expected_objective").is_some_and(|objective| BACKTRACKING_OBJECTIVES.contains(&objective))
-                && diagnostics.and_then(serde_json::Value::as_str) == Some(DIAGNOSTICS_POLICY)
-                && text("expected_backtracking_policy") == Some(BACKTRACKING_POLICY)
-                && text("expected_backtracking_preparation_sha256").is_some_and(is_sha256)
-        }
-        Some(4) => {
-            record.len() == 8
-                && diagnostics.is_some_and(serde_json::Value::is_null)
-                && RETENTION_POLICIES.iter().any(|(policy, objective)| {
-                    text("expected_optimizer") == Some(*policy) && text("expected_objective") == Some(*objective)
-                })
-                && text("expected_candidate_eligibility").is_some()
-                && text("expected_optimizer_config").is_some()
-                && text("expected_training_scope") == Some("full_encoder")
-                && text("expected_retention_manifest_sha256").is_some_and(is_sha256)
-        }
-        Some(5) => {
-            record.len() == 9
-                && text("expected_objective") == Some(SUM_MARGIN_OBJECTIVE)
-                && diagnostics.is_some_and(serde_json::Value::is_null)
-                && text("expected_optimizer") == Some(WINDOW_POLICY)
-                && text("expected_candidate_eligibility").is_some()
-                && text("expected_optimizer_config").is_some()
-                && text("expected_training_scope") == Some("full_encoder")
-                && text("expected_window_manifest_sha256").is_some_and(is_sha256)
-                && text("expected_component_manifest_sha256").is_some_and(is_sha256)
-        }
-        _ => false,
-    }
-}
-
-/// The engine for a gradient RPC. `admission` is the value of the `x-privoke-training-admission-v1` header, when the
-/// request carries one. `ComputePresenceGradients` has no header; the other two go to Rust with no header, the
-/// objective-only one (schema 2), the backtracking one (schema 1) or the window one (schema 5), and to Python with any
-/// other (FULL Adam, retention, malformed).
-pub fn route_gradients(rust: Option<Capabilities>, rpc: Rpc, admission: Option<&str>) -> Engine {
-    let to_rust = match rpc {
-        Rpc::ComputePresenceGradients => true,
-        Rpc::ComputeSemanticGradients | Rpc::ComputeUnderlyingModelGradients => admission.is_none_or(admission_is_served),
-        Rpc::AnalyzePrompt | Rpc::DetectAnnotationPresence | Rpc::Health => false,
-    };
-    if to_rust { route(rust, rpc, &[]) } else { Engine::Python }
-}
-
-/// The `ERROR` frame code a Rust worker sends for a request it declines **before executing anything**.
-pub const UNSUPPORTED_ROUTE: &str = "UNSUPPORTED_ROUTE";
-/// The same refusal for a layer selection (`AnalyzePrompt`).
+/// The `ERROR` frame code a Rust worker sends for a layer selection it declines **before executing anything**.
 pub const UNSUPPORTED_LAYERS: &str = "UNSUPPORTED_LAYERS";
 
-/// True for the error codes of a call that was refused before it ran, which may be sent to the other engine.
+/// True for the error codes of a call that was refused before it ran, which may be sent to the other engine. Only a layer
+/// selection is refused this way: there is no gradient refusal, because the gradient RPCs are not routed (stage V3-R8a).
 pub fn is_refusal(code: &str) -> bool {
-    code == UNSUPPORTED_ROUTE || code == UNSUPPORTED_LAYERS
+    code == UNSUPPORTED_LAYERS
 }
 
 /// A failed attempt on one engine.
@@ -297,7 +184,6 @@ pub fn route(rust: Option<Capabilities>, rpc: Rpc, layers: &[i32]) -> Engine {
         Rpc::Health => true,
         Rpc::AnalyzePrompt => serves(capabilities, layers),
         Rpc::DetectAnnotationPresence => capabilities.presence && layers == [SEMANTIC],
-        Rpc::ComputeSemanticGradients | Rpc::ComputeUnderlyingModelGradients | Rpc::ComputePresenceGradients => capabilities.gradients,
     };
     if to_rust { Engine::Rust } else { Engine::Python }
 }
@@ -334,7 +220,10 @@ mod tests {
     #[test]
     fn paths_name_the_service_methods() {
         assert_eq!(Rpc::from_path("/privoke.v1.PrivokeRuntimeService/AnalyzePrompt"), Some(Rpc::AnalyzePrompt));
-        assert_eq!(Rpc::from_path("/privoke.v1.PrivokeRuntimeService/ComputePresenceGradients"), Some(Rpc::ComputePresenceGradients));
+        // The gradient RPCs are not routed at all (stage V3-R8a): they have no variant and no engine.
+        for removed in ["ComputeSemanticGradients", "ComputeUnderlyingModelGradients", "ComputePresenceGradients"] {
+            assert_eq!(Rpc::from_path(&format!("/privoke.v1.PrivokeRuntimeService/{removed}")), None, "{removed}");
+        }
         assert_eq!(Rpc::from_path("/privoke.v1.PrivokeRuntimeControlService/Status"), None);
         assert_eq!(Rpc::from_path("/privoke.v1.PrivokeRuntimeService/Nope"), None);
         assert_eq!(Rpc::from_path("privoke.v1.PrivokeRuntimeService/Health"), None);
@@ -342,7 +231,7 @@ mod tests {
 
     #[test]
     fn without_a_rust_worker_everything_is_python() {
-        for rpc in [Rpc::AnalyzePrompt, Rpc::Health, Rpc::ComputeSemanticGradients] {
+        for rpc in [Rpc::AnalyzePrompt, Rpc::Health, Rpc::DetectAnnotationPresence] {
             assert_eq!(route(None, rpc, &[REGEX]), Engine::Python);
         }
     }
@@ -424,156 +313,16 @@ mod tests {
         assert_eq!(route_presence(None, &request("privoke-presence-balanced", vec![SEMANTIC])), Engine::Python);
     }
 
-    const OBJECTIVE_ONLY: &str = "{\"schema\": 2, \"expected_objective\": \"class_balanced_contextual_sum_category_decision_margin_v1\", \"expected_diagnostics_policy\": null}";
-    const WITH_DIAGNOSTICS: &str = "{\"schema\": 2, \"expected_objective\": \"class_balanced_contextual_sum_category_decision_margin_v1\", \"expected_diagnostics_policy\": \"train_before_candidate_v1\"}";
-    const SHA: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-
-    fn backtracking(objective: &str, sha: &str) -> String {
-        format!(
-            "{{\"schema\": 1, \"expected_objective\": \"{objective}\", \"expected_diagnostics_policy\": \"train_before_candidate_v1\", \"expected_backtracking_policy\": \"full_train_backtracking_v1\", \"expected_backtracking_preparation_sha256\": \"{sha}\"}}"
-        )
-    }
-
     #[test]
-    fn gradient_requests_are_routed_by_their_admission_header() {
-        let rust = Some(Capabilities::RUST.with_semantic());
-        let semantic = [Rpc::ComputeSemanticGradients, Rpc::ComputeUnderlyingModelGradients];
-        for rpc in semantic {
-            // No header, the objective-only header with or without the diagnostics policy, and the backtracking header
-            // of each served objective: the Rust worker.
-            assert_eq!(route_gradients(rust, rpc, None), Engine::Rust);
-            assert_eq!(route_gradients(rust, rpc, Some(OBJECTIVE_ONLY)), Engine::Rust);
-            assert_eq!(route_gradients(rust, rpc, Some(WITH_DIAGNOSTICS)), Engine::Rust);
-            for objective in ["legacy_sum_category", "class_balanced_contextual_v1", SUM_MARGIN_OBJECTIVE] {
-                assert_eq!(route_gradients(rust, rpc, Some(&backtracking(objective, SHA))), Engine::Rust, "{objective}");
-            }
-            // FULL Adam (3), retention (4), window (5), other objectives, a malformed backtracking record and garbage.
-            for header in [
-                backtracking("x", SHA),
-                backtracking("class_balanced_contextual_mean_category_v1", SHA),
-                backtracking("legacy_sum_category", "00"),
-                backtracking("legacy_sum_category", &SHA.to_uppercase()),
-                backtracking("legacy_sum_category", SHA).replace("full_train_backtracking_v1", "other_v1"),
-                backtracking("legacy_sum_category", SHA).replace("\"train_before_candidate_v1\"", "null"),
-                backtracking("legacy_sum_category", SHA).replace(", \"expected_backtracking_policy\": \"full_train_backtracking_v1\"", ""),
-                "{\"schema\": 3, \"expected_optimizer\": \"full_projected_adam64_v1\"}".to_string(),
-                "{\"schema\": 4}".to_string(),
-                "{\"schema\": 5}".to_string(),
-                "{\"schema\": 2, \"expected_objective\": \"class_balanced_contextual_v1\", \"expected_diagnostics_policy\": null}"
-                    .to_string(),
-                WITH_DIAGNOSTICS.replace("train_before_candidate_v1", "another_policy_v1"),
-                OBJECTIVE_ONLY.replace("\"schema\": 2", "\"schema\": 1"),
-                "not json".to_string(),
-                "[]".to_string(),
-                String::new(),
-            ] {
-                assert_eq!(route_gradients(rust, rpc, Some(&header)), Engine::Python, "{header}");
-            }
-            assert_eq!(route_gradients(None, rpc, None), Engine::Python);
-            assert_eq!(route_gradients(Some(Capabilities::RUST.without_models()), rpc, None), Engine::Python);
-            assert_eq!(route_gradients(Some(Capabilities::RUST.without_models()), rpc, Some(OBJECTIVE_ONLY)), Engine::Python);
-            assert_eq!(route_gradients(None, rpc, Some(&backtracking("legacy_sum_category", SHA))), Engine::Python);
-        }
-        // Presence gradients read no header.
-        assert_eq!(route_gradients(rust, Rpc::ComputePresenceGradients, None), Engine::Rust);
-        assert_eq!(route_gradients(rust, Rpc::ComputePresenceGradients, Some("{\"schema\": 3}")), Engine::Rust);
-        assert_eq!(route_gradients(Some(Capabilities::RUST.without_models()), Rpc::ComputePresenceGradients, None), Engine::Python);
-        // Other methods are not gradient requests.
-        assert_eq!(route_gradients(rust, Rpc::AnalyzePrompt, None), Engine::Python);
-    }
-
-    fn window_header(replace: &[(&str, &str)]) -> String {
-        let mut header = format!(
-            "{{\"schema\": 5, \"expected_objective\": \"{SUM_MARGIN_OBJECTIVE}\", \"expected_diagnostics_policy\": null, \"expected_optimizer\": \"{WINDOW_POLICY}\", \"expected_candidate_eligibility\": \"candidate_window_exact_component_retention_v1\", \"expected_optimizer_config\": \"{{}}\", \"expected_training_scope\": \"full_encoder\", \"expected_window_manifest_sha256\": \"{SHA}\", \"expected_component_manifest_sha256\": \"{SHA}\"}}"
-        );
-        for (from, to) in replace {
-            header = header.replace(from, to);
-        }
-        header
-    }
-
-    #[test]
-    fn a_window_header_goes_to_rust_and_a_malformed_one_does_not() {
-        let rust = Some(Capabilities::RUST.with_semantic());
-        for rpc in [Rpc::ComputeSemanticGradients, Rpc::ComputeUnderlyingModelGradients] {
-            assert_eq!(route_gradients(rust, rpc, Some(&window_header(&[]))), Engine::Rust);
-            for broken in [
-                window_header(&[("full_encoder", "heads")]),
-                window_header(&[(WINDOW_POLICY, "full_projected_adam64_v1")]),
-                window_header(&[(SHA, "00")]),
-                window_header(&[("null", "\"train_before_candidate_v1\"")]),
-                window_header(&[(SUM_MARGIN_OBJECTIVE, "class_balanced_contextual_v1")]),
-                window_header(&[("\"expected_training_scope\": \"full_encoder\", ", "")]),
-                "{\"schema\": 5}".to_string(),
-            ] {
-                assert_eq!(route_gradients(rust, rpc, Some(&broken)), Engine::Python, "{broken}");
-            }
-            assert_eq!(route_gradients(Some(Capabilities::RUST.without_models()), rpc, Some(&window_header(&[]))), Engine::Python);
-            assert_eq!(route_gradients(None, rpc, Some(&window_header(&[]))), Engine::Python);
-        }
-    }
-
-    const GATE: &str = "full_projected_adam64_original_train_gate_v1";
-    const GATE_OBJECTIVE: &str = "class_balanced_contextual_sum_margin_original_gate_v1";
-
-    fn retention_header(replace: &[(&str, &str)]) -> String {
-        let mut header = format!(
-            "{{\"schema\": 4, \"expected_objective\": \"{GATE_OBJECTIVE}\", \"expected_diagnostics_policy\": null, \"expected_optimizer\": \"{GATE}\", \"expected_candidate_eligibility\": \"candidate_train_exact_original_target_capped_v1\", \"expected_optimizer_config\": \"{{}}\", \"expected_training_scope\": \"full_encoder\", \"expected_retention_manifest_sha256\": \"{SHA}\"}}"
-        );
-        for (from, to) in replace {
-            header = header.replace(from, to);
-        }
-        header
-    }
-
-    #[test]
-    fn a_retention_header_goes_to_rust_and_a_malformed_one_does_not() {
-        let rust = Some(Capabilities::RUST.with_semantic());
-        let hinge = "full_projected_adam64_original_train_hinge_v1";
-        let hinge_objective = "class_balanced_contextual_sum_margin_original_hinge_v1";
-        for rpc in [Rpc::ComputeSemanticGradients, Rpc::ComputeUnderlyingModelGradients] {
-            assert_eq!(route_gradients(rust, rpc, Some(&retention_header(&[]))), Engine::Rust);
-            assert_eq!(
-                route_gradients(rust, rpc, Some(&retention_header(&[(GATE_OBJECTIVE, hinge_objective), (GATE, hinge)]))),
-                Engine::Rust
-            );
-            for broken in [
-                retention_header(&[(GATE, hinge)]),
-                retention_header(&[(GATE_OBJECTIVE, "class_balanced_contextual_v1")]),
-                retention_header(&[("full_encoder", "heads")]),
-                retention_header(&[(SHA, "00")]),
-                retention_header(&[("null", "\"train_before_candidate_v1\"")]),
-                retention_header(&[(GATE, "full_projected_adam64_v1")]),
-                retention_header(&[("\"expected_training_scope\": \"full_encoder\", ", "")]),
-                "{\"schema\": 4}".to_string(),
-            ] {
-                assert_eq!(route_gradients(rust, rpc, Some(&broken)), Engine::Python, "{broken}");
-            }
-            assert_eq!(route_gradients(None, rpc, Some(&retention_header(&[]))), Engine::Python);
-            assert_eq!(route_gradients(Some(Capabilities::RUST.without_models()), rpc, Some(&retention_header(&[]))), Engine::Python);
-        }
-    }
-
-    #[test]
-    fn an_oversized_admission_header_is_pythons() {
-        let padded = OBJECTIVE_ONLY.replace('}', &format!(", \"pad\": \"{}\"}}", "x".repeat(2_100)));
-        assert!(padded.len() > MAX_ADMISSION_BYTES);
-        assert!(!admission_is_served(&padded));
-    }
-
-    #[test]
-    fn the_rust_worker_claims_presence_and_gradients_and_nothing_else_changed() {
+    fn the_rust_worker_claims_presence_and_no_gradient_rpc() {
         let claimed = Capabilities::RUST;
-        assert_eq!((claimed.presence, claimed.gradients, claimed.semantic), (true, true, false));
+        assert_eq!((claimed.presence, claimed.semantic), (true, false));
         let without = Capabilities::RUST.without_models();
-        assert_eq!((without.regex, without.ner, without.semantic, without.presence, without.gradients), (true, true, false, false, false));
+        assert_eq!((without.regex, without.ner, without.semantic, without.presence), (true, true, false, false));
         let rust = Some(Capabilities::RUST);
         assert_eq!(route(rust, Rpc::Health, &[]), Engine::Rust);
         assert_eq!(route(rust, Rpc::DetectAnnotationPresence, &[SEMANTIC]), Engine::Rust);
         assert_eq!(route(rust, Rpc::DetectAnnotationPresence, &[]), Engine::Python);
-        for rpc in [Rpc::ComputeSemanticGradients, Rpc::ComputeUnderlyingModelGradients, Rpc::ComputePresenceGradients] {
-            assert_eq!(route(rust, rpc, &[SEMANTIC]), Engine::Rust);
-        }
         assert_eq!(route(rust, Rpc::AnalyzePrompt, &[SEMANTIC]), Engine::Python);
     }
 
@@ -614,7 +363,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_refused_call_runs_once_on_python_and_never_twice() {
-        let workers = Workers::new(Err(Attempt::Refused(UNSUPPORTED_ROUTE)));
+        let workers = Workers::new(Err(Attempt::Refused(UNSUPPORTED_LAYERS)));
         assert_eq!(call_routed(Engine::Rust, |engine| workers.call(engine)).await, Ok("python"));
         assert_eq!(workers.runs(), (0, 1));
     }
@@ -638,8 +387,9 @@ mod tests {
 
     #[test]
     fn only_a_refusal_code_may_be_sent_to_the_other_engine() {
-        assert!(is_refusal("UNSUPPORTED_ROUTE") && is_refusal("UNSUPPORTED_LAYERS"));
-        for code in ["INTERNAL", "DEADLINE_EXCEEDED", "INVALID_LAYERS", "RESPONSE_TOO_LARGE", ""] {
+        assert!(is_refusal("UNSUPPORTED_LAYERS"));
+        // `UNSUPPORTED_ROUTE` was the gradient refusal that fell back to Python; it is final now (stage V3-R8a).
+        for code in ["UNSUPPORTED_ROUTE", "INTERNAL", "DEADLINE_EXCEEDED", "INVALID_LAYERS", "RESPONSE_TOO_LARGE", ""] {
             assert!(!is_refusal(code), "{code}");
         }
     }

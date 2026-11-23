@@ -263,7 +263,6 @@ class AccessTests(unittest.TestCase):
             with self.subTest(label):
                 stub = self.stub(identity)
                 for call in (lambda: stub.AnalyzePrompt(semantic_request(), timeout=30),
-                             lambda: stub.ComputeSemanticGradients(runtime_pb2.ComputeSemanticGradientsRequest(model_id="privoke-balanced", layers=SEMANTIC), timeout=30),
                              lambda: stub.DetectAnnotationPresence(runtime_pb2.DetectAnnotationPresenceRequest(text="x", layers=SEMANTIC), timeout=30)):
                     self.assertEqual(self.code(call), grpc.StatusCode.PERMISSION_DENIED)
 
@@ -295,9 +294,10 @@ class SemanticOnlyTests(unittest.TestCase):
             with self.subTest(layers=layers), self.assertRaises(grpc.RpcError) as caught:
                 stub.AnalyzePrompt(runtime_pb2.AnalyzePromptRequest(text="Email bob@example.com", layers=layers, semantic_model_id="privoke-balanced"), timeout=30)
             self.assertEqual(caught.exception.code(), grpc.StatusCode.INVALID_ARGUMENT)
+        # The gradient RPCs are removed (stage V3-R8a): UNIMPLEMENTED whatever the layers, so no layer rule applies to them.
         with self.assertRaises(grpc.RpcError) as caught:
             stub.ComputeUnderlyingModelGradients(runtime_pb2.ComputeSemanticGradientsRequest(model_id="privoke-balanced", layers=[runtime_pb2.DETECTION_LAYER_REGEX]), timeout=30)
-        self.assertEqual(caught.exception.code(), grpc.StatusCode.INVALID_ARGUMENT)
+        self.assertEqual(caught.exception.code(), grpc.StatusCode.UNIMPLEMENTED)
 
     def test_the_fuzzers_own_runtime_client_assertion_holds_through_the_service(self):
         from runtime_client import PrivokeRuntimeClient, RuntimeAnalysisError
@@ -364,7 +364,7 @@ def strip_wall_clock(data: bytes, elapsed_field: int, metadata_field: int | None
 
 
 class ParityTests(unittest.TestCase):
-    """Analysis and gradients through the service against the recorded W1 pipe responses and against themselves."""
+    """Analysis through the service against the recorded W1 pipe responses, and the removed gradient RPCs."""
 
     def raw(self, path: str, payload: bytes, metadata=()):
         method = analysis_channel().unary_unary(path, request_serializer=lambda value: value, response_deserializer=lambda value: value)
@@ -387,31 +387,16 @@ class ParityTests(unittest.TestCase):
         self.assertGreaterEqual(compared, 20)
         print(f"\n{compared} recorded W1 semantic-only responses reproduced through the container", flush=True)
 
-    def test_gradients_are_deterministic_and_finite_through_the_service(self):
-        # The recorded gradient digests need the W1 training models; the Rust test replays them. Here the tracked
-        # privoke-balanced model serves the same RPCs in the hosted container: two identical calls must agree byte for
-        # byte, so a worker that holds state between calls would show here.
-        from privoke_contracts.classification import Category, Sensitivity, Visibility, initialise_unpacked
-
-        clean = initialise_unpacked(Sensitivity.S0, Visibility.PU, []).pack()
-        private = initialise_unpacked(Sensitivity.S3, Visibility.P4, [Category.HEALTH]).pack()
-        examples = [runtime_pb2.RuntimeTrainingExample(text=text, has_target=True, weight=1.0,
-                                                       target=runtime_pb2.RuntimeClassification(packed=packed))
-                    for text, packed in (("Synthetic public weather", clean), ("My private diagnosis is cancer", private))]
-        heldout = [runtime_pb2.RuntimeTrainingExample(text=text, has_target=True, weight=1.0,
-                                                      target=runtime_pb2.RuntimeClassification(packed=packed))
-                   for text, packed in (("Anonymous public forecast", clean), ("My doctor prescribed medication", private))]
-        request = runtime_pb2.ComputeSemanticGradientsRequest(
-            request_id="w3-grad", model_id="privoke-balanced", examples=examples, heldout_examples=heldout,
-            learning_rate=0.003, max_gradient=0.0001, layers=SEMANTIC).SerializeToString()
-        first = self.raw("/privoke.v1.PrivokeRuntimeService/ComputeSemanticGradients", request)
-        second = self.raw("/privoke.v1.PrivokeRuntimeService/ComputeSemanticGradients", request)
-        self.assertEqual(first, second)
-        response = runtime_pb2.ComputeSemanticGradientsResponse.FromString(first)
-        self.assertEqual(response.error, "")
-        self.assertTrue(response.gradients)
-        self.assertTrue(all(abs(value) < 1e6 and value == value for item in response.gradients for value in item.values))
-        self.assertEqual([item.layer for item in response.executions], [runtime_pb2.DETECTION_LAYER_SEMANTIC] * len(response.executions))
+    def test_the_gradient_rpcs_are_unimplemented_through_the_service(self):
+        # V1 models are served for detection but no longer trained (stage V3-R8a): all three gradient RPCs are UNIMPLEMENTED
+        # at the public surface, for an authorised caller and for any layers, and the Python worker is never asked.
+        for method, message in (("ComputeSemanticGradients", runtime_pb2.ComputeSemanticGradientsRequest),
+                                ("ComputeUnderlyingModelGradients", runtime_pb2.ComputeSemanticGradientsRequest),
+                                ("ComputePresenceGradients", runtime_pb2.ComputePresenceGradientsRequest)):
+            with self.subTest(method=method), self.assertRaises(grpc.RpcError) as caught:
+                self.raw(f"/privoke.v1.PrivokeRuntimeService/{method}",
+                         message(request_id="w3-grad", model_id="privoke-balanced", layers=SEMANTIC).SerializeToString())
+            self.assertEqual(caught.exception.code(), grpc.StatusCode.UNIMPLEMENTED)
 
 
 class TrainingCycleTests(unittest.TestCase):

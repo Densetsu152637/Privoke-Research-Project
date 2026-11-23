@@ -1,6 +1,9 @@
-//! The gradient RPCs in the worker: `ComputeSemanticGradients`, `ComputeUnderlyingModelGradients` and
-//! `ComputePresenceGradients` (`hosting/grpc_server.py`, `LLM/privoke/training.py`, `LLM/privoke/presence_training.py`) over
-//! the stage 19 computations of `privoke-training`.
+//! The gradient RPCs in the worker: `ComputeSemanticGradients` and `ComputeUnderlyingModelGradients`
+//! (`hosting/grpc_server.py`, `LLM/privoke/training.py`) over the stage 19 computations of `privoke-training`.
+//!
+//! Stage V3-R8a: nothing routes here any more (the supervisor and the analysis service answer the gradient RPCs
+//! `UNIMPLEMENTED`), and `ComputePresenceGradients` is refused outright (presence training is retired, decision U4). The
+//! semantic computations stay compiling until stage V3-R8b deletes them.
 //!
 //! The worker serves exactly the shapes stage 19 ported and verified against Python:
 //!
@@ -11,8 +14,7 @@
 //!   header, the objective-only header (schema 2, with or without the diagnostics policy) or the backtracking header
 //!   (schema 1);
 //! * the policy and admission checks of FULL Adam, window and ORIGINAL-retention artifacts: a request that lacks the
-//!   matching header gets Python's refusal, as a response;
-//! * sparse presence gradients.
+//!   matching header gets Python's refusal, as a response.
 //!
 //! Anything else is answered `UNSUPPORTED_ROUTE` **before any model is read or any gradient is computed**, so nothing has
 //! run and the controller sends the same request to the Python worker (never twice): a header of another schema (FULL
@@ -21,7 +23,7 @@
 //! fit itself stays on the Python worker: its audit trace hashes the float64 gradient bytes, which match Python's only
 //! when the gradients are bitwise equal.
 //!
-//! The response metadata is Python's (`_compute_training_gradients`, `compute_presence_gradients`); the model cache key
+//! The response metadata is Python's (`_compute_training_gradients`); the model cache key
 //! hashes the same contract fields and the fingerprints are the stage 1 contract over the same float32 values.
 
 use std::collections::BTreeMap;
@@ -32,7 +34,7 @@ use privoke_contracts::canonical::{self, Variant};
 use privoke_contracts::digest::sha256_hex;
 use privoke_contracts::fingerprint::parameter_fingerprint;
 use privoke_contracts::json::{Duplicates, ParseOptions, Value as StrictValue, parse_with};
-use privoke_contracts::proto::v1::{ComputePresenceGradientsRequest, ComputeSemanticGradientsRequest, RuntimeTrainingExample};
+use privoke_contracts::proto::v1::{ComputeSemanticGradientsRequest, RuntimeTrainingExample};
 use privoke_contracts::pyfloat;
 use privoke_rules::preprocessing::normalize_text;
 use privoke_rules::pyunicode;
@@ -42,14 +44,12 @@ use privoke_training::admission::{
     WINDOW_ELIGIBILITY, admit, policy_admission,
 };
 use privoke_training::objective::{Example, Target};
-use privoke_training::presence::{PresenceExample, PresenceRequest, PresenceSnapshot, compute_presence_gradients};
 use privoke_training::retention::{self, Release as RetentionRelease};
 use privoke_training::rpc::{self, Request as GradientRequest, Snapshot, compute_gradients};
 use privoke_training::window::{self, Release, Row, Window, compute_directions};
 
 use crate::frames::{FrameError, Method, Request, code};
 use crate::model::{category_names, visibility_name};
-use crate::presence::{build_presence, validate_presence_model_id};
 use crate::request::py_strip;
 use crate::semantic::PRETRAINED_CONTEXT_MODEL_ID;
 use crate::service::{decode, empty_layers};
@@ -82,8 +82,6 @@ const MAX_TRAINING_EXAMPLES: usize = 1_024;
 const MAX_TRAINING_TEXT_CHARS: usize = 200_000;
 const MAX_ADMISSION_BYTES: usize = 2_048;
 const SEMANTIC_LAYER: i32 = 4;
-const ABSENT: i32 = 1;
-const PRESENT: i32 = 2;
 
 /// Why a gradient request did not produce a response.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -221,7 +219,14 @@ impl Trainer {
         let outcome = match request.method {
             Method::ComputeSemanticGradients => self.semantic(request, false),
             Method::ComputeUnderlyingModelGradients => self.semantic(request, true),
-            Method::ComputePresenceGradients => self.presence(request),
+            // V1 presence training is retired (decision U4, stage V3-R8a): nothing routes here, and a direct frame is refused.
+            Method::ComputePresenceGradients => {
+                return Err(FrameError::new(
+                    code::UNKNOWN_METHOD,
+                    "ComputePresenceGradients was removed: presence training is retired.",
+                    request.request_id,
+                ));
+            }
             other => {
                 return Err(FrameError::new(
                     code::UNKNOWN_METHOD,
@@ -249,14 +254,6 @@ impl Trainer {
         }
         self.semantic_response(&message, &request.metadata, full_encoder)
             .map_err(|failure| Outcome::Failed { request_id: message.request_id.clone(), failure })
-    }
-
-    fn presence(&self, request: &Request) -> Result<Vec<u8>, Outcome> {
-        let message = decode::<ComputePresenceGradientsRequest>(request, "ComputePresenceGradientsRequest").map_err(Outcome::Frame)?;
-        if message.layers.is_empty() {
-            return Err(Outcome::Frame(empty_layers(request)));
-        }
-        self.presence_response(&message).map_err(|failure| Outcome::Failed { request_id: message.request_id.clone(), failure })
     }
 
     /// The request-level checks of `grpc_server._compute_training_gradients`, in Python's order.
@@ -528,75 +525,6 @@ impl Trainer {
             metrics: &outcome.metrics,
             metadata: &metadata,
             executions: &executions,
-            error: "",
-        }))
-    }
-
-    fn presence_response(&self, request: &ComputePresenceGradientsRequest) -> Result<Vec<u8>, Failure> {
-        if request.layers.as_slice() != [SEMANTIC_LAYER] {
-            return Err(message("Presence training requires explicit semantic-only layers."));
-        }
-        if request.heldout_examples.is_empty() {
-            return Err(message("Presence training requires nonempty heldout examples."));
-        }
-        validate_presence_model_id(&request.model_id).map_err(Failure::Message)?;
-        if py_strip(&request.request_id).is_empty() {
-            return Err(message("request_id is required."));
-        }
-        if request.examples.is_empty() {
-            return Err(message("At least one training example is required."));
-        }
-        self.check_batch(
-            request.examples.iter().map(|item| item.text.as_str()).chain(request.heldout_examples.iter().map(|item| item.text.as_str())),
-        )?;
-        let mut converted = Vec::new();
-        for item in request.examples.iter().chain(request.heldout_examples.iter()) {
-            let target = match item.target {
-                PRESENT => true,
-                ABSENT => false,
-                _ => return Err(message("Presence targets must be explicitly PRESENT or ABSENT.")),
-            };
-            converted.push(PresenceExample { text: item.text.clone(), target, weight: item.weight, group_id: item.group_id.clone() });
-        }
-        let heldout = converted.split_off(request.examples.len());
-        let artifact = self.store.read(&request.model_id)?;
-        if artifact.architecture != PRESENCE_ARCHITECTURE {
-            return Err(message("Streamed model is not an annotation-presence artifact."));
-        }
-        build_presence(&artifact).map_err(Failure::Message)?;
-        let snapshot = PresenceSnapshot { artifact: artifact.value.clone(), version: artifact.version.clone() };
-        let computation =
-            PresenceRequest { examples: converted, heldout, learning_rate: request.learning_rate, max_gradient: request.max_gradient };
-        let batch = compute_presence_gradients(&snapshot, &computation).map_err(|error| message(error.to_string()))?;
-        let mut metadata = batch.metadata.clone();
-        let strings = [
-            ("strategy", "sparse_annotation_presence_head_finetune".to_string()),
-            ("task", "annotation_presence".to_string()),
-            ("architecture", PRESENCE_ARCHITECTURE.to_string()),
-            ("artifact_checksum", artifact.checksum.clone()),
-            ("learning_rate", float_text(request.learning_rate)?),
-            ("max_gradient", float_text(request.max_gradient)?),
-            ("model_cache_key", cache_key(&artifact)?),
-            ("text_preprocessing", "training_text_key_v1".to_string()),
-            ("publication_arithmetic", "float32_parameters_float64_features_fsum_v1".to_string()),
-        ];
-        metadata.extend(strings.into_iter().map(|(key, value)| (key.to_string(), value)));
-        for key in ["source_revision", "protocol_sha256", "prepared_manifest_sha256", "train_sha256", "validation_sha256"] {
-            if let Some(value) = artifact.metadata.get(key) {
-                metadata.insert(key.to_string(), value.clone());
-            }
-        }
-        let shapes: BTreeMap<String, Vec<u64>> =
-            batch.gradients.keys().filter_map(|name| artifact.shapes.get(name).map(|shape| (name.clone(), shape.clone()))).collect();
-        Ok(gradient_response(&Parts {
-            request_id: &request.request_id,
-            model_id: &artifact.model_id,
-            version: &artifact.version,
-            gradients: &batch.gradients,
-            shapes: &shapes,
-            metrics: &batch.metrics,
-            metadata: &metadata,
-            executions: &batch.executions,
             error: "",
         }))
     }
