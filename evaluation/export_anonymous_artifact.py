@@ -18,6 +18,7 @@ import argparse
 import fnmatch
 import hashlib
 import json
+import os
 import re
 import shutil
 import io
@@ -31,6 +32,13 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PATTERNS = "paper/scripts/anonymity-patterns.txt"
 MANIFEST_NAME = "ARTIFACT-MANIFEST.json"
 MANIFEST_VERSION = 1
+HASH_NOTE = (
+    "File, commit and artifact hashes quoted inside research records refer to the source "
+    "commit. Files listed under redactions.per_file were rewritten only to remove identity "
+    "strings (names, handles, user-home and checkout paths, module and project names), so "
+    "their bytes, and hashes computed over them, differ from the source; unlisted files keep "
+    "the source commit's archived bytes."
+)
 
 # Declared exclusions: build outputs, pre-anonymization submissions, third-party source
 # PDFs (large, not needed to run the code) and the tooling that must name the identity
@@ -56,6 +64,8 @@ PLACEHOLDER_USER = "<user>"
 # or digit, so regular expressions such as "/Users/(?i)[a-z]+" in rule files stay intact
 # and the "<user>" placeholder never matches again.
 USER_SEGMENT = r"[A-Za-z0-9][A-Za-z0-9._-]*"
+# A drive letter that is not the tail of a word, so the "s:" of "https://" never starts a path.
+DRIVE_LETTER = r"(?<![A-Za-z0-9])[A-Za-z]:"
 # Local checkout paths up to and including the repository folder (and worktree folders
 # named after it, e.g. "...-wt-a-stats") become "<repo>"; the rest of the path is kept.
 # Drive-letter paths may contain spaces ("Git Repositories") and use \, \\ (JSON-escaped)
@@ -71,13 +81,16 @@ ANONYMOUS_PROJECT_NAME = "privoke-artifact"
 
 # Ordered rewrite rules (pattern, replacement). Longer, more specific forms come first.
 REWRITE_RULES = [
-    (r"([A-Za-z]:(?:\\|/)+Users(?:\\|/)+)" + USER_SEGMENT, r"\g<1>" + PLACEHOLDER_USER),
-    (r"(?<![A-Za-z0-9_.\-])(/Users/)" + USER_SEGMENT, r"\g<1>" + PLACEHOLDER_USER),
+    (r"(" + DRIVE_LETTER + r"(?:\\|/)+Users(?:\\|/)+)" + USER_SEGMENT, r"\g<1>" + PLACEHOLDER_USER),
+    # Git Bash and WSL forms of a Windows home: /c/Users/NAME and /mnt/c/Users/NAME.
+    (r"(?<![A-Za-z0-9_.\-])((?:/mnt)?/[A-Za-z](?-i:/Users/))" + USER_SEGMENT, r"\g<1>" + PLACEHOLDER_USER),
+    # Case-sensitive: a macOS home is "/Users/NAME"; web routes such as "/users/me" stay.
+    (r"(?<![A-Za-z0-9_.\-])((?-i:/Users/))" + USER_SEGMENT, r"\g<1>" + PLACEHOLDER_USER),
     (r"\[git4san\]\(https?://github\.com/git4san\)", "the supervising professor"),
     (r"https?://github\.com/git4san" + URL_TAIL, "https://anonymous.invalid/supervisor"),
     (r"https?://(?:www\.)?github\.com/Densetsu152637" + URL_TAIL, PLACEHOLDER_URL),
     (r"https?://(?:www\.)?huggingface\.co/Densetsu152637" + URL_TAIL, PLACEHOLDER_URL),
-    (r"[A-Za-z]:(?:(?:\\|/)+" + WINDOWS_SEGMENT + r")*?(?:\\|/)+" + REPO_FOLDER, PLACEHOLDER_REPO),
+    (DRIVE_LETTER + r"(?:(?:\\|/)+" + WINDOWS_SEGMENT + r")*?(?:\\|/)+" + REPO_FOLDER, PLACEHOLDER_REPO),
     (r"(?<![A-Za-z0-9_.~/-])(?:~|\.{1,2})?(?:/[A-Za-z0-9_.-]+)*/" + REPO_FOLDER, PLACEHOLDER_REPO),
     (r"github\.com/privoke/research-project", ANONYMOUS_GO_MODULE),
     (r"Privoke-Research-Project", ANONYMOUS_PROJECT_NAME),
@@ -262,7 +275,52 @@ def tree_digest(hashes):
     return hashlib.sha256(listing.encode("utf8")).hexdigest()
 
 
-def export(repo, revision, dest, patterns_path, extra_excludes=(), clean=False):
+def exporting_account_names(repo):
+    """First-name-like tokens of the exporting account: USERNAME/USER and the first
+    token of `git config user.name`. Used only for the report-only residual scan."""
+    candidates = [os.environ.get("USERNAME", ""), os.environ.get("USER", "")]
+    proc = subprocess.run(["git", "-C", str(repo), "config", "user.name"], capture_output=True, check=False)
+    if proc.returncode == 0:
+        tokens = proc.stdout.decode("utf8", "replace").split()
+        candidates.append(tokens[0] if tokens else "")
+    names = []
+    for name in candidates:
+        name = name.strip()
+        if len(name) >= 3 and re.fullmatch(r"[\w.-]+", name) and name.lower() not in (n.lower() for n in names):
+            names.append(name)
+    return names
+
+
+def residual_name_warnings(root, names, excerpt_chars=30):
+    """Report-only: occurrences of the account names left in the exported tree. The
+    name itself is never written: excerpts show it as <account-name>, and each name is
+    identified only by an index. Never affects verification."""
+    if not names:
+        return {"names_checked": 0, "files": {}}
+    pattern = re.compile(r"(?<![A-Za-z0-9])(?:" + "|".join(re.escape(n) for n in names) + r")(?![A-Za-z0-9])",
+                         re.IGNORECASE)
+    # Excerpts mask every substring occurrence too (e.g. inside a longer identifier).
+    mask = re.compile("|".join(re.escape(n) for n in names), re.IGNORECASE)
+    files = {}
+    for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        if path.name == MANIFEST_NAME:
+            continue
+        data = path.read_bytes()
+        if is_binary(data):
+            continue
+        text = data.decode("utf8", "replace")
+        hits = []
+        for m in pattern.finditer(text):
+            before = text[max(0, m.start() - excerpt_chars):m.start()]
+            after = text[m.end():m.end() + excerpt_chars]
+            excerpt = mask.sub("<account-name>", before + "<account-name>" + after)
+            hits.append({"line": text.count("\n", 0, m.start()) + 1, "excerpt": " ".join(excerpt.split())})
+        if hits:
+            files[path.relative_to(root).as_posix()] = {"count": len(hits), "occurrences": hits[:5]}
+    return {"names_checked": len(names), "files": files}
+
+
+def export(repo, revision, dest, patterns_path, extra_excludes=(), clean=False, account_names=None):
     repo = Path(repo).resolve()
     patterns = load_patterns(patterns_path)
     commit = run_git(repo, "rev-parse", "--verify", f"{revision}^{{commit}}")
@@ -298,6 +356,9 @@ def export(repo, revision, dest, patterns_path, extra_excludes=(), clean=False):
         "file_count": len(hashes),
         "tree_sha256": tree_digest(hashes),
         "tree_sha256_definition": "sha256 of the sorted lines '<file sha256>  <path>\\n'; this manifest excluded",
+        "hash_note": HASH_NOTE,
+        "residual_name_warnings": residual_name_warnings(
+            dest, exporting_account_names(repo) if account_names is None else list(account_names)),
         "exclusions": {"globs": excludes, "excluded_files": excluded, "skipped_links": links},
         "redactions": {"total": sum(redactions.values()), "files": len(redactions), "per_file": redactions},
         "verification": {
@@ -339,9 +400,12 @@ def main(argv=None):
         "redactions": manifest["redactions"]["total"], "files_scanned": v["files_scanned"],
         "text_match_files": len(v["text_matches"]), "name_matches": len(v["name_matches"]),
         "binary_files_byte_scanned": len(v["binary_files"]), "binary_matches": len(v["binary_byte_scan_matches"]),
+        "residual_name_warning_files": len(manifest["residual_name_warnings"]["files"]),
         "passed": v["passed"],
     }
     print(json.dumps(summary, indent=2))
+    for rel, info in sorted(manifest["residual_name_warnings"]["files"].items()):
+        print(f"warning: account name occurs {info['count']}x in {rel} (report only; see manifest)", file=sys.stderr)
     if not v["passed"]:
         for rel, hits in sorted(v["text_matches"].items()):
             print(f"match: {rel}: lines {[h['line'] for h in hits][:10]}", file=sys.stderr)

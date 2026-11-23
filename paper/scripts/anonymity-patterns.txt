@@ -26,9 +26,11 @@ Densetsu
 git4san
 
 # User-home paths that name an account (plain, JSON-escaped and forward-slash Windows
-# forms, and /Users/ paths); the exporter rewrites the account segment to <user>
+# forms, /Users/ paths, and Git Bash /c/Users/ or WSL /mnt/c/Users/ paths); the exporter
+# rewrites the account segment to <user>
 [A-Za-z]:(\\|/)+Users(\\|/)+[A-Za-z0-9]
 (^|[^A-Za-z0-9_./-])/Users/[A-Za-z0-9]
+(^|[^A-Za-z0-9_.-])(/mnt)?/[A-Za-z]/Users/[A-Za-z0-9]
 
 # Repository and model-hub URLs under any owner
 github\.com/[A-Za-z0-9_.-]+/Privoke-Research-Project
