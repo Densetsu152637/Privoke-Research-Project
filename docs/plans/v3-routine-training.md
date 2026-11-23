@@ -157,6 +157,12 @@ Root defaults, which the user may override:
 - Status: pending.
 - Outcome:
 - Handoff notes: the Go-parity claim ends at the pinned set.
+  R3 (23 Nov 2026, wt/rust-v3r3; details in `docs/runtime/v3-publication.md#serving`):
+  - Authority read: model-streaming opens `<V3_STORE>/catalog.sqlite` read-only on every request (`current`, `publications`); `V3_PUBLISH_ROOT` and `V3_STORE` are set together or not at all. Servable = the compiled pin, or any manifest with a publication row. The published tree only supplies bytes. The store directory needs a mount where SQLite can keep its WAL `-shm` file for a reader (V3-R7 compose: same user as param-update, or read-write on that directory only).
+  - Pin-addressed form: the request has no pin field, so the pin rides in the model id, `privoke-v3-<tier>@<manifest-sha>` (no proto change). The pin returns the ORIGINAL with an empty statement; a published sha returns that version with its statement; anything else is `INVALID_ARGUMENT`. The plain id after a signed rollback to the ORIGINAL returns the pinned bytes with the rollback statement, which V3-R4a needs.
+  - Python consumers: only `extension/client-runtime/src/LLM/privoke/v3_package.py` is affected (it fetches by plain id and refuses any non-pin manifest, so it fails closed once a tier is published); it is frozen, so a historical run needs its owner to send the `@pin` id. The evaluation consumers and the Go service are unaffected while nothing is published. Table in the publication doc.
+  - V3-R4a: the server does not verify signatures (no keys); the client verifies. An authority that serves a manifest other than its newest publication's answers `UNAVAILABLE` to the plain request; the supervisor treats that as a transient failure and keeps its cache.
+  - Test seam: `StandardReleases::open_with_pins` (production uses the compiled pins) lets CI serve toy ORIGINALs; the shared `chain.json` is used for authority and statement reading, while byte-level tests sign their own toy packages with the same test keys (the fixture manifests name stand-in digests with no files behind them).
 
 ## Stage V3-R4a: Client lineage and signature admission
 

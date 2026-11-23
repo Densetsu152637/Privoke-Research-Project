@@ -17,6 +17,7 @@ use crate::artifact::{self, LoadedArtifact, MAX_ARTIFACT_BYTES};
 use crate::error::{Error, Result};
 use crate::fail;
 use crate::pretrained;
+use crate::published::Published;
 use crate::releases::{StandardReleases, is_standard_v3};
 use crate::scratch::{self, is_scratch_model_id, scratch_model_ids};
 
@@ -59,6 +60,8 @@ pub struct Catalog {
     latest_model_id: String,
     /// The standard V3 release store, present only when `latest` is a standard model.
     pub releases: Option<StandardReleases>,
+    /// The trained V3 versions param-update published, when the service is configured with them (needs `releases`).
+    pub published: Option<Published>,
     directory: Option<DirectoryPin>,
     paths: BTreeMap<String, PathBuf>,
     scratch_lstat: RwLock<Option<LstatHook>>,
@@ -85,6 +88,7 @@ impl Catalog {
         Self {
             latest_model_id: latest_model_id.to_string(),
             releases: None,
+            published: None,
             directory: None,
             paths,
             scratch_lstat: RwLock::new(None),
@@ -145,6 +149,7 @@ impl Catalog {
         Ok(Self {
             latest_model_id: latest_model_id.to_string(),
             releases: None,
+            published: None,
             directory: Some(DirectoryPin { path: resolved, identity }),
             paths,
             scratch_lstat: RwLock::new(None),

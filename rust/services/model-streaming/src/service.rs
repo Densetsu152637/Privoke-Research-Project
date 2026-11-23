@@ -19,7 +19,8 @@ use tonic::{Request, Response, Status};
 
 use crate::artifact::{validate_configured_identifier, validate_identifier};
 use crate::catalog::{Catalog, LATEST_MODEL_ALIAS};
-use crate::releases::{is_allowlisted_asset, is_standard_v3, standard_pin};
+use crate::published::is_manifest_sha;
+use crate::releases::{is_allowlisted_asset, is_standard_v3};
 use crate::response::{SERVICE_NAME, parameter_chunks, parameter_response};
 use crate::scratch::is_scratch_model_id;
 use crate::util::log;
@@ -71,7 +72,7 @@ impl ModelService {
         } else {
             request.model_id.as_str()
         };
-        if is_standard_v3(id) {
+        if is_standard_v3(id) || split_pin(id).is_some() {
             return Err(Status::failed_precondition("V3 models require the binary package RPCs; legacy float tensor limits are unchanged"));
         }
         let artifact = match self.catalog.load_model(&request.model_id) {
@@ -99,6 +100,9 @@ impl ModelService {
         } else {
             request.model_id.as_str()
         };
+        if let Some((base, sha)) = split_pin(id) {
+            return self.pinned_package(base, sha);
+        }
         if !is_standard_v3(id) {
             let artifact = self.catalog.load_model(id).map_err(|_| Status::not_found("model is unavailable"))?;
             return Ok(ModelPackageResponse {
@@ -110,22 +114,65 @@ impl ModelService {
         let Some(releases) = &self.catalog.releases else {
             return Err(Status::failed_precondition("standard V3 packages are unavailable"));
         };
-        releases.manifest(id).map_err(|_| Status::unavailable("standard V3 manifest is unavailable"))
+        match &self.catalog.published {
+            Some(published) => published.current_package(releases, id),
+            None => releases.manifest(id).map_err(|_| Status::unavailable("standard V3 manifest is unavailable")),
+        }
     }
 
-    /// The part of `StreamModelAsset` that decides whether a stream starts at all.
+    /// `GetModelPackage` for `<standard model>@<manifest sha>`: the pinned ORIGINAL, or a version param-update published.
+    fn pinned_package(&self, id: &str, sha: &str) -> Result<ModelPackageResponse, Status> {
+        if !is_manifest_sha(sha) {
+            return Err(Status::invalid_argument("manifest pin must be 64 lowercase hexadecimal characters"));
+        }
+        let Some(releases) = &self.catalog.releases else {
+            return Err(Status::failed_precondition("standard V3 packages are unavailable"));
+        };
+        match &self.catalog.published {
+            Some(published) => published.package_at(releases, id, sha),
+            None if releases.pin(id) == Some(sha) => {
+                releases.manifest(id).map_err(|_| Status::unavailable("standard V3 manifest is unavailable"))
+            }
+            None => Err(Status::invalid_argument("explicit standard model and manifest pin required")),
+        }
+    }
+
+    /// The part of `StreamModelAsset` that decides whether a stream starts at all. A manifest is served when it is the pinned
+    /// ORIGINAL or a version the authority holds a publication for; anything else, including a directory that merely exists
+    /// on disk, is `INVALID_ARGUMENT`.
     pub fn check_asset_request(&self, request: &ModelAssetRequest) -> Result<(), Status> {
         self.validate_request(&ModelParametersRequest { consumer_id: request.consumer_id.clone(), model_id: request.model_id.clone() })?;
-        if !is_standard_v3(&request.model_id)
-            || Some(request.manifest_sha256.as_str()) != standard_pin(&request.model_id)
-            || self.catalog.releases.is_none()
-        {
+        let served = match &self.catalog.releases {
+            Some(releases) if is_standard_v3(&request.model_id) => {
+                releases.pin(&request.model_id) == Some(request.manifest_sha256.as_str())
+                    || match &self.catalog.published {
+                        Some(published) => published.is_published(&request.model_id, &request.manifest_sha256)?,
+                        None => false,
+                    }
+            }
+            _ => false,
+        };
+        if !served {
             return Err(Status::invalid_argument("explicit standard model and manifest pin required"));
         }
         if !is_allowlisted_asset(&request.asset_name) {
             return Err(Status::invalid_argument("asset is not allowlisted"));
         }
         Ok(())
+    }
+
+    /// The streaming half of `StreamModelAsset`, after [`check_asset_request`](Self::check_asset_request): the pinned
+    /// ORIGINAL from the release store, a published version from the published tree. `send` returns `false` when the client
+    /// has gone away.
+    pub fn stream_asset_core(&self, request: &ModelAssetRequest, send: impl FnMut(ModelAssetChunk) -> bool) -> Result<(), Status> {
+        let Some(releases) = &self.catalog.releases else {
+            return Err(Status::failed_precondition("standard V3 packages are unavailable"));
+        };
+        let (id, sha) = (request.model_id.as_str(), request.manifest_sha256.as_str());
+        match &self.catalog.published {
+            Some(published) if releases.pin(id) != Some(sha) => published.stream_asset(id, sha, &request.asset_name, send),
+            _ => releases.stream_asset(id, sha, &request.asset_name, send),
+        }
     }
 
     /// `Health`.
@@ -197,20 +244,25 @@ impl ModelStreamingService for ModelService {
     async fn stream_model_asset(&self, request: Request<ModelAssetRequest>) -> Result<Response<Self::StreamModelAssetStream>, Status> {
         bind_caller(&request, &request.get_ref().consumer_id)?;
         let message = request.into_inner();
-        self.check_asset_request(&message)?;
+        // The check reads the authority (SQLite), so it runs on a blocking thread, before any stream exists.
+        let service = self.clone();
+        let checked = message.clone();
+        tokio::task::spawn_blocking(move || service.check_asset_request(&checked)).await.map_err(join_failure)??;
         let (sender, receiver) = tokio::sync::mpsc::channel(2);
-        let catalog = self.catalog.clone();
+        let service = self.clone();
         tokio::task::spawn_blocking(move || {
-            let Some(releases) = &catalog.releases else { return };
-            let outcome = releases.stream_asset(&message.model_id, &message.manifest_sha256, &message.asset_name, |chunk| {
-                sender.blocking_send(Ok(chunk)).is_ok()
-            });
+            let outcome = service.stream_asset_core(&message, |chunk| sender.blocking_send(Ok(chunk)).is_ok());
             if let Err(status) = outcome {
                 let _ = sender.blocking_send(Err(status));
             }
         });
         Ok(Response::new(ReceiverStream::new(receiver)))
     }
+}
+
+/// `<standard model>@<manifest sha>`: the pin-addressed form of a V3 model id (the part after `@` is not yet validated).
+fn split_pin(id: &str) -> Option<(&str, &str)> {
+    id.split_once('@').filter(|(base, _)| is_standard_v3(base))
 }
 
 /// Re-exported for the configuration check that mirrors `validateConfiguredIdentifier`.
