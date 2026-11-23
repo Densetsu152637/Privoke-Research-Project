@@ -369,7 +369,8 @@ The user stated that nginx is not needed because the system uses microservices, 
   - Pass the implementation-gate critic.
   - Reconcile the worktrees.
 - **Depends on:** Stages 1–8 and 10–12.
-- **Status:** pending.
+- **Status:** done (repeat, 23 Nov 2026).
+- **Outcome (repeat):** validation at `ea037d4`: G1–G5, G12, G13 and G14 met; G12 failing-id sets identical to `bca457df` in every suite (client-runtime 5 failures and 19 errors in this environment, the same ids at baseline; the earlier "14 errors" count was environment-dependent). Implementation gate: 5 rounds with the same critic. Round 1 found 3 acceptance-changing defects (failure-handling claim contradicted the installed extension; stale Windows caveat; repeated caveats) and 2 record defects (account name in the anonymous export; stale claims C64/C66), all fixed (`826a7a8`). Round 2 converged. Improvement pass: adopted the cancellation wording, exporter rule-order tests (which exposed and fixed two over-rewrites), a manifest hash note, Git Bash/WSL home-path rewriting and a report-only residual account-name scan; declined comma-free path segments and case-scoped verify patterns (fail-safe, breaks grep sharing). Merged at this commit; check_pages PASS, check_anonymity 0 matches, export verify passed. Out-of-scope items for later: regenerate or untrack `extension/dist-firefox/manifest.json`; rerun Firefox 159 at the coverage-change revision; document `COMPOSE_PROJECT_NAME` in the artifact README; index the Edge Copilot addendum in `paper/research/artifacts.md`.
 
 ## Stage 13: Supervisor experiments for submission (queued 19 Nov 2026, last in the roadmap)
 
