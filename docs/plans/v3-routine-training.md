@@ -213,8 +213,8 @@ Root defaults, which the user may override:
   - An offline restart serves the high-water version.
   - Garbage collection never removes the ORIGINAL or the current version.
   - Rust CI is green.
-- Status: pending.
-- Outcome:
+- Status: done (RUST-V3R4B, 24 Nov 2026).
+- Outcome: `5c20a97` (merged). Rust CI run 45189684410 green. The worker selects the version at the high-water mark from the cache on every load (no fallback); refresh via `V3_PACKAGE_REFRESH_SECONDS` / `V3_PACKAGE_REFRESH_MODELS` (opt-in until V3-R7); advisory lock on `<model>/.lock`; GC never removes the pin or the marked version. Independent review: 2 rounds, 8 findings fixed (a deleted mark plus dropped pin files reopened the unsigned pin; statement replaced before the mark moved; cross-process GC race; vocab re-read after verification; dropped-key cached statements; rotation doc; pin-dir link check; snapshot bypass), plus deterministic lock and interval tests.
 - Handoff notes: R4b (24 Nov 2026, wt/rust-v3r4b; design in `docs/runtime/v3-publication.md#loading-from-the-cache`):
   - The worker is not told its version: `privoke_contracts::model_cache::ModelCache::select` (mark, else the compiled pin) runs on every load in `runtime/src/semantic.rs`, and `V3Model::load_published` admits the manifest bytes by `admit_lineage` before reading an asset. A moved mark reloads the snapshot on the next request; no message, no restart. `admitted_manifest` stays pin-only (release directories, non-standard ids). A model directory with a mark ignores a dropped-in `manifest.json`.
   - Refresh: `refresh::Refresher`; `V3_PACKAGE_REFRESH_SECONDS` (default 3600) and `V3_PACKAGE_REFRESH_MODELS` (comma list; empty = no loop). The loop is wired into `native-host` but is OFF until V3-R7 sets the models (and `PRODUCTION_KEYS` is filled). Advisory lock `<model>/.lock` (`File::lock`) guards mark writes and GC; GC deletes versions whose verified statement is below the mark, never the pin or the mark's version.
