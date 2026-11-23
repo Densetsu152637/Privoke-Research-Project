@@ -215,7 +215,10 @@ Root defaults, which the user may override:
   - Rust CI is green.
 - Status: pending.
 - Outcome:
-- Handoff notes:
+- Handoff notes: R4b (24 Nov 2026, wt/rust-v3r4b; design in `docs/runtime/v3-publication.md#loading-from-the-cache`):
+  - The worker is not told its version: `privoke_contracts::model_cache::ModelCache::select` (mark, else the compiled pin) runs on every load in `runtime/src/semantic.rs`, and `V3Model::load_published` admits the manifest bytes by `admit_lineage` before reading an asset. A moved mark reloads the snapshot on the next request; no message, no restart. `admitted_manifest` stays pin-only (release directories, non-standard ids). A model directory with a mark ignores a dropped-in `manifest.json`.
+  - Refresh: `refresh::Refresher`; `V3_PACKAGE_REFRESH_SECONDS` (default 3600) and `V3_PACKAGE_REFRESH_MODELS` (comma list; empty = no loop). The loop is wired into `native-host` but is OFF until V3-R7 sets the models (and `PRODUCTION_KEYS` is filled). Advisory lock `<model>/.lock` (`File::lock`) guards mark writes and GC; GC deletes versions whose verified statement is below the mark, never the pin or the mark's version.
+  - Limits for R7: the positive load of a real signed version (real weights) is not in CI (same `load_verified` path as the pinned releases); versions without a statement left by an interrupted download are not collected; wiping the mark and every cached statement is the documented trust-on-first-use state. The Python worker never loads a published version. Rows RB1-RB5 in `update_security.py`; CI also checks `test-keys` is absent from `privoke-runtime` and `privoke-semantic`.
 
 ## Stage V3-R5: v3-fuzzer routine mode
 
