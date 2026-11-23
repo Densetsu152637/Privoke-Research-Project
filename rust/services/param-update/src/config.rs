@@ -41,6 +41,19 @@ pub struct V3Config {
     pub drift_bounds: PathBuf,
     /// Signed publication (`V3_PUBLISH_ROOT`), off when unset.
     pub publication: Option<PublicationConfig>,
+    /// The retention gate (`V3_RETENTION_ROOT` and `V3_RETENTION_BANK`, both or neither), off when unset. A deployment that
+    /// publishes sets it (stage V3-R7).
+    pub retention: Option<RetentionConfig>,
+}
+
+/// Where the V3 retention gate finds its reference releases and the approved bank (stage V3-R9).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RetentionConfig {
+    /// The reference releases (`V3_RETENTION_ROOT`): `<tier>/references.json` and `<tier>/manifest.json` for every tier.
+    pub root: PathBuf,
+    /// The approved ORIGINAL TRAIN bank (`V3_RETENTION_BANK`), which must hash to the compiled pin. It holds prompt text and is
+    /// mounted read-only; it is never part of an image or a repository.
+    pub bank: PathBuf,
 }
 
 /// Where and how trained V3 versions are published (stage V3-R2).
@@ -90,6 +103,14 @@ impl V3Config {
                 })
             }
         };
+        let retention = match (
+            get("V3_RETENTION_ROOT").filter(|value| !value.is_empty()),
+            get("V3_RETENTION_BANK").filter(|value| !value.is_empty()),
+        ) {
+            (Some(root), Some(bank)) => Some(RetentionConfig { root: PathBuf::from(root), bank: PathBuf::from(bank) }),
+            (None, None) => None,
+            _ => return Err(Error("V3_RETENTION_ROOT and V3_RETENTION_BANK are set together or not at all.".to_string())),
+        };
         Ok(Some(Self {
             store: PathBuf::from(store),
             initial,
@@ -97,6 +118,7 @@ impl V3Config {
             audience,
             drift_bounds,
             publication,
+            retention,
         }))
     }
 }
@@ -294,6 +316,24 @@ mod tests {
         .v3
         .unwrap();
         assert_eq!(pinned.audience, Some((PathBuf::from("/release.json"), "abc".to_string())));
+    }
+
+    #[test]
+    fn the_retention_gate_needs_its_releases_and_its_bank_together() {
+        let base = [("V3_STORE", "/store"), ("V3_SOURCE_ROOT", "/repo"), ("V3_DRIFT_BOUNDS", "/b.toml")];
+        let with = |extra: &[(&'static str, &'static str)]| {
+            let mut pairs = base.to_vec();
+            pairs.extend_from_slice(extra);
+            config(&pairs)
+        };
+        assert_eq!(with(&[]).unwrap().v3.unwrap().retention, None, "off unless configured");
+        let on = with(&[("V3_RETENTION_ROOT", "/retention"), ("V3_RETENTION_BANK", "/bank/approved-train-bank.json")]).unwrap();
+        assert_eq!(
+            on.v3.unwrap().retention,
+            Some(RetentionConfig { root: PathBuf::from("/retention"), bank: PathBuf::from("/bank/approved-train-bank.json") })
+        );
+        assert!(with(&[("V3_RETENTION_ROOT", "/retention")]).is_err(), "the releases need the bank");
+        assert!(with(&[("V3_RETENTION_BANK", "/bank.json")]).is_err(), "the bank needs the releases");
     }
 
     #[test]

@@ -30,6 +30,7 @@ use crate::adam::{AdamState, F32Map, adam_step};
 use crate::error::TrainingError;
 use crate::net::{Params, Tensor, TinyNet};
 use crate::objective::{Example, Objective, Target, class_balanced, fsum, supervised_deltas_with};
+use crate::retention_common::{CATEGORY_MASK, Shapes, Values, is_sensitive, sensitivity_bits, teacher_tensors};
 use crate::routes::local_training_losses;
 use crate::rpc::{artifact_with, training_text_key};
 
@@ -41,10 +42,8 @@ pub const SAMPLER: &str = "taxonomy_benign_train_window_v1";
 pub const COMPONENTS: [&str; 5] = ["sensitivity", "severity", "category", "visibility", "action"];
 /// The checkpoint steps.
 pub const CHECKPOINTS: [usize; 8] = [8, 16, 24, 32, 40, 48, 56, 64];
-/// The sha256 of the approved ORIGINAL TRAIN bank (`sensitive_retention.BANK_SHA256`).
-pub const BANK_SHA256: &str = "c9b0b64133e6474487c1d3fe2ac9410c720b19a1f1571469dc8c3483f4e4a41a";
+pub use crate::retention_common::BANK_SHA256;
 const WINDOW_CONFIG: &str = crate::admission::WINDOW_CONFIG_CANONICAL;
-const CATEGORY_MASK: u16 = 0x7FE0;
 const VISIBILITY_MASK: u16 = 0b1_1100;
 const PU: u16 = 0b1_1100;
 const IDENTIFIERS: u16 = 0b001_0000_0000_0000 | 0b010_0000_0000_0000;
@@ -62,9 +61,6 @@ pub(crate) const CATEGORIES: [(&str, u16); 10] = [
     ("IDENTITY", 0b010_0000_0000_0000),
     ("THIRD_PARTY", 0b100_0000_0000_0000),
 ];
-
-type Values = BTreeMap<String, Vec<f64>>;
-type Shapes = BTreeMap<String, Vec<u64>>;
 
 fn invalid(message: &str) -> TrainingError {
     TrainingError::invalid(message)
@@ -399,22 +395,6 @@ impl Release {
     }
 }
 
-pub(crate) fn teacher_tensors(artifact: &Value) -> Result<(Values, Shapes), TrainingError> {
-    let bad = || invalid("Component ORIGINAL teacher differs from independently configured accepted raw-file SHA.");
-    let entries = artifact["parameters"].as_object().ok_or_else(bad)?;
-    let (mut values, mut shapes) = (Values::new(), Shapes::new());
-    for (name, tensor) in entries {
-        let data = tensor["values"].as_array().ok_or_else(bad)?;
-        values.insert(
-            name.clone(),
-            data.iter().map(|v| v.as_f64().map(|x| f64::from(x as f32))).collect::<Option<Vec<f64>>>().ok_or_else(bad)?,
-        );
-        let shape = tensor["shape"].as_array().ok_or_else(bad)?;
-        shapes.insert(name.clone(), shape.iter().filter_map(Value::as_u64).collect());
-    }
-    Ok((values, shapes))
-}
-
 /// The packed classification of a target's label names.
 pub(crate) fn packed_of_target(target: &Target) -> u16 {
     let sensitivity = ["S0", "S1", "S2", "S3"].iter().position(|name| *name == target.sensitivity).unwrap_or(0) as u16;
@@ -496,14 +476,6 @@ pub fn component_deltas(net: &TinyNet, references: &[Reference]) -> Result<(Valu
         return Err(invalid("Contextual supervised gradients must exist and be finite."));
     }
     Ok((deltas, loss))
-}
-
-pub(crate) fn sensitivity_bits(packed: u16) -> u16 {
-    packed & 0b11
-}
-
-pub(crate) fn is_sensitive(packed: u16) -> bool {
-    sensitivity_bits(packed) != 0 || packed & CATEGORY_MASK != 0
 }
 
 /// `action_value`: the production action as 0 allow, 1 warn, 2 block.

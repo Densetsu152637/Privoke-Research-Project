@@ -26,6 +26,8 @@ pub mod objective;
 pub mod presence;
 pub mod reference;
 pub mod retention;
+pub mod retention_common;
+pub mod retention_v3;
 pub mod routes;
 pub mod rpc;
 pub mod trace;

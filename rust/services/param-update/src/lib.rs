@@ -38,6 +38,7 @@ pub mod util;
 pub mod v3_guard;
 pub mod v3_policy;
 pub mod v3_publish;
+pub mod v3_retention;
 pub mod v3_store;
 pub mod validate;
 pub mod window;

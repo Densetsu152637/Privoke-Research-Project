@@ -1,4 +1,6 @@
-//! ORIGINAL TRAIN reference preparation: `LLM/privoke/reference_preparation.py` (`prepare_references`).
+//! ORIGINAL TRAIN reference preparation: `LLM/privoke/reference_preparation.py` (`prepare_references`), and the teacher-neutral
+//! parts the V3 retention references share ([`parse_bank`], [`row_of`], [`sensitivity_gap`], [`payload_of`]; the V3 teacher is
+//! [`crate::retention_v3`]).
 //!
 //! One semantic prediction of the authenticated ORIGINAL teacher per approved bank row, recorded as the row of the frozen
 //! reference file: the packed prediction, its rounded confidence, the union margin and the sensitivity gap in float32, and the
@@ -21,8 +23,8 @@ use privoke_semantic::TinyModel;
 use serde_json::{Value, json};
 
 use crate::error::TrainingError;
-use crate::retention::{BANK_SHA256, BOUNDARY, EPSILON, TEACHERS, safety_margin};
-use crate::window::{is_sensitive, teacher_tensors};
+use crate::retention::TEACHERS;
+use crate::retention_common::{BANK_SHA256, BOUNDARY, EPSILON, is_sensitive, safety_margin, teacher_tensors};
 
 fn invalid(message: &str) -> TrainingError {
     TrainingError::invalid(message)
@@ -55,40 +57,97 @@ impl PreparedRow {
     }
 }
 
+/// The two largest sensitivity logits' gap (`margin_and_gap`), in float32.
+pub fn sensitivity_gap(logits: &[f32]) -> Result<f64, TrainingError> {
+    let mut ordered = logits.to_vec();
+    ordered.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    match ordered.as_slice() {
+        [.., second, top] => Ok(f64::from(top - second)),
+        _ => Err(invalid("ORIGINAL retention logits/margins must be finite.")),
+    }
+}
+
+/// The reference row of a teacher prediction: its packed classification, raw confidence, union margin and sensitivity gap. The
+/// confidence is clamped to `[0, 0.999]` here; the row is eligible under the strict policy (sensitive, margin and gap above
+/// [`EPSILON`]).
+pub fn row_of(id: &str, packed: u16, confidence: f64, margin: f64, gap: f64) -> PreparedRow {
+    PreparedRow {
+        id: id.to_string(),
+        packed,
+        confidence: confidence.clamp(0.0, 0.999),
+        margin,
+        sensitivity_gap: gap,
+        eligible: is_sensitive(packed) && margin > EPSILON && gap > EPSILON,
+    }
+}
+
 /// One row: the teacher's prediction on the normalised text, its margin and gap, and its eligibility
 /// (`margin_and_gap` and the row of `prepare_references`).
 pub fn prepared_row(model: &TinyModel, id: &str, text: &str) -> Result<PreparedRow, TrainingError> {
     let normalized = normalize_text(text).map_err(|error| TrainingError::invalid(format!("{error:?}")))?;
     let prediction = model.predict(&normalized);
     let margin = safety_margin(model.config(), &prediction)?;
-    let mut ordered = prediction.logits[0].clone();
-    ordered.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    let (top, second) = match ordered.as_slice() {
-        [.., second, top] => (*top, *second),
-        _ => return Err(invalid("ORIGINAL retention logits/margins must be finite.")),
-    };
-    let gap = f64::from(top - second);
-    let packed = prediction.decision.classification.pack();
-    Ok(PreparedRow {
-        id: id.to_string(),
-        packed,
-        confidence: prediction.decision.confidence.clamp(0.0, 0.999),
-        margin,
-        sensitivity_gap: gap,
-        eligible: is_sensitive(packed) && margin > EPSILON && gap > EPSILON,
-    })
+    let gap = sensitivity_gap(&prediction.logits[0])?;
+    Ok(row_of(id, prediction.decision.classification.pack(), prediction.decision.confidence, margin, gap))
 }
 
 /// The canonical reference payload (`canonical_bytes` of the schema 1 record: sorted keys, one LF).
 pub fn payload(teacher: &Value, rows: &[PreparedRow]) -> Result<String, TrainingError> {
+    payload_of(1, BANK_SHA256, teacher, rows)
+}
+
+/// The canonical reference payload of any schema and bank pin.
+pub fn payload_of(schema: u64, bank_sha256: &str, teacher: &Value, rows: &[PreparedRow]) -> Result<String, TrainingError> {
     let boundary: Value = serde_json::from_str(BOUNDARY).map_err(|error| TrainingError::invalid(error.to_string()))?;
     let record = json!({
-        "schema": 1, "teacher": teacher, "bank_sha256": BANK_SHA256, "boundary": boundary,
+        "schema": schema, "teacher": teacher, "bank_sha256": bank_sha256, "boundary": boundary,
         "rows": rows.iter().map(PreparedRow::to_json).collect::<Vec<_>>()
     });
+    canonical_json(&record)
+}
+
+/// The canonical text of a record (sorted keys, Python float layout, one LF).
+pub fn canonical_json(record: &Value) -> Result<String, TrainingError> {
     // `serde_json` writes shortest round-trip floats; the contract writer then lays them out as Python does.
     let node = parse_node(&record.to_string()).map_err(|error| TrainingError::invalid(error.to_string()))?;
     Ok(canonical::to_string(&node, Variant::Utf8Lf)?)
+}
+
+/// What an approved retention bank must be: its pin, its row count and the number of groups the rows cover.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BankSpec<'a> {
+    /// The sha256 of the bank file.
+    pub sha256: &'a str,
+    /// The rows of the bank.
+    pub rows: usize,
+    /// The groups the rows cover.
+    pub groups: usize,
+}
+
+/// The independently approved ORIGINAL TRAIN bank (`BANK_SHA256`): 200 rows over 20 groups.
+pub const APPROVED_BANK: BankSpec<'static> = BankSpec { sha256: BANK_SHA256, rows: 200, groups: 20 };
+
+/// The rows of a bank that is the approved one: it hashes to the pin, holds the rows in ascending id order, only approved
+/// positive TRAIN rows, and covers the groups. The messages are those of the Python validator.
+pub fn parse_bank(bank: &[u8], spec: &BankSpec<'_>) -> Result<Vec<Value>, TrainingError> {
+    let differs = || invalid("Retention bank differs from the independently approved200 TRAIN rows.");
+    if sha256_hex(bank) != spec.sha256 {
+        return Err(differs());
+    }
+    let bank_rows: Vec<Value> = serde_json::from_slice(bank).map_err(|_| differs())?;
+    let ids: Vec<&str> = bank_rows.iter().filter_map(|row| row["id"].as_str()).collect();
+    if bank_rows.len() != spec.rows || ids.len() != spec.rows || ids.windows(2).any(|pair| pair[0] > pair[1]) {
+        return Err(differs());
+    }
+    let positive = |row: &Value| row["packed_classification"].as_u64().is_some_and(|packed| packed & 0b11 != 0);
+    if bank_rows.iter().any(|row| row["metadata"]["taxonomy_partition"] != "train" || row["metadata"]["split"] != "train" || !positive(row))
+    {
+        return Err(invalid("Retention bank requires approved positive permanent TRAIN only."));
+    }
+    if bank_rows.iter().map(|row| row["metadata"]["group_id"].to_string()).collect::<BTreeSet<_>>().len() != spec.groups {
+        return Err(invalid("Retention bank must cover exactly20 approved groups."));
+    }
+    Ok(bank_rows)
 }
 
 /// `prepare_references`: validates the bank and the teacher under their pins, predicts every bank row once and returns the
@@ -100,23 +159,7 @@ pub fn prepare_references(
     profile: &str,
     observer: &mut dyn FnMut(&Value),
 ) -> Result<(String, Value), TrainingError> {
-    if sha256_hex(bank) != BANK_SHA256 {
-        return Err(invalid("Retention bank differs from the independently approved200 TRAIN rows."));
-    }
-    let bank_rows: Vec<Value> =
-        serde_json::from_slice(bank).map_err(|_| invalid("Retention bank differs from the independently approved200 TRAIN rows."))?;
-    let ids: Vec<&str> = bank_rows.iter().filter_map(|row| row["id"].as_str()).collect();
-    if bank_rows.len() != 200 || ids.len() != 200 || ids.windows(2).any(|pair| pair[0] > pair[1]) {
-        return Err(invalid("Retention bank differs from the independently approved200 TRAIN rows."));
-    }
-    let positive = |row: &Value| row["packed_classification"].as_u64().is_some_and(|packed| packed & 0b11 != 0);
-    if bank_rows.iter().any(|row| row["metadata"]["taxonomy_partition"] != "train" || row["metadata"]["split"] != "train" || !positive(row))
-    {
-        return Err(invalid("Retention bank requires approved positive permanent TRAIN only."));
-    }
-    if bank_rows.iter().map(|row| row["metadata"]["group_id"].to_string()).collect::<BTreeSet<_>>().len() != 20 {
-        return Err(invalid("Retention bank must cover exactly20 approved groups."));
-    }
+    let bank_rows = parse_bank(bank, &APPROVED_BANK)?;
     let pinned = TEACHERS.iter().find(|(name, _)| *name == profile).map(|(_, sha)| *sha);
     if pinned != Some(sha256_hex(teacher).as_str()) {
         return Err(invalid("Retention teacher differs from the fixed ORIGINAL artifact bytes."));
