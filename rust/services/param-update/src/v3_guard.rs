@@ -154,6 +154,9 @@ pub trait GuardScorer: Send + Sync + std::fmt::Debug {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct V3Scorer;
 
+/// The name prefix of the scratch directories of a scoring (swept when a store is opened).
+pub const SCRATCH_PREFIX: &str = "guard-";
+
 /// A scratch directory under the store that is removed when it goes out of scope.
 struct Scratch(std::path::PathBuf);
 
@@ -163,19 +166,56 @@ impl Drop for Scratch {
     }
 }
 
+/// Score `rows` with the model of `base_blob` and with the candidate of `candidate_blob` loaded over it, both built from the
+/// store's hash-checked bytes (`config` and `vocab` are the candidate's). The model is loaded from verified copies in a scratch
+/// directory, not from paths another process could have changed since.
+pub fn score_blobs(
+    store: &CheckpointStore,
+    config: &str,
+    vocab: &str,
+    base_blob: &str,
+    candidate_blob: &str,
+    rows: &[Example],
+) -> Result<(Assessment, Assessment), StoreError> {
+    let scratch = Scratch(store.directory().join(format!("{SCRATCH_PREFIX}{}", uuid::Uuid::new_v4().simple())));
+    std::fs::create_dir_all(&scratch.0)?;
+    let (config_file, vocab_file, checkpoint) =
+        (scratch.0.join("config.json"), scratch.0.join("vocab.txt"), scratch.0.join("base.safetensors"));
+    std::fs::write(&config_file, store.read(config)?)?;
+    std::fs::write(&vocab_file, store.read(vocab)?)?;
+    std::fs::write(&checkpoint, store.read(base_blob)?)?;
+    let candidate = safetensors::parse(&store.read(candidate_blob)?).map_err(semantic)?;
+    score(&config_file, &vocab_file, &checkpoint, candidate, rows)
+}
+
+/// The four blobs a candidate is scored from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GuardInputs {
+    /// The candidate's `config.json`.
+    pub config: String,
+    /// The candidate's `vocab.txt`.
+    pub vocab: String,
+    /// The checkpoint of the candidate's **parent**: the base the guard is scored against.
+    pub base_blob: String,
+    /// The candidate's own checkpoint.
+    pub candidate_blob: String,
+}
+
+/// Which blobs score `manifest`: the base is its parent's checkpoint, never its own.
+pub fn guard_inputs(store: &CheckpointStore, manifest: &Value) -> Result<GuardInputs, StoreError> {
+    let parent = store.manifest(&text(manifest, "parent"))?;
+    Ok(GuardInputs {
+        config: text(manifest, "config"),
+        vocab: text(manifest, "vocab"),
+        base_blob: text(&parent, "blob"),
+        candidate_blob: text(manifest, "blob"),
+    })
+}
+
 impl GuardScorer for V3Scorer {
     fn passes(&self, store: &CheckpointStore, manifest: &Value, rows: &[Example]) -> Result<bool, StoreError> {
-        let parent = store.manifest(&text(manifest, "parent"))?;
-        // Every byte the model is built from is read through the store, which hash-checks it, and the model is loaded from
-        // those verified bytes (not from a path another process could have changed since).
-        let scratch = Scratch(store.directory().join(format!("guard-{}", uuid::Uuid::new_v4().simple())));
-        std::fs::create_dir_all(&scratch.0)?;
-        let (config, vocab, checkpoint) = (scratch.0.join("config.json"), scratch.0.join("vocab.txt"), scratch.0.join("base.safetensors"));
-        std::fs::write(&config, store.read(&text(manifest, "config"))?)?;
-        std::fs::write(&vocab, store.read(&text(manifest, "vocab"))?)?;
-        std::fs::write(&checkpoint, store.read(&text(&parent, "blob"))?)?;
-        let candidate = safetensors::parse(&store.read(&text(manifest, "blob"))?).map_err(semantic)?;
-        let (base, candidate) = score(&config, &vocab, &checkpoint, candidate, rows)?;
+        let inputs = guard_inputs(store, manifest)?;
+        let (base, candidate) = score_blobs(store, &inputs.config, &inputs.vocab, &inputs.base_blob, &inputs.candidate_blob, rows)?;
         Ok(passes(&base, &candidate))
     }
 }

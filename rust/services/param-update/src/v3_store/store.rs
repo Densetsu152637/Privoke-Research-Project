@@ -269,6 +269,14 @@ impl CheckpointStore {
         let directory = directory.into();
         let blobs = directory.join("blobs");
         std::fs::create_dir_all(&blobs)?;
+        // A guard scoring that was interrupted leaves a scratch directory of verified copies behind: nothing needs it now.
+        if let Ok(entries) = std::fs::read_dir(&directory) {
+            for entry in entries.filter_map(Result::ok) {
+                if entry.file_name().to_string_lossy().starts_with("guard-") && entry.path().is_dir() {
+                    let _ = std::fs::remove_dir_all(entry.path());
+                }
+            }
+        }
         let db = Connection::open(directory.join("catalog.sqlite"))?;
         // `journal_mode` answers with a row.
         db.query_row("PRAGMA journal_mode=WAL", [], |_row| Ok(()))?;

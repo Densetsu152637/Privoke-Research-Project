@@ -17,7 +17,7 @@ use privoke_curriculum::classification::Classification;
 use privoke_curriculum::v3::{self, AU3_SAMPLER, BC01_SAMPLER, RoutineRelease, routine_guard_rows};
 use privoke_param_update::v3_guard::{
     ALLOCATION_MISMATCH, Allocation, COMMITMENT_MISMATCH, GUARD_RECOMPUTED, GUARD_ROWS_DIFFER, GuardGate, GuardScorer,
-    REQUEST_NOT_ALLOCATED, StaticAllocations, passes, score,
+    REQUEST_NOT_ALLOCATED, StaticAllocations, guard_inputs, passes, score, score_blobs,
 };
 use privoke_param_update::v3_store::{AudienceSource, Candidate, CheckpointStore, CommitObserver, PinnedSources, StoreError};
 use privoke_semantic::safetensors;
@@ -248,4 +248,83 @@ fn the_guard_is_scored_with_the_encoder_the_product_used_and_the_pass_rule_is_pu
             && recorded["action_harms"] == 0;
         assert_eq!(passes(&base, &changed), expected, "{scope}: the pass rule");
     }
+}
+
+/// The production scoring path (scratch copies read through the store, the parent's checkpoint as the base, the candidate loaded
+/// over it with `with_tensors`) on the stage 22 toy package, whose blobs are stored as they are: the toy config and vocabulary
+/// are no pinned asset, so the manifest plumbing around it is checked separately on the golden world.
+#[test]
+fn the_production_scoring_path_equals_scoring_the_two_checkpoints_directly_and_the_base_is_the_parents() {
+    let golden: Json = serde_json::from_slice(&std::fs::read(repo("privoke-training/tests/fixtures/v3_fit/golden.json")).unwrap()).unwrap();
+    let rows: Vec<Example> = golden["guard"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| {
+            Example::new(row["text"].as_str().unwrap(), Classification::from_packed(row["packed"].as_i64().unwrap()), 1.0, BTreeMap::new())
+        })
+        .collect();
+    let package = repo("privoke-semantic/tests/fixtures/v3_synthetic");
+    let candidates = |scope: &str| repo(&format!("privoke-training/tests/fixtures/v3_fit/{scope}.safetensors"));
+    let scratch = tempfile::tempdir().unwrap();
+    let store = CheckpointStore::open(scratch.path().join("store"), pinned()).unwrap();
+    let put = |path: &Path| store.put(&std::fs::read(path).unwrap()).unwrap();
+    let (config, vocab, base) =
+        (put(&package.join("config.json")), put(&package.join("vocab.txt")), put(&package.join("model.safetensors")));
+    let direct = |base_file: &Path, candidate_file: &Path| {
+        let candidate = safetensors::parse(&std::fs::read(candidate_file).unwrap()).unwrap();
+        score(&package.join("config.json"), &package.join("vocab.txt"), base_file, candidate, &rows).unwrap()
+    };
+    for scope in ["heads", "full_encoder"] {
+        let candidate_blob = put(&candidates(scope));
+        let (via_store_base, via_store_candidate) = score_blobs(&store, &config, &vocab, &base, &candidate_blob, &rows).unwrap();
+        let (direct_base, direct_candidate) = direct(&package.join("model.safetensors"), &candidates(scope));
+        assert_eq!(
+            (&via_store_base, &via_store_candidate),
+            (&direct_base, &direct_candidate),
+            "{scope}: the store's bytes score as the files do"
+        );
+        assert_eq!(passes(&via_store_base, &via_store_candidate), passes(&direct_base, &direct_candidate), "{scope}");
+        // The base the guard is scored against is the argument, not the candidate: swapping them swaps the two assessments.
+        let (swapped_base, swapped_candidate) = score_blobs(&store, &config, &vocab, &candidate_blob, &base, &rows).unwrap();
+        let (direct_swapped_base, direct_swapped_candidate) = direct(&candidates(scope), &package.join("model.safetensors"));
+        assert_eq!((&swapped_base, &swapped_candidate), (&direct_swapped_base, &direct_swapped_candidate), "{scope}: swapped");
+        if direct_base.predictions != direct_candidate.predictions {
+            assert_ne!(swapped_base.predictions, via_store_base.predictions, "{scope}: the orientation is visible in the answer");
+        }
+    }
+    // A blob the store does not hold is refused, not read from a path.
+    assert!(score_blobs(&store, &config, &vocab, &"0".repeat(64), &base, &rows).is_err());
+}
+
+#[test]
+fn the_scorer_is_given_the_parents_checkpoint_as_the_base_and_the_candidates_own_assets() {
+    let world = World::load();
+    let case = case(&world, &Arc::new(StaticAllocations::default()));
+    let manifest = case.store.manifest(&case.commit.candidate).unwrap();
+    let parent = case.store.manifest(&case.commit.expected_base).unwrap();
+    let field = |document: &Value, key: &str| match document {
+        Value::Object(map) => match map.get(key) {
+            Some(Value::String(text)) => text.clone(),
+            _ => panic!("{key}"),
+        },
+        _ => panic!("object"),
+    };
+    let inputs = guard_inputs(&case.store, &manifest).unwrap();
+    assert_eq!(inputs.base_blob, field(&parent, "blob"));
+    assert_eq!(inputs.candidate_blob, field(&manifest, "blob"));
+    assert_ne!(inputs.base_blob, inputs.candidate_blob, "the candidate is not scored against itself");
+    assert_eq!((inputs.config, inputs.vocab), (field(&manifest, "config"), field(&manifest, "vocab")));
+}
+
+#[test]
+fn a_scratch_directory_an_interrupted_scoring_left_is_swept_when_the_store_opens() {
+    let scratch = tempfile::tempdir().unwrap();
+    let directory = scratch.path().join("store");
+    drop(CheckpointStore::open(&directory, pinned()).unwrap());
+    std::fs::create_dir_all(directory.join("guard-0123456789abcdef")).unwrap();
+    std::fs::write(directory.join("guard-0123456789abcdef").join("base.safetensors"), b"copy").unwrap();
+    drop(CheckpointStore::open(&directory, pinned()).unwrap());
+    assert!(!directory.join("guard-0123456789abcdef").exists());
+    assert!(directory.join("blobs").is_dir() && directory.join("catalog.sqlite").is_file(), "nothing else is touched");
 }
