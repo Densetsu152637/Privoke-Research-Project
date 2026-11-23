@@ -49,3 +49,4 @@ extension/dist-firefox/
 # Local goldens of retained study fits (prompt text; RUST-S21B)
 /rust/services/fuzzer/tests/local/
 /rust/services/v3-fuzzer/tests/local/
+/rust/crates/privoke-semantic/tests/local/
