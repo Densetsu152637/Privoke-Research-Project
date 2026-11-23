@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+pub mod fakes;
+
 use base64::Engine as _;
 use privoke_contracts::proto::experimental_v3 as v3;
 use privoke_contracts::proto::v1::{FuzzerTrainingRequest, FuzzerTrainingResponse};
