@@ -275,11 +275,39 @@ fn a_statement_cannot_be_replayed_after_a_later_one_in_any_order() {
     }
 }
 
+/// A client whose compiled pin has an empty `original`, so that only the scope rule can refuse an ORIGINAL-scope manifest.
+struct EmptyOriginalClient(String);
+
+impl LineageState for EmptyOriginalClient {
+    fn tier_pin(&self, _: &str) -> Option<TierPin> {
+        Some(TierPin { manifest_sha: self.0.clone(), original: String::new() })
+    }
+
+    fn high_water(&self, _: &str) -> Result<Option<Statement>, String> {
+        Ok(None)
+    }
+}
+
 #[test]
-fn a_manifest_whose_scope_is_original_but_is_not_the_pin_is_refused() {
-    // The toy ORIGINAL and another ORIGINAL-scope manifest: only the one that hashes to the tier pin is the pinned ORIGINAL.
+fn a_signed_manifest_whose_scope_is_original_but_is_not_the_pin_is_refused() {
     let chain = Chain { value: fixture() };
     let other = chain.manifest("other-original");
+    let keys = test_keys::key_set();
+    // Unsigned: not the pin.
     let client = Client { pin: chain.pin(), seen: None };
-    assert!(matches!(v3::admit_lineage(&other, &[], Some(MODEL), &test_keys::key_set(), &client), Err(LineageError::Unsigned)));
+    assert!(matches!(v3::admit_lineage(&other, &[], Some(MODEL), &keys, &client), Err(LineageError::Unsigned)));
+    // Signed, with a statement that repeats the manifest's empty lineage and a pin whose `original` is empty as well: the
+    // lineage fields would match, so only the scope rule refuses it.
+    let statement = Statement {
+        key_id: test_keys::PRIMARY_ID.to_string(),
+        model_id: MODEL.to_string(),
+        manifest_sha: privoke_contracts::digest::sha256_hex(&other),
+        parent: String::new(),
+        original: String::new(),
+        sequence: 1,
+    };
+    let wire = publication::sign(&test_keys::seed(test_keys::PRIMARY_ID), &statement).unwrap();
+    let error = v3::admit_lineage(&other, &wire, Some(MODEL), &keys, &EmptyOriginalClient(chain.pin())).unwrap_err();
+    assert_eq!(error, LineageError::WrongOriginal);
+    record("L26", "signed-original-scope-manifest-that-is-not-the-pin", "refused", "refused", reason(&error));
 }

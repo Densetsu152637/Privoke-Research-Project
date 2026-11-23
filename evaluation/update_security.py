@@ -2667,6 +2667,7 @@ LINEAGE_ROWS = {
     "L23": ("refused", "UnknownKey", "The second key's version when only the first key is compiled."),
     "L24": ("refused", "UnknownKey", "The first key's version when only the second key is compiled."),
     "L25": ("accepted", "", "The statement at the high-water mark presented again (same sequence, same manifest)."),
+    "L26": ("refused", "WrongOriginal", "A signed ORIGINAL-scope manifest that is not the pin, with matching empty lineage (the scope rule alone)."),
     "LF1": ("accepted", "", "Fetch: first start with the unsigned pinned ORIGINAL; nothing but the package is persisted."),
     "LF2": ("accepted", "", "Fetch: HEADS signed by the first key; the statement and the mark are persisted."),
     "LF3": ("accepted", "", "Fetch: a signed rollback to the ORIGINAL; the cached ORIGINAL carries the rollback statement."),
@@ -2681,6 +2682,8 @@ LINEAGE_ROWS = {
     "LF12": ("refused", "Downgrade", "Restart: the cached unsigned ORIGINAL is refused once a signed version was accepted."),
     "LF13": ("refused", "HighWater", "Restart: a tampered high-water record does not verify and refuses every version of the model."),
     "LF14": ("refused", "Transient", "Fetch: model-streaming UNAVAILABLE is transient and changes neither the cache nor the mark."),
+    "LF15": ("refused", "Downgrade", "Restart: a deleted high-water record is rebuilt from the cached statements; the unsigned ORIGINAL is still refused."),
+    "LF16": ("refused", "Replay", "A mark under a key the client no longer compiles is a floor: a current-key statement at or below it is refused."),
 }
 
 

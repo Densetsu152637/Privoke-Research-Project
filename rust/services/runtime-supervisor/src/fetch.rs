@@ -27,7 +27,7 @@ use std::time::Duration;
 
 use privoke_contracts::proto::v1::model_streaming_service_client::ModelStreamingServiceClient;
 use privoke_contracts::proto::v1::{ModelAssetRequest, ModelPackageResponse, ModelParametersRequest};
-use privoke_contracts::publication::{self, KeySet, Statement};
+use privoke_contracts::publication::{self, KeySet, PublicationError, Statement};
 use privoke_contracts::v3::{self, LineageError, LineageState, TierPin};
 use sha2::{Digest, Sha256};
 use tokio::sync::Mutex;
@@ -92,7 +92,8 @@ pub struct AdmittedManifest {
     pub assets: BTreeMap<&'static str, String>,
 }
 
-/// The admission rule. The product uses [`StandardAdmission`]; tests supply their own pins for a synthetic package.
+/// The admission rule. The product uses [`LineageAdmission::production`]; [`StandardAdmission`] is the pin-only rule, and tests
+/// supply their own pins for a synthetic package.
 pub trait Admission: Send + Sync {
     /// Admit `manifest_json` for a request naming `requested` (`latest`, a model id or empty).
     fn admit(&self, manifest_json: &[u8], requested: &str) -> Result<AdmittedManifest, FetchError>;
@@ -181,22 +182,55 @@ impl LineageAdmission {
         private_directory(&self.cache_root.join(model_id))
     }
 
+    /// The floor a new statement must clear. The mark when it verifies; when it is signed by a key this build no longer compiles
+    /// (a rotation or a compromise), its sequence and manifest still count as the floor, and the next version must carry a
+    /// statement under a current key above it; a mark that is malformed or whose signature is wrong fails closed. Without a
+    /// mark, the floor is rebuilt from the highest cached `statement.json` that still verifies (a deleted mark reopens nothing
+    /// while the cache holds a signed version; only an empty model cache is trust on first use).
     fn read_high_water(&self, model_id: &str) -> Result<Option<Statement>, FetchError> {
-        let path = self.model_directory(model_id)?.join(HIGH_WATER_FILE);
+        let directory = self.model_directory(model_id)?;
+        let path = directory.join(HIGH_WATER_FILE);
         if !exists_or_link(&path)? {
-            return Ok(None);
+            return self.cached_floor(&directory, model_id);
         }
         let bytes = read_statement_file(&path)?;
-        let statement = publication::verify(&self.keys, &bytes).map_err(|error| {
-            FetchError::Invalid(format!(
-                "High-water record of {model_id} does not verify ({error}); remove {} to trust the pinned ORIGINAL again",
-                path.display()
-            ))
-        })?;
+        let statement = match publication::verify(&self.keys, &bytes) {
+            Ok(statement) => statement,
+            Err(PublicationError::UnknownKey) => publication::decode(&bytes).map(|(statement, _)| statement).map_err(|error| {
+                FetchError::Invalid(format!("High-water record of {model_id} is malformed ({error}); clear the model cache of {model_id}"))
+            })?,
+            Err(error) => {
+                return Err(FetchError::Invalid(format!(
+                    "High-water record of {model_id} does not verify ({error}); clear the model cache of {model_id} to trust the pinned ORIGINAL again"
+                )));
+            }
+        };
         if statement.model_id != model_id {
             return Err(invalid("High-water record names another model"));
         }
         Ok(Some(statement))
+    }
+
+    /// The highest sequence among the cached versions whose `statement.json` verifies under the current keys.
+    fn cached_floor(&self, directory: &Path, model_id: &str) -> Result<Option<Statement>, FetchError> {
+        let mut floor: Option<Statement> = None;
+        for entry in fs::read_dir(directory).map_err(io_at(directory))? {
+            let entry = entry.map_err(io_at(directory))?;
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let version = directory.join(&name);
+            if !v3::is_sha_text(&name) || is_link(&version)? || !version.is_dir() {
+                continue;
+            }
+            let Ok(bytes) = read_statement(&version) else { continue };
+            let Ok(statement) = publication::verify(&self.keys, &bytes) else { continue };
+            if statement.model_id == model_id
+                && statement.manifest_sha == name
+                && floor.as_ref().is_none_or(|best| statement.sequence > best.sequence)
+            {
+                floor = Some(statement);
+            }
+        }
+        Ok(floor)
     }
 }
 

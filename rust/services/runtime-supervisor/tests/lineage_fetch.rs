@@ -311,6 +311,7 @@ fn lineage_reason(error: &FetchError) -> &'static str {
         FetchError::Lineage(LineageError::Publication(publication::PublicationError::UnknownKey)) => "UnknownKey",
         FetchError::Lineage(LineageError::StatementLineage) => "StatementLineage",
         FetchError::Lineage(LineageError::StatementModel) => "StatementModel",
+        FetchError::Lineage(LineageError::StatementManifest) => "StatementManifest",
         FetchError::Lineage(LineageError::HighWater(_)) => "HighWater",
         FetchError::Lineage(_) => "Lineage",
         FetchError::Invalid(message) if message.contains("does not verify") => "HighWater",
@@ -440,9 +441,7 @@ async fn forged_and_replayed_versions_are_refused_and_change_nothing() {
     rig.serve(&chain.heads_again, statement_for("test-publication-3", &chain.heads_again, 9));
     refused(&rig, &admission, &chain.heads_again, "LF9", "unknown-key", "UnknownKey").await;
     rig.serve(&chain.heads_again, statement_for(PRIMARY_ID, &chain.full, 9));
-    let error = rig.fetch(&admission).await.expect_err("a statement for another manifest");
-    record("LF10", "statement-for-another-manifest", "refused", "refused", "StatementManifest");
-    assert!(error.to_string().contains("another manifest"), "{error}");
+    refused(&rig, &admission, &chain.heads_again, "LF10", "statement-for-another-manifest", "StatementManifest").await;
 
     // A signed version whose ORIGINAL is not the tier pin.
     let foreign = version("heads", &sha256_hex(b"other"), &sha256_hex(b"other"), "foreign");
@@ -494,10 +493,53 @@ async fn a_restart_reverifies_the_persisted_mark_and_the_cached_statements() {
     std::fs::write(&mark, b"not a statement").unwrap();
     assert!(rig.fetch(&restarted).await.is_err());
 
-    // Without a mark (a wiped cache) the unsigned pinned ORIGINAL is trusted once again: trust on first use, documented.
+    // Without a mark the floor is rebuilt from the cached statements that still verify: a deleted mark reopens nothing.
     std::fs::remove_file(&mark).unwrap();
     rig.serve(&chain.pin, Vec::new());
+    let error = rig.fetch(&restarted).await.expect_err("a deleted mark");
+    record("LF15", "deleted-mark-rebuilt-from-the-cache", "refused", "refused", lineage_reason(&error));
+    assert_eq!(lineage_reason(&error), "Downgrade", "{error}");
+    // A replay of the cached version's own lower sequence is refused against the rebuilt floor too.
+    let full = statement_for(PRIMARY_ID, &chain.full, 5);
+    rig.serve(&chain.full, full.clone());
     rig.fetch(&restarted).await.unwrap().unwrap();
+    std::fs::remove_file(&mark).unwrap();
+    rig.serve(&chain.heads, heads.clone());
+    let error = rig.fetch(&restarted).await.expect_err("a replay after a deleted mark");
+    assert_eq!(lineage_reason(&error), "Replay", "{error}");
+
+    // Only an empty model cache is trust on first use (documented): the unsigned pinned ORIGINAL is admitted again.
+    std::fs::remove_dir_all(rig.model_directory()).unwrap();
+    rig.serve(&chain.pin, Vec::new());
+    rig.fetch(&restarted).await.unwrap().unwrap();
+    rig.stop();
+}
+
+#[tokio::test]
+async fn a_mark_under_a_dropped_key_is_a_floor_that_a_current_key_must_clear() {
+    let mut rig = rig().await;
+    let chain = chain();
+    let old_keys = test_keys::primary_only();
+    let new_keys = publication::KeySet::new().with(SECONDARY_ID, publication::public_key(&test_keys::seed(SECONDARY_ID)).unwrap());
+    let old = rig.admission(old_keys);
+    rig.serve(&chain.heads, statement_for(PRIMARY_ID, &chain.heads, 3));
+    rig.fetch(&old).await.unwrap().unwrap();
+
+    // The client now compiles only the second key. The old mark is a floor, not a brick.
+    let current = rig.admission(new_keys);
+    // The version signed under the dropped key is refused (unknown key) ...
+    let error = rig.fetch(&current).await.expect_err("the dropped key");
+    assert_eq!(lineage_reason(&error), "UnknownKey", "{error}");
+    // ... a new-key statement at or below the floor is a replay ...
+    rig.serve(&chain.full, statement_for(SECONDARY_ID, &chain.full, 2));
+    let error = rig.fetch(&current).await.expect_err("below the floor");
+    assert_eq!(lineage_reason(&error), "Replay", "{error}");
+    record("LF16", "mark-under-a-dropped-key-is-a-floor", "refused", "refused", lineage_reason(&error));
+    // ... and one above it is admitted and replaces the mark.
+    let next = statement_for(SECONDARY_ID, &chain.full, 4);
+    rig.serve(&chain.full, next.clone());
+    rig.fetch(&current).await.unwrap().unwrap();
+    assert_eq!(rig.high_water().unwrap(), next);
     rig.stop();
 }
 
