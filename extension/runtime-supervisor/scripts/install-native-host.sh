@@ -110,8 +110,10 @@ if [ -z "$supervisor_binary" ]; then
   cp "$source_host_path" "$installed_host_path"
 fi
 
+# Writes the text with every single quote as quote, backslash, quote, quote, so that it can sit inside single quotes.
+# (Inside the double quotes the shell halves the backslashes, and sed then reads two as one literal backslash.)
 escape_shell_single_quotes() {
-  printf '%s' "$1" | sed "s/'/'\\''/g"
+  printf '%s' "$1" | sed "s/'/'\\\\''/g"
 }
 
 escaped_python=$(escape_shell_single_quotes "$python_path")
