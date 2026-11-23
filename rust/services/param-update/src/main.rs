@@ -18,7 +18,9 @@ use privoke_param_update::scheduler::{self, FuzzerRequestConfig, GrpcFuzzer};
 use privoke_param_update::server;
 use privoke_param_update::service::ParamUpdateHandler;
 use privoke_param_update::util::log;
-use privoke_param_update::v3_store::{CheckpointHandler, CheckpointStore, PinnedSources};
+use privoke_param_update::v3_policy::{DriftBounds, DriftGate};
+use privoke_param_update::v3_publish::{Publisher, no_crash};
+use privoke_param_update::v3_store::{ChainObserver, CheckpointHandler, CheckpointStore, CommitObserver, PinnedSources};
 use privoke_param_update::{Error, Result, SERVICE_NAME};
 use privoke_transport::startup::CloudTlsArgs;
 use privoke_transport::{Limits, RateLimit};
@@ -41,6 +43,12 @@ enum Command {
     Healthcheck(HealthcheckArgs),
     /// Prepare the selected mutable model as a full-encoder release (idempotent; run before the service starts).
     Bootstrap,
+    /// Print the public key of a publication key file (64 hexadecimal characters of seed) for the client key sets.
+    PublicationKey {
+        /// The key file (`V3_PUBLICATION_KEY_FILE`).
+        #[arg(long)]
+        key_file: std::path::PathBuf,
+    },
 }
 
 #[tokio::main]
@@ -58,6 +66,7 @@ async fn main() -> ExitCode {
             healthcheck::run(probe, config.port).await.map_err(|error| Error(format!("healthcheck failed: {error}")))
         }
         Some(Command::Bootstrap) => bootstrap(&config),
+        Some(Command::PublicationKey { key_file }) => publication_key(&key_file),
         None => serve(args.tls, args.reload_poll_secs, config).await,
     };
     match outcome {
@@ -67,6 +76,12 @@ async fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+fn publication_key(path: &std::path::Path) -> Result<()> {
+    let public = privoke_contracts::publication::public_key(&read_seed(path)?).map_err(|error| Error(error.to_string()))?;
+    println!("{}", public.iter().map(|byte| format!("{byte:02x}")).collect::<String>());
+    Ok(())
 }
 
 fn bootstrap(config: &ServiceConfig) -> Result<()> {
@@ -83,12 +98,44 @@ fn bootstrap(config: &ServiceConfig) -> Result<()> {
     Ok(())
 }
 
+/// The publication seed: 64 hexadecimal characters in a mounted secret file.
+fn read_seed(path: &std::path::Path) -> Result<[u8; 32]> {
+    let text = std::fs::read_to_string(path).map_err(|error| Error(format!("V3 publication key file: {error}")))?;
+    let text = text.trim();
+    let bytes: Option<Vec<u8>> = (text.len() == 64 && text.is_ascii())
+        .then(|| (0..64).step_by(2).map(|index| u8::from_str_radix(&text[index..index + 2], 16).ok()).collect::<Option<Vec<u8>>>())
+        .flatten();
+    bytes
+        .and_then(|bytes| bytes.try_into().ok())
+        .ok_or_else(|| Error("V3 publication key file must hold 64 hexadecimal characters.".to_string()))
+}
+
 /// Open the V3 checkpoint store and admit the configured ORIGINAL packages (the oracle's `CheckpointStore(V3_STORE, V3_INITIAL)`).
 fn open_checkpoint(config: &V3Config) -> Result<CheckpointHandler> {
     let sources = PinnedSources::from_root(&config.source_root, config.audience.clone());
-    let store = CheckpointStore::open(&config.store, Arc::new(sources)).map_err(|error| Error(format!("V3 checkpoint store: {error}")))?;
+    let mut store =
+        CheckpointStore::open(&config.store, Arc::new(sources)).map_err(|error| Error(format!("V3 checkpoint store: {error}")))?;
+    let mut publisher = None;
+    // Every commit is bounded, published or not.
+    let bounds = DriftBounds::load(&config.drift_bounds).map_err(|error| Error(format!("V3 drift bounds: {error}")))?;
+    log(format_args!("V3 drift bounds status={} evidence={}", bounds.status, bounds.evidence_sha256));
+    let mut observers: Vec<Arc<dyn CommitObserver>> = vec![Arc::new(DriftGate::new(bounds))];
+    if let Some(publication) = &config.publication {
+        let seed = read_seed(&publication.key_file)?;
+        let signer = Arc::new(
+            Publisher::new(&publication.root, &publication.key_id, seed, no_crash())
+                .map_err(|error| Error(format!("V3 publisher: {error}")))?,
+        );
+        observers.push(signer.clone());
+        publisher = Some(signer);
+    }
+    store = store.with_observer(Arc::new(ChainObserver::new(observers)));
     for initial in &config.initial {
         store.bootstrap(initial).map_err(|error| Error(format!("V3 checkpoint bootstrap of {}: {error}", initial.display())))?;
+    }
+    if let Some(signer) = publisher {
+        let report = signer.reconcile(&store).map_err(|error| Error(format!("V3 publication reconciliation: {error}")))?;
+        log(format_args!("V3 publication reconciled {report:?}"));
     }
     log(format_args!("{SERVICE_NAME} V3 checkpoint store ready directory={}", config.store.display()));
     Ok(CheckpointHandler::new(Arc::new(store)))

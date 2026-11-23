@@ -24,6 +24,8 @@ privoke-model-streaming = { path = "../model-streaming" }
 privoke-curriculum = { path = "../../crates/privoke-curriculum" }
 privoke-semantic = { path = "../../crates/privoke-semantic", default-features = false }
 serde_json = "1"
+# The drift bounds file (`config/v3-drift-bounds.toml`).
+toml = { version = "1", default-features = false, features = ["std", "parse"] }
 tokio-stream = { workspace = true }
 tonic = { workspace = true }
 tokio = { workspace = true }
@@ -34,6 +36,8 @@ rusqlite = { version = "0.37", features = ["bundled"] }
 uuid = { version = "1", default-features = false, features = ["v4"] }
 
 [dev-dependencies]
+# The deterministic publication keys of the publication tests.
+privoke-contracts = { path = "../../crates/privoke-contracts", features = ["test-keys"] }
 privoke-pki = { path = "../../tools/privoke-pki" }
 tempfile = { workspace = true }
 serde_json = "1"

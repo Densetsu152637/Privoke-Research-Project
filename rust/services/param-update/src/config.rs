@@ -36,6 +36,22 @@ pub struct V3Config {
     pub source_root: PathBuf,
     /// A custom AU3 release and its pin (`V3_AUDIENCE_MANIFEST_PATH` and `V3_AUDIENCE_MANIFEST_SHA256`, both or neither).
     pub audience: Option<(PathBuf, String)>,
+    /// The drift bounds (`V3_DRIFT_BOUNDS`). Required whenever the store is on: a commit is never unbounded, whether or not
+    /// it is published.
+    pub drift_bounds: PathBuf,
+    /// Signed publication (`V3_PUBLISH_ROOT`), off when unset.
+    pub publication: Option<PublicationConfig>,
+}
+
+/// Where and how trained V3 versions are published (stage V3-R2).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PublicationConfig {
+    /// The published root (`V3_PUBLISH_ROOT`), on the same filesystem as its staging area.
+    pub root: PathBuf,
+    /// The mounted secret holding the Ed25519 publication seed as 64 hexadecimal characters (`V3_PUBLICATION_KEY_FILE`).
+    pub key_file: PathBuf,
+    /// The id clients look the public key up by (`V3_PUBLICATION_KEY_ID`).
+    pub key_id: String,
 }
 
 impl V3Config {
@@ -55,7 +71,33 @@ impl V3Config {
             .filter(|value| !value.is_empty())
             .map(|value| std::env::split_paths(&value).filter(|path| !path.as_os_str().is_empty()).collect())
             .unwrap_or_default();
-        Ok(Some(Self { store: PathBuf::from(store), initial, source_root: PathBuf::from(source_root), audience }))
+        let drift_bounds = get("V3_DRIFT_BOUNDS")
+            .filter(|value| !value.is_empty())
+            .map(PathBuf::from)
+            .ok_or_else(|| Error("V3_DRIFT_BOUNDS is required when V3_STORE is set.".to_string()))?;
+        let publication = match get("V3_PUBLISH_ROOT").filter(|value| !value.is_empty()) {
+            None => None,
+            Some(root) => {
+                let required = |key: &str| {
+                    get(key)
+                        .filter(|value| !value.is_empty())
+                        .ok_or_else(|| Error(format!("{key} is required when V3_PUBLISH_ROOT is set.")))
+                };
+                Some(PublicationConfig {
+                    root: PathBuf::from(root),
+                    key_file: PathBuf::from(required("V3_PUBLICATION_KEY_FILE")?),
+                    key_id: required("V3_PUBLICATION_KEY_ID")?,
+                })
+            }
+        };
+        Ok(Some(Self {
+            store: PathBuf::from(store),
+            initial,
+            source_root: PathBuf::from(source_root),
+            audience,
+            drift_bounds,
+            publication,
+        }))
     }
 }
 
@@ -204,15 +246,47 @@ mod tests {
 
     #[test]
     fn the_v3_store_is_configured_by_the_oracles_variables() {
-        let configured = config(&[("V3_STORE", "/store"), ("V3_SOURCE_ROOT", "/repo")]).unwrap().v3.unwrap();
+        let configured =
+            config(&[("V3_STORE", "/store"), ("V3_SOURCE_ROOT", "/repo"), ("V3_DRIFT_BOUNDS", "/b.toml")]).unwrap().v3.unwrap();
         assert_eq!(configured.store, PathBuf::from("/store"));
         assert_eq!(configured.source_root, PathBuf::from("/repo"));
-        assert!(configured.initial.is_empty() && configured.audience.is_none());
-        assert!(config(&[("V3_STORE", "/store")]).is_err(), "the pinned sources are required");
-        assert!(config(&[("V3_STORE", "/store"), ("V3_SOURCE_ROOT", "/repo"), ("V3_AUDIENCE_MANIFEST_PATH", "/release.json")]).is_err());
+        assert!(configured.initial.is_empty() && configured.audience.is_none() && configured.publication.is_none());
+        let publishing = config(&[
+            ("V3_STORE", "/store"),
+            ("V3_SOURCE_ROOT", "/repo"),
+            ("V3_DRIFT_BOUNDS", "/b.toml"),
+            ("V3_PUBLISH_ROOT", "/published"),
+        ]);
+        assert!(publishing.is_err(), "publication needs its key and its drift bounds");
+        let publishing = config(&[
+            ("V3_STORE", "/store"),
+            ("V3_SOURCE_ROOT", "/repo"),
+            ("V3_PUBLISH_ROOT", "/published"),
+            ("V3_PUBLICATION_KEY_FILE", "/run/secrets/key"),
+            ("V3_PUBLICATION_KEY_ID", "publication-1"),
+            ("V3_DRIFT_BOUNDS", "/config/v3-drift-bounds.toml"),
+        ])
+        .unwrap()
+        .v3
+        .unwrap()
+        .publication
+        .unwrap();
+        assert_eq!((publishing.key_id.as_str(), publishing.root), ("publication-1", PathBuf::from("/published")));
+        assert!(config(&[("V3_STORE", "/store"), ("V3_DRIFT_BOUNDS", "/b.toml")]).is_err(), "the pinned sources are required");
+        assert!(config(&[("V3_STORE", "/store"), ("V3_SOURCE_ROOT", "/repo")]).is_err(), "a commit is never unbounded");
+        assert!(
+            config(&[
+                ("V3_STORE", "/store"),
+                ("V3_SOURCE_ROOT", "/repo"),
+                ("V3_DRIFT_BOUNDS", "/b.toml"),
+                ("V3_AUDIENCE_MANIFEST_PATH", "/release.json")
+            ])
+            .is_err()
+        );
         let pinned = config(&[
             ("V3_STORE", "/store"),
             ("V3_SOURCE_ROOT", "/repo"),
+            ("V3_DRIFT_BOUNDS", "/b.toml"),
             ("V3_AUDIENCE_MANIFEST_PATH", "/release.json"),
             ("V3_AUDIENCE_MANIFEST_SHA256", "abc"),
         ])

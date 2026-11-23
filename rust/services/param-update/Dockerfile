@@ -22,6 +22,8 @@ RUN cargo build --release --locked -p privoke-param-update --bin param-update-se
 FROM gcr.io/distroless/cc-debian12:nonroot AS runtime
 
 COPY --from=builder /workspace/rust/target/release/param-update-service /param-update-service
+# The drift bounds of the V3 publication gate (V3_DRIFT_BOUNDS); the publication key is a mounted secret, never part of the image.
+COPY --from=builder /workspace/rust/services/param-update/config /config
 # Volumes mounted here inherit this ownership, so the non-root user can write the audit file, the receipt database, the
 # training-cycle journal and (in the model directory) the temporary file of an atomic publication.
 COPY --from=builder --chown=nonroot:nonroot /data-skeleton /data

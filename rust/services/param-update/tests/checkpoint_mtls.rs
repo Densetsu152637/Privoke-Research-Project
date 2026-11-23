@@ -12,7 +12,7 @@ use common::{Creds, Env, engine, generous};
 use privoke_contracts::digest::sha256_hex;
 use privoke_contracts::json::Value;
 use privoke_contracts::proto::experimental_v3::checkpoint_service_client::CheckpointServiceClient;
-use privoke_contracts::proto::experimental_v3::{Chunk, Commit, HealthRequest, Model, Ref, StatusRequest};
+use privoke_contracts::proto::experimental_v3::{Chunk, Commit, HealthRequest, Model, Ref, Rollback, StatusRequest};
 use privoke_contracts::v3::CHUNK_BYTES;
 use privoke_param_update::server::ServerHandle;
 use privoke_param_update::v3_store::{CheckpointHandler, CheckpointStore, SourceEvidence, StoreError};
@@ -142,11 +142,19 @@ async fn only_publishers_and_trainers_commit_and_unknown_peers_reach_nothing() {
         runtime_client.resolve_current(Model { model_id: "privoke-v3-efficient".to_string() }).await.unwrap_err().code(),
         Code::InvalidArgument
     );
+    // A rollback is an operator action: the publisher reaches the store (which does not hold this manifest), no one else gets in.
+    let rollback = Rollback { request_id: "r".to_string(), model_id: "privoke-v3-efficient".to_string(), manifest: sha256_hex(b"x") };
+    let mut publisher_client = peer(&fixture, &publisher).await;
+    assert_eq!(publisher_client.rollback_model(rollback.clone()).await.unwrap_err().code(), Code::NotFound);
+    let mut trainer_client = peer(&fixture, &trainer).await;
+    assert_eq!(trainer_client.rollback_model(rollback.clone()).await.unwrap_err().code(), Code::PermissionDenied);
+    assert_eq!(runtime_client.rollback_model(rollback.clone()).await.unwrap_err().code(), Code::PermissionDenied);
     // A certificate the registry does not know, and a consumer installation, reach no method.
     for creds in [&unregistered, &consumer] {
         let mut client = peer(&fixture, creds).await;
         assert_eq!(client.health(HealthRequest {}).await.unwrap_err().code(), Code::PermissionDenied, "{}", creds.id);
         assert_eq!(client.commit_candidate(commit("r")).await.unwrap_err().code(), Code::PermissionDenied, "{}", creds.id);
+        assert_eq!(client.rollback_model(rollback.clone()).await.unwrap_err().code(), Code::PermissionDenied, "{}", creds.id);
         assert_eq!(client.fetch_blob(Ref { sha256: sha256_hex(b"x") }).await.unwrap_err().code(), Code::PermissionDenied, "{}", creds.id);
     }
     fixture.server.shutdown().await.unwrap();

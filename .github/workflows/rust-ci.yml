@@ -115,6 +115,15 @@ jobs:
         # Prints the counts of the V3 fuzzer replay against the Python oracle (eprintln): cycles, wire messages, work-directory files, rows.
         run: cargo test -p privoke-v3-fuzzer --test replay --locked -- --nocapture --test-threads=1
 
+      - name: Publication test keys are absent from the service build (V3-R2)
+        # The deterministic keys of the fixtures exist behind the `test-keys` feature of privoke-contracts, enabled only by the
+        # dev-dependencies of the tests. The graph of the service (normal and build edges) must not enable it.
+        run: |
+          if cargo tree -p privoke-param-update -e normal,build,features --locked | grep -q 'test-keys'; then
+            echo 'privoke-param-update enables the test-keys feature outside its tests' >&2
+            exit 1
+          fi
+
       - name: V3 checkpoint store replay report (V3-R1)
         # Prints the counts of the checkpoint store replay against the Python oracle (eprintln): steps, answers, refusals with their reasons, commit outcomes, blob listings and receipt rows.
         run: cargo test -p privoke-param-update --test checkpoint_store_golden --test checkpoint_mtls --locked -- --nocapture --test-threads=1
