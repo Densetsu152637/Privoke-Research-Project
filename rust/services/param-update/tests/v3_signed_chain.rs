@@ -1,7 +1,8 @@
-//! The shared signed-chain fixtures (`tests/fixtures/v3_signed_chain/chain.json`, written by
+//! The shared signed-chain fixtures (`privoke-contracts/tests/fixtures/v3_signed_chain/chain.json`, written by
 //! `evaluation/generate_v3_signed_chain_fixtures.py`): the statement format and the Ed25519 verification, replayed against a
 //! chain that an independent implementation (a pure-Python RFC 8032) signed. Every consumer of the fixtures (the publisher, the
-//! model service, the supervisor's lineage admission, `update_security.py`) reads the same file.
+//! model service, the supervisor's lineage admission, `update_security.py`) reads the same file. The test lives here because the
+//! deterministic test keys exist only behind the `test-keys` feature of `privoke-contracts`, which this crate enables for its tests.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::collections::BTreeMap;
@@ -15,7 +16,7 @@ use privoke_contracts::v3;
 use serde_json::Value;
 
 fn fixture() -> Value {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/v3_signed_chain/chain.json");
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/privoke-contracts/tests/fixtures/v3_signed_chain/chain.json");
     serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
 }
 

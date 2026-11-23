@@ -1,6 +1,6 @@
 """Shared signed-chain fixtures for the V3 publication statement (stage V3-R2 of docs/plans/v3-routine-training.md).
 
-One deterministic fixture set, replayed by every consumer: the contracts crate (`tests/v3_signed_chain.rs`), the param-update
+One deterministic fixture set, replayed by every consumer: the contracts crate (`rust/services/param-update/tests/v3_signed_chain.rs`), the param-update
 publisher (R2), model-streaming (R3), the supervisor's lineage admission (R4a and R4b) and `evaluation/update_security.py`.
 It holds, on a toy checkpoint (manifests that satisfy the manifest contract with a stand-in tensor inventory; no weights):
 

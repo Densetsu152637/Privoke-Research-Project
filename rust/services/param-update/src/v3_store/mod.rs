@@ -17,4 +17,4 @@ pub mod store;
 
 pub use evidence::{AudienceSource, PinnedSources, SourceEvidence};
 pub use service::CheckpointHandler;
-pub use store::{CheckpointStore, CommitObserver, NoObserver, StoreError, Swap};
+pub use store::{Candidate, ChainObserver, CheckpointStore, CommitObserver, NoObserver, StoreError, Swap};

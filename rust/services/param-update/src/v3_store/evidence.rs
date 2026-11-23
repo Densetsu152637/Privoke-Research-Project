@@ -63,7 +63,8 @@ impl PinnedSources {
         Self { bc01_paths, audience, bc01: Mutex::new(None), release: Mutex::new(None) }
     }
 
-    fn sources(&self) -> Result<Arc<Sources>, StoreError> {
+    /// The pinned BC01 inputs, loaded on first use.
+    pub fn bc01_sources(&self) -> Result<Arc<Sources>, StoreError> {
         let mut slot = self.bc01.lock().unwrap_or_else(PoisonError::into_inner);
         if let Some(loaded) = slot.as_ref() {
             return Ok(loaded.clone());
@@ -73,7 +74,8 @@ impl PinnedSources {
         Ok(loaded)
     }
 
-    fn release(&self) -> Result<Arc<AudienceRelease>, StoreError> {
+    /// The trusted AU3 release, loaded on first use.
+    pub fn audience_release(&self) -> Result<Arc<AudienceRelease>, StoreError> {
         let mut slot = self.release.lock().unwrap_or_else(PoisonError::into_inner);
         if let Some(loaded) = slot.as_ref() {
             return Ok(loaded.clone());
@@ -91,10 +93,10 @@ impl SourceEvidence for PinnedSources {
     fn validate(&self, evidence: &Value) -> Result<(), StoreError> {
         let source = value::require(evidence, "source")?;
         if value::get(source, "sampler").and_then(value::as_str) == Some(AU3_SAMPLER) {
-            let release = self.release()?;
+            let release = self.audience_release()?;
             v3::validate_source_evidence_au3(evidence, &release)?;
         } else {
-            let sources = self.sources()?;
+            let sources = self.bc01_sources()?;
             v3::validate_source_evidence_bc01(evidence, &sources)?;
         }
         guard_targets(evidence)

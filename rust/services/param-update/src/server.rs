@@ -6,7 +6,8 @@
 //! * `Health`: `publisher`, `trainer` and `runtime` services (the container probe and the operator).
 //! * `CheckpointService` (when a V3 store is configured, stage V3-R1): `CommitCandidate` for `publisher` and `trainer` services
 //!   only; `StageCheckpoint`, `ResolveCurrent`, `FetchBlob`, `GetCommitStatus` and `Health` also for `runtime` services (the V3
-//!   runtime stages the candidates it fits and never commits them).
+//!   runtime stages the candidates it fits and never commits them). `RollbackModel` (an operator action that signs a new
+//!   publication of an earlier version): `publisher` services only.
 //!
 //! An RPC the policy does not list, including `GetModelParameters` and the other services' methods, is `UNIMPLEMENTED`
 //! here. An installation or reporter certificate that the CA signed is `PERMISSION_DENIED`. There is no plaintext
@@ -35,6 +36,7 @@ const CHECKPOINT_FETCH: &str = "/privoke.experimental.v3.CheckpointService/Fetch
 const CHECKPOINT_STAGE: &str = "/privoke.experimental.v3.CheckpointService/StageCheckpoint";
 const CHECKPOINT_COMMIT: &str = "/privoke.experimental.v3.CheckpointService/CommitCandidate";
 const CHECKPOINT_STATUS: &str = "/privoke.experimental.v3.CheckpointService/GetCommitStatus";
+const CHECKPOINT_ROLLBACK: &str = "/privoke.experimental.v3.CheckpointService/RollbackModel";
 const CHECKPOINT_HEALTH: &str = "/privoke.experimental.v3.CheckpointService/Health";
 
 /// Which roles may call which RPC.
@@ -47,6 +49,7 @@ pub fn policy() -> Policy {
         .allow(CHECKPOINT_FETCH, &[Role::Publisher, Role::Trainer, Role::Runtime], LimiterKey::Identity)
         .allow(CHECKPOINT_STAGE, &[Role::Publisher, Role::Trainer, Role::Runtime], LimiterKey::Identity)
         .allow(CHECKPOINT_COMMIT, &[Role::Publisher, Role::Trainer], LimiterKey::Identity)
+        .allow(CHECKPOINT_ROLLBACK, &[Role::Publisher], LimiterKey::Identity)
         .allow(CHECKPOINT_STATUS, &[Role::Publisher, Role::Trainer, Role::Runtime], LimiterKey::Identity)
         .allow(CHECKPOINT_HEALTH, &[Role::Publisher, Role::Trainer, Role::Runtime], LimiterKey::Identity)
 }
