@@ -3,37 +3,39 @@
 # max_update_l2:     the largest L2 distance of a candidate from its parent version (all tensors).
 # max_cumulative_l2: the largest L2 distance of a candidate from the pinned ORIGINAL it descends from (all tensors).
 #
-# PROVISIONAL. The values come from the V3-P pre-flight (23 Nov 2026): single first-cycle updates from the standard releases had
-# L2 up to 2.17 (HEADS) and 1.88 (FULL_ENCODER); twice the largest is about 4.3 and 3.8. The cumulative bound is four times the
-# update bound, a deliberately generous guess because no repeated-cycle drift has been observed yet. Stage V3-R5 recalibrates
-# every tier and scope from real-weight fits (twice the largest observed L2), replaces these numbers, sets status = "calibrated"
-# and points evidence_sha256 at its own calibration record.
+# CALIBRATED by stage V3-R5 (23 Nov 2026) from real-weight routine fits of every tier and scope: three routine cycles (HEADS then
+# FULL_ENCODER, BC01 / AU3 / BC01, 64 steps) per tier on the standard-release bases and on the untrained-heads ORIGINAL bases.
+# max_update_l2 is twice the largest observed per-update L2 of the tier and scope.
+# max_cumulative_l2 is measured from the routine root (the pinned standard release) and is 100 for every tier and scope. Rule and
+# user decision (23 Nov 2026, "raise the cap"): size the cap for about 50 routine cycles at the largest observed growth (about 1.9
+# per cycle, three-cycle runs reached 4.8 to 7.7 from the base), so a tier is not frozen after 6 to 10 cycles. The per-update bound
+# is what limits a single cycle; this cap limits the lifetime drift.
 
 schema = 1
-status = "provisional"
-# SHA-256 of models/experiments/v3p_timing_20261123/PROVENANCE.md (local, Git-ignored), the record of the V3-P fits.
-evidence_sha256 = "4e50896442f97fc7c07db3d2334b46937bd309d67959c9681d797dda433fcc75"
+status = "calibrated"
+# SHA-256 of models/experiments/v3r5_routine_20261123/CALIBRATION.json (local, Git-ignored), the record of the V3-R5 fits.
+evidence_sha256 = "c35c73508940d39672e5acfa2b6f408cc0e0b775378aefbb8be3f0a95d45fef7"
 
 [efficient.heads]
-max_update_l2 = 4.3
-max_cumulative_l2 = 17.2
+max_update_l2 = 4.2
+max_cumulative_l2 = 100.0
 
 [efficient.full_encoder]
-max_update_l2 = 3.8
-max_cumulative_l2 = 15.2
+max_update_l2 = 5.2
+max_cumulative_l2 = 100.0
 
 [balanced.heads]
-max_update_l2 = 4.3
-max_cumulative_l2 = 17.2
+max_update_l2 = 5.7
+max_cumulative_l2 = 100.0
 
 [balanced.full_encoder]
-max_update_l2 = 3.8
-max_cumulative_l2 = 15.2
+max_update_l2 = 7.0
+max_cumulative_l2 = 100.0
 
 [quality.heads]
-max_update_l2 = 4.3
-max_cumulative_l2 = 17.2
+max_update_l2 = 5.2
+max_cumulative_l2 = 100.0
 
 [quality.full_encoder]
-max_update_l2 = 3.8
-max_cumulative_l2 = 15.2
+max_update_l2 = 6.0
+max_cumulative_l2 = 100.0

@@ -82,7 +82,15 @@ fn allocation(case: &Case) -> Allocation {
         sampler: case.evidence["source"]["sampler"].as_str().unwrap().to_string(),
         scope: case.evidence["scope"].as_str().unwrap().to_string(),
         seed: case.evidence["source"]["seed"].as_u64().unwrap(),
-        source_commitment: case.evidence["source_commitment"].as_str().unwrap().to_string(),
+        source_commitment: privoke_curriculum::v3::routine_commitment_of_source(
+            &privoke_curriculum::value::parse_bytes(case.evidence["source"].to_string().as_bytes()).unwrap(),
+            &privoke_curriculum::value::digest_of(
+                &privoke_curriculum::value::parse_bytes(case.evidence["policy"].to_string().as_bytes()).unwrap(),
+            )
+            .unwrap(),
+            case.evidence["source"]["seed"].as_u64().unwrap(),
+        )
+        .unwrap(),
         expected_base: case.commit.expected_base.clone(),
     }
 }
@@ -165,8 +173,10 @@ impl GuardScorer for Fixed {
 
 /// The evidence of a case rewritten so that its guard is the rows param-update rebuilds (the way a routine source record would
 /// carry them), whatever else it claims.
-fn evidence_with_guard(case: &Case, rows: &[Example]) -> Json {
+fn evidence_with_guard(case: &Case, allocation: &Allocation, rows: &[Example]) -> Json {
     let mut evidence = case.evidence.clone();
+    // A routine schedule is built at the seed derived from the scheduler's seed and the commitment.
+    evidence["source"]["seed"] = Json::from(v3::routine_guard_seed(allocation.seed, &allocation.source_commitment).unwrap());
     for (index, row) in rows.iter().enumerate() {
         evidence["source"]["guard_sidecar"][index]["text"] = Json::String(row.text.clone());
         for key in ["base_guard", "candidate_guard"] {
@@ -199,13 +209,17 @@ fn a_candidate_whose_recomputed_guard_is_no_better_is_refused_whatever_its_evide
     table.allocate(&case.commit.request_id, MODEL, allocation.clone());
     let sources = pinned();
     let rows = GuardGate::new(sources.clone(), table.clone()).rows(&allocation).unwrap();
-    let evidence = evidence_with_guard(&case, &rows);
+    let evidence = evidence_with_guard(&case, &allocation, &rows);
     // The evidence says the candidate beat its base: its own guard rows show a better joint count and no harm.
     assert!(privoke_contracts::v3::publication_passes(&case.evidence).unwrap(), "the claim of the evidence is a pass");
     let refused = GuardGate::new(sources.clone(), table.clone()).with_scorer(Arc::new(Fixed(false)));
     assert_eq!(prepare(&refused, &case, &evidence).as_deref(), Some(GUARD_RECOMPUTED), "the recomputation refuses the claimed pass");
     let better = GuardGate::new(sources, table).with_scorer(Arc::new(Fixed(true)));
     assert_eq!(prepare(&better, &case, &evidence), None, "a candidate that scores better passes the gate");
+    // A trainer that trains on rows of a seed of its own choosing (the guard rows being right) is refused.
+    let mut chosen = evidence.clone();
+    chosen["source"]["seed"] = Json::from(1u64);
+    assert_eq!(prepare(&better, &case, &chosen).as_deref(), Some(COMMITMENT_MISMATCH), "the schedule seed must be the derived one");
 }
 
 fn repo(relative: &str) -> PathBuf {

@@ -12,6 +12,7 @@
 //! | `V3_AUDIENCE_MANIFEST_PATH`, `V3_AUDIENCE_MANIFEST_SHA256` | a custom audience release and its pin (both or neither) | bundled |
 //! | `V3_SOURCE_ROOT` | the checkout whose Python sources and pinned inputs the host committed to | required |
 //! | `V3_REQUEST_TIMEOUT_SECONDS` | the per-RPC deadline of the listener | fit timeout plus 600 |
+//! | `V3_MODE` | `frozen` (the study mode, one sampler, host-committed source) or `routine` (BC01 and AU3, a fresh scheduler seed per cycle, the fuzzer computes and records the commitments) | `frozen` |
 //!
 //! `V3_SOURCE_ROOT` is new: the Python service derived the repository root from its own location. The outbound credentials are
 //! `PRIVOKE_TLS_CA_FILE`, `PRIVOKE_TLS_CERT_FILE` and `PRIVOKE_TLS_KEY_FILE`, with `V3_RUNTIME_TLS_SERVER_NAME` and
@@ -26,6 +27,7 @@ use privoke_curriculum::v3::{self, Policy};
 use privoke_curriculum::value::Value;
 
 use crate::contract::{self, MAX_MANIFEST_BYTES};
+use crate::cycle::Mode;
 use crate::error::{Error, Result, invalid};
 use crate::source::{Sampler, Schedules, bc01_input_paths, python_source_hashes};
 
@@ -61,6 +63,8 @@ pub struct V3Settings {
     pub source_root: PathBuf,
     /// `V3_REQUEST_TIMEOUT_SECONDS`.
     pub request_timeout: Duration,
+    /// `V3_MODE`.
+    pub mode: Mode,
 }
 
 fn required(get: &impl Fn(&str) -> Option<String>, name: &str) -> Result<String> {
@@ -100,6 +104,11 @@ impl V3Settings {
         if audience_manifest_path.is_some() != audience_manifest_sha256.is_some() {
             return invalid("Custom v3 audience release requires both trusted path and pin.");
         }
+        let mode = match get("V3_MODE").as_deref().map(str::trim) {
+            None | Some("") | Some("frozen") => Mode::Frozen,
+            Some("routine") => Mode::Routine,
+            Some(_) => return invalid("V3_MODE must be frozen or routine."),
+        };
         Ok(Self {
             runtime_target: required(&get, "V3_RUNTIME_TARGET")?,
             checkpoint_target: required(&get, "V3_CHECKPOINT_TARGET")?,
@@ -113,6 +122,7 @@ impl V3Settings {
             audience_manifest_sha256,
             source_root: PathBuf::from(required(&get, "V3_SOURCE_ROOT")?),
             request_timeout,
+            mode,
         })
     }
 
@@ -129,10 +139,19 @@ pub fn load_policy(path: &Path) -> Result<(Value, Policy)> {
     Ok((document, policy))
 }
 
-/// The sampler's inputs under `settings.source_root`, loaded and pinned.
+/// The configured sampler's inputs under `settings.source_root`, loaded and pinned.
 pub fn load_schedules(settings: &V3Settings) -> Result<Schedules> {
-    let hashes = python_source_hashes(&settings.source_root, settings.sampler)?;
-    Ok(match settings.sampler {
+    load_sampler(settings, settings.sampler)
+}
+
+/// Both frozen samplers' inputs, for the routine mode (BC01 first).
+pub fn load_routine_schedules(settings: &V3Settings) -> Result<Vec<Schedules>> {
+    [Sampler::Bc01, Sampler::Au3].into_iter().map(|sampler| load_sampler(settings, sampler)).collect()
+}
+
+fn load_sampler(settings: &V3Settings, sampler: Sampler) -> Result<Schedules> {
+    let hashes = python_source_hashes(&settings.source_root, sampler)?;
+    Ok(match sampler {
         Sampler::Bc01 => Schedules::bc01(v3::load_sources_from(&bc01_input_paths(&settings.source_root))?, hashes),
         Sampler::Au3 => {
             let release = match (&settings.audience_manifest_path, &settings.audience_manifest_sha256) {
@@ -179,6 +198,14 @@ mod tests {
         assert_eq!(settings.sampler, Sampler::Bc01);
         assert_eq!(settings.fit_timeout, Duration::from_secs(7200));
         assert_eq!(settings.request_timeout, Duration::from_secs(7800));
+        assert_eq!(settings.mode, Mode::Frozen);
+    }
+
+    #[test]
+    fn the_mode_is_frozen_or_routine() {
+        assert_eq!(V3Settings::from_lookup(lookup(&[("V3_MODE", "routine")])).unwrap().mode, Mode::Routine);
+        assert_eq!(V3Settings::from_lookup(lookup(&[("V3_MODE", "frozen")])).unwrap().mode, Mode::Frozen);
+        assert_eq!(V3Settings::from_lookup(lookup(&[("V3_MODE", "weekly")])).unwrap_err().0, "V3_MODE must be frozen or routine.");
     }
 
     #[test]

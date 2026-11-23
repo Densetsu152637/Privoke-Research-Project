@@ -25,7 +25,10 @@ use std::sync::{Arc, Mutex, PoisonError};
 use privoke_contracts::json::Value;
 use privoke_contracts::v3::{action_value, harm_count};
 use privoke_curriculum::Example;
-use privoke_curriculum::v3::{AU3_SAMPLER, BC01_SAMPLER, RoutineRelease, routine_guard_rows};
+use privoke_curriculum::v3::{
+    AU3_SAMPLER, BC01_SAMPLER, RoutineRelease, routine_commitment_of_source, routine_guard_rows, routine_guard_seed,
+};
+use privoke_curriculum::value as curriculum_value;
 use privoke_semantic::V3Model;
 use privoke_semantic::safetensors::{self, Tensor};
 use serde_json::json;
@@ -93,6 +96,13 @@ fn text(document: &Value, key: &str) -> String {
         },
         _ => String::new(),
     }
+}
+
+/// The routine commitment of an evidence document and the scheduler's seed (`None` when the evidence has no usable source).
+fn routine_commitment_of(evidence: &serde_json::Value, seed: u64) -> Option<String> {
+    let source = curriculum_value::parse_bytes(evidence["source"].to_string().as_bytes()).ok()?;
+    let policy = curriculum_value::parse_bytes(evidence["policy"].to_string().as_bytes()).ok()?;
+    routine_commitment_of_source(&source, &curriculum_value::digest_of(&policy).ok()?, seed).ok()
 }
 
 fn semantic(error: impl std::fmt::Display) -> StoreError {
@@ -273,7 +283,10 @@ impl CommitObserver for GuardGate {
         {
             return Ok(Some(ALLOCATION_MISMATCH.to_string()));
         }
-        if evidence["source_commitment"].as_str() != Some(allocation.source_commitment.as_str()) {
+        // The allocation's commitment is the routine commitment (the fuzzer's `routine_commitment`), which the guard selection is bound
+        // to. It is recomputed here from the evidence's own source record, its policy and the scheduler's seed, never taken from the
+        // trainer: the digest of the full source record covers the guard rows and cannot be their input.
+        if routine_commitment_of(evidence, allocation.seed).as_deref() != Some(allocation.source_commitment.as_str()) {
             return Ok(Some(COMMITMENT_MISMATCH.to_string()));
         }
         let rows = self.rows(&allocation)?;
@@ -292,6 +305,12 @@ impl CommitObserver for GuardGate {
             if reported != targets {
                 return Ok(Some(GUARD_ROWS_DIFFER.to_string()));
             }
+        }
+        // A routine schedule is built at the seed derived from the scheduler's seed and the commitment, so the trainer cannot pick
+        // its own training rows (the AU3 guard is the release's, whatever the seed).
+        let derived = routine_guard_seed(allocation.seed, &allocation.source_commitment)?;
+        if evidence["source"]["seed"].as_u64() != Some(derived) {
+            return Ok(Some(COMMITMENT_MISMATCH.to_string()));
         }
         if self.scorer.passes(candidate.store, candidate.manifest, &rows)? { Ok(None) } else { Ok(Some(GUARD_RECOMPUTED.to_string())) }
     }

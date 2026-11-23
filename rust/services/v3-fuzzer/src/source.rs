@@ -10,7 +10,9 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use privoke_curriculum::audience::AudienceRelease;
-use privoke_curriculum::v3::{self, AU3_SAMPLER, AU3_SOURCE_FILES, BC01_SAMPLER, BC01_SOURCE_FILES, Policy, Schedule, Sources};
+use privoke_curriculum::v3::{
+    self, AU3_SAMPLER, AU3_SOURCE_FILES, BC01_SAMPLER, BC01_SOURCE_FILES, INPUTS, Policy, RoutineRelease, Schedule, Sources,
+};
 use privoke_curriculum::value::{self, Value};
 
 use crate::error::{Result, invalid};
@@ -89,6 +91,34 @@ impl Schedules {
         }
     }
 
+    /// The `source_hashes` member of the source record.
+    pub fn source_hashes(&self) -> &Value {
+        match self {
+            Self::Bc01 { source_hashes, .. } | Self::Au3 { source_hashes, .. } => source_hashes,
+        }
+    }
+
+    /// The `inputs` member of the source record: the pinned inputs of the sampler, which no seed changes.
+    pub fn inputs(&self) -> Value {
+        match self {
+            Self::Bc01 { .. } => value::object(INPUTS.iter().map(|(key, _, sha)| (*key, value::string(sha))).collect()),
+            Self::Au3 { release, .. } => value::object(vec![("audience_manifest", value::string(&release.sha256))]),
+        }
+    }
+
+    /// The frozen release that [`v3::routine_guard_rows`] selects the guard from.
+    pub fn guard_release(&self) -> RoutineRelease<'_> {
+        match self {
+            Self::Bc01 { sources, .. } => RoutineRelease::Bc01(sources),
+            Self::Au3 { release, .. } => RoutineRelease::Au3(release),
+        }
+    }
+
+    /// The routine commitment of a cycle of this sampler (see [`routine_commitment`]).
+    pub fn routine_commitment(&self, policy_sha256: &str, seed: u64) -> Result<String> {
+        Ok(routine_commitment(self.sampler().name(), &self.inputs(), self.source_hashes(), policy_sha256, seed)?)
+    }
+
     /// `fuzzer_training.schedule(seed, policy, sampler=)`: the training rows, the guard rows and the source record.
     pub fn schedule(&self, seed: u64, policy: Policy) -> Result<Schedule> {
         match self {
@@ -101,6 +131,8 @@ impl Schedules {
         }
     }
 }
+
+pub use privoke_curriculum::v3::{ROUTINE_COMMITMENT_DOMAIN, routine_commitment, routine_commitment_of_source};
 
 /// The digests of the Python files that pin `sampler`, hashed under `root`.
 pub fn python_source_hashes(root: &Path, sampler: Sampler) -> Result<Value> {

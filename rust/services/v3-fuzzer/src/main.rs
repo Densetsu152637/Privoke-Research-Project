@@ -11,8 +11,8 @@ use clap::Parser;
 use privoke_fuzzer::config::client_tls_from_lookup;
 use privoke_transport::startup::CloudTlsArgs;
 use privoke_v3_fuzzer::backend::{GrpcCheckpoint, GrpcFit};
-use privoke_v3_fuzzer::config::{V3Settings, load_policy, load_schedules};
-use privoke_v3_fuzzer::cycle::{Engine, EngineParts};
+use privoke_v3_fuzzer::config::{V3Settings, load_policy, load_routine_schedules, load_schedules};
+use privoke_v3_fuzzer::cycle::{Engine, EngineParts, Mode};
 use privoke_v3_fuzzer::server::{self, limits_for};
 use privoke_v3_fuzzer::service::V3Handler;
 use privoke_v3_fuzzer::source::Closure;
@@ -64,7 +64,11 @@ async fn serve(args: Args) -> Result<()> {
         fit_timeout: settings.fit_timeout,
         closure: Closure::Root(settings.source_root.clone()),
     };
-    let engine = Arc::new(Engine::new(parts, fit, checkpoint).await?);
+    let engine = Engine::new(parts, fit, checkpoint).await?;
+    let engine = Arc::new(match settings.mode {
+        Mode::Frozen => engine,
+        Mode::Routine => engine.with_routine(load_routine_schedules(&settings)?)?,
+    });
     let listen = SocketAddr::new(settings.bind, settings.port);
     let limits = limits_for(settings.request_timeout);
     let mut handle =

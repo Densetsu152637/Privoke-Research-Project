@@ -679,3 +679,39 @@ pub fn routine_guard_rows(release: RoutineRelease<'_>, seed: u64, source_commitm
     }
     Ok(guard)
 }
+
+/// The domain tag of the routine commitment.
+pub const ROUTINE_COMMITMENT_DOMAIN: &str = "privoke-v3-routine-source-v1";
+
+/// The routine commitment: the SHA-256 of the canonical record `{schema, domain, sampler, inputs, source_hashes, policy_sha256,
+/// seed}`, where `seed` is the scheduler-allocated seed of the cycle (stage V3-R5).
+///
+/// This is the `source_commitment` argument of [`routine_guard_rows`]. It commits to everything that identifies the cycle's
+/// frozen source (the sampler, its pinned inputs, the Python sources, the policy) and to the scheduler's seed, and to nothing that
+/// depends on the schedule's rows or its guard, so the guard rows can be selected from it without circularity. The schedule is
+/// built at [`routine_guard_seed`]`(seed, commitment)`: the frozen validators (the runtime's and the store's source evidence) then
+/// hold for a routine cycle unchanged, and the guard its record names is `routine_guard_rows(release, seed, commitment)`.
+pub fn routine_commitment(sampler: &str, inputs: &Value, source_hashes: &Value, policy_sha256: &str, seed: u64) -> Result<String> {
+    let record = value::object(vec![
+        ("schema", value::int(1)),
+        ("domain", value::string(ROUTINE_COMMITMENT_DOMAIN)),
+        ("sampler", value::string(sampler)),
+        ("inputs", inputs.clone()),
+        ("source_hashes", source_hashes.clone()),
+        ("policy_sha256", value::string(policy_sha256)),
+        ("seed", value::uint(seed)),
+    ]);
+    value::digest_of(&record)
+}
+
+/// [`routine_commitment`] recomputed from the `source` record of fit evidence, the policy digest and the scheduler's `seed`: a
+/// verifier that holds the journalled seed needs nothing else from the trainer.
+pub fn routine_commitment_of_source(source: &Value, policy_sha256: &str, seed: u64) -> Result<String> {
+    routine_commitment(
+        value::str_at(source, "sampler")?,
+        value::require(source, "inputs")?,
+        value::require(source, "source_hashes")?,
+        policy_sha256,
+        seed,
+    )
+}

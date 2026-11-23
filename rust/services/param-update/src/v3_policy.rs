@@ -4,7 +4,8 @@
 //! tensor of the checkpoint are bounded, separately for each tier and for each scope (HEADS and FULL_ENCODER):
 //!
 //! * the **update**: the distance of the candidate from its parent (the version the fit started from);
-//! * the **cumulative drift**: the distance of the candidate from the pinned ORIGINAL its lineage descends from.
+//! * the **cumulative drift**: the distance of the candidate from the routine root, the pinned standard release its lineage
+//!   descends from (or the ORIGINAL when the lineage never passes through one).
 //!
 //! The bounds live in `config/v3-drift-bounds.toml`. R2 ships *provisional* values from the V3-P pre-flight (twice the largest
 //! single update observed from the standard releases, and four times that for the cumulative distance); stage V3-R5 recalibrates
@@ -30,7 +31,7 @@ pub const DRIFT_EXCEEDED: &str = "drift_exceeded";
 pub struct Bound {
     /// The largest L2 distance of a candidate from its parent.
     pub max_update_l2: f64,
-    /// The largest L2 distance of a candidate from the pinned ORIGINAL.
+    /// The largest L2 distance of a candidate from the routine root (the pinned standard release).
     pub max_cumulative_l2: f64,
 }
 
@@ -145,11 +146,32 @@ impl DriftGate {
         Self { bounds }
     }
 
+    /// The routine root of a candidate: the pinned standard release its parent chain reaches (cumulative drift is measured from the
+    /// version the clients pin), or, for a lineage that never passes through one, its ORIGINAL.
+    pub fn root(store: &CheckpointStore, manifest: &Value) -> Result<Value, StoreError> {
+        let model = text(manifest, "model_id");
+        let pin = store.pin(&model);
+        let mut parent = text(manifest, "parent");
+        // The chain is bounded by the history of the model; a cycle would need a hash collision.
+        for _ in 0..100_000 {
+            if parent.is_empty() {
+                break;
+            }
+            let version = store.manifest(&parent)?;
+            if pin.as_deref() == Some(parent.as_str()) {
+                return Ok(version);
+            }
+            parent = text(&version, "parent").to_string();
+        }
+        store.manifest(&text(manifest, "original"))
+    }
+
     /// The two distances of an admitted candidate: from its parent and from the ORIGINAL.
     pub fn distances(store: &CheckpointStore, manifest: &Value) -> Result<(f64, f64), StoreError> {
         let candidate = checkpoint(store, manifest)?;
         let update = l2_distance(&candidate, &checkpoint(store, &store.manifest(&text(manifest, "parent"))?)?)?;
-        let cumulative = l2_distance(&candidate, &checkpoint(store, &store.manifest(&text(manifest, "original"))?)?)?;
+        let root = Self::root(store, manifest)?;
+        let cumulative = l2_distance(&candidate, &checkpoint(store, &root)?)?;
         Ok((update, cumulative))
     }
 }
