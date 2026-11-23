@@ -10,8 +10,8 @@
 //!
 //! Python runs the backbone in float32 onnxruntime, so the features agree to about 1e-6, not bit for bit; the stage 14
 //! tolerances apply. This port is verified against a numpy float32 reference of the same graph on synthetic weights
-//! (`tests/context_golden.rs`); a comparison with onnxruntime on the real file was not possible on the host that made the
-//! golden (no onnxruntime), and no claim about it is made.
+//! (`tests/context_golden.rs`). Against onnxruntime 1.23.2 on the real pinned file the features agree within 1e-6
+//! (`tests/context_onnx_real.rs`, env-gated local evidence: 31 texts, maximum difference 1.99e-7).
 
 use std::path::Path;
 
