@@ -45,6 +45,8 @@ pub struct Tier {
     pub config_sha256: &'static str,
     /// SHA-256 of the pinned released manifest.
     pub manifest_pin: &'static str,
+    /// The `original` field of the pinned released manifest: the ORIGINAL-scope manifest every trained version descends from.
+    pub release_original: &'static str,
 }
 
 /// The three admitted tiers, in the order of the Python `TIERS` table.
@@ -60,6 +62,7 @@ pub const TIERS: [Tier; 3] = [
         weights_sha256: "2e37a60f99c30c244da3a2ada3653faf378689783c5b6500d7291acc2516e199",
         config_sha256: "191ec8105cc6eb8ce2d64c117f7c5830f6028c06da4d7a0d3672414f2c77ad98",
         manifest_pin: "1f45a21bd7bd0c931dad215f823008193e7af7359bc68527c1f5dd4e7fbbeffd",
+        release_original: "a60ab3c01592dd3d759950f35fad1a291aa94e57c954cf6beffa4e97d66a686e",
     },
     Tier {
         name: "balanced",
@@ -72,6 +75,7 @@ pub const TIERS: [Tier; 3] = [
         weights_sha256: "67b710645b099510dba08b7605a60859fff59714628e1d9d1ffa9e0956b51783",
         config_sha256: "ba873b4875d069697fa5bab011ea9e3f63b7f8186701bdf5356b4d8622d8f5c1",
         manifest_pin: "99b36171056bb0398584a0b0556d9d7ff2640d0acac4b124a126327451a80589",
+        release_original: "81b3d20e1c695b81a159ec23b3b06567e548a84909f5de21fe8936966ec13fff",
     },
     Tier {
         name: "quality",
@@ -84,6 +88,7 @@ pub const TIERS: [Tier; 3] = [
         weights_sha256: "1be1c8c6a57894a139fdf526fb8435f6acb6ea01600569a4ac3cfd405dc5f875",
         config_sha256: "9efa18e50a359c542d79f9c00a23049c2d78aa07c1fd11827c6e2487b3333cd7",
         manifest_pin: "bb17d355fe1ad13c7052e922fb6de607d82cdafb1f4440fee1a47f35d42caf39",
+        release_original: "c86f710946090e31cb9b15d2e2fc476fb23ac74286cbae59e4d5aa286c90210e",
     },
 ];
 
@@ -378,10 +383,27 @@ pub enum LineageError {
     HighWater(String),
 }
 
+/// The compiled pin of a tier: the pinned release manifest and the `original` field of that manifest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TierPin {
+    /// SHA-256 of the pinned release manifest.
+    pub manifest_sha: String,
+    /// The pinned release's own `original` field: what a trained version's `original` must equal.
+    pub original: String,
+}
+
+/// The compiled pin of a standard model id.
+pub fn standard_tier_pin(model_id: &str) -> Option<TierPin> {
+    TIERS
+        .iter()
+        .find(|tier| model_id == format!("privoke-v3-{}", tier.name))
+        .map(|tier| TierPin { manifest_sha: tier.manifest_pin.to_string(), original: tier.release_original.to_string() })
+}
+
 /// What the client has compiled in and persisted for [`admit_lineage`].
 pub trait LineageState {
-    /// The compiled pinned ORIGINAL manifest SHA-256 of `model_id`, if the model has one.
-    fn tier_pin(&self, model_id: &str) -> Option<String>;
+    /// The compiled pin of `model_id`, if the model has one.
+    fn tier_pin(&self, model_id: &str) -> Option<TierPin>;
     /// The highest publication statement already accepted for `model_id` (re-verified by the implementation), if any.
     fn high_water(&self, model_id: &str) -> Result<Option<Statement>, String>;
 }
@@ -418,7 +440,7 @@ fn lineage_field(value: &Value, key: &str) -> Option<String> {
 /// 2. a statement is present, verifies under a `key_id` of `keys`, and names this model and this manifest;
 /// 3. the statement's `parent` and `original` equal the manifest's own fields;
 /// 4. its sequence is above the high-water mark, or equal to it with the same manifest;
-/// 5. the manifest is the compiled tier pin (a signed rollback to the ORIGINAL), or its `original` equals the pin.
+/// 5. the manifest is the compiled tier pin (a signed rollback), or its `original` equals the `original` of the pinned release.
 ///
 /// Without a statement only the compiled pin is admitted, and only while the model has no high-water mark (first start): an
 /// unsigned ORIGINAL after a signed version is a downgrade.
@@ -440,7 +462,7 @@ pub fn admit_lineage(
     }
     let pin = state.tier_pin(&manifest.model_id).ok_or(LineageError::NoPin)?;
     let manifest_sha = sha256_hex(payload);
-    let is_pin = manifest_sha == pin;
+    let is_pin = manifest_sha == pin.manifest_sha;
     let high_water = state.high_water(&manifest.model_id).map_err(LineageError::HighWater)?;
     if let Some(seen) = &high_water
         && seen.model_id != manifest.model_id
@@ -475,7 +497,7 @@ pub fn admit_lineage(
             return Err(LineageError::SequenceConflict(statement.sequence));
         }
     }
-    if !is_pin && (manifest.scope == "original" || statement.original != pin) {
+    if !is_pin && (manifest.scope == "original" || statement.original != pin.original) {
         return Err(LineageError::WrongOriginal);
     }
     Ok(LineageAdmitted { manifest, manifest_sha, statement: Some(statement) })

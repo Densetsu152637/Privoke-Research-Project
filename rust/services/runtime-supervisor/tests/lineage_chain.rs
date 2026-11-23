@@ -15,7 +15,7 @@ use base64::Engine as _;
 use common::rows::record;
 use privoke_contracts::publication::test_keys::{self, SECONDARY_ID};
 use privoke_contracts::publication::{self, KeySet, PublicationError, Statement};
-use privoke_contracts::v3::{self, LineageError, LineageState};
+use privoke_contracts::v3::{self, LineageError, LineageState, TierPin};
 use serde_json::Value;
 
 const MODEL: &str = "privoke-v3-efficient";
@@ -32,8 +32,9 @@ struct Client {
 }
 
 impl LineageState for Client {
-    fn tier_pin(&self, model_id: &str) -> Option<String> {
-        (model_id == MODEL).then(|| self.pin.clone())
+    fn tier_pin(&self, model_id: &str) -> Option<TierPin> {
+        // The toy ORIGINAL is the pinned release and the `original` of every version descending from it.
+        (model_id == MODEL).then(|| TierPin { manifest_sha: self.pin.clone(), original: self.pin.clone() })
     }
 
     fn high_water(&self, model_id: &str) -> Result<Option<Statement>, String> {

@@ -28,7 +28,7 @@ use std::time::Duration;
 use privoke_contracts::proto::v1::model_streaming_service_client::ModelStreamingServiceClient;
 use privoke_contracts::proto::v1::{ModelAssetRequest, ModelPackageResponse, ModelParametersRequest};
 use privoke_contracts::publication::{self, KeySet, Statement};
-use privoke_contracts::v3::{self, LineageError, LineageState};
+use privoke_contracts::v3::{self, LineageError, LineageState, TierPin};
 use sha2::{Digest, Sha256};
 use tokio::sync::Mutex;
 use tonic::transport::Channel;
@@ -152,7 +152,7 @@ fn assets_of(manifest: &v3::Manifest) -> Result<BTreeMap<&'static str, String>, 
 pub struct LineageAdmission {
     keys: KeySet,
     cache_root: PathBuf,
-    pins: Option<BTreeMap<String, String>>,
+    pins: Option<BTreeMap<String, TierPin>>,
 }
 
 impl LineageAdmission {
@@ -169,7 +169,7 @@ impl LineageAdmission {
     /// Replace the compiled tier pins (a synthetic ORIGINAL in tests). Compiled only with the `test-helpers` feature.
     #[cfg(feature = "test-helpers")]
     #[must_use]
-    pub fn with_pins(mut self, pins: BTreeMap<String, String>) -> Self {
+    pub fn with_pins(mut self, pins: BTreeMap<String, TierPin>) -> Self {
         self.pins = Some(pins);
         self
     }
@@ -201,10 +201,10 @@ impl LineageAdmission {
 }
 
 impl LineageState for LineageAdmission {
-    fn tier_pin(&self, model_id: &str) -> Option<String> {
+    fn tier_pin(&self, model_id: &str) -> Option<TierPin> {
         match &self.pins {
             Some(pins) => pins.get(model_id).cloned(),
-            None => v3::standard_pin(model_id).map(str::to_string),
+            None => v3::standard_tier_pin(model_id),
         }
     }
 

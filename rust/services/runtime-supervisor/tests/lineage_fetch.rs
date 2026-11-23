@@ -24,7 +24,7 @@ use privoke_contracts::proto::v1::{
 };
 use privoke_contracts::publication::test_keys::{self, PRIMARY_ID, SECONDARY_ID};
 use privoke_contracts::publication::{self, Statement};
-use privoke_contracts::v3::{self, LineageError};
+use privoke_contracts::v3::{self, LineageError, TierPin};
 use privoke_supervisor::channel::ModelEndpoint;
 use privoke_supervisor::fetch::{
     ASSETS, FetchConfig, FetchError, Fetcher, HIGH_WATER_FILE, LineageAdmission, STATEMENT_FILE, verify_package,
@@ -104,10 +104,11 @@ struct Chain {
 }
 
 fn chain() -> Chain {
-    let pin = version("heads", &sha256_hex(b"root"), &sha256_hex(b"root"), "pin");
-    let heads = version("heads", &pin.sha, &pin.sha, "heads");
-    let full = version("full_encoder", &heads.sha, &pin.sha, "full");
-    let heads_again = version("heads", &pin.sha, &pin.sha, "heads-again");
+    // As the real pinned release: its own `original` is the ORIGINAL-scope manifest, which every trained version names too.
+    let pin = version("full_encoder", &sha256_hex(b"initial"), &sha256_hex(b"root"), "pin");
+    let heads = version("heads", &pin.sha, &pin.original, "heads");
+    let full = version("full_encoder", &heads.sha, &pin.original, "full");
+    let heads_again = version("heads", &pin.sha, &pin.original, "heads-again");
     Chain { pin, heads, full, heads_again }
 }
 
@@ -264,7 +265,10 @@ impl Rig {
 
     /// The admission of a client whose compiled tier pin is the synthetic ORIGINAL.
     fn admission(&self, keys: publication::KeySet) -> LineageAdmission {
-        LineageAdmission::new(keys, self.cache.path()).with_pins(BTreeMap::from([(MODEL.to_string(), self.chain.pin.sha.clone())]))
+        LineageAdmission::new(keys, self.cache.path()).with_pins(BTreeMap::from([(
+            MODEL.to_string(),
+            TierPin { manifest_sha: self.chain.pin.sha.clone(), original: self.chain.pin.original.clone() },
+        )]))
     }
 
     fn serve(&self, version: &Version, statement: Vec<u8>) {
