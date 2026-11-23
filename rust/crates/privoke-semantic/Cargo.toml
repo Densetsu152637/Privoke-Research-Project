@@ -9,6 +9,8 @@ license.workspace = true
 
 [dev-dependencies]
 base64 = { workspace = true }
+# The deterministic publication test keys of the published-version loader tests (V3-R4b).
+privoke-contracts = { path = "../privoke-contracts", features = ["test-keys"] }
 tempfile = { workspace = true }
 
 [features]

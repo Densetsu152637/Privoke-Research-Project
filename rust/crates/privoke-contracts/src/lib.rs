@@ -8,6 +8,7 @@
 //! * [`digest`]: artifact checksums, receipt keys and derived seeds.
 //! * [`fingerprint`]: structurally framed tensor identity.
 //! * [`v3`]: the pinned standard V3 manifest rules.
+//! * [`model_cache`]: which cached version of a model a client may load (stage V3-R4b).
 //!
 //! The protobuf bindings are re-exported as [`proto`].
 
@@ -15,6 +16,7 @@ pub mod canonical;
 pub mod digest;
 pub mod fingerprint;
 pub mod json;
+pub mod model_cache;
 pub mod publication;
 pub mod pyfloat;
 pub mod v3;

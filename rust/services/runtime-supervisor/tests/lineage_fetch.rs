@@ -2,7 +2,8 @@
 //! (a pinned ORIGINAL, HEADS and FULL versions, a rollback, a second-key version) whose manifests satisfy the manifest contract on
 //! the efficient tier with the official `config.json` and `vocab.txt` (fixtures of param-update) and stand-in weights. The synthetic
 //! ORIGINAL is the tier pin of the admission under test. Every rule is exercised through the real `Fetcher`, with the high-water
-//! mark and the statements persisted in the cache and re-verified by a fresh fetcher (a restart).
+//! mark and the statements persisted in the cache and re-verified by a fresh fetcher (a restart). Stage V3-R4b adds, on the same chain,
+//! the refresh loop, the offline start-up selection, the garbage collection and the advisory lock of the mark.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 mod common;
@@ -17,6 +18,7 @@ use common::rows::record;
 use privoke_contracts::canonical::{self, Variant};
 use privoke_contracts::digest::sha256_hex;
 use privoke_contracts::json::Value;
+use privoke_contracts::model_cache::{CacheRules, ModelCache};
 use privoke_contracts::proto::v1::model_streaming_service_server::{ModelStreamingService, ModelStreamingServiceServer};
 use privoke_contracts::proto::v1::{
     HealthRequest, HealthResponse, ModelAssetChunk, ModelAssetRequest, ModelPackageAsset, ModelPackageResponse, ModelParameterChunk,
@@ -27,8 +29,10 @@ use privoke_contracts::publication::{self, Statement};
 use privoke_contracts::v3::{self, LineageError, TierPin};
 use privoke_supervisor::channel::ModelEndpoint;
 use privoke_supervisor::fetch::{
-    ASSETS, FetchConfig, FetchError, Fetcher, HIGH_WATER_FILE, LineageAdmission, STATEMENT_FILE, verify_package,
+    ASSETS, Admission, AdmittedManifest, FetchConfig, FetchError, Fetcher, HIGH_WATER_FILE, LineageAdmission, STATEMENT_FILE,
+    verify_package,
 };
+use privoke_supervisor::refresh::{Refreshed, Refresher};
 use privoke_transport::listener::loopback::LoopbackListener;
 use tokio_stream::Stream;
 use tonic::{Request, Response, Status};
@@ -583,4 +587,281 @@ async fn a_statement_that_changes_during_the_download_is_not_admitted() {
     assert!(rig.high_water().is_none(), "no mark is written for a package that was not admitted");
     assert!(!rig.version_directory(&chain.heads).join("manifest.json").exists());
     rig.stop();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// Stage V3-R4b: refresh, offline start-up, garbage collection, the signed mark against the cache, and the advisory lock.
+// ---------------------------------------------------------------------------------------------------------------------------
+
+async fn wait_for(what: &str, mut condition: impl FnMut() -> bool) {
+    for _ in 0..300 {
+        if condition() {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    panic!("timed out waiting for {what}");
+}
+
+impl Rig {
+    /// One refresh through `refresher` against the scripted server.
+    async fn refresh(&self, refresher: &Refresher) -> Refreshed {
+        let channel = self.endpoint.connect(Duration::from_secs(10)).await.unwrap();
+        refresher.refresh(channel, &self.endpoint.target, MODEL).await
+    }
+}
+
+#[tokio::test]
+async fn a_published_candidate_replaces_the_cached_snapshot_after_the_interval() {
+    let mut rig = rig().await;
+    let chain = chain();
+    let keys = test_keys::key_set();
+    let admission = rig.admission(keys.clone());
+    let refresher = Arc::new(Refresher::new(rig.admission(keys), rig.config()));
+    rig.serve(&chain.pin, Vec::new());
+
+    let (endpoint, interval) = (rig.endpoint.clone(), Duration::from_millis(900));
+    let task = {
+        let refresher = Arc::clone(&refresher);
+        tokio::spawn(async move { refresher.run(&endpoint, &[MODEL.to_string()], interval, Duration::from_secs(10)).await })
+    };
+    // The start-up refresh caches the unsigned pinned release, which is what a worker serves.
+    wait_for("the start-up refresh", || admission.current_version(MODEL).as_deref() == Some(chain.pin.sha.as_str())).await;
+
+    // The candidate is published; before the interval elapses the snapshot is unchanged ...
+    let heads = statement_for(PRIMARY_ID, &chain.heads, 1);
+    rig.serve(&chain.heads, heads.clone());
+    assert_eq!(admission.current_version(MODEL).as_deref(), Some(chain.pin.sha.as_str()));
+    // ... and after it the signed candidate is the current version of the cache, with its statement and as the mark.
+    wait_for("the refresh after the interval", || admission.current_version(MODEL).as_deref() == Some(chain.heads.sha.as_str())).await;
+    assert_eq!(rig.high_water().unwrap(), heads);
+    let selected = admission.cache().select(MODEL).unwrap().unwrap();
+    assert_eq!(selected.statement, heads);
+    assert!(selected.directory.ends_with(&chain.heads.sha));
+    task.abort();
+    record("RB1", "candidate-replaces-the-snapshot-after-the-interval", "accepted", "accepted", "");
+    rig.stop();
+}
+
+#[tokio::test]
+async fn an_offline_restart_serves_the_high_water_version() {
+    let mut rig = rig().await;
+    let chain = chain();
+    let admission = rig.admission(test_keys::key_set());
+    rig.serve(&chain.pin, Vec::new());
+    rig.fetch(&admission).await.unwrap().unwrap();
+    rig.serve(&chain.heads, statement_for(PRIMARY_ID, &chain.heads, 1));
+    rig.fetch(&admission).await.unwrap().unwrap();
+    let full = statement_for(PRIMARY_ID, &chain.full, 2);
+    rig.serve(&chain.full, full.clone());
+    rig.fetch(&admission).await.unwrap().unwrap();
+    // The cache holds all three versions; the server now cannot be asked.
+    assert!(rig.version_directory(&chain.pin).is_dir() && rig.version_directory(&chain.heads).is_dir());
+    rig.serving.lock().unwrap().unavailable = true;
+
+    // A new process over the same cache.
+    let restarted = rig.admission(test_keys::key_set());
+    let refresher = Refresher::new(restarted.clone(), rig.config());
+    let outcome = rig.refresh(&refresher).await;
+    assert!(matches!(outcome, Refreshed::Offline(_)), "{outcome:?}");
+    let selected = restarted.cache().select(MODEL).unwrap().unwrap();
+    assert_eq!(selected.manifest_sha, chain.full.sha, "the version at the mark, not the pin and not another directory");
+    assert_eq!(selected.statement, full);
+    verify_package(&selected.directory, MODEL, &restarted).unwrap();
+    assert_eq!(rig.high_water().unwrap(), full);
+
+    // The whole server gone: the answer is the same.
+    rig.stop();
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let again = restarted.cache().select(MODEL).unwrap().unwrap();
+    assert_eq!(again, selected);
+    record("RB2", "offline-restart-serves-the-high-water-version", "accepted", "accepted", "");
+}
+
+#[tokio::test]
+async fn garbage_collection_never_removes_the_pin_or_the_current_version() {
+    let mut rig = rig().await;
+    let chain = chain();
+    let keys = test_keys::key_set();
+    let refresher = Refresher::new(rig.admission(keys.clone()), rig.config());
+    let admission = rig.admission(keys);
+
+    rig.serve(&chain.pin, Vec::new());
+    assert!(matches!(rig.refresh(&refresher).await, Refreshed::Updated { from: None, .. }));
+    rig.serve(&chain.heads, statement_for(PRIMARY_ID, &chain.heads, 1));
+    assert!(matches!(rig.refresh(&refresher).await, Refreshed::Updated { .. }));
+    // The mark moves to FULL: HEADS is superseded and goes; the pin and FULL stay.
+    rig.serve(&chain.full, statement_for(PRIMARY_ID, &chain.full, 2));
+    match rig.refresh(&refresher).await {
+        Refreshed::Updated { from, to, removed } => {
+            assert_eq!((from.as_deref(), to.as_str()), (Some(chain.heads.sha.as_str()), chain.full.sha.as_str()));
+            assert_eq!(removed, vec![chain.heads.sha.clone()]);
+        }
+        other => panic!("{other:?}"),
+    }
+    assert!(!rig.version_directory(&chain.heads).exists());
+    assert!(rig.version_directory(&chain.pin).is_dir() && rig.version_directory(&chain.full).is_dir());
+
+    // A download in progress (no statement) is not superseded.
+    let partial = rig.model_directory().join(sha256_hex(b"partial"));
+    std::fs::create_dir_all(&partial).unwrap();
+    assert!(admission.collect_garbage(MODEL).unwrap().is_empty());
+    assert!(partial.is_dir());
+
+    // Another trained version, then a signed rollback to the pin: the pin is the current version and is kept.
+    rig.serve(&chain.heads_again, statement_for(PRIMARY_ID, &chain.heads_again, 3));
+    assert!(matches!(rig.refresh(&refresher).await, Refreshed::Updated { .. }));
+    assert!(!rig.version_directory(&chain.full).exists(), "FULL is superseded by sequence 3");
+    let rollback = statement_for(PRIMARY_ID, &chain.pin, 4);
+    rig.serve(&chain.pin, rollback.clone());
+    assert!(matches!(rig.refresh(&refresher).await, Refreshed::Updated { .. }));
+    assert!(!rig.version_directory(&chain.heads_again).exists());
+    assert!(rig.version_directory(&chain.pin).is_dir(), "the pin is never collected");
+    let selected = admission.cache().select(MODEL).unwrap().unwrap();
+    assert_eq!((selected.manifest_sha.as_str(), selected.statement), (chain.pin.sha.as_str(), rollback));
+    assert!(partial.is_dir());
+
+    // A collected version can be published again: it is fetched in full by the same fetcher.
+    rig.serve(&chain.heads, statement_for(PRIMARY_ID, &chain.heads, 5));
+    assert!(matches!(rig.refresh(&refresher).await, Refreshed::Updated { .. }));
+    assert_eq!(admission.current_version(MODEL).as_deref(), Some(chain.heads.sha.as_str()));
+    assert!(rig.version_directory(&chain.pin).is_dir(), "the pin survives the next collection too");
+    verify_package(&rig.version_directory(&chain.heads), MODEL, &admission).unwrap();
+    record("RB3", "garbage-collection-keeps-the-pin-and-the-current-version", "accepted", "accepted", "");
+    rig.stop();
+}
+
+#[tokio::test]
+async fn a_client_with_a_signed_mark_never_selects_the_unsigned_pin_or_a_lower_version_from_the_cache() {
+    let mut rig = rig().await;
+    let chain = chain();
+    let admission = rig.admission(test_keys::key_set());
+    let heads = statement_for(PRIMARY_ID, &chain.heads, 1);
+    let full = statement_for(PRIMARY_ID, &chain.full, 2);
+    rig.serve(&chain.pin, Vec::new());
+    rig.fetch(&admission).await.unwrap().unwrap();
+    // First start: no mark, so the cache selects the pinned release.
+    let first = admission.cache().select(MODEL).unwrap().unwrap();
+    assert_eq!((first.manifest_sha.as_str(), first.statement.is_empty()), (chain.pin.sha.as_str(), true));
+    rig.serve(&chain.heads, heads.clone());
+    rig.fetch(&admission).await.unwrap().unwrap();
+    rig.serve(&chain.full, full.clone());
+    rig.fetch(&admission).await.unwrap().unwrap();
+
+    let cache = admission.cache();
+    assert_eq!(cache.select(MODEL).unwrap().unwrap().manifest_sha, chain.full.sha);
+    // The loader's admission of each cached version: only the one at the mark passes.
+    let error = verify_package(&rig.version_directory(&chain.pin), MODEL, &admission).unwrap_err();
+    record("RB4", "signed-mark-refuses-the-unsigned-pin-from-the-cache", "refused", "refused", lineage_reason(&error));
+    assert_eq!(lineage_reason(&error), "Downgrade", "{error}");
+    let error = verify_package(&rig.version_directory(&chain.heads), MODEL, &admission).unwrap_err();
+    assert_eq!(lineage_reason(&error), "Replay", "{error}");
+    verify_package(&rig.version_directory(&chain.full), MODEL, &admission).unwrap();
+
+    // Every way of damaging the version at the mark is an error, never a fallback to another cached version.
+    let statement_path = rig.version_directory(&chain.full).join(STATEMENT_FILE);
+    std::fs::write(&statement_path, &heads).unwrap();
+    assert!(cache.select(MODEL).unwrap_err().to_string().contains("does not carry the statement"));
+    std::fs::remove_file(&statement_path).unwrap();
+    assert!(cache.select(MODEL).is_err());
+    std::fs::write(&statement_path, &full).unwrap();
+    assert_eq!(cache.select(MODEL).unwrap().unwrap().manifest_sha, chain.full.sha);
+    // A deleted mark is rebuilt from the cached statements: the selection does not move to the pin.
+    std::fs::remove_file(rig.model_directory().join(HIGH_WATER_FILE)).unwrap();
+    assert_eq!(cache.select(MODEL).unwrap().unwrap().manifest_sha, chain.full.sha);
+    // A tampered mark refuses the whole model.
+    std::fs::write(rig.model_directory().join(HIGH_WATER_FILE), with_changed_signature(full.clone())).unwrap();
+    assert!(cache.select(MODEL).is_err());
+    std::fs::write(rig.model_directory().join(HIGH_WATER_FILE), &full).unwrap();
+    // The version at the mark is gone: an error that the next refresh repairs, not a fallback.
+    let moved = rig.model_directory().join("moved");
+    std::fs::rename(rig.version_directory(&chain.full), &moved).unwrap();
+    assert!(cache.select(MODEL).unwrap_err().to_string().contains("is not in the cache"));
+    std::fs::rename(&moved, rig.version_directory(&chain.full)).unwrap();
+    assert_eq!(cache.select(MODEL).unwrap().unwrap().statement, full);
+    rig.stop();
+}
+
+fn synthetic_writes(count: u64) -> Vec<(AdmittedManifest, Vec<u8>)> {
+    (1..=count)
+        .map(|sequence| {
+            let sha = sha256_hex(format!("version {sequence}").as_bytes());
+            let statement = Statement {
+                key_id: PRIMARY_ID.to_string(),
+                model_id: MODEL.to_string(),
+                manifest_sha: sha.clone(),
+                parent: String::new(),
+                original: String::new(),
+                sequence,
+            };
+            (
+                AdmittedManifest { model_id: MODEL.to_string(), pin: sha, assets: BTreeMap::new() },
+                publication::sign(&test_keys::seed(PRIMARY_ID), &statement).unwrap(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn the_writer_of_the_mark_waits_for_the_advisory_lock() {
+    let cache = tempfile::tempdir().unwrap();
+    let admission = LineageAdmission::new(test_keys::key_set(), cache.path());
+    std::fs::create_dir_all(cache.path().join(MODEL)).unwrap();
+    let writes = synthetic_writes(1);
+    let guard = admission.cache().lock(MODEL).unwrap();
+    let (done, finished) = std::sync::mpsc::channel();
+    let writer = admission.clone();
+    let handle = std::thread::spawn(move || {
+        writer.accepted(&writes[0].0, &writes[0].1).unwrap();
+        done.send(()).unwrap();
+    });
+    assert!(finished.recv_timeout(Duration::from_millis(600)).is_err(), "the writer must wait for the lock");
+    assert!(!cache.path().join(MODEL).join(HIGH_WATER_FILE).exists());
+    drop(guard);
+    finished.recv_timeout(Duration::from_secs(20)).unwrap();
+    handle.join().unwrap();
+    assert!(cache.path().join(MODEL).join(HIGH_WATER_FILE).is_file());
+}
+
+#[test]
+fn two_concurrent_writers_cannot_lower_the_mark() {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    let cache = tempfile::tempdir().unwrap();
+    let keys = test_keys::key_set();
+    let writes = synthetic_writes(60);
+    let acknowledged = AtomicU64::new(0);
+    let barrier = std::sync::Barrier::new(3);
+    std::thread::scope(|scope| {
+        let ascending: Vec<usize> = (0..writes.len()).collect();
+        let descending: Vec<usize> = (0..writes.len()).rev().collect();
+        for order in [ascending, descending] {
+            scope.spawn(|| {
+                // Each writer is its own admission, as another process would be.
+                let admission = LineageAdmission::new(keys.clone(), cache.path());
+                barrier.wait();
+                for index in order {
+                    let (admitted, statement) = &writes[index];
+                    if admission.accepted(admitted, statement).is_ok() {
+                        acknowledged.fetch_max(index as u64 + 1, Ordering::SeqCst);
+                    }
+                }
+            });
+        }
+        scope.spawn(|| {
+            let view = ModelCache::new(cache.path(), CacheRules::new(keys.clone()));
+            barrier.wait();
+            let mut seen = 0;
+            for _ in 0..3000 {
+                if let Ok(Some(mark)) = view.read_high_water(MODEL) {
+                    assert!(mark.sequence >= seen, "the mark was lowered from {seen} to {}", mark.sequence);
+                    seen = mark.sequence;
+                }
+            }
+        });
+    });
+    let view = ModelCache::new(cache.path(), CacheRules::new(keys));
+    let last = view.read_high_water(MODEL).unwrap().unwrap().sequence;
+    assert!(last >= acknowledged.load(Ordering::SeqCst) && last == 60, "mark {last}");
+    record("RB5", "concurrent-writers-cannot-lower-the-mark", "accepted", "accepted", "");
 }

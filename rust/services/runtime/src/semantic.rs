@@ -5,7 +5,7 @@
 //! The worker has no network, so models arrive the way the Python worker gets them (`worker_main.LocalModelProvider`):
 //! the front end fetches and checks them and the worker only reads. A root holds `<model_id>.json` (a legacy Tiny
 //! artifact) or `<model_id>/manifest.json` with the four assets of a pinned V3 package, or the controller's cache layout
-//! `<model_id>/<pin>/manifest.json`. The external classifier (`PRIVOKE_LLM_CHOICE=open`) is not served here, as in the
+//! `<model_id>/<manifest sha>/manifest.json`. The external classifier (`PRIVOKE_LLM_CHOICE=open`) is not served here, as in the
 //! Python worker, which forces the streamed choice: it needs the network, which the worker never has.
 //!
 //! The pretrained contextual encoder (`privoke-pretrained-context-minilm`) is served too: its `<model_id>.json` holds
@@ -20,8 +20,9 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use privoke_contracts::digest::sha256_hex;
 use privoke_contracts::fingerprint::parameter_fingerprint;
+use privoke_contracts::model_cache::{CacheRules, HIGH_WATER_FILE, ModelCache};
 use privoke_contracts::pyfloat;
-use privoke_contracts::v3::admitted_manifest;
+use privoke_contracts::v3::{self, Manifest, admitted_manifest};
 use privoke_semantic::bert::BertConfig;
 use privoke_semantic::context::{self, ContextEncoder, ContextModel};
 use privoke_semantic::labels::{is_empty_classification, visibility_value};
@@ -79,7 +80,11 @@ enum Source {
     /// A cached `<id>.snapshot.pb` of the analysis service.
     Snapshot(PathBuf),
     Tiny(PathBuf),
+    /// A directory holding a pinned release only (`<root>/<model_id>/manifest.json`, or a cache directory of an unknown model).
     Package(PathBuf),
+    /// A standard V3 version of the controller's cache layout, selected by the high-water mark of the cache (stage V3-R4b): the
+    /// version directory, the statement kept beside it, and the cache that admits it.
+    Published(PathBuf, Vec<u8>, ModelCache),
 }
 
 /// Where the frozen contextual backbone is read from, and what admits it.
@@ -97,6 +102,8 @@ pub struct SemanticLayer {
     roots: Vec<PathBuf>,
     latest: Option<String>,
     context: Option<ContextAssets>,
+    /// The keys and tier pins that admit a published version of the controller's cache layout.
+    rules: CacheRules,
     cache: Mutex<HashMap<String, (String, Arc<Loaded>)>>,
 }
 
@@ -124,7 +131,14 @@ impl SemanticLayer {
                 return Err(format!("Model root is not a directory: {}", root.display()));
             }
         }
-        Ok(Self { roots, latest, context: None, cache: Mutex::new(HashMap::new()) })
+        Ok(Self { roots, latest, context: None, rules: CacheRules::production(), cache: Mutex::new(HashMap::new()) })
+    }
+
+    /// Admits the published versions of the cache layout under other rules than the compiled ones (the tests' keys and tier pins).
+    #[must_use]
+    pub fn with_cache_rules(mut self, rules: CacheRules) -> Self {
+        self.rules = rules;
+        self
     }
 
     /// Serves the pretrained contextual encoder from `directory`, which holds `model.onnx` and `tokenizer.json`: both are
@@ -164,10 +178,20 @@ impl SemanticLayer {
         }
         for root in &self.roots {
             let package = root.join(model_id);
-            if package.join("manifest.json").is_file() {
+            // A release directory (`<root>/<model_id>/manifest.json`) is the pin-only layout. A model directory that holds a high-water
+            // mark is a cache directory, whose only loadable version is the one the mark names, never a manifest dropped beside it.
+            if package.join("manifest.json").is_file() && !package.join(HIGH_WATER_FILE).exists() {
                 return Ok(Source::Package(package));
             }
-            if package.is_dir() {
+            if package.is_dir() && v3::standard_pin(model_id).is_some() {
+                // The controller's cache layout of a standard V3 model: the version the cache's high-water mark names, which the
+                // supervisor moves when it admits a newer statement (it is selected again on every call, so a newer version is
+                // loaded without a restart). No other directory is a candidate: the unsigned pin is not one once the mark is signed.
+                let cache = ModelCache::new(root, self.rules.clone());
+                if let Some(selected) = cache.select(model_id).map_err(|error| error.to_string())? {
+                    return Ok(Source::Published(selected.directory, selected.statement, cache));
+                }
+            } else if package.is_dir() {
                 let mut pinned: Vec<PathBuf> = std::fs::read_dir(&package)
                     .map(|entries| {
                         entries.flatten().map(|entry| entry.path()).filter(|path| path.join("manifest.json").is_file()).collect()
@@ -196,10 +220,13 @@ impl SemanticLayer {
         if !valid_model_id(&model_id) {
             return Err("model_id is not a valid model identifier.".to_string());
         }
-        let (bytes, path_for_package, cached) = match self.locate(&model_id)? {
+        let (bytes, package, cached) = match self.locate(&model_id)? {
             Source::Snapshot(path) => (read(&path)?, None, true),
             Source::Tiny(path) => (read(&path)?, None, false),
-            Source::Package(directory) => (read(&directory.join("manifest.json"))?, Some(directory), false),
+            Source::Package(directory) => (read(&directory.join("manifest.json"))?, Some((directory, None)), false),
+            Source::Published(directory, statement, cache) => {
+                (read(&directory.join("manifest.json"))?, Some((directory, Some((statement, cache)))), false)
+            }
         };
         let key = sha256_hex(&bytes);
         if let Some((cached_key, loaded)) = self.cache.lock().unwrap_or_else(PoisonError::into_inner).get(&model_id)
@@ -207,8 +234,9 @@ impl SemanticLayer {
         {
             return Ok(Arc::clone(loaded));
         }
-        let loaded = Arc::new(match (path_for_package, cached) {
-            (Some(directory), _) => load_package(&model_id, &directory, &bytes, &key)?,
+        let loaded = Arc::new(match (package, cached) {
+            (Some((directory, None)), _) => load_package(&model_id, &directory, &bytes, &key)?,
+            (Some((directory, Some((statement, cache)))), _) => load_published(&model_id, &directory, &bytes, &statement, &cache, &key)?,
             (None, true) => self.load_value(&model_id, &crate::snapshot::decode(&model_id, &bytes)?.value)?,
             (None, false) => self.load_artifact(&model_id, &bytes)?,
         });
@@ -432,6 +460,30 @@ fn load_package(model_id: &str, directory: &Path, manifest_bytes: &[u8], pin: &s
         return Err("Model package identity differs from the pinned manifest.".to_string());
     }
     let model = V3Model::load_release(directory, model_id).map_err(|error| error.to_string())?.with_threads(V3_THREADS);
+    package_identity(model_id, model, &manifest, manifest_bytes, pin)
+}
+
+/// A version of the controller's cache that the high-water mark selected (stage V3-R4b): the pinned release, or a version admitted
+/// by lineage and signature. [`V3Model::load_published`] admits it again here, under the compiled keys and the mark, before it
+/// reads an asset; the `admitted_manifest` rule of [`load_package`] stays pin-only.
+fn load_published(
+    model_id: &str,
+    directory: &Path,
+    manifest_bytes: &[u8],
+    statement: &[u8],
+    cache: &ModelCache,
+    pin: &str,
+) -> Result<Loaded, String> {
+    let (model, manifest) = V3Model::load_published(directory, model_id, manifest_bytes, statement, cache.rules().keys(), cache)
+        .map_err(|error| error.to_string())?;
+    if manifest.model_id != model_id {
+        return Err("Model package identity differs from the requested model.".to_string());
+    }
+    package_identity(model_id, model.with_threads(V3_THREADS), &manifest, manifest_bytes, pin)
+}
+
+/// The identity and metadata a loaded V3 package carries in every result.
+fn package_identity(model_id: &str, model: V3Model, manifest: &Manifest, manifest_bytes: &[u8], pin: &str) -> Result<Loaded, String> {
     let value: Value = serde_json::from_slice(manifest_bytes).map_err(|error| error.to_string())?;
     let backbone = value.pointer("/source/weights_sha256").and_then(Value::as_str).unwrap_or_default().to_string();
     let identity_fields = [

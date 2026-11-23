@@ -5,6 +5,8 @@
 //! | (none), `native-host` | The native-messaging host on stdio: owns the sandboxed worker pool, opens no port. A browser starts it with its own arguments (the calling origin), which are ignored. |
 //! | `enrol`, `renew`, `install-cert`, `status` | The installation side of enrolment, on `privoke_pki::client`. |
 //! | `fetch-model` | Download and verify the standard V3 package into the user cache. |
+//!
+//! The native host also keeps the V3 models named by `V3_PACKAGE_REFRESH_MODELS` fresh (see [`privoke_supervisor::refresh`]).
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -20,6 +22,7 @@ use privoke_supervisor::credentials::{self, InstallFiles};
 use privoke_supervisor::fetch::{FetchConfig, Fetcher, LineageAdmission};
 use privoke_supervisor::health::EndpointHealth;
 use privoke_supervisor::native_host;
+use privoke_supervisor::refresh::{self, Refresher};
 use privoke_supervisor::runtime::RuntimeController;
 use privoke_supervisor::telemetry::Telemetry;
 use privoke_supervisor::worker::WorkerSettings;
@@ -165,6 +168,7 @@ fn run_native_host() -> Result<(), String> {
     }
     // The pool starts its workers from this runtime's threads; they live as long as the session does.
     let threads = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().map_err(|error| error.to_string())?;
+    start_refresh(&environment, &threads)?;
     threads.block_on(run_session(io::stdin(), io::stdout(), controller)).map_err(|error| error.to_string())
 }
 
@@ -181,18 +185,39 @@ fn apply_test_overrides(settings: &mut WorkerSettings, environment: &Environment
     }
 }
 
+/// The settings of a model fetch from the environment.
+fn fetch_config(environment: &Environment) -> Result<FetchConfig, String> {
+    let consumer_id = std::fs::read_to_string(config::credential_dir(environment).join("installation.id"))
+        .map(|text| text.trim().to_string())
+        .unwrap_or_default();
+    let download_timeout = config::positive_seconds(environment, "MODEL_PACKAGE_TIMEOUT_SECONDS", 120.0)?;
+    let rpc_timeout = config::positive_seconds(environment, "MODEL_STREAMING_TIMEOUT_SECONDS", 10.0)?;
+    Ok(FetchConfig { consumer_id, rpc_timeout, download_timeout, cache_root: config::cache_root(environment) })
+}
+
+/// Start the refresh loop of the V3 model cache on `threads`: every `V3_PACKAGE_REFRESH_SECONDS` it asks model-streaming for the
+/// models of `V3_PACKAGE_REFRESH_MODELS` and admits a newer statement. Off when no model is named. It ends with the runtime, that
+/// is with the native-messaging session.
+fn start_refresh(environment: &Environment, threads: &tokio::runtime::Runtime) -> Result<(), String> {
+    let models = refresh::refresh_models(environment)?;
+    if models.is_empty() {
+        return Ok(());
+    }
+    let interval = refresh::refresh_interval(environment)?;
+    let endpoint = ModelEndpoint::from_environment(environment).map_err(|error| error.to_string())?;
+    let fetch = fetch_config(environment)?;
+    let refresher = Refresher::new(LineageAdmission::production(&fetch.cache_root), fetch);
+    threads.spawn(async move { refresher.run(&endpoint, &models, interval, Duration::from_secs(10)).await });
+    Ok(())
+}
+
 fn run_fetch(model_id: &str) -> Result<(), String> {
     let mut environment = config::process_environment();
     if let Ok(root) = repository_root(&environment) {
         config::load_runtime_environment(&root.join("extension").join("client-runtime"), &mut environment);
     }
     let endpoint = ModelEndpoint::from_environment(&environment).map_err(|error| error.to_string())?;
-    let consumer_id = std::fs::read_to_string(config::credential_dir(&environment).join("installation.id"))
-        .map(|text| text.trim().to_string())
-        .unwrap_or_default();
-    let download_timeout = config::positive_seconds(&environment, "MODEL_PACKAGE_TIMEOUT_SECONDS", 120.0)?;
-    let rpc_timeout = config::positive_seconds(&environment, "MODEL_STREAMING_TIMEOUT_SECONDS", 10.0)?;
-    let fetch = FetchConfig { consumer_id, rpc_timeout, download_timeout, cache_root: config::cache_root(&environment) };
+    let fetch = fetch_config(&environment)?;
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|error| error.to_string())?;
     let package = runtime.block_on(async {
         let channel = endpoint.connect(Duration::from_secs(10)).await.map_err(|error| error.to_string())?;

@@ -25,18 +25,16 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use privoke_contracts::model_cache::{self, CacheError, CacheRules, ModelCache};
 use privoke_contracts::proto::v1::model_streaming_service_client::ModelStreamingServiceClient;
 use privoke_contracts::proto::v1::{ModelAssetRequest, ModelPackageResponse, ModelParametersRequest};
-use privoke_contracts::publication::{self, KeySet, PublicationError, Statement};
+use privoke_contracts::publication::{self, KeySet, Statement};
 use privoke_contracts::v3::{self, LineageError, LineageState, TierPin};
 use sha2::{Digest, Sha256};
 use tokio::sync::Mutex;
 use tonic::transport::Channel;
 
-/// The publication statement of a version, kept beside its manifest in the cache directory (absent for an unsigned ORIGINAL).
-pub const STATEMENT_FILE: &str = "statement.json";
-/// The highest statement accepted for a model, kept in `<cache>/<model id>/` and re-verified on every read.
-pub const HIGH_WATER_FILE: &str = "high-water.statement";
+pub use privoke_contracts::model_cache::{HIGH_WATER_FILE, STATEMENT_FILE};
 
 /// The four assets of a package and the manifest key that holds each one's hash.
 pub const ASSETS: [(&str, &str); 4] =
@@ -69,6 +67,12 @@ impl FetchError {
     /// persisted high-water mark changed, so the caller keeps what it has and retries later.
     pub fn is_transient(&self) -> bool {
         matches!(self, FetchError::Rpc(status) if matches!(status.code(), tonic::Code::Unavailable | tonic::Code::DeadlineExceeded))
+    }
+}
+
+impl From<CacheError> for FetchError {
+    fn from(error: CacheError) -> Self {
+        FetchError::Invalid(error.to_string())
     }
 }
 
@@ -148,98 +152,93 @@ fn assets_of(manifest: &v3::Manifest) -> Result<BTreeMap<&'static str, String>, 
 /// The high-water mark is the highest accepted statement itself, kept at `<cache>/<model id>/high-water.statement` and verified
 /// again under the compiled keys whenever it is read: a record that no longer verifies refuses every version of the model (fail
 /// closed; remove the file to trust the pinned ORIGINAL again). It is written only after the package is complete in the cache,
-/// and the version's statement is kept as `statement.json` beside its manifest so a restart re-verifies it.
+/// under the advisory lock of the model directory (stage V3-R4b), and the version's statement is kept as `statement.json` beside
+/// its manifest so a restart re-verifies it. The reading side (which version a loader may use, the floor of a missing mark) is
+/// [`privoke_contracts::model_cache::ModelCache`], shared with the worker.
 #[derive(Debug, Clone)]
 pub struct LineageAdmission {
-    keys: KeySet,
-    cache_root: PathBuf,
-    pins: Option<BTreeMap<String, TierPin>>,
+    cache: ModelCache,
 }
 
 impl LineageAdmission {
     /// The product rule: the publication keys and tier pins compiled into this build.
     pub fn production(cache_root: &Path) -> Self {
-        Self::new(publication::production_key_set(), cache_root)
+        Self { cache: ModelCache::new(cache_root, CacheRules::production()) }
     }
 
     /// The rule with an explicit key set and the compiled tier pins.
     pub fn new(keys: KeySet, cache_root: &Path) -> Self {
-        Self { keys, cache_root: cache_root.to_path_buf(), pins: None }
+        Self { cache: ModelCache::new(cache_root, CacheRules::new(keys)) }
     }
 
     /// Replace the compiled tier pins (a synthetic ORIGINAL in tests). Compiled only with the `test-helpers` feature.
     #[cfg(feature = "test-helpers")]
     #[must_use]
     pub fn with_pins(mut self, pins: BTreeMap<String, TierPin>) -> Self {
-        self.pins = Some(pins);
+        let rules = self.cache.rules().clone().with_pins(pins);
+        self.cache = ModelCache::new(self.cache.root(), rules);
         self
     }
 
+    /// The cache this rule admits into and the workers read.
+    pub fn cache(&self) -> &ModelCache {
+        &self.cache
+    }
+
     fn model_directory(&self, model_id: &str) -> Result<PathBuf, FetchError> {
-        if !v3::TIERS.iter().any(|tier| model_id == format!("privoke-v3-{}", tier.name)) {
+        if v3::standard_pin(model_id).is_none() {
             return Err(invalid("Model is not a pinned standard AU3 release"));
         }
-        private_directory(&self.cache_root.join(model_id))
+        private_directory(&self.cache.root().join(model_id))
     }
 
-    /// The floor a new statement must clear. The mark when it verifies; when it is signed by a key this build no longer compiles
-    /// (a rotation or a compromise), its sequence and manifest still count as the floor, and the next version must carry a
-    /// statement under a current key above it; a mark that is malformed or whose signature is wrong fails closed. Without a
-    /// mark, the floor is rebuilt from the highest cached `statement.json` that still verifies (a deleted mark reopens nothing
-    /// while the cache holds a signed version; only an empty model cache is trust on first use).
+    /// The floor a new statement must clear (see [`ModelCache::read_high_water`]).
     fn read_high_water(&self, model_id: &str) -> Result<Option<Statement>, FetchError> {
-        let directory = self.model_directory(model_id)?;
-        let path = directory.join(HIGH_WATER_FILE);
-        if !exists_or_link(&path)? {
-            return self.cached_floor(&directory, model_id);
-        }
-        let bytes = read_statement_file(&path)?;
-        let statement = match publication::verify(&self.keys, &bytes) {
-            Ok(statement) => statement,
-            Err(PublicationError::UnknownKey) => publication::decode(&bytes).map(|(statement, _)| statement).map_err(|error| {
-                FetchError::Invalid(format!("High-water record of {model_id} is malformed ({error}); clear the model cache of {model_id}"))
-            })?,
-            Err(error) => {
-                return Err(FetchError::Invalid(format!(
-                    "High-water record of {model_id} does not verify ({error}); clear the model cache of {model_id} to trust the pinned ORIGINAL again"
-                )));
-            }
-        };
-        if statement.model_id != model_id {
-            return Err(invalid("High-water record names another model"));
-        }
-        Ok(Some(statement))
+        Ok(self.cache.read_high_water(model_id)?)
     }
 
-    /// The highest sequence among the cached versions whose `statement.json` verifies under the current keys.
-    fn cached_floor(&self, directory: &Path, model_id: &str) -> Result<Option<Statement>, FetchError> {
-        let mut floor: Option<Statement> = None;
-        for entry in fs::read_dir(directory).map_err(io_at(directory))? {
-            let entry = entry.map_err(io_at(directory))?;
-            let name = entry.file_name().to_string_lossy().into_owned();
-            let version = directory.join(&name);
-            if !v3::is_sha_text(&name) || is_link(&version)? || !version.is_dir() {
+    /// The manifest SHA-256 of the version a loader would use now ([`ModelCache::select`]); `None` when there is none or the
+    /// cache refuses to name one.
+    pub fn current_version(&self, model_id: &str) -> Option<String> {
+        self.cache.select(model_id).ok().flatten().map(|selected| selected.manifest_sha)
+    }
+
+    /// Delete the versions the high-water mark has superseded: a cached version whose verified statement carries a sequence below
+    /// the mark's. The compiled pin and the version the mark names are never removed, and neither is anything without a verified
+    /// statement or at or above the mark (a download in progress, or a version a worker may still read). A version is renamed
+    /// out of its place before it is deleted, so no reader sees half a directory. Runs under the advisory lock of the model
+    /// directory, so it cannot interleave with a writer of the mark. Returns the removed manifest SHA-256 values.
+    pub fn collect_garbage(&self, model_id: &str) -> Result<Vec<String>, FetchError> {
+        let directory = self.model_directory(model_id)?;
+        let _lock = self.cache.lock(model_id)?;
+        let Some(mark) = self.read_high_water(model_id)? else { return Ok(Vec::new()) };
+        let pin = self.tier_pin(model_id).map(|pin| pin.manifest_sha);
+        let mut removed = Vec::new();
+        for version in self.cache.versions(model_id)? {
+            let protected = pin.as_deref() == Some(version.manifest_sha.as_str()) || version.manifest_sha == mark.manifest_sha;
+            let superseded = version.statement.as_ref().is_some_and(|statement| statement.sequence < mark.sequence);
+            if protected || !superseded {
                 continue;
             }
-            let Ok(bytes) = read_statement(&version) else { continue };
-            let Ok(statement) = publication::verify(&self.keys, &bytes) else { continue };
-            if statement.model_id == model_id
-                && statement.manifest_sha == name
-                && floor.as_ref().is_none_or(|best| statement.sequence > best.sequence)
-            {
-                floor = Some(statement);
+            let aside = directory.join(format!(".gc-{}", uuid::Uuid::new_v4().simple()));
+            if fs::rename(&version.directory, &aside).is_ok() {
+                let _ = fs::remove_dir_all(&aside);
+                removed.push(version.manifest_sha);
             }
         }
-        Ok(floor)
+        // What an interrupted collection left behind.
+        for entry in fs::read_dir(&directory).map_err(io_at(&directory))?.flatten() {
+            if entry.file_name().to_string_lossy().starts_with(".gc-") && !is_link(&entry.path())? {
+                let _ = fs::remove_dir_all(entry.path());
+            }
+        }
+        Ok(removed)
     }
 }
 
 impl LineageState for LineageAdmission {
     fn tier_pin(&self, model_id: &str) -> Option<TierPin> {
-        match &self.pins {
-            Some(pins) => pins.get(model_id).cloned(),
-            None => v3::standard_tier_pin(model_id),
-        }
+        self.cache.rules().tier_pin(model_id)
     }
 
     fn high_water(&self, model_id: &str) -> Result<Option<Statement>, String> {
@@ -253,7 +252,7 @@ impl Admission for LineageAdmission {
     }
 
     fn admit_published(&self, manifest_json: &[u8], statement: &[u8], requested: &str) -> Result<AdmittedManifest, FetchError> {
-        let admitted = v3::admit_lineage(manifest_json, statement, Some(requested), &self.keys, self)?;
+        let admitted = v3::admit_lineage(manifest_json, statement, Some(requested), self.cache.rules().keys(), self)?;
         let assets = assets_of(&admitted.manifest)?;
         Ok(AdmittedManifest { model_id: admitted.manifest.model_id, pin: admitted.manifest_sha, assets })
     }
@@ -262,11 +261,14 @@ impl Admission for LineageAdmission {
         if statement.is_empty() {
             return Ok(());
         }
-        let verified = publication::verify(&self.keys, statement).map_err(|error| FetchError::Lineage(error.into()))?;
+        let verified = publication::verify(self.cache.rules().keys(), statement).map_err(|error| FetchError::Lineage(error.into()))?;
         if verified.model_id != admitted.model_id || verified.manifest_sha != admitted.pin {
             return Err(invalid("Accepted statement differs from the admitted manifest"));
         }
-        // The mark may have moved since the admission: it is never lowered.
+        let directory = self.model_directory(&admitted.model_id)?;
+        // The refresh loop, a `fetch-model` command and another controller can write the mark at the same moment: the writers
+        // take the advisory lock of the model directory, read the mark again under it and never lower it.
+        let _lock = self.cache.lock(&admitted.model_id)?;
         if let Some(current) = self.read_high_water(&admitted.model_id)? {
             if verified.sequence < current.sequence {
                 return Err(LineageError::Replay { seen: current.sequence, got: verified.sequence }.into());
@@ -275,7 +277,6 @@ impl Admission for LineageAdmission {
                 return Err(LineageError::SequenceConflict(verified.sequence).into());
             }
         }
-        let directory = self.model_directory(&admitted.model_id)?;
         let path = directory.join(HIGH_WATER_FILE);
         if is_link(&path)? {
             return Err(invalid("High-water record must be a regular non-symlink file"));
@@ -365,6 +366,10 @@ impl Fetcher {
         let mut verified = self.verified.lock().await;
         let directory = private_directory(&config.cache_root.join(&manifest.model_id).join(&manifest.pin))?;
         let identity = (target.to_string(), directory.clone(), manifest.pin.clone());
+        // A version that the garbage collection removed (the cache is shared with other processes) is fetched again in full.
+        if verified.contains(&identity) && !directory.join("manifest.json").is_file() {
+            verified.remove(&identity);
+        }
         let done = FetchedPackage { model_id: manifest.model_id.clone(), pin: manifest.pin.clone(), directory: directory.clone() };
         if verified.contains(&identity) {
             // Refresh only the small manifest; a reload revalidates the assets.
@@ -516,13 +521,7 @@ fn read_statement(directory: &Path) -> Result<Vec<u8>, FetchError> {
 
 /// A regular, non-link, size-bounded statement file.
 fn read_statement_file(path: &Path) -> Result<Vec<u8>, FetchError> {
-    if is_link(path)? || !path.is_file() {
-        return Err(invalid("Publication statement must be a regular non-symlink file"));
-    }
-    if fs::metadata(path).map_err(io_at(path))?.len() > publication::MAX_STATEMENT_BYTES as u64 {
-        return Err(invalid("Publication statement is too large"));
-    }
-    fs::read(path).map_err(io_at(path))
+    Ok(model_cache::read_statement_file(path)?)
 }
 
 /// Keep the verified statement of the fetched version beside its manifest, replacing an older one (a rollback to a version the
