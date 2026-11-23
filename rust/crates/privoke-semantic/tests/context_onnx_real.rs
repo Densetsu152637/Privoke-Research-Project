@@ -30,7 +30,9 @@ fn the_encoder_agrees_with_onnxruntime_on_the_real_backbone() {
     let (Some(directory), Some(golden)) =
         (std::env::var_os("PRIVOKE_PRETRAINED_CONTEXT_DIR"), std::env::var_os("PRIVOKE_CONTEXT_ONNX_GOLDEN"))
     else {
-        eprintln!("PRIVOKE_PRETRAINED_CONTEXT_DIR and PRIVOKE_CONTEXT_ONNX_GOLDEN are not both set; the real-backbone comparison is skipped");
+        eprintln!(
+            "PRIVOKE_PRETRAINED_CONTEXT_DIR and PRIVOKE_CONTEXT_ONNX_GOLDEN are not both set; the real-backbone comparison is skipped"
+        );
         return;
     };
     let document: Value = serde_json::from_slice(&std::fs::read(PathBuf::from(golden)).unwrap()).unwrap();
