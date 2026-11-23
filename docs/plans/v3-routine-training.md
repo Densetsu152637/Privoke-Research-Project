@@ -97,7 +97,7 @@ Root defaults, which the user may override:
   - The golden replay of admit, stage and commit outcomes and reasons (including `stale_base`, `guard_rejected` and request-id reuse) equals the Python oracle.
   - The v3-fuzzer recorded replay (23 fits) passes against the Rust store.
   - Rust CI is green.
-- Status: pending.
+- Status: in progress (RUST-V3R1, 23 Nov 2026; plan gate converged in 4 rounds).
 - Outcome:
 - Handoff notes: the sqlite `current` table is the single authority for every later stage.
 
@@ -124,7 +124,7 @@ Root defaults, which the user may override:
   - Rust CI is green.
 - Status: pending.
 - Outcome:
-- Handoff notes: the rotation overlap is tested in V3-R4a.
+- Handoff notes: the rotation overlap is tested in V3-R4a. Record in `docs/runtime/v3-publication.md` the accepted limitation that the high-water mark lives in the client cache, so a wiped cache re-admits the unsigned ORIGINAL once (trust on first use).
 
 ## Stage V3-R3: model-streaming serves published V3 versions
 
