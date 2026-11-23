@@ -61,6 +61,12 @@ TIERS = ("efficient", "balanced", "quality")
 SET_NAMES = ["development", "personalized", "openai", "piimb", "dolly15k", "oasst2", "stress"]
 
 
+def asset(path: Path) -> bytes:
+    """The bytes of a package file as a Linux checkout holds them (the text assets are LF whatever the host checked out)."""
+    raw = path.read_bytes()
+    return raw.replace(b"\r\n", b"\n") if SYNTHETIC_PACKAGE in path.parents and path.suffix in (".json", ".txt") else raw
+
+
 def b64(raw: bytes) -> str:
     return base64.b64encode(raw).decode("ascii")
 
@@ -231,19 +237,19 @@ def synthetic_manifest(harness: Harness, package: Path, model_id: str) -> tuple[
     contract = harness.contract
     manifest = {
         "schema": 1, "architecture": contract.ARCHITECTURE, "model_id": model_id, "tier": model_id.removeprefix("privoke-v3-"),
-        "parent": "", "original": "", "blob": sha((package / "model.safetensors").read_bytes()),
-        "config": sha((package / "config.json").read_bytes()), "vocab": sha((package / "vocab.txt").read_bytes()),
+        "parent": "", "original": "", "blob": sha(asset(package / "model.safetensors")),
+        "config": sha(asset(package / "config.json")), "vocab": sha(asset(package / "vocab.txt")),
         "source": {"repository": "synthetic/v3", "revision": "0" * 40, "weights_sha256": sha(b"synthetic backbone"),
-                   "config_sha256": sha((package / "config.json").read_bytes()), "vocab_sha256": sha((package / "vocab.txt").read_bytes())},
+                   "config_sha256": sha(asset(package / "config.json")), "vocab_sha256": sha(asset(package / "vocab.txt"))},
         "tensors": tensors, "parameter_count": count, "scope": "original", "evidence": "",
     }
     return contract.canonical(manifest), manifest
 
 
 def serve_package(harness: Harness, package: Path, manifest_bytes: bytes, manifest: dict) -> str:
-    harness.checkpoint.put((package / "model.safetensors").read_bytes())
-    harness.checkpoint.put((package / "config.json").read_bytes())
-    harness.checkpoint.put((package / "vocab.txt").read_bytes())
+    harness.checkpoint.put(asset(package / "model.safetensors"))
+    harness.checkpoint.put(asset(package / "config.json"))
+    harness.checkpoint.put(asset(package / "vocab.txt"))
     sha256 = harness.checkpoint.put(manifest_bytes)
     harness.checkpoint.current = sha256
     return sha256

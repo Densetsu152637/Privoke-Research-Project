@@ -2,6 +2,8 @@
 //! or certificate is committed; every run issues its own.
 #![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
 
+pub mod fit_support;
+
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -198,7 +200,11 @@ pub fn say(text: &str) {
 pub fn serve_package(scripted: &Scripted, package: &std::path::Path, model_id: &str, manifest: &[u8]) -> String {
     let mut blobs = scripted.blobs.lock().unwrap();
     for name in ["model.safetensors", "config.json", "vocab.txt"] {
-        let payload = std::fs::read(package.join(name)).unwrap();
+        let mut payload = std::fs::read(package.join(name)).unwrap();
+        if name != "model.safetensors" && package.ends_with("v3_synthetic") {
+            // The text assets are LF in the golden whatever the host checked out.
+            payload = String::from_utf8(payload).unwrap().replace("\r\n", "\n").into_bytes();
+        }
         blobs.insert(digest(&payload), blob_chunks(&payload));
     }
     let sha = digest(manifest);
