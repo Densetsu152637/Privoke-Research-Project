@@ -2629,6 +2629,107 @@ def run_stack_target(args) -> int:
     return 0 if ok else 1
 
 
+# --------------------------------------------------------------------------------------
+# Rust client, stage V3-R4a of docs/plans/v3-routine-training.md: lineage and signature admission of a published V3 version by
+# the supervisor fetch. Selected with `--target rust --rust-service client-lineage`. The rows are observed by the Rust tests
+# `lineage_chain` (the shared signed-chain fixtures, rust/crates/privoke-contracts/tests/fixtures/v3_signed_chain/chain.json) and
+# `lineage_fetch` (the real Fetcher against a scripted model-streaming server, with the mark and statements persisted in the
+# cache). They append one JSON line per row to the file named by PRIVOKE_LINEAGE_ROWS_OUT; this target judges each row against the
+# table below, which is the authority for the expected outcome and the reason of the refusal. Rust CI runs the tests and then this
+# target on their rows (`--lineage-rows`); without that option the target runs `cargo test` itself.
+# --------------------------------------------------------------------------------------
+
+LINEAGE_RECORD_ID = "UPDSEC-RUST-LINEAGE"
+# id: (outcome, reason of the refusal, description)
+LINEAGE_ROWS = {
+    "L01": ("refused", "WrongOriginal", "A signed version that descends from an ORIGINAL that is not the compiled tier pin."),
+    "L02": ("refused", "BadSignature", "A statement whose signature bytes were changed."),
+    "L03": ("refused", "BadSignature", "A statement with a malleable signature (S plus the group order)."),
+    "L04": ("refused", "UnknownKey", "A statement signed by a key id the client does not compile."),
+    "L05": ("refused", "Malformed", "A statement that is not canonical JSON of exactly the admitted fields."),
+    "L06": ("refused", "StatementModel", "A correctly signed statement for another model."),
+    "L07": ("refused", "Replay", "Replay of a lower sequence after sequence 3 was accepted."),
+    "L08": ("refused", "SequenceConflict", "The accepted sequence again, for another manifest."),
+    "L09": ("refused", "StatementLineage", "A statement whose parent differs from the manifest's parent."),
+    "L10": ("refused", "StatementLineage", "A statement whose original differs from the manifest's original."),
+    "L11": ("refused", "StatementManifest", "A correctly signed statement attached to another manifest."),
+    "L12": ("refused", "Downgrade", "The unsigned ORIGINAL after a signed HEADS version was accepted."),
+    "L13": ("refused", "Downgrade", "The unsigned ORIGINAL after the signed rollback to the ORIGINAL was accepted."),
+    "L14": ("refused", "Unsigned", "An unsigned trained version."),
+    "L15": ("refused", "UnknownKey", "A correctly signed version when the client compiles no key (the production set before the first key)."),
+    "L16": ("refused", "WrongOriginal", "The toy chain judged against the compiled tier pin."),
+    "L17": ("refused", "Manifest", "A version of another model than the one requested."),
+    "L18": ("accepted", "", "First start: the unsigned pinned ORIGINAL with no high-water mark."),
+    "L19": ("accepted", "", "HEADS signed by the first key."),
+    "L20": ("accepted", "", "FULL after HEADS."),
+    "L21": ("accepted", "", "A signed rollback to the ORIGINAL (a higher sequence for an earlier manifest)."),
+    "L22": ("accepted", "", "A version signed by the second key during a rotation overlap."),
+    "L23": ("refused", "UnknownKey", "The second key's version when only the first key is compiled."),
+    "L24": ("refused", "UnknownKey", "The first key's version when only the second key is compiled."),
+    "L25": ("accepted", "", "The statement at the high-water mark presented again (same sequence, same manifest)."),
+    "LF1": ("accepted", "", "Fetch: first start with the unsigned pinned ORIGINAL; nothing but the package is persisted."),
+    "LF2": ("accepted", "", "Fetch: HEADS signed by the first key; the statement and the mark are persisted."),
+    "LF3": ("accepted", "", "Fetch: a signed rollback to the ORIGINAL; the cached ORIGINAL carries the rollback statement."),
+    "LF4": ("accepted", "", "Fetch: a version signed by the second key in the overlap."),
+    "LF5": ("refused", "Replay", "Fetch: replay of a lower sequence; the mark and the cache are unchanged."),
+    "LF6": ("refused", "SequenceConflict", "Fetch: the same sequence for another manifest; nothing of it is cached."),
+    "LF7": ("refused", "Downgrade", "Fetch: the unsigned ORIGINAL after a signed version."),
+    "LF8": ("refused", "BadSignature", "Fetch: a statement with a changed signature."),
+    "LF9": ("refused", "UnknownKey", "Fetch: a statement signed by an unknown key."),
+    "LF10": ("refused", "StatementManifest", "Fetch: a statement for another manifest."),
+    "LF11": ("refused", "WrongOriginal", "Fetch: a signed version whose ORIGINAL is not the tier pin."),
+    "LF12": ("refused", "Downgrade", "Restart: the cached unsigned ORIGINAL is refused once a signed version was accepted."),
+    "LF13": ("refused", "HighWater", "Restart: a tampered high-water record does not verify and refuses every version of the model."),
+    "LF14": ("refused", "Transient", "Fetch: model-streaming UNAVAILABLE is transient and changes neither the cache nor the mark."),
+}
+
+
+def run_client_lineage_target(args) -> int:
+    """`--target rust --rust-service client-lineage`: judge the rows the Rust lineage tests observed."""
+    import platform
+
+    work = None
+    rows_path = args.lineage_rows
+    if rows_path is None:
+        work = Path(tempfile.mkdtemp(prefix="updsec-lineage-", dir=ROOT / ".tmp" if (ROOT / ".tmp").is_dir() else None))
+        rows_path = work / "rows.jsonl"
+        command = ["cargo", "test", "--manifest-path", str(ROOT / "rust/Cargo.toml"), "-p", "privoke-runtime-supervisor", "--locked",
+                   "--test", "lineage_chain", "--test", "lineage_fetch"]
+        if subprocess.run(command, env={**os.environ, "PRIVOKE_LINEAGE_ROWS_OUT": str(rows_path)}).returncode != 0:
+            print("the Rust lineage tests failed", file=sys.stderr)
+            return 1
+    if not rows_path.is_file():
+        print(f"no rows file: {rows_path}", file=sys.stderr)
+        return 2
+    observed: dict[str, dict] = {}
+    for line in rows_path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            row = json.loads(line)
+            observed[row["id"]] = row  # a later observation of the same row replaces an earlier one
+    rows = []
+    for row_id, (outcome, reason, description) in LINEAGE_ROWS.items():
+        seen = observed.get(row_id)
+        met = bool(seen) and seen["observed"] == outcome and seen["reason"] == reason
+        rows.append({"id": row_id, "description": description, "expected": outcome, "expected_reason": reason,
+                     "observed": seen["observed"] if seen else "not_run", "observed_reason": seen["reason"] if seen else None, "property_met": met})
+    missing = [row["id"] for row in rows if row["observed"] == "not_run"]
+    unexpected = sorted(set(observed) - set(LINEAGE_ROWS))
+    unmet = [row["id"] for row in rows if not row["property_met"]]
+    record = {
+        "id": LINEAGE_RECORD_ID, "title": "Rust supervisor: lineage and signature admission of published V3 versions (V3-R4a)",
+        "revision": git_revision(), "generated_unix": int(time.time()),
+        "environment": {"python": sys.version.split()[0], "platform": platform.platform()},
+        "fixture": "rust/crates/privoke-contracts/tests/fixtures/v3_signed_chain/chain.json",
+        "attacks": rows, "summary": {"total_rows": len(rows), "property_unmet_ids": unmet, "missing_ids": missing, "unexpected_ids": unexpected},
+    }
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if work is not None:
+        shutil.rmtree(work, ignore_errors=True)
+    print(f"{len(rows)} lineage rows; property unmet: {unmet}; not run: {missing}; unexpected: {unexpected}")
+    return 0 if not unmet and not missing and not unexpected else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--target", choices=("go", "rust"), default="go",
@@ -2641,9 +2742,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--rust-image", default=RUST_DEFAULT_IMAGE, help="--target rust: the built Rust model-streaming image")
     parser.add_argument("--rust-binary", type=Path, default=None,
                         help="--target rust: run this host binary instead of the container (development only; the stage 3 gate uses the container)")
-    parser.add_argument("--rust-service", choices=("model-streaming", "param-update", "all"), default="model-streaming",
+    parser.add_argument("--rust-service", choices=("model-streaming", "param-update", "all", "client-lineage"), default="model-streaming",
                         help="--target rust: which Rust service's rows to run (model-streaming: stage 3, the default; param-update: stage 5; "
-                             "all: the whole stack, stage 9)")
+                             "all: the whole stack, stage 9; client-lineage: the V3-R4a supervisor lineage rows)")
+    parser.add_argument("--lineage-rows", type=Path, default=None,
+                        help="--rust-service client-lineage: the rows file the Rust lineage tests wrote (PRIVOKE_LINEAGE_ROWS_OUT); "
+                             "without it the target runs the tests with cargo itself")
     parser.add_argument("--rust-telemetry-image", default=RUST_TELEMETRY_DEFAULT_IMAGE,
                         help="--target rust --rust-service all: the built Rust telemetry image")
     parser.add_argument("--rust-analysis-image", default=None,
@@ -2660,6 +2764,9 @@ def main(argv=None) -> int:
     if args.target == "rust" and args.rust_service == "all":
         args.output = args.output or ROOT / ".tmp/update-security-rust-stack.json"
         return run_stack_target(args)
+    if args.target == "rust" and args.rust_service == "client-lineage":
+        args.output = args.output or ROOT / ".tmp/update-security-rust-lineage.json"
+        return run_client_lineage_target(args)
     if args.target == "rust" and args.rust_service == "param-update":
         args.output = args.output or ROOT / ".tmp/update-security-rust-s05.json"
         return run_rust_update_target(args)

@@ -17,7 +17,7 @@ use privoke_supervisor::channel::ModelEndpoint;
 use privoke_supervisor::config::{self, Environment};
 use privoke_supervisor::controller::{Controller, run_session};
 use privoke_supervisor::credentials::{self, InstallFiles};
-use privoke_supervisor::fetch::{FetchConfig, Fetcher, StandardAdmission};
+use privoke_supervisor::fetch::{FetchConfig, Fetcher, LineageAdmission};
 use privoke_supervisor::health::EndpointHealth;
 use privoke_supervisor::native_host;
 use privoke_supervisor::runtime::RuntimeController;
@@ -196,7 +196,8 @@ fn run_fetch(model_id: &str) -> Result<(), String> {
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|error| error.to_string())?;
     let package = runtime.block_on(async {
         let channel = endpoint.connect(Duration::from_secs(10)).await.map_err(|error| error.to_string())?;
-        Fetcher::new().fetch(channel, &endpoint.target, model_id, &StandardAdmission, &fetch).await.map_err(|error| error.to_string())
+        let admission = LineageAdmission::production(&fetch.cache_root);
+        Fetcher::new().fetch(channel, &endpoint.target, model_id, &admission, &fetch).await.map_err(|error| error.to_string())
     })?;
     match package {
         Some(package) => {

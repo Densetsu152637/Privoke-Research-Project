@@ -12,6 +12,10 @@
 //! 4. the manifest is fetched again after the assets and must not have changed;
 //! 5. the finished directory is re-read from disk and every file is re-hashed against the manifest.
 //!
+//! Step 2 is the [`Admission`] rule. [`StandardAdmission`] is pin-only. [`LineageAdmission`] (stage V3-R4a of the V3 routine-training
+//! plan) also admits a trained version, on a publication statement that verifies under a compiled key, lineage from the compiled
+//! ORIGINAL and a per-model sequence above the high-water mark persisted next to the cache (see its documentation).
+//!
 //! Directories are private to the user and must not traverse links; an existing cached asset is re-hashed, never
 //! trusted, and a corrupted one is an error, not something to overwrite.
 
@@ -23,10 +27,16 @@ use std::time::Duration;
 
 use privoke_contracts::proto::v1::model_streaming_service_client::ModelStreamingServiceClient;
 use privoke_contracts::proto::v1::{ModelAssetRequest, ModelPackageResponse, ModelParametersRequest};
-use privoke_contracts::v3;
+use privoke_contracts::publication::{self, KeySet, Statement};
+use privoke_contracts::v3::{self, LineageError, LineageState};
 use sha2::{Digest, Sha256};
 use tokio::sync::Mutex;
 use tonic::transport::Channel;
+
+/// The publication statement of a version, kept beside its manifest in the cache directory (absent for an unsigned ORIGINAL).
+pub const STATEMENT_FILE: &str = "statement.json";
+/// The highest statement accepted for a model, kept in `<cache>/<model id>/` and re-verified on every read.
+pub const HIGH_WATER_FILE: &str = "high-water.statement";
 
 /// The four assets of a package and the manifest key that holds each one's hash.
 pub const ASSETS: [(&str, &str); 4] =
@@ -41,6 +51,9 @@ pub enum FetchError {
     /// The server answered with an error status.
     #[error("model-streaming error: {0}")]
     Rpc(#[from] tonic::Status),
+    /// The lineage and signature rule refused the version (stage V3-R4a).
+    #[error("{0}")]
+    Lineage(#[from] LineageError),
     /// The cache could not be read or written.
     #[error("{path}: {source}")]
     Io {
@@ -49,6 +62,14 @@ pub enum FetchError {
         /// The cause.
         source: std::io::Error,
     },
+}
+
+impl FetchError {
+    /// Whether the failure is transient: the server is unavailable or did not answer in time. Nothing in the cache or the
+    /// persisted high-water mark changed, so the caller keeps what it has and retries later.
+    pub fn is_transient(&self) -> bool {
+        matches!(self, FetchError::Rpc(status) if matches!(status.code(), tonic::Code::Unavailable | tonic::Code::DeadlineExceeded))
+    }
 }
 
 fn invalid(message: &str) -> FetchError {
@@ -64,7 +85,8 @@ fn io_at(path: &Path) -> impl FnOnce(std::io::Error) -> FetchError + '_ {
 pub struct AdmittedManifest {
     /// `privoke-v3-<tier>`.
     pub model_id: String,
-    /// The pinned SHA-256 of the manifest bytes.
+    /// The SHA-256 of the manifest bytes: the compiled pin for [`StandardAdmission`], the version's own hash for a trained
+    /// version admitted by [`LineageAdmission`].
     pub pin: String,
     /// Asset name to its SHA-256, from the manifest.
     pub assets: BTreeMap<&'static str, String>,
@@ -74,6 +96,20 @@ pub struct AdmittedManifest {
 pub trait Admission: Send + Sync {
     /// Admit `manifest_json` for a request naming `requested` (`latest`, a model id or empty).
     fn admit(&self, manifest_json: &[u8], requested: &str) -> Result<AdmittedManifest, FetchError>;
+
+    /// Admit `manifest_json` together with the publication statement the server sent with it (empty when none). Nothing is
+    /// persisted. The default ignores the statement and applies [`Admission::admit`], which is the pin-only rule.
+    fn admit_published(&self, manifest_json: &[u8], statement: &[u8], requested: &str) -> Result<AdmittedManifest, FetchError> {
+        let _ = statement;
+        self.admit(manifest_json, requested)
+    }
+
+    /// Called when the package is complete and verified in the cache, before the fetch returns: records what the admission
+    /// needs to remember (the high-water mark). The default records nothing.
+    fn accepted(&self, admitted: &AdmittedManifest, statement: &[u8]) -> Result<(), FetchError> {
+        let _ = (admitted, statement);
+        Ok(())
+    }
 }
 
 /// The pinned standard releases compiled into this build (`privoke_contracts::v3`).
@@ -84,14 +120,139 @@ impl Admission for StandardAdmission {
     fn admit(&self, manifest_json: &[u8], requested: &str) -> Result<AdmittedManifest, FetchError> {
         let manifest = v3::admitted_manifest(manifest_json, Some(requested)).map_err(|error| FetchError::Invalid(error.to_string()))?;
         let pin = v3::standard_pin(&manifest.model_id).ok_or_else(|| invalid("Model is not a pinned standard AU3 release"))?;
-        let evidence = manifest.evidence.clone().ok_or_else(|| invalid("Model package must contain exactly the declared assets"))?;
-        let assets = BTreeMap::from([
-            ("model.safetensors", manifest.blob.clone()),
-            ("config.json", manifest.config.clone()),
-            ("vocab.txt", manifest.vocab.clone()),
-            ("evidence.json", evidence),
-        ]);
+        let assets = assets_of(&manifest)?;
         Ok(AdmittedManifest { model_id: manifest.model_id, pin: pin.to_string(), assets })
+    }
+}
+
+fn assets_of(manifest: &v3::Manifest) -> Result<BTreeMap<&'static str, String>, FetchError> {
+    let evidence = manifest.evidence.clone().ok_or_else(|| invalid("Model package must contain exactly the declared assets"))?;
+    Ok(BTreeMap::from([
+        ("model.safetensors", manifest.blob.clone()),
+        ("config.json", manifest.config.clone()),
+        ("vocab.txt", manifest.vocab.clone()),
+        ("evidence.json", evidence),
+    ]))
+}
+
+/// Lineage and signature admission of a trained V3 version (stage V3-R4a), the client rule of
+/// [`privoke_contracts::v3::admit_lineage`].
+///
+/// A manifest is accepted only when its publication statement verifies under a key of the compiled [`KeySet`], names this model
+/// and this manifest, repeats the manifest's own `parent` and `original`, and carries a sequence above the persisted high-water
+/// mark (or equal to it for the same manifest); and either the manifest satisfies the manifest contract with `original` equal to
+/// the compiled tier pin, or it is the compiled pin itself (a signed rollback to the ORIGINAL). An unsigned manifest is accepted
+/// only as the compiled pin and only while the model has no high-water mark.
+///
+/// The high-water mark is the highest accepted statement itself, kept at `<cache>/<model id>/high-water.statement` and verified
+/// again under the compiled keys whenever it is read: a record that no longer verifies refuses every version of the model (fail
+/// closed; remove the file to trust the pinned ORIGINAL again). It is written only after the package is complete in the cache,
+/// and the version's statement is kept as `statement.json` beside its manifest so a restart re-verifies it.
+#[derive(Debug, Clone)]
+pub struct LineageAdmission {
+    keys: KeySet,
+    cache_root: PathBuf,
+    pins: Option<BTreeMap<String, String>>,
+}
+
+impl LineageAdmission {
+    /// The product rule: the publication keys and tier pins compiled into this build.
+    pub fn production(cache_root: &Path) -> Self {
+        Self::new(publication::production_key_set(), cache_root)
+    }
+
+    /// The rule with an explicit key set and the compiled tier pins.
+    pub fn new(keys: KeySet, cache_root: &Path) -> Self {
+        Self { keys, cache_root: cache_root.to_path_buf(), pins: None }
+    }
+
+    /// Replace the compiled tier pins (a synthetic ORIGINAL in tests). Compiled only with the `test-helpers` feature.
+    #[cfg(feature = "test-helpers")]
+    #[must_use]
+    pub fn with_pins(mut self, pins: BTreeMap<String, String>) -> Self {
+        self.pins = Some(pins);
+        self
+    }
+
+    fn model_directory(&self, model_id: &str) -> Result<PathBuf, FetchError> {
+        if !v3::TIERS.iter().any(|tier| model_id == format!("privoke-v3-{}", tier.name)) {
+            return Err(invalid("Model is not a pinned standard AU3 release"));
+        }
+        private_directory(&self.cache_root.join(model_id))
+    }
+
+    fn read_high_water(&self, model_id: &str) -> Result<Option<Statement>, FetchError> {
+        let path = self.model_directory(model_id)?.join(HIGH_WATER_FILE);
+        if !exists_or_link(&path)? {
+            return Ok(None);
+        }
+        let bytes = read_statement_file(&path)?;
+        let statement = publication::verify(&self.keys, &bytes).map_err(|error| {
+            FetchError::Invalid(format!(
+                "High-water record of {model_id} does not verify ({error}); remove {} to trust the pinned ORIGINAL again",
+                path.display()
+            ))
+        })?;
+        if statement.model_id != model_id {
+            return Err(invalid("High-water record names another model"));
+        }
+        Ok(Some(statement))
+    }
+}
+
+impl LineageState for LineageAdmission {
+    fn tier_pin(&self, model_id: &str) -> Option<String> {
+        match &self.pins {
+            Some(pins) => pins.get(model_id).cloned(),
+            None => v3::standard_pin(model_id).map(str::to_string),
+        }
+    }
+
+    fn high_water(&self, model_id: &str) -> Result<Option<Statement>, String> {
+        self.read_high_water(model_id).map_err(|error| error.to_string())
+    }
+}
+
+impl Admission for LineageAdmission {
+    fn admit(&self, manifest_json: &[u8], requested: &str) -> Result<AdmittedManifest, FetchError> {
+        self.admit_published(manifest_json, &[], requested)
+    }
+
+    fn admit_published(&self, manifest_json: &[u8], statement: &[u8], requested: &str) -> Result<AdmittedManifest, FetchError> {
+        let admitted = v3::admit_lineage(manifest_json, statement, Some(requested), &self.keys, self)?;
+        let assets = assets_of(&admitted.manifest)?;
+        Ok(AdmittedManifest { model_id: admitted.manifest.model_id, pin: admitted.manifest_sha, assets })
+    }
+
+    fn accepted(&self, admitted: &AdmittedManifest, statement: &[u8]) -> Result<(), FetchError> {
+        if statement.is_empty() {
+            return Ok(());
+        }
+        let verified = publication::verify(&self.keys, statement).map_err(|error| FetchError::Lineage(error.into()))?;
+        if verified.model_id != admitted.model_id || verified.manifest_sha != admitted.pin {
+            return Err(invalid("Accepted statement differs from the admitted manifest"));
+        }
+        // The mark may have moved since the admission: it is never lowered.
+        if let Some(current) = self.read_high_water(&admitted.model_id)? {
+            if verified.sequence < current.sequence {
+                return Err(LineageError::Replay { seen: current.sequence, got: verified.sequence }.into());
+            }
+            if verified.sequence == current.sequence && verified.manifest_sha != current.manifest_sha {
+                return Err(LineageError::SequenceConflict(verified.sequence).into());
+            }
+        }
+        let directory = self.model_directory(&admitted.model_id)?;
+        let path = directory.join(HIGH_WATER_FILE);
+        if is_link(&path)? {
+            return Err(invalid("High-water record must be a regular non-symlink file"));
+        }
+        let temporary = directory.join(format!(".high-water-{}", uuid::Uuid::new_v4().simple()));
+        let outcome = (|| -> Result<(), FetchError> {
+            write_new(&temporary, statement)?;
+            fs::rename(&temporary, &path).map_err(io_at(&path))
+        })();
+        let _ = fs::remove_file(&temporary);
+        outcome
     }
 }
 
@@ -152,7 +313,7 @@ impl Fetcher {
             }
             return Ok(None);
         }
-        let manifest = admission.admit(&package.manifest_json, model_id)?;
+        let manifest = admission.admit_published(&package.manifest_json, &package.publication_statement, model_id)?;
         if package.model_id != manifest.model_id || package.manifest_sha256 != manifest.pin {
             return Err(invalid("Model package response identity differs from admitted manifest"));
         }
@@ -176,6 +337,8 @@ impl Fetcher {
             if digest_file(&safe_file(&directory, "manifest.json")?)? != manifest.pin {
                 return Err(invalid("Cached manifest was corrupted"));
             }
+            store_statement(&directory, &package.publication_statement)?;
+            admission.accepted(&manifest, &package.publication_statement)?;
             return Ok(Some(done));
         }
         // In the order the server declared the assets, as the Python fetch does: when one asset is refused, the same
@@ -216,7 +379,9 @@ impl Fetcher {
             let _ = fs::remove_file(&temporary);
             outcome?;
         }
+        store_statement(&directory, &package.publication_statement)?;
         verify_package(&directory, model_id, admission)?;
+        admission.accepted(&manifest, &package.publication_statement)?;
         verified.insert(identity);
         Ok(Some(done))
     }
@@ -295,7 +460,8 @@ async fn download(
 /// `verify_package`: the manifest on disk is admitted and every asset's size and hash match it.
 pub fn verify_package(directory: &Path, model_id: &str, admission: &dyn Admission) -> Result<AdmittedManifest, FetchError> {
     let bytes = fs::read(safe_file(directory, "manifest.json")?).map_err(io_at(directory))?;
-    let manifest = admission.admit(&bytes, model_id)?;
+    let statement = read_statement(directory)?;
+    let manifest = admission.admit_published(&bytes, &statement, model_id)?;
     for (name, _) in ASSETS {
         let path = safe_file(directory, name)?;
         let size = fs::metadata(&path).map_err(io_at(&path))?.len();
@@ -304,6 +470,41 @@ pub fn verify_package(directory: &Path, model_id: &str, admission: &dyn Admissio
         }
     }
     Ok(manifest)
+}
+
+/// The statement kept beside a cached manifest; empty when there is none (an unsigned ORIGINAL).
+fn read_statement(directory: &Path) -> Result<Vec<u8>, FetchError> {
+    if !exists_or_link(&directory.join(STATEMENT_FILE))? {
+        return Ok(Vec::new());
+    }
+    read_statement_file(&safe_file(directory, STATEMENT_FILE)?)
+}
+
+/// A regular, non-link, size-bounded statement file.
+fn read_statement_file(path: &Path) -> Result<Vec<u8>, FetchError> {
+    if is_link(path)? || !path.is_file() {
+        return Err(invalid("Publication statement must be a regular non-symlink file"));
+    }
+    if fs::metadata(path).map_err(io_at(path))?.len() > publication::MAX_STATEMENT_BYTES as u64 {
+        return Err(invalid("Publication statement is too large"));
+    }
+    fs::read(path).map_err(io_at(path))
+}
+
+/// Keep the verified statement of the fetched version beside its manifest, replacing an older one (a rollback to a version the
+/// cache already holds carries a newer statement). Nothing is written for an unsigned ORIGINAL.
+fn store_statement(directory: &Path, statement: &[u8]) -> Result<(), FetchError> {
+    if statement.is_empty() || read_statement(directory)? == statement {
+        return Ok(());
+    }
+    let path = directory.join(STATEMENT_FILE);
+    let temporary = directory.join(format!(".statement-{}", uuid::Uuid::new_v4().simple()));
+    let outcome = (|| -> Result<(), FetchError> {
+        write_new(&temporary, statement)?;
+        fs::rename(&temporary, &path).map_err(io_at(&path))
+    })();
+    let _ = fs::remove_file(&temporary);
+    outcome
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -375,7 +576,7 @@ pub fn private_directory(path: &Path) -> Result<PathBuf, FetchError> {
 
 /// Only the fixed package names, as regular non-link files beneath a directory that has no link in its path.
 pub fn safe_file(root: &Path, name: &str) -> Result<PathBuf, FetchError> {
-    if name != "manifest.json" && !ASSETS.iter().any(|(asset, _)| *asset == name) {
+    if name != "manifest.json" && name != STATEMENT_FILE && !ASSETS.iter().any(|(asset, _)| *asset == name) {
         return Err(invalid("Unrecognized model package asset"));
     }
     let root = std::path::absolute(root).map_err(io_at(root))?;
