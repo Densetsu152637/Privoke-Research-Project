@@ -2062,7 +2062,7 @@ X13_DEADLINE_SECONDS = 45
 PRIVACY_MODULE = ROOT / "extension/client-runtime/src/telemetry/privacy.py"
 DEPLOYMENT_COMPOSE_FILES = ("docker-compose.prod.yml", "deploy/gce/compose.yml", "docker-compose.yml")
 TLS_FLAGS = ("--cert=", "--key=", "--client-ca=", "--crl=", "--registry=")
-STACK_TLS_SERVICES = ("model-streaming-service", "telemetry-service", "param-update-service", "analysis-model-streaming", "analysis-service")
+STACK_TLS_SERVICES = ("model-streaming-service", "telemetry-service", "param-update-service")
 STACK_PUBLIC_PORTS = {"model-streaming-service": 50443, "telemetry-service": 58443}
 STACK_INTERNAL_PORTS = {50051, 50052, 50053, 50054, 50055}
 LOOPBACK_DEFAULT = re.compile(r"127\.0\.0\.1:\d+|\$\{[A-Z_]+:-127\.0\.0\.1:\d+\}")
@@ -2471,8 +2471,8 @@ def rust_static_evidence() -> list[dict]:
     add("ST1", "Every Rust server in the production and deployment Compose files starts with the five TLS flags (--cert, --key, --client-ca, --crl, --registry), "
         "passes no plaintext or insecure flag and sets no plaintext opt-out variable.", problems["ST1"])
     add("ST2", "The only published ports are the two public listeners, 50443 and 58443, on loopback unless the operator overrides them.", problems["ST2"])
-    add("ST3", "No internal listener (50051, 50052, 50053, 50054, 50055) is published, and the quarantined analysis services publish nothing.", problems["ST3"])
-    grep = subprocess.run(["git", "grep", "-n", "-i", "ngin[x]", "--", "deploy", ".github", "docker-compose.yml", "docker-compose.prod.yml", "docker-compose.gpu.yml"],
+    add("ST3", "No internal listener (50051, 50052, 50053, 50054, 50055) is published.", problems["ST3"])
+    grep = subprocess.run(["git", "grep", "-n", "-i", "ngin[x]", "--", "deploy", ".github", "docker-compose.yml", "docker-compose.prod.yml"],
                           cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     proxy = grep.stdout.splitlines() + (["a proxy configuration file exists under deploy/gce"] if list((ROOT / "deploy/gce").glob("ngin*.conf")) else [])
     add("ST4", "No reverse proxy is referenced in any deployment path (G1).", proxy)

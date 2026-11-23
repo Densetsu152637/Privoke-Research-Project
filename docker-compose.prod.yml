@@ -3,15 +3,15 @@
 # private client CA, checks the CRL and the registry, and refuses to start without them.
 #
 #   export PRIVOKE_PKI_DIR=<directory laid out as below>
-#   docker build -f extension/client-runtime/Dockerfile --target runtime -t privoke-client-runtime-base:local .   # once, for analysis-service
+#   docker build -f extension/client-runtime/Dockerfile --target runtime -t privoke-client-runtime-base:local .
 #   docker compose -f docker-compose.prod.yml build
 #   docker compose -f docker-compose.prod.yml up -d                                    # model and telemetry only
-#   docker compose -f docker-compose.prod.yml --profile legacy-training up -d          # plus training and the quarantined analysis
+#   docker compose -f docker-compose.prod.yml --profile legacy-training up -d          # plus training
 #
 # PRIVOKE_PKI_DIR layout (all of it is made by `privoke-pki`; nothing here is committed; see docs/deployment/google-cloud.md):
 #   server-ca.pem  client-ca.pem                 public trust anchors
 #   server/server.crt  server/server.key         server certificate (SAN: every service name below, plus the public name)
-#   svc/{probe,param-update,fuzzer,analysis}.{crt,key}   service identities (registered roles in registry.toml)
+#   svc/{probe,param-update,v3-fuzzer,v3-runtime}.{crt,key}   service identities (registered roles in registry.toml)
 #   live/crl.pem  live/registry.toml             hot-reloaded files (override the directory with PRIVOKE_PKI_LIVE_DIR)
 # Key files must be readable by group 10010, which every container below joins (`group_add`).
 #
@@ -426,118 +426,9 @@ services:
       retries: 60
       start_period: 30s
 
-  # The model service of the quarantine: the analysis service may reach only this one, on an internal network.
-  analysis-model-streaming:
-    profiles: [legacy-analysis]
-    <<: [*service-security, *model-streaming-image]
-    container_name: analysis-model-streaming
-    depends_on:
-      model-seed: {condition: service_completed_successfully}
-    networks: [analysis-models]
-    environment:
-      MODEL_STREAMING_PORT: 50051
-      MODEL_STREAMING_PUBLIC_PORT: 50443
-      MODEL_ARTIFACT_DIR: /models
-      MODEL_LATEST_ID: privoke-balanced
-      MODEL_RELEASE_DIR: /nonexistent
-      MODEL_HEALTHCHECK_SERVER_CA: /run/privoke/server-ca.pem
-      MODEL_HEALTHCHECK_CERT: /run/privoke/svc/analysis.crt
-      MODEL_HEALTHCHECK_KEY: /run/privoke/svc/analysis.key
-      MODEL_HEALTHCHECK_SERVER_NAME: analysis-model-streaming
-    command: *tls-args
-    volumes:
-      - model-data:/models:ro
-      - *pki-server
-      - *pki-client-ca
-      - *pki-server-ca
-      - *pki-live
-      - type: bind
-        source: ${PRIVOKE_PKI_DIR}/svc/analysis.crt
-        target: /run/privoke/svc/analysis.crt
-        read_only: true
-        bind: {create_host_path: false}
-      - type: bind
-        source: ${PRIVOKE_PKI_DIR}/svc/analysis.key
-        target: /run/privoke/svc/analysis.key
-        read_only: true
-        bind: {create_host_path: false}
-    healthcheck:
-      test: [CMD, /model-streaming-service, healthcheck]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 5s
-
-  # Quarantine (stage W3): two `internal: true` networks, so no route out and no published port; read-only root with a
-  # tmpfs for scratch; non-root; no capabilities; no-new-privileges; Docker's default seccomp profile (never
-  # `unconfined`); memory, CPU and pids limits. The model cache is a named volume. Telemetry is off in the worker.
-  analysis-service:
-    profiles: [legacy-analysis]
-    <<: *service-security
-    image: ${PRIVOKE_ANALYSIS_IMAGE:-privoke-analysis:prod}
-    build:
-      context: .
-      dockerfile: rust/services/analysis/Dockerfile
-      args:
-        PYTHON_RUNTIME_IMAGE: ${PRIVOKE_PYTHON_RUNTIME_IMAGE:-privoke-client-runtime-base:local}
-    container_name: analysis-service
-    user: "10001:10001"
-    tmpfs: ["/tmp:rw,noexec,nosuid,nodev,size=256m"]
-    mem_limit: 3g
-    memswap_limit: 3g
-    cpus: 2.0
-    pids_limit: 256
-    depends_on:
-      analysis-model-streaming: {condition: service_healthy}
-    networks: [analysis-fuzzer, analysis-models]
-    environment:
-      ANALYSIS_PORT: 50054
-      ANALYSIS_BIND: 0.0.0.0
-      ANALYSIS_ALLOWED_SERVICES: fuzzer
-      ANALYSIS_HEALTH_SERVICES: analysis
-      MODEL_STREAMING_TARGET: analysis-model-streaming:50051
-      ANALYSIS_MODEL_SERVER_NAME: analysis-model-streaming
-      ANALYSIS_MODEL_SERVER_CA: /run/privoke/server-ca.pem
-      ANALYSIS_MODEL_CLIENT_CERT: /run/privoke/svc/analysis.crt
-      ANALYSIS_MODEL_CLIENT_KEY: /run/privoke/svc/analysis.key
-      ANALYSIS_DEFAULT_MODEL_ID: privoke-balanced
-      ANALYSIS_WARM_MODELS: privoke-balanced
-      ANALYSIS_HEALTHCHECK_SERVER_CA: /run/privoke/server-ca.pem
-      ANALYSIS_HEALTHCHECK_CERT: /run/privoke/svc/analysis.crt
-      ANALYSIS_HEALTHCHECK_KEY: /run/privoke/svc/analysis.key
-      ANALYSIS_HEALTHCHECK_SERVER_NAME: analysis-service
-      HOME: /tmp
-    command: *tls-args
-    volumes:
-      - analysis-model-cache:/var/cache/privoke-models
-      - *pki-server
-      - *pki-client-ca
-      - *pki-server-ca
-      - *pki-live
-      - type: bind
-        source: ${PRIVOKE_PKI_DIR}/svc/analysis.crt
-        target: /run/privoke/svc/analysis.crt
-        read_only: true
-        bind: {create_host_path: false}
-      - type: bind
-        source: ${PRIVOKE_PKI_DIR}/svc/analysis.key
-        target: /run/privoke/svc/analysis.key
-        read_only: true
-        bind: {create_host_path: false}
-    healthcheck:
-      test: [CMD, /usr/local/bin/analysis-service, healthcheck]
-      interval: 3s
-      timeout: 5s
-      retries: 120
-      start_period: 30s
-
 networks:
   # The fuzzer and the runtime: no route out and no published port.
   training:
-    internal: true
-  analysis-fuzzer:
-    internal: true
-  analysis-models:
     internal: true
 
 volumes:
@@ -548,4 +439,3 @@ volumes:
   v3-published:
   v3-runtime-state:
   v3-fuzzer-state:
-  analysis-model-cache:
