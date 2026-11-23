@@ -43,10 +43,6 @@ struct Rig {
 }
 
 impl Rig {
-    fn store_dir(&self) -> PathBuf {
-        self.scratch.path().join("store")
-    }
-
     fn root(&self) -> PathBuf {
         self.scratch.path().join("published")
     }
