@@ -25,6 +25,25 @@ if [ -n "$supervisor_binary" ]; then
   source_host_path="$supervisor_binary"
 fi
 
+# The frozen backbone and tokenizer of the pretrained contextual encoder (the runtime's PRIVOKE_PRETRAINED_CONTEXT_DIR).
+# The browser starts the host with a clean environment, so the value in effect when this installer runs is stored in the
+# launcher, which both the Rust controller (it passes it to the Rust worker as --pretrained-context-dir) and the Python
+# runtime read. Unset, the launcher carries none and the encoder stays unavailable, as before.
+pretrained_context_dir="${PRIVOKE_PRETRAINED_CONTEXT_DIR:-}"
+if [ -n "$pretrained_context_dir" ]; then
+  case "$pretrained_context_dir" in
+    /*) ;;
+    *)
+      echo "PRIVOKE_PRETRAINED_CONTEXT_DIR must be an absolute path: $pretrained_context_dir" >&2
+      exit 1
+      ;;
+  esac
+  if [ ! -d "$pretrained_context_dir" ]; then
+    echo "PRIVOKE_PRETRAINED_CONTEXT_DIR is not a directory: $pretrained_context_dir" >&2
+    exit 1
+  fi
+fi
+
 for required_file in "$identity_path" "$python_path" "$source_host_path"; do
   if [ ! -f "$required_file" ]; then
     echo "Required PriVoke file is missing: $required_file" >&2
@@ -101,6 +120,9 @@ escaped_root=$(escape_shell_single_quotes "$repository_root")
 {
   echo '#!/bin/sh'
   printf "export PRIVOKE_REPOSITORY_ROOT='%s'\n" "$escaped_root"
+  if [ -n "$pretrained_context_dir" ]; then
+    printf "export PRIVOKE_PRETRAINED_CONTEXT_DIR='%s'\n" "$(escape_shell_single_quotes "$pretrained_context_dir")"
+  fi
   if [ -n "$supervisor_binary" ]; then
     printf "exec '%s' native-host\n" "$escaped_python"
   else
