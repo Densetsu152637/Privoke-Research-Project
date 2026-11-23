@@ -800,6 +800,16 @@ The worker has no network, so the service fetches models and the worker reads th
 
 On a Windows host the worker's socket self-check cannot pass (W2 provides no network denial there), so the Rust tests run with `require_sandbox` off on Windows and on in the container. The container is the quarantine.
 
+### The Rust analysis worker (stage 17 follow-up, RUST-S17D)
+
+`ANALYSIS_RUST_WORKER` (the `privoke-runtime-worker` executable) adds a second pool beside the Python one; it needs `ANALYSIS_RUST_MODEL_ROOT` (a read-only directory of plain `<model_id>.json` artifacts), and `ANALYSIS_RUST_BUNDLE` and `ANALYSIS_RUST_PRETRAINED_CONTEXT_DIR` are optional (`config::RustWorkerSettings`). Either of those three variables without the worker is a configuration error. Unset, the service is what it was: one Python pool. The Rust pool has the same sandbox, memory and process limits, queue and deadlines as the Python pool, warms no layer and no model, and the service reports `SERVING` only while both pools are ready.
+
+Each call is routed per request by `privoke_supervisor::routing` (`route_analysis`, `route_presence`, `route_gradients`, with the Rust claim `Capabilities::RUST.with_semantic()`) and made through `routing::call_routed`: a call the Rust worker declines before executing anything (`UNSUPPORTED_ROUTE` or `UNSUPPORTED_LAYERS`) is sent once to the Python pool, and every other failure is the call's result (never retried on the other engine). A repeated or non-text admission header, a scratch presence model and a gate on one are the Python worker's. The semantic-only rule is checked before routing, so the Rust worker only ever sees `layers=[SEMANTIC]`.
+
+**Not closed: the model root.** The service keeps the models it fetches as `<id>.snapshot.pb` for the Python worker, and the Rust worker does not read that layout, so the Rust root is the operator's and the service does not write it. A model that a training cycle publishes reaches the Python pool through the service's cache and reaches the Rust pool only when the operator updates its root (the Rust worker rebuilds a model when its bytes change). Until the service writes the Rust layout from the fetched snapshot, enable the Rust pool only where the root is kept in step with model-streaming. The Python-only path is the default.
+
+Tests (CI): `config` (the three variables, the worker without a root, a root without the worker) and `service` unit tests (the engine chosen for each RPC with and without a Rust pool, header cases, scratch presence, only a refusal moves to Python, and `call_routed` tries Python once after a refusal and never after a failure). No worker process is started by these tests; the real-worker scenarios of `tests/service.rs` still run the Python pool only.
+
 ### Compose
 
 Since stage 8a the analysis services (`analysis-service`, `analysis-model-streaming`) and the fuzzer override belong to `docker-compose.prod.yml` under the `legacy-training` profile; the former `docker-compose.analysis.yml` overlay is gone. The test-only gateway overlay layers over the production file:

@@ -59,6 +59,25 @@ pub struct WorkerSettings {
     pub max_processes: Option<u32>,
 }
 
+/// The optional Rust analysis worker (`privoke-runtime-worker`, stage 17). When it is configured the service holds a
+/// second pool of it and sends each call to the worker that serves it (`privoke_supervisor::routing`); the Python worker
+/// stays the answer for everything the Rust worker declines. Absent, nothing changes.
+///
+/// The Rust worker reads plain read-only model artifacts (`<root>/<model_id>.json`), not the `<id>.snapshot.pb` files
+/// this service keeps for the Python worker, so its root is a directory the operator keeps current (the service does not
+/// write it).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RustWorkerSettings {
+    /// The `privoke-runtime-worker` executable (`ANALYSIS_RUST_WORKER`).
+    pub command: PathBuf,
+    /// Its read-only model root (`ANALYSIS_RUST_MODEL_ROOT`, required with the worker).
+    pub model_root: PathBuf,
+    /// The spaCy bundle directory, when it is not beside the executable (`ANALYSIS_RUST_BUNDLE`).
+    pub bundle: Option<PathBuf>,
+    /// The pretrained contextual encoder assets (`ANALYSIS_RUST_PRETRAINED_CONTEXT_DIR`).
+    pub pretrained_context_dir: Option<PathBuf>,
+}
+
 /// Everything the service reads from its environment.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AnalysisConfig {
@@ -84,6 +103,8 @@ pub struct AnalysisConfig {
     pub pins: BTreeMap<String, String>,
     /// The worker.
     pub worker: WorkerSettings,
+    /// The Rust analysis worker, when `ANALYSIS_RUST_WORKER` is set.
+    pub rust_worker: Option<RustWorkerSettings>,
 }
 
 /// `[A-Za-z0-9][A-Za-z0-9._+-]{0,127}`, the worker's model id rule.
@@ -144,6 +165,22 @@ impl AnalysisConfig {
             }
             pins.insert(id.to_string(), checksum.to_ascii_lowercase());
         }
+        let rust_worker = match get("ANALYSIS_RUST_WORKER").filter(|value| !value.is_empty()) {
+            Some(command) => Some(RustWorkerSettings {
+                command: command.into(),
+                model_root: required(&get, "ANALYSIS_RUST_MODEL_ROOT")?.into(),
+                bundle: get("ANALYSIS_RUST_BUNDLE").filter(|value| !value.is_empty()).map(PathBuf::from),
+                pretrained_context_dir: get("ANALYSIS_RUST_PRETRAINED_CONTEXT_DIR").filter(|value| !value.is_empty()).map(PathBuf::from),
+            }),
+            None => {
+                for key in ["ANALYSIS_RUST_MODEL_ROOT", "ANALYSIS_RUST_BUNDLE", "ANALYSIS_RUST_PRETRAINED_CONTEXT_DIR"] {
+                    if get(key).is_some_and(|value| !value.is_empty()) {
+                        fail!("{key} is set without ANALYSIS_RUST_WORKER");
+                    }
+                }
+                None
+            }
+        };
         let config = Self {
             bind: text(&get, "ANALYSIS_BIND", "0.0.0.0")
                 .parse()
@@ -186,6 +223,7 @@ impl AnalysisConfig {
                     .transpose()
                     .map_err(|_| Error("ANALYSIS_WORKER_MAX_PROCESSES must be a number".into()))?,
             },
+            rust_worker,
         };
         config.validate()?;
         Ok(config)
@@ -279,6 +317,25 @@ mod tests {
             let mut values = base();
             values.insert(key, value.to_string());
             assert!(load(&values).is_err(), "{key}={value}");
+        }
+    }
+
+    #[test]
+    fn the_rust_worker_is_off_by_default_and_needs_its_model_root() {
+        assert_eq!(load(&base()).unwrap().rust_worker, None);
+
+        let mut values = base();
+        values.insert("ANALYSIS_RUST_WORKER", "/opt/privoke/privoke-runtime-worker".to_string());
+        assert!(load(&values).is_err(), "the worker without a model root");
+        values.insert("ANALYSIS_RUST_MODEL_ROOT", "/models".to_string());
+        let rust = load(&values).unwrap().rust_worker.unwrap();
+        assert_eq!(rust.command, PathBuf::from("/opt/privoke/privoke-runtime-worker"));
+        assert_eq!((rust.model_root, rust.bundle, rust.pretrained_context_dir), (PathBuf::from("/models"), None, None));
+
+        for key in ["ANALYSIS_RUST_MODEL_ROOT", "ANALYSIS_RUST_BUNDLE", "ANALYSIS_RUST_PRETRAINED_CONTEXT_DIR"] {
+            let mut orphan = base();
+            orphan.insert(key, "/x".to_string());
+            assert!(load(&orphan).is_err(), "{key} without the worker");
         }
     }
 

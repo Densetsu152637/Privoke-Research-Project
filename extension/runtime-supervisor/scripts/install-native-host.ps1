@@ -3,7 +3,10 @@ param(
     [string]$Browser = 'Auto',
     # The Rust controller (rust/services/runtime-supervisor, `privoke-supervisor`). Given, it is registered as the
     # native host `org.privoke.runtime_controller`; omitted, the Python launcher stays registered as before.
-    [string]$SupervisorBinary = ''
+    [string]$SupervisorBinary = '',
+    # The directory of the pretrained contextual encoder's verified assets (the runtime's PRIVOKE_PRETRAINED_CONTEXT_DIR).
+    # Given, the launcher sets it for the host; omitted, the value of that variable in this session is used, if any.
+    [string]$PretrainedContextDir = $env:PRIVOKE_PRETRAINED_CONTEXT_DIR
 )
 
 $ErrorActionPreference = 'Stop'
@@ -20,6 +23,14 @@ $useRustHost = -not [string]::IsNullOrWhiteSpace($SupervisorBinary)
 if ($useRustHost) {
     $pythonPath = (Resolve-Path -LiteralPath $SupervisorBinary).Path
     $sourceHostPath = $pythonPath
+}
+
+$pretrainedContextPath = ''
+if (-not [string]::IsNullOrWhiteSpace($PretrainedContextDir)) {
+    if (-not (Test-Path -LiteralPath $PretrainedContextDir -PathType Container)) {
+        throw "The pretrained context directory is not a directory: $PretrainedContextDir"
+    }
+    $pretrainedContextPath = (Resolve-Path -LiteralPath $PretrainedContextDir).Path
 }
 
 foreach ($requiredFile in @($identityPath, $pythonPath, $sourceHostPath, $launcherSourcePath)) {
@@ -69,7 +80,7 @@ if (-not $useRustHost) {
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllLines(
     $launcherConfigPath,
-    @($pythonPath, $(if ($useRustHost) { 'native-host' } else { $installedHostPath }), $repositoryRoot),
+    @($pythonPath, $(if ($useRustHost) { 'native-host' } else { $installedHostPath }), $repositoryRoot) + $(if ($pretrainedContextPath) { @($pretrainedContextPath) } else { @() }),
     $utf8NoBom
 )
 if (Test-Path -LiteralPath $launcherPath) {

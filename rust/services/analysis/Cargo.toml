@@ -19,6 +19,8 @@ path = "src/main.rs"
 privoke-contracts = { path = "../../crates/privoke-contracts" }
 privoke-transport = { path = "../../crates/privoke-transport" }
 privoke-worker-pool = { path = "../../crates/privoke-worker-pool" }
+# The routing table of the stage 17 Rust analysis worker (`routing`): which worker serves a call, and the one retry.
+privoke-runtime-supervisor = { path = "../runtime-supervisor" }
 tonic = { workspace = true }
 prost = { workspace = true }
 tokio = { workspace = true, features = ["process", "io-util", "time", "sync", "rt", "macros"] }

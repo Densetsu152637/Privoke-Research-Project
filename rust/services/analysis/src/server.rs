@@ -15,7 +15,7 @@ use privoke_worker_pool::{PoolConfig, SandboxPolicy, WorkerPool};
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
-use crate::config::{AnalysisConfig, WorkerSettings};
+use crate::config::{AnalysisConfig, RustWorkerSettings, WorkerSettings};
 use crate::error::{Error, Result};
 use crate::models::ModelCache;
 use crate::protocol::WorkerProtocol;
@@ -80,6 +80,12 @@ pub fn pool_config(config: &AnalysisConfig) -> PoolConfig {
         envs.push(("PRIVOKE_WORKER_SANDBOX", "1".into()));
     }
     pool.envs = envs.into_iter().map(|(key, value)| (OsString::from(key), OsString::from(value))).collect();
+    apply_limits(&mut pool, worker);
+    pool
+}
+
+/// The pool sizes, deadlines and sandbox the two workers share.
+fn apply_limits(pool: &mut PoolConfig, worker: &WorkerSettings) {
     pool.workers = worker.workers;
     pool.queue_capacity = worker.queue;
     pool.request_deadline = worker.request_deadline;
@@ -92,6 +98,36 @@ pub fn pool_config(config: &AnalysisConfig) -> PoolConfig {
     sandbox.memory_limit_bytes = worker.memory_limit_bytes;
     sandbox.max_processes = worker.max_processes;
     pool.sandbox = sandbox;
+}
+
+/// The pool configuration for the Rust analysis worker (`privoke-runtime-worker`), under the same sandbox, limits and
+/// deadlines as the Python worker. It serves the semantic layer, presence and the gradient RPCs from its read-only model
+/// root; regex and NER are never exercised by this service, so they are not warmed, and no model is warmed (the root is
+/// the operator's, so a missing model is that request's error, not the service's start-up failure).
+pub fn rust_pool_config(config: &AnalysisConfig, rust: &RustWorkerSettings) -> PoolConfig {
+    let mut pool = PoolConfig::new(&rust.command);
+    pool.name = "analysis-rust".into();
+    let mut args: Vec<OsString> = vec![
+        "--model-root".into(),
+        rust.model_root.clone().into(),
+        "--latest-model-id".into(),
+        config.default_model_id.clone().into(),
+        "--warm-layers".into(),
+        OsString::new(),
+    ];
+    if let Some(bundle) = &rust.bundle {
+        args.extend(["--bundle".into(), bundle.clone().into()]);
+    }
+    if let Some(directory) = &rust.pretrained_context_dir {
+        args.extend(["--pretrained-context-dir".into(), directory.clone().into()]);
+    }
+    pool.args = args;
+    let mut envs: Vec<(&str, String)> = vec![("OMP_NUM_THREADS", "1".into())];
+    if config.worker.require_sandbox {
+        envs.push(("PRIVOKE_WORKER_SANDBOX", "1".into()));
+    }
+    pool.envs = envs.into_iter().map(|(key, value)| (OsString::from(key), OsString::from(value))).collect();
+    apply_limits(&mut pool, &config.worker);
     pool
 }
 
@@ -135,7 +171,18 @@ pub async fn start(config: &AnalysisConfig, bind: SocketAddr, transport: CloudTr
     if let Some(info) = pool.info() {
         log(format_args!("worker ready: {}", info.ready_json));
     }
-    let service = AnalysisService::new(pool, cache, config.allowed_services.clone(), config.health_services.clone());
+    let rust_pool = match &config.rust_worker {
+        Some(rust) => {
+            let pool = WorkerPool::start(WorkerProtocol, rust_pool_config(config, rust)).map_err(|error| Error(error.to_string()))?;
+            pool.wait_ready(config.worker.startup_timeout).await.map_err(|error| Error(format!("rust worker: {error}")))?;
+            if let Some(info) = pool.info() {
+                log(format_args!("rust worker ready: {}", info.ready_json));
+            }
+            Some(pool)
+        }
+        None => None,
+    };
+    let service = AnalysisService::new(pool, rust_pool, cache, config.allowed_services.clone(), config.health_services.clone());
 
     let limits = limits(&config.worker);
     let tls_watcher = transport.tls.spawn_watcher(poll);

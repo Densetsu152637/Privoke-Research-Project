@@ -177,6 +177,7 @@ impl Env {
                 memory_limit_bytes: None,
                 max_processes: None,
             },
+            rust_worker: None,
         }
     }
 }
